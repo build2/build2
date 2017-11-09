@@ -20,6 +20,7 @@ namespace build2
 {
   class scope;
   class target;
+  class prerequisite;
 
   class parser
   {
@@ -356,6 +357,7 @@ namespace build2
   protected:
     class enter_scope;
     class enter_target;
+    class enter_prerequisite;
 
     // Switch to a new current scope. Note that this function might also have
     // to switch to a new root scope if the new current scope is in another
@@ -449,8 +451,8 @@ namespace build2
 
     // Token saving and replaying. Note that it can only be used in certain
     // contexts. Specifically, the code that parses a replay must not interact
-    // with the lexer directly (e.g., the keyword() test). For now we don't
-    // enforce any of this.
+    // with the lexer directly (e.g., the keyword() test). Replays also cannot
+    // nest. For now we don't enforce any of this.
     //
     // Note also that the peeked token is not part of the replay, until it
     // is "got".
@@ -573,9 +575,10 @@ namespace build2
 
     const path* path_; // Current path.
     lexer* lexer_;
-    target* target_; // Current target, if any.
-    scope* scope_;   // Current base scope (out_base).
-    scope* root_;    // Current root scope (out_root).
+    prerequisite* prerequisite_; // Current prerequisite, if any.
+    target* target_;             // Current target, if any.
+    scope* scope_;               // Current base scope (out_base).
+    scope* root_;                // Current root scope (out_root).
 
     const dir_path* pbase_ = nullptr; // Current pattern base directory.
 

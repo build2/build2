@@ -65,7 +65,8 @@ namespace build2
         name (t.name),
         ext (to_ext (t.ext ())),
         scope (t.base_scope ()),
-        target (&t)
+        target (&t),
+        vars (false /* global */)
   {
   }
 
@@ -74,5 +75,23 @@ namespace build2
   {
     const auto& p (t.prerequisites ());
     return !(p.empty () || this < &p.front () || this > &p.back ());
+  }
+
+  value& prerequisite::
+  append (const variable& var, const target_type& t)
+  {
+    if (value* r = vars.find_to_modify (var))
+      return *r;
+
+    value& r (assign (var)); // NULL.
+
+    // Note: pretty similar logic to target::append().
+    //
+    lookup l (t.find_original (var).first);
+
+    if (l.defined ())
+      r = *l; // Copy value (and type) from the target/outer scope.
+
+    return r;
   }
 }

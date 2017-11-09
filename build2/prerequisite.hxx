@@ -10,6 +10,7 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
+#include <build2/variable.hxx>
 #include <build2/target-key.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -82,6 +83,23 @@ namespace build2
     //
     mutable atomic<const target_type*> target {nullptr};
 
+    // Prerequisite-specific variables.
+    //
+  public:
+    variable_map vars;
+
+    // Return a value suitable for assignment. See target for details.
+    //
+    value&
+    assign (const variable& var) {return vars.assign (var);}
+
+    // Return a value suitable for appending. See target for details. Note
+    // that we have to explicitly pass the target that this prerequisite
+    // belongs to.
+    //
+    value&
+    append (const variable&, const target_type&);
+
   public:
     prerequisite (optional<string> p,
                   const target_type_type& t,
@@ -96,7 +114,8 @@ namespace build2
           out (move (o)),
           name (move (n)),
           ext (move (e)),
-          scope (s) {}
+          scope (s),
+          vars (false /* global */) {}
 
     // Make a prerequisite from a target.
     //
@@ -141,7 +160,8 @@ namespace build2
           name (move (x.name)),
           ext (move (x.ext)),
           scope (move (x.scope)),
-          target (x.target.load (memory_order_relaxed)) {}
+          target (x.target.load (memory_order_relaxed)),
+          vars (move (x.vars)) {}
 
     prerequisite (const prerequisite& x, memory_order o = memory_order_consume)
         : proj (x.proj),
@@ -151,7 +171,8 @@ namespace build2
           name (x.name),
           ext (x.ext),
           scope (x.scope),
-          target (x.target.load (o)) {}
+          target (x.target.load (o)),
+          vars (x.vars) {}
   };
 
   inline ostream&

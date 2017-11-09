@@ -97,6 +97,12 @@ namespace build2
   public:
     enter_target (): p_ (nullptr), t_ (nullptr) {}
 
+    enter_target (parser& p, target& t)
+        : p_ (&p), t_ (p.target_)
+    {
+      p.target_ = &t;
+    }
+
     enter_target (parser& p,
                   name&& n,  // If n.pair, then o is out dir.
                   name&& o,
@@ -173,6 +179,38 @@ namespace build2
     target* t_;
   };
 
+  class parser::enter_prerequisite
+  {
+  public:
+    enter_prerequisite (): p_ (nullptr), r_ (nullptr) {}
+
+    enter_prerequisite (parser& p, prerequisite& r)
+        : p_ (&p), r_ (p.prerequisite_)
+    {
+      assert (p.target_ != nullptr);
+      p.prerequisite_ = &r;
+    }
+
+    ~enter_prerequisite ()
+    {
+      if (p_ != nullptr)
+        p_->prerequisite_ = r_;
+    }
+
+    // Note: move-assignable to empty only.
+    //
+    enter_prerequisite (enter_prerequisite&& x) {*this = move (x);}
+    enter_prerequisite& operator= (enter_prerequisite&& x) {
+      p_ = x.p_; r_ = x.r_; x.p_ = nullptr; return *this;}
+
+    enter_prerequisite (const enter_prerequisite&) = delete;
+    enter_prerequisite& operator= (const enter_prerequisite&) = delete;
+
+  private:
+    parser* p_;
+    prerequisite* r_;
+  };
+
   void parser::
   parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
@@ -184,6 +222,7 @@ namespace build2
     scope_ = &base;
     pbase_ = scope_->src_path_;
     target_ = nullptr;
+    prerequisite_ = nullptr;
     default_target_ = nullptr;
 
     enter_buildfile (p); // Needs scope_.
@@ -205,9 +244,10 @@ namespace build2
   {
     path_ = &l.name ();
     lexer_ = &l;
-    target_ = nullptr;
     scope_ = &s;
     pbase_ = scope_->src_path_; // Normally NULL.
+    target_ = nullptr;
+    prerequisite_ = nullptr;
 
     token t;
     type tt;
@@ -223,9 +263,10 @@ namespace build2
   {
     path_ = &l.name ();
     lexer_ = &l;
-    target_ = nullptr;
     scope_ = &s;
     pbase_ = b;
+    target_ = nullptr;
+    prerequisite_ = nullptr;
 
     token t;
     type tt;
@@ -425,7 +466,7 @@ namespace build2
               else
                 attributes_pop ();
 
-              // @@ TODO: target scope.
+              // @@ TODO: target scope (also prerequisite scope below).
             }
 
             if (tt != type::rcbrace)
@@ -446,8 +487,8 @@ namespace build2
           //
         }
 
-        // Dependency declaration or scope/target-specific variable
-        // assignment.
+        // Dependency declaration (including prerequisite-specific variable
+        // assignment) or scope/target-specific variable assignment.
         //
 
         if (at.first)
@@ -481,10 +522,8 @@ namespace build2
             const variable& var (
               var_pool.rw (*scope_).insert (
                 parse_variable_name (move (pns), ploc),
-                true)); // Allow overrides.
+                true /* overridable */));
 
-            // Apply variable attributes.
-            //
             apply_variable_attributes (var);
 
             // If we have multiple targets/scopes, then we save the value
@@ -604,8 +643,8 @@ namespace build2
                   }
                   else
                   {
-                    // Existing value. What happens next depends what we are
-                    // trying to do and what's already there.
+                    // Existing value. What happens next depends on what we
+                    // are trying to do and what's already there.
                     //
                     // Assignment is the easy one: we simply overwrite what's
                     // already there. Also, if we are appending/prepending to
@@ -657,7 +696,8 @@ namespace build2
                 rg.play (); // Replay.
             }
           }
-          // Dependency declaration.
+          // Dependency declaration potentially followed by prerequisite-
+          // specific variable assignment).
           //
           else
           {
@@ -732,6 +772,63 @@ namespace build2
                   : prerequisite (p, memory_order_relaxed)); // Serial
               }
             }
+
+            // Do we have prerequisite-specific variable assignment?
+            //
+            if (tt == type::colon)
+            {
+              // Set the variable in the last pns.size() prerequisites of each
+              // target. This code is similar to target-specific case above.
+              //
+              // @@ TODO prerequisite scope (also target scope above).
+              //
+              next (t, tt);
+              attributes_push (t, tt);
+
+              // @@ PAT: currently we pattern-expand prerequisite-specific
+              //         vars.
+              //
+              const location vloc (get_location (t));
+              names vns (parse_names (t, tt, pattern_mode::expand));
+
+              if (tt != type::assign  &&
+                  tt != type::prepend &&
+                  tt != type::append)
+                fail (t) << "expected assignment instead of " << t;
+
+              type at (tt);
+
+              const variable& var (
+                var_pool.rw (*scope_).insert (
+                  parse_variable_name (move (vns), vloc),
+                  true /* overridable */));
+
+              apply_variable_attributes (var);
+
+              // We handle multiple targets and/or prerequisites by replaying
+              // the tokens (see the target-specific case above for details).
+              //
+              replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
+
+              for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
+              {
+                target& tg (*ti);
+                enter_target tgg (*this, tg);
+
+                for (size_t pn (tg.prerequisites_.size ()),
+                       pi (pn - pns.size ()); pi != pn; )
+                {
+                  enter_prerequisite pg (*this, tg.prerequisites_[pi]);
+                  parse_variable (t, tt, var, at);
+
+                  if (++pi != pn)
+                    rg.play (); // Replay.
+                }
+
+                if (++ti != te)
+                  rg.play (); // Replay.
+              }
+            }
           }
 
           if (tt == type::newline)
@@ -755,10 +852,8 @@ namespace build2
         const variable& var (
           var_pool.rw (*scope_).insert (
             parse_variable_name (move (ns), nloc),
-            true)); // Allow overrides.
+            true /* overridable */));
 
-        // Apply variable attributes.
-        //
         apply_variable_attributes (var);
 
         if (var.visibility == variable_visibility::target)
@@ -1093,7 +1188,7 @@ namespace build2
       auto& vp (var_pool.rw (*scope_));
 
       if (p != string::npos)
-        var = &vp.insert (split (p), true); // Allow overrides.
+        var = &vp.insert (split (p), true /* overridable */);
       //
       // This could still be the 'foo =...' case.
       //
@@ -1108,7 +1203,7 @@ namespace build2
             (v[p = 0] == '=' ||
              (n > 1 && v[0] == '+' && v[p = 1] == '=')))
         {
-          var = &vp.insert (move (t.value), true); // Allow overrides.
+          var = &vp.insert (move (t.value), true /* overridable */);
           next (t, tt); // Get the peeked token.
           split (p);    // Returned name should be empty.
         }
@@ -1117,8 +1212,6 @@ namespace build2
 
     if (var != nullptr)
     {
-      // Apply variable attributes.
-      //
       apply_variable_attributes (*var);
 
       val = atype == type::assign
@@ -1596,12 +1689,14 @@ namespace build2
 
     value& lhs (
       kind == type::assign
-      ? (target_ != nullptr
-         ? target_->assign (var)
-         :  scope_->assign (var))
-      : (target_ != nullptr
-         ? target_->append (var)
-         :  scope_->append (var)));
+
+      ? (prerequisite_ != nullptr ? prerequisite_->assign (var) :
+         target_ != nullptr       ? target_->assign (var)       :
+         /*                      */ scope_->assign (var))
+
+      : (prerequisite_ != nullptr ? prerequisite_->append (var, *target_) :
+         target_ != nullptr       ? target_->append (var)                 :
+         /*                      */ scope_->append (var)));
 
     apply_value_attributes (&var, lhs, move (rhs), kind);
   }
@@ -3907,9 +4002,10 @@ namespace build2
     //
     lexer l (is, *path_, "\'\"\\$(");
     lexer_ = &l;
-    target_ = nullptr;
     scope_ = root_ = scope::global_;
     pbase_ = &work; // Use current working directory.
+    target_ = nullptr;
+    prerequisite_ = nullptr;
 
     // Turn on the buildspec mode/pairs recognition with '@' as the pair
     // separator (e.g., src_root/@out_root/exe{foo bar}).

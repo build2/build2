@@ -247,6 +247,8 @@ namespace build2
   value& target::
   append (const variable& var)
   {
+    // Note: see also prerequisite::append() if changing anything here.
+
     // Note that here we want the original value without any overrides
     // applied.
     //

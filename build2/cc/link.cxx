@@ -814,9 +814,11 @@ namespace build2
             // that the variable is not overridable so we omit find_override()
             // calls.
             //
-            //@@ TODO: prerequisite-specific lookup.
-            //
-            lookup l (pt->find_original (var, true).first);
+            lookup l (p.prerequisite.vars[var]);
+
+            if (!l.defined ())
+              l = pt->find_original (var, true).first;
+
             if (!l.defined ())
             {
               bool g (pt->group != nullptr);

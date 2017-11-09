@@ -421,7 +421,7 @@ namespace build2
     value&
     assign (const variable& var) {return vars.assign (var);}
 
-    // Return a value suitable for appending. See class scope for details.
+    // Return a value suitable for appending. See scope for details.
     //
     value&
     append (const variable&);
@@ -699,8 +699,7 @@ namespace build2
 
     target (dir_path d, dir_path o, string n)
         : dir (move (d)), out (move (o)), name (move (n)),
-          vars (false) // Note: not global.
-    {}
+          vars (false /* global */) {}
   };
 
   // All targets are from the targets set below.
