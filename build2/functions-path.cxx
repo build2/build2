@@ -63,6 +63,38 @@ namespace build2
       : value (path_cast<path> (move (l)) /= pr);
   }
 
+  // Return untyped value or NULL value if extension is not present.
+  //
+  static inline value
+  extension (path p)
+  {
+    const char* e (p.extension_cstring ());
+
+    if (e == nullptr)
+      return value ();
+
+    names r;
+    r.emplace_back (e);
+    return value (move (r));
+  }
+
+  template <typename P>
+  static inline P
+  leaf (const P& p, const optional<dir_path>& d)
+  {
+    if (!d)
+      return p.leaf ();
+
+    try
+    {
+      return p.leaf (*d);
+    }
+    catch (const invalid_path&)
+    {
+      fail << "'" << *d << "' is not a prefix of '" << p << "'" << endf;
+    }
+  }
+
   void
   path_functions ()
   {
@@ -191,6 +223,122 @@ namespace build2
           n.value = convert<path> (move (n)).normalize (act).string ();
       }
       return ns;
+    };
+
+    // directory
+    //
+    f["directory"] = &path::directory;
+
+    f["directory"] = [](paths v)
+    {
+      dir_paths r;
+      for (const path& p: v)
+        r.push_back (p.directory ());
+      return r;
+    };
+
+    f["directory"] = [](dir_paths v)
+    {
+      for (dir_path& p: v)
+        p = p.directory ();
+      return v;
+    };
+
+    f[".directory"] = [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as list of directory names.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir = n.dir.directory ();
+        else
+          n = convert<path> (move (n)).directory ();
+      }
+      return ns;
+    };
+
+    // base
+    //
+    f["base"] = &path::base;
+
+    f["base"] = [](paths v)
+    {
+      for (path& p: v)
+        p = p.base ();
+      return v;
+    };
+
+    f["base"] = [](dir_paths v)
+    {
+      for (dir_path& p: v)
+        p = p.base ();
+      return v;
+    };
+
+    f[".base"] = [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir = n.dir.base ();
+        else
+          n.value = convert<path> (move (n)).base ().string ();
+      }
+      return ns;
+    };
+
+    // leaf
+    //
+    f["leaf"] = &path::leaf;
+
+    f["leaf"] = [](path p, dir_path d)
+    {
+      return leaf (p, move (d));
+    };
+
+    f["leaf"] = [](paths v, optional<dir_path> d)
+    {
+      for (path& p: v)
+        p = leaf (p, d);
+      return v;
+    };
+
+    f["leaf"] = [](dir_paths v, optional<dir_path> d)
+    {
+      for (dir_path& p: v)
+        p = leaf (p, d);
+      return v;
+    };
+
+    f[".leaf"] = [](names ns, optional<dir_path> d)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir = leaf (n.dir, d);
+        else
+          n.value = leaf (convert<path> (move (n)), d).string ();
+      }
+      return ns;
+    };
+
+    // extension
+    //
+    f["extension"] = &extension;
+
+    f[".extension"] = [](names ns)
+    {
+      return extension (convert<path> (move (ns)));
     };
 
     // Path-specific overloads from builtins.

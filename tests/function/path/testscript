@@ -36,6 +36,71 @@ s = ($cxx.target.class != 'windows' ? '/' : '\')
   }
 }
 
+: directory
+:
+{
+  $* <'print $directory([path] a/b)'           >"a/"    : path
+  $* <'print $directory([dir_path] a/b)'       >"a/"    : dir-path
+  $* <'print $directory([paths] a/b c/d/)'     >"a/ c/" : paths
+  $* <'print $directory([dir_paths] a/b c/d/)' >"a/ c/" : dir-paths
+  $* <'print $path.directory(a/b c/d/)'        >"a/ c/" : dir-names
+}
+
+: base
+:
+{
+  $* <'print $base([path] a.c)'               >"a"      : path
+  $* <'print $base([dir_path] a.tmp)'         >"a$s"    : dir-path
+  $* <'print $base([paths] a.c b.tmp/)'       >"a b/"   : paths
+  $* <'print $base([dir_paths] a.tmp b.tmp/)' >"a$s b/" : dir-paths
+  $* <'print $path.base(a.c b.tmp/)'          >"a b/"   : dir-names
+}
+
+: leaf
+:
+{
+  $* <'print $leaf([path] a/b)'                          >"b"        : path
+  $* <'print $leaf([dir_path] a/b)'                      >"b$s"      : dir-path
+  $* <'print $leaf([path] a/b/c, [dir_path] a)'          >"b/c"      : sub-path
+  $* <'print $leaf([dir_path] a/b/c, [dir_path] a)'      >"b/c$s"    : sub-dir-path
+  $* <'print $leaf([paths] a/b/c a/b/e, [dir_path] a/b)' >"c e"      : sub-paths
+  $* <'print $leaf([dir_paths] a/b/c, [dir_path] a/b)'   >"c$s"      : sub-dir-paths
+  $* <'print $path.leaf(a/b c/d/)'                       >"b d/"     : dir-names
+  $* <'print $path.leaf(a/b/c a/b/d/, [dir_path] a)'     >"b/c b/d/" : sub-dir-names
+
+  : not-prefix
+  :
+  $* <'print $leaf([path] a/b/c, [dir_path] a/d)' 2>>"EOE" != 0
+  error: 'a/d$s' is not a prefix of 'a/b/c'
+  EOE
+}
+
+: extension
+:
+{
+  $* <'print $extension([path] a.c)'        >"c"      : path
+  $* <'print $extension([dir_path] a.tmp/)' >"tmp"    : dir_path
+  $* <'print $path.extension(a.c)'          >"c"      : untyped
+  $* <'print $path.extension(a)'            >"[null]" : null
+}
+
+: combined
+:
+{
+  mkdir -p a/b;
+  touch a/b/c.t.cpp;
+  $* <<EOI >>/EOO
+  t = $src_base/a/b/c.t.cpp
+  d = $path.leaf($path.directory($t), $src_base)
+  n = $path.base($path.base($path.leaf($t)))
+  print $d/exe{$n}
+  print $d/{+$n*.cpp}
+  EOI
+  a/b/exe{c}
+  a/b/c.t.cpp
+  EOO
+}
+
 : invalid-path
 :
 p = ($cxx.target.class != 'windows' ? /../foo : 'c:/../foo');
