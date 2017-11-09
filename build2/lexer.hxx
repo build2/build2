@@ -66,15 +66,18 @@ namespace build2
     lexer_mode (base_type v): base_type (v) {}
   };
 
-  class lexer: protected butl::char_scanner
+  class lexer: public butl::char_scanner
   {
   public:
     // If escape is not NULL then only escape sequences with characters from
     // this string are considered "effective escapes" with all others passed
     // through as is. Note that the escape string is not copied.
     //
-    lexer (istream& is, const path& name, const char* escapes = nullptr)
-        : lexer (is, name, escapes, true) {}
+    lexer (istream& is,
+           const path& name,
+           uint64_t line = 1, // Start line in the stream.
+           const char* escapes = nullptr)
+        : lexer (is, name, line, escapes, true /* set_mode */) {}
 
     const path&
     name () const {return name_;}
@@ -164,11 +167,18 @@ namespace build2
     // Lexer state.
     //
   protected:
-    lexer (istream& is, const path& n, const char* e, bool sm)
-        : char_scanner (is), fail ("error", &name_), name_ (n), sep_ (false)
+    lexer (istream& is,
+           const path& name,
+           uint64_t line,
+           const char* escapes,
+           bool set_mode)
+        : char_scanner (is, true /* crlf */, line),
+          fail ("error", &name_),
+          name_ (name),
+          sep_ (false)
     {
-      if (sm)
-        mode (lexer_mode::normal, '@', e);
+      if (set_mode)
+        mode (lexer_mode::normal, '@', escapes);
     }
 
     const path name_;

@@ -395,6 +395,7 @@ namespace build2
     nullptr,                          // Patched above.
     sizeof (vector<T>),
     nullptr,                          // No base.
+    &value_traits<T>::value_type,
     &default_dtor<vector<T>>,
     &default_copy_ctor<vector<T>>,
     &default_copy_assign<vector<T>>,
@@ -563,6 +564,7 @@ namespace build2
     nullptr,             // Patched above.
     sizeof (map<K, V>),
     nullptr,             // No base.
+    nullptr,             // No element.
     &default_dtor<map<K, V>>,
     &default_copy_ctor<map<K, V>>,
     &default_copy_assign<map<K, V>>,

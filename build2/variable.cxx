@@ -421,6 +421,7 @@ namespace build2
     type_name,
     sizeof (bool),
     nullptr,                      // No base.
+    nullptr,                      // No element.
     nullptr,                      // No dtor (POD).
     nullptr,                      // No copy_ctor (POD).
     nullptr,                      // No copy_assign (POD).
@@ -462,6 +463,7 @@ namespace build2
     type_name,
     sizeof (uint64_t),
     nullptr,                          // No base.
+    nullptr,                          // No element.
     nullptr,                          // No dtor (POD).
     nullptr,                          // No copy_ctor (POD).
     nullptr,                          // No copy_assign (POD).
@@ -538,6 +540,7 @@ namespace build2
     type_name,
     sizeof (string),
     nullptr,                      // No base.
+    nullptr,                      // No element.
     &default_dtor<string>,
     &default_copy_ctor<string>,
     &default_copy_assign<string>,
@@ -589,6 +592,7 @@ namespace build2
     type_name,
     sizeof (path),
     nullptr,                    // No base.
+    nullptr,                    // No element.
     &default_dtor<path>,
     &default_copy_ctor<path>,
     &default_copy_assign<path>,
@@ -632,7 +636,9 @@ namespace build2
   {
     type_name,
     sizeof (dir_path),
-    &value_traits<path>::value_type, // Assume direct cast works for both.
+    &value_traits<path>::value_type, // Base (assuming direct cast works for
+                                     // both).
+    nullptr,                         // No element.
     &default_dtor<dir_path>,
     &default_copy_ctor<dir_path>,
     &default_copy_assign<dir_path>,
@@ -678,7 +684,9 @@ namespace build2
   {
     type_name,
     sizeof (abs_dir_path),
-    &value_traits<dir_path>::value_type, // Assume direct cast works for both.
+    &value_traits<dir_path>::value_type, // Base (assuming direct cast works
+                                         // for both).
+    nullptr,                             // No element.
     &default_dtor<abs_dir_path>,
     &default_copy_ctor<abs_dir_path>,
     &default_copy_assign<abs_dir_path>,
@@ -716,6 +724,7 @@ namespace build2
     type_name,
     sizeof (name),
     nullptr,                    // No base.
+    nullptr,                    // No element.
     &default_dtor<name>,
     &default_copy_ctor<name>,
     &default_copy_assign<name>,
@@ -794,6 +803,7 @@ namespace build2
     type_name,
     sizeof (name_pair),
     nullptr,                         // No base.
+    nullptr,                         // No element.
     &default_dtor<name_pair>,
     &default_copy_ctor<name_pair>,
     &default_copy_assign<name_pair>,
@@ -930,6 +940,7 @@ namespace build2
     type_name,
     sizeof (process_path),
     nullptr,                         // No base.
+    nullptr,                         // No element.
     &default_dtor<process_path>,
     &process_path_copy_ctor,
     &process_path_copy_assign,
@@ -975,6 +986,7 @@ namespace build2
     type_name,
     sizeof (target_triplet),
     nullptr,                         // No base.
+    nullptr,                         // No element.
     &default_dtor<target_triplet>,
     &default_copy_ctor<target_triplet>,
     &default_copy_assign<target_triplet>,

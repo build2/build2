@@ -132,7 +132,9 @@ namespace build2
     // Find base if any.
     //
     const value_type* b (v.type);
-    for (; b != nullptr && b != &value_traits<T>::value_type; b = b->base) ;
+    for (;
+         b != nullptr && b != &value_traits<T>::value_type;
+         b = b->base_type) ;
     assert (b != nullptr);
 
     return *static_cast<const T*> (v.type->cast == nullptr

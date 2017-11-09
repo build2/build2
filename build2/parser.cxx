@@ -4,6 +4,7 @@
 
 #include <build2/parser.hxx>
 
+#include <sstream>
 #include <iostream> // cout
 
 #include <libbutl/filesystem.mxx> // path_search(), path_match()
@@ -384,6 +385,10 @@ namespace build2
           // Valid ones are handled in if_else().
           //
           fail (t) << n << " without if";
+        }
+        else if (n == "for")
+        {
+          f = &parser::parse_for;
         }
 
         if (f != nullptr)
@@ -1554,6 +1559,159 @@ namespace build2
   }
 
   void parser::
+  parse_for (token& t, type& tt)
+  {
+    // for <varname>: <value>
+    //   <line>
+    //
+    // for <varname>: <value>
+    // {
+    //   <block>
+    // }
+    //
+
+    // First take care of the variable name. There is no reason not to
+    // support variable attributes.
+    //
+    next (t, tt);
+    attributes_push (t, tt);
+
+    // @@ PAT: currently we pattern-expand for var.
+    //
+    const location vloc (get_location (t));
+    names vns (parse_names (t, tt, pattern_mode::expand));
+
+    if (tt != type::colon)
+      fail (t) << "expected ':' instead of " << t << " after variable name";
+
+    const variable& var (
+      var_pool.rw (*scope_).insert (
+        parse_variable_name (move (vns), vloc),
+        true /* overridable */));
+
+    apply_variable_attributes (var);
+
+    if (var.visibility == variable_visibility::target)
+      fail (vloc) << "variable " << var << " has target visibility but "
+                  << "assigned in for-loop";
+
+    // Now the value (list of names) to iterate over. Parse it as a variable
+    // value to get expansion, attributes, etc.
+    //
+    value val;
+    apply_value_attributes (
+      nullptr, val, parse_variable_value (t, tt), type::assign);
+
+    // If this value is a vector, then save its element type so that we
+    // can typify each element below.
+    //
+    const value_type* etype (nullptr);
+
+    if (val && val.type != nullptr)
+    {
+      etype = val.type->element_type;
+      untypify (val);
+    }
+
+    if (tt != type::newline)
+      fail (t) << "expected newline instead of " << t << " after for";
+
+    // Finally the body. The initial thought was to use the token replay
+    // facility but on closer inspection this didn't turn out to be a good
+    // idea (no support for nested replays, etc). So instead we are going to
+    // do a full-blown re-lex. Specifically, we will first skip the line/block
+    // just as we do for non-taken if/else branches while saving the character
+    // sequence that comprises the body. Then we re-lex/parse it on each
+    // iteration.
+    //
+    string body;
+    uint64_t line (lexer_->line); // Line of the first character to be saved.
+    lexer::save_guard sg (*lexer_, body);
+
+    // This can be a block or a single line, similar to if-else.
+    //
+    bool block (next (t, tt) == type::lcbrace && peek () == type::newline);
+
+    if (block)
+    {
+      next (t, tt); // Get newline.
+      next (t, tt);
+
+      skip_block (t, tt);
+      sg.stop ();
+
+      if (tt != type::rcbrace)
+        fail (t) << "expected } instead of " << t << " at the end of for-block";
+
+      next (t, tt);
+
+      if (tt == type::newline)
+        next (t, tt);
+      else if (tt != type::eos)
+        fail (t) << "expected newline after }";
+    }
+    else
+    {
+      skip_line (t, tt);
+      sg.stop ();
+
+      if (tt == type::newline)
+        next (t, tt);
+    }
+
+    // Iterate.
+    //
+    names& ns (val.as<names> ());
+
+    if (ns.empty ())
+      return;
+
+    value& v (scope_->assign (var));
+
+    istringstream is (move (body));
+
+    for (auto i (ns.begin ()), e (ns.end ());; )
+    {
+      // Set the variable value.
+      //
+      bool pair (i->pair);
+      names n;
+      n.push_back (move (*i));
+      if (pair) n.push_back (move (*++i));
+      v = value (move (n));
+
+      if (etype != nullptr)
+        typify (v, *etype, &var);
+
+      lexer l (is, *path_, line);
+      lexer* ol (lexer_);
+      lexer_ = &l;
+
+      token t;
+      type tt;
+      next (t, tt);
+
+      if (block)
+      {
+        next (t, tt); // {
+        next (t, tt); // <newline>
+      }
+      parse_clause (t, tt);
+      assert (tt == (block ? type::rcbrace : type::eos));
+
+      lexer_ = ol;
+
+      if (++i == e)
+        break;
+
+      // Rewind the stream.
+      //
+      is.clear ();
+      is.seekg (0);
+    }
+  }
+
+  void parser::
   parse_assert (token& t, type& tt)
   {
     bool neg (t.value.back () == '!');
@@ -1730,12 +1888,15 @@ namespace build2
       n == "dir_path"       ? ptr (value_traits<dir_path>::value_type)       :
       n == "abs_dir_path"   ? ptr (value_traits<abs_dir_path>::value_type)   :
       n == "name"           ? ptr (value_traits<name>::value_type)           :
+      n == "name_pair"      ? ptr (value_traits<name_pair>::value_type)      :
       n == "target_triplet" ? ptr (value_traits<target_triplet>::value_type) :
+
+      n == "uint64s"        ? ptr (value_traits<uint64s>::value_type)        :
       n == "strings"        ? ptr (value_traits<strings>::value_type)        :
       n == "paths"          ? ptr (value_traits<paths>::value_type)          :
       n == "dir_paths"      ? ptr (value_traits<dir_paths>::value_type)      :
       n == "names"          ? ptr (value_traits<vector<name>>::value_type)   :
-      n == "name_pair"      ? ptr (value_traits<name_pair>::value_type)      :
+
       nullptr;
   }
 
@@ -4000,7 +4161,7 @@ namespace build2
     // We do "effective escaping" and only for ['"\$(] (basically what's
     // necessary inside a double-quoted literal plus the single quote).
     //
-    lexer l (is, *path_, "\'\"\\$(");
+    lexer l (is, *path_, 1 /* line */, "\'\"\\$(");
     lexer_ = &l;
     scope_ = root_ = scope::global_;
     pbase_ = &work; // Use current working directory.
@@ -4268,6 +4429,11 @@ namespace build2
     // Lookup.
     //
     const auto& var (var_pool.rw (*scope_).insert (move (name), true));
+
+    if (target_ == nullptr && var.visibility == variable_visibility::target)
+      fail (loc) << "variable " << var << " has target visibility but "
+                 << "expanded in a scope";
+
     return target_ != nullptr ? (*target_)[var] : (*scope_)[var];
 
     // Undefined/NULL namespace variables are not allowed.

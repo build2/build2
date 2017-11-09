@@ -106,6 +106,9 @@ namespace build2
     parse_if_else (token&, token_type&);
 
     void
+    parse_for (token&, token_type&);
+
+    void
     parse_variable (token&, token_type&, const variable&, token_type);
 
     string

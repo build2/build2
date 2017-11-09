@@ -160,7 +160,7 @@ namespace build2
 
             if (!perf && at != nullptr && ft != nullptr)
             {
-              while ((at = at->base) != nullptr && at != ft) ;
+              while ((at = at->base_type) != nullptr && at != ft) ;
 
               if (at != nullptr) // Types match via derived-to-base.
                 continue;

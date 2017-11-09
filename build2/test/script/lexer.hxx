@@ -49,7 +49,11 @@ namespace build2
                const path& name,
                lexer_mode m,
                const char* escapes = nullptr)
-            : base_lexer (is, name, nullptr, false)
+            : base_lexer (is,
+                          name,
+                          1       /* line */,
+                          nullptr /* escapes */,
+                          false   /* set_mode */)
         {
           mode (m, '\0', escapes);
         }

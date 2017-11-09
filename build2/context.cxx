@@ -387,7 +387,7 @@ namespace build2
       // (basically what's necessary inside a double-quoted literal plus the
       // single quote).
       //
-      lexer l (is, path ("<cmdline>"), "\'\"\\$(");
+      lexer l (is, path ("<cmdline>"), 1 /* line */, "\'\"\\$(");
 
       // The first token should be a word, either the variable name or the
       // scope qualification.

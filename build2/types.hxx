@@ -55,6 +55,8 @@ namespace build2
   using std::uint64_t;
   using std::uintptr_t;
 
+  using uint64s = std::vector<uint64_t>;
+
   using std::size_t;
   using std::nullptr_t;
 
@@ -63,6 +65,9 @@ namespace build2
   using std::string;
   using std::function;
   using std::reference_wrapper;
+
+  using strings = std::vector<string>;
+  using cstrings = std::vector<const char*>;
 
   using std::hash;
 
@@ -76,9 +81,6 @@ namespace build2
   using std::vector;
   using butl::vector_view;  // <libbutl/vector-view.mxx>
   using butl::small_vector; // <libbutl/small-vector.mxx>
-
-  using strings = vector<string>;
-  using cstrings = vector<const char*>;
 
   using std::istream;
   using std::ostream;

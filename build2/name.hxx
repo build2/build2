@@ -134,7 +134,7 @@ namespace build2
 
   // Vector of names.
   //
-  // Quote often it will contain just one element so we use small_vector<1>.
+  // Quite often it will contain just one element so we use small_vector<1>.
   // Note also that it must be a separate type rather than an alias for
   // vector<name> in order to distinguish between untyped variable values
   // (names) and typed ones (vector<name>).

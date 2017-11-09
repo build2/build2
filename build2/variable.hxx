@@ -35,7 +35,11 @@ namespace build2
     // below is expected to return the base pointer if its second argument
     // points to the base's value_type.
     //
-    const value_type* base;
+    const value_type* base_type;
+
+    // Element type, if this is a vector.
+    //
+    const value_type* element_type;
 
     // Destroy the value. If it is NULL, then the type is assumed to be POD
     // with a trivial destructor.
