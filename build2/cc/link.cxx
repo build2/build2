@@ -236,7 +236,7 @@ namespace build2
       path b (ls.dir);
       path cp; // Clean pattern.
       {
-        if (pfx == nullptr)
+        if (pfx == nullptr || pfx[0] == '\0')
         {
           b /= ls.name;
         }

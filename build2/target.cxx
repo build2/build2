@@ -583,7 +583,7 @@ namespace build2
   {
     path_type p (dir);
 
-    if (np == nullptr)
+    if (np == nullptr || np[0] == '\0')
       p /= name;
     else
     {
