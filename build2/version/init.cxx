@@ -272,6 +272,16 @@ namespace build2
         }
       }
 
+      // Enter variables. Note: some overridable, some not.
+      //
+      auto& vp (var_pool.rw (rs));
+
+      // Alternative variable substitution symbols.
+      //
+      // @@ Note: should be moved to the 'in' module once we have it.
+      //
+      m.in_symbol = &vp.insert<string> ("in.symbol");
+
       // Register rules.
       //
       {

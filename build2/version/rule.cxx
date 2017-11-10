@@ -231,6 +231,18 @@ namespace build2
       const scope& rs (t.root_scope ());
       const module& m (*rs.modules.lookup<module> (module::name));
 
+      // The substitution symbol can be overridden with the in.symbol
+      // variable.
+      //
+      char sym ('$');
+      if (const string* s = cast_null<string> (t[m.in_symbol]))
+      {
+        if (s->size () == 1)
+          sym = s->front ();
+        else
+          fail << "invalid substitution symbol '" << *s << "'";
+      }
+
       // Determine if anything needs to be updated.
       //
       timestamp mt (t.load_mtime ());
@@ -250,8 +262,14 @@ namespace build2
 
         // First should come the rule name/version.
         //
-        if (dd.expect ("version.in 1") != nullptr)
+        if (dd.expect ("version.in 2") != nullptr)
           l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+        // Then the substitution symbol.
+        //
+        if (dd.expect (string (1, sym)) != nullptr)
+          l4 ([&]{trace << "substitution symbol mismatch forcing update of"
+                        << t;});
 
         // Then the .in file.
         //
@@ -268,6 +286,10 @@ namespace build2
         if (dd.writing () || dd.mtime () > mt)
           update = true;
 
+        //@@ TODO: what if one of the substituted non-version values is
+        //   changes. See how we handle this in the .in module. In fact,
+        //   it feels like this should be an extended version of in.
+
         dd.close ();
       }
 
@@ -279,19 +301,29 @@ namespace build2
       const string& proj (cast<string> (rs.vars[var_project]));
 
       // Perform substitutions for the project itself (normally the version.*
-      // variables but we allow anything set on the root scope).
+      // variables but we allow anything set on the target and up).
       //
-      auto subst_self = [&rs, &t] (const location& l, const string& s)
+      auto subst_self = [&t] (const location& l, const string& s) -> string
       {
-        if (lookup x = rs.vars[s])
+        if (lookup x = t[s])
         {
-          // Call the string() function to convert the value.
-          //
           value v (*x);
 
-          return convert<string> (
-            functions.call (
-              t.base_scope (), "string", vector_view<value> (&v, 1), l));
+          // For typed values call the string() function to convert it.
+          //
+          try
+          {
+            return convert<string> (
+              v.type == nullptr
+              ? move (v)
+              : functions.call (
+                t.base_scope (), "string", vector_view<value> (&v, 1), l));
+          }
+          catch (const invalid_argument& e)
+          {
+            fail (l) << e <<
+              info << "while substituting '" << s << "'" << endf;
+          }
         }
         else
           fail (l) << "undefined project variable '" << s << "'" << endf;
@@ -505,7 +537,7 @@ namespace build2
           {
             d = 1;
 
-            if (s[b] != '$')
+            if (s[b] != sym)
               continue;
 
             // Find the other end.
@@ -513,9 +545,9 @@ namespace build2
             size_t e (b + 1);
             for (; e != (n = s.size ()); ++e)
             {
-              if (s[e] == '$')
+              if (s[e] == sym)
               {
-                if (e + 1 != n && s[e + 1] == '$') // Escape.
+                if (e + 1 != n && s[e + 1] == sym) // Escape.
                   s.erase (e, 1); // Keep one, erase the other.
                 else
                   break;
@@ -523,7 +555,7 @@ namespace build2
             }
 
             if (e == n)
-              fail (l) << "unterminated '$'";
+              fail (l) << "unterminated '" << sym << "'";
 
             if (e - b == 1) // Escape.
             {
@@ -534,14 +566,22 @@ namespace build2
             // We have a substition with b pointing to the opening $ and e --
             // to the closing. Split it into the package name and the trailer.
             //
+            // We used to bail if there is no package component but now we
+            // treat it the same as project. This can be useful when trying
+            // to reuse existing .in files (e.g., from autoconf, etc).
+            //
+            string sn, st;
             size_t p (s.find ('.', b + 1));
 
-            if (p == string::npos || p > e)
-              fail (l) << "invalid substitution: missing package name";
+            if (p != string::npos && p < e)
+            {
+              sn.assign (s, b + 1, p - b - 1);
+              st.assign (s, p + 1, e - p - 1);
+            }
+            else
+              st.assign (s, b + 1, e - b - 1);
 
-            string sn (s, b + 1, p - b - 1);
-            string st (s, p + 1, e - p - 1);
-            string sr (sn == proj
+            string sr (sn.empty () || sn == proj
                        ? subst_self (l, st)
                        : subst_dep (l, sn, st));
 

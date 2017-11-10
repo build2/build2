@@ -27,6 +27,8 @@ namespace build2
       butl::standard_version version;
       dependency_constraints dependencies;
 
+      const variable* in_symbol = nullptr;
+
       module (butl::standard_version v, dependency_constraints d)
           : version (move (v)), dependencies (move (d)) {}
     };
