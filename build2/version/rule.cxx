@@ -243,6 +243,18 @@ namespace build2
           fail << "invalid substitution symbol '" << *s << "'";
       }
 
+      // The substitution mode can be overridden with the in.substitution
+      // variable.
+      //
+      bool strict (true);
+      if (const string* s = cast_null<string> (t[m.in_substitution]))
+      {
+        if (*s == "lax")
+          strict = false;
+        else if (*s != "strict")
+          fail << "invalid substitution mode '" << *s << "'";
+      }
+
       // Determine if anything needs to be updated.
       //
       timestamp mt (t.load_mtime ());
@@ -262,13 +274,19 @@ namespace build2
 
         // First should come the rule name/version.
         //
-        if (dd.expect ("version.in 2") != nullptr)
+        if (dd.expect ("version.in 3") != nullptr)
           l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
         // Then the substitution symbol.
         //
         if (dd.expect (string (1, sym)) != nullptr)
           l4 ([&]{trace << "substitution symbol mismatch forcing update of"
+                        << t;});
+
+        // Then the substitution mode.
+        //
+        if (dd.expect (strict ? "strict" : "lax") != nullptr)
+          l4 ([&]{trace << "substitution mode mismatch forcing update of"
                         << t;});
 
         // Then the .in file.
@@ -531,7 +549,7 @@ namespace build2
           const location l (&ip, ln); // Not tracking column for now.
 
           // Scan the line looking for substiutions in the $<pkg>.<rest>$
-          // form. Treat $$ as an escape sequence.
+          // form. In the strict mode treat $$ as an escape sequence.
           //
           for (size_t b (0), n, d; b != (n = s.size ()); b += d)
           {
@@ -540,6 +558,11 @@ namespace build2
             if (s[b] != sym)
               continue;
 
+            // Note that in the lax mode these should still be substitutions:
+            //
+            // @project@@
+            // @@project@
+
             // Find the other end.
             //
             size_t e (b + 1);
@@ -547,7 +570,7 @@ namespace build2
             {
               if (s[e] == sym)
               {
-                if (e + 1 != n && s[e + 1] == sym) // Escape.
+                if (strict && e + 1 != n && s[e + 1] == sym) // Escape.
                   s.erase (e, 1); // Keep one, erase the other.
                 else
                   break;
@@ -555,20 +578,59 @@ namespace build2
             }
 
             if (e == n)
-              fail (l) << "unterminated '" << sym << "'";
-
-            if (e - b == 1) // Escape.
             {
-              s.erase (b, 1); // Keep one, erase the other.
+              if (strict)
+                fail (l) << "unterminated '" << sym << "'" << endf;
+
+              break;
+            }
+
+            if (e - b == 1) // Escape (or just double symbol in the lax mode).
+            {
+              if (strict)
+                s.erase (b, 1); // Keep one, erase the other.
+
               continue;
             }
 
-            // We have a substition with b pointing to the opening $ and e --
-            // to the closing. Split it into the package name and the trailer.
+            // We have a (potential in the lax mode) substition with b
+            // pointing to the opening symbol and e -- to the closing.
+            //
+            if (!strict)
+            {
+              // Scan the fragment to make sure it is a variable name (that
+              // is, it can be expanded as just $<name>; see lexer's variable
+              // mode for details).
+              //
+              size_t i;
+              for (i = b + 1; i != e; )
+              {
+                bool f (i == b + 1); // First.
+                char c (s[i++]);
+                bool l (i == e);     // Last.
+
+                if (c == '_' || (f ? alpha (c) : alnum (c)))
+                  continue;
+
+                if (c == '.' && !l)
+                  continue;
+
+                i = string::npos;
+                break;
+              }
+
+              if (i == string::npos)
+              {
+                d = e - b + 1; // Ignore this substitution.
+                continue;
+              }
+            }
+
+            // Split it into the package name and the trailer.
             //
             // We used to bail if there is no package component but now we
-            // treat it the same as project. This can be useful when trying
-            // to reuse existing .in files (e.g., from autoconf, etc).
+            // treat it the same as project. This can be useful when trying to
+            // reuse existing .in files (e.g., from autoconf, etc).
             //
             string sn, st;
             size_t p (s.find ('.', b + 1));

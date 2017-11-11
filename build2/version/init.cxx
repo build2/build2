@@ -272,15 +272,37 @@ namespace build2
         }
       }
 
-      // Enter variables. Note: some overridable, some not.
+      // Enter variables.
       //
-      auto& vp (var_pool.rw (rs));
+      {
+        auto& vp (var_pool.rw (rs));
 
-      // Alternative variable substitution symbols.
-      //
-      // @@ Note: should be moved to the 'in' module once we have it.
-      //
-      m.in_symbol = &vp.insert<string> ("in.symbol");
+        // @@ Note: these should be moved to the 'in' module once we have it.
+        //
+
+        // Alternative variable substitution symbol.
+        //
+        m.in_symbol = &vp.insert<string> ("in.symbol");
+
+        // Substitution mode. Valid values are 'strict' (default) and 'lax'.
+        // In the strict mode every substitution symbol is expected to start a
+        // substitution with the double symbol (e.g., $$) serving as an
+        // escape sequence.
+        //
+        // In the lax mode a pair of substitution symbols is only treated as a
+        // substitution if what's between them looks like a build2 variable
+        // name (i.e., doesn't contain spaces, etc). Everything else,
+        // including unterminated substitution symbols is copied as is. Note
+        // also that in this mode the double symbol is not treated as an
+        // escape sequence.
+        //
+        // The lax mode is mostly useful when trying to reuse existing .in
+        // files, for example from autoconf. Note, however, that the lax mode
+        // is still stricter than the autoconf's semantics which also leaves
+        // unknown substitutions as is.
+        //
+        m.in_substitution = &vp.insert<string> ("in.substitution");
+      }
 
       // Register rules.
       //
