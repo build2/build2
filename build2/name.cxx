@@ -65,6 +65,7 @@ namespace build2
         ' ', '\t', '\n', '#',              // Spaces.
         '\\', '"',                         // Escaping and quoting.
         '%',                               // Project name separator.
+        '*', '?',                          // Wildcard characters.
         pair,                              // Pair separator, if any.
         '\0'};
 
