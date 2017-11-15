@@ -1030,13 +1030,7 @@ namespace build2
       if (rs == nullptr)
         return;
 
-      // We used to use the target's directory as out_base but that didn't
-      // work well for targets that are stashed in subdirectories. So as a
-      // heuristics we are using the path of the innermost scope (i.e., where
-      // the buildfile normally is).
-      //
-      //const dir_path& out_base (t.dir);
-      const dir_path& out_base (bs.out_path ());
+      const dir_path& out_base (t.dir);
       const dir_path& out_root (rs->out_path ());
 
       if (auto l = t[var])
@@ -1064,7 +1058,7 @@ namespace build2
           else
             d = dir_path (*i, 2, string::npos);
 
-          l6 ([&]{trace << "-I '" << d << "'";});
+          l6 ([&]{trace << "-I " << d;});
 
           if (d.relative ())
             fail << "relative -I directory " << d
@@ -1090,30 +1084,73 @@ namespace build2
           //
           dir_path p (out_base.sub (d) ? out_base.leaf (d) : dir_path ());
 
-          auto j (m.find (p));
-
-          if (j != m.end ())
+          // We use the target's directory as out_base but that doesn't work
+          // well for targets that are stashed in subdirectories. So as a
+          // heuristics we are going to also enter the outer directories of
+          // the original prefix. It is, however, possible, that another -I
+          // option after this one will produce one of these outer prefixes as
+          // its original prefix in which case we should override it.
+          //
+          // So we are going to assign the original prefix priority value 0
+          // (highest) and then increment it for each outer prefix.
+          //
+          auto enter = [&trace, &m] (dir_path p, dir_path d, size_t prio)
           {
-            if (j->second != d)
+            auto j (m.find (p));
+
+            if (j != m.end ())
             {
+              prefix_value& v (j->second);
+
               // We used to reject duplicates but it seems this can be
-              // reasonably expected to work according to the order of the -I
-              // options.
+              // reasonably expected to work according to the order of the
+              // -I options.
               //
               // Seeing that we normally have more "specific" -I paths first,
               // (so that we don't pick up installed headers, etc), we ignore
               // it.
               //
-              if (verb >= 4)
-                trace << "ignoring dependency prefix '" << p << "'\n"
-                      << "  existing mapping to " << j->second << "\n"
-                      << "  another mapping to  " << d;
+              if (v.directory == d)
+              {
+                if (v.priority > prio)
+                  v.priority = prio;
+              }
+              else if (v.priority <= prio)
+              {
+                if (verb >= 4)
+                  trace << "ignoring dependency prefix " << p << '\n'
+                        << "  existing mapping to " << v.directory
+                        << " priority " << v.priority << '\n'
+                        << "  another mapping to  " << d
+                        << " priority " << prio;
+              }
+              else
+              {
+                if (verb >= 4)
+                  trace << "overriding dependency prefix " << p << '\n'
+                        << "  existing mapping to " << v.directory
+                        << " priority " << v.priority << '\n'
+                        << "  new mapping to      " << d
+                        << " priority " << prio;
+
+                v.directory = move (d);
+                v.priority = prio;
+              }
             }
-          }
-          else
+            else
+            {
+              l6 ([&]{trace << p << " -> " << d << " priority " << prio;});
+              m.emplace (move (p), prefix_value {move (d), prio});
+            }
+          };
+
+          size_t prio (0);
+          for (bool e (false); !e; ++prio)
           {
-            l6 ([&]{trace << "'" << p << "' = '" << d << "'";});
-            m.emplace (move (p), move (d));
+            dir_path n (p.directory ());
+            e = n.empty ();
+            enter ((e ? move (p) : p), (e ? move (d) : d), prio);
+            p = move (n);
           }
         }
       }
@@ -2098,6 +2135,8 @@ namespace build2
 
             if (i != pfx_map->end ())
             {
+              const dir_path& pd (i->second.directory);
+
               // If this is a prefixless mapping, then only use it if we can
               // resolve it to an existing target (i.e., it is explicitly
               // spelled out in a buildfile).
@@ -2105,10 +2144,10 @@ namespace build2
               // Note that at some point we will probably have a list of
               // directories.
               //
-              pt = find (i->second / d, f.leaf (), !i->first.empty ());
+              pt = find (pd / d, f.leaf (), !i->first.empty ());
               if (pt != nullptr)
               {
-                f = i->second / f;
+                f = pd / f;
                 l4 ([&]{trace << "mapped as auto-generated " << f;});
               }
             }

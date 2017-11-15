@@ -78,9 +78,18 @@ namespace build2
       // we continue with the example). Specifically, we need to make sure we
       // don't treat foobar as a sub-directory of foo.
       //
+      // The priority is used to decide who should override whom. Lesser
+      // values are considered higher priority. See append_prefixes() for
+      // details.
+      //
       // @@ The keys should be normalized.
       //
-      using prefix_map = butl::dir_path_map<dir_path>;
+      struct prefix_value
+      {
+        dir_path directory;
+        size_t priority;
+      };
+      using prefix_map = butl::dir_path_map<prefix_value>;
 
       void
       append_prefixes (prefix_map&, const target&, const variable&) const;
