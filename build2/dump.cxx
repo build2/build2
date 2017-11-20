@@ -53,7 +53,7 @@ namespace build2
     }
   }
 
-  enum class variable_kind {scope, tt_pat, target};
+  enum class variable_kind {scope, tt_pat, target, prerequisite};
 
   static void
   dump_variable (ostream& os,
@@ -91,25 +91,31 @@ namespace build2
       // If this variable is overriden, print both the override and the
       // original values.
       //
-      if (var.override != nullptr &&
-          var.name.rfind (".__override") == string::npos &&
-          var.name.rfind (".__suffix") == string::npos &&
-          var.name.rfind (".__prefix") == string::npos)
+      // @@ The override semantics for prerequisite-specific variables
+      //    is still fuzzy/unimplemented, so ignore it for now.
+      //
+      if (k != variable_kind::prerequisite)
       {
-        lookup org (v, vm);
-
-        // The original is always from this scope/target, so depth is 1.
-        //
-        lookup l (
-          s.find_override (
-            var, make_pair (org, 1), k == variable_kind::target).first);
-
-        assert (l.defined ()); // We at least have the original.
-
-        if (org != l)
+        if (var.override != nullptr &&
+            var.name.rfind (".__override") == string::npos &&
+            var.name.rfind (".__suffix") == string::npos &&
+            var.name.rfind (".__prefix") == string::npos)
         {
-          dump_value (os, *l, l->type != var.type);
-          os << " # original: ";
+          lookup org (v, vm);
+
+          // The original is always from this scope/target, so depth is 1.
+          //
+          lookup l (
+            s.find_override (
+              var, make_pair (org, 1), k == variable_kind::target).first);
+
+          assert (l.defined ()); // We at least have the original.
+
+          if (org != l)
+          {
+            dump_value (os, *l, l->type != var.type);
+            os << " # original: ";
+          }
         }
       }
 
@@ -206,52 +212,18 @@ namespace build2
       stream_verb (os, 1);
     }
 
-    os << ind << t;
-
     if (t.group != nullptr)
-      os << "->" << *t.group;
+      os << ind << t << " -> " << *t.group << endl;
 
-    os << ':';
+    os << ind << t << ':';
 
-    for (const prerequisite& p: t.prerequisites ())
-    {
-      os << ' ';
-
-      // Print it as target if one has been cached.
-      //
-      if (const target* t = p.target.load (memory_order_relaxed)) // Serial.
-        os << *t;
-      else
-        os << p;
-    }
-
-    // If the target has been matched to a rule, also print resolved
-    // prerequisite targets.
-    //
-    {
-      size_t c (t.task_count.load (memory_order_relaxed)); // Running serial.
-
-      if (c == target::count_applied () || c == target::count_executed ())
-      {
-        bool first (true);
-        for (const target* pt: t.prerequisite_targets)
-        {
-          if (pt == nullptr) // Skipped.
-            continue;
-
-          os << (first ? " | " : " ") << *pt;
-          first = false;
-        }
-      }
-    }
-
-    if (relative)
-      stream_verb (os, sv); // We want variable values in full.
-
-    // Print target-specific variables.
+    // First print target-specific variables, if any.
     //
     if (!t.vars.empty ())
     {
+      if (relative)
+        stream_verb (os, sv); // We want variable values in full.
+
       os << endl
          << ind << '{';
       ind += "  ";
@@ -259,7 +231,92 @@ namespace build2
       ind.resize (ind.size () - 2);
       os << endl
          << ind << '}';
+
+      if (relative)
+        stream_verb (os, 1);
+
+      os << endl
+         << ind << t << ':';
     }
+
+    bool used (false); // Target header has been used to display prerequisites.
+
+    // If the target has been matched to a rule, first print resolved
+    // prerequisite targets.
+    //
+    // Note: running serial and task_count is 0 before any operation has
+    // started.
+    //
+    if (size_t c = t.task_count.load (memory_order_relaxed))
+    {
+      if (c == target::count_applied () || c == target::count_executed ())
+      {
+        bool f (false);
+        for (const target* pt: t.prerequisite_targets)
+        {
+          if (pt == nullptr) // Skipped.
+            continue;
+
+          os << ' ' << *pt;
+          f = true;
+        }
+
+        // Only omit '|' if we have no prerequisites nor targets.
+        //
+        if (f || !t.prerequisites ().empty ())
+        {
+          os << " |";
+          used = true;
+        }
+      }
+    }
+
+    // Print prerequisites. Those that have prerequisite-specific variables
+    // have to be printed as a separate dependency.
+    //
+    const prerequisites& ps (t.prerequisites ());
+    for (auto i (ps.begin ()), e (ps.end ()); i != e; )
+    {
+      const prerequisite& p (*i++);
+      bool ps (!p.vars.empty ()); // Has prerequisite-specific vars.
+
+      if (ps && used) // If it has been used, get a new header.
+        os << endl
+           << ind << t << ':';
+
+      // Print it as a target if one has been cached.
+      //
+      if (const target* t = p.target.load (memory_order_relaxed)) // Serial.
+        os << ' ' << *t;
+      else
+        os << ' ' << p;
+
+      if (ps)
+      {
+        if (relative)
+          stream_verb (os, sv); // We want variable values in full.
+
+        os << ':' << endl
+           << ind << '{';
+        ind += "  ";
+        dump_variables (os, ind, p.vars, s, variable_kind::prerequisite);
+        ind.resize (ind.size () - 2);
+        os << endl
+           << ind << '}';
+
+        if (relative)
+          stream_verb (os, 1);
+
+        if (i != e) // If we have another, get a new header.
+          os << endl
+             << ind << t << ':';
+      }
+
+      used = !ps;
+    }
+
+    if (relative)
+      stream_verb (os, sv);
   }
 
   static void
@@ -289,7 +346,7 @@ namespace build2
 
     ind += "  ";
 
-    bool vb (false), sb (false); // Variable/scope block.
+    bool vb (false), sb (false), tb (false); // Variable/scope/target block.
 
     // Target type/pattern-sepcific variables.
     //
@@ -330,6 +387,9 @@ namespace build2
 
     // Targets.
     //
+    // Since targets can occupy multiple lines, we separate them with a
+    // blank line.
+    //
     for (const auto& pt: targets)
     {
       const target& t (*pt);
@@ -337,7 +397,7 @@ namespace build2
       if (&p != &t.base_scope ())
         continue;
 
-      if (vb || sb)
+      if (vb || sb || tb)
       {
         os << endl;
         vb = sb = false;
@@ -345,6 +405,7 @@ namespace build2
 
       os << endl;
       dump_target (os, ind, t, p, true /* relative */);
+      tb = true;
     }
 
     ind.resize (ind.size () - 2);

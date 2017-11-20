@@ -1890,10 +1890,10 @@ namespace build2
     }
     else
     {
-      for (auto i (ns.begin ()), e (ns.end ()); i != e; ++i)
+      for (auto i (ns.begin ()), e (ns.end ()); i != e; )
       {
-        name& n (*i);
-        name o (n.pair ? move (*++i) : name ());
+        name& n (*i++);
+        name o (n.pair ? move (*i++) : name ());
 
         const target* t (enter_target::find_target (*this, n, o, l, trace));
 
@@ -1905,6 +1905,9 @@ namespace build2
           if (n.pair && !o.dir.empty ()) os << '@' << o.dir;
           os << '>' << endl;
         }
+
+        if (i != e)
+          os << endl;
       }
     }
 
