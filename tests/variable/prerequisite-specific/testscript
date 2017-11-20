@@ -1,0 +1,71 @@
+# file      : tests/variable/prerequisite-specific/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+# There is currently no support for expanding prerequisite-specific variables
+# (since there is no way to id a prerequisite) so we use dump.
+#
+
+: basic
+:
+$* <<EOI 2>>/~%EOE%
+dir{x}: fox = FOX
+dir{x}: dir{a}: foo = FOO
+dir{x}: dir{b}: fox += FOX
+dir{x}: dir{c}: bar = [bool] true
+dump dir{x}
+EOI
+<stdin>:5:1: dump:
+%  dir\{.+/x/\}:%
+  {
+    fox = FOX
+  }
+%  dir\{.+/x/\}: .+:dir\{a/\}:%
+  {
+    foo = FOO
+  }
+%  dir\{.+/x/\}: .+:dir\{b/\}:%
+  {
+    fox = FOX FOX
+  }
+%  dir\{.+/x/\}: .+:dir\{c/\}:%
+  {
+    bar = [bool] true
+  }
+EOE
+
+: multiple
+:
+$* <<EOI 2>>/~%EOE%
+dir{x} dir{y}: dir{a} dir{b}: foo = FOO
+dump dir{x} dir{y}
+EOI
+<stdin>:2:1: dump:
+%  dir\{.+/x/\}: .+:dir\{a/\}:%
+  {
+    foo = FOO
+  }
+%  dir\{.+/x/\}: .+:dir\{b/\}:%
+  {
+    foo = FOO
+  }
+
+%  dir\{.+/y/\}: .+:dir\{a/\}:%
+  {
+    foo = FOO
+  }
+%  dir\{.+/y/\}: .+:dir\{b/\}:%
+  {
+    foo = FOO
+  }
+EOE
+
+: expect-assignment
+:
+$* <<EOI 2>>EOE != 0
+dir{x}: dir{a}:
+EOI
+<stdin>:1:16: error: expected name instead of <newline>
+EOE
