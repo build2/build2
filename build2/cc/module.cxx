@@ -174,23 +174,34 @@ namespace build2
       sys_inc_dirs_extra = inc_dirs.size ();
 
 #ifndef _WIN32
-      // Many platforms don't search in /usr/local/lib by default (but do
-      // for headers in /usr/local/include). So add it as the last option.
+      // Add /usr/local/{include,lib}. We definitely shouldn't do this if we
+      // are cross-compiling. But even if the build and target are the same,
+      // it's possible the compiler uses some carefully crafted sysroot and by
+      // adding /usr/local/* we will just mess things up. So the heuristics
+      // that we will use is this: if the compiler's system include directories
+      // contain /usr/include then we add /usr/local/*.
       //
+      if (find (inc_dirs.begin (), inc_dirs.end (),
+                dir_path ("/usr/include")) != inc_dirs.end ())
       {
-        dir_path d ("/usr/local/lib");
-        if (find (lib_dirs.begin (), lib_dirs.end (), d) == lib_dirs.end ())
-          lib_dirs.emplace_back (move (d));
-      }
+        // Many platforms don't search in /usr/local/lib by default (but do
+        // for headers in /usr/local/include). So add it as the last option.
+        //
+        {
+          dir_path d ("/usr/local/lib");
+          if (find (lib_dirs.begin (), lib_dirs.end (), d) == lib_dirs.end ())
+            lib_dirs.emplace_back (move (d));
+        }
 
-      // FreeBSD is at least consistent: it searches in neither. Quoting its
-      // wiki: "FreeBSD can't even find libraries that it installed." So let's
-      // help it a bit.
-      //
-      {
-        dir_path d ("/usr/local/include");
-        if (find (inc_dirs.begin (), inc_dirs.end (), d) == inc_dirs.end ())
-          inc_dirs.emplace_back (move (d));
+        // FreeBSD is at least consistent: it searches in neither. Quoting its
+        // wiki: "FreeBSD can't even find libraries that it installed." So
+        // let's help it a bit.
+        //
+        {
+          dir_path d ("/usr/local/include");
+          if (find (inc_dirs.begin (), inc_dirs.end (), d) == inc_dirs.end ())
+            inc_dirs.emplace_back (move (d));
+        }
       }
 #endif
 
