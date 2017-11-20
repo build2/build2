@@ -2172,7 +2172,22 @@ namespace build2
           //
           if (!cache)
           {
-            f.realize ();
+            // While we can reasonably expect this path to exit, things do
+            // go south from time to time (like compiling under wine with
+            // file wlantypes.h included as WlanTypes.h).
+            //
+            try
+            {
+              f.realize ();
+            }
+            catch (const invalid_path&)
+            {
+              fail << "invalid header path '" << f << "'";
+            }
+            catch (const system_error& e)
+            {
+              fail << "invalid header path '" << f << "': " << e;
+            }
 
             if (!so_map.empty ())
             {
