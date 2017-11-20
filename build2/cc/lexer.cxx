@@ -62,6 +62,20 @@ namespace build2
         get (c);
         xchar p (base::peek ());
 
+        // Handle Windows CRLF sequence. Similar to char_scanner, we treat
+        // a single CR as if it was followed by LF.
+        //
+        if (p == '\r')
+        {
+          get (p);
+          p = base::peek ();
+
+          if (p != '\n') // Pretend it was there.
+            return peek (e); // Recurse.
+
+          // Fall through.
+        }
+
         if (p == '\n')
         {
           get (p);
