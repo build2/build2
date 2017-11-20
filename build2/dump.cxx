@@ -184,16 +184,27 @@ namespace build2
   }
 
   static void
-  dump_target (ostream& os, string& ind, const target& t, const scope& s)
+  dump_target (ostream& os,
+               string& ind,
+               const target& t,
+               const scope& s,
+               bool relative)
   {
-    // Print the target and its prerequisites relative to the scope. To achieve
-    // this we are going to temporarily lower the stream verbosity to level 1.
-    // The drawback of doing this is that we also lower the verbosity of
-    // extension printing (it wouldn't have been bad at all to get 'foo.?' for
-    // unassigned and 'foo.' for empty).
+    // If requested, print the target and its prerequisites relative to the
+    // scope. To achieve this we are going to temporarily lower the stream
+    // verbosity to level 1. The drawback of doing this is that we also lower
+    // the verbosity of extension printing (it wouldn't have been bad at all
+    // to get 'foo.?' for unassigned and 'foo.' for empty).
     //
-    uint16_t sv (stream_verb (os));
-    stream_verb (os, 1);
+    // @@ Actually, all those foo.? look rather hairy...
+    // @@ Can't we change level to a bit mask?
+    //
+    uint16_t sv;
+    if (relative)
+    {
+      sv = stream_verb (os);
+      stream_verb (os, 1);
+    }
 
     os << ind << t;
 
@@ -234,7 +245,8 @@ namespace build2
       }
     }
 
-    stream_verb (os, sv); // We want variable values in full.
+    if (relative)
+      stream_verb (os, sv); // We want variable values in full.
 
     // Print target-specific variables.
     //
@@ -265,7 +277,10 @@ namespace build2
     if (d.empty ())
       os << ind << dir_path::traits::directory_separator;
     else
-      os << ind << relative (d);
+    {
+      dir_path rd (relative (d));
+      os << ind << (rd.empty () ? dir_path (".") : rd);
+    }
 
     os << ":" << endl << ind << '{';
 
@@ -329,7 +344,7 @@ namespace build2
       }
 
       os << endl;
-      dump_target (os, ind, t, p);
+      dump_target (os, ind, t, p, true /* relative */);
     }
 
     ind.resize (ind.size () - 2);
@@ -346,11 +361,33 @@ namespace build2
     assert (&i->second == global_scope);
 
     // We don't lock diag_stream here as dump() is supposed to be called from
-    // the main thread prior to any other threads being spawned.
+    // the main thread prior/after to any other threads being spawned.
     //
     string ind;
     ostream& os (*diag_stream);
     dump_scope (os, ind, i);
+    os << endl;
+  }
+
+  void
+  dump (const scope& s, const char* cind)
+  {
+    const scope_map_base& m (scopes); // Iterator interface.
+    auto i (m.find (s.out_path ()));
+    assert (i != m.end () && &i->second == &s);
+
+    string ind (cind);
+    ostream& os (*diag_stream);
+    dump_scope (os, ind, i);
+    os << endl;
+  }
+
+  void
+  dump (const target& t, const char* cind)
+  {
+    string ind (cind);
+    ostream& os (*diag_stream);
+    dump_target (os, ind, t, t.base_scope (), false /* relative */);
     os << endl;
   }
 }

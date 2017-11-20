@@ -8,14 +8,21 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
-#include <build2/operation.hxx>
-
 namespace build2
 {
-  // Dump the state pertaining to the current action.
+  class scope;
+  class target;
+
+  // Dump the build state to diag_stream.
   //
   void
   dump ();
+
+  void
+  dump (const scope&, const char* ind = "");
+
+  void
+  dump (const target&, const char* ind = "");
 }
 
 #endif // BUILD2_DUMP_HXX

@@ -9,6 +9,7 @@
 
 #include <libbutl/filesystem.mxx> // path_search(), path_match()
 
+#include <build2/dump.hxx>
 #include <build2/file.hxx>
 #include <build2/scope.hxx>
 #include <build2/module.hxx>
@@ -112,6 +113,40 @@ namespace build2
                   tracer& tr)
         : p_ (&p), t_ (p.target_)
     {
+      // Find or insert.
+      //
+      auto r (process_target (p, n, o, loc));
+      p.target_ = &targets.insert (*r.first,        // target type
+                                   move (n.dir),
+                                   move (o.dir),
+                                   move (n.value),
+                                   move (r.second), // extension
+                                   implied,
+                                   tr).first;
+    }
+
+    static const target*
+    find_target (parser& p,
+                 name& n,  // If n.pair, then o is out dir.
+                 name& o,
+                 const location& loc,
+                 tracer& tr)
+    {
+      auto r (process_target (p, n, o, loc));
+      return targets.find (*r.first, // target type
+                           n.dir,
+                           o.dir,
+                           n.value,
+                           r.second, // extension
+                           tr);
+    }
+
+    static pair<const target_type*, optional<string>>
+    process_target (parser& p,
+                    name& n,  // If n.pair, then o is out dir.
+                    name& o,
+                    const location& loc)
+    {
       optional<string> e;
       const target_type* ti (p.scope_->find_target_type (n, e));
 
@@ -148,16 +183,9 @@ namespace build2
         out = o.dir.relative () ? od / o.dir : move (o.dir);
         out.normalize ();
       }
+      o.dir = move (out); // Result.
 
-      // Find or insert.
-      //
-      p.target_ = &targets.insert (*ti,
-                                   move (d),
-                                   move (out),
-                                   move (n.value),
-                                   move (e),
-                                   implied,
-                                   tr).first;
+      return make_pair (ti, move (e));
     }
 
     ~enter_target ()
@@ -347,6 +375,10 @@ namespace build2
                  n == "text")
         {
           f = &parser::parse_diag;
+        }
+        else if (n == "dump")
+        {
+          f = &parser::parse_dump;
         }
         else if (n == "source")
         {
@@ -1818,6 +1850,65 @@ namespace build2
       names storage;
       dr << reverse (lhs, storage);
     }
+
+    if (tt != type::eos)
+      next (t, tt); // Swallow newline.
+  }
+
+  void parser::
+  parse_dump (token& t, type& tt)
+  {
+    // dump [<target>...]
+    //
+    // If there are no targets, then we dump the current scope.
+    //
+    tracer trace ("parser::parse_dump", &path_);
+
+    const location l (get_location (t));
+    next (t, tt);
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt, pattern_mode::ignore)
+              : names ());
+
+    text (l) << "dump:";
+
+    // Dump directly into diag_stream.
+    //
+    ostream& os (*diag_stream);
+
+    // Print directories as absolute.
+    //
+    const dir_path* orb (relative_base);
+    relative_base = &empty_dir_path;
+
+    if (ns.empty ())
+    {
+      if (scope_ != nullptr)
+        dump (*scope_, "  "); // Indent two spaces.
+      else
+        os << "  <no current scope>" << endl;
+    }
+    else
+    {
+      for (auto i (ns.begin ()), e (ns.end ()); i != e; ++i)
+      {
+        name& n (*i);
+        name o (n.pair ? move (*++i) : name ());
+
+        const target* t (enter_target::find_target (*this, n, o, l, trace));
+
+        if (t != nullptr)
+          dump (*t, "  "); // Indent two spaces.
+        else
+        {
+          os << "  <no target " << n;
+          if (n.pair && !o.dir.empty ()) os << '@' << o.dir;
+          os << '>' << endl;
+        }
+      }
+    }
+
+    relative_base = orb;
 
     if (tt != type::eos)
       next (t, tt); // Swallow newline.
