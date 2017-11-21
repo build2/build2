@@ -1238,43 +1238,38 @@ namespace build2
       return r;
     }
 
-    // Extract the include path from the VC /showIncludes output line. Return
-    // empty string if the line is not an include note or include error. Set
-    // the good_error flag if it is an include error (which means the process
-    // will terminate with the error status that needs to be ignored).
+    // VC /showIncludes output. The first line is the file being compiled
+    // (handled by our caller). Then we have the list of headers, one per
+    // line, in this form (text can presumably be translated):
     //
-    static string
-    next_show (const string& l, bool& good_error)
+    // Note: including file: C:\Program Files (x86)\[...]\iostream
+    //
+    // Finally, if we hit a non-existent header, then we end with an error
+    // line in this form:
+    //
+    // x.cpp(3): fatal error C1083: Cannot open include file: 'd/h.hpp':
+    // No such file or directory
+    //
+    // Distinguishing between the include note and the include error is
+    // easy: we can just check for C1083. Distinguising between the note and
+    // other errors/warnings is harder: an error could very well end with
+    // what looks like a path so we cannot look for the note but rather have
+    // to look for an error. Here we assume that a line containing ' CNNNN:'
+    // is an error. Should be robust enough in the face of language
+    // translation, etc.
+    //
+
+    // Sense whether this is an include note (return npos) or a diagnostics
+    // line (return postion of the NNNN code in CNNNN).
+    //
+    static inline size_t
+    next_show_sense (const string& l)
     {
-      // The include error should be the last line that we handle.
-      //
-      assert (!good_error);
-
-      // VC /showIncludes output. The first line is the file being compiled
-      // (handled by our caller). Then we have the list of headers, one per
-      // line, in this form (text can presumably be translated):
-      //
-      // Note: including file: C:\Program Files (x86)\[...]\iostream
-      //
-      // Finally, if we hit a non-existent header, then we end with an error
-      // line in this form:
-      //
-      // x.cpp(3): fatal error C1083: Cannot open include file: 'd/h.hpp':
-      // No such file or directory
-      //
-
-      // Distinguishing between the include note and the include error is
-      // easy: we can just check for C1083. Distinguising between the note and
-      // other errors/warnings is harder: an error could very well end with
-      // what looks like a path so we cannot look for the note but rather have
-      // to look for an error. Here we assume that a line containing ' CNNNN:'
-      // is an error. Should be robust enough in the face of language
-      // translation, etc.
-      //
       size_t p (l.find (':'));
-      size_t n (l.size ());
 
-      for (; p != string::npos; p = ++p != n ? l.find (':', p) : string::npos)
+      for (size_t n (l.size ());
+           p != string::npos;
+           p = ++p != n ? l.find (':', p) : string::npos)
       {
         auto isnum = [](char c) {return c >= '0' && c <= '9';};
 
@@ -1291,6 +1286,22 @@ namespace build2
         }
       }
 
+      return p;
+    }
+
+    // Extract the include path from the VC /showIncludes output line. Return
+    // empty string if the line is not an include note or include error. Set
+    // the good_error flag if it is an include error (which means the process
+    // will terminate with the error status that needs to be ignored).
+    //
+    static string
+    next_show (const string& l, bool& good_error)
+    {
+      // The include error should be the last line that we handle.
+      //
+      assert (!good_error);
+
+      size_t p (next_show_sense (l));
       if (p == string::npos)
       {
         // Include note. We assume the path is always at the end but need to
@@ -1300,15 +1311,15 @@ namespace build2
         // included file even if it is ""-included and the source path is
         // relative. Aren't we lucky today?
         //
-        size_t p (l.rfind (':'));
+        p = l.rfind (':');
 
         if (p != string::npos)
         {
           // See if this one is part of the Windows drive letter.
           //
-          if (p > 1 && p + 1 < n && // 2 chars before, 1 after.
-              l[p - 2] == ' ' &&
-              alpha (l[p - 1]) &&
+          if (p > 1 && p + 1 < l.size () && // 2 chars before, 1 after.
+              l[p - 2] == ' '            &&
+              alpha (l[p - 1])           &&
               path::traits::is_separator (l[p + 1]))
             p = l.rfind (':', p - 2);
         }
@@ -2408,6 +2419,22 @@ namespace build2
                             fdstream_mode::text | fdstream_mode::skip,
                             ifdstream::badbit);
 
+              // If an input stream operation has failed, return true if
+              // because of the eof and throw is_error otherwise.
+              //
+              auto eof = [] (std::istream& is) -> bool
+              {
+                if (is.fail ())
+                {
+                  if (is.eof ())
+                    return true;
+
+                  throw io_error ("");
+                }
+
+                return false;
+              };
+
               // In some cases we may need to ignore the error return status.
               // The good_error flag keeps track of that. Similarly we
               // sometimes expect the error return status based on the output
@@ -2419,15 +2446,8 @@ namespace build2
               string l; // Reuse.
               for (bool first (true), second (false); !(restart || is.eof ());)
               {
-                getline (is, l);
-
-                if (is.fail ())
-                {
-                  if (is.eof ()) // Trailing newline.
-                    break;
-
-                  throw io_error ("");
-                }
+                if (eof (getline (is, l)))
+                  break;
 
                 l6 ([&]{trace << "header dependency line '" << l << "'";});
 
@@ -2560,14 +2580,19 @@ namespace build2
               // In case of VC, we are parsing stderr and if things go south,
               // we need to copy the diagnostics for the user to see.
               //
-              // Note that the eof check is important: if the stream is at
-              // eof, this and all subsequent writes to the diagnostics stream
-              // will fail (and you won't see a thing).
-              //
-              if (bad_error                                 &&
-                  cid == compiler_id::msvc                  &&
-                  is.peek () != ifdstream::traits_type::eof ())
-                diag_stream_lock () << is.rdbuf ();
+              if (bad_error && cid == compiler_id::msvc)
+              {
+                // We used to just dump the whole rdbuf but it turns out VC
+                // may continue writing include notes interleaved with the
+                // diagnostics. So we have to filter them out.
+                //
+                for (; !eof (getline (is, l)); )
+                {
+                  size_t p (next_show_sense (l));
+                  if (p != string::npos && l.compare (p, 4, "1083") != 0)
+                    diag_stream_lock () << l << endl;
+                }
+              }
 
               is.close ();
 
