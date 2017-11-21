@@ -283,11 +283,13 @@ namespace build2
   // with the expectation of it reaching 0. Used as a sanity check.
   //
   // The target count is incremented after a non-noop recipe is matched and
-  // decremented after such recipe has been executed. Used for progress
-  // monitoring.
+  // decremented after such recipe has been executed. If such a recipe has
+  // skipped updating the target, then it should increment the skip count.
+  // These two counters are used for progress monitoring and diagnostics.
   //
   extern atomic_count dependency_count;
   extern atomic_count target_count;
+  extern atomic_count skip_count;
 
   inline void
   set_current_mif (const meta_operation_info& mif)
@@ -307,9 +309,11 @@ namespace build2
     current_on++;
     current_mode = inner_oif.mode;
 
-    // Serial.
+    // Reset counters (serial execution).
+    //
     dependency_count.store (0, memory_order_relaxed);
     target_count.store (0, memory_order_relaxed);
+    skip_count.store (0, memory_order_relaxed);
   }
 
   // Keep going flag.

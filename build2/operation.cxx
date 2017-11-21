@@ -268,10 +268,20 @@ namespace build2
           [init, incr, what] (size_t c) -> size_t
           {
             size_t p ((init - c) * 100 / init);
+            size_t s (skip_count.load (memory_order_relaxed));
+
             diag_progress_lock pl;
             diag_progress  = ' ';
             diag_progress += to_string (p);
             diag_progress += what;
+
+            if (s != 0)
+            {
+              diag_progress += " (";
+              diag_progress += to_string (s);
+              diag_progress += " skipped)";
+            }
+
             return c - incr;
           });
       }
@@ -302,6 +312,11 @@ namespace build2
       wg.wait ();
     }
 
+    // We are now running serially.
+    //
+
+    sched.tune (0); // Restore original scheduler settings.
+
     // Clear the progress if present.
     //
     if (mg)
@@ -310,9 +325,19 @@ namespace build2
       diag_progress.clear ();
     }
 
-    sched.tune (0); // Restore original scheduler settings.
+    // Print skip count if not zero. Note that we print it regardless of the
+    // quiet flag since this is essentially a "summary" of all the commands
+    // that we did not (and, in fact, used to originally) print.
+    //
+    if (verb != 0)
+    {
+      if (size_t s = skip_count.load (memory_order_relaxed))
+      {
+        text << "skipped " << diag_doing (a) << ' ' << s << " target(s)";
+      }
+    }
 
-    // We are now running serially. Re-examine them all.
+    // Re-examine all the targets and print diagnostics.
     //
     bool fail (false);
     for (const void* vt: ts)

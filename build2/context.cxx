@@ -204,6 +204,7 @@ namespace build2
 
   atomic_count dependency_count;
   atomic_count target_count;
+  atomic_count skip_count;
 
   bool keep_going = false;
 

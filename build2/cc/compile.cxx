@@ -3985,13 +3985,8 @@ namespace build2
       {
         if (md.touch)
         {
-          // Getting "everything up to date" after modifying a file can be
-          // unnerving. So calm the user down.
-          //
-          if (verb == 1)
-            text << "skip " << s;
-
           touch (tp, false, 2);
+          skip_count.fetch_add (1, memory_order_relaxed);
         }
 
         t.mtime (md.mt);
