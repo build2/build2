@@ -2419,22 +2419,6 @@ namespace build2
                             fdstream_mode::text | fdstream_mode::skip,
                             ifdstream::badbit);
 
-              // If an input stream operation has failed, return true if
-              // because of the eof and throw is_error otherwise.
-              //
-              auto eof = [] (std::istream& is) -> bool
-              {
-                if (is.fail ())
-                {
-                  if (is.eof ())
-                    return true;
-
-                  throw io_error ("");
-                }
-
-                return false;
-              };
-
               // In some cases we may need to ignore the error return status.
               // The good_error flag keeps track of that. Similarly we
               // sometimes expect the error return status based on the output
@@ -2444,7 +2428,7 @@ namespace build2
 
               size_t skip (skip_count);
               string l; // Reuse.
-              for (bool first (true), second (false); !(restart || is.eof ());)
+              for (bool first (true), second (false); !restart; )
               {
                 if (eof (getline (is, l)))
                   break;

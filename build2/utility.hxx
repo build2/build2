@@ -74,6 +74,8 @@ namespace build2
   using butl::throw_generic_error;
   using butl::throw_system_error;
 
+  using butl::eof;
+
   // Basic string utilities.
   //
 
