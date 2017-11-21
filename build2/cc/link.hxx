@@ -81,6 +81,7 @@ namespace build2
 
       void
       hash_libraries (sha256&,
+                      bool&, timestamp,
                       const file&, bool, lflags,
                       const scope&, action, linfo) const;
 

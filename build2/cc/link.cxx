@@ -1000,12 +1000,20 @@ namespace build2
 
     void link::
     hash_libraries (sha256& cs,
+                    bool& update, timestamp mt,
                     const file& l, bool la, lflags lf,
                     const scope& bs, action act, linfo li) const
     {
       auto imp = [] (const file&, bool la) {return la;};
 
-      auto lib = [&cs, this] (const file* l, const string& p, lflags f, bool)
+      struct data
+      {
+        sha256&   cs;
+        bool&     update;
+        timestamp mt;
+      } d {cs, update, mt};
+
+      auto lib = [&d, this] (const file* l, const string& p, lflags f, bool)
       {
         if (l != nullptr)
         {
@@ -1016,11 +1024,15 @@ namespace build2
           if (l->member != nullptr && l->is_a<libs> () && tclass == "windows")
             l = &l->member->as<file> ();
 
-          cs.append (f);
-          cs.append (l->path ().string ());
+          d.cs.append (f);
+          d.cs.append (l->path ().string ());
+
+          // Check if this library renders us out of date.
+          //
+          d.update = d.update || l->newer (d.mt);
         }
         else
-          cs.append (p);
+          d.cs.append (p);
       };
 
       auto opt = [&cs, this] (
@@ -1522,15 +1534,24 @@ namespace build2
             // Link all the dependent interface libraries (shared) or interface
             // and implementation (static), recursively.
             //
+            // Also check if any of them render us out of date. The tricky
+            // case is, say, a utility library (static) that depends on a
+            // shared library. When the shared library is updated, there is no
+            // reason to re-archive the utility but those who link the utility
+            // have to "see through" the changes in the shared library.
+            //
             if (a || s)
-              hash_libraries (cs, *f, a, p.data, bs, act, li);
+            {
+              hash_libraries (cs, update, mt, *f, a, p.data, bs, act, li);
+              f = nullptr; // Timestamp checked by hash_libraries().
+            }
             else
               cs.append (f->path ().string ());
           }
           else
             f = pt->is_a<exe> (); // Consider executable mtime (e.g., linker).
 
-          // Check if this input renders us out-of-date.
+          // Check if this input renders us out of date.
           //
           if (f != nullptr)
             update = update || f->newer (mt);
