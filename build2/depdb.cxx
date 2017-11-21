@@ -6,6 +6,8 @@
 
 #include <libbutl/filesystem.mxx> // file_mtime()
 
+#include <build2/diagnostics.hxx>
+
 using namespace std;
 using namespace butl;
 
@@ -15,31 +17,46 @@ namespace build2
   depdb (const path& f)
       : mtime_ (file_mtime (f)), touch_ (false)
   {
-    fs_.exceptions (fstream::failbit | fstream::badbit);
+    fstream::openmode om (fstream::out | fstream::binary);
+    fstream::iostate em (fstream::badbit);
 
-    if (mtime_ != timestamp_nonexistent)
+    if (mtime_ == timestamp_nonexistent)
     {
-      // Open an existing file.
-      //
-      fs_.open (f.string (), fstream::in | fstream::out | fstream::binary);
+      mtime_ = timestamp_unknown;
+      state_ = state::write;
+      em |= fstream::failbit;
+    }
+    else
+    {
       state_ = state::read;
-      fs_.exceptions (fstream::badbit);
+      om |= fstream::in;
+    }
 
-      // Read the database format version.
-      //
+    fs_.open (f.string (), om);
+    if (!fs_.is_open ())
+    {
+      bool c (state_ == state::write);
+
+      diag_record dr (fail);
+      dr << "unable to " << (c ? "create" : "open") << ' ' << f;
+
+      if (c)
+        dr << info << "did you forget to add fsdir{} prerequisite for "
+           << "output directory?";
+    }
+
+    fs_.exceptions (em);
+
+    // Read/write the database format version.
+    //
+    if (state_ == state::read)
+    {
       string* l (read ());
       if (l == nullptr || *l != "1")
         write ('1');
     }
     else
-    {
-      fs_.open (f.string (), fstream::out | fstream::binary);
-
-      state_ = state::write;
-      mtime_ = timestamp_unknown;
-
       write ('1');
-    }
   }
 
   void depdb::
