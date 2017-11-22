@@ -333,7 +333,7 @@ namespace build2
     {
       if (size_t s = skip_count.load (memory_order_relaxed))
       {
-        text << "skipped " << diag_doing (a) << ' ' << s << " target(s)";
+        text << "skipped " << diag_doing (a) << ' ' << s << " targets";
       }
     }
 
