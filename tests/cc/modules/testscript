@@ -200,7 +200,6 @@ $* test clean <<EOI
 :
 : Test module re-exporting (export import M;)
 :
-if ($cxx.id.type != "clang")
 {
   +cat <<EOI >=base.mxx
     #if __cpp_modules >= 201704
