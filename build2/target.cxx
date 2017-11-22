@@ -640,7 +640,7 @@ namespace build2
 
     // Then look for an existing file in the src tree.
     //
-    return pk.tk.dir->relative () ? search_existing_file (pk) : nullptr;
+    return search_existing_file (pk);
   }
 
   optional<string>

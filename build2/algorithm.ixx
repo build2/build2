@@ -23,16 +23,7 @@ namespace build2
     const target* r (p.target.load (memory_order_consume));
 
     if (r == nullptr)
-    {
-      r = &search (t, p.key ());
-
-      const target* e (nullptr);
-      if (!p.target.compare_exchange_strong (
-            e, r,
-            memory_order_release,
-            memory_order_consume))
-        assert (e == r);
-    }
+      r = &search_custom (p, search (t, p.key ()));
 
     return *r;
   }
@@ -49,17 +40,25 @@ namespace build2
       r = search_existing (p.key ());
 
       if (r != nullptr)
-      {
-        const target* e (nullptr);
-        if (!p.target.compare_exchange_strong (
-              e, r,
-              memory_order_release,
-              memory_order_consume))
-          assert (e == r);
-      }
+        search_custom (p, *r);
     }
 
     return r;
+  }
+
+  inline const target&
+  search_custom (const prerequisite& p, const target& t)
+  {
+    assert (phase == run_phase::match || phase == run_phase::execute);
+
+    const target* e (nullptr);
+    if (!p.target.compare_exchange_strong (
+          e, &t,
+          memory_order_release,
+          memory_order_consume))
+      assert (e == &t);
+
+    return t;
   }
 
   inline const target&

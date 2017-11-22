@@ -86,7 +86,15 @@ namespace build2
     tracer trace ("search_existing_file");
 
     const target_key& ctk (cpk.tk);
-    assert (ctk.dir->relative ());
+    const scope* s (cpk.scope);
+
+    if (ctk.dir->absolute ())
+    {
+      // Bail out if not inside project's src_root.
+      //
+      if (s == nullptr || !ctk.dir->sub (s->root_scope ()->src_path ()))
+        return nullptr;
+    }
 
     // Figure out the extension. Pretty similar logic to file::derive_path().
     //
@@ -95,7 +103,7 @@ namespace build2
     if (!ext)
     {
       if (auto f = ctk.type->extension)
-        ext = f (ctk, *cpk.scope, true);
+        ext = f (ctk, *s, true);
 
       if (!ext)
       {
@@ -118,14 +126,21 @@ namespace build2
 
     // Check if there is a file.
     //
-    const dir_path& s (pk.scope->src_path ());
+    path f;
 
-    path f (s);
-    if (!tk.dir->empty ())
+    if (tk.dir->absolute ())
+      f = *tk.dir; // Already normalized.
+    else
     {
-      f /= *tk.dir;
-      f.normalize ();
+      f = s->src_path ();
+
+      if (!tk.dir->empty ())
+      {
+        f /= *tk.dir;
+        f.normalize ();
+      }
     }
+
     f /= *tk.name;
 
     if (!ext->empty ())
@@ -163,8 +178,8 @@ namespace build2
 
     if (tk.out->empty ())
     {
-      if (pk.scope->out_path () != s)
-        out = out_src (d, *pk.scope->root_scope ());
+      if (s->out_path () != s->src_path ())
+        out = out_src (d, *s->root_scope ());
     }
     else
       out = *tk.out;

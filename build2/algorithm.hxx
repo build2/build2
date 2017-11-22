@@ -29,6 +29,11 @@ namespace build2
   const target*
   search_existing (const prerequisite&);
 
+  // As above but cache a target searched in a custom way.
+  //
+  const target&
+  search_custom (const prerequisite&, const target&);
+
   // As above but specify the prerequisite to search as a key.
   //
   const target&

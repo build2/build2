@@ -79,8 +79,8 @@ namespace build2
         fail << "in-tree distribution of target " << t <<
           info << "distribution requires out-of-tree build";
 
-      // Make sure we have the necessary configuration before
-      // we get down to business.
+      // Make sure we have the necessary configuration before we get down to
+      // business.
       //
       auto l (rs->vars["dist.root"]);
 
@@ -155,10 +155,9 @@ namespace build2
         }
       }
 
-      // Add buildfiles that are not normally loaded as part of the
-      // project, for example, the export stub. They will still be
-      // ignored on the next step if the user explicitly marked them
-      // nodist.
+      // Add buildfiles that are not normally loaded as part of the project,
+      // for example, the export stub. They will still be ignored on the next
+      // step if the user explicitly marked them dist=false.
       //
       auto add_adhoc = [&trace] (const scope& rs, const path& f)
       {
@@ -204,9 +203,8 @@ namespace build2
         }
       }
 
-      // Collect the files. We want to take the snapshot of targets
-      // since updating some of them may result in more targets being
-      // entered.
+      // Collect the files. We want to take the snapshot of targets since
+      // updating some of them may result in more targets being entered.
       //
       action_targets files;
       const variable& dist_var (var_pool["dist"]);

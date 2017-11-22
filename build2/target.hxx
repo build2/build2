@@ -935,17 +935,17 @@ namespace build2
     }
 
     const target_type*
-    load (memory_order mo = memory_order_consume)
-    {
-      return target != nullptr ? target : prerequisite.target.load (mo);
-    }
-
-    const target_type*
     search_existing () const
     {
       return target != nullptr
         ? target
         : build2::search_existing (prerequisite);
+    }
+
+    const target_type*
+    load (memory_order mo = memory_order_consume)
+    {
+      return target != nullptr ? target : prerequisite.target.load (mo);
     }
 
     // Return as a new prerequisite instance.
