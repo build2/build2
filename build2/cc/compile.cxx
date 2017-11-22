@@ -4206,10 +4206,6 @@ namespace build2
               args.push_back ("-Xclang");
               args.push_back ("-fmodules-embed-all-files");
 
-              // These should become the default at some point.
-              //
-              args.push_back ("-Xclang"); args.push_back ("-fmodules-codegen");
-              args.push_back ("-Xclang"); args.push_back ("-fmodules-debuginfo");
               break;
             }
           case compiler_id::msvc:
@@ -4407,7 +4403,7 @@ namespace build2
         args.resize (out_i + 1);
         args.push_back (relo.string ().c_str ()); // Produce .o.
         args.push_back ("-c");                    // By compiling .pcm.
-        args.push_back ("-Wno-unused-command-line-argument"); //@@ MOD (-I).
+        args.push_back ("-Wno-unused-command-line-argument");
         args.push_back (relm.string ().c_str ());
         args.push_back (nullptr);
 
