@@ -2939,7 +2939,8 @@ namespace build2
         if (e.normal ())
         {
           fail << "unable to preprocess " << src <<
-            info << "re-run with -s -V to display the failing command";
+            info << "re-run with -s -V to display failing command" <<
+            info << "then run failing command to display compiler diagnostics";
         }
         else
           fail << args[0] << " terminated abnormally: " << e.description ();
