@@ -3710,7 +3710,7 @@ namespace build2
         return *bt;
 
       // Make sure the output directory exists. This is not strictly necessary
-      // if out != src since inject_fsdir() will take case of it. For out ==
+      // if out != src since inject_fsdir() will take care of it. For out ==
       // src we initially tried to add an explicit fsdir{} preprequisite but
       // that didn't work out since this is a nested directory. So now we keep
       // it simple and just create it. The proper way to handle this as well
@@ -3750,8 +3750,8 @@ namespace build2
                                      trace));
       const target& bt (p.first);
 
-      // Note that this racy and someone might have created this target while
-      // we were preparing the prerequisite list.
+      // Note that this is racy and someone might have created this target
+      // while we were preparing the prerequisite list.
       //
       if (p.second.owns_lock ())
         bt.prerequisites (move (ps));
