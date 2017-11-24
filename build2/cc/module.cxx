@@ -231,42 +231,44 @@ namespace build2
           const string& ct (tt.string ()); // Canonical target.
 
           dr << "  signature  " << ci.signature << '\n'
+             << "  checksum   " << ci.checksum << '\n'
              << "  target     " << ct;
 
           if (ct != ci.target)
             dr << " (" << ci.target << ")";
-
-          dr << '\n';
         }
 
         if (!tstd.empty ())
         {
-          dr << "  std       "; // One less space.
+          dr << "\n  std       "; // One less space.
           for (const string& o: tstd) dr << ' ' << o;
-          dr << '\n';
         }
 
         if (!ci.cc_pattern.empty ()) // bin_pattern printed by bin
         {
-          dr << "  pattern    " << ci.cc_pattern << '\n';
+          dr << "\n  pattern    " << ci.cc_pattern;
         }
 
         if (verb >= 3 && !inc_dirs.empty ())
         {
-          dr << "  inc dirs\n";
-          for (const dir_path& d: inc_dirs)
-            dr << "    " << d << '\n';
+          dr << "\n  inc dirs";
+          for (size_t i (0); i != inc_dirs.size (); ++i)
+          {
+            if (i == sys_inc_dirs_extra)
+              dr << "\n    --";
+            dr << "\n    " << inc_dirs[i];
+          }
         }
 
         if (verb >= 3 && !lib_dirs.empty ())
         {
-          dr << "  lib dirs\n";
-          for (const dir_path& d: lib_dirs)
-            dr << "    " << d << '\n';
-        }
-
-        {
-          dr << "  checksum   " << ci.checksum;
+          dr << "\n  lib dirs";
+          for (size_t i (0); i != lib_dirs.size (); ++i)
+          {
+            if (i == sys_lib_dirs_extra)
+              dr << "\n    --";
+            dr << "\n    " << lib_dirs[i];
+          }
         }
       }
 

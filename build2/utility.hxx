@@ -355,6 +355,23 @@ namespace build2
   void
   hash_options (sha256&, const strings&, size_t);
 
+  // As above but append/hash option values for the specified option (e.g.,
+  // -I, -L).
+  //
+  template <typename I, typename F>
+  void
+  append_option_values (cstrings&,
+                        const char* opt,
+                        I begin, I end,
+                        F&& get = [] (const string& s) {return s.c_str ();});
+
+  template <typename I, typename F>
+  void
+  hash_option_values (sha256&,
+                      const char* opt,
+                      I begin, I end,
+                      F&& get = [] (const string& s) {return s;});
+
   // Check if a specified option is present in the variable or value. T is
   // either target or scope.
   //

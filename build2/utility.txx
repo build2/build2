@@ -4,6 +4,33 @@
 
 namespace build2
 {
+  template <typename I, typename F>
+  void
+  append_option_values (cstrings& args, const char* o, I b, I e, F&& get)
+  {
+    if (b != e)
+    {
+      args.reserve (args.size () + (e - b));
+
+      for (; b != e; ++b)
+      {
+        args.push_back (o);
+        args.push_back (get (*b));
+      }
+    }
+  }
+
+  template <typename I, typename F>
+  void
+  hash_option_values (sha256& cs, const char* o, I b, I e, F&& get)
+  {
+    for (; b != e; ++b)
+    {
+      cs.append (o);
+      cs.append (get (*b));
+    }
+  }
+
   template <typename K>
   basic_path<char, K>
   relative (const basic_path<char, K>& p)

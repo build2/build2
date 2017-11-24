@@ -761,9 +761,10 @@ namespace build2
             // Extra system header dirs (last).
             //
             assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-            for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
-                   i != sys_inc_dirs.end (); ++i)
-              cs.append (i->string ());
+            hash_option_values (
+              cs, "-I",
+              sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
+              [] (const dir_path& d) {return d.string ();});
           }
 
           hash_options (cs, t, c_coptions);
@@ -1760,12 +1761,10 @@ namespace build2
           // Extra system header dirs (last).
           //
           assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-          for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
-               i != sys_inc_dirs.end (); ++i)
-          {
-            args.push_back ("-I");
-            args.push_back (i->string ().c_str ());
-          }
+          append_option_values (
+            args, "-I",
+            sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
+            [] (const dir_path& d) {return d.string ().c_str ();});
 
           if (md.symexport)
             append_symexport_options (args, t);
@@ -2751,12 +2750,10 @@ namespace build2
           append_options (args, t, x_poptions);
 
           assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-          for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
-               i != sys_inc_dirs.end (); ++i)
-          {
-            args.push_back ("-I");
-            args.push_back (i->string ().c_str ());
-          }
+          append_option_values (
+            args, "-I",
+            sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
+            [] (const dir_path& d) {return d.string ().c_str ();});
 
           if (md.symexport)
             append_symexport_options (args, t);
@@ -4042,12 +4039,10 @@ namespace build2
         // Extra system header dirs (last).
         //
         assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-        for (auto i (sys_inc_dirs.begin () + sys_inc_dirs_extra);
-             i != sys_inc_dirs.end (); ++i)
-        {
-          args.push_back ("-I");
-          args.push_back (i->string ().c_str ());
-        }
+        append_option_values (
+          args, "-I",
+          sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
+          [] (const dir_path& d) {return d.string ().c_str ();});
 
         if (md.symexport)
           append_symexport_options (args, t);

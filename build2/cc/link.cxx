@@ -1421,6 +1421,17 @@ namespace build2
         append_options (args, t, c_loptions);
         append_options (args, t, x_loptions);
 
+        // Extra system library dirs (last).
+        //
+        // @@ /LIBPATH:<path>, not /LIBPATH <path>
+        //
+        assert (sys_lib_dirs_extra <= sys_lib_dirs.size ());
+        append_option_values (
+          args,
+          cid == compiler_id::msvc ? "/LIBPATH:" : "-L",
+          sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
+          [] (const dir_path& d) {return d.string ().c_str ();});
+
         // Handle soname/rpath.
         //
         if (tclass == "windows")
@@ -1562,7 +1573,7 @@ namespace build2
         if (!manifest.empty ())
           cs.append (manifest.string ());
 
-        // Treat them as inputs, not options.
+        // Treat .libs as inputs, not options.
         //
         if (!lt.static_library ())
         {
