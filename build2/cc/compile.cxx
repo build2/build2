@@ -1549,7 +1549,7 @@ namespace build2
       //
       // This is a nasty problem that doesn't seem to have a perfect solution
       // (except, perhaps, C++ modules). So what we are going to do is try to
-      // rectify the situation by detecting and automatically re-mapping such
+      // rectify the situation by detecting and automatically remapping such
       // mis-inclusions. It works as follows.
       //
       // First we will build a map of src/out pairs that were specified with
@@ -1686,9 +1686,13 @@ namespace build2
               {
                 // Note that we don't normalize the paths since it would be
                 // quite expensive and normally the pairs we are inerested in
-                // are already normalized (since usually specified as
-                // -I$src/out_*).
+                // are already normalized (since they are usually specified as
+                // -I$src/out_*). We just need to add a trailing directory
+                // separator if it's not already there.
                 //
+                if (!dir_path::traits::is_separator (ds.back ()))
+                  ds += dir_path::traits::directory_separator;
+
                 dir_path d (move (ds), dir_path::exact); // Move the buffer in.
 
                 // Ignore invalid paths (buffer is not moved).
@@ -1715,6 +1719,7 @@ namespace build2
                           // We've got a pair.
                           //
                           so_map.emplace (move (d), s->out_path () / p);
+                          s = nullptr; // Taken.
                           continue;
                         }
                       }
@@ -2131,8 +2136,8 @@ namespace build2
 
           // First try the whole file. Then just the directory.
           //
-          // @@ Has to be a separate map since the prefix can be
-          //    the same as the file name.
+          // @@ Has to be a separate map since the prefix can be the same as
+          //    the file name.
           //
           // auto i (pfx_map->find (f));
 
@@ -2216,7 +2221,7 @@ namespace build2
                 if (pt != nullptr)
                 {
                   path p (d / f.leaf ());
-                  l4 ([&]{trace << "re-mapping " << f << " to " << p;});
+                  l4 ([&]{trace << "remapping " << f << " to " << p;});
                   f = move (p);
                 }
               }

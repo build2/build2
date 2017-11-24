@@ -55,7 +55,7 @@ namespace build2
       // this is to avoid searching for existing files in src_base if the
       // buildfile mentions some of them explicitly as prerequisites.
       //
-      // Also required for the src-out re-mapping logic.
+      // Also required for the src-out remapping logic.
       //
       targets.insert<cxx::hxx> (d, o, n, trace);
       targets.insert<cxx::cxx> (d, o, n, trace);
