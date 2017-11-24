@@ -120,7 +120,16 @@ namespace build2
           is.close (); // Don't block.
 
           if (!pr.wait ())
-            throw failed ();
+          {
+            // We have read stderr so better print some diagnostics.
+            //
+            diag_record dr (fail);
+
+            dr << "failed to extract " << x_lang << " header search paths" <<
+              info << "command line: ";
+
+            print_process (dr, args);
+          }
         }
         catch (const io_error&)
         {
@@ -203,7 +212,7 @@ namespace build2
           is.close (); // Don't block.
 
           if (!pr.wait ())
-            throw failed ();
+            throw failed (); // Assume issued diagnostics to stderr.
         }
         catch (const io_error&)
         {
