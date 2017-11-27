@@ -37,12 +37,11 @@ namespace build2
       std::string
       string () const {return variant.empty () ? type : type + "-" + variant;}
 
-      // Note: does not include variant.
-      //
       enum value_type
       {
         gcc,
         clang,
+        clang_apple,
         msvc,
         icc
       };
@@ -55,6 +54,31 @@ namespace build2
     operator<< (ostream& os, const compiler_id& id)
     {
       return os << id.string ();
+    }
+
+    // Compiler class describes a set of compilers that follow more or less
+    // the same command line interface. Compilers that don't belong to any of
+    // the existing classes are in classes of their own (say, Sun CC would be
+    // on its own if we were to support it).
+    //
+    // Currently defined compiler classes:
+    //
+    // gcc          gcc, clang, clang-apple, icc (on non-Windows)
+    // msvc         msvc, clang-cl, icc (Windows)
+    //
+    enum class compiler_class
+    {
+      gcc,
+      msvc
+    };
+
+    string
+    to_string (compiler_class);
+
+    inline ostream&
+    operator<< (ostream& os, compiler_class cl)
+    {
+      return os << to_string (cl);
     }
 
     // Compiler version. Here we map the various compiler version formats to
@@ -122,6 +146,7 @@ namespace build2
     {
       process_path path;
       compiler_id id;
+      compiler_class class_;
       compiler_version version;
       string signature;
       string checksum;

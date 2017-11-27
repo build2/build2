@@ -859,7 +859,7 @@ namespace build2
 
         if (!lops.empty ())
         {
-          if (cid == compiler_id::msvc)
+          if (cclass == compiler_class::msvc)
           {
             // Translate -L to /LIBPATH.
             //
@@ -1221,7 +1221,7 @@ namespace build2
             //
             n = l.path ().leaf ().base ().string ();
 
-            if (cid != compiler_id::msvc)
+            if (cclass != compiler_class::msvc)
               strip_lib ();
           }
 

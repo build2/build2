@@ -220,7 +220,7 @@ namespace build2
         // specified, then it should explicitly handle all the targets.
         //
         if (i == m->end ())
-          fail << "no version for " << ctg << " in bin.lib.version" <<
+          fail << "no version for " << ctgt << " in bin.lib.version" <<
             info << "considere adding " << tsys << "@<ver> or " << tclass
                << "@<ver>";
 
@@ -400,7 +400,7 @@ namespace build2
             }
           case otype::a:
             {
-              if (cid == compiler_id::msvc)
+              if (cclass == compiler_class::msvc)
                 e = "lib";
               else
               {
@@ -431,7 +431,7 @@ namespace build2
           // Add VC's .pdb.
           //
           if (ot != otype::a                               &&
-              cid == compiler_id::msvc                     &&
+              cclass == compiler_class::msvc               &&
               (find_option ("/DEBUG", t, c_loptions, true) ||
                find_option ("/DEBUG", t, x_loptions, true)))
           {
@@ -1363,7 +1363,7 @@ namespace build2
         //
         const string& cs (
           cast<string> (
-            rs[cid == compiler_id::msvc
+            rs[cclass == compiler_class::msvc
                ? var_pool["bin.ld.checksum"]
                : x_checksum]));
 
@@ -1374,7 +1374,7 @@ namespace build2
       // Next check the target. While it might be incorporated into the linker
       // checksum, it also might not (e.g., VC link.exe).
       //
-      if (dd.expect (ctg.string ()) != nullptr)
+      if (dd.expect (ctgt.string ()) != nullptr)
         l4 ([&]{trace << "target mismatch forcing update of " << t;});
 
       // Start building the command line. While we don't yet know whether we
@@ -1394,7 +1394,7 @@ namespace build2
 
       if (lt.static_library ())
       {
-        if (cid == compiler_id::msvc) ;
+        if (cclass == compiler_class::msvc) ;
         else
         {
           // If the user asked for ranlib, don't try to do its function with
@@ -1406,7 +1406,7 @@ namespace build2
       }
       else
       {
-        if (cid == compiler_id::msvc)
+        if (cclass == compiler_class::msvc)
         {
           // We are using link.exe directly so don't pass the compiler
           // options.
@@ -1428,7 +1428,7 @@ namespace build2
         assert (sys_lib_dirs_extra <= sys_lib_dirs.size ());
         append_option_values (
           args,
-          cid == compiler_id::msvc ? "/LIBPATH:" : "-L",
+          cclass == compiler_class::msvc ? "/LIBPATH:" : "-L",
           sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
           [] (const dir_path& d) {return d.string ().c_str ();});
 
@@ -1442,7 +1442,7 @@ namespace build2
           auto l (t["bin.rpath"]);
 
           if (l && !l->empty ())
-            fail << ctg << " does not support rpath";
+            fail << ctgt << " does not support rpath";
         }
         else
         {
@@ -1640,9 +1640,9 @@ namespace build2
       {
         ld = &cast<process_path> (rs["bin.ar.path"]);
 
-        switch (cid)
+        switch (cclass)
         {
-        case compiler_id::msvc:
+        case compiler_class::msvc:
           {
             // lib.exe has /LIBPATH but it's not clear/documented what it's
             // used for. Perhaps for link-time code generation (/LTCG)? If
@@ -1670,9 +1670,9 @@ namespace build2
         // The options are usually similar enough to handle executables
         // and shared libraries together.
         //
-        switch (cid)
+        switch (cclass)
         {
-        case compiler_id::msvc:
+        case compiler_class::msvc:
           {
             // Using link.exe directly.
             //
@@ -1767,7 +1767,7 @@ namespace build2
             args.push_back (out.c_str ());
             break;
           }
-        default:
+        case compiler_class::gcc:
           {
             ld = &cpath;
 
@@ -1929,7 +1929,7 @@ namespace build2
         // something like this) we are going to redirect stdout to stderr. For
         // sane compilers this should be harmless.
         //
-        bool filter (cid == compiler_id::msvc && !lt.static_library ());
+        bool filter (cclass == compiler_class::msvc && !lt.static_library ());
 
         process pr (*ld, args.data (), 0, (filter ? -1 : 2));
 

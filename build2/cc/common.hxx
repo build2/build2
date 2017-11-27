@@ -78,6 +78,8 @@ namespace build2
       const variable& x_id_type;
       const variable& x_id_variant;
 
+      const variable& x_class;
+
       const variable& x_version;
       const variable& x_version_major;
       const variable& x_version_minor;
@@ -105,13 +107,13 @@ namespace build2
       // Cached values for some commonly-used variables/values.
       //
 
-      compiler_id::value_type cid; // x.id (no variant)
-      const string& cvar;          // x.id.variant
+      compiler_id::value_type cid; // x.id
+      compiler_class cclass;       // x.class
       uint64_t cmaj;               // x.version.major
       uint64_t cmin;               // x.version.minor
       const process_path& cpath;   // x.path
 
-      const target_triplet& ctg;   // x.target
+      const target_triplet& ctgt;  // x.target
       const string& tsys;          // x.target.system
       const string& tclass;        // x.target.class
 
@@ -158,10 +160,10 @@ namespace build2
             const char* link,
             const char* install,
             const char* uninstall,
-            compiler_id::value_type id, const string& var,
+            compiler_id::value_type id, compiler_class cl,
             uint64_t mj, uint64_t mi,
             const process_path& path,
-            const target_triplet& tg,
+            const target_triplet& tgt,
             const strings& std,
             bool fm,
             bool fs,
@@ -178,8 +180,8 @@ namespace build2
             x_link (link),
             x_install (install),
             x_uninstall (uninstall),
-            cid (id), cvar (var), cmaj (mj), cmin (mi), cpath (path),
-            ctg (tg), tsys (ctg.system), tclass (ctg.class_),
+            cid (id), cclass (cl), cmaj (mj), cmin (mi), cpath (path),
+            ctgt (tgt), tsys (ctgt.system), tclass (ctgt.class_),
             tstd (std),
             modules (fm),
             symexport (fs),

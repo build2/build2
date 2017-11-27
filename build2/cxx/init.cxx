@@ -21,6 +21,7 @@ namespace build2
   namespace cxx
   {
     using cc::compiler_id;
+    using cc::compiler_class;
     using cc::compiler_info;
 
     class config_module: public cc::config_module
@@ -43,7 +44,8 @@ namespace build2
     {
       strings r;
 
-      auto id (ci.id.value ());
+      compiler_id::value_type id (ci.id.value ());
+      compiler_class cl (ci.class_);
       uint64_t mj (ci.version.major);
       uint64_t mi (ci.version.minor);
       uint64_t p (ci.version.patch);
@@ -89,8 +91,9 @@ namespace build2
             break;
           }
         case compiler_id::clang:
+        case compiler_id::clang_apple:
           {
-            // Re-map Apple versions to vanilla Clang based on the following
+            // Remap Apple versions to vanilla Clang based on the following
             // release point:
             //
             // 5.1 -> 3.4
@@ -99,7 +102,7 @@ namespace build2
             // Note that this mapping is also used to enable experimental
             // features below.
             //
-            if (ci.id.variant == "apple")
+            if (id == compiler_id::clang_apple)
             {
               if      (mj >= 6)            {mj = 3; mi = 5;}
               else if (mj == 5 && mi >= 1) {mj = 3; mi = 4;}
@@ -170,6 +173,7 @@ namespace build2
                 break;
               }
             case compiler_id::clang:
+            case compiler_id::clang_apple:
               {
                 // Enable starting with Clang 6.0.0.
                 //
@@ -196,9 +200,9 @@ namespace build2
       {
         // Otherwise translate the standard value.
         //
-        switch (id)
+        switch (cl)
         {
-        case compiler_id::msvc:
+        case compiler_class::msvc:
           {
             // C++ standard-wise, with VC you got what you got up until 14u2.
             // Starting with 14u3 there is now the /std: switch which defaults
@@ -251,9 +255,7 @@ namespace build2
             }
             break;
           }
-        case compiler_id::gcc:
-        case compiler_id::clang:
-        case compiler_id::icc:
+        case compiler_class::gcc:
           {
             // Translate 11 to 0x, 14 to 1y, 17 to 1z, and 20 to 2a for
             // compatibility with older versions of the compilers.
@@ -377,6 +379,8 @@ namespace build2
         v.insert<string>   ("cxx.id.type"),
         v.insert<string>   ("cxx.id.variant"),
 
+        v.insert<string>   ("cxx.class"),
+
         v.insert<string>   ("cxx.version"),
         v.insert<uint64_t> ("cxx.version.major"),
         v.insert<uint64_t> ("cxx.version.minor"),
@@ -497,7 +501,7 @@ namespace build2
         "cxx.uninstall",
 
         cm.ci.id.value (),
-        cm.ci.id.variant,
+        cm.ci.class_,
         cm.ci.version.major,
         cm.ci.version.minor,
         cast<process_path>   (rs[cm.x_path]),

@@ -168,6 +168,7 @@ namespace build2
           }
         }
       case compiler_id::clang:
+      case compiler_id::clang_apple:
         {
           // Clang has *-cpp-output (but not c++-module-cpp-output) and they
           // handle comments and line continuations. However, currently this
@@ -540,15 +541,20 @@ namespace build2
             break;
           }
         case compiler_id::clang:
+        case compiler_id::clang_apple:
           {
             e += mod ? "pcm" : o;
             break;
           }
         case compiler_id::msvc:
-        case compiler_id::icc:
           {
             e += mod ? "ifc" : o;
             break;
+          }
+        case compiler_id::icc:
+          {
+            assert (!mod);
+            e += o;
           }
         }
 
@@ -1417,6 +1423,7 @@ namespace build2
           break;
         }
       case compiler_id::clang:
+      case compiler_id::clang_apple:
         {
           // -frewrite-includes is available since vanilla Clang 3.2.0.
           //
@@ -1424,8 +1431,9 @@ namespace build2
           // option (4.2 is based on 3.2svc so it may or may not have it and,
           // no, we are not going to try to find out).
           //
-          if (cvar == ""      ? (cmaj > 3 || (cmaj == 3 && cmin >= 2)) :
-              cvar == "apple" ? (cmaj >= 5) : false)
+          if (cid == compiler_id::clang_apple
+              ? (cmaj >= 5)
+              : (cmaj > 3 || (cmaj == 3 && cmin >= 2)))
             pp = "-frewrite-includes";
 
           break;
@@ -1786,126 +1794,141 @@ namespace build2
 
           // Don't treat warnings as errors.
           //
-          const char* werror (cid == compiler_id::msvc ? "/WX" : "-Werror");
+          const char* werror (nullptr);
+          switch (cclass)
+          {
+          case compiler_class::gcc:  werror = "-Werror"; break;
+          case compiler_class::msvc: werror = "/WX";     break;
+          }
+
+          bool clang (cid == compiler_id::clang      ||
+                      cid == compiler_id::clang_apple);
 
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
           append_options (args, tstd,
-                          tstd.size () -
-                          (modules && cid == compiler_id::clang ? 1 : 0));
+                          tstd.size () - (modules && clang ? 1 : 0));
 
-          if (cid == compiler_id::msvc)
+          switch (cclass)
           {
-            assert (pp != nullptr);
-
-            args.push_back ("/nologo");
-
-            // See perform_update() for details on overriding the default
-            // exceptions and runtime.
-            //
-            if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
-              args.push_back ("/EHsc");
-
-            if (!find_option_prefixes ({"/MD", "/MT"}, args))
-              args.push_back ("/MD");
-
-            args.push_back ("/P");            // Preprocess to file.
-            args.push_back ("/showIncludes"); // Goes to stdout (with diag).
-            args.push_back (pp);              // /C (preserve comments).
-            args.push_back ("/WX");           // Warning as error (see above).
-
-            psrc = auto_rmfile (t.path () + x_pext);
-
-            if (cast<uint64_t> (rs[x_version_major]) >= 18)
+          case compiler_class::msvc:
             {
-              args.push_back ("/Fi:");
-              args.push_back (psrc.path.string ().c_str ());
-            }
-            else
-            {
-              out = "/Fi" + psrc.path.string ();
-              args.push_back (out.c_str ());
-            }
+              assert (pp != nullptr);
 
-            args.push_back (langopt (md)); // Compile as.
-            gen = args_gen = true;
-          }
-          else
-          {
-            if (t.is_a<objs> ())
-            {
-              // On Darwin, Win32 -fPIC is the default.
+              args.push_back ("/nologo");
+
+              // See perform_update() for details on overriding the default
+              // exceptions and runtime.
               //
-              if (tclass == "linux" || tclass == "bsd")
-                args.push_back ("-fPIC");
-            }
+              if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+                args.push_back ("/EHsc");
 
-            // Depending on the compiler, decide whether (and how) we can
-            // produce preprocessed output as a side effect of dependency
-            // extraction.
-            //
-            // Note: -MM -MG skips missing <>-included.
+              if (!find_option_prefixes ({"/MD", "/MT"}, args))
+                args.push_back ("/MD");
 
-            // Clang's -M does not imply -w (disable warnings). We also don't
-            // need them in the -MD case (see above) so disable for both.
-            //
-            if (cid == compiler_id::clang)
-              args.push_back ("-w");
+              args.push_back ("/P");            // Preprocess to file.
+              args.push_back ("/showIncludes"); // Goes to stdout (with diag).
+              args.push_back (pp);              // /C (preserve comments).
+              args.push_back ("/WX");           // Warning as error (see above).
 
-            // Previously we used '*' as a target name but it gets expanded to
-            // the current directory file names by GCC (4.9) that comes with
-            // MSYS2 (2.4). Yes, this is the (bizarre) behavior of GCC being
-            // executed in the shell with -MQ '*' option and not just -MQ *.
-            //
-            args.push_back ("-MQ"); // Quoted target name.
-            args.push_back ("^");   // Old versions can't do empty target name.
+              psrc = auto_rmfile (t.path () + x_pext);
 
-            args.push_back ("-x");
-            args.push_back (langopt (md));
-
-            if (pp != nullptr)
-            {
-              // Note that the options are carefully laid out to be easy to
-              // override (see below).
-              //
-              args_i = args.size ();
-
-              args.push_back ("-MD");
-              args.push_back ("-E");
-              args.push_back (pp);
-
-              // Dependency output.
-              //
-              args.push_back ("-MF");
-
-              // GCC is not capable of writing the dependency info to stdout.
-              // We also need to sense the diagnostics on the -E runs.
-              //
-              if (cid == compiler_id::gcc)
+              if (cast<uint64_t> (rs[x_version_major]) >= 18)
               {
-                // Use the .t extension (for "temporary"; .d is taken).
-                //
-                r = &(drm = auto_rmfile (t.path () + ".t")).path;
-                args.push_back (r->string ().c_str ());
-
-                sense_diag = true;
+                args.push_back ("/Fi:");
+                args.push_back (psrc.path.string ().c_str ());
               }
               else
-                args.push_back ("-");
+              {
+                out = "/Fi" + psrc.path.string ();
+                args.push_back (out.c_str ());
+              }
 
-              // Preprocessor output.
-              //
-              psrc = auto_rmfile (t.path () + x_pext);
-              args.push_back ("-o");
-              args.push_back (psrc.path.string ().c_str ());
+              args.push_back (langopt (md)); // Compile as.
+              gen = args_gen = true;
+              break;
             }
-            else
+          case compiler_class::gcc:
             {
-              args.push_back ("-M");
-              args.push_back ("-MG"); // Treat missing headers as generated.
-            }
+              if (t.is_a<objs> ())
+              {
+                // On Darwin, Win32 -fPIC is the default.
+                //
+                if (tclass == "linux" || tclass == "bsd")
+                  args.push_back ("-fPIC");
+              }
 
-            gen = args_gen = (pp == nullptr);
+              // Depending on the compiler, decide whether (and how) we can
+              // produce preprocessed output as a side effect of dependency
+              // extraction.
+              //
+              // Note: -MM -MG skips missing <>-included.
+
+              // Clang's -M does not imply -w (disable warnings). We also
+              // don't need them in the -MD case (see above) so disable for
+              // both.
+              //
+              if (clang)
+                args.push_back ("-w");
+
+              // Previously we used '*' as a target name but it gets expanded
+              // to the current directory file names by GCC (4.9) that comes
+              // with MSYS2 (2.4). Yes, this is the (bizarre) behavior of GCC
+              // being executed in the shell with -MQ '*' option and not just
+              // -MQ *.
+              //
+              args.push_back ("-MQ"); // Quoted target name.
+              args.push_back ("^");   // Old versions can't do empty target.
+
+              args.push_back ("-x");
+              args.push_back (langopt (md));
+
+              if (pp != nullptr)
+              {
+                // Note that the options are carefully laid out to be easy to
+                // override (see below).
+                //
+                args_i = args.size ();
+
+                args.push_back ("-MD");
+                args.push_back ("-E");
+                args.push_back (pp);
+
+                // Dependency output.
+                //
+                args.push_back ("-MF");
+
+                // GCC is not capable of writing the dependency info to
+                // stdout. We also need to sense the diagnostics on the -E
+                // runs.
+                //
+                if (cid == compiler_id::gcc)
+                {
+                  // Use the .t extension (for "temporary"; .d is taken).
+                  //
+                  r = &(drm = auto_rmfile (t.path () + ".t")).path;
+                  args.push_back (r->string ().c_str ());
+
+                  sense_diag = true;
+                }
+                else
+                  args.push_back ("-");
+
+                // Preprocessor output.
+                //
+                psrc = auto_rmfile (t.path () + x_pext);
+                args.push_back ("-o");
+                args.push_back (psrc.path.string ().c_str ());
+              }
+              else
+              {
+                args.push_back ("-M");
+                args.push_back ("-MG"); // Treat missing headers as generated.
+              }
+
+              gen = args_gen = (pp == nullptr);
+              break;
+            }
           }
 
           args.push_back (src.path ().string ().c_str ());
@@ -2376,13 +2399,14 @@ namespace build2
                 // For VC with /P the dependency info and diagnostics all go
                 // to stderr so redirect it to stdout.
                 //
-                pr = process (cpath,
-                              args.data (),
-                              0,
-                              -1,
-                              cid == compiler_id::msvc ? 1 : gen ? 2 : -2,
-                              nullptr, // CWD
-                              env.empty () ? nullptr : env.data ());
+                pr = process (
+                  cpath,
+                  args.data (),
+                  0,
+                  -1,
+                  cclass == compiler_class::msvc ? 1 : gen ? 2 : -2,
+                  nullptr, // CWD
+                  env.empty () ? nullptr : env.data ());
               }
               else
               {
@@ -2441,134 +2465,145 @@ namespace build2
 
                 // Parse different dependency output formats.
                 //
-                if (cid == compiler_id::msvc)
+                switch (cclass)
                 {
-                  if (first)
+                case compiler_class::msvc:
                   {
-                    // The first line should be the file we are compiling. If
-                    // it is not, then something went wrong even before we
-                    // could compile anything (e.g., file does not exist). In
-                    // this case the first line (and everything after it) is
-                    // presumably diagnostics.
-                    //
-                    if (l != src.path ().leaf ().string ())
+                    if (first)
+                    {
+                      // The first line should be the file we are compiling.
+                      // If it is not, then something went wrong even before
+                      // we could compile anything (e.g., file does not
+                      // exist). In this case the first line (and everything
+                      // after it) is presumably diagnostics.
+                      //
+                      if (l != src.path ().leaf ().string ())
+                      {
+                        text << l;
+                        bad_error = true;
+                        break;
+                      }
+
+                      first = false;
+                      continue;
+                    }
+
+                    string f (next_show (l, good_error));
+
+                    if (f.empty ()) // Some other diagnostics.
                     {
                       text << l;
                       bad_error = true;
                       break;
                     }
 
-                    first = false;
-                    continue;
-                  }
-
-                  string f (next_show (l, good_error));
-
-                  if (f.empty ()) // Some other diagnostics.
-                  {
-                    text << l;
-                    bad_error = true;
-                    break;
-                  }
-
-                  // Skip until where we left off.
-                  //
-                  if (skip != 0)
-                  {
-                    // We can't be skipping over a non-existent header.
-                    //
-                    assert (!good_error);
-                    skip--;
-                  }
-                  else
-                  {
-                    restart = add (path (move (f)), false, pmt);
-
-                    // If the header does not exist (good_error) then restart
-                    // must be true. Except that it is possible that someone
-                    // running in parallel has already updated it. In this
-                    // case we must force a restart since we haven't yet seen
-                    // what's after this at-that-time-non-existent header.
-                    //
-                    // We also need to force the target update (normally done
-                    // by add()).
-                    //
-                    if (good_error)
-                      restart = updating = true;
-
-                    if (restart)
-                      l6 ([&]{trace << "restarting";});
-                  }
-                }
-                else
-                {
-                  // Make dependency declaration.
-                  //
-                  size_t pos (0);
-
-                  if (first)
-                  {
-                    // Empty/invalid output should mean the wait() call below
-                    // will return false.
-                    //
-                    if (l.empty () ||
-                        l[0] != '^' || l[1] != ':' || l[2] != ' ')
-                    {
-                      if (!l.empty ())
-                        text << l;
-
-                      bad_error = true;
-                      break;
-                    }
-
-                    first = false;
-                    second = true;
-
-                    // While normally we would have the source file on the
-                    // first line, if too long, it will be moved to the next
-                    // line and all we will have on this line is "^: \".
-                    //
-                    if (l.size () == 4 && l[3] == '\\')
-                      continue;
-                    else
-                      pos = 3; // Skip "^: ".
-
-                    // Fall through to the 'second' block.
-                  }
-
-                  if (second)
-                  {
-                    second = false;
-                    next_make (l, pos); // Skip the source file.
-                  }
-
-                  while (pos != l.size ())
-                  {
-                    string f (next_make (l, pos));
-
                     // Skip until where we left off.
                     //
                     if (skip != 0)
                     {
+                      // We can't be skipping over a non-existent header.
+                      //
+                      assert (!good_error);
                       skip--;
-                      continue;
                     }
-
-                    restart = add (path (move (f)), false, pmt);
-
-                    if (restart)
+                    else
                     {
-                      l6 ([&]{trace << "restarting";});
-                      break;
+                      restart = add (path (move (f)), false, pmt);
+
+                      // If the header does not exist (good_error), then
+                      // restart must be true. Except that it is possible that
+                      // someone running in parallel has already updated it.
+                      // In this case we must force a restart since we haven't
+                      // yet seen what's after this at-that-time-non-existent
+                      // header.
+                      //
+                      // We also need to force the target update (normally
+                      // done by add()).
+                      //
+                      if (good_error)
+                        restart = updating = true;
+
+                      if (restart)
+                        l6 ([&]{trace << "restarting";});
                     }
+
+                    break;
+                  }
+                case compiler_class::gcc:
+                  {
+                    // Make dependency declaration.
+                    //
+                    size_t pos (0);
+
+                    if (first)
+                    {
+                      // Empty/invalid output should mean the wait() call
+                      // below will return false.
+                      //
+                      if (l.empty ()  ||
+                          l[0] != '^' || l[1] != ':' || l[2] != ' ')
+                      {
+                        if (!l.empty ())
+                          text << l;
+
+                        bad_error = true;
+                        break;
+                      }
+
+                      first = false;
+                      second = true;
+
+                      // While normally we would have the source file on the
+                      // first line, if too long, it will be moved to the next
+                      // line and all we will have on this line is "^: \".
+                      //
+                      if (l.size () == 4 && l[3] == '\\')
+                        continue;
+                      else
+                        pos = 3; // Skip "^: ".
+
+                      // Fall through to the 'second' block.
+                    }
+
+                    if (second)
+                    {
+                      second = false;
+                      next_make (l, pos); // Skip the source file.
+                    }
+
+                    while (pos != l.size ())
+                    {
+                      string f (next_make (l, pos));
+
+                      // Skip until where we left off.
+                      //
+                      if (skip != 0)
+                      {
+                        skip--;
+                        continue;
+                      }
+
+                      restart = add (path (move (f)), false, pmt);
+
+                      if (restart)
+                      {
+                        l6 ([&]{trace << "restarting";});
+                        break;
+                      }
+                    }
+
+                    break;
                   }
                 }
+
+                if (bad_error)
+                  break;
               }
 
               // In case of VC, we are parsing stderr and if things go south,
               // we need to copy the diagnostics for the user to see.
               //
-              if (bad_error && cid == compiler_id::msvc)
+              if (bad_error && cclass == compiler_class::msvc)
               {
                 // We used to just dump the whole rdbuf but it turns out VC
                 // may continue writing include notes interleaved with the
@@ -2742,7 +2777,7 @@ namespace build2
 
         // VC's preprocessed output, if present, is fully preprocessed.
         //
-        if (cid != compiler_id::msvc || !ps)
+        if (cclass != compiler_class::msvc || !ps)
         {
           // This should match with how we setup preprocessing and is pretty
           // similar to init_args() from extract_headers().
@@ -2767,51 +2802,65 @@ namespace build2
           //
           // @@ Can be both -WX and /WX.
           //
-          const char* werror (cid == compiler_id::msvc ? "/WX" : "-Werror");
+          const char* werror (nullptr);
+          switch (cclass)
+          {
+          case compiler_class::gcc:  werror = "-Werror"; break;
+          case compiler_class::msvc: werror = "/WX";     break;
+          }
+
+          bool clang (cid == compiler_id::clang      ||
+                      cid == compiler_id::clang_apple);
 
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
           append_options (args, tstd,
-                          tstd.size () -
-                          (modules && cid == compiler_id::clang ? 1 : 0));
+                          tstd.size () - (modules && clang ? 1 : 0));
 
-          if (cid == compiler_id::msvc)
+          switch (cclass)
           {
-            args.push_back ("/nologo");
-
-            if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
-              args.push_back ("/EHsc");
-
-            if (!find_option_prefixes ({"/MD", "/MT"}, args))
-              args.push_back ("/MD");
-
-            args.push_back ("/E");
-            args.push_back ("/C");
-            args.push_back (langopt (md)); // Compile as.
-          }
-          else
-          {
-            if (t.is_a<objs> ())
+          case compiler_class::msvc:
             {
-              if (tclass == "linux" || tclass == "bsd")
-                args.push_back ("-fPIC");
+              args.push_back ("/nologo");
+
+              if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+                args.push_back ("/EHsc");
+
+              if (!find_option_prefixes ({"/MD", "/MT"}, args))
+                args.push_back ("/MD");
+
+              args.push_back ("/E");
+              args.push_back ("/C");
+              args.push_back (langopt (md)); // Compile as.
+
+              break;
             }
-
-            // Options that trigger preprocessing of partially preprocessed
-            // output are a bit of a compiler-specific voodoo.
-            //
-            args.push_back ("-E");
-
-            if (ps)
+          case compiler_class::gcc:
             {
-              args.push_back ("-x");
-              args.push_back (langopt (md));
-
-              if (cid == compiler_id::gcc)
+              if (t.is_a<objs> ())
               {
-                args.push_back ("-fpreprocessed");
-                args.push_back ("-fdirectives-only");
+                if (tclass == "linux" || tclass == "bsd")
+                  args.push_back ("-fPIC");
               }
+
+              // Options that trigger preprocessing of partially preprocessed
+              // output are a bit of a compiler-specific voodoo.
+              //
+              args.push_back ("-E");
+
+              if (ps)
+              {
+                args.push_back ("-x");
+                args.push_back (langopt (md));
+
+                if (cid == compiler_id::gcc)
+                {
+                  args.push_back ("-fpreprocessed");
+                  args.push_back ("-fdirectives-only");
+                }
+              }
+
+              break;
             }
           }
 
@@ -3034,6 +3083,7 @@ namespace build2
         {
         case compiler_id::gcc:
         case compiler_id::clang:
+        case compiler_id::clang_apple:
           {
             // We don't need to redo this if the above hash hasn't changed and
             // the database is valid.
@@ -3791,6 +3841,7 @@ namespace build2
           break;
         }
       case compiler_id::clang:
+      case compiler_id::clang_apple:
         {
           // In Clang the module implementation's unit .pcm is special and
           // must be "loaded".
@@ -3870,6 +3921,7 @@ namespace build2
       switch (cid)
       {
       case compiler_id::gcc:   break; // All of them.
+      case compiler_id::clang_apple:
       case compiler_id::clang: n = ms.copied != 0 ? ms.copied : n; break;
       case compiler_id::msvc:  break; // All of them.
       case compiler_id::icc:   assert (false);
@@ -3898,6 +3950,7 @@ namespace build2
             break;
           }
         case compiler_id::clang:
+        case compiler_id::clang_apple:
           {
             // In Clang the module implementation's unit .pcm is special and
             // must be "loaded".
@@ -4061,7 +4114,7 @@ namespace build2
       strings mods;     // Module options storage.
       size_t out_i (0); // Index of the -o option.
 
-      if (cid == compiler_id::msvc)
+      if (cclass == compiler_class::msvc)
       {
         // The /F*: option variants with separate names only became available
         // in VS2013/12.0. Why do we bother? Because the command line suddenly
@@ -4194,6 +4247,7 @@ namespace build2
               break;
             }
           case compiler_id::clang:
+          case compiler_id::clang_apple:
             {
               args.push_back ("-o");
               args.push_back (relm.string ().c_str ());
@@ -4242,6 +4296,7 @@ namespace build2
               break;
             }
           case compiler_id::clang:
+          case compiler_id::clang_apple:
             {
               // Clang handles comments and line continuations in the
               // preprocessed source (it does not have -fpreprocessed).
@@ -4297,6 +4352,7 @@ namespace build2
             break;
           }
         case compiler_id::clang:
+        case compiler_id::clang_apple:
           {
             // Note that without -x Clang will treat .i/.ii as fully
             // preprocessed.
@@ -4390,7 +4446,8 @@ namespace build2
       // Clang's module compilation requires two separate compiler
       // invocations.
       //
-      if (mod && cid == compiler_id::clang)
+      if (mod && (cid == compiler_id::clang ||
+                  cid == compiler_id::clang_apple))
       {
         // Remove the target file if this fails. If we don't do that, we will
         // end up with a broken build that is up-to-date.
@@ -4452,6 +4509,7 @@ namespace build2
       switch (cid)
       {
       case id::gcc:   return clean_extra (a, t, {".d", x_pext, ".t"});
+      case id::clang_apple:
       case id::clang: return clean_extra (a, t, {".d", x_pext});
       case id::msvc:  return clean_extra (a, t, {".d", x_pext, ".idb", ".pdb"});
       case id::icc:   return clean_extra (a, t, {".d"});

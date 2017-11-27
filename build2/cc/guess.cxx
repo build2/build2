@@ -18,12 +18,23 @@ namespace build2
     value () const -> value_type
     {
       if (type == "gcc")   return gcc;
-      if (type == "clang") return clang;
+      if (type == "clang") return variant.empty () ? clang : clang_apple;
       if (type == "msvc")  return msvc;
       if (type == "icc")   return icc;
 
       assert (false);
       return gcc;
+    }
+
+    string
+    to_string (compiler_class cl)
+    {
+      switch (cl)
+      {
+      case compiler_class::gcc:  return "gcc";
+      case compiler_class::msvc: return "msvc";
+      }
+      return string (); // Never reached.
     }
 
     // Pre-guess the compiler type based on the compiler executable name.
@@ -501,6 +512,7 @@ namespace build2
       return compiler_info {
         move (gr.path),
         move (gr.id),
+        compiler_class::gcc,
         move (v),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
@@ -617,6 +629,7 @@ namespace build2
       return compiler_info {
         move (gr.path),
         move (gr.id),
+        compiler_class::gcc,
         move (v),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
@@ -836,6 +849,7 @@ namespace build2
       return compiler_info {
         move (gr.path),
         move (gr.id),
+        compiler_class::gcc, //@@ TODO: msvc on Windows?
         move (v),
         move (gr.signature),
         cs.string (),
@@ -1059,6 +1073,7 @@ namespace build2
       return compiler_info {
         move (gr.path),
         move (gr.id),
+        compiler_class::msvc,
         move (v),
         move (gr.signature),
         cs.string (),
@@ -1107,6 +1122,7 @@ namespace build2
           break;
         }
       case compiler_id::clang:
+      case compiler_id::clang_apple:
         {
           assert (id.variant.empty () || id.variant == "apple");
           r = guess_clang (xl, xc, c_coptions, x_coptions, move (gr));

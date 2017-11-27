@@ -122,6 +122,8 @@ namespace build2
       rs.assign (x_id_type) = ci.id.type;
       rs.assign (x_id_variant) = ci.id.variant;
 
+      rs.assign (x_class) = to_string (ci.class_);
+
       rs.assign (x_version) = ci.version.string;
       rs.assign (x_version_major) = ci.version.major;
       rs.assign (x_version_minor) = ci.version.minor;
@@ -159,15 +161,20 @@ namespace build2
       dir_paths lib_dirs;
       dir_paths inc_dirs;
 
-      if (ci.id.value () == compiler_id::msvc)
+      switch (ci.class_)
       {
-        lib_dirs = msvc_library_search_paths (ci.path, rs);
-        inc_dirs = msvc_header_search_paths (ci.path, rs);
-      }
-      else
-      {
-        lib_dirs = gcc_library_search_paths (ci.path, rs);
-        inc_dirs = gcc_header_search_paths (ci.path, rs);
+      case compiler_class::gcc:
+        {
+          lib_dirs = gcc_library_search_paths (ci.path, rs);
+          inc_dirs = gcc_header_search_paths (ci.path, rs);
+          break;
+        }
+      case compiler_class::msvc:
+        {
+          lib_dirs = msvc_library_search_paths (ci.path, rs);
+          inc_dirs = msvc_header_search_paths (ci.path, rs);
+          break;
+        }
       }
 
       sys_lib_dirs_extra = lib_dirs.size ();

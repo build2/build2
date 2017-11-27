@@ -28,7 +28,7 @@ else
   else
     stack_size = 4194304 # 4M
 
-  if ($cxx.id == 'msvc')
+  if ($cxx.class == 'msvc')
     cxx.loptions += "/STACK:$stack_size"
   else
     cxx.loptions += "-Wl,--stack,$stack_size"

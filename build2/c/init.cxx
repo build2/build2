@@ -21,6 +21,7 @@ namespace build2
   namespace c
   {
     using cc::compiler_id;
+    using cc::compiler_class;
     using cc::compiler_info;
 
     class config_module: public cc::config_module
@@ -43,9 +44,9 @@ namespace build2
     {
       strings r;
 
-      switch (ci.id.value ())
+      switch (ci.class_)
       {
-      case compiler_id::msvc:
+      case compiler_class::msvc:
         {
           // Standard-wise, with VC you get what you get. The question is
           // whether we should verify that the requested standard is provided
@@ -79,9 +80,7 @@ namespace build2
           }
           break;
         }
-      case compiler_id::gcc:
-      case compiler_id::clang:
-      case compiler_id::icc:
+      case compiler_class::gcc:
         {
           // 90 and 89 are the same standard. Translate 99 to 9x and 11 to 1x
           // for compatibility with older versions of the compilers.
@@ -188,6 +187,8 @@ namespace build2
         v.insert<string>   ("c.id.type"),
         v.insert<string>   ("c.id.variant"),
 
+        v.insert<string>   ("c.class"),
+
         v.insert<string>   ("c.version"),
         v.insert<uint64_t> ("c.version.major"),
         v.insert<uint64_t> ("c.version.minor"),
@@ -287,7 +288,7 @@ namespace build2
         "c.uninstall",
 
         cm.ci.id.value (),
-        cm.ci.id.variant,
+        cm.ci.class_,
         cm.ci.version.major,
         cm.ci.version.minor,
         cast<process_path>   (rs[cm.x_path]),
