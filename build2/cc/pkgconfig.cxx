@@ -944,7 +944,7 @@ namespace build2
       auto parse_modules = [&trace, &next, this]
         (const pkgconf& pc, prerequisites& ps)
       {
-        string mstr (pc.variable ("modules"));
+        string mstr (pc.variable ("cxx_modules"));
 
         string m;
         for (size_t b (0), e (0); !(m = next (mstr, b, e)).empty (); )
@@ -956,7 +956,7 @@ namespace build2
               p == 0            || // Empty name.
               p == m.size () - 1)  // Empty path.
             fail << "invalid module information in '" << mstr << "'" <<
-              info << "while parsing pkg-config --variable=modules "
+              info << "while parsing pkg-config --variable=cxx_modules "
                    << pc.path;
 
           string mn (m, 0, p);
@@ -965,13 +965,10 @@ namespace build2
 
           // Extract module properties, if any.
           //
-          string pp (pc.variable ("module_preprocessed." + mn));
-          string se (pc.variable ("module_symexport." + mn));
+          string pp (pc.variable ("cxx_module_preprocessed." + mn));
+          string se (pc.variable ("cxx_module_symexport." + mn));
 
-          // For now we assume these are C++ modules. There aren't any other
-          // kind currently but if there were we would need to encode this
-          // information somehow (e.g., cxx_modules vs c_modules variable
-          // names).
+          // For now there are only C++ modules.
           //
           auto tl (
             targets.insert_locked (
@@ -1391,7 +1388,7 @@ namespace build2
           if (!modules.empty ())
           {
             os << endl
-               << "modules =";
+               << "cxx_modules =";
 
             // Module names shouldn't require escaping.
             //
@@ -1402,15 +1399,16 @@ namespace build2
 
             // Module-specific properties. The format is:
             //
-            // module_<property>.<module> = <value>
+            // <lang>_module_<property>.<module> = <value>
             //
             for (const module& m: modules)
             {
               if (!m.pp.empty ())
-                os << "module_preprocessed." << m.name << " = " << m.pp << endl;
+                os << "cxx_module_preprocessed." << m.name << " = " << m.pp
+                   << endl;
 
               if (m.symexport)
-                os << "module_symexport." << m.name << " = true" << endl;
+                os << "cxx_module_symexport." << m.name << " = true" << endl;
             }
           }
         }
