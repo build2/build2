@@ -1284,9 +1284,16 @@ namespace build2
       if (val != nullptr)
       {
         if (atype == type::assign)
+        {
           val->assign (move (r), var);
+          atype = type::append; // Append subsequent values.
+        }
         else if (atype == type::prepend)
+        {
+          // Note: multiple values will be prepended in reverse.
+          //
           val->prepend (move (r), var);
+        }
         else
           val->append (move (r), var);
       }
