@@ -127,7 +127,7 @@ namespace build2
     return true;
   }
 
-  scope&
+  scope_map::iterator
   create_root (scope& l, const dir_path& out_root, const dir_path& src_root)
   {
     auto i (scopes.rw (l).insert (out_root, true));
@@ -193,7 +193,7 @@ namespace build2
       }
     }
 
-    return rs;
+    return i;
   }
 
   void
@@ -289,6 +289,30 @@ namespace build2
     }
 
     return pair<scope&, scope*> (base, rs);
+  }
+
+  scope&
+  load_project (scope& lock,
+                const dir_path& out_root, const dir_path& src_root,
+                bool load)
+  {
+    auto i (create_root (lock, out_root, src_root));
+    scope& rs (i->second);
+
+    if (!bootstrapped (rs))
+    {
+      bootstrap_out (rs);
+      setup_root (rs);
+      bootstrap_src (rs);
+    }
+
+    if (load)
+    {
+      load_root_pre (rs);
+      setup_base (i, out_root, src_root); // Setup as base.
+    }
+
+    return rs;
   }
 
   void
@@ -515,16 +539,16 @@ namespace build2
       r = true;
     }
 
-    // See if we are a part of an amalgamation. There are two key
-    // players: the outer root scope which may already be present
-    // (i.e., we were loaded as part of an amalgamation) and the
-    // amalgamation variable that may or may not be set by the
-    // user (in bootstrap.build) or by an earlier call to this
-    // function for the same scope. When set by the user, the
-    // empty special value means that the project shall not be
-    // amalgamated (and which we convert to NULL below). When
-    // calculated, the NULL value indicates that we are not
-    // amalgamated.
+    // See if we are a part of an amalgamation. There are two key players: the
+    // outer root scope which may already be present (i.e., we were loaded as
+    // part of an amalgamation) and the amalgamation variable that may or may
+    // not be set by the user (in bootstrap.build) or by an earlier call to
+    // this function for the same scope. When set by the user, the empty
+    // special value means that the project shall not be amalgamated (and
+    // which we convert to NULL below). When calculated, the NULL value
+    // indicates that we are not amalgamated.
+    //
+    // Note: the amalgamation variable value is always a relative directory.
     //
     {
       auto rp (root.vars.insert (*var_amalgamation)); // Set NULL by default.
@@ -746,7 +770,7 @@ namespace build2
     // explicitly configured by the user. After that, #2 followed
     // by #1 seems reasonable.
     //
-    scope& rs (create_root (root, out_root, dir_path ()));
+    scope& rs (create_root (root, out_root, dir_path ())->second);
 
     if (!bootstrapped (rs))
     {
@@ -792,7 +816,7 @@ namespace build2
 
         // The same logic to src_root as in create_bootstrap_outer().
         //
-        scope& rs (create_root (root, out_root, dir_path ()));
+        scope& rs (create_root (root, out_root, dir_path ())->second);
 
         if (!bootstrapped (rs))
         {
@@ -1033,7 +1057,7 @@ namespace build2
     for (;;)
     {
       src_root = is_src_root (out_root) ? out_root : dir_path ();
-      root = &create_root (iroot, out_root, src_root);
+      root = &create_root (iroot, out_root, src_root)->second;
 
       if (!bootstrapped (*root))
       {

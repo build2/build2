@@ -57,6 +57,9 @@ namespace build2
         return var_pool.rw (rs).insert<bool> (v, variable_visibility::project);
       };
 
+      // NOTE: see also module sidebuild subproject if changing anything about
+      // modules here.
+
       //bool concepts (false); auto& v_c (enter ("cxx.features.concepts"));
       bool modules (false); auto& v_m (enter ("cxx.features.modules"));
 

@@ -7,6 +7,7 @@
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
 
+#include <build2/file.hxx>
 #include <build2/depdb.hxx>
 #include <build2/scope.hxx>
 #include <build2/context.hxx>
@@ -15,6 +16,7 @@
 #include <build2/diagnostics.hxx>
 
 #include <build2/bin/target.hxx>
+#include <build2/config/utility.hxx> // create_project()
 
 #include <build2/cc/parser.hxx>
 #include <build2/cc/target.hxx>  // h
@@ -3692,15 +3694,12 @@ namespace build2
       tracer trace (x, "compile::make_module_sidebuild");
 
       // First figure out where we are going to build. We want to avoid
-      // multiple sidebuilds so the outermost scope that has loaded the module
-      // capable of compiling things and that is within our amalgmantion seems
-      // like a good place.
+      // multiple sidebuilds so the outermost scope that has loaded the
+      // cc.config module and that is within our amalgmantion seems like a
+      // good place.
       //
-      // @@ TODO: this is actually pretty restrictive: we need cxx and with
-      // modules enabled! Which means things like bpkg configurations won't
-      // work (only loads cc.config).
-      //
-      const scope* as (bs.root_scope ());
+      const scope& rs (*bs.root_scope ());
+      const scope* as (&rs);
       {
         const scope* ws (as->weak_scope ());
         if (as != ws)
@@ -3710,12 +3709,80 @@ namespace build2
           {
             s = s->parent_scope ()->root_scope ();
 
-            const module* m (s->modules.lookup<module> ("cxx"));
-            if (m != nullptr && m->modules)
+            // Use cc.core.vars as a proxy for {c,cxx}.config (a bit smelly).
+            //
+            if (cast_false<bool> ((*s)["cc.core.vars.loaded"]))
               as = s;
 
           } while (s != ws);
         }
+      }
+
+      // We build modules in a subproject (since there might be no full
+      // language support module loaded in the amalgamation, only *.config).
+      // So the first step is to check if the project has already been created
+      // and/or loaded and if not, then to go ahead and do so.
+      //
+      dir_path pd (as->out_path ());
+      pd /= "build";
+      pd /= "cc";
+      pd /= "modules";
+      pd /= x;
+      {
+        const scope* ps (&scopes.find (pd));
+
+        if (ps->out_path () != pd)
+        {
+          // Switch the phase to load then create and load the subproject.
+          //
+          phase_switch phs (run_phase::load);
+
+          // Re-test again now that we are in exclusive phase (another thread
+          // could have already created and loaded the subproject).
+          //
+          ps = &scopes.find (pd);
+
+          if (ps->out_path () != pd)
+          {
+            // The project might already be created in which case we just need
+            // to load it.
+            //
+            if (!is_src_root (pd))
+            {
+              // Copy our standard and force modules.
+              //
+              string extra;
+
+              if (const string* std = cast_null<string> (rs[x_std]))
+                extra += string (x) + ".std = " + *std + '\n';
+
+              extra += string (x) + ".features.modules = true";
+
+              dir_path ad (((dir_path ("..") /= "..") /= "..") /= "..");
+
+              config::create_project (pd,
+                                      ad,                 /* amalgamation */
+                                      {},                 /* boot_modules */
+                                      extra,              /* root_pre */
+                                      {string (x) + '.'}, /* root_modules */
+                                      "",                 /* root_post */
+                                      false,              /* config */
+                                      false,              /* buildfile */
+                                      "the cc module",
+                                      2);                 /* verbosity */
+            }
+
+            ps = &load_project (as->rw () /* lock */, pd, pd);
+          }
+        }
+
+        // Some sanity checks.
+        //
+#ifndef NDEBUG
+        assert (ps->root ());
+        const module* m (ps->modules.lookup<module> (x));
+        assert (m != nullptr && m->modules);
+#endif
       }
 
       // Next we need to come up with a file/target name that will be unique
@@ -3728,13 +3795,6 @@ namespace build2
       transform (mn.begin (), mn.end (),
                  back_inserter (mf),
                  [] (char c) {return c == '.' ? '-' : c;});
-
-      // Store the BMI target in the build/<mod>/modules/ subdirectory.
-      //
-      dir_path md (as->out_path ());
-      md /= "build";
-      md /= x;
-      md /= "modules";
 
       // It seems natural to build a BMI type that corresponds to the library
       // type. After all, this is where the object file part of the BMI is
@@ -3749,26 +3809,18 @@ namespace build2
       case otype::e: assert (false);
       }
 
-      // If the target already exists then we assume all this is already done
-      // (otherwise why would someone have created such a target).
+      // Store the BMI target in the subproject root. If the target already
+      // exists then we assume all this is already done (otherwise why would
+      // someone have created such a target).
       //
       if (const target* bt = targets.find (
             *tt,
-            md,
+            pd,
             dir_path (), // Always in the out tree.
             mf,
             nullopt,     // Use default extension.
             trace))
         return *bt;
-
-      // Make sure the output directory exists. This is not strictly necessary
-      // if out != src since inject_fsdir() will take care of it. For out ==
-      // src we initially tried to add an explicit fsdir{} preprequisite but
-      // that didn't work out since this is a nested directory. So now we keep
-      // it simple and just create it. The proper way to handle this as well
-      // as cleanup is probably at the cxx module level, which is @@ TODO.
-      //
-      mkdir_p (md, 3);
 
       prerequisites ps;
       ps.push_back (prerequisite (mt));
@@ -3794,7 +3846,7 @@ namespace build2
       }
 
       auto p (targets.insert_locked (*tt,
-                                     move (md),
+                                     move (pd),
                                      dir_path (), // Always in the out tree.
                                      move (mf),
                                      nullopt,     // Use default extension.

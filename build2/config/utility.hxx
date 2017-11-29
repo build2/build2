@@ -92,6 +92,8 @@ namespace build2
     //
     // Return the value (as always defined lookup), which can be NULL.
     //
+    // @@ Rename since clashes with the optional class template.
+    //
     lookup
     optional (scope& root, const variable&);
 
@@ -144,6 +146,20 @@ namespace build2
     //
     void
     save_module (scope& root, const char* name, int prio = 0);
+
+    // Create a project in the specified directory.
+    //
+    void
+    create_project (const dir_path& d,
+                    const build2::optional<dir_path>& amalgamation,
+                    const strings& boot_modules,    // Bootstrap modules.
+                    const string&  root_pre,        // Extra root.build text.
+                    const strings& root_modules,    // Root modules.
+                    const string&  root_post,       // Extra root.build text.
+                    bool config,                    // Load config module.
+                    bool buildfile,                 // Create root buildfile.
+                    const char* who,                // Who is creating it.
+                    uint16_t verbosity = 1);        // Diagnostic verbosity.
   }
 }
 

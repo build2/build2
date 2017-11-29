@@ -702,17 +702,18 @@ main (int argc, char* argv[])
               src_root = out_root;
           }
 
-          // Now we know out_root and, if it was explicitly specified
-          // or the same as out_root, src_root. The next step is to
-          // create the root scope and load the out_root bootstrap
-          // files, if any. Note that we might already have done this
-          // as a result of one of the preceding target processing.
+          // Now we know out_root and, if it was explicitly specified or the
+          // same as out_root, src_root. The next step is to create the root
+          // scope and load the out_root bootstrap files, if any. Note that we
+          // might already have done this as a result of one of the preceding
+          // target processing.
           //
-          // If we know src_root, set that variable as well. This could
-          // be of use to the bootstrap files (other than src-root.build,
-          // which, BTW, doesn't need to exist if src_root == out_root).
+          // If we know src_root, set that variable as well. This could be of
+          // use to the bootstrap files (other than src-root.build, which,
+          // BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (create_root (*scope::global_, out_root, src_root));
+          scope& rs (
+            create_root (*scope::global_, out_root, src_root)->second);
 
           bool bootstrapped (build2::bootstrapped (rs));
 

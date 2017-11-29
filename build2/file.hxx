@@ -72,7 +72,7 @@ namespace build2
   // passed src_root value is not empty. The scope argument is only used
   // as proof of lock.
   //
-  scope&
+  scope_map::iterator
   create_root (scope&, const dir_path& out_root, const dir_path& src_root);
 
   // Setup root scope. Note that it assume the src_root variable
@@ -90,11 +90,26 @@ namespace build2
 
   // Return a scope for the specified directory (first). Note that switching
   // to this scope might also involve switch to a new root scope (second) if
-  // the new scope is in another project. In the new scope is not in any
+  // the new scope is in another project. If the new scope is not in any
   // project, then NULL is returned in second.
   //
   pair<scope&, scope*>
   switch_scope (scope& root, const dir_path&);
+
+  // Bootstrap and optionally load an ad hoc (sub)project (i.e., the kind that
+  // is not discovered and loaded automatically by bootstrap/load functions
+  // above).
+  //
+  // Note that we expect the outer project (if any) to be bootstrapped and
+  // loaded and currently we do not add the newly loaded subproject to the
+  // outer project's subprojects map.
+  //
+  // The scope argument is only used as proof of lock.
+  //
+  scope&
+  load_project (scope&,
+                const dir_path& out_root, const dir_path& src_root,
+                bool load = true);
 
   // Bootstrap the project's root scope, the out part.
   //
