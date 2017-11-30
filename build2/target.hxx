@@ -17,8 +17,9 @@
 #include <build2/scope.hxx>
 #include <build2/variable.hxx>
 #include <build2/operation.hxx>
-#include <build2/target-type.hxx>
 #include <build2/target-key.hxx>
+#include <build2/target-type.hxx>
+#include <build2/target-state.hxx>
 #include <build2/prerequisite.hxx>
 
 namespace build2
@@ -33,38 +34,6 @@ namespace build2
   //
   const target& search (const target&, const prerequisite&);
   const target* search_existing (const prerequisite&);
-
-  // Target state.
-  //
-  enum class target_state: uint8_t
-  {
-    // The order of the enumerators is arranged so that their integral values
-    // indicate whether one "overrides" the other in the "merge" operator|
-    // (see below).
-    //
-    // Note that postponed is "greater" than unchanged since it may result in
-    // the changed state.
-    //
-    unknown,
-    unchanged,
-    postponed,
-    busy,
-    changed,
-    failed,
-    group       // Target's state is the group's state.
-  };
-
-  ostream&
-  operator<< (ostream&, target_state);
-
-  inline target_state&
-  operator |= (target_state& l, target_state r)
-  {
-    if (static_cast<uint8_t> (r) > static_cast<uint8_t> (l))
-      l = r;
-
-    return l;
-  }
 
   // Recipe.
   //

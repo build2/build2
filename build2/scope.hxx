@@ -5,8 +5,8 @@
 #ifndef BUILD2_SCOPE_HXX
 #define BUILD2_SCOPE_HXX
 
+#include <map>
 #include <unordered_set>
-#include <unordered_map>
 
 #include <libbutl/path-map.mxx>
 
@@ -17,11 +17,14 @@
 #include <build2/variable.hxx>
 #include <build2/target-key.hxx>
 #include <build2/target-type.hxx>
+#include <build2/target-state.hxx>
 #include <build2/rule-map.hxx>
 #include <build2/operation.hxx>
 
 namespace build2
 {
+  class dir;
+
   class scope
   {
   public:
@@ -239,6 +242,34 @@ namespace build2
     //
   public:
     rule_map rules;
+
+    // Operation callbacks.
+    //
+    // An entity (module, core) can register a function that will be called
+    // when an action is executed on the dir{} target that corresponds to this
+    // scope. The pre callback is called just before the recipe and the post
+    // -- immediately after. The callbacks are only called if the recipe
+    // (including noop recipe) is executed for the corresponding target. The
+    // callbacks should only be registered during the load phase.
+    //
+    // It only makes sense for callbacks to return target_state changed or
+    // unchanged and to throw failed in case of an error. These pre/post
+    // states will be merged with the recipe state and become the target
+    // state. See execute_recipe() for details.
+    //
+  public:
+    struct operation_callback
+    {
+      using callback = target_state (action, const scope&, const dir&);
+
+      function<callback> pre;
+      function<callback> post;
+    };
+
+    using operation_callback_map = std::multimap<action_id,
+                                                 operation_callback>;
+
+    operation_callback_map operation_callbacks;
 
     // Modules.
     //

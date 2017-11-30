@@ -843,13 +843,13 @@ namespace build2
     return r;
   }
 
+  // Execute the specified recipe (if any) and the scope operation callbacks
+  // (if any/applicable) then merge and return the resulting target state.
+  //
   static target_state
-  execute_impl (action a, target& t)
+  execute_recipe (action a, target& t, const recipe& r)
   {
-    assert (t.task_count.load (memory_order_consume) == target::count_busy ()
-            && t.state_ == target_state::unknown);
-
-    target_state ts;
+    target_state ts (target_state::unknown);
 
     try
     {
@@ -860,14 +860,55 @@ namespace build2
             dr << info << "while " << diag_doing (a, t);
         });
 
-      ts = t.recipe_ (a, t);
-
-      // Decrement the target count (see target::recipe() for details).
+      // If this is a dir{} target, see if we have any operation callbacks
+      // in the corresponding scope.
       //
+      const dir* op_t (t.is_a<dir> ());
+      const scope* op_s (nullptr);
+
+      using op_iterator = scope::operation_callback_map::const_iterator;
+      pair<op_iterator, op_iterator> op_p;
+
+      if (op_t != nullptr)
       {
-        recipe_function** f (t.recipe_.target<recipe_function*> ());
-        if (f == nullptr || *f != &group_action)
-          target_count.fetch_sub (1, memory_order_relaxed);
+        op_s = &scopes.find (t.dir);
+
+        if (op_s->out_path () == t.dir && !op_s->operation_callbacks.empty ())
+        {
+          op_p = op_s->operation_callbacks.equal_range (a);
+
+          if (op_p.first == op_p.second)
+            op_s = nullptr; // Ignore.
+        }
+        else
+          op_s = nullptr; // Ignore.
+      }
+
+      // Pre operations.
+      //
+      // Note that here we assume the dir{} target cannot be part of a group
+      // and as a result we (a) don't try to avoid calling post callbacks in
+      // case of a group failure and (b) merge the pre and post states with
+      // the group state.
+      //
+      if (op_s != nullptr)
+      {
+        for (auto i (op_p.first); i != op_p.second; ++i)
+          if (const auto& f = i->second.pre)
+            ts |= f (a, *op_s, *op_t);
+      }
+
+      // Recipe.
+      //
+      ts |= r != nullptr ? r (a, t) : target_state::unchanged;
+
+      // Post operations.
+      //
+      if (op_s != nullptr)
+      {
+        for (auto i (op_p.first); i != op_p.second; ++i)
+          if (const auto& f = i->second.post)
+            ts |= f (a, *op_s, *op_t);
       }
 
       // See the recipe documentation for details on what's going on here.
@@ -892,6 +933,25 @@ namespace build2
     catch (const failed&)
     {
       ts = t.state_ = target_state::failed;
+    }
+
+    return ts;
+  }
+
+  static target_state
+  execute_impl (action a, target& t)
+  {
+    assert (t.task_count.load (memory_order_consume) == target::count_busy ()
+            && t.state_ == target_state::unknown);
+
+    target_state ts (execute_recipe (a, t, t.recipe_));
+
+    // Decrement the target count (see target::recipe() for details).
+    //
+    {
+      recipe_function** f (t.recipe_.target<recipe_function*> ());
+      if (f == nullptr || *f != &group_action)
+        target_count.fetch_sub (1, memory_order_relaxed);
     }
 
     // Decrement the task count (to count_executed) and wake up any threads
@@ -950,10 +1010,11 @@ namespace build2
     //
     size_t touc (target::count_touched ());
     size_t matc (target::count_matched ());
+    size_t appc (target::count_applied ());
     size_t exec (target::count_executed ());
     size_t busy (target::count_busy ());
 
-    for (size_t tc (target::count_applied ());;)
+    for (size_t tc (appc);;)
     {
       if (t.task_count.compare_exchange_strong (
             tc,
@@ -965,7 +1026,13 @@ namespace build2
         //
         if ((tc >= touc && tc <= matc) || t.state_ == target_state::unchanged)
         {
-          t.state_ = target_state::unchanged;
+          // If we have a noop recipe, there could still be scope operations.
+          //
+          if (tc == appc && t.is_a<dir> ())
+            execute_recipe (a, t, nullptr /* recipe */);
+          else
+            t.state_ = target_state::unchanged;
+
           t.task_count.store (exec, memory_order_release);
           sched.resume (t.task_count);
         }
@@ -1022,10 +1089,11 @@ namespace build2
     //
     size_t touc (target::count_touched ());
     size_t matc (target::count_matched ());
+    size_t appc (target::count_applied ());
     size_t exec (target::count_executed ());
     size_t busy (target::count_busy ());
 
-    for (size_t tc (target::count_applied ());;)
+    for (size_t tc (appc);;)
     {
       if (t.task_count.compare_exchange_strong (
             tc,
@@ -1035,7 +1103,13 @@ namespace build2
       {
         if ((tc >= touc && tc <= matc) || t.state_ == target_state::unchanged)
         {
-          t.state_ = target_state::unchanged;
+          // If we have a noop recipe, there could still be scope operations.
+          //
+          if (tc == appc && t.is_a<dir> ())
+            execute_recipe (a, t, nullptr /* recipe */);
+          else
+            t.state_ = target_state::unchanged;
+
           t.task_count.store (exec, memory_order_release);
           sched.resume (t.task_count);
         }
