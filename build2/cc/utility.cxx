@@ -4,6 +4,7 @@
 
 #include <build2/cc/utility.hxx>
 
+#include <build2/file.hxx>
 #include <build2/variable.hxx>
 #include <build2/algorithm.hxx> // search()
 
@@ -16,6 +17,9 @@ namespace build2
   namespace cc
   {
     using namespace bin;
+
+    const dir_path module_dir (dir_path ("build") /= "cc");
+    const dir_path modules_sidebuild_dir (dir_path (module_dir) /= "modules");
 
     lorder
     link_order (const scope& bs, otype ot)

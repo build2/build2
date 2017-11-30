@@ -3711,6 +3711,9 @@ namespace build2
 
             // Use cc.core.vars as a proxy for {c,cxx}.config (a bit smelly).
             //
+            // This is also the module that registers the scope operation
+            // callback that cleans up the subproject.
+            //
             if (cast_false<bool> ((*s)["cc.core.vars.loaded"]))
               as = s;
 
@@ -3723,11 +3726,7 @@ namespace build2
       // So the first step is to check if the project has already been created
       // and/or loaded and if not, then to go ahead and do so.
       //
-      dir_path pd (as->out_path ());
-      pd /= "build";
-      pd /= "cc";
-      pd /= "modules";
-      pd /= x;
+      dir_path pd (as->out_path () / modules_sidebuild_dir /= x);
       {
         const scope* ps (&scopes.find (pd));
 
@@ -3758,18 +3757,17 @@ namespace build2
 
               extra += string (x) + ".features.modules = true";
 
-              dir_path ad (((dir_path ("..") /= "..") /= "..") /= "..");
-
-              config::create_project (pd,
-                                      ad,                 /* amalgamation */
-                                      {},                 /* boot_modules */
-                                      extra,              /* root_pre */
-                                      {string (x) + '.'}, /* root_modules */
-                                      "",                 /* root_post */
-                                      false,              /* config */
-                                      false,              /* buildfile */
-                                      "the cc module",
-                                      2);                 /* verbosity */
+              config::create_project (
+                pd,
+                as->out_path ().relative (pd),  /* amalgamation */
+                {},                             /* boot_modules */
+                extra,                          /* root_pre */
+                {string (x) + '.'},             /* root_modules */
+                "",                             /* root_post */
+                false,                          /* config */
+                false,                          /* buildfile */
+                "the cc module",
+                2);                             /* verbosity */
             }
 
             ps = &load_project (as->rw () /* lock */, pd, pd);

@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <type_traits> // is_base_of
+
 #include <build2/context.hxx>     // work
 #include <build2/diagnostics.hxx>
 
@@ -64,9 +66,9 @@ namespace build2
       if (verb >= v)
       {
         if (verb >= 2)
-          text << "rm " << d;
+          text << "rmdir " << d;
         else if (verb)
-          text << "rm " << t;
+          text << (std::is_base_of<dir_path, T>::value ? "rmdir " : "rm ") << t;
       }
     };
 

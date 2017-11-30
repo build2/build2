@@ -4,13 +4,16 @@
 
 #include <build2/cc/init.hxx>
 
+#include <build2/file.hxx>
 #include <build2/scope.hxx>
 #include <build2/context.hxx>
+#include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 
 #include <build2/config/utility.hxx>
 
 #include <build2/cc/target.hxx>
+#include <build2/cc/utility.hxx>
 
 using namespace std;
 using namespace butl;
@@ -19,6 +22,39 @@ namespace build2
 {
   namespace cc
   {
+    // Scope operation callback that cleans up module sidebuilds.
+    //
+    static target_state
+    clean_module_sidebuilds (action, const scope& rs, const dir&)
+    {
+      dir_path d (rs.out_path () / modules_sidebuild_dir);
+
+      if (exists (d))
+      {
+        if (build2::rmdir_r (d))
+        {
+          // Clean up cc/ if it became empty.
+          //
+          d = rs.out_path () / module_dir;
+          if (empty (d))
+          {
+            rmdir (d);
+
+            // And build/ if it also became empty (e.g., in case of a build
+            // with a transient configuration).
+            //
+            d = rs.out_path () / build_dir;
+            if (empty (d))
+              rmdir (d);
+          }
+
+          return target_state::changed;
+        }
+      }
+
+      return target_state::unchanged;
+    }
+
     bool
     core_vars_init (scope& rs,
                     scope&,
@@ -87,6 +123,16 @@ namespace build2
       //
       v.insert<bool> ("config.cc.reprocess", true);
       v.insert<bool> ("cc.reprocess");
+
+      // Register scope operation callback.
+      //
+      // It feels natural to do clean up sidebuilds as a post operation but
+      // that prevents the (otherwise-empty) out root directory to be cleaned
+      // up (via the standard fsdir{} chain).
+      //
+      rs.operation_callbacks.emplace (
+        perform_clean_id,
+        scope::operation_callback {&clean_module_sidebuilds, nullptr /*post*/});
 
       return true;
     }

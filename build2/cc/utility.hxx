@@ -19,6 +19,9 @@ namespace build2
 
   namespace cc
   {
+    extern const dir_path module_dir;             // build/cc/
+    extern const dir_path modules_sidebuild_dir;  // build/cc/modules/
+
     // Compile output type.
     //
     otype
