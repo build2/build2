@@ -47,9 +47,9 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     mkdir test/1/
     cd test/1/
     %.*/driver(.exe)? -o foo%
-    rm test/1/
+    rmdir test/1/
     cd test/
-    rm test/
+    rmdir test/
     cd ./
     EOE
 
@@ -63,9 +63,9 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     cd test/1/
     %.*/driver(.exe)? -e foo%
     foo
-    rm test/1/
+    rmdir test/1/
     cd test/
-    rm test/
+    rmdir test/
     cd ./
     EOE
   }
