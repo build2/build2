@@ -462,8 +462,8 @@ namespace build2
                   {
                     if (n > 1 && id[1] == '8')
                       ++i;
-                    // Fall through.
                   }
+                  // Fall through.
                 case 'L':
                 case 'U':
                   {
@@ -980,12 +980,8 @@ namespace build2
         switch (c)
         {
         case '\n':
-          {
-            if (!nl)
-              break;
-
-            // Fall through.
-          }
+          if (!nl) break;
+          // Fall through.
         case ' ':
         case '\t':
         case '\r':

@@ -522,9 +522,8 @@ namespace build2
 
         if (c != target::count_applied () && c != target::count_executed ())
           break;
-
-        // Fall through.
       }
+      // Fall through.
     case run_phase::execute:
       {
         if (group_state ())

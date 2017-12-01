@@ -499,8 +499,9 @@ namespace build2
           if (try_match)
             return make_pair (false, target_state::unknown);
 
-          // Fall through (to issue diagnostics).
+          // To issue diagnostics ...
         }
+        // Fall through.
       case target::offset_touched:
         {
           // Match.
@@ -521,9 +522,8 @@ namespace build2
             // t.state_ is not yet set.
             //
             return make_pair (true, target_state::unknown);
-
-          // Fall through.
         }
+        // Fall through.
       case target::offset_matched:
         {
           // Apply.
@@ -653,14 +653,16 @@ namespace build2
         if ((r = g.group_members (a)).members != nullptr)
           break;
 
-        // Fall through to apply.
+        // To apply ...
       }
-      // @@ Doing match without execute messes up our target_count. Does
-      //    not seem like it will be easy to fix (we don't know whether
-      //    someone else will execute this target).
-      //
+      // Fall through.
     case target::offset_matched:
       {
+        // @@ Doing match without execute messes up our target_count. Does
+        //    not seem like it will be easy to fix (we don't know whether
+        //    someone else will execute this target).
+        //
+
         // Apply (locked).
         //
         if (match_impl (a, l, true).second == target_state::failed)
@@ -669,10 +671,11 @@ namespace build2
         if ((r = g.group_members (a)).members != nullptr)
           break;
 
-        // Unlock and fall through to execute.
+        // Unlock and to execute ...
         //
         l.unlock ();
       }
+      // Fall through.
     case target::offset_applied:
       {
         // Execute (unlocked).

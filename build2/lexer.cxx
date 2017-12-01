@@ -257,7 +257,7 @@ namespace build2
     {
       // NOTE: remember to update mode() if adding new special characters.
       //
-    case '\n': fail (c) << "newline in evaluation context";
+    case '\n': fail (c) << "newline in evaluation context" << endf;
     case ':': return make_token (type::colon);
     case '{': return make_token (type::lcbrace);
     case '}': return make_token (type::rcbrace);
@@ -515,6 +515,7 @@ namespace build2
                 break;
               case quote_type::double_:
                 qtype = quote_type::mixed;
+                // Fall through.
               case quote_type::mixed:
                 qcomp = false;
                 break;
@@ -549,6 +550,7 @@ namespace build2
                 break;
               case quote_type::single:
                 qtype = quote_type::mixed;
+                // Fall through.
               case quote_type::mixed:
                 qcomp = false;
                 break;
@@ -689,8 +691,8 @@ namespace build2
             break; // Ignore.
 
           unget (c);
-          // Fall through.
         }
+        // Fall through.
       default:
         return r; // Not a space.
       }

@@ -462,10 +462,8 @@ namespace build2
         case line_type::cmd_elifn:
         case line_type::cmd_else:
         case line_type::cmd_end:
-          {
-            next (t, tt); // Skip to start of command.
-            // Fall through.
-          }
+          next (t, tt); // Skip to start of command.
+          // Fall through.
         case line_type::cmd:
           {
             pair<command_expr, here_docs> p;
@@ -484,8 +482,8 @@ namespace build2
 
               switch (st)
               {
-              case type::plus:  fail (t) << t << " after setup command";
-              case type::minus: fail (t) << t << " after teardown command";
+              case type::plus:  fail (t) << t << " after setup command" << endf;
+              case type::minus: fail (t) << t << " after teardown command" << endf;
               }
             }
 
@@ -554,7 +552,7 @@ namespace build2
           case line_type::cmd_else:
           case line_type::cmd_end:
             {
-              fail (ll) << lt << " without preceding 'if'";
+              fail (ll) << lt << " without preceding 'if'" << endf;
             }
           case line_type::cmd_if:
           case line_type::cmd_ifn:
@@ -566,9 +564,8 @@ namespace build2
                              return l.type == line_type::cmd;
                            }) != ls_data.end ())
                 break;
-
-              // Fall through.
             }
+            // Fall through.
           case line_type::var:
             {
               // If there is a semicolon after the variable then we assume
@@ -674,15 +671,15 @@ namespace build2
           switch (tt)
           {
           case type::colon:
-            fail (ll) << "description inside test";
+            fail (ll) << "description inside test" << endf;
           case type::eos:
           case type::rcbrace:
           case type::lcbrace:
-            fail (ll) << "expected another line after ';'";
+            fail (ll) << "expected another line after ';'" << endf;
           case type::plus:
-            fail (ll) << "setup command in test";
+            fail (ll) << "setup command in test" << endf;
           case type::minus:
-            fail (ll) << "teardown command in test";
+            fail (ll) << "teardown command in test" << endf;
           default:
             semi = pre_parse_line (t, tt, d, ls);
             assert (tt == type::newline); // End of last test line.
@@ -881,15 +878,15 @@ namespace build2
           switch (tt)
           {
           case type::colon:
-            fail (ll) << "description inside " << bt;
+            fail (ll) << "description inside " << bt << endf;
           case type::eos:
           case type::rcbrace:
           case type::lcbrace:
-            fail (ll) << "expected closing 'end'";
+            fail (ll) << "expected closing 'end'" << endf;
           case type::plus:
-            fail (ll) << "setup command inside " << bt;
+            fail (ll) << "setup command inside " << bt << endf;
           case type::minus:
-            fail (ll) << "teardown command inside " << bt;
+            fail (ll) << "teardown command inside " << bt << endf;
           }
 
           // Parse one line. Note that this one line can still be multiple
@@ -3220,11 +3217,8 @@ namespace build2
                         case line_type::cmd_elif:
                         case line_type::cmd_elifn:
                         case line_type::cmd_else:
-                          {
-                            if (end) break;
-
-                            // Fall through.
-                          }
+                          if (end) break;
+                          // Fall through.
                         case line_type::cmd_end:  return j;
                         default: break;
                         }
