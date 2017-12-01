@@ -68,13 +68,22 @@ namespace build2
   // process may pick up headers as they are being generated. As a result, we
   // either have everyone treat the external state as read-only or write-only.
   //
+  // There is also one more complication: if we are returning from a load
+  // phase that has failed, then the build state could be seriously messed up
+  // (things like scopes not being setup completely, etc). And once we release
+  // the lock, other threads that are waiting will start relying on this
+  // messed up state. So a load phase can mark the phase_mutex as failed in
+  // which case all currently blocked and future lock()/relock() calls return
+  // false. Note that in this case we still switch to the desired phase. See
+  // the phase_{lock,switch,unlock} implementations for details.
+  //
   class phase_mutex
   {
   public:
     // Acquire a phase lock potentially blocking (unless already in the
     // desired phase) until switching to the desired phase is possible.
     //
-    void
+    bool
     lock (run_phase);
 
     // Release the phase lock potentially allowing (unless there are other
@@ -86,7 +95,7 @@ namespace build2
     // Switch from one phase to another. Semantically, just unlock() followed
     // by lock() but more efficient.
     //
-    void
+    bool
     relock (run_phase unlock, run_phase lock);
 
   private:
@@ -94,7 +103,11 @@ namespace build2
     friend struct phase_unlock;
     friend struct phase_switch;
 
-    phase_mutex (): lc_ (0), mc_ (0), ec_ (0) {phase = run_phase::load;}
+    phase_mutex ()
+        : fail_ (false), lc_ (0), mc_ (0), ec_ (0)
+    {
+      phase = run_phase::load;
+    }
 
     static phase_mutex instance;
 
@@ -110,6 +123,9 @@ namespace build2
     // is always changed to load (this is also the initial state).
     //
     mutex m_;
+
+    bool fail_;
+
     size_t lc_;
     size_t mc_;
     size_t ec_;
@@ -201,7 +217,7 @@ namespace build2
   struct phase_unlock
   {
     phase_unlock (bool unlock = true);
-    ~phase_unlock ();
+    ~phase_unlock () noexcept (false);
 
     phase_lock* l;
   };
@@ -212,7 +228,7 @@ namespace build2
   struct phase_switch
   {
     explicit phase_switch (run_phase);
-    ~phase_switch ();
+    ~phase_switch () noexcept (false);
 
     run_phase o, n;
   };

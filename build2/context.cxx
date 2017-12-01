@@ -5,11 +5,14 @@
 #include <build2/context.hxx>
 
 #include <sstream>
+#include <exception> // uncaught_exception[s]()
 
 #include <build2/rule.hxx>
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/diagnostics.hxx>
+
+#include <libbutl/ft/exception.hxx> // uncaught_exceptions
 
 // For command line variable parsing.
 //
@@ -38,9 +41,11 @@ namespace build2
 #endif
   phase_lock* phase_lock::instance;
 
-  void phase_mutex::
+  bool phase_mutex::
   lock (run_phase p)
   {
+    bool r;
+
     {
       mlock l (m_);
       bool u (lc_ == 0 && mc_ == 0 && ec_ == 0); // Unlocked.
@@ -60,20 +65,31 @@ namespace build2
       // since there is nobody waiting (all counters are zero).
       //
       if (u)
+      {
         phase = p;
+        r = !fail_;
+      }
       else if (phase != p)
       {
         sched.deactivate ();
         for (; phase != p; v->wait (l)) ;
+        r = !fail_;
         l.unlock (); // Important: activate() can block.
         sched.activate ();
       }
+      else
+        r = !fail_;
     }
 
     // In case of load, acquire the exclusive access mutex.
     //
     if (p == run_phase::load)
+    {
       lm_.lock ();
+      r = !fail_; // Re-query.
+    }
+
+    return r;
   }
 
   void phase_mutex::
@@ -119,13 +135,15 @@ namespace build2
     }
   }
 
-  void phase_mutex::
+  bool phase_mutex::
   relock (run_phase o, run_phase n)
   {
     // Pretty much a fused unlock/lock implementation except that we always
     // switch into the new phase.
     //
     assert (o != n);
+
+    bool r;
 
     if (o == run_phase::load)
       lm_.unlock ();
@@ -154,6 +172,7 @@ namespace build2
       if (u)
       {
         phase = n;
+        r = !fail_;
 
         // Notify others that could be waiting for this phase.
         //
@@ -167,13 +186,140 @@ namespace build2
       {
         sched.deactivate ();
         for (; phase != n; v->wait (l)) ;
+        r = !fail_;
         l.unlock (); // Important: activate() can block.
         sched.activate ();
       }
     }
 
     if (n == run_phase::load)
+    {
       lm_.lock ();
+      r = !fail_; // Re-query.
+    }
+
+    return r;
+  }
+
+  // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
+  // available.
+  //
+  static inline bool
+  uncaught_exception ()
+  {
+#ifdef __cpp_lib_uncaught_exceptions
+    return std::uncaught_exceptions () != 0;
+#else
+    return std::uncaught_exception ();
+#endif
+  }
+
+  // phase_lock
+  //
+  phase_lock::
+  phase_lock (run_phase p)
+      : p (p)
+  {
+    if (phase_lock* l = instance)
+      assert (l->p == p);
+    else
+    {
+      if (!phase_mutex::instance.lock (p))
+      {
+        phase_mutex::instance.unlock (p);
+        throw failed ();
+      }
+
+      instance = this;
+
+      //text << this_thread::get_id () << " phase acquire " << p;
+    }
+  }
+
+  phase_lock::
+  ~phase_lock ()
+  {
+    if (instance == this)
+    {
+      instance = nullptr;
+      phase_mutex::instance.unlock (p);
+
+      //text << this_thread::get_id () << " phase release " << p;
+    }
+  }
+
+  // phase_unlock
+  //
+  phase_unlock::
+  phase_unlock (bool u)
+      : l (u ? phase_lock::instance : nullptr)
+  {
+    if (u)
+    {
+      phase_lock::instance = nullptr;
+      phase_mutex::instance.unlock (l->p);
+
+      //text << this_thread::get_id () << " phase unlock  " << l->p;
+    }
+  }
+
+  phase_unlock::
+  ~phase_unlock () noexcept (false)
+  {
+    if (l != nullptr)
+    {
+      bool r (phase_mutex::instance.lock (l->p));
+      phase_lock::instance = l;
+
+      // Fail unless we are already failing. Note that we keep the phase
+      // locked since there will be phase_lock down the stack to unlock it.
+      //
+      if (!r && !uncaught_exception ())
+        throw failed ();
+
+      //text << this_thread::get_id () << " phase lock    " << l->p;
+    }
+  }
+
+  // phase_switch
+  //
+  phase_switch::
+  phase_switch (run_phase n)
+      : o (phase), n (n)
+  {
+    if (!phase_mutex::instance.relock (o, n))
+    {
+      phase_mutex::instance.relock (n, o);
+      throw failed ();
+    }
+
+    phase_lock::instance->p = n;
+
+    if (n == run_phase::load) // Note: load lock is exclusive.
+      load_generation++;
+
+    //text << this_thread::get_id () << " phase switch  " << o << " " << n;
+  }
+
+  phase_switch::
+  ~phase_switch () noexcept (false)
+  {
+    // If we are coming off a failed load phase, mark the phase_mutex as
+    // failed to terminate all other threads since the build state may no
+    // longer be valid.
+    //
+    if (n == run_phase::load && uncaught_exception ())
+      phase_mutex::instance.fail_ = true;
+
+    bool r (phase_mutex::instance.relock (n, o));
+    phase_lock::instance->p = o;
+
+    // Similar logic to ~phase_unlock().
+    //
+    if (!r && !uncaught_exception ())
+      throw failed ();
+
+    //text << this_thread::get_id () << " phase restore " << n << " " << o;
   }
 
   const variable* var_src_root;

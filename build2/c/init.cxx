@@ -241,7 +241,6 @@ namespace build2
       return true;
     }
 
-
     static const target_type* const hdr[] =
     {
       &h::static_type,
