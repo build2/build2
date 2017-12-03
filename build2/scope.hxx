@@ -316,7 +316,7 @@ namespace build2
   // Temporary scope. The idea is to be able to create a temporary scope in
   // order not to change the variables in the current scope.  Such a scope is
   // not entered in to the scope map. As a result it can only be used as a
-  // temporary set of variables. In particular, defining targetsdirectly in
+  // temporary set of variables. In particular, defining targets directly in
   // such a scope will surely end up badly. Defining any nested scopes will be
   // as if defining such a scope in the parent (since path() returns parent's
   // path).

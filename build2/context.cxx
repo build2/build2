@@ -602,7 +602,7 @@ namespace build2
       //
       if (o->override == nullptr)
         const_cast<variable*> (o)->override.reset (
-          new variable {n + k, nullptr, nullptr, v, 0});
+          new variable {n + k, nullptr, nullptr, v});
 
       o = o->override.get ();
 

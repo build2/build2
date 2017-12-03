@@ -438,6 +438,7 @@ namespace build2
       scope (const string& id, scope* p)
           : parent (p),
             root (p != nullptr ? p->root : static_cast<script*> (this)),
+            vars (false /* global */),
             id_path (cast<path> (assign (root->id_var) = path ())),
             wd_path (cast<dir_path> (assign (root->wd_var) = dir_path ()))
 

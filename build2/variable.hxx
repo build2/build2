@@ -123,7 +123,6 @@ namespace build2
     const value_type* type;        // If NULL, then not (yet) typed.
     unique_ptr<variable> override;
     variable_visibility visibility;
-    size_t generation;             // load_generation of this variable.
   };
 
   inline bool
@@ -1070,7 +1069,6 @@ namespace build2
       using value::operator=;
 
       size_t version = 0; // Incremented on each modification (variable_cache).
-      size_t generation;  // load_generation of this value (global state only).
     };
 
     using map_type = butl::prefix_map<reference_wrapper<const variable>,

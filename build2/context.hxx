@@ -41,13 +41,14 @@ namespace build2
   //
   // Serial load can perform arbitrary changes to the model. Exclusive load,
   // however, can only perform "island appends". That is, it can create new
-  // "nodes" (variables, scopes, etc) but not change already existing nodes or
-  // invalidate any references to such (the idea here is that one should be
-  // able to load additional buildfiles as long as they don't interfere with
-  // the existing build state). The "islands" are identified by the
-  // load_generation number (0 for initial/serial load). It is incremented in
-  // case of a phase switch and is stored in various "nodes" (variables, etc)
-  // to allow modifications "within the islands".
+  // "nodes" (variables, scopes, etc) but not (semantically) change already
+  // existing nodes or invalidate any references to such (the idea here is
+  // that one should be able to load additional buildfiles as long as they
+  // don't interfere with the existing build state). The "islands" are
+  // identified by the load_generation number (0 for the initial/serial
+  // load). It is incremented in case of a phase switch and can be stored in
+  // various "nodes" to verify modifications are only done "within the
+  // islands".
   //
   extern run_phase phase;
   extern size_t load_generation;

@@ -1016,16 +1016,6 @@ namespace build2
     bool ut (t != nullptr && var.type != t);
     bool uv (v != nullptr && var.visibility != *v);
 
-    // In the global pool existing variables can only be updated during the
-    // same load generation or during serial execution.
-    //
-    if (global_                           &&
-        load_generation != 0              &&
-        load_generation != var.generation &&
-        (ut || uv))
-      fail << "variable " << var.name << " already defined with different "
-           << (ut ? (uv ? "type and visibility" : "type") : "visibility");
-
     // Update type?
     //
     if (ut)
@@ -1141,8 +1131,7 @@ namespace build2
           move (n),
           t,
           nullptr,
-          v != nullptr ? *v : variable_visibility::normal,
-          global_ ? load_generation : 0}));
+          v != nullptr ? *v : variable_visibility::normal}));
 
     variable& r (p.first->second);
 
@@ -1233,16 +1222,9 @@ namespace build2
 
   // variable_map
   //
-  void variable_map::
+  inline void variable_map::
   typify (value_data& v, const variable& var) const
   {
-    // In the global state existing value can only be typified during
-    // the same load generation or during serial execution.
-    //
-    assert (!global_             ||
-            load_generation == 0 ||
-            v.generation == load_generation);
-
     // We assume typification is not modification.
     //
     build2::typify (v, *var.type, &var);
@@ -1286,9 +1268,7 @@ namespace build2
     auto p (m_.emplace (var, value_data (typed ? var.type : nullptr)));
     value_data& r (p.first->second);
 
-    if (p.second)
-      r.generation = global_ ? load_generation : 0;
-    else
+    if (!p.second)
     {
       // First access after being assigned a type?
       //
