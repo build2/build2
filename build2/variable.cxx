@@ -1135,7 +1135,7 @@ namespace build2
 
     variable& r (p.first->second);
 
-    if (!p.second)
+    if (!p.second) // Note: overridden variable will always exist.
     {
       if (t != nullptr || v != nullptr || o != nullptr)
         update (r, t, v, o); // Not changing the key.

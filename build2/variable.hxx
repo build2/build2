@@ -117,6 +117,9 @@ namespace build2
   // reset() before any other variables. Project wide overrides are entered in
   // main(). Overriding happens in scope::find_override().
   //
+  // NULL type and normal visibility are the defaults and can be overridden by
+  // "tighter" values.
+  //
   struct variable
   {
     string name;
@@ -804,7 +807,7 @@ namespace build2
   class variable_pool
   {
   public:
-    // Find existing or insert new.
+    // Find existing (assert exists).
     //
     const variable&
     operator[] (const string& name) const;
