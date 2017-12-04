@@ -469,8 +469,8 @@ namespace build2
                         const cstrings&,
                         bool = false);
 
-  // Apply the specified substitution (stem) to a '*'-pattern. If pattern
-  // is NULL, then return the stem itself. Assume the pattern is valid,
+  // Apply the specified substitution (stem) to a '*'-pattern. If pattern is
+  // NULL or empty, then return the stem itself. Assume the pattern is valid,
   // i.e., contains a single '*' character.
   //
   string

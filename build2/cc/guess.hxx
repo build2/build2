@@ -166,13 +166,13 @@ namespace build2
            const strings* c_coptions,
            const strings* x_coptions);
 
-    // Given a language, toolchain id, and optionally a pattern, return an
-    // appropriate default compiler path.
+    // Given a language, toolchain id, and optionally (empty) a pattern,
+    // return an appropriate default compiler path.
     //
     // For example, for (lang::cxx, gcc, *-4.9) we will get g++-4.9.
     //
     path
-    guess_default (lang, const string& cid, const string* pattern);
+    guess_default (lang, const string& cid, const string& pattern);
   }
 }
 

@@ -88,7 +88,7 @@ namespace build2
         path d (cc_loaded
                 ? guess_default (x_lang,
                                  cast<string> (rs["cc.id"]),
-                                 cast_null<string> (rs["cc.pattern"]))
+                                 cast<string> (rs["cc.pattern"]))
                 : path (x_default));
 
         // If this value was hinted, save it as commented out so that if the

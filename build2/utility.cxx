@@ -452,7 +452,7 @@ namespace build2
   string
   apply_pattern (const char* s, const string* p)
   {
-    if (p == nullptr)
+    if (p == nullptr || p->empty ())
       return s;
 
     size_t i (p->find ('*'));

@@ -1189,7 +1189,7 @@ namespace build2
     }
 
     path
-    guess_default (lang xl, const string& c, const string* pat)
+    guess_default (lang xl, const string& c, const string& pat)
     {
       const char* s (nullptr);
 
@@ -1217,7 +1217,7 @@ namespace build2
         }
       }
 
-      return path (apply_pattern (s, pat));
+      return path (apply_pattern (s, &pat));
     }
   }
 }
