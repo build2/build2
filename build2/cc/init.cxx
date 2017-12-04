@@ -138,15 +138,15 @@ namespace build2
     }
 
     bool
-    core_config_init (scope& rs,
-                      scope&,
-                      const location& loc,
-                      unique_ptr<module_base>&,
-                      bool first,
-                      bool,
-                      const variable_map& hints)
+    core_guess_init (scope& rs,
+                     scope&,
+                     const location& loc,
+                     unique_ptr<module_base>&,
+                     bool first,
+                     bool,
+                     const variable_map& hints)
     {
-      tracer trace ("cc::core_config_init");
+      tracer trace ("cc::core_guess_init");
       l5 ([&]{trace << "for " << rs.out_path ();});
 
       assert (first);
@@ -155,13 +155,6 @@ namespace build2
       //
       if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
         load_module (rs, rs, "cc.core.vars", loc);
-
-      // Configure.
-      //
-
-      // Adjust module priority (compiler).
-      //
-      config::save_module (rs, "cc", 250);
 
       // config.cc.id
       //
@@ -198,6 +191,35 @@ namespace build2
         if (auto l = hints["config.cc.pattern"])
           rs.assign<string> ("cc.pattern") = cast<string> (l);
       }
+
+      return true;
+    }
+
+    bool
+    core_config_init (scope& rs,
+                      scope&,
+                      const location& loc,
+                      unique_ptr<module_base>&,
+                      bool first,
+                      bool,
+                      const variable_map& hints)
+    {
+      tracer trace ("cc::core_config_init");
+      l5 ([&]{trace << "for " << rs.out_path ();});
+
+      assert (first);
+
+      // Load cc.core.guess.
+      //
+      if (!cast_false<bool> (rs["cc.core.guess.loaded"]))
+        load_module (rs, rs, "cc.core.guess", loc);
+
+      // Configure.
+      //
+
+      // Adjust module priority (compiler).
+      //
+      config::save_module (rs, "cc", 250);
 
       // Note that we are not having a config report since it will just
       // duplicate what has already been printed by the hinting module.

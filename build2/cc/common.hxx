@@ -34,6 +34,11 @@ namespace build2
       const char* x_default; // Compiler default ("gcc", "g++").
       const char* x_pext;    // Preprocessed source extension (".i", ".ii").
 
+      // Array of modules that can hint us the toolchain, terminate with
+      // NULL.
+      //
+      const char* const* x_hinters;
+
       const variable& config_x;
       const variable& config_x_poptions;
       const variable& config_x_coptions;

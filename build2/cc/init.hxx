@@ -24,6 +24,15 @@ namespace build2
                     const variable_map&);
 
     bool
+    core_guess_init (scope&,
+                     scope&,
+                     const location&,
+                     unique_ptr<module_base>&,
+                     bool,
+                     bool,
+                     const variable_map&);
+
+    bool
     core_config_init (scope&,
                       scope&,
                       const location&,

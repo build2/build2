@@ -27,11 +27,11 @@ namespace build2
   namespace cc
   {
     void config_module::
-    guess (scope& rs, const location&, const variable_map&)
+    guess (scope& rs, const location& loc, const variable_map&)
     {
       tracer trace (x, "guess_init");
 
-      bool cc_loaded (cast_false<bool> (rs["cc.core.config.loaded"]));
+      bool cc_loaded (cast_false<bool> (rs["cc.core.guess.loaded"]));
 
       // Adjust module priority (compiler). Also order cc module before us
       // (we don't want to use priorities for that in case someone manages
@@ -55,9 +55,35 @@ namespace build2
 
       if (!p.first)
       {
-        // If someone already loaded cc.core.config then use its toolchain
-        // id and (optional) pattern to guess an appropriate default (e.g.,
-        // for {gcc, *-4.9} we will get g++-4.9).
+        // If there is a config.x value for one of the modules that can hint
+        // us the toolchain, load it's .guess module. This makes sure that the
+        // order in which we load the modules is unimportant and that the user
+        // can specify the toolchain using any of the config.x values.
+        //
+        if (!cc_loaded)
+        {
+          auto& vp (var_pool.rw (rs));
+
+          for (const char* const* pm (x_hinters); *pm != nullptr; ++pm)
+          {
+            string m (*pm);
+
+            // Must be the same as in module's init().
+            //
+            const variable& v (vp.insert<path> ("config." + m, true));
+
+            if (rs[v].defined ())
+            {
+              load_module (rs, rs, m + ".guess", loc);
+              cc_loaded = true;
+              break;
+            }
+          }
+        }
+
+        // If cc.core.config is already loaded then use its toolchain id and
+        // (optional) pattern to guess an appropriate default (e.g., for {gcc,
+        // *-4.9} we will get g++-4.9).
         //
         path d (cc_loaded
                 ? guess_default (x_lang,
@@ -116,7 +142,7 @@ namespace build2
         }
       }
 
-      // Assign value to variables that describe the compile.
+      // Assign value to variables that describe the compiler.
       //
       rs.assign (x_id) = ci.id.string ();
       rs.assign (x_id_type) = ci.id.type;
@@ -142,6 +168,55 @@ namespace build2
       rs.assign (x_target) = move (tt);
 
       new_ = p.second;
+
+      // Load cc.core.guess.
+      //
+      if (!cc_loaded)
+      {
+        // Prepare configuration hints.
+        //
+        variable_map h;
+
+        // Note that all these variables have already been registered.
+        //
+        h.assign ("config.cc.id") = cast<string> (rs[x_id]);
+        h.assign ("config.cc.target") = cast<target_triplet> (rs[x_target]);
+
+        if (!ci.cc_pattern.empty ())
+          h.assign ("config.cc.pattern") = ci.cc_pattern;
+
+        load_module (rs, rs, "cc.core.guess", loc, false, h);
+      }
+      else
+      {
+        // If cc.core.guess is already loaded, verify its configuration
+        // matched ours since it could have been loaded by another c-family
+        // module.
+        //
+        // Note that we don't require that patterns match. Presumably, if the
+        // toolchain id and target are the same, then where exactly the tools
+        // come from doesn't really matter.
+        //
+        {
+          const auto& cv (cast<string> (rs["cc.id"]));
+          const auto& xv (cast<string> (rs[x_id]));
+
+          if (cv != xv)
+            fail (loc) << "cc and " << x << " module toolchain mismatch" <<
+              info << "cc.id is " << cv <<
+              info << x_id.name << " is " << xv;
+        }
+
+        {
+          const auto& cv (cast<target_triplet> (rs["cc.target"]));
+          const auto& xv (cast<target_triplet> (rs[x_target]));
+
+          if (cv != xv)
+            fail (loc) << "cc and " << x << " module target mismatch" <<
+              info << "cc.target is " << cv <<
+              info << x_target.name << " is " << xv;
+        }
+      }
     }
 
     void config_module::
@@ -318,52 +393,12 @@ namespace build2
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))
       {
-        // Prepare configuration hints.
-        //
         variable_map h;
-
-        // Note that all these variables have already been registered.
-        //
-        h.assign ("config.cc.id") = cast<string> (rs[x_id]);
-        h.assign ("config.cc.target") = cast<target_triplet> (rs[x_target]);
-
-        if (!ci.cc_pattern.empty ())
-          h.assign ("config.cc.pattern") = move (ci.cc_pattern);
 
         if (!ci.bin_pattern.empty ())
           h.assign ("config.bin.pattern") = move (ci.bin_pattern);
 
         load_module (rs, rs, "cc.core.config", loc, false, h);
-      }
-      else
-      {
-        // If cc.core.config is already loaded, verify its configuration
-        // matched ours since it could have been loaded by another c-family
-        // module.
-        //
-        // Note that we don't require that patterns match. Presumably, if the
-        // toolchain id and target are the same, then where exactly the tools
-        // come from doesn't really matter.
-        //
-        {
-          const auto& cv (cast<string> (rs["cc.id"]));
-          const auto& xv (cast<string> (rs[x_id]));
-
-          if (cv != xv)
-            fail (loc) << "cc and " << x << " module toolchain mismatch" <<
-              info << "cc.id is " << cv <<
-              info << x_id.name << " is " << xv;
-        }
-
-        {
-          const auto& cv (cast<target_triplet> (rs["cc.target"]));
-          const auto& xv (cast<target_triplet> (rs[x_target]));
-
-          if (cv != xv)
-            fail (loc) << "cc and " << x << " module target mismatch" <<
-              info << "cc.target is " << cv <<
-              info << x_target.name << " is " << xv;
-        }
       }
     }
 

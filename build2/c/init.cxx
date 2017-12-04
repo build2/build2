@@ -105,6 +105,8 @@ namespace build2
       return r;
     }
 
+    static const char* const hinters[] = {"cxx", nullptr};
+
     // See cc::module for details on guess_init vs config_init.
     //
     bool
@@ -140,6 +142,8 @@ namespace build2
         "c",
         "gcc",
         ".i",
+
+        hinters,
 
         // Note: some overridable, some not.
         //
