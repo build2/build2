@@ -96,17 +96,47 @@ namespace build2
       }
     }
 
-    bool l (i != lm.end ());
-    bool c (l &&
-            i->second.init (rs, bs, loc, i->second.module, f, opt, hints));
-
-    auto& vp (var_pool.rw (rs));
-
     // Note: pattern-typed in context.cxx:reset() as project-visibility
     // variables of type bool.
     //
-    bs.assign (vp.insert (name + ".loaded"))     = l;
-    bs.assign (vp.insert (name + ".configured")) = c;
+    auto& vp (var_pool.rw (rs));
+    value& lv (bs.assign (vp.insert (name + ".loaded")));
+    value& cv (bs.assign (vp.insert (name + ".configured")));
+
+    bool l; // Loaded.
+    bool c; // Configured.
+
+    // Suppress duplicate init() calls for the same module in the same scope.
+    //
+    if (!lv.null)
+    {
+      assert (!cv.null);
+
+      l = cast<bool> (lv);
+      c = cast<bool> (cv);
+
+      if (!opt)
+      {
+        if (!l)
+          fail (loc) << "unknown module " << name;
+
+        // We don't have original diagnostics. We could call init() again so
+        // that it can issue it. But that means optional modules must be
+        // prepared to be called again if configuring failed. Let's keep it
+        // simple for now.
+        //
+        if (!c)
+          fail (loc) << "module " << name << " failed to configure";
+      }
+    }
+    else
+    {
+      l = i != lm.end ();
+      c = l && i->second.init (rs, bs, loc, i->second.module, f, opt, hints);
+
+      lv = l;
+      cv = c;
+    }
 
     return l && c;
   }
