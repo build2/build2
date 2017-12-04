@@ -223,7 +223,7 @@ namespace build2
           auto p (omitted (rs, var));
           lookup l (p.first);
 
-          // Then see if there is a config hint (e.g., from the C++ module).
+          // Then see if there is a config hint (e.g., from the cc module).
           //
           bool hint (false);
           if (!l)

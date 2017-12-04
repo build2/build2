@@ -280,9 +280,13 @@ namespace build2
         const auto& bt (cast<target_triplet> (rs["bin.target"]));
 
         if (bt != ct)
-          fail (loc) << "cc and bin module target mismatch" <<
-            info << "cc.target is " << ct <<
-            info << "bin.target is " << bt;
+        {
+          const auto& h (cast<string> (rs["cc.hinter"]));
+
+          fail (loc) << h << " and bin module target mismatch" <<
+            info << h << " target is " << ct <<
+            info << "bin target is " << bt;
+        }
       }
 
       const string& cid (cast<string> (rs["cc.id"]));
