@@ -167,6 +167,8 @@ namespace build2
 
       rs.assign (x_target) = move (tt);
 
+      rs.assign (x_pattern) = ci.pattern;
+
       new_ = p.second;
 
       // Load cc.core.guess.
@@ -180,10 +182,11 @@ namespace build2
         // Note that all these variables have already been registered.
         //
         h.assign ("config.cc.id") = cast<string> (rs[x_id]);
+        h.assign ("config.cc.hinter") = string (x);
         h.assign ("config.cc.target") = cast<target_triplet> (rs[x_target]);
 
-        if (!ci.cc_pattern.empty ())
-          h.assign ("config.cc.pattern") = ci.cc_pattern;
+        if (!ci.pattern.empty ())
+          h.assign ("config.cc.pattern") = ci.pattern;
 
         load_module (rs, rs, "cc.core.guess", loc, false, h);
       }
@@ -193,18 +196,36 @@ namespace build2
         // matched ours since it could have been loaded by another c-family
         // module.
         //
-        // Note that we don't require that patterns match. Presumably, if the
-        // toolchain id and target are the same, then where exactly the tools
-        // come from doesn't really matter.
-        //
+        const auto& h (cast<string> (rs["cc.hinter"]));
+
         {
           const auto& cv (cast<string> (rs["cc.id"]));
           const auto& xv (cast<string> (rs[x_id]));
 
           if (cv != xv)
-            fail (loc) << "cc and " << x << " module toolchain mismatch" <<
-              info << "cc.id is " << cv <<
-              info << x_id.name << " is " << xv;
+            fail (loc) << h << " and " << x << " module toolchain mismatch" <<
+              info << h << " is " << cv <<
+              info << x << " is " << xv <<
+              info << "consider explicitly specifying config." << h
+                       << " and config." << x;
+        }
+
+        // We used to not require that patterns match assuming that if the
+        // toolchain id and target are the same, then where exactly the tools
+        // come from doesn't really matter. But in most cases it will be the
+        // g++-7 vs gcc kind of mistakes. So now we warn since even if
+        // intentional, it is still a bad idea.
+        //
+        {
+          const auto& cv (cast<string> (rs["cc.pattern"]));
+          const auto& xv (cast<string> (rs[x_pattern]));
+
+          if (cv != xv)
+            warn (loc) << h << " and " << x << " toolchain pattern mismatch" <<
+              info << h << " is '" << cv << "'" <<
+              info << x << " is '" << xv << "'" <<
+              info << "consider explicitly specifying config." << h
+                       << " and config." << x;
         }
 
         {
@@ -212,9 +233,9 @@ namespace build2
           const auto& xv (cast<target_triplet> (rs[x_target]));
 
           if (cv != xv)
-            fail (loc) << "cc and " << x << " module target mismatch" <<
-              info << "cc.target is " << cv <<
-              info << x_target.name << " is " << xv;
+            fail (loc) << h << " and " << x << " module target mismatch" <<
+              info << h << " target is " << cv <<
+              info << x << " target is " << xv;
         }
       }
     }
@@ -326,9 +347,9 @@ namespace build2
           for (const string& o: tstd) dr << ' ' << o;
         }
 
-        if (!ci.cc_pattern.empty ()) // bin_pattern printed by bin
+        if (!ci.pattern.empty ()) // Note: bin_pattern printed by bin
         {
-          dr << "\n  pattern    " << ci.cc_pattern;
+          dr << "\n  pattern    " << ci.pattern;
         }
 
         if (verb >= 3 && !inc_dirs.empty ())

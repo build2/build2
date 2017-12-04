@@ -133,7 +133,7 @@ namespace build2
     // unlike all the preceding fields, this one takes into account the
     // compile options (e.g., -m32).
     //
-    // The cc_pattern is the toolchain program pattern that could sometimes be
+    // The pattern is the toolchain program pattern that could sometimes be
     // derived for some toolchains. For example, i686-w64-mingw32-*-4.9.
     //
     // The bin_pattern is the binutils program pattern that could sometimes be
@@ -151,7 +151,7 @@ namespace build2
       string signature;
       string checksum;
       string target;
-      string cc_pattern;
+      string pattern;
       string bin_pattern;
     };
 

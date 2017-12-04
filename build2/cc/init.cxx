@@ -96,6 +96,7 @@ namespace build2
       // Hint variables (not overridable).
       //
       v.insert<string>         ("config.cc.id");
+      v.insert<string>         ("config.cc.hinter"); // Hinting module.
       v.insert<string>         ("config.cc.pattern");
       v.insert<target_triplet> ("config.cc.target");
 
@@ -156,12 +157,14 @@ namespace build2
       if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
         load_module (rs, rs, "cc.core.vars", loc);
 
-      // config.cc.id
+      // config.cc.{id,hinter}
       //
       {
-        // This value must be hinted.
+        // These values must be hinted.
         //
         rs.assign<string> ("cc.id") = cast<string> (hints["config.cc.id"]);
+        rs.assign<string> ("cc.hinter") =
+          cast<string> (hints["config.cc.hinter"]);
       }
 
       // config.cc.target
@@ -188,8 +191,8 @@ namespace build2
       {
         // This value could be hinted.
         //
-        if (auto l = hints["config.cc.pattern"])
-          rs.assign<string> ("cc.pattern") = cast<string> (l);
+        rs.assign<string> ("cc.pattern") =
+          cast_empty<string> (hints["config.cc.pattern"]);
       }
 
       return true;

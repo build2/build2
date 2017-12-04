@@ -397,6 +397,8 @@ namespace build2
         v.insert<string>   ("cxx.signature"),
         v.insert<string>   ("cxx.checksum"),
 
+        v.insert<string>   ("cxx.pattern"),
+
         v.insert<target_triplet> ("cxx.target"),
 
         v.insert<string>   ("cxx.target.cpu"),

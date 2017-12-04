@@ -94,6 +94,8 @@ namespace build2
       const variable& x_signature;
       const variable& x_checksum;
 
+      const variable& x_pattern;
+
       const variable& x_target;
       const variable& x_target_cpu;
       const variable& x_target_vendor;
