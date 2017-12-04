@@ -142,6 +142,23 @@ namespace build2
         }
       }
 
+      // For some compilers we have to remap the target to something more
+      // appropriate.
+      //
+      if (tt.system == "windows-msvc") // Clang on Windows targeting MSVC.
+      {
+        // Remap to the same triplet as used for MSVC.
+        //
+        // @@ This should probably be done in guess(), especially since we may
+        //    need to extra extra info from the compiler (like the runtime
+        //    version). Perhaps have original_target in compiler_info (so can
+        //    print it in report below)?
+        //
+        tt.vendor = "microsoft";
+        tt.system = "win32-msvc";
+        tt.version = "14.1"; //@@ TMP hardcoded.
+      }
+
       // Assign value to variables that describe the compiler.
       //
       rs.assign (x_id) = ci.id.string ();
