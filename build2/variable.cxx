@@ -1228,7 +1228,7 @@ namespace build2
 
   // variable_map
   //
-  inline void variable_map::
+  void variable_map::
   typify (value_data& v, const variable& var) const
   {
     // We assume typification is not modification.
