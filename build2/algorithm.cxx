@@ -613,12 +613,16 @@ namespace build2
                                        const diag_frame* ds)
                        {
                          diag_frame df (ds);
-                         phase_lock pl (run_phase::match);
+                         try
                          {
-                           target_lock l {&t, offset}; // Reassemble.
-                           match_impl (a, l, false /* step */, try_match);
-                           // Unlock withing the match phase.
+                           phase_lock pl (run_phase::match); // Can throw.
+                           {
+                             target_lock l {&t, offset}; // Reassemble.
+                             match_impl (a, l, false /* step */, try_match);
+                             // Unlock withing the match phase.
+                           }
                          }
+                         catch (const failed&) {} // Phase lock failure.
                        },
                        ref (*l.release ()),
                        l.offset,
