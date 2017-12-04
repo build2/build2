@@ -289,6 +289,12 @@ namespace build2
   template <typename T> const T* cast_null (const value&);
   template <typename T> const T* cast_null (const lookup&);
 
+  // As above but returns empty value if the value is NULL (or not defined, in
+  // case of lookup).
+  //
+  template <typename T> const T& cast_empty (const value&);
+  template <typename T> const T& cast_empty (const lookup&);
+
   // As above but returns false/true if the value is NULL (or not defined,
   // in case of lookup). Note that the template argument is only for
   // documentation and should be bool (or semantically compatible).
@@ -432,6 +438,8 @@ namespace build2
   //   // True if can be constructed from empty names as T().
   //   //
   //   static const bool empty_value = true;
+  //
+  //   static const T empty_instance;
   //
   //   // For simple types (those that can be used as elements of containers),
   //   // type_name must be constexpr in order to sidestep the static init
@@ -579,6 +587,7 @@ namespace build2
     static bool empty (const string& x) {return x.empty ();}
 
     static const bool empty_value = true;
+    static const string& empty_instance;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -608,6 +617,7 @@ namespace build2
     static bool empty (const path& x) {return x.empty ();}
 
     static const bool empty_value = true;
+    static const path& empty_instance;
     static const char* const type_name;
     static const build2::value_type value_type;
   };
@@ -628,6 +638,7 @@ namespace build2
     static bool empty (const dir_path& x) {return x.empty ();}
 
     static const bool empty_value = true;
+    static const dir_path& empty_instance;
     static const char* const type_name;
     static const build2::value_type value_type;
   };

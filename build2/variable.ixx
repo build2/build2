@@ -187,21 +187,46 @@ namespace build2
   }
 
   template <typename T>
-  inline T
-  cast_false (const value& v) {return v && cast<T> (v);}
+  inline const T&
+  cast_empty (const value& v)
+  {
+    return v ? cast<T> (v) : value_traits<T>::empty_instance;
+  }
+
+  template <typename T>
+  inline const T&
+  cast_empty (const lookup& l)
+  {
+    return l ? cast<T> (l) : value_traits<T>::empty_instance;
+  }
 
   template <typename T>
   inline T
-  cast_false (const lookup& l) {return l && cast<T> (l);}
+  cast_false (const value& v)
+  {
+    return v && cast<T> (v);
+  }
 
   template <typename T>
   inline T
-  cast_true (const value& v) {return !v || cast<T> (v);}
+  cast_false (const lookup& l)
+  {
+    return l && cast<T> (l);
+  }
 
   template <typename T>
   inline T
-  cast_true (const lookup& l) {return !l || cast<T> (l);}
+  cast_true (const value& v)
+  {
+    return !v || cast<T> (v);
+  }
 
+  template <typename T>
+  inline T
+  cast_true (const lookup& l)
+  {
+    return !l || cast<T> (l);
+  }
 
   template <typename T>
   inline void

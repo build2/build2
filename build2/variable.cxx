@@ -533,6 +533,8 @@ namespace build2
     return s;
   }
 
+  const string& value_traits<string>::empty_instance = empty_string;
+
   const char* const value_traits<string>::type_name = "string";
 
   const value_type value_traits<string>::value_type
@@ -585,6 +587,8 @@ namespace build2
     throw_invalid_argument (n, r, "path");
   }
 
+  const path& value_traits<path>::empty_instance = empty_path;
+
   const char* const value_traits<path>::type_name = "path";
 
   const value_type value_traits<path>::value_type
@@ -629,6 +633,8 @@ namespace build2
 
     throw_invalid_argument (n, r, "dir_path");
   }
+
+  const dir_path& value_traits<dir_path>::empty_instance = empty_dir_path;
 
   const char* const value_traits<dir_path>::type_name = "dir_path";
 
