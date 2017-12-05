@@ -106,7 +106,6 @@ namespace build2
     return !(x < y);
   }
 
-
   template <>
   inline const names&
   cast (const value& v)

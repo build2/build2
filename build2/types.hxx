@@ -133,6 +133,24 @@ namespace build2
       return *this = a.load (memory_order_relaxed);}
   };
 
+  // VC 14 has issues.
+  //
+#if defined(_MSC_VER) && _MSC_VER <= 1900
+  template <typename T, typename P>
+  inline bool
+  operator== (const relaxed_atomic<T*>& x, const P& y)
+  {
+    return static_cast<T*> (x) == y;
+  }
+
+  template <typename T, typename P>
+  inline bool
+  operator!= (const relaxed_atomic<T*>& x, const P& y)
+  {
+    return static_cast<T*> (x) == y;
+  }
+#endif
+
   using std::mutex;
   using mlock = std::unique_lock<mutex>;
 
