@@ -601,9 +601,9 @@ namespace build2
 
     // Cache hit.
     //
-    if (i != m_.end ()               &&
-        i->second.version == ver     &&
-        i->second.stem_vars == svars &&
+    if (i != m_.end ()                 &&
+        i->second.version == ver       &&
+        i->second.stem_vars == svars   &&
         i->second.stem_version == sver &&
         (var.type == nullptr || i->second.value.type == var.type))
       return pair<value&, ulock> (i->second.value, move (ul));

@@ -232,7 +232,7 @@ namespace build2
   inline void
   typify (value& v, const variable* var)
   {
-    value_type& t (value_traits<T>::value_type);
+    const value_type& t (value_traits<T>::value_type);
 
     if (v.type != &t)
       typify (v, t, var);
@@ -689,6 +689,25 @@ namespace build2
     return i != map_.end () ? &i->second : nullptr;
   }
 
+  // variable_map
+  //
+  inline void variable_map::
+  typify (const value_data& v, const variable& var) const
+  {
+    // We assume typification is not modification so no version increment.
+    //
+    if (phase == run_phase::load)
+    {
+      if (v.type != var.type)
+        build2::typify (const_cast<value_data&> (v), *var.type, &var);
+    }
+    else
+    {
+      if (v.type.load (memory_order_acquire) != var.type)
+        build2::typify_atomic (const_cast<value_data&> (v), *var.type, &var);
+    }
+  }
+
   // variable_map::iterator_adapter
   //
   template <typename I>
@@ -699,15 +718,10 @@ namespace build2
     const variable& var (r.first);
     const value_data& val (r.second);
 
-    // First access after being assigned a type?
+    // Check if this is the first access after being assigned a type.
     //
-    if (var.type != nullptr && val.type != var.type)
-    {
-      // All values shall be typed during load.
-      //
-      assert (!m_->global_ || phase == run_phase::load);
-      m_->typify (const_cast<value_data&> (val), var);
-    }
+    if (var.type != nullptr)
+      m_->typify (val, var);
 
     return r;
   }
@@ -720,15 +734,10 @@ namespace build2
     const variable& var (p->first);
     const value_data& val (p->second);
 
-    // First access after being assigned a type?
+    // Check if this is the first access after being assigned a type.
     //
-    if (var.type != nullptr && val.type != var.type)
-    {
-      // All values shall be typed during load.
-      //
-      assert (!m_->global_ || phase == run_phase::load);
-      m_->typify (const_cast<value_data&> (val), var);
-    }
+    if (var.type != nullptr)
+      m_->typify (val, var);
 
     return p;
   }

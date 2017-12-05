@@ -20,6 +20,17 @@
 
 namespace build2
 {
+  // Some general variable infrastructure rules:
+  //
+  // 1. A variable can only be entered or typified during the load phase.
+  //
+  // 2. Any entity (module) that caches a variable value must make sure the
+  //    variable has already been typified.
+  //
+  // 3. Any entity (module) that assigns a target-specific variable value
+  //    during a phase other than load must make sure the variable has already
+  //    been typified.
+
   class value;
   struct variable;
   struct lookup;
@@ -139,7 +150,16 @@ namespace build2
   class value
   {
   public:
-    const value_type* type; // NULL means this value is not (yet) typed.
+    // NULL means this value is not (yet) typed.
+    //
+    // Atomic access is used to implement on-first-access typification of
+    // values store in variable_map. Direct access as well as other functions
+    // that operate on values directly all use non-atomic access.
+    //
+    relaxed_atomic<const value_type*> type;
+
+    // True if there is no value.
+    //
     bool null;
 
     // Extra data that is associated with the value that can be used to store
@@ -310,8 +330,9 @@ namespace build2
   // for diagnostics.
   //
   template <typename T>
-  void typify (value&, const variable*);
-  void typify (value&, const value_type&, const variable*);
+  void typify        (value&, const variable*);
+  void typify        (value&, const value_type&, const variable*);
+  void typify_atomic (value&, const value_type&, const variable*);
 
   // Remove value type from the value reversing it to names. This is similar
   // to reverse() below except that it modifies the value itself.
@@ -1205,7 +1226,7 @@ namespace build2
     friend class variable_type_map;
 
     void
-    typify (value_data&, const variable&) const;
+    typify (const value_data&, const variable&) const;
 
   private:
     bool global_;
@@ -1223,7 +1244,8 @@ namespace build2
   //
   // Note that since the cache can be modified on any lookup (including during
   // the execute phase), it is protected by its own mutex shard (allocated in
-  // main()).
+  // main()). This shard is also used for value typification (which is kind of
+  // like caching) during concurrent execution phases.
   //
   extern size_t variable_cache_mutex_shard_size;
   extern unique_ptr<shared_mutex[]> variable_cache_mutex_shard;

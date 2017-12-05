@@ -334,6 +334,19 @@ namespace build2
   }
 
   void
+  typify_atomic (value& v, const value_type& t, const variable* var)
+  {
+    // Typification is kind of like caching so we reuse that mutex shard.
+    //
+    shared_mutex& m (
+      variable_cache_mutex_shard[
+        hash<value*> () (&v) % variable_cache_mutex_shard_size]);
+
+    ulock l (m);
+    typify (v, t, var); // v.type is rechecked by typify(), stored under lock.
+  }
+
+  void
   untypify (value& v)
   {
     if (v.type == nullptr)
@@ -1228,29 +1241,16 @@ namespace build2
 
   // variable_map
   //
-  void variable_map::
-  typify (value_data& v, const variable& var) const
-  {
-    // We assume typification is not modification so no version increment.
-    //
-    build2::typify (v, *var.type, &var);
-  }
-
   auto variable_map::
   find (const variable& var, bool typed) const -> const value_data*
   {
     auto i (m_.find (var));
     const value_data* r (i != m_.end () ? &i->second : nullptr);
 
-    // First access after being assigned a type?
+    // Check if this is the first access after being assigned a type.
     //
-    if (r != nullptr && typed && var.type != nullptr && r->type != var.type)
-    {
-      // All values shall be typed during load.
-      //
-      assert (!global_ || phase == run_phase::load);
-      typify (const_cast<value_data&> (*r), var);
-    }
+    if (r != nullptr && typed && var.type != nullptr)
+      typify (*r, var);
 
     return  r;
   }
@@ -1276,9 +1276,11 @@ namespace build2
 
     if (!p.second)
     {
-      // First access after being assigned a type?
+      // Check if this is the first access after being assigned a type.
       //
-      if (typed && var.type != nullptr && r.type != var.type)
+      // Note: we still need atomic in case this is not a global state.
+      //
+      if (typed && var.type != nullptr)
         typify (r, var);
     }
 
@@ -1351,13 +1353,10 @@ namespace build2
 
         if (const variable_map::value_data* v = vm.find (var, false))
         {
-          if (v->extra == 0 && var.type != nullptr && v->type != var.type)
-          {
-            // All values shall be typed during load.
-            //
-            assert (!global_ || phase == run_phase::load);
-            vm.typify (const_cast<variable_map::value_data&> (*v), var);
-          }
+          // Check if this is the first access after being assigned a type.
+          //
+          if (v->extra == 0 && var.type != nullptr)
+            vm.typify (*v, var);
 
           return lookup (*v, vm);
         }

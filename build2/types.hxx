@@ -98,6 +98,41 @@ namespace build2
 
   using atomic_count = atomic<size_t>; // Matches scheduler::atomic_count.
 
+  // Like std::atomic except implicit conversion and assignment use relaxed
+  // memory ordering.
+  //
+  template <typename T>
+  struct relaxed_atomic: atomic<T>
+  {
+    using atomic<T>::atomic; // Delegate.
+    relaxed_atomic (const relaxed_atomic& a) noexcept
+        : atomic<T> (a.load (memory_order_relaxed)) {}
+
+    operator T () const noexcept {return this->load (memory_order_relaxed);}
+
+    T operator= (T v) noexcept {
+      this->store (v, memory_order_relaxed); return v;}
+    T operator= (const relaxed_atomic& a) noexcept {
+      return *this = a.load (memory_order_relaxed);}
+  };
+
+  template <typename T>
+  struct relaxed_atomic<T*>: atomic<T*>
+  {
+    using atomic<T*>::atomic; // Delegate.
+    relaxed_atomic (const relaxed_atomic& a) noexcept
+        : atomic<T*> (a.load (memory_order_relaxed)) {}
+
+    operator T* () const noexcept {return this->load (memory_order_relaxed);}
+    T& operator* () const noexcept {return *this->load (memory_order_relaxed);}
+    T* operator-> () const noexcept {return this->load (memory_order_relaxed);}
+
+    T* operator= (T* v) noexcept {
+      this->store (v, memory_order_relaxed); return v;}
+    T* operator= (const relaxed_atomic& a) noexcept {
+      return *this = a.load (memory_order_relaxed);}
+  };
+
   using std::mutex;
   using mlock = std::unique_lock<mutex>;
 
