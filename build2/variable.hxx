@@ -306,11 +306,11 @@ namespace build2
   template <typename T> T cast_true (const lookup&);
 
 
-  // Assign value type to the value. In the second version the variable is
-  // optional and is only used for diagnostics.
+  // Assign value type to the value. The variable is optional and is only used
+  // for diagnostics.
   //
   template <typename T>
-  void typify (value&, const variable&);
+  void typify (value&, const variable*);
   void typify (value&, const value_type&, const variable*);
 
   // Remove value type from the value reversing it to names. This is similar

@@ -1231,7 +1231,7 @@ namespace build2
   void variable_map::
   typify (value_data& v, const variable& var) const
   {
-    // We assume typification is not modification.
+    // We assume typification is not modification so no version increment.
     //
     build2::typify (v, *var.type, &var);
   }

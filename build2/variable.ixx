@@ -230,12 +230,12 @@ namespace build2
 
   template <typename T>
   inline void
-  typify (value& v, const variable& var)
+  typify (value& v, const variable* var)
   {
     value_type& t (value_traits<T>::value_type);
 
     if (v.type != &t)
-      typify (v, t, &var);
+      typify (v, t, var);
   }
 
   inline vector_view<const name>
