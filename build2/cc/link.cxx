@@ -400,7 +400,7 @@ namespace build2
             }
           case otype::a:
             {
-              if (cclass == compiler_class::msvc)
+              if (tsys == "win32-msvc")
                 e = "lib";
               else
               {
@@ -428,10 +428,11 @@ namespace build2
             }
           }
 
-          // Add VC's .pdb.
+          // Add VC's .pdb. Note that we are looking for the link.exe /DEBUG
+          // option.
           //
           if (ot != otype::a                               &&
-              cclass == compiler_class::msvc               &&
+              tsys == "win32-msvc"                         &&
               (find_option ("/DEBUG", t, c_loptions, true) ||
                find_option ("/DEBUG", t, x_loptions, true)))
           {
@@ -1188,7 +1189,7 @@ namespace build2
     void
     msvc_filter_link (ifdstream&, const file&, otype);
 
-    // Translate target CPU to /MACHINE option.
+    // Translate target CPU to the link.exe/lib.exe /MACHINE option.
     //
     const char*
     msvc_machine (const string& cpu); // msvc.cxx
@@ -1363,7 +1364,7 @@ namespace build2
         //
         const string& cs (
           cast<string> (
-            rs[cclass == compiler_class::msvc
+            rs[tsys == "win32-msvc"
                ? var_pool["bin.ld.checksum"]
                : x_checksum]));
 
@@ -1394,7 +1395,7 @@ namespace build2
 
       if (lt.static_library ())
       {
-        if (cclass == compiler_class::msvc) ;
+        if (tsys == "win32-msvc") ;
         else
         {
           // If the user asked for ranlib, don't try to do its function with
@@ -1406,7 +1407,7 @@ namespace build2
       }
       else
       {
-        if (cclass == compiler_class::msvc)
+        if (tsys == "win32-msvc")
         {
           // We are using link.exe directly so don't pass the compiler
           // options.
@@ -1640,161 +1641,157 @@ namespace build2
       {
         ld = &cast<process_path> (rs["bin.ar.path"]);
 
-        switch (cclass)
+        if (tsys == "win32-msvc")
         {
-        case compiler_class::msvc:
-          {
-            // lib.exe has /LIBPATH but it's not clear/documented what it's
-            // used for. Perhaps for link-time code generation (/LTCG)? If
-            // that's the case, then we may need to pass *.loptions.
-            //
-            args.push_back ("/NOLOGO");
+          // lib.exe has /LIBPATH but it's not clear/documented what it's used
+          // for. Perhaps for link-time code generation (/LTCG)? If that's the
+          // case, then we may need to pass *.loptions.
+          //
+          args.push_back ("/NOLOGO");
 
-            // Add /MACHINE.
-            //
-            args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
+          // Add /MACHINE.
+          //
+          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
 
-            out = "/OUT:" + relt.string ();
-            args.push_back (out.c_str ());
-            break;
-          }
-        default:
-          {
-            args.push_back (relt.string ().c_str ());
-            break;
-          }
+          out = "/OUT:" + relt.string ();
+          args.push_back (out.c_str ());
         }
+        else
+          args.push_back (relt.string ().c_str ());
       }
       else
       {
         // The options are usually similar enough to handle executables
         // and shared libraries together.
         //
-        switch (cclass)
+        if (tsys == "win32-msvc")
         {
-        case compiler_class::msvc:
+          // Using link.exe directly.
+          //
+          ld = &cast<process_path> (rs["bin.ld.path"]);
+          args.push_back ("/NOLOGO");
+
+          if (ot == otype::s)
+            args.push_back ("/DLL");
+
+          // Add /MACHINE.
+          //
+          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
+
+          // Unless explicitly enabled with /INCREMENTAL, disable incremental
+          // linking (it is implicitly enabled if /DEBUG is specified). The
+          // reason is the .ilk file: its name cannot be changed and if we
+          // have, say, foo.exe and foo.dll, then they will end up stomping on
+          // each other's .ilk's.
+          //
+          // So the idea is to disable it by default but let the user request
+          // it explicitly if they are sure their project doesn't suffer from
+          // the above issue. We can also have something like 'incremental'
+          // config initializer keyword for this.
+          //
+          // It might also be a good idea to ask Microsoft to add an option.
+          //
+          if (!find_option ("/INCREMENTAL", args, true))
+            args.push_back ("/INCREMENTAL:NO");
+
+          // If you look at the list of libraries Visual Studio links by
+          // default, it includes everything and a couple of kitchen sinks
+          // (winspool32.lib, ole32.lib, odbc32.lib, etc) while we want to
+          // keep our low-level build as pure as possible. However, there seem
+          // to be fairly essential libraries that are not linked by link.exe
+          // by default (use /VERBOSE:LIB to see the list). For example, MinGW
+          // by default links advapi32, shell32, user32, and kernel32. And so
+          // we follow suit and make sure those are linked.  advapi32 and
+          // kernel32 are already on the default list and we only need to add
+          // the other two.
+          //
+          // The way we are going to do it is via the /DEFAULTLIB option
+          // rather than specifying the libraries as normal inputs (as VS
+          // does). This way the user can override our actions with the
+          // /NODEFAULTLIB option.
+          //
+          args.push_back ("/DEFAULTLIB:shell32.lib");
+          args.push_back ("/DEFAULTLIB:user32.lib");
+
+          // Take care of the manifest (will be empty for the DLL).
+          //
+          if (!manifest.empty ())
           {
-            // Using link.exe directly.
-            //
-            ld = &cast<process_path> (rs["bin.ld.path"]);
-            args.push_back ("/NOLOGO");
-
-            if (ot == otype::s)
-              args.push_back ("/DLL");
-
-            // Add /MACHINE.
-            //
-            args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
-
-            // Unless explicitly enabled with /INCREMENTAL, disable
-            // incremental linking (it is implicitly enabled if /DEBUG is
-            // specified). The reason is the .ilk file: its name cannot be
-            // changed and if we have, say, foo.exe and foo.dll, then they
-            // will end up stomping on each other's .ilk's.
-            //
-            // So the idea is to disable it by default but let the user
-            // request it explicitly if they are sure their project doesn't
-            // suffer from the above issue. We can also have something like
-            // 'incremental' config initializer keyword for this.
-            //
-            // It might also be a good idea to ask Microsoft to add an option.
-            //
-            if (!find_option ("/INCREMENTAL", args, true))
-              args.push_back ("/INCREMENTAL:NO");
-
-            // If you look at the list of libraries Visual Studio links by
-            // default, it includes everything and a couple of kitchen sinks
-            // (winspool32.lib, ole32.lib, odbc32.lib, etc) while we want to
-            // keep our low-level build as pure as possible. However, there
-            // seem to be fairly essential libraries that are not linked by
-            // link.exe by default (use /VERBOSE:LIB to see the list). For
-            // example, MinGW by default links advapi32, shell32, user32, and
-            // kernel32. And so we follow suit and make sure those are linked.
-            // advapi32 and kernel32 are already on the default list and we
-            // only need to add the other two.
-            //
-            // The way we are going to do it is via the /DEFAULTLIB option
-            // rather than specifying the libraries as normal inputs (as VS
-            // does). This way the user can override our actions with the
-            // /NODEFAULTLIB option.
-            //
-            args.push_back ("/DEFAULTLIB:shell32.lib");
-            args.push_back ("/DEFAULTLIB:user32.lib");
-
-            // Take care of the manifest (will be empty for the DLL).
-            //
-            if (!manifest.empty ())
-            {
-              out3 = "/MANIFESTINPUT:";
-              out3 += relative (manifest).string ();
-              args.push_back ("/MANIFEST:EMBED");
-              args.push_back (out3.c_str ());
-            }
-
-            if (ot == otype::s)
-            {
-              // On Windows libs{} is the DLL and its first ad hoc group
-              // member is the import library.
-              //
-              // This will also create the .exp export file. Its name will be
-              // derived from the import library by changing the extension.
-              // Lucky for us -- there is no option to name it.
-              //
-              auto& imp (t.member->as<file> ());
-              out2 = "/IMPLIB:" + relative (imp.path ()).string ();
-              args.push_back (out2.c_str ());
-            }
-
-            // If we have /DEBUG then name the .pdb file. It is either the
-            // first (exe) or the second (dll) ad hoc group member.
-            //
-            if (find_option ("/DEBUG", args, true))
-            {
-              auto& pdb (
-                (ot == otype::e ? t.member : t.member->member)->as<file> ());
-              out1 = "/PDB:" + relative (pdb.path ()).string ();
-              args.push_back (out1.c_str ());
-            }
-
-            // @@ An executable can have an import library and VS seems to
-            //    always name it. I wonder what would trigger its generation?
-            //    Could it be the presence of export symbols? Yes, link.exe
-            //    will generate the import library iff there are exported
-            //    symbols. Which means there could be a DLL without an import
-            //    library (which we currently don't handle very well).
-            //
-            out = "/OUT:" + relt.string ();
-            args.push_back (out.c_str ());
-            break;
+            out3 = "/MANIFESTINPUT:";
+            out3 += relative (manifest).string ();
+            args.push_back ("/MANIFEST:EMBED");
+            args.push_back (out3.c_str ());
           }
-        case compiler_class::gcc:
+
+          if (ot == otype::s)
           {
-            ld = &cpath;
-
-            // Add the option that triggers building a shared library and take
-            // care of any extras (e.g., import library).
+            // On Windows libs{} is the DLL and its first ad hoc group member
+            // is the import library.
             //
-            if (ot == otype::s)
+            // This will also create the .exp export file. Its name will be
+            // derived from the import library by changing the extension.
+            // Lucky for us -- there is no option to name it.
+            //
+            auto& imp (t.member->as<file> ());
+            out2 = "/IMPLIB:" + relative (imp.path ()).string ();
+            args.push_back (out2.c_str ());
+          }
+
+          // If we have /DEBUG then name the .pdb file. It is either the first
+          // (exe) or the second (dll) ad hoc group member.
+          //
+          if (find_option ("/DEBUG", args, true))
+          {
+            auto& pdb (
+              (ot == otype::e ? t.member : t.member->member)->as<file> ());
+            out1 = "/PDB:" + relative (pdb.path ()).string ();
+            args.push_back (out1.c_str ());
+          }
+
+          // @@ An executable can have an import library and VS seems to
+          //    always name it. I wonder what would trigger its generation?
+          //    Could it be the presence of export symbols? Yes, link.exe will
+          //    generate the import library iff there are exported symbols.
+          //    Which means there could be a DLL without an import library
+          //    (which we currently don't handle very well).
+          //
+          out = "/OUT:" + relt.string ();
+          args.push_back (out.c_str ());
+        }
+        else
+        {
+          switch (cclass)
+          {
+          case compiler_class::gcc:
             {
-              if (tclass == "macos")
-                args.push_back ("-dynamiclib");
-              else
-                args.push_back ("-shared");
+              ld = &cpath;
 
-              if (tsys == "mingw32")
+              // Add the option that triggers building a shared library and
+              // take care of any extras (e.g., import library).
+              //
+              if (ot == otype::s)
               {
-                // On Windows libs{} is the DLL and its first ad hoc group
-                // member is the import library.
-                //
-                auto& imp (t.member->as<file> ());
-                out = "-Wl,--out-implib=" + relative (imp.path ()).string ();
-                args.push_back (out.c_str ());
-              }
-            }
+                if (tclass == "macos")
+                  args.push_back ("-dynamiclib");
+                else
+                  args.push_back ("-shared");
 
-            args.push_back ("-o");
-            args.push_back (relt.string ().c_str ());
-            break;
+                if (tsys == "mingw32")
+                {
+                  // On Windows libs{} is the DLL and its first ad hoc group
+                  // member is the import library.
+                  //
+                  auto& imp (t.member->as<file> ());
+                  out = "-Wl,--out-implib=" + relative (imp.path ()).string ();
+                  args.push_back (out.c_str ());
+                }
+              }
+
+              args.push_back ("-o");
+              args.push_back (relt.string ().c_str ());
+              break;
+            }
+          case compiler_class::msvc: assert (false);
           }
         }
       }
@@ -1929,7 +1926,7 @@ namespace build2
         // something like this) we are going to redirect stdout to stderr. For
         // sane compilers this should be harmless.
         //
-        bool filter (cclass == compiler_class::msvc && !lt.static_library ());
+        bool filter (tsys == "win32-msvc" && !lt.static_library ());
 
         process pr (*ld, args.data (), 0, (filter ? -1 : 2));
 

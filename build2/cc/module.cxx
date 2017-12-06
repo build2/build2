@@ -157,9 +157,10 @@ namespace build2
         tt.vendor = "microsoft";
         tt.system = "win32-msvc";
         tt.version = "14.1"; //@@ TMP hardcoded.
+        assert (tt.class_ == "windows");
       }
 
-      // Assign value to variables that describe the compiler.
+      // Assign values to variables that describe the compiler.
       //
       rs.assign (x_id) = ci.id.string ();
       rs.assign (x_id_type) = ci.id.type;

@@ -289,16 +289,15 @@ namespace build2
         }
       }
 
-      const string& cid (cast<string> (rs["cc.id"]));
-      const string& tsys (cast<string> (rs["cc.target.system"]));
-
       // Load bin.*.config for bin.* modules we may need (see core_init()
       // below).
       //
+      const string& tsys (cast<string> (rs["cc.target.system"]));
+
       if (!cast_false<bool> (rs["bin.ar.config.loaded"]))
         load_module (rs, rs, "bin.ar.config", loc);
 
-      if (cid == "msvc")
+      if (tsys == "win32-msvc")
       {
         if (!cast_false<bool> (rs["bin.ld.config.loaded"]))
           load_module (rs, rs, "bin.ld.config", loc);
@@ -327,6 +326,8 @@ namespace build2
 
       assert (first);
 
+      const string& tsys (cast<string> (rs["cc.target.system"]));
+
       // Load cc.core.config.
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))
@@ -337,18 +338,15 @@ namespace build2
       if (!cast_false<bool> (rs["bin.loaded"]))
         load_module (rs, rs, "bin", loc);
 
-      const string& cid (cast<string> (rs["cc.id"]));
-      const string& tsys (cast<string> (rs["cc.target.system"]));
-
       // Load the bin.ar module.
       //
       if (!cast_false<bool> (rs["bin.ar.loaded"]))
         load_module (rs, rs, "bin.ar", loc);
 
-      // In the VC world you link things directly with link.exe so load the
+      // For this target we link things directly with link.exe so load the
       // bin.ld module.
       //
-      if (cid == "msvc")
+      if (tsys == "win32-msvc")
       {
         if (!cast_false<bool> (rs["bin.ld.loaded"]))
           load_module (rs, rs, "bin.ld", loc);
