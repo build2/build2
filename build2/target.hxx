@@ -1683,7 +1683,7 @@ namespace build2
   }
 
   template <typename T, const char* ext>
-  static pair<target*, optional<string>>
+  pair<target*, optional<string>>
   file_factory (const target_type& tt,
                 dir_path d,
                 dir_path o,
