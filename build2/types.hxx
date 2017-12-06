@@ -147,7 +147,7 @@ namespace build2
   inline bool
   operator!= (const relaxed_atomic<T*>& x, const P& y)
   {
-    return static_cast<T*> (x) == y;
+    return static_cast<T*> (x) != y;
   }
 #endif
 
