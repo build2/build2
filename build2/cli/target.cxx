@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <build2/context.hxx>
+
 #include <build2/cli/target.hxx>
 
 using namespace std;
@@ -13,7 +15,6 @@ namespace build2
   {
     // cli
     //
-    extern const char cli_ext_var[] = "extension";  // VC14 rejects constexpr.
     extern const char cli_ext_def[] = "cli";
 
     const target_type cli::static_type
@@ -21,8 +22,9 @@ namespace build2
       "cli",
       &file::static_type,
       &target_factory<cli>,
-      &target_extension_var<cli_ext_var, cli_ext_def>,
-      &target_pattern_var<cli_ext_var, cli_ext_def>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, cli_ext_def>,
+      &target_pattern_var<var_extension, cli_ext_def>,
       nullptr,
       &file_search,
       false
@@ -42,12 +44,8 @@ namespace build2
         : group_view {nullptr, 0};
     }
 
-    static pair<target*, optional<string>>
-    cli_cxx_factory (const target_type&,
-                     dir_path d,
-                     dir_path o,
-                     string n,
-                     optional<string> e)
+    static target*
+    cli_cxx_factory (const target_type&, dir_path d, dir_path o, string n)
     {
       tracer trace ("cli::cli_cxx_factory");
 
@@ -61,7 +59,7 @@ namespace build2
       targets.insert<cxx::cxx> (d, o, n, trace);
       targets.insert<cxx::ixx> (d, o, n, trace);
 
-      return make_pair (new cli_cxx (move (d), move (o), move (n)), move (e));
+      return new cli_cxx (move (d), move (o), move (n));
     }
 
     const target_type cli_cxx::static_type
@@ -69,6 +67,7 @@ namespace build2
       "cli.cxx",
       &mtime_target::static_type,
       &cli_cxx_factory,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,

@@ -1672,41 +1672,17 @@ namespace build2
   // functions.
   //
   template <typename T>
-  pair<target*, optional<string>>
-  target_factory (const target_type&,
-                  dir_path d,
-                  dir_path o,
-                  string n,
-                  optional<string> e)
+  target*
+  target_factory (const target_type&, dir_path d, dir_path o, string n)
   {
-    return make_pair (new T (move (d), move (o), move (n)), move (e));
+    return new T (move (d), move (o), move (n));
   }
 
-  template <typename T, const char* ext>
-  pair<target*, optional<string>>
-  file_factory (const target_type& tt,
-                dir_path d,
-                dir_path o,
-                string n,
-                optional<string> e)
-  {
-    // A generic file target type doesn't imply any extension while a very
-    // specific one (say man1) may have a fixed extension. So if one wasn't
-    // specified and this is not a dynamically derived target type, then set
-    // it to fixed ext rather than unspecified. For file{} itself we make it
-    // empty which means we treat file{foo} as file{foo.}.
-    //
-    if (!e && ext != nullptr && tt.factory == &file_factory<T, ext>)
-      e = string (ext);
-
-    return make_pair (new T (move (d), move (o), move (n)), move (e));
-  }
-
-  // Return fixed target extension.
+  // Return fixed target extension unless one was specified.
   //
   template <const char* ext>
-  optional<string>
-  target_extension_fix (const target_key&, const scope&, bool);
+  const char*
+  target_extension_fix (const target_key&);
 
   template <const char* ext>
   bool

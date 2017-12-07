@@ -42,10 +42,15 @@ namespace build2
   //
   //
   template <const char* ext>
-  optional<string>
-  target_extension_fix (const target_key&, const scope&, bool)
+  const char*
+  target_extension_fix (const target_key& tk)
   {
-    return string (ext);
+    // A generic file target type doesn't imply any extension while a very
+    // specific one (say man1) may have a fixed extension. So if one wasn't
+    // specified set it to fixed ext rather than unspecified. For file{}
+    // itself we make it empty which means we treat file{foo} as file{foo.}.
+    //
+    return tk.ext ? tk.ext->c_str () : ext;
   }
 
   template <const char* ext>
@@ -67,9 +72,12 @@ namespace build2
     //
     else if (p == string::npos)
     {
-      v += '.';
-      v += ext;
-      return true;
+      if (*ext != '\0') // Don't add empty extension (means no extension).
+      {
+        v += '.';
+        v += ext;
+        return true;
+      }
     }
 
     return false;

@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <build2/context.hxx>
+
 #include <build2/bin/target.hxx>
 
 using namespace std;
@@ -18,6 +20,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
+      nullptr,
       &target_search,
       false
     };
@@ -26,6 +29,7 @@ namespace build2
     {
       "libux",
       &file::static_type,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,
@@ -41,24 +45,18 @@ namespace build2
     // running serial. For the members it is also safe to set the group during
     // creation.
 
-    extern const char ext_var[] = "extension"; // VC14 rejects constexpr.
-
     // obj*{}, bmi*{}, libu*{} member factory.
     //
     template <typename M, typename G>
-    static pair<target*, optional<string>>
-    m_factory (const target_type&,
-               dir_path dir,
-               dir_path out,
-               string n,
-               optional<string> ext)
+    static target*
+    m_factory (const target_type&, dir_path dir, dir_path out, string n)
     {
       const G* g (targets.find<G> (dir, out, n));
 
       M* m (new M (move (dir), move (out), move (n)));
       m->group = g;
 
-      return make_pair (m, move (ext));
+      return m;
     }
 
     const target_type obje::static_type
@@ -66,8 +64,9 @@ namespace build2
       "obje",
       &file::static_type,
       &m_factory<obje, obj>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -78,8 +77,9 @@ namespace build2
       "bmie",
       &file::static_type,
       &m_factory<bmie, bmi>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -90,8 +90,9 @@ namespace build2
       "libue",
       &libux::static_type,
       &m_factory<libue, libu>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -102,8 +103,9 @@ namespace build2
       "obja",
       &file::static_type,
       &m_factory<obja, obj>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -114,8 +116,9 @@ namespace build2
       "bmia",
       &file::static_type,
       &m_factory<bmia, bmi>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -126,8 +129,9 @@ namespace build2
       "libua",
       &libux::static_type,
       &m_factory<libua, libu>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -138,8 +142,9 @@ namespace build2
       "objs",
       &file::static_type,
       &m_factory<objs, obj>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -150,8 +155,9 @@ namespace build2
       "bmis",
       &file::static_type,
       &m_factory<bmis, bmi>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -162,8 +168,9 @@ namespace build2
       "libus",
       &libux::static_type,
       &m_factory<libus, libu>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -172,12 +179,8 @@ namespace build2
     // obj{}, bmi{}, and libu{} group factory.
     //
     template <typename G, typename E, typename A, typename S>
-    static pair<target*, optional<string>>
-    g_factory (const target_type&,
-               dir_path dir,
-               dir_path out,
-               string n,
-               optional<string> ext)
+    static target*
+    g_factory (const target_type&, dir_path dir, dir_path out, string n)
     {
       // Casts are MT-aware (during serial load).
       //
@@ -197,7 +200,7 @@ namespace build2
       if (a != nullptr) a->group = g;
       if (s != nullptr) s->group = g;
 
-      return make_pair (g, move (ext));
+      return g;
     }
 
     const target_type obj::static_type
@@ -205,6 +208,7 @@ namespace build2
       "obj",
       &target::static_type,
       &g_factory<obj, obje, obja, objs>,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,
@@ -220,6 +224,7 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
+      nullptr,
       &target_search,
       false
     };
@@ -229,6 +234,7 @@ namespace build2
       "libu",
       &libx::static_type,
       &g_factory<libu, libue, libua, libus>,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,
@@ -251,8 +257,9 @@ namespace build2
       "liba",
       &file::static_type,
       &m_factory<liba, lib>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &file_search,
       false
@@ -263,8 +270,9 @@ namespace build2
       "libs",
       &file::static_type,
       &m_factory<libs, lib>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &file_search,
       false
@@ -283,12 +291,8 @@ namespace build2
         : group_view {nullptr, 0};
     }
 
-    static pair<target*, optional<string>>
-    lib_factory (const target_type&,
-                 dir_path dir,
-                 dir_path out,
-                 string n,
-                 optional<string> ext)
+    static target*
+    lib_factory (const target_type&, dir_path dir, dir_path out, string n)
     {
       // Casts are MT-aware (during serial load).
       //
@@ -304,7 +308,7 @@ namespace build2
       if (a != nullptr) a->group = l;
       if (s != nullptr) s->group = l;
 
-      return make_pair (l, move (ext));
+      return l;
     }
 
     const target_type lib::static_type
@@ -312,6 +316,7 @@ namespace build2
       "lib",
       &libx::static_type,
       &lib_factory,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,
@@ -326,8 +331,9 @@ namespace build2
       "libi",
       &file::static_type,
       &target_factory<libi>,
-      &target_extension_var<ext_var, nullptr>,
-      &target_pattern_var<ext_var, nullptr>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
       nullptr,
       &file_search,
       false

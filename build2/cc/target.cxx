@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <build2/context.hxx>
+
 #include <build2/cc/target.hxx>
 
 using namespace std;
@@ -18,33 +20,36 @@ namespace build2
       nullptr,
       nullptr,
       nullptr,
+      nullptr,
       &target_search,
       false
     };
 
-    extern const char ext_var[] = "extension";  // VC14 rejects constexpr.
-
     extern const char h_ext_def[] = "h";
+
     const target_type h::static_type
     {
       "h",
       &file::static_type,
       &target_factory<h>,
-      &target_extension_var<ext_var, h_ext_def>,
-      &target_pattern_var<ext_var, h_ext_def>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, h_ext_def>,
+      &target_pattern_var<var_extension, h_ext_def>,
       nullptr,
       &file_search,
       false
     };
 
     extern const char c_ext_def[] = "c";
+
     const target_type c::static_type
     {
       "c",
       &cc::static_type,
       &target_factory<c>,
-      &target_extension_var<ext_var, c_ext_def>,
-      &target_pattern_var<ext_var, c_ext_def>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, c_ext_def>,
+      &target_pattern_var<var_extension, c_ext_def>,
       nullptr,
       &file_search,
       false
@@ -54,6 +59,7 @@ namespace build2
     {
       "pc",
       &file::static_type,
+      nullptr,
       nullptr,
       nullptr,
       nullptr,
@@ -68,8 +74,9 @@ namespace build2
     {
       "pca",
       &pc::static_type,
-      &file_factory<pca, pca_ext>,
+      &target_factory<pca>,
       &target_extension_fix<pca_ext>,
+      nullptr, /* default_extension */
       &target_pattern_fix<pca_ext>,
       &target_print_0_ext_verb, // Fixed extension, no use printing.
       &file_search,
@@ -82,8 +89,9 @@ namespace build2
     {
       "pcs",
       &pc::static_type,
-      &file_factory<pcs, pcs_ext>,
+      &target_factory<pcs>,
       &target_extension_fix<pcs_ext>,
+      nullptr, /* default_extension */
       &target_pattern_fix<pcs_ext>,
       &target_print_0_ext_verb, // Fixed extension, no use printing.
       &file_search,

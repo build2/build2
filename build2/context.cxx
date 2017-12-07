@@ -339,6 +339,8 @@ namespace build2
 
   const variable* var_clean;
 
+  const char var_extension[10] = "extension";
+
   const string* current_mname;
   const string* current_oname;
 
@@ -413,7 +415,7 @@ namespace build2
 
     // Target extension.
     //
-    vp.insert<string> ("extension", variable_visibility::target);
+    vp.insert<string> (var_extension, variable_visibility::target);
 
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;

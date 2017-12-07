@@ -275,6 +275,8 @@ namespace build2
 
   extern const variable* var_clean;           // [bool] target visibility
 
+  extern const char var_extension[10];        // "extension"
+
   // Current action (meta/operation).
   //
   // The names unlike info are available during boot but may not yet be

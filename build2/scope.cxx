@@ -639,12 +639,8 @@ namespace build2
     return r;
   }
 
-  static pair<target*, optional<string>>
-  derived_tt_factory (const target_type& t,
-                      dir_path d,
-                      dir_path o,
-                      string n,
-                      optional<string> e)
+  static target*
+  derived_tt_factory (const target_type& t, dir_path d, dir_path o, string n)
   {
     // Pass our type to the base factory so that it can detect that it is
     // being called to construct a derived target. This can be used, for
@@ -657,44 +653,64 @@ namespace build2
     const target_type* bt (t.base);
     for (; bt->factory == &derived_tt_factory; bt = bt->base) ;
 
-    auto r (bt->factory (t, move (d), move (o), move (n), move (e)));
-    r.first->derived_type = &t;
+    target* r (bt->factory (t, move (d), move (o), move (n)));
+    r->derived_type = &t;
     return r;
   }
-
-  // VC14 rejects constexpr.
-  //
-  extern const char derived_tt_ext_var[] = "extension";
 
   pair<reference_wrapper<const target_type>, bool> scope::
   derive_target_type (const string& name, const target_type& base)
   {
+    // Base target type uses extensions.
+    //
+    bool ext (base.fixed_extension   != nullptr ||
+              base.default_extension != nullptr);
+
     // @@ Looks like we may need the ability to specify a fixed extension
     //    (which will be used to compare existing targets and not just
     //    search for existing files that is handled by the target_type::
     //    extension hook). See the file_factory() for details. We will
     //    probably need to specify it as part of the define directive (and
-    //    have the ability to specify empty).
+    //    have the ability to specify empty and NULL).
     //
     //    Currently, if we define myfile{}: file{}, then myfile{foo} and
     //    myfile{foo.x} are the same target.
     //
-    // @@ Also, if derived from file{}, then we use its print function
-    //    which always prints extension by default (e.g., we get
-    //    dll{libhello.dll}).
-    //
-
     unique_ptr<target_type> dt (new target_type (base));
     dt->base = &base;
     dt->factory = &derived_tt_factory;
 
-    // Override extension derivation function: we most likely don't want
-    // to use the same default as our base (think cli: file). But, if our
-    // base doesn't use extensions, then most likely neither do we (think
-    // foo: alias).
+    // @@ We should probably inherit the fixed extension unless overriden with
+    // another fixed? But then any derivation from file{} will have to specify
+    // (or override) the fixed extension? But what is the use of deriving from
+    // a fixed extension target and not overriding its extension? Some kind of
+    // alias. Fuzzy.
     //
-    if (base.extension != nullptr)
-      dt->extension = &target_extension_var<derived_tt_ext_var, nullptr>;
+    dt->fixed_extension = nullptr /*&target_extension_fix<???>*/; // @@ TODO
+
+    // Override default extension/pattern derivation function: we most likely
+    // don't want to use the same default as our base (think cli: file). But,
+    // if our base doesn't use extensions, then most likely neither do we
+    // (think foo: alias).
+    //
+    dt->default_extension =
+      ext && dt->fixed_extension == nullptr
+      ? &target_extension_var<var_extension, nullptr>
+      : nullptr;
+
+    dt->pattern =
+      dt->fixed_extension != nullptr ? nullptr /*&target_pattern_fix<???>*/ :
+      dt->default_extension != nullptr ? &target_pattern_var<var_extension, nullptr> :
+      nullptr;
+
+    // There is actually a difference between "fixed fixed" (like man1{}) and
+    // "fixed but overridable" (like file{}). Fuzzy: feels like there are
+    // different kinds of "fixed" (file{} vs man{} vs man1{}).
+    //
+    dt->print =
+      dt->fixed_extension != nullptr
+      ? &target_print_0_ext_verb  // Fixed extension, no use printing.
+      : nullptr;                  // Normal.
 
     target_type& rdt (*dt); // Save a non-const reference to the object.
 

@@ -23,13 +23,16 @@ namespace build2
   // any target type. As a result, we can use address comparison to determine
   // if two target types are the same.
   //
-  // If the extension derivation function is NULL, then it means this target
+  // If the extension derivation functions are NULL, then it means this target
   // type does not use extensions. Note that this is relied upon when deciding
   // whether to print the extension; if the target does use extensions but the
-  // defaults could not (and its ok), could not (and its not ok), or should not
+  // defaults couldn't (and its ok), couldn't (and its not ok), or shouldn't
   // (logically) be obtained, then use target_extension_{null,fail,assert}(),
-  // respectively. If the extension function returns NULL, then that means the
-  // default extension for this target could not be derived.
+  // respectively. The fixed extension function should return the fixed
+  // extension (which can point to the key's ext member if the explicit
+  // extension specificaton is allowed). If the default extension function
+  // returns NULL, then it means the default extension for this target could
+  // not be derived.
   //
   // The extension is used in two places: search_existing_file() (called for a
   // prerequisite with the last argument true) and in target::derive_path()
@@ -45,17 +48,12 @@ namespace build2
     const char* name;
     const target_type* base;
 
-    // Return target and extension.
-    //
-    pair<target*, optional<string>> (*factory) (const target_type&,
-                                                dir_path,
-                                                dir_path,
-                                                string,
-                                                optional<string>);
+    target* (*factory) (const target_type&, dir_path, dir_path, string);
 
-    optional<string> (*extension) (const target_key&,
-                                   const scope&,
-                                   bool search);
+    const char*      (*fixed_extension)   (const target_key&);
+    optional<string> (*default_extension) (const target_key&,
+                                           const scope&,
+                                           bool search);
 
     bool (*pattern) (const target_type&, const scope&, string&, bool reverse);
 

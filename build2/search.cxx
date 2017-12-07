@@ -102,7 +102,9 @@ namespace build2
 
     if (!ext)
     {
-      if (auto f = ctk.type->extension)
+      if (auto f = ctk.type->fixed_extension)
+        ext = f (ctk);
+      else if (auto f = ctk.type->default_extension)
         ext = f (ctk, *s, true);
 
       if (!ext)

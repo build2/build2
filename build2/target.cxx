@@ -300,16 +300,14 @@ namespace build2
           ul.unlock ();
           return find (k, trace);
         }
-
-        ext = k.ext;
       }
 
       l5 ([&]{
           diag_record r (trace);
           r << "assuming target ";
           to_stream (r.os,
-                     target_key {&t.type (), &t.dir, &t.out, &t.name, nullopt},
-                     0); // Don't print the extension.
+                     target_key {&t.type (), &t.dir, &t.out, &t.name, ext},
+                     2); // Always print the extension.
           r << " is the same as the one with ";
 
           if (!k.ext)
@@ -319,6 +317,9 @@ namespace build2
           else
             r << "extension " << *k.ext;
         });
+
+      if (k.ext)
+        ext = k.ext;
     }
 
     return &t;
@@ -343,11 +344,11 @@ namespace build2
       //
       assert (phase != run_phase::execute);
 
-      pair<target*, optional<string>> te (
-        tt.factory (
-          tt, move (dir), move (out), move (name), move (tk.ext)));
+      optional<string> e (tt.fixed_extension != nullptr
+                          ? string (tt.fixed_extension (tk))
+                          : move (tk.ext));
 
-      t = te.first;
+      t = tt.factory (tt, move (dir), move (out), move (name));
 
       // Re-lock for exclusive access. In the meantime, someone could have
       // inserted this target so emplace() below could return false, in which
@@ -356,10 +357,8 @@ namespace build2
       //
       ulock ul (mutex_);
 
-      auto p (
-        map_.emplace (
-          target_key {&tt, &t->dir, &t->out, &t->name, te.second},
-          unique_ptr<target> (te.first)));
+      auto p (map_.emplace (target_key {&tt, &t->dir, &t->out, &t->name, e},
+                            unique_ptr<target> (t)));
 
       map_type::iterator i (p.first);
 
@@ -375,27 +374,27 @@ namespace build2
       t = i->second.get ();
       optional<string>& ext (i->first.ext);
 
-      if (ext != te.second)
+      if (ext != e)
       {
-        if (te.second)
-          ext = te.second;
-
         l5 ([&]{
             diag_record r (trace);
             r << "assuming target ";
             to_stream (
               r.os,
-              target_key {&t->type (), &t->dir, &t->out, &t->name, nullopt},
-              0); // Don't print the extension.
+              target_key {&t->type (), &t->dir, &t->out, &t->name, ext},
+              2); // Always print the extension.
             r << " is the same as the one with ";
 
-            if (!te.second)
+            if (!e)
               r << "unspecified extension";
-            else if (te.second->empty ())
+            else if (e->empty ())
               r << "no extension";
             else
-              r << "extension " << *te.second;
+              r << "extension " << *e;
           });
+
+        if (e)
+          ext = e;
       }
 
       // Fall through (continue as if the first find() returned this target).
@@ -434,16 +433,18 @@ namespace build2
         os << *k.dir;
     }
 
-    os << k.type->name << '{';
+    const target_type& tt (*k.type);
+
+    os << tt.name << '{';
 
     if (n)
     {
       os << *k.name;
 
-      // If the extension derivation function is NULL, then it means this
+      // If the extension derivation functions are NULL, then it means this
       // target type doesn't use extensions.
       //
-      if (k.type->extension != nullptr)
+      if (tt.fixed_extension != nullptr || tt.default_extension != nullptr)
       {
         // For verbosity level 0 we don't print the extension. For 1 we print
         // it if there is one. For 2 we print 'foo.?' if it hasn't yet been
@@ -542,8 +543,10 @@ namespace build2
   derive_extension (bool search, const char* de)
   {
     // See also search_existing_file() if updating anything here.
+
+    // The target should use extensions and they should not be fixed.
     //
-    assert (de == nullptr || type ().extension != nullptr);
+    assert (de == nullptr || type ().default_extension != nullptr);
 
     if (const string* p = ext ())
       // Note that returning by reference is now MT-safe since once the
@@ -554,12 +557,12 @@ namespace build2
     {
       optional<string> e;
 
-      // If the target type has the extension function then try that first.
-      // The reason for preferring it over what's been provided by the caller
-      // is that this function will often use the 'extension' variable which
-      // the user can use to override extensions.
+      // If the target type has the default extension function then try that
+      // first. The reason for preferring it over what's been provided by the
+      // caller is that this function will often use the 'extension' variable
+      // which the user can use to override extensions.
       //
-      if (auto f = type ().extension)
+      if (auto f = type ().default_extension)
         e = f (key (), base_scope (), search);
 
       if (!e)
@@ -680,6 +683,7 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
+    nullptr,
     &target_search,
     false
   };
@@ -688,6 +692,7 @@ namespace build2
   {
     "mtime_target",
     &target::static_type,
+    nullptr,
     nullptr,
     nullptr,
     nullptr,
@@ -704,20 +709,21 @@ namespace build2
     nullptr,
     nullptr,
     nullptr,
+    nullptr,
     &target_search,
     false
   };
 
-  extern const char file_ext_var[] = "extension"; // VC14 rejects constexpr.
   extern const char file_ext_def[] = "";
 
   const target_type file::static_type
   {
     "file",
     &path_target::static_type,
-    &file_factory<file, file_ext_def>,
-    &target_extension_var<file_ext_var, file_ext_def>,
-    &target_pattern_var<file_ext_var, file_ext_def>,
+    &target_factory<file>,
+    &target_extension_fix<file_ext_def>,
+    nullptr, /* default_extension */
+    nullptr, /* pattern */
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &file_search,
     false
@@ -743,6 +749,7 @@ namespace build2
     &target::static_type,
     &target_factory<alias>,
     nullptr, // Extension not used.
+    nullptr,
     nullptr,
     nullptr,
     &alias_search,
@@ -886,6 +893,7 @@ namespace build2
     &alias::static_type,
     &target_factory<dir>,
     nullptr,              // Extension not used.
+    nullptr,
     &dir_pattern,
     nullptr,
     &dir_search,
@@ -898,6 +906,7 @@ namespace build2
     &target::static_type,
     &target_factory<fsdir>,
     nullptr,              // Extension not used.
+    nullptr,
     &dir_pattern,
     nullptr,
     &target_search,
@@ -948,6 +957,7 @@ namespace build2
     "exe",
     &file::static_type,
     &target_factory<exe>,
+    nullptr, /* fixed_extension */
     &exe_target_extension,
 #ifdef _WIN32
     &exe_target_pattern,
@@ -959,26 +969,13 @@ namespace build2
     false
   };
 
-  static pair<target*, optional<string>>
-  buildfile_factory (const target_type&,
-                     dir_path d,
-                     dir_path o,
-                     string n,
-                     optional<string> e)
-  {
-    if (!e)
-      e = (n == "buildfile" ? string () : "build");
-
-    return make_pair (new buildfile (move (d), move (o), move (n)), move (e));
-  }
-
-  static optional<string>
-  buildfile_target_extension (const target_key& tk, const scope&, bool)
+  static const char*
+  buildfile_target_extension (const target_key& tk)
   {
     // If the name is special 'buildfile', then there is no extension,
     // otherwise it is .build.
     //
-    return *tk.name == "buildfile" ? string () : "build";
+    return *tk.name == "buildfile" ? "" : "build";
   }
 
   static bool
@@ -1007,8 +1004,9 @@ namespace build2
   {
     "build",
     &file::static_type,
-    &buildfile_factory,
+    &target_factory<buildfile>,
     &buildfile_target_extension,
+    nullptr, /* default_extension */
     &buildfile_target_pattern,
     nullptr,
     &file_search,
@@ -1020,7 +1018,7 @@ namespace build2
   static const target*
   in_search (const target& xt, const prerequisite_key& cpk)
   {
-    // If we have no extension then derive it from our target. The delegate
+    // If we have no extension then derive it from our target. Then delegate
     // to file_search().
     //
     prerequisite_key pk (cpk);
@@ -1050,10 +1048,11 @@ namespace build2
   {
     "in",
     &file::static_type,
-    &file_factory<in, file_ext_def>, // No extension by default.
-    &target_extension_assert,        // Should be taken care by search.
+    &target_factory<in>,
+    &target_extension_fix<file_ext_def>, // No extension by default.
+    nullptr, /* default_extension */     // Should be taken care if by search.
     &in_pattern,
-    &target_print_1_ext_verb,        // Same as file.
+    &target_print_1_ext_verb,            // Same as file.
     &in_search,
     false
   };
@@ -1062,33 +1061,31 @@ namespace build2
   {
     "doc",
     &file::static_type,
-    &file_factory<doc, file_ext_def>, // No extension by default.
-    &target_extension_var<file_ext_var, file_ext_def>, // Same as file.
-    &target_pattern_var<file_ext_var, file_ext_def>,   // Same as file.
-    &target_print_1_ext_verb, // Same as file.
+    &target_factory<doc>,
+    &target_extension_fix<file_ext_def>, // Same as file (no extension).
+    nullptr, /* default_extension */
+    nullptr, /* pattern */               // Same as file.
+    &target_print_1_ext_verb,            // Same as file.
     &file_search,
     false
   };
 
-  static pair<target*, optional<string>>
-  man_factory (const target_type&,
-               dir_path d,
-               dir_path o,
-               string n,
-               optional<string> e)
+  static const char*
+  man_extension (const target_key& tk)
   {
-    if (!e)
-      fail << "man target '" << n << "' must include extension (man section)";
+    if (!tk.ext)
+      fail << "man target " << tk << " must include extension (man section)";
 
-    return make_pair (new man (move (d), move (o), move (n)), move (e));
+    return tk.ext->c_str ();
   }
 
   const target_type man::static_type
   {
     "man",
     &doc::static_type,
-    &man_factory,
-    &target_extension_null, // Should be specified explicitly (see factory).
+    &target_factory<man>,
+    &man_extension,           // Should be specified explicitly.
+    nullptr, /* default_extension */
     nullptr,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
     &file_search,
@@ -1101,8 +1098,9 @@ namespace build2
   {
     "man1",
     &man::static_type,
-    &file_factory<man1, man1_ext>,
+    &target_factory<man1>,
     &target_extension_fix<man1_ext>,
+    nullptr,  /* default_extension */
     &target_pattern_fix<man1_ext>,
     &target_print_0_ext_verb, // Fixed extension, no use printing.
     &file_search,

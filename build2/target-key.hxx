@@ -6,6 +6,7 @@
 #define BUILD2_TARGET_KEY_HXX
 
 #include <map>
+#include <cstring> // strcmp()
 
 #include <libbutl/utility.mxx> // compare_c_string
 
@@ -46,14 +47,25 @@ namespace build2
   inline bool
   operator== (const target_key& x, const target_key& y)
   {
-    // Unspecified and specified extension are assumed equal.
+    if (x.type  != y.type ||
+        *x.dir  != *y.dir ||
+        *x.out  != *y.out ||
+        *x.name != *y.name)
+      return false;
+
+    // Unless fixed, unspecified and specified extensions are assumed equal.
     //
-    return
-      x.type == y.type &&
-      *x.dir == *y.dir &&
-      *x.out == *y.out &&
-      *x.name == *y.name &&
-      (!x.ext || !y.ext || *x.ext == *y.ext);
+    const target_type& tt (*x.type);
+
+    if (tt.fixed_extension == nullptr)
+      return !x.ext || !y.ext || *x.ext == *y.ext;
+    else
+    {
+      const char* xe (x.ext ? x.ext->c_str () : tt.fixed_extension (x));
+      const char* ye (y.ext ? y.ext->c_str () : tt.fixed_extension (y));
+
+      return strcmp (xe, ye) == 0;
+    }
   }
 
   inline bool
