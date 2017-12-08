@@ -1694,6 +1694,17 @@ namespace build2
           if (!find_option ("/INCREMENTAL", args, true))
             args.push_back ("/INCREMENTAL:NO");
 
+          if (cid == compiler_id::clang)
+          {
+            // According to Clang's MSVC.cpp, we shall link libcmt.lib (static
+            // multi-threaded runtime) unless -nostdlib or -nostartfiles is
+            // specified.
+            //
+            if (!find_option ("-nostdlib", args) &&
+                !find_option ("-nostartfiles", args))
+              args.push_back ("/DEFAULTLIB:libcmt.lib");
+          }
+
           // If you look at the list of libraries Visual Studio links by
           // default, it includes everything and a couple of kitchen sinks
           // (winspool32.lib, ole32.lib, odbc32.lib, etc) while we want to
