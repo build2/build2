@@ -84,11 +84,11 @@ namespace build2
   }
 
   inline optional<string>
-  target_extension_var (const target_type& tt,
-                        const string& tn,
-                        const scope& s,
-                        const char* var,
-                        const char* def)
+  target_extension_var_impl (const target_type& tt,
+                             const string& tn,
+                             const scope& s,
+                             const char* var,
+                             const char* def)
   {
     // Include target type/pattern-specific variables.
     //
@@ -107,7 +107,7 @@ namespace build2
   optional<string>
   target_extension_var (const target_key& tk, const scope& s, bool)
   {
-    return target_extension_var (*tk.type, *tk.name, s, var, def);
+    return target_extension_var_impl (*tk.type, *tk.name, s, var, def);
   }
 
   template <const char* var, const char* def>
@@ -132,7 +132,7 @@ namespace build2
       // Use empty name as a target since we only want target type/pattern-
       // specific variables that match any target (e.g., '*' but not '*.txt').
       //
-      if (auto e = target_extension_var (tt, string (), s, var, def))
+      if (auto e = target_extension_var_impl (tt, string (), s, var, def))
       {
         if (!e->empty ()) // Don't add empty extension (means no extension).
         {
