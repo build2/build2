@@ -2698,8 +2698,22 @@ namespace build2
                 // our progress.
                 //
                 if (force_gen_skip && *force_gen_skip == skip_count)
-                  fail << "inconsistent " << x_lang << " compiler behavior" <<
-                    info << "perhaps you are running out of disk space";
+                {
+                  diag_record dr (fail);
+
+                  dr << "inconsistent " << x_lang << " compiler behavior";
+
+                  // Show the yo-yo'ing command lines.
+                  //
+                  dr << info;
+                  print_process (dr, args.data ()); // No pipes.
+
+                  init_args ((gen = true));
+                  dr << info << "";
+                  print_process (dr, args.data ()); // No pipes.
+
+                  dr << info << "perhaps you are running out of disk space?";
+                }
 
                 restart = true;
                 force_gen = true;

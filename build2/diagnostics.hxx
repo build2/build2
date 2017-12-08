@@ -36,15 +36,15 @@ namespace build2
   print_process (const char* const* args, size_t n = 0);
 
   inline void
-  print_process (diag_record& dr, const cstrings& args)
+  print_process (diag_record& dr, const cstrings& args, size_t n = 0)
   {
-    print_process (dr, args.data (), args.size ());
+    print_process (dr, args.data (), n != 0 ? n : args.size ());
   }
 
   inline void
-  print_process (const cstrings& args)
+  print_process (const cstrings& args, size_t n = 0)
   {
-    print_process (args.data (), args.size ());
+    print_process (args.data (), n != 0 ? n : args.size ());
   }
 
   // Program verbosity level (-v/--verbose).
