@@ -98,7 +98,7 @@ namespace build2
       // Presumably the child process failed. Let run_finish() deal with that.
     }
 
-    if (!(run_finish (args, err, pr, l) || ignore_exit))
+    if (!(run_finish (args, pr, err, l) || ignore_exit))
       r = T ();
 
     return r;

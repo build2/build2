@@ -234,7 +234,7 @@ namespace build2
   }
 
   bool
-  run_finish (const char* args[], bool err, process& pr, const string& l)
+  run_finish (const char* args[], process& pr, bool err, const string& l)
   try
   {
     if (pr.wait ())

@@ -180,16 +180,19 @@ namespace build2
   run_search (const path&, bool init, const dir_path& fallback = dir_path ());
 
   process
-  run_start (const process_path&, const char* args[], bool error);
+  run_start (const process_path&, const char* args[], bool error = true);
 
   inline process
-  run_start (const char* args[], bool error)
+  run_start (const char* args[], bool error = true)
   {
     return run_start (run_search (args[0]), args, error);
   }
 
   bool
-  run_finish (const char* args[], bool error, process&, const string&);
+  run_finish (const char* args[],
+              process&,
+              bool error = true,
+              const string& = string ());
 
   // Start the process as above and then call the specified function on each
   // trimmed line of the output until it returns a non-empty object T (tested
@@ -203,7 +206,7 @@ namespace build2
   // is false and the program exits with the non-zero status, then an empty T
   // instance is returned).
   //
-  // If checksum is not NULL, then feed it the content of each tripped line
+  // If checksum is not NULL, then feed it the content of each trimmed line
   // (including those that come after the callback returns non-empty object).
   //
   template <typename T, typename F>
