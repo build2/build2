@@ -401,7 +401,7 @@ namespace build2
   bool
   find_option (const char* option, const cstrings&, bool ignore_case = false);
 
-  // As above but look for several options.
+  // As above but look for several options returning true if any is present.
   //
   template <typename T>
   bool

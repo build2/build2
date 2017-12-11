@@ -1700,8 +1700,8 @@ namespace build2
             // multi-threaded runtime) unless -nostdlib or -nostartfiles is
             // specified.
             //
-            if (!find_option ("-nostdlib", args) &&
-                !find_option ("-nostartfiles", args))
+            if (!find_options ({"-nostdlib", "-nostartfiles"}, t, c_coptions) &&
+                !find_options ({"-nostdlib", "-nostartfiles"}, t, x_coptions))
               args.push_back ("/DEFAULTLIB:libcmt.lib");
           }
 
