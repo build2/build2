@@ -65,14 +65,18 @@ namespace build2
           // So let's say C99 is supported from 10.0 and C11 from 11.0. And
           // C90 is supported by everything we care to support.
           //
+          // C17 is a bug-fix version of C11 so here we assume it is the same
+          // as C11.
+          //
           if (v == nullptr)
             ;
           else if (*v != "90")
           {
             uint64_t cver (ci.version.major);
 
-            if ((*v == "99" && cver < 16) || // Since VS2010/10.0.
-                (*v == "11" && cver < 17))   // Since VS2012/11.0.
+            if ((*v == "99"   && cver < 16) || // Since VS2010/10.0.
+                ((*v == "11" ||
+                  *v == "17") && cver < 17))   // Since VS2012/11.0.
             {
               fail << "C" << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs.out_path ();
@@ -94,6 +98,7 @@ namespace build2
             if      (*v == "90") o += "c90";
             else if (*v == "99") o += "c9x";
             else if (*v == "11") o += "c1x";
+            else if (*v == "17") o += "c17"; // GCC 8, Clang 6.
             else o += *v; // In case the user specifies e.g., 'gnu11'.
 
             r.push_back (move (o));
