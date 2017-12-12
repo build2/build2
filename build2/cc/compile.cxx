@@ -2945,11 +2945,13 @@ namespace build2
             if (ps)
               psrc.active = true; // Re-arm.
 
-            // VC15 is not (yet) using the 'export module' syntax so use the
-            // preprequisite type to distinguish between interface and
+            // Prior to 15u5 VC was not using the 'export module' syntax so we
+            // use the preprequisite type to distinguish between interface and
             // implementation units.
             //
-            if (cid == compiler_id::msvc && src.is_a (*x_mod))
+            if (cid == compiler_id::msvc &&
+                cmaj == 19 && cmin <= 11 &&
+                src.is_a (*x_mod))
             {
               // It's quite painful to guard the export with an #if/#endif so
               // if it is present, "fixup" the (temporary) preprocessed output

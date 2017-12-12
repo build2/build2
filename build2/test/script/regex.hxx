@@ -424,7 +424,7 @@ namespace std
   //
   template <>
   class ctype<build2::test::script::regex::line_char>: public ctype_base
-#if !defined(_MSC_VER) || _MSC_VER > 1911
+#if !defined(_MSC_VER) || _MSC_VER > 1912
                                               , public locale::facet
 #endif
   {
@@ -437,7 +437,7 @@ namespace std
 
     static locale::id id;
 
-#if !defined(_MSC_VER) || _MSC_VER > 1911
+#if !defined(_MSC_VER) || _MSC_VER > 1912
     explicit
     ctype (size_t refs = 0): locale::facet (refs) {}
 #else
@@ -519,7 +519,7 @@ namespace std
     // Workaround for msvcrt bugs. For some reason it assumes such a members
     // to be present in a regex_traits specialization.
     //
-#if defined(_MSC_VER) && _MSC_VER <= 1911
+#if defined(_MSC_VER) && _MSC_VER <= 1912
     static const ctype_base::mask _Ch_upper = ctype_base::upper;
     static const ctype_base::mask _Ch_alpha = ctype_base::alpha;
 

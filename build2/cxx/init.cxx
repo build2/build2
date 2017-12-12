@@ -151,11 +151,16 @@ namespace build2
                 // While modules are supported in VC15u0 (19.10), there is a
                 // bug in separate interface/implementation unit support which
                 // makes them pretty much unusable. This has been fixed in
-                // VC15u3 (19.11)
+                // VC15u3 (19.11). And VC15u5 supports the 'export module M;'
+                // syntax.
                 //
                 if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 11)))
                 {
-                  r.push_back ("/D__cpp_modules=201703"); // n4647
+                  r.push_back (
+                    mj > 19 || mi > 11
+                    ? "/D__cpp_modules=201704"   // p0629r0 (export module M;)
+                    : "/D__cpp_modules=201703"); // n4647   (       module M;)
+
                   r.push_back ("/experimental:module");
                   modules = true;
                 }
@@ -209,7 +214,8 @@ namespace build2
           {
             // C++ standard-wise, with VC you got what you got up until 14u2.
             // Starting with 14u3 there is now the /std: switch which defaults
-            // to c++14 but can be set to c++latest.
+            // to c++14 but can be set to c++latest. And from 15u3 it can be
+            // c++17.
             //
             // The question is also whether we should verify that the
             // requested standard is provided by this VC version. And if so,
@@ -248,12 +254,15 @@ namespace build2
                   info << "required by " << project (rs) << '@'
                      << rs.out_path ();
 
-              // VC14u3 and later has /std:
-              //
-              if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+              if (mj > 19 || (mj == 19 && mi >= 11)) // 15u3
               {
-                if (*v == "17")
-                  r.push_back ("/std:c++latest");
+                if      (*v == "14") r.push_back ("/std:c++14");
+                else if (*v == "17") r.push_back ("/std:c++17");
+              }
+              else if (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))) // 14u3
+              {
+                if      (*v == "14") r.push_back ("/std:c++14");
+                else if (*v == "17") r.push_back ("/std:c++latest");
               }
             }
             break;
