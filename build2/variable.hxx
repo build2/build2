@@ -546,6 +546,14 @@ namespace build2
   static int
   simple_compare (const value&, const value&);
 
+  // names
+  //
+  template <>
+  struct value_traits<names>
+  {
+    static const names& empty_instance;
+  };
+
   // bool
   //
   template <>
@@ -783,6 +791,8 @@ namespace build2
     static void prepend (value&, vector<T>&&);
     static bool empty (const vector<T>& x) {return x.empty ();}
 
+    static const vector<T> empty_instance;
+
     // Make sure these are static-initialized together. Failed that VC will
     // make sure it's done in the wrong order.
     //
@@ -808,6 +818,8 @@ namespace build2
     static void prepend (value& v, map<K, V>&& x) {
       return append (v, move (x));}
     static bool empty (const map<K, V>& x) {return x.empty ();}
+
+    static const map<K, V> empty_instance;
 
     // Make sure these are static-initialized together. Failed that VC will
     // make sure it's done in the wrong order.

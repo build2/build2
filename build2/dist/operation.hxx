@@ -14,7 +14,7 @@ namespace build2
 {
   namespace dist
   {
-    extern const meta_operation_info dist;
+    extern const meta_operation_info mo_dist;
   }
 }
 

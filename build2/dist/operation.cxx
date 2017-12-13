@@ -54,12 +54,6 @@ namespace build2
     }
 
     static void
-    dist_match (const values&, action, action_targets&)
-    {
-      // Don't match anything -- see execute ().
-    }
-
-    static void
     dist_execute (const values&, action, action_targets& ts, bool)
     {
       tracer trace ("dist_execute");
@@ -249,8 +243,8 @@ namespace build2
       // Make sure what we need to distribute is up to date.
       //
       {
-        if (perform.meta_operation_pre != nullptr)
-          perform.meta_operation_pre (params, loc);
+        if (mo_perform.meta_operation_pre != nullptr)
+          mo_perform.meta_operation_pre (params, loc);
 
         // This is a hack since according to the rules we need to completely
         // reset the state. We could have done that (i.e., saved target names
@@ -259,24 +253,24 @@ namespace build2
         // the dist mete-opreation is "compatible" with perform).
         //
         size_t on (current_on);
-        set_current_mif (perform);
+        set_current_mif (mo_perform);
         current_on = on + 1;
 
-        if (perform.operation_pre != nullptr)
-          perform.operation_pre (params, update_id);
+        if (mo_perform.operation_pre != nullptr)
+          mo_perform.operation_pre (params, update_id);
 
-        set_current_oif (update);
+        set_current_oif (op_update);
 
         action a (perform_id, update_id);
 
-        perform.match (params, a, files);
-        perform.execute (params, a, files, true); // Run quiet.
+        mo_perform.match (params, a, files);
+        mo_perform.execute (params, a, files, true); // Run quiet.
 
-        if (perform.operation_post != nullptr)
-          perform.operation_post (params, update_id);
+        if (mo_perform.operation_post != nullptr)
+          mo_perform.operation_post (params, update_id);
 
-        if (perform.meta_operation_post != nullptr)
-          perform.meta_operation_post (params);
+        if (mo_perform.meta_operation_post != nullptr)
+          mo_perform.meta_operation_post (params);
       }
 
       dir_path td (dist_root / dir_path (dist_package));
@@ -525,7 +519,7 @@ namespace build2
       }
     }
 
-    const meta_operation_info dist {
+    const meta_operation_info mo_dist {
       dist_id,
       "dist",
       "distribute",
@@ -536,7 +530,7 @@ namespace build2
       &dist_operation_pre,
       &load,   // normal load
       &search, // normal search
-      &dist_match,
+      nullptr, // no match (see execute()).
       &dist_execute,
       nullptr, // operation post
       nullptr  // meta-operation post

@@ -14,8 +14,8 @@ namespace build2
 {
   namespace config
   {
-    extern const meta_operation_info configure;
-    extern const meta_operation_info disfigure;
+    extern const meta_operation_info mo_configure;
+    extern const meta_operation_info mo_disfigure;
 
     const string&
     preprocess_create (const variable_overrides&,

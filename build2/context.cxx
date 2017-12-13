@@ -386,6 +386,7 @@ namespace build2
     meta_operation_table.insert (
       meta_operation_data ("create", &config::preprocess_create));
     meta_operation_table.insert ("dist");
+    meta_operation_table.insert ("info");
 
     operation_table.clear ();
     operation_table.insert ("default");

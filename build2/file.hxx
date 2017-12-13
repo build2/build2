@@ -21,6 +21,9 @@ namespace build2
 
   using subprojects = std::map<string, dir_path>;
 
+  ostream&
+  operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
+
   extern const dir_path build_dir;     // build
   extern const dir_path bootstrap_dir; // build/bootstrap
 

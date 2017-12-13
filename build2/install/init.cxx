@@ -142,8 +142,8 @@ namespace build2
 
       // Register the install and uninstall operations.
       //
-      r.operations.insert (install_id, install);
-      r.operations.insert (uninstall_id, uninstall);
+      r.operations.insert (install_id,   op_install);
+      r.operations.insert (uninstall_id, op_uninstall);
     }
 
     static const path cmd ("install");

@@ -406,6 +406,10 @@ namespace build2
     throw invalid_argument (m);
   }
 
+  // names
+  //
+  const names& value_traits<names>::empty_instance = empty_names;
+
   // bool value
   //
   bool value_traits<bool>::

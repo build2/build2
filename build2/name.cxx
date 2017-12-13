@@ -12,6 +12,9 @@
 
 namespace build2
 {
+  const name empty_name;
+  const names empty_names;
+
   string
   to_string (const name& n)
   {

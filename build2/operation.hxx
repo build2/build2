@@ -111,6 +111,7 @@ namespace build2
   const meta_operation_id disfigure_id = 4;
   const meta_operation_id create_id    = 5;
   const meta_operation_id dist_id      = 6;
+  const meta_operation_id info_id      = 7;
 
   // The default operation is a special marker that can be used to indicate
   // that no operation was explicitly specified by the user. If adding
@@ -279,8 +280,9 @@ namespace build2
   void
   execute (const values&, action, const action_targets&, bool quiet);
 
-  extern const meta_operation_info noop;
-  extern const meta_operation_info perform;
+  extern const meta_operation_info mo_noop;
+  extern const meta_operation_info mo_perform;
+  extern const meta_operation_info mo_info;
 
   // Operation info.
   //
@@ -323,9 +325,9 @@ namespace build2
 
   // Built-in operations.
   //
-  extern const operation_info default_;
-  extern const operation_info update;
-  extern const operation_info clean;
+  extern const operation_info op_default;
+  extern const operation_info op_update;
+  extern const operation_info op_clean;
 
   // Global meta/operation tables. Each registered meta/operation
   // is assigned an id which is used as an index in the per-project

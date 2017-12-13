@@ -31,7 +31,7 @@ namespace build2
 
       // Register the test operation.
       //
-      rs.operations.insert (test_id, test);
+      rs.operations.insert (test_id, op_test);
 
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.

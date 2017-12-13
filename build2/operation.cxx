@@ -4,6 +4,8 @@
 
 #include <build2/operation.hxx>
 
+#include <iostream> // cout
+
 #include <build2/file.hxx>
 #include <build2/dump.hxx>
 #include <build2/scope.hxx>
@@ -40,6 +42,25 @@ namespace build2
 
     return os;
   }
+
+  // noop
+  //
+  const meta_operation_info mo_noop {
+    noop_id,
+    "noop",
+    "",      // Presumably we will never need these since we are not going
+    "",      // to do anything.
+    "",
+    "",
+    nullptr, // meta-operation pre
+    nullptr, // operation pre
+    &load,
+    nullptr, // search
+    nullptr, // match
+    nullptr, // execute
+    nullptr, // operation post
+    nullptr  // meta-operation post
+  };
 
   // perform
   //
@@ -395,24 +416,7 @@ namespace build2
     assert (dependency_count.load (memory_order_relaxed) == 0);
   }
 
-  const meta_operation_info noop {
-    noop_id,
-    "noop",
-    "",      // Presumably we will never need these since we are not going
-    "",      // to do anything.
-    "",
-    "",
-    nullptr, // meta-operation pre
-    nullptr, // operation pre
-    &load,
-    nullptr, // search
-    nullptr, // match
-    nullptr, // execute
-    nullptr, // operation post
-    nullptr  // meta-operation post
-  };
-
-  const meta_operation_info perform {
+  const meta_operation_info mo_perform {
     perform_id,
     "perform",
     "",
@@ -429,9 +433,100 @@ namespace build2
     nullptr  // meta-operation post
   };
 
+  // info
+  //
+  static operation_id
+  info_operation_pre (const values&, operation_id o)
+  {
+    if (o != default_id)
+      fail << "explicit operation specified for meta-operation info";
+
+    return o;
+  }
+
+  void
+  info_load (const values&,
+             scope& rs,
+             const path&,
+             const dir_path& out_base,
+             const dir_path& src_base,
+             const location& l)
+  {
+    // For info we don't want to go any further than bootstrap so that it can
+    // be used in pretty much any situation (unresolved imports, etc). We do
+    // need to setup root as base though.
+
+    if (rs.out_path () != out_base || rs.src_path () != src_base)
+      fail (l) << "meta-operation info target must be project root directory";
+
+    setup_base (scopes.rw (rs).insert (out_base, false), out_base, src_base);
+  }
+
+  void
+  info_search (const values&,
+               const scope& rs,
+               const scope&,
+               const target_key& tk,
+               const location& l,
+               action_targets& ts)
+  {
+    // Collect all the projects we need to print information about.
+
+    // We've already verified the target is in the project root. Now verify
+    // it is dir{}.
+    //
+    if (!tk.type->is_a<dir> ())
+      fail (l) << "meta-operation info target must be project root directory";
+
+    ts.push_back (&rs);
+  }
+
+  static void
+  info_execute (const values&, action, action_targets& ts, bool)
+  {
+    for (size_t i (0); i != ts.size (); ++i)
+    {
+      // Separate projects with blank lines.
+      //
+      if (i != 0)
+        cout << endl;
+
+      const scope& s (*static_cast<const scope*> (ts[i]));
+
+      // This could be a simple project that doesn't set project name.
+      //
+      cout
+        << "project: "      << cast_empty<string> (s[var_project]) << endl
+        << "version: "      << cast_empty<string> (s[var_version]) << endl
+        << "summary: "      << cast_empty<string> (s[var_project_summary]) << endl
+        << "url: "          << cast_empty<string> (s[var_project_url]) << endl
+        << "src_root: "     << cast<dir_path> (s[var_src_root]) << endl
+        << "out_root: "     << cast<dir_path> (s[var_out_root]) << endl
+        << "amalgamation: " << cast_empty<dir_path> (s[var_amalgamation]) << endl
+        << "subprojects: "  << cast_empty<subprojects> (s[var_subprojects]) << endl;
+    }
+  }
+
+  const meta_operation_info mo_info {
+    info_id,
+    "info",
+    "",
+    "",
+    "",
+    "",
+    nullptr, // meta-operation pre
+    &info_operation_pre,
+    &info_load,
+    &info_search,
+    nullptr, // match
+    &info_execute,
+    nullptr, // operation post
+    nullptr  // meta-operation post
+  };
+
   // operations
   //
-  const operation_info default_ {
+  const operation_info op_default {
     default_id,
     "<default>",
     "",
@@ -444,7 +539,7 @@ namespace build2
     nullptr
   };
 
-  const operation_info update {
+  const operation_info op_update {
     update_id,
     "update",
     "update",
@@ -457,7 +552,7 @@ namespace build2
     nullptr
   };
 
-  const operation_info clean {
+  const operation_info op_clean {
     clean_id,
     "clean",
     "clean",

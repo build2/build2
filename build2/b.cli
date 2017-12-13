@@ -276,7 +276,20 @@ namespace build2
      \li|\cb{dist}
 
          Prepare a distribution containing all files necessary to perform all
-         operations in a project. Implemented by the \cb{dist} module.||
+         operations in a project. Implemented by the \cb{dist} module.|
+
+     \li|\cb{info}
+
+         Print basic information (name, version, source and output
+         directories, etc) about one or more projects to \cb{STDOUT},
+         separating multiple projects with a blank line. Each project is
+         identified by its root directory target. For example:
+
+         \
+         b info: libfoo/ libbar/
+         \
+
+         ||
 
      The build system has the following built-in and pre-defined operations:
 

@@ -258,6 +258,8 @@ namespace build2
 
   // Cached variables.
   //
+  // Note: consider printing in info meta-operation if adding anything here.
+  //
   extern const variable* var_src_root;
   extern const variable* var_out_root;
   extern const variable* var_src_base;

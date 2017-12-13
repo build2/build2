@@ -28,7 +28,7 @@ namespace build2
     // those things get racy. Also, since all we do here is creating/removing
     // files, there is not going to be much speedup from doing it in parallel.
 
-    const operation_info install {
+    const operation_info op_install {
       install_id,
       "install",
       "install",
@@ -50,7 +50,7 @@ namespace build2
     // link.exe only creates a DLL's import library if there are any exported
     // symbols).
     //
-    const operation_info uninstall {
+    const operation_info op_uninstall {
       uninstall_id,
       "uninstall",
       "uninstall",

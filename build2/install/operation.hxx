@@ -14,8 +14,8 @@ namespace build2
 {
   namespace install
   {
-    extern const operation_info install;
-    extern const operation_info uninstall;
+    extern const operation_info op_install;
+    extern const operation_info op_uninstall;
   }
 }
 

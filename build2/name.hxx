@@ -90,6 +90,8 @@ namespace build2
     compare (const name&) const;
   };
 
+  extern const name empty_name;
+
   inline bool
   operator== (const name& x, const name& y) {return x.compare (y) == 0;}
 
@@ -140,8 +142,9 @@ namespace build2
   // (names) and typed ones (vector<name>).
   //
   using names = small_vector<name, 1>;
-
   using names_view = vector_view<const name>;
+
+  extern const names empty_names;
 
   // The same semantics as to_stream(name).
   //

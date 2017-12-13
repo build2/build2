@@ -389,6 +389,9 @@ namespace build2
   }
 
   template <typename T>
+  const vector<T> value_traits<vector<T>>::empty_instance;
+
+  template <typename T>
   const typename value_traits<vector<T>>::value_type_ex
   value_traits<vector<T>>::value_type = build2::value_type // VC14 wants =.
   {
@@ -556,6 +559,9 @@ namespace build2
     type_name += "_map";
     name = type_name.c_str ();
   }
+
+  template <typename K, typename V>
+  const std::map<K,V> value_traits<std::map<K, V>>::empty_instance;
 
   template <typename K, typename V>
   const typename value_traits<std::map<K, V>>::value_type_ex

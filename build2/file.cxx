@@ -38,6 +38,23 @@ namespace build2
   //
   const path config_file (build_dir / "config.build");
 
+  ostream&
+  operator<< (ostream& os, const subprojects& sps)
+  {
+    for (auto b (sps.begin ()), i (b); os && i != sps.end (); ++i)
+    {
+      // See find_subprojects() for details.
+      //
+      const string& n (path::traits::is_separator (i->first.back ())
+                       ? empty_string
+                       : i->first);
+
+      os << (i != b ? " " : "") << n << '@' << i->second;
+    }
+
+    return os;
+  }
+
   bool
   is_src_root (const dir_path& d)
   {
@@ -151,12 +168,13 @@ namespace build2
     //
     if (first)
     {
-      rs.meta_operations.insert (noop_id, noop);
-      rs.meta_operations.insert (perform_id, perform);
+      rs.meta_operations.insert (noop_id, mo_noop);
+      rs.meta_operations.insert (perform_id, mo_perform);
+      rs.meta_operations.insert (info_id, mo_info);
 
-      rs.operations.insert (default_id, default_);
-      rs.operations.insert (update_id, update);
-      rs.operations.insert (clean_id, clean);
+      rs.operations.insert (default_id, op_default);
+      rs.operations.insert (update_id, op_update);
+      rs.operations.insert (clean_id, op_clean);
     }
 
     // If this is already a root scope, verify that things are
@@ -486,10 +504,10 @@ namespace build2
       // 'project' variable stays empty, here we come up with a surrogate
       // name for a key. The idea is that such a key should never conflict
       // with a real project name. We ensure this by using the project's
-      // sub-directory and appending trailing '/' to it.
+      // sub-directory and appending a trailing directory separator to it.
       //
       if (name.empty ())
-        name = dir.posix_string () + '/';
+        name = dir.posix_string () + path::traits::directory_separator;
 
       // @@ Can't use move() because we may need the values in diagnostics
       // below. Looks like C++17 try_emplace() is what we need.

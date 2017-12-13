@@ -395,7 +395,7 @@ namespace build2
       }
     }
 
-    const meta_operation_info configure {
+    const meta_operation_info mo_configure {
       configure_id,
       "configure",
       "configure",
@@ -624,7 +624,7 @@ namespace build2
       }
     }
 
-    const meta_operation_info disfigure {
+    const meta_operation_info mo_disfigure {
       disfigure_id,
       "disfigure",
       "disfigure",
@@ -807,7 +807,7 @@ namespace build2
       }
 
       params.clear ();
-      return configure.name;
+      return mo_configure.name;
     }
   }
 }

@@ -22,7 +22,7 @@ namespace build2
       return mo != disfigure_id ? update_id : 0;
     }
 
-    const operation_info test {
+    const operation_info op_test {
       test_id,
       "test",
       "test",
