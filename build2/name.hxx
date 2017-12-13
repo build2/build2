@@ -39,7 +39,7 @@ namespace build2
     string value;
     char pair = '\0';
 
-    name () = default;
+    name () {} // = default; Clang needs this to initialize const object.
     name (string v): value (move (v)) {}
     name (dir_path d): dir (move (d)) {}
     name (string t, string v): type (move (t)), value (move (v)) {}
