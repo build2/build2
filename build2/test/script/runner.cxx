@@ -1502,7 +1502,7 @@ namespace build2
         };
 
         path osp;
-        auto_fd ofd;
+        fdpipe ofd;
 
         // If this is the last command in the pipeline than redirect the
         // command process stdout to a file. Otherwise create a pipe and
@@ -1517,23 +1517,20 @@ namespace build2
         //    executed taking the file as an input. This could be usefull for
         //    test failures investigation and for tests "tightening".
         //
-        fdpipe p;
         if (last)
-          ofd = open (out, 1, osp);
+          ofd.out = open (out, 1, osp);
         else
         {
           assert (out.type == redirect_type::none); // No redirect expected.
 
           try
           {
-            p = fdopen_pipe ();
+            ofd = fdopen_pipe ();
           }
           catch (const io_error& e)
           {
             fail (ll) << "unable to open pipe: " << e;
           }
-
-          ofd = move (p.out);
         }
 
         path esp;
@@ -1544,8 +1541,8 @@ namespace build2
         bool mo (out.type == redirect_type::merge);
         if (mo || err.type == redirect_type::merge)
         {
-          auto_fd& self  (mo ? ofd : efd);
-          auto_fd& other (mo ? efd : ofd);
+          auto_fd& self  (mo ? ofd.out : efd);
+          auto_fd& other (mo ? efd : ofd.out);
 
           try
           {
@@ -1561,7 +1558,7 @@ namespace build2
 
         // All descriptors should be open to the date.
         //
-        assert (ofd.get () != -1 && efd.get () != -1);
+        assert (ofd.out.get () != -1 && efd.get () != -1);
 
         optional<process_exit> exit;
         builtin_func* bf (builtins.find (c.program.string ()));
@@ -1590,9 +1587,13 @@ namespace build2
           {
             uint8_t r; // Storage.
             builtin b (
-              bf (sp, r, c.arguments, move (ifd), move (ofd), move (efd)));
+              bf (sp, r, c.arguments, move (ifd), move (ofd.out), move (efd)));
 
-            success = run_pipe (sp, nc, ec, move (p.in), ci + 1, li, ll, diag);
+            success = run_pipe (sp,
+                                nc,
+                                ec,
+                                move (ofd.in),
+                                ci + 1, li, ll, diag);
 
             exit = process_exit (b.wait ());
           }
@@ -1615,16 +1616,21 @@ namespace build2
             if (verb >= 2)
               print_process (args);
 
-            process pr (pp,
-                        args.data (),
-                        ifd.get (), ofd.get (), efd.get (),
-                        sp.wd_path.string ().c_str ());
+            process pr (
+              pp,
+              args.data (),
+              {ifd.get (), -1}, process::pipe (ofd), {-1, efd.get ()},
+              sp.wd_path.string ().c_str ());
 
             ifd.reset ();
-            ofd.reset ();
+            ofd.out.reset ();
             efd.reset ();
 
-            success = run_pipe (sp, nc, ec, move (p.in), ci + 1, li, ll, diag);
+            success = run_pipe (sp,
+                                nc,
+                                ec,
+                                move (ofd.in),
+                                ci + 1, li, ll, diag);
 
             pr.wait ();
 
