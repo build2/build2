@@ -1018,6 +1018,10 @@ namespace build2
       {
         if (l != nullptr)
         {
+          // Check if this library renders us out of date.
+          //
+          d.update = d.update || l->newer (d.mt);
+
           // On Windows a shared library is a DLL with the import library as a
           // first ad hoc group member. MinGW though can link directly to DLLs
           // (see search_library() for details).
@@ -1027,10 +1031,6 @@ namespace build2
 
           d.cs.append (f);
           d.cs.append (l->path ().string ());
-
-          // Check if this library renders us out of date.
-          //
-          d.update = d.update || l->newer (d.mt);
         }
         else
           d.cs.append (p);
