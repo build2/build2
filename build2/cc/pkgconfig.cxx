@@ -114,7 +114,7 @@ namespace build2
   //
   // @@ An update: seems that the obvious thread-safety issues are fixed.
   //    However, let's keep mutex locking for now not to introduce potential
-  //    issues before we make sure there are no other ones.
+  //    issues before we make sure that there are no other ones.
   //
   static mutex pkgconf_mutex;
 
@@ -241,54 +241,6 @@ namespace build2
     return r;
   }
 
-  // Unescape backslashes in fragment data.
-  //
-  // Note that currently libpkgconf parses flags:
-  //
-  // "-IC:\\D C"
-  // '-IC:\D C'
-  // -IC:\\D\ C
-  //
-  // into fragments data:
-  //
-  // C:\D C
-  // C:D C
-  // C:\\D C
-  //
-  // This looks broken, as we could expect all 3 forms to result in the same
-  // (most natural) internal representation:
-  //
-  // C:\D C
-  //
-  // We workaround this issue for the third case, unescaping backslashes. This
-  // way we can break the first case, but that's not very probable. And we
-  // can't do much about the second case.
-  //
-  static void
-  unescape (pkgconf_list_t& frags)
-  {
-    pkgconf_node_t *node;
-    PKGCONF_FOREACH_LIST_ENTRY(frags.head, node)
-    {
-      auto frag (static_cast<pkgconf_fragment_t*> (node->data));
-
-      char* d (frag->data);
-      for (char* s (d); *s != '\0'; ++s, ++d)
-      {
-        char c (*s);
-
-        // Unescape the backslash.
-        //
-        if (c == '\\' && s[1] == '\\')
-          ++s;
-
-        *d = c;
-      }
-
-      *d = '\0';
-    }
-  }
-
   // Note that some libpkgconf functions can potentially return NULL, failing
   // to allocate the required memory block. However, we will not check the
   // returned value for NULL as the library doesn't do so, prior to filling the
@@ -405,7 +357,6 @@ namespace build2
       throw failed (); // Assume the diagnostics is issued.
 
     unique_ptr<pkgconf_list_t, fragments_deleter> fd (&f); // Auto-deleter.
-    unescape (f);
     return to_strings (f, 'I', client_->filter_includedirs);
   }
 
@@ -435,7 +386,6 @@ namespace build2
       throw failed (); // Assume the diagnostics is issued.
 
     unique_ptr<pkgconf_list_t, fragments_deleter> fd (&f); // Auto-deleter.
-    unescape (f);
     return to_strings (f, 'L', client_->filter_libdirs);
   }
 
@@ -611,8 +561,7 @@ namespace build2
         return path ();
       };
 
-      auto search =
-        [&libd, &search_dir, &pkgconf_dir, this] () -> pair<path, path>
+      auto search = [&libd, &search_dir, &pkgconf_dir] () -> pair<path, path>
       {
         pair<path, path> r;
 
