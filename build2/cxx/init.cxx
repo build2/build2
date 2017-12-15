@@ -97,17 +97,29 @@ namespace build2
         case compiler_id::clang_apple:
           {
             // Remap Apple versions to vanilla Clang based on the following
-            // release point:
+            // release point. Note that Apple no longer discloses the mapping
+            // so it's a guesswork and we try to be conservative. For details
+            // see:
+            //
+            // https://gist.github.com/yamaya/2924292
             //
             // 5.1 -> 3.4
             // 6.0 -> 3.5
+            // 7.0 -> 3.7
+            // 7.3 -> 3.8
+            // 8.0 -> 3.9
+            // 9.0 -> 4.0 (later ones could be 5.0)
             //
             // Note that this mapping is also used to enable experimental
             // features below.
             //
             if (id == compiler_id::clang_apple)
             {
-              if      (mj >= 6)            {mj = 3; mi = 5;}
+              if      (mj >= 9)            {mj = 4; mi = 0;}
+              else if (mj == 8)            {mj = 3; mi = 9;}
+              else if (mj == 7 && mi >= 3) {mj = 3; mi = 8;}
+              else if (mj == 7)            {mj = 3; mi = 7;}
+              else if (mj == 6)            {mj = 3; mi = 5;}
               else if (mj == 5 && mi >= 1) {mj = 3; mi = 4;}
               else                         {mj = 3; mi = 0;}
             }
