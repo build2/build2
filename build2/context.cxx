@@ -399,9 +399,9 @@ namespace build2
     // Create global scope. Note that the empty path is a prefix for any other
     // path. See the comment in <libbutl/prefix-map.mxx> for details.
     //
-    auto make_global_scope = [&sm] () -> scope&
+    auto make_global_scope = [] () -> scope&
     {
-      auto i (sm.insert (dir_path (), false));
+      auto i (scope_map::instance.insert (dir_path (), false));
       scope& r (i->second);
       r.out_path_ = &i->first;
       global_scope = scope::global_ = &r;
@@ -438,10 +438,10 @@ namespace build2
     {
       const standard_version& v (build_version);
 
-      auto set = [&vp, &gs] (const char* var, auto val)
+      auto set = [&gs] (const char* var, auto val)
       {
         using T = decltype (val);
-        gs.assign (vp.insert<T> (var)) = move (val);
+        gs.assign (variable_pool::instance.insert<T> (var)) = move (val);
       };
 
       set ("build.version", v.string_project ());
