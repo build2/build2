@@ -194,22 +194,18 @@ namespace build2
                string& ind,
                const target& t,
                const scope& s,
-               bool relative)
+               bool rel)
   {
     // If requested, print the target and its prerequisites relative to the
     // scope. To achieve this we are going to temporarily lower the stream
-    // verbosity to level 1. The drawback of doing this is that we also lower
-    // the verbosity of extension printing (it wouldn't have been bad at all
-    // to get 'foo.?' for unassigned and 'foo.' for empty).
+    // path verbosity to level 0.
     //
-    // @@ Actually, all those foo.? look rather hairy...
-    // @@ Can't we change level to a bit mask?
-    //
-    uint16_t sv;
-    if (relative)
+    stream_verbosity osv, nsv;
+    if (rel)
     {
-      sv = stream_verb (os);
-      stream_verb (os, 1);
+      osv = nsv = stream_verb (os);
+      nsv.path = 0;
+      stream_verb (os, nsv);
     }
 
     if (t.group != nullptr)
@@ -221,8 +217,8 @@ namespace build2
     //
     if (!t.vars.empty ())
     {
-      if (relative)
-        stream_verb (os, sv); // We want variable values in full.
+      if (rel)
+        stream_verb (os, osv); // We want variable values in full.
 
       os << endl
          << ind << '{';
@@ -232,8 +228,8 @@ namespace build2
       os << endl
          << ind << '}';
 
-      if (relative)
-        stream_verb (os, 1);
+      if (rel)
+        stream_verb (os, nsv);
 
       os << endl
          << ind << t << ':';
@@ -293,8 +289,8 @@ namespace build2
 
       if (ps)
       {
-        if (relative)
-          stream_verb (os, sv); // We want variable values in full.
+        if (rel)
+          stream_verb (os, osv); // We want variable values in full.
 
         os << ':' << endl
            << ind << '{';
@@ -304,8 +300,8 @@ namespace build2
         os << endl
            << ind << '}';
 
-        if (relative)
-          stream_verb (os, 1);
+        if (rel)
+          stream_verb (os, nsv);
 
         if (i != e) // If we have another, get a new header.
           os << endl
@@ -315,12 +311,15 @@ namespace build2
       used = !ps;
     }
 
-    if (relative)
-      stream_verb (os, sv);
+    if (rel)
+      stream_verb (os, osv);
   }
 
   static void
-  dump_scope (ostream& os, string& ind, scope_map::const_iterator& i)
+  dump_scope (ostream& os,
+              string& ind,
+              scope_map::const_iterator& i,
+              bool rel)
   {
     const scope& p (i->second);
     const dir_path& d (i->first);
@@ -335,7 +334,7 @@ namespace build2
       os << ind << dir_path::traits::directory_separator;
     else
     {
-      dir_path rd (relative (d));
+      const dir_path& rd (rel ? relative (d) : d);
       os << ind << (rd.empty () ? dir_path (".") : rd);
     }
 
@@ -381,7 +380,7 @@ namespace build2
         os << endl; // Extra newline between scope blocks.
 
       os << endl;
-      dump_scope (os, ind, i);
+      dump_scope (os, ind, i, true /* relative */);
       sb = true;
     }
 
@@ -426,7 +425,7 @@ namespace build2
     //
     string ind;
     ostream& os (*diag_stream);
-    dump_scope (os, ind, i);
+    dump_scope (os, ind, i, false /* relative */);
     os << endl;
   }
 
@@ -439,7 +438,7 @@ namespace build2
 
     string ind (cind);
     ostream& os (*diag_stream);
-    dump_scope (os, ind, i);
+    dump_scope (os, ind, i, false /* relative */);
     os << endl;
   }
 

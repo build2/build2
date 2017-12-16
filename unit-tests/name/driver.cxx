@@ -48,7 +48,7 @@ namespace build2
       auto ts = [] (const name& n, bool quote = true)
       {
         ostringstream os;
-        stream_verb (os, 1);
+        stream_verb (os, stream_verbosity (0, 1));
         to_stream (os, n, quote);
         return os.str ();
       };

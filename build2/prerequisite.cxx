@@ -34,7 +34,7 @@ namespace build2
       //
       const dir_path& s (pk.scope->out_path ());
 
-      if (stream_verb (os) < 2)
+      if (stream_verb (os).path < 1)
       {
         const string& r (diag_relative (s, false));
 

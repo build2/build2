@@ -19,7 +19,7 @@ namespace build2
       // Avoid printing './' in './@...', similar to what we do for the
       // {target,prerequisite}_key.
       //
-      if (stream_verb (os) < 2)
+      if (stream_verb (os).path < 1)
       {
         const string& r (diag_relative (s.src_base, false));
 

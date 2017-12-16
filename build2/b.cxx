@@ -105,16 +105,17 @@ namespace build2
         // Let's go with the portable one for now and see how it goes (we
         // can always add a format version, e.g., --structured-result=2).
 
-        // Set the stream verbosity to 0 to suppress extension printing by
-        // default (this can still be overriden by the target type's print
-        // function as is the case for file{}, for example).
+        // Set the stream extension verbosity to 0 to suppress extension
+        // printing by default (this can still be overriden by the target
+        // type's print function as is the case for file{}, for example).
+        // And set the path verbosity to 1 to always print absolute.
         //
-        uint16_t v (stream_verb (cout));
-        stream_verb (cout, 0);
+        stream_verbosity sv (stream_verb (cout));
+        stream_verb (cout, stream_verbosity (1, 0));
 
         cout << ' ' << at.as_target () << endl;
 
-        stream_verb (cout, v);
+        stream_verb (cout, sv);
       }
     }
   }

@@ -72,14 +72,13 @@ namespace build2
   operator!= (const target_key& x, const target_key& y) {return !(x == y);}
 
   // If the target type has a custom print function, call that. Otherwise,
-  // call to_stream() with the current stream verbosity as a third argument.
-  // Both are defined in target.cxx.
+  // call to_stream(). Both are defined in target.cxx.
   //
   ostream&
   operator<< (ostream&, const target_key&);
 
   ostream&
-  to_stream (ostream&, const target_key&, uint16_t ext_verb);
+  to_stream (ostream&, const target_key&, optional<stream_verbosity> = nullopt);
 }
 
 namespace std

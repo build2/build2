@@ -1883,11 +1883,6 @@ namespace build2
     //
     ostream& os (*diag_stream);
 
-    // Print directories as absolute.
-    //
-    const dir_path* orb (relative_base);
-    relative_base = &empty_dir_path;
-
     if (ns.empty ())
     {
       if (scope_ != nullptr)
@@ -1917,8 +1912,6 @@ namespace build2
           os << endl;
       }
     }
-
-    relative_base = orb;
 
     if (tt != type::eos)
       next (t, tt); // Swallow newline.

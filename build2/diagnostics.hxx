@@ -69,44 +69,75 @@ namespace build2
   template <typename F> inline void l5 (const F& f) {if (verb >= 5) f ();}
   template <typename F> inline void l6 (const F& f) {if (verb >= 6) f ();}
 
-  // Stream verbosity level. It is determined by the diagnostic type (e.g.,
-  // trace always has maximum verbosity) as well as the program verbosity. It
-  // is used to decide whether to print relative/absolute paths, and default
+  // Stream verbosity level. Determined by the diagnostic type (e.g., trace
+  // always has maximum verbosity) as well as the program verbosity. It is
+  // used to decide whether to print relative/absolute paths and default
   // target extensions.
-  //
-  // 0 - minimum
-  // 1 - intermediate
-  // 2 - maximum
   //
   // Currently we have the following program to stream verbosity mapping:
   //
-  // fail/error/warn/info   <2:0  2:1 >2:2
-  // trace                  *:2
+  // fail/error/warn/info   <2:{0,0}  2:{0,1} >2:{1,2}
+  // trace                  *:{1,2}
   //
   // A stream that hasn't been (yet) assigned any verbosity explicitly (e.g.,
   // ostringstream) defaults to maximum.
   //
-  const uint16_t stream_verb_min = 0;
-  const uint16_t stream_verb_max = 2;
+  struct stream_verbosity
+  {
+    union
+    {
+      struct
+      {
+        // 0 - print relative.
+        // 1 - print absolute.
+        //
+        uint16_t path: 1;
+
+        // 0 - don't print.
+        // 1 - print if specified.
+        // 2 - print as 'foo.?' if unspecified and 'foo.' if specified as
+        //     "no extension" (empty).
+        //
+        uint16_t extension: 2;
+      };
+      uint16_t value_;
+    };
+
+    constexpr
+    stream_verbosity (uint16_t p, uint16_t e): path (p), extension (e) {}
+
+    explicit
+    stream_verbosity (uint16_t v = 0): value_ (v) {}
+  };
+
+  constexpr stream_verbosity stream_verb_max = {1, 2};
 
   // Default program to stream verbosity mapping, as outlined above.
   //
-  inline uint16_t
-  stream_verb_map () {return verb < 2 ? 0 : (verb > 2 ? 2 : 1);}
+  inline stream_verbosity
+  stream_verb_map ()
+  {
+    return
+      verb < 2 ? stream_verbosity (0, 0) :
+      verb > 2 ? stream_verbosity (1, 2) :
+      /*      */ stream_verbosity (0, 1);
+  }
 
   extern const int stream_verb_index;
 
-  inline uint16_t
+  inline stream_verbosity
   stream_verb (ostream& os)
   {
-    uint16_t v (static_cast<uint16_t> (os.iword (stream_verb_index)));
-    return v == 0 ? stream_verb_max : v - 1;
+    long v (os.iword (stream_verb_index));
+    return v == 0
+      ? stream_verb_max
+      : stream_verbosity (static_cast<uint16_t> (v - 1));
   }
 
   inline void
-  stream_verb (ostream& os, uint16_t v)
+  stream_verb (ostream& os, stream_verbosity v)
   {
-    os.iword (stream_verb_index) = static_cast<long> (v + 1);
+    os.iword (stream_verb_index) = static_cast<long> (v.value_) + 1;
   }
 
   // Diagnostic facility, base infrastructure.
@@ -187,7 +218,7 @@ namespace build2
     simple_prologue_base (const char* type,
                           const char* mod,
                           const char* name,
-                          uint16_t sverb)
+                          stream_verbosity sverb)
         : type_ (type), mod_ (mod), name_ (name), sverb_ (sverb) {}
 
     void
@@ -197,7 +228,7 @@ namespace build2
     const char* type_;
     const char* mod_;
     const char* name_;
-    const uint16_t sverb_;
+    const stream_verbosity sverb_;
   };
 
   class location
@@ -224,7 +255,7 @@ namespace build2
                             const char* mod,
                             const char* name,
                             const location& l,
-                            uint16_t sverb)
+                            stream_verbosity sverb)
         : type_ (type), mod_ (mod), name_ (name),
           loc_ (l),
           sverb_ (sverb) {}
@@ -233,7 +264,7 @@ namespace build2
                             const char* mod,
                             const char* name,
                             path&& f,
-                            uint16_t sverb)
+                            stream_verbosity sverb)
         : type_ (type), mod_ (mod), name_ (name),
           file_ (move (f)), loc_ (&file_),
           sverb_ (sverb) {}
@@ -247,7 +278,7 @@ namespace build2
     const char* name_;
     const path file_;
     const location loc_;
-    const uint16_t sverb_;
+    const stream_verbosity sverb_;
   };
 
   struct basic_mark_base
@@ -259,7 +290,7 @@ namespace build2
     basic_mark_base (const char* type,
                      const void* data = nullptr,
                      diag_epilogue* epilogue = &diag_frame::apply,
-                     uint16_t (*sverb) () = &stream_verb_map,
+                     stream_verbosity (*sverb) () = &stream_verb_map,
                      const char* mod = nullptr,
                      const char* name = nullptr)
         : sverb_ (sverb),
@@ -296,7 +327,7 @@ namespace build2
     }
 
   protected:
-    uint16_t (*sverb_) ();
+    stream_verbosity (*sverb_) ();
     const char* type_;
     const char* mod_;
     const char* name_;

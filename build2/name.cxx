@@ -96,11 +96,11 @@ namespace build2
         os << v;
     };
 
-    uint16_t dv (stream_verb (os)); // Directory verbosity.
+    uint16_t dv (stream_verb (os).path); // Directory verbosity.
 
     auto write_dir = [dv, quote, &os, &write_string] (const dir_path& d)
     {
-      const string& s (dv < 2
+      const string& s (dv < 1
                        ? diag_relative (d)
                        : d.representation ());
       if (quote)
@@ -133,7 +133,7 @@ namespace build2
 
     // Note: relative() may return empty.
     //
-    const dir_path& rd (dv < 2 ? relative (n.dir) : n.dir); // Relative.
+    const dir_path& rd (dv < 1 ? relative (n.dir) : n.dir); // Relative.
     const dir_path& pd (v ? rd              :
                         t ? rd.directory () :
                         dir_path ());

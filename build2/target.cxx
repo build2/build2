@@ -307,7 +307,7 @@ namespace build2
           r << "assuming target ";
           to_stream (r.os,
                      target_key {&t.type (), &t.dir, &t.out, &t.name, ext},
-                     2); // Always print the extension.
+                     stream_verb_max); // Always print the extension.
           r << " is the same as the one with ";
 
           if (!k.ext)
@@ -382,7 +382,7 @@ namespace build2
             to_stream (
               r.os,
               target_key {&t->type (), &t->dir, &t->out, &t->name, ext},
-              2); // Always print the extension.
+              stream_verb_max); // Always print the extension.
             r << " is the same as the one with ";
 
             if (!e)
@@ -416,9 +416,11 @@ namespace build2
   }
 
   ostream&
-  to_stream (ostream& os, const target_key& k, uint16_t ev)
+  to_stream (ostream& os, const target_key& k, optional<stream_verbosity> osv)
   {
-    uint16_t dv (stream_verb (os)); // Directory verbosity.
+    stream_verbosity sv (osv ? *osv : stream_verb (os));
+    uint16_t dv (sv.path);
+    uint16_t ev (sv.extension);
 
     // If the name is empty, then we want to print the last component of the
     // directory inside {}, e.g., dir{bar/}, not bar/dir{}.
@@ -427,12 +429,12 @@ namespace build2
 
     // Note: relative() returns empty for './'.
     //
-    const dir_path& rd (dv < 2 ? relative (*k.dir) : *k.dir); // Relative.
+    const dir_path& rd (dv < 1 ? relative (*k.dir) : *k.dir); // Relative.
     const dir_path& pd (n ? rd : rd.directory ());            // Parent.
 
     if (!pd.empty ())
     {
-      if (dv < 2)
+      if (dv < 1)
         os << diag_relative (pd);
       else
         os << pd.representation ();
@@ -472,7 +474,7 @@ namespace build2
     //
     if (!k.out->empty ())
     {
-      if (dv < 2)
+      if (dv < 1)
       {
         // Don't print '@./'.
         //
@@ -666,15 +668,17 @@ namespace build2
   void
   target_print_0_ext_verb (ostream& os, const target_key& k)
   {
-    uint16_t v (stream_verb (os));
-    to_stream (os, k, v < 2 ? 0 : v); // Remap 1 to 0.
+    stream_verbosity sv (stream_verb (os));
+    if (sv.extension == 1) sv.extension = 0; // Remap 1 to 0.
+    to_stream (os, k, sv);
   }
 
   void
   target_print_1_ext_verb (ostream& os, const target_key& k)
   {
-    uint16_t v (stream_verb (os));
-    to_stream (os, k, v < 1 ? 1 : v); // Remap 0 to 1.
+    stream_verbosity sv (stream_verb (os));
+    if (sv.extension == 0) sv.extension = 1; // Remap 0 to 1.
+    to_stream (os, k, sv);
   }
 
   // type info
