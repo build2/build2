@@ -735,18 +735,24 @@ namespace build2
        << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--structured-result\033[0m  Write the result of executing actions on targets in a" << ::std::endl
-       << "                     structured form. In this mode, instead of printing to" << ::std::endl
-       << "                     STDERR\033[0m diagnostics messages about the outcome of executing" << ::std::endl
-       << "                     actions on targets, the driver writes to STDOUT\033[0m a" << ::std::endl
-       << "                     structured result description one line per the" << ::std::endl
-       << "                     action/target pair. Each line has the following format:" << ::std::endl
+       << "\033[1m--structured-result\033[0m  Write the result of execution in a structured form. In" << ::std::endl
+       << "                     this mode, instead of printing to \033[1mSTDERR\033[0m diagnostics" << ::std::endl
+       << "                     messages about the outcome of executing actions on" << ::std::endl
+       << "                     targets, the driver writes to \033[1mSTDOUT\033[0m a structured result" << ::std::endl
+       << "                     description one line per the buildspec action/target pair." << ::std::endl
+       << "                     Each line has the following format:" << ::std::endl
        << ::std::endl
-       << "                     \033[4mstate\033[0m \033[4mmeta-operation\033[0m \033[4moperation\033[0m \033[4mtarget\033[0m" << ::std::endl
+       << "                     \033[4mstate\033[0m \033[4mmeta-operation\033[0m \033[4moperation\033[0m \033[4mtarget\033[0m\033[0m" << ::std::endl
        << ::std::endl
        << "                     Where \033[4mstate\033[0m can be one of \033[1munchanged\033[0m, \033[1mchanged\033[0m, or \033[1mfailed\033[0m." << ::std::endl
        << "                     If the action is a pre or post operation, then the outer" << ::std::endl
-       << "                     operation is specified in parenthesis. For example:" << ::std::endl;
+       << "                     operation is specified in parenthesis. For example:" << ::std::endl
+       << ::std::endl
+       << "                     unchanged perform update(test) dir{./}" << ::std::endl
+       << "                     changed perform test dir{./}" << ::std::endl
+       << ::std::endl
+       << "                     Currently only the \033[1mperform\033[0m meta-operation supports the" << ::std::endl
+       << "                     structured result output." << ::std::endl;
 
     os << std::endl
        << "\033[1m--match-only\033[0m         Match the rules but do not execute the operation. This" << ::std::endl
