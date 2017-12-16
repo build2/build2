@@ -1297,9 +1297,6 @@ namespace build2
                 os << "\"" << endl;
 
                 os.close ();
-
-                if (!pr.wait ())
-                  throw failed (); // Assume diagnostics issued.
               }
               catch (const io_error& e)
               {
@@ -1307,6 +1304,8 @@ namespace build2
                   fail << "unable to pipe resource file to " << args[0]
                        << ": " << e;
               }
+
+              run_finish (args, pr);
             }
             catch (const process_error& e)
             {
@@ -1963,8 +1962,7 @@ namespace build2
           catch (const io_error&) {} // Assume exits with error.
         }
 
-        if (!pr.wait ())
-          throw failed ();
+        run_finish (args, pr);
       }
       catch (const process_error& e)
       {
@@ -1997,22 +1995,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        try
-        {
-          process pr (rl, args);
-
-          if (!pr.wait ())
-            throw failed ();
-        }
-        catch (const process_error& e)
-        {
-          error << "unable to execute " << args[0] << ": " << e;
-
-          if (e.child)
-            exit (1);
-
-          throw failed ();
-        }
+        run (rl, args);
       }
 
       if (tclass == "windows")

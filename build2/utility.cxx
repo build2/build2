@@ -208,29 +208,32 @@ namespace build2
   }
 
   process
-  run_start (const process_path& pp, const char* args[], bool err)
+  run_start (const process_path& pp,
+             const char* args[],
+             int out,
+             bool err,
+             const dir_path& cwd)
+  try
   {
     assert (args[0] == pp.recall_string ());
-
-    if (verb >= 3)
-      print_process (args);
-
-    try
+    return process (pp, args, 0, out, (err ? 2 : 1), cwd.string ().c_str ());
+  }
+  catch (const process_error& e)
+  {
+    if (e.child)
     {
-      return process (pp, args, 0, -1, (err ? 2 : 1));
+      // Note: run_finish() expects this exact message.
+      //
+      cerr << "unable to execute " << args[0] << ": " << e << endl;
+
+      // In a multi-threaded program that fork()'ed but did not exec(), it is
+      // unwise to try to do any kind of cleanup (like unwinding the stack and
+      // running destructors).
+      //
+      exit (1);
     }
-    catch (const process_error& e)
-    {
-      if (e.child)
-      {
-        // Note: run_finish() expects this exact message.
-        //
-        cerr << "unable to execute " << args[0] << ": " << e << endl;
-        exit (1);
-      }
-      else
-        fail << "unable to execute " << args[0] << ": " << e << endf;
-    }
+    else
+      fail << "unable to execute " << args[0] << ": " << e << endf;
   }
 
   bool
@@ -240,6 +243,14 @@ namespace build2
     if (pr.wait ())
       return true;
 
+    const process_exit& e (*pr.exit);
+
+    if (!e.normal ())
+      fail << "process " << args[0] << " terminated abnormally: "
+           << e.description () << (e.core () ? " (core dumped)" : "");
+
+    // Normall but non-zero exit status.
+    //
     if (err)
       // Assuming diagnostics has already been issued (to STDERR).
       //

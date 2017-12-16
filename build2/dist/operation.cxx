@@ -395,22 +395,7 @@ namespace build2
       else if (verb)
         text << "dist -d " << d;
 
-      try
-      {
-        process pr (cmd, args.data ());
-
-        if (!pr.wait ())
-          throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
+      run (cmd, args);
     }
 
     // install <file> <dir>
@@ -449,22 +434,7 @@ namespace build2
       else if (verb)
         text << "dist " << t;
 
-      try
-      {
-        process pr (cmd, args.data ());
-
-        if (!pr.wait ())
-          throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
+      run (cmd, args);
 
       return d / relf.leaf ();
     }
@@ -494,31 +464,16 @@ namespace build2
         args = {"tar", "-a", "-cf",
                 ap.string ().c_str (), pkg.c_str (), nullptr};
 
-      try
-      {
-        process_path pp (process::path_search (args[0]));
+      process_path pp (run_search (args[0]));
 
-        if (verb >= 2)
-          print_process (args);
-        else if (verb)
-          text << args[0] << " " << ap;
+      if (verb >= 2)
+        print_process (args);
+      else if (verb)
+        text << args[0] << " " << ap;
 
-        // Change child's working directory to dist_root.
-        //
-        process pr (pp, args.data (), 0, 1, 2, root.string ().c_str ());
-
-        if (!pr.wait ())
-          throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
+      // Change child's working directory to dist_root.
+      //
+      run (pp, args, root);
     }
 
     const meta_operation_info mo_dist {

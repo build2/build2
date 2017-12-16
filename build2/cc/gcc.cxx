@@ -180,56 +180,42 @@ namespace build2
       if (verb >= 3)
         print_process (args);
 
+      process pr (run_start (xc, args.data (), -1)); // Open pipe to stdout.
+
       string l;
       try
       {
-        process pr (xc, args.data (), 0, -1); // Open pipe to stdout.
+        ifdstream is (
+          move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
 
-        try
+        // The output of -print-search-dirs are a bunch of lines that start
+        // with "<name>: =" where name can be "install", "programs", or
+        // "libraries". If you have English locale, that is. If you set your
+        // LC_ALL="tr_TR", then it becomes "kurulum", "programlar", and
+        // "kitapl?klar". Also, Clang omits "install" while GCC and Intel icc
+        // print all three. The "libraries" seem to be alwasy last, however.
+        //
+        string s;
+        for (bool found (false); !found && getline (is, s); )
         {
-          ifdstream is (
-            move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
+          found = (s.compare (0, 12, "libraries: =") == 0);
 
-          // The output of -print-search-dirs are a bunch of lines that start
-          // with "<name>: =" where name can be "install", "programs", or
-          // "libraries". If you have English locale, that is. If you set your
-          // LC_ALL="tr_TR", then it becomes "kurulum", "programlar", and
-          // "kitapl?klar". Also, Clang omits "install" while GCC and Intel
-          // icc print all three. The "libraries" seem to be alwasy last,
-          // however.
-          //
-          string s;
-          for (bool found (false); !found && getline (is, s); )
-          {
-            found = (s.compare (0, 12, "libraries: =") == 0);
+          size_t p (found ? 9 : s.find (": ="));
 
-            size_t p (found ? 9 : s.find (": ="));
-
-            if (p != string::npos)
-              l.assign (s, p + 3, string::npos);
-          }
-
-          is.close (); // Don't block.
-
-          if (!pr.wait ())
-            throw failed (); // Assume issued diagnostics to stderr.
+          if (p != string::npos)
+            l.assign (s, p + 3, string::npos);
         }
-        catch (const io_error&)
-        {
-          pr.wait ();
-          fail << "error reading " << x_lang << " compiler -print-search-dirs "
-               << "output";
-        }
+
+        is.close (); // Don't block.
       }
-      catch (const process_error& e)
+      catch (const io_error&)
       {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
+        pr.wait ();
+        fail << "error reading " << x_lang << " compiler -print-search-dirs "
+             << "output";
       }
+
+      run_finish (args, pr);
 
       if (l.empty ())
         fail << "unable to extract " << x_lang << " compiler system library "

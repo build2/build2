@@ -30,7 +30,7 @@ namespace build2
       {
         const char* args[] {"git", "-C", d, "status", "--porcelain", nullptr};
 
-        if (!run<string> (args, [] (string& s) {return move (s);}).empty ())
+        if (!run<string> (3, args, [](string& s) {return move (s);}).empty ())
           return r;
       }
 
@@ -49,7 +49,7 @@ namespace build2
 
       const char* args[] {
         "git", "-C", d, "cat-file", "commit", "HEAD", nullptr};
-      process pr (run_start (args));
+      process pr (run_start (3 /* verbosity */, args, -1 /* stdout */));
 
       try
       {
@@ -116,7 +116,9 @@ namespace build2
         // that.
       }
 
-      if (!run_finish (args, pr) || r.sn == 0)
+      run_finish (args, pr);
+
+      if (r.sn == 0)
         fail << "unable to extract git commit id/date for " << src_root;
 
       sha1 cs;

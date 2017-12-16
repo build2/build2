@@ -151,10 +151,13 @@ namespace build2
                             l.string ().c_str (),
                             nullptr};
 
+      if (verb >= 3)
+        print_process (args);
+
       // Link.exe seem to always dump everything to stdout but just in case
       // redirect stderr to stdout.
       //
-      process pr (run_start (ld, args, false));
+      process pr (run_start (ld, args, -1 /* stdout */, false /* error */));
 
       bool obj (false), dll (false);
       string s;

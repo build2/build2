@@ -65,7 +65,7 @@ namespace build2
        bool ignore_exit,
        sha256* checksum)
   {
-    process pr (run_start (pp, args, err));
+    process pr (run_start (pp, args, -1 /* stdout */, err));
 
     T r;
     string l; // Last line of output.

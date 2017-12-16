@@ -250,7 +250,8 @@ namespace build2
           //
           if (!hint && ops.config_sub_specified ())
           {
-            s = run<string> (ops.config_sub (),
+            s = run<string> (3,
+                             ops.config_sub (),
                              s.c_str (),
                              [] (string& l) {return move (l);});
             l5 ([&]{trace << "config.sub target: '" << s << "'";});

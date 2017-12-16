@@ -2723,7 +2723,7 @@ namespace build2
               continue;
             }
             else
-              fail << args[0] << " terminated abnormally: " << e.description ();
+              run_finish (args, pr); // Throws.
           }
           catch (const process_error& e)
           {
@@ -3012,7 +3012,7 @@ namespace build2
             info << "then run failing command to display compiler diagnostics";
         }
         else
-          fail << args[0] << " terminated abnormally: " << e.description ();
+          run_finish (args, pr); // Throws.
       }
       catch (const process_error& e)
       {
@@ -4489,17 +4489,12 @@ namespace build2
           catch (const io_error&) {} // Assume exits with error.
         }
 
-        if (!pr.wait ())
-          throw failed ();
+        run_finish (args, pr);
       }
       catch (const process_error& e)
       {
         error << "unable to execute " << args[0] << ": " << e;
 
-        // In a multi-threaded program that fork()'ed but did not exec(),
-        // it is unwise to try to do any kind of cleanup (like unwinding
-        // the stack and running destructors).
-        //
         if (e.child)
           exit (1);
 
@@ -4541,8 +4536,7 @@ namespace build2
                       nullptr, // CWD
                       env.empty () ? nullptr : env.data ());
 
-          if (!pr.wait ())
-            throw failed ();
+          run_finish (args, pr);
         }
         catch (const process_error& e)
         {

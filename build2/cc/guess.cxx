@@ -248,7 +248,7 @@ namespace build2
         // Suppress all the compiler errors because we may be trying an
         // unsupported option.
         //
-        r = run<guess_result> (pp, "-v", f, false, false, &cs);
+        r = run<guess_result> (3, pp, "-v", f, false, false, &cs);
 
         if (!r.empty ())
         {
@@ -284,7 +284,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (pp, "--version", f, false);
+        r = run<guess_result> (3, pp, "--version", f, false);
       }
 
       // Finally try to run it without any options to detect msvc.
@@ -317,7 +317,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (pp, f, false);
+        r = run<guess_result> (3, pp, f, false);
       }
 
       if (!r.empty ())
@@ -487,7 +487,7 @@ namespace build2
       //
       auto f = [] (string& l) {return move (l);};
 
-      string t (run<string> (args.data (), f, false));
+      string t (run<string> (3, args.data (), f, false));
 
       if (t.empty ())
       {
@@ -495,7 +495,7 @@ namespace build2
                       << "falling back to -dumpmachine";});
 
         args[1] = "-dumpmachine";
-        t = run<string> (args.data (), f);
+        t = run<string> (3, args.data (), f);
       }
 
       if (t.empty ())
@@ -609,7 +609,7 @@ namespace build2
       // The output of -dumpmachine is a single line containing just the
       // target triplet.
       //
-      string t (run<string> (args.data (), [] (string& l) {return move (l);}));
+      string t (run<string> (3, args.data (), [](string& l) {return move (l);}));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << xc
@@ -682,7 +682,7 @@ namespace build2
 
       // The -V output is sent to STDERR.
       //
-      s = run<string> (xc, "-V", f, false);
+      s = run<string> (3, xc, "-V", f, false);
 
       if (s.empty ())
         fail << "unable to extract signature from " << xc << " -V output";
@@ -781,7 +781,7 @@ namespace build2
 
       // The -V output is sent to STDERR.
       //
-      string t (run<string> (args.data (), f, false));
+      string t (run<string> (3, args.data (), f, false));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << xc
@@ -823,7 +823,7 @@ namespace build2
       // on which we are running), who knows what will happen in the future.
       // So instead we are going to use -dumpmachine and substitute the CPU.
       //
-      t = run<string> (xc, "-dumpmachine", [] (string& l) {return move (l);});
+      t = run<string> (3, xc, "-dumpmachine", [](string& l) {return move (l);});
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << xc

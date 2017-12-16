@@ -107,6 +107,8 @@ namespace build2
         {
           const char* args[] = {cli.string ().c_str (), "--version", nullptr};
 
+          // @@ TODO: redo using run_start()/run_finish().
+
           try
           {
             pp = process::path_search (cli, true); // Can throw.

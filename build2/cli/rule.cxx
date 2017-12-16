@@ -283,25 +283,9 @@ namespace build2
       else if (verb)
         text << "cli " << s;
 
-      try
-      {
-        process pr (cli, args.data ());
+      run (cli, args);
 
-        if (!pr.wait ())
-          throw failed ();
-
-        t.mtime (system_clock::now ());
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
-
+      t.mtime (system_clock::now ());
       return target_state::changed;
     }
   }

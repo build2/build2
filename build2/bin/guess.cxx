@@ -78,7 +78,7 @@ namespace build2
         // (yes, it goes to stdout) but that seems harmless.
         //
         sha256 cs;
-        arr = run<guess_result> (arp, "--version", f, false, false, &cs);
+        arr = run<guess_result> (3, arp, "--version", f, false, false, &cs);
 
         if (!arr.empty ())
           arr.checksum = cs.string ();
@@ -101,7 +101,7 @@ namespace build2
         // Redirect STDERR to STDOUT and ignore exit status.
         //
         sha256 cs;
-        arr = run<guess_result> (arp, f, false, true, &cs);
+        arr = run<guess_result> (3, arp, f, false, true, &cs);
 
         if (!arr.empty ())
         {
@@ -142,7 +142,7 @@ namespace build2
           };
 
           sha256 cs;
-          rlr = run<guess_result> (rlp, "--version", f, false, false, &cs);
+          rlr = run<guess_result> (3, rlp, "--version", f, false, false, &cs);
 
           if (!rlr.empty ())
             rlr.checksum = cs.string ();
@@ -162,7 +162,7 @@ namespace build2
           // Redirect STDERR to STDOUT and ignore exit status.
           //
           sha256 cs;
-          rlr = run<guess_result> (rlp, f, false, true, &cs);
+          rlr = run<guess_result> (3, rlp, f, false, true, &cs);
 
           if (!rlr.empty ())
           {
@@ -224,7 +224,7 @@ namespace build2
         // but that seems harmless.
         //
         sha256 cs;
-        r = run<guess_result> (pp, "--version", f, false, true, &cs);
+        r = run<guess_result> (3, pp, "--version", f, false, true, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -255,7 +255,7 @@ namespace build2
         };
 
         sha256 cs;
-        r = run<guess_result> (pp, "-v", f, false, false, &cs);
+        r = run<guess_result> (3, pp, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -282,7 +282,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (pp, "-version", f, false, false, &cs);
+        r = run<guess_result> (3, pp, "-version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -322,7 +322,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (pp, "--version", f, false, false, &cs);
+        r = run<guess_result> (3, pp, "--version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -342,7 +342,7 @@ namespace build2
         };
 
         sha256 cs;
-        r = run<guess_result> (pp, "/?", f, false, false, &cs);
+        r = run<guess_result> (3, pp, "/?", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();

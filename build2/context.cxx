@@ -477,7 +477,7 @@ namespace build2
       //
       string orig (
         ops.config_guess_specified ()
-        ? run<string> (ops.config_guess (), [] (string& l) {return move (l);})
+        ? run<string> (3, ops.config_guess (), [](string& l) {return move (l);})
         : BUILD2_HOST_TRIPLET);
 
       l5 ([&]{trace << "original host: '" << orig << "'";});

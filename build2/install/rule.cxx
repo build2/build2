@@ -553,29 +553,14 @@ namespace build2
       args.push_back (reld.c_str ());
       args.push_back (nullptr);
 
-      try
-      {
-        process_path pp (process::path_search (args[0]));
+      process_path pp (run_search (args[0]));
 
-        if (verb >= 2)
-          print_process (args);
-        else if (verb && verbose)
-          text << "install " << chd;
+      if (verb >= 2)
+        print_process (args);
+      else if (verb && verbose)
+        text << "install " << chd;
 
-        process pr (pp, args.data ());
-
-        if (!pr.wait ())
-          throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
+      run (pp, args);
     }
 
     // install <file> <dir>/
@@ -622,29 +607,14 @@ namespace build2
       args.push_back (reld.c_str ());
       args.push_back (nullptr);
 
-      try
-      {
-        process_path pp (process::path_search (args[0]));
+      process_path pp (run_search (args[0]));
 
-        if (verb >= 2)
-          print_process (args);
-        else if (verb && verbose)
-          text << "install " << t;
+      if (verb >= 2)
+        print_process (args);
+      else if (verb && verbose)
+        text << "install " << t;
 
-        process pr (pp, args.data ());
-
-        if (!pr.wait ())
-          throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
+      run (pp, args);
     }
 
     void file_rule::
@@ -672,29 +642,14 @@ namespace build2
 
       const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
-      try
-      {
-        process_path pp (process::path_search (args[0]));
+      process_path pp (run_search (args[0]));
 
-        if (verb >= 2)
-          print_process (args);
-        else if (verb && verbose)
-          text << "install " << rell << " -> " << target;
+      if (verb >= 2)
+        print_process (args);
+      else if (verb && verbose)
+        text << "install " << rell << " -> " << target;
 
-        process pr (pp, args);
-
-        if (!pr.wait ())
-          throw failed ();
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        if (e.child)
-          exit (1);
-
-        throw failed ();
-      }
+      run (pp, args);
     }
 
     target_state file_rule::
@@ -839,29 +794,14 @@ namespace build2
 
           const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
-          try
-          {
-            process_path pp (process::path_search (args[0]));
+          process_path pp (run_search (args[0]));
 
-            if (verb >= 2)
-              print_process (args);
-            else if (verb && verbose)
-              text << "uninstall " << reld;
+          if (verb >= 2)
+            print_process (args);
+          else if (verb && verbose)
+            text << "uninstall " << reld;
 
-            process pr (pp, args);
-
-            if (!pr.wait ())
-              throw failed ();
-          }
-          catch (const process_error& e)
-          {
-            error << "unable to execute " << args[0] << ": " << e;
-
-            if (e.child)
-              exit (1);
-
-            throw failed ();
-          }
+          run (pp, args);
         }
       }
 
@@ -942,27 +882,12 @@ namespace build2
 
         const char** args (&args_a[base.sudo == nullptr ? 1 : 0]);
 
-        try
-        {
-          process_path pp (process::path_search (args[0]));
+        process_path pp (run_search (args[0]));
 
-          if (verb >= 2)
-            print_process (args);
+        if (verb >= 2)
+          print_process (args);
 
-          process pr (pp, args);
-
-          if (!pr.wait ())
-            throw failed ();
-        }
-        catch (const process_error& e)
-        {
-          error << "unable to execute " << args[0] << ": " << e;
-
-          if (e.child)
-            exit (1);
-
-          throw failed ();
-        }
+        run (pp, args);
       }
 
       return true;
