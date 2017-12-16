@@ -157,7 +157,7 @@ namespace build2
 
         for (; i != n; ++i)
         {
-          const target& t (*static_cast<const target*> (ts[i]));
+          const target& t (ts[i].as_target ());
           l5 ([&]{trace << diag_doing (a, t);});
 
           target_state s (match_async (a, t, 0, task_count, false));
@@ -188,7 +188,8 @@ namespace build2
       bool fail (false);
       for (size_t j (0); j != n; ++j)
       {
-        const target& t (*static_cast<const target*> (ts[j]));
+        action_target& at (ts[j]);
+        const target& t (at.as_target ());
 
         // Finish matching targets that we have started. Note that we use the
         // state for the "final" action that will be executed and not our
@@ -208,7 +209,8 @@ namespace build2
         {
         case target_state::postponed:
           {
-            // We bailed before matching it.
+            // We bailed before matching it (leave state in action_target as
+            // unknown).
             //
             if (verb != 0)
               info << "not " << diag_did (a, t);
@@ -227,6 +229,7 @@ namespace build2
             if (verb != 0)
               info << "failed to " << diag_do (a, t);
 
+            at.state = s;
             fail = true;
             break;
           }
@@ -315,9 +318,9 @@ namespace build2
       atomic_count task_count (0);
       wait_guard wg (task_count);
 
-      for (const void* vt: ts)
+      for (const action_target& at: ts)
       {
-        const target& t (*static_cast<const target*> (vt));
+        const target& t (at.as_target ());
 
         l5 ([&]{trace << diag_doing (a, t);});
 
@@ -361,15 +364,16 @@ namespace build2
     // Re-examine all the targets and print diagnostics.
     //
     bool fail (false);
-    for (const void* vt: ts)
+    for (action_target& at: ts)
     {
-      const target& t (*static_cast<const target*> (vt));
+      const target& t (at.as_target ());
 
-      switch (t.executed_state (false))
+      switch ((at.state = t.executed_state (false)))
       {
       case target_state::unknown:
         {
-          // We bailed before executing it.
+          // We bailed before executing it (leave state in action_target as
+          // unknown).
           //
           if (verb != 0 && !quiet)
             info << "not " << diag_did (a, t);
@@ -491,7 +495,7 @@ namespace build2
       if (i != 0)
         cout << endl;
 
-      const scope& s (*static_cast<const scope*> (ts[i]));
+      const scope& s (*static_cast<const scope*> (ts[i].target));
 
       // This could be a simple project that doesn't set project name.
       //

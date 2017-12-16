@@ -11,12 +11,15 @@
 #include <build2/utility.hxx>
 
 #include <build2/variable.hxx>
+#include <build2/target-state.hxx>
 
 namespace build2
 {
   class location;
   class scope;
   class target_key;
+  class target;
+
   struct opspec;
 
   // While we are using uint8_t for the meta/operation ids, we assume
@@ -181,7 +184,32 @@ namespace build2
   // Normally a list of resolved and matched targets to execute. But can be
   // something else, depending on the meta-operation.
   //
-  typedef vector<const void*> action_targets;
+  // The state is used to print structured result state. If it is not unknown,
+  // then this is assumed to be a target.
+  //
+  struct action_target
+  {
+    using target_type = build2::target;
+
+    const void* target = nullptr;
+    target_state state = target_state::unknown;
+
+    action_target () = default;
+    action_target (const void* t): target (t) {}
+
+    const target_type&
+    as_target () const {return *static_cast<const target_type*> (target);}
+  };
+
+  class action_targets: public vector<action_target>
+  {
+  public:
+    using vector<action_target>::vector;
+
+    void
+    reset () {for (auto& x: *this) x.state = target_state::unknown;}
+  };
+
 
   struct meta_operation_info
   {

@@ -57,12 +57,67 @@ namespace build2
 {
   int
   main (int argc, char* argv[]);
-}
 
-int
-main (int argc, char* argv[])
-{
-  return build2::main (argc, argv);
+  // Structured result printer (--structured-result mode).
+  //
+  class result_printer
+  {
+  public:
+    result_printer (const action_targets& tgs): tgs_ (tgs) {}
+    ~result_printer ();
+
+  private:
+    const action_targets& tgs_;
+  };
+
+  result_printer::
+  ~result_printer ()
+  {
+    // Let's do some sanity checking even when we are not in the structred
+    // output mode.
+    //
+    for (const action_target& at: tgs_)
+    {
+      switch (at.state)
+      {
+      case target_state::unknown:   continue; // Not a target/no result.
+      case target_state::unchanged:
+      case target_state::changed:
+      case target_state::failed:    break;    // Valid states.
+      default:                      assert (false);
+      }
+
+      if (ops.structured_result ())
+      {
+        cout << at.state
+             << ' ' << current_mif->name
+             << ' ' << current_inner_oif->name;
+
+        if (current_outer_oif != nullptr)
+          cout << '(' << current_outer_oif->name << ')';
+
+        // There are two ways one may wish to identify the target of the
+        // operation: as something specific but inherently non-portable (say,
+        // a filesystem path, for example c:\tmp\foo.exe) or as something
+        // regular that can be used to refer to a target in a portable way
+        // (for example, c:\tmp\exe{foo}; note that the directory part is
+        // still not portable). Which one should we use is a good question.
+        // Let's go with the portable one for now and see how it goes (we
+        // can always add a format version, e.g., --structured-result=2).
+
+        // Set the stream verbosity to 0 to suppress extension printing by
+        // default (this can still be overriden by the target type's print
+        // function as is the case for file{}, for example).
+        //
+        uint16_t v (stream_verb (cout));
+        stream_verb (cout, 0);
+
+        cout << ' ' << at.as_target () << endl;
+
+        stream_verb (cout, v);
+      }
+    }
+  }
 }
 
 int build2::
@@ -1143,33 +1198,43 @@ main (int argc, char* argv[])
 
           action a (mid, pre_oid, oid);
 
-          // Run quiet.
-          //
-          if (mif->match != nullptr)
-            mif->match (mparams, a, tgs);
+          {
+            result_printer p (tgs);
 
-          if (mif->execute != nullptr && !ops.match_only ())
-            mif->execute (mparams, a, tgs, true);
+            if (mif->match != nullptr)
+              mif->match (mparams, a, tgs);
+
+            if (mif->execute != nullptr && !ops.match_only ())
+              mif->execute (mparams, a, tgs, true /* quiet */);
+          }
 
           if (mif->operation_post != nullptr)
             mif->operation_post (mparams, pre_oid);
 
           l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
                         << ", id " << static_cast<uint16_t> (pre_oid);});
+
+          tgs.reset ();
         }
 
         set_current_oif (*oif);
 
         action a (mid, oid, 0);
 
-        if (mif->match != nullptr)
-          mif->match (mparams, a, tgs);
+        {
+          result_printer p (tgs);
 
-        if (mif->execute != nullptr && !ops.match_only ())
-          mif->execute (mparams, a, tgs, verb == 0);
+          if (mif->match != nullptr)
+            mif->match (mparams, a, tgs);
+
+          if (mif->execute != nullptr && !ops.match_only ())
+            mif->execute (mparams, a, tgs, ops.structured_result () /*quiet*/);
+        }
 
         if (post_oid != 0)
         {
+          tgs.reset ();
+
           l5 ([&]{trace << "start post-operation batch " << post_oif->name
                         << ", id " << static_cast<uint16_t> (post_oid);});
 
@@ -1180,13 +1245,15 @@ main (int argc, char* argv[])
 
           action a (mid, post_oid, oid);
 
-          // Run quiet.
-          //
-          if (mif->match != nullptr)
-            mif->match (mparams, a, tgs);
+          {
+            result_printer p (tgs);
 
-          if (mif->execute != nullptr && !ops.match_only ())
-            mif->execute (mparams, a, tgs, true);
+            if (mif->match != nullptr)
+              mif->match (mparams, a, tgs);
+
+            if (mif->execute != nullptr && !ops.match_only ())
+              mif->execute (mparams, a, tgs, true /* quiet */);
+          }
 
           if (mif->operation_post != nullptr)
             mif->operation_post (mparams, post_oid);
@@ -1247,4 +1314,10 @@ main (int argc, char* argv[])
   }
 
   return r;
+}
+
+int
+main (int argc, char* argv[])
+{
+  return build2::main (argc, argv);
 }

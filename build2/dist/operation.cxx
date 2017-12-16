@@ -60,7 +60,7 @@ namespace build2
 
       // For now we assume all the targets are from the same project.
       //
-      const target& t (*static_cast<const target*> (ts[0]));
+      const target& t (ts[0].as_target ());
       const scope* rs (t.base_scope ().root_scope ());
 
       if (rs == nullptr)
@@ -99,9 +99,9 @@ namespace build2
 
       // Verify all the targets are from the same project.
       //
-      for (const void* v: ts)
+      for (const action_target& at: ts)
       {
-        const target& t (*static_cast<const target*> (v));
+        const target& t (at.as_target ());
 
         if (rs != t.base_scope ().root_scope ())
           fail << "target " << t << " is from a different project" <<
@@ -252,6 +252,8 @@ namespace build2
         // things down while this little cheat seems harmless (i.e., assume
         // the dist mete-opreation is "compatible" with perform).
         //
+        // Note also that we don't do any structured result printing.
+        //
         size_t on (current_on);
         set_current_mif (mo_perform);
         current_on = on + 1;
@@ -264,7 +266,7 @@ namespace build2
         action a (perform_id, update_id);
 
         mo_perform.match (params, a, files);
-        mo_perform.execute (params, a, files, true); // Run quiet.
+        mo_perform.execute (params, a, files, true /* quiet */);
 
         if (mo_perform.operation_post != nullptr)
           mo_perform.operation_post (params, update_id);
@@ -288,9 +290,9 @@ namespace build2
       //
       module& mod (*rs->modules.lookup<module> (module::name));
 
-      for (const void* v: files)
+      for (const action_target& at: files)
       {
-        const file& t (*static_cast<const file*> (v));
+        const file& t (*at.as_target ().is_a<file> ());
 
         // Figure out where this file is inside the target directory.
         //

@@ -583,6 +583,7 @@ namespace build2
     queue_depth_ (4),
     queue_depth_specified_ (false),
     serial_stop_ (),
+    structured_result_ (),
     match_only_ (),
     no_column_ (),
     no_line_ (),
@@ -734,6 +735,20 @@ namespace build2
        << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--structured-result\033[0m  Write the result of executing actions on targets in a" << ::std::endl
+       << "                     structured form. In this mode, instead of printing to" << ::std::endl
+       << "                     STDERR\033[0m diagnostics messages about the outcome of executing" << ::std::endl
+       << "                     actions on targets, the driver writes to STDOUT\033[0m a" << ::std::endl
+       << "                     structured result description one line per the" << ::std::endl
+       << "                     action/target pair. Each line has the following format:" << ::std::endl
+       << ::std::endl
+       << "                     \033[4mstate\033[0m \033[4mmeta-operation\033[0m \033[4moperation\033[0m \033[4mtarget\033[0m" << ::std::endl
+       << ::std::endl
+       << "                     Where \033[4mstate\033[0m can be one of \033[1munchanged\033[0m, \033[1mchanged\033[0m, or \033[1mfailed\033[0m." << ::std::endl
+       << "                     If the action is a pre or post operation, then the outer" << ::std::endl
+       << "                     operation is specified in parenthesis. For example:" << ::std::endl;
+
+    os << std::endl
        << "\033[1m--match-only\033[0m         Match the rules but do not execute the operation. This" << ::std::endl
        << "                     mode is primarily useful for profiling." << ::std::endl;
 
@@ -841,6 +856,8 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      _cli_options_map_["--structured-result"] = 
+      &::build2::cl::thunk< options, bool, &options::structured_result_ >;
       _cli_options_map_["--match-only"] = 
       &::build2::cl::thunk< options, bool, &options::match_only_ >;
       _cli_options_map_["--no-column"] = 
@@ -968,7 +985,7 @@ namespace build2
        << ::std::endl
        << "\033[1mDESCRIPTION\033[0m" << ::std::endl
        << ::std::endl
-       << "The \033[1mbuild2\033[0m driver performs a set of meta-operations on operations on targets" << ::std::endl
+       << "The \033[1mbuild2\033[0m driver executes a set of meta-operations on operations on targets" << ::std::endl
        << "according to the build specification, or \033[4mbuildspec\033[0m for short. This process can" << ::std::endl
        << "be controlled by specifying driver \033[4moptions\033[0m and build system \033[4mvariables\033[0m." << ::std::endl
        << ::std::endl

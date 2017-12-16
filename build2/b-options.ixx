@@ -301,6 +301,12 @@ namespace build2
   }
 
   inline const bool& options::
+  structured_result () const
+  {
+    return this->structured_result_;
+  }
+
+  inline const bool& options::
   match_only () const
   {
     return this->match_only_;

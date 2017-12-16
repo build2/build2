@@ -369,9 +369,9 @@ namespace build2
       // target-specific. However, inside match(), things can proceed in
       // parallel.
       //
-      for (const void* v: ts)
+      for (const action_target& at: ts)
       {
-        const target& t (*static_cast<const target*> (v));
+        const target& t (at.as_target ());
         const scope* rs (t.base_scope ().root_scope ());
 
         if (rs == nullptr)
@@ -600,9 +600,9 @@ namespace build2
       // Note: doing everything in the load phase (disfigure_project () does
       // modify the model).
       //
-      for (const void* v: ts)
+      for (const action_target& at: ts)
       {
-        const scope& root (*static_cast<const scope*> (v));
+        const scope& root (*static_cast<const scope*> (at.target));
 
         if (!disfigure_project (a, root, projects))
         {

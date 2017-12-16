@@ -21,7 +21,7 @@ namespace build2
 
      \h|DESCRIPTION|
 
-     The \cb{build2} driver performs a set of meta-operations on operations on
+     The \cb{build2} driver executes a set of meta-operations on operations on
      targets according to the build specification, or <buildspec> for short.
      This process can be controlled by specifying driver <options> and build
      system <variables>.
@@ -422,6 +422,30 @@ namespace build2
        rather than compilation errors. Note that if you don't want to keep
        going but still want parallel execution, add \c{--jobs|-j} (for example
        \c{-j 0} for default concurrency)."
+    }
+
+    bool --structured-result
+    {
+      "Write the result of execution in a structured form. In this mode,
+       instead of printing to \cb{STDERR} diagnostics messages about the
+       outcome of executing actions on targets, the driver writes to
+       \cb{STDOUT} a structured result description one line per the
+       buildspec action/target pair. Each line has the following format:
+
+       \c{\i{state} \i{meta-operation} \i{operation} \i{target}}
+
+       Where \ci{state} can be one of \cb{unchanged}, \cb{changed}, or
+       \cb{failed}. If the action is a pre or post operation, then the
+       outer operation is specified in parenthesis. For example:
+
+       \
+       unchanged perform update(test) dir{./}
+       changed perform test dir{./}
+       \
+
+       Currently only the \cb{perform} meta-operation supports the structured
+       result output.
+       "
     }
 
     bool --match-only
