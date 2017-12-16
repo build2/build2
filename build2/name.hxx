@@ -43,6 +43,7 @@ namespace build2
     name (string v): value (move (v)) {}
     name (dir_path d): dir (move (d)) {}
     name (string t, string v): type (move (t)), value (move (v)) {}
+    name (dir_path d, string v): dir (move (d)), value (move (v)) {}
 
     name (dir_path d, string t, string v)
         : dir (move (d)), type (move (t)), value (move (v)) {}

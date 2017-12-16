@@ -18,19 +18,19 @@ dir{x}: dir{c}: bar = [bool] true
 dump dir{x}
 EOI
 <stdin>:5:1: dump:
-%  dir\{.+/x/\}:%
+%  .+/dir\{x/\}:%
   {
     fox = FOX
   }
-%  dir\{.+/x/\}: .+:dir\{a/\}:%
+%  .+/dir\{x/\}: .+:dir\{a/\}:%
   {
     foo = FOO
   }
-%  dir\{.+/x/\}: .+:dir\{b/\}:%
+%  .+/dir\{x/\}: .+:dir\{b/\}:%
   {
     fox = FOX FOX
   }
-%  dir\{.+/x/\}: .+:dir\{c/\}:%
+%  .+/dir\{x/\}: .+:dir\{c/\}:%
   {
     bar = [bool] true
   }
@@ -43,20 +43,20 @@ dir{x} dir{y}: dir{a} dir{b}: foo = FOO
 dump dir{x} dir{y}
 EOI
 <stdin>:2:1: dump:
-%  dir\{.+/x/\}: .+:dir\{a/\}:%
+%  .+/dir\{x/\}: .+:dir\{a/\}:%
   {
     foo = FOO
   }
-%  dir\{.+/x/\}: .+:dir\{b/\}:%
+%  .+/dir\{x/\}: .+:dir\{b/\}:%
   {
     foo = FOO
   }
 
-%  dir\{.+/y/\}: .+:dir\{a/\}:%
+%  .+/dir\{y/\}: .+:dir\{a/\}:%
   {
     foo = FOO
   }
-%  dir\{.+/y/\}: .+:dir\{b/\}:%
+%  .+/dir\{y/\}: .+:dir\{b/\}:%
   {
     foo = FOO
   }

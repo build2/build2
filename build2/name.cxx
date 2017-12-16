@@ -6,8 +6,6 @@
 
 #include <string.h> // strchr()
 
-#include <sstream>
-
 #include <build2/diagnostics.hxx>
 
 namespace build2
@@ -31,15 +29,18 @@ namespace build2
       r += '%';
     }
 
-    // If the value is empty, then we want to put the directory inside {},
-    // e.g., dir{bar/}, not bar/dir{}.
+    // If the value is empty, then we want to put the last component of the
+    // directory inside {}, e.g., dir{bar/}, not bar/dir{}.
     //
-    bool d (!n.dir.empty ());
     bool v (!n.value.empty ());
     bool t (!n.type.empty ());
 
-    if (v && d)
-      r += n.dir.representation ();
+    const dir_path& pd (v ? n.dir              :
+                        t ? n.dir.directory () :
+                        dir_path ());
+
+    if (!pd.empty ())
+      r += pd.representation ();
 
     if (t)
     {
@@ -50,7 +51,7 @@ namespace build2
     if (v)
       r += n.value;
     else
-      r += n.dir.representation ();
+      r += (pd.empty () ? n.dir : n.dir.leaf ()).representation ();
 
     if (t)
       r += '}';
@@ -95,18 +96,17 @@ namespace build2
         os << v;
     };
 
-    auto write_dir = [quote, &os, &write_string](const dir_path& d)
-    {
-      if (quote)
-      {
-        std::ostringstream s;
-        stream_verb (s, stream_verb (os));
-        s << d;
+    uint16_t dv (stream_verb (os)); // Directory verbosity.
 
-        write_string (s.str ());
-      }
+    auto write_dir = [dv, quote, &os, &write_string] (const dir_path& d)
+    {
+      const string& s (dv < 2
+                       ? diag_relative (d)
+                       : d.representation ());
+      if (quote)
+        write_string (s);
       else
-        os << d;
+        os << s;
     };
 
     // Note: similar to to_string() below.
@@ -123,29 +123,45 @@ namespace build2
       os << '%';
     }
 
-    // If the value is empty, then we want to print the directory inside {},
-    // e.g., dir{bar/}, not bar/dir{}. We also want to print {} for an empty
-    // name (unless quoted).
+    // If the value is empty, then we want to print the last component of the
+    // directory inside {}, e.g., dir{bar/}, not bar/dir{}. We also want to
+    // print {} for an empty name (unless quoted, which is handled above).
     //
     bool d (!n.dir.empty ());
     bool v (!n.value.empty ());
-    bool t (!n.type.empty () || (!d && !v));
+    bool t (!n.type.empty ());
 
-    if (v)
-      write_dir (n.dir);
+    // Note: relative() may return empty.
+    //
+    const dir_path& rd (dv < 2 ? relative (n.dir) : n.dir); // Relative.
+    const dir_path& pd (v ? rd              :
+                        t ? rd.directory () :
+                        dir_path ());
 
-    if (t)
+    if (!pd.empty ())
+      write_dir (pd);
+
+    if (t || (!d && !v))
     {
-      write_string (n.type);
+      if (t)
+        write_string (n.type);
+
       os << '{';
     }
 
     if (v)
       write_string (n.value);
-    else
-      write_dir (n.dir);
+    else if (d)
+    {
+      if (rd.empty ())
+        write_string (dir_path (".").representation ());
+      else if (!pd.empty ())
+        write_string (rd.leaf ().representation ());
+      else
+        write_dir (rd);
+    }
 
-    if (t)
+    if (t || (!d && !v))
       os << '}';
 
     return os;

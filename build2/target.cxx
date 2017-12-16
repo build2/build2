@@ -418,19 +418,24 @@ namespace build2
   ostream&
   to_stream (ostream& os, const target_key& k, uint16_t ev)
   {
-    // If the name is empty, then we want to print the directory
-    // inside {}, e.g., dir{bar/}, not bar/dir{}.
+    uint16_t dv (stream_verb (os)); // Directory verbosity.
+
+    // If the name is empty, then we want to print the last component of the
+    // directory inside {}, e.g., dir{bar/}, not bar/dir{}.
     //
     bool n (!k.name->empty ());
 
-    if (n)
+    // Note: relative() returns empty for './'.
+    //
+    const dir_path& rd (dv < 2 ? relative (*k.dir) : *k.dir); // Relative.
+    const dir_path& pd (n ? rd : rd.directory ());            // Parent.
+
+    if (!pd.empty ())
     {
-      // Avoid printing './' in './{...}'
-      //
-      if (stream_verb (os) < 2)
-        os << diag_relative (*k.dir, false);
+      if (dv < 2)
+        os << diag_relative (pd);
       else
-        os << *k.dir;
+        os << pd.representation ();
     }
 
     const target_type& tt (*k.type);
@@ -459,7 +464,7 @@ namespace build2
         assert (!k.ext);
     }
     else
-      os << *k.dir;
+      os << (rd.empty () ? dir_path (".") : rd.leaf ()).representation ();
 
     os << '}';
 
@@ -467,7 +472,7 @@ namespace build2
     //
     if (!k.out->empty ())
     {
-      if (stream_verb (os) < 2)
+      if (dv < 2)
       {
         // Don't print '@./'.
         //
