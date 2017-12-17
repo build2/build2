@@ -73,12 +73,13 @@ namespace build2
   group_state () const
   {
     // We go an extra step and short-circuit to the target state even if the
-    // raw state is not group provided the recipe is group_recipe.
+    // raw state is not group provided the recipe is group_recipe and the
+    // state is not failed.
 
     if (state_ == target_state::group)
       return true;
 
-    if (group != nullptr)
+    if (state_ != target_state::failed && group != nullptr)
     {
       if (recipe_function* const* f = recipe_.target<recipe_function*> ())
         return *f == &group_action;
