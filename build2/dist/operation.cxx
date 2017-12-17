@@ -133,18 +133,21 @@ namespace build2
             const operation_info* poif (
               rs->operations[oif->pre (params, dist_id, loc)]);
             set_current_oif (*poif, oif);
-            match (params, action (dist_id, poif->id, oif->id), ts);
+            action a (dist_id, poif->id, oif->id);
+            match (params, a, ts, true /* quiet */);
           }
 
           set_current_oif (*oif);
-          match (params, action (dist_id, oif->id), ts);
+          action a (dist_id, oif->id);
+          match (params, a, ts, true /* quiet */);
 
           if (oif->post != nullptr)
           {
             const operation_info* poif (
               rs->operations[oif->post (params, dist_id)]);
             set_current_oif (*poif, oif);
-            match (params, action (dist_id, poif->id, oif->id), ts);
+            action a (dist_id, poif->id, oif->id);
+            match (params, a, ts, true /* quiet */);
           }
         }
       }
@@ -265,7 +268,7 @@ namespace build2
 
         action a (perform_id, update_id);
 
-        mo_perform.match (params, a, files);
+        mo_perform.match (params, a, files, true /* quiet */);
         mo_perform.execute (params, a, files, true /* quiet */);
 
         if (mo_perform.operation_post != nullptr)

@@ -439,8 +439,8 @@ namespace build2
        outer operation is specified in parenthesis. For example:
 
        \
-       unchanged perform update(test) dir{./}
-       changed perform test dir{./}
+       unchanged perform update(test) /tmp/dir{hello/}
+       changed perform test /tmp/dir{hello/}
        \
 
        Currently only the \cb{perform} meta-operation supports the structured

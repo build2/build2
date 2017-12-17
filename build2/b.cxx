@@ -1187,6 +1187,8 @@ main (int argc, char* argv[])
 
         // Finally, match the rules and perform the operation.
         //
+        bool sr ();
+
         if (pre_oid != 0)
         {
           l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
@@ -1203,7 +1205,7 @@ main (int argc, char* argv[])
             result_printer p (tgs);
 
             if (mif->match != nullptr)
-              mif->match (mparams, a, tgs);
+              mif->match (mparams, a, tgs, true /* quiet */);
 
             if (mif->execute != nullptr && !ops.match_only ())
               mif->execute (mparams, a, tgs, true /* quiet */);
@@ -1226,7 +1228,7 @@ main (int argc, char* argv[])
           result_printer p (tgs);
 
           if (mif->match != nullptr)
-            mif->match (mparams, a, tgs);
+            mif->match (mparams, a, tgs, ops.structured_result () /*quiet*/);
 
           if (mif->execute != nullptr && !ops.match_only ())
             mif->execute (mparams, a, tgs, ops.structured_result () /*quiet*/);
@@ -1250,7 +1252,7 @@ main (int argc, char* argv[])
             result_printer p (tgs);
 
             if (mif->match != nullptr)
-              mif->match (mparams, a, tgs);
+              mif->match (mparams, a, tgs, true /* quiet */);
 
             if (mif->execute != nullptr && !ops.match_only ())
               mif->execute (mparams, a, tgs, true /* quiet */);

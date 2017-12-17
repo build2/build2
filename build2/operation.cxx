@@ -112,7 +112,7 @@ namespace build2
   }
 
   void
-  match (const values&, action a, action_targets& ts)
+  match (const values&, action a, action_targets& ts, bool quiet)
   {
     tracer trace ("match");
 
@@ -212,7 +212,7 @@ namespace build2
             // We bailed before matching it (leave state in action_target as
             // unknown).
             //
-            if (verb != 0)
+            if (verb != 0 && !quiet)
               info << "not " << diag_did (a, t);
 
             break;
@@ -226,7 +226,7 @@ namespace build2
           {
             // Things didn't go well for this target.
             //
-            if (verb != 0)
+            if (verb != 0 && !quiet)
               info << "failed to " << diag_do (a, t);
 
             at.state = s;

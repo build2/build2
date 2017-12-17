@@ -348,7 +348,7 @@ namespace build2
     }
 
     static void
-    configure_match (const values&, action, action_targets&)
+    configure_match (const values&, action, action_targets&, bool)
     {
       // Don't match anything -- see execute ().
     }
@@ -493,7 +493,7 @@ namespace build2
     }
 
     static void
-    disfigure_match (const values&, action, action_targets&)
+    disfigure_match (const values&, action, action_targets&, bool)
     {
     }
 

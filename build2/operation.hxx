@@ -258,7 +258,7 @@ namespace build2
                     const location&,
                     action_targets&);
 
-    void (*match) (const values&, action, action_targets&);
+    void (*match) (const values&, action, action_targets&, bool quiet);
 
     void (*execute) (const values&, action, action_targets&, bool quiet);
 
@@ -299,7 +299,7 @@ namespace build2
           action_targets&);
 
   void
-  match (const values&, action, action_targets&);
+  match (const values&, action, action_targets&, bool quiet);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate

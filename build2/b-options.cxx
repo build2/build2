@@ -748,8 +748,8 @@ namespace build2
        << "                     If the action is a pre or post operation, then the outer" << ::std::endl
        << "                     operation is specified in parenthesis. For example:" << ::std::endl
        << ::std::endl
-       << "                     unchanged perform update(test) dir{./}" << ::std::endl
-       << "                     changed perform test dir{./}" << ::std::endl
+       << "                     unchanged perform update(test) /tmp/dir{hello/}" << ::std::endl
+       << "                     changed perform test /tmp/dir{hello/}" << ::std::endl
        << ::std::endl
        << "                     Currently only the \033[1mperform\033[0m meta-operation supports the" << ::std::endl
        << "                     structured result output." << ::std::endl;
