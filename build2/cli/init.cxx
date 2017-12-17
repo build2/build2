@@ -107,7 +107,9 @@ namespace build2
         {
           const char* args[] = {cli.string ().c_str (), "--version", nullptr};
 
-          // @@ TODO: redo using run_start()/run_finish().
+          // @@ TODO: redo using run_start()/run_finish() or even
+          //    run<string>(). We have the ability to ignore exit code and
+          //    redirect STDERR to STDOUT.
 
           try
           {

@@ -240,21 +240,27 @@ namespace build2
   run_finish (const char* args[], process& pr, bool err, const string& l)
   try
   {
+    tracer trace ("run_finish");
+
     if (pr.wait ())
       return true;
 
     const process_exit& e (*pr.exit);
 
     if (!e.normal ())
-      fail << "process " << args[0] << " terminated abnormally: "
-           << e.description () << (e.core () ? " (core dumped)" : "");
+      fail << "process " << args[0] << " " << e;
 
     // Normall but non-zero exit status.
     //
     if (err)
-      // Assuming diagnostics has already been issued (to STDERR).
+    {
+      // While we assuming diagnostics has already been issued (to STDERR), if
+      // that's not the case, it's a real pain to debug. So trace it.
       //
+      l4 ([&]{trace << "process " << args[0] << " " << e;});
+
       throw failed ();
+    }
 
     // Even if the user asked to suppress diagnostiscs, one error that we
     // want to let through is the inability to execute the program itself.

@@ -344,17 +344,7 @@ namespace build2
             {
               diag_record d (fail (ll));
               print_process (d, args);
-
-              if (!pe.normal ())
-              {
-                d << " terminated abnormally: " << pe.description ();
-
-                if (pe.core ())
-                  d << " (core dumped)";
-              }
-              else
-                d << " exited with code "
-                  << static_cast<uint16_t> (pe.code ());
+              d << " " << pe;
             }
 
             // Output doesn't match the expected result.
@@ -1683,12 +1673,7 @@ namespace build2
           diag_record d (valid ? error (ll) : fail (ll));
 
           if (!exit->normal ())
-          {
-            d << pr << " terminated abnormally: " << exit->description ();
-
-            if (exit->core ())
-              d << " (core dumped)";
-          }
+            d << pr << " " << *exit;
           else
           {
             uint16_t ec (exit->code ()); // Make sure is printed as integer.

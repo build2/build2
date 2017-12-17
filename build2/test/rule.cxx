@@ -639,16 +639,7 @@ namespace build2
 
         dr << error;
         print_process (dr, args);
-
-        if (!pe.normal ())
-        {
-          dr << " terminated abnormally: " << pe.description ();
-
-          if (pe.core ())
-            dr << " (core dumped)";
-        }
-        else
-          dr << " exited with code " << static_cast<uint16_t> (pe.code ());
+        dr << " " << pe;
       }
 
       return pr && wr;
