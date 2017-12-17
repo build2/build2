@@ -918,6 +918,28 @@ namespace build2
             break;
           }
 
+          // Make sure the translation unit type matches the resulting target
+          // type.
+          //
+          switch (tu.type ())
+          {
+          case translation_type::plain:
+          case translation_type::module_impl:
+            {
+              if (mod)
+                fail << "translation unit " << src << " is not a module interface" <<
+                  info << "consider using " << x_src.name << "{} instead";
+              break;
+            }
+          case translation_type::module_iface:
+            {
+              if (!mod)
+                fail << "translation unit " << src << " is a module interface" <<
+                  info << "consider using " << x_mod->name << "{} instead";
+              break;
+            }
+          }
+
           md.type = tu.type ();
 
           // Extract the module dependency information in addition to header
