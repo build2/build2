@@ -1187,8 +1187,6 @@ main (int argc, char* argv[])
 
         // Finally, match the rules and perform the operation.
         //
-        bool sr ();
-
         if (pre_oid != 0)
         {
           l5 ([&]{trace << "start pre-operation batch " << pre_oif->name
