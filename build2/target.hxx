@@ -1367,13 +1367,19 @@ namespace build2
     static const target_type static_type;
 
   protected:
+
+    // Complain if timestamp is not lock-free unless we were told non-lock-
+    // free is ok.
+    //
+#ifndef BUILD2_ATOMIC_NON_LOCK_FREE
     // C++17:
     //
     // static_assert (atomic<timestamp::rep>::is_always_lock_free,
     //               "timestamp is not lock-free on this architecture");
-
+    //
 #if !defined(ATOMIC_LLONG_LOCK_FREE) || ATOMIC_LLONG_LOCK_FREE != 2
 #  error timestamp is not lock-free on this architecture
+#endif
 #endif
 
     // Note that the value is not used to synchronize any other state so we
