@@ -462,7 +462,8 @@ namespace std
     is (mask m, char_type c) const
     {
       return m ==
-        (c.type () == line_type::special && build2::digit (c.special ())
+        (c.type () == line_type::special && c.special () >= 0 &&
+         build2::digit (static_cast<char> (c.special ()))
          ? digit
          : 0);
     }
