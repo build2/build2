@@ -289,7 +289,7 @@ namespace build2
         mg = sched.monitor (
           target_count,
           init - incr,
-          [init, incr, what] (size_t c) -> size_t
+          [init, incr, &what] (size_t c) -> size_t
           {
             size_t p ((init - c) * 100 / init);
             size_t s (skip_count.load (memory_order_relaxed));

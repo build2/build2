@@ -186,6 +186,23 @@ namespace build2
     try { shutdown (); } catch (system_error&) {}
   }
 
+  void scheduler::
+  wait_idle ()
+  {
+    lock l (mutex_);
+
+    while (active_ != init_active_)
+    {
+      l.unlock ();
+      this_thread::yield ();
+      l.lock ();
+    }
+
+    assert (waiting_ == 0);
+    assert (ready_ == 0);
+    assert (starting_ == 0);
+  }
+
   size_t scheduler::
   shard_size (size_t mul, size_t div) const
   {
@@ -294,8 +311,6 @@ namespace build2
   void scheduler::
   tune (size_t max_active)
   {
-    lock l (mutex_);
-
     if (max_active == 0)
       max_active = orig_max_active_;
 
@@ -305,15 +320,7 @@ namespace build2
     // The scheduler must not be active though some threads might still be
     // comming off from finishing a task. So we busy-wait for them.
     //
-    while (active_ != init_active_)
-    {
-      l.unlock ();
-      this_thread::yield ();
-      l.lock ();
-    }
-
-    assert (waiting_ == 0);
-    assert (ready_ == 0);
+    wait_idle ();
 
     max_active_ = max_active;
   }
@@ -400,10 +407,18 @@ namespace build2
   monitor (atomic_count& c, size_t t, function<size_t (size_t)> f)
   {
     assert (monitor_count_ == nullptr && t != 0);
+
+    // While the scheduler must not be active, some threads might still be
+    // comming off from finishing a task and trying to report progress. So we
+    // busy-wait for them (also in ~monitor_guard()).
+    //
+    wait_idle ();
+
     monitor_count_ = &c;
     monitor_tshold_.store (t, memory_order_relaxed);
     monitor_init_ = c.load (memory_order_relaxed);
     monitor_func_ = move (f);
+
     return monitor_guard (this);
   }
 
@@ -627,8 +642,7 @@ namespace build2
           s.ready_condv_.notify_one ();
       }
 
-      // Become idle and wait for a notification (note that task_ is false
-      // here).
+      // Become idle and wait for a notification.
       //
       s.idle_++;
       s.idle_condv_.wait (l);

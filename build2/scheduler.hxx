@@ -160,6 +160,7 @@ namespace build2
     // If the maximum threads or task queue depth arguments are unspecified,
     // then appropriate defaults are used.
     //
+    explicit
     scheduler (size_t max_active,
                size_t init_active = 1,
                size_t max_threads = 0,
@@ -197,7 +198,7 @@ namespace build2
     void
     tune (size_t max_active);
 
-    // Return true if the scheduler is running serial.
+    // Return true if the scheduler is configured to run tasks serially.
     //
     // Note: can only be called from threads that have observed startup.
     //
@@ -255,6 +256,7 @@ namespace build2
       {
         if (s_ != nullptr)
         {
+          s_->wait_idle (); // See monitor() for details.
           s_->monitor_count_ = nullptr;
           s_->monitor_func_  = nullptr;
         }
@@ -297,6 +299,12 @@ namespace build2
     {
       task_queue_ = nullptr;
     }
+
+    // Assuming all the task have been executed, busy-wait for all the threads
+    // to become idle. Normally you don't need to call this function directly.
+    //
+    void
+    wait_idle ();
 
     // Return the number of hardware threads or 0 if unable to determine.
     //
