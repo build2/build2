@@ -124,8 +124,8 @@ namespace build2
 
       // Setup progress reporting if requested.
       //
+      string what; // Note: must outlive monitor_guard.
       scheduler::monitor_guard mg;
-      string what;
       if (ops.progress () ||
           (stderr_term && verb >= 1 && verb <= 2 && !ops.no_progress ()))
       {
@@ -273,8 +273,9 @@ namespace build2
 
     // Setup progress reporting if requested.
     //
+    string what; // Note: must outlive monitor_guard.
     scheduler::monitor_guard mg;
-    string what;
+
     if (ops.progress () || (stderr_term && verb == 1 && !ops.no_progress ()))
     {
       size_t init (target_count.load (memory_order_relaxed));
