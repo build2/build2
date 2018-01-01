@@ -191,16 +191,15 @@ namespace build2
   {
     lock l (mutex_);
 
-    while (active_ != init_active_)
+    assert (waiting_ == 0);
+    assert (ready_ == 0);
+
+    while (active_ != init_active_ || starting_ != 0)
     {
       l.unlock ();
       this_thread::yield ();
       l.lock ();
     }
-
-    assert (waiting_ == 0);
-    assert (ready_ == 0);
-    assert (starting_ == 0);
   }
 
   size_t scheduler::
