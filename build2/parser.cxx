@@ -3248,7 +3248,7 @@ namespace build2
               }));
 
           p = functions.try_call (
-            *scope_, "builtin.concat", vector_view<value> (a), loc);
+            scope_, "builtin.concat", vector_view<value> (a), loc);
         }
 
         if (!p.second)
@@ -3848,7 +3848,7 @@ namespace build2
 
             // Note that we "move" args to call().
             //
-            result_data = functions.call (*scope_, name, args, loc);
+            result_data = functions.call (scope_, name, args, loc);
             what = "function call";
           }
           else
@@ -3956,7 +3956,7 @@ namespace build2
                   }));
 
               p = functions.try_call (
-                *scope_, "string", vector_view<value> (&result_data, 1), loc);
+                scope_, "string", vector_view<value> (&result_data, 1), loc);
             }
 
             if (!p.second)

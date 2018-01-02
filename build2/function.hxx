@@ -46,7 +46,8 @@ namespace build2
   // are conceptually "moved" and can be reused by the implementation.
   //
   // A function can also optionally receive the current scope by having the
-  // first argument of the const scope& type.
+  // first argument of the const scope* type. It may be NULL is the function
+  // is called out of any scope (e.g., command line).
   //
   // Normally functions come in families that share a common qualification
   // (e.g., string. or path.). The function_family class is a "registrar"
@@ -67,7 +68,7 @@ namespace build2
   //
   struct function_overload;
 
-  using function_impl = value (const scope&,
+  using function_impl = value (const scope*,
                                vector_view<value>,
                                const function_overload&);
 
@@ -150,7 +151,7 @@ namespace build2
     erase (iterator i) {map_.erase (i);}
 
     value
-    call (const scope& base,
+    call (const scope* base,
           const string& name,
           vector_view<value> args,
           const location& l) const
@@ -164,7 +165,7 @@ namespace build2
     // functions.
     //
     pair<value, bool>
-    try_call (const scope& base,
+    try_call (const scope* base,
               const string& name,
               vector_view<value> args,
               const location& l) const
@@ -193,7 +194,7 @@ namespace build2
 
   private:
     pair<value, bool>
-    call (const scope&,
+    call (const scope*,
           const string&,
           vector_view<value>,
           const location&,
@@ -215,7 +216,7 @@ namespace build2
     // exceptions), you would normally call the default implementation.
     //
     static value
-    default_thunk (const scope&, vector_view<value>, const function_overload&);
+    default_thunk (const scope*, vector_view<value>, const function_overload&);
 
     // A function family uses a common qualification (though you can pass
     // empty string to supress it). For an unqualified name (doesn't not
@@ -419,12 +420,12 @@ namespace build2
     //
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       R (*const impl) (A...);
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       return thunk (move (args),
                     static_cast<const data*> (d)->impl,
@@ -448,16 +449,16 @@ namespace build2
   // argument.
   //
   template <typename R, typename... A>
-  struct function_cast<R, const scope&, A...>
+  struct function_cast<R, const scope*, A...>
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
-      R (*const impl) (const scope&, A...);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
+      R (*const impl) (const scope*, A...);
     };
 
     static value
-    thunk (const scope& base, vector_view<value> args, const void* d)
+    thunk (const scope* base, vector_view<value> args, const void* d)
     {
       return thunk (base, move (args),
                     static_cast<const data*> (d)->impl,
@@ -466,8 +467,8 @@ namespace build2
 
     template <size_t... i>
     static value
-    thunk (const scope& base, vector_view<value> args,
-           R (*impl) (const scope&, A...),
+    thunk (const scope* base, vector_view<value> args,
+           R (*impl) (const scope*, A...),
            std::index_sequence<i...>)
     {
       return value (
@@ -484,12 +485,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       void (*const impl) (A...);
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       thunk (move (args),
              static_cast<const data*> (d)->impl,
@@ -508,16 +509,16 @@ namespace build2
   };
 
   template <typename... A>
-  struct function_cast<void, const scope&, A...>
+  struct function_cast<void, const scope*, A...>
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
-      void (*const impl) (const scope&, A...);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
+      void (*const impl) (const scope*, A...);
     };
 
     static value
-    thunk (const scope& base, vector_view<value> args, const void* d)
+    thunk (const scope* base, vector_view<value> args, const void* d)
     {
       thunk (base, move (args),
              static_cast<const data*> (d)->impl,
@@ -527,8 +528,8 @@ namespace build2
 
     template <size_t... i>
     static void
-    thunk (const scope& base, vector_view<value> args,
-           void (*impl) (const scope&, A...),
+    thunk (const scope* base, vector_view<value> args,
+           void (*impl) (const scope*, A...),
            std::index_sequence<i...>)
     {
       impl (base,
@@ -544,12 +545,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       R (L::*const impl) (A...) const;
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       return thunk (move (args),
                     static_cast<const data*> (d)->impl,
@@ -572,16 +573,16 @@ namespace build2
   };
 
   template <typename L, typename R, typename... A>
-  struct function_cast_lamb<L, R, const scope&, A...>
+  struct function_cast_lamb<L, R, const scope*, A...>
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
-      R (L::*const impl) (const scope&, A...) const;
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
+      R (L::*const impl) (const scope*, A...) const;
     };
 
     static value
-    thunk (const scope& base, vector_view<value> args, const void* d)
+    thunk (const scope* base, vector_view<value> args, const void* d)
     {
       return thunk (base, move (args),
                     static_cast<const data*> (d)->impl,
@@ -590,8 +591,8 @@ namespace build2
 
     template <size_t... i>
     static value
-    thunk (const scope& base, vector_view<value> args,
-           R (L::*impl) (const scope&, A...) const,
+    thunk (const scope* base, vector_view<value> args,
+           R (L::*impl) (const scope*, A...) const,
            std::index_sequence<i...>)
     {
       const L* l (nullptr); // Undefined behavior.
@@ -608,12 +609,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       void (L::*const impl) (A...) const;
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       thunk (move (args),
              static_cast<const data*> (d)->impl,
@@ -635,16 +636,16 @@ namespace build2
   };
 
   template <typename L, typename... A>
-  struct function_cast_lamb<L, void, const scope&, A...>
+  struct function_cast_lamb<L, void, const scope*, A...>
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
-      void (L::*const impl) (const scope&, A...) const;
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
+      void (L::*const impl) (const scope*, A...) const;
     };
 
     static value
-    thunk (const scope& base, vector_view<value> args, const void* d)
+    thunk (const scope* base, vector_view<value> args, const void* d)
     {
       thunk (base, move (args),
              static_cast<const data*> (d)->impl,
@@ -654,8 +655,8 @@ namespace build2
 
     template <size_t... i>
     static void
-    thunk (const scope& base, vector_view<value> args,
-           void (L::*impl) (const scope&, A...) const,
+    thunk (const scope* base, vector_view<value> args,
+           void (L::*impl) (const scope*, A...) const,
            std::index_sequence<i...>)
     {
       const L* l (nullptr);
@@ -673,12 +674,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       R (T::*const impl) () const;
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       auto mf (static_cast<const data*> (d)->impl);
       return value ((function_arg<T>::cast (&args[0]).*mf) ());
@@ -690,12 +691,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       void (T::*const impl) () const;
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       auto mf (static_cast<const data*> (d)->impl);
       (function_arg<T>::cast (args[0]).*mf) ();
@@ -710,12 +711,12 @@ namespace build2
   {
     struct data
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
       R T::*const impl;
     };
 
     static value
-    thunk (const scope&, vector_view<value> args, const void* d)
+    thunk (const scope*, vector_view<value> args, const void* d)
     {
       auto dm (static_cast<const data*> (d)->impl);
       return value (move (function_arg<T>::cast (&args[0]).*dm));
@@ -747,10 +748,10 @@ namespace build2
 
     template <typename R, typename... A>
     void
-    operator= (R (*impl) (const scope&, A...)) &&
+    operator= (R (*impl) (const scope*, A...)) &&
     {
       using args = function_args<A...>;
-      using cast = function_cast<R, const scope&, A...>;
+      using cast = function_cast<R, const scope*, A...>;
 
       insert (move (name),
               function_overload (
@@ -797,10 +798,10 @@ namespace build2
 
     template <typename L, typename R, typename... A>
     void
-    coerce_lambda (R (L::*op) (const scope&, A...) const) &&
+    coerce_lambda (R (L::*op) (const scope*, A...) const) &&
     {
       using args = function_args<A...>;
-      using cast = function_cast_lamb<L, R, const scope&, A...>;
+      using cast = function_cast_lamb<L, R, const scope*, A...>;
 
       insert (move (name),
               function_overload (

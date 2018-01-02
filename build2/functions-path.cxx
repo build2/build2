@@ -10,7 +10,7 @@ using namespace std;
 namespace build2
 {
   static value
-  path_thunk (const scope& base,
+  path_thunk (const scope* base,
               vector_view<value> args,
               const function_overload& f)
   try

@@ -335,7 +335,7 @@ namespace build2
               v.type == nullptr
               ? move (v)
               : functions.call (
-                t.base_scope (), "string", vector_view<value> (&v, 1), l));
+                &t.base_scope (), "string", vector_view<value> (&v, 1), l));
           }
           catch (const invalid_argument& e)
           {

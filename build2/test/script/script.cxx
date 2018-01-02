@@ -435,9 +435,9 @@ namespace build2
       // scope
       //
       scope::
-      scope (const string& id, scope* p)
+      scope (const string& id, scope* p, script* r)
           : parent (p),
-            root (p != nullptr ? p->root : static_cast<script*> (this)),
+            root (r),
             vars (false /* global */),
             id_path (cast<path> (assign (root->id_var) = path ())),
             wd_path (cast<dir_path> (assign (root->wd_var) = dir_path ()))
@@ -528,7 +528,7 @@ namespace build2
       //
       script::
       script (const target& tt, const testscript& st, const dir_path& rwd)
-          : group (st.name == "testscript" ? string () : st.name),
+          : group (st.name == "testscript" ? string () : st.name, this),
             test_target (tt),
             script_target (st)
       {

@@ -23,13 +23,13 @@ namespace build2
   };
 
   static dir_path
-  scoped (const scope&, dir_path d)
+  scoped (const scope*, dir_path d)
   {
     return d;
   }
 
   static void
-  scoped_void (const scope&, dir_path)
+  scoped_void (const scope*, dir_path)
   {
   }
 
@@ -54,8 +54,8 @@ namespace build2
     f["ambig"] = [](names a, optional<string>)   {return a;};
     f["ambig"] = [](names a, optional<uint64_t>) {return a;};
 
-    f["scoped"]      = [](const scope&, names a) {return a;};
-    f["scoped_void"] = [](const scope&, names) {};
+    f["scoped"]      = [](const scope*, names a) {return a;};
+    f["scoped_void"] = [](const scope*, names) {};
     f["scoped"]      = &scoped;
     f["scoped_void"] = &scoped_void;
 
@@ -76,7 +76,7 @@ namespace build2
         1,
         function_overload::arg_variadic,
         function_overload::types (arg_bool, 1),
-        [] (const scope&, vector_view<value> args, const function_overload&)
+        [] (const scope*, vector_view<value> args, const function_overload&)
         {
           return value (static_cast<uint64_t> (args.size ()));
         }));
@@ -90,7 +90,7 @@ namespace build2
         0,
         function_overload::arg_variadic,
         function_overload::types (),
-        [] (const scope&, vector_view<value> args, const function_overload&)
+        [] (const scope*, vector_view<value> args, const function_overload&)
         {
           for (value& a: args)
           {

@@ -97,7 +97,7 @@ namespace build2
   }
 
   pair<value, bool> function_map::
-  call (const scope& base,
+  call (const scope* base,
         const string& name,
         vector_view<value> args,
         const location& loc,
@@ -255,7 +255,7 @@ namespace build2
   }
 
   value function_family::
-  default_thunk (const scope& base,
+  default_thunk (const scope* base,
                  vector_view<value> args,
                  const function_overload& f)
   try
@@ -264,7 +264,7 @@ namespace build2
     //
     struct cast_data // Prefix of function_cast::data.
     {
-      value (*const thunk) (const scope&, vector_view<value>, const void*);
+      value (*const thunk) (const scope*, vector_view<value>, const void*);
     };
 
     auto d (reinterpret_cast<const cast_data*> (&f.data));

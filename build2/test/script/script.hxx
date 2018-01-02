@@ -427,7 +427,7 @@ namespace build2
         ~scope () = default;
 
       protected:
-        scope (const string& id, scope* parent);
+        scope (const string& id, scope* parent, script* root);
 
         // Pre-parse data.
         //
@@ -452,10 +452,10 @@ namespace build2
         vector<unique_ptr<scope>> scopes;
 
       public:
-        group (const string& id, group& p): scope (id, &p) {}
+        group (const string& id, group& p): scope (id, &p, p.root) {}
 
       protected:
-        group (const string& id): scope (id, nullptr) {} // For root.
+        group (const string& id, script* r): scope (id, nullptr, r) {}
 
         // Pre-parse data.
         //
@@ -486,7 +486,7 @@ namespace build2
       class test: public scope
       {
       public:
-        test (const string& id, group& p): scope (id, &p) {}
+        test (const string& id, group& p): scope (id, &p, p.root) {}
 
         // Pre-parse data.
         //
