@@ -256,7 +256,7 @@ namespace build2
       {
         if (s_ != nullptr)
         {
-          s_->wait_idle (); // See monitor() for details.
+          lock l (s_->wait_idle ()); // See monitor() for details.
           s_->monitor_count_ = nullptr;
           s_->monitor_func_  = nullptr;
         }
@@ -300,12 +300,6 @@ namespace build2
       task_queue_ = nullptr;
     }
 
-    // Assuming all the task have been executed, busy-wait for all the threads
-    // to become idle. Normally you don't need to call this function directly.
-    //
-    void
-    wait_idle ();
-
     // Return the number of hardware threads or 0 if unable to determine.
     //
     static size_t
@@ -324,9 +318,16 @@ namespace build2
     size_t
     shard_size (size_t mul = 1, size_t div = 1) const;
 
-  private:
+    // Assuming all the task have been executed, busy-wait for all the threads
+    // to become idle. Return the lock over the scheduler mutex. Normally you
+    // don't need to call this function directly.
+    //
     using lock = std::unique_lock<std::mutex>;
 
+    lock
+    wait_idle ();
+
+  private:
     void
     activate_helper (lock&);
 

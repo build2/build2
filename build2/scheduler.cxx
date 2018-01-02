@@ -186,8 +186,8 @@ namespace build2
     try { shutdown (); } catch (system_error&) {}
   }
 
-  void scheduler::
-  wait_idle ()
+  auto scheduler::
+  wait_idle () -> lock
   {
     lock l (mutex_);
 
@@ -200,6 +200,8 @@ namespace build2
       this_thread::yield ();
       l.lock ();
     }
+
+    return l;
   }
 
   size_t scheduler::
@@ -319,7 +321,7 @@ namespace build2
     // The scheduler must not be active though some threads might still be
     // comming off from finishing a task. So we busy-wait for them.
     //
-    wait_idle ();
+    lock l (wait_idle ());
 
     max_active_ = max_active;
   }
@@ -411,7 +413,7 @@ namespace build2
     // comming off from finishing a task and trying to report progress. So we
     // busy-wait for them (also in ~monitor_guard()).
     //
-    wait_idle ();
+    lock l (wait_idle ());
 
     monitor_count_ = &c;
     monitor_tshold_.store (t, memory_order_relaxed);
