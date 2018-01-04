@@ -2973,7 +2973,7 @@ namespace build2
             //
             if (cid == compiler_id::msvc &&
                 cmaj == 19 && cmin <= 11 &&
-                src.is_a (*x_mod))
+                x_mod != nullptr && src.is_a (*x_mod))
             {
               // It's quite painful to guard the export with an #if/#endif so
               // if it is present, "fixup" the (temporary) preprocessed output

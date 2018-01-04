@@ -146,9 +146,10 @@ namespace build2
           {
             // Get .pdb if there is one.
             //
-            const target* pdb (
-              find_adhoc_member (*l, *bs.find_target_type ("pdb")));
-
+            const target_type* tt (bs.find_target_type ("pdb"));
+            const target* pdb (tt != nullptr
+                               ? find_adhoc_member (*l, *tt)
+                               : nullptr);
             r.insert (
               windows_dll {
                 f,
