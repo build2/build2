@@ -109,11 +109,15 @@ namespace build2
   //
   // The two variables are considered the same if they have the same name.
   //
+  // Variables can be aliases of each other in which case they form a circular
+  // linked list (alias for variable without any aliases points to the
+  // variable itself).
+  //
   // If the variable is overridden on the command line, then override is the
   // chain of the special override variables. Their names are derived from the
   // main variable name as <name>.{__override,__prefix,__suffix} and they are
   // not entered into the var_pool. The override variables only vary in their
-  // names and visibility.
+  // names and visibility. Their alias pointer is always NULL.
   //
   // Note also that we don't propagate the variable type to override variables
   // and we keep override values as untyped names. They get "typed" when they
@@ -134,9 +138,20 @@ namespace build2
   struct variable
   {
     string name;
-    const value_type* type;        // If NULL, then not (yet) typed.
-    unique_ptr<variable> override;
+    const variable* alias;               // Circular linked list.
+    const value_type* type;              // If NULL, then not (yet) typed.
+    unique_ptr<const variable> override;
     variable_visibility visibility;
+
+    // Return true if this variable is an alias of the specified variable.
+    //
+    bool
+    aliases (const variable& var) const
+    {
+      const variable* v (alias);
+      for (; v != &var && v != this; v = v->alias) ;
+      return v == &var;
+    }
   };
 
   inline bool
@@ -359,8 +374,11 @@ namespace build2
   {
     using value_type = build2::value;
 
-    const value_type* value;  // NULL if undefined.
-    const variable_map* vars; // value is variable_map::value_data if not NULL.
+    // If vars is not NULL, then value is variable_map::value_data.
+    //
+    const value_type*   value;  // NULL if undefined.
+    const variable*     var;    // Storage variable.
+    const variable_map* vars;   // Storage map.
 
     bool
     defined () const {return value != nullptr;}
@@ -385,16 +403,19 @@ namespace build2
     bool
     belongs (const T& x, bool target_type_pattern) const;
 
-    lookup (): value (nullptr), vars (nullptr) {}
+    lookup (): value (nullptr), var (nullptr), vars (nullptr) {}
 
     template <typename T>
-    lookup (const value_type& v, const T& x): lookup (&v, &x.vars) {}
+    lookup (const value_type& v, const variable& r, const T& x)
+        : lookup (&v, &r, &x.vars) {}
 
-    lookup (const value_type& v, const variable_map& vm)
-        : value (&v), vars (&vm) {}
+    lookup (const value_type& v, const variable& r, const variable_map& m)
+        : lookup (&v, &r, &m) {}
 
-    lookup (const value_type* v, const variable_map* vm)
-        : value (v), vars (v != nullptr ? vm : nullptr) {}
+    lookup (const value_type* v, const variable* r, const variable_map* m)
+        : value (v),
+          var  (v != nullptr ? r : nullptr),
+          vars (v != nullptr ? m : nullptr) {}
   };
 
   // Two lookups are equal if they point to the same variable.
@@ -921,6 +942,23 @@ namespace build2
         move (name), &value_traits<T>::value_type, &v, &overridable);
     }
 
+    // Alias an existing variable with a new name.
+    //
+    // Aliasing is purely a lookup-level mechanism. That is, when variable_map
+    // looks for a value, it tries all the aliases (and returns the storage
+    // variable in lookup).
+    //
+    // The existing variable should already have final type and visibility
+    // values which are copied over to the alias.
+    //
+    // Overridable aliased variables are most likely a bad idea: without a
+    // significant effort, the overrides will only be applied along the alias
+    // names (i.e., there would be no cross-alias overriding). So for now we
+    // don't allow this (use the common variable mechanism instead).
+    //
+    const variable&
+    insert_alias (const variable& var, string name);
+
     // Insert a variable pattern. Any variable that matches this pattern
     // will have the specified type, visibility, and overridability. If
     // match is true, then individual insertions of the matching variable
@@ -989,11 +1027,12 @@ namespace build2
   private:
     static variable_pool instance;
 
-    const variable&
+    variable&
     insert (string name,
             const value_type*,
             const variable_visibility* = nullptr,
-            const bool* overridable = nullptr);
+            const bool* overridable = nullptr,
+            bool pattern = true);
 
     void
     update (variable&,
@@ -1152,7 +1191,8 @@ namespace build2
     lookup
     operator[] (const variable& var) const
     {
-      return lookup (find (var), this);
+      auto p (find (var));
+      return lookup (p.first, &p.second, this);
     }
 
     lookup
@@ -1170,11 +1210,12 @@ namespace build2
     }
 
     // If typed is false, leave the value untyped even if the variable is.
+    // The second half of the pair is the storage variable.
     //
-    const value_data*
+    pair<const value_data*, const variable&>
     find (const variable&, bool typed = true) const;
 
-    value_data*
+    pair<value_data*, const variable&>
     find_to_modify (const variable&, bool typed = true);
 
     // Convert a lookup pointing to a value belonging to this variable map

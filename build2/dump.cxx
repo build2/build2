@@ -101,7 +101,7 @@ namespace build2
             var.name.rfind (".__suffix") == string::npos &&
             var.name.rfind (".__prefix") == string::npos)
         {
-          lookup org (v, vm);
+          lookup org (v, var, vm);
 
           // The original is always from this scope/target, so depth is 1.
           //

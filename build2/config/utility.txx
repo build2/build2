@@ -39,7 +39,7 @@ namespace build2
         v.extra = true; // Default value flag.
 
         n = (save_flags & save_commented) == 0; // Absence means default.
-        l = lookup (v, root);
+        l = lookup (v, var, root);
         org = make_pair (l, 1); // Lookup depth is 1 since it's in root.vars.
       }
       // Treat an inherited value that was set to default as new.

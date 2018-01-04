@@ -80,7 +80,7 @@ namespace build2
   value& prerequisite::
   append (const variable& var, const target_type& t)
   {
-    if (value* r = vars.find_to_modify (var))
+    if (value* r = vars.find_to_modify (var).first)
       return *r;
 
     value& r (assign (var)); // NULL.

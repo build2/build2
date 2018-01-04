@@ -200,8 +200,11 @@ namespace build2
     pair<lookup, size_t> r (lookup (), 0);
 
     ++r.second;
-    if (auto p = vars.find (var))
-      r.first = lookup (p, &vars);
+    {
+      auto p (vars.find (var));
+      if (p.first != nullptr)
+        r.first = lookup (*p.first, p.second, vars);
+    }
 
     const target* g (nullptr);
 
@@ -216,8 +219,9 @@ namespace build2
            ? nullptr
            : group->adhoc_group () ? group->group : group))
       {
-        if (auto p = g->vars.find (var))
-          r.first = lookup (p, &g->vars);
+        auto p (g->vars.find (var));
+        if (p.first != nullptr)
+          r.first = lookup (*p.first, p.second, g->vars);
       }
     }
 

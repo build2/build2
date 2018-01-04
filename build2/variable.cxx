@@ -1039,6 +1039,10 @@ namespace build2
     bool ut (t != nullptr && var.type != t);
     bool uv (v != nullptr && var.visibility != *v);
 
+    // Variable should not be updated post-aliasing.
+    //
+    assert (var.alias == &var || (!ut && !uv));
+
     // Update type?
     //
     if (ut)
@@ -1124,26 +1128,30 @@ namespace build2
     }
   }
 
-  const variable& variable_pool::
+  variable& variable_pool::
   insert (string n,
           const build2::value_type* t,
           const variable_visibility* v,
-          const bool* o)
+          const bool* o,
+          bool pat)
   {
     assert (!global_ || phase == run_phase::load);
 
     // Apply pattern.
     //
-    if (n.find ('.') != string::npos)
+    if (pat)
     {
-      // Reverse means from the "largest" (most specific).
-      //
-      for (const pattern& p: reverse_iterate (patterns_))
+      if (n.find ('.') != string::npos)
       {
-        if (match_pattern (n, p.prefix, p.suffix, p.multi))
+        // Reverse means from the "largest" (most specific).
+        //
+        for (const pattern& p: reverse_iterate (patterns_))
         {
-          merge_pattern (p, t, v, o);
-          break;
+          if (match_pattern (n, p.prefix, p.suffix, p.multi))
+          {
+            merge_pattern (p, t, v, o);
+            break;
+          }
         }
       }
     }
@@ -1152,13 +1160,16 @@ namespace build2
       insert (
         variable {
           move (n),
+          nullptr,
           t,
           nullptr,
           v != nullptr ? *v : variable_visibility::normal}));
 
     variable& r (p.first->second);
 
-    if (!p.second) // Note: overridden variable will always exist.
+    if (p.second)
+      r.alias = &r;
+    else // Note: overridden variable will always exist.
     {
       if (t != nullptr || v != nullptr || o != nullptr)
         update (r, t, v, o); // Not changing the key.
@@ -1167,6 +1178,28 @@ namespace build2
     }
 
     return r;
+  }
+
+  const variable& variable_pool::
+  insert_alias (const variable& var, string n)
+  {
+    assert (var.alias != nullptr && var.override == nullptr);
+
+    variable& a (insert (move (n),
+                         var.type,
+                         &var.visibility,
+                         nullptr /* override */,
+                         false   /* pattern  */));
+
+    if (a.alias == &a) // Not aliased yet.
+    {
+      a.alias = var.alias;
+      const_cast<variable&> (var).alias = &a;
+    }
+    else
+      assert (a.aliases (var)); // Make sure it is already an alias of var.
+
+    return a;
   }
 
   void variable_pool::
@@ -1246,28 +1279,48 @@ namespace build2
   // variable_map
   //
   auto variable_map::
-  find (const variable& var, bool typed) const -> const value_data*
+  find (const variable& var, bool typed) const ->
+    pair<const value_data*, const variable&>
   {
-    auto i (m_.find (var));
-    const value_data* r (i != m_.end () ? &i->second : nullptr);
+    const variable* v (&var);
+    const value_data* r (nullptr);
+    do
+    {
+      // @@ Should we verify that there are no distinct values for aliases?
+      //    This can happen if the values were entered before the variables
+      //    were aliased. Possible but probably highly unlikely.
+      //
+      auto i (m_.find (*v));
+      if (i != m_.end ())
+      {
+        r = &i->second;
+        break;
+      }
+
+      v = v->alias;
+
+    } while (v != &var && v != nullptr);
 
     // Check if this is the first access after being assigned a type.
     //
-    if (r != nullptr && typed && var.type != nullptr)
-      typify (*r, var);
+    if (r != nullptr && typed && v->type != nullptr)
+      typify (*r, *v);
 
-    return  r;
+    return pair<const value_data*, const variable&> (
+      r, r != nullptr ? *v : var);
   }
 
   auto variable_map::
-  find_to_modify (const variable& var, bool typed) -> value_data*
+  find_to_modify (const variable& var, bool typed) ->
+    pair<value_data*, const variable&>
   {
-    auto* r (const_cast<value_data*> (find (var, typed)));
+    auto p (find (var, typed));
+    auto* r (const_cast<value_data*> (p.first));
 
     if (r != nullptr)
       r->version++;
 
-    return r;
+    return pair<value_data*, const variable&> (r, p.second);
   }
 
   pair<reference_wrapper<value>, bool> variable_map::
@@ -1354,15 +1407,17 @@ namespace build2
         // ourselves.
         //
         const variable_map& vm (j->second);
-
-        if (const variable_map::value_data* v = vm.find (var, false))
         {
-          // Check if this is the first access after being assigned a type.
-          //
-          if (v->extra == 0 && var.type != nullptr)
-            vm.typify (*v, var);
+          auto p (vm.find (var, false));
+          if (const variable_map::value_data* v = p.first)
+          {
+            // Check if this is the first access after being assigned a type.
+            //
+            if (v->extra == 0 && var.type != nullptr)
+              vm.typify (*v, var);
 
-          return lookup (*v, vm);
+            return lookup (*v, p.second, vm);
+          }
         }
       }
     }

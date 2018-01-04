@@ -93,8 +93,8 @@ namespace build2
         }
       }
 
-      // Return cache as the resulting value but retain l.vars, so it looks as
-      // if the value came from s->target_vars.
+      // Return cache as the resulting value but retain l.var/vars, so it
+      // looks as if the value came from s->target_vars.
       //
       l.value = &cv;
     };
@@ -147,8 +147,9 @@ namespace build2
       //
       if (++d >= start_d && var.visibility != variable_visibility::target)
       {
-        if (const value* v = s->vars.find (var))
-          return make_pair (lookup (v, &s->vars), d);
+        auto p (s->vars.find (var));
+        if (p.first != nullptr)
+          return make_pair (lookup (*p.first, p.second, s->vars), d);
       }
 
       switch (var.visibility)
@@ -255,12 +256,15 @@ namespace build2
     // Return the override value if it is present and (optionally) ends with
     // a suffix.
     //
-    auto find = [&s] (const variable* o, const char* sf = nullptr) -> lookup
+    auto find = [&s, &var] (const variable* o,
+                            const char* sf = nullptr) -> lookup
     {
       if (sf != nullptr && o->name.rfind (sf) == string::npos)
         return lookup ();
 
-      return lookup (s->vars.find (*o), &s->vars);
+      // Note: using the original as storage variable.
+      //
+      return lookup (s->vars.find (*o).first, &var, &s->vars);
     };
 
     // Return true if a value is from this scope (either target type/pattern-
@@ -513,7 +517,7 @@ namespace build2
     // Use the location of the innermost value that contributed as the
     // location of the result.
     //
-    return make_pair (lookup (&cv, vars), depth);
+    return make_pair (lookup (&cv, &var, vars), depth);
   }
 
   value& scope::

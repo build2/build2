@@ -624,14 +624,15 @@ namespace build2
       {
         // Search script scopes until we hit the root.
         //
-        const scope* p (this);
+        const scope* s (this);
 
         do
         {
-          if (const value* v = p->vars.find (var))
-            return lookup (v, &p->vars);
+          auto p (s->vars.find (var));
+          if (p.first != nullptr)
+            return lookup (*p.first, p.second, s->vars);
         }
-        while ((p->parent != nullptr ? (p = p->parent) : nullptr) != nullptr);
+        while ((s->parent != nullptr ? (s = s->parent) : nullptr) != nullptr);
 
         return find_in_buildfile (var.name);
       }

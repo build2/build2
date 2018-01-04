@@ -61,7 +61,7 @@ namespace build2
       auto l (r[var]);
       return l.defined ()
         ? l
-        : lookup (r.assign (var), r); // NULL.
+        : lookup (r.assign (var), var, r); // NULL.
     }
 
     bool
