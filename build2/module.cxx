@@ -45,8 +45,9 @@ namespace build2
     if (mf.boot == nullptr)
       fail (loc) << "module " << name << " shouldn't be loaded in bootstrap";
 
-    i = lm.emplace (name, module_state {true, mf.init, nullptr, loc}).first;
-    mf.boot (rs, loc, i->second.module);
+    i = lm.emplace (name,
+                    module_state {true, false, mf.init, nullptr, loc}).first;
+    i->second.first = mf.boot (rs, loc, i->second.module);
   }
 
   bool
@@ -82,7 +83,8 @@ namespace build2
           fail (loc) << "module " << name << " should be loaded in bootstrap";
 
         i = lm.emplace (
-          name, module_state {false, mf.init, nullptr, loc}).first;
+          name,
+          module_state {false, false, mf.init, nullptr, loc}).first;
       }
     }
     else

@@ -22,13 +22,12 @@ namespace build2
 {
   namespace config
   {
-    void
-    boot (scope& rs, const location& loc, unique_ptr<module_base>& mod)
+    bool
+    boot (scope& rs, const location&, unique_ptr<module_base>& mod)
     {
       tracer trace ("config::boot");
 
-      const dir_path& out_root (rs.out_path ());
-      l5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       const string& mname (*current_mname);
       const string& oname (*current_oname);
@@ -56,26 +55,38 @@ namespace build2
       rs.meta_operations.insert (configure_id, mo_configure);
       rs.meta_operations.insert (disfigure_id, mo_disfigure);
 
+      return true; // Initialize first (load config.build).
+    }
+
+    bool
+    init (scope& rs,
+          scope&,
+          const location& l,
+          unique_ptr<module_base>&,
+          bool first,
+          bool,
+          const variable_map& config_hints)
+    {
+      tracer trace ("config::init");
+
+      if (!first)
+      {
+        warn (l) << "multiple config module initializations";
+        return true;
+      }
+
+      const dir_path& out_root (rs.out_path ());
+      l5 ([&]{trace << "for " << out_root;});
+
+      assert (config_hints.empty ()); // We don't known any hints.
+
       auto& vp (var_pool.rw (rs));
 
-      // utility.cxx:unconfigured() (note: not overridable).
-      //
-      vp.insert_pattern<bool> (
-        "config.*.configured", false, variable_visibility::normal);
-
-      // Load config.build if one exists.
-      //
-      // Note that we have to do this during bootstrap since the order in
-      // which the modules will be initialized is unspecified. So it is
-      // possible that some module which needs the configuration will get
-      // called first.
+      // Load config.build if one exists (we don't need to worry about
+      // disfigure since we will never be init'ed).
       //
       const variable& c_v (vp.insert<uint64_t> ("config.version", false));
 
-      // Don't load it if we are disfiguring. The same situation as with
-      // module loading above.
-      //
-      if (mname != "disfigure" && (!mname.empty () || oname != "disfigure"))
       {
         path f (out_root / config_file);
 
@@ -96,7 +107,7 @@ namespace build2
             uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
 
             if (v != module::version)
-              fail (loc) << "incompatible config file " << f <<
+              fail (l) << "incompatible config file " << f <<
                 info << "config file version   " << v
                          << (p.second ? "" : " (missing)") <<
                 info << "config module version " << module::version <<
@@ -107,28 +118,6 @@ namespace build2
           source (rs, rs, f);
         }
       }
-    }
-
-    bool
-    init (scope& rs,
-          scope&,
-          const location& l,
-          unique_ptr<module_base>&,
-          bool first,
-          bool,
-          const variable_map& config_hints)
-    {
-      tracer trace ("config::init");
-
-      if (!first)
-      {
-        warn (l) << "multiple config module initializations";
-        return true;
-      }
-
-      l5 ([&]{trace << "for " << rs.out_path ();});
-
-      assert (config_hints.empty ()); // We don't known any hints.
 
       // Register alias and fallback rule for the configure meta-operation.
       //

@@ -25,8 +25,11 @@ namespace build2
     ~module_base () = default;
   };
 
+  // Return true if the module should be initialized first (the order of
+  // initialization within each group is unspecified).
+  //
   using module_boot_function =
-    void (scope& root,
+    bool (scope& root,
           const location&,
           unique_ptr<module_base>&);
 
@@ -62,7 +65,8 @@ namespace build2
   //
   struct module_state
   {
-    bool boot; // True if the module boot'ed but not yet init'ed.
+    bool boot;  // True if the module boot'ed but not yet init'ed.
+    bool first; // True if the boot'ed module must be init'ed first.
     module_init_function* init;
     unique_ptr<module_base> module;
     const location loc; // Boot location.

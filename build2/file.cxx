@@ -879,14 +879,18 @@ namespace build2
     //
     for (auto& p: root.modules)
     {
-      const string& n (p.first);
       module_state& s (p.second);
 
-      if (s.boot)
-      {
-        load_module (root, root, n, s.loc);
-        assert (!s.boot);
-      }
+      if (s.boot && s.first)
+        load_module (root, root, p.first, s.loc);
+    }
+
+    for (auto& p: root.modules)
+    {
+      module_state& s (p.second);
+
+      if (s.boot && !s.first)
+        load_module (root, root, p.first, s.loc);
     }
 
     // Load root.build.

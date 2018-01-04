@@ -14,7 +14,7 @@ namespace build2
 {
   namespace version
   {
-    void
+    bool
     boot (scope&, const location&, unique_ptr<module_base>&);
 
     bool

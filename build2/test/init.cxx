@@ -22,7 +22,7 @@ namespace build2
 {
   namespace test
   {
-    void
+    bool
     boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("test::boot");
@@ -84,6 +84,8 @@ namespace build2
         if (!v || v.empty ())
           v = cast<target_triplet> ((*global_scope)["build.host"]);
       }
+
+      return false;
     }
 
     bool

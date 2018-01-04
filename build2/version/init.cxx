@@ -30,7 +30,7 @@ namespace build2
     static const version_doc version_doc_;
     static const version_in version_in_;
 
-    void
+    bool
     boot (scope& rs, const location& l, unique_ptr<module_base>& mod)
     {
       tracer trace ("version::boot");
@@ -225,6 +225,8 @@ namespace build2
       // Create the module.
       //
       mod.reset (new module (move (v), move (ds)));
+
+      return true; // Init first (dist.package, etc).
     }
 
     static void

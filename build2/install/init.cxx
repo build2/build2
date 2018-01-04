@@ -128,7 +128,7 @@ namespace build2
     void
     functions (); // functions.cxx
 
-    void
+    bool
     boot (scope& r, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("install::boot");
@@ -144,6 +144,8 @@ namespace build2
       //
       r.operations.insert (install_id,   op_install);
       r.operations.insert (uninstall_id, op_uninstall);
+
+      return false;
     }
 
     static const path cmd ("install");
