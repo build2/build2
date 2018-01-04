@@ -182,6 +182,11 @@ namespace build2
         v["cc.export.loptions"],
         v["cc.export.libs"],
 
+        v.insert_alias (v["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
+
+        v["cc.runtime"],
+        v["cc.stdlib"],
+
         v["cc.type"],
         v["cc.system"],
         v["cc.module_name"],
@@ -217,6 +222,10 @@ namespace build2
         v.insert<string>   ("c.target.version"),
         v.insert<string>   ("c.target.class")
       };
+
+      // Alias some cc. variables as c.
+      //
+      v.insert_alias (d.c_runtime, "c.runtime");
 
       assert (mod == nullptr);
       config_module* m (new config_module (move (d)));

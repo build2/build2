@@ -100,6 +100,11 @@ namespace build2
       v.insert<string>         ("config.cc.pattern");
       v.insert<target_triplet> ("config.cc.target");
 
+      // Compiler runtime and C standard library.
+      //
+      v.insert<string> ("cc.runtime");
+      v.insert<string> ("cc.stdlib");
+
       // Target type, for example, "C library" or "C++ library". Should be set
       // on the target by the matching rule to the name of the module (e.g.,
       // "c", "cxx"). Currenly only set for libraries and is used to decide
@@ -145,7 +150,7 @@ namespace build2
                      unique_ptr<module_base>&,
                      bool first,
                      bool,
-                     const variable_map& hints)
+                     const variable_map& h)
     {
       tracer trace ("cc::core_guess_init");
       l5 ([&]{trace << "for " << rs.out_path ();});
@@ -162,9 +167,8 @@ namespace build2
       {
         // These values must be hinted.
         //
-        rs.assign<string> ("cc.id") = cast<string> (hints["config.cc.id"]);
-        rs.assign<string> ("cc.hinter") =
-          cast<string> (hints["config.cc.hinter"]);
+        rs.assign<string> ("cc.id") = cast<string> (h["config.cc.id"]);
+        rs.assign<string> ("cc.hinter") = cast<string> (h["config.cc.hinter"]);
       }
 
       // config.cc.target
@@ -172,7 +176,7 @@ namespace build2
       {
         // This value must be hinted.
         //
-        const auto& t (cast<target_triplet> (hints["config.cc.target"]));
+        const auto& t (cast<target_triplet> (h["config.cc.target"]));
 
         // Also enter as cc.target.{cpu,vendor,system,version,class} for
         // convenience of access.
@@ -192,8 +196,14 @@ namespace build2
         // This value could be hinted.
         //
         rs.assign<string> ("cc.pattern") =
-          cast_empty<string> (hints["config.cc.pattern"]);
+          cast_empty<string> (h["config.cc.pattern"]);
       }
+
+      // cc.runtime
+      // cc.stdlib
+      //
+      rs.assign ("cc.runtime") = cast<string> (h["cc.runtime"]);
+      rs.assign ("cc.stdlib") = cast<string> (h["cc.stdlib"]);
 
       return true;
     }

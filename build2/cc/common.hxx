@@ -69,6 +69,11 @@ namespace build2
       const variable& c_export_loptions;
       const variable& c_export_libs;
 
+      const variable& x_stdlib;       // x.stdlib
+
+      const variable& c_runtime;      // cc.runtime
+      const variable& c_stdlib;       // cc.stdlib
+
       const variable& c_type;         // cc.type
       const variable& c_system;       // cc.system
       const variable& c_module_name;  // cc.module_name

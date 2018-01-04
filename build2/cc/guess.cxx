@@ -502,12 +502,20 @@ namespace build2
         fail << "unable to extract target architecture from " << xc
              << " -print-multiarch or -dumpmachine output";
 
+      string ot (t);
+
       // Derive the toolchain pattern. Try cc/c++ as a fallback.
       //
       string pat (pattern (xc, xl == lang::c ? "gcc" : "g++"));
 
       if (pat.empty ())
         pat = pattern (xc, xl == lang::c ? "cc" : "c++");
+
+
+      // GCC always uses libgcc (even on MinGW). Even with -nostdlib GCC's
+      // documentation says that you should usually specify -lgcc.
+      //
+      string rt ("libgcc");
 
       return compiler_info {
         move (gr.path),
@@ -517,8 +525,12 @@ namespace build2
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
+        move (ot),
         move (pat),
-        string ()};
+        "",
+        move (rt),
+        "",
+        ""};
     }
 
     static compiler_info
@@ -615,6 +627,32 @@ namespace build2
         fail << "unable to extract target architecture from " << xc
              << " -dumpmachine output";
 
+      string ot (t);
+
+      // Parse the target into triplet (for further tests) ignoring any
+      // failures.
+      //
+      target_triplet tt;
+      try {tt = target_triplet (t);} catch (const invalid_argument&) {}
+
+      // For Clang on Windows targeting MSVC we remap the target to match
+      // MSVC's.
+      //
+      if (tt.system == "windows-msvc")
+      {
+        // Keep the CPU and replace the rest.
+        //
+        // @@ Note that currently there is no straightforward way to determine
+        // the VC version Clang is using. See:
+        //
+        // http://lists.llvm.org/pipermail/cfe-dev/2017-December/056240.html
+        //
+        tt.vendor = "microsoft";
+        tt.system = "win32-msvc";
+        tt.version = "14.1";
+        t = tt.string ();
+      }
+
       // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
       // as well as cc/c++.
       //
@@ -626,6 +664,38 @@ namespace build2
       if (pat.empty ())
         pat = pattern (xc, xl == lang::c ? "cc" : "c++");
 
+      // Clang can use libgcc, its own compiler-rt, or, on Windows targeting
+      // MSVC, the VC's runtime. As usual, there is no straightforward way
+      // to query this and silence on the mailing list. See:
+      //
+      // http://lists.llvm.org/pipermail/cfe-dev/2018-January/056494.html
+      //
+      // So for now we will just look for --rtlib and if none specified,
+      // assume some platform-specific defaults.
+      //
+      string rt;
+      {
+        auto find_rtlib = [] (const strings* ops) -> const string*
+        {
+          return ops != nullptr
+          ? find_option_prefix ("--rtlib=", *ops, false)
+          : nullptr;
+        };
+
+        const string* o;
+        if ((o = find_rtlib (x_coptions)) != nullptr ||
+            (o = find_rtlib (c_coptions)) != nullptr)
+        {
+          rt = string (*o, 8);
+        }
+        // Defaults.
+        //
+        else if (tt.system == "win32-msvc")  rt = "msvc";
+        else if (tt.system == "linux-gnu" ||
+                 tt.system == "freebsd")     rt = "libgcc";
+        else /* Mac OS, etc. */              rt = "compiler-rt";
+      }
+
       return compiler_info {
         move (gr.path),
         move (gr.id),
@@ -634,8 +704,12 @@ namespace build2
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
+        move (ot),
         move (pat),
-        string ()};
+        "",
+        move (rt),
+        "",
+        ""};
     }
 
     static compiler_info
@@ -836,7 +910,16 @@ namespace build2
       if (p == string::npos)
         fail << "unable to parse icc target architecture '" << t << "'";
 
-      arch.append (t, p, string::npos);
+      t.swap (arch);
+      t.append (arch, p, string::npos);
+
+      string ot (t);
+
+      // Parse the target into triplet (for further tests) ignoring any
+      // failures.
+      //
+      target_triplet tt;
+      try {tt = target_triplet (t);} catch (const invalid_argument&) {}
 
       // Derive the toolchain pattern.
       //
@@ -846,6 +929,10 @@ namespace build2
       //
       sha256 cs (s);
 
+      // Runtime and standard library.
+      //
+      string rt (tt.system == "win32-msvc" ? "msvc" : "libgcc");
+
       return compiler_info {
         move (gr.path),
         move (gr.id),
@@ -853,9 +940,13 @@ namespace build2
         move (v),
         move (gr.signature),
         cs.string (),
-        move (arch),
+        move (t),
+        move (ot),
         move (pat),
-        string ()};
+        "",
+        move (rt),
+        "",
+        ""};
     }
 
     static compiler_info
@@ -1016,14 +1107,16 @@ namespace build2
       // x64  x86_64-microsoft-win32-msvc14.0
       // ARM  arm-microsoft-winup-???
       //
+      string t;
+
       if (arch == "ARM")
         fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
       else
       {
         if (arch == "x64")
-          arch = "x86_64-microsoft-win32-msvc";
+          t = "x86_64-microsoft-win32-msvc";
         else if (arch == "x86" || arch == "80x86")
-          arch = "i386-microsoft-win32-msvc";
+          t = "i386-microsoft-win32-msvc";
         else
           assert (false);
 
@@ -1045,19 +1138,21 @@ namespace build2
         // 2005    8    14.00   8.0/80
         // 2003  7.1    13.10   7.1/71
         //
-        /**/ if (v.major == 19 && v.minor == 12) arch += "14.1";
-        else if (v.major == 19 && v.minor == 11) arch += "14.1";
-        else if (v.major == 19 && v.minor == 10) arch += "14.1";
-        else if (v.major == 19 && v.minor ==  0) arch += "14.0";
-        else if (v.major == 18 && v.minor ==  0) arch += "12.0";
-        else if (v.major == 17 && v.minor ==  0) arch += "11.0";
-        else if (v.major == 16 && v.minor ==  0) arch += "10.0";
-        else if (v.major == 15 && v.minor ==  0) arch += "9.0";
-        else if (v.major == 14 && v.minor ==  0) arch += "8.0";
-        else if (v.major == 13 && v.minor == 10) arch += "7.1";
+        /**/ if (v.major == 19 && v.minor == 12) t += "14.1";
+        else if (v.major == 19 && v.minor == 11) t += "14.1";
+        else if (v.major == 19 && v.minor == 10) t += "14.1";
+        else if (v.major == 19 && v.minor ==  0) t += "14.0";
+        else if (v.major == 18 && v.minor ==  0) t += "12.0";
+        else if (v.major == 17 && v.minor ==  0) t += "11.0";
+        else if (v.major == 16 && v.minor ==  0) t += "10.0";
+        else if (v.major == 15 && v.minor ==  0) t += "9.0";
+        else if (v.major == 14 && v.minor ==  0) t += "8.0";
+        else if (v.major == 13 && v.minor == 10) t += "7.1";
         else fail << "unable to map msvc compiler version '" << v.string
                   << "' to runtime version";
       }
+
+      string ot (t);
 
       // Derive the toolchain pattern.
       //
@@ -1072,6 +1167,10 @@ namespace build2
       //
       sha256 cs (s);
 
+      // Runtime and standard library.
+      //
+      string rt ("msvc");
+
       return compiler_info {
         move (gr.path),
         move (gr.id),
@@ -1079,9 +1178,13 @@ namespace build2
         move (v),
         move (gr.signature),
         cs.string (),
-        move (arch),
+        move (t),
+        move (ot),
         move (cpat),
-        move (bpat)};
+        move (bpat),
+        move (rt),
+        "",
+        ""};
     }
 
     compiler_info

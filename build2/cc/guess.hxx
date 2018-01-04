@@ -151,8 +151,42 @@ namespace build2
       string signature;
       string checksum;
       string target;
+      string original_target; // As reported by the compiler.
       string pattern;
       string bin_pattern;
+
+      // Compiler runtime, C standard library, and language (e.g., C++)
+      // standard library.
+      //
+      // The runtime is the low-level compiler runtime library and its name is
+      // the library/project name. Current values are (but can also be some
+      // custom name specified with Clang's --rtlib):
+      //
+      // libgcc
+      // compiler-rt  (clang)
+      // msvc
+      //
+      // The C standard library is normally the library/project name (e.g,
+      // glibc, musl, newlib, klibc, etc) but if there is none, then we
+      // fallback to the vendor name (e.g., freebsd). Proposed values are (any
+      // BSD-derived libc should end with the *bsd suffix):
+      //
+      // glibc
+      // msvc         (msvcrt.lib/msvcrNNN.dll)
+      // freebsd
+      // applebsd
+      // cygwin?      (apparently newlib)
+      //
+      // The C++ standard library is normally the library/project name.
+      // Current values are:
+      //
+      // libstdc++
+      // libc++
+      // msvcp        (msvcprt.lib/msvcpNNN.dll)
+      //
+      string runtime;
+      string c_stdlib;
+      string x_stdlib;
     };
 
     // In a sense this is analagous to the language standard which we handle

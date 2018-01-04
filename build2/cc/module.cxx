@@ -143,24 +143,6 @@ namespace build2
         }
       }
 
-      // For some compilers we have to remap the target to something more
-      // appropriate.
-      //
-      if (tt.system == "windows-msvc") // Clang on Windows targeting MSVC.
-      {
-        // Remap to the same triplet as used for MSVC.
-        //
-        // @@ This should probably be done in guess(), especially since we may
-        //    need to extra extra info from the compiler (like the runtime
-        //    version). Perhaps have original_target in compiler_info (so can
-        //    print it in report below)?
-        //
-        tt.vendor = "microsoft";
-        tt.system = "win32-msvc";
-        tt.version = "14.1"; //@@ TMP hardcoded.
-        assert (tt.class_ == "windows");
-      }
-
       // Assign values to variables that describe the compiler.
       //
       rs.assign (x_id) = ci.id.string ();
@@ -188,6 +170,9 @@ namespace build2
 
       rs.assign (x_pattern) = ci.pattern;
 
+      if (!x_stdlib.aliases (c_stdlib))
+        rs.assign (x_stdlib) = move (ci.x_stdlib);
+
       new_ = p.second;
 
       // Load cc.core.guess.
@@ -207,6 +192,9 @@ namespace build2
         if (!ci.pattern.empty ())
           h.assign ("config.cc.pattern") = ci.pattern;
 
+        h.assign (c_runtime) = ci.runtime;
+        h.assign (c_stdlib) = ci.c_stdlib;
+
         load_module (rs, rs, "cc.core.guess", loc, false, h);
       }
       else
@@ -217,45 +205,49 @@ namespace build2
         //
         const auto& h (cast<string> (rs["cc.hinter"]));
 
+        auto check = [&loc, &h, this] (const auto& cv,
+                                       const auto& xv,
+                                       const char* what,
+                                       bool error = true)
         {
-          const auto& cv (cast<string> (rs["cc.id"]));
-          const auto& xv (cast<string> (rs[x_id]));
-
           if (cv != xv)
-            fail (loc) << h << " and " << x << " module toolchain mismatch" <<
-              info << h << " is " << cv <<
-              info << x << " is " << xv <<
-              info << "consider explicitly specifying config." << h
-                       << " and config." << x;
-        }
+          {
+            diag_record dr (error ? fail (loc) : warn (loc));
+
+            dr << h << " and " << x << " module " << what << " mismatch" <<
+            info << h << " is '" << cv << "'" <<
+            info << x << " is '" << xv << "'" <<
+            info << "consider explicitly specifying config." << h
+                 << " and config." << x;
+          }
+        };
+
+        check (cast<string> (rs["cc.id"]),
+               cast<string> (rs[x_id]),
+               "toolchain");
 
         // We used to not require that patterns match assuming that if the
         // toolchain id and target are the same, then where exactly the tools
         // come from doesn't really matter. But in most cases it will be the
         // g++-7 vs gcc kind of mistakes. So now we warn since even if
-        // intentional, it is still a bad idea.
+        // intentional, it is still probably a bad idea.
         //
-        {
-          const auto& cv (cast<string> (rs["cc.pattern"]));
-          const auto& xv (cast<string> (rs[x_pattern]));
+        check (cast<string> (rs["cc.pattern"]),
+               cast<string> (rs[x_pattern]),
+               "toolchain pattern",
+               false);
 
-          if (cv != xv)
-            warn (loc) << h << " and " << x << " toolchain pattern mismatch" <<
-              info << h << " is '" << cv << "'" <<
-              info << x << " is '" << xv << "'" <<
-              info << "consider explicitly specifying config." << h
-                       << " and config." << x;
-        }
+        check (cast<target_triplet> (rs["cc.target"]),
+               cast<target_triplet> (rs[x_target]),
+               "target");
 
-        {
-          const auto& cv (cast<target_triplet> (rs["cc.target"]));
-          const auto& xv (cast<target_triplet> (rs[x_target]));
+        check (cast<string> (rs["cc.runtime"]),
+               ci.runtime,
+               "runtime");
 
-          if (cv != xv)
-            fail (loc) << h << " and " << x << " module target mismatch" <<
-              info << h << " target is " << cv <<
-              info << x << " target is " << xv;
-        }
+        check (cast<string> (rs["cc.stdlib"]),
+               ci.c_stdlib,
+               "c standard library");
       }
     }
 
@@ -356,8 +348,14 @@ namespace build2
              << "  checksum   " << ci.checksum << '\n'
              << "  target     " << ct;
 
-          if (ct != ci.target)
-            dr << " (" << ci.target << ")";
+          if (ct != ci.original_target)
+            dr << " (" << ci.original_target << ")";
+
+
+          // @@ Print c_stdlib?
+          //
+          dr << "\n  runtime    " << ci.runtime
+             << "\n  stdlib     " << ci.x_stdlib;
         }
 
         if (!tstd.empty ())

@@ -383,6 +383,11 @@ namespace build2
         v["cc.export.loptions"],
         v["cc.export.libs"],
 
+        v.insert<string> ("cxx.stdlib"),
+
+        v["cc.runtime"],
+        v["cc.stdlib"],
+
         v["cc.type"],
         v["cc.system"],
         v["cc.module_name"],
@@ -431,6 +436,7 @@ namespace build2
 
       // Alias some cc. variables as cxx.
       //
+      v.insert_alias (d.c_runtime, "cxx.runtime");
       v.insert_alias (d.c_module_name, "cxx.module_name");
 
       assert (mod == nullptr);
