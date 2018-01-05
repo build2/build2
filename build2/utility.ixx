@@ -131,21 +131,21 @@ namespace build2
   }
 
   template <typename T>
-  inline bool
+  inline const string*
   find_option_prefix (const char* p, T& s, const variable& var, bool ic)
   {
     return find_option_prefix (p, s[var], ic);
   }
 
   template <typename T>
-  inline bool
+  inline const string*
   find_option_prefix (const char* p, T& s, const char* var, bool ic)
   {
     return find_option_prefix (p, s[var], ic);
   }
 
   template <typename T>
-  inline bool
+  inline const string*
   find_option_prefixes (initializer_list<const char*> ps,
                         T& s,
                         const variable& var,
@@ -155,7 +155,7 @@ namespace build2
   }
 
   template <typename T>
-  inline bool
+  inline const string*
   find_option_prefixes (initializer_list<const char*> ps,
                         T& s,
                         const char* var,

@@ -397,73 +397,73 @@ namespace build2
     return false;
   }
 
-  bool
+  const string*
   find_option_prefix (const char* p, const lookup& l, bool ic)
   {
-    return l && find_option_prefix (p, cast<strings> (l), ic);
+    return l ? find_option_prefix (p, cast<strings> (l), ic) : nullptr;
   }
 
-  bool
+  const string*
   find_option_prefix (const char* p, const strings& strs, bool ic)
   {
     size_t n (strlen (p));
 
-    for (const string& s: strs)
+    for (const string& s: reverse_iterate (strs))
       if ((ic ? casecmp (s, p, n) : s.compare (0, n, p)) == 0)
-        return true;
+        return &s;
 
-    return false;
+    return nullptr;
   }
 
-  bool
+  const char*
   find_option_prefix (const char* p, const cstrings& cstrs, bool ic)
   {
     size_t n (strlen (p));
 
-    for (const char* s: cstrs)
+    for (const char* s: reverse_iterate (cstrs))
       if (s != nullptr && (ic ? casecmp (s, p, n) : strncmp (s, p, n)) == 0)
-        return true;
+        return s;
 
-    return false;
+    return nullptr;
   }
 
-  bool
+  const string*
   find_option_prefixes (initializer_list<const char*> ps,
                         const lookup& l,
                         bool ic)
   {
-    return l && find_option_prefixes (ps, cast<strings> (l), ic);
+    return l ? find_option_prefixes (ps, cast<strings> (l), ic) : nullptr;
   }
 
-  bool
+  const string*
   find_option_prefixes (initializer_list<const char*> ps,
                         const strings& strs,
                         bool ic)
   {
-    for (const string& s: strs)
+    for (const string& s: reverse_iterate (strs))
       for (const char* p: ps)
         if ((ic
              ? casecmp (s, p, strlen (p))
              : s.compare (0, strlen (p), p)) == 0)
-          return true;
+          return &s;
 
-    return false;
+    return nullptr;
   }
 
-  bool
+  const char*
   find_option_prefixes (initializer_list<const char*> ps,
                         const cstrings& cstrs,
                         bool ic)
   {
-    for (const char* s: cstrs)
+    for (const char* s: reverse_iterate (cstrs))
       if (s != nullptr)
         for (const char* p: ps)
           if ((ic
                ? casecmp (s, p, strlen (p))
                : strncmp (s, p, strlen (p))) == 0)
-            return true;
+            return s;
 
-    return false;
+    return nullptr;
   }
 
   string

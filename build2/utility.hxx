@@ -511,51 +511,54 @@ namespace build2
   bool
   find_options (initializer_list<const char*>, const cstrings&, bool = false);
 
-  // As above but look for an option that has the specified prefix.
+  // As above but look for an option that has the specified prefix. Return the
+  // pointer to option or NULL if not found (thus can be used as bool).
+  // Search backward (which is normall consistent with how options override
+  // each other).
   //
   template <typename T>
-  bool
+  const string*
   find_option_prefix (const char* prefix, T&, const variable&, bool = false);
 
   template <typename T>
-  bool
+  const string*
   find_option_prefix (const char* prefix, T&, const char*, bool = false);
 
-  bool
+  const string*
   find_option_prefix (const char* prefix, const lookup&, bool = false);
 
-  bool
+  const string*
   find_option_prefix (const char* prefix, const strings&, bool = false);
 
-  bool
+  const char*
   find_option_prefix (const char* prefix, const cstrings&, bool = false);
 
   // As above but look for several option prefixes.
   //
   template <typename T>
-  bool
+  const string*
   find_option_prefixes (initializer_list<const char*>,
                         T&,
                         const variable&,
                         bool = false);
 
   template <typename T>
-  bool
+  const string*
   find_option_prefixes (initializer_list<const char*>,
                         T&,
                         const char*,
                         bool = false);
 
-  bool
+  const string*
   find_option_prefixes (initializer_list<const char*>,
                         const lookup&, bool = false);
 
-  bool
+  const string*
   find_option_prefixes (initializer_list<const char*>,
                         const strings&,
                         bool = false);
 
-  bool
+  const char*
   find_option_prefixes (initializer_list<const char*>,
                         const cstrings&,
                         bool = false);
