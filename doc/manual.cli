@@ -1307,12 +1307,12 @@ since our module names can still be guessed correctly and unambiguously.
 If a guess turns out to be incorrect, the implementation issues diagnostics
 and exits with an error before attempting to build anything. To resolve this
 situation we can either adjust the interface file names or we can specify the
-module name explicitly with the \c{cc.module_name} variable. The latter
+module name explicitly with the \c{cxx.module_name} variable. The latter
 approach can be used with interface file names that have nothing in common
 with module names, for example:
 
 \
-mxx{foobar}@./: cc.module_name = hello
+mxx{foobar}@./: cxx.module_name = hello
 \
 
 Note also that standard library modules (\c{std} and \c{std.*}) are treated
@@ -1327,7 +1327,7 @@ For example:
 \
 exe{hello}: cxx{driver} {mxx cxx}{hello} mxx{std-core}
 
-mxx{std-core}@./: cc.module_name = std.core
+mxx{std-core}@./: cxx.module_name = std.core
 \
 
 When C++ modules are enabled and available, the build system makes sure the

@@ -162,7 +162,7 @@ $* test clean <<EOI
   ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
   $* test clean <<EOO
     exe{test}: cxx{driver core} mxx{core baz}
-    mxx{baz}@./: cc.module_name = foo.core
+    mxx{baz}@./: cxx.module_name = foo.core
     EOO
 }
 
@@ -182,7 +182,7 @@ $* test &*.d &*.ii <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
     info: guessed: bar.core
     info: actual:  foo.core
     info: consider adjusting module interface file names or
-    info: consider specifying module name with cc.module_name
+    info: consider specifying module name with cxx.module_name
   EOE
 
 : library

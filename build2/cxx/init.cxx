@@ -429,6 +429,10 @@ namespace build2
         v.insert<string>   ("cxx.target.class")
       };
 
+      // Alias some cc. variables as cxx.
+      //
+      v.insert_alias (d.c_module_name, "cxx.module_name");
+
       assert (mod == nullptr);
       config_module* m (new config_module (move (d)));
       mod.reset (m);

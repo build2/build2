@@ -3657,12 +3657,13 @@ namespace build2
             {
               if (p.is_a (*x_mod)) // Got to be there.
               {
-                fail (relative (src)) << "failed to correctly guess module "
-                                      << "name from " << p <<
+                fail (relative (src))
+                  << "failed to correctly guess module name from " << p <<
                   info << "guessed: " << in <<
                   info << "actual:  " << mn <<
                   info << "consider adjusting module interface file names or" <<
-                  info << "consider specifying module name with cc.module_name";
+                  info << "consider specifying module name with " << x
+                  << ".module_name";
               }
             }
           }
