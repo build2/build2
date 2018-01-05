@@ -40,7 +40,7 @@ namespace build2
 #else
   __thread
 #endif
-  const diag_frame* diag_frame::stack;
+  const diag_frame* diag_frame::stack = nullptr;
 
   // Diagnostic facility, project specifics.
   //

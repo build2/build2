@@ -3016,6 +3016,7 @@ namespace build2
                 // If the scope was executed synchronously, check the status
                 // and bail out if we weren't asked to keep going.
                 //
+                const diag_frame* df (diag_frame::stack); // UBSan workaround.
                 if (!sched.async (task_count,
                                   [] (scope& s,
                                       script& scr,
@@ -3028,7 +3029,7 @@ namespace build2
                                   ref (*chain),
                                   ref (*script_),
                                   ref (*runner_),
-                                  diag_frame::stack))
+                                  df))
                 {
                   // Bail out if the scope has failed and we weren't instructed
                   // to keep going.
