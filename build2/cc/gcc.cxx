@@ -28,7 +28,7 @@ namespace build2
     // (Clang, Intel) using the -v -E </dev/null method.
     //
     dir_paths config_module::
-    gcc_header_search_paths (process_path& xc, scope& rs) const
+    gcc_header_search_paths (const process_path& xc, scope& rs) const
     {
       dir_paths r;
 
@@ -161,7 +161,7 @@ namespace build2
     // (Clang, Intel) using the -print-search-dirs option.
     //
     dir_paths config_module::
-    gcc_library_search_paths (process_path& xc, scope& rs) const
+    gcc_library_search_paths (const process_path& xc, scope& rs) const
     {
       dir_paths r;
 

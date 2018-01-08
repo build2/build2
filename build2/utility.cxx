@@ -208,7 +208,8 @@ namespace build2
   }
 
   process
-  run_start (const process_path& pp,
+  run_start (uint16_t verbosity,
+             const process_path& pp,
              const char* args[],
              int in,
              int out,
@@ -217,6 +218,10 @@ namespace build2
   try
   {
     assert (args[0] == pp.recall_string ());
+
+    if (verb >= verbosity)
+      print_process (args, 0);
+
     return process (pp, args, in, out, (err ? 2 : 1), cwd.string ().c_str ());
   }
   catch (const process_error& e)

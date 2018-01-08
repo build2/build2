@@ -52,20 +52,24 @@ namespace build2
       size_t sys_lib_dirs_extra; // First extra path (size if none).
       size_t sys_inc_dirs_extra; // First extra path (size if none).
 
-      compiler_info ci; // Note: some members are moved from.
+      const compiler_info* ci_;
 
     private:
+      // Defined in gcc.cxx.
+      //
       dir_paths
-      gcc_header_search_paths (process_path&, scope&) const; // gcc.cxx
+      gcc_header_search_paths (const process_path&, scope&) const;
 
       dir_paths
-      gcc_library_search_paths (process_path&, scope&) const; // gcc.cxx
+      gcc_library_search_paths (const process_path&, scope&) const;
+
+      // Defined in msvc.cxx.
+      //
+      dir_paths
+      msvc_header_search_paths (const process_path&, scope&) const;
 
       dir_paths
-      msvc_header_search_paths (process_path&, scope&) const; // msvc.cxx
-
-      dir_paths
-      msvc_library_search_paths (process_path&, scope&) const; // msvc.cxx
+      msvc_library_search_paths (const process_path&, scope&) const;
 
     private:
       bool new_; // See guess() and init() for details.

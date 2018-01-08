@@ -4,6 +4,7 @@
 
 #include <build2/cc/guess.hxx>
 
+#include <map>
 #include <cstring>  // strlen(), strchr()
 
 #include <build2/diagnostics.hxx>
@@ -44,12 +45,12 @@ namespace build2
     //
     static string
     stdlib (lang xl,
-            const process_path& xc,
+            const process_path& xp,
             const strings* c_po, const strings* x_po,
             const strings* c_co, const strings* x_co,
             const char* src)
     {
-      cstrings args {xc.recall_string ()};
+      cstrings args {xp.recall_string ()};
       if (c_po != nullptr) append_options (args, *c_po);
       if (x_po != nullptr) append_options (args, *x_po);
       if (c_co != nullptr) append_options (args, *c_co);
@@ -72,6 +73,7 @@ namespace build2
       // options but that we simply leave to blow up later).
       //
       process pr (run_start (3     /* verbosity */,
+                             xp,
                              args.data (),
                              -1    /* stdin */,
                              -1    /* stdout */,
@@ -268,7 +270,7 @@ namespace build2
 
       guess_result r;
 
-      process_path xp (run_search (xc, true));
+      process_path xp (run_search (xc, false /* init */)); // Note: cached.
 
       // Start with -v. This will cover gcc and clang.
       //
@@ -601,7 +603,7 @@ namespace build2
       // multi-arch support), then use the result. Otherwise, fallback to
       // -dumpmachine (older gcc or not multi-arch).
       //
-      cstrings args {xc.string ().c_str (), "-print-multiarch"};
+      cstrings args {xp.recall_string (), "-print-multiarch"};
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
       args.push_back (nullptr);
@@ -1042,7 +1044,7 @@ namespace build2
       // "Intel(R)" "64"
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
-      cstrings args {xc.string ().c_str (), "-V"};
+      cstrings args {xp.recall_string (), "-V"};
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
       args.push_back (nullptr);
@@ -1408,13 +1410,38 @@ namespace build2
         move (xsl)};
     }
 
-    compiler_info
+    // Compiler checks can be expensive (we often need to run the compiler
+    // several times) so we cache the result.
+    //
+    static map<string, compiler_info> cache;
+
+    const compiler_info&
     guess (lang xl,
            const path& xc,
            const strings* c_po, const strings* x_po,
            const strings* c_co, const strings* x_co,
            const strings* c_lo, const strings* x_lo)
     {
+      // First check the cache.
+      //
+      string key;
+      {
+        sha256 cs;
+        cs.append (static_cast<size_t> (xl));
+        cs.append (xc.string ());
+        if (c_po != nullptr) hash_options (cs, *c_po);
+        if (x_po != nullptr) hash_options (cs, *x_po);
+        if (c_co != nullptr) hash_options (cs, *c_co);
+        if (x_co != nullptr) hash_options (cs, *x_co);
+        if (c_lo != nullptr) hash_options (cs, *c_lo);
+        if (x_lo != nullptr) hash_options (cs, *x_lo);
+        key = cs.string ();
+
+        auto i (cache.find (key));
+        if (i != cache.end ())
+          return i->second;
+      }
+
       string pre (pre_guess (xl, xc));
       guess_result gr;
 
@@ -1520,7 +1547,7 @@ namespace build2
           r.bin_pattern = p.directory ().representation (); // Trailing slash.
       }
 
-      return r;
+      return (cache[key] = move (r));
     }
 
     path

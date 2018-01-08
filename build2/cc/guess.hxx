@@ -202,7 +202,7 @@ namespace build2
     // of fur in multiple places doesn't seem wise, especially considering
     // that most of it will be the same, at least for C and C++.
     //
-    compiler_info
+    const compiler_info&
     guess (lang,
            const path& xc,
            const strings* c_poptions, const strings* x_poptions,

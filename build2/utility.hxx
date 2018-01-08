@@ -169,9 +169,6 @@ namespace build2
   extern uint16_t verb;
   const  uint16_t verb_never = 7;
 
-  void
-  print_process (const char* const*, size_t);
-
   // Basic process utilities.
   //
   // The run*() functions with process_path assume that you are printing
@@ -213,12 +210,24 @@ namespace build2
   // error.
   //
   process
-  run_start (const process_path&,
+  run_start (uint16_t verbosity,
+             const process_path&,
              const char* args[],
              int in,
              int out,
              bool error = true,
              const dir_path& cwd = dir_path ());
+
+  inline process
+  run_start (const process_path& pp,
+             const char* args[],
+             int in,
+             int out,
+             bool error = true,
+             const dir_path& cwd = dir_path ())
+  {
+    return run_start (verb_never, pp, args, in, out, error, cwd);
+  }
 
   inline void
   run (const process_path& p,
@@ -249,11 +258,7 @@ namespace build2
              const dir_path& cwd = dir_path ())
   {
     process_path pp (run_search (args[0]));
-
-    if (verb >= verbosity)
-      print_process (args, 0);
-
-    return run_start (pp, args, in, out, error, cwd);
+    return run_start (verbosity, pp, args, in, out, error, cwd);
   }
 
   inline void
@@ -304,7 +309,7 @@ namespace build2
        sha256* checksum = nullptr);
 
   template <typename T, typename F>
-  T
+  inline T
   run (const process_path& pp,
        const char* args[],
        F&& f,

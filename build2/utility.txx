@@ -66,11 +66,12 @@ namespace build2
        bool ignore_exit,
        sha256* checksum)
   {
-    if (verb >= verbosity)
-      print_process (args, 0);
-
-    process pr (run_start (pp, args, 0 /* stdin */, -1 /* stdout */, err));
-
+    process pr (run_start (verbosity,
+                           pp,
+                           args,
+                           0  /* stdin */,
+                           -1 /* stdout */,
+                           err));
     T r;
     string l; // Last line of output.
 

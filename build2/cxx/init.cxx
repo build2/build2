@@ -540,10 +540,10 @@ namespace build2
         "cxx.install",
         "cxx.uninstall",
 
-        cm.ci.id.value (),
-        cm.ci.class_,
-        cm.ci.version.major,
-        cm.ci.version.minor,
+        cm.ci_->id.value (),
+        cm.ci_->class_,
+        cm.ci_->version.major,
+        cm.ci_->version.minor,
         cast<process_path>   (rs[cm.x_path]),
         cast<target_triplet> (rs[cm.x_target]),
 

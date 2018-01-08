@@ -107,14 +107,15 @@ namespace build2
       // Figure out which compiler we are dealing with, its target, etc.
       //
       const path& xc (cast<path> (*p.first));
-      ci = build2::cc::guess (x_lang,
-                              xc,
-                              cast_null<strings> (rs[config_c_poptions]),
-                              cast_null<strings> (rs[config_x_poptions]),
-                              cast_null<strings> (rs[config_c_coptions]),
-                              cast_null<strings> (rs[config_x_coptions]),
-                              cast_null<strings> (rs[config_c_loptions]),
-                              cast_null<strings> (rs[config_x_loptions]));
+      ci_ = &build2::cc::guess (x_lang,
+                                xc,
+                                cast_null<strings> (rs[config_c_poptions]),
+                                cast_null<strings> (rs[config_x_poptions]),
+                                cast_null<strings> (rs[config_c_coptions]),
+                                cast_null<strings> (rs[config_x_coptions]),
+                                cast_null<strings> (rs[config_c_loptions]),
+                                cast_null<strings> (rs[config_x_loptions]));
+      const compiler_info& ci (*ci_);
 
       // Split/canonicalize the target. First see if the user asked us to
       // use config.sub.
@@ -262,6 +263,7 @@ namespace build2
     {
       tracer trace (x, "config_init");
 
+      const compiler_info& ci (*ci_);
       const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
       // Translate x_std value (if any) to the compiler option(s) (if any).
@@ -398,12 +400,12 @@ namespace build2
         }
       }
 
-      rs.assign (x_path) = move (ci.path);
+      rs.assign (x_path) = process_path (ci.path, false /* init */);
       rs.assign (x_sys_lib_dirs) = move (lib_dirs);
       rs.assign (x_sys_inc_dirs) = move (inc_dirs);
 
-      rs.assign (x_signature) = move (ci.signature);
-      rs.assign (x_checksum) = move (ci.checksum);
+      rs.assign (x_signature) = ci.signature;
+      rs.assign (x_checksum) = ci.checksum;
 
       // config.x.{p,c,l}options
       // config.x.libs
@@ -440,7 +442,7 @@ namespace build2
         variable_map h;
 
         if (!ci.bin_pattern.empty ())
-          h.assign ("config.bin.pattern") = move (ci.bin_pattern);
+          h.assign ("config.bin.pattern") = ci.bin_pattern;
 
         load_module (rs, rs, "cc.core.config", loc, false, h);
       }
