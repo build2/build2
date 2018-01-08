@@ -49,7 +49,10 @@ namespace build2
 
       const char* args[] {
         "git", "-C", d, "cat-file", "commit", "HEAD", nullptr};
-      process pr (run_start (3 /* verbosity */, args, -1 /* stdout */));
+      process pr (run_start (3     /* verbosity */,
+                             args,
+                             0     /* stdin */,
+                             -1    /* stdout */));
 
       try
       {

@@ -164,15 +164,18 @@ namespace build2
   string
   diag_relative (const path&, bool current = true);
 
+  // Diagnostics forward declarations (see diagnostics.hxx).
+  //
+  extern uint16_t verb;
+  const  uint16_t verb_never = 7;
+
+  void
+  print_process (const char* const*, size_t);
+
   // Basic process utilities.
   //
   // The run*() functions with process_path assume that you are printing
   // the process command line yourself.
-
-  extern uint16_t verb; // diagnostics.hxx
-
-  void
-  print_process (const char* const*, size_t); // diagnostics.hxx
 
   // Search for a process executable. Issue diagnostics and throw failed in
   // case of an error.
@@ -202,14 +205,17 @@ namespace build2
     run_finish (args.data (), pr);
   }
 
-  // Start a process with the specified arguments. If out is -1, redirect
-  // STDOUT to a pipe. If error is false, then redirecting STDERR to STDOUT
-  // (this can be used to suppress diagnostics from the child process). Issue
-  // diagnostics and throw failed in case of an error.
+  // Start a process with the specified arguments. If in is -1, then redirect
+  // STDIN to a pipe (can also be -2 to redirect to /dev/null or equivalent).
+  // If out is -1, redirect STDOUT to a pipe. If error is false, then
+  // redirecting STDERR to STDOUT (this can be used to suppress diagnostics
+  // from the child process). Issue diagnostics and throw failed in case of an
+  // error.
   //
   process
   run_start (const process_path&,
              const char* args[],
+             int in,
              int out,
              bool error = true,
              const dir_path& cwd = dir_path ());
@@ -219,7 +225,7 @@ namespace build2
        const char* args[],
        const dir_path& cwd = dir_path ())
   {
-    process pr (run_start (p, args, 1 /* stdout */, true, cwd));
+    process pr (run_start (p, args, 0 /* stdin */, 1 /* stdout */, true, cwd));
     run_finish (args, pr);
   }
 
@@ -237,6 +243,7 @@ namespace build2
   inline process
   run_start (uint16_t verbosity,
              const char* args[],
+             int in,
              int out,
              bool error = true,
              const dir_path& cwd = dir_path ())
@@ -246,7 +253,7 @@ namespace build2
     if (verb >= verbosity)
       print_process (args, 0);
 
-    return run_start (pp, args, out, error, cwd);
+    return run_start (pp, args, in, out, error, cwd);
   }
 
   inline void
@@ -254,7 +261,12 @@ namespace build2
        const char* args[],
        const dir_path& cwd = dir_path ())
   {
-    process pr (run_start (verbosity, args, 1 /* stdout */, true, cwd));
+    process pr (run_start (verbosity,
+                           args,
+                           0 /* stdin */,
+                           1 /* stdout */,
+                           true,
+                           cwd));
     run_finish (args, pr);
   }
 
@@ -283,12 +295,26 @@ namespace build2
   //
   template <typename T, typename F>
   T
-  run (const process_path&,
+  run (uint16_t verbosity,
+       const process_path&,
        const char* args[],
        F&&,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr);
+
+  template <typename T, typename F>
+  T
+  run (const process_path& pp,
+       const char* args[],
+       F&& f,
+       bool error = true,
+       bool ignore_exit = false,
+       sha256* checksum = nullptr)
+  {
+    return run<T> (
+      verb_never, pp, args, forward<F> (f), error, ignore_exit, checksum);
+  }
 
   template <typename T, typename F>
   inline T
@@ -300,18 +326,15 @@ namespace build2
        sha256* checksum = nullptr)
   {
     process_path pp (run_search (args[0]));
-
-    if (verb >= verbosity)
-      print_process (args, 0);
-
-    return run<T> (pp, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (
+      verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // run <prog>
   //
   template <typename T, typename F>
   inline T
-  run (uint16_t verb,
+  run (uint16_t verbosity,
        const path& prog,
        F&& f,
        bool error = true,
@@ -319,7 +342,8 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), nullptr};
-    return run<T> (verb, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (
+      verbosity, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   template <typename T, typename F>
@@ -332,18 +356,15 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {pp.recall_string (), nullptr};
-
-    if (verb >= verbosity)
-      print_process (args, 0);
-
-    return run<T> (pp, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (
+      verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // run <prog> <arg>
   //
   template <typename T, typename F>
   inline T
-  run (uint16_t verb,
+  run (uint16_t verbosity,
        const path& prog,
        const char* arg,
        F&& f,
@@ -352,7 +373,8 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {prog.string ().c_str (), arg, nullptr};
-    return run<T> (verb, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (
+      verbosity, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   template <typename T, typename F>
@@ -366,11 +388,8 @@ namespace build2
        sha256* checksum = nullptr)
   {
     const char* args[] = {pp.recall_string (), arg, nullptr};
-
-    if (verb >= verbosity)
-      print_process (args, 0);
-
-    return run<T> (pp, args, forward<F> (f), error, ignore_exit, checksum);
+    return run<T> (
+      verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // Empty string and path.

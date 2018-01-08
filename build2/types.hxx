@@ -261,6 +261,7 @@ namespace build2
   using butl::auto_fd;
   using butl::ifdstream;
   using butl::ofdstream;
+  using butl::fdstream_mode;
 
   // <libbutl/target-triplet.mxx>
   //

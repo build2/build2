@@ -58,14 +58,18 @@ namespace build2
 
   template <typename T, typename F>
   T
-  run (const process_path& pp,
+  run (uint16_t verbosity,
+       const process_path& pp,
        const char* args[],
        F&& f,
        bool err,
        bool ignore_exit,
        sha256* checksum)
   {
-    process pr (run_start (pp, args, -1 /* stdout */, err));
+    if (verb >= verbosity)
+      print_process (args, 0);
+
+    process pr (run_start (pp, args, 0 /* stdin */, -1 /* stdout */, err));
 
     T r;
     string l; // Last line of output.

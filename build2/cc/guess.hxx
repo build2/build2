@@ -167,15 +167,21 @@ namespace build2
       // msvc
       //
       // The C standard library is normally the library/project name (e.g,
-      // glibc, musl, newlib, klibc, etc) but if there is none, then we
-      // fallback to the vendor name (e.g., freebsd). Proposed values are (any
-      // BSD-derived libc should end with the *bsd suffix):
+      // glibc, klibc, newlib, etc) but if there is none, then we fallback to
+      // the vendor name (e.g., freebsd, apple). Current values are:
       //
       // glibc
       // msvc         (msvcrt.lib/msvcrNNN.dll)
       // freebsd
-      // applebsd
-      // cygwin?      (apparently newlib)
+      // apple
+      // newlib       (also used by Cygwin)
+      // klibc
+      // bionic
+      // uclibc
+      // musl
+      // dietlibc
+      // other
+      // none
       //
       // The C++ standard library is normally the library/project name.
       // Current values are:
@@ -183,6 +189,8 @@ namespace build2
       // libstdc++
       // libc++
       // msvcp        (msvcprt.lib/msvcpNNN.dll)
+      // other
+      // none
       //
       string runtime;
       string c_stdlib;
@@ -197,8 +205,9 @@ namespace build2
     compiler_info
     guess (lang,
            const path& xc,
-           const strings* c_coptions,
-           const strings* x_coptions);
+           const strings* c_poptions, const strings* x_poptions,
+           const strings* c_coptions, const strings* x_coptions,
+           const strings* c_loptions, const strings* x_loptions);
 
     // Given a language, toolchain id, and optionally (empty) a pattern,
     // return an appropriate default compiler path.

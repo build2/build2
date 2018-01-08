@@ -37,6 +37,127 @@ namespace build2
       return string (); // Never reached.
     }
 
+    // Standard library detection for GCC-class compilers.
+    //
+    // The src argument should detect the standard library based on the
+    // preprocessor macros and output the result in the stdlib:="XXX" form.
+    //
+    static string
+    stdlib (lang xl,
+            const process_path& xc,
+            const strings* c_po, const strings* x_po,
+            const strings* c_co, const strings* x_co,
+            const char* src)
+    {
+      cstrings args {xc.recall_string ()};
+      if (c_po != nullptr) append_options (args, *c_po);
+      if (x_po != nullptr) append_options (args, *x_po);
+      if (c_co != nullptr) append_options (args, *c_co);
+      if (x_co != nullptr) append_options (args, *x_co);
+      args.push_back ("-x");
+      switch (xl)
+      {
+      case lang::c:   args.push_back ("c");   break;
+      case lang::cxx: args.push_back ("c++"); break;
+      }
+      args.push_back ("-E");
+      args.push_back ("-");  // Read stdin.
+      args.push_back (nullptr);
+
+      // The source we are going to preprocess may contains #include's which
+      // may fail to resolve if, for example, there is no standard library
+      // (-nostdinc/-nostdinc++). So we are going to suppress diagnostics and
+      // assume the error exit code means no standard library (of course it
+      // could also be because there is something wrong with the compiler or
+      // options but that we simply leave to blow up later).
+      //
+      process pr (run_start (3     /* verbosity */,
+                             args.data (),
+                             -1    /* stdin */,
+                             -1    /* stdout */,
+                             false /* error  */));
+      string l, r;
+      try
+      {
+        // Here we have to simultaneously write to stdin and read from stdout
+        // with both operations having the potential to block. For now we
+        // assume that src fits into the pipe's buffer.
+        //
+        ofdstream os (move (pr.out_fd));
+        ifdstream is (move (pr.in_ofd),
+                      fdstream_mode::skip,
+                      ifdstream::badbit);
+
+        os << src << endl;
+        os.close ();
+
+        while (!eof (getline (is, l)))
+        {
+          size_t p (l.find_first_not_of (' '));
+
+          if (p != string::npos && l.compare (p, 9, "stdlib:=\"") == 0)
+          {
+            p += 9;
+            r = string (l, p, l.size () - p - 1); // One for closing \".
+            break;
+          }
+        }
+
+        is.close ();
+      }
+      catch (const io_error&)
+      {
+        // Presumably the child process failed. Let run_finish() deal with
+        // that.
+      }
+
+      if (!run_finish (args.data (), pr, false /* error */, l))
+        r = "none";
+
+      if (r.empty ())
+        fail << "unable to determine " << xl << " standard library";
+
+      return r;
+    }
+
+    // C standard library detection on POSIX (i.e., non-Windows) systems.
+    // Notes:
+    //
+    // - We place platform macro-based checks (__FreeBSD__, __APPLE__, etc)
+    //   after library macro-based ones in case a non-default libc is used.
+    //
+    static const char* c_stdlib_src =
+"#if !defined(__STDC_HOSTED__) || __STDC_HOSTED__ == 1                      \n"
+"#  include <stddef.h>    /* Forces defining __KLIBC__ for klibc.        */ \n"
+"#  include <limits.h>    /* Includes features.h for glibc.              */ \n"
+"#  include <sys/types.h> /* Includes sys/cdefs.h for bionic.            */ \n"
+"                         /* Includes sys/features.h for newlib.         */ \n"
+"                         /* Includes features.h for uclibc.             */ \n"
+"#    if defined(__KLIBC__)                                                 \n"
+"     stdlib:=\"klibc\"                                                     \n"
+"#  elif defined(__BIONIC__)                                                \n"
+"     stdlib:=\"bionic\"                                                    \n"
+"#  elif defined(__NEWLIB__)                                                \n"
+"     stdlib:=\"newlib\"                                                    \n"
+"#  elif defined(__UCLIBC__)                                                \n"
+"     stdlib:=\"uclibc\"                                                    \n"
+"#  elif defined(__dietlibc__) /* Also has to be defined manually by     */ \n"
+"     stdlib:=\"dietlibc\"     /* or some wrapper.                       */ \n"
+"#  elif defined(__MUSL__)     /* This libc refuses to define __MUSL__   */ \n"
+"     stdlib:=\"musl\"         /* so it has to be defined by user.       */ \n"
+"#  elif defined(__GLIBC__)    /* Check for glibc last since some libc's */ \n"
+"     stdlib:=\"glibc\"        /* pretend to be it.                      */ \n"
+"#  elif defined(__FreeBSD__)                                               \n"
+"     stdlib:=\"freebsd\"                                                   \n"
+"#  elif defined(__APPLE__)                                                 \n"
+"     stdlib:=\"apple\"                                                     \n"
+"#  else                                                                    \n"
+"     stdlib:=\"other\"                                                     \n"
+"#  endif                                                                   \n"
+"#else                                                                      \n"
+"  stdlib:=\"none\"                                                         \n"
+"#endif                                                                     \n";
+
     // Pre-guess the compiler type based on the compiler executable name.
     // Return empty string if can't make a guess (for example, because the
     // compiler name is a generic 'c++'). Note that it only guesses the type,
@@ -147,7 +268,7 @@ namespace build2
 
       guess_result r;
 
-      process_path pp (run_search (xc, true));
+      process_path xp (run_search (xc, true));
 
       // Start with -v. This will cover gcc and clang.
       //
@@ -248,7 +369,7 @@ namespace build2
         // Suppress all the compiler errors because we may be trying an
         // unsupported option.
         //
-        r = run<guess_result> (3, pp, "-v", f, false, false, &cs);
+        r = run<guess_result> (3, xp, "-v", f, false, false, &cs);
 
         if (!r.empty ())
         {
@@ -284,7 +405,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (3, pp, "--version", f, false);
+        r = run<guess_result> (3, xp, "--version", f, false);
       }
 
       // Finally try to run it without any options to detect msvc.
@@ -317,7 +438,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (3, pp, f, false);
+        r = run<guess_result> (3, xp, f, false);
       }
 
       if (!r.empty ())
@@ -335,7 +456,7 @@ namespace build2
           l5 ([&]{trace << xc << " is " << r.id << ": '"
                         << r.signature << "'";});
 
-          r.path = move (pp);
+          r.path = move (xp);
         }
       }
       else
@@ -397,11 +518,14 @@ namespace build2
     static compiler_info
     guess_gcc (lang xl,
                const path& xc,
-               const strings* c_coptions,
-               const strings* x_coptions,
+               const strings* c_po, const strings* x_po,
+               const strings* c_co, const strings* x_co,
+               const strings*, const strings*,
                guess_result&& gr)
     {
       tracer trace ("cc::guess_gcc");
+
+      const process_path& xp (gr.path);
 
       // Extract the version. The signature line has the following format
       // though language words can be translated and even rearranged (see
@@ -478,8 +602,8 @@ namespace build2
       // -dumpmachine (older gcc or not multi-arch).
       //
       cstrings args {xc.string ().c_str (), "-print-multiarch"};
-      if (c_coptions != nullptr) append_options (args, *c_coptions);
-      if (x_coptions != nullptr) append_options (args, *x_coptions);
+      if (c_co != nullptr) append_options (args, *c_co);
+      if (x_co != nullptr) append_options (args, *x_co);
       args.push_back (nullptr);
 
       // The output of both -print-multiarch and -dumpmachine is a single line
@@ -487,7 +611,7 @@ namespace build2
       //
       auto f = [] (string& l) {return move (l);};
 
-      string t (run<string> (3, args.data (), f, false));
+      string t (run<string> (3, xp, args.data (), f, false));
 
       if (t.empty ())
       {
@@ -495,7 +619,7 @@ namespace build2
                       << "falling back to -dumpmachine";});
 
         args[1] = "-dumpmachine";
-        t = run<string> (3, args.data (), f);
+        t = run<string> (3, xp, args.data (), f);
       }
 
       if (t.empty ())
@@ -504,6 +628,12 @@ namespace build2
 
       string ot (t);
 
+      // Parse the target into triplet (for further tests) ignoring any
+      // failures.
+      //
+      target_triplet tt;
+      try {tt = target_triplet (t);} catch (const invalid_argument&) {}
+
       // Derive the toolchain pattern. Try cc/c++ as a fallback.
       //
       string pat (pattern (xc, xl == lang::c ? "gcc" : "g++"));
@@ -511,11 +641,32 @@ namespace build2
       if (pat.empty ())
         pat = pattern (xc, xl == lang::c ? "cc" : "c++");
 
-
+      // Runtime and standard library.
+      //
       // GCC always uses libgcc (even on MinGW). Even with -nostdlib GCC's
       // documentation says that you should usually specify -lgcc.
       //
-      string rt ("libgcc");
+      string rt  ("libgcc");
+      string csl (tt.system == "mingw32"
+                  ? "msvc"
+                  : stdlib (xl, xp, c_po, x_po, c_co, x_co, c_stdlib_src));
+      string xsl;
+      switch (xl)
+      {
+      case lang::c:   xsl = csl;     break;
+      case lang::cxx:
+        {
+          // While GCC only supports it's own C++ standard library (libstdc++)
+          // we still run the test to detect the "none" case (-nostdinc++).
+          //
+          const char* src =
+            "#include <bits/c++config.h> \n"
+            "stdlib:=\"libstdc++\"       \n";
+
+          xsl = stdlib (xl, xp, c_po, x_po, c_co, x_co, src);
+          break;
+        }
+      }
 
       return compiler_info {
         move (gr.path),
@@ -529,17 +680,20 @@ namespace build2
         move (pat),
         "",
         move (rt),
-        "",
-        ""};
+        move (csl),
+        move (xsl)};
     }
 
     static compiler_info
     guess_clang (lang xl,
                  const path& xc,
-                 const strings* c_coptions,
-                 const strings* x_coptions,
+                 const strings* c_po, const strings* x_po,
+                 const strings* c_co, const strings* x_co,
+                 const strings* c_lo, const strings* x_lo,
                  guess_result&& gr)
     {
+      const process_path& xp (gr.path);
+
       // Extract the version. Here we will try to handle both vanilla and
       // Apple clang since the signature lines are fairly similar. They have
       // the following format though language words can probably be translated
@@ -613,15 +767,16 @@ namespace build2
       // Unlike gcc, clang doesn't have -print-multiarch. Its -dumpmachine,
       // however, respects the compile options (e.g., -m32).
       //
-      cstrings args {xc.string ().c_str (), "-dumpmachine"};
-      if (c_coptions != nullptr) append_options (args, *c_coptions);
-      if (x_coptions != nullptr) append_options (args, *x_coptions);
+      cstrings args {xp.recall_string (), "-dumpmachine"};
+      if (c_co != nullptr) append_options (args, *c_co);
+      if (x_co != nullptr) append_options (args, *x_co);
       args.push_back (nullptr);
 
       // The output of -dumpmachine is a single line containing just the
       // target triplet.
       //
-      string t (run<string> (3, args.data (), [](string& l) {return move (l);}));
+      auto f = [] (string& l) {return move (l);};
+      string t (run<string> (3, xp, args.data (), f));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << xc
@@ -664,14 +819,16 @@ namespace build2
       if (pat.empty ())
         pat = pattern (xc, xl == lang::c ? "cc" : "c++");
 
+      // Runtime and standard library.
+      //
       // Clang can use libgcc, its own compiler-rt, or, on Windows targeting
       // MSVC, the VC's runtime. As usual, there is no straightforward way
       // to query this and silence on the mailing list. See:
       //
       // http://lists.llvm.org/pipermail/cfe-dev/2018-January/056494.html
       //
-      // So for now we will just look for --rtlib and if none specified,
-      // assume some platform-specific defaults.
+      // So for now we will just look for --rtlib (note: linker option) and if
+      // none specified, assume some platform-specific defaults.
       //
       string rt;
       {
@@ -683,17 +840,51 @@ namespace build2
         };
 
         const string* o;
-        if ((o = find_rtlib (x_coptions)) != nullptr ||
-            (o = find_rtlib (c_coptions)) != nullptr)
+        if ((o = find_rtlib (x_lo)) != nullptr ||
+            (o = find_rtlib (c_lo)) != nullptr)
         {
           rt = string (*o, 8);
         }
-        // Defaults.
-        //
         else if (tt.system == "win32-msvc")  rt = "msvc";
         else if (tt.system == "linux-gnu" ||
                  tt.system == "freebsd")     rt = "libgcc";
         else /* Mac OS, etc. */              rt = "compiler-rt";
+      }
+
+      string csl (tt.system == "win32-msvc" || tt.system == "mingw32"
+                  ? "msvc"
+                  : stdlib (xl, xp, c_po, x_po, c_co, x_co, c_stdlib_src));
+
+      string xsl;
+      switch (xl)
+      {
+      case lang::c:   xsl = csl; break;
+      case lang::cxx:
+        {
+          // All Clang versions that we care to support have __has_include()
+          // so we use it to determine which standard library is available.
+          //
+          // Note that we still include the corresponding headers to verify
+          // things are usable. For the "other" case we include some
+          // standard header to detect the "none" case (e.g, -nostdinc++).
+          //
+          const char* src =
+            "#if __has_include(<__config>)           \n"
+            "  #include <__config>                   \n"
+            "  stdlib:=\"libc++\"                    \n"
+            "#elif __has_include(<bits/c++config.h>) \n"
+            "  #include <bits/c++config.h>           \n"
+            "  stdlib:=\"libstdc++\"                 \n"
+            "#else                                   \n"
+            "  #include <cstddef>                    \n"
+            "  stdlib:=\"other\"                     \n"
+            "#endif                                  \n";
+
+          xsl = tt.system == "win32-msvc"
+            ? "msvcp"
+            : stdlib (xl, xp, c_po, x_po, c_co, x_co, src);
+          break;
+        }
       }
 
       return compiler_info {
@@ -708,17 +899,20 @@ namespace build2
         move (pat),
         "",
         move (rt),
-        "",
-        ""};
+        move (csl),
+        move (xsl)};
     }
 
     static compiler_info
     guess_icc (lang xl,
                const path& xc,
-               const strings* c_coptions,
-               const strings* x_coptions,
+               const strings* c_po, const strings* x_po,
+               const strings* c_co, const strings* x_co,
+               const strings*, const strings*,
                guess_result&& gr)
     {
+      const process_path& xp (gr.path);
+
       // Extract the version. If the version has the fourth component, then
       // the signature line (extracted with --version) won't include it. So we
       // will have to get a more elaborate line with -V. We will also have to
@@ -750,13 +944,13 @@ namespace build2
       auto f = [] (string& l)
       {
         return l.compare (0, 5, "Intel") == 0 && (l[5] == '(' || l[5] == ' ')
-          ? move (l)
-          : string ();
+        ? move (l)
+        : string ();
       };
 
       // The -V output is sent to STDERR.
       //
-      s = run<string> (3, xc, "-V", f, false);
+      s = run<string> (3, xp, "-V", f, false);
 
       if (s.empty ())
         fail << "unable to extract signature from " << xc << " -V output";
@@ -849,13 +1043,13 @@ namespace build2
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
       cstrings args {xc.string ().c_str (), "-V"};
-      if (c_coptions != nullptr) append_options (args, *c_coptions);
-      if (x_coptions != nullptr) append_options (args, *x_coptions);
+      if (c_co != nullptr) append_options (args, *c_co);
+      if (x_co != nullptr) append_options (args, *x_co);
       args.push_back (nullptr);
 
       // The -V output is sent to STDERR.
       //
-      string t (run<string> (3, args.data (), f, false));
+      string t (run<string> (3, xp, args.data (), f, false));
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << xc
@@ -897,7 +1091,10 @@ namespace build2
       // on which we are running), who knows what will happen in the future.
       // So instead we are going to use -dumpmachine and substitute the CPU.
       //
-      t = run<string> (3, xc, "-dumpmachine", [](string& l) {return move (l);});
+      {
+        auto f = [] (string& l) {return move (l);};
+        t = run<string> (3, xp, "-dumpmachine", f);
+      }
 
       if (t.empty ())
         fail << "unable to extract target architecture from " << xc
@@ -931,7 +1128,23 @@ namespace build2
 
       // Runtime and standard library.
       //
-      string rt (tt.system == "win32-msvc" ? "msvc" : "libgcc");
+      // For now we assume that unless it is Windows, we are targeting
+      // Linux/GCC.
+      //
+      string rt  (tt.system == "win32-msvc" ? "msvc" : "libgcc");
+      string csl (tt.system == "win32-msvc"
+                  ? "msvc"
+                  : stdlib (xl, xp, c_po, x_po, c_co, x_co, c_stdlib_src));
+      string xsl;
+      switch (xl)
+      {
+      case lang::c:   xsl = csl;     break;
+      case lang::cxx:
+        {
+          xsl = tt.system == "win32-msvc" ? "msvcp" : "libstdc++";
+          break;
+        }
+      }
 
       return compiler_info {
         move (gr.path),
@@ -945,15 +1158,16 @@ namespace build2
         move (pat),
         "",
         move (rt),
-        "",
-        ""};
+        move (csl),
+        move (xsl)};
     }
 
     static compiler_info
-    guess_msvc (lang,
+    guess_msvc (lang xl,
                 const path& xc,
-                const strings*,
-                const strings*,
+                const strings*, const strings*,
+                const strings*, const strings*,
+                const strings*, const strings*,
                 guess_result&& gr)
     {
       // Extract the version. The signature line has the following format
@@ -1170,6 +1384,13 @@ namespace build2
       // Runtime and standard library.
       //
       string rt ("msvc");
+      string csl ("msvc");
+      string xsl;
+      switch (xl)
+      {
+      case lang::c:   xsl = csl;     break;
+      case lang::cxx: xsl = "msvcp"; break;
+      }
 
       return compiler_info {
         move (gr.path),
@@ -1183,15 +1404,16 @@ namespace build2
         move (cpat),
         move (bpat),
         move (rt),
-        "",
-        ""};
+        move (csl),
+        move (xsl)};
     }
 
     compiler_info
     guess (lang xl,
            const path& xc,
-           const strings* c_coptions,
-           const strings* x_coptions)
+           const strings* c_po, const strings* x_po,
+           const strings* c_co, const strings* x_co,
+           const strings* c_lo, const strings* x_lo)
     {
       string pre (pre_guess (xl, xc));
       guess_result gr;
@@ -1223,26 +1445,34 @@ namespace build2
       case compiler_id::gcc:
         {
           assert (id.variant.empty ());
-          r = guess_gcc (xl, xc, c_coptions, x_coptions, move (gr));
+          r = guess_gcc (xl, xc,
+                         c_po, x_po, c_co, x_co, c_lo, x_lo,
+                         move (gr));
           break;
         }
       case compiler_id::clang:
       case compiler_id::clang_apple:
         {
           assert (id.variant.empty () || id.variant == "apple");
-          r = guess_clang (xl, xc, c_coptions, x_coptions, move (gr));
+          r = guess_clang (xl, xc,
+                           c_po, x_po, c_co, x_co, c_lo, x_lo,
+                           move (gr));
           break;
         }
       case compiler_id::msvc:
         {
           assert (id.variant.empty ());
-          r = guess_msvc (xl, xc, c_coptions, x_coptions, move (gr));
+          r = guess_msvc (xl, xc,
+                          c_po, x_po, c_co, x_co, c_lo, x_lo,
+                          move (gr));
           break;
         }
       case compiler_id::icc:
         {
           assert (id.variant.empty ());
-          r = guess_icc (xl, xc, c_coptions, x_coptions, move (gr));
+          r = guess_icc (xl, xc,
+                         c_po, x_po, c_co, x_co, c_lo, x_lo,
+                         move (gr));
           break;
         }
       }

@@ -42,7 +42,9 @@ namespace build2
 
       config::save_module (rs, x, 250);
 
+      const variable& config_c_poptions (var_pool["config.cc.poptions"]);
       const variable& config_c_coptions (var_pool["config.cc.coptions"]);
+      const variable& config_c_loptions (var_pool["config.cc.loptions"]);
 
       // config.x
       //
@@ -107,8 +109,12 @@ namespace build2
       const path& xc (cast<path> (*p.first));
       ci = build2::cc::guess (x_lang,
                               xc,
+                              cast_null<strings> (rs[config_c_poptions]),
+                              cast_null<strings> (rs[config_x_poptions]),
                               cast_null<strings> (rs[config_c_coptions]),
-                              cast_null<strings> (rs[config_x_coptions]));
+                              cast_null<strings> (rs[config_x_coptions]),
+                              cast_null<strings> (rs[config_c_loptions]),
+                              cast_null<strings> (rs[config_x_loptions]));
 
       // Split/canonicalize the target. First see if the user asked us to
       // use config.sub.
@@ -171,7 +177,7 @@ namespace build2
       rs.assign (x_pattern) = ci.pattern;
 
       if (!x_stdlib.aliases (c_stdlib))
-        rs.assign (x_stdlib) = move (ci.x_stdlib);
+        rs.assign (x_stdlib) = ci.x_stdlib;
 
       new_ = p.second;
 
@@ -351,11 +357,11 @@ namespace build2
           if (ct != ci.original_target)
             dr << " (" << ci.original_target << ")";
 
-
-          // @@ Print c_stdlib?
-          //
           dr << "\n  runtime    " << ci.runtime
              << "\n  stdlib     " << ci.x_stdlib;
+
+          if (!x_stdlib.aliases (c_stdlib))
+            dr << "\n  c stdlib   " << ci.c_stdlib;
         }
 
         if (!tstd.empty ())

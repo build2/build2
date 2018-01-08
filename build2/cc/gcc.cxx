@@ -180,7 +180,12 @@ namespace build2
       if (verb >= 3)
         print_process (args);
 
-      process pr (run_start (xc, args.data (), -1)); // Open pipe to stdout.
+      // Open pipe to stdout.
+      //
+      process pr (run_start (xc,
+                             args.data (),
+                             0, /* stdin */
+                             -1 /* stdout */));
 
       string l;
       try

@@ -157,7 +157,11 @@ namespace build2
       // Link.exe seem to always dump everything to stdout but just in case
       // redirect stderr to stdout.
       //
-      process pr (run_start (ld, args, -1 /* stdout */, false /* error */));
+      process pr (run_start (ld,
+                             args,
+                             0     /* stdin */,
+                             -1    /* stdout */,
+                             false /* error */));
 
       bool obj (false), dll (false);
       string s;

@@ -210,13 +210,14 @@ namespace build2
   process
   run_start (const process_path& pp,
              const char* args[],
+             int in,
              int out,
              bool err,
              const dir_path& cwd)
   try
   {
     assert (args[0] == pp.recall_string ());
-    return process (pp, args, 0, out, (err ? 2 : 1), cwd.string ().c_str ());
+    return process (pp, args, in, out, (err ? 2 : 1), cwd.string ().c_str ());
   }
   catch (const process_error& e)
   {
