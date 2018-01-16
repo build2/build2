@@ -399,7 +399,7 @@ namespace build2
 
   // Empty string and path.
   //
-  extern const std::string empty_string;
+  extern const string empty_string;
   extern const path empty_path;
   extern const dir_path empty_dir_path;
 
