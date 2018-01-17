@@ -10,6 +10,10 @@
 
 #include <stdlib.h>    // getenv() _putenv()(_WIN32)
 
+#ifdef __GLIBCXX__
+#  include <locale>
+#endif
+
 #include <sstream>
 #include <cstring>     // strcmp(), strchr()
 #include <typeinfo>
@@ -149,6 +153,22 @@ main (int argc, char* argv[])
     mp += "/bin";
 
     _putenv (mp.c_str ());
+  }
+#endif
+
+// A data race happens in the libstdc++ (as of GCC 7.2) implementation of the
+// ctype<char>::narrow() function (bug #77704). The issue is easily triggered
+// by the testscript runner that indirectly (via regex) uses ctype<char> facet
+// of the global locale (and can potentially be triggered by other locale-
+// aware code). We work around this by pre-initializing the global locale
+// facet internal cache.
+//
+#ifdef __GLIBCXX__
+  {
+    const ctype<char>& ct (use_facet<ctype<char>> (locale ()));
+
+    for (size_t i (0); i != 256; ++i)
+      ct.narrow (static_cast<char> (i), '\0');
   }
 #endif
 
