@@ -364,7 +364,7 @@ namespace build2
             string hint;
             auto rs (rules.size () == 1
                      ? make_pair (rules.begin (), rules.end ())
-                     : rules.find_prefix (hint));
+                     : rules.find_sub (hint));
 
             for (auto i (rs.first); i != rs.second; ++i)
             {

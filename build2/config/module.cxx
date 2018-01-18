@@ -19,19 +19,7 @@ namespace build2
       // prefix of this variable name.
       //
       auto& sm (saved_modules);
-      auto i (sm.end ());
-
-      if (!sm.empty ())
-      {
-        i = sm.upper_bound (n);
-
-        // Get the greatest less than, if any. We might still not be a
-        // suffix. And we still have to check the last element if
-        // upper_bound() returned end().
-        //
-        if (i == sm.begin () || !sm.key_comp ().prefix ((--i)->first, n))
-          i = sm.end ();
-      }
+      auto i (sm.find_sup (n));
 
       // If no module matched, then create one based on the variable name.
       //

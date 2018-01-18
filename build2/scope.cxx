@@ -760,7 +760,7 @@ namespace build2
       {
         // The first entry is ourselves.
         //
-        auto r (m.find_prefix (k));
+        auto r (m.find_sub (k));
         for (++r.first; r.first != r.second; ++r.first)
         {
           scope& c (r.first->second);
@@ -793,7 +793,7 @@ namespace build2
     {
       // Upgrade to root scope.
       //
-      auto r (m.find_prefix (k));
+      auto r (m.find_sub (k));
       for (++r.first; r.first != r.second; ++r.first)
       {
         scope& c (r.first->second);
@@ -813,12 +813,14 @@ namespace build2
   {
     scope_map_base& m (*this);
 
-    // Better implementation that should work but doesn't.
-    //
-#if 0
     assert (k.normalized (false)); // Allow non-canonical dir separators.
+
+    // Using find_sup() seems to be slightly slower.
+    //
+#if 1
     auto i (m.find_sup (k));
-    return i != m.end () ? i->second : const_cast<scope&> (*global_scope);
+    assert (i != m.end ()); // Should have global scope.
+    return i->second;
 #else
    // Normally we would have a scope for the full path so try that before
    // making any copies.

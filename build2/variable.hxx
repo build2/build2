@@ -1251,7 +1251,7 @@ namespace build2
     pair<const_iterator, const_iterator>
     find_namespace (const variable& ns) const
     {
-      auto r (m_.find_prefix (ns));
+      auto r (m_.find_sub (ns));
       return make_pair (const_iterator (r.first,  *this),
                         const_iterator (r.second, *this));
     }
