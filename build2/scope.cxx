@@ -811,34 +811,11 @@ namespace build2
   scope& scope_map::
   find (const dir_path& k)
   {
-    scope_map_base& m (*this);
-
     assert (k.normalized (false)); // Allow non-canonical dir separators.
 
-    // Using find_sup() seems to be slightly slower.
-    //
-#if 1
+    scope_map_base& m (*this);
     auto i (m.find_sup (k));
     assert (i != m.end ()); // Should have global scope.
     return i->second;
-#else
-   // Normally we would have a scope for the full path so try that before
-   // making any copies.
-   //
-   auto i (m.find (k)), e (m.end ());
-
-   if (i != e)
-     return i->second;
-
-   for (dir_path d (k.directory ());; d = d.directory ())
-   {
-     auto i (m.find (d));
-
-     if (i != e)
-       return i->second;
-
-     assert (!d.empty ()); // We should have the global scope.
-   }
-#endif
   }
 }
