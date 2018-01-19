@@ -2377,7 +2377,7 @@ namespace build2
 
             if (restart)
             {
-              l6 ([&]{trace << "restarting";});
+              l6 ([&]{trace << "restarting (cache)";});
               break;
             }
           }
@@ -2546,6 +2546,17 @@ namespace build2
                       //
                       if (good_error)
                         restart = updating = true;
+                      //
+                      // And if we have updated the header (restart is true),
+                      // then we may end up in this situation: an old header
+                      // got included which caused the preprocessor to fail
+                      // down the line. So if we are restarting, set the good
+                      // error flag in case the process fails because of
+                      // something like this (and if it is for a valid reason,
+                      // then we will pick it up on the next round).
+                      //
+                      else if (restart)
+                        good_error = true;
 
                       if (restart)
                         l6 ([&]{trace << "restarting";});
@@ -2611,6 +2622,11 @@ namespace build2
 
                       if (restart)
                       {
+                        // The same "preprocessor may fail down the line"
+                        // logic as above.
+                        //
+                        good_error = true;
+
                         l6 ([&]{trace << "restarting";});
                         break;
                       }
