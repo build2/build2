@@ -79,6 +79,8 @@ namespace build2
       insert<T> (a >> 4, a & 0x0F, hint, r);
     }
 
+    // 0 oid is a wildcard.
+    //
     template <typename T>
     void
     insert (meta_operation_id mid,

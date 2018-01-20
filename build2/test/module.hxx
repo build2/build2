@@ -17,8 +17,19 @@ namespace build2
 {
   namespace test
   {
-    struct module: module_base, virtual common, rule, alias_rule
+    struct module: module_base, virtual common, default_rule, group_rule
     {
+      const test::group_rule&
+      group_rule () const
+      {
+        return *this;
+      }
+
+      explicit
+      module (common_data&& d)
+          : common (move (d)),
+            test::default_rule (move (d)),
+            test::group_rule (move (d)) {}
     };
   }
 }

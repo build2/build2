@@ -104,6 +104,10 @@ namespace build2
   };
   using prerequisite_targets = vector<prerequisite_target>;
 
+  // A rule match is an element of hint_rule_map.
+  //
+  using rule_match = pair<const string, reference_wrapper<const rule>>;
+
   // Target.
   //
   class target
@@ -134,6 +138,15 @@ namespace build2
 
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
+
+    // A target that is not (yet) entered as part of a real dependency
+    // declaration (for example, that is entered as part of a target-specific
+    // variable assignment, dependency extraction, etc) is called implied.
+    //
+    // The implied flag should only be cleared during the load phase via the
+    // MT-safe target_set::insert().
+    //
+    bool implied;
 
     // Target group to which this target belongs, if any. Note that we assume
     // that the group and all its members are in the same scope (for example,
@@ -177,7 +190,6 @@ namespace build2
     // group_recipe for group members.
     //
     const target* group = nullptr;
-
 
     // What has been described above is a "normal" group. That is, there is
     // a dedicated target type that explicitly serves as a group and there
@@ -240,13 +252,11 @@ namespace build2
     }
 
   public:
-    using action_type = build2::action;
-
     // You should not call this function directly; rather use
     // resolve_group_members() from <build2/algorithm.hxx>.
     //
     virtual group_view
-    group_members (action_type) const;
+    group_members (action) const;
 
     // Note that the returned key "tracks" the target (except for the
     // extension).
@@ -395,17 +405,7 @@ namespace build2
     value&
     append (const variable&);
 
-    // A target that is not (yet) entered as part of a real dependency
-    // declaration (for example, that is entered as part of a target-specific
-    // variable assignment, dependency extraction, etc) is called implied.
-    //
-    // The implied flag should only be cleared during the load phase via the
-    // MT-safe target_set::insert().
-    //
-  public:
-    bool implied;
-
-    // Target state.
+    // Target operation state.
     //
   public:
     // Atomic task count that is used during match and execution to track the
@@ -419,10 +419,6 @@ namespace build2
     // automatically resetting the target to "not yet touched" state for this
     // operation.
     //
-    // For match we have a further complication in that we may re-match the
-    // target and override with a "stronger" recipe thus re-setting the state
-    // from, say, applied back to touched.
-    //
     // The target is said to be synchronized (in this thread) if we have
     // either observed the task count to reach applied or executed or we have
     // successfully changed it (via compare_exchange) to locked or busy. If
@@ -434,8 +430,7 @@ namespace build2
     static const size_t offset_matched  = 3; // Rule has been matched.
     static const size_t offset_applied  = 4; // Rule has been applied.
     static const size_t offset_executed = 5; // Recipe has been executed.
-    static const size_t offset_locked   = 6; // Fast (spin) lock.
-    static const size_t offset_busy     = 7; // Slow (wait) lock.
+    static const size_t offset_busy     = 6; // Match/execute in progress.
 
     static size_t count_base     () {return 5 * (current_on - 1);}
 
@@ -444,51 +439,70 @@ namespace build2
     static size_t count_matched  () {return offset_matched  + count_base ();}
     static size_t count_applied  () {return offset_applied  + count_base ();}
     static size_t count_executed () {return offset_executed + count_base ();}
-    static size_t count_locked   () {return offset_locked   + count_base ();}
     static size_t count_busy     () {return offset_busy     + count_base ();}
 
-    mutable atomic_count task_count {0}; // Start offset_touched - 1.
+    // Inner/outer operation state.
+    //
+    struct opstate
+    {
+      mutable atomic_count task_count {0}; // Start offset_touched - 1.
+
+      // Number of direct targets that depend on this target in the current
+      // operation. It is incremented during match and then decremented during
+      // execution, before running the recipe. As a result, the recipe can
+      // detect the last chance (i.e., last dependent) to execute the command
+      // (see also the first/last execution modes in <operation.hxx>).
+      //
+      mutable atomic_count dependents {0};
+
+      // Matched rule (pointer to hint_rule_map element). Note that in case of
+      // a direct recipe assignment we may not have a rule (NULL).
+      //
+      const rule_match* rule;
+
+      // Applied recipe.
+      //
+      build2::recipe recipe;
+
+      // Target state for this operation. Note that it is undetermined until
+      // a rule is matched and recipe applied (see set_recipe()).
+      //
+      target_state state;
+    };
+
+    action_state<opstate> state;
+
+    opstate&       operator[] (action a)       {return state[a];}
+    const opstate& operator[] (action a) const {return state[a];}
 
     // This function should only be called during match if we have observed
     // (synchronization-wise) that this target has been matched (i.e., the
     // rule has been applied) for this action.
     //
     target_state
-    matched_state (action a, bool fail = true) const;
+    matched_state (action, bool fail = true) const;
 
     // See try_match().
     //
     pair<bool, target_state>
-    try_matched_state (action a, bool fail = true) const;
+    try_matched_state (action, bool fail = true) const;
+
+    // After the target has been matched and synchronized, check if the target
+    // is known to be unchanged. Used for optimizations during search & match.
+    //
+    bool
+    unchanged (action a) const
+    {
+      return matched_state_impl (a).second == target_state::unchanged;
+    }
 
     // This function should only be called during execution if we have
     // observed (synchronization-wise) that this target has been executed.
     //
     target_state
-    executed_state (bool fail = true) const;
-
-    // This function should only be called between match and execute while
-    // running serially. It returns the group state for the "final" action
-    // that has been matched (and that will be executed).
-    //
-    target_state
-    serial_state (bool fail = true) const;
-
-    // Number of direct targets that depend on this target in the current
-    // operation. It is incremented during match and then decremented during
-    // execution, before running the recipe. As a result, the recipe can
-    // detect the last chance (i.e., last dependent) to execute the command
-    // (see also the first/last execution modes in <operation>).
-    //
-    mutable atomic_count dependents;
+    executed_state (action, bool fail = true) const;
 
   protected:
-    // Return fail-untranslated (but group-translated) state assuming the
-    // target is executed and synchronized.
-    //
-    target_state
-    state () const;
-
     // Version that should be used during match after the target has been
     // matched for this action (see the recipe override).
     //
@@ -496,51 +510,22 @@ namespace build2
     // result (see try_match()).
     //
     pair<bool, target_state>
-    state (action a) const;
+    matched_state_impl (action) const;
+
+    // Return fail-untranslated (but group-translated) state assuming the
+    // target is executed and synchronized.
+    //
+    target_state
+    executed_state_impl (action) const;
 
     // Return true if the state comes from the group. Target must be at least
     // matched.
     //
     bool
-    group_state () const;
+    group_state (action a) const;
 
-    // Raw state, normally not accessed directly.
-    //
   public:
-    target_state state_ = target_state::unknown;
-
-    // Recipe.
-    //
-  public:
-    using recipe_type = build2::recipe;
-    using rule_type = build2::rule;
-
-    action_type action; // Action the rule/recipe is for.
-
-    // Matched rule (pointer to hint_rule_map element). Note that in case of a
-    // direct recipe assignment we may not have a rule.
-    //
-    const pair<const string, reference_wrapper<const rule_type>>* rule;
-
-    // Applied recipe.
-    //
-    recipe_type recipe_;
-
-    // Note that the target must be locked in order to set the recipe.
-    //
-    void
-    recipe (recipe_type);
-
-    // After the target has been matched and synchronized, check if the target
-    // is known to be unchanged. Used for optimizations during search & match.
-    //
-    bool
-    unchanged (action_type a) const
-    {
-      return state (a).second == target_state::unchanged;
-    }
-
-    // Targets to which prerequisites resolve for this recipe. Note that
+    // Targets to which prerequisites resolve for this action. Note that
     // unlike prerequisite::target, these can be resolved to group members.
     // NULL means the target should be skipped (or the rule may simply not add
     // such a target to the list).
@@ -552,7 +537,7 @@ namespace build2
     //
     // Note that the recipe may modify this list.
     //
-    mutable build2::prerequisite_targets prerequisite_targets;
+    mutable action_state<build2::prerequisite_targets> prerequisite_targets;
 
     // Auxilary data storage.
     //
@@ -573,7 +558,8 @@ namespace build2
     //
     // Currenly the data is not destroyed until the next match.
     //
-    // Note that the recipe may modify the data.
+    // Note that the recipe may modify the data. Currently reserved for the
+    // inner part of the action.
     //
     static constexpr size_t data_size = sizeof (string) * 16;
     mutable std::aligned_storage<data_size>::type data_pad;
@@ -1330,9 +1316,13 @@ namespace build2
     // which racing updates happen because we do not modify the external state
     // (which is the source of timestemps) while updating the internal.
     //
+    // The modification time is reserved for the inner operation thus there is
+    // no action argument.
+    //
     // The rule for groups that utilize target_state::group is as follows: if
     // it has any members that are mtime_targets, then the group should be
-    // mtime_target and the members get the mtime from it.
+    // mtime_target and the members get the mtime from it. During match and
+    // execute the target should be synchronized.
     //
     // Note that this function can be called before the target is matched in
     // which case the value always comes from the target itself. In other

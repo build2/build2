@@ -243,12 +243,14 @@ namespace build2
     // Note: running serial and task_count is 0 before any operation has
     // started.
     //
-    if (size_t c = t.task_count.load (memory_order_relaxed))
+    action inner; // @@ Only for the inner part of the action currently.
+
+    if (size_t c = t[inner].task_count.load (memory_order_relaxed))
     {
       if (c == target::count_applied () || c == target::count_executed ())
       {
         bool f (false);
-        for (const target* pt: t.prerequisite_targets)
+        for (const target* pt: t.prerequisite_targets[inner])
         {
           if (pt == nullptr) // Skipped.
             continue;

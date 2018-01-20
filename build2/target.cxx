@@ -92,7 +92,7 @@ namespace build2
   }
 
   group_view target::
-  group_members (action_type) const
+  group_members (action) const
   {
     assert (false); // Not a group or doesn't expose its members.
     return group_view {nullptr, 0};
@@ -115,83 +115,6 @@ namespace build2
     const scope* r (base_scope ().root_scope ());
     assert (r != nullptr);
     return *r;
-  }
-
-  pair<bool, target_state> target::
-  state (action_type a) const
-  {
-    assert (phase == run_phase::match);
-
-    // The tricky aspect here is that we my be re-matching the target for
-    // another (overriding action). Since it is only valid to call this
-    // function after the target has been matched (for this action), we assume
-    // that if the target is busy, then it is being overriden (note that it
-    // cannot be being executed since we are in the match phase).
-    //
-    // But that's not the end of it: in case of a re-match the task count
-    // might have been reset to, say, applied. The only way to know for sure
-    // that there isn't another match "underneath" is to compare actions. But
-    // that can only be done safely if we lock the target. At least we will be
-    // quick (and we don't need to wait since if it's busy, we know it is a
-    // re-match). This logic is similar to lock_impl().
-    //
-    size_t b (target::count_base ());
-    size_t e (task_count.load (memory_order_acquire));
-
-    size_t exec (b + target::offset_executed);
-    size_t lock (b + target::offset_locked);
-    size_t busy (b + target::offset_busy);
-
-    for (;;)
-    {
-      for (; e == lock; e = task_count.load (memory_order_acquire))
-        this_thread::yield ();
-
-      if (e >= busy) // Override in progress.
-        return make_pair (true, target_state::unchanged);
-
-      // Unlike lock_impl(), we are only called after being matched for this
-      // action so if we see executed, then it means executed for this action
-      // (or noop).
-      //
-      if (e == exec)
-        return make_pair (true, group_state () ? group->state_ : state_);
-
-      // Try to grab the spin-lock.
-      //
-      if (task_count.compare_exchange_strong (
-            e,
-            lock,
-            memory_order_acq_rel,  // Synchronize on success.
-            memory_order_acquire)) // Synchronize on failure.
-      {
-        break;
-      }
-
-      // Task count changed, try again.
-    }
-
-    // We have the spin-lock. Quickly get the matched action and unlock.
-    //
-    action_type ma (action);
-    bool mf (state_ == target_state::failed);
-    task_count.store (e, memory_order_release);
-
-    if (ma > a) // Overriden.
-      return make_pair (true, // Override may have failed but we had the rule.
-                        mf ? target_state::failed: target_state::unchanged);
-
-    // Otherwise we should have a matched target.
-    //
-    assert (ma == a);
-
-    if (e == b + target::offset_tried)
-      return make_pair (false, target_state::unknown);
-    else
-    {
-      assert (e == b + target::offset_applied || e == exec);
-      return make_pair (true, group_state () ? group->state_ : state_);
-    }
   }
 
   pair<lookup, size_t> target::
@@ -519,26 +442,19 @@ namespace build2
     case run_phase::load: break;
     case run_phase::match:
       {
-        // Similar logic to state(action) except here we don't distinguish
-        // between original/overridden actions (an overridable action is by
-        // definition a noop and should never need to query the mtime).
+        // Similar logic to matched_state_impl().
         //
-        size_t c (task_count.load (memory_order_acquire)); // For group_state()
+        const opstate& s (state[action () /* inner */]);
+        size_t o (s.task_count.load (memory_order_relaxed) - // Synchronized.
+                  target::count_base ());
 
-        // Wait out the spin lock to get the meaningful count.
-        //
-        for (size_t lock (target::count_locked ());
-             c == lock;
-             c = task_count.load (memory_order_acquire))
-          this_thread::yield ();
-
-        if (c != target::count_applied () && c != target::count_executed ())
+        if (o != target::offset_applied && o != target::offset_executed)
           break;
       }
       // Fall through.
     case run_phase::execute:
       {
-        if (group_state ())
+        if (group_state (action () /* inner */))
           t = &group->as<mtime_target> ();
 
         break;

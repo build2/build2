@@ -33,7 +33,7 @@ namespace build2
   // Match can be interrupted with "exclusive load" in order to load
   // additional buildfiles. Similarly, it can be interrupted with (parallel)
   // execute in order to build targetd required to complete the match (for
-  // example, generated source code or source code generators themselves.
+  // example, generated source code or source code generators themselves).
   //
   // Such interruptions are performed by phase change that is protected by
   // phase_mutex (which is also used to synchronize the state changes between

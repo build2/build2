@@ -1,9 +1,9 @@
-// file      : build2/cc/compile.hxx -*- C++ -*-
+// file      : build2/cc/compile-rule.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CC_COMPILE_HXX
-#define BUILD2_CC_COMPILE_HXX
+#ifndef BUILD2_CC_COMPILE_RULE_HXX
+#define BUILD2_CC_COMPILE_RULE_HXX
 
 #include <libbutl/path-map.mxx>
 
@@ -37,12 +37,12 @@ namespace build2
       size_t copied;   // First copied-over bmi*{}, 0 if none.
     };
 
-    class compile: public rule, virtual common
+    class compile_rule: public rule, virtual common
     {
     public:
-      compile (data&&);
+      compile_rule (data&&);
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe
@@ -61,14 +61,16 @@ namespace build2
       void
       append_lib_options (const scope&,
                           cstrings&,
+                          action,
                           const target&,
-                          action, linfo) const;
+                          linfo) const;
 
       void
       hash_lib_options (const scope&,
                         sha256&,
+                        action,
                         const target&,
-                        action, linfo) const;
+                        linfo) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
@@ -97,11 +99,12 @@ namespace build2
       void
       append_lib_prefixes (const scope&,
                            prefix_map&,
+                           action,
                            target&,
-                           action, linfo) const;
+                           linfo) const;
 
       prefix_map
-      build_prefix_map (const scope&, target&, action, linfo) const;
+      build_prefix_map (const scope&, action, target&, linfo) const;
 
       // Reverse-lookup target type from extension.
       //
@@ -134,7 +137,7 @@ namespace build2
 
       void
       append_modules (environment&, cstrings&, strings&,
-                      const file&, const match_data&) const;
+                      action, const file&, const match_data&) const;
 
       // Language selection option (for VC) or the value for the -x option.
       //
@@ -150,4 +153,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_CC_COMPILE_HXX
+#endif // BUILD2_CC_COMPILE_RULE_HXX

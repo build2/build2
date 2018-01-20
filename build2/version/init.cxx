@@ -27,8 +27,8 @@ namespace build2
   {
     static const path manifest ("manifest");
 
-    static const version_doc version_doc_;
-    static const version_in version_in_;
+    static const doc_rule doc_rule_;
+    static const in_rule in_rule_;
 
     bool
     boot (scope& rs, const location& l, unique_ptr<module_base>& mod)
@@ -311,13 +311,13 @@ namespace build2
       {
         auto& r (rs.rules);
 
-        r.insert<doc> (perform_update_id,   "version.doc", version_doc_);
-        r.insert<doc> (perform_clean_id,    "version.doc", version_doc_);
-        r.insert<doc> (configure_update_id, "version.doc", version_doc_);
+        r.insert<doc> (perform_update_id,   "version.doc", doc_rule_);
+        r.insert<doc> (perform_clean_id,    "version.doc", doc_rule_);
+        r.insert<doc> (configure_update_id, "version.doc", doc_rule_);
 
-        r.insert<file> (perform_update_id,   "version.in", version_in_);
-        r.insert<file> (perform_clean_id,    "version.in", version_in_);
-        r.insert<file> (configure_update_id, "version.in", version_in_);
+        r.insert<file> (perform_update_id,   "version.in", in_rule_);
+        r.insert<file> (perform_clean_id,    "version.in", in_rule_);
+        r.insert<file> (configure_update_id, "version.in", in_rule_);
       }
 
       return true;

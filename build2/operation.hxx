@@ -52,9 +52,6 @@ namespace build2
   {
     action (): inner_id (0), outer_id (0) {} // Invalid action.
 
-    bool
-    valid () const {return inner_id != 0;}
-
     // If this is not a nested operation, then outer should be 0.
     //
     action (meta_operation_id m, operation_id inner, operation_id outer = 0)
@@ -69,6 +66,9 @@ namespace build2
 
     operation_id
     outer_operation () const {return outer_id & 0xF;}
+
+    bool inner () const {return outer_id == 0;}
+    bool outer () const {return outer_id != 0;}
 
     // Implicit conversion operator to action_id for the switch() statement,
     // etc. Most places only care about the inner operation.
@@ -88,23 +88,24 @@ namespace build2
   inline bool
   operator!= (action x, action y) {return !(x == y);}
 
-  // This is an "overrides" comparison, i.e., it returns true if the recipe
-  // for x overrides recipe for y. The idea is that for the same inner
-  // operation, action with an outer operation is "weaker" than the one
-  // without.
-  //
-  inline bool
-  operator> (action x, action y)
-  {
-    return x.inner_id != y.inner_id ||
-      (x.outer_id != y.outer_id && y.outer_id != 0);
-  }
-
-  inline bool
-  operator>= (action x, action y) {return x == y || x > y;}
+  bool operator>  (action, action) = delete;
+  bool operator<  (action, action) = delete;
+  bool operator>= (action, action) = delete;
+  bool operator<= (action, action) = delete;
 
   ostream&
   operator<< (ostream&, action);
+
+  // Inner/outer operation state container.
+  //
+  template <typename T>
+  struct action_state
+  {
+    T states[2]; // [0] -- inner, [1] -- outer.
+
+    T&       operator[] (action a)       {return states[a.inner () ? 0 : 1];}
+    const T& operator[] (action a) const {return states[a.inner () ? 0 : 1];}
+  };
 
   // Id constants for build-in and pre-defined meta/operations.
   //

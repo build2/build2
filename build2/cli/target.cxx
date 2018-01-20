@@ -33,7 +33,7 @@ namespace build2
     // cli.cxx
     //
     group_view cli_cxx::
-    group_members (action_type) const
+    group_members (action) const
     {
       static_assert (sizeof (cli_cxx_members) == sizeof (const target*) * 3,
                      "member layout incompatible with array");

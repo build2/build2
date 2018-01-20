@@ -39,10 +39,10 @@ target as a test along with passing options and arguments, providing the
 result. For example:
 
 \
+exe{hello}: file{names.txt}: test.stdin = true
+exe{hello}: file{greetings.txt}: test.stdout = true
 exe{hello}: test.options   = --greeting 'Hi'
 exe{hello}: test.arguments = - # Read names from stdin.
-exe{hello}: test.input     = names.txt
-exe{hello}: test.output    = greetings.txt
 \
 
 This works well for simple, single-run tests. If, however, our testing

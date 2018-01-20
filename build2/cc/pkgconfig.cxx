@@ -26,8 +26,8 @@
 #include <build2/cc/utility.hxx>
 
 #include <build2/cc/common.hxx>
-#include <build2/cc/compile.hxx>
-#include <build2/cc/link.hxx>
+#include <build2/cc/compile-rule.hxx>
+#include <build2/cc/link-rule.hxx>
 
 using namespace std;
 using namespace butl;
@@ -451,7 +451,7 @@ namespace build2
     //
 #ifndef BUILD2_BOOTSTRAP
     bool common::
-    pkgconfig_load (action act,
+    pkgconfig_load (action a,
                     const scope& s,
                     lib& lt,
                     liba* at,
@@ -592,12 +592,13 @@ namespace build2
       // Extract --cflags and set them as lib?{}:export.poptions. Note that we
       // still pass --static in case this is pkgconf which has Cflags.private.
       //
-      auto parse_cflags = [&trace, this] (target& t, const pkgconf& pc, bool a)
+      auto parse_cflags =
+        [&trace, this] (target& t, const pkgconf& pc, bool la)
       {
         strings pops;
 
         bool arg (false);
-        for (auto& o: pc.cflags (a))
+        for (auto& o: pc.cflags (la))
         {
           if (arg)
           {
@@ -646,8 +647,8 @@ namespace build2
       // Parse --libs into loptions/libs (interface and implementation). If
       // ps is not NULL, add each resolves library target as a prerequisite.
       //
-      auto parse_libs = [act, &s, top_sysd, this]
-        (target& t, const pkgconf& pc, bool a, prerequisites* ps)
+      auto parse_libs = [a, &s, top_sysd, this]
+        (target& t, const pkgconf& pc, bool la, prerequisites* ps)
       {
         strings lops;
         vector<name> libs;
@@ -664,7 +665,7 @@ namespace build2
         // library names (without -l) after seeing an unknown option.
         //
         bool arg (false), first (true), known (true), have_L;
-        for (auto& o: pc.libs (a))
+        for (auto& o: pc.libs (la))
         {
           if (arg)
           {
@@ -726,10 +727,10 @@ namespace build2
 
         // Space-separated list of escaped library flags.
         //
-        auto lflags = [&pc, a] () -> string
+        auto lflags = [&pc, la] () -> string
         {
           string r;
-          for (const auto& o: pc.libs (a))
+          for (const auto& o: pc.libs (la))
           {
             if (!r.empty ())
               r += ' ';
@@ -831,7 +832,7 @@ namespace build2
           prerequisite_key pk {
             nullopt, {&lib::static_type, &out, &out, &name, nullopt}, &s};
 
-          if (const target* lt = search_library (act, top_sysd, usrd, pk))
+          if (const target* lt = search_library (a, top_sysd, usrd, pk))
           {
             // We used to pick a member but that doesn't seem right since the
             // same target could be used with different link orders.
@@ -1112,8 +1113,8 @@ namespace build2
 
 #endif
 
-    void link::
-    pkgconfig_save (action act, const file& l, bool la) const
+    void link_rule::
+    pkgconfig_save (action a, const file& l, bool la) const
     {
       tracer trace (x, "pkgconfig_save");
 
@@ -1258,7 +1259,7 @@ namespace build2
         os << " -L" << escape (ld.string ());
 
         // Now process ourselves as if we were being linked to something (so
-        // pretty similar to link::append_libraries()).
+        // pretty similar to link_rule::append_libraries()).
         //
         bool priv (false);
         auto imp = [&priv] (const file&, bool la) {return priv && la;};
@@ -1307,7 +1308,7 @@ namespace build2
         //
         linfo li {otype::e, la ? lorder::a_s : lorder::s_a};
 
-        process_libraries (act, bs, li, sys_lib_dirs,
+        process_libraries (a, bs, li, sys_lib_dirs,
                            l, la, 0, // Link flags.
                            imp, lib, opt, true);
         os << endl;
@@ -1317,7 +1318,7 @@ namespace build2
           os << "Libs.private:";
 
           priv = true;
-          process_libraries (act, bs, li, sys_lib_dirs,
+          process_libraries (a, bs, li, sys_lib_dirs,
                              l, la, 0, // Link flags.
                              imp, lib, opt, false);
           os << endl;
@@ -1339,7 +1340,7 @@ namespace build2
           };
           vector<module> modules;
 
-          for (const target* pt: l.prerequisite_targets)
+          for (const target* pt: l.prerequisite_targets[a])
           {
             // @@ UTL: we need to (recursively) see through libux{} (and
             //    also in search_modules()).
@@ -1354,7 +1355,7 @@ namespace build2
               // the first mxx{} target that we see.
               //
               const target* mt (nullptr);
-              for (const target* t: pt->prerequisite_targets)
+              for (const target* t: pt->prerequisite_targets[a])
               {
                 if ((mt = t->is_a (*x_mod)))
                   break;

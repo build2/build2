@@ -23,38 +23,66 @@ namespace build2
 {
   namespace test
   {
-    struct match_data
+    bool rule::
+    match (action, target&, const string&) const
     {
-      bool pass; // Pass-through to prerequsites (for alias only).
-      bool test;
+      // We always match, even if this target is not testable (so that we can
+      // ignore it; see apply()).
+      //
+      return true;
+    }
 
-      bool script;
-    };
-
-    static_assert (sizeof (match_data) <= target::data_size,
-                   "insufficient space");
-
-    match_result rule_common::
-    match (action a, target& t, const string&) const
+    recipe rule::
+    apply (action a, target& t) const
     {
-      // The (admittedly twisted) logic of this rule tries to achieve the
-      // following: If the target is testable, then we want both first update
-      // it and then test it. Otherwise, we want to ignore it for both
-      // operations. To achieve this the rule will be called to match during
-      // both operations. For update, if the target is not testable, then the
-      // rule matches with a noop recipe. If the target is testable, then the
-      // rule also matches but delegates to the real update rule. In this case
-      // (and this is tricky) the rule also changes the operation to
-      // unconditional update to make sure it doesn't match any prerequisites
-      // (which, if not testable, it will noop).
+      // Note that we are called both as the outer part during the "update for
+      // test" pre-operation and as the inner part during the test operation
+      // itself.
+      //
+      // In both cases we first determine if the target is testable and return
+      // noop if it's not. Otherwise, in the first case (update for test) we
+      // delegate to the normal update and in the second (test) -- perform the
+      // test.
       //
       // And to add a bit more complexity, we want to handle aliases slightly
       // differently: we may not want to ignore their prerequisites if the
       // alias is not testable since their prerequisites could be.
+      //
+      // Here is the state matrix:
+      //
+      //                         test'able      |  pass'able  |  neither
+      //                                        |             |
+      // update for test     delegate (& pass)  |    pass     |   noop
+      // ---------------------------------------+-------------+---------
+      //            test     test     (& pass)  |    pass     |   noop
+      //
 
-      match_data md {t.is_a<alias> () && pass (t), false, false};
+      // If we are passing-through, then match our prerequisites.
+      //
+      // Note that we may already have stuff in prerequisite_targets (see
+      // group_rule).
+      //
+      if (t.is_a<alias> () && pass (t))
+      {
+        // For the test operation we have to implement our own search and
+        // match because we need to ignore prerequisites that are outside of
+        // our project. They can be from projects that don't use the test
+        // module (and thus won't have a suitable rule). Or they can be from
+        // no project at all (e.g., installed). Also, generally, not testing
+        // stuff that's not ours seems right.
+        //
+        match_prerequisites (a, t, t.root_scope ());
+      }
 
-      if (test (t))
+      auto& pts (t.prerequisite_targets[a]);
+      size_t pass_n (pts.size ()); // Number of pass-through prerequisites.
+
+      // See if it's testable and if so, what kind.
+      //
+      bool test   (false);
+      bool script (false);
+
+      if (this->test (t))
       {
         // We have two very different cases: testscript and simple test (plus
         // it may not be a testable target at all). So as the first step
@@ -75,292 +103,223 @@ namespace build2
         {
           if (p.is_a<testscript> ())
           {
-            md.script = true;
+            if (!script)
+            {
+              script = true;
 
-            // We treat this target as testable unless the test variable is
-            // explicitly set to false.
+              // We treat this target as testable unless the test variable is
+              // explicitly set to false.
+              //
+              const name* n (cast_null<name> (t[var_test]));
+              test = (n == nullptr || !n->simple () || n->value != "false");
+
+              if (!test)
+                break;
+            }
+
+            // If this is the test operation, collect testscripts after the
+            // pass-through prerequisites.
             //
-            const name* n (cast_null<name> (t["test"]));
-            md.test = n == nullptr || !n->simple () || n->value != "false";
-            break;
+            // Note that we don't match nor execute them relying on update to
+            // assign their paths and make sure they are up to date.
+            //
+            if (a.operation () != test_id)
+              break;
+
+            pts.push_back (&p.search (t));
           }
         }
 
         // If this is not a script, then determine if it is a simple test.
-        // Ignore aliases and testscripts files themselves at the outset.
+        // Ignore aliases and testscript files themselves at the outset.
         //
-        if (!md.script && !t.is_a<alias> () && !t.is_a<testscript> ())
+        if (!script && !t.is_a<alias> () && !t.is_a<testscript> ())
         {
           // For the simple case whether this is a test is controlled by the
           // test variable. Also, it feels redundant to specify, say, "test =
-          // true" and "test.output = test.out" -- the latter already says this
+          // true" and "test.stdout = test.out" -- the latter already says this
           // is a test.
           //
+          const name* n (cast_null<name> (t[var_test]));
 
-          // Use lookup depths to figure out who "overrides" whom.
+          // If the test variable is explicitly set to false then we treat
+          // it as not testable regardless of what other test.* variables
+          // or prerequisites we might have.
           //
-          auto p (t.find (var_pool["test"]));
-          const name* n (cast_null<name> (p.first));
-
-          // Note that test can be set to an "override" target.
+          // Note that the test variable can be set to an "override" target
+          // (which means 'true' for our purposes).
           //
-          if (n != nullptr && (!n->simple () || n->value != "false"))
-            md.test = true;
+          if (n != nullptr && n->simple () && n->value == "false")
+            test = false;
           else
           {
-            auto test = [&t, &p] (const char* var)
+            // Look for test input/stdin/stdout prerequisites. The same
+            // group logic as in the testscript case above.
+            //
+            for (prerequisite_member p:
+                   group_prerequisite_members (a, t, members_mode::maybe))
             {
-              return t.find (var_pool[var]).second < p.second;
-            };
+              const auto& vars (p.prerequisite.vars);
 
-            md.test =
-              test ("test.input")     ||
-              test ("test.output")    ||
-              test ("test.roundtrip") ||
-              test ("test.options")   ||
-              test ("test.arguments");
+              if (vars.empty ()) // Common case.
+                continue;
+
+              bool rt (      cast_false<bool> (vars[test_roundtrip]));
+              bool si (rt || cast_false<bool> (vars[test_stdin]));
+              bool so (rt || cast_false<bool> (vars[test_stdout]));
+              bool in (      cast_false<bool> (vars[test_input]));
+
+              if (si || so || in)
+              {
+                // Note that we don't match nor execute them relying on update
+                // to assign their paths and make sure they are up to date.
+                //
+                const target& pt (p.search (t));
+
+                // Verify it is file-based.
+                //
+                if (!pt.is_a<file> ())
+                {
+                  fail << "test." << (si ? "stdin" : so ? "stdout" : "input")
+                       << " prerequisite " << p << " of target " << t
+                       << " is not a file";
+                }
+
+                if (!test)
+                {
+                  test = true;
+
+                  if (a.operation () != test_id)
+                    break;
+
+                  // First matching prerequisite. Establish the structure in
+                  // pts: the first element (after pass_n) is stdin (can be
+                  // NULL), the second is stdout (can be NULL), and everything
+                  // after that (if any) is inputs.
+                  //
+                  pts.push_back (nullptr); // stdin
+                  pts.push_back (nullptr); // stdout
+                }
+
+                if (si)
+                {
+                  if (pts[pass_n] != nullptr)
+                    fail << "multiple test.stdin prerequisites for target "
+                         << t;
+
+                  pts[pass_n] = &pt;
+                }
+
+                if (so)
+                {
+                  if (pts[pass_n + 1] != nullptr)
+                    fail << "multiple test.stdout prerequisites for target "
+                         << t;
+
+                  pts[pass_n + 1] = &pt;
+                }
+
+                if (in)
+                  pts.push_back (&pt);
+              }
+            }
+
+            if (!test)
+              test = (n != nullptr); // We have the test variable.
+
+            if (!test)
+              test = t[test_options] || t[test_arguments];
           }
         }
       }
 
-      match_result mr (true);
-
-      // Theoretically if this target is testable and this is the update
-      // pre-operation, then all we need to do is say we are not a match and
-      // the standard matching machinery will find the rule to update this
-      // target. The problem with this approach is that the matching will
-      // still happen for "update for test" which means this rule may still
-      // match prerequisites (e.g., non-existent files) which we don't want.
+      // Neither testing nor passing-through.
       //
-      // Also, for the simple case there is one more complication: test
-      // input/output. While normally they will be existing (in src_base)
-      // files, they could also be auto-generated. In fact, they could only be
-      // needed for testing, which means the normall update won't even know
-      // about them (nor clean, for that matter; this is why we need
-      // cleantest).
-      //
-      // @@ Maybe we should just say if input/output are generated, then they
-      //    must be explicitly listed as prerequisites? Then no need for
-      //    cleantest but they will be updated even when not needed.
-      //
-      // To make generated input/output work we will have to cause their
-      // update ourselves. In other words, we may have to do some actual work
-      // for (update, test), and not simply "guide" (update, 0) as to which
-      // targets need updating. For how exactly we are going to do it, see
-      // apply() below.
-
-      // Change the recipe action to (update, 0) (i.e., "unconditional
-      // update") for "leaf" tests to make sure we won't match any
-      // prerequisites. Note that this doesn't cover the case where an alias
-      // is both a test and a pass for a test prerequisite with generated
-      // input/output.
-      //
-      if (a.operation () == update_id && md.test)
-        mr.recipe_action = action (a.meta_operation (), update_id);
-
-      // Note that we match even if this target is not testable so that we can
-      // ignore it (see apply()).
-      //
-      t.data (md); // Save the data in the target's auxilary storage.
-      return mr;
-    }
-
-    recipe alias_rule::
-    apply (action a, target& t) const
-    {
-      match_data md (move (t.data<match_data> ()));
-      t.clear_data (); // In case delegated-to rule also uses aux storage.
-
-      // We can only test an alias via a testscript, not a simple test.
-      //
-      assert (!md.test || md.script);
-
-      if (!md.pass && !md.test)
+      if (!test && pass_n == 0)
         return noop_recipe;
 
-      // If this is the update pre-operation then simply redirect to the
-      // standard alias rule.
+      // If we are only passing-through, then use the default recipe (which
+      // will execute all the matched prerequisites).
+      //
+      if (!test)
+        return default_recipe;
+
+      // Being here means we are definitely testing and maybe passing-through.
       //
       if (a.operation () == update_id)
-        return match_delegate (a, t, *this);
-
-      // For the test operation we have to implement our own search and match
-      // because we need to ignore prerequisites that are outside of our
-      // project. They can be from projects that don't use the test module
-      // (and thus won't have a suitable rule). Or they can be from no project
-      // at all (e.g., installed). Also, generally, not testing stuff that's
-      // not ours seems right. Note that we still want to make sure they are
-      // up to date (via the above delegate) since our tests might use them.
-      //
-      match_prerequisites (a, t, t.root_scope ());
-
-      // If not a test then also redirect to the alias rule.
-      //
-      return md.test
-        ? [this] (action a, const target& t) {return perform_test (a, t);}
-        : default_recipe;
-    }
-
-    recipe rule::
-    apply (action a, target& t) const
-    {
-      tracer trace ("test::rule::apply");
-
-      match_data md (move (t.data<match_data> ()));
-      t.clear_data (); // In case delegated-to rule also uses aux storage.
-
-      if (!md.test)
-        return noop_recipe;
-
-      // If we are here, then the target is testable and the action is either
-      //   a. (perform, test, 0) or
-      //   b. (*, update, 0)
-      //
-      if (md.script)
       {
-        if (a.operation () == update_id)
-          return match_delegate (a, t, *this);
-
-        // Collect all the testscript targets in prerequisite_targets.
+        // For the update pre-operation match the inner rule (actual update).
+        // Note that here we assume it will update (if required) all the
+        // testscript and input/output prerequisites.
         //
-        for (prerequisite_member p:
-               group_prerequisite_members (a, t, members_mode::maybe))
-        {
-          if (p.is_a<testscript> ())
-            t.prerequisite_targets.push_back (&p.search (t));
-        }
-
-        return [this] (action a, const target& t)
-        {
-          return perform_script (a, t);
-        };
+        match_inner (a, t);
+        return &perform_update;
       }
       else
       {
-        // In both cases, the next step is to see if we have test.{input,
-        // output,roundtrip}.
-        //
-
-        // We should have either arguments or input/roundtrip. Again, use
-        // lookup depth to figure out who takes precedence.
-        //
-        auto ip (t.find (var_pool["test.input"]));
-        auto op (t.find (var_pool["test.output"]));
-        auto rp (t.find (var_pool["test.roundtrip"]));
-        auto ap (t.find (var_pool["test.arguments"]));
-
-        auto test = [&t] (pair<lookup, size_t>& x, const char* xn,
-                          pair<lookup, size_t>& y, const char* yn)
+        if (script)
         {
-          if (x.first && y.first)
+          return [pass_n, this] (action a, const target& t)
           {
-            if (x.second == y.second)
-              fail << "both " << xn << " and " << yn << " specified for "
-                   << "target " << t;
-
-            (x.second < y.second ? y : x) = make_pair (lookup (), size_t (~0));
-          }
-        };
-
-        test (ip, "test.input",     ap, "test.arguments");
-        test (rp, "test.roundtrip", ap, "test.arguments");
-        test (ip, "test.input",     rp, "test.roundtrip");
-        test (op, "test.output",    rp, "test.roundtrip");
-
-        const name* in;
-        const name* on;
-
-        // Reduce the roundtrip case to input/output.
-        //
-        if (rp.first)
-        {
-          in = on = &cast<name> (rp.first);
-        }
-        else
-        {
-          in = ip.first ? &cast<name> (ip.first) : nullptr;
-          on = op.first ? &cast<name> (op.first) : nullptr;
-        }
-
-        // Resolve them to targets, which normally would be existing files
-        // but could also be targets that need updating.
-        //
-        const scope& bs (t.base_scope ());
-
-        // @@ OUT: what if this is a @-qualified pair or names?
-        //
-        const target* it (in != nullptr ? &search (t, *in, bs) : nullptr);
-        const target* ot (on != nullptr
-                          ? in == on ? it : &search (t, *on, bs)
-                          : nullptr);
-
-        if (a.operation () == update_id)
-        {
-          // First see if input/output are existing, up-to-date files. This
-          // is a common case optimization.
-          //
-          if (it != nullptr)
-          {
-            if (build2::match (a, *it, unmatch::unchanged))
-              it = nullptr;
-          }
-
-          if (ot != nullptr)
-          {
-            if (in != on)
-            {
-              if (build2::match (a, *ot, unmatch::unchanged))
-                ot = nullptr;
-            }
-            else
-              ot = it;
-          }
-
-          // Find the "real" update rule, that is, the rule that would have
-          // been found if we signalled that we do not match from match()
-          // above.
-          //
-          recipe d (match_delegate (a, t, *this));
-
-          // If we have no input/output that needs updating, then simply
-          // redirect to it.
-          //
-          if (it == nullptr && ot == nullptr)
-            return d;
-
-          // Ok, time to handle the worst case scenario: we need to cause
-          // update of input/output targets and also delegate to the real
-          // update.
-          //
-          return [it, ot, dr = move (d)] (
-            action a, const target& t) -> target_state
-          {
-            // Do the general update first.
-            //
-            target_state r (execute_delegate (dr, a, t));
-
-            const target* ts[] = {it, ot};
-            return r |= straight_execute_members (a, t, ts);
+            return perform_script (a, t, pass_n);
           };
         }
         else
         {
-          // Cache the targets in our prerequsite targets lists where they can
-          // be found by perform_test(). If we have either or both, then the
-          // first entry is input and the second -- output (either can be
-          // NULL).
-          //
-          if (it != nullptr || ot != nullptr)
+          return [pass_n, this] (action a, const target& t)
           {
-            auto& pts (t.prerequisite_targets);
-            pts.resize (2, nullptr);
-            pts[0] = it;
-            pts[1] = ot;
-          }
-
-          return &perform_test;
+            return perform_test (a, t, pass_n);
+          };
         }
       }
+    }
+
+    recipe group_rule::
+    apply (action a, target& t) const
+    {
+      // Resolve group members.
+      //
+      // Remember that we are called twice: first during update for test
+      // (pre-operation) and then during test. During the former, we rely on
+      // the normall update rule to resolve the group members. During the
+      // latter, there will be no rule to do this but the group will already
+      // have been resolved by the pre-operation.
+      //
+      // If the rule could not resolve the group, then we ignore it.
+      //
+      group_view gv (a.outer ()
+                     ? resolve_group_members (a, t)
+                     : t.group_members (a));
+
+      if (gv.members != nullptr)
+      {
+        auto& pts (t.prerequisite_targets[a]);
+        for (size_t i (0); i != gv.count; ++i)
+        {
+          if (const target* m = gv.members[i])
+            pts.push_back (m);
+        }
+
+        match_members (a, t, pts);
+      }
+
+      // Delegate to the base rule.
+      //
+      return rule::apply (a, t);
+    }
+
+    target_state rule::
+    perform_update (action a, const target& t)
+    {
+      // First execute the inner recipe, then, if passing-through, execute
+      // prerequisites.
+      //
+      target_state ts (execute_inner (a, t));
+
+      if (t.prerequisite_targets[a].size () != 0)
+        ts |= straight_execute_prerequisites (a, t);
+
+      return ts;
     }
 
     static script::scope_state
@@ -404,31 +363,33 @@ namespace build2
       return r;
     }
 
-    target_state rule_common::
-    perform_script (action, const target& t) const
+    target_state rule::
+    perform_script (action a, const target& t, size_t pass_n) const
     {
+      // First pass through.
+      //
+      if (pass_n != 0)
+        straight_execute_prerequisites (a, t, pass_n);
+
       // Figure out whether the testscript file is called 'testscript', in
       // which case it should be the only one.
       //
+      auto& pts (t.prerequisite_targets[a]);
+      size_t pts_n (pts.size ());
+
       bool one;
-      size_t count (0);
       {
         optional<bool> o;
-        for (const target* pt: t.prerequisite_targets)
+        for (size_t i (pass_n); i != pts_n; ++i)
         {
-          // In case we are using the alias rule's list (see above).
-          //
-          if (const testscript* ts = pt->is_a<testscript> ())
-          {
-            count++;
+          const testscript& ts (*pts[i]->is_a<testscript> ());
 
-            bool r (ts->name == "testscript");
+          bool r (ts.name == "testscript");
 
-            if ((r && o) || (!r && o && *o))
-              fail << "both 'testscript' and other names specified for " << t;
+          if ((r && o) || (!r && o && *o))
+            fail << "both 'testscript' and other names specified for " << t;
 
-            o = r;
-          }
+          o = r;
         }
 
         assert (o); // We should have a testscript or we wouldn't be here.
@@ -487,57 +448,56 @@ namespace build2
 
       // Start asynchronous execution of the testscripts.
       //
-      wait_guard wg (target::count_busy (), t.task_count);
+      wait_guard wg (target::count_busy (), t[a].task_count);
 
       // Result vector.
       //
       using script::scope_state;
 
       vector<scope_state> result;
-      result.reserve (count); // Make sure there are no reallocations.
+      result.reserve (pts_n - pass_n); // Make sure there are no reallocations.
 
-      for (const target* pt: t.prerequisite_targets)
+      for (size_t i (pass_n); i != pts_n; ++i)
       {
-        if (const testscript* ts = pt->is_a<testscript> ())
+        const testscript& ts (*pts[i]->is_a<testscript> ());
+
+        // If this is just the testscript, then its id path is empty (and it
+        // can only be ignored by ignoring the test target, which makes sense
+        // since it's the only testscript file).
+        //
+        if (one || test (t, path (ts.name)))
         {
-          // If this is just the testscript, then its id path is empty (and it
-          // can only be ignored by ignoring the test target, which makes
-          // sense since it's the only testscript file).
-          //
-          if (one || test (t, path (ts->name)))
+          if (mk)
           {
-            if (mk)
-            {
-              mkdir (wd, 2);
-              mk = false;
-            }
+            mkdir (wd, 2);
+            mk = false;
+          }
 
-            result.push_back (scope_state::unknown);
-            scope_state& r (result.back ());
+          result.push_back (scope_state::unknown);
+          scope_state& r (result.back ());
 
-            if (!sched.async (target::count_busy (),
-                              t.task_count,
-                              [this] (scope_state& r,
-                                      const target& t,
-                                      const testscript& ts,
-                                      const dir_path& wd,
-                                      const diag_frame* ds)
-                              {
-                                diag_frame df (ds);
-                                r = perform_script_impl (t, ts, wd, *this);
-                              },
-                              ref (r),
-                              cref (t),
-                              cref (*ts),
-                              cref (wd),
-                              diag_frame::stack))
-            {
-              // Executed synchronously. If failed and we were not asked to
-              // keep going, bail out.
-              //
-              if (r == scope_state::failed && !keep_going)
-                throw failed ();
-            }
+          if (!sched.async (target::count_busy (),
+                            t[a].task_count,
+                            [this] (scope_state& r,
+                                    const target& t,
+                                    const testscript& ts,
+                                    const dir_path& wd,
+                                    const diag_frame* ds)
+                            {
+                              diag_frame df (ds);
+                              r = perform_script_impl (t, ts, wd, *this);
+                            },
+                            ref (r),
+                            cref (t),
+                            cref (ts),
+                            cref (wd),
+                            diag_frame::stack))
+          {
+            // Executed synchronously. If failed and we were not asked to keep
+            // going, bail out.
+            //
+            if (r == scope_state::failed && !keep_going)
+              throw failed ();
           }
         }
       }
@@ -597,28 +557,15 @@ namespace build2
 
       try
       {
-        if (prev == nullptr)
-        {
-          // First process.
-          //
-          process p (args, 0, out);
-          pr = *next == nullptr || run_test (t, dr, next, &p);
-          p.wait ();
+        process p (prev == nullptr
+                   ? process (args, 0, out)       // First process.
+                   : process (args, *prev, out)); // Next process.
 
-          assert (p.exit);
-          pe = *p.exit;
-        }
-        else
-        {
-          // Next process.
-          //
-          process p (args, *prev, out);
-          pr = *next == nullptr || run_test (t, dr, next, &p);
-          p.wait ();
+        pr = *next == nullptr || run_test (t, dr, next, &p);
+        p.wait ();
 
-          assert (p.exit);
-          pe = *p.exit;
-        }
+        assert (p.exit);
+        pe = *p.exit;
       }
       catch (const process_error& e)
       {
@@ -646,10 +593,12 @@ namespace build2
     }
 
     target_state rule::
-    perform_test (action, const target& tt)
+    perform_test (action a, const target& tt, size_t pass_n) const
     {
-      // @@ Would be nice to print what signal/core was dumped.
+      // First pass through.
       //
+      if (pass_n != 0)
+        straight_execute_prerequisites (a, tt, pass_n);
 
       // See if we have the test executable override.
       //
@@ -657,7 +606,7 @@ namespace build2
       {
         // Note that the test variable's visibility is target.
         //
-        lookup l (tt["test"]);
+        lookup l (tt[var_test]);
 
         // Note that we have similar code for scripted tests.
         //
@@ -686,7 +635,7 @@ namespace build2
           {
             // Must be a target name.
             //
-            // @@ OUT: what if this is a @-qualified pair or names?
+            // @@ OUT: what if this is a @-qualified pair of names?
             //
             t = search_existing (*n, tt.base_scope ());
 
@@ -722,41 +671,74 @@ namespace build2
         }
       }
 
-      process_path pp (run_search (p, true));
-      cstrings args {pp.recall_string ()};
-
-      // Do we have options?
+      // See apply() for the structure of prerequisite_targets in the presence
+      // of test.{input,stdin,stdout}.
       //
-      if (auto l = tt["test.options"])
+      auto& pts (tt.prerequisite_targets[a]);
+      size_t pts_n (pts.size ());
+
+      cstrings args;
+
+      // Do we have stdin?
+      //
+      // We simulate stdin redirect (<file) with a fake (already terminate)
+      // cat pipe (cat file |).
+      //
+      bool stdin (pass_n != pts_n && pts[pass_n] != nullptr);
+
+      process cat;
+      if (stdin)
+      {
+        const file& it (pts[pass_n]->as<file> ());
+        const path& ip (it.path ());
+        assert (!ip.empty ()); // Should have been assigned by update.
+
+        try
+        {
+          cat.in_ofd = fdopen (ip, fdopen_mode::in);
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to open " << ip << ": " << e;
+        }
+
+        // Purely for diagnostics.
+        //
+        args.push_back ("cat");
+        args.push_back (ip.string ().c_str ());
+        args.push_back (nullptr);
+      }
+
+      process_path pp (run_search (p, true));
+      args.push_back (pp.recall_string ());
+
+      // Do we have options and/or arguments?
+      //
+      if (auto l = tt[test_options])
         append_options (args, cast<strings> (l));
 
-      // Do we have input?
+      if (auto l = tt[test_arguments])
+        append_options (args, cast<strings> (l));
+
+      // Do we have inputs?
       //
-      auto& pts (tt.prerequisite_targets);
-      if (pts.size () != 0 && pts[0] != nullptr)
+      for (size_t i (pass_n + 2); i < pts_n; ++i)
       {
-        const file& it (pts[0]->as<file> ());
+        const file& it (pts[i]->as<file> ());
         const path& ip (it.path ());
         assert (!ip.empty ()); // Should have been assigned by update.
         args.push_back (ip.string ().c_str ());
       }
-      // Maybe arguments then?
-      //
-      else
-      {
-        if (auto l = tt["test.arguments"])
-          append_options (args, cast<strings> (l));
-      }
 
       args.push_back (nullptr);
 
-      // Do we have output?
+      // Do we have stdout?
       //
       path dp ("diff");
       process_path dpp;
-      if (pts.size () != 0 && pts[1] != nullptr)
+      if (pass_n != pts_n && pts[pass_n + 1] != nullptr)
       {
-        const file& ot (pts[1]->as<file> ());
+        const file& ot (pts[pass_n + 1]->as<file> ());
         const path& op (ot.path ());
         assert (!op.empty ()); // Should have been assigned by update.
 
@@ -775,7 +757,7 @@ namespace build2
 
         // Ignore Windows newline fluff if that's what we are running on.
         //
-        if (cast<target_triplet> (tt["test.target"]).class_ == "windows")
+        if (cast<target_triplet> (tt[test_target]).class_ == "windows")
           args.push_back ("--strip-trailing-cr");
 
         args.push_back (op.string ().c_str ());
@@ -791,7 +773,10 @@ namespace build2
         text << "test " << tt;
 
       diag_record dr;
-      if (!run_test (tt, dr, args.data ()))
+      if (!run_test (tt,
+                     dr,
+                     args.data () + (stdin ? 3 : 0), // Skip cat.
+                     stdin ? &cat : nullptr))
       {
         dr << info << "test command line: ";
         print_process (dr, args);
@@ -799,19 +784,6 @@ namespace build2
       }
 
       return target_state::changed;
-    }
-
-    target_state alias_rule::
-    perform_test (action a, const target& t) const
-    {
-      // Run the alias recipe first then the test.
-      //
-      target_state r (straight_execute_prerequisites (a, t));
-
-      // Note that we reuse the prerequisite_targets prepared by the standard
-      // search and match.
-      //
-      return r |= perform_script (a, t);
     }
   }
 }

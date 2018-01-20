@@ -281,7 +281,7 @@ namespace build2
     // lib
     //
     group_view lib::
-    group_members (action_type) const
+    group_members (action) const
     {
       static_assert (sizeof (lib_members) == sizeof (const target*) * 2,
                      "member layout incompatible with array");
@@ -321,7 +321,7 @@ namespace build2
       nullptr,
       nullptr,
       &target_search,
-      false
+      false // Note: not see-through ("alternatives" group).
     };
 
     // libi

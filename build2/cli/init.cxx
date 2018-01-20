@@ -23,7 +23,7 @@ namespace build2
 {
   namespace cli
   {
-    static const compile compile_;
+    static const compile_rule compile_rule_;
 
     bool
     config_init (scope& rs,
@@ -306,10 +306,10 @@ namespace build2
 
         auto reg = [&r] (meta_operation_id mid, operation_id oid)
         {
-          r.insert<cli_cxx>  (mid, oid, "cli.compile", compile_);
-          r.insert<cxx::hxx> (mid, oid, "cli.compile", compile_);
-          r.insert<cxx::cxx> (mid, oid, "cli.compile", compile_);
-          r.insert<cxx::ixx> (mid, oid, "cli.compile", compile_);
+          r.insert<cli_cxx>  (mid, oid, "cli.compile", compile_rule_);
+          r.insert<cxx::hxx> (mid, oid, "cli.compile", compile_rule_);
+          r.insert<cxx::cxx> (mid, oid, "cli.compile", compile_rule_);
+          r.insert<cxx::ixx> (mid, oid, "cli.compile", compile_rule_);
         };
 
         reg (perform_id, update_id);

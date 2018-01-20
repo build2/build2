@@ -25,7 +25,7 @@ namespace build2
   // that normal implementations should follow. So you probably shouldn't
   // use it as a guide to implement your own, normal, rules.
   //
-  match_result file_rule::
+  bool file_rule::
   match (action a, target& t, const string&) const
   {
     tracer trace ("file_rule::match");
@@ -131,7 +131,7 @@ namespace build2
 
   // alias_rule
   //
-  match_result alias_rule::
+  bool alias_rule::
   match (action, target&, const string&) const
   {
     return true;
@@ -153,7 +153,7 @@ namespace build2
 
   // fsdir_rule
   //
-  match_result fsdir_rule::
+  bool fsdir_rule::
   match (action, target&, const string&) const
   {
     return true;
@@ -220,7 +220,7 @@ namespace build2
     // First update prerequisites (e.g. create parent directories) then create
     // this directory.
     //
-    if (!t.prerequisite_targets.empty ())
+    if (!t.prerequisite_targets[a].empty ())
       ts = straight_execute_prerequisites (a, t);
 
     // The same code as in perform_update_direct() below.
@@ -243,9 +243,9 @@ namespace build2
   {
     // First create the parent directory. If present, it is always first.
     //
-    const target* p (t.prerequisite_targets.empty ()
+    const target* p (t.prerequisite_targets[a].empty ()
                      ? nullptr
-                     : t.prerequisite_targets[0]);
+                     : t.prerequisite_targets[a][0]);
 
     if (p != nullptr && p->is_a<fsdir> ())
       perform_update_direct (a, *p);
@@ -272,7 +272,7 @@ namespace build2
                      ? target_state::changed
                      : target_state::unchanged);
 
-    if (!t.prerequisite_targets.empty ())
+    if (!t.prerequisite_targets[a].empty ())
       ts |= reverse_execute_prerequisites (a, t);
 
     return ts;

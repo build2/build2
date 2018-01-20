@@ -19,7 +19,6 @@ namespace build2
     // This is the default rule that simply matches all the prerequisites.
     //
     // A custom rule (usually the same as perform_update) may be necessary to
-    // enter ad hoc prerequisites (like generated test input/output) or
     // establishing group links (so that we see the dist variable set on a
     // group).
     //
@@ -28,7 +27,7 @@ namespace build2
     public:
       rule () {}
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe

@@ -17,7 +17,24 @@ namespace build2
     enum class output_before {fail, warn, clean};
     enum class output_after {clean, keep};
 
-    struct common
+    struct common_data
+    {
+      const variable& config_test;
+      const variable& config_test_output;
+
+      const variable& var_test;
+      const variable& test_options;
+      const variable& test_arguments;
+
+      const variable& test_stdin;
+      const variable& test_stdout;
+      const variable& test_roundtrip;
+      const variable& test_input;
+
+      const variable& test_target;
+    };
+
+    struct common: common_data
     {
       // The config.test.output values.
       //
@@ -45,6 +62,9 @@ namespace build2
       //
       bool
       test (const target& test_target, const path& id_path) const;
+
+      explicit
+      common (common_data&& d): common_data (move (d)) {}
     };
   }
 }

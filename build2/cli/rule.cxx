@@ -43,10 +43,10 @@ namespace build2
       return false;
     }
 
-    match_result compile::
+    bool compile_rule::
     match (action a, target& xt, const string&) const
     {
-      tracer trace ("cli::compile::match");
+      tracer trace ("cli::compile_rule::match");
 
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
       {
@@ -149,7 +149,7 @@ namespace build2
       }
     }
 
-    recipe compile::
+    recipe compile_rule::
     apply (action a, target& xt) const
     {
       if (cli_cxx* pt = xt.is_a<cli_cxx> ())
@@ -208,7 +208,7 @@ namespace build2
       }
     }
 
-    target_state compile::
+    target_state compile_rule::
     perform_update (action a, const target& xt)
     {
       const cli_cxx& t (xt.as<cli_cxx> ());

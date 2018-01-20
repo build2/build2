@@ -102,33 +102,39 @@ namespace build2
                    const scope&,
                    const dir_path& out = dir_path ());
 
-  // Target match lock: a non-const target reference as well as the
-  // target::offset_* state that has already been "achieved".
+  // Target match lock: a non-const target reference and the target::offset_*
+  // state that has already been "achieved". Note that target::task_count
+  // itself is set to busy for the duration or the lock.
   //
   struct target_lock
   {
+    using action_type = build2::action;
     using target_type = build2::target;
 
+    action_type  action;
     target_type* target = nullptr;
-    size_t offset = 0;
+    size_t       offset = 0;
 
     explicit operator bool () const {return target != nullptr;}
 
-    void unlock ();
-    target_type* release ();
+    void
+    unlock ();
 
     target_lock () = default;
-
     target_lock (target_lock&&);
     target_lock& operator= (target_lock&&);
 
-    // Implementation details.
-    //
     target_lock (const target_lock&) = delete;
     target_lock& operator= (const target_lock&) = delete;
 
-    target_lock (target_type* t, size_t o): target (t), offset (o) {}
+    // Implementation details.
+    //
     ~target_lock ();
+    target_lock (action_type a, target_type* t, size_t o)
+        : action (a), target (t), offset (o) {}
+
+    target_type*
+    release () {auto r (target); target = nullptr; return r;}
   };
 
   // If the target is already applied (for this action ) or executed, then no
@@ -222,12 +228,22 @@ namespace build2
 
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Unless try_match is
-  // true, fail if not rule is found. Otherwise return empty recipe. Note that
-  // unlike match(), this function does not increment the dependents
-  // count. See also the companion execute_delegate().
+  // true, fail if no rule is found. Otherwise return empty recipe. Note that
+  // unlike match(), this function does not increment the dependents count and
+  // the two rules must coordinate who is using the target's data pad and/or
+  // prerequisite_targets. See also the companion execute_delegate().
   //
   recipe
   match_delegate (action, target&, const rule&, bool try_match = false);
+
+  // Match a rule for the inner operation from withing the outer rule's
+  // apply() function. See also the companion execute_inner().
+  //
+  target_state
+  match_inner (action, const target&);
+
+  bool
+  match_inner (action, const target&, unmatch);
 
   // The standard prerequisite search and match implementations. They call
   // search() and then match() for each prerequisite in a loop omitting out of
@@ -259,7 +275,7 @@ namespace build2
   //
   template <typename T>
   void
-  match_members (action, target&, T[], size_t);
+  match_members (action, target&, T const*, size_t);
 
   template <size_t N>
   inline void
@@ -269,7 +285,10 @@ namespace build2
   }
 
   inline void
-  match_members (action a, target& t, prerequisite_targets& ts, size_t start)
+  match_members (action a,
+                 target& t,
+                 prerequisite_targets& ts,
+                 size_t start = 0)
   {
     match_members (a, t, ts.data () + start, ts.size () - start);
   }
@@ -278,6 +297,13 @@ namespace build2
   // in order to obtain its members list. Note that even after that the
   // member's list might still not be available (e.g., if some wildcard/
   // fallback rule matched).
+  //
+  // If the action is is for an outer operation, then it is changed to inner
+  // which means the members are always resolved by the inner (e.g., update)
+  // rule. This feels right since this is the rule that will normally do the
+  // work (e.g., update) and therefore knows what it will produce (and if we
+  // don't do this, then the group resolution will be racy since we will use
+  // two different task_count instances for synchronization).
   //
   group_view
   resolve_group_members (action, const target&);
@@ -307,6 +333,12 @@ namespace build2
   target_state
   execute (action, const target&);
 
+  // As above but wait for completion if the target is busy and translate
+  // target_state::failed to the failed exception.
+  //
+  target_state
+  execute_wait (action, const target&);
+
   // As above but start asynchronous execution. Return target_state::unknown
   // if the asynchrounous execution has been started and target_state::busy if
   // the target has already been busy.
@@ -328,6 +360,18 @@ namespace build2
   target_state
   execute_delegate (const recipe&, action, const target&);
 
+  // Execute the inner operation matched with match_inner(). Note that the
+  // returned target state is for the inner operation. The appropriate usage
+  // is to call this function from the outer operation's recipe and to factor
+  // the obtained state into the one returned (similar to how we do it for
+  // prerequisites).
+  //
+  // Note: waits for the completion if the target is busy and translates
+  // target_state::failed to the failed exception.
+  //
+  target_state
+  execute_inner (action, const target&);
+
   // A special version of the above that should be used for "direct" and "now"
   // execution, that is, side-stepping the normal target-prerequisite
   // relationship (so no dependents count is decremented) and execution order
@@ -344,30 +388,29 @@ namespace build2
   // for their completion. Return target_state::changed if any of them were
   // changed and target_state::unchanged otherwise. If a prerequisite's
   // execution is postponed, then set its pointer in prerequisite_targets to
-  // NULL (since its state cannot be queried MT-safely).
-  //
-  // Note that this function can be used as a recipe.
+  // NULL (since its state cannot be queried MT-safely). If count is not 0,
+  // then only the first count prerequisites are executed.
   //
   target_state
-  straight_execute_prerequisites (action, const target&);
+  straight_execute_prerequisites (action, const target&, size_t count = 0);
 
   // As above but iterates over the prerequisites in reverse.
   //
   target_state
-  reverse_execute_prerequisites (action, const target&);
+  reverse_execute_prerequisites (action, const target&, size_t count = 0);
 
   // Call straight or reverse depending on the current mode.
   //
   target_state
-  execute_prerequisites (action, const target&);
+  execute_prerequisites (action, const target&, size_t count = 0);
 
   // A version of the above that also determines whether the action needs to
   // be executed on the target based on the passed timestamp and filter.
   //
   // The filter is passed each prerequisite target and is expected to signal
   // which ones should be used for timestamp comparison. If the filter is
-  // NULL, then all the prerequisites are used. If the count is not 0, then
-  // only the first count prerequisites are executed.
+  // NULL, then all the prerequisites are used. If count is not 0, then only
+  // the first count prerequisites are executed.
   //
   // Note that the return value is an optional target state. If the target
   // needs updating, then the value absent. Otherwise it is the state that

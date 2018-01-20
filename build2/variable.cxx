@@ -302,7 +302,7 @@ namespace build2
   }
 
   void
-  typify (value& v, const value_type& t, const variable* var)
+  typify (value& v, const value_type& t, const variable* var, memory_order mo)
   {
     if (v.type == nullptr)
     {
@@ -312,11 +312,16 @@ namespace build2
         //
         names ns (move (v).as<names> ());
         v = nullptr;
-        v.type = &t;
-        v.assign (move (ns), var);
+
+        // Use value_type::assign directly to delay v.type change.
+        //
+        t.assign (v, move (ns), var);
+        v.null = false;
       }
       else
         v.type = &t;
+
+      v.type.store (&t, mo);
     }
     else if (v.type != &t)
     {
@@ -342,8 +347,10 @@ namespace build2
       variable_cache_mutex_shard[
         hash<value*> () (&v) % variable_cache_mutex_shard_size]);
 
+    // Note: v.type is rechecked by typify() under lock.
+    //
     ulock l (m);
-    typify (v, t, var); // v.type is rechecked by typify(), stored under lock.
+    typify (v, t, var, memory_order_release);
   }
 
   void

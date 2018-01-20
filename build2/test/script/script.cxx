@@ -503,6 +503,8 @@ namespace build2
             // buildfiles except for test: while in buildfiles it can be a
             // target name, in testscripts it should be resolved to a path.
             //
+            // Note: entering in a custom variable pool.
+            //
             test_var      (var_pool.insert<path> ("test")),
             options_var   (var_pool.insert<strings> ("test.options")),
             arguments_var (var_pool.insert<strings> ("test.arguments")),
@@ -527,7 +529,9 @@ namespace build2
       // script
       //
       script::
-      script (const target& tt, const testscript& st, const dir_path& rwd)
+      script (const target& tt,
+              const testscript& st,
+              const dir_path& rwd)
           : group (st.name == "testscript" ? string () : st.name, this),
             test_target (tt),
             script_target (st)
@@ -574,7 +578,7 @@ namespace build2
             {
               // Must be a target name.
               //
-              // @@ OUT: what if this is a @-qualified pair or names?
+              // @@ OUT: what if this is a @-qualified pair of names?
               //
               t = search_existing (*n, tt.base_scope ());
 

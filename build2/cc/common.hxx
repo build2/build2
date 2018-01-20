@@ -225,7 +225,7 @@ namespace build2
         bool = false) const;
 
       const target*
-      search_library (action act,
+      search_library (action a,
                       const dir_paths& sysd,
                       optional<dir_paths>& usrd,
                       const prerequisite& p) const
@@ -234,7 +234,7 @@ namespace build2
 
         if (r == nullptr)
         {
-          if ((r = search_library (act, sysd, usrd, p.key ())) != nullptr)
+          if ((r = search_library (a, sysd, usrd, p.key ())) != nullptr)
           {
             const target* e (nullptr);
             if (!p.target.compare_exchange_strong (
@@ -274,12 +274,12 @@ namespace build2
                       bool existing = false) const;
 
       const target*
-      search_library_existing (action act,
+      search_library_existing (action a,
                                const dir_paths& sysd,
                                optional<dir_paths>& usrd,
                                const prerequisite_key& pk) const
       {
-        return search_library (act, sysd, usrd, pk, true);
+        return search_library (a, sysd, usrd, pk, true);
       }
 
       dir_paths

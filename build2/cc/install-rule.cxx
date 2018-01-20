@@ -1,15 +1,15 @@
-// file      : build2/cc/install.cxx -*- C++ -*-
+// file      : build2/cc/install-rule.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/install.hxx>
+#include <build2/cc/install-rule.hxx>
 
 #include <build2/algorithm.hxx>
 
 #include <build2/bin/target.hxx>
 
-#include <build2/cc/link.hxx>    // match()
 #include <build2/cc/utility.hxx>
+#include <build2/cc/link-rule.hxx> // match()
 
 using namespace std;
 
@@ -19,16 +19,16 @@ namespace build2
   {
     using namespace bin;
 
-    // file_install
+    // install_rule
     //
-    file_install::
-    file_install (data&& d, const link& l): common (move (d)), link_ (l) {}
+    install_rule::
+    install_rule (data&& d, const link_rule& l)
+        : common (move (d)), link_ (l) {}
 
-    const target* file_install::
+    const target* install_rule::
     filter (action a, const target& t, prerequisite_member p) const
     {
-      // NOTE: see also alias_install::filter() below if changing anything
-      // here.
+      // NOTE: see libux_install_rule::filter() if changing anything here.
 
       otype ot (link_type (t).type);
 
@@ -72,7 +72,7 @@ namespace build2
         const target* pt (&p.search (t));
 
         // If this is the lib{}/libu{} group, pick a member which we would
-        // link. For libu{} we want to the "see through" logic.
+        // link. For libu{} we want the "see through" logic.
         //
         if (const libx* l = pt->is_a<libx> ())
           pt = &link_member (*l, a, link_info (t.base_scope (), ot));
@@ -90,7 +90,7 @@ namespace build2
       return file_rule::filter (a, t, p);
     }
 
-    match_result file_install::
+    bool install_rule::
     match (action a, target& t, const string& hint) const
     {
       // @@ How do we split the hint between the two?
@@ -99,20 +99,38 @@ namespace build2
       // We only want to handle installation if we are also the ones building
       // this target. So first run link's match().
       //
-      match_result r (link_.match (a, t, hint));
-      return r ? file_rule::match (a, t, "") : r;
+      return link_.match (a, t, hint) && file_rule::match (a, t, "");
     }
 
-    recipe file_install::
+    recipe install_rule::
     apply (action a, target& t) const
     {
       recipe r (file_rule::apply (a, t));
 
-      // Derive shared library paths and cache them in the target's aux
-      // storage if we are (un)installing (used in *_extra() functions below).
-      //
-      if (a.operation () == install_id || a.operation () == uninstall_id)
+      if (a.operation () == update_id)
       {
+        // Signal to the link rule that this is update for install. And if the
+        // update has already been executed, verify it was done for install.
+        //
+        auto& md (t.data<link_rule::match_data> ());
+
+        if (md.for_install)
+        {
+          if (!*md.for_install)
+            fail << "target " << t << " already updated but not for install";
+        }
+        else
+          md.for_install = true;
+      }
+      else // install or uninstall
+      {
+        // Derive shared library paths and cache them in the target's aux
+        // storage if we are un/installing (used in *_extra() functions
+        // below).
+        //
+        static_assert (sizeof (link_rule::libs_paths) <= target::data_size,
+                       "insufficient space");
+
         file* f;
         if ((f = t.is_a<libs> ()) != nullptr && tclass != "windows")
         {
@@ -128,34 +146,39 @@ namespace build2
       return r;
     }
 
-    void file_install::
+    bool install_rule::
     install_extra (const file& t, const install_dir& id) const
     {
+      bool r (false);
+
       if (t.is_a<libs> () && tclass != "windows")
       {
         // Here we may have a bunch of symlinks that we need to install.
         //
         const scope& rs (t.root_scope ());
-        auto& lp (t.data<link::libs_paths> ());
+        auto& lp (t.data<link_rule::libs_paths> ());
 
         auto ln = [&rs, &id] (const path& f, const path& l)
         {
           install_l (rs, id, f.leaf (), l.leaf (), false);
+          return true;
         };
 
         const path& lk (lp.link);
         const path& so (lp.soname);
         const path& in (lp.interm);
 
-        const path* f (&lp.real);
+        const path* f (lp.real);
 
-        if (!in.empty ()) {ln (*f, in); f = &in;}
-        if (!so.empty ()) {ln (*f, so); f = &so;}
-        if (!lk.empty ()) {ln (*f, lk);}
+        if (!in.empty ()) {r = ln (*f, in) || r; f = &in;}
+        if (!so.empty ()) {r = ln (*f, so) || r; f = &so;}
+        if (!lk.empty ()) {r = ln (*f, lk) || r;         }
       }
+
+      return r;
     }
 
-    bool file_install::
+    bool install_rule::
     uninstall_extra (const file& t, const install_dir& id) const
     {
       bool r (false);
@@ -165,7 +188,7 @@ namespace build2
         // Here we may have a bunch of symlinks that we need to uninstall.
         //
         const scope& rs (t.root_scope ());
-        auto& lp (t.data<link::libs_paths> ());
+        auto& lp (t.data<link_rule::libs_paths> ());
 
         auto rm = [&rs, &id] (const path& l)
         {
@@ -184,15 +207,16 @@ namespace build2
       return r;
     }
 
-    // alias_install
+    // libux_install_rule
     //
-    alias_install::
-    alias_install (data&& d, const link& l): common (move (d)), link_ (l) {}
+    libux_install_rule::
+    libux_install_rule (data&& d, const link_rule& l)
+        : common (move (d)), link_ (l) {}
 
-    const target* alias_install::
+    const target* libux_install_rule::
     filter (action a, const target& t, prerequisite_member p) const
     {
-      // The "see through" semantics that should be parallel to file_install
+      // The "see through" semantics that should be parallel to install_rule
       // above. In particular, here we use libue/libua/libus{} as proxies for
       // exe/liba/libs{} there.
 
@@ -233,14 +257,13 @@ namespace build2
       return alias_rule::filter (a, t, p);
     }
 
-    match_result alias_install::
+    bool libux_install_rule::
     match (action a, target& t, const string& hint) const
     {
       // We only want to handle installation if we are also the ones building
       // this target. So first run link's match().
       //
-      match_result r (link_.match (a, t, hint));
-      return r ? alias_rule::match (a, t, "") : r;
+      return link_.match (a, t, hint) && alias_rule::match (a, t, "");
     }
   }
 }

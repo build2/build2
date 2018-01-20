@@ -82,8 +82,7 @@ EOI
 +touch proj/units/simple/driver
 +cat <<EOI >=proj/units/simple/buildfile
 driver = $src_root/../../exe{driver}
-#@@ TMP file{driver}@./: $driver
-./: file{driver} $driver
+file{driver}@./: $driver
 file{driver}@./: test = $driver
 file{driver}@./: test.arguments = units/simple
 EOI

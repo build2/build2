@@ -16,12 +16,12 @@ namespace build2
   {
     // Generate a version file.
     //
-    class version_doc: public rule
+    class doc_rule: public rule
     {
     public:
-      version_doc () {}
+      doc_rule () {}
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe
@@ -33,12 +33,12 @@ namespace build2
 
     // Preprocess an .in file.
     //
-    class version_in: public rule
+    class in_rule: public rule
     {
     public:
-      version_in () {}
+      in_rule () {}
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe

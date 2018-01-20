@@ -17,34 +17,46 @@ namespace build2
 {
   namespace test
   {
-    class rule_common: public build2::rule, protected virtual common
+    class rule: public build2::rule, protected virtual common
     {
     public:
-      virtual match_result
+      explicit
+      rule (common_data&& d): common (move (d)) {}
+
+      virtual bool
       match (action, target&, const string&) const override;
 
-      target_state
-      perform_script (action, const target&) const;
-    };
-
-    class rule: public rule_common
-    {
-    public:
       virtual recipe
       apply (action, target&) const override;
 
       static target_state
-      perform_test (action, const target&);
-    };
-
-    class alias_rule: public rule_common
-    {
-    public:
-      virtual recipe
-      apply (action, target&) const override;
+      perform_update (action, const target&);
 
       target_state
-      perform_test (action, const target&) const;
+      perform_test (action, const target&, size_t) const;
+
+      target_state
+      perform_script (action, const target&, size_t) const;
+    };
+
+    class default_rule: public rule // For disambiguation in module.
+    {
+    public:
+      explicit
+      default_rule (common_data&& d): common (move (d)), rule (move (d)) {}
+    };
+
+    // In addition to the above rule's semantics, this rule sees through to
+    // the group's members.
+    //
+    class group_rule: public rule
+    {
+    public:
+      explicit
+      group_rule (common_data&& d): common (move (d)), rule (move (d)) {}
+
+      virtual recipe
+      apply (action, target&) const override;
     };
   }
 }

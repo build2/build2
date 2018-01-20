@@ -45,12 +45,12 @@ namespace build2
       return d == rs.src_path ();
     }
 
-    // version_doc
+    // doc_rule
     //
-    match_result version_doc::
+    bool doc_rule::
     match (action a, target& xt, const string&) const
     {
-      tracer trace ("version::version_doc::match");
+      tracer trace ("version::doc_rule::match");
 
       doc& t (static_cast<doc&> (xt));
 
@@ -76,7 +76,7 @@ namespace build2
       return false;
     }
 
-    recipe version_doc::
+    recipe doc_rule::
     apply (action a, target& xt) const
     {
       doc& t (static_cast<doc&> (xt));
@@ -101,7 +101,7 @@ namespace build2
       }
     }
 
-    target_state version_doc::
+    target_state doc_rule::
     perform_update (action a, const target& xt)
     {
       const doc& t (xt.as<const doc&> ());
@@ -168,12 +168,12 @@ namespace build2
       return target_state::changed;
     }
 
-    // version_in
+    // in_rule
     //
-    match_result version_in::
+    bool in_rule::
     match (action a, target& xt, const string&) const
     {
-      tracer trace ("version::version_in::match");
+      tracer trace ("version::in_rule::match");
 
       file& t (static_cast<file&> (xt));
       const scope& rs (t.root_scope ());
@@ -195,7 +195,7 @@ namespace build2
       return fm && fi;
     }
 
-    recipe version_in::
+    recipe in_rule::
     apply (action a, target& xt) const
     {
       file& t (static_cast<file&> (xt));
@@ -220,10 +220,10 @@ namespace build2
       }
     }
 
-    target_state version_in::
+    target_state in_rule::
     perform_update (action a, const target& xt)
     {
-      tracer trace ("version::version_in::perform_update");
+      tracer trace ("version::in_rule::perform_update");
 
       const file& t (xt.as<const file&> ());
       const path& tp (t.path ());

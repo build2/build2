@@ -13,9 +13,9 @@
 
 #include <build2/cc/common.hxx>
 
-#include <build2/cc/compile.hxx>
-#include <build2/cc/link.hxx>
-#include <build2/cc/install.hxx>
+#include <build2/cc/compile-rule.hxx>
+#include <build2/cc/link-rule.hxx>
+#include <build2/cc/install-rule.hxx>
 
 namespace build2
 {
@@ -76,19 +76,19 @@ namespace build2
     };
 
     class module: public module_base, public virtual common,
-                  link,
-                  compile,
-                  file_install,
-                  alias_install
+                  link_rule,
+                  compile_rule,
+                  install_rule,
+                  libux_install_rule
     {
     public:
       explicit
       module (data&& d)
           : common (move (d)),
-            link (move (d)),
-            compile (move (d)),
-            file_install (move (d), *this),
-            alias_install (move (d), *this) {}
+            link_rule (move (d)),
+            compile_rule (move (d)),
+            install_rule (move (d), *this),
+            libux_install_rule (move (d), *this) {}
 
       void
       init (scope&, const location&, const variable_map&);

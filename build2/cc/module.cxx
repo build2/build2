@@ -499,8 +499,8 @@ namespace build2
         // We register for configure so that we detect unresolved imports
         // during configuration rather that later, e.g., during update.
         //
-        const compile& cr (*this);
-        const link&    lr (*this);
+        const compile_rule& cr (*this);
+        const link_rule&    lr (*this);
 
         r.insert<obje> (perform_update_id,    x_compile, cr);
         r.insert<obje> (perform_clean_id,     x_compile, cr);
@@ -559,26 +559,27 @@ namespace build2
         //
         if (install_loaded)
         {
-          const file_install&  fr (*this);
-          const alias_install& ar (*this);
+          const install_rule&  ir (*this);
 
-          r.insert<exe>  (perform_install_id,   x_install,   fr);
-          r.insert<exe>  (perform_uninstall_id, x_uninstall, fr);
+          r.insert<exe>  (perform_install_id,   x_install,   ir);
+          r.insert<exe>  (perform_uninstall_id, x_uninstall, ir);
 
-          r.insert<liba> (perform_install_id,   x_install,   fr);
-          r.insert<liba> (perform_uninstall_id, x_uninstall, fr);
+          r.insert<liba> (perform_install_id,   x_install,   ir);
+          r.insert<liba> (perform_uninstall_id, x_uninstall, ir);
 
-          r.insert<libs> (perform_install_id,   x_install,   fr);
-          r.insert<libs> (perform_uninstall_id, x_uninstall, fr);
+          r.insert<libs> (perform_install_id,   x_install,   ir);
+          r.insert<libs> (perform_uninstall_id, x_uninstall, ir);
 
-          r.insert<libue> (perform_install_id,   x_install,   ar);
-          r.insert<libue> (perform_uninstall_id, x_uninstall, ar);
+          const libux_install_rule& lr (*this);
 
-          r.insert<libua> (perform_install_id,   x_install,   ar);
-          r.insert<libua> (perform_uninstall_id, x_uninstall, ar);
+          r.insert<libue> (perform_install_id,   x_install,   lr);
+          r.insert<libue> (perform_uninstall_id, x_uninstall, lr);
 
-          r.insert<libus> (perform_install_id,   x_install,   ar);
-          r.insert<libus> (perform_uninstall_id, x_uninstall, ar);
+          r.insert<libua> (perform_install_id,   x_install,   lr);
+          r.insert<libua> (perform_uninstall_id, x_uninstall, lr);
+
+          r.insert<libus> (perform_install_id,   x_install,   lr);
+          r.insert<libus> (perform_uninstall_id, x_uninstall, lr);
         }
       }
     }

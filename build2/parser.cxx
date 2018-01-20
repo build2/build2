@@ -747,14 +747,15 @@ namespace build2
             //
             small_vector<reference_wrapper<target>, 1> tgs;
 
-            for (auto& tn: ns)
+            for (auto i (ns.begin ()), e (ns.end ()); i != e; ++i)
             {
-              if (tn.qualified ())
-                fail (nloc) << "project name in target " << tn;
+              name& n (*i);
 
-              // @@ OUT TODO
-              //
-              enter_target tg (*this, move (tn), name (), false, nloc, trace);
+              if (n.qualified ())
+                fail (nloc) << "project name in target " << n;
+
+              name o (n.pair ? move (*++i) : name ());
+              enter_target tg (*this, move (n), move (o), false, nloc, trace);
 
               if (default_target_ == nullptr)
                 default_target_ = target_;

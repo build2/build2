@@ -46,7 +46,7 @@ namespace build2
     //
     void common::
     process_libraries (
-      action act,
+      action a,
       const scope& top_bs,
       linfo top_li,
       const dir_paths& top_sysd,
@@ -222,23 +222,23 @@ namespace build2
       //
       if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
-        for (auto pt: l.prerequisite_targets)
+        for (const prerequisite_target& pt: l.prerequisite_targets[a])
         {
           if (pt == nullptr)
             continue;
 
-          bool a;
+          bool la;
           const file* f;
 
-          if ((a = (f = pt->is_a<liba>  ())) ||
-              (a = (f = pt->is_a<libux> ())) ||
-              (     f = pt->is_a<libs>  ()))
+          if ((la = (f = pt->is_a<liba>  ())) ||
+              (la = (f = pt->is_a<libux> ())) ||
+              (      f = pt->is_a<libs>  ()))
           {
             if (sysd == nullptr) find_sysd ();
             if (!li) find_linfo ();
 
-            process_libraries (act, bs, *li, *sysd,
-                               *f, a, pt.data,
+            process_libraries (a, bs, *li, *sysd,
+                               *f, la, pt.data,
                                proc_impl, proc_lib, proc_opt, true);
           }
         }
@@ -275,7 +275,7 @@ namespace build2
                        &proc_impl, &proc_lib, &proc_opt,
                        &sysd, &usrd,
                        &find_sysd, &find_linfo, &sys_simple,
-                       &bs, act, &li, this] (const lookup& lu)
+                       &bs, a, &li, this] (const lookup& lu)
       {
         const vector<name>* ns (cast_null<vector<name>> (lu));
         if (ns == nullptr || ns->empty ())
@@ -300,7 +300,7 @@ namespace build2
             if (sysd == nullptr) find_sysd ();
             if (!li) find_linfo ();
 
-            const file& t (resolve_library (act, bs, n, *li, *sysd, usrd));
+            const file& t (resolve_library (a, bs, n, *li, *sysd, usrd));
 
             if (proc_lib)
             {
@@ -324,7 +324,7 @@ namespace build2
             // @@ Where can we get the link flags? Should we try to find them
             //    in the library's prerequisites? What about installed stuff?
             //
-            process_libraries (act, bs, *li, *sysd,
+            process_libraries (a, bs, *li, *sysd,
                                t, t.is_a<liba> () || t.is_a<libux> (), 0,
                                proc_impl, proc_lib, proc_opt, true);
           }
@@ -402,7 +402,7 @@ namespace build2
     // that's the only way to guarantee it will be up-to-date.
     //
     const file& common::
-    resolve_library (action act,
+    resolve_library (action a,
                      const scope& s,
                      name n,
                      linfo li,
@@ -439,7 +439,7 @@ namespace build2
         //
         dir_path out;
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
-        xt = search_library_existing (act, sysd, usrd, pk);
+        xt = search_library_existing (a, sysd, usrd, pk);
 
         if (xt == nullptr)
         {
@@ -454,7 +454,7 @@ namespace build2
       // If this is lib{}/libu{}, pick appropriate member.
       //
       if (const libx* l = xt->is_a<libx> ())
-        xt = &link_member (*l, act, li); // Pick lib*{e,a,s}{}.
+        xt = &link_member (*l, a, li); // Pick lib*{e,a,s}{}.
 
       return xt->as<file> ();
     }

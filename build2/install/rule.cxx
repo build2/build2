@@ -40,9 +40,15 @@ namespace build2
     //
     const alias_rule alias_rule::instance;
 
-    match_result alias_rule::
+    bool alias_rule::
     match (action, target&, const string&) const
     {
+      // We always match.
+      //
+      // Note that we are called both as the outer part during the "update for
+      // un/install" pre-operation and as the inner part during the
+      // un/install operation itself.
+      //
       return true;
     }
 
@@ -57,112 +63,11 @@ namespace build2
     {
       tracer trace ("install::alias_rule::apply");
 
-      for (prerequisite_member p: group_prerequisite_members (a, t))
-      {
-        // Let a customized rule have its say.
-        //
-        const target* pt (filter (a, t, p));
-        if (pt == nullptr)
-          continue;
-
-        // Check if this prerequisite is explicitly "not installable",
-        // that is, there is the 'install' variable and its value is
-        // false.
-        //
-        // At first, this might seem redundand since we could have let
-        // the file_rule below take care of it. The nuance is this: this
-        // prerequsite can be in a different subproject that hasn't loaded
-        // the install module (and therefore has no file_rule registered).
-        // The typical example would be the 'tests' subproject.
-        //
-        // Note: not the same as lookup() above.
-        //
-        auto l ((*pt)["install"]);
-        if (l && cast<path> (l).string () == "false")
-        {
-          l5 ([&]{trace << "ignoring " << *pt;});
-          continue;
-        }
-
-        build2::match (a, *pt);
-        t.prerequisite_targets.push_back (pt);
-      }
-
-      return default_recipe;
-    }
-
-    // file_rule
-    //
-    const file_rule file_rule::instance;
-
-    struct match_data
-    {
-      bool install;
-    };
-
-    static_assert (sizeof (match_data) <= target::data_size,
-                   "insufficient space");
-
-    match_result file_rule::
-    match (action a, target& t, const string&) const
-    {
-      // First determine if this target should be installed (called
-      // "installable" for short).
+      // Pass-through to our installable prerequisites.
       //
-      match_data md {lookup_install<path> (t, "install") != nullptr};
-      match_result mr (true);
-
-      if (a.operation () == update_id)
-      {
-        // If this is the update pre-operation and the target is installable,
-        // change the recipe action to (update, 0) (i.e., "unconditional
-        // update") so that we don't get matched for its prerequisites.
-        //
-        if (md.install)
-          mr.recipe_action = action (a.meta_operation (), update_id);
-        else
-          // Otherwise, signal that we don't match so that some other rule can
-          // take care of it.
-          //
-          return false;
-      }
-
-      t.data (md); // Save the data in the target's auxilary storage.
-      return mr;
-    }
-
-    const target* file_rule::
-    filter (action, const target& t, prerequisite_member p) const
-    {
-      const target& pt (p.search (t));
-      return pt.in (t.root_scope ()) ? &pt : nullptr;
-    }
-
-    recipe file_rule::
-    apply (action a, target& t) const
-    {
-      match_data md (move (t.data<match_data> ()));
-      t.clear_data (); // In case delegated-to rule (or the rule that overrides
-                       // us; see cc/install) also uses aux storage.
-
-      if (!md.install) // Not installable.
-        return noop_recipe;
-
-      // Ok, if we are here, then this means:
+      // @@ Shouldn't we do match in parallel (here and below)?
       //
-      // 1. This target is installable.
-      // 2. The action is either
-      //    a. (perform, [un]install, 0) or
-      //    b. (*, update, [un]install)
-      //
-      // In both cases, the next step is to search, match, and collect all the
-      // installable prerequisites.
-      //
-      // @@ Perhaps if [noinstall] will be handled by the
-      // group_prerequisite_members machinery, then we can just
-      // run standard search_and_match()? Will need an indicator
-      // that it was forced (e.g., [install]) for filter() below.
-      //
+      auto& pts (t.prerequisite_targets[a]);
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // Ignore unresolved targets that are imported from other projects.
@@ -175,84 +80,226 @@ namespace build2
         //
         const target* pt (filter (a, t, p));
         if (pt == nullptr)
+        {
+          l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
           continue;
+        }
 
-        // See if we were explicitly instructed not to touch this target.
+        // Check if this prerequisite is explicitly "not installable", that
+        // is, there is the 'install' variable and its value is false.
+        //
+        // At first, this might seem redundand since we could have let the
+        // file_rule below take care of it. The nuance is this: this
+        // prerequsite can be in a different subproject that hasn't loaded the
+        // install module (and therefore has no file_rule registered). The
+        // typical example would be the 'tests' subproject.
+        //
+        // Note: not the same as lookup() above.
         //
         auto l ((*pt)["install"]);
         if (l && cast<path> (l).string () == "false")
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
           continue;
+        }
 
-        // If the matched rule returned noop_recipe, then the target
-        // state will be set to unchanged as an optimization. Use this
-        // knowledge to optimize things on our side as well since this
-        // will help a lot in case of any static installable content
-        // (headers, documentation, etc).
-        //
-        if (!build2::match (a, *pt, unmatch::unchanged))
-          t.prerequisite_targets.push_back (pt);
+        build2::match (a, *pt);
+        pts.push_back (pt);
       }
 
-      // This is where we diverge depending on the operation. In the
-      // update pre-operation, we need to make sure that this target
-      // as well as all its installable prerequisites are up to date.
-      //
-      if (a.operation () == update_id)
-      {
-        // Save the prerequisite targets that we found since the
-        // call to match_delegate() below will wipe them out.
-        //
-        prerequisite_targets p;
-
-        if (!t.prerequisite_targets.empty ())
-          p.swap (t.prerequisite_targets);
-
-        // Find the "real" update rule, that is, the rule that would
-        // have been found if we signalled that we do not match from
-        // match() above.
-        //
-        recipe d (match_delegate (a, t, *this));
-
-        // If we have no installable prerequisites, then simply redirect
-        // to it.
-        //
-        if (p.empty ())
-          return d;
-
-        // Ok, the worst case scenario: we need to cause update of
-        // prerequisite targets and also delegate to the real update.
-        //
-        return [pt = move (p), dr = move (d)] (
-          action a, const target& t) mutable -> target_state
-        {
-          // Do the target update first.
-          //
-          target_state r (execute_delegate (dr, a, t));
-
-          // Swap our prerequisite targets back in and execute.
-          //
-          t.prerequisite_targets.swap (pt);
-          r |= straight_execute_prerequisites (a, t);
-          pt.swap (t.prerequisite_targets); // In case we get re-executed.
-
-          return r;
-        };
-      }
-      else if (a.operation () == install_id)
-        return [this] (action a, const target& t)
-        {
-          return perform_install (a, t);
-        };
-      else
-        return [this] (action a, const target& t)
-        {
-          return perform_uninstall (a, t);
-        };
+      return default_recipe;
     }
 
-    void file_rule::
+    // group_rule
+    //
+    const group_rule group_rule::instance;
+
+    const target* group_rule::
+    filter (action, const target&, const target& m) const
+    {
+      return &m;
+    }
+
+    recipe group_rule::
+    apply (action a, target& t) const
+    {
+      tracer trace ("install::group_rule::apply");
+
+      // Resolve group members.
+      //
+      // Remember that we are called twice: first during update for install
+      // (pre-operation) and then during install. During the former, we rely
+      // on the normall update rule to resolve the group members. During the
+      // latter, there will be no rule to do this but the group will already
+      // have been resolved by the pre-operation.
+      //
+      // If the rule could not resolve the group, then we ignore it.
+      //
+      group_view gv (a.outer ()
+                     ? resolve_group_members (a, t)
+                     : t.group_members (a));
+
+      if (gv.members != nullptr)
+      {
+        auto& pts (t.prerequisite_targets[a]);
+        for (size_t i (0); i != gv.count; ++i)
+        {
+          const target* m (gv.members[i]);
+
+          if (m == nullptr)
+            continue;
+
+          // Let a customized rule have its say.
+          //
+          const target* mt (filter (a, t, *m));
+          if (mt == nullptr)
+          {
+            l5 ([&]{trace << "ignoring " << *m << " (filtered out)";});
+            continue;
+          }
+
+          // See if we were explicitly instructed not to touch this target.
+          //
+          // Note: not the same as lookup() above.
+          //
+          auto l ((*mt)["install"]);
+          if (l && cast<path> (l).string () == "false")
+          {
+            l5 ([&]{trace << "ignoring " << *mt << " (not installable)";});
+            continue;
+          }
+
+          build2::match (a, *mt);
+          pts.push_back (mt);
+        }
+      }
+
+      // Delegate to the base rule.
+      //
+      return alias_rule::apply (a, t);
+    }
+
+
+    // file_rule
+    //
+    const file_rule file_rule::instance;
+
+    bool file_rule::
+    match (action, target&, const string&) const
+    {
+      // We always match, even if this target is not installable (so that we
+      // can ignore it; see apply()).
+      //
+      return true;
+    }
+
+    const target* file_rule::
+    filter (action, const target& t, prerequisite_member p) const
+    {
+      const target& pt (p.search (t));
+      return pt.in (t.root_scope ()) ? &pt : nullptr;
+    }
+
+    recipe file_rule::
+    apply (action a, target& t) const
+    {
+      tracer trace ("install::file_rule::apply");
+
+      // Note that we are called both as the outer part during the "update for
+      // un/install" pre-operation and as the inner part during the
+      // un/install operation itself.
+      //
+      // In both cases we first determine if the target is installable and
+      // return noop if it's not. Otherwise, in the first case (update for
+      // un/install) we delegate to the normal update and in the second
+      // (un/install) -- perform the test.
+      //
+      if (lookup_install<path> (t, "install") == nullptr)
+        return noop_recipe;
+
+      // In both cases, the next step is to search, match, and collect all the
+      // installable prerequisites.
+      //
+      // @@ Unconditional group? How does it work for cli? Change to maybe
+      //    same like test? If so, also in alias_rule.
+      //
+      auto& pts (t.prerequisite_targets[a]);
+      for (prerequisite_member p: group_prerequisite_members (a, t))
+      {
+        // Ignore unresolved targets that are imported from other projects.
+        // We are definitely not installing those.
+        //
+        if (p.proj ())
+          continue;
+
+        // Let a customized rule have its say.
+        //
+        const target* pt (filter (a, t, p));
+        if (pt == nullptr)
+        {
+          l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
+          continue;
+        }
+
+        // See if we were explicitly instructed not to touch this target.
+        //
+        // Note: not the same as lookup() above.
+        //
+        auto l ((*pt)["install"]);
+        if (l && cast<path> (l).string () == "false")
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (not installable)";});
+          continue;
+        }
+
+        // If the matched rule returned noop_recipe, then the target state is
+        // set to unchanged as an optimization. Use this knowledge to optimize
+        // things on our side as well since this will help a lot when updating
+        // static installable content (headers, documentation, etc).
+        //
+        if (!build2::match (a, *pt, unmatch::unchanged))
+          pts.push_back (pt);
+      }
+
+      if (a.operation () == update_id)
+      {
+        // For the update pre-operation match the inner rule (actual update).
+        //
+        if (match_inner (a, t, unmatch::unchanged))
+        {
+          return pts.empty () ? noop_recipe : default_recipe;
+        }
+
+        return &perform_update;
+      }
+      else
+      {
+        return [this] (action a, const target& t)
+        {
+          return a.operation () == install_id
+            ? perform_install   (a, t)
+            : perform_uninstall (a, t);
+        };
+      }
+    }
+
+    target_state file_rule::
+    perform_update (action a, const target& t)
+    {
+      // First execute the inner recipe then prerequisites.
+      //
+      target_state ts (execute_inner (a, t));
+
+      if (t.prerequisite_targets[a].size () != 0)
+        ts |= straight_execute_prerequisites (a, t);
+
+      return ts;
+    }
+
+    bool file_rule::
     install_extra (const file&, const install_dir&) const
     {
+      return false;
     }
 
     bool file_rule::

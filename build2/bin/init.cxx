@@ -11,6 +11,10 @@
 #include <build2/diagnostics.hxx>
 
 #include <build2/config/utility.hxx>
+
+#include <build2/test/module.hxx>
+
+#include <build2/install/rule.hxx>
 #include <build2/install/utility.hxx>
 
 #include <build2/bin/rule.hxx>
@@ -456,17 +460,24 @@ namespace build2
         r.insert<libu> (perform_update_id, "bin.libu", fail_);
         r.insert<libu> (perform_clean_id,  "bin.libu", fail_);
 
-        r.insert<lib> (perform_update_id, "bin.lib", lib_);
-        r.insert<lib> (perform_clean_id,  "bin.lib", lib_);
-
-        // Configure members.
+        // Similar to alias.
         //
-        r.insert<lib> (configure_update_id, "bin.lib", lib_);
+        r.insert<lib> (perform_id, 0, "bin.lib", lib_);
+        r.insert<lib> (configure_id, 0, "bin.lib", lib_);
 
+        // Treat as a see through group for install and test.
+        //
         if (install_loaded)
         {
-          r.insert<lib> (perform_install_id,   "bin.lib", lib_);
-          r.insert<lib> (perform_uninstall_id, "bin.lib", lib_);
+          auto& gr (install::group_rule::instance);
+
+          r.insert<lib> (perform_install_id, "bin.lib", gr);
+          r.insert<lib> (perform_uninstall_id, "bin.lib", gr);
+        }
+
+        if (const test::module* m = rs.modules.lookup<test::module> ("test"))
+        {
+          r.insert<lib> (perform_test_id, "bin.lib", m->group_rule ());
         }
       }
 

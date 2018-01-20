@@ -14,26 +14,29 @@ namespace build2
 {
   namespace bin
   {
-    // Fail rule for obj{}, bmi{}, and libu{}.
+    // "Fail rule" for obj{}, bmi{}, and libu{} that issues diagnostics if
+    // someone tries to build any of these groups directly.
     //
     class fail_rule: public rule
     {
     public:
       fail_rule () {}
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe
       apply (action, target&) const override;
     };
 
+    // Pass-through to group members rule, similar to alias.
+    //
     class lib_rule: public rule
     {
     public:
       lib_rule () {}
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe

@@ -23,7 +23,7 @@ namespace build2
   namespace test
   {
     bool
-    boot (scope& rs, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, unique_ptr<module_base>& mod)
     {
       tracer trace ("test::boot");
 
@@ -38,53 +38,78 @@ namespace build2
       //
       auto& vp (var_pool.rw (rs));
 
-      // Tests to execute.
-      //
-      // Specified as <target>@<path-id> pairs with both sides being optional.
-      // The variable is untyped (we want a list of name-pairs), overridable,
-      // and inheritable. The target is relative (in essence a prerequisite)
-      // which is resolved from the (root) scope where the config.test value
-      // is defined.
-      //
-      vp.insert ("config.test", true);
+      common_data d {
 
-      // Test working directory before/after cleanup (see Testscript spec for
-      // semantics).
-      //
-      vp.insert<name_pair> ("config.test.output", true);
+        // Tests to execute.
+        //
+        // Specified as <target>@<path-id> pairs with both sides being
+        // optional. The variable is untyped (we want a list of name-pairs),
+        // overridable, and inheritable. The target is relative (in essence a
+        // prerequisite) which is resolved from the (root) scope where the
+        // config.test value is defined.
+        //
+        vp.insert ("config.test", true),
 
-      // Note: none are overridable.
-      //
-      // The test variable is a name which can be a path (with the
-      // true/false special values) or a target name.
-      //
-      vp.insert<name>    ("test",           variable_visibility::target);
-      vp.insert<name>    ("test.input",     variable_visibility::project);
-      vp.insert<name>    ("test.output",    variable_visibility::project);
-      vp.insert<name>    ("test.roundtrip", variable_visibility::project);
-      vp.insert<strings> ("test.options",   variable_visibility::project);
-      vp.insert<strings> ("test.arguments", variable_visibility::project);
+        // Test working directory before/after cleanup (see Testscript spec
+        // for semantics).
+        //
+        vp.insert<name_pair> ("config.test.output", true),
+
+        // The test variable is a name which can be a path (with the
+        // true/false special values) or a target name.
+        //
+        // Note: none are overridable.
+        //
+        vp.insert<name>    ("test",           variable_visibility::target),
+        vp.insert<strings> ("test.options",   variable_visibility::project),
+        vp.insert<strings> ("test.arguments", variable_visibility::project),
+
+        // Prerequisite-specific.
+        //
+        // test.stdin and test.stdout can be used to mark a prerequisite as a
+        // file to redirect stdin from and to compare stdout to, respectively.
+        // test.roundtrip is a shortcut to mark a prerequisite as both stdin
+        // and stdout.
+        //
+        // Prerequisites marked with test.input are treated as additional test
+        // inputs: they are made sure to be up to date and their paths are
+        // passed as additional command line arguments (after test.options and
+        // test.arguments). Their primary use is to pass inputs that may have
+        // varying file names/paths, for example:
+        //
+        // exe{parent}: exe{child}: test.input = true
+        //
+        // Note that currently this mechanism is only available to simple
+        // tests though we could also support it for testscript (e.g., by
+        // appending the input paths to test.arguments or by passing them in a
+        // separate test.inputs variable).
+        //
+        vp.insert<bool> ("test.stdin",     variable_visibility::target),
+        vp.insert<bool> ("test.stdout",    variable_visibility::target),
+        vp.insert<bool> ("test.roundtrip", variable_visibility::target),
+        vp.insert<bool> ("test.input",     variable_visibility::target),
+
+        // Test target platform.
+        //
+        vp.insert<target_triplet> ("test.target", variable_visibility::project)
+      };
 
       // These are only used in testscript.
       //
       vp.insert<strings> ("test.redirects", variable_visibility::project);
       vp.insert<strings> ("test.cleanups",  variable_visibility::project);
 
-      // Test target platform.
-      //
       // Unless already set, default test.target to build.host. Note that it
       // can still be overriden by the user, e.g., in root.build.
       //
       {
-        value& v (
-          rs.assign (
-            vp.insert<target_triplet> (
-              "test.target", variable_visibility::project)));
+        value& v (rs.assign (d.test_target));
 
         if (!v || v.empty ())
           v = cast<target_triplet> ((*global_scope)["build.host"]);
       }
 
+      mod.reset (new module (move (d)));
       return false;
     }
 
@@ -108,8 +133,7 @@ namespace build2
       const dir_path& out_root (rs.out_path ());
       l5 ([&]{trace << "for " << out_root;});
 
-      assert (mod == nullptr);
-      mod.reset (new module ());
+      assert (mod != nullptr);
       module& m (static_cast<module&> (*mod));
 
       // Configure.
@@ -123,7 +147,7 @@ namespace build2
 
       // config.test
       //
-      if (lookup l = config::omitted (rs, "config.test").first)
+      if (lookup l = config::omitted (rs, m.config_test).first)
       {
         // Figure out which root scope it came from.
         //
@@ -139,7 +163,7 @@ namespace build2
 
       // config.test.output
       //
-      if (lookup l = config::omitted (rs, "config.test.output").first)
+      if (lookup l = config::omitted (rs, m.config_test_output).first)
       {
         const name_pair& p (cast<name_pair> (l));
 
@@ -180,22 +204,13 @@ namespace build2
         t.insert<testscript> ();
       }
 
-      // Register rules.
+      // Register our test running rule.
       //
       {
-        const rule&        r (m);
-        const alias_rule& ar (m);
+        default_rule& dr (m);
 
-        // Register our test running rule.
-        //
-        rs.rules.insert<target> (perform_test_id, "test", r);
-        rs.rules.insert<alias> (perform_test_id, "test", ar);
-
-        // Register our rule for the dist meta-operation. We need to do this
-        // because we may have ad hoc prerequisites (test input/output files)
-        // that need to be entered into the target list.
-        //
-        rs.rules.insert<target> (dist_id, test_id, "test", r);
+        rs.rules.insert<target> (perform_test_id, "test", dr);
+        rs.rules.insert<alias>  (perform_test_id, "test", dr);
       }
 
       return true;

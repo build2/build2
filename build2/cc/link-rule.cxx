@@ -1,8 +1,8 @@
-// file      : build2/cc/link.cxx -*- C++ -*-
+// file      : build2/cc/link-rule.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/link.hxx>
+#include <build2/cc/link-rule.hxx>
 
 #include <map>
 #include <cstdlib>  // exit()
@@ -32,29 +32,21 @@ namespace build2
   {
     using namespace bin;
 
-    link::
-    link (data&& d)
+    link_rule::
+    link_rule (data&& d)
         : common (move (d)),
           rule_id (string (x) += ".link 1")
     {
+      static_assert (sizeof (match_data) <= target::data_size,
+                     "insufficient space");
     }
 
-    match_result link::
-    match (action act, target& t, const string& hint) const
+    bool link_rule::
+    match (action a, target& t, const string& hint) const
     {
-      tracer trace (x, "link::match");
+      tracer trace (x, "link_rule::match");
 
-      // @@ TODO:
-      //
-      // - if path already assigned, verify extension?
-      //
-      // @@ Q:
-      //
-      // - if there is no .o, are we going to check if the one derived
-      //   from target exist or can be built? A: No.
-      //   What if there is a library. Probably ok if static, not if shared,
-      //   (i.e., a utility library).
-      //
+      // NOTE: may be called multiple times (see install rules).
 
       ltype lt (link_type (t));
       otype ot (lt.type);
@@ -77,7 +69,7 @@ namespace build2
       //
       bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
 
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (p.is_a (x_src) || (x_mod != nullptr && p.is_a (*x_mod)))
         {
@@ -141,7 +133,7 @@ namespace build2
       return true;
     }
 
-    auto link::
+    auto link_rule::
     derive_libs_paths (file& ls, const char* pfx, const char* sfx) const
       -> libs_paths
     {
@@ -286,18 +278,20 @@ namespace build2
 
       const path& re (ls.derive_path (move (b)));
 
-      return libs_paths {move (lk), move (so), move (in), re, move (cp)};
+      return libs_paths {move (lk), move (so), move (in), &re, move (cp)};
     }
 
-    recipe link::
-    apply (action act, target& xt) const
+    recipe link_rule::
+    apply (action a, target& xt) const
     {
-      static_assert (sizeof (link::libs_paths) <= target::data_size,
-                     "insufficient space");
-
-      tracer trace (x, "link::apply");
+      tracer trace (x, "link_rule::apply");
 
       file& t (xt.as<file> ());
+
+      // Note that for_install is signalled by install_rule and therefore
+      // can only be relied upon during execute.
+      //
+      match_data& md (t.data (match_data ()));
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -417,9 +411,9 @@ namespace build2
               // the DLL and we add libi{} import library as its member.
               //
               if (tclass == "windows")
-                libi = add_adhoc_member<bin::libi> (act, t);
+                libi = add_adhoc_member<bin::libi> (a, t);
 
-              t.data (derive_libs_paths (t, p, s)); // Cache in target.
+              md.libs_data = derive_libs_paths (t, p, s);
 
               if (libi)
                 match_recipe (libi, group_recipe); // Set recipe and unlock.
@@ -439,7 +433,7 @@ namespace build2
             // Note: add after the import library if any.
             //
             target_lock pdb (
-              add_adhoc_member (act, t, *bs.find_target_type ("pdb")));
+              add_adhoc_member (a, t, *bs.find_target_type ("pdb")));
 
             // We call it foo.{exe,dll}.pdb rather than just foo.pdb because
             // we can have both foo.exe and foo.dll in the same directory.
@@ -453,16 +447,16 @@ namespace build2
           //
           // Note that we do it here regardless of whether we are installing
           // or not for two reasons. Firstly, it is not easy to detect this
-          // situation in apply() since the action may (and is) overridden to
-          // unconditional install. Secondly, always having the member takes
-          // care of cleanup automagically. The actual generation happens in
-          // the install rule.
+          // situation in apply() since the for_install hasn't yet been
+          // communicated by install_rule. Secondly, always having the member
+          // takes care of cleanup automagically. The actual generation
+          // happens in perform_update() below.
           //
           if (ot != otype::e)
           {
             target_lock pc (
               add_adhoc_member (
-                act, t,
+                a, t,
                 ot == otype::a ? pca::static_type : pcs::static_type));
 
             // Note that here we always use the lib name prefix, even on
@@ -482,7 +476,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      inject_fsdir (act, t);
+      inject_fsdir (a, t);
 
       // Process prerequisites, pass 1: search and match prerequisite
       // libraries, search obj/bmi{} targets, and search targets we do rule
@@ -507,23 +501,24 @@ namespace build2
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
       compile_target_types tt (compile_types (ot));
 
-      auto skip = [&act, &rs] (const target*& pt)
+      auto skip = [&a, &rs] (const target*& pt)
       {
-        if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+        if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
           pt = nullptr;
 
         return pt == nullptr;
       };
 
-      size_t start (t.prerequisite_targets.size ());
+      auto& pts (t.prerequisite_targets[a]);
+      size_t start (pts.size ());
 
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // We pre-allocate a NULL slot for each (potential; see clean)
         // prerequisite target.
         //
-        t.prerequisite_targets.push_back (nullptr);
-        const target*& pt (t.prerequisite_targets.back ());
+        pts.push_back (nullptr);
+        const target*& pt (pts.back ());
 
         uint8_t m (0); // Mark: lib (0), src (1), mod (2), obj/bmi (3).
 
@@ -603,7 +598,7 @@ namespace build2
           //
           if (p.proj ())
             pt = search_library (
-              act, sys_lib_dirs, usr_lib_dirs, p.prerequisite);
+              a, sys_lib_dirs, usr_lib_dirs, p.prerequisite);
 
           // The rest is the same basic logic as in search_and_match().
           //
@@ -617,7 +612,7 @@ namespace build2
           // member.
           //
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, act, li);
+            pt = &link_member (*l, a, li);
         }
         else
         {
@@ -639,7 +634,7 @@ namespace build2
 
       // Match lib{} (the only unmarked) in parallel and wait for completion.
       //
-      match_members (act, t, t.prerequisite_targets, start);
+      match_members (a, t, pts, start);
 
       // Process prerequisites, pass 2: finish rule chaining but don't start
       // matching anything yet since that may trigger recursive matching of
@@ -648,11 +643,11 @@ namespace build2
 
       // Parallel prerequisite_targets loop.
       //
-      size_t i (start), n (t.prerequisite_targets.size ());
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      size_t i (start), n (pts.size ());
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        const target*& pt (t.prerequisite_targets[i].target);
-        uintptr_t&     pd (t.prerequisite_targets[i++].data);
+        const target*& pt (pts[i].target);
+        uintptr_t&     pd (pts[i++].data);
 
         if (pt == nullptr)
           continue;
@@ -710,9 +705,9 @@ namespace build2
             // Note: have similar logic in make_module_sidebuild().
             //
             size_t j (start);
-            for (prerequisite_member p: group_prerequisite_members (act, t))
+            for (prerequisite_member p: group_prerequisite_members (a, t))
             {
-              const target* pt (t.prerequisite_targets[j++]);
+              const target* pt (pts[j++]);
 
               if (p.is_a<libx> () ||
                   p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> () ||
@@ -760,7 +755,7 @@ namespace build2
                                     : (group ? obj::static_type : tt.obj));
 
             bool src (false);
-            for (prerequisite_member p1: group_prerequisite_members (act, *pt))
+            for (prerequisite_member p1: group_prerequisite_members (a, *pt))
             {
               // Most of the time we will have just a single source so fast-
               // path that case.
@@ -843,18 +838,18 @@ namespace build2
 
       // Wait with unlocked phase to allow phase switching.
       //
-      wait_guard wg (target::count_busy (), t.task_count, true);
+      wait_guard wg (target::count_busy (), t[a].task_count, true);
 
       for (i = start; i != n; ++i)
       {
-        const target*& pt (t.prerequisite_targets[i]);
+        const target*& pt (pts[i]);
 
         if (pt == nullptr)
           continue;
 
         if (uint8_t m = unmark (pt))
         {
-          match_async (act, *pt, target::count_busy (), t.task_count);
+          match_async (a, *pt, target::count_busy (), t[a].task_count);
           mark (pt, m);
         }
       }
@@ -865,9 +860,9 @@ namespace build2
       // that we may have bailed out early (thus the parallel i/n for-loop).
       //
       i = start;
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        const target*& pt (t.prerequisite_targets[i++]);
+        const target*& pt (pts[i++]);
 
         // Skipped or not marked for completion.
         //
@@ -875,7 +870,7 @@ namespace build2
         if (pt == nullptr || (m = unmark (pt)) == 0)
           continue;
 
-        build2::match (act, *pt);
+        build2::match (a, *pt);
 
         // Nothing else to do if not marked for verification.
         //
@@ -887,7 +882,7 @@ namespace build2
         //
         bool mod (x_mod != nullptr && p.is_a (*x_mod));
 
-        for (prerequisite_member p1: group_prerequisite_members (act, *pt))
+        for (prerequisite_member p1: group_prerequisite_members (a, *pt))
         {
           if (p1.is_a (mod ? *x_mod : x_src) || p1.is_a<c> ())
           {
@@ -915,7 +910,7 @@ namespace build2
         }
       }
 
-      switch (act)
+      switch (a)
       {
       case perform_update_id: return [this] (action a, const target& t)
         {
@@ -929,10 +924,10 @@ namespace build2
       }
     }
 
-    void link::
+    void link_rule::
     append_libraries (strings& args,
                       const file& l, bool la, lflags lf,
-                      const scope& bs, action act, linfo li) const
+                      const scope& bs, action a, linfo li) const
     {
       // Note: lack of the "small function object" optimization will really
       // kill us here since we are called in a loop.
@@ -996,14 +991,14 @@ namespace build2
       };
 
       process_libraries (
-        act, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
+        a, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
     }
 
-    void link::
+    void link_rule::
     hash_libraries (sha256& cs,
                     bool& update, timestamp mt,
                     const file& l, bool la, lflags lf,
-                    const scope& bs, action act, linfo li) const
+                    const scope& bs, action a, linfo li) const
     {
       auto imp = [] (const file&, bool la) {return la;};
 
@@ -1053,14 +1048,14 @@ namespace build2
       };
 
       process_libraries (
-        act, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
+        a, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
     }
 
-    void link::
+    void link_rule::
     rpath_libraries (strings& args,
                      const target& t,
                      const scope& bs,
-                     action act,
+                     action a,
                      linfo li,
                      bool for_install) const
     {
@@ -1158,16 +1153,16 @@ namespace build2
       const function<bool (const file&, bool)> impf (imp);
       const function<void (const file*, const string&, lflags, bool)> libf (lib);
 
-      for (auto pt: t.prerequisite_targets)
+      for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
-        bool a;
+        bool la;
         const file* f;
 
-        if ((a = (f = pt->is_a<liba>  ())) ||
-            (a = (f = pt->is_a<libux> ())) ||
-            (     f = pt->is_a<libs>  ()))
+        if ((la = (f = pt->is_a<liba>  ())) ||
+            (la = (f = pt->is_a<libux> ())) ||
+            (      f = pt->is_a<libs>  ()))
         {
-          if (!for_install && !a)
+          if (!for_install && !la)
           {
             // Top-level sharen library dependency. It is either matched or
             // imported so should be a cc library.
@@ -1177,8 +1172,8 @@ namespace build2
                 "-Wl,-rpath," + f->path ().directory ().string ());
           }
 
-          process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a, pt.data,
+          process_libraries (a, bs, li, sys_lib_dirs,
+                             *f, la, pt.data,
                              impf, libf, nullptr);
         }
       }
@@ -1194,16 +1189,23 @@ namespace build2
     const char*
     msvc_machine (const string& cpu); // msvc.cxx
 
-    target_state link::
-    perform_update (action act, const target& xt) const
+    target_state link_rule::
+    perform_update (action a, const target& xt) const
     {
-      tracer trace (x, "link::perform_update");
-
-      auto oop (act.outer_operation ());
-      bool for_install (oop == install_id || oop == uninstall_id);
+      tracer trace (x, "link_rule::perform_update");
 
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
+
+      match_data& md (t.data<match_data> ());
+
+      // Unless the outer install rule signalled that this is update for
+      // install, signal back that we've performed plain update.
+      //
+      if (!md.for_install)
+        md.for_install = false;
+
+      bool for_install (*md.for_install);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -1217,7 +1219,7 @@ namespace build2
       //
       bool update (false);
       timestamp mt (t.load_mtime ());
-      target_state ts (straight_execute_prerequisites (act, t));
+      target_state ts (straight_execute_prerequisites (a, t));
 
       // If targeting Windows, take care of the manifest.
       //
@@ -1231,7 +1233,7 @@ namespace build2
         // it if we are updating for install.
         //
         if (!for_install)
-          rpath_timestamp = windows_rpath_timestamp (t, bs, act, li);
+          rpath_timestamp = windows_rpath_timestamp (t, bs, a, li);
 
         pair<path, bool> p (
           windows_manifest (t,
@@ -1450,7 +1452,7 @@ namespace build2
           //
           if (lt.shared_library ())
           {
-            const libs_paths& paths (t.data<libs_paths> ());
+            const libs_paths& paths (md.libs_data);
             const string& leaf (paths.effect_soname ().leaf ().string ());
 
             if (tclass == "macos")
@@ -1486,7 +1488,7 @@ namespace build2
           // rpath of the imported libraries (i.e., we assume they are also
           // installed). But we add -rpath-link for some platforms.
           //
-          rpath_libraries (sargs, t, bs, act, li, for_install);
+          rpath_libraries (sargs, t, bs, a, li, for_install);
 
           if (auto l = t["bin.rpath"])
             for (const dir_path& p: cast<dir_paths> (l))
@@ -1519,7 +1521,7 @@ namespace build2
       {
         sha256 cs;
 
-        for (auto p: t.prerequisite_targets)
+        for (const prerequisite_target& p: t.prerequisite_targets[a])
         {
           const target* pt (p.target);
 
@@ -1532,15 +1534,15 @@ namespace build2
           }
 
           const file* f;
-          bool a (false), s (false);
+          bool la (false), ls (false);
 
           if ((f = pt->is_a<obje> ()) ||
               (f = pt->is_a<obja> ()) ||
               (f = pt->is_a<objs> ()) ||
               (!lt.static_library () && // @@ UTL: TODO libua to liba link.
-               ((a = (f = pt->is_a<liba>  ())) ||
-                (a = (f = pt->is_a<libux> ())) ||
-                (s = (f = pt->is_a<libs>  ())))))
+               ((la = (f = pt->is_a<liba>  ())) ||
+                (la = (f = pt->is_a<libux> ())) ||
+                (ls = (f = pt->is_a<libs>  ())))))
           {
             // Link all the dependent interface libraries (shared) or interface
             // and implementation (static), recursively.
@@ -1551,9 +1553,9 @@ namespace build2
             // reason to re-archive the utility but those who link the utility
             // have to "see through" the changes in the shared library.
             //
-            if (a || s)
+            if (la || ls)
             {
-              hash_libraries (cs, update, mt, *f, a, p.data, bs, act, li);
+              hash_libraries (cs, update, mt, *f, la, p.data, bs, a, li);
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
@@ -1603,22 +1605,16 @@ namespace build2
       //
       // Also, if you are wondering why don't we just always produce this .pc,
       // install or no install, the reason is unless and until we are updating
-      // for install, we have no idea where to things will be installed.
+      // for install, we have no idea where-to things will be installed.
       //
       if (for_install)
       {
-        bool a;
+        bool la;
         const file* f;
 
-        if ((a = (f = t.is_a<liba> ())) ||
-            (     f = t.is_a<libs> ()))
-        {
-          // @@ Hack: this should really be in install:update_extra() where we
-          // (should) what we are installing and what not.
-          //
-          if (rs["install.root"])
-            pkgconfig_save (act, *f, a);
-        }
+        if ((la = (f = t.is_a<liba> ())) ||
+            (      f = t.is_a<libs> ()))
+          pkgconfig_save (a, *f, la);
       }
 
       // If nothing changed, then we are done.
@@ -1810,7 +1806,7 @@ namespace build2
 
       // The same logic as during hashing above.
       //
-      for (auto p: t.prerequisite_targets)
+      for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
         const target* pt (p.target);
 
@@ -1821,21 +1817,21 @@ namespace build2
         }
 
         const file* f;
-        bool a (false), s (false);
+        bool la (false), ls (false);
 
         if ((f = pt->is_a<obje> ()) ||
             (f = pt->is_a<obja> ()) ||
             (f = pt->is_a<objs> ()) ||
             (!lt.static_library () && // @@ UTL: TODO libua to liba link.
-             ((a = (f = pt->is_a<liba>  ())) ||
-              (a = (f = pt->is_a<libux> ())) ||
-              (s = (f = pt->is_a<libs>  ())))))
+             ((la = (f = pt->is_a<liba>  ())) ||
+              (la = (f = pt->is_a<libux> ())) ||
+              (ls = (f = pt->is_a<libs>  ())))))
         {
           // Link all the dependent interface libraries (shared) or interface
           // and implementation (static), recursively.
           //
-          if (a || s)
-            append_libraries (sargs, *f, a, p.data, bs, act, li);
+          if (la || ls)
+            append_libraries (sargs, *f, la, p.data, bs, a, li);
           else
             sargs.push_back (relative (f->path ()).string ()); // string()&&
         }
@@ -1864,7 +1860,7 @@ namespace build2
       //
       if (lt.shared_library ())
       {
-        const libs_paths& paths (t.data<libs_paths> ());
+        const libs_paths& paths (md.libs_data);
         const path& p (paths.clean);
 
         if (!p.empty ())
@@ -1886,7 +1882,7 @@ namespace build2
                 return s.empty () || m.string ().compare (0, s.size (), s) != 0;
               };
 
-              if (test (paths.real)   &&
+              if (test (*paths.real)  &&
                   test (paths.interm) &&
                   test (paths.soname) &&
                   test (paths.link))
@@ -2004,7 +2000,7 @@ namespace build2
         // install).
         //
         if (lt.executable () && !for_install)
-          windows_rpath_assembly (t, bs, act, li,
+          windows_rpath_assembly (t, bs, a, li,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
                                   scratch);
@@ -2031,13 +2027,13 @@ namespace build2
           }
         };
 
-        const libs_paths& paths (t.data<libs_paths> ());
+        const libs_paths& paths (md.libs_data);
 
         const path& lk (paths.link);
         const path& so (paths.soname);
         const path& in (paths.interm);
 
-        const path* f (&paths.real);
+        const path* f (paths.real);
 
         if (!in.empty ()) {ln (f->leaf (), in); f = &in;}
         if (!so.empty ()) {ln (f->leaf (), so); f = &so;}
@@ -2054,8 +2050,8 @@ namespace build2
       return target_state::changed;
     }
 
-    target_state link::
-    perform_clean (action act, const target& xt) const
+    target_state link_rule::
+    perform_clean (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());
       ltype lt (link_type (t));
@@ -2066,13 +2062,13 @@ namespace build2
         {
           if (tsys == "mingw32")
             return clean_extra (
-              act, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
+              a, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
           else
             // Assuming it's VC or alike. Clean up .ilk in case the user
             // enabled incremental linking (note that .ilk replaces .exe).
             //
             return clean_extra (
-              act, t, {".d", ".dlls/", ".manifest", "-.ilk"});
+              a, t, {".d", ".dlls/", ".manifest", "-.ilk"});
         }
       }
       else if (lt.shared_library ())
@@ -2085,16 +2081,16 @@ namespace build2
           // versioning their bases may not be the same.
           //
           if (tsys != "mingw32")
-            return clean_extra (act, t, {{".d", "-.ilk"}, {"-.exp"}});
+            return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});
         }
         else
         {
           // Here we can have a bunch of symlinks that we need to remove. If
           // the paths are empty, then they will be ignored.
           //
-          const libs_paths& paths (t.data<libs_paths> ());
+          const libs_paths& paths (t.data<match_data> ().libs_data);
 
-          return clean_extra (act, t, {".d",
+          return clean_extra (a, t, {".d",
                 paths.link.string ().c_str (),
                 paths.soname.string ().c_str (),
                 paths.interm.string ().c_str ()});
@@ -2102,7 +2098,7 @@ namespace build2
       }
       // For static library it's just the defaults.
 
-      return clean_extra (act, t, {".d"});
+      return clean_extra (a, t, {".d"});
     }
   }
 }

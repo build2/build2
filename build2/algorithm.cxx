@@ -100,7 +100,7 @@ namespace build2
     return q ? import_existing (pk) : search_existing_target (pk);
   }
 
-  // If the work_queue is not present, then we don't wait.
+  // If the work_queue is absent, then we don't wait.
   //
   target_lock
   lock_impl (action a, const target& ct, optional<scheduler::work_queue> wq)
@@ -113,27 +113,25 @@ namespace build2
     size_t b (target::count_base ());
     size_t e (b + target::offset_touched - 1);
 
-    size_t lock (b + target::offset_locked);
+    size_t appl (b + target::offset_applied);
     size_t busy (b + target::offset_busy);
 
-    for (;;)
-    {
-      // First try to grab the spin lock which we later may upgrade to busy.
-      //
-      if (ct.task_count.compare_exchange_strong (
-            e,
-            lock,
-            memory_order_acq_rel,  // Synchronize on success.
-            memory_order_acquire)) // Synchronize on failure.
-      {
-        break;
-      }
+    atomic_count& task_count (ct[a].task_count);
 
-      while (e == lock || e >= busy)
+    while (!task_count.compare_exchange_strong (
+             e,
+             busy,
+             memory_order_acq_rel,  // Synchronize on success.
+             memory_order_acquire)) // Synchronize on failure.
+    {
+      // Wait for the count to drop below busy if someone is already working
+      // on this target.
+      //
+      if (e >= busy)
       {
-        // Wait for the count to drop below busy if someone is already working
-        // on this target.
-        //
+        if (!wq)
+          return target_lock {a, nullptr, e - b};
+
         // We also unlock the phase for the duration of the wait. Why?
         // Consider this scenario: we are trying to match a dir{} target whose
         // buildfile still needs to be loaded. Let's say someone else started
@@ -141,118 +139,54 @@ namespace build2
         // to switch the phase to load. Which would result in a deadlock
         // unless we release the phase.
         //
-        if (e >= busy)
-        {
-          if (!wq)
-            return target_lock {nullptr, e - b};
-
-          phase_unlock ul;
-          e = sched.wait (busy - 1, ct.task_count, *wq);
-        }
-
-        // Spin if it is locked.
-        //
-        for (; e == lock; e = ct.task_count.load (memory_order_acquire))
-          this_thread::yield ();
+        phase_unlock ul;
+        e = sched.wait (busy - 1, task_count, *wq);
       }
+
+      // We don't lock already applied or executed targets.
+      //
+      if (e >= appl)
+        return target_lock {a, nullptr, e - b};
     }
 
-    // We now have the sping lock. Analyze the old value and decide what to
-    // do.
+    // We now have the lock. Analyze the old value and decide what to do.
     //
     target& t (const_cast<target&> (ct));
+    target::opstate& s (t[a]);
 
     size_t offset;
     if (e <= b)
     {
       // First lock for this operation.
       //
-      t.action = a;
-      t.rule = nullptr;
-      t.dependents.store (0, memory_order_release);
+      s.rule = nullptr;
+      s.dependents.store (0, memory_order_release);
+
       offset = target::offset_touched;
     }
     else
     {
       offset = e - b;
-
-      switch (offset)
-      {
-      case target::offset_executed:
-        {
-          if (t.action >= a)
-          {
-            // We don't lock already executed targets.
-            //
-            t.task_count.store (e, memory_order_release);
-            return target_lock {nullptr, target::offset_executed};
-          }
-
-          // Override, fall through.
-          //
-          assert (a > t.action);
-        }
-      case target::offset_touched:
-      case target::offset_tried:
-      case target::offset_matched:
-      case target::offset_applied:
-        {
-          if (a > t.action)
-          {
-            // Only noop_recipe can be overridden.
-            //
-            if (offset >= target::offset_applied)
-            {
-              recipe_function** f (t.recipe_.target<recipe_function*> ());
-              assert (f != nullptr && *f == &noop_action);
-            }
-
-            t.action = a;
-            t.rule = nullptr;
-            offset = target::offset_touched; // Back to just touched.
-          }
-          else
-          {
-            assert (t.action >= a);
-
-            // Release the lock if already applied for this action. This is
-            // necessary no to confuse execute since otherwise it might see
-            // that the target is busy and assume that someone is already
-            // executing it. Note that we cannot handle this case in the loop
-            // above since we need to lock target::action.
-            //
-            if (offset == target::offset_applied || t.action > a)
-            {
-              // Release the spin lock.
-              //
-              t.task_count.store (e, memory_order_release);
-              return target_lock {nullptr, offset};
-            }
-          }
-
-          break;
-        }
-      default:
-        assert (false);
-      }
+      assert (offset == target::offset_touched ||
+              offset == target::offset_tried   ||
+              offset == target::offset_matched);
     }
 
-    // We are keeping it so upgrade to busy.
-    //
-    t.task_count.store (busy, memory_order_release);
-    return target_lock (&t, offset);
+    return target_lock (a, &t, offset);
   }
 
   void
-  unlock_impl (target& t, size_t offset)
+  unlock_impl (action a, target& t, size_t offset)
   {
     assert (phase == run_phase::match);
+
+    atomic_count& task_count (t[a].task_count);
 
     // Set the task count and wake up any threads that might be waiting for
     // this target.
     //
-    t.task_count.store (offset + target::count_base (), memory_order_release);
-    sched.resume (t.task_count);
+    task_count.store (offset + target::count_base (), memory_order_release);
+    sched.resume (task_count);
   }
 
   target_lock
@@ -283,160 +217,137 @@ namespace build2
     return l;
   };
 
-  // Return the matching rule and the recipe action.
+  // Return the matching rule or NULL if no match and try_match is true.
   //
-  pair<const pair<const string, reference_wrapper<const rule>>*, action>
+  const rule_match*
   match_impl (action a, target& t, const rule* skip, bool try_match)
   {
-    // Clear the resolved targets list before calling match(). The rule is
-    // free to modify this list in match() (provided that it matches) in order
-    // to, for example, prepare it for apply().
+    // If this is an outer operation (Y_for_X), then we look for rules
+    // registered for the outer id (X). Note that we still pass the original
+    // action to the rule's match() function so that it can distinguish
+    // between a pre/post operation (Y_for_X) and the actual operation (X).
     //
-    t.clear_data ();
-    t.prerequisite_targets.clear ();
+    meta_operation_id mo (a.meta_operation ());
+    operation_id o (a.inner () ? a.operation () : a.outer_operation ());
 
-    // If this is a nested operation, first try the outer operation.
-    // This allows a rule to implement a "precise match", that is,
-    // both inner and outer operations match.
-    //
-    for (operation_id oo (a.outer_operation ()), io (a.operation ()),
-           o (oo != 0 ? oo : io);
-         o != 0;
-         o = (oo != 0 && o != io ? io : 0))
+    const scope& bs (t.base_scope ());
+
+    for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
     {
-      // Adjust action for recipe: on the first iteration we want it
-      // {inner, outer} (which is the same as 'a') while on the second
-      // -- {inner, 0}. Note that {inner, 0} is the same or "stronger"
-      // (i.e., overrides; see action::operator<()) than 'a'. This
-      // allows "unconditional inner" to override "inner for outer"
-      // recipes.
+      // Search scopes outwards, stopping at the project root.
       //
-      action ra (a.meta_operation (), io, o != oo ? 0 : oo);
-
-      const scope& bs (t.base_scope ());
-
-      for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
+      for (const scope* s (&bs);
+           s != nullptr;
+           s = s->root () ? global_scope : s->parent_scope ())
       {
-        // Search scopes outwards, stopping at the project root.
+        const operation_rule_map* om (s->rules[mo]);
+
+        if (om == nullptr)
+          continue; // No entry for this meta-operation id.
+
+        // First try the map for the actual operation. If that doesn't yeld
+        // anything, try the wildcard map.
         //
-        for (const scope* s (&bs);
-             s != nullptr;
-             s = s->root () ? global_scope : s->parent_scope ())
+        for (operation_id oi (o), oip (o); oip != 0; oip = oi, oi = 0)
         {
-          const operation_rule_map* om (s->rules[a.meta_operation ()]);
+          const target_type_rule_map* ttm ((*om)[oi]);
 
-          if (om == nullptr)
-            continue; // No entry for this meta-operation id.
+          if (ttm == nullptr)
+            continue; // No entry for this operation id.
 
-          // First try the map for the actual operation. If that doesn't yeld
-          // anything, try the wildcard map.
+          if (ttm->empty ())
+            continue; // Empty map for this operation id.
+
+          auto i (ttm->find (tt));
+
+          if (i == ttm->end () || i->second.empty ())
+            continue; // No rules registered for this target type.
+
+          const auto& rules (i->second); // Hint map.
+
+          // @@ TODO
           //
-          for (operation_id oi (o), oip (o); oip != 0; oip = oi, oi = 0)
+          // Different rules can be used for different operations (update vs
+          // test is a good example). So, at some point, we will probably have
+          // to support a list of hints or even an operation-hint map (e.g.,
+          // 'hint=cxx test=foo' if cxx supports the test operation but we
+          // want the foo rule instead). This is also the place where the
+          // '{build clean}=cxx' construct (which we currently do not support)
+          // can come handy.
+          //
+          // Also, ignore the hint (that is most likely ment for a different
+          // operation) if this is a unique match.
+          //
+          string hint;
+          auto rs (rules.size () == 1
+                   ? make_pair (rules.begin (), rules.end ())
+                   : rules.find_sub (hint));
+
+          for (auto i (rs.first); i != rs.second; ++i)
           {
-            const target_type_rule_map* ttm ((*om)[oi]);
+            const auto& r (*i);
+            const string& n (r.first);
+            const rule& ru (r.second);
 
-            if (ttm == nullptr)
-              continue; // No entry for this operation id.
+            if (&ru == skip)
+              continue;
 
-            if (ttm->empty ())
-              continue; // Empty map for this operation id.
-
-            auto i (ttm->find (tt));
-
-            if (i == ttm->end () || i->second.empty ())
-              continue; // No rules registered for this target type.
-
-            const auto& rules (i->second); // Hint map.
-
-            // @@ TODO
-            //
-            // Different rules can be used for different operations (update
-            // vs test is a good example). So, at some point, we will probably
-            // have to support a list of hints or even an operation-hint map
-            // (e.g., 'hint=cxx test=foo' if cxx supports the test operation
-            // but we want the foo rule instead). This is also the place where
-            // the '{build clean}=cxx' construct (which we currently do not
-            // support) can come handy.
-            //
-            // Also, ignore the hint (that is most likely ment for a different
-            // operation) if this is a unique match.
-            //
-            string hint;
-            auto rs (rules.size () == 1
-                     ? make_pair (rules.begin (), rules.end ())
-                     : rules.find_sub (hint));
-
-            for (auto i (rs.first); i != rs.second; ++i)
             {
-              const auto& r (*i);
-              const string& n (r.first);
-              const rule& ru (r.second);
+              auto df = make_diag_frame (
+                [a, &t, &n](const diag_record& dr)
+                {
+                  if (verb != 0)
+                    dr << info << "while matching rule " << n << " to "
+                       << diag_do (a, t);
+                });
 
-              if (&ru == skip)
+              if (!ru.match (a, t, hint))
                 continue;
+            }
 
-              match_result m (false);
+            // Do the ambiguity test.
+            //
+            bool ambig (false);
+
+            diag_record dr;
+            for (++i; i != rs.second; ++i)
+            {
+              const string& n1 (i->first);
+              const rule& ru1 (i->second);
+
               {
                 auto df = make_diag_frame (
-                  [ra, &t, &n](const diag_record& dr)
+                  [a, &t, &n1](const diag_record& dr)
                   {
                     if (verb != 0)
-                      dr << info << "while matching rule " << n << " to "
-                         << diag_do (ra, t);
+                      dr << info << "while matching rule " << n1 << " to "
+                         << diag_do (a, t);
                   });
 
-                if (!(m = ru.match (ra, t, hint)))
+                // @@ TODO: this makes target state in match() undetermined
+                //    so need to fortify rules that modify anything in match
+                //    to clear things.
+                //
+                // @@ Can't we temporarily swap things out in target?
+                //
+                if (!ru1.match (a, t, hint))
                   continue;
-
-                if (m.recipe_action.valid ())
-                  assert (m.recipe_action > ra);
-                else
-                  m.recipe_action = ra; // Default, if not set.
-              }
-
-              // Do the ambiguity test.
-              //
-              bool ambig (false);
-
-              diag_record dr;
-              for (++i; i != rs.second; ++i)
-              {
-                const string& n1 (i->first);
-                const rule& ru1 (i->second);
-
-                {
-                  auto df = make_diag_frame (
-                    [ra, &t, &n1](const diag_record& dr)
-                    {
-                      if (verb != 0)
-                        dr << info << "while matching rule " << n1 << " to "
-                           << diag_do (ra, t);
-                    });
-
-                  // @@ TODO: this makes target state in match() undetermined
-                  //    so need to fortify rules that modify anything in match
-                  //    to clear things.
-                  //
-                  if (!ru1.match (ra, t, hint))
-                    continue;
-                }
-
-                if (!ambig)
-                {
-                  dr << fail << "multiple rules matching "
-                     << diag_doing (ra, t)
-                     << info << "rule " << n << " matches";
-                  ambig = true;
-                }
-
-                dr << info << "rule " << n1 << " also matches";
               }
 
               if (!ambig)
-                return  make_pair (&r, m.recipe_action);
-              else
-                dr << info << "use rule hint to disambiguate this match";
+              {
+                dr << fail << "multiple rules matching " << diag_doing (a, t)
+                   << info << "rule " << n << " matches";
+                ambig = true;
+              }
+
+              dr << info << "rule " << n1 << " also matches";
             }
+
+            if (!ambig)
+              return &r;
+            else
+              dr << info << "use rule hint to disambiguate this match";
           }
         }
       }
@@ -451,14 +362,13 @@ namespace build2
         dr << info << "re-run with --verbose 4 for more information";
     }
 
-    return pair<const pair<const string, reference_wrapper<const rule>>*,
-                action> {nullptr, a};
+    return nullptr;
   }
 
   recipe
-  apply_impl (target& t,
-              const pair<const string, reference_wrapper<const rule>>& r,
-              action a)
+  apply_impl (action a,
+              target& t,
+              const pair<const string, reference_wrapper<const rule>>& r)
   {
     auto df = make_diag_frame (
       [a, &t, &r](const diag_record& dr)
@@ -468,9 +378,6 @@ namespace build2
              << diag_do (a, t);
       });
 
-    // @@ We could also allow the rule to change the recipe action in
-    // apply(). Could be useful with delegates.
-    //
     return r.second.get ().apply (a, t);
   }
 
@@ -480,13 +387,15 @@ namespace build2
   // the first half of the result.
   //
   static pair<bool, target_state>
-  match_impl (action a,
-              target_lock& l,
+  match_impl (target_lock& l,
               bool step = false,
               bool try_match = false)
   {
     assert (l.target != nullptr);
+
+    action a (l.action);
     target& t (*l.target);
+    target::opstate& s (t[a]);
 
     try
     {
@@ -506,29 +415,38 @@ namespace build2
         {
           // Match.
           //
-          auto mr (match_impl (a, t, nullptr, try_match));
 
-          if (mr.first == nullptr) // Not found (try_match == true).
+          // Clear the resolved targets list and the data pad before calling
+          // match(). The rule is free to modify these in its match()
+          // (provided that it matches) in order to, for example, convey some
+          // information to apply().
+          //
+          t.prerequisite_targets[a].clear ();
+          if (a.inner ()) t.clear_data ();
+
+          const rule_match* r (match_impl (a, t, nullptr, try_match));
+
+          if (r == nullptr) // Not found (try_match == true).
           {
             l.offset = target::offset_tried;
             return make_pair (false, target_state::unknown);
           }
 
-          t.rule = mr.first;
-          t.action = mr.second; // In case overriden.
+          s.rule = r;
           l.offset = target::offset_matched;
 
           if (step)
-            // t.state_ is not yet set.
-            //
+            // Note: s.state is still undetermined.
             return make_pair (true, target_state::unknown);
+
+          // Otherwise ...
         }
         // Fall through.
       case target::offset_matched:
         {
           // Apply.
           //
-          t.recipe (apply_impl (t, *t.rule, t.action));
+          set_recipe (l, apply_impl (a, t, *s.rule));
           l.offset = target::offset_applied;
           break;
         }
@@ -541,14 +459,14 @@ namespace build2
       // As a sanity measure clear the target data since it can be incomplete
       // or invalid (mark()/unmark() should give you some ideas).
       //
-      t.clear_data ();
-      t.prerequisite_targets.clear ();
+      t.prerequisite_targets[a].clear ();
+      if (a.inner ()) t.clear_data ();
 
-      t.state_ = target_state::failed;
+      s.state = target_state::failed;
       l.offset = target::offset_applied;
     }
 
-    return make_pair (true, t.state_);
+    return make_pair (true, s.state);
   }
 
   // If try_match is true, then indicate whether there is a rule match with
@@ -599,7 +517,7 @@ namespace build2
         return make_pair (false, target_state::unknown);
 
       if (task_count == nullptr)
-        return match_impl (a, l, false /* step */, try_match);
+        return match_impl (l, false /* step */, try_match);
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
       // task destruction. Also pass our diagnostics stack (this is safe since
@@ -617,8 +535,8 @@ namespace build2
                          {
                            phase_lock pl (run_phase::match); // Can throw.
                            {
-                             target_lock l {&t, offset}; // Reassemble.
-                             match_impl (a, l, false /* step */, try_match);
+                             target_lock l {a, &t, offset}; // Reassemble.
+                             match_impl (l, false /* step */, try_match);
                              // Unlock withing the match phase.
                            }
                          }
@@ -651,7 +569,7 @@ namespace build2
       {
         // Match (locked).
         //
-        if (match_impl (a, l, true).second == target_state::failed)
+        if (match_impl (l, true).second == target_state::failed)
           throw failed ();
 
         if ((r = g.group_members (a)).members != nullptr)
@@ -666,10 +584,14 @@ namespace build2
         //    not seem like it will be easy to fix (we don't know whether
         //    someone else will execute this target).
         //
+        // @@ What if we always do match & execute together? After all,
+        //    if a group can be resolved in apply(), then it can be
+        //    resolved in match()!
+        //
 
         // Apply (locked).
         //
-        if (match_impl (a, l, true).second == target_state::failed)
+        if (match_impl (l, true).second == target_state::failed)
           throw failed ();
 
         if ((r = g.group_members (a)).members != nullptr)
@@ -707,12 +629,12 @@ namespace build2
   static void
   match_prerequisite_range (action a, target& t, R&& r, const scope* s)
   {
-    auto& pts (t.prerequisite_targets);
+    auto& pts (t.prerequisite_targets[a]);
 
     // Start asynchronous matching of prerequisites. Wait with unlocked phase
     // to allow phase switching.
     //
-    wait_guard wg (target::count_busy (), t.task_count, true);
+    wait_guard wg (target::count_busy (), t[a].task_count, true);
 
     size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
@@ -722,7 +644,7 @@ namespace build2
       if (s != nullptr && !pt.in (*s))
         continue;
 
-      match_async (a, pt, target::count_busy (), t.task_count);
+      match_async (a, pt, target::count_busy (), t[a].task_count);
       pts.push_back (&pt);
     }
 
@@ -751,12 +673,12 @@ namespace build2
 
   template <typename T>
   void
-  match_members (action a, target& t, T ts[], size_t n)
+  match_members (action a, target& t, T const* ts, size_t n)
   {
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
     //
-    wait_guard wg (target::count_busy (), t.task_count, true);
+    wait_guard wg (target::count_busy (), t[a].task_count, true);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -765,7 +687,7 @@ namespace build2
       if (m == nullptr || marked (m))
         continue;
 
-      match_async (a, *m, target::count_busy (), t.task_count);
+      match_async (a, *m, target::count_busy (), t[a].task_count);
     }
 
     wg.wait ();
@@ -786,11 +708,11 @@ namespace build2
   // Instantiate only for what we need.
   //
   template void
-  match_members<const target*> (action, target&, const target*[], size_t);
+  match_members<const target*> (action, target&, const target* const*, size_t);
 
   template void
   match_members<prerequisite_target> (
-    action, target&, prerequisite_target[], size_t);
+    action, target&, prerequisite_target const*, size_t);
 
   const fsdir*
   inject_fsdir (action a, target& t, bool parent)
@@ -844,7 +766,7 @@ namespace build2
     if (r != nullptr)
     {
       match (a, *r);
-      t.prerequisite_targets.emplace_back (r);
+      t.prerequisite_targets[a].emplace_back (r);
     }
 
     return r;
@@ -922,16 +844,16 @@ namespace build2
       // Note that if the result is group, then the group's state can be
       // failed.
       //
-      switch (t.state_ = ts)
+      switch (t[a].state = ts)
       {
       case target_state::changed:
       case target_state::unchanged:
         break;
       case target_state::postponed:
-        ts = t.state_ = target_state::unchanged;
+        ts = t[a].state = target_state::unchanged;
         break;
       case target_state::group:
-        ts = t.group->state_;
+        ts = (*t.group)[a].state;
         break;
       default:
         assert (false);
@@ -939,7 +861,7 @@ namespace build2
     }
     catch (const failed&)
     {
-      ts = t.state_ = target_state::failed;
+      ts = t[a].state = target_state::failed;
     }
 
     return ts;
@@ -948,15 +870,17 @@ namespace build2
   static target_state
   execute_impl (action a, target& t)
   {
-    assert (t.task_count.load (memory_order_consume) == target::count_busy ()
-            && t.state_ == target_state::unknown);
+    target::opstate& s (t[a]);
 
-    target_state ts (execute_recipe (a, t, t.recipe_));
+    assert (s.task_count.load (memory_order_consume) == target::count_busy ()
+            && s.state == target_state::unknown);
 
-    // Decrement the target count (see target::recipe() for details).
+    target_state ts (execute_recipe (a, t, s.recipe));
+
+    // Decrement the target count (see set_recipe() for details).
     //
     {
-      recipe_function** f (t.recipe_.target<recipe_function*> ());
+      recipe_function** f (s.recipe.target<recipe_function*> ());
       if (f == nullptr || *f != &group_action)
         target_count.fetch_sub (1, memory_order_relaxed);
     }
@@ -964,11 +888,11 @@ namespace build2
     // Decrement the task count (to count_executed) and wake up any threads
     // that might be waiting for this target.
     //
-    size_t tc (t.task_count.fetch_sub (
+    size_t tc (s.task_count.fetch_sub (
                  target::offset_busy - target::offset_executed,
                  memory_order_release));
     assert (tc == target::count_busy ());
-    sched.resume (t.task_count);
+    sched.resume (s.task_count);
 
     return ts;
   }
@@ -980,11 +904,12 @@ namespace build2
            atomic_count* task_count)
   {
     target& t (const_cast<target&> (ct)); // MT-aware.
+    target::opstate& s (t[a]);
 
     // Update dependency counts and make sure they are not skew.
     //
     size_t gd (dependency_count.fetch_sub (1, memory_order_relaxed));
-    size_t td (t.dependents.fetch_sub (1, memory_order_release));
+    size_t td (s.dependents.fetch_sub (1, memory_order_release));
     assert (td != 0 && gd != 0);
     td--;
 
@@ -1012,133 +937,103 @@ namespace build2
     if (current_mode == execution_mode::last && td != 0)
       return target_state::postponed;
 
-    // Try to atomically change applied to busy. Note that we are in the
-    // execution phase so the target shall not be spin-locked.
+    // Try to atomically change applied to busy.
     //
-    size_t touc (target::count_touched ());
-    size_t matc (target::count_matched ());
-    size_t appc (target::count_applied ());
+    size_t tc (target::count_applied ());
+
     size_t exec (target::count_executed ());
     size_t busy (target::count_busy ());
 
-    for (size_t tc (appc);;)
+    if (s.task_count.compare_exchange_strong (
+          tc,
+          busy,
+          memory_order_acq_rel,  // Synchronize on success.
+          memory_order_acquire)) // Synchronize on failure.
     {
-      if (t.task_count.compare_exchange_strong (
-            tc,
-            busy,
-            memory_order_acq_rel,  // Synchronize on success.
-            memory_order_acquire)) // Synchronize on failure.
+      // Handle the noop recipe.
+      //
+      if (s.state == target_state::unchanged)
       {
-        // Overriden touch/tried/match-only or noop recipe.
+        // There could still be scope operations.
         //
-        if ((tc >= touc && tc <= matc) || t.state_ == target_state::unchanged)
-        {
-          // If we have a noop recipe, there could still be scope operations.
-          //
-          if (tc == appc && t.is_a<dir> ())
-            execute_recipe (a, t, nullptr /* recipe */);
-          else
-            t.state_ = target_state::unchanged;
+        if (t.is_a<dir> ())
+          execute_recipe (a, t, nullptr /* recipe */);
 
-          t.task_count.store (exec, memory_order_release);
-          sched.resume (t.task_count);
-        }
-        else
-        {
-          if (task_count == nullptr)
-            return execute_impl (a, t);
-
-          // Pass our diagnostics stack (this is safe since we expect the
-          // caller to wait for completion before unwinding its diag stack).
-          //
-          if (sched.async (start_count,
-                           *task_count,
-                           [a] (target& t, const diag_frame* ds)
-                           {
-                             diag_frame df (ds);
-                             execute_impl (a, t);
-                           },
-                           ref (t),
-                           diag_frame::stack))
-            return target_state::unknown; // Queued.
-
-          // Executed synchronously, fall through.
-        }
+        s.task_count.store (exec, memory_order_release);
+        sched.resume (s.task_count);
       }
       else
       {
-        // Normally either busy or already executed.
-        //
-        if (tc >= busy) return target_state::busy;
-        else if (tc != exec)
-        {
-          // This can happen if we touched/tried/matched (a noop) recipe which
-          // then got overridden as part of group resolution but not all the
-          // way to applied. In this case we treat it as noop.
-          //
-          assert ((tc >= touc && tc <= matc) && t.action > a);
-          continue;
-        }
-      }
+        if (task_count == nullptr)
+          return execute_impl (a, t);
 
-      break;
+        // Pass our diagnostics stack (this is safe since we expect the
+        // caller to wait for completion before unwinding its diag stack).
+        //
+        if (sched.async (start_count,
+                         *task_count,
+                         [a] (target& t, const diag_frame* ds)
+                         {
+                           diag_frame df (ds);
+                           execute_impl (a, t);
+                         },
+                         ref (t),
+                         diag_frame::stack))
+          return target_state::unknown; // Queued.
+
+        // Executed synchronously, fall through.
+      }
+    }
+    else
+    {
+      // Either busy or already executed.
+      //
+      if (tc >= busy) return target_state::busy;
+      else            assert (tc == exec);
     }
 
-    return t.executed_state (false);
+    return t.executed_state (a, false);
   }
 
   target_state
   execute_direct (action a, const target& ct)
   {
     target& t (const_cast<target&> (ct)); // MT-aware.
+    target::opstate& s (t[a]);
 
-    // Similar logic to match() above.
+    // Similar logic to match() above except we execute synchronously.
     //
-    size_t touc (target::count_touched ());
-    size_t matc (target::count_matched ());
-    size_t appc (target::count_applied ());
+    size_t tc (target::count_applied ());
+
     size_t exec (target::count_executed ());
     size_t busy (target::count_busy ());
 
-    for (size_t tc (appc);;)
+    if (s.task_count.compare_exchange_strong (
+          tc,
+          busy,
+          memory_order_acq_rel,  // Synchronize on success.
+          memory_order_acquire)) // Synchronize on failure.
     {
-      if (t.task_count.compare_exchange_strong (
-            tc,
-            busy,
-            memory_order_acq_rel,  // Synchronize on success.
-            memory_order_acquire)) // Synchronize on failure.
+      if (s.state == target_state::unchanged)
       {
-        if ((tc >= touc && tc <= matc) || t.state_ == target_state::unchanged)
-        {
-          // If we have a noop recipe, there could still be scope operations.
-          //
-          if (tc == appc && t.is_a<dir> ())
-            execute_recipe (a, t, nullptr /* recipe */);
-          else
-            t.state_ = target_state::unchanged;
+        if (t.is_a<dir> ())
+          execute_recipe (a, t, nullptr /* recipe */);
 
-          t.task_count.store (exec, memory_order_release);
-          sched.resume (t.task_count);
-        }
-        else
-          execute_impl (a, t);
+        s.task_count.store (exec, memory_order_release);
+        sched.resume (s.task_count);
       }
       else
-      {
+        execute_impl (a, t);
+    }
+    else
+    {
         // If the target is busy, wait for it.
         //
-        if (tc >= busy) sched.wait (exec, t.task_count, scheduler::work_none);
-        else if (tc != exec)
-        {
-          assert ((tc >= touc && tc <= matc) && t.action > a);
-          continue;
-        }
-      }
-
-      break;
+        if (tc >= busy) sched.wait (exec, s.task_count, scheduler::work_none);
+        else            assert (tc == exec);
     }
 
-    return t.executed_state ();
+    return t.executed_state (a);
   }
 
   template <typename T>
@@ -1149,7 +1044,7 @@ namespace build2
 
     // Start asynchronous execution of prerequisites.
     //
-    wait_guard wg (target::count_busy (), t.task_count);
+    wait_guard wg (target::count_busy (), t[a].task_count);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -1160,7 +1055,7 @@ namespace build2
 
       target_state s (
         execute_async (
-          a, *mt, target::count_busy (), t.task_count));
+          a, *mt, target::count_busy (), t[a].task_count));
 
       if (s == target_state::postponed)
       {
@@ -1177,18 +1072,18 @@ namespace build2
     //
     for (size_t i (0); i != n; ++i)
     {
-      const target*& mt (ts[i]);
-
-      if (mt == nullptr)
+      if (ts[i] == nullptr)
         continue;
+
+      const target& mt (*ts[i]);
 
       // If the target is still busy, wait for its completion.
       //
-      if (mt->task_count.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (
-          target::count_executed (), mt->task_count, scheduler::work_none);
+      const auto& tc (mt[a].task_count);
+      if (tc.load (memory_order_acquire) >= target::count_busy ())
+        sched.wait (target::count_executed (), tc, scheduler::work_none);
 
-      r |= mt->executed_state ();
+      r |= mt.executed_state (a);
     }
 
     return r;
@@ -1202,18 +1097,18 @@ namespace build2
     //
     target_state r (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), t.task_count);
+    wait_guard wg (target::count_busy (), t[a].task_count);
 
-    for (size_t i (n); i != 0; --i)
+    for (size_t i (n); i != 0; )
     {
-      const target*& mt (ts[i - 1]);
+      const target*& mt (ts[--i]);
 
       if (mt == nullptr)
         continue;
 
       target_state s (
         execute_async (
-          a, *mt, target::count_busy (), t.task_count));
+          a, *mt, target::count_busy (), t[a].task_count));
 
       if (s == target_state::postponed)
       {
@@ -1224,18 +1119,18 @@ namespace build2
 
     wg.wait ();
 
-    for (size_t i (n); i != 0; --i)
+    for (size_t i (n); i != 0; )
     {
-      const target*& mt (ts[i - 1]);
-
-      if (mt == nullptr)
+      if (ts[--i] == nullptr)
         continue;
 
-      if (mt->task_count.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (
-          target::count_executed (), mt->task_count, scheduler::work_none);
+      const target& mt (*ts[i]);
 
-      r |= mt->executed_state ();
+      const auto& tc (mt[a].task_count);
+      if (tc.load (memory_order_acquire) >= target::count_busy ())
+        sched.wait (target::count_executed (), tc, scheduler::work_none);
+
+      r |= mt.executed_state (a);
     }
 
     return r;
@@ -1267,7 +1162,7 @@ namespace build2
   {
     assert (current_mode == execution_mode::first);
 
-    auto& pts (const_cast<target&> (t).prerequisite_targets); // MT-aware.
+    auto& pts (t.prerequisite_targets[a]);
 
     if (n == 0)
       n = pts.size ();
@@ -1276,7 +1171,7 @@ namespace build2
     //
     target_state rs (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), t.task_count);
+    wait_guard wg (target::count_busy (), t[a].task_count);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -1287,7 +1182,7 @@ namespace build2
 
       target_state s (
         execute_async (
-          a, *pt, target::count_busy (), t.task_count));
+          a, *pt, target::count_busy (), t[a].task_count));
 
       if (s == target_state::postponed)
       {
@@ -1303,25 +1198,25 @@ namespace build2
 
     for (size_t i (0); i != n; ++i)
     {
-      const target*& pt (pts[i]);
-
-      if (pt == nullptr)
+      if (pts[i] == nullptr)
         continue;
 
-      if (pt->task_count.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (
-          target::count_executed (), pt->task_count, scheduler::work_none);
+      const target& pt (*pts[i]);
 
-      target_state s (pt->executed_state ());
+      const auto& tc (pt[a].task_count);
+      if (tc.load (memory_order_acquire) >= target::count_busy ())
+        sched.wait (target::count_executed (), tc, scheduler::work_none);
+
+      target_state s (pt.executed_state (a));
       rs |= s;
 
       // Should we compare the timestamp to this target's?
       //
-      if (!e && (!pf || pf (*pt, i)))
+      if (!e && (!pf || pf (pt, i)))
       {
         // If this is an mtime-based target, then compare timestamps.
         //
-        if (auto mpt = dynamic_cast<const mtime_target*> (pt))
+        if (const mtime_target* mpt = pt.is_a<mtime_target> ())
         {
           timestamp mp (mpt->mtime ());
 
@@ -1340,8 +1235,8 @@ namespace build2
         }
       }
 
-      if (rt == nullptr && pt->is_a (*tt))
-        rt = pt;
+      if (rt == nullptr && pt.is_a (*tt))
+        rt = &pt;
     }
 
     assert (rt != nullptr);
@@ -1355,7 +1250,7 @@ namespace build2
   noop_action (action a, const target& t)
   {
     text << "noop action triggered for " << diag_doing (a, t);
-    assert (false); // We shouldn't be called (see target::recipe()).
+    assert (false); // We shouldn't be called (see set_recipe()).
     return target_state::unchanged;
   }
 
@@ -1367,8 +1262,9 @@ namespace build2
     const target& g (*t.group);
 
     if (execute (a, g) == target_state::busy)
-      sched.wait (
-        target::count_executed (), g.task_count, scheduler::work_none);
+      sched.wait (target::count_executed (),
+                  g[a].task_count,
+                  scheduler::work_none);
 
     // Indicate to execute() that this target's state comes from the group
     // (which, BTW, can be failed).
@@ -1488,7 +1384,7 @@ namespace build2
     //
     for (const target* m (ft.member); m != nullptr; m = m->member)
     {
-      const file* fm (dynamic_cast<const file*> (m));
+      const file* fm (m->is_a<file> ());
       const path* fp (fm != nullptr ? &fm->path () : nullptr);
 
       if (fm == nullptr || fp->empty ())

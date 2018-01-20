@@ -181,6 +181,8 @@ namespace build2
 
         // For targets other than Windows leave the string intact.
         //
+        // @@ Would be nice to use cached value from test::common_data.
+        //
         if (cast<target_triplet> (scr.test_target["test.target"]).class_ !=
             "windows")
           return s;
@@ -293,6 +295,8 @@ namespace build2
           cstrings args {pp.recall_string (), "-u"};
 
           // Ignore Windows newline fluff if that's what we are running on.
+          //
+          // @@ Would be nice to use cached value from test::common_data.
           //
           if (cast<target_triplet> (
                 sp.root->test_target["test.target"]).class_ == "windows")

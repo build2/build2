@@ -129,24 +129,16 @@ namespace build2
   lock_impl (action, const target&, optional<scheduler::work_queue>);
 
   void
-  unlock_impl (target&, size_t);
+  unlock_impl (action, target&, size_t);
 
   inline void target_lock::
   unlock ()
   {
     if (target != nullptr)
     {
-      unlock_impl (*target, offset);
+      unlock_impl (action, *target, offset);
       target = nullptr;
     }
-  }
-
-  inline target* target_lock::
-  release ()
-  {
-    target_type* r (target);
-    target = nullptr;
-    return r;
   }
 
   inline target_lock::
@@ -157,8 +149,9 @@ namespace build2
 
   inline target_lock::
   target_lock (target_lock&& x)
-      : target (x.release ()), offset (x.offset)
+      : action (x.action), target (x.target), offset (x.offset)
   {
+    x.target = nullptr;
   }
 
   inline target_lock& target_lock::
@@ -167,8 +160,10 @@ namespace build2
     if (this != &x)
     {
       unlock ();
-      target = x.release ();
+      action = x.action;
+      target = x.target;
       offset = x.offset;
+      x.target = nullptr;
     }
     return *this;
   }
@@ -185,13 +180,11 @@ namespace build2
     return r;
   }
 
-  pair<const pair<const string, reference_wrapper<const rule>>*, action>
+  const rule_match*
   match_impl (action, target&, const rule* skip, bool try_match = false);
 
   recipe
-  apply_impl (target&,
-              const pair<const string, reference_wrapper<const rule>>&,
-              action);
+  apply_impl (action, target&, const rule_match&);
 
   pair<bool, target_state>
   match (action, const target&, size_t, atomic_count*, bool try_match = false);
@@ -206,7 +199,7 @@ namespace build2
     if (r != target_state::failed)
     {
       dependency_count.fetch_add (1, memory_order_relaxed);
-      t.dependents.fetch_add (1, memory_order_release);
+      t[a].dependents.fetch_add (1, memory_order_release);
     }
     else if (fail)
       throw failed ();
@@ -227,7 +220,7 @@ namespace build2
       if (r.second != target_state::failed)
       {
         dependency_count.fetch_add (1, memory_order_relaxed);
-        t.dependents.fetch_add (1, memory_order_release);
+        t[a].dependents.fetch_add (1, memory_order_release);
       }
       else if (fail)
         throw failed ();
@@ -235,7 +228,6 @@ namespace build2
 
     return r;
   }
-
 
   inline bool
   match (action a, const target& t, unmatch um)
@@ -261,8 +253,8 @@ namespace build2
       {
         // Safe if unchanged or someone else is also a dependent.
         //
-        if (s == target_state::unchanged                ||
-            t.dependents.load (memory_order_consume) != 0)
+        if (s == target_state::unchanged                   ||
+            t[a].dependents.load (memory_order_consume) != 0)
           return true;
 
         break;
@@ -270,7 +262,7 @@ namespace build2
     }
 
     dependency_count.fetch_add (1, memory_order_relaxed);
-    t.dependents.fetch_add (1, memory_order_release);
+    t[a].dependents.fetch_add (1, memory_order_release);
 
     return false;
   }
@@ -290,24 +282,76 @@ namespace build2
   }
 
   inline void
+  set_recipe (target_lock& l, recipe&& r)
+  {
+    target::opstate& s ((*l.target)[l.action]);
+
+    s.recipe = move (r);
+
+    // If this is a noop recipe, then mark the target unchanged to allow for
+    // some optimizations.
+    //
+    recipe_function** f (s.recipe.target<recipe_function*> ());
+
+    if (f != nullptr && *f == &noop_action)
+      s.state = target_state::unchanged;
+    else
+    {
+      s.state = target_state::unknown;
+
+      // This gets tricky when we start considering direct execution, etc. So
+      // here seems like the best place to do it.
+      //
+      // We also ignore the group recipe since it is used for ad hoc groups
+      // (which are not executed). Plus, group action means real recipe is in
+      // the group so this also feels right conceptually.
+      //
+      // Note that we will increment this count twice for the same target if
+      // we have non-noop recipes for both inner and outer operations. While
+      // not ideal, the alternative (trying to "merge" the count keeping track
+      // whether inner and/or outer is noop) gets hairy rather quickly.
+      //
+      if (f == nullptr || *f != &group_action)
+        target_count.fetch_add (1, memory_order_relaxed);
+    }
+  }
+
+  inline void
   match_recipe (target_lock& l, recipe r)
   {
     assert (phase == run_phase::match && l.target != nullptr);
 
-    target& t (*l.target);
-    t.rule = nullptr; // No rule.
-    t.recipe (move (r));
+    (*l.target)[l.action].rule = nullptr; // No rule.
+    set_recipe (l, move (r));
     l.offset = target::offset_applied;
   }
 
   inline recipe
-  match_delegate (action a, target& t, const rule& r, bool try_match)
+  match_delegate (action a, target& t, const rule& dr, bool try_match)
   {
     assert (phase == run_phase::match);
-    auto mr (match_impl (a, t, &r, try_match));
-    return mr.first != nullptr
-      ? apply_impl (t, *mr.first, mr.second)
-      : empty_recipe;
+
+    // Note: we don't touch any of the t[a] state since that was/will be set
+    // for the delegating rule.
+    //
+    const rule_match* r (match_impl (a, t, &dr, try_match));
+    return r != nullptr ? apply_impl (a, t, *r) : empty_recipe;
+  }
+
+  inline target_state
+  match_inner (action a, const target& t)
+  {
+    // In a sense this is like any other dependency.
+    //
+    assert (a.outer ());
+    return match (action (a.meta_operation (), a.operation ()), t);
+  }
+
+  inline bool
+  match_inner (action a, const target& t, unmatch um)
+  {
+    assert (a.outer ());
+    return match (action (a.meta_operation (), a.operation ()), t, um);
   }
 
   group_view
@@ -317,6 +361,9 @@ namespace build2
   resolve_group_members (action a, const target& g)
   {
     group_view r;
+
+    if (a.outer ())
+      a = action (a.meta_operation (), a.operation ());
 
     // We can be called during execute though everything should have been
     // already resolved.
@@ -395,6 +442,17 @@ namespace build2
   }
 
   inline target_state
+  execute_wait (action a, const target& t)
+  {
+    if (execute (a, t) == target_state::busy)
+      sched.wait (target::count_executed (),
+                  t[a].task_count,
+                  scheduler::work_none);
+
+    return t.executed_state (a);
+  }
+
+  inline target_state
   execute_async (action a, const target& t,
                  size_t sc, atomic_count& tc,
                  bool fail)
@@ -414,26 +472,32 @@ namespace build2
   }
 
   inline target_state
-  straight_execute_prerequisites (action a, const target& t)
+  execute_inner (action a, const target& t)
   {
-    auto& p (const_cast<target&> (t).prerequisite_targets); // MT-aware.
-    return straight_execute_members (a, t, p.data (), p.size ());
+    assert (a.outer ());
+    return execute_wait (action (a.meta_operation (), a.operation ()), t);
   }
 
   inline target_state
-  reverse_execute_prerequisites (action a, const target& t)
+  straight_execute_prerequisites (action a, const target& t, size_t c)
   {
-    auto& p (const_cast<target&> (t).prerequisite_targets); // MT-aware.
-    return reverse_execute_members (a, t, p.data (), p.size ());
+    auto& p (t.prerequisite_targets[a]);
+    return straight_execute_members (a, t, p.data (), c == 0 ? p.size () : c);
   }
 
   inline target_state
-  execute_prerequisites (action a, const target& t)
+  reverse_execute_prerequisites (action a, const target& t, size_t c)
   {
-    auto& p (const_cast<target&> (t).prerequisite_targets); // MT-aware.
+    auto& p (t.prerequisite_targets[a]);
+    return reverse_execute_members (a, t, p.data (), c == 0 ? p.size () : c);
+  }
+
+  inline target_state
+  execute_prerequisites (action a, const target& t, size_t c)
+  {
     return current_mode == execution_mode::first
-      ? straight_execute_members (a, t, p.data (), p.size ())
-      : reverse_execute_members (a, t, p.data (), p.size ());
+      ? straight_execute_prerequisites (a, t, c)
+      : reverse_execute_prerequisites (a, t, c);
   }
 
   // If the first argument is NULL, then the result is treated as a boolean

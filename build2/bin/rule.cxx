@@ -19,7 +19,7 @@ namespace build2
   {
     // fail_rule
     //
-    match_result fail_rule::
+    bool fail_rule::
     match (action a, target& t, const string&) const
     {
       const char* n (t.dynamic_type ().name); // Ignore derived type.
@@ -37,8 +37,8 @@ namespace build2
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.
     //
-    match_result lib_rule::
-    match (action act, target& xt, const string&) const
+    bool lib_rule::
+    match (action, target& xt, const string&) const
     {
       lib& t (xt.as<lib> ());
 
@@ -57,35 +57,27 @@ namespace build2
       t.a = a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
       t.s = s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;
 
-      match_result mr (true);
-
-      // If there is an outer operation, indicate that we match
-      // unconditionally so that we don't override ourselves.
-      //
-      if (act.outer_operation () != 0)
-        mr.recipe_action = action (act.meta_operation (), act.operation ());
-
-      return mr;
+      return true;
     }
 
     recipe lib_rule::
-    apply (action act, target& xt) const
+    apply (action a, target& xt) const
     {
       lib& t (xt.as<lib> ());
 
       const target* m[] = {t.a, t.s};
-      match_members (act, t, m);
+      match_members (a, t, m);
 
       return &perform;
     }
 
     target_state lib_rule::
-    perform (action act, const target& xt)
+    perform (action a, const target& xt)
     {
       const lib& t (xt.as<lib> ());
 
       const target* m[] = {t.a, t.s};
-      return execute_members (act, t, m);
+      return execute_members (a, t, m);
     }
   }
 }

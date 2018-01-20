@@ -15,7 +15,7 @@ namespace build2
 {
   namespace dist
   {
-    match_result rule::
+    bool rule::
     match (action, target&, const string&) const
     {
       return true; // We always match.

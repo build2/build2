@@ -217,7 +217,7 @@ namespace build2
         bs.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", ar);
 
         bs.rules.insert<file> (perform_install_id,   "install.file", fr);
-        bs.rules.insert<file> (perform_uninstall_id, "uinstall.file", fr);
+        bs.rules.insert<file> (perform_uninstall_id, "uninstall.file", fr);
       }
 
       // Configuration.

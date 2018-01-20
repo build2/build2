@@ -1,8 +1,8 @@
-// file      : build2/cc/compile.cxx -*- C++ -*-
+// file      : build2/cc/compile-rule.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cc/compile.hxx>
+#include <build2/cc/compile-rule.hxx>
 
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
@@ -124,7 +124,7 @@ namespace build2
       throw invalid_argument ("invalid preprocessed value '" + s + "'");
     }
 
-    struct compile::match_data
+    struct compile_rule::match_data
     {
       explicit
       match_data (translation_type t, const prerequisite_member& s)
@@ -141,16 +141,16 @@ namespace build2
       module_positions mods = {0, 0, 0};
     };
 
-    compile::
-    compile (data&& d)
+    compile_rule::
+    compile_rule (data&& d)
         : common (move (d)),
           rule_id (string (x) += ".compile 4")
     {
-      static_assert (sizeof (compile::match_data) <= target::data_size,
+      static_assert (sizeof (match_data) <= target::data_size,
                      "insufficient space");
     }
 
-    const char* compile::
+    const char* compile_rule::
     langopt (const match_data& md) const
     {
       bool m (md.type == translation_type::module_iface);
@@ -204,7 +204,7 @@ namespace build2
       return nullptr;
     }
 
-    inline void compile::
+    inline void compile_rule::
     append_symexport_options (cstrings& args, const target& t) const
     {
       // With VC if a BMI is compiled with dllexport, then when such BMI is
@@ -216,10 +216,10 @@ namespace build2
                       : "-D__symexport=");
     }
 
-    match_result compile::
-    match (action act, target& t, const string&) const
+    bool compile_rule::
+    match (action a, target& t, const string&) const
     {
-      tracer trace (x, "compile::match");
+      tracer trace (x, "compile_rule::match");
 
       bool mod (t.is_a<bmie> () || t.is_a<bmia> () || t.is_a<bmis> ());
 
@@ -235,7 +235,7 @@ namespace build2
       // file specified for a member overrides the one specified for the
       // group. Also "see through" groups.
       //
-      for (prerequisite_member p: reverse_group_prerequisite_members (act, t))
+      for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
       {
         if (p.is_a (mod ? *x_mod : x_src))
         {
@@ -257,11 +257,11 @@ namespace build2
     // Append or hash library options from a pair of *.export.* variables
     // (first one is cc.export.*) recursively, prerequisite libraries first.
     //
-    void compile::
+    void compile_rule::
     append_lib_options (const scope& bs,
                         cstrings& args,
+                        action a,
                         const target& t,
-                        action act,
                         linfo li) const
     {
       // See through utility libraries.
@@ -290,33 +290,33 @@ namespace build2
       const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // Should be already searched and matched for libraries.
         //
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, act, li);
+            pt = &link_member (*l, a, li);
 
-          bool a;
-          if (!((a = pt->is_a<liba> ())  ||
-                (a = pt->is_a<libux> ()) ||
+          bool la;
+          if (!((la = pt->is_a<liba> ())  ||
+                (la = pt->is_a<libux> ()) ||
                 pt->is_a<libs> ()))
             continue;
 
-          process_libraries (act, bs, li, sys_lib_dirs,
-                             pt->as<file> (), a, 0, // Hack: lflags unused.
+          process_libraries (a, bs, li, sys_lib_dirs,
+                             pt->as<file> (), la, 0, // Hack: lflags unused.
                              impf, nullptr, optf);
         }
       }
     }
 
-    void compile::
+    void compile_rule::
     hash_lib_options (const scope& bs,
                       sha256& cs,
+                      action a,
                       const target& t,
-                      action act,
                       linfo li) const
     {
       auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
@@ -340,21 +340,21 @@ namespace build2
       const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, act, li);
+            pt = &link_member (*l, a, li);
 
-          bool a;
-          if (!((a = pt->is_a<liba> ())  ||
-                (a = pt->is_a<libux> ()) ||
+          bool la;
+          if (!((la = pt->is_a<liba> ())  ||
+                (la = pt->is_a<libux> ()) ||
                 pt->is_a<libs> ()))
             continue;
 
-          process_libraries (act, bs, li, sys_lib_dirs,
-                             pt->as<file> (), a, 0, // Hack: lflags unused.
+          process_libraries (a, bs, li, sys_lib_dirs,
+                             pt->as<file> (), la, 0, // Hack: lflags unused.
                              impf, nullptr, optf);
         }
       }
@@ -363,11 +363,11 @@ namespace build2
     // Append library prefixes based on the *.export.poptions variables
     // recursively, prerequisite libraries first.
     //
-    void compile::
+    void compile_rule::
     append_lib_prefixes (const scope& bs,
                          prefix_map& m,
+                         action a,
                          target& t,
-                         action act,
                          linfo li) const
     {
       auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
@@ -391,21 +391,21 @@ namespace build2
       const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
 
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, act, li);
+            pt = &link_member (*l, a, li);
 
-          bool a;
-          if (!((a = pt->is_a<liba> ())  ||
-                (a = pt->is_a<libux> ()) ||
+          bool la;
+          if (!((la = pt->is_a<liba> ())  ||
+                (la = pt->is_a<libux> ()) ||
                 pt->is_a<libs> ()))
             continue;
 
-          process_libraries (act, bs, li, sys_lib_dirs,
-                             pt->as<file> (), a, 0, // Hack: lflags unused.
+          process_libraries (a, bs, li, sys_lib_dirs,
+                             pt->as<file> (), la, 0, // Hack: lflags unused.
                              impf, nullptr, optf);
         }
       }
@@ -427,14 +427,14 @@ namespace build2
     // file is known to be up to date. So we do the update "smartly".
     //
     static bool
-    update (tracer& trace, action act, const target& t, timestamp ts)
+    update (tracer& trace, action a, const target& t, timestamp ts)
     {
       const path_target* pt (t.is_a<path_target> ());
 
       if (pt == nullptr)
         ts = timestamp_unknown;
 
-      target_state os (t.matched_state (act));
+      target_state os (t.matched_state (a));
 
       if (os == target_state::unchanged)
       {
@@ -444,7 +444,7 @@ namespace build2
         {
           // We expect the timestamp to be known (i.e., existing file).
           //
-          timestamp mt (pt->mtime ()); // @@ MT perf: know target state.
+          timestamp mt (pt->mtime ());
           assert (mt != timestamp_unknown);
           return mt > ts;
         }
@@ -460,7 +460,7 @@ namespace build2
         //    any generated header.
         //
         phase_switch ps (run_phase::execute);
-        target_state ns (execute_direct (act, t));
+        target_state ns (execute_direct (a, t));
 
         if (ns != os && ns != target_state::unchanged)
         {
@@ -474,10 +474,10 @@ namespace build2
       }
     }
 
-    recipe compile::
-    apply (action act, target& xt) const
+    recipe compile_rule::
+    apply (action a, target& xt) const
     {
-      tracer trace (x, "compile::apply");
+      tracer trace (x, "compile_rule::apply");
 
       file& t (xt.as<file> ()); // Either obj*{} or bmi*{}.
 
@@ -569,7 +569,7 @@ namespace build2
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
           // collide. So we add the module extension to the target name.
           //
-          target_lock obj (add_adhoc_member (act, t, tt.obj, e.c_str ()));
+          target_lock obj (add_adhoc_member (a, t, tt.obj, e.c_str ()));
           obj.target->as<file> ().derive_path (o);
           match_recipe (obj, group_recipe); // Set recipe and unlock.
         }
@@ -579,7 +579,7 @@ namespace build2
 
       // Inject dependency on the output directory.
       //
-      const fsdir* dir (inject_fsdir (act, t));
+      const fsdir* dir (inject_fsdir (a, t));
 
       // Match all the existing prerequisites. The injection code takes care
       // of the ones it is adding.
@@ -587,16 +587,16 @@ namespace build2
       // When cleaning, ignore prerequisites that are not in the same or a
       // subdirectory of our project root.
       //
-      auto& pts (t.prerequisite_targets);
+      auto& pts (t.prerequisite_targets[a]);
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
 
       // Start asynchronous matching of prerequisites. Wait with unlocked
       // phase to allow phase switching.
       //
-      wait_guard wg (target::count_busy (), t.task_count, true);
+      wait_guard wg (target::count_busy (), t[a].task_count, true);
 
       size_t start (pts.size ()); // Index of the first to be added.
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         const target* pt (nullptr);
 
@@ -609,7 +609,7 @@ namespace build2
             p.is_a<libs> () ||
             p.is_a<libux> ())
         {
-          if (act.operation () == update_id)
+          if (a.operation () == update_id)
           {
             // Handle (phase two) imported libraries. We know that for such
             // libraries we don't need to do match() in order to get options
@@ -617,7 +617,7 @@ namespace build2
             //
             if (p.proj ())
             {
-              if (search_library (act,
+              if (search_library (a,
                                   sys_lib_dirs,
                                   usr_lib_dirs,
                                   p.prerequisite) != nullptr)
@@ -627,7 +627,7 @@ namespace build2
             pt = &p.search (t);
 
             if (const libx* l = pt->is_a<libx> ())
-              pt = &link_member (*l, act, li);
+              pt = &link_member (*l, a, li);
           }
           else
             continue;
@@ -644,11 +644,11 @@ namespace build2
         {
           pt = &p.search (t);
 
-          if (act.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
+          if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
             continue;
         }
 
-        match_async (act, *pt, target::count_busy (), t.task_count);
+        match_async (a, *pt, target::count_busy (), t[a].task_count);
         pts.push_back (pt);
       }
 
@@ -668,7 +668,7 @@ namespace build2
         // an obj?{} target directory.
         //
         if (build2::match (
-              act,
+              a,
               *pt,
               pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ()
               ? unmatch::safe
@@ -680,7 +680,7 @@ namespace build2
       // since chances are we will have to update some of our prerequisites in
       // the process (auto-generated source code).
       //
-      if (act == perform_update_id)
+      if (a == perform_update_id)
       {
         // The cached prerequisite target should be the same as what is in
         // t.prerequisite_targets since we used standard search() and match()
@@ -722,7 +722,7 @@ namespace build2
           // this can very well be happening in parallel. But that's not a
           // problem since fsdir{}'s update is idempotent.
           //
-          fsdir_rule::perform_update_direct (act, t);
+          fsdir_rule::perform_update_direct (a, t);
         }
 
         // Note: the leading '@' is reserved for the module map prefix (see
@@ -764,7 +764,7 @@ namespace build2
 
             // Hash *.export.poptions from prerequisite libraries.
             //
-            hash_lib_options (bs, cs, t, act, li);
+            hash_lib_options (bs, cs, a, t, li);
 
             // Extra system header dirs (last).
             //
@@ -821,14 +821,14 @@ namespace build2
           if (pt == nullptr || pt == dir)
             continue;
 
-          u = update (trace, act, *pt, u ? timestamp_unknown : mt) || u;
+          u = update (trace, a, *pt, u ? timestamp_unknown : mt) || u;
         }
 
         // Check if the source is already preprocessed to a certain degree.
         // This determines which of the following steps we perform and on
         // what source (original or preprocessed).
         //
-        // Note: must be set of the src target.
+        // Note: must be set on the src target.
         //
         if (const string* v = cast_null<string> (src[x_preprocessed]))
         try
@@ -846,7 +846,7 @@ namespace build2
         //
         pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
-          psrc = extract_headers (act, bs, t, li, src, md, dd, u, mt);
+          psrc = extract_headers (a, bs, t, li, src, md, dd, u, mt);
 
         // Next we "obtain" the translation unit information. What exactly
         // "obtain" entails is tricky: If things changed, then we re-parse the
@@ -869,7 +869,7 @@ namespace build2
           {
             if (u)
             {
-              auto p (parse_unit (act, t, li, src, psrc.first, md));
+              auto p (parse_unit (a, t, li, src, psrc.first, md));
 
               if (cs != p.second)
               {
@@ -948,7 +948,7 @@ namespace build2
           // NOTE: assumes that no further targets will be added into
           //       t.prerequisite_targets!
           //
-          extract_modules (act, bs, t, li, tt, src, md, move (tu.mod), dd, u);
+          extract_modules (a, bs, t, li, tt, src, md, move (tu.mod), dd, u);
         }
 
         // If anything got updated, then we didn't rely on the cache. However,
@@ -1002,7 +1002,7 @@ namespace build2
         md.mt = u ? timestamp_nonexistent : dd.mtime ();
       }
 
-      switch (act)
+      switch (a)
       {
       case perform_update_id: return [this] (action a, const target& t)
         {
@@ -1018,7 +1018,7 @@ namespace build2
 
     // Reverse-lookup target type from extension.
     //
-    const target_type* compile::
+    const target_type* compile_rule::
     map_extension (const scope& s, const string& n, const string& e) const
     {
       // We will just have to try all of the possible ones, in the "most
@@ -1047,10 +1047,10 @@ namespace build2
       return nullptr;
     }
 
-    void compile::
+    void compile_rule::
     append_prefixes (prefix_map& m, const target& t, const variable& var) const
     {
-      tracer trace (x, "compile::append_prefixes");
+      tracer trace (x, "compile_rule::append_prefixes");
 
       // If this target does not belong to any project (e.g, an "imported as
       // installed" library), then it can't possibly generate any headers for
@@ -1187,10 +1187,10 @@ namespace build2
       }
     }
 
-    auto compile::
+    auto compile_rule::
     build_prefix_map (const scope& bs,
+                      action a,
                       target& t,
-                      action act,
                       linfo li) const -> prefix_map
     {
       prefix_map m;
@@ -1202,7 +1202,7 @@ namespace build2
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_lib_prefixes (bs, m, t, act, li);
+      append_lib_prefixes (bs, m, a, t, li);
 
       return m;
     }
@@ -1405,8 +1405,8 @@ namespace build2
     // file as well as an indication if it is usable for compilation (see
     // below for details).
     //
-    pair<auto_rmfile, bool> compile::
-    extract_headers (action act,
+    pair<auto_rmfile, bool> compile_rule::
+    extract_headers (action a,
                      const scope& bs,
                      file& t,
                      linfo li,
@@ -1416,7 +1416,7 @@ namespace build2
                      bool& updating,
                      timestamp mt) const
     {
-      tracer trace (x, "compile::extract_headers");
+      tracer trace (x, "compile_rule::extract_headers");
 
       l5 ([&]{trace << "target: " << t;});
 
@@ -1628,7 +1628,7 @@ namespace build2
       // Return NULL if the dependency information goes to stdout and a
       // pointer to the temporary file path otherwise.
       //
-      auto init_args = [&t, act, li,
+      auto init_args = [&t, a, li,
                         &src, &md, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm,
@@ -1677,7 +1677,7 @@ namespace build2
 
           // Add *.export.poptions from prerequisite libraries.
           //
-          append_lib_options (bs, args, t, act, li);
+          append_lib_options (bs, args, a, t, li);
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
@@ -2055,7 +2055,7 @@ namespace build2
       // extraction process should be restarted.
       //
       auto add = [&trace, &pfx_map, &so_map,
-                  act, &t, li,
+                  a, &t, li,
                   &dd, &updating, &skip_count,
                   &bs, this]
         (path f, bool cache, timestamp mt) -> bool
@@ -2185,7 +2185,7 @@ namespace build2
           l4 ([&]{trace << "non-existent header '" << f << "'";});
 
           if (!pfx_map)
-            pfx_map = build_prefix_map (bs, t, act, li);
+            pfx_map = build_prefix_map (bs, a, t, li);
 
           // First try the whole file. Then just the directory.
           //
@@ -2300,8 +2300,8 @@ namespace build2
         // will lead to the match failure which we translate to a restart.
         //
         if (!cache)
-          build2::match (act, *pt);
-        else if (!build2::try_match (act, *pt).first)
+          build2::match (a, *pt);
+        else if (!build2::try_match (a, *pt).first)
         {
           dd.write (); // Invalidate this line.
           updating = true;
@@ -2310,7 +2310,7 @@ namespace build2
 
         // Update.
         //
-        bool restart (update (trace, act, *pt, mt));
+        bool restart (update (trace, a, *pt, mt));
 
         // Verify/add it to the dependency database. We do it after update in
         // order not to add bogus files (non-existent and without a way to
@@ -2321,7 +2321,7 @@ namespace build2
 
         // Add to our prerequisite target list.
         //
-        t.prerequisite_targets.push_back (pt);
+        t.prerequisite_targets[a].push_back (pt);
         skip_count++;
 
         updating = updating || restart;
@@ -2796,15 +2796,15 @@ namespace build2
       return make_pair (move (psrc), puse);
     }
 
-    pair<translation_unit, string> compile::
-    parse_unit (action act,
+    pair<translation_unit, string> compile_rule::
+    parse_unit (action a,
                 file& t,
                 linfo lo,
                 const file& src,
                 auto_rmfile& psrc,
                 const match_data& md) const
     {
-      tracer trace (x, "compile::parse_unit");
+      tracer trace (x, "compile_rule::parse_unit");
 
       // If things go wrong give the user a bit extra context.
       //
@@ -2844,7 +2844,7 @@ namespace build2
           //
           args.push_back (cpath.recall_string ());
 
-          append_lib_options (t.base_scope (), args, t, act, lo);
+          append_lib_options (t.base_scope (), args, a, t, lo);
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
@@ -3071,8 +3071,8 @@ namespace build2
 
     // Extract and inject module dependencies.
     //
-    void compile::
-    extract_modules (action act,
+    void compile_rule::
+    extract_modules (action a,
                      const scope& bs,
                      file& t,
                      linfo li,
@@ -3083,7 +3083,7 @@ namespace build2
                      depdb& dd,
                      bool& updating) const
     {
-      tracer trace (x, "compile::extract_modules");
+      tracer trace (x, "compile_rule::extract_modules");
       l5 ([&]{trace << "target: " << t;});
 
       // If things go wrong, give the user a bit extra context.
@@ -3131,7 +3131,7 @@ namespace build2
       sha256 cs;
 
       if (!mi.imports.empty ())
-        md.mods = search_modules (act, bs, t, li, tt.bmi, src, mi.imports, cs);
+        md.mods = search_modules (a, bs, t, li, tt.bmi, src, mi.imports, cs);
 
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
@@ -3201,8 +3201,8 @@ namespace build2
 
     // Resolve imported modules to bmi*{} targets.
     //
-    module_positions compile::
-    search_modules (action act,
+    module_positions compile_rule::
+    search_modules (action a,
                     const scope& bs,
                     file& t,
                     linfo li,
@@ -3211,7 +3211,7 @@ namespace build2
                     module_imports& imports,
                     sha256& cs) const
     {
-      tracer trace (x, "compile::search_modules");
+      tracer trace (x, "compile_rule::search_modules");
 
       // So we have a list of imports and a list of "potential" module
       // prerequisites. They are potential in the sense that they may or may
@@ -3317,7 +3317,7 @@ namespace build2
         return m.size () - mi;
       };
 
-      auto& pts (t.prerequisite_targets);
+      auto& pts (t.prerequisite_targets[a]);
       size_t start (pts.size ()); // Index of the first to be added.
 
       // We have two parallel vectors: module names/scores in imports and
@@ -3476,7 +3476,7 @@ namespace build2
         return r;
       };
 
-      for (prerequisite_member p: group_prerequisite_members (act, t))
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         const target* pt (p.load ()); // Should be cached for libraries.
 
@@ -3485,7 +3485,7 @@ namespace build2
           const target* lt (nullptr);
 
           if (const libx* l = pt->is_a<libx> ())
-            lt = &link_member (*l, act, li);
+            lt = &link_member (*l, a, li);
           else if (pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ())
             lt = pt;
 
@@ -3493,7 +3493,7 @@ namespace build2
           //
           if (lt != nullptr)
           {
-            for (const target* bt: lt->prerequisite_targets)
+            for (const target* bt: lt->prerequisite_targets[a])
             {
               if (bt == nullptr)
                 continue;
@@ -3528,7 +3528,7 @@ namespace build2
                   continue;
 
                 if (const target** p = check_exact (*n))
-                  *p = &make_module_sidebuild (act, bs, *lt, *bt, *n);
+                  *p = &make_module_sidebuild (a, bs, *lt, *bt, *n);
               }
               else
                 continue;
@@ -3563,7 +3563,7 @@ namespace build2
         // Find the mxx{} prerequisite and extract its "file name" for the
         // fuzzy match unless the user specified the module name explicitly.
         //
-        for (prerequisite_member p: group_prerequisite_members (act, *pt))
+        for (prerequisite_member p: group_prerequisite_members (a, *pt))
         {
           if (p.is_a (*x_mod))
           {
@@ -3642,7 +3642,7 @@ namespace build2
 
       // Match in parallel and wait for completion.
       //
-      match_members (act, t, pts, start);
+      match_members (a, t, pts, start);
 
       // Post-process the list of our (direct) imports. While at it, calculate
       // the checksum of all (direct and indirect) bmi{} paths.
@@ -3675,7 +3675,7 @@ namespace build2
 
           if (in != mn)
           {
-            for (prerequisite_member p: group_prerequisite_members (act, *bt))
+            for (prerequisite_member p: group_prerequisite_members (a, *bt))
             {
               if (p.is_a (*x_mod)) // Got to be there.
               {
@@ -3702,9 +3702,10 @@ namespace build2
           // Hard to say whether we should reserve or not. We will probably
           // get quite a bit of duplications.
           //
-          for (size_t m (bt->prerequisite_targets.size ()); j != m; ++j)
+          auto& bpts (bt->prerequisite_targets[a]);
+          for (size_t m (bpts.size ()); j != m; ++j)
           {
-            const target* et (bt->prerequisite_targets[j]);
+            const target* et (bpts[j]);
 
             if (et == nullptr)
               continue; // Unresolved (std.*).
@@ -3745,14 +3746,14 @@ namespace build2
     // Synthesize a dependency for building a module binary interface on
     // the side.
     //
-    const target& compile::
-    make_module_sidebuild (action act,
+    const target& compile_rule::
+    make_module_sidebuild (action a,
                            const scope& bs,
                            const target& lt,
                            const target& mt,
                            const string& mn) const
     {
-      tracer trace (x, "compile::make_module_sidebuild");
+      tracer trace (x, "compile_rule::make_module_sidebuild");
 
       // First figure out where we are going to build. We want to avoid
       // multiple sidebuilds so the outermost scope that has loaded the
@@ -3891,7 +3892,7 @@ namespace build2
       // synthesizing dependencies for bmi{}'s.
       //
       ps.push_back (prerequisite (lt));
-      for (prerequisite_member p: group_prerequisite_members (act, lt))
+      for (prerequisite_member p: group_prerequisite_members (a, lt))
       {
         // @@ TODO: will probably need revision if using sidebuild for
         //    non-installed libraries (e.g., direct BMI dependencies
@@ -3927,10 +3928,11 @@ namespace build2
     void
     msvc_filter_cl (ifdstream&, const path& src);
 
-    void compile::
+    void compile_rule::
     append_modules (environment& env,
                     cstrings& args,
                     strings& stor,
+                    action a,
                     const file& t,
                     const match_data& md) const
     {
@@ -3938,6 +3940,8 @@ namespace build2
       assert (ms.start != 0);
 
       dir_path stdifc; // See the VC case below.
+
+      auto& pts (t.prerequisite_targets[a]);
 
 #if 0
       switch (cid)
@@ -3959,7 +3963,7 @@ namespace build2
           //
           if (md.type == translation_type::module_impl)
           {
-            const file& f (t.prerequisite_targets[ms.start]->as<file> ());
+            const file& f (pts[ms.start]->as<file> ());
             string s (relative (f.path ()).string ());
             s.insert (0, "-fmodule-file=");
             stor.push_back (move (s));
@@ -3974,11 +3978,11 @@ namespace build2
         }
       case compiler_id::msvc:
         {
-          for (size_t i (ms.start), n (t.prerequisite_targets.size ());
+          for (size_t i (ms.start), n (pts.size ());
                i != n;
                ++i)
           {
-            const target* pt (t.prerequisite_targets[i]);
+            const target* pt (pts[i]);
 
             if (pt == nullptr)
               continue;
@@ -4021,7 +4025,7 @@ namespace build2
         assert (false);
       }
 #else
-      size_t n (t.prerequisite_targets.size ());
+      size_t n (pts.size ());
 
       // Clang embeds module file references so we only need to specify
       // our direct imports.
@@ -4040,7 +4044,7 @@ namespace build2
 
       for (size_t i (ms.start); i != n; ++i)
       {
-        const target* pt (t.prerequisite_targets[i]);
+        const target* pt (pts[i]);
 
         if (pt == nullptr)
           continue;
@@ -4130,8 +4134,8 @@ namespace build2
         env.push_back ("IFCPATH");
     }
 
-    target_state compile::
-    perform_update (action act, const target& xt) const
+    target_state compile_rule::
+    perform_update (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
@@ -4146,7 +4150,7 @@ namespace build2
       auto pr (
         execute_prerequisites<file> (
           (mod ? *x_mod : x_src),
-          act, t,
+          a, t,
           md.mt,
           [s = md.mods.start] (const target&, size_t i)
           {
@@ -4203,7 +4207,7 @@ namespace build2
 
         // Add *.export.poptions from prerequisite libraries.
         //
-        append_lib_options (bs, args, t, act, li);
+        append_lib_options (bs, args, a, t, li);
 
         // Extra system header dirs (last).
         //
@@ -4270,7 +4274,7 @@ namespace build2
           args.push_back ("/MD");
 
         if (md.mods.start != 0)
-          append_modules (env, args, mods, t, md);
+          append_modules (env, args, mods, a, t, md);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -4335,7 +4339,7 @@ namespace build2
         }
 
         if (md.mods.start != 0)
-          append_modules (env, args, mods, t, md);
+          append_modules (env, args, mods, a, t, md);
 
         // Note: the order of the following options is relied upon below.
         //
@@ -4604,7 +4608,7 @@ namespace build2
       return target_state::changed;
     }
 
-    target_state compile::
+    target_state compile_rule::
     perform_clean (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());

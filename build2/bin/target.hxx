@@ -226,7 +226,7 @@ namespace build2
       using libx::libx;
 
       virtual group_view
-      group_members (action_type) const override;
+      group_members (action) const override;
 
     public:
       static const target_type static_type;

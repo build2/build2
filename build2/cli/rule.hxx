@@ -16,12 +16,12 @@ namespace build2
   {
     // @@ Redo as two separate rules?
     //
-    class compile: public rule
+    class compile_rule: public rule
     {
     public:
-      compile () {}
+      compile_rule () {}
 
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
       virtual recipe

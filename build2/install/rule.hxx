@@ -19,21 +19,39 @@ namespace build2
     class alias_rule: public rule
     {
     public:
-      static const alias_rule instance;
-
-      alias_rule () {}
-
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
-
-      virtual recipe
-      apply (action, target&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. The default implementation accepts all prerequsites.
       //
       virtual const target*
       filter (action, const target&, prerequisite_member) const;
+
+      virtual recipe
+      apply (action, target&) const override;
+
+      alias_rule () {}
+      static const alias_rule instance;
+    };
+
+    // In addition to the alias rule's semantics, this rule sees through to
+    // the group's members.
+    //
+    class group_rule: public alias_rule
+    {
+    public:
+      // Return NULL if this group member should be ignored and pointer to its
+      // target otherwise. The default implementation accepts all members.
+      //
+      virtual const target*
+      filter (action, const target&, const target& group_member) const;
+
+      virtual recipe
+      apply (action, target&) const override;
+
+      group_rule () {}
+      static const group_rule instance;
     };
 
     struct install_dir;
@@ -41,41 +59,38 @@ namespace build2
     class file_rule: public rule
     {
     public:
-      static const file_rule instance;
-
-      file_rule () {}
-
-      virtual match_result
+      virtual bool
       match (action, target&, const string&) const override;
 
-      virtual recipe
-      apply (action, target&) const override;
-
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise. The default implementation ignores prerequsites that
-      // are outside of this target's project.
+      // target otherwise. The default implementation ignores prerequsites
+      // that are outside of this target's project.
       //
       virtual const target*
       filter (action, const target&, prerequisite_member) const;
 
-      // Extra installation hooks.
-      //
-      using install_dir = install::install_dir;
+      virtual recipe
+      apply (action, target&) const override;
 
-      virtual void
+      static target_state
+      perform_update (action, const target&);
+
+      // Extra un/installation hooks. Return true if anything was
+      // un/installed.
+      //
+      using install_dir = install::install_dir; // For derived rules.
+
+      virtual bool
       install_extra (const file&, const install_dir&) const;
 
-      // Return true if anything was uninstalled.
-      //
       virtual bool
       uninstall_extra (const file&, const install_dir&) const;
 
-      // Installation "commands".
+      // Installation/uninstallation "commands".
       //
       // If verbose is false, then only print the command at verbosity level 2
       // or higher.
-      //
-    public:
+
       // Install a symlink: base/link -> target.
       //
       static void
@@ -96,16 +111,18 @@ namespace build2
       static bool
       uninstall_f (const scope& rs,
                    const install_dir& base,
-                   const file* t,
+                   const file* target,
                    const path& name,
                    bool verbose);
 
-    protected:
       target_state
       perform_install (action, const target&) const;
 
       target_state
       perform_uninstall (action, const target&) const;
+
+      static const file_rule instance;
+      file_rule () {}
     };
   }
 }

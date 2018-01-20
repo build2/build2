@@ -9,7 +9,7 @@
 #include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 
-#include <build2/cc/link.hxx>
+#include <build2/cc/link-rule.hxx>
 
 using namespace std;
 using namespace butl;
@@ -39,10 +39,10 @@ namespace build2
     // file corresponding to the exe{} target. Return the manifest file path
     // as well as whether it was changed.
     //
-    pair<path, bool> link::
+    pair<path, bool> link_rule::
     windows_manifest (const file& t, bool rpath_assembly) const
     {
-      tracer trace (x, "link::windows_manifest");
+      tracer trace (x, "link_rule::windows_manifest");
 
       const scope& rs (t.root_scope ());
 

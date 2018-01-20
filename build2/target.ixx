@@ -62,26 +62,48 @@ namespace build2
     }
   }
 
+  inline pair<bool, target_state> target::
+  matched_state_impl (action a) const
+  {
+    assert (phase == run_phase::match);
+
+    const opstate& s (state[a]);
+    size_t o (s.task_count.load (memory_order_relaxed) - // Synchronized.
+              target::count_base ());
+
+    if (o == target::offset_tried)
+      return make_pair (false, target_state::unknown);
+    else
+    {
+      // Normally applied but can also be already executed.
+      //
+      assert (o == target::offset_applied || o == target::offset_executed);
+      return make_pair (true, (group_state (a) ? group->state[a] : s).state);
+    }
+  }
+
   inline target_state target::
-  state () const
+  executed_state_impl (action a) const
   {
     assert (phase == run_phase::execute);
-    return group_state () ? group->state_ : state_;
+    return (group_state (a) ? group->state : state)[a].state;
   }
 
   inline bool target::
-  group_state () const
+  group_state (action a) const
   {
     // We go an extra step and short-circuit to the target state even if the
     // raw state is not group provided the recipe is group_recipe and the
     // state is not failed.
+    //
+    const opstate& s (state[a]);
 
-    if (state_ == target_state::group)
+    if (s.state == target_state::group)
       return true;
 
-    if (state_ != target_state::failed && group != nullptr)
+    if (s.state != target_state::failed && group != nullptr)
     {
-      if (recipe_function* const* f = recipe_.target<recipe_function*> ())
+      if (recipe_function* const* f = s.recipe.target<recipe_function*> ())
         return *f == &group_action;
     }
 
@@ -89,11 +111,11 @@ namespace build2
   }
 
   inline target_state target::
-  matched_state (action_type a, bool fail) const
+  matched_state (action a, bool fail) const
   {
     // Note that the target could be being asynchronously re-matched.
     //
-    pair<bool, target_state> r (state (a));
+    pair<bool, target_state> r (matched_state_impl (a));
 
     if (fail && (!r.first || r.second == target_state::failed))
       throw failed ();
@@ -102,9 +124,9 @@ namespace build2
   }
 
   inline pair<bool, target_state> target::
-  try_matched_state (action_type a, bool fail) const
+  try_matched_state (action a, bool fail) const
   {
-    pair<bool, target_state> r (state (a));
+    pair<bool, target_state> r (matched_state_impl (a));
 
     if (fail && r.first && r.second == target_state::failed)
       throw failed ();
@@ -113,65 +135,14 @@ namespace build2
   }
 
   inline target_state target::
-  executed_state (bool fail) const
+  executed_state (action a, bool fail) const
   {
-    target_state r (state ());
+    target_state r (executed_state_impl (a));
 
     if (fail && r == target_state::failed)
       throw failed ();
 
     return r;
-  }
-
-  inline target_state target::
-  serial_state (bool fail) const
-  {
-    //assert (sched.serial ());
-
-    target_state r (group_state () ? group->state_ : state_);
-
-    if (fail && r == target_state::failed)
-      throw failed ();
-
-    return r;
-  }
-
-  extern atomic_count target_count; // context.hxx
-
-  inline void target::
-  recipe (recipe_type r)
-  {
-    recipe_ = move (r);
-
-    // Do not clear the failed target state in case of an override (and we
-    // should never see the failed state from the previous operation since we
-    // should abort the execution in this case).
-    //
-    if (state_ != target_state::failed)
-    {
-      state_ = target_state::unknown;
-
-      // If this is a noop recipe, then mark the target unchanged to allow for
-      // some optimizations.
-      //
-      recipe_function** f (recipe_.target<recipe_function*> ());
-
-      if (f != nullptr && *f == &noop_action)
-        state_ = target_state::unchanged;
-      else
-      {
-        // This gets tricky when we start considering overrides (which can
-        // only happen for noop recipes), direct execution, etc. So here seems
-        // like the best place to do this.
-        //
-        // We also ignore the group recipe since it is used for ad hoc
-        // groups (which are not executed). Plus, group action means real
-        // recipe is in the group so this also feels right conceptually.
-        //
-        if (f == nullptr || *f != &group_action)
-          target_count.fetch_add (1, memory_order_relaxed);
-      }
-    }
   }
 
   // mark()/unmark()
@@ -323,7 +294,8 @@ namespace build2
   inline timestamp mtime_target::
   load_mtime (const path& p) const
   {
-    assert (phase == run_phase::execute && !group_state ());
+    assert (phase == run_phase::execute &&
+            !group_state (action () /* inner */));
 
     duration::rep r (mtime_.load (memory_order_consume));
     if (r == timestamp_unknown_rep)
@@ -349,7 +321,9 @@ namespace build2
     // much we can do here except detect the case where the target was
     // changed on this run.
     //
-    return mt < mp || (mt == mp && state () == target_state::changed);
+    return mt < mp || (mt == mp &&
+                       executed_state_impl (action () /* inner */) ==
+                       target_state::changed);
   }
 
   // path_target

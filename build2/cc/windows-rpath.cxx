@@ -13,7 +13,7 @@
 
 #include <build2/bin/target.hxx>
 
-#include <build2/cc/link.hxx>
+#include <build2/cc/link-rule.hxx>
 
 using namespace std;
 using namespace butl;
@@ -46,10 +46,10 @@ namespace build2
     // Return the greatest (newest) timestamp of all the DLLs that we will be
     // adding to the assembly or timestamp_nonexistent if there aren't any.
     //
-    timestamp link::
+    timestamp link_rule::
     windows_rpath_timestamp (const file& t,
                              const scope& bs,
-                             action act,
+                             action a,
                              linfo li) const
     {
       timestamp r (timestamp_nonexistent);
@@ -103,19 +103,19 @@ namespace build2
           r = t;
       };
 
-      for (auto pt: t.prerequisite_targets)
+      for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
         if (pt == nullptr)
           continue;
 
-        bool a;
+        bool la;
         const file* f;
 
-        if ((a = (f = pt->is_a<liba>  ())) ||
-            (a = (f = pt->is_a<libux> ())) || // See through.
+        if ((la = (f = pt->is_a<liba>  ())) ||
+            (la = (f = pt->is_a<libux> ())) || // See through.
             (     f = pt->is_a<libs>  ()))
-          process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a, pt.data,
+          process_libraries (a, bs, li, sys_lib_dirs,
+                             *f, la, pt.data,
                              imp, lib, nullptr, true);
       }
 
@@ -125,10 +125,10 @@ namespace build2
     // Like *_timestamp() but actually collect the DLLs (and weed out the
     // duplicates).
     //
-    auto link::
+    auto link_rule::
     windows_rpath_dlls (const file& t,
                         const scope& bs,
-                        action act,
+                        action a,
                         linfo li) const -> windows_dlls
     {
       windows_dlls r;
@@ -193,19 +193,19 @@ namespace build2
         }
       };
 
-      for (auto pt: t.prerequisite_targets)
+      for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
         if (pt == nullptr)
           continue;
 
-        bool a;
+        bool la;
         const file* f;
 
-        if ((a = (f = pt->is_a<liba>  ())) ||
-            (a = (f = pt->is_a<libux> ())) || // See through.
-            (     f = pt->is_a<libs>  ()))
-          process_libraries (act, bs, li, sys_lib_dirs,
-                             *f, a, pt.data,
+        if ((la = (f = pt->is_a<liba>  ())) ||
+            (la = (f = pt->is_a<libux> ())) || // See through.
+            (      f = pt->is_a<libs>  ()))
+          process_libraries (a, bs, li, sys_lib_dirs,
+                             *f, la, pt.data,
                              imp, lib, nullptr, true);
       }
 
@@ -223,10 +223,10 @@ namespace build2
     // unnecessary work by comparing the DLLs timestamp against the assembly
     // manifest file.
     //
-    void link::
+    void link_rule::
     windows_rpath_assembly (const file& t,
                             const scope& bs,
-                            action act,
+                            action a,
                             linfo li,
                             const string& tcpu,
                             timestamp ts,
@@ -264,7 +264,7 @@ namespace build2
 
       windows_dlls dlls;
       if (!empty)
-        dlls = windows_rpath_dlls (t, bs, act, li);
+        dlls = windows_rpath_dlls (t, bs, a, li);
 
       // Clean the assembly directory and make sure it exists. Maybe it would
       // have been faster to overwrite the existing manifest rather than
