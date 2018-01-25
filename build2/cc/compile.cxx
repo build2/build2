@@ -1289,6 +1289,11 @@ namespace build2
     // is an error. Should be robust enough in the face of language
     // translation, etc.
     //
+    // It turns out C1083 is also used when we are unable to open the main
+    // source file and the error line looks like this:
+    //
+    // c1xx: fatal error C1083: Cannot open source file: 's.cpp': No such
+    // file or directory
 
     // Sense whether this is an include note (return npos) or a diagnostics
     // line (return postion of the NNNN code in CNNNN).
@@ -1368,7 +1373,8 @@ namespace build2
 
         return string (l, p);
       }
-      else if (l.compare (p, 4, "1083") == 0)
+      else if (l.compare (p, 4, "1083")  == 0 &&
+               l.compare (0, 5, "c1xx:") != 0 /* Not the main source file. */ )
       {
         // Include error. The path is conveniently quoted with ''.
         //
