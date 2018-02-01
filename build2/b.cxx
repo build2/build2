@@ -726,6 +726,14 @@ main (int argc, char* argv[])
             //
             src_base.normalize (true);
 
+            // Make sure out_base is not a subdirectory of src_base. Who would
+            // want to do that, you may ask. Well, you would be surprised...
+            //
+            if (out_base != src_base && out_base.sub (src_base))
+              fail << "out_base directory is inside src_base" <<
+                info << "src_base: " << src_base <<
+                info << "out_base: " << out_base;
+
             // If the src_base was explicitly specified, search for src_root.
             //
             src_root = find_src_root (src_base);
