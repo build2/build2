@@ -684,10 +684,10 @@ namespace build2
       // We simulate stdin redirect (<file) with a fake (already terminate)
       // cat pipe (cat file |).
       //
-      bool stdin (pass_n != pts_n && pts[pass_n] != nullptr);
+      bool sin (pass_n != pts_n && pts[pass_n] != nullptr);
 
       process cat;
-      if (stdin)
+      if (sin)
       {
         const file& it (pts[pass_n]->as<file> ());
         const path& ip (it.path ());
@@ -748,7 +748,7 @@ namespace build2
         args.push_back ("-u");
 
         // Note that MinGW-built diff utility (as of 3.3) fails trying to
-        // detect if STDIN contains text or binary data. We will help it a bit
+        // detect if stdin contains text or binary data. We will help it a bit
         // to workaround the issue.
         //
 #ifdef _WIN32
@@ -775,8 +775,8 @@ namespace build2
       diag_record dr;
       if (!run_test (tt,
                      dr,
-                     args.data () + (stdin ? 3 : 0), // Skip cat.
-                     stdin ? &cat : nullptr))
+                     args.data () + (sin ? 3 : 0), // Skip cat.
+                     sin ? &cat : nullptr))
       {
         dr << info << "test command line: ";
         print_process (dr, args);
