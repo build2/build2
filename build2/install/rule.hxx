@@ -41,6 +41,8 @@ namespace build2
     class group_rule: public alias_rule
     {
     public:
+      using alias_rule::filter; // "Unhide" to make Clang happy.
+
       // Return NULL if this group member should be ignored and pointer to its
       // target otherwise. The default implementation accepts all members.
       //
