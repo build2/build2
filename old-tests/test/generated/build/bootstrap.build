@@ -1,8 +1,0 @@
-project = generated
-amalgamation = # Disabled.
-
-dist.package = $project
-
-using config
-using test
-using dist

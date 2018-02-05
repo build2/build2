@@ -1,0 +1,34 @@
+# file      : tests/test/script/generated/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = test clean
+
+# Note: using common.test from test/, not script/.
+#
+.include ../../common.test
+
+# @@ in module
+#
++cat <<EOI >+build/bootstrap.build
+using version
+EOI
++cat <<EOI >=manifest
+: 1
+name: test
+version: 1.2.3
+EOI
+
++cat <<EOI >=build/root.build
+using cxx
+EOI
+
+: testscript
+:
+ln -s $src_base/driver.cxx ./;
+ln -s $src_base/testscript.in ./;
+$* <<EOI
+exe{driver}: cxx{driver} test{testscript}
+test{testscript}: in{testscript} $src_root/file{manifest} #@@ in module
+test{testscript}: in.symbol = '@'
+EOI

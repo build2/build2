@@ -1,3 +1,7 @@
+// file      : tests/test/simple/generated/utility.cxx -*- C++ -*-
+// copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
 #include <iostream>
 #include <fstream>
 
@@ -19,8 +23,6 @@ main (int argc, char* argv[])
 
   if (ifs.tellg () == 0)
     cerr << argv[1] << " is empty" << endl;
-
-  cout << "output" << endl;
 
   return 0;
 }

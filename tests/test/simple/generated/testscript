@@ -1,0 +1,42 @@
+# file      : tests/test/simple/generated/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = test clean
+
+.include ../../common.test
+
+# @@ in module
+#
++cat <<EOI >+build/bootstrap.build
+using version
+EOI
++cat <<EOI >=manifest
+: 1
+name: test
+version: 1.2.3
+EOI
+
++cat <<EOI >=build/root.build
+using cxx
+EOI
+
+: input
+:
+ln -s $src_base/driver.cxx ./;
+ln -s $src_base/utility.cxx ./;
+$* <<EOI
+exe{utility}: cxx{utility}
+exe{utility}: exe{driver}: test.input = true
+exe{driver}: cxx{driver}
+EOI
+
+: output
+:
+ln -s $src_base/driver.cxx ./;
+ln -s $src_base/output.in ./;
+$* <<EOI
+exe{driver}: cxx{driver}
+exe{driver}: file{output}: test.stdout = true
+file{output}: in{output} $src_root/file{manifest} #@@ in module
+EOI
