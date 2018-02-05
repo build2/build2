@@ -1369,7 +1369,8 @@ namespace build2
         }
 
         if (p == string::npos)
-          fail << "unable to parse /showIncludes include note line";
+          fail << "unable to parse /showIncludes include note line '"
+               << l << "'";
 
         return string (l, p);
       }
@@ -1391,7 +1392,8 @@ namespace build2
           }
         }
 
-        fail << "unable to parse /showIncludes include error line" << endf;
+        fail << "unable to parse /showIncludes include error line '"
+             << l << "'" << endf;
       }
       else
       {
