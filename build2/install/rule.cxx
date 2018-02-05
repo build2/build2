@@ -55,7 +55,7 @@ namespace build2
     const target* alias_rule::
     filter (action a, const target& t, prerequisite_iterator& i) const
     {
-      assert (i->target == nullptr);
+      assert (i->member == nullptr);
       return filter (a, t, i->prerequisite);
     }
 
@@ -218,7 +218,7 @@ namespace build2
     const target* file_rule::
     filter (action a, const target& t, prerequisite_iterator& i) const
     {
-      assert (i->target == nullptr);
+      assert (i->member == nullptr);
       return filter (a, t, i->prerequisite);
     }
 

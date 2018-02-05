@@ -187,15 +187,15 @@ namespace build2
   inline prerequisite prerequisite_member::
   as_prerequisite () const
   {
-    if (target == nullptr)
+    if (member == nullptr)
       return prerequisite;
 
     // An ad hoc group member cannot be used as a prerequisite (use the whole
     // group instead).
     //
-    assert (!target->adhoc_member ());
+    assert (!member->adhoc_member ());
 
-    return prerequisite_type (*target);
+    return prerequisite_type (*member);
   }
 
   // prerequisite_members

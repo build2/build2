@@ -808,7 +808,7 @@ namespace build2
     const target* g_;
   };
 
-  // A member of a prerequisite. If 'target' is NULL, then this is the
+  // A member of a prerequisite. If 'member' is NULL, then this is the
   // prerequisite itself. Otherwise, it is its member. In this case
   // 'prerequisite' still refers to the prerequisite.
   //
@@ -820,57 +820,57 @@ namespace build2
     using target_type_type = build2::target_type;
 
     const prerequisite_type& prerequisite;
-    const target_type* target;
+    const target_type* member;
 
     template <typename T>
     bool
     is_a () const
     {
-      return target != nullptr
-        ? target->is_a<T> () != nullptr
+      return member != nullptr
+        ? member->is_a<T> () != nullptr
         : prerequisite.is_a<T> ();
     }
 
     bool
     is_a (const target_type_type& tt) const
     {
-      return target != nullptr
-        ? target->is_a (tt) != nullptr
+      return member != nullptr
+        ? member->is_a (tt) != nullptr
         : prerequisite.is_a (tt);
     }
 
     prerequisite_key
     key () const
     {
-      return target != nullptr
-        ? prerequisite_key {prerequisite.proj, target->key (), nullptr}
+      return member != nullptr
+        ? prerequisite_key {prerequisite.proj, member->key (), nullptr}
         : prerequisite.key ();
     }
 
     const target_type_type&
     type () const
     {
-      return target != nullptr ? target->type () : prerequisite.type;
+      return member != nullptr ? member->type () : prerequisite.type;
     }
 
     const string&
     name () const
     {
-      return target != nullptr ? target->name : prerequisite.name;
+      return member != nullptr ? member->name : prerequisite.name;
     }
 
     const dir_path&
     dir () const
     {
-      return target != nullptr ? target->dir : prerequisite.dir;
+      return member != nullptr ? member->dir : prerequisite.dir;
     }
 
     const optional<string>&
     proj () const
     {
-      // Target cannot be project-qualified.
+      // Member cannot be project-qualified.
       //
-      return target != nullptr
+      return member != nullptr
         ? prerequisite_key::nullproj
         : prerequisite.proj;
     }
@@ -878,27 +878,27 @@ namespace build2
     const scope_type&
     scope () const
     {
-      return target != nullptr ? target->base_scope () : prerequisite.scope;
+      return member != nullptr ? member->base_scope () : prerequisite.scope;
     }
 
     const target_type&
     search (const target_type& t) const
     {
-      return target != nullptr ? *target : build2::search (t, prerequisite);
+      return member != nullptr ? *member : build2::search (t, prerequisite);
     }
 
     const target_type*
     search_existing () const
     {
-      return target != nullptr
-        ? target
+      return member != nullptr
+        ? member
         : build2::search_existing (prerequisite);
     }
 
     const target_type*
     load (memory_order mo = memory_order_consume)
     {
-      return target != nullptr ? target : prerequisite.target.load (mo);
+      return member != nullptr ? member : prerequisite.target.load (mo);
     }
 
     // Return as a new prerequisite instance.
