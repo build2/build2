@@ -8,8 +8,10 @@ cxx.poptions += "-I$out_root"
 
 using cli
 
-exe{driver}: cxx{driver} cxx{test}
-cxx{test} hxx{test}: cli{test}
+#exe{driver}: cxx{driver} cxx{test}
+#cxx{test} hxx{test}: cli{test}
 
-#exe{driver}: cxx{driver} cli.cxx{test}
-#cli.cxx{test}: cli{test}
+exe{driver}: cxx{driver} cli.cxx{test}
+#exe{driver}: cxx{driver} lib{test}
+#lib{test}: cli.cxx{test}
+cli.cxx{test}: cli{test}

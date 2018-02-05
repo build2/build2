@@ -25,8 +25,17 @@ namespace build2
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. The default implementation accepts all prerequsites.
       //
+      // The prerequisite it passed as an iterator allowing the filter to
+      // "see" inside groups.
+      //
+      using prerequisite_iterator =
+        prerequisite_members_range<group_prerequisites>::iterator;
+
       virtual const target*
-      filter (action, const target&, prerequisite_member) const;
+      filter (action, const target&, prerequisite_iterator&) const;
+
+      virtual const target*
+      filter (action, const target&, const prerequisite&) const;
 
       virtual recipe
       apply (action, target&) const override;
@@ -38,10 +47,19 @@ namespace build2
     // In addition to the alias rule's semantics, this rule sees through to
     // the group's members.
     //
+    // The default group_rule::instance matches any target for which it was
+    // registered. It is to be used for non-see-through groups that should
+    // exhibit the see-through behavior for install (see lib{} in the bin
+    // module for an example).
+    //
+    // We also register (for all targets) another instance of this rule that
+    // only matches see-through groups.
+    //
     class group_rule: public alias_rule
     {
     public:
-      using alias_rule::filter; // "Unhide" to make Clang happy.
+      virtual bool
+      match (action, target&, const string&) const override;
 
       // Return NULL if this group member should be ignored and pointer to its
       // target otherwise. The default implementation accepts all members.
@@ -49,11 +67,15 @@ namespace build2
       virtual const target*
       filter (action, const target&, const target& group_member) const;
 
+      using alias_rule::filter; // "Unhide" to make Clang happy.
+
       virtual recipe
       apply (action, target&) const override;
 
-      group_rule () {}
+      group_rule (bool see_through_only): see_through (see_through_only) {}
       static const group_rule instance;
+
+      bool see_through;
     };
 
     struct install_dir;
@@ -68,8 +90,17 @@ namespace build2
       // target otherwise. The default implementation ignores prerequsites
       // that are outside of this target's project.
       //
+      // The prerequisite it passed as an iterator allowing the filter to
+      // "see" inside groups.
+      //
+      using prerequisite_iterator =
+        prerequisite_members_range<group_prerequisites>::iterator;
+
       virtual const target*
-      filter (action, const target&, prerequisite_member) const;
+      filter (action, const target&, prerequisite_iterator&) const;
+
+      virtual const target*
+      filter (action, const target&, const prerequisite&) const;
 
       virtual recipe
       apply (action, target&) const override;

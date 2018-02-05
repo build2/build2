@@ -697,8 +697,6 @@ namespace build2
   // also be traversed in reverse, but that's what you usually want,
   // anyway.
   //
-  // For constant iteration use const_group_prerequisites().
-  //
   class group_prerequisites
   {
   public:
@@ -1014,6 +1012,24 @@ namespace build2
       //
       bool
       enter_group ();
+
+      // Return true if the next element is this group's members. Normally
+      // used to iterate over group members only, for example:
+      //
+      // for (...; ++i)
+      // {
+      //   if (i->prerequisite.type.see_through)
+      //   {
+      //     for (i.enter_group (); i.group (); )
+      //     {
+      //       ++i;
+      //       ...
+      //     }
+      //   }
+      // }
+      //
+      bool
+      group () const;
 
       value_type operator* () const
       {

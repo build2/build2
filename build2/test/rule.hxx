@@ -20,9 +20,6 @@ namespace build2
     class rule: public build2::rule, protected virtual common
     {
     public:
-      explicit
-      rule (common_data&& d): common (move (d)) {}
-
       virtual bool
       match (action, target&, const string&) const override;
 
@@ -37,26 +34,32 @@ namespace build2
 
       target_state
       perform_script (action, const target&, size_t) const;
+
+      rule (common_data&& d, bool see_through_only)
+          : common (move (d)), see_through (see_through_only) {}
+
+      bool see_through;
     };
 
-    class default_rule: public rule // For disambiguation in module.
+    class default_rule: public rule
     {
     public:
       explicit
-      default_rule (common_data&& d): common (move (d)), rule (move (d)) {}
+      default_rule (common_data&& d)
+          : common (move (d)),
+            rule (move (d), true /* see_through_only */) {}
     };
 
-    // In addition to the above rule's semantics, this rule sees through to
-    // the group's members.
+    // To be used for non-see-through groups that should exhibit the see-
+    // through behavior for install (see lib{} in the bin module for an
+    // example).
     //
     class group_rule: public rule
     {
     public:
       explicit
-      group_rule (common_data&& d): common (move (d)), rule (move (d)) {}
-
-      virtual recipe
-      apply (action, target&) const override;
+      group_rule (common_data&& d)
+          : common (move (d)), rule (move (d), false /* see_through_only */) {}
     };
   }
 }

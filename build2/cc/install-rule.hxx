@@ -33,7 +33,7 @@ namespace build2
       install_rule (data&&, const link_rule&);
 
       virtual const target*
-      filter (action, const target&, prerequisite_member) const override;
+      filter (action, const target&, prerequisite_iterator&) const override;
 
       virtual bool
       match (action, target&, const string&) const override;
@@ -63,7 +63,7 @@ namespace build2
       libux_install_rule (data&&, const link_rule&);
 
       virtual const target*
-      filter (action, const target&, prerequisite_member) const override;
+      filter (action, const target&, prerequisite_iterator&) const override;
 
       virtual bool
       match (action, target&, const string&) const override;

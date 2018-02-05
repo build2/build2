@@ -53,9 +53,16 @@ namespace build2
     }
 
     const target* alias_rule::
-    filter (action, const target& t, prerequisite_member p) const
+    filter (action a, const target& t, prerequisite_iterator& i) const
     {
-      return &p.search (t);
+      assert (i->target == nullptr);
+      return filter (a, t, i->prerequisite);
+    }
+
+    const target* alias_rule::
+    filter (action, const target& t, const prerequisite& p) const
+    {
+      return &search (t, p);
     }
 
     recipe alias_rule::
@@ -68,17 +75,24 @@ namespace build2
       // @@ Shouldn't we do match in parallel (here and below)?
       //
       auto& pts (t.prerequisite_targets[a]);
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+
+      auto pms (group_prerequisite_members (a, t, members_mode::never));
+      for (auto i (pms.begin ()), e (pms.end ()); i != e; ++i)
       {
+        const prerequisite& p (i->prerequisite);
+
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
-        if (p.proj ())
+        if (p.proj)
           continue;
 
         // Let a customized rule have its say.
         //
-        const target* pt (filter (a, t, p));
+        // Note: we assume that if the filter enters the group, then it
+        // iterates over all its members.
+        //
+        const target* pt (filter (a, t, i));
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
@@ -112,7 +126,14 @@ namespace build2
 
     // group_rule
     //
-    const group_rule group_rule::instance;
+    const group_rule group_rule::instance (false /* see_through_only */);
+
+    bool group_rule::
+    match (action a, target& t, const string& h) const
+    {
+      return (!see_through || t.type ().see_through) &&
+        alias_rule::match (a, t, h);
+    }
 
     const target* group_rule::
     filter (action, const target&, const target& m) const
@@ -142,6 +163,7 @@ namespace build2
       if (gv.members != nullptr)
       {
         auto& pts (t.prerequisite_targets[a]);
+
         for (size_t i (0); i != gv.count; ++i)
         {
           const target* m (gv.members[i]);
@@ -194,9 +216,16 @@ namespace build2
     }
 
     const target* file_rule::
-    filter (action, const target& t, prerequisite_member p) const
+    filter (action a, const target& t, prerequisite_iterator& i) const
     {
-      const target& pt (p.search (t));
+      assert (i->target == nullptr);
+      return filter (a, t, i->prerequisite);
+    }
+
+    const target* file_rule::
+    filter (action, const target& t, const prerequisite& p) const
+    {
+      const target& pt (search (t, p));
       return pt.in (t.root_scope ()) ? &pt : nullptr;
     }
 
@@ -220,21 +249,25 @@ namespace build2
       // In both cases, the next step is to search, match, and collect all the
       // installable prerequisites.
       //
-      // @@ Unconditional group? How does it work for cli? Change to maybe
-      //    same like test? If so, also in alias_rule.
-      //
       auto& pts (t.prerequisite_targets[a]);
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+
+      auto pms (group_prerequisite_members (a, t, members_mode::never));
+      for (auto i (pms.begin ()), e (pms.end ()); i != e; ++i)
       {
+        const prerequisite& p (i->prerequisite);
+
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
-        if (p.proj ())
+        if (p.proj)
           continue;
 
         // Let a customized rule have its say.
         //
-        const target* pt (filter (a, t, p));
+        // Note: we assume that if the filter enters the group, then it
+        // iterates over all its members.
+        //
+        const target* pt (filter (a, t, i));
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});

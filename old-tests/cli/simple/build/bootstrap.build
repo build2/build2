@@ -1,3 +1,6 @@
 project = cli-simple
+version = 1.0.0
 amalgamation = # Disabled.
 using config
+using install
+using test

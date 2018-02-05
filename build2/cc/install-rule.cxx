@@ -26,36 +26,11 @@ namespace build2
         : common (move (d)), link_ (l) {}
 
     const target* install_rule::
-    filter (action a, const target& t, prerequisite_member p) const
+    filter (action a, const target& t, prerequisite_iterator& i) const
     {
       // NOTE: see libux_install_rule::filter() if changing anything here.
 
-      otype ot (link_type (t).type);
-
-      // Don't install executable's prerequisite headers.
-      //
-      if (t.is_a<exe> () && x_header (p))
-        return nullptr;
-
-      // Here is a problem: if the user spells the obj*/bmi*{} targets
-      // explicitly, then the source files, including headers/modules may be
-      // specified as preprequisites of those targets and not of this target.
-      // While this can be worked around for headers by also listing them as
-      // prerequisites of this target, this won't work for modules (since they
-      // are compiled). So what we are going to do here is detect bmi*{} and
-      // translate them to their mxx{} (this doesn't quite work for headers
-      // since there would normally be several of them).
-      //
-      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
-      {
-        const target& mt (p.search (t));
-
-        for (prerequisite_member mp: group_prerequisite_members (a, mt))
-        {
-          if (mp.is_a (*x_mod))
-            return t.is_a<exe> () ? nullptr : file_rule::filter (a, mt, mp);
-        }
-      }
+      const prerequisite& p (i->prerequisite);
 
       // If this is a shared library prerequisite, install it as long as it
       // is in the same amalgamation as we are.
@@ -63,13 +38,18 @@ namespace build2
       // Less obvious: we also want to install a static library prerequisite
       // of a library (since it could be referenced from its .pc file, etc).
       //
+      // Note: for now we assume these prerequisites never come from see-
+      // through groups.
+      //
+      otype ot (link_type (t).type);
+
       bool st (t.is_a<exe>  () || t.is_a<libs> ()); // Target needs shared.
       bool at (t.is_a<liba> () || t.is_a<libs> ()); // Target needs static.
 
       if ((st && (p.is_a<libx> () || p.is_a<libs> ())) ||
           (at && (p.is_a<libx> () || p.is_a<liba> ())))
       {
-        const target* pt (&p.search (t));
+        const target* pt (&search (t, p));
 
         // If this is the lib{}/libu{} group, pick a member which we would
         // link. For libu{} we want the "see through" logic.
@@ -87,7 +67,68 @@ namespace build2
           return pt;
       }
 
-      return file_rule::filter (a, t, p);
+      // The rest of the tests only succeed if the base filter() succeeds.
+      //
+      const target* pt (file_rule::filter (a, t, p));
+      if (pt == nullptr)
+        return pt;
+
+      // Don't install executable's prerequisite headers and module
+      // interfaces.
+      //
+      // Note that if they come from a group, then we assume the entire
+      // group is not to be installed.
+      //
+      if (t.is_a<exe> ())
+      {
+        if (x_header (p))
+          pt = nullptr;
+        else if (p.type.see_through)
+        {
+          for (i.enter_group (); i.group (); )
+          {
+            if (x_header (*++i))
+              pt = nullptr;
+          }
+        }
+
+        if (pt == nullptr)
+          return pt;
+      }
+
+      // Here is a problem: if the user spells the obj*/bmi*{} targets
+      // explicitly, then the source files, including headers/modules may be
+      // specified as preprequisites of those targets and not of this target.
+      // While this can be worked around for headers by also listing them as
+      // prerequisites of this target, this won't work for modules (since they
+      // are compiled). So what we are going to do here is detect bmi*{} and
+      // translate them to their mxx{} (this doesn't quite work for headers
+      // since there would normally be many of them).
+      //
+      // Note: for now we assume bmi*{} never come from see-through groups.
+      //
+      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
+      {
+        // This is tricky: we need to "look" inside groups for mxx{} but if
+        // found, remap to the group, not member.
+        //
+        for (prerequisite_member pm:
+               group_prerequisite_members (a, *pt, members_mode::maybe))
+        {
+          if (pm.is_a (*x_mod))
+          {
+            pt = t.is_a<exe> ()
+              ? nullptr
+              : file_rule::filter (a, *pt, pm.prerequisite);
+            break;
+          }
+        }
+
+        if (pt == nullptr)
+          return pt;
+      }
+
+      return pt;
     }
 
     bool install_rule::
@@ -214,27 +255,15 @@ namespace build2
         : common (move (d)), link_ (l) {}
 
     const target* libux_install_rule::
-    filter (action a, const target& t, prerequisite_member p) const
+    filter (action a, const target& t, prerequisite_iterator& i) const
     {
+      const prerequisite& p (i->prerequisite);
+
       // The "see through" semantics that should be parallel to install_rule
       // above. In particular, here we use libue/libua/libus{} as proxies for
       // exe/liba/libs{} there.
-
+      //
       otype ot (link_type (t).type);
-
-      if (t.is_a<libue> () && x_header (p))
-        return nullptr;
-
-      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
-      {
-        const target& mt (p.search (t));
-
-        for (prerequisite_member mp: group_prerequisite_members (a, mt))
-        {
-          if (mp.is_a (*x_mod))
-            return t.is_a<libue> () ? nullptr : alias_rule::filter (a, mt, mp);
-        }
-      }
 
       bool st (t.is_a<libue> () || t.is_a<libus> ()); // Target needs shared.
       bool at (t.is_a<libua> () || t.is_a<libus> ()); // Target needs static.
@@ -242,7 +271,7 @@ namespace build2
       if ((st && (p.is_a<libx> () || p.is_a<libs> ())) ||
           (at && (p.is_a<libx> () || p.is_a<liba> ())))
       {
-        const target* pt (&p.search (t));
+        const target* pt (&search (t, p));
 
         if (const libx* l = pt->is_a<libx> ())
           pt = &link_member (*l, a, link_info (t.base_scope (), ot));
@@ -254,7 +283,46 @@ namespace build2
           return pt;
       }
 
-      return alias_rule::filter (a, t, p);
+      const target* pt (install::file_rule::instance.filter (a, t, p));
+      if (pt == nullptr)
+        return pt;
+
+      if (t.is_a<libue> ())
+      {
+        if (x_header (p))
+          pt = nullptr;
+        else if (p.type.see_through)
+        {
+          for (i.enter_group (); i.group (); )
+          {
+            if (x_header (*++i))
+              pt = nullptr;
+          }
+        }
+
+        if (pt == nullptr)
+          return pt;
+      }
+
+      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
+      {
+        for (prerequisite_member pm:
+               group_prerequisite_members (a, *pt, members_mode::maybe))
+        {
+          if (pm.is_a (*x_mod))
+          {
+            pt = t.is_a<libue> ()
+              ? nullptr
+              : install::file_rule::instance.filter (a, *pt, pm.prerequisite);
+            break;
+          }
+        }
+
+        if (pt == nullptr)
+          return pt;
+      }
+
+      return pt;
     }
 
     bool libux_install_rule::

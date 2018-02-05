@@ -56,11 +56,37 @@ namespace build2
       // ---------------------------------------+-------------+---------
       //            test     test     (& pass)  |    pass     |   noop
       //
+      auto& pts (t.prerequisite_targets[a]);
+
+      // Resolve group members.
+      //
+      if (!see_through || t.type ().see_through)
+      {
+        // Remember that we are called twice: first during update for test
+        // (pre-operation) and then during test. During the former, we rely on
+        // the normall update rule to resolve the group members. During the
+        // latter, there will be no rule to do this but the group will already
+        // have been resolved by the pre-operation.
+        //
+        // If the rule could not resolve the group, then we ignore it.
+        //
+        group_view gv (a.outer ()
+                       ? resolve_group_members (a, t)
+                       : t.group_members (a));
+
+        if (gv.members != nullptr)
+        {
+          for (size_t i (0); i != gv.count; ++i)
+          {
+            if (const target* m = gv.members[i])
+              pts.push_back (m);
+          }
+
+          match_members (a, t, pts);
+        }
+      }
 
       // If we are passing-through, then match our prerequisites.
-      //
-      // Note that we may already have stuff in prerequisite_targets (see
-      // group_rule).
       //
       if (t.is_a<alias> () && pass (t))
       {
@@ -74,7 +100,6 @@ namespace build2
         match_prerequisites (a, t, t.root_scope ());
       }
 
-      auto& pts (t.prerequisite_targets[a]);
       size_t pass_n (pts.size ()); // Number of pass-through prerequisites.
 
       // See if it's testable and if so, what kind.
@@ -153,8 +178,8 @@ namespace build2
             test = false;
           else
           {
-            // Look for test input/stdin/stdout prerequisites. The same
-            // group logic as in the testscript case above.
+            // Look for test input/stdin/stdout prerequisites. The same group
+            // reasoning as in the testscript case above.
             //
             for (prerequisite_member p:
                    group_prerequisite_members (a, t, members_mode::maybe))
@@ -272,40 +297,6 @@ namespace build2
           };
         }
       }
-    }
-
-    recipe group_rule::
-    apply (action a, target& t) const
-    {
-      // Resolve group members.
-      //
-      // Remember that we are called twice: first during update for test
-      // (pre-operation) and then during test. During the former, we rely on
-      // the normall update rule to resolve the group members. During the
-      // latter, there will be no rule to do this but the group will already
-      // have been resolved by the pre-operation.
-      //
-      // If the rule could not resolve the group, then we ignore it.
-      //
-      group_view gv (a.outer ()
-                     ? resolve_group_members (a, t)
-                     : t.group_members (a));
-
-      if (gv.members != nullptr)
-      {
-        auto& pts (t.prerequisite_targets[a]);
-        for (size_t i (0); i != gv.count; ++i)
-        {
-          if (const target* m = gv.members[i])
-            pts.push_back (m);
-        }
-
-        match_members (a, t, pts);
-      }
-
-      // Delegate to the base rule.
-      //
-      return rule::apply (a, t);
     }
 
     target_state rule::

@@ -165,6 +165,8 @@ namespace build2
     static const dir_path dir_man  (dir_path (dir_data) /= "man");
     static const dir_path dir_man1 (dir_path ("man") /= "man1");
 
+    static const group_rule group_rule_ (true /* see_through_only */);
+
     bool
     init (scope& rs,
           scope& bs,
@@ -207,18 +209,24 @@ namespace build2
         vp.insert<bool>   ("install.subdirs", variable_visibility::project);
       }
 
-      // Register our alias and file rules.
+      // Register our rules.
       //
       {
+        auto& r (bs.rules);
+
         const auto& ar (alias_rule::instance);
         const auto& fr (file_rule::instance);
+        const auto& gr (group_rule_);
 
-        bs.rules.insert<alias> (perform_install_id,   "install.alias", ar);
-        bs.rules.insert<alias> (perform_uninstall_id, "uninstall.alias", ar);
+        r.insert<alias> (perform_install_id,   "install.alias", ar);
+        r.insert<alias> (perform_uninstall_id, "uninstall.alias", ar);
 
-        bs.rules.insert<file> (perform_install_id,   "install.file", fr);
-        bs.rules.insert<file> (perform_uninstall_id, "uninstall.file", fr);
-      }
+        r.insert<file> (perform_install_id,   "install.file", fr);
+        r.insert<file> (perform_uninstall_id, "uninstall.file", fr);
+
+        r.insert<target> (perform_install_id,   "install.file", gr);
+        r.insert<target> (perform_uninstall_id, "uninstall.file", gr);
+     }
 
       // Configuration.
       //
