@@ -879,6 +879,7 @@ namespace build2
 
     // Decrement the target count (see set_recipe() for details).
     //
+    if (a.inner ())
     {
       recipe_function** f (s.recipe.target<recipe_function*> ());
       if (f == nullptr || *f != &group_action)

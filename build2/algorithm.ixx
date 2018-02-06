@@ -306,13 +306,18 @@ namespace build2
       // (which are not executed). Plus, group action means real recipe is in
       // the group so this also feels right conceptually.
       //
-      // Note that we will increment this count twice for the same target if
-      // we have non-noop recipes for both inner and outer operations. While
-      // not ideal, the alternative (trying to "merge" the count keeping track
+      // We also avoid increment this count twice for the same target if we
+      // have both the inner and outer operations. In our model the outer
+      // operation is either noop or it must delegate to the inner. While it's
+      // possible the inner is noop while the outer is not, it is not very
+      // likely. The alternative (trying to "merge" the count keeping track of
       // whether inner and/or outer is noop) gets hairy rather quickly.
       //
-      if (f == nullptr || *f != &group_action)
-        target_count.fetch_add (1, memory_order_relaxed);
+      if (l.action.inner ())
+      {
+        if (f == nullptr || *f != &group_action)
+          target_count.fetch_add (1, memory_order_relaxed);
+      }
     }
   }
 

@@ -305,7 +305,7 @@ namespace build2
   //
   // The target count is incremented after a non-noop recipe is matched and
   // decremented after such recipe has been executed. If such a recipe has
-  // skipped updating the target, then it should increment the skip count.
+  // skipped executing the operation, then it should increment the skip count.
   // These two counters are used for progress monitoring and diagnostics.
   //
   extern atomic_count dependency_count;
