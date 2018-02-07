@@ -462,6 +462,8 @@ namespace build2
 
         // Similar to alias.
         //
+
+        //@@ outer
         r.insert<lib> (perform_id, 0, "bin.lib", lib_);
         r.insert<lib> (configure_id, 0, "bin.lib", lib_);
 

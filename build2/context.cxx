@@ -697,8 +697,9 @@ namespace build2
     // Register builtin rules.
     //
     {
-      rule_map& r (gs.rules);
+      rule_map& r (gs.rules); // Note: global scope!
 
+      //@@ outer
       r.insert<alias> (perform_id, 0, "alias", alias_rule::instance);
 
       r.insert<fsdir> (perform_update_id, "fsdir", fsdir_rule::instance);

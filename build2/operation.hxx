@@ -70,6 +70,12 @@ namespace build2
     bool inner () const {return outer_id == 0;}
     bool outer () const {return outer_id != 0;}
 
+    action
+    inner_action () const
+    {
+      return action (meta_operation (), operation ());
+    }
+
     // Implicit conversion operator to action_id for the switch() statement,
     // etc. Most places only care about the inner operation.
     //

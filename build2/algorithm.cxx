@@ -1039,24 +1039,24 @@ namespace build2
 
   template <typename T>
   target_state
-  straight_execute_members (action a, const target& t, T ts[], size_t n)
+  straight_execute_members (action a, atomic_count& tc,
+                            T ts[], size_t n, size_t p)
   {
     target_state r (target_state::unchanged);
 
     // Start asynchronous execution of prerequisites.
     //
-    wait_guard wg (target::count_busy (), t[a].task_count);
+    wait_guard wg (target::count_busy (), tc);
 
-    for (size_t i (0); i != n; ++i)
+    n += p;
+    for (size_t i (p); i != n; ++i)
     {
       const target*& mt (ts[i]);
 
       if (mt == nullptr) // Skipped.
         continue;
 
-      target_state s (
-        execute_async (
-          a, *mt, target::count_busy (), t[a].task_count));
+      target_state s (execute_async (a, *mt, target::count_busy (), tc));
 
       if (s == target_state::postponed)
       {
@@ -1071,7 +1071,7 @@ namespace build2
     // or executed and synchronized (and we have blanked out all the postponed
     // ones).
     //
-    for (size_t i (0); i != n; ++i)
+    for (size_t i (p); i != n; ++i)
     {
       if (ts[i] == nullptr)
         continue;
@@ -1092,24 +1092,24 @@ namespace build2
 
   template <typename T>
   target_state
-  reverse_execute_members (action a, const target& t, T ts[], size_t n)
+  reverse_execute_members (action a, atomic_count& tc,
+                           T ts[], size_t n, size_t p)
   {
     // Pretty much as straight_execute_members() but in reverse order.
     //
     target_state r (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), t[a].task_count);
+    wait_guard wg (target::count_busy (), tc);
 
-    for (size_t i (n); i != 0; )
+    n = p - n;
+    for (size_t i (p); i != n; )
     {
       const target*& mt (ts[--i]);
 
       if (mt == nullptr)
         continue;
 
-      target_state s (
-        execute_async (
-          a, *mt, target::count_busy (), t[a].task_count));
+      target_state s (execute_async (a, *mt, target::count_busy (), tc));
 
       if (s == target_state::postponed)
       {
@@ -1120,7 +1120,7 @@ namespace build2
 
     wg.wait ();
 
-    for (size_t i (n); i != 0; )
+    for (size_t i (p); i != n; )
     {
       if (ts[--i] == nullptr)
         continue;
@@ -1141,19 +1141,19 @@ namespace build2
   //
   template target_state
   straight_execute_members<const target*> (
-    action, const target&, const target*[], size_t);
+    action, atomic_count&, const target*[], size_t, size_t);
 
   template target_state
   reverse_execute_members<const target*> (
-    action, const target&, const target*[], size_t);
+    action, atomic_count&, const target*[], size_t, size_t);
 
   template target_state
   straight_execute_members<prerequisite_target> (
-    action, const target&, prerequisite_target[], size_t);
+    action, atomic_count&, prerequisite_target[], size_t, size_t);
 
   template target_state
   reverse_execute_members<prerequisite_target> (
-    action, const target&, prerequisite_target[], size_t);
+    action, atomic_count&, prerequisite_target[], size_t, size_t);
 
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,

@@ -27,7 +27,7 @@ namespace build2
       apply (action, target&) const override;
 
       static target_state
-      perform_update (action, const target&);
+      perform_update (action, const target&, size_t);
 
       target_state
       perform_test (action, const target&, size_t) const;

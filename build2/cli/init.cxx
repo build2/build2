@@ -319,6 +319,8 @@ namespace build2
         // resolved/linked up. Looks like a general pattern: groups should
         // resolve on *(update).
         //
+        // @@ meta-op wildcard?
+        //
         reg (configure_id, update_id);
         reg (dist_id, update_id);
       }

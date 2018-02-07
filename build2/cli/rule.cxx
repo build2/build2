@@ -167,15 +167,15 @@ namespace build2
         //
         inject_fsdir (a, t);
 
-        // Match prerequisite members.
+        // Match prerequisites.
         //
         match_prerequisite_members (a, t);
 
         switch (a)
         {
         case perform_update_id: return &perform_update;
-        case perform_clean_id: return &perform_clean_group; // Standard impl.
-        default: return noop_recipe; // Configure update.
+        case perform_clean_id:  return &perform_clean_group; // Standard impl.
+        default:                return noop_recipe; // Configure update.
         }
       }
       else

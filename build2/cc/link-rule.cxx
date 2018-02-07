@@ -56,6 +56,8 @@ namespace build2
       //
       if (lt.library ())
       {
+        //@@ inner/outer race (see install-rule)?
+
         if (t.group == nullptr)
           t.group = &search (t,
                              lt.utility ? libu::static_type : lib::static_type,
@@ -621,7 +623,22 @@ namespace build2
           //
           if      (p.is_a<obj> ()) pt = &search (t, tt.obj, p.key ());
           else if (p.is_a<bmi> ()) pt = &search (t, tt.bmi, p.key ());
-          else                     pt = &p.search (t);
+          //
+          // Something else. This could be something unrelated that the user
+          // tacked on (e.g., a doc{}). Or it could be some ad hoc input to
+          // the linker (say a linker script or some such).
+          //
+          else
+          {
+            // @@ Temporary hack until we get the default outer operation for
+            // update. This allows operations like test and install to skip
+            // such tacked on stuff.
+            //
+            if (current_outer_oif != nullptr)
+              continue;
+
+            pt = &p.search (t);
+          }
 
           if (skip (pt))
             continue;
@@ -676,7 +693,7 @@ namespace build2
           // If this obj*{} already has prerequisites, then verify they are
           // "compatible" with what we are doing here. Otherwise, synthesize
           // the dependency. Note that we may also end up synthesizing with
-          // someone beating up to it. In this case also verify.
+          // someone beating us to it. In this case also verify.
           //
           bool verify (true);
 
@@ -708,6 +725,9 @@ namespace build2
             for (prerequisite_member p: group_prerequisite_members (a, t))
             {
               const target* pt (pts[j++]);
+
+              if (pt == nullptr)
+                continue;
 
               if (p.is_a<libx> () ||
                   p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> () ||
@@ -1155,6 +1175,9 @@ namespace build2
 
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
+        if (pt == nullptr)
+          continue;
+
         bool la;
         const file* f;
 
@@ -1525,6 +1548,9 @@ namespace build2
         {
           const target* pt (p.target);
 
+          if (pt == nullptr)
+            continue;
+
           // If this is bmi*{}, then obj*{} is its ad hoc member.
           //
           if (modules)
@@ -1809,6 +1835,9 @@ namespace build2
       for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
         const target* pt (p.target);
+
+        if (pt == nullptr)
+          continue;
 
         if (modules)
         {

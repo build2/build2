@@ -121,19 +121,25 @@ namespace build2
 
       // Register alias and fallback rule for the configure meta-operation.
       //
+      // We need this rule for out-of-any-project dependencies (e.g.,
+      // libraries imported from /usr/lib). We are registring it on the
+      // global scope similar to builtin rules.
+      //
       {
-        // We need this rule for out-of-any-project dependencies (e.g.,
-        // libraries imported from /usr/lib). Registring it on the global
-        // scope smells a bit but seems harmless.
-        //
-        rs.global ().rules.insert<mtime_target> (
+        auto& r (rs.global ().rules);
+        r.insert<mtime_target> (
           configure_id, 0, "config.file", file_rule::instance);
-
+      }
+      {
         auto& r (rs.rules);
 
-        r.insert<target> (configure_id, 0, "config", fallback_rule::instance);
-        r.insert<file> (configure_id, 0, "config.file", fallback_rule::instance);
+        //@@ outer
         r.insert<alias> (configure_id, 0, "config.alias", alias_rule::instance);
+
+        // This allows a custom configure rule while doing nothing by default.
+        //
+        r.insert<target> (configure_id, 0, "config", noop_rule::instance);
+        r.insert<file> (configure_id, 0, "config.file", noop_rule::instance);
       }
 
       return true;

@@ -349,14 +349,14 @@ namespace build2
     // In a sense this is like any other dependency.
     //
     assert (a.outer ());
-    return match (action (a.meta_operation (), a.operation ()), t);
+    return match (a.inner_action (), t);
   }
 
   inline bool
   match_inner (action a, const target& t, unmatch um)
   {
     assert (a.outer ());
-    return match (action (a.meta_operation (), a.operation ()), t, um);
+    return match (a.inner_action (), t, um);
   }
 
   group_view
@@ -368,7 +368,7 @@ namespace build2
     group_view r;
 
     if (a.outer ())
-      a = action (a.meta_operation (), a.operation ());
+      a = a.inner_action ();
 
     // We can be called during execute though everything should have been
     // already resolved.
@@ -480,21 +480,28 @@ namespace build2
   execute_inner (action a, const target& t)
   {
     assert (a.outer ());
-    return execute_wait (action (a.meta_operation (), a.operation ()), t);
+    return execute_wait (a.inner_action (), t);
   }
 
   inline target_state
-  straight_execute_prerequisites (action a, const target& t, size_t c)
+  straight_execute_prerequisites (action a, const target& t,
+                                  size_t c, size_t s)
   {
     auto& p (t.prerequisite_targets[a]);
-    return straight_execute_members (a, t, p.data (), c == 0 ? p.size () : c);
+    return straight_execute_members (a, t,
+                                     p.data (),
+                                     c == 0 ? p.size () - s: c,
+                                     s);
   }
 
   inline target_state
   reverse_execute_prerequisites (action a, const target& t, size_t c)
   {
     auto& p (t.prerequisite_targets[a]);
-    return reverse_execute_members (a, t, p.data (), c == 0 ? p.size () : c);
+    return reverse_execute_members (a, t,
+                                    p.data (),
+                                    c == 0 ? p.size () : c,
+                                    p.size ());
   }
 
   inline target_state
@@ -503,6 +510,39 @@ namespace build2
     return current_mode == execution_mode::first
       ? straight_execute_prerequisites (a, t, c)
       : reverse_execute_prerequisites (a, t, c);
+  }
+
+  inline target_state
+  straight_execute_prerequisites_inner (action a, const target& t,
+                                        size_t c, size_t s)
+  {
+    assert (a.outer ());
+    auto& p (t.prerequisite_targets[a]);
+    return straight_execute_members (a.inner_action (),
+                                     t[a].task_count,
+                                     p.data (),
+                                     c == 0 ? p.size () - s : c,
+                                     s);
+  }
+
+  inline target_state
+  reverse_execute_prerequisites_inner (action a, const target& t, size_t c)
+  {
+    assert (a.outer ());
+    auto& p (t.prerequisite_targets[a]);
+    return reverse_execute_members (a.inner_action (),
+                                    t[a].task_count,
+                                    p.data (),
+                                    c == 0 ? p.size () : c,
+                                    p.size ());
+  }
+
+  inline target_state
+  execute_prerequisites_inner (action a, const target& t, size_t c)
+  {
+    return current_mode == execution_mode::first
+      ? straight_execute_prerequisites_inner (a, t, c)
+      : reverse_execute_prerequisites_inner (a, t, c);
   }
 
   // If the first argument is NULL, then the result is treated as a boolean
@@ -559,7 +599,7 @@ namespace build2
   execute_members (action a, const target& t, const target* ts[], size_t n)
   {
     return current_mode == execution_mode::first
-      ? straight_execute_members (a, t, ts, n)
-      : reverse_execute_members (a, t, ts, n);
+      ? straight_execute_members (a, t, ts, n, 0)
+      : reverse_execute_members (a, t, ts, n, n);
   }
 }

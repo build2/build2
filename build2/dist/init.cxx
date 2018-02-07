@@ -94,7 +94,7 @@ namespace build2
       // something like insert<target>(dist_id, test_id) taking precedence.
       //
       rs.rules.insert<target> (dist_id, 0, "dist", rule_);
-      rs.rules.insert<alias> (dist_id, 0, "dist.alias", rule_);
+      rs.rules.insert<alias> (dist_id, 0, "dist.alias", rule_); //@@ outer?
 
       // Configuration.
       //

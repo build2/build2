@@ -98,6 +98,11 @@ namespace build2
   recipe file_rule::
   apply (action a, target& t) const
   {
+    /*
+      @@ outer
+      return noop_recipe;
+    */
+
     // Update triggers the update of this target's prerequisites so it would
     // seem natural that we should also trigger their cleanup. However, this
     // possibility is rather theoretical so until we see a real use-case for
@@ -220,6 +225,8 @@ namespace build2
     // First update prerequisites (e.g. create parent directories) then create
     // this directory.
     //
+    // @@ outer: should we assume for simplicity its only prereqs are fsdir{}?
+    //
     if (!t.prerequisite_targets[a].empty ())
       ts = straight_execute_prerequisites (a, t);
 
@@ -231,6 +238,8 @@ namespace build2
     // cases the directory will already exist. If so, then we are going to get
     // better performance by first checking if it indeed exists. See
     // butl::try_mkdir() for details.
+    //
+    // @@ Also skip prerequisites? Can't we return noop in apply?
     //
     if (!exists (d) && fsdir_mkdir (t, d))
       ts |= target_state::changed;
@@ -280,7 +289,19 @@ namespace build2
 
   const fsdir_rule fsdir_rule::instance;
 
-  // fallback_rule
+  // noop_rule
   //
-  const fallback_rule fallback_rule::instance;
+  bool noop_rule::
+  match (action, target&, const string&) const
+  {
+    return true;
+  }
+
+  recipe noop_rule::
+  apply (action, target&) const
+  {
+    return noop_recipe;
+  }
+
+  const noop_rule noop_rule::instance;
 }

@@ -142,16 +142,32 @@ namespace build2
                 break;
             }
 
-            // If this is the test operation, collect testscripts after the
-            // pass-through prerequisites.
+            // Collect testscripts after the pass-through prerequisites.
             //
-            // Note that we don't match nor execute them relying on update to
-            // assign their paths and make sure they are up to date.
-            //
-            if (a.operation () != test_id)
-              break;
+            const target& pt (p.search (t));
 
-            pts.push_back (&p.search (t));
+            // Note that for the test operation itself we don't match nor
+            // execute them relying on update to assign their paths.
+            //
+            // Causing update for test inputs/scripts is tricky: we cannot
+            // match for update_for_install because this same rule will match
+            // and since the target is not testable, it will return the noop
+            // recipe.
+            //
+            // So what we are going to do is directly match (and also execute;
+            // see below) a recipe for the inner update (who thought we could
+            // do that... but it seems we can). While at first it might feel
+            // iffy, it does make sense: the outer rule we would have matched
+            // would have simply delegated to the inner so we might as well
+            // take a shortcut. The only potential drawback of this approach
+            // is that we won't be able to provide any for_test customizations
+            // when updating test inputs/scripts. But such a need seems rather
+            // far fetched.
+            //
+            if (a.operation () == update_id)
+              match_inner (a, pt);
+
+            pts.push_back (&pt);
           }
         }
 
@@ -196,14 +212,9 @@ namespace build2
 
               if (si || so || in)
               {
-                // Note that we don't match nor execute them relying on update
-                // to assign their paths and make sure they are up to date.
-                //
-                const target& pt (p.search (t));
-
                 // Verify it is file-based.
                 //
-                if (!pt.is_a<file> ())
+                if (!p.is_a<file> ())
                 {
                   fail << "test." << (si ? "stdin" : so ? "stdout" : "input")
                        << " prerequisite " << p << " of target " << t
@@ -214,9 +225,6 @@ namespace build2
                 {
                   test = true;
 
-                  if (a.operation () != test_id)
-                    break;
-
                   // First matching prerequisite. Establish the structure in
                   // pts: the first element (after pass_n) is stdin (can be
                   // NULL), the second is stdout (can be NULL), and everything
@@ -226,13 +234,31 @@ namespace build2
                   pts.push_back (nullptr); // stdout
                 }
 
+                // Collect them after the pass-through prerequisites.
+                //
+                // Note that for the test operation itself we don't match nor
+                // execute them relying on update to assign their paths.
+                //
+                auto match = [a, &p, &t] () -> const target*
+                {
+                  const target& pt (p.search (t));
+
+                  // The same match_inner() rationale as for the testcript
+                  // prerequisites above.
+                  //
+                  if (a.operation () == update_id)
+                    match_inner (a, pt);
+
+                  return &pt;
+                };
+
                 if (si)
                 {
                   if (pts[pass_n] != nullptr)
                     fail << "multiple test.stdin prerequisites for target "
                          << t;
 
-                  pts[pass_n] = &pt;
+                  pts[pass_n] = match ();
                 }
 
                 if (so)
@@ -241,11 +267,11 @@ namespace build2
                     fail << "multiple test.stdout prerequisites for target "
                          << t;
 
-                  pts[pass_n + 1] = &pt;
+                  pts[pass_n + 1] = match ();
                 }
 
                 if (in)
-                  pts.push_back (&pt);
+                  pts.push_back (match ());
               }
             }
 
@@ -274,11 +300,13 @@ namespace build2
       if (a.operation () == update_id)
       {
         // For the update pre-operation match the inner rule (actual update).
-        // Note that here we assume it will update (if required) all the
-        // testscript and input/output prerequisites.
         //
         match_inner (a, t);
-        return &perform_update;
+
+        return [pass_n, this] (action a, const target& t)
+        {
+          return perform_update (a, t, pass_n);
+        };
       }
       else
       {
@@ -300,15 +328,16 @@ namespace build2
     }
 
     target_state rule::
-    perform_update (action a, const target& t)
+    perform_update (action a, const target& t, size_t pass_n)
     {
-      // First execute the inner recipe, then, if passing-through, execute
-      // prerequisites.
+      // First execute the inner recipe then execute prerequisites.
       //
       target_state ts (execute_inner (a, t));
 
-      if (t.prerequisite_targets[a].size () != 0)
-        ts |= straight_execute_prerequisites (a, t);
+      if (pass_n != 0)
+        ts |= straight_execute_prerequisites (a, t, pass_n);
+
+      ts |= straight_execute_prerequisites_inner (a, t, 0, pass_n);
 
       return ts;
     }

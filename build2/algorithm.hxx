@@ -389,10 +389,12 @@ namespace build2
   // changed and target_state::unchanged otherwise. If a prerequisite's
   // execution is postponed, then set its pointer in prerequisite_targets to
   // NULL (since its state cannot be queried MT-safely). If count is not 0,
-  // then only the first count prerequisites are executed.
+  // then only the first count prerequisites are executed beginning from
+  // start.
   //
   target_state
-  straight_execute_prerequisites (action, const target&, size_t count = 0);
+  straight_execute_prerequisites (action, const target&,
+                                  size_t count = 0, size_t start = 0);
 
   // As above but iterates over the prerequisites in reverse.
   //
@@ -403,6 +405,19 @@ namespace build2
   //
   target_state
   execute_prerequisites (action, const target&, size_t count = 0);
+
+  // As above but execute prerequisites for the inner action (that have
+  // been matched with match_inner()).
+  //
+  target_state
+  straight_execute_prerequisites_inner (action, const target&,
+                                        size_t count = 0, size_t start = 0);
+
+  target_state
+  reverse_execute_prerequisites_inner (action, const target&, size_t count = 0);
+
+  target_state
+  execute_prerequisites_inner (action, const target&, size_t count = 0);
 
   // A version of the above that also determines whether the action needs to
   // be executed on the target based on the passed timestamp and filter.
@@ -469,11 +484,27 @@ namespace build2
   //
   template <typename T>
   target_state
-  straight_execute_members (action, const target&, T[], size_t);
+  straight_execute_members (action, atomic_count&, T[], size_t, size_t);
 
   template <typename T>
   target_state
-  reverse_execute_members (action, const target&, T[], size_t);
+  reverse_execute_members (action, atomic_count&, T[], size_t, size_t);
+
+  template <typename T>
+  inline target_state
+  straight_execute_members (action a, const target& t,
+                            T ts[], size_t c, size_t s)
+  {
+    return straight_execute_members (a, t[a].task_count, ts, c, s);
+  }
+
+  template <typename T>
+  inline target_state
+  reverse_execute_members (action a, const target& t,
+                           T ts[], size_t c, size_t s)
+  {
+    return reverse_execute_members (a, t[a].task_count, ts, c, s);
+  }
 
   // Call straight or reverse depending on the current mode.
   //
@@ -484,14 +515,14 @@ namespace build2
   inline target_state
   straight_execute_members (action a, const target& t, const target* (&ts)[N])
   {
-    return straight_execute_members (a, t, ts, N);
+    return straight_execute_members (a, t, ts, N, 0);
   }
 
   template <size_t N>
   inline target_state
   reverse_execute_members (action a, const target& t, const target* (&ts)[N])
   {
-    return reverse_execute_members (a, t, ts, N);
+    return reverse_execute_members (a, t, ts, N, N);
   }
 
   template <size_t N>

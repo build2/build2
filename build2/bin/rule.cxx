@@ -65,6 +65,8 @@ namespace build2
     {
       lib& t (xt.as<lib> ());
 
+      //@@ outer: also prerequisites (if outer) or not?
+
       const target* m[] = {t.a, t.s};
       match_members (a, t, m);
 

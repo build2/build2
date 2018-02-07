@@ -29,41 +29,38 @@ namespace build2
     apply (action, target&) const = 0;
   };
 
-  // Fallback rule that only matches if the file exists.
+  // Fallback rule that only matches if the file exists. It will also match
+  // an mtime_target provided it has a set timestamp.
   //
   class file_rule: public rule
   {
   public:
-    file_rule () {}
-
     virtual bool
     match (action, target&, const string&) const override;
 
     virtual recipe
     apply (action, target&) const override;
 
+    file_rule () {}
     static const file_rule instance;
   };
 
   class alias_rule: public rule
   {
   public:
-    alias_rule () {}
-
     virtual bool
     match (action, target&, const string&) const override;
 
     virtual recipe
     apply (action, target&) const override;
 
+    alias_rule () {}
     static const alias_rule instance;
   };
 
   class fsdir_rule: public rule
   {
   public:
-    fsdir_rule () {}
-
     virtual bool
     match (action, target&, const string&) const override;
 
@@ -82,26 +79,23 @@ namespace build2
     static void
     perform_update_direct (action, const target&);
 
+    fsdir_rule () {}
     static const fsdir_rule instance;
   };
 
   // Fallback rule that always matches and does nothing.
   //
-  class fallback_rule: public build2::rule
+  class noop_rule: public rule
   {
   public:
-    fallback_rule () {}
-
     virtual bool
-    match (action, target&, const string&) const override
-    {
-      return true;
-    }
+    match (action, target&, const string&) const override;
 
     virtual recipe
-    apply (action, target&) const override {return noop_recipe;}
+    apply (action, target&) const override;
 
-    static const fallback_rule instance;
+    noop_rule () {}
+    static const noop_rule instance;
   };
 }
 
