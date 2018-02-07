@@ -140,10 +140,11 @@ namespace build2
       if (!function_family::defined ("install"))
         functions ();
 
-      // Register the install and uninstall operations.
+      // Register our operations.
       //
-      r.operations.insert (install_id,   op_install);
-      r.operations.insert (uninstall_id, op_uninstall);
+      r.operations.insert (install_id,            op_install);
+      r.operations.insert (uninstall_id,          op_uninstall);
+      r.operations.insert (update_for_install_id, op_update_for_install);
 
       return false;
     }

@@ -29,8 +29,8 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs.out_path ();});
 
-      const string& mname (*current_mname);
-      const string& oname (*current_oname);
+      const string& mname (current_mname);
+      const string& oname (current_oname);
 
       // Only create the module if we are configuring or creating. This is a
       // bit tricky since the build2 core may not yet know if this is the

@@ -285,8 +285,8 @@ namespace build2
   // lifted. The name is always for an outer operation (or meta operation
   // that hasn't been recognized as such yet).
   //
-  extern const string* current_mname;
-  extern const string* current_oname;
+  extern string current_mname;
+  extern string current_oname;
 
   extern const meta_operation_info* current_mif;
   extern const operation_info* current_inner_oif;
@@ -315,7 +315,7 @@ namespace build2
   inline void
   set_current_mif (const meta_operation_info& mif)
   {
-    current_mname = &mif.name;
+    current_mname = mif.name;
     current_mif = &mif;
     current_on = 0; // Reset.
   }
@@ -324,7 +324,7 @@ namespace build2
   set_current_oif (const operation_info& inner_oif,
                    const operation_info* outer_oif = nullptr)
   {
-    current_oname = &(outer_oif == nullptr ? inner_oif : *outer_oif).name;
+    current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
     current_inner_oif = &inner_oif;
     current_outer_oif = outer_oif;
     current_on++;

@@ -15,6 +15,7 @@ namespace build2
   namespace test
   {
     extern const operation_info op_test;
+    extern const operation_info op_update_for_test;
   }
 }
 

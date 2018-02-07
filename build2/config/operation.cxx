@@ -732,7 +732,7 @@ namespace build2
         fail (l) << "invalid module name: " << e.what ();
       }
 
-      current_oname = &empty_string; // Make sure valid.
+      current_oname = empty_string; // Make sure valid.
 
       // Now handle each target in each operation spec.
       //

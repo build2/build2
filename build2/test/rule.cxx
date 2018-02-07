@@ -303,7 +303,7 @@ namespace build2
         //
         match_inner (a, t);
 
-        return [pass_n, this] (action a, const target& t)
+        return [pass_n] (action a, const target& t)
         {
           return perform_update (a, t, pass_n);
         };

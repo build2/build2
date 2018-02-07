@@ -522,6 +522,7 @@ namespace build2
   //
   const operation_info op_default {
     default_id,
+    0,
     "<default>",
     "",
     "",
@@ -533,8 +534,14 @@ namespace build2
     nullptr
   };
 
-  const operation_info op_update {
+#ifndef _MSC_VER
+  constexpr
+#else
+  const
+#endif
+  operation_info op_update {
     update_id,
+    0,
     "update",
     "update",
     "updating",
@@ -548,6 +555,7 @@ namespace build2
 
   const operation_info op_clean {
     clean_id,
+    0,
     "clean",
     "clean",
     "cleaning",

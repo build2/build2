@@ -341,8 +341,8 @@ namespace build2
 
   const char var_extension[10] = "extension";
 
-  const string* current_mname;
-  const string* current_oname;
+  string current_mname;
+  string current_oname;
 
   const meta_operation_info* current_mif;
   const operation_info* current_inner_oif;
@@ -393,8 +393,10 @@ namespace build2
     operation_table.insert ("update");
     operation_table.insert ("clean");
     operation_table.insert ("test");
+    operation_table.insert ("update-for-test");
     operation_table.insert ("install");
     operation_table.insert ("uninstall");
+    operation_table.insert ("update-for-install");
 
     // Create global scope. Note that the empty path is a prefix for any other
     // path. See the comment in <libbutl/prefix-map.mxx> for details.
@@ -762,7 +764,7 @@ namespace build2
     {
       r = m.name_do;
 
-      if (!io.name_doing.empty ())
+      if (io.name_doing[0] != '\0')
       {
         r += ' ';
         r += io.name_doing;
@@ -800,7 +802,7 @@ namespace build2
     if (!m.name_doing.empty ())
       r = m.name_doing;
 
-    if (!io.name_doing.empty ())
+    if (io.name_doing[0] != '\0')
     {
       if (!r.empty ()) r += ' ';
       r += io.name_doing;
@@ -838,7 +840,7 @@ namespace build2
     {
       r = m.name_did;
 
-      if (!io.name_doing.empty ())
+      if (io.name_doing[0] != '\0')
       {
         r += ' ';
         r += io.name_doing;
@@ -877,7 +879,7 @@ namespace build2
     {
       os << t;
 
-      if (!io.name_done.empty ())
+      if (io.name_done[0] != '\0')
         os << ' ' << io.name_done;
 
       if (oo != nullptr)
@@ -885,7 +887,7 @@ namespace build2
     }
     else
     {
-      if (!io.name_doing.empty ())
+      if (io.name_doing[0] != '\0')
         os << io.name_doing << ' ';
 
       if (oo != nullptr)

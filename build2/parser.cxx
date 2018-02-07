@@ -4290,12 +4290,12 @@ namespace build2
     if (n.pair || !n.simple () || n.empty ())
       return false;
 
-    // C identifier.
+    // Like C identifier but with '-' instead of '_' as the delimiter.
     //
     for (size_t i (0); i != n.value.size (); ++i)
     {
       char c (n.value[i]);
-      if (c != '_' && !(i != 0 ? alnum (c) : alpha (c)))
+      if (c != '-' && !(i != 0 ? alnum (c) : alpha (c)))
         return false;
     }
 

@@ -127,12 +127,16 @@ namespace build2
   // that no operation was explicitly specified by the user. If adding
   // something here remember to update the man page.
   //
-  const operation_id default_id    = 1; // Shall be first.
-  const operation_id update_id     = 2; // Shall be second.
-  const operation_id clean_id      = 3;
-  const operation_id test_id       = 4;
-  const operation_id install_id    = 5;
-  const operation_id uninstall_id  = 6;
+  const operation_id default_id            = 1; // Shall be first.
+  const operation_id update_id             = 2; // Shall be second.
+  const operation_id clean_id              = 3;
+
+  const operation_id test_id               = 4;
+  const operation_id update_for_test_id    = 5; // update(for test) alias.
+
+  const operation_id install_id            = 6;
+  const operation_id uninstall_id          = 7;
+  const operation_id update_for_install_id = 8; // update(for install) alias.
 
   const action_id perform_update_id     = (perform_id << 4) | update_id;
   const action_id perform_clean_id      = (perform_id << 4) | clean_id;
@@ -321,10 +325,18 @@ namespace build2
 
   // Operation info.
   //
+  // NOTE: keep POD-like to ensure can be constant-initialized in order to
+  //       sidestep static initialization order (relied upon in operation
+  //       aliasing).
+  //
   struct operation_info
   {
+    // If outer_id is not 0, then use that as the outer part of the
+    // action.
+    //
     const operation_id id;
-    const string name;
+    const operation_id outer_id;
+    const char* name;
 
     // Name derivatives for diagnostics. Note that unlike meta-operations,
     // these can only be empty for the default operation (id 1), And
@@ -332,10 +344,10 @@ namespace build2
     // have empty derivatives (failed which only target name will be
     // printed).
     //
-    const string name_do;           // E.g., [to] 'update'.
-    const string name_doing;        // E.g., [while] 'updating'.
-    const string name_did;          // E.g., [not] 'updated'.
-    const string name_done;         // E.g., 'is up to date'.
+    const char* name_do;     // E.g., [to] 'update'.
+    const char* name_doing;  // E.g., [while] 'updating'.
+    const char* name_did;    // E.g., [not] 'updated'.
+    const char* name_done;   // E.g., 'is up to date'.
 
     const execution_mode mode;
 
@@ -346,9 +358,8 @@ namespace build2
 
     // The first argument in all the callback is the operation parameters.
     //
-    // If the meta-operation expects parameters, then it should have a
-    // non-NULL pre(). Failed that, any parameters will be diagnosed as
-    // unexpected.
+    // If the operation expects parameters, then it should have a non-NULL
+    // pre(). Failed that, any parameters will be diagnosed as unexpected.
 
     // If the returned operation_id's are not 0, then they are injected
     // as pre/post operations for this operation. Can be NULL if unused.

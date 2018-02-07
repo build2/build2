@@ -577,23 +577,22 @@ main (int argc, char* argv[])
       //
       values& mparams (lifted == nullptr ? mit->params : lifted->params);
       {
-        const string& mname (lifted == nullptr ? mit->name : lifted->name);
-        current_mname = &mname;
+        current_mname = (lifted == nullptr ? mit->name : lifted->name);
 
-        if (!mname.empty ())
+        if (!current_mname.empty ())
         {
-          if (meta_operation_id m = meta_operation_table.find (mname))
+          if (meta_operation_id m = meta_operation_table.find (current_mname))
           {
             // Can modify params, opspec, change meta-operation name.
             //
             if (auto f = meta_operation_table[m].process)
-              current_mname = &f (
+              current_mname = f (
                 var_ovs, mparams, opspecs, lifted != nullptr, l);
           }
         }
       }
 
-      const string& mname (*current_mname);
+      const string& mname (current_mname);
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
@@ -601,10 +600,9 @@ main (int argc, char* argv[])
 
         // A lifted meta-operation will always have default operation.
         //
-        const string& oname (lifted == nullptr ? os.name : string ());
+        current_oname = (lifted == nullptr ? os.name : empty_string);
+        const string& oname (current_oname);
         const values& oparams (lifted == nullptr ? os.params : values ());
-
-        current_oname = &oname;
 
         if (lifted != nullptr)
           lifted = nullptr; // Clear for the next iteration.
@@ -612,27 +610,29 @@ main (int argc, char* argv[])
         if (os.empty ()) // Default target: dir{}.
           os.push_back (targetspec (name ("dir", string ())));
 
-        operation_id oid (0); // Not yet translated.
+        operation_id oid (0), orig_oid;
         const operation_info* oif (nullptr);
+        const operation_info* outer_oif (nullptr);
 
-        operation_id pre_oid (0);
+        operation_id pre_oid (0), orig_pre_oid;
         const operation_info* pre_oif (nullptr);
 
-        operation_id post_oid (0);
+        operation_id post_oid (0), orig_post_oid;
         const operation_info* post_oif (nullptr);
 
         // Return true if this operation is lifted.
         //
-        auto lift = [&oname, &mname, &os, &mit, &lifted, &skip, &l, &trace] ()
+        auto lift = [&os, &mit, &lifted, &skip, &l, &trace] ()
         {
-          meta_operation_id m (meta_operation_table.find (oname));
+          meta_operation_id m (meta_operation_table.find (current_oname));
 
           if (m != 0)
           {
-            if (!mname.empty ())
-              fail (l) << "nested meta-operation " << mname << '(' << oname << ')';
+            if (!current_mname.empty ())
+              fail (l) << "nested meta-operation " << current_mname << '('
+                       << current_oname << ')';
 
-            l5 ([&]{trace << "lifting operation " << oname
+            l5 ([&]{trace << "lifting operation " << current_oname
                           << ", id " << uint16_t (m);});
 
             lifted = &os;
@@ -991,33 +991,44 @@ main (int argc, char* argv[])
               if (o == 0)
                 o = default_id;
 
+              // Before de-aliasing and/or translation (we assume in the check
+              // below that those will be the same since we've verified the
+              // meta-operation implementation is the same).
+              //
+              orig_oid = o;
+
               oif = lookup (o);
 
               l5 ([&]{trace << "start operation batch " << oif->name
-                            << ", id " << static_cast<uint16_t> (o);});
+                            << ", id " << static_cast<uint16_t> (oif->id);});
 
               // Allow the meta-operation to translate the operation.
               //
               if (mif->operation_pre != nullptr)
-                oid = mif->operation_pre (mparams, o);
+                oid = mif->operation_pre (mparams, oif->id);
               else // Otherwise translate default to update.
-                oid = (o == default_id ? update_id : o);
+                oid = (oif->id == default_id ? update_id : oif->id);
 
-              if (o != oid)
+              if (oif->id != oid)
               {
                 oif = lookup (oid);
+                oid = oif->id; // De-alias.
                 l5 ([&]{trace << "operation translated to " << oif->name
                               << ", id " << static_cast<uint16_t> (oid);});
               }
+
+              if (oif->outer_id != 0)
+                outer_oif = lookup (oif->outer_id);
 
               // Handle pre/post operations.
               //
               if (oif->pre != nullptr)
               {
-                if ((pre_oid = oif->pre (oparams, mid, l)) != 0)
+                if ((orig_pre_oid = oif->pre (oparams, mid, l)) != 0)
                 {
-                  assert (pre_oid != default_id);
-                  pre_oif = lookup (pre_oid);
+                  assert (orig_pre_oid != default_id);
+                  pre_oif = lookup (orig_pre_oid);
+                  pre_oid = pre_oif->id; // De-alias.
                 }
               }
               else if (!oparams.empty ())
@@ -1026,10 +1037,11 @@ main (int argc, char* argv[])
 
               if (oif->post != nullptr)
               {
-                if ((post_oid = oif->post (oparams, mid)) != 0)
+                if ((orig_post_oid = oif->post (oparams, mid)) != 0)
                 {
-                  assert (post_oid != default_id);
-                  post_oif = lookup (post_oid);
+                  assert (orig_post_oid != default_id);
+                  post_oif = lookup (orig_post_oid);
+                  post_oid = post_oif->id;
                 }
               }
             }
@@ -1053,13 +1065,16 @@ main (int argc, char* argv[])
                              << i->name << " in the same operation batch";
                 };
 
-              check (oid, oif);
+              check (orig_oid, oif);
+
+              if (oif->outer_id != 0)
+                check (oif->outer_id, outer_oif);
 
               if (pre_oid != 0)
-                check (pre_oid, pre_oif);
+                check (orig_pre_oid, pre_oif);
 
               if (post_oid != 0)
-                check (post_oid, post_oif);
+                check (orig_post_oid, post_oif);
             }
           }
 
@@ -1246,9 +1261,9 @@ main (int argc, char* argv[])
           tgs.reset ();
         }
 
-        set_current_oif (*oif);
+        set_current_oif (*oif, outer_oif);
 
-        action a (mid, oid, 0);
+        action a (mid, oid, oif->outer_id);
 
         {
           result_printer p (tgs);

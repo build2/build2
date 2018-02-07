@@ -30,6 +30,7 @@ namespace build2
 
     const operation_info op_install {
       install_id,
+      0,
       "install",
       "install",
       "installing",
@@ -52,6 +53,7 @@ namespace build2
     //
     const operation_info op_uninstall {
       uninstall_id,
+      0,
       "uninstall",
       "uninstall",
       "uninstalling",
@@ -61,6 +63,22 @@ namespace build2
       0,
       &install_pre,
       nullptr
+    };
+
+    // Also the explicit update-for-install operation alias.
+    //
+    const operation_info op_update_for_install {
+      update_id, // Note: not update_for_install_id.
+      install_id,
+      op_update.name,
+      op_update.name_do,
+      op_update.name_doing,
+      op_update.name_did,
+      op_update.name_done,
+      op_update.mode,
+      op_update.concurrency,
+      op_update.pre,
+      op_update.post
     };
   }
 }

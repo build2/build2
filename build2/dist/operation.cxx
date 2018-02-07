@@ -126,15 +126,25 @@ namespace build2
       {
         if (const operation_info* oif = rs->operations[id])
         {
+          // Skip aliases (e.g., update-for-install). In fact, one can argue
+          // the default update should be sufficient since it is assumed to
+          // update all prerequisites and we not longer support ad hoc stuff
+          // like test.input.
+          //
+          if (oif->id != id)
+            continue;
+
           // Use standard (perform) match.
           //
           if (oif->pre != nullptr)
           {
-            const operation_info* poif (
-              rs->operations[oif->pre (params, dist_id, loc)]);
-            set_current_oif (*poif, oif);
-            action a (dist_id, poif->id, oif->id);
-            match (params, a, ts, true /* quiet */);
+            if (operation_id pid = oif->pre (params, dist_id, loc))
+            {
+              const operation_info* poif (rs->operations[pid]);
+              set_current_oif (*poif, oif);
+              action a (dist_id, poif->id, oif->id);
+              match (params, a, ts, true /* quiet */);
+            }
           }
 
           set_current_oif (*oif);
@@ -143,11 +153,13 @@ namespace build2
 
           if (oif->post != nullptr)
           {
-            const operation_info* poif (
-              rs->operations[oif->post (params, dist_id)]);
-            set_current_oif (*poif, oif);
-            action a (dist_id, poif->id, oif->id);
-            match (params, a, ts, true /* quiet */);
+            if (operation_id pid = oif->post (params, dist_id))
+            {
+              const operation_info* poif (rs->operations[pid]);
+              set_current_oif (*poif, oif);
+              action a (dist_id, poif->id, oif->id);
+              match (params, a, ts, true /* quiet */);
+            }
           }
         }
       }
