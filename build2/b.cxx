@@ -576,23 +576,20 @@ main (int argc, char* argv[])
       // for perform) and that will be lifted early (see below).
       //
       values& mparams (lifted == nullptr ? mit->params : lifted->params);
-      {
-        current_mname = (lifted == nullptr ? mit->name : lifted->name);
+      string  mname   (lifted == nullptr ? mit->name   : lifted->name);
 
-        if (!current_mname.empty ())
+      if (!mname.empty ())
+      {
+        if (meta_operation_id m = meta_operation_table.find (mname))
         {
-          if (meta_operation_id m = meta_operation_table.find (current_mname))
-          {
-            // Can modify params, opspec, change meta-operation name.
-            //
-            if (auto f = meta_operation_table[m].process)
-              current_mname = f (
-                var_ovs, mparams, opspecs, lifted != nullptr, l);
-          }
+          // Can modify params, opspec, change meta-operation name.
+          //
+          if (auto f = meta_operation_table[m].process)
+            mname = f (var_ovs, mparams, opspecs, lifted != nullptr, l);
         }
       }
 
-      const string& mname (current_mname);
+      current_mname = mname; // Set early.
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
@@ -600,9 +597,10 @@ main (int argc, char* argv[])
 
         // A lifted meta-operation will always have default operation.
         //
-        current_oname = (lifted == nullptr ? os.name : empty_string);
-        const string& oname (current_oname);
         const values& oparams (lifted == nullptr ? os.params : values ());
+        const string& oname   (lifted == nullptr ? os.name   : empty_string);
+
+        current_oname = oname; // Set early.
 
         if (lifted != nullptr)
           lifted = nullptr; // Clear for the next iteration.
@@ -622,17 +620,17 @@ main (int argc, char* argv[])
 
         // Return true if this operation is lifted.
         //
-        auto lift = [&os, &mit, &lifted, &skip, &l, &trace] ()
+        auto lift = [&oname, &mname, &os, &mit, &lifted, &skip, &l, &trace] ()
         {
-          meta_operation_id m (meta_operation_table.find (current_oname));
+          meta_operation_id m (meta_operation_table.find (oname));
 
           if (m != 0)
           {
-            if (!current_mname.empty ())
-              fail (l) << "nested meta-operation " << current_mname << '('
-                       << current_oname << ')';
+            if (!mname.empty ())
+              fail (l) << "nested meta-operation " << mname << '('
+                       << oname << ')';
 
-            l5 ([&]{trace << "lifting operation " << current_oname
+            l5 ([&]{trace << "lifting operation " << oname
                           << ", id " << uint16_t (m);});
 
             lifted = &os;
