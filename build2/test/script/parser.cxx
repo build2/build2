@@ -783,7 +783,7 @@ namespace build2
             // Description. For now we just duplicate it through the entire
             // chain.
             //
-            g->desc = (ps == &root ? move (d) : root->desc);
+            g->desc = (ps == &root ? d : root->desc);
 
             *ps = move (g);
           }
