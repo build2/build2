@@ -103,9 +103,9 @@ namespace build2
      To activate the shortcut syntax the first buildspec argument must start
      with an operation or meta-operation name and end with a colon (\cb{:}).
      To transform the shortcut syntax to the normal buildspec syntax the colon
-     is replaced with the opening parenthesis (\cb{(}), the rest of the
+     is replaced with the opening parenthesis ('\cb{(}'), the rest of the
      buildspec arguments are treated as is, and the final closing parenthesis
-     (\cb{)}) is added.
+     ('\cb{)}') is added.
 
      For each <target> the driver expects to find \cb{buildfile} either in the
      target's directory or, if the directory is part of the \cb{out} tree
@@ -308,10 +308,30 @@ namespace build2
          Test a target. Performs \cb{update} as a pre-operation. Implemented by
          the \cb{test} module.|
 
+     \li|\cb{update-for-test}
+
+         Update a target for testing. This operation is equivalent to the
+         \cb{update} pre-operation as executed by the \cb{test} operation and
+         can be used to only update what is necessary for testing. Implemented
+         by the \cb{test} module.|
+
      \li|\cb{install}
 
          Install a target. Performs \cb{update} as a pre-operation. Implemented
-         by the \cb{install} module.||
+         by the \cb{install} module.|
+
+
+     \li|\cb{uninstall}
+
+         Uninstall a target. Performs \cb{update} as a pre-operation.
+         Implemented by the \cb{install} module.|
+
+     \li|\cb{update-for-install}
+
+         Update a target for installation. This operation is equivalent to the
+         \cb{update} pre-operation as executed by the \cb{install} operation
+         and can be used to only update what is necessary for
+         installation. Implemented by the \cb{install} module.||
 
      Note that buildspec and command line variable values are treated as
      \cb{buildfile} fragments and so can use quoting and escaping as well as
