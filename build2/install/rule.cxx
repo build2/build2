@@ -45,9 +45,9 @@ namespace build2
     {
       // We always match.
       //
-      // Note that we are called both as the outer part during the "update for
-      // un/install" pre-operation and as the inner part during the
-      // un/install operation itself.
+      // Note that we are called both as the outer part during the update-for-
+      // un/install pre-operation and as the inner part during the un/install
+      // operation itself.
       //
       return true;
     }
@@ -234,12 +234,12 @@ namespace build2
     {
       tracer trace ("install::file_rule::apply");
 
-      // Note that we are called both as the outer part during the "update for
-      // un/install" pre-operation and as the inner part during the
-      // un/install operation itself.
+      // Note that we are called both as the outer part during the update-for-
+      // un/install pre-operation and as the inner part during the un/install
+      // operation itself.
       //
       // In both cases we first determine if the target is installable and
-      // return noop if it's not. Otherwise, in the first case (update for
+      // return noop if it's not. Otherwise, in the first case (update-for-
       // un/install) we delegate to the normal update and in the second
       // (un/install) -- perform the test.
       //

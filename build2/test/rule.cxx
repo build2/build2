@@ -35,8 +35,8 @@ namespace build2
     recipe rule::
     apply (action a, target& t) const
     {
-      // Note that we are called both as the outer part during the "update for
-      // test" pre-operation and as the inner part during the test operation
+      // Note that we are called both as the outer part during the update-for-
+      // test pre-operation and as the inner part during the test operation
       // itself.
       //
       // In both cases we first determine if the target is testable and return
@@ -52,7 +52,7 @@ namespace build2
       //
       //                         test'able      |  pass'able  |  neither
       //                                        |             |
-      // update for test     delegate (& pass)  |    pass     |   noop
+      // update-for-test     delegate (& pass)  |    pass     |   noop
       // ---------------------------------------+-------------+---------
       //            test     test     (& pass)  |    pass     |   noop
       //
@@ -150,7 +150,7 @@ namespace build2
             // execute them relying on update to assign their paths.
             //
             // Causing update for test inputs/scripts is tricky: we cannot
-            // match for update_for_install because this same rule will match
+            // match for update-for-install because this same rule will match
             // and since the target is not testable, it will return the noop
             // recipe.
             //
@@ -160,7 +160,7 @@ namespace build2
             // iffy, it does make sense: the outer rule we would have matched
             // would have simply delegated to the inner so we might as well
             // take a shortcut. The only potential drawback of this approach
-            // is that we won't be able to provide any for_test customizations
+            // is that we won't be able to provide any for-test customizations
             // when updating test inputs/scripts. But such a need seems rather
             // far fetched.
             //

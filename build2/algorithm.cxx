@@ -222,10 +222,10 @@ namespace build2
   const rule_match*
   match_impl (action a, target& t, const rule* skip, bool try_match)
   {
-    // If this is an outer operation (Y_for_X), then we look for rules
+    // If this is an outer operation (Y-for-X), then we look for rules
     // registered for the outer id (X). Note that we still pass the original
     // action to the rule's match() function so that it can distinguish
-    // between a pre/post operation (Y_for_X) and the actual operation (X).
+    // between a pre/post operation (Y-for-X) and the actual operation (X).
     //
     meta_operation_id mo (a.meta_operation ());
     operation_id o (a.inner () ? a.operation () : a.outer_operation ());

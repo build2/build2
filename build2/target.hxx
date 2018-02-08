@@ -441,7 +441,7 @@ namespace build2
     static size_t count_executed () {return offset_executed + count_base ();}
     static size_t count_busy     () {return offset_busy     + count_base ();}
 
-    // Inner/outer operation state.
+    // Inner/outer operation state. See operation.hxx for details.
     //
     struct opstate
     {

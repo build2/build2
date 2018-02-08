@@ -34,19 +34,38 @@ namespace build2
   using operation_id = uint8_t;
   using action_id = uint8_t;
 
-  // Meta-operations and operations are not the end of the story. We
-  // also have operation nesting (currently only one level deep) which
-  // is used to implement pre/post operations (currently, but may be
-  // useful for other things). Here is the idea: the test operation
-  // needs to make sure that the targets that it needs to test are
-  // up-to-date. So it runs update as its pre-operation. It is almost
-  // like an ordinary update except that it has test as its outer
-  // operation (the meta-operations are always the same). This way a
-  // rule can recognize that this is "update for test" and do something
-  // differently. For example, if an executable is not a test, then
-  // there is no use updating it. At the same time, most rules will
-  // ignore the fact that this is a nested update and for them it is
-  // "update as usual".
+  // Meta-operations and operations are not the end of the story. We also have
+  // operation nesting (currently only one level deep) which is used to
+  // implement pre/post operations (currently, but may be useful for other
+  // things). Here is the idea: the test operation needs to make sure that the
+  // targets that it needs to test are up-to-date. So it runs update as its
+  // pre-operation. It is almost like an ordinary update except that it has
+  // test as its outer operation (the meta-operations are always the same).
+  // This way a rule can recognize that this is "update for test" and do
+  // something differently. For example, if an executable is not a test, then
+  // there is no use updating it. At the same time, most rules will ignore the
+  // fact that this is a nested update and for them it is "update as usual".
+  //
+  // This inner/outer operation support is implemented by maintaining two
+  // independent "target states" (see target::state; initially we tried to do
+  // it via rule/recipe override but that didn't end up well, to put it
+  // mildly). While the outer operation normally "directs" the inner, inner
+  // rules can still be matched/executed directly, without outer's involvement
+  // (e.g., because of other inner rules). A typical implementation of an
+  // outer rule either returns noop or delegates to the inner rule. In
+  // particular, it should not replace or override the inner's logic.
+  //
+  // While most of the relevant target state is duplicated, certain things are
+  // shared among the inner/outer rules, such as the target data pad and the
+  // group state. In particular, it is assumed the group state is always
+  // determined by the inner rule (see resolve_group_members()).
+  //
+  // Normally, an outer rule will be responsible for any additional, outer
+  // operation-specific work. Sometimes, however, the inner rule needs to
+  // customize its behavior. In this case the outer and inner rules must
+  // communicate this explicitly (normally via the target's data pad) and
+  // there is a number of restrictions to this approach. See
+  // cc::{link,install}_rule for details.
   //
   struct action
   {
