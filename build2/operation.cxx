@@ -540,6 +540,7 @@ namespace build2
   // VC doesn't "see" this can be const-initialized so we have to hack around
   // to ensure correct initialization order.
   //
+  #pragma warning(disable: 4073)
   #pragma init_seg(lib)
   const
 #endif
