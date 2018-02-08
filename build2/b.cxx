@@ -989,12 +989,9 @@ main (int argc, char* argv[])
               if (o == 0)
                 o = default_id;
 
-              // Before de-aliasing and/or translation (we assume in the check
-              // below that those will be the same since we've verified the
-              // meta-operation implementation is the same).
+              // Save the original oid before de-aliasing.
               //
               orig_oid = o;
-
               oif = lookup (o);
 
               l5 ([&]{trace << "start operation batch " << oif->name
@@ -1009,8 +1006,14 @@ main (int argc, char* argv[])
 
               if (oif->id != oid)
               {
+                // Update the original id (we assume in the check below that
+                // translation would have produced the same result since we've
+                // verified the meta-operation implementation is the same).
+                //
+                orig_oid = oid;
                 oif = lookup (oid);
                 oid = oif->id; // De-alias.
+
                 l5 ([&]{trace << "operation translated to " << oif->name
                               << ", id " << static_cast<uint16_t> (oid);});
               }
