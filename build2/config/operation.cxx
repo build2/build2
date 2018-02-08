@@ -381,14 +381,18 @@ namespace build2
              id < rs->operations.size ();
              ++id)
         {
-          const operation_info* oif (rs->operations[id]);
-          if (oif == nullptr)
-            continue;
+          if (const operation_info* oif = rs->operations[id])
+          {
+            // Skip aliases (e.g., update-for-install).
+            //
+            if (oif->id != id)
+              continue;
 
-          set_current_oif (*oif);
+            set_current_oif (*oif);
 
-          phase_lock pl (run_phase::match);
-          match (action (configure_id, id), t);
+            phase_lock pl (run_phase::match);
+            match (action (configure_id, id), t);
+          }
         }
 
         configure_project (a, *rs, projects);

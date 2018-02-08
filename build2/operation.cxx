@@ -537,6 +537,10 @@ namespace build2
 #ifndef _MSC_VER
   constexpr
 #else
+  // VC doesn't "see" this can be const-initialized so we have to hack around
+  // to ensure correct initialization order.
+  //
+  #pragma init_seg(lib)
   const
 #endif
   operation_info op_update {
