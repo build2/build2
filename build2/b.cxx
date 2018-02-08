@@ -578,6 +578,8 @@ main (int argc, char* argv[])
       values& mparams (lifted == nullptr ? mit->params : lifted->params);
       string  mname   (lifted == nullptr ? mit->name   : lifted->name);
 
+      current_mname = mname; // Set early.
+
       if (!mname.empty ())
       {
         if (meta_operation_id m = meta_operation_table.find (mname))
@@ -585,11 +587,10 @@ main (int argc, char* argv[])
           // Can modify params, opspec, change meta-operation name.
           //
           if (auto f = meta_operation_table[m].process)
-            mname = f (var_ovs, mparams, opspecs, lifted != nullptr, l);
+            mname = current_mname =
+              f (var_ovs, mparams, opspecs, lifted != nullptr, l);
         }
       }
-
-      current_mname = mname; // Set early.
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
