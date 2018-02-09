@@ -609,14 +609,14 @@ main (int argc, char* argv[])
         if (os.empty ()) // Default target: dir{}.
           os.push_back (targetspec (name ("dir", string ())));
 
-        operation_id oid (0), orig_oid;
+        operation_id oid (0), orig_oid (0);
         const operation_info* oif (nullptr);
         const operation_info* outer_oif (nullptr);
 
-        operation_id pre_oid (0), orig_pre_oid;
+        operation_id pre_oid (0), orig_pre_oid (0);
         const operation_info* pre_oif (nullptr);
 
-        operation_id post_oid (0), orig_post_oid;
+        operation_id post_oid (0), orig_post_oid (0);
         const operation_info* post_oif (nullptr);
 
         // Return true if this operation is lifted.
