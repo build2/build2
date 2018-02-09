@@ -5,4 +5,6 @@
 # Test generated test inputs/outputs.
 #
 
-./: test{testscript} $b file{*.cxx +*.in}
+./: test{testscript} exe{driver} $b file{*.in}
+
+exe{driver}: cxx{driver}

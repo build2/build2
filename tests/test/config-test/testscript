@@ -75,8 +75,9 @@ EOI
 # units/simple - simple (non-scripted) test
 #
 # This one is a bit tricky since we need an executable to run. We don't want
-# to be building anything as part of our test project so what we do is test
-# a dummy file target with an overridden test target.
+# to be building anything as part of our test project so what we do is test a
+# dummy file target with an overridden test target (note that $src_root here
+# refers to the root of the project being tested).
 #
 +mkdir proj/units/simple
 +touch proj/units/simple/driver

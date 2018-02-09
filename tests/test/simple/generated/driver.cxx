@@ -2,10 +2,31 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <string>
+#include <fstream>
 #include <iostream>
 
+using namespace std;
+
 int
-main ()
+main (int argc, char* argv[])
 {
-  std::cout << "1.2.3" << std::endl;
+  int r (0);
+
+  if (argc == 1)
+  {
+    cout << "1.2.3" << endl;
+  }
+  else
+  {
+    ifstream ifs (argv[1]);
+
+    if (!ifs.is_open ())
+      cerr << "unable to open " << argv[1] << endl;
+
+    string s;
+    r = getline (ifs, s) && s == "1.2.3" ? 0 : 1;
+  }
+
+  return r;
 }

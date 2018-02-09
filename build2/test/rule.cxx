@@ -172,9 +172,9 @@ namespace build2
         }
 
         // If this is not a script, then determine if it is a simple test.
-        // Ignore aliases and testscript files themselves at the outset.
+        // Ignore testscript files themselves at the outset.
         //
-        if (!script && !t.is_a<alias> () && !t.is_a<testscript> ())
+        if (!script && !t.is_a<testscript> ())
         {
           // For the simple case whether this is a test is controlled by the
           // test variable. Also, it feels redundant to specify, say, "test =

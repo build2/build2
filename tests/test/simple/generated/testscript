@@ -17,26 +17,29 @@ name: test
 version: 1.2.3
 EOI
 
-+cat <<EOI >=build/root.build
-using cxx
-EOI
+# This one is a bit tricky since we need an executable to run. We don't want
+# to be building anything as part of our test project so what we do is test
+# the directory target with an overridden test target (note that $src_root
+# here refers to the root of the project being tested).
 
 : input
 :
-ln -s $src_base/driver.cxx ./;
-ln -s $src_base/utility.cxx ./;
+ln -s $src_base/input.in ./;
 $* <<EOI
-exe{utility}: cxx{utility}
-exe{utility}: exe{driver}: test.input = true
-exe{driver}: cxx{driver}
+driver = $src_root/../exe{driver}
+dir{./}: test = $driver # @@ TMP (target/scope regularity)
+./: $driver
+./: file{input}: test.input = true
+file{input}: in{input} $src_root/file{manifest} #@@ in module
 EOI
 
 : output
 :
-ln -s $src_base/driver.cxx ./;
 ln -s $src_base/output.in ./;
 $* <<EOI
-exe{driver}: cxx{driver}
-exe{driver}: file{output}: test.stdout = true
+driver = $src_root/../exe{driver}
+dir{./}: test = $driver # @@ TMP (target/scope regularity)
+./: $driver
+./: file{output}: test.stdout = true
 file{output}: in{output} $src_root/file{manifest} #@@ in module
 EOI
