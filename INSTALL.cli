@@ -83,7 +83,7 @@ Then, we rebuild the build system with the result of Phase 1 linking
 libraries statically.
 
 \
-$ build2/b-boot config.cxx=g++ config.bin.lib=static
+$ build2/b-boot config.cxx=g++ config.bin.lib=static build2/exe{b}
 $ mv build2/b build2/b-boot
 
 $ build2/b-boot --version
@@ -93,7 +93,7 @@ Or, alternatively, for an out of tree build:
 
 \
 $ build2-boot/build2/b-boot config.cxx=g++ config.bin.lib=static \
-  build2-X.Y.Z/@build2-static/
+  build2-X.Y.Z/build2/@build2-static/build2/exe{b}
 
 $ build2-static/build2/b --version
 \
@@ -116,8 +116,16 @@ $ build2/b-boot configure         \
 $ build2/b-boot
 \
 
-I you are not planning to install the result you can omit the
-\c{config.install.*} values as well as \c{.rpath}.
+If you are only interested in installing the result, then you can avoid
+building tests by specifying the \c{update-for-install} operation in the last
+command:
+
+\
+$ build2/b-boot update-for-install
+\
+
+On the other hand, if I you are not planning to install the result, then you
+can omit the \c{config.install.*} values as well as \c{.rpath}.
 
 
 To install:
@@ -145,7 +153,7 @@ $ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
   config.install.root=/usr/local  \
   config.install.sudo=sudo
 
-$ build2-static/build2/b build2-shared/
+$ build2-static/build2/b update-for-install: build2-shared/
 
 $ build2-static/build2/b install: build2-shared/
 
