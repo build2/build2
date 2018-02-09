@@ -1785,7 +1785,7 @@ namespace build2
           return;
 
         if (verb >= 3)
-          text << ct << expr;
+          text << "$ " << ct << expr;
 
         if (!run_expr (sp, expr, li, ll, true))
           throw failed (); // Assume diagnostics is already printed.
