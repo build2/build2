@@ -172,7 +172,7 @@ namespace build2
               offset == target::offset_matched);
     }
 
-    return target_lock (a, &t, offset);
+    return target_lock {a, &t, offset};
   }
 
   void

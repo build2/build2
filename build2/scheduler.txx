@@ -66,6 +66,12 @@ namespace build2
           typename task::args_type (decay_copy (forward<A> (a))...)};
 
         td->thunk = &task_thunk<F, A...>;
+
+        // Increment the task count. This has to be done under lock to prevent
+        // the task from decrementing the count before we had a chance to
+        // increment it.
+        //
+        task_count.fetch_add (1, std::memory_order_release);
       }
       else
       {
@@ -97,10 +103,6 @@ namespace build2
         return false;
       }
     }
-
-    // Increment the task count.
-    //
-    task_count.fetch_add (1, std::memory_order_release);
 
     // If there is a spare active thread, wake up (or create) the helper
     // (unless someone already snatched it).
