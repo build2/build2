@@ -294,6 +294,18 @@ namespace build2
     return this->queue_depth_specified_;
   }
 
+  inline const size_t& options::
+  max_stack () const
+  {
+    return this->max_stack_;
+  }
+
+  inline bool options::
+  max_stack_specified () const
+  {
+    return this->max_stack_specified_;
+  }
+
   inline const bool& options::
   serial_stop () const
   {

@@ -164,9 +164,10 @@ namespace build2
     scheduler (size_t max_active,
                size_t init_active = 1,
                size_t max_threads = 0,
-               size_t queue_depth = 0)
+               size_t queue_depth = 0,
+               optional<size_t> max_stack = nullopt)
     {
-      startup (max_active, init_active, max_threads, queue_depth);
+      startup (max_active, init_active, max_threads, queue_depth, max_stack);
     }
 
     // Start the scheduler.
@@ -175,7 +176,8 @@ namespace build2
     startup (size_t max_active,
              size_t init_active = 1,
              size_t max_threads = 0,
-             size_t queue_depth = 0);
+             size_t queue_depth = 0,
+             optional<size_t> max_stack = nullopt);
 
     // Return true if the scheduler was started up.
     //
@@ -385,6 +387,8 @@ namespace build2
 
     std::mutex mutex_;
     bool shutdown_ = true;  // Shutdown flag.
+
+    optional<size_t> max_stack_;
 
     // The constraints that we must maintain:
     //

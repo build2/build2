@@ -451,7 +451,13 @@ main (int argc, char* argv[])
         fail << "invalid --max-jobs|-J value";
     }
 
-    sched.startup (jobs, 1, max_jobs, jobs * ops.queue_depth ());
+    sched.startup (jobs,
+                   1,
+                   max_jobs,
+                   jobs * ops.queue_depth (),
+                   (ops.max_stack_specified ()
+                    ? optional<size_t> (ops.max_stack () * 1024)
+                    : nullopt));
 
     variable_cache_mutex_shard_size = sched.shard_size ();
     variable_cache_mutex_shard.reset (

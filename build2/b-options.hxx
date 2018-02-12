@@ -434,6 +434,12 @@ namespace build2
     bool
     queue_depth_specified () const;
 
+    const size_t&
+    max_stack () const;
+
+    bool
+    max_stack_specified () const;
+
     const bool&
     serial_stop () const;
 
@@ -517,6 +523,8 @@ namespace build2
     bool max_jobs_specified_;
     size_t queue_depth_;
     bool queue_depth_specified_;
+    size_t max_stack_;
+    bool max_stack_specified_;
     bool serial_stop_;
     bool structured_result_;
     bool match_only_;

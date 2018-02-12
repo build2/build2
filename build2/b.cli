@@ -435,6 +435,21 @@ namespace build2
        details."
     }
 
+    size_t --max-stack
+    {
+      "<num>",
+      "The maximum stack size in KBytes to allow for newly created threads.
+       For \i{pthreads}-based systems the driver queries the stack size of
+       the main thread and uses the same size for creating additional threads.
+       This allows adjusting the stack size using familiar mechanisms, such
+       as \cb{ulimit}. Sometimes, however, the stack size of the main thread
+       is excessively large. As a result, the driver checks if it is greater
+       than a predefined limit (64MB on 64-bit systems and 32MB on 32-bit
+       ones) and caps it to a more sensible value (8MB) if that's the case.
+       This option allows you to override this check with the special zero
+       value indicating that the main thread stack size should be used as is."
+    }
+
     bool --serial-stop|-s
     {
       "Run serially and stop at the first error. This mode is useful to

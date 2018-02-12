@@ -13,6 +13,8 @@
 
 #include <cerrno>
 
+#include <iostream>
+
 using namespace std;
 
 namespace build2
@@ -257,12 +259,15 @@ namespace build2
   startup (size_t max_active,
            size_t init_active,
            size_t max_threads,
-           size_t queue_depth)
+           size_t queue_depth,
+           optional<size_t> max_stack)
   {
     // Lock the mutex to make sure our changes are visible in (other) active
     // threads.
     //
     lock l (mutex_);
+
+    max_stack_ = max_stack;
 
     // Use 8x max_active on 32-bit and 32x max_active on 64-bit. Unless we
     // were asked to run serially.
@@ -475,11 +480,16 @@ namespace build2
     // MinGW   :   2048 / 2048
     // VC      :   1024 / 1024
     //
-    // We will make sure that the new thread stack size is the same as for the
-    // main thread. For FreeBSD we will also cap it at 8MB.
+    // Provided the main thread size is less-equal than BUILD2_SANE_STACK_SIZE
+    // (default: sizeof(void*) * BUILD2_DEFAULT_STACK_SIZE), we make sure that
+    // the new thread stack is the same as for the main thread. Otherwise, we
+    // cap it at BUILD2_DEFAULT_STACK_SIZE (default: 8MB). This can also be
+    // overridden at runtime with the --max-stack option (remember to update
+    // its documentation of changing anything here).
     //
     // On Windows the stack size is the same for all threads and is customized
-    // at the linking stage (see build2/buildfile).
+    // at the linking stage (see build2/buildfile). Thus neither *_STACK_SIZE
+    // nor --max-stack have any effect here.
     //
     // On Linux, FreeBSD and MacOS there is no way to change it once and for
     // all newly created threads. Thus we will use pthreads, creating threads
@@ -488,6 +498,15 @@ namespace build2
     // created by the main thread).
     //
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+
+#ifndef BUILD2_DEFAULT_STACK_SIZE
+#  define BUILD2_DEFAULT_STACK_SIZE 8388608 // 8MB
+#endif
+
+#ifndef BUILD2_SANE_STACK_SIZE
+#  define BUILD2_SANE_STACK_SIZE (sizeof(void*) * BUILD2_DEFAULT_STACK_SIZE)
+#endif
+
     // Auto-deleter.
     //
     struct attr_deleter
@@ -543,15 +562,20 @@ namespace build2
       if (r != 0)
         throw_system_error (r);
 
-      // Cap at 8MB.
-      //
-      if (stack_size > 8388608)
-        stack_size = 8388608;
-
 #else // defined(__APPLE__)
       stack_size = pthread_get_stacksize_np (pthread_self ());
 #endif
     }
+
+    // Cap the size if necessary.
+    //
+    if (max_stack_)
+    {
+      if (*max_stack_ != 0 && stack_size > *max_stack_)
+        stack_size = *max_stack_;
+    }
+    else if (stack_size > BUILD2_SANE_STACK_SIZE)
+      stack_size = BUILD2_DEFAULT_STACK_SIZE;
 
     pthread_attr_t attr;
     int r (pthread_attr_init (&attr));

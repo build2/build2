@@ -582,6 +582,8 @@ namespace build2
     max_jobs_specified_ (false),
     queue_depth_ (4),
     queue_depth_specified_ (false),
+    max_stack_ (),
+    max_stack_specified_ (false),
     serial_stop_ (),
     structured_result_ (),
     match_only_ (),
@@ -727,6 +729,21 @@ namespace build2
        << "                     the build system scheduler implementation for details." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--max-stack\033[0m \033[4mnum\033[0m      The maximum stack size in KBytes to allow for newly" << ::std::endl
+       << "                     created threads. For \033[4mpthreads\033[0m-based systems the driver" << ::std::endl
+       << "                     queries the stack size of the main thread and uses the" << ::std::endl
+       << "                     same size for creating additional threads. This allows" << ::std::endl
+       << "                     adjusting the stack size using familiar mechanisms, such" << ::std::endl
+       << "                     as \033[1mulimit\033[0m. Sometimes, however, the stack size of the main" << ::std::endl
+       << "                     thread is excessively large. As a result, the driver" << ::std::endl
+       << "                     checks if it is greater than a predefined limit (64MB on" << ::std::endl
+       << "                     64-bit systems and 32MB on 32-bit ones) and caps it to a" << ::std::endl
+       << "                     more sensible value (8MB) if that's the case. This option" << ::std::endl
+       << "                     allows you to override this check with the special zero" << ::std::endl
+       << "                     value indicating that the main thread stack size should be" << ::std::endl
+       << "                     used as is." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m     Run serially and stop at the first error. This mode is" << ::std::endl
        << "                     useful to investigate build failures that are caused by" << ::std::endl
        << "                     build system errors rather than compilation errors. Note" << ::std::endl
@@ -858,6 +875,9 @@ namespace build2
       _cli_options_map_["-Q"] = 
       &::build2::cl::thunk< options, size_t, &options::queue_depth_,
         &options::queue_depth_specified_ >;
+      _cli_options_map_["--max-stack"] = 
+      &::build2::cl::thunk< options, size_t, &options::max_stack_,
+        &options::max_stack_specified_ >;
       _cli_options_map_["--serial-stop"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 
