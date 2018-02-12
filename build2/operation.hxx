@@ -240,7 +240,6 @@ namespace build2
     reset () {for (auto& x: *this) x.state = target_state::unknown;}
   };
 
-
   struct meta_operation_info
   {
     const meta_operation_id id;
@@ -288,9 +287,14 @@ namespace build2
                     const location&,
                     action_targets&);
 
-    void (*match) (const values&, action, action_targets&, bool quiet);
-
-    void (*execute) (const values&, action, action_targets&, bool quiet);
+    // Diagnostics levels:
+    //
+    // 0 - none           (for structured result).
+    // 1 - failures only  (for pre-operations).
+    // 2 - all            (for normal operations).
+    //
+    void (*match) (const values&, action, action_targets&, uint16_t diag);
+    void (*execute) (const values&, action, action_targets&, uint16_t diag);
 
     // Start of operation and meta-operation batches.
     //
@@ -329,14 +333,14 @@ namespace build2
           action_targets&);
 
   void
-  match (const values&, action, action_targets&, bool quiet);
+  match (const values&, action, action_targets&, uint16_t diag);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate
   // diagnostics (unless quiet).
   //
   void
-  execute (const values&, action, const action_targets&, bool quiet);
+  execute (const values&, action, const action_targets&, uint16_t diag);
 
   extern const meta_operation_info mo_noop;
   extern const meta_operation_info mo_perform;

@@ -112,7 +112,7 @@ namespace build2
   }
 
   void
-  match (const values&, action a, action_targets& ts, bool quiet)
+  match (const values&, action a, action_targets& ts, uint16_t diag)
   {
     tracer trace ("match");
 
@@ -201,7 +201,7 @@ namespace build2
             // We bailed before matching it (leave state in action_target as
             // unknown).
             //
-            if (verb != 0 && !quiet)
+            if (verb != 0 && diag >= 1)
               info << "not " << diag_did (a, t);
 
             break;
@@ -215,7 +215,7 @@ namespace build2
           {
             // Things didn't go well for this target.
             //
-            if (verb != 0 && !quiet)
+            if (verb != 0 && diag >= 1)
               info << "failed to " << diag_do (a, t);
 
             at.state = s;
@@ -240,7 +240,7 @@ namespace build2
   }
 
   void
-  execute (const values&, action a, action_targets& ts, bool quiet)
+  execute (const values&, action a, action_targets& ts, uint16_t diag)
   {
     tracer trace ("execute");
 
@@ -340,7 +340,7 @@ namespace build2
     }
 
     // Print skip count if not zero. Note that we print it regardless of the
-    // quiet flag since this is essentially a "summary" of all the commands
+    // diag level since this is essentially a "summary" of all the commands
     // that we did not (and, in fact, used to originally) print.
     //
     if (verb != 0)
@@ -365,7 +365,7 @@ namespace build2
           // We bailed before executing it (leave state in action_target as
           // unknown).
           //
-          if (verb != 0 && !quiet)
+          if (verb != 0 && diag >= 1)
             info << "not " << diag_did (a, t);
 
           break;
@@ -374,7 +374,7 @@ namespace build2
         {
           // Nothing had to be done.
           //
-          if (verb != 0 && !quiet)
+          if (verb != 0 && diag >= 2)
             info << diag_done (a, t);
 
           break;
@@ -389,7 +389,7 @@ namespace build2
         {
           // Things didn't go well for this target.
           //
-          if (verb != 0 && !quiet)
+          if (verb != 0 && diag >= 1)
             info << "failed to " << diag_do (a, t);
 
           fail = true;
@@ -476,7 +476,7 @@ namespace build2
   }
 
   static void
-  info_execute (const values&, action, action_targets& ts, bool)
+  info_execute (const values&, action, action_targets& ts, uint16_t)
   {
     for (size_t i (0); i != ts.size (); ++i)
     {

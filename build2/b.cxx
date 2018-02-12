@@ -1246,12 +1246,13 @@ main (int argc, char* argv[])
 
           {
             result_printer p (tgs);
+            uint16_t diag (ops.structured_result () ? 0 : 1);
 
             if (mif->match != nullptr)
-              mif->match (mparams, a, tgs, true /* quiet */);
+              mif->match (mparams, a, tgs, diag);
 
             if (mif->execute != nullptr && !ops.match_only ())
-              mif->execute (mparams, a, tgs, true /* quiet */);
+              mif->execute (mparams, a, tgs, diag);
           }
 
           if (mif->operation_post != nullptr)
@@ -1269,12 +1270,13 @@ main (int argc, char* argv[])
 
         {
           result_printer p (tgs);
+          uint16_t diag (ops.structured_result () ? 0 : 2);
 
           if (mif->match != nullptr)
-            mif->match (mparams, a, tgs, ops.structured_result () /*quiet*/);
+            mif->match (mparams, a, tgs, diag);
 
           if (mif->execute != nullptr && !ops.match_only ())
-            mif->execute (mparams, a, tgs, ops.structured_result () /*quiet*/);
+            mif->execute (mparams, a, tgs, diag);
         }
 
         if (post_oid != 0)
@@ -1293,12 +1295,13 @@ main (int argc, char* argv[])
 
           {
             result_printer p (tgs);
+            uint16_t diag (ops.structured_result () ? 0 : 1);
 
             if (mif->match != nullptr)
-              mif->match (mparams, a, tgs, true /* quiet */);
+              mif->match (mparams, a, tgs, diag);
 
             if (mif->execute != nullptr && !ops.match_only ())
-              mif->execute (mparams, a, tgs, true /* quiet */);
+              mif->execute (mparams, a, tgs, diag);
           }
 
           if (mif->operation_post != nullptr)
