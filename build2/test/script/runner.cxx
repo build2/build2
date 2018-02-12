@@ -1785,7 +1785,18 @@ namespace build2
           return;
 
         if (verb >= 3)
-          text << "$ " << ct << expr;
+        {
+          char c ('\0');
+
+          switch (ct)
+          {
+          case command_type::test:     c = ' '; break;
+          case command_type::setup:    c = '+'; break;
+          case command_type::teardown: c = '-'; break;
+          }
+
+          text << ": " << c << expr;
+        }
 
         if (!run_expr (sp, expr, li, ll, true))
           throw failed (); // Assume diagnostics is already printed.
@@ -1797,7 +1808,7 @@ namespace build2
               size_t li, const location& ll)
       {
         if (verb >= 3)
-          text << "? " << expr;
+          text << ": ?" << expr;
 
         return run_expr (sp, expr, li, ll, false);
       }

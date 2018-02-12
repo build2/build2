@@ -318,9 +318,6 @@ namespace build2
       //
       enum class command_type {test, setup, teardown};
 
-      ostream&
-      operator<< (ostream&, command_type);
-
       // description
       //
       struct description

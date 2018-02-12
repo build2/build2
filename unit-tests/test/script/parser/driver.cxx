@@ -94,7 +94,16 @@ namespace build2
              size_t i,
              const location&) override
         {
-          cout << ind_ << t << e;
+          const char* s (nullptr);
+
+          switch (t)
+          {
+          case command_type::test:     s = "";  break;
+          case command_type::setup:    s = "+"; break;
+          case command_type::teardown: s = "-"; break;
+          }
+
+          cout << ind_ << s << e;
 
           if (line_)
             cout << " # " << i;
