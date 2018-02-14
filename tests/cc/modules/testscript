@@ -22,10 +22,10 @@ cxx.features.modules = true
 
 using cxx
 
-# We forced modules but for VC we need at least 15u3 (19.11). So "unforce"
+# We forced modules but for VC we need at least 15u5 (19.12). So "unforce"
 # them in this case.
 #
-if ($cxx.id == 'msvc' && $cxx.version.major == 19 && $cxx.version.minor < 11)
+if ($cxx.id == 'msvc' && $cxx.version.major == 19 && $cxx.version.minor < 12)
   cxx.features.modules = false
 
 hxx{*}: extension = hxx
@@ -53,11 +53,7 @@ EOI
 #  define LIBFOO_EXPORT
 #endif
 
-#if __cpp_modules >= 201704
-export
-#endif
-module foo.core;
-
+export module foo.core;
 export LIBFOO_EXPORT int f (int);
 EOI
 
@@ -123,10 +119,7 @@ $* test clean <<EOI
   # "Bad" match which we should better.
   #
   +cat <<EOI >=core.mxx
-    #if __cpp_modules >= 201704
-    export
-    #endif
-    module bar.core;
+    export module bar.core;
     EOI
 
   : separator
@@ -202,11 +195,7 @@ $* test clean <<EOI
 :
 {
   +cat <<EOI >=base.mxx
-    #if __cpp_modules >= 201704
-    export
-    #endif
-    module foo.base;
-
+    export module foo.base;
     export import foo.core;
     EOI
 
@@ -215,10 +204,7 @@ $* test clean <<EOI
     #  define LIBFOO_EXPORT
     #endif
 
-    #if __cpp_modules >= 201704
-    export
-    #endif
-    module foo.extra;
+    export module foo.extra;
 
     export
     {
@@ -231,10 +217,7 @@ $* test clean <<EOI
     EOI
 
   +cat <<EOI >=foo.mxx
-    #if __cpp_modules >= 201704
-    export
-    #endif
-    module foo;
+    export module foo;
 
     export
     {
@@ -290,8 +273,6 @@ $* test clean <<EOI
 : entire, recursively-explored list of BMIs.
 :
 {
-  # Note: using VC export module fixup support.
-
   +cat <<EOI >=base.mxx
     export module foo.base;
     import foo.core;
@@ -329,10 +310,7 @@ $* test clean <<EOI
 :
 ln -s ../core.mxx ../core.cxx ../driver.cxx ./;
 cat <<EOI >=foo-core.mxx;
-  #if __cpp_modules >= 201704
-  export
-  #endif
-  module foo.core;
+  export module foo.core;
   export inline int f (int i) {return i - 2;}
   EOI
 $* update <<EOI;
@@ -359,10 +337,7 @@ $* test clean <<EOI
 : Test the __symexport feature.
 :
 cat <<EOI >=core.mxx;
-  #if __cpp_modules >= 201704
-  export
-  #endif
-  module foo.core;
+  export module foo.core;
 
   export __symexport int f (int);
 
@@ -381,18 +356,5 @@ cat <<EOI >=driver.cxx;
 $* test clean <<EOI
   ./: lib{foo} exe{test} # Full build.
   exe{test}: cxx{driver} lib{foo}
-  lib{foo}: mxx{core} cxx{core-f} # core-g @@ VC
+  lib{foo}: mxx{core} cxx{core-f} # @@ VC: core-g
   EOI
-
-: export-fixup
-:
-: Test removing the export keyword for VC compatibility.
-:
-ln -s ../core.cxx ../driver.cxx ./;
-cat <<EOI >=core.mxx;
-  export module foo.core;
-  export int f (int);
-  EOI
-$* test <'exe{test}: cxx{driver core} mxx{core}';
-touch core.mxx; # Test use of cached .ii's.
-$* test clean <'exe{test}: cxx{driver core} mxx{core}'

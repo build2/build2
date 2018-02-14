@@ -163,10 +163,10 @@ namespace build2
                 // While modules are supported in VC15u0 (19.10), there is a
                 // bug in separate interface/implementation unit support which
                 // makes them pretty much unusable. This has been fixed in
-                // VC15u3 (19.11). And VC15u5 supports the 'export module M;'
-                // syntax.
+                // VC15u3 (19.11). And VC15u5 (19.12) supports the 'export
+                // module M;' syntax.
                 //
-                if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 11)))
+                if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 12)))
                 {
                   r.push_back (
                     mj > 19 || mi > 11

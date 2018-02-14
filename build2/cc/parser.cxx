@@ -82,23 +82,14 @@ namespace build2
               }
               else if (id == "export")
               {
-                uint64_t pos (t.position);
-
                 switch (l_->next (t))
                 {
                 case type::lcbrace:    ++bb; ex = true; break;
                 case type::identifier:
                   {
-                    if      (id == "module")
-                    {
-                      export_pos = pos;
-                      parse_module (t, true);
-                    }
-                    else if (id == "import")
-                      parse_import (t, true);
-                    else
-                      n = false; // Something else (e.g., export namespace).
-
+                    if      (id == "module") parse_module (t, true);
+                    else if (id == "import") parse_import (t, true);
+                    else n = false; // Something else (e.g., export namespace).
                     break;
                   }
                 default: n = false; break;

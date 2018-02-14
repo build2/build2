@@ -39,7 +39,6 @@ namespace build2
 
     public:
       string checksum;     // Translation unit checksum.
-      uint64_t export_pos; // Temporary hack, see parse_unit().
 
     private:
       lexer* l_;

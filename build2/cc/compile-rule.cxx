@@ -2991,41 +2991,15 @@ namespace build2
             if (ps)
               psrc.active = true; // Re-arm.
 
-            // Prior to 15u5 VC was not using the 'export module' syntax so we
-            // use the preprequisite type to distinguish between interface and
-            // implementation units.
+            // Prior to 15u5 (19.12) VC was not using the 'export module M;'
+            // syntax so we use the preprequisite type to distinguish between
+            // interface and implementation units.
             //
             if (cid == compiler_id::msvc &&
                 cmaj == 19 && cmin <= 11 &&
                 x_mod != nullptr && src.is_a (*x_mod))
             {
-              // It's quite painful to guard the export with an #if/#endif so
-              // if it is present, "fixup" the (temporary) preprocessed output
-              // by getting rid of the keyword.
-              //
-              // Note: when removing this also remember to remove the test.
-              //
-              if (tu.mod.iface)
-              {
-                // We can only fixup a temporary file.
-                //
-                if (!ps)
-                  fail (relative (src)) << "fixup requires preprocessor";
-
-                // Stomp out the export keyword with spaces. We are using
-                // std::fstream since our fdstream does not yet support
-                // seeking.
-                //
-                fstream os (psrc.path.string (), fstream::out | fstream::in);
-                auto pos (static_cast<fstream::pos_type> (p.export_pos));
-
-                if (!os.is_open ()  ||
-                    !os.seekp (pos) ||
-                    !os.write ("      ", 6))
-                  fail << "unable to overwrite preprocessor output";
-              }
-              else
-                tu.mod.iface = true;
+              tu.mod.iface = true;
             }
 
             return pair<translation_unit, string> (move (tu), p.checksum);
