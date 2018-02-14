@@ -16,30 +16,39 @@ namespace build2
   {
     // The obj{} target group.
     //
-    class obje: public file
+    class objx: public file // Common base of all objX{} object files.
     {
     public:
       using file::file;
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class obja: public file
+    class obje: public objx
     {
     public:
-      using file::file;
+      using objx::objx;
 
     public:
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class objs: public file
+    class obja: public objx
     {
     public:
-      using file::file;
+      using objx::objx;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class objs: public objx
+    {
+    public:
+      using objx::objx;
 
     public:
       static const target_type static_type;
@@ -77,30 +86,39 @@ namespace build2
     // organization. So, at least for now, we produce the two at the same time
     // and make obj*{} an ad hoc member of bmi*{}.
     //
-    class bmie: public file
+    class bmix: public file // Common base of all bmiX{} interface files.
     {
     public:
       using file::file;
 
     public:
       static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class bmia: public file
+    class bmie: public bmix
     {
     public:
-      using file::file;
+      using bmix::bmix;
 
     public:
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class bmis: public file
+    class bmia: public bmix
     {
     public:
-      using file::file;
+      using bmix::bmix;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class bmis: public bmix
+    {
+    public:
+      using bmix::bmix;
 
     public:
       static const target_type static_type;

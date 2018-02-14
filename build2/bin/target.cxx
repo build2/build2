@@ -12,6 +12,32 @@ namespace build2
 {
   namespace bin
   {
+    const target_type objx::static_type
+    {
+      "objx",
+      &file::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
+    const target_type bmix::static_type
+    {
+      "bmix",
+      &file::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
     const target_type libx::static_type
     {
       "libx",
@@ -62,7 +88,7 @@ namespace build2
     const target_type obje::static_type
     {
       "obje",
-      &file::static_type,
+      &objx::static_type,
       &m_factory<obje, obj>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
@@ -75,7 +101,7 @@ namespace build2
     const target_type bmie::static_type
     {
       "bmie",
-      &file::static_type,
+      &bmix::static_type,
       &m_factory<bmie, bmi>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
@@ -101,7 +127,7 @@ namespace build2
     const target_type obja::static_type
     {
       "obja",
-      &file::static_type,
+      &objx::static_type,
       &m_factory<obja, obj>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
@@ -114,7 +140,7 @@ namespace build2
     const target_type bmia::static_type
     {
       "bmia",
-      &file::static_type,
+      &bmix::static_type,
       &m_factory<bmia, bmi>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
@@ -140,7 +166,7 @@ namespace build2
     const target_type objs::static_type
     {
       "objs",
-      &file::static_type,
+      &objx::static_type,
       &m_factory<objs, obj>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
@@ -153,7 +179,7 @@ namespace build2
     const target_type bmis::static_type
     {
       "bmis",
-      &file::static_type,
+      &bmix::static_type,
       &m_factory<bmis, bmi>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,

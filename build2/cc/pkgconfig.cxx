@@ -1345,10 +1345,7 @@ namespace build2
             // @@ UTL: we need to (recursively) see through libux{} (and
             //    also in search_modules()).
             //
-            if (pt != nullptr &&
-                (pt->is_a<bmis> () ||
-                 pt->is_a<bmia> () ||
-                 pt->is_a<bmie> ()))
+            if (pt != nullptr && pt->is_a<bmix> ())
             {
               // What we have is a binary module interface. What we need is
               // a module interface source it was built from. We assume it's

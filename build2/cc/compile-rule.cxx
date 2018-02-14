@@ -221,7 +221,7 @@ namespace build2
     {
       tracer trace (x, "compile_rule::match");
 
-      bool mod (t.is_a<bmie> () || t.is_a<bmia> () || t.is_a<bmis> ());
+      bool mod (t.is_a<bmix> ());
 
       // Link-up to our group (this is the obj/bmi{} target group protocol
       // which means this can be done whether we match or not).
@@ -3481,9 +3481,7 @@ namespace build2
               // @@ UTL: we need to (recursively) see through libux{} (and
               //    also in pkgconfig_save()).
               //
-              if (bt->is_a<bmis> () ||
-                  bt->is_a<bmia> () ||
-                  bt->is_a<bmie> ())
+              if (bt->is_a<bmix> ())
               {
                 const string& n (cast<string> (bt->vars[c_module_name]));
 

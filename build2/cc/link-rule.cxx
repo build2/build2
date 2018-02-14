@@ -630,12 +630,15 @@ namespace build2
           //
           else
           {
-            // @@ Temporary hack until we get the default outer operation for
-            // update. This allows operations like test and install to skip
-            // such tacked on stuff.
-            //
-            if (current_outer_oif != nullptr)
-              continue;
+            if (!p.is_a<objx> () && !p.is_a<bmix> ())
+            {
+              // @@ Temporary hack until we get the default outer operation
+              // for update. This allows operations like test and install to
+              // skip such tacked on stuff.
+              //
+              if (current_outer_oif != nullptr)
+                continue;
+            }
 
             pt = &p.search (t);
           }
@@ -792,8 +795,7 @@ namespace build2
               if (p1.is_a<fsdir> ()                                         ||
                   p1.is_a<libx>  ()                                         ||
                   p1.is_a<liba> () || p1.is_a<libs> () || p1.is_a<libux> () ||
-                  p1.is_a<bmi>  ()                                          ||
-                  p1.is_a<bmie> () || p1.is_a<bmia> () || p1.is_a<bmis> ()  ||
+                  p1.is_a<bmi>  () || p1.is_a<bmix> ()                      ||
                   (p.is_a (mod ? *x_mod : x_src) && x_header (p1))          ||
                   (p.is_a<c> () && p1.is_a<h> ()))
                 continue;
@@ -1555,16 +1557,14 @@ namespace build2
           //
           if (modules)
           {
-            if (pt->is_a<bmie> () || pt->is_a<bmia> () || pt->is_a<bmis> ())
+            if (pt->is_a<bmix> ())
               pt = pt->member;
           }
 
           const file* f;
           bool la (false), ls (false);
 
-          if ((f = pt->is_a<obje> ()) ||
-              (f = pt->is_a<obja> ()) ||
-              (f = pt->is_a<objs> ()) ||
+          if ((f = pt->is_a<objx> ()) ||
               (!lt.static_library () && // @@ UTL: TODO libua to liba link.
                ((la = (f = pt->is_a<liba>  ())) ||
                 (la = (f = pt->is_a<libux> ())) ||
@@ -1841,16 +1841,14 @@ namespace build2
 
         if (modules)
         {
-          if (pt->is_a<bmie> () || pt->is_a<bmia> () || pt->is_a<bmis> ())
+          if (pt->is_a<bmix> ())
             pt = pt->member;
         }
 
         const file* f;
         bool la (false), ls (false);
 
-        if ((f = pt->is_a<obje> ()) ||
-            (f = pt->is_a<obja> ()) ||
-            (f = pt->is_a<objs> ()) ||
+        if ((f = pt->is_a<objx> ()) ||
             (!lt.static_library () && // @@ UTL: TODO libua to liba link.
              ((la = (f = pt->is_a<liba>  ())) ||
               (la = (f = pt->is_a<libux> ())) ||
