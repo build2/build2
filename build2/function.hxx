@@ -125,7 +125,7 @@ namespace build2
       // std::is_pod appears to be broken in VC15 and also in GCC up to
       // 5 (pointers to members).
       //
-#if !((defined(_MSC_VER) && _MSC_VER <= 1912) || \
+#if !((defined(_MSC_VER) && _MSC_VER <= 1913) || \
       (defined(__GNUC__) && !defined(__clang__) && __GNUC__ <= 5))
       static_assert (std::is_pod<D>::value, "type is not POD");
 #endif

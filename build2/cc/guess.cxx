@@ -1343,6 +1343,7 @@ namespace build2
         //
         // year   ver cl.exe  crt/dll
         //
+        // 2017   15u6  19.13  14.1/140
         // 2017   15u5  19.12  14.1/140
         // 2017   15u3  19.11  14.1/140
         // 2017   15    19.10  14.1/140
@@ -1354,7 +1355,8 @@ namespace build2
         // 2005    8    14.00   8.0/80
         // 2003  7.1    13.10   7.1/71
         //
-        /**/ if (v.major == 19 && v.minor == 12) t += "14.1";
+        /**/ if (v.major == 19 && v.minor == 13) t += "14.1";
+        else if (v.major == 19 && v.minor == 12) t += "14.1";
         else if (v.major == 19 && v.minor == 11) t += "14.1";
         else if (v.major == 19 && v.minor == 10) t += "14.1";
         else if (v.major == 19 && v.minor ==  0) t += "14.0";
