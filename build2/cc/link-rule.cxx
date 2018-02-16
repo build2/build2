@@ -46,7 +46,8 @@ namespace build2
     {
       tracer trace (x, "link_rule::match");
 
-      // NOTE: may be called multiple times (see install rules).
+      // NOTE: may be called multiple times and for both inner and outer
+      //       operations (see install rules).
 
       ltype lt (link_type (t));
       otype ot (lt.type);
@@ -54,10 +55,18 @@ namespace build2
       // If this is a library, link-up to our group (this is the target group
       // protocol which means this can be done whether we match or not).
       //
-      if (lt.library () && t.group == nullptr)
-        t.group = &search (t,
-                           lt.utility ? libu::static_type : lib::static_type,
-                           t.dir, t.out, t.name);
+      // If we are called for the outer operation (see install rules), then
+      // use resolve_group() to delegate to inner.
+      //
+      if (lt.library ())
+      {
+        if (a.outer ())
+          resolve_group (a, t);
+        else if (t.group == nullptr)
+          t.group = &search (t,
+                             lt.utility ? libu::static_type : lib::static_type,
+                             t.dir, t.out, t.name);
+      }
 
       // Scan prerequisites and see if we can work with what we've got. Note
       // that X could be C. We handle this by always checking for X first.
