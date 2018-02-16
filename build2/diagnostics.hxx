@@ -160,13 +160,37 @@ namespace build2
   {
     explicit
     diag_frame (void (*f) (const diag_frame&, const diag_record&))
-        : func_ (f), prev_ (stack) {stack = this;}
+        : func_ (f)
+    {
+      if (func_ != nullptr)
+      {
+        prev_ = stack;
+        stack = this;
+      }
+    }
 
-    // Start with an existing stack, for example, from another thread.
-    //
-    explicit
-    diag_frame (const diag_frame* prev)
-        : prev_ (stack) {stack = prev;} // Just a restore guard.
+    diag_frame (diag_frame&& x)
+        : func_ (x.func_)
+    {
+      if (func_ != nullptr)
+      {
+        prev_ = x.prev_;
+        stack = this;
+
+        x.func_ = nullptr;
+      }
+    }
+
+    diag_frame& operator= (diag_frame&&) = delete;
+
+    diag_frame (const diag_frame&) = delete;
+    diag_frame& operator= (const diag_frame&) = delete;
+
+    ~diag_frame ()
+    {
+      if (func_ != nullptr )
+        stack = prev_;
+    }
 
     static void
     apply (const diag_record& r)
@@ -175,8 +199,6 @@ namespace build2
         f->func_ (*f, r);
     }
 
-    ~diag_frame () {stack = prev_;}
-
     static
 #ifdef __cpp_thread_local
     thread_local
@@ -184,6 +206,13 @@ namespace build2
     __thread
 #endif
     const diag_frame* stack; // Tip of the stack.
+
+    struct stack_guard
+    {
+      explicit stack_guard (const diag_frame* s): s_ (stack) {stack = s;}
+      ~stack_guard () {stack = s_;}
+      const diag_frame* s_;
+    };
 
   private:
     void (*func_) (const diag_frame&, const diag_record&);

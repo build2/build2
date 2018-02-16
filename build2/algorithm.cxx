@@ -100,6 +100,15 @@ namespace build2
     return q ? import_existing (pk) : search_existing_target (pk);
   }
 
+  // target_lock
+  //
+#ifdef __cpp_thread_local
+  thread_local
+#else
+  __thread
+#endif
+  const target_lock* target_lock::stack = nullptr;
+
   // If the work_queue is absent, then we don't wait.
   //
   target_lock
@@ -129,6 +138,12 @@ namespace build2
       //
       if (e >= busy)
       {
+        // Check for dependency cycles. The cycle members should be evident
+        // from the "while ..." info lines that will follow.
+        //
+        if (dependency_cycle (a, ct))
+          fail << "dependency cycle detected involving target " << ct;
+
         if (!wq)
           return target_lock {a, nullptr, e - b};
 
@@ -520,31 +535,39 @@ namespace build2
         return match_impl (l, false /* step */, try_match);
 
       // Pass "disassembled" lock since the scheduler queue doesn't support
-      // task destruction. Also pass our diagnostics stack (this is safe since
-      // we expect the caller to wait for completion before unwinding its diag
-      // stack).
+      // task destruction.
+      //
+      target_lock::data ld (l.release ());
+
+      // Also pass our diagnostics and lock stacks (this is safe since we
+      // expect the caller to wait for completion before unwinding its stack).
       //
       if (sched.async (start_count,
                        *task_count,
-                       [a, try_match] (target& t,
-                                       size_t offset,
-                                       const diag_frame* ds)
+                       [a, try_match] (const diag_frame* ds,
+                                       const target_lock* ls,
+                                       target& t, size_t offset)
                        {
-                         diag_frame df (ds);
+                         // Switch to caller's diag and lock stacks.
+                         //
+                         diag_frame::stack_guard dsg (ds);
+                         target_lock::stack_guard lsg (ls);
+
                          try
                          {
                            phase_lock pl (run_phase::match); // Can throw.
                            {
                              target_lock l {a, &t, offset}; // Reassemble.
                              match_impl (l, false /* step */, try_match);
-                             // Unlock withing the match phase.
+                             // Unlock within the match phase.
                            }
                          }
                          catch (const failed&) {} // Phase lock failure.
                        },
-                       ref (*l.release ()),
-                       l.offset,
-                       diag_frame::stack))
+                       diag_frame::stack,
+                       target_lock::stack,
+                       ref (*ld.target),
+                       ld.offset))
         return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.
@@ -979,13 +1002,13 @@ namespace build2
         //
         if (sched.async (start_count,
                          *task_count,
-                         [a] (target& t, const diag_frame* ds)
+                         [a] (const diag_frame* ds, target& t)
                          {
-                           diag_frame df (ds);
+                           diag_frame::stack_guard dsg (ds);
                            execute_impl (a, t);
                          },
-                         ref (t),
-                         diag_frame::stack))
+                         diag_frame::stack,
+                         ref (t)))
           return target_state::unknown; // Queued.
 
         // Executed synchronously, fall through.

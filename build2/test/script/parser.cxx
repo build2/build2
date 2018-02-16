@@ -3018,18 +3018,18 @@ namespace build2
                 //
                 const diag_frame* df (diag_frame::stack); // UBSan workaround.
                 if (!sched.async (task_count,
-                                  [] (scope& s,
+                                  [] (const diag_frame* ds,
+                                      scope& s,
                                       script& scr,
-                                      runner& r,
-                                      const diag_frame* ds)
+                                      runner& r)
                                   {
-                                    diag_frame df (ds);
+                                    diag_frame::stack_guard dsg (ds);
                                     execute_impl (s, scr, r);
                                   },
+                                  df,
                                   ref (*chain),
                                   ref (*script_),
-                                  ref (*runner_),
-                                  df))
+                                  ref (*runner_)))
                 {
                   // Bail out if the scope has failed and we weren't instructed
                   // to keep going.

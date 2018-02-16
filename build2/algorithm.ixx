@@ -131,14 +131,43 @@ namespace build2
   void
   unlock_impl (action, target&, size_t);
 
+  inline target_lock::
+  target_lock (action_type a, target_type* t, size_t o)
+      : action (a), target (t), offset (o)
+  {
+    if (target != nullptr)
+    {
+      prev = stack;
+      stack = this;
+    }
+  }
+
   inline void target_lock::
   unlock ()
   {
     if (target != nullptr)
     {
       unlock_impl (action, *target, offset);
+
+      assert (stack == this);
+      stack = prev;
       target = nullptr;
     }
+  }
+
+  inline auto target_lock::
+  release () -> data
+  {
+    data r {action, target, offset};
+
+    if (target != nullptr)
+    {
+      assert (stack == this);
+      stack = prev;
+      target = nullptr;
+    }
+
+    return r;
   }
 
   inline target_lock::
@@ -151,7 +180,14 @@ namespace build2
   target_lock (target_lock&& x)
       : action (x.action), target (x.target), offset (x.offset)
   {
-    x.target = nullptr;
+    if (target != nullptr)
+    {
+      assert (stack == &x);
+      prev = x.prev;
+      stack = this;
+
+      x.target = nullptr;
+    }
   }
 
   inline target_lock& target_lock::
@@ -159,13 +195,37 @@ namespace build2
   {
     if (this != &x)
     {
-      unlock ();
+      assert (target == nullptr);
+
       action = x.action;
       target = x.target;
       offset = x.offset;
-      x.target = nullptr;
+
+      if (target != nullptr)
+      {
+        assert (stack == &x);
+        prev = x.prev;
+        stack = this;
+
+        x.target = nullptr;
+      }
     }
+
     return *this;
+  }
+
+  inline const target_lock*
+  dependency_cycle (action a, const target& t)
+  {
+    const target_lock* l (target_lock::stack);
+
+    for (; l != nullptr; l = l->prev)
+    {
+      if (l->action == a && l->target == &t)
+        break;
+    }
+
+    return l;
   }
 
   inline target_lock

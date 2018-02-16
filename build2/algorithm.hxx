@@ -104,7 +104,9 @@ namespace build2
 
   // Target match lock: a non-const target reference and the target::offset_*
   // state that has already been "achieved". Note that target::task_count
-  // itself is set to busy for the duration or the lock.
+  // itself is set to busy for the duration or the lock. While at it we also
+  // maintain a stack of active locks in the current dependency chain (used to
+  // detect dependency cycles).
   //
   struct target_lock
   {
@@ -120,6 +122,8 @@ namespace build2
     void
     unlock ();
 
+    // Movable-only type with move-assignment only to NULL lock.
+    //
     target_lock () = default;
     target_lock (target_lock&&);
     target_lock& operator= (target_lock&&);
@@ -130,12 +134,41 @@ namespace build2
     // Implementation details.
     //
     ~target_lock ();
-    target_lock (action_type a, target_type* t, size_t o)
-        : action (a), target (t), offset (o) {}
+    target_lock (action_type, target_type*, size_t);
 
-    target_type*
-    release () {auto r (target); target = nullptr; return r;}
+    struct data
+    {
+      action_type action;
+      target_type* target;
+      size_t offset;
+    };
+
+    data
+    release ();
+
+    static
+#ifdef __cpp_thread_local
+    thread_local
+#else
+    __thread
+#endif
+    const target_lock* stack; // Tip of the stack.
+    const target_lock* prev;
+
+    struct stack_guard
+    {
+      explicit stack_guard (const target_lock* s): s_ (stack) {stack = s;}
+      ~stack_guard () {stack = s_;}
+      const target_lock* s_;
+    };
   };
+
+  // If this target is already locked in this dependency chain, then return
+  // the corresponding lock. Return NULL otherwise (so can be used a boolean
+  // predicate).
+  //
+  const target_lock*
+  dependency_cycle (action, const target&);
 
   // If the target is already applied (for this action ) or executed, then no
   // lock is acquired. Otherwise, the target must not yet be matched for this
