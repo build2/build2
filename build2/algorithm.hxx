@@ -293,12 +293,12 @@ namespace build2
     match_members (a, t, ts.data () + start, ts.size () - start);
   }
 
-  // Unless already available, match, and, if necessary, execute the group
-  // in order to obtain its members list. Note that even after that the
-  // member's list might still not be available (e.g., if some wildcard/
-  // fallback rule matched).
+  // Unless already known, match, and, if necessary, execute the group in
+  // order to resolve its members list. Note that even after that the member's
+  // list might still not be available (e.g., if some wildcard/ fallback rule
+  // matched).
   //
-  // If the action is is for an outer operation, then it is changed to inner
+  // If the action is for an outer operation, then it is changed to inner
   // which means the members are always resolved by the inner (e.g., update)
   // rule. This feels right since this is the rule that will normally do the
   // work (e.g., update) and therefore knows what it will produce (and if we
@@ -306,7 +306,19 @@ namespace build2
   // two different task_count instances for synchronization).
   //
   group_view
-  resolve_group_members (action, const target&);
+  resolve_members (action, const target&);
+
+  // Unless already known, match the target in order to resolve its group.
+  //
+  // Unlike the member case, a rule can only decide whether a target is a
+  // member of the group in its match() since otherwise it (presumably) should
+  // not match (and some other rule may).
+  //
+  // If the action is for an outer operation, then it is changed to inner, the
+  // same as for members.
+  //
+  const target*
+  resolve_group (action, const target&);
 
   // Inject dependency on the target's directory fsdir{}, unless it is in the
   // src tree or is outside of any project (say, for example, an installation

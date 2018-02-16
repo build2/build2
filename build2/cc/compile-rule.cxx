@@ -3537,6 +3537,7 @@ namespace build2
         // Find the mxx{} prerequisite and extract its "file name" for the
         // fuzzy match unless the user specified the module name explicitly.
         //
+        resolve_group (a, *pt);
         for (prerequisite_member p: group_prerequisite_members (a, *pt))
         {
           if (p.is_a (*x_mod))
@@ -3649,6 +3650,8 @@ namespace build2
 
           if (in != mn)
           {
+            // Note: matched, so the group should be resolved.
+            //
             for (prerequisite_member p: group_prerequisite_members (a, *bt))
             {
               if (p.is_a (*x_mod)) // Got to be there.
@@ -3864,6 +3867,8 @@ namespace build2
       // all as prerequisites so that the standard module search logic can
       // sort things out. This is pretty similar to what we do in link when
       // synthesizing dependencies for bmi{}'s.
+      //
+      // Note: lt is matched and so the group is resolved.
       //
       ps.push_back (prerequisite (lt));
       for (prerequisite_member p: group_prerequisite_members (a, lt))

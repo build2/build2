@@ -20,7 +20,7 @@ namespace build2
     //
     do
     {
-      g_ = resolve_group_members (r_->a_, search (r_->t_, *i_));
+      g_ = resolve_members (r_->a_, search (r_->t_, *i_));
 
       // Group could not be resolved.
       //

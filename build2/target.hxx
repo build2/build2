@@ -252,8 +252,8 @@ namespace build2
     }
 
   public:
-    // You should not call this function directly; rather use
-    // resolve_group_members() from <build2/algorithm.hxx>.
+    // Normally you should not call this function directly and rather use
+    // resolve_members() from algorithm.hxx.
     //
     virtual group_view
     group_members (action) const;
@@ -696,6 +696,9 @@ namespace build2
   // Note that in this case the individual elements of each list will
   // also be traversed in reverse, but that's what you usually want,
   // anyway.
+  //
+  // Note that you either should be iterating over a locked target (e.g., in
+  // rule's match() or apply()) or you should call resolve_group().
   //
   class group_prerequisites
   {

@@ -554,7 +554,7 @@ namespace build2
   }
 
   group_view
-  resolve_group_members_impl (action a, const target& g, target_lock l)
+  resolve_members_impl (action a, const target& g, target_lock l)
   {
     // Note that we will be unlocked if the target is already applied.
     //
@@ -623,6 +623,12 @@ namespace build2
     }
 
     return r;
+  }
+
+  void
+  resolve_group_impl (action, const target&, target_lock l)
+  {
+    match_impl (l, true /* step */, true /* try_match */);
   }
 
   template <typename R>

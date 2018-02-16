@@ -63,7 +63,7 @@ namespace build2
 
         // Make sure group members are resolved.
         //
-        group_view gv (resolve_group_members (a, l));
+        group_view gv (resolve_members (a, l));
         assert (gv.members != nullptr);
 
         lorder lo (li.order);

@@ -107,14 +107,18 @@ namespace build2
       //
       // Note: for now we assume bmi*{} never come from see-through groups.
       //
-      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
+      bool g (false);
+      if (p.is_a<bmi> () || (g = p.is_a (compile_types (ot).bmi)))
       {
-        // This is tricky: we need to "look" inside groups for mxx{} but if
-        // found, remap to the group, not member.
-        //
+        if (g)
+          resolve_group (a, *pt);
+
         for (prerequisite_member pm:
                group_prerequisite_members (a, *pt, members_mode::maybe))
         {
+          // This is tricky: we need to "look" inside groups for mxx{} but if
+          // found, remap to the group, not member.
+          //
           if (pm.is_a (*x_mod))
           {
             pt = t.is_a<exe> ()
@@ -304,8 +308,12 @@ namespace build2
           return pt;
       }
 
-      if (p.is_a<bmi> () || p.is_a (compile_types (ot).bmi))
+      bool g (false);
+      if (p.is_a<bmi> () || (g = p.is_a (compile_types (ot).bmi)))
       {
+        if (g)
+          resolve_group (a, *pt);
+
         for (prerequisite_member pm:
                group_prerequisite_members (a, *pt, members_mode::maybe))
         {

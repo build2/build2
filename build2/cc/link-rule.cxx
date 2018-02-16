@@ -54,15 +54,10 @@ namespace build2
       // If this is a library, link-up to our group (this is the target group
       // protocol which means this can be done whether we match or not).
       //
-      if (lt.library ())
-      {
-        //@@ inner/outer race (see install-rule)?
-
-        if (t.group == nullptr)
-          t.group = &search (t,
-                             lt.utility ? libu::static_type : lib::static_type,
-                             t.dir, t.out, t.name);
-      }
+      if (lt.library () && t.group == nullptr)
+        t.group = &search (t,
+                           lt.utility ? libu::static_type : lib::static_type,
+                           t.dir, t.out, t.name);
 
       // Scan prerequisites and see if we can work with what we've got. Note
       // that X could be C. We handle this by always checking for X first.
@@ -777,6 +772,8 @@ namespace build2
                                     ? (group ? bmi::static_type : tt.bmi)
                                     : (group ? obj::static_type : tt.obj));
 
+            resolve_group (a, *pt); // Not matched yet so resolve group.
+
             bool src (false);
             for (prerequisite_member p1: group_prerequisite_members (a, *pt))
             {
@@ -903,6 +900,8 @@ namespace build2
         // compared to what we would have synthesized.
         //
         bool mod (x_mod != nullptr && p.is_a (*x_mod));
+
+        // Note: group already resolved in the previous loop.
 
         for (prerequisite_member p1: group_prerequisite_members (a, *pt))
         {

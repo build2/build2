@@ -360,10 +360,10 @@ namespace build2
   }
 
   group_view
-  resolve_group_members_impl (action, const target&, target_lock);
+  resolve_members_impl (action, const target&, target_lock);
 
   inline group_view
-  resolve_group_members (action a, const target& g)
+  resolve_members (action a, const target& g)
   {
     group_view r;
 
@@ -386,7 +386,7 @@ namespace build2
         // we can do, then unlock and return.
         //
         if (r.members == nullptr && l.offset != target::offset_executed)
-          r = resolve_group_members_impl (a, g, move (l));
+          r = resolve_members_impl (a, g, move (l));
 
         break;
       }
@@ -395,6 +395,38 @@ namespace build2
     }
 
     return r;
+  }
+
+  void
+  resolve_group_impl (action, const target&, target_lock);
+
+  inline const target*
+  resolve_group (action a, const target& t)
+  {
+    if (a.outer ())
+      a = a.inner_action ();
+
+    switch (phase)
+    {
+    case run_phase::match:
+      {
+        // Grab a target lock to make sure the group state is synchronized.
+        //
+        target_lock l (lock_impl (a, t, scheduler::work_none));
+
+        // If the group is alrealy known or there is nothing else we can do,
+        // then unlock and return.
+        //
+        if (t.group == nullptr && l.offset < target::offset_tried)
+          resolve_group_impl (a, t, move (l));
+
+        break;
+      }
+    case run_phase::execute: break;
+    case run_phase::load:    assert (false);
+    }
+
+    return t.group;
   }
 
   void

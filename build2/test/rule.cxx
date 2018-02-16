@@ -71,7 +71,7 @@ namespace build2
         // If the rule could not resolve the group, then we ignore it.
         //
         group_view gv (a.outer ()
-                       ? resolve_group_members (a, t)
+                       ? resolve_members (a, t)
                        : t.group_members (a));
 
         if (gv.members != nullptr)

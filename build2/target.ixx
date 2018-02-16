@@ -201,7 +201,7 @@ namespace build2
   // prerequisite_members
   //
   group_view
-  resolve_group_members (action, const target&); // <build2/algorithm.hxx>
+  resolve_members (action, const target&); // algorithm.hxx
 
   template <typename T>
   inline auto prerequisite_members_range<T>::iterator::
@@ -248,7 +248,7 @@ namespace build2
     {
       // Otherwise assume it is a normal group.
       //
-      g_ = resolve_group_members (r_->a_, search (r_->t_, *i_));
+      g_ = resolve_members (r_->a_, search (r_->t_, *i_));
 
       if (g_.members == nullptr) // Members are not know.
       {

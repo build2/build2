@@ -58,7 +58,7 @@ namespace build2
   // While most of the relevant target state is duplicated, certain things are
   // shared among the inner/outer rules, such as the target data pad and the
   // group state. In particular, it is assumed the group state is always
-  // determined by the inner rule (see resolve_group_members()).
+  // determined by the inner rule (see resolve_members()).
   //
   // Normally, an outer rule will be responsible for any additional, outer
   // operation-specific work. Sometimes, however, the inner rule needs to
