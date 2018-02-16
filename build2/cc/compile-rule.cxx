@@ -3524,12 +3524,22 @@ namespace build2
         // need to get hold of the corresponding mxx{} (unlikely but possible
         // for bmi{} to have a different name).
         //
+        // While we want to use group_prerequisite_members() below, we cannot
+        // call resolve_group() since we will be doing it "speculatively" for
+        // modules that we may use but also for modules that may use us. This
+        // quickly leads to deadlocks. So instead we are going to perform an
+        // ad hoc group resolution.
+        //
+        const target* pg;
         if (p.is_a<bmi> ())
+        {
+          pg = pt != nullptr ? pt : &p.search (t);
           pt = &search (t, mtt, p.key ()); // Same logic as in picking obj*{}.
+        }
         else if (p.is_a (mtt))
         {
-          if (pt == nullptr)
-            pt = &p.search (t);
+          pg = &search (t, bmi::static_type, p.key ());
+          if (pt == nullptr) pt = &p.search (t);
         }
         else
           continue;
@@ -3537,14 +3547,14 @@ namespace build2
         // Find the mxx{} prerequisite and extract its "file name" for the
         // fuzzy match unless the user specified the module name explicitly.
         //
-        resolve_group (a, *pt);
-        for (prerequisite_member p: group_prerequisite_members (a, *pt))
+        for (prerequisite_member p:
+               prerequisite_members (a, t, group_prerequisites (*pt, pg)))
         {
           if (p.is_a (*x_mod))
           {
             // Check for an explicit module name. Only look for an existing
             // target (which means the name can only be specified on the
-            // target itself, no target type/pattern-spec).
+            // target itself, not target type/pattern-spec).
             //
             const target* t (p.search_existing ());
             const string* n (t != nullptr

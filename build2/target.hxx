@@ -711,6 +711,13 @@ namespace build2
               t_.group->prerequisites ().empty ()
               ? nullptr : t_.group) {}
 
+    explicit
+    group_prerequisites (const target& t, const target* g)
+        : t_ (t),
+          g_ (g == nullptr                 ||
+              g->prerequisites ().empty ()
+              ? nullptr : g) {}
+
     using prerequisites_type = target::prerequisites_type;
     using base_iterator      = prerequisites_type::const_iterator;
 
