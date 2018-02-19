@@ -88,13 +88,25 @@ namespace build2
     const target_key& ctk (cpk.tk);
     const scope* s (cpk.scope);
 
+    path f;
+
     if (ctk.dir->absolute ())
+      f = *ctk.dir; // Already normalized.
+    else
     {
-      // Bail out if not inside project's src_root.
-      //
-      if (s == nullptr || !ctk.dir->sub (s->root_scope ()->src_path ()))
-        return nullptr;
+      f = s->src_path ();
+
+      if (!ctk.dir->empty ())
+      {
+        f /= *ctk.dir;
+        f.normalize ();
+      }
     }
+
+    // Bail out if not inside project's src_root.
+    //
+    if (s == nullptr || !f.sub (s->root_scope ()->src_path ()))
+      return nullptr;
 
     // Figure out the extension. Pretty similar logic to file::derive_path().
     //
@@ -128,21 +140,6 @@ namespace build2
 
     // Check if there is a file.
     //
-    path f;
-
-    if (tk.dir->absolute ())
-      f = *tk.dir; // Already normalized.
-    else
-    {
-      f = s->src_path ();
-
-      if (!tk.dir->empty ())
-      {
-        f /= *tk.dir;
-        f.normalize ();
-      }
-    }
-
     f /= *tk.name;
 
     if (!ext->empty ())
@@ -171,7 +168,7 @@ namespace build2
     //
     // In the other two cases we use the prerequisite's out (in case it is
     // relative, we need to complete it, which is @@ OUT TODO). Note that we
-    // blindly trust the user's value which can be use for some interesting
+    // blindly trust the user's value which can be used for some interesting
     // tricks, for example:
     //
     // ../cxx{foo}@./
