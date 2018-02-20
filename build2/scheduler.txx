@@ -105,7 +105,7 @@ namespace build2
     }
 
     // If there is a spare active thread, wake up (or create) the helper
-    // (unless someone already snatched it).
+    // (unless someone already snatched the task).
     //
     if (queued_task_count_.load (std::memory_order_consume) != 0)
     {

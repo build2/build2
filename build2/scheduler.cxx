@@ -12,8 +12,9 @@
 #endif
 
 #include <cerrno>
+#include <exception> // std::terminate()
 
-#include <iostream>
+#include <build2/diagnostics.hxx>
 
 using namespace std;
 
@@ -73,17 +74,76 @@ namespace build2
 
     active_--;
     waiting_++;
+    progress_++;
 
     if (waiting_ > stat_max_waiters_)
       stat_max_waiters_ = waiting_;
 
-    // A spare active thread has become available. If there are ready
-    // masters or eager helpers, wake someone up.
+    // A spare active thread has become available. If there are ready masters
+    // or eager helpers, wake someone up.
     //
     if (ready_ != 0)
+    {
       ready_condv_.notify_one ();
+    }
     else if (queued_task_count_.load (std::memory_order_consume) != 0)
+    {
       activate_helper (l);
+    }
+    // @@ TODO: Redo as a separate "monitoring" thread.
+    //
+    // This still doesn't work for the phase lock case where we call
+    // deactivate and then go wait on a condition variable: we are doing
+    // deadlock detection while holding the lock that prevents other
+    // threads from making progress!
+    //
+#if 0
+    else if (active_ == 0)
+    {
+      // We may have a deadlock which can happen because of dependency cycles.
+      //
+      // Relying on the active_ count alone is not precise enough, however:
+      // some threads might be transitioning between the active/waiting/ready
+      // states. Carefully accounting for this is not trivial, to say the
+      // least (especially in the face of spurious wakeups). So we are going
+      // to do a "fuzzy" deadlock detection by measuring "progress". The idea
+      // is that those transitions should be pretty short-lived and so if we
+      // wait for a couple of hundreds context switches, then we should be
+      // able to distinguish a real deadlock from the transition case.
+      //
+      size_t p (progress_);
+
+      for (size_t i (0); i != 100; ++i)
+      {
+        l.unlock ();
+        this_thread::yield () is not enough.
+        l.lock ();
+
+        if (p != progress_)
+          break;
+      }
+
+      if (p == progress_)
+      {
+        // Reactivate and fail.
+        //
+        waiting_--;
+        active_++;
+
+        // Shutting things down cleanly is tricky: we could have handles it in
+        // the scheduler (e.g., by setting a flag and then waking everyone up,
+        // similar to shutdown). But there could also be "external waiters"
+        // that have called deactivate() -- we have no way to wake those up.
+        // So for now we are going to abort (the nice thing about abort is if
+        // this is not a dependency cycle, then we have a core to examine).
+        //
+        error << "deadlock detected, can be caused by a dependency cycle" <<
+          info << "re-run with -s to diagnose dependency cycles";
+
+        std::terminate ();
+      }
+    }
+#endif
   }
 
   void scheduler::
@@ -93,7 +153,6 @@ namespace build2
       return;
 
     lock l (mutex_);
-    waiting_--;
 
     if (collision)
       stat_wait_collisions_++;
@@ -101,17 +160,19 @@ namespace build2
     // If we have spare active threads, then become active. Otherwise it
     // enters the ready queue.
     //
+    waiting_--;
     ready_++;
+    progress_++;
 
     while (!shutdown_ && active_ >= max_active_)
       ready_condv_.wait (l);
 
     ready_--;
+    active_++;
+    progress_++;
 
     if (shutdown_)
       throw_generic_error (ECANCELED);
-
-    active_++;
   }
 
   size_t scheduler::
@@ -303,10 +364,12 @@ namespace build2
     if ((wait_queue_size_ = max_threads == 1 ? 0 : shard_size ()) != 0)
       wait_queue_.reset (new wait_slot[wait_queue_size_]);
 
-    // Reset stats counters.
+    // Reset counters.
     //
     stat_max_waiters_     = 0;
     stat_wait_collisions_ = 0;
+
+    progress_ = 0;
 
     for (size_t i (0); i != wait_queue_size_; ++i)
       wait_queue_[i].shutdown = false;
@@ -434,15 +497,17 @@ namespace build2
     if (!shutdown_)
     {
       if (idle_ != 0)
+      {
         idle_condv_.notify_one ();
+      }
+      //
+      // Ignore the max_threads value if we have queued tasks but no active
+      // threads. This means everyone is waiting for something to happen but
+      // nobody is doing anything (e.g., working the queues). This, for
+      // example, can happen if a thread waits for a task that is in its queue
+      // but is below the mark.
+      //
       else if (init_active_ + helpers_ < max_threads_ ||
-               //
-               // Ignore the max_threads value if we have queued tasks but no
-               // active threads. This means everyone is waiting for something
-               // to happen but nobody is doing anything (e.g., work the
-               // queues). This, for example, can happen if a thread waits for
-               // a task that is in its queue but is below the mark.
-               //
                (active_ == 0 &&
                 queued_task_count_.load (memory_order_consume) != 0))
       {

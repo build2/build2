@@ -426,6 +426,13 @@ namespace build2
     size_t stat_max_waiters_;
     size_t stat_wait_collisions_;
 
+    // Progress counter.
+    //
+    // We increment it for each active->waiting->ready->active transition
+    // and it is used for deadlock detection (see deactivate()).
+    //
+    size_t progress_;
+
     // Wait queue.
     //
     // A wait slot blocks a bunch of threads. When they are (all) unblocked,
@@ -456,7 +463,7 @@ namespace build2
     //
     // Each queue has its own mutex plus we have an atomic total count of the
     // queued tasks. Note that it should only be modified while holding one
-    // of the queue lock.
+    // of the queue locks.
     //
     atomic_count queued_task_count_;
 
