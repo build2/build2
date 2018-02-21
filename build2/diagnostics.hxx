@@ -143,6 +143,22 @@ namespace build2
     os.iword (stream_verb_index) = static_cast<long> (v.value_) + 1;
   }
 
+  // Progress reporting.
+  //
+  using butl::diag_progress;
+  using butl::diag_progress_lock;
+
+  // Return true if progress is to be shown. The max_verb argument is the
+  // maximum verbosity level that this type of progress should be shown by
+  // default.
+  //
+  inline bool
+  show_progress (uint16_t max_verb)
+  {
+    return ops.progress () ||
+      (stderr_term && verb >= 1 && verb <= max_verb && !ops.no_progress ());
+  }
+
   // Diagnostic facility, base infrastructure.
   //
   using butl::diag_stream_lock;

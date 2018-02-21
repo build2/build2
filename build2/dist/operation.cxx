@@ -54,7 +54,8 @@ namespace build2
     }
 
     static void
-    dist_execute (const values&, action, action_targets& ts, uint16_t)
+    dist_execute (const values&, action, action_targets& ts,
+                  uint16_t, bool prog)
     {
       tracer trace ("dist_execute");
 
@@ -128,7 +129,8 @@ namespace build2
           // Skip aliases (e.g., update-for-install). In fact, one can argue
           // the default update should be sufficient since it is assumed to
           // update all prerequisites and we no longer support ad hoc stuff
-          // like test.input.
+          // like test.input. Though here we are using the dist meta-operation,
+          // not perform.
           //
           if (oif->id != id)
             continue;
@@ -142,13 +144,17 @@ namespace build2
               const operation_info* poif (rs->operations[pid]);
               set_current_oif (*poif, oif);
               action a (dist_id, poif->id, oif->id);
-              match (params, a, ts, 1 /* diag (failures only) */);
+              match (params, a, ts,
+                     1     /* diag (failures only) */,
+                     false /* progress */);
             }
           }
 
           set_current_oif (*oif);
           action a (dist_id, oif->id);
-          match (params, a, ts, 1 /* diag (failures only) */);
+          match (params, a, ts,
+                 1     /* diag (failures only) */,
+                 false /* progress */);
 
           if (oif->post != nullptr)
           {
@@ -157,7 +163,9 @@ namespace build2
               const operation_info* poif (rs->operations[pid]);
               set_current_oif (*poif, oif);
               action a (dist_id, poif->id, oif->id);
-              match (params, a, ts, 1 /* diag (failures only) */);
+              match (params, a, ts,
+                     1     /* diag (failures only) */,
+                     false /* progress */);
             }
           }
         }
@@ -213,6 +221,9 @@ namespace build2
 
       // Collect the files. We want to take the snapshot of targets since
       // updating some of them may result in more targets being entered.
+      //
+      // Note that we are not showing progress here (e.g., "N targets to
+      // distribute") since it will be useless (too fast).
       //
       action_targets files;
       const variable& dist_var (var_pool["dist"]);
@@ -279,8 +290,13 @@ namespace build2
 
         action a (perform_id, update_id);
 
-        mo_perform.match   (params, a, files, 1 /* diag (failures only) */);
-        mo_perform.execute (params, a, files, 1 /* diag (failures only) */);
+        mo_perform.match   (params, a, files,
+                            1    /* diag (failures only) */,
+                            prog /* progress */);
+
+        mo_perform.execute (params, a, files,
+                            1    /* diag (failures only) */,
+                            prog /* progress */);
 
         if (mo_perform.operation_post != nullptr)
           mo_perform.operation_post (params, update_id);
@@ -293,8 +309,6 @@ namespace build2
 
       // Clean up the target directory.
       //
-      // @@ Not for incremental dist?
-      //
       if (build2::rmdir_r (td) == rmdir_status::not_empty)
         fail << "unable to clean target directory " << td;
 
@@ -304,9 +318,12 @@ namespace build2
       //
       module& mod (*rs->modules.lookup<module> (module::name));
 
-      for (const action_target& at: files)
+      prog = prog && show_progress (1 /* max_verb */);
+      size_t prog_percent (0);
+
+      for (size_t i (0), n (files.size ()); i != n; ++i)
       {
-        const file& t (*at.as_target ().is_a<file> ());
+        const file& t (*files[i].as_target ().is_a<file> ());
 
         // Figure out where this file is inside the target directory.
         //
@@ -365,6 +382,32 @@ namespace build2
           if (path_match (pat.leaf ().string (), t.path ().leaf ().string ()))
             cb.function (r, *srs, cb.data);
         }
+
+        if (prog)
+        {
+          // Note that this is not merely an optimization since if stderr is
+          // not a terminal, we print real lines for progress.
+          //
+          size_t p ((i * 100) / n);
+
+          if (prog_percent != p)
+          {
+            prog_percent = p;
+
+            diag_progress_lock pl;
+            diag_progress  = ' ';
+            diag_progress += to_string (prog_percent);
+            diag_progress += "% of targets distributed";
+          }
+        }
+      }
+
+      // Clear the progress if shown.
+      //
+      if (prog)
+      {
+        diag_progress_lock pl;
+        diag_progress.clear ();
       }
 
       // Archive if requested.

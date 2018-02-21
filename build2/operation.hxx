@@ -293,8 +293,15 @@ namespace build2
     // 1 - failures only  (for pre-operations).
     // 2 - all            (for normal operations).
     //
-    void (*match) (const values&, action, action_targets&, uint16_t diag);
-    void (*execute) (const values&, action, action_targets&, uint16_t diag);
+    // The false progress argument can be used to suppress progress. If it is
+    // true, then whether the progress is shown is meta operation-specific (in
+    // other words, you can suppress it but not force it).
+    //
+    void (*match) (const values&, action, action_targets&,
+                   uint16_t diag, bool progress);
+
+    void (*execute) (const values&, action, action_targets&,
+                     uint16_t diag, bool progress);
 
     // Start of operation and meta-operation batches.
     //
@@ -333,14 +340,16 @@ namespace build2
           action_targets&);
 
   void
-  match (const values&, action, action_targets&, uint16_t diag);
+  match (const values&, action, action_targets&,
+         uint16_t diag, bool prog);
 
   // Execute the action on the list of targets. This is the default
   // implementation that does just that while issuing appropriate
   // diagnostics (unless quiet).
   //
   void
-  execute (const values&, action, const action_targets&, uint16_t diag);
+  execute (const values&, action, const action_targets&,
+           uint16_t diag, bool prog);
 
   extern const meta_operation_info mo_noop;
   extern const meta_operation_info mo_perform;

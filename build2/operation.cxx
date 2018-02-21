@@ -112,7 +112,7 @@ namespace build2
   }
 
   void
-  match (const values&, action a, action_targets& ts, uint16_t diag)
+  match (const values&, action a, action_targets& ts, uint16_t diag, bool prog)
   {
     tracer trace ("match");
 
@@ -126,8 +126,8 @@ namespace build2
       //
       string what; // Note: must outlive monitor_guard.
       scheduler::monitor_guard mg;
-      if (ops.progress () ||
-          (stderr_term && verb >= 1 && verb <= 2 && !ops.no_progress ()))
+
+      if (prog && show_progress (2 /* max_verb */))
       {
         size_t incr (stderr_term ? 1 : 10); // Scale depending on output type.
 
@@ -240,7 +240,8 @@ namespace build2
   }
 
   void
-  execute (const values&, action a, action_targets& ts, uint16_t diag)
+  execute (const values&, action a, action_targets& ts,
+           uint16_t diag, bool prog)
   {
     tracer trace ("execute");
 
@@ -265,12 +266,10 @@ namespace build2
     string what; // Note: must outlive monitor_guard.
     scheduler::monitor_guard mg;
 
-    if (ops.progress () || (stderr_term && verb == 1 && !ops.no_progress ()))
+    if (prog && show_progress (1 /* max_verb */))
     {
       size_t init (target_count.load (memory_order_relaxed));
-      size_t incr (init / 100); // 1%.
-      if (incr == 0)
-        incr = 1;
+      size_t incr (init > 100 ? init / 100 : 1); // 1%.
 
       if (init != incr)
       {
@@ -476,7 +475,7 @@ namespace build2
   }
 
   static void
-  info_execute (const values&, action, action_targets& ts, uint16_t)
+  info_execute (const values&, action, action_targets& ts, uint16_t, bool)
   {
     for (size_t i (0); i != ts.size (); ++i)
     {

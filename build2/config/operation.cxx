@@ -348,13 +348,14 @@ namespace build2
     }
 
     static void
-    configure_match (const values&, action, action_targets&, uint16_t)
+    configure_match (const values&, action, action_targets&, uint16_t, bool)
     {
       // Don't match anything -- see execute ().
     }
 
     static void
-    configure_execute (const values&, action a, action_targets& ts, uint16_t)
+    configure_execute (const values&, action a, action_targets& ts,
+                       uint16_t, bool)
     {
       // Match rules to configure every operation supported by each
       // project. Note that we are not calling operation_pre/post()
@@ -497,7 +498,7 @@ namespace build2
     }
 
     static void
-    disfigure_match (const values&, action, action_targets&, uint16_t)
+    disfigure_match (const values&, action, action_targets&, uint16_t, bool)
     {
     }
 
@@ -595,10 +596,8 @@ namespace build2
     }
 
     static void
-    disfigure_execute (const values&,
-                       action a,
-                       action_targets& ts,
-                       uint16_t diag)
+    disfigure_execute (const values&, action a, action_targets& ts,
+                       uint16_t diag, bool)
     {
       tracer trace ("disfigure_execute");
 

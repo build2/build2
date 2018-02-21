@@ -1255,10 +1255,10 @@ main (int argc, char* argv[])
             uint16_t diag (ops.structured_result () ? 0 : 1);
 
             if (mif->match != nullptr)
-              mif->match (mparams, a, tgs, diag);
+              mif->match (mparams, a, tgs, diag, true /* progress */);
 
             if (mif->execute != nullptr && !ops.match_only ())
-              mif->execute (mparams, a, tgs, diag);
+              mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 
           if (mif->operation_post != nullptr)
@@ -1279,10 +1279,10 @@ main (int argc, char* argv[])
           uint16_t diag (ops.structured_result () ? 0 : 2);
 
           if (mif->match != nullptr)
-            mif->match (mparams, a, tgs, diag);
+            mif->match (mparams, a, tgs, diag, true /* progress */);
 
           if (mif->execute != nullptr && !ops.match_only ())
-            mif->execute (mparams, a, tgs, diag);
+            mif->execute (mparams, a, tgs, diag, true /* progress */);
         }
 
         if (post_oid != 0)
@@ -1304,10 +1304,10 @@ main (int argc, char* argv[])
             uint16_t diag (ops.structured_result () ? 0 : 1);
 
             if (mif->match != nullptr)
-              mif->match (mparams, a, tgs, diag);
+              mif->match (mparams, a, tgs, diag, true /* progress */);
 
             if (mif->execute != nullptr && !ops.match_only ())
-              mif->execute (mparams, a, tgs, diag);
+              mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 
           if (mif->operation_post != nullptr)
