@@ -115,7 +115,6 @@ namespace build2
       // Note that we are not calling operation_pre/post() callbacks here
       // since the meta operation is dist and we know what we are doing.
       //
-
       values params;
       const path locf ("<dist>");
       const location loc (&locf); // Dummy location.
@@ -128,7 +127,7 @@ namespace build2
         {
           // Skip aliases (e.g., update-for-install). In fact, one can argue
           // the default update should be sufficient since it is assumed to
-          // update all prerequisites and we not longer support ad hoc stuff
+          // update all prerequisites and we no longer support ad hoc stuff
           // like test.input.
           //
           if (oif->id != id)
@@ -143,13 +142,13 @@ namespace build2
               const operation_info* poif (rs->operations[pid]);
               set_current_oif (*poif, oif);
               action a (dist_id, poif->id, oif->id);
-              match (params, a, ts, true /* quiet */);
+              match (params, a, ts, 1 /* diag (failures only) */);
             }
           }
 
           set_current_oif (*oif);
           action a (dist_id, oif->id);
-          match (params, a, ts, true /* quiet */);
+          match (params, a, ts, 1 /* diag (failures only) */);
 
           if (oif->post != nullptr)
           {
@@ -158,7 +157,7 @@ namespace build2
               const operation_info* poif (rs->operations[pid]);
               set_current_oif (*poif, oif);
               action a (dist_id, poif->id, oif->id);
-              match (params, a, ts, true /* quiet */);
+              match (params, a, ts, 1 /* diag (failures only) */);
             }
           }
         }
@@ -280,8 +279,8 @@ namespace build2
 
         action a (perform_id, update_id);
 
-        mo_perform.match (params, a, files, true /* quiet */);
-        mo_perform.execute (params, a, files, true /* quiet */);
+        mo_perform.match   (params, a, files, 1 /* diag (failures only) */);
+        mo_perform.execute (params, a, files, 1 /* diag (failures only) */);
 
         if (mo_perform.operation_post != nullptr)
           mo_perform.operation_post (params, update_id);
