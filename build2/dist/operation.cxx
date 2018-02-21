@@ -309,8 +309,16 @@ namespace build2
 
       // Clean up the target directory.
       //
-      if (build2::rmdir_r (td) == rmdir_status::not_empty)
+      if (build2::rmdir_r (td, true, 2) == rmdir_status::not_empty)
         fail << "unable to clean target directory " << td;
+
+      // We used to print 'dist <target>' at verbosity level 1 but that has
+      // proven to be just noise. Though we still want to print something
+      // since otherwise, once the progress line is cleared, we may end up
+      // with nothing printed at all.
+      //
+      if (verb == 1)
+        text << "dist " << dist_package;
 
       install (dist_cmd, td);
 
@@ -449,8 +457,6 @@ namespace build2
 
       if (verb >= 2)
         print_process (args);
-      else if (verb)
-        text << "dist -d " << d;
 
       run (cmd, args);
     }
@@ -488,8 +494,6 @@ namespace build2
 
       if (verb >= 2)
         print_process (args);
-      else if (verb)
-        text << "dist " << t;
 
       run (cmd, args);
 
