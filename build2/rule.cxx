@@ -192,7 +192,7 @@ namespace build2
     {
       if (verb >= 2)
         text << "mkdir " << d;
-      else if (verb)
+      else if (verb && current_diag_noise)
         text << "mkdir " << t;
     };
 
@@ -270,14 +270,14 @@ namespace build2
   target_state fsdir_rule::
   perform_clean (action a, const target& t)
   {
-    // The reverse order of update: first delete this directory,
-    // then clean prerequisites (e.g., delete parent directories).
+    // The reverse order of update: first delete this directory, then clean
+    // prerequisites (e.g., delete parent directories).
     //
-    // Don't fail if we couldn't remove the directory because it
-    // is not empty (or is current working directory). In this
-    // case rmdir() will issue a warning when appropriate.
+    // Don't fail if we couldn't remove the directory because it is not empty
+    // (or is current working directory). In this case rmdir() will issue a
+    // warning when appropriate.
     //
-    target_state ts (rmdir (t.dir, t)
+    target_state ts (rmdir (t.dir, t, current_diag_noise ? 1 : 2)
                      ? target_state::changed
                      : target_state::unchanged);
 

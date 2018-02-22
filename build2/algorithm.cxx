@@ -1460,7 +1460,7 @@ namespace build2
     //
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > 0 && verb < 3)
+      if (verb > (current_diag_noise ? 0 : 1) && verb < 3)
       {
         if (ed)
           text << "rm -r " << path_cast<dir_path> (ep);

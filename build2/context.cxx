@@ -349,6 +349,7 @@ namespace build2
   const operation_info* current_outer_oif;
   size_t current_on;
   execution_mode current_mode;
+  bool current_diag_noise;
 
   atomic_count dependency_count;
   atomic_count target_count;

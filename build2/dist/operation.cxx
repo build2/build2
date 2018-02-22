@@ -110,6 +110,17 @@ namespace build2
             info << "consider using several dist meta-operations";
       }
 
+      // We used to print 'dist <target>' at verbosity level 1 but that has
+      // proven to be just noise. Though we still want to print something
+      // since otherwise, once the progress line is cleared, we may end up
+      // with nothing printed at all.
+      //
+      // Note that because of this we can also suppress diagnostics noise
+      // (e.g., output directory creation) in all the operations below.
+      //
+      if (verb == 1)
+        text << "dist " << dist_package;
+
       // Match a rule for every operation supported by this project. Skip
       // default_id.
       //
@@ -142,7 +153,7 @@ namespace build2
             if (operation_id pid = oif->pre (params, dist_id, loc))
             {
               const operation_info* poif (rs->operations[pid]);
-              set_current_oif (*poif, oif);
+              set_current_oif (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -150,7 +161,7 @@ namespace build2
             }
           }
 
-          set_current_oif (*oif);
+          set_current_oif (*oif, nullptr, false /* diag_noise */);
           action a (dist_id, oif->id);
           match (params, a, ts,
                  1     /* diag (failures only) */,
@@ -161,7 +172,7 @@ namespace build2
             if (operation_id pid = oif->post (params, dist_id))
             {
               const operation_info* poif (rs->operations[pid]);
-              set_current_oif (*poif, oif);
+              set_current_oif (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -286,7 +297,7 @@ namespace build2
         if (mo_perform.operation_pre != nullptr)
           mo_perform.operation_pre (params, update_id);
 
-        set_current_oif (op_update);
+        set_current_oif (op_update, nullptr, false /* diag_noise */);
 
         action a (perform_id, update_id);
 
@@ -311,14 +322,6 @@ namespace build2
       //
       if (build2::rmdir_r (td, true, 2) == rmdir_status::not_empty)
         fail << "unable to clean target directory " << td;
-
-      // We used to print 'dist <target>' at verbosity level 1 but that has
-      // proven to be just noise. Though we still want to print something
-      // since otherwise, once the progress line is cleared, we may end up
-      // with nothing printed at all.
-      //
-      if (verb == 1)
-        text << "dist " << dist_package;
 
       install (dist_cmd, td);
 

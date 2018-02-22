@@ -296,6 +296,13 @@ namespace build2
 
   extern execution_mode current_mode;
 
+  // Some diagnostics (for example output directory creation/removal by the
+  // fsdir rule) is just noise at verbosity level 1 unless it is the only
+  // thing that is printed. So we can only suppress it in certain situations
+  // (e.g., dist) where we know we have already printed something.
+  //
+  extern bool current_diag_noise;
+
   // Total number of dependency relationships and targets with non-noop
   // recipe in the current action.
   //
@@ -322,13 +329,15 @@ namespace build2
 
   inline void
   set_current_oif (const operation_info& inner_oif,
-                   const operation_info* outer_oif = nullptr)
+                   const operation_info* outer_oif = nullptr,
+                   bool diag_noise = true)
   {
     current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
     current_inner_oif = &inner_oif;
     current_outer_oif = outer_oif;
     current_on++;
     current_mode = inner_oif.mode;
+    current_diag_noise = diag_noise;
 
     // Reset counters (serial execution).
     //
