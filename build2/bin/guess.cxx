@@ -48,10 +48,12 @@ namespace build2
       {
         auto f = [] (string& l) -> guess_result
         {
-          // Binutils ar --version output has a line that starts with
-          // "GNU ar ".
+          // Binutils ar --version output has a line that starts with "GNU ar"
+          // and/or contains "GNU Binutils" (some embedded toolchain makers
+          // customize this stuff in all kinds of ways). So let's just look
+          // for "GNU ".
           //
-          if (l.compare (0, 7, "GNU ar ") == 0)
+          if (l.find ("GNU ") != string::npos)
             return guess_result ("gnu", move (l));
 
           // LLVM ar --version output has a line that starts with
@@ -122,9 +124,10 @@ namespace build2
         {
           auto f = [] (string& l) -> guess_result
           {
-            // "GNU ranlib ".
+            // The same story as with ar: normally starts with "GNU ranlib "
+            // but can vary.
             //
-            if (l.compare (0, 11, "GNU ranlib ") == 0)
+            if (l.find ("GNU ") != string::npos)
               return guess_result ("gnu", move (l));
 
             // "LLVM version ".
@@ -208,13 +211,15 @@ namespace build2
             return guess_result ("msvc", move (l));
 
           // Binutils ld.bfd --version output has a line that starts with
-          // "GNU ld " while ld.gold -- "GNU gold".
+          // "GNU ld " while ld.gold -- "GNU gold". Again, fortify it against
+          // embedded toolchain customizations by search for "GNU " in the
+          // former case.
           //
-          if (l.compare (0, 7, "GNU ld ") == 0)
-            return guess_result ("gnu", move (l));
-
           if (l.compare (0, 9, "GNU gold ") == 0)
             return guess_result ("gold", move (l));
+
+          if (l.find ("GNU ") != string::npos)
+            return guess_result ("gnu", move (l));
 
           return guess_result ();
         };
@@ -310,9 +315,9 @@ namespace build2
         auto f = [] (string& l) -> guess_result
         {
           // Binutils windres --version output has a line that starts with
-          // "GNU windres ".
+          // "GNU windres " but search for "GNU ", similar to other tools.
           //
-          if (l.compare (0, 12, "GNU windres ") == 0)
+          if (l.find ("GNU ") != string::npos)
             return guess_result ("gnu", move (l));
 
           return guess_result ();
