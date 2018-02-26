@@ -1,10 +1,5 @@
-# file      : build/export.build
+# file      : tests/variable/target-specific/buildfile
 # copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-$out_root/
-{
-  include build2/
-}
-
-export $out_root/build2/exe{b}
+./: test{testscript} $b

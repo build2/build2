@@ -4,7 +4,7 @@ hxx{*}: extension = hxx
 ixx{*}: extension = ixx
 cxx{*}: extension = cxx
 
-tests/:
+tests/
 {
   exe{*}: test = true
   install = false

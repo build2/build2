@@ -20,7 +20,7 @@ elif ($a == pr)
 
 print ".     :" $v
 
-d/:
+d/
 {
   if ($d_a == as)
   {

@@ -12,7 +12,7 @@ $* <'print (foo/dir{}: bar)' >'dir{foo/}:bar' : scope
 : attribute
 :
 $* <'([string] foo:bar)' 2>>EOE != 0
-<stdin>:1:2: error: attributes before qualified variable name
+<stdin>:1:2: error: attributes before target-qualified variable name
 EOE
 
 : leader

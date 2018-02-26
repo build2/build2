@@ -6,7 +6,7 @@ cli.cxx{base}: cli{base}
 
 cli.options += -I $src_root --include-with-brackets
 
-extra/:
+extra/
 {
   cxx{test} hxx{test}: cli{test}
   cli.options += --include-prefix test/extra --guard-prefix TEST_EXTRA \

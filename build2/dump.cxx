@@ -340,7 +340,8 @@ namespace build2
       os << ind << (rd.empty () ? dir_path (".") : rd);
     }
 
-    os << ":" << endl << ind << '{';
+    os << endl
+       << ind << '{';
 
     const dir_path* orb (relative_base);
     relative_base = &d;

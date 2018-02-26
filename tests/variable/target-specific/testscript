@@ -1,0 +1,61 @@
+# file      : tests/variable/scope-specific/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+: basic-line
+:
+$* <<EOI >>EOO
+x = x
+#./: x = X @@ TMP
+dir{./}: x = X
+file{foo}: [uint64] y=00
+sub/
+{
+  file{foo}: z = Z
+}
+print $x
+print $(./: x)
+print $(file{foo}: y)
+print $(sub/file{foo}: z)
+EOI
+x
+X
+0
+Z
+EOO
+
+: eval-qual
+:
+$* <<EOI >>EOO
+print (foo:bar)
+print (foo :bar)
+print (foo: bar)
+print (foo : bar)
+print (foo/: bar)
+print (foo/file{fox}: bar)
+EOI
+foo:bar
+foo:bar
+foo:bar
+foo:bar
+foo/:bar
+foo/file{fox}:bar
+EOO
+
+: eval-qual-name-expected
+:
+$* <<EOI 2>>EOE != 0
+print (foo:)
+EOI
+<stdin>:1:12: error: expected name instead of ')'
+EOE
+
+: eval-qual-target-expected
+:
+$* <<EOI 2>>EOE != 0
+print (:foo)
+EOI
+<stdin>:1:8: error: expected target before ':'
+EOE

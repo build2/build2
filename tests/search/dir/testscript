@@ -30,14 +30,14 @@ $* <'./: bar/' >'bar'
 : existing-scope
 :
 $* <<EOI >'bar'
-bar/: x = y
+bar/ x = y
 ./: bar/
 EOI
 
 : existing-target-implied
 :
 $* <<EOI >'bar'
-dir{bar/}: x = y
+dir{bar/}: x = y # @@ TMP
 ./: bar/
 EOI
 

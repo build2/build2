@@ -54,14 +54,14 @@ v4b =+ [uint64] 01
 print $v4b # 2
 
 v5a = 01
-sub/:
+sub/
 {
   v5a += [uint64] 01
   print $v5a # 2
 }
 
 v5b = 01
-sub/:
+sub/
 {
   v5b =+ [uint64] 01
   print $v5b # 2

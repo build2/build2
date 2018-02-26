@@ -68,6 +68,8 @@ namespace build2
       }
     }
 
+    explicit operator bool () const {return p_ != nullptr;}
+
     // Note: move-assignable to empty only.
     //
     enter_scope (enter_scope&& x) {*this = move (x);}
@@ -439,9 +441,24 @@ namespace build2
         }
       }
 
-      const location nloc (get_location (t));
+      location nloc (get_location (t));
       names ns (parse_names (t, tt, pattern_mode::ignore));
 
+      // Allow things like function calls that don't result in anything.
+      //
+      if (tt == type::newline && ns.empty ())
+      {
+        if (at.first)
+          fail (at.second) << "standalone attributes";
+        else
+          attributes_pop ();
+
+        next (t, tt);
+        continue;
+      }
+
+      // If we have a colon, then this is target-related.
+      //
       if (tt == type::colon)
       {
         // While '{}:' means empty name, '{$x}:' where x is empty list
@@ -454,7 +471,7 @@ namespace build2
 
         if (tt == type::newline)
         {
-          // See if this is a directory/target scope.
+          // See if this is a target scope.
           //
           if (peek () == type::lcbrace)
           {
@@ -465,50 +482,15 @@ namespace build2
             if (next (t, tt) != type::newline)
               fail (t) << "expected newline after {";
 
-            // See if this is a directory or target scope. Different
-            // things can appear inside depending on which one it is.
-            //
-            bool dir (false);
-            for (const auto& n: ns)
-            {
-              if (n.directory ())
-              {
-                if (ns.size () != 1)
-                {
-                  // @@ TODO: point to name (and above).
-                  //
-                  fail (nloc) << "multiple names in directory scope";
-                }
-
-                dir = true;
-              }
-            }
-
-            next (t, tt);
-
-            if (dir)
-            {
-              // Directory scope.
-              //
-              if (at.first)
-                fail (at.second) << "attributes before directory scope";
-              else
-                attributes_pop ();
-
-              // Can contain anything that a top level can.
-              //
-              enter_scope sg (*this, move (ns[0].dir));
-              parse_clause (t, tt);
-            }
+            if (at.first)
+              fail (at.second) << "attributes before target scope";
             else
-            {
-              if (at.first)
-                fail (at.second) << "attributes before target scope";
-              else
-                attributes_pop ();
+              attributes_pop ();
 
-              // @@ TODO: target scope (also prerequisite scope below).
-            }
+            // @@ TODO: target scope (also prerequisite scope below).
+            //
+            fail (nloc) << "target scopes are not yet supported" <<
+              info << "if migrating, remove ':'";
 
             if (tt != type::rcbrace)
               fail (t) << "expected } instead of " << t;
@@ -525,15 +507,14 @@ namespace build2
 
           // If this is not a scope, then it is a target without any
           // prerequisites. Fall through.
-          //
         }
 
         // Dependency declaration (including prerequisite-specific variable
-        // assignment) or scope/target-specific variable assignment.
+        // assignment) or target-specific variable assignment.
         //
 
         if (at.first)
-          fail (at.second) << "attributes before target/scope";
+          fail (at.second) << "attributes before target";
         else
           attributes_pop ();
 
@@ -546,32 +527,28 @@ namespace build2
             tt == type::newline ||
             tt == type::eos)
         {
-          // @@ PAT: currently we pattern-expand scope/target-specific vars.
+          // @@ PAT: currently we pattern-expand target-specific vars.
           //
           const location ploc (get_location (t));
           names pns (tt != type::newline && tt != type::eos
                      ? parse_names (t, tt, pattern_mode::expand)
                      : names ());
 
-          // Scope/target-specific variable assignment.
+          // Target-specific variable assignment.
           //
           if (tt == type::assign || tt == type::prepend || tt == type::append)
           {
             token at (t);
             type att (tt);
 
-            const variable& var (
-              var_pool.rw (*scope_).insert (
-                parse_variable_name (move (pns), ploc),
-                true /* overridable */));
-
+            const variable& var (parse_variable_name (move (pns), ploc));
             apply_variable_attributes (var);
 
-            // If we have multiple targets/scopes, then we save the value
-            // tokens when parsing the first one and then replay them for
-            // the subsequent. We have to do it this way because the value
-            // may contain variable expansions that would be sensitive to
-            // the target/scope context in which they are evaluated.
+            // If we have multiple targets, then we save the value tokens when
+            // parsing the first one and then replay them for the subsequent.
+            // We have to do it this way because the value may contain
+            // variable expansions that would be sensitive to the target/scope
+            // context in which they are evaluated.
             //
             // Note: watch out for an out-qualified single target (two names).
             //
@@ -583,12 +560,18 @@ namespace build2
               name& n (*i);
 
               if (n.qualified ())
-                fail (nloc) << "project name in scope/target " << n;
+                fail (nloc) << "project name in target " << n;
 
               if (n.directory () && !n.pair) // Not out-qualified.
               {
                 // Scope variable.
                 //
+
+                // @@ TODO: break for now before changing to target.
+                //
+                fail (nloc) << "change of semantics: will be target, not scope" <<
+                  info << "remove ':' for scope semantics";
+
                 if (var.visibility == variable_visibility::target)
                   fail (ploc) << "variable " << var << " has target "
                               << "visibility but assigned in a scope" <<
@@ -840,11 +823,7 @@ namespace build2
 
               type at (tt);
 
-              const variable& var (
-                var_pool.rw (*scope_).insert (
-                  parse_variable_name (move (vns), vloc),
-                  true /* overridable */));
-
+              const variable& var (parse_variable_name (move (vns), vloc));
               apply_variable_attributes (var);
 
               // We handle multiple targets and/or prerequisites by replaying
@@ -889,40 +868,124 @@ namespace build2
 
       // Variable assignment.
       //
-      if (tt == type::assign || tt == type::prepend || tt == type::append)
+      // This can take any of the following forms:
+      //
+      //              x = y
+      // foo/         x = y   (ns will have two elements)
+      // foo/ [attrs] x = y   (tt will be '[')
+      //
+      // In the future we may also want to support:
+      //
+      // foo/ bar/ x = y
+      //
+      if (tt == type::assign || tt == type::prepend || tt == type::append ||
+          tt == type::lsbrace)
       {
-        const variable& var (
-          var_pool.rw (*scope_).insert (
-            parse_variable_name (move (ns), nloc),
-            true /* overridable */));
+        // Detect and handle the directory scope. If things look off, then we
+        // let parse_variable_name() complain.
+        //
+        dir_path d;
 
-        apply_variable_attributes (var);
+        if ((ns.size () == 2 && ns[0].directory ())                      ||
+            (ns.size () == 1 && ns[0].directory () && tt == type::lsbrace))
+        {
+          if (at.first)
+            fail (at.second) << "attributes before scope directory";
 
-        if (var.visibility == variable_visibility::target)
-          fail (nloc) << "variable " << var << " has target visibility but "
-                      << "assigned in a scope" <<
-            info << "consider changing to '*: " << var << "'";
+          if (tt == type::lsbrace)
+          {
+            attributes_pop ();
+            attributes_push (t, tt);
 
-        parse_variable (t, tt, var, tt);
+            d = move (ns[0].dir);
+            nloc = get_location (t);
+            ns = parse_names (t, tt, pattern_mode::ignore);
 
-        if (tt == type::newline)
-          next (t, tt);
-        else if (tt != type::eos)
-          fail (t) << "expected newline instead of " << t;
+            // It got to be a variable assignment.
+            //
+            if (tt != type::assign  &&
+                tt != type::prepend &&
+                tt != type::append)
+              fail (t) << "variable assignment expected instead of " << t;
+          }
+          else
+          {
+            d = move (ns[0].dir);
+            ns.erase (ns.begin ());
+          }
+        }
 
-        continue;
+        if (tt != type::lsbrace)
+        {
+          const variable& var (parse_variable_name (move (ns), nloc));
+          apply_variable_attributes (var);
+
+          if (var.visibility == variable_visibility::target)
+            fail (nloc) << "variable " << var << " has target visibility but "
+                        << "assigned in a scope" <<
+              info << "consider changing to '*: " << var << "'";
+
+          {
+            enter_scope sg (d.empty ()
+                            ? enter_scope ()
+                            : enter_scope (*this, move (d)));
+            parse_variable (t, tt, var, tt);
+          }
+
+          if (tt == type::newline)
+            next (t, tt);
+          else if (tt != type::eos)
+            fail (t) << "expected newline instead of " << t;
+
+          continue;
+        }
+
+        // Not "our" attribute, see if anyone else likes it.
       }
 
-      // Allow things like function calls that don't result in anything.
+      // See if this is a directory scope.
       //
-      if (tt == type::newline && ns.empty ())
+      if (tt == type::newline && peek () == type::lcbrace)
       {
+        if (ns.size () != 1)
+          fail (nloc) << "multiple scope directories";
+
+        name& n (ns[0]);
+
+        if (!n.directory ())
+          fail (nloc) << "scope directory expected";
+
+        next (t, tt);
+
+        // Should be on its own line.
+        //
+        if (next (t, tt) != type::newline)
+          fail (t) << "expected newline after {";
+
+        next (t, tt);
+
         if (at.first)
-          fail (at.second) << "standalone attributes";
+          fail (at.second) << "attributes before scope directory";
         else
           attributes_pop ();
 
-        next (t, tt);
+        // Can contain anything that a top level can.
+        //
+        {
+          enter_scope sg (*this, move (n.dir));
+          parse_clause (t, tt);
+        }
+
+        if (tt != type::rcbrace)
+          fail (t) << "expected } instead of " << t;
+
+        // Should be on its own line.
+        //
+        if (next (t, tt) == type::newline)
+          next (t, tt);
+        else if (tt != type::eos)
+          fail (t) << "expected newline after }";
+
         continue;
       }
 
@@ -1726,11 +1789,7 @@ namespace build2
     if (tt != type::colon)
       fail (t) << "expected ':' instead of " << t << " after variable name";
 
-    const variable& var (
-      var_pool.rw (*scope_).insert (
-        parse_variable_name (move (vns), vloc),
-        true /* overridable */));
-
+    const variable& var (parse_variable_name (move (vns), vloc));
     apply_variable_attributes (var);
 
     if (var.visibility == variable_visibility::target)
@@ -2020,7 +2079,7 @@ namespace build2
       next (t, tt); // Swallow newline.
   }
 
-  string parser::
+  const variable& parser::
   parse_variable_name (names&& ns, const location& l)
   {
     // The list should contain a single, simple name.
@@ -2030,11 +2089,15 @@ namespace build2
 
     string& n (ns[0].value);
 
+    //@@ OLD
     if (n.front () == '.') // Fully qualified name.
-      return string (n, 1, string::npos);
+      n.erase (0, 1);
     else
+    {
       //@@ TODO: append namespace if any.
-      return move (n);
+    }
+
+    return var_pool.rw (*scope_).insert (move (n), true /* overridable */);
   }
 
   void parser::
@@ -2601,12 +2664,12 @@ namespace build2
     }
 
     // If this is the first expression then handle the eval-qual special case
-    // (scope/target qualified name represented as a special ':'-style pair).
+    // (target-qualified name represented as a special ':'-style pair).
     //
     if (first && tt == type::colon)
     {
       if (at.first)
-        fail (at.second) << "attributes before qualified variable name";
+        fail (at.second) << "attributes before target-qualified variable name";
 
       attributes_pop ();
 
@@ -2621,7 +2684,7 @@ namespace build2
         return v; // Empty.
 
       if (v.type != nullptr || !v || v.as<names> ().size () != 1)
-        fail (l) << "expected scope/target before ':'";
+        fail (l) << "expected target before ':'";
 
       if (n.type != nullptr || !n || n.as<names> ().size () != 1)
         fail (nl) << "expected variable name after ':'";
@@ -3897,24 +3960,32 @@ namespace build2
               vector_view<build2::name> ns (reverse (v, storage)); // Movable.
               size_t n (ns.size ());
 
-              // Make sure the result of evaluation is a potentially-qualified
-              // simple name.
+              // We cannot handle scope-qualification in the eval context as
+              // we do for target-qualification (see eval-qual) since then we
+              // would be treating all paths as qualified variables. So we
+              // have to do it here.
               //
-              if (n > 2 ||
-                  (n == 2 && ns[0].pair != ':') ||
-                  !ns[n - 1].simple ())
-                fail (loc) << "expected variable/function name instead of '"
-                           << ns << "'";
-
-              if (n == 2)
+              if      (n == 2 && ns[0].pair == ':')   // $(foo: x)
               {
                 qual = move (ns[0]);
 
                 if (qual.empty ())
                   fail (loc) << "empty variable/function qualification";
-
-                qual.pair = '\0'; // We broke up the pair.
               }
+              else if (n == 2 && ns[0].directory ())  // $(foo/ x)
+              {
+                qual = move (ns[0]);
+                qual.pair = '/';
+              }
+              else if (n > 1)
+                fail (loc) << "expected variable/function name instead of '"
+                           << ns << "'";
+
+              // Note: checked for empty below.
+              //
+              if (!ns[n - 1].simple ())
+                fail (loc) << "expected variable/function name instead of '"
+                           << ns[n - 1] << "'";
 
               name = move (ns[n - 1].value);
             }
@@ -3941,7 +4012,7 @@ namespace build2
             next (t, tt); // Get '('.
 
             // @@ Should we use (target/scope) qualification (of name) as the
-            // context in which to call the function?
+            // context in which to call the function? Hm, interesting...
             //
             values args (parse_eval (t, tt, pmode));
             tt = peek ();
@@ -4601,13 +4672,13 @@ namespace build2
   {
     tracer trace ("parser::lookup_variable", &path_);
 
-    // Process variable name.
+    // Process variable name. @@ OLD
     //
     if (name.front () == '.') // Fully namespace-qualified name.
       name.erase (0, 1);
     else
     {
-      //@@ TODO: append namespace if any.
+      //@@ TODO : append namespace if any.
     }
 
     // If we are qualified, it can be a scope or a target.
@@ -4615,13 +4686,29 @@ namespace build2
     enter_scope sg;
     enter_target tg;
 
-    if (qual.directory ()) //@@ OUT
-      sg = enter_scope (*this, move (qual.dir));
-    else if (!qual.empty ())
-      // @@ OUT TODO
-      //
-      tg = enter_target (
-        *this, move (qual), build2::name (), true, loc, trace);
+    if (!qual.empty ())
+    {
+      switch (qual.pair)
+      {
+      case '/':
+        {
+          assert (qual.directory ());
+          sg = enter_scope (*this, move (qual.dir));
+          break;
+        }
+      case ':':
+        {
+          qual.pair = '\0';
+
+          // @@ OUT TODO
+          //
+          tg = enter_target (
+            *this, move (qual), build2::name (), true, loc, trace);
+          break;
+        }
+      default: assert (false);
+      }
+    }
 
     // Lookup.
     //

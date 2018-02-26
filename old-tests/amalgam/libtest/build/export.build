@@ -1,4 +1,4 @@
-$out_root/:
+$out_root/
 {
   include buildfile
 }

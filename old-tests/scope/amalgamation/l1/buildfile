@@ -1,6 +1,6 @@
 # Out of amalgamation.
 #
-../../:
+../../
 {
   print -1: $project
   print -1: $src_base
@@ -9,7 +9,7 @@
 
 # In amalgamation.
 #
-../s/:
+../s/
 {
   print 0: $project
   print 0: $src_base
@@ -18,7 +18,7 @@
 
 # In project.
 #
-s/:
+s/
 {
   print 1: $project
   print 1: $src_base
@@ -27,7 +27,7 @@ s/:
 
 # In sub-project.
 #
-l2/s/:
+l2/s/
 {
   print 2: $project
   print 2: $src_base

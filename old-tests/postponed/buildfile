@@ -2,4 +2,4 @@ using cxx
 
 exe{driver}: cxx{driver} fsdir{$out_root/out}
 
-./: exe{driver} 
+./: exe{driver}

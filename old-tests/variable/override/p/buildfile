@@ -13,7 +13,7 @@ elif ($p_a == pr)
 
 print "p     :" $v
 
-d/:
+d/
 {
   if ($p_d_a == as)
   {

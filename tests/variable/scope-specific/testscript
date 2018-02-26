@@ -1,0 +1,54 @@
+# file      : tests/variable/scope-specific/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+: basic-line
+:
+$* <<EOI >>EOO
+x = x
+foo/ x = X
+foo/ [uint64] y=00
+print $x
+print $(foo/ x)
+print $(foo/ y)
+EOI
+x
+X
+0
+EOO
+
+: basic-block
+:
+$* <<EOI >>EOO
+x = x
+foo/
+{
+  x = X
+  [uint64] y = 00
+  print $x
+}
+print $x
+print $(foo/ y)
+EOI
+X
+x
+0
+EOO
+
+: expect-assignment
+:
+$* <<EOI 2>>EOE != 0
+foo/ [uint64] y
+EOI
+<stdin>:1:16: error: variable assignment expected instead of <newline>
+EOE
+
+: unexpected-attribute
+:
+$* <<EOI 2>>EOE != 0
+[uint64] foo/ y = 0
+EOI
+<stdin>:1:1: error: attributes before scope directory
+EOE

@@ -41,7 +41,7 @@ x = $(dir{./}:x5)
 print $(dir{./}:x5)
 
 x6 = [string] a
-sub/:
+sub/
 {
   dir{*}: x6 += b
   dir{*}: x6 += [null]
@@ -50,7 +50,7 @@ sub/:
 
 x7 = [string] b
 dir{*}: x7 =+ a
-sub/:
+sub/
 {
   dir{*}: x7 += c
   print $(dir{./}:x7)

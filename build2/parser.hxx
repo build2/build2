@@ -117,7 +117,7 @@ namespace build2
     void
     parse_variable (token&, token_type&, const variable&, token_type);
 
-    string
+    const variable&
     parse_variable_name (names&&, const location&);
 
     // Note: calls attributes_push() that the caller must pop.
@@ -368,6 +368,9 @@ namespace build2
     // Customization hooks.
     //
   protected:
+    // If qual is not empty, then its pair member should indicate the kind
+    // of qualification: ':' -- target, '/' -- scope.
+    //
     virtual lookup
     lookup_variable (name&& qual, string&& name, const location&);
 

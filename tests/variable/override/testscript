@@ -34,15 +34,15 @@
   x = [string] 0
 
   print $x
-  dir/:
+  dir/
   {
     print $x
   }
 
-  dir/: x = [uint64] 1
+  dir/ x = [uint64] 1
 
   print $x
-  dir/:
+  dir/
   {
     print $x
   }
