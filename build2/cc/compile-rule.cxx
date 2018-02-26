@@ -2834,7 +2834,13 @@ namespace build2
       bool ps; // True if extracting from psrc.
       if (md.pp < preprocessed::modules)
       {
-        ps = !psrc.path.empty ();
+        // If we were instructed to reprocess the source during compilation,
+        // then also reprocess it here. While the preprocessed output may be
+        // usable for our needs, to be safe we assume it is not (and later we
+        // may extend cc.reprocess to allow specifying where reprocessing is
+        // needed).
+        //
+        ps = !psrc.path.empty () && !cast_false<bool> (t[c_reprocess]);
         sp = &(ps ? psrc.path : src.path ());
 
         // VC's preprocessed output, if present, is fully preprocessed.
