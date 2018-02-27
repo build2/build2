@@ -160,18 +160,22 @@ namespace build2
 "  stdlib:=\"none\"                                                         \n"
 "#endif                                                                     \n";
 
-    // Pre-guess the compiler type based on the compiler executable name.
-    // Return empty string if can't make a guess (for example, because the
-    // compiler name is a generic 'c++'). Note that it only guesses the type,
-    // not the variant.
+    // Pre-guess the compiler type based on the compiler executable name and
+    // also return the start of that name in the path (used to derive the
+    // toolchain pattern). Return empty string/npos if can't make a guess (for
+    // example, because the compiler name is a generic 'c++'). Note that it
+    // only guesses the type, not the variant.
     //
-    static string
+    static pair<string, size_t>
     pre_guess (lang xl, const path& xc)
     {
       tracer trace ("cc::pre_guess");
 
-      const string s (xc.leaf ().base ().string ());
-      size_t n (s.size ());
+      // Analyze the last path component only.
+      //
+      const string& s (xc.string ());
+      size_t s_p (path::traits::find_leaf (s));
+      size_t s_n (s.size ());
 
       // Name separator characters (e.g., '-' in 'g++-4.8').
       //
@@ -180,14 +184,16 @@ namespace build2
         return c == '-' || c == '_' || c == '.';
       };
 
-      auto stem = [&sep, &s, n] (const char* x) -> bool
+      auto stem = [&sep, &s, s_p, s_n] (const char* x) -> size_t
       {
         size_t m (strlen (x));
-        size_t p (s.find (x, 0, m));
+        size_t p (s.find (x, s_p, m));
 
-        return p != string::npos &&
-          (p == 0 || sep (s[p - 1])) &&  // Separated at the beginning.
-          ((p += m) == n || sep (s[p])); // Separated at the end.
+        return (p != string::npos &&
+                (      p == s_p || sep (s[p - 1])) && // Separated beginning.
+                ((p + m) == s_n || sep (s[p + m])))   // Separated end.
+        ? p
+        : string::npos;
       };
 
       // Warn if the user specified a C compiler instead of C++ or vice versa.
@@ -195,6 +201,10 @@ namespace build2
       lang o;                   // Other language.
       const char* as (nullptr); // Actual stem.
       const char* es (nullptr); // Expected stem.
+      size_t p;                 // Executable name position.
+
+      const size_t npos (string::npos);
+      using pair = std::pair<string, size_t>;
 
       switch (xl)
       {
@@ -202,15 +212,15 @@ namespace build2
         {
           // Keep msvc last since 'cl' is very generic.
           //
-          if (stem ("gcc"))   return "gcc";
-          if (stem ("clang")) return "clang";
-          if (stem ("icc"))   return "icc";
-          if (stem ("cl"))    return "msvc";
+          if ((p = stem ("gcc"))   != npos) return pair ("gcc",   p);
+          if ((p = stem ("clang")) != npos) return pair ("clang", p);
+          if ((p = stem ("icc"))   != npos) return pair ("icc",   p);
+          if ((p = stem ("cl"))    != npos) return pair ("msvc",  p);
 
-          if      (stem (as = "g++"))     es = "gcc";
-          else if (stem (as = "clang++")) es = "clang";
-          else if (stem (as = "icpc"))    es = "icc";
-          else if (stem (as = "c++"))     es = "cc";
+          if      (stem (as = "g++")     != npos) es = "gcc";
+          else if (stem (as = "clang++") != npos) es = "clang";
+          else if (stem (as = "icpc")    != npos) es = "icc";
+          else if (stem (as = "c++")     != npos) es = "cc";
 
           o = lang::cxx;
           break;
@@ -219,15 +229,15 @@ namespace build2
         {
           // Keep msvc last since 'cl' is very generic.
           //
-          if (stem ("g++"))     return "gcc";
-          if (stem ("clang++")) return "clang";
-          if (stem ("icpc"))    return "icc";
-          if (stem ("cl"))      return "msvc";
+          if ((p = stem ("g++"))     != npos) return pair ("gcc",   p);
+          if ((p = stem ("clang++")) != npos) return pair ("clang", p);
+          if ((p = stem ("icpc"))    != npos) return pair ("icc",   p);
+          if ((p = stem ("cl"))      != npos) return pair ("msvc",  p);
 
-          if      (stem (as = "gcc"))   es = "g++";
-          else if (stem (as = "clang")) es = "clang++";
-          else if (stem (as = "icc"))   es = "icpc";
-          else if (stem (as = "cc"))    es = "c++";
+          if      (stem (as = "gcc")   != npos) es = "g++";
+          else if (stem (as = "clang") != npos) es = "clang++";
+          else if (stem (as = "icc")   != npos) es = "icpc";
+          else if (stem (as = "cc")    != npos) es = "c++";
 
           o = lang::c;
           break;
@@ -239,7 +249,8 @@ namespace build2
           info << "should it be '" << es << "' instead of '" << as << "'?";
 
       l4 ([&]{trace << "unable to guess  compiler type of " << xc;});
-      return "";
+
+      return pair ("", string::npos);
     }
 
     // Guess the compiler type and variant by running it. If the pre argument
@@ -1441,24 +1452,26 @@ namespace build2
           return i->second;
       }
 
-      string pre (pre_guess (xl, xc));
-      guess_result gr;
+      pair<string, size_t> pre (pre_guess (xl, xc));
+      string& type (pre.first);
 
       // If we could pre-guess the type based on the excutable name, then
       // try the test just for that compiler.
       //
-      if (!pre.empty ())
+      guess_result gr;
+
+      if (!type.empty ())
       {
-        gr = guess (xl, xc, pre);
+        gr = guess (xl, xc, type);
 
         if (gr.empty ())
-          warn << xc << " name looks like " << pre << " but it is not";
+          warn << xc << " name looks like " << type << " but it is not";
 
-        pre.clear ();
+        type.clear ();
       }
 
       if (gr.empty ())
-        gr = guess (xl, xc, pre);
+        gr = guess (xl, xc, type);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc;
@@ -1508,16 +1521,30 @@ namespace build2
       //
 
       // When cross-compiling the whole toolchain is normally prefixed with
-      // the target triplet, e.g., x86_64-w64-mingw32-{gcc,g++,ar,ld}.
+      // the target triplet, e.g., x86_64-w64-mingw32-{gcc,g++,ar,ld}. But
+      // oftentimes it is not quite canonical (and sometimes -- outright
+      // bogus). So instead we are going to first try to derive the prefix
+      // using the pre-guessed position of the compiler name. Note that we
+      // still want to try the target in case we could not pre-guess (think
+      // x86_64-w64-mingw32-c++).
+      //
+      // BTW, for GCC we also get gcc-{ar,ranlib} which add support for the
+      // LTO plugin though it seems more recent GNU binutils (2.25) are able
+      // to load the plugin when needed automatically. So it doesn't seem we
+      // should bother trying to support this on our end (one way we could do
+      // it is by passing config.bin.{ar,ranlib} as hints).
       //
       if (r.bin_pattern.empty ())
       {
-        // BTW, for GCC we also get gcc-{ar,ranlib} which add support for the
-        // LTO plugin though it seems more recent GNU binutils (2.25) are able
-        // to load the plugin when needed automatically. So it doesn't seem we
-        // should bother trying to support this on our end (one way we could
-        // do it is by passing config.bin.{ar,ranlib} as hints).
-        //
+        if (pre.second != 0 && pre.second != string::npos)
+        {
+          r.bin_pattern.assign (xc.string (), 0, pre.second);
+          r.bin_pattern += '*'; // '-' or similar is already there.
+        }
+      }
+
+      if (r.bin_pattern.empty ())
+      {
         const string& t (r.target);
         size_t n (t.size ());
 
