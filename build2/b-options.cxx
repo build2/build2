@@ -1007,7 +1007,9 @@ namespace build2
        << ::std::endl
        << "\033[1mb --help\033[0m" << ::std::endl
        << "\033[1mb --version\033[0m" << ::std::endl
-       << "\033[1mb\033[0m [\033[4moptions\033[0m] [\033[4mvariables\033[0m] [\033[4mbuildspec\033[0m]\033[0m" << ::std::endl
+       << "\033[1mb\033[0m [\033[4moptions\033[0m] [\033[4mvariables\033[0m] [\033[4mbuild-spec\033[0m]\033[0m" << ::std::endl
+       << ::std::endl
+       << "\033[4mbuild-spec\033[0m = \033[4mmeta-operation\033[0m\033[1m(\033[0m\033[4moperation\033[0m\033[1m(\033[0m\033[4mtarget\033[0m...[\033[1m,\033[0m\033[4mparameters\033[0m]\033[1m)\033[0m...\033[1m)\033[0m...\033[0m" << ::std::endl
        << ::std::endl
        << "\033[1mDESCRIPTION\033[0m" << ::std::endl
        << ::std::endl
@@ -1015,7 +1017,7 @@ namespace build2
        << "according to the build specification, or \033[4mbuildspec\033[0m for short. This process can" << ::std::endl
        << "be controlled by specifying driver \033[4moptions\033[0m and build system \033[4mvariables\033[0m." << ::std::endl
        << ::std::endl
-       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m, and \033[4mbuildspec\033[0m fragments can be specified in any" << ::std::endl
+       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m, and \033[4mbuild-spec\033[0m fragments can be specified in any" << ::std::endl
        << "order. To avoid treating an argument that starts with \033[1m'-'\033[0m as an option, add the" << ::std::endl
        << "\033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a variable," << ::std::endl
        << "add the second \033[1m'--'\033[0m separator." << ::std::endl;
