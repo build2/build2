@@ -11,22 +11,26 @@ include <build2/types.hxx>;
 namespace build2
 {
   {
-    "<options> <variables> <buildspec>",
+    "<options>
+     <variables>
+     <build-spec> <meta-operation> <operation> <target> <parameters>",
 
     "\h|SYNOPSIS|
 
-     \cb{b --help}\n
-     \cb{b --version}\n
-     \c{\b{b} [<options>] [<variables>] [<buildspec>]}
+     \c{\b{b --help}\n
+        \b{b --version}\n
+        \b{b} [<options>] [<variables>] [<build-spec>]}
+
+     \c{<build-spec> = <meta-operation>\b{(}<operation>\b{(}<target>...[\b{,}<parameters>]\b{)}...\b{)}...}
 
      \h|DESCRIPTION|
 
      The \cb{build2} driver executes a set of meta-operations on operations on
-     targets according to the build specification, or <buildspec> for short.
+     targets according to the build specification, or \i{buildspec} for short.
      This process can be controlled by specifying driver <options> and build
      system <variables>.
 
-     Note that <options>, <variables>, and <buildspec> fragments can be
+     Note that <options>, <variables>, and <build-spec> fragments can be
      specified in any order. To avoid treating an argument that starts with
      \cb{'-'} as an option, add the \cb{'--'} separator. To avoid treating an
      argument that contains \cb{'='} as a variable, add the second \cb{'--'}
@@ -40,11 +44,7 @@ namespace build2
     "<meta-operation> <operation> <target> <parameters> <src-base>",
     "",
 
-    "The buildspec has the following form:
-
-     \c{<meta-operation>(<operation>(<target>...[,<parameters>])...)...}
-
-     All components in the buildspec can be omitted. If <meta-operation> is
+    "All components in the buildspec can be omitted. If <meta-operation> is
      omitted, then it defaults to \cb{perform}. If <operation> is omitted,
      then it defaults to the default operation for this meta-operation. For
      \cb{perform} it is \cb{update}. Finally, if <target> is omitted, then it
