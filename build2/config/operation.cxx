@@ -575,10 +575,15 @@ namespace build2
           {
           case rmdir_status::not_empty:
             {
-              warn << "directory " << out_root << " is "
-                   << (out_root == work
-                       ? "current working directory"
-                       : "not empty") << ", not removing";
+              // We used to issue a warning but it is actually a valid usecase
+              // to leave the build output around in case, for example, of a
+              // reconfigure.
+              //
+              if (verb)
+                info << "directory " << out_root << " is "
+                     << (out_root == work
+                         ? "current working directory"
+                         : "not empty") << ", not removing";
               break;
             }
           case rmdir_status::success:
