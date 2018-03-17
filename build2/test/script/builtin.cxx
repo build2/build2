@@ -258,6 +258,7 @@ namespace build2
       cpfile (scope& sp,
               const path& from, const path& to,
               bool overwrite,
+              bool attrs,
               bool cleanup,
               const function<error_record()>& fail)
       {
@@ -265,10 +266,15 @@ namespace build2
         {
           bool exists (file_exists (to));
 
-          cpfile (from, to,
-                  overwrite
-                  ? cpflags::overwrite_permissions | cpflags::overwrite_content
-                  : cpflags::none);
+          cpflags f (
+            overwrite
+            ? cpflags::overwrite_permissions | cpflags::overwrite_content
+            : cpflags::none);
+
+          if (attrs)
+            f |= cpflags::overwrite_permissions | cpflags::copy_timestamps;
+
+          cpfile (from, to, f);
 
           if (!exists && cleanup)
             sp.clean ({cleanup_type::always, to}, true);
@@ -288,6 +294,7 @@ namespace build2
       static void
       cpdir (scope& sp,
              const dir_path& from, const dir_path& to,
+             bool attrs,
              bool cleanup,
              const function<error_record()>& fail)
       {
@@ -308,10 +315,20 @@ namespace build2
               cpdir (sp,
                      path_cast<dir_path> (move (f)),
                      path_cast<dir_path> (move (t)),
+                     attrs,
                      cleanup,
                      fail);
             else
-              cpfile (sp, f, t, false, cleanup, fail);
+              cpfile (sp, f, t, false /* overwrite */, attrs, cleanup, fail);
+          }
+
+          // Note that it is essential to copy timestamps and permissions after
+          // the directory content is copied.
+          //
+          if (attrs)
+          {
+            path_permissions (to, path_permissions (from));
+            dir_time (to, dir_time (from));
           }
         }
         catch (const system_error& e)
@@ -321,10 +338,10 @@ namespace build2
         }
       }
 
-      // cp [--no-cleanup]        <src-file>     <dst-file>
-      // cp [--no-cleanup] -R|-r  <src-dir>      <dst-dir>
-      // cp [--no-cleanup]        <src-file>...  <dst-dir>/
-      // cp [--no-cleanup] -R|-r  <src-path>...  <dst-dir>/
+      // cp [-p] [--no-cleanup]        <src-file>     <dst-file>
+      // cp [-p] [--no-cleanup] -R|-r  <src-dir>      <dst-dir>
+      // cp [-p] [--no-cleanup]        <src-file>...  <dst-dir>/
+      // cp [-p] [--no-cleanup] -R|-r  <src-path>...  <dst-dir>/
       //
       // Note: can be executed synchronously.
       //
@@ -353,6 +370,7 @@ namespace build2
           // Process options.
           //
           bool recursive (false);
+          bool attrs (false);
           bool cleanup (true);
           for (; i != e; ++i)
           {
@@ -360,6 +378,8 @@ namespace build2
 
             if (o == "-R" || o == "-r")
               recursive = true;
+            else if (o == "-p")
+              attrs = true;
             else if (o == "--no-cleanup")
               cleanup = false;
             else
@@ -406,12 +426,19 @@ namespace build2
             if (!recursive)
               // Synopsis 1: make a file copy at the specified path.
               //
-              cpfile (sp, src, dst, true, cleanup, fail);
+              cpfile (sp,
+                      src,
+                      dst,
+                      true /* overwrite */,
+                      attrs,
+                      cleanup,
+                      fail);
             else
               // Synopsis 2: make a directory copy at the specified path.
               //
               cpdir (sp,
                      path_cast<dir_path> (src), path_cast<dir_path> (dst),
+                     attrs,
                      cleanup,
                      fail);
           }
@@ -429,13 +456,20 @@ namespace build2
                 cpdir (sp,
                        path_cast<dir_path> (src),
                        path_cast<dir_path> (dst / src.leaf ()),
+                       attrs,
                        cleanup,
                        fail);
               else
                 // Synopsis 3: copy a file into the specified directory. Also,
                 // here we cover synopsis 4 for the source path being a file.
                 //
-                cpfile (sp, src, dst / src.leaf (), true, cleanup, fail);
+                cpfile (sp,
+                        src,
+                        dst / src.leaf (),
+                        true /* overwrite */,
+                        attrs,
+                        cleanup,
+                        fail);
             }
           }
 
@@ -612,10 +646,17 @@ namespace build2
             if (dir)
               cpdir (sp,
                      path_cast<dir_path> (target), path_cast<dir_path> (link),
+                     false,
                      cleanup,
                      fail);
             else
-              cpfile (sp, target, link, false, cleanup, fail);
+              cpfile (sp,
+                      target,
+                      link,
+                      false /* overwrite */,
+                      true /* attrs */,
+                      cleanup,
+                      fail);
           }
         }
       }

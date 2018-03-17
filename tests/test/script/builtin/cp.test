@@ -103,9 +103,9 @@
   {
     : existing
     :
-    : Test that copy over an existing file doesn't register cleanup. If it does
-    : then the file would be removed while leaving the embedded scope, and so
-    : the cleanup registered by the outer touch would fail.
+    : Test that copy over an existing file does not register cleanup. If it
+    : does then the file would be removed while leaving the embedded scope,
+    : and so the cleanup registered by the outer touch would fail.
     :
     $c <<EOI && $b
     +touch b
@@ -302,5 +302,75 @@
     %cp: unable to copy directory '.+/a' to '.+/b/a': .+%
     EOE
     EOI
+  }
+}
+
+: attrs
+:
+if ($cxx.target.class != 'windows')
+{
+  fs = 's/.+ (\S+\s+\S+\s+\S+)\s+cp-file/\1/p'
+  ds = 's/.+ (\S+\s+\S+\s+\S+)\s+cp-dir/\1/p'
+
+  : copy
+  :
+  {
+    : file
+    :
+    {
+      $c <<"EOI" && $b
+      ls -l $src_base/cp-dir | sed -n -e '$fs' | \
+      set t;
+
+      cp -p $src_base/cp-dir/cp-file ./;
+      ls -l | sed -n -e '$fs' >"\$t"
+      EOI
+    }
+
+    : dir
+    :
+    {
+      $c <<"EOI" && $b
+      ls -l $src_base | sed -n -e '$ds' | \
+      set t;
+
+      cp -p -r $src_base/cp-dir ./;
+      ls -l | sed -n -e '$ds' >"\$t"
+      EOI
+    }
+  }
+
+  : no-copy
+  :
+  {
+    : file
+    :
+    {
+      $c <<"EOI" && $b 2>>~%EOE% != 0
+      ls -l $src_base/cp-dir | sed -n -e '$fs' | \
+      set t;
+
+      cp $src_base/cp-dir/cp-file ./;
+      ls -l | sed -n -e '$fs' >"\$t"
+      EOI
+      %.+ error: sed stdout doesn't match expected%
+      %.+
+      EOE
+    }
+
+    : dir
+    :
+    {
+      $c <<"EOI" && $b 2>>~%EOE% != 0
+      ls -l $src_base | sed -n -e '$ds' | \
+      set t;
+
+      cp -r $src_base/cp-dir ./;
+      ls -l | sed -n -e '$ds' >"\$t"
+      EOI
+      %.+ error: sed stdout doesn't match expected%
+      %.+
+      EOE
+    }
   }
 }
