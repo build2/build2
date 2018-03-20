@@ -245,6 +245,7 @@ namespace build2
   using butl::timestamp_unknown;
   using butl::timestamp_unknown_rep;
   using butl::timestamp_nonexistent;
+  using butl::to_string;
   using butl::operator<<;
 
   // <libbutl/sha256.mxx>

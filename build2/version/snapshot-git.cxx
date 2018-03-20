@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <ctime> // time_t
+
 #include <libbutl/sha1.mxx>
 
 #include <build2/version/snapshot.hxx>
@@ -85,7 +87,7 @@ namespace build2
               throw invalid_argument ("missing timestamp");
 
             string ts (l, p2 + 1, p1 - p2 - 1);
-            r.sn = stoull (ts);
+            time_t t (static_cast<time_t> (stoull (ts)));
 
             if (tz.size () != 5)
               throw invalid_argument ("invalid timezone");
@@ -99,10 +101,17 @@ namespace build2
             //
             switch (tz[0])
             {
-            case '+': r.sn -= s; break;
-            case '-': r.sn += s; break;
+            case '+': t -= s; break;
+            case '-': t += s; break;
             default: throw invalid_argument ("invalid timezone sign");
             }
+
+            // Represent as YYYYMMDDhhmmss.
+            //
+            r.sn = stoull (to_string (system_clock::from_time_t (t),
+                                      "%Y%m%d%H%M%S",
+                                      false /* special */,
+                                      true  /* local (already in UTC) */));
           }
           catch (const invalid_argument& e)
           {
