@@ -323,6 +323,7 @@ namespace build2
       if (build2::rmdir_r (td, true, 2) == rmdir_status::not_empty)
         fail << "unable to clean target directory " << td;
 
+      auto_rmdir rm_td (td); // Clean it up if things go bad.
       install (dist_cmd, td);
 
       // Copy over all the files. Apply post-processing callbacks.
@@ -420,6 +421,8 @@ namespace build2
         diag_progress_lock pl;
         diag_progress.clear ();
       }
+
+      rm_td.cancel ();
 
       // Archive if requested.
       //
