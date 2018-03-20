@@ -12,6 +12,8 @@
 #include <build2/variable.hxx>
 #include <build2/diagnostics.hxx>
 
+#include <build2/config/utility.hxx>
+
 #include <build2/dist/module.hxx>
 
 #include <build2/version/rule.hxx>
@@ -253,11 +255,26 @@ namespace build2
       module& m (static_cast<module&> (*mod));
       const standard_version& v (m.version);
 
-      // If the dist module has been loaded, set its dist.package and register
-      // the post-processing callback.
+      // If the dist module is used, set its dist.package and register the
+      // post-processing callback.
       //
       if (auto* dm = rs.modules.lookup<dist::module> (dist::module::name))
       {
+        // Make sure dist is init'ed, not just boot'ed.
+        //
+        if (!cast_false<bool> (rs["dist.loaded"]))
+          load_module (rs, rs, "dist", l);
+
+        // Add the config.dist.uncommitted configuration variable (a bit cozy
+        // adding other module's config variable but I am not sure calling it
+        // config.version.dist.uncommitted would be better).
+        //
+        auto& vp (var_pool.rw (rs));
+        {
+          const auto& var (vp.insert<bool> ("config.dist.uncommitted", true));
+          m.dist_uncommitted = cast_false<bool> (config::optional (rs, var));
+        }
+
         // Don't touch if dist.package was set by the user.
         //
         value& val (rs.assign (dm->var_dist_package));
@@ -335,8 +352,9 @@ namespace build2
 
       // Complain if this is an uncommitted snapshot.
       //
-      if (v.snapshot () && !m.committed)
-        fail << "distribution of uncommitted project " << rs.src_path ();
+      if (v.snapshot () && !m.committed && !m.dist_uncommitted)
+        fail << "distribution of uncommitted project " << rs.src_path () <<
+          info << "specify config.dist.uncommitted=true to force";
 
       // The plan is simple, re-serialize the manifest into a temporary file
       // fixing up the version. Then move the temporary file to the original.

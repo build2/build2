@@ -32,6 +32,8 @@ namespace build2
       const variable* in_symbol       = nullptr; // in.symbol
       const variable* in_substitution = nullptr; // in.substitution
 
+      bool dist_uncommitted = false;
+
       module (butl::standard_version v,
               bool c,
               dependency_constraints d)
