@@ -38,7 +38,7 @@ namespace build2
       parse_module_name (token&);
 
     public:
-      string checksum;     // Translation unit checksum.
+      string checksum; // Translation unit checksum.
 
     private:
       lexer* l_;

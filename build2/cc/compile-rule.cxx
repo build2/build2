@@ -865,7 +865,7 @@ namespace build2
             u = true; // Database is invalid, force re-parse.
 
           translation_unit tu;
-          for (bool f (true);; f = false)
+          for (bool first (true);; first = false)
           {
             if (u)
             {
@@ -873,10 +873,14 @@ namespace build2
 
               if (cs != p.second)
               {
-                assert (f); // Unchanged TU has a different checksum?
+                assert (first); // Unchanged TU has a different checksum?
                 dd.write (p.second);
               }
-              else if (f) // Don't clear if it was forced.
+              //
+              // Don't clear if it was forced or the checksum should not be
+              // relied upon.
+              //
+              else if (first && !cs.empty ())
               {
                 // Clear the update flag and set the touch flag. Unless there
                 // is no object file, of course. See also the md.mt logic
@@ -894,11 +898,11 @@ namespace build2
 
             if (modules)
             {
-              if (u || !f)
+              if (u || !first)
               {
                 string s (to_string (tu.mod));
 
-                if (f)
+                if (first)
                   dd.expect (s);
                 else
                   dd.write (s);
@@ -963,10 +967,10 @@ namespace build2
 
         dd.close ();
 
-        // If the preprocessed output is suitable for compilation and is not
-        // disabled, then pass it along.
+        // If the preprocessed output is suitable for compilation, then pass
+        // it along.
         //
-        if (psrc.second && !cast_false<bool> (t[c_reprocess]))
+        if (psrc.second)
         {
           md.psrc = move (psrc.first);
 
@@ -1422,6 +1426,8 @@ namespace build2
 
       l5 ([&]{trace << "target: " << t;});
 
+      bool reprocess (cast_false<bool> (t[c_reprocess]));
+
       auto_rmfile psrc;
       bool puse (true);
 
@@ -1630,7 +1636,7 @@ namespace build2
       // Return NULL if the dependency information goes to stdout and a
       // pointer to the temporary file path otherwise.
       //
-      auto init_args = [&t, a, li,
+      auto init_args = [&t, a, li, reprocess,
                         &src, &md, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm,
@@ -1676,6 +1682,14 @@ namespace build2
           // when building the include prefix map.
           //
           args.push_back (cpath.recall_string ());
+
+          // If we are re-processing the translation unit, then allow the
+          // translation unit to detect header/module dependency extraction.
+          // This can be used to work around separate preprocessing bugs in
+          // the compiler.
+          //
+          if (reprocess)
+            args.push_back ("-D__build2_preprocess");
 
           // Add *.export.poptions from prerequisite libraries.
           //
@@ -2790,14 +2804,17 @@ namespace build2
         }
       }
 
-      // Add the terminating blank line (we are updated depdb).
+      // Add the terminating blank line (we are updating depdb).
       //
       dd.expect ("");
 
-      puse = puse && !psrc.path.empty ();
+      puse = puse && !reprocess && !psrc.path.empty ();
       return make_pair (move (psrc), puse);
     }
 
+    // Return the translation unit information (first) and its checksum
+    // (second). If the checksum is empty, then it should not be used.
+    //
     pair<translation_unit, string> compile_rule::
     parse_unit (action a,
                 file& t,
@@ -2831,6 +2848,8 @@ namespace build2
       cstrings args;
       const path* sp; // Source path.
 
+      bool reprocess (cast_false<bool> (t[c_reprocess]));
+
       bool ps; // True if extracting from psrc.
       if (md.pp < preprocessed::modules)
       {
@@ -2840,7 +2859,7 @@ namespace build2
         // may extend cc.reprocess to allow specifying where reprocessing is
         // needed).
         //
-        ps = !psrc.path.empty () && !cast_false<bool> (t[c_reprocess]);
+        ps = !psrc.path.empty () && !reprocess;
         sp = &(ps ? psrc.path : src.path ());
 
         // VC's preprocessed output, if present, is fully preprocessed.
@@ -2851,6 +2870,9 @@ namespace build2
           // similar to init_args() from extract_headers().
           //
           args.push_back (cpath.recall_string ());
+
+          if (reprocess)
+            args.push_back ("-D__build2_preprocess");
 
           append_lib_options (t.base_scope (), args, a, t, lo);
 
@@ -3008,7 +3030,13 @@ namespace build2
               tu.mod.iface = true;
             }
 
-            return pair<translation_unit, string> (move (tu), p.checksum);
+            // If we were forced to reprocess, assume the checksum is not
+            // accurate (parts of the translation unit could have been
+            // #ifdef'ed out; see __build2_preprocess).
+            //
+            return pair<translation_unit, string> (
+              move (tu),
+              reprocess ? string () : move (p.checksum));
           }
 
           // Fall through.
