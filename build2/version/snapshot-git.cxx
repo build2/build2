@@ -31,9 +31,9 @@ namespace build2
       //
       {
         const char* args[] {"git", "-C", d, "status", "--porcelain", nullptr};
-
-        if (!run<string> (3, args, [](string& s) {return move (s);}).empty ())
-          return r;
+        r.committed = run<string> (3 /* verbosity */,
+                                   args,
+                                   [](string& s) {return move (s);}).empty ();
       }
 
       // Now extract the commit id and date. One might think that would be
@@ -45,7 +45,18 @@ namespace build2
       //
       // Where <len> is the size of <data> and <data> is the output of:
       //
-      // git cat-file commit ...
+      // git cat-file commit HEAD
+      //
+      // There is also one annoying special case: new repository without any
+      // commits. In this case the above command will fail (with diagnostics
+      // and non-zero exit code) because there is no HEAD. Of course, it can
+      // also fail for other reason (like broken repository) which would be
+      // hard to distinguish. Note, however, that we just ran git status and
+      // it would have most likely failed if this were the case. So here we
+      // (reluctantly) assume that the only reason git cat-file fails is if
+      // there is no HEAD (that we equal with the "new repository" condition
+      // which is, strictly speaking, might not be the case either). So we
+      // suppress any diagnostics, and handle non-zero exit code.
       //
       string data;
 
@@ -53,14 +64,16 @@ namespace build2
         "git", "-C", d, "cat-file", "commit", "HEAD", nullptr};
       process pr (run_start (3     /* verbosity */,
                              args,
-                             0     /* stdin */,
-                             -1    /* stdout */));
+                             0     /* stdin  */,
+                             -1    /* stdout */,
+                             false /* error  */));
 
+      string l;
       try
       {
         ifdstream is (move (pr.in_ofd), ifdstream::badbit);
 
-        for (string l; !eof (getline (is, l)); )
+        while (!eof (getline (is, l)))
         {
           data += l;
           data += '\n'; // We assume there is always a newline.
@@ -128,16 +141,28 @@ namespace build2
         // that.
       }
 
-      run_finish (args, pr);
+      if (!run_finish (args, pr, false /* error */, l))
+      {
+        // Presumably new repository without HEAD. Return uncommitted snapshot
+        // with UNIX epoch as timestamp.
+        //
+        r.sn = 19700101000000ULL;
+        r.committed = false;
+        return r;
+      }
 
       if (r.sn == 0)
         fail << "unable to extract git commit id/date for " << src_root;
 
-      sha1 cs;
-      cs.append ("commit " + to_string (data.size ())); // Includes '\0'.
-      cs.append (data.c_str (), data.size ());
-
-      r.id.assign (cs.string (), 12); // 12-characters abbreviated commit id.
+      if (r.committed)
+      {
+        sha1 cs;
+        cs.append ("commit " + to_string (data.size ())); // Includes '\0'.
+        cs.append (data.c_str (), data.size ());
+        r.id.assign (cs.string (), 12); // 12-characters abbreviated commit id.
+      }
+      else
+        r.sn++; // Add a second.
 
       return r;
     }

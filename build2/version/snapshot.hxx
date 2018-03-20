@@ -18,6 +18,7 @@ namespace build2
     {
       uint64_t sn = 0;
       string id;
+      bool committed = false;
 
       bool
       empty () const {return sn == 0;}

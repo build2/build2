@@ -343,8 +343,9 @@ increment \i{patch} when making binary-compatible changes, \i{minor} when
 making source-compatible changes, and \i{major} when making breaking changes.
 While the binary compatibility must be set in stone, the source compatibility
 rules can sometimes be bent. For example, you may decide to make a breaking
-change in a rarely used interface as part of a minor release. Note also that
-in the context of C++ deciding whether a change is binary-compatible is a
+change in a rarely used interface as part of a minor release (though this is
+probably still a bad idea if your library is widely depended upon). Note also
+that in the context of C++ deciding whether a change is binary-compatible is a
 non-trivial task. There are resources that list the rules but no automated
 tooling yet. If unsure, increment \i{minor}.
 
@@ -379,10 +380,11 @@ worse, from the final release. One way to remedy this is to increment the
 pre-release number before each publication. However, unless automated, this
 will be burdensome and error-prone. Also, there is a real possibility of
 running out of version numbers if, for example, we do continuous integration
-by testing (and therefore publishing) each commit.
+by publishing and testing each commit.
 
 To address this, the standard versioning scheme supports \i{snapshot
-pre-releases} with the \i{prerel} component having the following form:
+pre-releases} with the \i{prerel} component having the following extended
+form:
 
 \
 (a|b).<num>.<snapsn>[.<snapid>]
@@ -391,13 +393,13 @@ pre-releases} with the \i{prerel} component having the following form:
 For example:
 
 \
-1.2.3-a.1.1422564055.340c0a26a5efed1f
+1.2.3-a.1.20180319215815.26efe301f4a7
 \
 
 In essence, a snapshot pre-release is after the previous final release but
 before the next (\c{a.1} and, perhaps, \c{a.2} in the above example) and
 is uniquely identified by the snapshot sequence number (\i{snapsn}) and
-snapshot id (\i{snapid}).
+optional snapshot id (\i{snapid}).
 
 The \i{num} component has the same semantics as in the final pre-releases
 except that it can be \c{0}. The \i{snapsn} component should be either the
@@ -408,12 +410,12 @@ uniquely identifies the snapshot. It is not required for version comparison
 (\i{snapsn} should be sufficient) and is included for reference. It must not
 be longer than 16 characters.
 
-Where do the snapshot sn and id come from? Normally from the version control
-system. For example, for \c{git}, \i{snapsn} is the commit date (as UNIX
-timestamp in the UTC timezone) and \i{snapid} is a 16-character abbreviated
-commit id. As discussed below, the \c{build2} \c{version} module extracts
-and manages all this information automatically (the use of \c{git} commit
-dates is not without limitations; see below for details).
+Where do the snapshot number and id come from? Normally from the version
+control system. For example, for \c{git}, \i{snapsn} is the commit date in the
+\i{YYYYMMDDhhmmss} form and UTC timezone and \i{snapid} is a 12-character
+abbreviated commit id. As discussed below, the \c{build2} \c{version} module
+extracts and manages all this information automatically (but the use of
+\c{git} commit dates is not without limitations; see below for details).
 
 The special '\c{z}' \i{snapsn} value identifies the \i{latest} or
 \i{uncommitted} snapshot. It is chosen to be greater than any other possible
@@ -448,7 +450,7 @@ When it comes to the version control systems, the recommended workflow is as
 follows: The change to the final version should be the last commit in the
 (pre-)release. It is also a good idea to tag this commit with the project
 version. A commit immediately after that should change the version to a
-snapshot essentially \"opening\" the repository for development.
+snapshot, \"opening\" the repository for development.
 
 The project version without the snapshot part can be represented as a 64-bit
 decimal value comparable as integers (for example, in preprocessor
@@ -517,6 +519,7 @@ as the following build system variables (which can be used in the buildfiles):
 [uint64] version.snapshot_sn         # 1234567
 [string] version.snapshot_id         # deadbeef
 [string] version.snapshot_string     # 1234567.deadbeef
+[bool]   version.snapshot_committed  # true
 
 [uint64] version.revision            # 3
 \
@@ -537,11 +540,17 @@ control system used by the project. Currently only \c{git} is supported with
 the following semantics.
 
 If the project's source directory (\c{src_root}) is clean (that is, it does
-not have any changed or untracked files), then the \c{HEAD} commit date and
-id are used as the snapshot sn and id, respectively. Otherwise, the snapshot
-is left in the \c{.z} form (which signals the latest/uncommitted
-snapshot). While we can work with such a \c{.z} snapshot locally, preparing a
-distribution of such an uncommitted snapshot is an error.
+not have any changed or untracked files), then the \c{HEAD} commit date and id
+are used as the snapshot number and id, respectively.
+
+Otherwise (that is, the project is between commits), the \c{HEAD} commit date
+is incremented by one second and is used as the snapshot number with no id.
+While we can work with such uncommitted snapshots locally, we should not
+distribute or publish them since they are indistinguishable from each other.
+
+Finally, if the project does not have \c{HEAD} (that is, the project has
+no commits yet), the special \c{19700101000000} (UNIX epoch) commit date is
+used.
 
 The use of \c{git} commit dates for snapshot ordering has its limitations:
 they have one second resolution which means it is possible to create two
@@ -555,9 +564,10 @@ option, nevertheless).
 
 When we prepare a distribution of a snapshot, the \c{version} module
 automatically adjusts the package name to include the snapshot information as
-well as patches the manifest file in the distribution with the snapshot sn and
-id (that is, replacing \c{.z} in the version value with the actual snapshot
-information). The result is a package that is specific to this commit.
+well as patches the manifest file in the distribution with the snapshot number
+and id (that is, replacing \c{.z} in the version value with the actual
+snapshot information). The result is a package that is specific to this
+commit.
 
 Besides extracting the version information and making it available as
 individual components, the \c{version} module also provide rules for

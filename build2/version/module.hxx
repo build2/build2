@@ -25,13 +25,19 @@ namespace build2
       static const string name;
 
       butl::standard_version version;
+      bool committed; // Whether this is a committed snapshot.
+
       dependency_constraints dependencies;
 
       const variable* in_symbol       = nullptr; // in.symbol
       const variable* in_substitution = nullptr; // in.substitution
 
-      module (butl::standard_version v, dependency_constraints d)
-          : version (move (v)), dependencies (move (d)) {}
+      module (butl::standard_version v,
+              bool c,
+              dependency_constraints d)
+          : version (move (v)),
+            committed (c),
+            dependencies (move (d)) {}
     };
   }
 }

@@ -163,9 +163,9 @@ namespace build2
       }
 
       // If this is the latest snapshot (i.e., the -a.1.z kind), then load the
-      // snapshot sn and id (e.g., commit date and id from git). If there is
-      // uncommitted stuff, then leave it as .z.
+      // snapshot number and id (e.g., commit date and id from git).
       //
+      bool committed (true);
       if (v.snapshot () && v.snapshot_sn == standard_version::latest_sn)
       {
         snapshot ss (extract_snapshot (rs));
@@ -174,7 +174,10 @@ namespace build2
         {
           v.snapshot_sn = ss.sn;
           v.snapshot_id = move (ss.id);
+          committed = ss.committed;
         }
+        else
+          committed = false;
       }
 
       // Set all the version.* variables.
@@ -215,16 +218,17 @@ namespace build2
       set ("version.pre_release_string", v.string_pre_release ());
       set ("version.pre_release_number", uint64_t (v.pre_release ()));
 
-      set ("version.snapshot",        v.snapshot ()); // bool
-      set ("version.snapshot_sn",     v.snapshot_sn); // uint64
-      set ("version.snapshot_id",     v.snapshot_id); // string
-      set ("version.snapshot_string", v.string_snapshot ());
+      set ("version.snapshot",           v.snapshot ()); // bool
+      set ("version.snapshot_sn",        v.snapshot_sn); // uint64
+      set ("version.snapshot_id",        v.snapshot_id); // string
+      set ("version.snapshot_string",    v.string_snapshot ());
+      set ("version.snapshot_committed", committed);     // bool
 
       set ("version.revision", uint64_t (v.revision));
 
       // Create the module.
       //
-      mod.reset (new module (move (v), move (ds)));
+      mod.reset (new module (move (v), committed, move (ds)));
 
       return true; // Init first (dist.package, etc).
     }
@@ -331,7 +335,7 @@ namespace build2
 
       // Complain if this is an uncommitted snapshot.
       //
-      if (v.snapshot_sn == standard_version::latest_sn)
+      if (v.snapshot () && !m.committed)
         fail << "distribution of uncommitted project " << rs.src_path ();
 
       // The plan is simple, re-serialize the manifest into a temporary file
