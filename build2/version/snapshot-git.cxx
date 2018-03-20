@@ -137,7 +137,7 @@ namespace build2
       cs.append ("commit " + to_string (data.size ())); // Includes '\0'.
       cs.append (data.c_str (), data.size ());
 
-      r.id.assign (cs.string (), 16); // 16-characters abbreviated commit id.
+      r.id.assign (cs.string (), 12); // 12-characters abbreviated commit id.
 
       return r;
     }
