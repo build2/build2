@@ -520,27 +520,107 @@ namespace build2
       if (exists (ap, false))
         rmfile (ap);
 
-      // Use zip for .zip archives. Everything else goes to tar in the
-      // auto-compress mode (-a).
+      // Use zip for .zip archives. Also recognize and handle a few well-known
+      // tar.xx cases (in case tar doesn't support -a or has other issues like
+      // MSYS). Everything else goes to tar in the auto-compress mode (-a).
       //
       cstrings args;
-      if (e == "zip")
-        args = {"zip", "-rq",
-                ap.string ().c_str (), pkg.c_str (), nullptr};
-      else
-        args = {"tar", "-a", "-cf",
-                ap.string ().c_str (), pkg.c_str (), nullptr};
 
-      process_path pp (run_search (args[0]));
+      // Separate compressor (gzip, xz, etc) state.
+      //
+      size_t i (0);        // Command line start or 0 if not used.
+      auto_rmfile out_rm;  // Output file cleanup (must come first).
+      auto_fd out_fd;      // Output file.
+
+      if (e == "zip")
+      {
+        args = {"zip",
+                "-rq", ap.string ().c_str (),
+                pkg.c_str (),
+                nullptr};
+      }
+      else
+      {
+        if (const char* c = (e == "tar.gz"  ? "gzip"  :
+                             e == "tar.xz"  ? "xz"    :
+                             e == "tar.bz2" ? "bzip2" :
+                             nullptr))
+        {
+          args = {"tar",
+                  "-cf", "-",
+                  pkg.c_str (),
+                  nullptr};
+
+          i = args.size ();
+          args.push_back (c);
+          args.push_back (nullptr);
+          args.push_back (nullptr); // Pipe end.
+
+          try
+          {
+            out_fd = fdopen (ap,
+                             fdopen_mode::out      | fdopen_mode::binary |
+                             fdopen_mode::truncate | fdopen_mode::create);
+            out_rm = auto_rmfile (ap);
+          }
+          catch (const io_error& e)
+          {
+            fail << "unable to open " << ap << ": " << e;
+          }
+        }
+        else if (e == "tar")
+          args = {"tar",
+                  "-cf", ap.string ().c_str (),
+                  pkg.c_str (),
+                  nullptr};
+        else
+          args = {"tar",
+                  "-a",
+                  "-cf", ap.string ().c_str (),
+                  pkg.c_str (),
+                  nullptr};
+      }
+
+      process_path app; // Archiver path.
+      process_path cpp; // Compressor path.
+
+      app = run_search (args[0]);
+
+      if (i != 0)
+        cpp = run_search (args[i]);
 
       if (verb >= 2)
         print_process (args);
       else if (verb)
         text << args[0] << " " << ap;
 
-      // Change child's working directory to dist_root.
+      process apr;
+      process cpr;
+
+      // Change the archiver's working directory to dist_root.
       //
-      run (pp, args, root);
+      apr = run_start (app,
+                       args.data (),
+                       0                 /* stdin  */,
+                       (i != 0 ? -1 : 1) /* stdout */,
+                       true              /* error */,
+                       root);
+
+      // Start the compressor if required.
+      //
+      if (i != 0)
+      {
+        cpr = run_start (cpp,
+                         args.data () + i,
+                         apr.in_ofd.get () /* stdin  */,
+                         out_fd.get ()     /* stdout */);
+
+        cpr.in_ofd.reset (); // Close the archiver's stdout on our side.
+        run_finish (args.data () + i, cpr);
+      }
+
+      run_finish (args.data (), apr);
+      out_rm.cancel ();
     }
 
     const meta_operation_info mo_dist {
