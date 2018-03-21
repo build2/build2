@@ -404,7 +404,7 @@ optional snapshot id (\i{snapid}).
 The \i{num} component has the same semantics as in the final pre-releases
 except that it can be \c{0}. The \i{snapsn} component should be either the
 special value '\c{z}' or a numeric, non-zero value that increases for each
-subsequent snapshot. It must fit into an unsigned 64-bit integer. The
+subsequent snapshot. It must not be longer than 16 decimal digits. The
 \i{snapid} component, if present, should be an alpha-numeric value that
 uniquely identifies the snapshot. It is not required for version comparison
 (\i{snapsn} should be sufficient) and is included for reference. It must not
