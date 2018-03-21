@@ -403,6 +403,20 @@ namespace build2
   extern const path empty_path;
   extern const dir_path empty_dir_path;
 
+  // Hash a path potentially without the specific directory prefix.
+  //
+  // If prefix is not empty and is a super-path of the path to hash, then only
+  // hash the suffix. Note that both paths are assumed to be normalized.
+  //
+  // This functionality is normally used to strip out_root from target paths
+  // being hashed in order to avoid updates in case out_root was moved. Note
+  // that this should only be done if the result of the update does not
+  // include the out_root path in any form (as could be the case, for example,
+  // for debug information, __FILE__ macro expansion, rpath, etc).
+  //
+  void
+  hash_path (sha256&, const path&, const dir_path& prefix = dir_path ());
+
   // Append all the values from a variable to the C-string list. T is either
   // target or scope. The variable is expected to be of type strings.
   //

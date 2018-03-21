@@ -1034,10 +1034,11 @@ namespace build2
 
       struct data
       {
-        sha256&   cs;
-        bool&     update;
-        timestamp mt;
-      } d {cs, update, mt};
+        sha256&         cs;
+        const dir_path& out_root;
+        bool&           update;
+        timestamp       mt;
+      } d {cs, bs.root_scope ()->out_path (), update, mt};
 
       auto lib = [&d, this] (const file* l, const string& p, lflags f, bool)
       {
@@ -1055,7 +1056,7 @@ namespace build2
             l = &l->member->as<file> ();
 
           d.cs.append (f);
-          d.cs.append (l->path ().string ());
+          hash_path (d.cs, l->path (), d.out_root);
         }
         else
           d.cs.append (p);
@@ -1593,7 +1594,7 @@ namespace build2
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
-              cs.append (f->path ().string ());
+              hash_path (cs, f->path (), rs.out_path ());
           }
           else
             f = pt->is_a<exe> (); // Consider executable mtime (e.g., linker).
@@ -1607,7 +1608,7 @@ namespace build2
         // Treat it as input for both MinGW and VC (mtime checked above).
         //
         if (!manifest.empty ())
-          cs.append (manifest.string ());
+          hash_path (cs, manifest, rs.out_path ());
 
         // Treat .libs as inputs, not options.
         //

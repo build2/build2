@@ -33,6 +33,24 @@ namespace build2
     return e - b;
   }
 
+  inline void
+  hash_path (sha256& cs, const path& p, const dir_path& prefix)
+  {
+    // Note: for efficiency we don't use path::leaf() and "skip" the prefix
+    // without copying.
+    //
+    const char* s (p.string ().c_str ());
+
+    if (!prefix.empty () && p.sub (prefix))
+    {
+      s += prefix.size (); // Does not include trailing slash except for root.
+      if (path::traits::is_separator (*s))
+        ++s;
+    }
+
+    cs.append (s);
+  }
+
   template <typename T>
   inline void
   append_options (cstrings& args, T& s, const variable& var, const char* e)
