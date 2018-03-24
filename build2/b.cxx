@@ -218,10 +218,8 @@ main (int argc, char* argv[])
           // Parse the next chunk of options until we reach an argument (or
           // eos).
           //
-          ops.parse (scan);
-
-          if (!scan.more ())
-            break;
+          if (ops.parse (scan))
+            continue;
 
           // Fall through.
         }

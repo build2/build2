@@ -9,6 +9,8 @@
 //
 // End prologue.
 
+#include <cassert>
+
 namespace build2
 {
   namespace cl
@@ -160,6 +162,7 @@ namespace build2
       option_ (option),
       options_ (&option_info_),
       options_count_ (1),
+      i_ (1),
       skip_ (false)
     {
       option_info_.option = option_.c_str ();
@@ -176,6 +179,7 @@ namespace build2
       option_ (option),
       options_ (&option_info_),
       options_count_ (1),
+      i_ (1),
       skip_ (false)
     {
       option_info_.option = option_.c_str ();
@@ -191,6 +195,7 @@ namespace build2
     : argv_scanner (argc, argv, erase),
       options_ (options),
       options_count_ (options_count),
+      i_ (1),
       skip_ (false)
     {
     }
@@ -205,6 +210,7 @@ namespace build2
     : argv_scanner (start, argc, argv, erase),
       options_ (options),
       options_count_ (options_count),
+      i_ (1),
       skip_ (false)
     {
     }

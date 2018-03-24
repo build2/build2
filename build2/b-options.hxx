@@ -226,6 +226,12 @@ namespace build2
       std::string argument_;
     };
 
+    // Command line argument scanner interface.
+    //
+    // The values returned by next() are guaranteed to be valid
+    // for the two previous arguments up until a call to a third
+    // peek() or next().
+    //
     class scanner
     {
       public:
@@ -337,8 +343,13 @@ namespace build2
       const option_info* options_;
       std::size_t options_count_;
 
-      std::string hold_;
       std::deque<std::string> args_;
+
+      // Circular buffer of two arguments.
+      //
+      std::string hold_[2];
+      std::size_t i_;
+
       bool skip_;
     };
 
@@ -356,14 +367,16 @@ namespace build2
     public:
     options ();
 
-    void
+    // Return true if anything has been parsed.
+    //
+    bool
     parse (int& argc,
            char** argv,
            bool erase = false,
            ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
            ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    void
+    bool
     parse (int start,
            int& argc,
            char** argv,
@@ -371,7 +384,7 @@ namespace build2
            ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
            ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    void
+    bool
     parse (int& argc,
            char** argv,
            int& end,
@@ -379,7 +392,7 @@ namespace build2
            ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
            ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    void
+    bool
     parse (int start,
            int& argc,
            char** argv,
@@ -388,7 +401,7 @@ namespace build2
            ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
            ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
-    void
+    bool
     parse (::build2::cl::scanner&,
            ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
            ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
@@ -504,7 +517,7 @@ namespace build2
     _parse (const char*, ::build2::cl::scanner&);
 
     private:
-    void
+    bool
     _parse (::build2::cl::scanner&,
             ::build2::cl::unknown_mode option,
             ::build2::cl::unknown_mode argument);

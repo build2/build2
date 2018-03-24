@@ -41,9 +41,9 @@ if $cli.configured
   cli.cxx{b-options}: cli{b}
 
   cli.options += -I $src_root --include-with-brackets --include-prefix build2 \
---guard-prefix BUILD2 --cxx-prologue "#include <build2/types-parsers.hxx>"    \
---cli-namespace build2::cl --generate-file-scanner --generate-parse           \
---generate-specifier
+--guard-prefix BUILD2 --cxx-prologue "#include <build2/types-parsers.hxx>" \
+--cli-namespace build2::cl --generate-file-scanner --keep-separator \
+--generate-parse --generate-specifier
 
   # Usage options.
   #

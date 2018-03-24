@@ -277,9 +277,9 @@ namespace build2
         return base::next ();
       else
       {
-        hold_.swap (args_.front ());
+        hold_[i_ == 0 ? ++i_ : --i_].swap (args_.front ());
         args_.pop_front ();
-        return hold_.c_str ();
+        return hold_[i_].c_str ();
       }
     }
 
@@ -423,7 +423,7 @@ namespace build2
       {
         using namespace std;
 
-        string o (s.next ());
+        const char* o (s.next ());
 
         if (s.more ())
         {
@@ -604,7 +604,7 @@ namespace build2
   {
   }
 
-  void options::
+  bool options::
   parse (int& argc,
          char** argv,
          bool erase,
@@ -612,10 +612,11 @@ namespace build2
          ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (argc, argv, erase);
-    _parse (s, opt, arg);
+    bool r = _parse (s, opt, arg);
+    return r;
   }
 
-  void options::
+  bool options::
   parse (int start,
          int& argc,
          char** argv,
@@ -624,10 +625,11 @@ namespace build2
          ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (start, argc, argv, erase);
-    _parse (s, opt, arg);
+    bool r = _parse (s, opt, arg);
+    return r;
   }
 
-  void options::
+  bool options::
   parse (int& argc,
          char** argv,
          int& end,
@@ -636,11 +638,12 @@ namespace build2
          ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (argc, argv, erase);
-    _parse (s, opt, arg);
+    bool r = _parse (s, opt, arg);
     end = s.end ();
+    return r;
   }
 
-  void options::
+  bool options::
   parse (int start,
          int& argc,
          char** argv,
@@ -650,16 +653,18 @@ namespace build2
          ::build2::cl::unknown_mode arg)
   {
     ::build2::cl::argv_scanner s (start, argc, argv, erase);
-    _parse (s, opt, arg);
+    bool r = _parse (s, opt, arg);
     end = s.end ();
+    return r;
   }
 
-  void options::
+  bool options::
   parse (::build2::cl::scanner& s,
          ::build2::cl::unknown_mode opt,
          ::build2::cl::unknown_mode arg)
   {
-    _parse (s, opt, arg);
+    bool r = _parse (s, opt, arg);
+    return r;
   }
 
   ::build2::cl::usage_para options::
@@ -928,11 +933,12 @@ namespace build2
     return false;
   }
 
-  void options::
+  bool options::
   _parse (::build2::cl::scanner& s,
           ::build2::cl::unknown_mode opt_mode,
           ::build2::cl::unknown_mode arg_mode)
   {
+    bool r = false;
     bool opt = true;
 
     while (s.more ())
@@ -941,12 +947,11 @@ namespace build2
 
       if (std::strcmp (o, "--") == 0)
       {
-        s.skip ();
         opt = false;
-        continue;
       }
 
-      if (opt && _parse (o, s));
+      if (opt && _parse (o, s))
+        r = true;
       else if (opt && std::strncmp (o, "-", 1) == 0 && o[1] != '\0')
       {
         switch (opt_mode)
@@ -954,6 +959,7 @@ namespace build2
           case ::build2::cl::unknown_mode::skip:
           {
             s.skip ();
+            r = true;
             continue;
           }
           case ::build2::cl::unknown_mode::stop:
@@ -975,6 +981,7 @@ namespace build2
           case ::build2::cl::unknown_mode::skip:
           {
             s.skip ();
+            r = true;
             continue;
           }
           case ::build2::cl::unknown_mode::stop:
@@ -990,6 +997,8 @@ namespace build2
         break;
       }
     }
+
+    return r;
   }
 }
 
