@@ -686,7 +686,7 @@ namespace build2
        << "                     equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--progress\033[0m|\033[1m-p\033[0m        Display build progress. If printing to a terminal the" << ::std::endl
+       << "\033[1m--progress\033[0m           Display build progress. If printing to a terminal the" << ::std::endl
        << "                     progress is displayed by default for low verbosity levels." << ::std::endl
        << "                     Use \033[1m--no-progress\033[0m to suppress." << ::std::endl;
 
@@ -850,8 +850,6 @@ namespace build2
       _cli_options_map_["-V"] = 
       &::build2::cl::thunk< options, bool, &options::V_ >;
       _cli_options_map_["--progress"] = 
-      &::build2::cl::thunk< options, bool, &options::progress_ >;
-      _cli_options_map_["-p"] = 
       &::build2::cl::thunk< options, bool, &options::progress_ >;
       _cli_options_map_["--no-progress"] = 
       &::build2::cl::thunk< options, bool, &options::no_progress_ >;

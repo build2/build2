@@ -366,7 +366,7 @@ namespace build2
        \cb{--verbose 3}."
     }
 
-    bool --progress|-p
+    bool --progress
     {
       "Display build progress. If printing to a terminal the progress is
        displayed by default for low verbosity levels. Use \cb{--no-progress}
