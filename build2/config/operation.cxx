@@ -419,43 +419,6 @@ namespace build2
 
     // disfigure
     //
-    static void
-    bootstrap_project (scope& root)
-    {
-      if (auto l = root.vars[var_subprojects])
-      {
-        const dir_path& out_root (root.out_path ());
-        const dir_path& src_root (root.src_path ());
-
-        for (auto p: cast<subprojects> (l))
-        {
-          const dir_path& pd (p.second);
-
-          // Create and bootstrap subproject's root scope.
-          //
-          dir_path out_nroot (out_root / pd);
-
-          // The same logic for src_root as in create_bootstrap_inner().
-          //
-          scope& nroot (create_root (root, out_nroot, dir_path ())->second);
-
-          if (!bootstrapped (nroot))
-          {
-            bootstrap_out (nroot);
-
-            value& val (nroot.assign (var_src_root));
-
-            if (!val)
-              val = is_src_root (out_nroot) ? out_nroot : (src_root / pd);
-
-            setup_root (nroot);
-            bootstrap_src (nroot);
-          }
-
-          bootstrap_project (nroot);
-        }
-      }
-    }
 
     static operation_id
     disfigure_operation_pre (const values&, operation_id o)
@@ -479,9 +442,9 @@ namespace build2
 
       // Since we don't load buildfiles during disfigure but still want to
       // disfigure all the subprojects (see disfigure_project() below), we
-      // bootstrap all known subprojects.
+      // bootstrap all the known subprojects.
       //
-      bootstrap_project (root);
+      create_bootstrap_inner (root);
     }
 
     static void

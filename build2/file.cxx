@@ -829,7 +829,7 @@ namespace build2
       {
         dir_path out_root (root.out_path () / p.second);
 
-        if (!out_base.sub (out_root))
+        if (!out_base.empty () && !out_base.sub (out_root))
           continue;
 
         // The same logic to src_root as in create_bootstrap_outer().
