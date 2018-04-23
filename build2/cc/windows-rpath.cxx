@@ -215,8 +215,7 @@ namespace build2
     const char*
     windows_manifest_arch (const string& tcpu); // windows-manifest.cxx
 
-    // The ts argument should be the the DLLs timestamp returned by
-    // *_timestamp().
+    // The ts argument should be the DLLs timestamp returned by *_timestamp().
     //
     // The scratch argument should be true if the DLL set has changed and we
     // need to regenerate everything from scratch. Otherwise, we try to avoid
@@ -248,10 +247,10 @@ namespace build2
         // signalling that there aren't any DLLs but the assembly manifest
         // file exists. This, however, can only happen if we somehow managed
         // to transition from the "have DLLs" state to "no DLLs" without going
-        // through the "from scratch" update. And this shouldn't happen
-        // (famous last words before a core dump).
+        // through the "from scratch" update. Actually this can happen when
+        // switching to update-for-install.
         //
-        if (ts <= file_mtime (am))
+        if (ts != timestamp_nonexistent && ts <= file_mtime (am))
           return;
       }
 

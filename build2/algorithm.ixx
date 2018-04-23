@@ -240,6 +240,20 @@ namespace build2
     return r;
   }
 
+  inline target_lock
+  add_adhoc_member (action a, target& t, const target_type& tt, const char* s)
+  {
+    string n (t.name);
+
+    if (s != nullptr)
+    {
+      n += '.';
+      n += s;
+    }
+
+    return add_adhoc_member (a, t, tt, t.dir, t.out, n);
+  }
+
   const rule_match*
   match_impl (action, target&, const rule* skip, bool try_match = false);
 

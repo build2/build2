@@ -53,6 +53,32 @@ namespace build2
       }
     }
 
+    static void
+    save_out_root (const dir_path& out_root, const dir_path& src_root)
+    {
+      path f (src_root / out_root_file);
+
+      if (verb)
+        text << (verb >= 2 ? "cat >" : "save ") << f;
+
+      try
+      {
+        ofdstream ofs (f);
+
+        ofs << "# Created automatically by the config module." << endl
+            << "#" << endl
+            << "out_root = ";
+        to_stream (ofs, name (out_root), true, '@'); // Quote.
+        ofs << endl;
+
+        ofs.close ();
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to write " << f << ": " << e;
+      }
+    }
+
     using project_set = set<const scope*>; // Use pointers to get comparison.
 
     static void
@@ -338,6 +364,41 @@ namespace build2
       }
     }
 
+    static void
+    configure_forward (const scope& root, project_set& projects)
+    {
+      tracer trace ("configure_forward");
+
+      const dir_path& out_root (root.out_path ());
+      const dir_path& src_root (root.src_path ());
+
+      if (!projects.insert (&root).second)
+      {
+        l5 ([&]{trace << "skipping already configured " << src_root;});
+        return;
+      }
+
+      mkdir (src_root / bootstrap_dir, 2); // Make sure exists.
+      save_out_root (out_root, src_root);
+
+      // Configure subprojects. Since we don't load buildfiles if configuring
+      // a forward, we do it for all known subprojects.
+      //
+      if (auto l = root.vars[var_subprojects])
+      {
+        for (auto p: cast<subprojects> (l))
+        {
+          dir_path out_nroot (out_root / p.second);
+          const scope& nroot (scopes.find (out_nroot));
+          assert (nroot.out_path () == out_nroot);
+
+          configure_forward (nroot, projects);
+        }
+      }
+    }
+
+    operation_id (*pre) (const values&, meta_operation_id, const location&);
+
     static operation_id
     configure_operation_pre (const values&, operation_id o)
     {
@@ -347,6 +408,84 @@ namespace build2
       return o;
     }
 
+    // The (vague) idea is that in the future we may turn this into to some
+    // sort of key-value sequence (similar to the config initializer idea),
+    // for example:
+    //
+    // configure(out/@src/, forward foo bar@123)
+    //
+    // Though using commas instead spaces and '=' instead of '@' would have
+    // been nicer.
+    //
+    static bool
+    forward (const values& params,
+             const char* mo = nullptr,
+             const location& l = location ())
+    {
+      if (params.size () == 1)
+      {
+        const names& ns (cast<names> (params[0]));
+
+        if (ns.size () == 1 && ns[0].simple () && ns[0].value == "forward")
+          return true;
+        else if (!ns.empty ())
+          fail (l) << "unexpected parameter '" << ns << "' for "
+                   << "meta-operation " << mo;
+      }
+      else if (!params.empty ())
+        fail (l) << "unexpected parameters for meta-operation " << mo;
+
+      return false;
+    }
+
+    static void
+    configure_pre (const values& params, const location& l)
+    {
+      forward (params, "configure", l); // Validate.
+    }
+
+    static void
+    configure_load (const values& params,
+                    scope& root,
+                    const path& buildfile,
+                    const dir_path& out_base,
+                    const dir_path& src_base,
+                    const location& l)
+    {
+      if (forward (params))
+      {
+        // We don't need to load the buildfiles in order to configure
+        // forwarding but in order to configure subprojects we have to
+        // bootstrap them (similar to disfigure).
+        //
+        create_bootstrap_inner (root);
+
+        if (root.out_path () == root.src_path ())
+          fail (l) << "forwarding to source directory " << root.src_path ();
+      }
+      else
+        load (params, root, buildfile, out_base, src_base, l); // Normal load.
+    }
+
+    static void
+    configure_search (const values& params,
+                      const scope& root,
+                      const scope& base,
+                      const target_key& tk,
+                      const location& l,
+                      action_targets& ts)
+    {
+      if (forward (params))
+      {
+        // For forwarding we only collect the projects (again, similar to
+        // disfigure).
+        //
+        ts.push_back (&root);
+      }
+      else
+        search (params, root, base, tk, l, ts); // Normal search.
+    }
+
     static void
     configure_match (const values&, action, action_targets&, uint16_t, bool)
     {
@@ -354,24 +493,40 @@ namespace build2
     }
 
     static void
-    configure_execute (const values&, action a, action_targets& ts,
-                       uint16_t, bool)
+    configure_execute (const values& params,
+                       action a,
+                       action_targets& ts,
+                       uint16_t,
+                       bool)
     {
-      // Match rules to configure every operation supported by each
-      // project. Note that we are not calling operation_pre/post()
-      // callbacks here since the meta operation is configure and we
-      // know what we are doing.
-      //
+      bool fwd (forward (params));
+
       project_set projects;
 
-      // Note that we cannot do this in parallel. We cannot parallelize the
-      // outer loop because we should match for a single action at a time.
-      // And we cannot swap the loops because the list of operations is
-      // target-specific. However, inside match(), things can proceed in
-      // parallel.
-      //
       for (const action_target& at: ts)
       {
+        if (fwd)
+        {
+          // Forward configuration.
+          //
+          const scope& root (*static_cast<const scope*> (at.target));
+          configure_forward (root, projects);
+          continue;
+        }
+
+        // Normal configuration.
+        //
+        // Match rules to configure every operation supported by each project.
+        // Note that we are not calling operation_pre/post() callbacks here
+        // since the meta operation is configure and we know what we are
+        // doing.
+        //
+        // Note that we cannot do this in parallel. We cannot parallelize the
+        // outer loop because we should match for a single action at a time.
+        // And we cannot swap the loops because the list of operations is
+        // target-specific. However, inside match(), things can proceed in
+        // parallel.
+        //
         const target& t (at.as_target ());
         const scope* rs (t.base_scope ().root_scope ());
 
@@ -407,10 +562,10 @@ namespace build2
       "configuring",
       "configured",
       "is configured",
-      nullptr, // meta-operation pre
+      &configure_pre, // meta-operation pre
       &configure_operation_pre,
-      &load,   // normal load
-      &search, // normal search
+      &configure_load,   // normal load unless configuring forward
+      &configure_search, // normal search unless configuring forward
       &configure_match,
       &configure_execute,
       nullptr, // operation post
@@ -419,51 +574,6 @@ namespace build2
 
     // disfigure
     //
-
-    static operation_id
-    disfigure_operation_pre (const values&, operation_id o)
-    {
-      // Don't translate default to update. In our case unspecified
-      // means disfigure everything.
-      //
-      return o;
-    }
-
-    static void
-    disfigure_load (const values&,
-                    scope& root,
-                    const path& bf,
-                    const dir_path&,
-                    const dir_path&,
-                    const location&)
-    {
-      tracer trace ("disfigure_load");
-      l6 ([&]{trace << "skipping " << bf;});
-
-      // Since we don't load buildfiles during disfigure but still want to
-      // disfigure all the subprojects (see disfigure_project() below), we
-      // bootstrap all the known subprojects.
-      //
-      create_bootstrap_inner (root);
-    }
-
-    static void
-    disfigure_search (const values&,
-                      const scope& root,
-                      const scope&,
-                      const target_key&,
-                      const location&,
-                      action_targets& ts)
-    {
-      tracer trace ("disfigure_search");
-      l6 ([&]{trace << "collecting " << root.out_path ();});
-      ts.push_back (&root);
-    }
-
-    static void
-    disfigure_match (const values&, action, action_targets&, uint16_t, bool)
-    {
-    }
 
     static bool
     disfigure_project (action a, const scope& root, project_set& projects)
@@ -476,10 +586,10 @@ namespace build2
       if (!projects.insert (&root).second)
       {
         l5 ([&]{trace << "skipping already disfigured " << out_root;});
-        return true;
+        return false;
       }
 
-      bool m (false); // Keep track of whether we actually did anything.
+      bool r (false); // Keep track of whether we actually did anything.
 
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
@@ -493,7 +603,7 @@ namespace build2
           const scope& nroot (scopes.find (out_nroot));
           assert (nroot.out_path () == out_nroot); // See disfigure_load().
 
-          m = disfigure_project (a, nroot, projects) || m;
+          r = disfigure_project (a, nroot, projects) || r;
 
           // We use mkdir_p() to create the out_root of a subproject
           // which means there could be empty parent directories left
@@ -510,7 +620,7 @@ namespace build2
               if (s == rmdir_status::not_empty)
                 break; // No use trying do remove parent ones.
 
-              m = (s == rmdir_status::success) || m;
+              r = (s == rmdir_status::success) || r;
             }
           }
         }
@@ -523,16 +633,16 @@ namespace build2
       {
         l5 ([&]{trace << "completely disfiguring " << out_root;});
 
-        m = rmfile (out_root / config_file) || m;
+        r = rmfile (out_root / config_file) || r;
 
         if (out_root != src_root)
         {
-          m = rmfile (out_root / src_root_file, 2) || m;
+          r = rmfile (out_root / src_root_file, 2) || r;
 
           // Clean up the directories.
           //
-          m = rmdir (out_root / bootstrap_dir, 2) || m;
-          m = rmdir (out_root / build_dir, 2) || m;
+          r = rmdir (out_root / bootstrap_dir, 2) || r;
+          r = rmdir (out_root / build_dir, 2) || r;
 
           switch (rmdir (out_root))
           {
@@ -550,7 +660,7 @@ namespace build2
               break;
             }
           case rmdir_status::success:
-            m = true;
+            r = true;
           default:
             break;
           }
@@ -560,14 +670,104 @@ namespace build2
       {
       }
 
-      return m;
+      return r;
+    }
+
+    static bool
+    disfigure_forward (const scope& root, project_set& projects)
+    {
+      // Pretty similar logic to disfigure_project().
+      //
+      tracer trace ("disfigure_forward");
+
+      const dir_path& out_root (root.out_path ());
+      const dir_path& src_root (root.src_path ());
+
+      if (!projects.insert (&root).second)
+      {
+        l5 ([&]{trace << "skipping already disfigured " << src_root;});
+        return false;
+      }
+
+      bool r (false);
+
+      if (auto l = root.vars[var_subprojects])
+      {
+        for (auto p: cast<subprojects> (l))
+        {
+          dir_path out_nroot (out_root / p.second);
+          const scope& nroot (scopes.find (out_nroot));
+          assert (nroot.out_path () == out_nroot);
+
+          r = disfigure_forward (nroot, projects) || r;
+        }
+      }
+
+      // Remove the out-root.build file and try to remove the bootstrap/
+      // directory if it is empty.
+      //
+      r = rmfile (src_root / out_root_file) || r;
+      r = rmdir (src_root / bootstrap_dir, 2) || r;
+
+      return r;
     }
 
     static void
-    disfigure_execute (const values&, action a, action_targets& ts,
-                       uint16_t diag, bool)
+    disfigure_pre (const values& params, const location& l)
+    {
+      forward (params, "disfigure", l); // Validate.
+    }
+
+    static operation_id
+    disfigure_operation_pre (const values&, operation_id o)
+    {
+      // Don't translate default to update. In our case unspecified
+      // means disfigure everything.
+      //
+      return o;
+    }
+
+    static void
+    disfigure_load (const values&,
+                    scope& root,
+                    const path&,
+                    const dir_path&,
+                    const dir_path&,
+                    const location&)
+    {
+      // Since we don't load buildfiles during disfigure but still want to
+      // disfigure all the subprojects (see disfigure_project() below), we
+      // bootstrap all the known subprojects.
+      //
+      create_bootstrap_inner (root);
+    }
+
+    static void
+    disfigure_search (const values&,
+                      const scope& root,
+                      const scope&,
+                      const target_key&,
+                      const location&,
+                      action_targets& ts)
+    {
+      ts.push_back (&root);
+    }
+
+    static void
+    disfigure_match (const values&, action, action_targets&, uint16_t, bool)
+    {
+    }
+
+    static void
+    disfigure_execute (const values& params,
+                       action a,
+                       action_targets& ts,
+                       uint16_t diag,
+                       bool)
     {
       tracer trace ("disfigure_execute");
+
+      bool fwd (forward (params));
 
       project_set projects;
 
@@ -578,14 +778,16 @@ namespace build2
       {
         const scope& root (*static_cast<const scope*> (at.target));
 
-        if (!disfigure_project (a, root, projects))
+        if (!(fwd
+              ? disfigure_forward (   root, projects)
+              : disfigure_project (a, root, projects)))
         {
-          // Create a dir{$out_root/} target to signify the project's
-          // root in diagnostics. Not very clean but seems harmless.
+          // Create a dir{$out_root/} target to signify the project's root in
+          // diagnostics. Not very clean but seems harmless.
           //
           target& t (
             targets.insert (dir::static_type,
-                            root.out_path (),
+                            fwd ? root.src_path () : root.out_path (),
                             dir_path (), // Out tree.
                             "",
                             nullopt,
@@ -605,7 +807,7 @@ namespace build2
       "disfiguring",
       "disfigured",
       "is disfigured",
-      nullptr, // meta-operation pre
+      disfigure_pre, // meta-operation pre
       &disfigure_operation_pre,
       &disfigure_load,
       &disfigure_search,
@@ -629,7 +831,7 @@ namespace build2
       // way main() does it.
       //
       scope& gs (*scope::global_);
-      scope& rs (load_project (gs, d, d, false /* load */));
+      scope& rs (load_project (gs, d, d, false /* fwd */, false /* load */));
       module& m (*rs.modules.lookup<module> (module::name));
 
       // Save all the global config.import.* variables.

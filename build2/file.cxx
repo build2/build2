@@ -30,6 +30,7 @@ namespace build2
   const path root_file (build_dir / "root.build");
   const path bootstrap_file (build_dir / "bootstrap.build");
   const path src_root_file (bootstrap_dir / "src-root.build");
+  const path out_root_file (bootstrap_dir / "out-root.build");
   const path export_file (build_dir / "export.build");
 
   // While strictly speaking it belongs in, say, config/module.cxx, the static
@@ -177,8 +178,7 @@ namespace build2
       rs.operations.insert (clean_id, op_clean);
     }
 
-    // If this is already a root scope, verify that things are
-    // consistent.
+    // If this is already a root scope, verify that things are consistent.
     //
     {
       value& v (rs.assign (var_out_root));
@@ -309,28 +309,30 @@ namespace build2
     return pair<scope&, scope*> (base, rs);
   }
 
-  scope&
-  load_project (scope& lock,
-                const dir_path& out_root, const dir_path& src_root,
-                bool load)
+  dir_path
+  bootstrap_fwd (const dir_path& src_root)
   {
-    auto i (create_root (lock, out_root, src_root));
-    scope& rs (i->second);
+    // We cannot just source the buildfile since there is no scope to do
+    // this on yet.
+    //
+    path bf (src_root / out_root_file);
 
-    if (!bootstrapped (rs))
+    if (!exists (bf))
+      return src_root;
+
+    auto p (extract_variable (bf, *var_out_root));
+
+    if (!p.second)
+      fail << "variable out_root expected as first line in " << bf;
+
+    try
     {
-      bootstrap_out (rs);
-      setup_root (rs);
-      bootstrap_src (rs);
+      return convert<dir_path> (move (p.first));
     }
-
-    if (load)
+    catch (const invalid_argument& e)
     {
-      load_root_pre (rs);
-      setup_base (i, out_root, src_root); // Setup as base.
+      fail << "invalid out_root value in " << bf << ": " << e << endf;
     }
-
-    return rs;
   }
 
   void
@@ -349,12 +351,8 @@ namespace build2
     source_once (root, root, bf);
   }
 
-  // Extract the specified variable value from a buildfile. It is expected to
-  // be the first non-comment line and not to rely on any variable expansion
-  // other than those from the global scope or any variable overrides.
-  //
   pair<value, bool>
-  extract_variable (scope& s, const path& bf, const variable& var)
+  extract_variable (const path& bf, const variable& var)
   {
     try
     {
@@ -373,7 +371,7 @@ namespace build2
       }
 
       parser p;
-      temp_scope tmp (s.global ());
+      temp_scope tmp (global_scope->rw ());
       p.parse_variable (lex, tmp, var, tt);
 
       value* v (tmp.vars.find_to_modify (var).first);
@@ -387,15 +385,12 @@ namespace build2
     {
       fail << "unable to read buildfile " << bf << ": " << e << endf;
     }
-
-    // Never reached.
   }
 
   // Extract the project name from bootstrap.build.
   //
   static string
-  find_project_name (scope& s,
-                     const dir_path& out_root,
+  find_project_name (const dir_path& out_root,
                      const dir_path& fallback_src_root,
                      bool* src_hint = nullptr)
   {
@@ -418,10 +413,10 @@ namespace build2
         src_root = &fallback_src_root;
       else
       {
-        auto p (extract_variable (s, f, *var_src_root));
+        auto p (extract_variable (f, *var_src_root));
 
         if (!p.second)
-          fail << "variable 'src_root' expected as first line in " << f;
+          fail << "variable src_root expected as first line in " << f;
 
         src_root_v = move (p.first);
         src_root = &cast<dir_path> (src_root_v);
@@ -433,10 +428,10 @@ namespace build2
     string name;
     {
       path f (*src_root / bootstrap_file);
-      auto p (extract_variable (s, f, *var_project));
+      auto p (extract_variable (f, *var_project));
 
       if (!p.second)
-        fail << "variable '" << var_project->name << "' expected "
+        fail << "variable " << var_project->name << " expected "
              << "as a first line in " << f;
 
       name = cast<string> (move (p.first));
@@ -451,8 +446,7 @@ namespace build2
   // is a subproject, then enter it into the map, handling the duplicates.
   //
   static void
-  find_subprojects (scope& s,
-                    subprojects& sps,
+  find_subprojects (subprojects& sps,
                     const dir_path& d,
                     const dir_path& root,
                     bool out)
@@ -498,7 +492,7 @@ namespace build2
       // Load its name. Note that here we don't use fallback src_root
       // since this function is used to scan both out_root and src_root.
       //
-      string name (find_project_name (s, sd, dir_path (), &src));
+      string name (find_project_name (sd, dir_path (), &src));
 
       // If the name is empty, then is is an unnamed project. While the
       // 'project' variable stays empty, here we come up with a surrogate
@@ -657,13 +651,13 @@ namespace build2
         if (exists (out_root))
         {
           l5 ([&]{trace << "looking for subprojects in " << out_root;});
-          find_subprojects (root, sps, out_root, out_root, true);
+          find_subprojects (sps, out_root, out_root, true);
         }
 
         if (out_root != src_root)
         {
           l5 ([&]{trace << "looking for subprojects in " << src_root;});
-          find_subprojects (root, sps, src_root, src_root, false);
+          find_subprojects (sps, src_root, src_root, false);
         }
 
         if (!sps.empty ()) // Keep it NULL if no subprojects.
@@ -733,7 +727,7 @@ namespace build2
               // was specified by the user so it is most likely in our
               // src.
               //
-              n = find_project_name (root, out_root / d, src_root / d);
+              n = find_project_name (out_root / d, src_root / d);
 
               // See find_subprojects() for details on unnamed projects.
               //
@@ -765,6 +759,27 @@ namespace build2
     return l.defined () && (l->null || l->type != nullptr);
   }
 
+  // Return true if the inner/outer project (identified by out/src_root) of
+  // the 'origin' project (identified by root) should be forwarded.
+  //
+  static inline bool
+  forwarded (const scope& root,
+             const dir_path& out_root,
+             const dir_path& src_root)
+  {
+    // The conditions are:
+    //
+    // 1. Origin is itself forwarded.
+    //
+    // 2. Inner/outer src_root != out_root.
+    //
+    // 3. Inner/outer out-root.build exists in src_root and refers out_root.
+    //
+    return (out_root != src_root                        &&
+            cast_false<bool> (root.vars[var_forwarded]) &&
+            bootstrap_fwd (src_root) == out_root);
+  }
+
   void
   create_bootstrap_outer (scope& root)
   {
@@ -783,16 +798,15 @@ namespace build2
     // 2. Amalgamation's src_root is the same as its out_root.
     // 3. Some other pre-configured (via src-root.build) src_root.
     //
-    // So we need to try all these cases in some sensible order.
-    // #3 should probably be tried first since that src_root was
-    // explicitly configured by the user. After that, #2 followed
-    // by #1 seems reasonable.
+    // So we need to try all these cases in some sensible order. #3 should
+    // probably be tried first since that src_root was explicitly configured
+    // by the user. After that, #2 followed by #1 seems reasonable.
     //
     scope& rs (create_root (root, out_root, dir_path ())->second);
 
     if (!bootstrapped (rs))
     {
-      bootstrap_out (rs); // #3 happens here, if at all.
+      bootstrap_out (rs); // #3 happens here (or it can be #1).
 
       value& v (rs.assign (var_src_root));
 
@@ -811,6 +825,9 @@ namespace build2
       setup_root (rs);
       bootstrap_src (rs);
     }
+
+    if (forwarded (root, rs.out_path (), rs.src_path ()))
+      rs.assign (var_forwarded) = true;
 
     create_bootstrap_outer (rs);
 
@@ -856,6 +873,9 @@ namespace build2
         if (rs.src_path ().sub (root.src_path ()))
           rs.strong_ = root.strong_scope (); // Itself or some outer scope.
 
+        if (forwarded (root, rs.out_path (), rs.src_path ()))
+          rs.assign (var_forwarded) = true;
+
         // See if there are more inner roots.
         //
         return create_bootstrap_inner (rs, out_base);
@@ -899,6 +919,37 @@ namespace build2
 
     if (exists (bf))
       source_once (root, root, bf);
+  }
+
+  scope&
+  load_project (scope& lock,
+                const dir_path& out_root,
+                const dir_path& src_root,
+                bool forwarded,
+                bool load)
+  {
+    assert (!forwarded || out_root != src_root);
+
+    auto i (create_root (lock, out_root, src_root));
+    scope& rs (i->second);
+
+    if (!bootstrapped (rs))
+    {
+      bootstrap_out (rs);
+      setup_root (rs);
+      bootstrap_src (rs);
+    }
+
+    if (forwarded)
+      rs.assign (var_forwarded) = true;
+
+    if (load)
+    {
+      load_root_pre (rs);
+      setup_base (i, out_root, src_root); // Setup as base.
+    }
+
+    return rs;
   }
 
   names
@@ -1073,12 +1124,23 @@ namespace build2
     // The user can also specify the out_root of the amalgamation that contains
     // our project. For now we only consider top-level sub-projects.
     //
-    dir_path src_root;
     scope* root;
+    dir_path src_root;
 
-    for (;;)
+    // See if this is a forwarded configuration. For top-level project we want
+    // to use the same logic as in main() while for inner subprojects -- as in
+    // create_bootstrap_inner().
+    //
+    bool fwd (false);
+    if (is_src_root (out_root))
     {
-      src_root = is_src_root (out_root) ? out_root : dir_path ();
+      src_root = move (out_root);
+      out_root = bootstrap_fwd (src_root);
+      fwd = (src_root != out_root);
+    }
+
+    for (const scope* proot (nullptr); ; proot = root)
+    {
       root = &create_root (iroot, out_root, src_root)->second;
 
       if (!bootstrapped (*root))
@@ -1105,6 +1167,11 @@ namespace build2
       else if (src_root.empty ())
         src_root = root->src_path ();
 
+      if (proot == nullptr
+          ? fwd
+          : forwarded (*proot, root->out_path (), root->src_path ()))
+        root->assign (var_forwarded) = true;
+
       // Now we know this project's name as well as all its subprojects.
       //
       if (cast<string> (root->vars[var_project]) == proj)
@@ -1119,6 +1186,7 @@ namespace build2
         {
           const dir_path& d ((*i).second);
           out_root = root->out_path () / d;
+          src_root = is_src_root (out_root) ? out_root : dir_path ();
           continue;
         }
       }
@@ -1126,8 +1194,8 @@ namespace build2
       fail (loc) << out_root << " is not out_root for " << proj;
     }
 
-    // Bootstrap outer roots if any. Loading will be done by
-    // load_root_pre() below.
+    // Bootstrap outer roots if any. Loading will be done by load_root_pre()
+    // below.
     //
     create_bootstrap_outer (*root);
 

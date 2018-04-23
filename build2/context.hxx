@@ -264,6 +264,7 @@ namespace build2
   extern const variable* var_out_root;
   extern const variable* var_src_base;
   extern const variable* var_out_base;
+  extern const variable* var_forwarded;
 
   extern const variable* var_project;
   extern const variable* var_amalgamation;
@@ -276,6 +277,7 @@ namespace build2
   extern const variable* var_import_target;   // import.target
 
   extern const variable* var_clean;           // [bool] target visibility
+  extern const variable* var_backlink;        // [bool] target visibility
 
   extern const char var_extension[10];        // "extension"
 

@@ -103,7 +103,7 @@ namespace build2
           {
             // Assume missing version is 0.
             //
-            auto p (extract_variable (rs, f, c_v));
+            auto p (extract_variable (f, c_v));
             uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
 
             if (v != module::version)

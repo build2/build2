@@ -181,13 +181,23 @@ namespace build2
   lock (action, const target&);
 
   // Add an ad hoc member to the end of the chain assuming that an already
-  // existing member of this target type is the same.
-  //
-  // If the suffix is specified, it is added (as an extension) to the member's
-  // target name. Return the locked member target.
+  // existing member of this target type is the same. Return the locked member
+  // target.
   //
   target_lock
-  add_adhoc_member (action, target&,
+  add_adhoc_member (action,
+                    target&,
+                    const target_type&,
+                    const dir_path& dir,
+                    const dir_path& out,
+                    const string& name);
+
+  // If the suffix is specified, it is added (as an extension) to the member's
+  // target name.
+  //
+  target_lock
+  add_adhoc_member (action,
+                    target&,
                     const target_type&,
                     const char* suffix = nullptr);
 
@@ -632,6 +642,21 @@ namespace build2
   {
     return clean_extra (a, f, {extra});
   }
+
+  // Update/clean a backlink issuing appropriate diagnostics at appropriate
+  // levels depending on first/changed.
+  //
+  void
+  update_backlink (const file&, const path& link, bool changed);
+
+  void
+  update_backlink (const path& target, const path& link, bool changed);
+
+  void
+  update_backlink (const path& target, const path& link);
+
+  void
+  clean_backlink (const path& link, uint16_t verbosity);
 }
 
 #include <build2/algorithm.ixx>

@@ -52,17 +52,17 @@ namespace build2
      meta-operations may take additional <parameters>. For example:
 
      \
-     b                       # perform(update(./))
-     b foo/                  # perform(update(foo/))
-     b foo/ bar/             # perform(update(foo/ bar/))
-     b update                # perform(update(./))
-     b 'clean(../)'          # perform(clean(../))
-     b perform               # perform(update(./))
-     b configure             # configure(?(./))
-     b 'configure(../)'      # configure(?(../))
-     b clean update          # perform(clean(./) update(./))
-     b configure update      # configure(?(./)) perform(update(./))
-     b 'create(conf/, cxx)'  # create(?(conf/), cxx)
+     $ b                       # perform(update(./))
+     $ b foo/                  # perform(update(foo/))
+     $ b foo/ bar/             # perform(update(foo/ bar/))
+     $ b update                # perform(update(./))
+     $ b 'clean(../)'          # perform(clean(../))
+     $ b perform               # perform(update(./))
+     $ b configure             # configure(?(./))
+     $ b 'configure(../)'      # configure(?(../))
+     $ b clean update          # perform(clean(./) update(./))
+     $ b configure update      # configure(?(./)) perform(update(./))
+     $ b 'create(conf/, cxx)'  # create(?(conf/), cxx)
      \
 
      Notice the question mark used to show the (imaginary) default operation
@@ -74,17 +74,17 @@ namespace build2
      Compare:
 
      \
-     b 'clean(foo/ bar/)' 'update(foo/ bar/)'
-     b '{clean update}(foo/ bar/)'
+     $ b 'clean(foo/ bar/)' 'update(foo/ bar/)'
+     $ b '{clean update}(foo/ bar/)'
      \
 
      Some more useful buildspec examples:
 
      \
-     b '{clean update}(...)'        # rebuild
-     b '{clean update clean}(...)'  # make sure builds
-     b '{clean test clean}(...)'    # make sure passes tests
-     b '{clean disfigure}(...)'     # similar to distclean
+     $ b '{clean update}(...)'        # rebuild
+     $ b '{clean update clean}(...)'  # make sure builds
+     $ b '{clean test clean}(...)'    # make sure passes tests
+     $ b '{clean disfigure}(...)'     # similar to distclean
      \
 
      In POSIX shells parenthesis are special characters and must be quoted
@@ -94,10 +94,10 @@ namespace build2
      meta-operation, for example:
 
      \
-     b clean: foo/ bar/                # clean(foo/ bar/)
-     b configure: src/@out/            # configure(src/@out/)
-     b create: conf/, cxx              # create(conf/, cxx)
-     b configure: config.cxx=g++ src/  # configure(src/) config.cxx=g++
+     $ b clean: foo/ bar/                # clean(foo/ bar/)
+     $ b configure: src/@out/            # configure(src/@out/)
+     $ b create: conf/, cxx              # create(conf/, cxx)
+     $ b configure: config.cxx=g++ src/  # configure(src/) config.cxx=g++
      \
 
      To activate the shortcut syntax the first buildspec argument must start
@@ -114,9 +114,9 @@ namespace build2
      For example, assuming \cb{foo/} is the source directory of a project:
 
      \
-     b foo/              # out_base=src_base=foo/
-     b foo-out/          # out_base=foo-out/ src_base=foo/
-     b foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
+     $ b foo/              # out_base=src_base=foo/
+     $ b foo-out/          # out_base=foo-out/ src_base=foo/
+     $ b foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
      \
 
      An exception to this requirement is a directory target in which case,
@@ -143,23 +143,39 @@ namespace build2
      Continuing with the previous example:
 
      \
-     b foo/@foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
+     $ b foo/@foo-out/exe{foo}  # out_base=foo-out/ src_base=foo/
      \
 
      Normally, you would need to specify \cb{src_base} explicitly only once,
      during configuration. For example, a typical usage would be:
 
      \
-     b 'configure(foo/@foo-out/)'  # src_base is saved
-     b foo-out/                    # no need to specify src_base
-     b 'clean(foo-out/exe{foo})'   # no need to specify src_base
+     $ b configure: foo/@foo-out/  # src_base is saved
+     $ b foo-out/                  # no need to specify src_base
+     $ b clean: foo-out/exe{foo}   # no need to specify src_base
+     \
+
+     Besides in and out of source builds, \cb{build2} also supports
+     configuring a project's source directory as \i{forwarded} to an out of
+     source build. With such a forwarded configuration in place, if we run the
+     build system driver from the source directory, it will automatically
+     build in the output directory and \i{backlink} (using symlinks or another
+     suitable mechanism) certain \"interesting\" targets (executables,
+     documentation, etc) to the source directory for easy access. Continuing
+     with the previous example:
+
+     \
+     $ b configure: foo/@foo-out/,forward  # foo/ forwarded to foo-out/
+     $ cd foo/
+     $ b                                   # build in foo-out/
+     $ ./foo                               # symlink to foo-out/foo
      \
 
      The ability to specify \cb{build2} variables as part of the command line
      is normally used to pass configuration values, for example:
 
      \
-     b config.cxx=clang++ config.cxx.coptions=-O3
+     $ b config.cxx=clang++ config.cxx.coptions=-O3
      \
 
      Similar to buildspec, POSIX shells often inhibit path auto-completion on
@@ -168,7 +184,7 @@ namespace build2
      arguments, for example:
 
      \
-     b config.import.libhello = ../libhello/
+     $ b config.import.libhello = ../libhello/
      \
 
      The build system has the following built-in and pre-defined
@@ -187,9 +203,18 @@ namespace build2
          \cb{config} module. For example:
 
          \
-         b config.cxx=clang++ config.cxx.coptions=-O3 \
-           config.install.root=/usr/local config.install.root.sudo=sudo \
-           configure
+         $ b configure                      \
+             config.cxx=clang++             \
+             config.cxx.coptions=-O3        \
+             config.install.root=/usr/local \
+             config.install.root.sudo=sudo
+         \
+
+         Use the \cb{forward} parameter to instead configure a source
+         directory as forwarded to an out of source build. For example:
+
+         \
+         $ b configure: src/@out/,forward
          \
 
          |
@@ -198,7 +223,16 @@ namespace build2
 
          Disfigure all operations supported by a project and remove the
          project's \cb{build/config.build} file. Implemented by the
-         \cb{config} module.|
+         \cb{config} module.
+
+         Use the \cb{forward} parameter to instead disfigure forwarding of a
+         source directory to an out of source build. For example:
+
+         \
+         $ b disfigure: src/,forward
+         \
+
+         |
 
      \li|\cb{create}
 
@@ -225,9 +259,9 @@ namespace build2
          own directory, for example:
 
          \
-         b 'configure(libhello/@libhello-clang/)' config.cxx=clang++
-         b 'configure(hello/@hello-clang/)' config.cxx=clang++ \
-           config.import.libhello=libhello-clang/
+         $ b configure: libhello/@libhello-clang/ config.cxx=clang++
+         $ b configure: hello/@hello-clang/ config.cxx=clang++ \
+             config.import.libhello=libhello-clang/
          \
 
          The two drawbacks, as mentioned above, are the need to explicitly
@@ -238,9 +272,9 @@ namespace build2
          drawbacks using the configuration project:
 
          \
-         b 'create(clang/, cxx)' config.cxx=clang++ # Creates clang/.
-         b 'configure(libhello/@clang/libhello/)'
-         b 'configure(hello/@clang/hello/)'
+         $ b create: clang/,cxx config.cxx=clang++  # Creates clang/.
+         $ b configure: libhello/@clang/libhello/
+         $ b configure: hello/@clang/hello/
          \
 
          The targets passed to the \cb{create} meta-operation must be
@@ -286,7 +320,7 @@ namespace build2
          identified by its root directory target. For example:
 
          \
-         b info: libfoo/ libbar/
+         $ b info: libfoo/ libbar/
          \
 
          ||
@@ -343,9 +377,9 @@ namespace build2
      For example:
 
      \
-     b config.install.root=c:\projects\install
-     b \"config.install.root='c:\Program Files (x86)\test\'\"
-     b 'config.cxx.poptions=-DFOO_STR=\"foo\"'
+     $ b config.install.root=c:\projects\install
+     $ b \"config.install.root='c:\Program Files (x86)\test\'\"
+     $ b 'config.cxx.poptions=-DFOO_STR=\"foo\"'
      \
      "
   }

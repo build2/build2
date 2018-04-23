@@ -1005,7 +1005,7 @@ namespace build2
             }
 
             {
-              mt.vars.assign (*x_symexport) = (se == "true");
+              mt.vars.assign (x_symexport) = (se == "true");
             }
 
             tl.second.unlock ();

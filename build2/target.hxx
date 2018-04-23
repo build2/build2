@@ -400,6 +400,9 @@ namespace build2
     value&
     assign (const variable& var) {return vars.assign (var);}
 
+    value&
+    assign (const variable* var) {return vars.assign (var);} // For cached.
+
     // Return a value suitable for appending. See scope for details.
     //
     value&
@@ -1556,12 +1559,11 @@ namespace build2
     search_implied (const scope&, const K&, tracer&);
   };
 
-  // While a filesystem directory is mtime-based, the semantics is
-  // not very useful in our case. In particular, if another target
-  // depends on fsdir{}, then all that's desired is the creation of
-  // the directory if it doesn't already exist. In particular, we
-  // don't want to update the target just because some unrelated
-  // entry was created in that directory.
+  // While a filesystem directory is mtime-based, the semantics is not very
+  // useful in our case. In particular, if another target depends on fsdir{},
+  // then all that's desired is the creation of the directory if it doesn't
+  // already exist. In particular, we don't want to update the target just
+  // because some unrelated entry was created in that directory.
   //
   class fsdir: public target
   {

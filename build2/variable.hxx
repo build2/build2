@@ -96,13 +96,13 @@ namespace build2
 
   enum class variable_visibility
   {
+    // Note that the search for target type/pattern-specific terminates at
+    // the project boundary.
+    //
     target,   // Target and target type/pattern-specific.
     scope,    // This scope (no outer scopes).
     project,  // This project (no outer projects).
     normal    // All outer scopes.
-
-    // Note that the search for target type/pattern-specific terminates at
-    // the project boundary.
   };
 
   // variable
@@ -307,7 +307,7 @@ namespace build2
   // from lookup expects the value to also be defined.
   //
   // Note that a cast to names expects the value to be untyped while a cast
-  // to vector<names> -- typed.
+  // to vector<name> -- typed.
   //
   // Why are these non-members? The cast is easier on the eyes and is also
   // consistent with the cast operators. The other two are for symmetry.
@@ -1235,6 +1235,13 @@ namespace build2
     //
     value&
     assign (const variable& var) {return insert (var).first;}
+
+    value&
+    assign (const variable* var) // For cached variables.
+    {
+      assert (var != nullptr);
+      return assign (*var);
+    }
 
     // Note that the variable is expected to have already been registered.
     //

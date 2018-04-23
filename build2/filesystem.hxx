@@ -70,6 +70,12 @@ namespace build2
     return rmfile (f, f, static_cast<uint16_t> (verbosity));
   }
 
+  inline fs_status<rmfile_status>
+  rmfile (const path& f, uint16_t verbosity) // Overload (verb_never).
+  {
+    return rmfile (f, f, verbosity);
+  }
+
   // Similar to rmfile() but for directories (note: not -r).
   //
   using rmdir_status = butl::rmdir_status;
@@ -82,6 +88,12 @@ namespace build2
   rmdir (const dir_path& d, int verbosity = 1) // Literal overload (int).
   {
     return rmdir (d, d, static_cast<uint16_t> (verbosity));
+  }
+
+  inline fs_status<rmdir_status>
+  rmdir (const dir_path& d, uint16_t verbosity) // Overload (verb_never).
+  {
+    return rmdir (d, d, verbosity);
   }
 
   // Remove the directory recursively and print the standard diagnostics

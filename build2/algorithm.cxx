@@ -205,21 +205,19 @@ namespace build2
   }
 
   target_lock
-  add_adhoc_member (action a, target& t, const target_type& tt, const char* s)
+  add_adhoc_member (action a,
+                    target& t,
+                    const target_type& tt,
+                    const dir_path& dir,
+                    const dir_path& out,
+                    const string& n)
   {
-    string n (t.name);
-    if (s != nullptr)
-    {
-      n += '.';
-      n += s;
-    }
-
     const_ptr<target>* mp (&t.member);
     for (; *mp != nullptr && !(*mp)->is_a (tt); mp = &(*mp)->member) ;
 
     const target& m (*mp != nullptr // Might already be there.
                      ? **mp
-                     : search (t, tt, t.dir, t.out, n));
+                     : search (t, tt, dir, out, n));
 
     target_lock l (lock (a, m));
     assert (l.target != nullptr); // Someone messing with ad hoc members?
@@ -227,7 +225,7 @@ namespace build2
     if (*mp == nullptr)
       *mp = l.target;
     else
-      assert ((*mp)->name == n); // Basic sanity check.
+      assert ((*mp)->dir == dir && (*mp)->name == n); // Basic sanity check.
 
     return l;
   };
@@ -896,6 +894,286 @@ namespace build2
     return ts;
   }
 
+  void
+  update_backlink (const file& f, const path& l, bool changed)
+  {
+    const path& p (f.path ());
+    dir_path d (l.directory ());
+
+    // At low verbosity levels we print the command if the target changed or
+    // the link does not exist (we also treat errors as "not exist" and let
+    // the link update code below handle it).
+    //
+    // Note that in the changed case we print it even if the link is not
+    // actually updated to signal to the user that the updated out target is
+    // now available in src.
+    //
+    if (verb <= 2)
+    {
+      if (changed || !butl::entry_exists (l,
+                                          false /* follow_symlinks */,
+                                          true  /* ignore_errors */))
+      {
+        if (verb >= 2)
+          text << "ln -s " << p << ' ' << l;
+        else
+          text << "ln " << f << " -> " << d;
+      }
+    }
+
+    // What if there is no such subdirectory in src (some like to stash their
+    // executables in bin/ or some such). The easiest is probably just to
+    // create it even though we won't be cleaning it up.
+    //
+    if (!exists (d))
+      mkdir_p (d, 2 /* verbosity */);
+
+    update_backlink (p, l);
+  }
+
+  void
+  update_backlink (const path& p, const path& l, bool changed)
+  {
+    // As above but with a slightly different diagnostics.
+
+    dir_path d (l.directory ());
+
+    if (verb <= 2)
+    {
+      if (changed || !butl::entry_exists (l,
+                                          false /* follow_symlinks */,
+                                          true  /* ignore_errors */))
+      {
+        if (verb >= 2)
+          text << "ln -s " << p.string () << ' ' << l.string ();
+        else
+          text << "ln " << p.string () << " -> " << d;
+      }
+    }
+
+    if (!exists (d))
+      mkdir_p (d, 2 /* verbosity */);
+
+    update_backlink (p, l);
+  }
+
+  void
+  update_backlink (const path& p, const path& l)
+  {
+    bool d (l.to_directory ());
+
+    bool sym (true);
+    auto print = [&sym, &p, &l] ()
+    {
+      if (verb >= 3)
+        text << (sym ? "ln -sf" : "ln -f")
+             << ' ' << p.string ()
+             << ' ' << l.string (); // 'ln foo/ bar/' means different thing.
+    };
+
+    try
+    {
+      try_rmfile (l); // Normally will be there.
+
+      // Skip (ad hoc) targets that don't exist.
+      //
+      if (!(d ? dir_exists (p) : file_exists (p)))
+        return;
+
+      try
+      {
+        mksymlink (p, l, d);
+      }
+      catch (const system_error& e)
+      {
+        // If symlinks not supported, try a hardlink.
+        //
+        // Note that we are not guaranteed that the system_error exception is
+        // of the generic category.
+        //
+        int c (e.code ().value ());
+        if (!(e.code ().category () == generic_category () &&
+              (c == ENOSYS || // Not implemented.
+               c == EPERM)))  // Not supported by the filesystem(s).
+          throw;
+
+        sym = false;
+        mkhardlink (p, l, d);
+      }
+    }
+    catch (const system_error& e)
+    {
+      print ();
+      fail << "unable to create " << (sym ? "symlink " : " hardlink ") << l
+           << ": " << e;
+    }
+
+    print ();
+  }
+
+  void
+  clean_backlink (const path& l, uint16_t verbosity)
+  {
+    // Assuming this works for directories (which can only be symlinked). See
+    // also try_rmfile() calls in ~backlink() and update_backlink().
+    //
+    rmfile (l, verbosity);
+  }
+
+  // If target/link path are syntactically to a directory, then the backlink
+  // is assumed to be to a directory, otherwise -- to a file.
+  //
+  struct backlink: auto_rm<path>
+  {
+    using path_type = build2::path;
+
+    reference_wrapper<const path_type> target;
+
+    backlink (const path_type& t, path_type&& l)
+        : auto_rm<path_type> (move (l)), target (t)
+    {
+      assert (t.to_directory () == path.to_directory ());
+    }
+
+    ~backlink ()
+    {
+      if (active)
+      {
+        // Assuming this works for both file and directory (sym)links.
+        //
+        try_rmfile (path, true /* ignore_errors */);
+        active = false;
+      }
+    }
+
+    backlink (backlink&&) = default;
+    backlink& operator= (backlink&&) = default;
+  };
+
+  // Normally (i.e., on sane platforms that don't have things like PDBs, etc)
+  // there will be just one backlink so optimize for that.
+  //
+  using backlinks = small_vector<backlink, 1>;
+
+  static bool
+  backlink_test (action a, target& t)
+  {
+    // Note: the order of these checks is from the least to most expensive.
+
+    // Only for plain update/clean.
+    //
+    if (a.outer () || (a != perform_update_id && a != perform_clean_id))
+      return false;
+
+    // Only file-based targets in the out tree can be backlinked.
+    //
+    if (!t.out.empty () || !t.is_a<file> ())
+      return false;
+
+    // An in-src configuration cannot be forwarded.
+    //
+    const scope& bs (t.base_scope ());
+    if (bs.src_path () == bs.out_path ())
+      return false;
+
+    // Only for forwarded configurations.
+    //
+    if (!cast_false<bool> (bs.root_scope ()->vars[var_forwarded]))
+      return false;
+
+    lookup l (t[var_backlink]);
+
+    // If not found, check for some defaults in the global scope (this does
+    // not happen automatically since target type/pattern-specific lookup
+    // stops at the project boundary).
+    //
+    if (!l.defined ())
+      l = global_scope->find (*var_backlink, t.key ());
+
+    return cast_false<bool> (l);
+  }
+
+  static backlinks
+  backlink_collect (target& t)
+  {
+    const scope& s (t.base_scope ());
+
+    backlinks bls;
+    auto add = [&bls, &s] (const path& p)
+    {
+      bls.emplace_back (p, s.src_path () / p.leaf (s.out_path ()));
+    };
+
+    // First the target itself.
+    //
+    add (t.as<file> ().path ());
+
+    // Then ad hoc group file/fsdir members, if any.
+    //
+    for (const target* m (t.member); m != nullptr; m = m->member)
+    {
+      if (const file* f = m->is_a<file> ())
+      {
+        const path& p (f->path ());
+
+        if (!p.empty ()) // The "trust me, it's somewhere" case.
+          add (p);
+      }
+      else if (const fsdir* d = m->is_a<fsdir> ())
+        add (d->dir);
+    }
+
+    return bls;
+  }
+
+  static inline backlinks
+  backlink_update_pre (target& t)
+  {
+    return backlink_collect (t);
+  }
+
+  static void
+  backlink_update_post (target& t, target_state ts, backlinks& bls)
+  {
+    if (ts == target_state::failed)
+      return; // Let auto rm clean things up.
+
+    // Make backlinks.
+    //
+    for (auto b (bls.begin ()), i (b); i != bls.end (); ++i)
+    {
+      const backlink& bl (*i);
+
+      if (i == b)
+        update_backlink (t.as<file> (), bl.path, ts == target_state::changed);
+      else
+        update_backlink (bl.target, bl.path);
+    }
+
+    // Cancel removal.
+    //
+    for (backlink& bl: bls)
+      bl.cancel ();
+  }
+
+  static void
+  backlink_clean_pre (target& t)
+  {
+    backlinks bls (backlink_collect (t));
+
+    for (auto b (bls.begin ()), i (b); i != bls.end (); ++i)
+    {
+      backlink& bl (*i);
+      const path& l (bl.path);
+
+      bl.cancel ();
+
+      // Printing anything at level 1 will probably just add more noise.
+      //
+      clean_backlink (l, i == b ? 2 : 3 /* verbosity */);
+    }
+  }
+
   static target_state
   execute_impl (action a, target& t)
   {
@@ -904,7 +1182,41 @@ namespace build2
     assert (s.task_count.load (memory_order_consume) == target::count_busy ()
             && s.state == target_state::unknown);
 
-    target_state ts (execute_recipe (a, t, s.recipe));
+    target_state ts;
+    try
+    {
+      // Handle target backlinking to forwarded configurations.
+      //
+      // Note that this function will never be called if the recipe is noop
+      // which is ok since such targets are probably not interesting for
+      // backlinking.
+      //
+      backlinks bls;
+      bool bl (backlink_test (a, t));
+
+      if (bl)
+      {
+        if (a == perform_update_id)
+          bls = backlink_update_pre (t);
+        else
+          backlink_clean_pre (t);
+      }
+
+      ts = execute_recipe (a, t, s.recipe);
+
+      if (bl)
+      {
+        if (a == perform_update_id)
+          backlink_update_post (t, ts, bls);
+      }
+    }
+    catch (const failed&)
+    {
+      // If we could not backlink the target, then the best way to signal the
+      // failure seems to be to mark the target as failed.
+      //
+      ts = s.state = target_state::failed;
+    }
 
     // Decrement the target count (see set_recipe() for details).
     //

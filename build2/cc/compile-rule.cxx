@@ -3853,7 +3853,10 @@ namespace build2
                 2);                             /* verbosity */
             }
 
-            ps = &load_project (as->rw () /* lock */, pd, pd);
+            ps = &load_project (as->rw () /* lock */,
+                                pd,
+                                pd,
+                                false /* forwarded */);
           }
         }
 

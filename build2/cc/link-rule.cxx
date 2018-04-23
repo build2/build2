@@ -477,6 +477,34 @@ namespace build2
 
             match_recipe (pc, group_recipe); // Set recipe and unlock.
           }
+
+          // Add the Windows rpath emulating assembly directory as fsdir{}.
+          //
+          // Currently this is used in the backlinking logic and in the future
+          // could also be used for clean (though there we may want to clean
+          // old assemblies).
+          //
+          if (ot == otype::e && tclass == "windows")
+          {
+            // Note that here we cannot determine whether we will actually
+            // need one (for_install, library timestamps are not available at
+            // this point to call windows_rpath_timestamp()). So we may add
+            // the ad hoc target but actually not produce the assembly. So
+            // whomever relies on this must check if the directory actually
+            // exists (windows_rpath_assembly() does take care to clean it up
+            // if not used).
+            //
+            target_lock dir (
+              add_adhoc_member (
+                a,
+                t,
+                fsdir::static_type,
+                path_cast<dir_path> (t.path () + ".dlls"),
+                t.out,
+                string ()));
+
+            match_recipe (dir, group_recipe); // Set recipe and unlock.
+          }
         }
       }
 
@@ -1258,7 +1286,7 @@ namespace build2
       // If targeting Windows, take care of the manifest.
       //
       path manifest; // Manifest itself (msvc) or compiled object file.
-      timestamp rpath_timestamp (timestamp_nonexistent); // DLLs timestamp.
+      timestamp rpath_timestamp = timestamp_nonexistent; // DLLs timestamp.
 
       if (lt.executable () && tclass == "windows")
       {
@@ -1269,10 +1297,7 @@ namespace build2
         if (!for_install)
           rpath_timestamp = windows_rpath_timestamp (t, bs, a, li);
 
-        pair<path, bool> p (
-          windows_manifest (t,
-                            rpath_timestamp != timestamp_nonexistent));
-
+        auto p (windows_manifest (t, rpath_timestamp != timestamp_nonexistent));
         path& mf (p.first);
         bool mf_cf (p.second); // Changed flag (timestamp resolution).
 
@@ -2032,10 +2057,9 @@ namespace build2
 
       if (tclass == "windows")
       {
-        // For Windows generate rpath-emulating assembly (unless updating for
-        // install).
+        // For Windows generate (or clean up) rpath-emulating assembly.
         //
-        if (lt.executable () && !for_install)
+        if (lt.executable ())
           windows_rpath_assembly (t, bs, a, li,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
@@ -2052,7 +2076,7 @@ namespace build2
 
           try
           {
-            if (file_exists (l, false)) // The -f part.
+            if (file_exists (l, false /* follow_symlinks */)) // The -f part.
               try_rmfile (l);
 
             mksymlink (f, l);

@@ -665,11 +665,11 @@ main (int argc, char* argv[])
         {
           name& tn (ts.name);
 
-          // First figure out the out_base of this target. The logic
-          // is as follows: if a directory was specified in any form,
-          // then that's the out_base. Otherwise, we check if the name
-          // value has a directory prefix. This has a good balance of
-          // control and the expected result in most cases.
+          // First figure out the out_base of this target. The logic is as
+          // follows: if a directory was specified in any form, then that's
+          // the out_base. Otherwise, we check if the name value has a
+          // directory prefix. This has a good balance of control and the
+          // expected result in most cases.
           //
           dir_path out_base (tn.dir);
           if (out_base.empty ())
@@ -711,7 +711,10 @@ main (int argc, char* argv[])
           dir_path src_root;
           dir_path out_root;
 
-          dir_path& src_base (ts.src_base); // Update it in buildspec.
+          // Update these in buildspec.
+          //
+          bool& forwarded (ts.forwarded);
+          dir_path& src_base (ts.src_base);
 
           if (!src_base.empty ())
           {
@@ -770,24 +773,40 @@ main (int argc, char* argv[])
             // If no src_base was explicitly specified, search for out_root.
             //
             auto p (find_out_root (out_base));
-            out_root = move (p.first);
 
-            // If not found (i.e., we have no idea where the roots are), then
-            // this can only mean a simple project. Which in turn means there
-            // should be a buildfile in out_base.
-            //
-            if (out_root.empty ())
+            if (p.second) // Also src_root.
             {
-              if (find_buildfile (out_base).empty ())
-              {
-                fail << "no buildfile in " << out_base <<
-                  info << "consider explicitly specifying its src_base";
-              }
+              src_root = move (p.first);
 
-              src_root = src_base = out_root = out_base;
+              // Handle a forwarded configuration. Note that if we've changed
+              // out_root then we also have to remap out_base.
+              //
+              out_root = bootstrap_fwd (src_root);
+              if (src_root != out_root)
+              {
+                out_base = out_root / out_base.leaf (src_root);
+                forwarded = true;
+              }
             }
-            else if (p.second)
-              src_root = out_root;
+            else
+            {
+              out_root = move (p.first);
+
+              // If not found (i.e., we have no idea where the roots are),
+              // then this can only mean a simple project. Which in turn means
+              // there should be a buildfile in out_base.
+              //
+              if (out_root.empty ())
+              {
+                if (find_buildfile (out_base).empty ())
+                {
+                  fail << "no buildfile in " << out_base <<
+                    info << "consider explicitly specifying its src_base";
+                }
+
+                src_root = src_base = out_root = out_base;
+              }
+            }
           }
 
           // Now we know out_root and, if it was explicitly specified or the
@@ -825,7 +844,7 @@ main (int argc, char* argv[])
               else if (src_root != p)
               {
                 fail << "bootstrapped src_root " << p << " does not match "
-                     << "specified " << src_root;
+                     << (forwarded ? "forwarded " : "specified ") << src_root;
               }
             }
             else
@@ -850,6 +869,13 @@ main (int argc, char* argv[])
           }
           else if (src_root.empty ())
             src_root = rs.src_path ();
+
+          // Note that we only "upgrade" the forwarded value since the same
+          // project root can be arrived at via multiple paths (think command
+          // line and import).
+          //
+          if (forwarded)
+            rs.assign (var_forwarded) = true;
 
           // At this stage we should have both roots and out_base figured
           // out. If src_base is still undetermined, calculate it.
@@ -1087,13 +1113,13 @@ main (int argc, char* argv[])
           if (verb >= 5)
           {
             trace << "bootstrapped " << tn << ':';
-            trace << "  out_base:  " << out_base;
-            trace << "  src_base:  " << src_base;
-            trace << "  out_root:  " << out_root;
-            trace << "  src_root:  " << src_root;
-
+            trace << "  out_base:     " << out_base;
+            trace << "  src_base:     " << src_base;
+            trace << "  out_root:     " << out_root;
+            trace << "  src_root:     " << src_root;
+            trace << "  forwarded:    " << (forwarded ? "true" : "false");
             if (auto l = rs.vars[var_amalgamation])
-              trace << "  amalgamat: " << cast<dir_path> (l);
+              trace << "  amalgamation: " << cast<dir_path> (l);
           }
 
           path bf (find_buildfile (src_base));
@@ -1219,6 +1245,9 @@ main (int argc, char* argv[])
               d = work / d;
 
             d.normalize (true); // Actualize since came from command line.
+
+            if (ts.forwarded)
+              d = rs.out_path () / d.leaf (rs.src_path ()); // Remap.
 
             // Figure out if this target is in the src tree.
             //

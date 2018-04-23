@@ -31,6 +31,7 @@ namespace build2
     scope* root_scope = nullptr;
     dir_path out_base;
     path buildfile; // Empty if implied.
+    bool forwarded = false;
   };
 
   struct opspec: vector<targetspec>

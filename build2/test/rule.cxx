@@ -427,6 +427,18 @@ namespace build2
       else
         wd /= "test-" + t.name;
 
+      // Are we backlinking the test working directory to src? (See
+      // backlink_*() in algorithm.cxx for details.)
+      //
+      const scope& bs (t.base_scope ());
+
+      dir_path bl;
+      if (cast_false<bool> (bs.root_scope ()->vars[var_forwarded]))
+      {
+        bl = bs.src_path () / wd.leaf (bs.out_path ());
+        clean_backlink (bl, verb_never);
+      }
+
       // If this is a (potentially) multi-testscript test, then create (and
       // later cleanup) the root directory. If this is just 'testscript', then
       // the root directory is used directly as test's working directory and
@@ -517,7 +529,7 @@ namespace build2
             // going, bail out.
             //
             if (r == scope_state::failed && !keep_going)
-              throw failed ();
+              break;
           }
         }
       }
@@ -526,19 +538,23 @@ namespace build2
 
       // Re-examine.
       //
+      bool bad (false);
       for (scope_state r: result)
       {
         switch (r)
         {
-        case scope_state::passed:  break;
-        case scope_state::failed:  throw failed ();
+        case scope_state::passed:              break;
+        case scope_state::failed:  bad = true; break;
         case scope_state::unknown: assert (false);
         }
+
+        if (bad)
+          break;
       }
 
       // Cleanup.
       //
-      if (!one && !mk && after == output_after::clean)
+      if (!bad && !one && !mk && after == output_after::clean)
       {
         if (!empty (wd))
           fail << "working directory " << wd << " is not empty at the "
@@ -546,6 +562,14 @@ namespace build2
 
         rmdir (wd, 2);
       }
+
+      // Backlink if the working directory exists.
+      //
+      if (!bl.empty () && exists (wd))
+        update_backlink (wd, bl, true /* changed */);
+
+      if (bad)
+        throw failed ();
 
       return target_state::changed;
     }

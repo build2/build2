@@ -326,6 +326,7 @@ namespace build2
   const variable* var_out_root;
   const variable* var_src_base;
   const variable* var_out_base;
+  const variable* var_forwarded;
 
   const variable* var_project;
   const variable* var_amalgamation;
@@ -338,6 +339,7 @@ namespace build2
   const variable* var_import_target;
 
   const variable* var_clean;
+  const variable* var_backlink;
 
   const char var_extension[10] = "extension";
 
@@ -416,10 +418,6 @@ namespace build2
     // Setup the global scope before parsing any variable overrides since they
     // may reference these things.
     //
-
-    // Target extension.
-    //
-    vp.insert<string> (var_extension, variable_visibility::target);
 
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;
@@ -673,28 +671,38 @@ namespace build2
     vp.insert_pattern<bool> (
       "**.configured", false, variable_visibility::project);
 
-    var_src_root = &vp.insert<dir_path> ("src_root");
-    var_out_root = &vp.insert<dir_path> ("out_root");
-    var_src_base = &vp.insert<dir_path> ("src_base");
-    var_out_base = &vp.insert<dir_path> ("out_base");
-
-    // Note that subprojects is not typed since the value requires
-    // pre-processing (see file.cxx).
-    //
     {
-      auto pv (variable_visibility::project);
+      auto v_p (variable_visibility::project);
+      auto v_t (variable_visibility::target);
 
-      var_project      = &vp.insert<string>   ("project",      pv);
-      var_amalgamation = &vp.insert<dir_path> ("amalgamation", pv);
-      var_subprojects  = &vp.insert           ("subprojects",  pv);
-      var_version      = &vp.insert<string>   ("version",      pv);
+      var_src_root = &vp.insert<dir_path> ("src_root");
+      var_out_root = &vp.insert<dir_path> ("out_root");
+      var_src_base = &vp.insert<dir_path> ("src_base");
+      var_out_base = &vp.insert<dir_path> ("out_base");
 
-      var_project_url     = &vp.insert<string> ("project.url",     pv);
-      var_project_summary = &vp.insert<string> ("project.summary", pv);
+      var_forwarded = &vp.insert<bool> ("forwarded", v_p);
+
+      // Note that subprojects is not typed since the value requires
+      // pre-processing (see file.cxx).
+      //
+      var_project      = &vp.insert<string>   ("project",      v_p);
+      var_amalgamation = &vp.insert<dir_path> ("amalgamation", v_p);
+      var_subprojects  = &vp.insert           ("subprojects",  v_p);
+      var_version      = &vp.insert<string>   ("version",      v_p);
+
+      var_project_url     = &vp.insert<string> ("project.url",     v_p);
+      var_project_summary = &vp.insert<string> ("project.summary", v_p);
 
       var_import_target = &vp.insert<name> ("import.target");
 
-      var_clean = &vp.insert<bool> ("clean", variable_visibility::target);
+      var_clean    = &vp.insert<bool> ("clean",    v_t);
+      var_backlink = &vp.insert<bool> ("backlink", v_t);
+      vp.insert<string> (var_extension, v_t);
+
+      // Backlink executables and (generated) documentation by default.
+      //
+      gs.target_vars[exe::static_type]["*"].assign (var_backlink) = true;
+      gs.target_vars[doc::static_type]["*"].assign (var_backlink) = true;
     }
 
     // Register builtin rules.

@@ -146,11 +146,7 @@ namespace build2
     assign (const variable& var) {return vars.assign (var);}
 
     value&
-    assign (const variable* var) // For cached variables.
-    {
-      assert (var != nullptr);
-      return vars.assign (*var);
-    }
+    assign (const variable* var) {return vars.assign (var);} // For cached.
 
     value&
     assign (string name)

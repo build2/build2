@@ -30,6 +30,7 @@ namespace build2
   extern const path root_file;         // build/root.build
   extern const path bootstrap_file;    // build/bootstrap.build
   extern const path src_root_file;     // build/bootstrap/src-root.build
+  extern const path out_root_file;     // build/bootstrap/out-root.build
   extern const path export_file;       // build/export.build
   extern const path config_file;       // build/config.build
 
@@ -71,14 +72,14 @@ namespace build2
   bool
   source_once (scope& root, scope& base, const path&, scope& once);
 
-  // Create project's root scope. Only set the src_root variable if the
-  // passed src_root value is not empty. The scope argument is only used
-  // as proof of lock.
+  // Create project's root scope. Only set the src_root variable if the passed
+  // src_root value is not empty. The scope argument is only used as proof of
+  // lock.
   //
   scope_map::iterator
   create_root (scope&, const dir_path& out_root, const dir_path& src_root);
 
-  // Setup root scope. Note that it assume the src_root variable
+  // Setup root scope. Note that it assumes the src_root variable
   // has already been set.
   //
   void
@@ -111,8 +112,16 @@ namespace build2
   //
   scope&
   load_project (scope&,
-                const dir_path& out_root, const dir_path& src_root,
+                const dir_path& out_root,
+                const dir_path& src_root,
+                bool forwarded,
                 bool load = true);
+
+  // Bootstrap the project's forward. Return the forwarded-to out_root or
+  // src_root if there is no forward.
+  //
+  dir_path
+  bootstrap_fwd (const dir_path& src_root);
 
   // Bootstrap the project's root scope, the out part.
   //
@@ -135,8 +144,8 @@ namespace build2
   bool
   bootstrapped (scope& root);
 
-  // Create and bootstrap outer root scopes, if any. Loading is
-  // done by load_root_pre() below.
+  // Create and bootstrap outer root scopes, if any. Loading is done by
+  // load_root_pre().
   //
   void
   create_bootstrap_outer (scope& root);
@@ -144,7 +153,7 @@ namespace build2
   // Create and bootstrap inner root scopes between root and base, if any. If
   // out_base is empty, then bootstrap all the way in. Return the innermost
   // created root scope or root if none were created. Note: loading is done by
-  // load_root_pre() below.
+  // load_root_pre().
   //
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base = dir_path ());
@@ -159,11 +168,10 @@ namespace build2
   // Extract the specified variable value from a buildfile. It is expected to
   // be the first non-comment line and not to rely on any variable expansion
   // other than those from the global scope or any variable overrides. Return
-  // an indication of whether the variable was found. The scope is only used
-  // as proof of lock (though we don't modify anything).
+  // an indication of whether the variable was found.
   //
   pair<value, bool>
-  extract_variable (scope&, const path&, const variable&);
+  extract_variable (const path&, const variable&);
 
   // Import has two phases: the first is triggered by the import
   // directive in the buildfile. It will try to find and load the
