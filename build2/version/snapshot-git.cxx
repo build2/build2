@@ -90,10 +90,11 @@ namespace build2
             // committer John Doe <john@example.org> 1493117819 +0200
             //
             // The timestamp is in seconds since UNIX epoch. The timezone
-            // appears to be always numeric (+0000 for UTC).
+            // appears to be always numeric (+0000 for UTC). Note that
+            // timestamp appears to be already in UTC with timezone being just
+            // for information it seems.
             //
             size_t p1 (l.rfind (' ')); // Can't be npos.
-            string tz (l, p1 + 1);
 
             size_t p2 (l.rfind (' ', p1 - 1));
             if (p2 == string::npos)
@@ -101,6 +102,9 @@ namespace build2
 
             string ts (l, p2 + 1, p1 - p2 - 1);
             time_t t (static_cast<time_t> (stoull (ts)));
+
+#if 0
+            string tz (l, p1 + 1);
 
             if (tz.size () != 5)
               throw invalid_argument ("invalid timezone");
@@ -118,13 +122,13 @@ namespace build2
             case '-': t += s; break;
             default: throw invalid_argument ("invalid timezone sign");
             }
-
+#endif
             // Represent as YYYYMMDDhhmmss.
             //
             r.sn = stoull (to_string (system_clock::from_time_t (t),
                                       "%Y%m%d%H%M%S",
                                       false /* special */,
-                                      true  /* local (already in UTC) */));
+                                      false /* local (already in UTC) */));
           }
           catch (const invalid_argument& e)
           {
