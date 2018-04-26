@@ -94,6 +94,9 @@ namespace build2
     parse_include (token&, token_type&);
 
     void
+    parse_run (token&, token_type&);
+
+    void
     parse_import (token&, token_type&);
 
     void
@@ -196,6 +199,16 @@ namespace build2
 
     attributes&
     attributes_top () {return attributes_.top ();}
+
+    // Source a stream optionnaly entering it as a buildfile and performing
+    // the default target processing.
+    //
+    void
+    source (istream&,
+            const path&,
+            const location&,
+            bool enter,
+            bool default_target);
 
     // If chunk is true, then parse the smallest but complete, name-wise,
     // chunk of input. Note that in this case you may still end up with

@@ -65,21 +65,24 @@ namespace build2
   {
     stream_verb (r.os, sverb_);
 
-    r << *loc_.file << ':';
-
-    if (!ops.no_line ())
+    if (!loc_.empty ())
     {
-      if (loc_.line != 0)
-        r << loc_.line << ':';
+      r << *loc_.file << ':';
 
-      if (!ops.no_column ())
+      if (!ops.no_line ())
       {
-        if (loc_.column != 0)
-          r << loc_.column << ':';
-      }
-    }
+        if (loc_.line != 0)
+          r << loc_.line << ':';
 
-    r << ' ';
+        if (!ops.no_column ())
+        {
+          if (loc_.column != 0)
+            r << loc_.column << ':';
+        }
+      }
+
+      r << ' ';
+    }
 
     if (type_ != nullptr)
       r << type_ << ": ";

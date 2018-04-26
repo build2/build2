@@ -273,6 +273,26 @@ namespace build2
   using butl::standard_version;
   using butl::standard_version_constraint;
 
+  // Diagnostics location.
+  //
+  class location
+  {
+  public:
+    // Note that location maintains a shallow reference to path. Zero lines
+    // or columns are not printed.
+    //
+    explicit
+    location (const path* f = nullptr, uint64_t l = 0, uint64_t c = 0)
+        : file (f), line (l), column (c) {}
+
+    bool
+    empty () const {return file == nullptr;}
+
+    const path* file;
+    uint64_t    line;
+    uint64_t    column;
+  };
+
   // See context.
   //
   enum class run_phase {load, match, execute};

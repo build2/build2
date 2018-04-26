@@ -279,24 +279,6 @@ namespace build2
     const stream_verbosity sverb_;
   };
 
-  class location
-  {
-  public:
-    // Note that location maintains a shallow reference to path. Zero lines
-    // or columns are not printed.
-    //
-    location (): file (nullptr), line (0), column (0) {}
-    location (const path* f, uint64_t l = 0, uint64_t c = 0)
-        : file (f), line (l), column (c) {}
-
-    bool
-    empty () const {return file == nullptr;}
-
-    const path* file;
-    uint64_t line;
-    uint64_t column;
-  };
-
   struct location_prologue_base
   {
     location_prologue_base (const char* type,

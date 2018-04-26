@@ -186,25 +186,28 @@ namespace build2
   }
 
   process_path
-  run_search (const char*& args0)
+  run_search (const char*& args0, const location& l)
   try
   {
     return process::path_search (args0);
   }
   catch (const process_error& e)
   {
-    fail << "unable to execute " << args0 << ": " << e << endf;
+    fail (l) << "unable to execute " << args0 << ": " << e << endf;
   }
 
   process_path
-  run_search (const path& f, bool init, const dir_path& fallback)
+  run_search (const path& f,
+              bool init,
+              const dir_path& fallback,
+              const location& l)
   try
   {
     return process::path_search (f, init, fallback);
   }
   catch (const process_error& e)
   {
-    fail << "unable to execute " << f << ": " << e << endf;
+    fail (l) << "unable to execute " << f << ": " << e << endf;
   }
 
   process
@@ -214,7 +217,8 @@ namespace build2
              int in,
              int out,
              bool err,
-             const dir_path& cwd)
+             const dir_path& cwd,
+             const location& l)
   try
   {
     assert (args[0] == pp.recall_string ());
@@ -239,11 +243,15 @@ namespace build2
       exit (1);
     }
     else
-      fail << "unable to execute " << args[0] << ": " << e << endf;
+      fail (l) << "unable to execute " << args[0] << ": " << e << endf;
   }
 
   bool
-  run_finish (const char* args[], process& pr, bool err, const string& l)
+  run_finish (const char* args[],
+              process& pr,
+              bool err,
+              const string& l,
+              const location& loc)
   try
   {
     tracer trace ("run_finish");
@@ -254,7 +262,7 @@ namespace build2
     const process_exit& e (*pr.exit);
 
     if (!e.normal ())
-      fail << "process " << args[0] << " " << e;
+      fail (loc) << "process " << args[0] << " " << e;
 
     // Normall but non-zero exit status.
     //
@@ -275,13 +283,13 @@ namespace build2
     // result in a single error line printed by run_start() above.
     //
     if (l.compare (0, 18, "unable to execute ") == 0)
-      fail << l;
+      fail (loc) << l;
 
     return false;
   }
   catch (const process_error& e)
   {
-    fail << "unable to execute " << args[0] << ": " << e << endf;
+    fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
   }
 
   const string empty_string;

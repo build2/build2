@@ -178,10 +178,13 @@ namespace build2
   // case of an error.
   //
   process_path
-  run_search (const char*& args0);
+  run_search (const char*& args0, const location& = location ());
 
   process_path
-  run_search (const path&, bool init, const dir_path& fallback = dir_path ());
+  run_search (const path&,
+              bool init,
+              const dir_path& fallback = dir_path (),
+              const location& = location ());
 
   // Wait for process termination. Issue diagnostics and throw failed in case
   // of abnormal termination. If the process has terminated normally but with
@@ -194,12 +197,13 @@ namespace build2
   run_finish (const char* args[],
               process&,
               bool error = true,
-              const string& = string ());
+              const string& = string (),
+              const location& = location ());
 
   inline void
-  run_finish (cstrings& args, process& pr)
+  run_finish (cstrings& args, process& pr, const location& l = location ())
   {
-    run_finish (args.data (), pr);
+    run_finish (args.data (), pr, true, string (), l);
   }
 
   // Start a process with the specified arguments. If in is -1, then redirect
@@ -216,7 +220,8 @@ namespace build2
              int in,
              int out,
              bool error = true,
-             const dir_path& cwd = dir_path ());
+             const dir_path& cwd = dir_path (),
+             const location& = location ());
 
   inline process
   run_start (const process_path& pp,
@@ -224,9 +229,10 @@ namespace build2
              int in,
              int out,
              bool error = true,
-             const dir_path& cwd = dir_path ())
+             const dir_path& cwd = dir_path (),
+             const location& l = location ())
   {
-    return run_start (verb_never, pp, args, in, out, error, cwd);
+    return run_start (verb_never, pp, args, in, out, error, cwd, l);
   }
 
   inline void
@@ -255,10 +261,23 @@ namespace build2
              int in,
              int out,
              bool error = true,
-             const dir_path& cwd = dir_path ())
+             const dir_path& cwd = dir_path (),
+             const location& l = location ())
   {
-    process_path pp (run_search (args[0]));
-    return run_start (verbosity, pp, args, in, out, error, cwd);
+    process_path pp (run_search (args[0], l));
+    return run_start (verbosity, pp, args, in, out, error, cwd, l);
+  }
+
+  inline process
+  run_start (uint16_t verbosity,
+             cstrings& args,
+             int in,
+             int out,
+             bool error = true,
+             const dir_path& cwd = dir_path (),
+             const location& l = location ())
+  {
+    return run_start (verbosity, args.data (), in, out, error, cwd, l);
   }
 
   inline void

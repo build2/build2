@@ -388,6 +388,10 @@ namespace build2
         {
           f = &parser::parse_include;
         }
+        else if (n == "run")
+        {
+          f = &parser::parse_run;
+        }
         else if (n == "import")
         {
           f = &parser::parse_import;
@@ -929,10 +933,56 @@ namespace build2
   }
 
   void parser::
+  source (istream& is,
+          const path& p,
+          const location& loc,
+          bool enter,
+          bool deft)
+  {
+    tracer trace ("parser::source", &path_);
+
+    l5 ([&]{trace (loc) << "entering " << p;});
+
+    if (enter)
+      enter_buildfile (p);
+
+    const path* op (path_);
+    path_ = &p;
+
+    lexer l (is, *path_);
+    lexer* ol (lexer_);
+    lexer_ = &l;
+
+    target* odt;
+    if (deft)
+    {
+      odt = default_target_;
+      default_target_ = nullptr;
+    }
+
+    token t;
+    type tt;
+    next (t, tt);
+    parse_clause (t, tt);
+
+    if (tt != type::eos)
+      fail (t) << "unexpected " << t;
+
+    if (deft)
+    {
+      process_default_target (t);
+      default_target_ = odt;
+    }
+
+    lexer_ = ol;
+    path_ = op;
+
+    l5 ([&]{trace (loc) << "leaving " << p;});
+  }
+
+  void parser::
   parse_source (token& t, type& tt)
   {
-    tracer trace ("parser::parse_source", &path_);
-
     // The rest should be a list of buildfiles. Parse them as names in the
     // value mode to get variable expansion and directory prefixes.
     //
@@ -968,30 +1018,11 @@ namespace build2
       try
       {
         ifdstream ifs (p);
-
-        l5 ([&]{trace (t) << "entering " << p;});
-
-        enter_buildfile (p);
-
-        const path* op (path_);
-        path_ = &p;
-
-        lexer l (ifs, *path_);
-        lexer* ol (lexer_);
-        lexer_ = &l;
-
-        token t;
-        type tt;
-        next (t, tt);
-        parse_clause (t, tt);
-
-        if (tt != type::eos)
-          fail (t) << "unexpected " << t;
-
-        l5 ([&]{trace (t) << "leaving " << p;});
-
-        lexer_ = ol;
-        path_ = op;
+        source (ifs,
+                p,
+                get_location (t),
+                true  /* enter */,
+                false /* default_target */);
       }
       catch (const io_error& e)
       {
@@ -1104,36 +1135,11 @@ namespace build2
       try
       {
         ifdstream ifs (p);
-
-        l5 ([&]{trace (t) << "entering " << p;});
-
-        enter_buildfile (p);
-
-        const path* op (path_);
-        path_ = &p;
-
-        lexer l (ifs, *path_);
-        lexer* ol (lexer_);
-        lexer_ = &l;
-
-        target* odt (default_target_);
-        default_target_ = nullptr;
-
-        token t;
-        type tt;
-        next (t, tt);
-        parse_clause (t, tt);
-
-        if (tt != type::eos)
-          fail (t) << "unexpected " << t;
-
-        process_default_target (t);
-
-        l5 ([&]{trace (t) << "leaving " << p;});
-
-        default_target_ = odt;
-        lexer_ = ol;
-        path_ = op;
+        source (ifs,
+                p,
+                get_location (t),
+                true  /* enter */,
+                true  /* default_target */);
       }
       catch (const io_error& e)
       {
@@ -1144,6 +1150,117 @@ namespace build2
       scope_ = ocs;
       root_ = ors;
     }
+
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+      fail (t) << "expected newline instead of " << t;
+  }
+
+  void parser::
+  parse_run (token& t, type& tt)
+  {
+    // run <name> [<arg>...]
+    //
+
+    // Parse the command line as names in the value mode to get variable
+    // expansion, etc.
+    //
+    mode (lexer_mode::value);
+    next (t, tt);
+    const location l (get_location (t));
+
+    strings args;
+    try
+    {
+      args = convert<strings> (tt != type::newline && tt != type::eos
+                               ? parse_names (t, tt,
+                                              pattern_mode::ignore,
+                                              false,
+                                              "argument",
+                                              nullptr)
+                               : names ());
+    }
+    catch (const invalid_argument& e)
+    {
+      fail (l) << "invalid run argument: " << e.what ();
+    }
+
+    if (args.empty () || args[0].empty ())
+      fail (l) << "executable name expected after run";
+
+    cstrings cargs;
+    cargs.reserve (args.size () + 1);
+    transform (args.begin (),
+               args.end (),
+               back_inserter (cargs),
+               [] (const string& s) {return s.c_str ();});
+    cargs.push_back (nullptr);
+
+    process pr (run_start (3               /* verbosity */,
+                           cargs,
+                           0               /* stdin  */,
+                           -1              /* stdout */,
+                           true            /* error  */,
+                           empty_dir_path  /* cwd    */,
+                           l));
+    bool bad (false);
+    try
+    {
+      // While a failing process could write garbage to stdout, for simplicity
+      // let's assume it is well behaved.
+      //
+      ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
+
+      // Come up with a "path" that contains both the original buildfile
+      // location as well as the process name. The resulting diagnostics will
+      // look like this:
+      //
+      // buildfile:10:1 (foo stdout): unterminated single quote
+      //
+      path p;
+      {
+        string s (l.file->string ());
+        s += ':';
+
+        if (!ops.no_line ())
+        {
+          s += to_string (l.line);
+          s += ':';
+
+          if (!ops.no_column ())
+          {
+            s += to_string (l.column);
+            s += ':';
+          }
+        }
+
+        s += " (";
+        s += args[0];
+        s += " stdout)";
+        p = path (move (s));
+      }
+
+      source (is,
+              p,
+              l,
+              false /* enter */,
+              false /* default_target */);
+
+      is.close (); // Detect errors.
+    }
+    catch (const io_error&)
+    {
+      // Presumably the child process failed and issued diagnostics so let
+      // run_finish() try to deal with that first.
+      //
+      bad = true;
+    }
+
+    run_finish (cargs, pr, l);
+
+    if (bad)
+      fail (l) << "error reading " << args[0] << " output";
 
     if (tt == type::newline)
       next (t, tt);
