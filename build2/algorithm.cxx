@@ -1070,15 +1070,16 @@ namespace build2
     if (!t.out.empty () || !t.is_a<file> ())
       return false;
 
-    // An in-src configuration cannot be forwarded.
+    // Neither an out-of-project nor in-src configuration can be forwarded.
     //
     const scope& bs (t.base_scope ());
-    if (bs.src_path () == bs.out_path ())
+    const scope* rs (bs.root_scope ());
+    if (rs == nullptr || bs.src_path () == bs.out_path ())
       return false;
 
     // Only for forwarded configurations.
     //
-    if (!cast_false<bool> (bs.root_scope ()->vars[var_forwarded]))
+    if (!cast_false<bool> (rs->vars[var_forwarded]))
       return false;
 
     lookup l (t[var_backlink]);
