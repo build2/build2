@@ -1212,40 +1212,25 @@ namespace build2
       //
       ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
 
-      // Come up with a "path" that contains both the original buildfile
-      // location as well as the process name. The resulting diagnostics will
-      // look like this:
+      // If there is an error in the output, our diagnostics will look like
+      // this:
       //
-      // buildfile:10:1 (foo stdout): unterminated single quote
+      // <stdout>:2:3 error: unterminated single quote
+      //   buildfile:3:4 info: while parsing foo output
       //
-      path p;
       {
-        string s (l.file->string ());
-        s += ':';
-
-        if (!ops.no_line ())
-        {
-          s += to_string (l.line);
-          s += ':';
-
-          if (!ops.no_column ())
+        auto df = make_diag_frame (
+          [&args, &l](const diag_record& dr)
           {
-            s += to_string (l.column);
-            s += ':';
-          }
-        }
+            dr << info (l) << "while parsing " << args[0] << " output";
+          });
 
-        s += " (";
-        s += args[0];
-        s += " stdout)";
-        p = path (move (s));
+        source (is,
+                path ("<stdout>"),
+                l,
+                false /* enter */,
+                false /* default_target */);
       }
-
-      source (is,
-              p,
-              l,
-              false /* enter */,
-              false /* default_target */);
 
       is.close (); // Detect errors.
     }

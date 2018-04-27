@@ -31,6 +31,7 @@ EOE
 : bad-output
 :
 cat <'print run' >=buildfile;
-$* <"run '$0' noop" 2>>~%EOE% != 0
-%-:1:5: \(.+ stdout\):1:4: error: executable name expected after run%
+$* <"run '$0' noop" 2>>"EOE" != 0
+<stdout>:1:4: error: executable name expected after run
+  <stdin>:1:5: info: while parsing $0 output
 EOE
