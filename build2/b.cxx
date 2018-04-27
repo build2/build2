@@ -822,9 +822,9 @@ main (int argc, char* argv[])
           scope& rs (
             create_root (*scope::global_, out_root, src_root)->second);
 
-          bool bootstrapped (build2::bootstrapped (rs));
+          bool bstrapped (bootstrapped (rs));
 
-          if (!bootstrapped)
+          if (!bstrapped)
           {
             bootstrap_out (rs);
 
@@ -860,22 +860,27 @@ main (int argc, char* argv[])
               v = src_root;
             }
 
-            setup_root (rs);
+            setup_root (rs, forwarded);
 
             // Now that we have src_root, load the src_root bootstrap file,
             // if there is one.
             //
-            bootstrapped = bootstrap_src (rs);
+            bootstrap_pre (rs);
+            bootstrap_src (rs);
+            // bootstrap_post() delayed until after create_bootstrap_outer().
           }
-          else if (src_root.empty ())
-            src_root = rs.src_path ();
+          else
+          {
+            if (src_root.empty ())
+              src_root = rs.src_path ();
 
-          // Note that we only "upgrade" the forwarded value since the same
-          // project root can be arrived at via multiple paths (think command
-          // line and import).
-          //
-          if (forwarded)
-            rs.assign (var_forwarded) = true;
+            // Note that we only "upgrade" the forwarded value since the same
+            // project root can be arrived at via multiple paths (think
+            // command line and import).
+            //
+            if (forwarded)
+              rs.assign (var_forwarded) = true;
+          }
 
           // At this stage we should have both roots and out_base figured
           // out. If src_base is still undetermined, calculate it.
@@ -916,6 +921,9 @@ main (int argc, char* argv[])
           // meta-operation's load() callback below).
           //
           create_bootstrap_outer (rs);
+
+          if (!bstrapped)
+            bootstrap_post (rs);
 
           // The src bootstrap should have loaded all the modules that
           // may add new meta/operations. So at this stage they should

@@ -25,6 +25,7 @@ using namespace butl;
 namespace build2
 {
   const dir_path build_dir ("build");
+  const dir_path root_dir (dir_path (build_dir) /= "root");
   const dir_path bootstrap_dir (dir_path (build_dir) /= "bootstrap");
 
   const path root_file (build_dir / "root.build");
@@ -145,6 +146,50 @@ namespace build2
     return true;
   }
 
+  // Source (once) pre-*.build (pre is true) or post-*.build (otherwise) hooks
+  // from the specified subdirectory (build/bootstrap/ or build/root/) of
+  // out_root/.
+  //
+  void
+  source_hooks (scope& root, const dir_path& sd, bool pre)
+  {
+    dir_path d (root.out_path () / sd);
+
+    if (!exists (d))
+      return;
+
+    // While we could have used the wildcard pattern matching functionality,
+    // our needs are pretty basic and performance is quite important, so let's
+    // handle this ourselves.
+    //
+    for (const dir_entry& de: dir_iterator (d))
+    {
+      // If this is a link, then type() will try to stat() it. And if the link
+      // is dangling or points to something inaccessible, it will fail. So
+      // let's first check that the name matches and only then check the type.
+      //
+      const path& n (de.path ());
+
+      if (n.string ().compare (0, pre ? 4 : 5, pre ? "pre-" : "post-") != 0 ||
+          n.extension () != "build")
+        continue;
+
+      path f (d / n);
+
+      try
+      {
+        if (de.type () != entry_type::regular)
+          continue;
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to read buildfile " << f << ": " << e;
+      }
+
+      source_once (root, root, f);
+    }
+  }
+
   scope_map::iterator
   create_root (scope& l, const dir_path& out_root, const dir_path& src_root)
   {
@@ -215,7 +260,7 @@ namespace build2
   }
 
   void
-  setup_root (scope& s)
+  setup_root (scope& s, bool forwarded)
   {
     // The caller must have made sure src_root is set on this scope.
     //
@@ -227,6 +272,8 @@ namespace build2
       s.src_path_ = &d;
     else
       assert (s.src_path_ == &d);
+
+    s.assign (var_forwarded) = forwarded;
   }
 
   scope&
@@ -298,7 +345,7 @@ namespace build2
       // Switch to the new root scope.
       //
       if (rs != &root)
-        load_root_pre (*rs); // Load new root(s) recursively.
+        load_root (*rs); // Load new root(s) recursively.
 
       // Now we can figure out src_base and finish setting the scope.
       //
@@ -346,7 +393,8 @@ namespace build2
     //@@ TODO: if bootstrap files can source other bootstrap files
     //   (the way to express dependecies), then we need a way to
     //   prevent multiple sourcing. We handle it here but we still
-    //   need something like source_once (once [scope] source).
+    //   need something like source_once (once [scope] source) in
+    //   buildfiles.
     //
     source_once (root, root, bf);
   }
@@ -760,10 +808,10 @@ namespace build2
   }
 
   // Return true if the inner/outer project (identified by out/src_root) of
-  // the 'origin' project (identified by root) should be forwarded.
+  // the 'origin' project (identified by orig) should be forwarded.
   //
   static inline bool
-  forwarded (const scope& root,
+  forwarded (const scope& orig,
              const dir_path& out_root,
              const dir_path& src_root)
   {
@@ -776,7 +824,7 @@ namespace build2
     // 3. Inner/outer out-root.build exists in src_root and refers out_root.
     //
     return (out_root != src_root                        &&
-            cast_false<bool> (root.vars[var_forwarded]) &&
+            cast_false<bool> (orig.vars[var_forwarded]) &&
             bootstrap_fwd (src_root) == out_root);
   }
 
@@ -804,7 +852,9 @@ namespace build2
     //
     scope& rs (create_root (root, out_root, dir_path ())->second);
 
-    if (!bootstrapped (rs))
+    bool bstrapped (bootstrapped (rs));
+
+    if (!bstrapped)
     {
       bootstrap_out (rs); // #3 happens here (or it can be #1).
 
@@ -822,14 +872,21 @@ namespace build2
         }
       }
 
-      setup_root (rs);
+      setup_root (rs, forwarded (root, out_root, v.as<dir_path> ()));
+      bootstrap_pre (rs);
       bootstrap_src (rs);
+      // bootstrap_post() delayed until after create_bootstrap_outer().
+    }
+    else
+    {
+      if (forwarded (root, rs.out_path (), rs.src_path ()))
+        rs.assign (var_forwarded) = true; // Only upgrade (see main()).
     }
 
-    if (forwarded (root, rs.out_path (), rs.src_path ()))
-      rs.assign (var_forwarded) = true;
-
     create_bootstrap_outer (rs);
+
+    if (!bstrapped)
+      bootstrap_post (rs);
 
     // Check if we are strongly amalgamated by this outer root scope.
     //
@@ -864,17 +921,21 @@ namespace build2
               ? out_root
               : (root.src_path () / p.second);
 
-          setup_root (rs);
+          setup_root (rs, forwarded (root, out_root, v.as<dir_path> ()));
+          bootstrap_pre (rs);
           bootstrap_src (rs);
+          bootstrap_post (rs);
+        }
+        else
+        {
+          if (forwarded (root, rs.out_path (), rs.src_path ()))
+            rs.assign (var_forwarded) = true; // Only upgrade (see main()).
         }
 
         // Check if we strongly amalgamated this inner root scope.
         //
         if (rs.src_path ().sub (root.src_path ()))
           rs.strong_ = root.strong_scope (); // Itself or some outer scope.
-
-        if (forwarded (root, rs.out_path (), rs.src_path ()))
-          rs.assign (var_forwarded) = true;
 
         // See if there are more inner roots.
         //
@@ -886,14 +947,22 @@ namespace build2
   }
 
   void
-  load_root_pre (scope& root)
+  load_root (scope& root)
   {
-    tracer trace ("root_pre");
+    tracer trace ("load_root");
+
+    // As an optimization, check if we have already loaded root.build. If
+    // that's the case, then we have already been called for this project.
+    //
+    path bf (root.src_path () / root_file);
+
+    if (root.buildfiles.find (bf) != root.buildfiles.end ())
+      return;
 
     // First load outer roots, if any.
     //
     if (scope* rs = root.parent_scope ()->root_scope ())
-      load_root_pre (*rs);
+      load_root (*rs);
 
     // Finish off loading bootstrapped modules.
     //
@@ -913,12 +982,17 @@ namespace build2
         load_module (root, root, p.first, s.loc);
     }
 
-    // Load root.build.
+    // Load hooks and root.build.
     //
-    path bf (root.src_path () / root_file);
-
-    if (exists (bf))
-      source_once (root, root, bf);
+    // We can load the pre hooks before finishing off loading the bootstrapped
+    // modules (which, in case of config would load config.build) or after and
+    // one can come up with a plausible use-case for either approach. Note,
+    // however, that one can probably achieve adequate pre-modules behavior
+    // with a post-bootstrap hook.
+    //
+    source_hooks (root, root_dir, true /* pre */);
+    if (exists (bf)) source_once (root, root, bf);
+    source_hooks (root, root_dir, false /* pre */);
   }
 
   scope&
@@ -936,16 +1010,20 @@ namespace build2
     if (!bootstrapped (rs))
     {
       bootstrap_out (rs);
-      setup_root (rs);
+      setup_root (rs, forwarded);
+      bootstrap_pre (rs);
       bootstrap_src (rs);
+      bootstrap_post (rs);
     }
-
-    if (forwarded)
-      rs.assign (var_forwarded) = true;
+    else
+    {
+      if (forwarded)
+        rs.assign (var_forwarded) = true; // Only upgrade (see main()).
+    }
 
     if (load)
     {
-      load_root_pre (rs);
+      load_root (rs);
       setup_base (i, out_root, src_root); // Setup as base.
     }
 
@@ -1141,15 +1219,20 @@ namespace build2
 
     for (const scope* proot (nullptr); ; proot = root)
     {
+      bool top (proot == nullptr);
+
       root = &create_root (iroot, out_root, src_root)->second;
 
-      if (!bootstrapped (*root))
+      bool bstrapped (bootstrapped (*root));
+
+      if (!bstrapped)
       {
         bootstrap_out (*root);
 
         // Check that the bootstrap process set src_root.
         //
-        if (auto l = root->vars[*var_src_root])
+        auto l (root->vars[*var_src_root]);
+        if (l)
         {
           const dir_path& p (cast<dir_path> (l));
 
@@ -1161,16 +1244,30 @@ namespace build2
           fail (loc) << "unable to determine src_root for imported " << proj <<
             info << "consider configuring " << out_root;
 
-        setup_root (*root);
+        setup_root (
+          *root,
+          top ? fwd : forwarded (*proot, out_root, l->as<dir_path> ()));
+        bootstrap_pre (*root);
         bootstrap_src (*root);
+        if (!top)
+          bootstrap_post (*root);
       }
-      else if (src_root.empty ())
-        src_root = root->src_path ();
+      else
+      {
+        if (src_root.empty ())
+          src_root = root->src_path ();
 
-      if (proot == nullptr
-          ? fwd
-          : forwarded (*proot, root->out_path (), root->src_path ()))
-        root->assign (var_forwarded) = true;
+        if (top ? fwd : forwarded (*proot, out_root, src_root))
+          root->assign (var_forwarded) = true; // Only upgrade (see main()).
+      }
+
+      if (top)
+      {
+        create_bootstrap_outer (*root);
+
+        if (!bstrapped)
+          bootstrap_post (*root);
+      }
 
       // Now we know this project's name as well as all its subprojects.
       //
@@ -1194,14 +1291,9 @@ namespace build2
       fail (loc) << out_root << " is not out_root for " << proj;
     }
 
-    // Bootstrap outer roots if any. Loading will be done by load_root_pre()
-    // below.
-    //
-    create_bootstrap_outer (*root);
-
     // Load the imported root scope.
     //
-    load_root_pre (*root);
+    load_root (*root);
 
     // Create a temporary scope so that the export stub does not mess
     // up any of our variables.

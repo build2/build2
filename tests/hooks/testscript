@@ -1,0 +1,30 @@
+# file      : tests/hooks/testscript
+# copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.test
+
++cat <'print bootstrap'  >+build/bootstrap.build
++cat <'print root'       >=build/root.build
+
++mkdir build/bootstrap
++cat <'print pre-bootstrap'  >=build/bootstrap/pre-bootstrap.build
++cat <'print post-bootstrap' >=build/bootstrap/post-bootstrap.build
+
++mkdir build/root
++cat <'print pre-root'  >=build/root/pre-root.build
++cat <'print post-root' >=build/root/post-root.build
+
+: basics
+:
+$* <<EOI >>EOO
+print buildfile
+EOI
+pre-bootstrap
+bootstrap
+post-bootstrap
+pre-root
+root
+post-root
+buildfile
+EOO

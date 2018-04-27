@@ -72,9 +72,9 @@ namespace build2
         const dir_path& src_base,
         const location&)
   {
-    // Load project's root[-pre].build.
+    // Load project's root.build.
     //
-    load_root_pre (root);
+    load_root (root);
 
     // Create the base scope. Note that its existence doesn't mean it was
     // already setup as a base scope; it can be the same as root.

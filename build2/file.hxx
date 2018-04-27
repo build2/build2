@@ -24,8 +24,9 @@ namespace build2
   ostream&
   operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
 
-  extern const dir_path build_dir;     // build
-  extern const dir_path bootstrap_dir; // build/bootstrap
+  extern const dir_path build_dir;     // build/
+  extern const dir_path root_dir;      // build/root/
+  extern const dir_path bootstrap_dir; // build/bootstrap/
 
   extern const path root_file;         // build/root.build
   extern const path bootstrap_file;    // build/bootstrap.build
@@ -79,11 +80,11 @@ namespace build2
   scope_map::iterator
   create_root (scope&, const dir_path& out_root, const dir_path& src_root);
 
-  // Setup root scope. Note that it assumes the src_root variable
-  // has already been set.
+  // Setup root scope. Note that it assumes the src_root variable has already
+  // been set.
   //
   void
-  setup_root (scope&);
+  setup_root (scope&, bool forwarded);
 
   // Setup the base scope (set *_base variables, etc).
   //
@@ -128,8 +129,8 @@ namespace build2
   void
   bootstrap_out (scope& root);
 
-  // Bootstrap the project's root scope, the src part. Return true if
-  // we loaded anything (which confirms the src_root is not bogus).
+  // Bootstrap the project's root scope, the src part. Return true if we
+  // loaded anything (which confirms the src_root is not bogus).
   //
   bool
   bootstrap_src (scope& root);
@@ -144,8 +145,17 @@ namespace build2
   bool
   bootstrapped (scope& root);
 
+  // Execute pre/post-bootstrap hooks. Similar to bootstrap_out/sr(), should
+  // only be called once per project bootstrap.
+  //
+  void
+  bootstrap_pre (scope& root);
+
+  void
+  bootstrap_post (scope& root);
+
   // Create and bootstrap outer root scopes, if any. Loading is done by
-  // load_root_pre().
+  // load_root().
   //
   void
   create_bootstrap_outer (scope& root);
@@ -153,17 +163,17 @@ namespace build2
   // Create and bootstrap inner root scopes between root and base, if any. If
   // out_base is empty, then bootstrap all the way in. Return the innermost
   // created root scope or root if none were created. Note: loading is done by
-  // load_root_pre().
+  // load_root().
   //
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base = dir_path ());
 
-  // Load project's root[-pre].build unless already loaded. Also
-  // make sure all outer root scopes are loaded prior to loading
+  // Load project's root.build (and root pre/post hooks) unless already
+  // loaded. Also make sure all outer root scopes are loaded prior to loading
   // this root scope.
   //
   void
-  load_root_pre (scope& root);
+  load_root (scope& root);
 
   // Extract the specified variable value from a buildfile. It is expected to
   // be the first non-comment line and not to rely on any variable expansion

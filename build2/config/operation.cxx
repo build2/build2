@@ -641,8 +641,11 @@ namespace build2
 
           // Clean up the directories.
           //
+          // Note: try to remove the root/ hooks directory if it is empty.
+          //
+          r = rmdir (out_root / root_dir,      2) || r;
           r = rmdir (out_root / bootstrap_dir, 2) || r;
-          r = rmdir (out_root / build_dir, 2) || r;
+          r = rmdir (out_root / build_dir,     2) || r;
 
           switch (rmdir (out_root))
           {
