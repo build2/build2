@@ -85,6 +85,33 @@ namespace build2
     return ms;
   }
 
+  fs_status<rmfile_status>
+  rmsymlink (const path& p, bool d, uint16_t v)
+  {
+    auto print = [&p, v] ()
+    {
+      if (verb >= v)
+        text << "rm " << p.string ();
+    };
+
+    rmfile_status rs;
+
+    try
+    {
+      rs = try_rmsymlink (p, d);
+    }
+    catch (const system_error& e)
+    {
+      print ();
+      fail << "unable to remove symlink " << p.string () << ": " << e << endf;
+    }
+
+    if (rs == rmfile_status::success)
+      print ();
+
+    return rs;
+  }
+
   fs_status<butl::rmdir_status>
   rmdir_r (const dir_path& d, bool dir, uint16_t v)
   {

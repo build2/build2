@@ -973,7 +973,12 @@ namespace build2
 
     try
     {
-      try_rmfile (l); // Normally will be there.
+      // Normally will be there.
+      //
+      if (l.to_directory ())
+        try_rmsymlink (l, true /* directory */);
+      else
+        try_rmfile (l);
 
       // Skip (ad hoc) targets that don't exist.
       //
@@ -1014,10 +1019,10 @@ namespace build2
   void
   clean_backlink (const path& l, uint16_t verbosity)
   {
-    // Assuming this works for directories (which can only be symlinked). See
-    // also try_rmfile() calls in ~backlink() and update_backlink().
-    //
-    rmfile (l, verbosity);
+    if (l.to_directory ())
+      rmsymlink (l, true /* directory */, verbosity);
+    else
+      rmfile (l, verbosity); // Should work for symbolic and hard file links.
   }
 
   // If target/link path are syntactically to a directory, then the backlink
@@ -1039,9 +1044,11 @@ namespace build2
     {
       if (active)
       {
-        // Assuming this works for both file and directory (sym)links.
-        //
-        try_rmfile (path, true /* ignore_errors */);
+        if (path.to_directory ())
+          try_rmsymlink (path, true /* directory */, true /* ignore_errors */);
+        else
+          try_rmfile (path, true /* ignore_errors */);
+
         active = false;
       }
     }

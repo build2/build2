@@ -76,6 +76,9 @@ namespace build2
     return rmfile (f, f, verbosity);
   }
 
+  fs_status<rmfile_status>
+  rmsymlink (const path&, bool dir, uint16_t verbosity);
+
   // Similar to rmfile() but for directories (note: not -r).
   //
   using rmdir_status = butl::rmdir_status;
