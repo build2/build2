@@ -281,6 +281,10 @@ namespace build2
 
   extern const char var_extension[10];        // "extension"
 
+  // The build.* namespace.
+  //
+  extern const variable* var_build_meta_operation; // .meta_operation
+
   // Current action (meta/operation).
   //
   // The names unlike info are available during boot but may not yet be
@@ -324,7 +328,12 @@ namespace build2
   inline void
   set_current_mif (const meta_operation_info& mif)
   {
-    current_mname = mif.name;
+    if (current_mname != mif.name)
+    {
+      current_mname = mif.name;
+      global_scope->rw ().assign (var_build_meta_operation) = mif.name;
+    }
+
     current_mif = &mif;
     current_on = 0; // Reset.
   }

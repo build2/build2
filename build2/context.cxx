@@ -343,6 +343,8 @@ namespace build2
 
   const char var_extension[10] = "extension";
 
+  const variable* var_build_meta_operation;
+
   string current_mname;
   string current_oname;
 
@@ -703,6 +705,8 @@ namespace build2
       //
       gs.target_vars[exe::static_type]["*"].assign (var_backlink) = true;
       gs.target_vars[doc::static_type]["*"].assign (var_backlink) = true;
+
+      var_build_meta_operation = &vp.insert<string> ("build.meta_operation");
     }
 
     // Register builtin rules.
