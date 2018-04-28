@@ -68,6 +68,9 @@ namespace build2
   using butl::alnum;
   using butl::digit;
 
+  using butl::trim;
+  using butl::next_word;
+
   using butl::exception_guard;
   using butl::make_exception_guard;
 
@@ -75,40 +78,6 @@ namespace build2
   using butl::throw_system_error;
 
   using butl::eof;
-
-  // Basic string utilities.
-  //
-
-  // Trim leading/trailing whitespacec, including '\r'.
-  //
-  string&
-  trim (string&);
-
-  // Find the beginning and end poistions of the next word. Return the size
-  // of the word or 0 and set b = e = n if there are no more words. For
-  // example:
-  //
-  // for (size_t b (0), e (0); next_word (s, b, e); )
-  // {
-  //   string w (s, b, e - b);
-  // }
-  //
-  // Or:
-  //
-  // for (size_t b (0), e (0), n; n = next_word (s, b, e, ' ', ','); )
-  // {
-  //   string w (s, b, n);
-  // }
-  //
-  // The second version examines up to the n'th character in the string.
-  //
-  size_t
-  next_word (const string&, size_t& b, size_t& e,
-             char d1 = ' ', char d2 = '\0');
-
-  size_t
-  next_word (const string&, size_t n, size_t& b, size_t& e,
-             char d1 = ' ', char d2 = '\0');
 
   extern bool stderr_term; // True if stderr is a terminal.
 

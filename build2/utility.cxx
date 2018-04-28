@@ -71,43 +71,6 @@ namespace build2
   // <build2/utility.hxx>
   //
 
-  string&
-  trim (string& l)
-  {
-    /*
-    assert (trim (r = "") == "");
-    assert (trim (r = " ") == "");
-    assert (trim (r = " \t\r") == "");
-    assert (trim (r = "a") == "a");
-    assert (trim (r = " a") == "a");
-    assert (trim (r = "a ") == "a");
-    assert (trim (r = " \ta") == "a");
-    assert (trim (r = "a \r") == "a");
-    assert (trim (r = " a ") == "a");
-    assert (trim (r = " \ta \r") == "a");
-    */
-
-    size_t i (0), n (l.size ());
-
-    for (char c;
-         i != n && ((c = l[i]) == ' ' || c == '\t' || c == '\r');
-         ++i) ;
-
-    for (char c;
-         n != i && ((c = l[n - 1]) == ' ' || c == '\t' || c == '\r');
-         --n) ;
-
-    if (i != 0)
-    {
-      string s (l, i, n - i);
-      l.swap (s);
-    }
-    else if (n != l.size ())
-      l.resize (n);
-
-    return l;
-  }
-
   options ops;
   process_path argv0;
   bool stderr_term;

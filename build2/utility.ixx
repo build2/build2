@@ -4,35 +4,6 @@
 
 namespace build2
 {
-  inline size_t
-  next_word (const string& s, size_t& b, size_t& e, char d1, char d2)
-  {
-    return next_word (s, s.size (), b, e, d1, d2);
-  }
-
-  inline size_t
-  next_word (const string& s, size_t n, size_t& b, size_t& e, char d1, char d2)
-  {
-    if (b != e)
-      b = e;
-
-    // Skip leading delimiters.
-    //
-    for (; b != n && (s[b] == d1 || s[b] == d2); ++b) ;
-
-    if (b == n)
-    {
-      e = n;
-      return 0;
-    }
-
-    // Find first trailing delimiter.
-    //
-    for (e = b + 1; e != n && s[e] != d1 && s[e] != d2; ++e) ;
-
-    return e - b;
-  }
-
   inline void
   hash_path (sha256& cs, const path& p, const dir_path& prefix)
   {
