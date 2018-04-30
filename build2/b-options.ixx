@@ -264,6 +264,12 @@ namespace build2
     return this->verbose_specified_;
   }
 
+  inline const bool& options::
+  stat () const
+  {
+    return this->stat_;
+  }
+
   inline const size_t& options::
   jobs () const
   {

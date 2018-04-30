@@ -597,6 +597,7 @@ namespace build2
     quiet_ (),
     verbose_ (1),
     verbose_specified_ (false),
+    stat_ (),
     jobs_ (),
     jobs_specified_ (false),
     max_jobs_ (),
@@ -731,6 +732,9 @@ namespace build2
        << "                     4. Information that could be helpful to the user." << ::std::endl
        << "                     5. Information that could be helpful to the developer." << ::std::endl
        << "                     6. Even more detailed information, including state dumps." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--stat\033[0m               Display build statistics." << ::std::endl;
 
     os << std::endl
        << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of active jobs to perform in parallel. This" << ::std::endl
@@ -881,6 +885,8 @@ namespace build2
       _cli_options_map_["--verbose"] = 
       &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;
+      _cli_options_map_["--stat"] = 
+      &::build2::cl::thunk< options, bool, &options::stat_ >;
       _cli_options_map_["--jobs"] = 
       &::build2::cl::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;

@@ -429,6 +429,9 @@ namespace build2
     bool
     verbose_specified () const;
 
+    const bool&
+    stat () const;
+
     const size_t&
     jobs () const;
 
@@ -530,6 +533,7 @@ namespace build2
     bool quiet_;
     uint16_t verbose_;
     bool verbose_specified_;
+    bool stat_;
     size_t jobs_;
     bool jobs_specified_;
     size_t max_jobs_;

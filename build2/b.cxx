@@ -1393,9 +1393,10 @@ main (int argc, char* argv[])
   //
   assert (st.task_queue_remain == 0);
 
-  if (verb >= (st.thread_max_active > 1 ? 3 : 4))
+  if (ops.stat ())
   {
-    info << "scheduler statistics:" << "\n\n"
+    text << '\n'
+         << "build statistics:" << "\n\n"
          << "  thread_max_active      " << st.thread_max_active     << '\n'
          << "  thread_max_total       " << st.thread_max_total      << '\n'
          << "  thread_helpers         " << st.thread_helpers        << '\n'

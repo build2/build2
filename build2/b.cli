@@ -441,6 +441,11 @@ namespace build2
        \li|Even more detailed information, including state dumps.||"
     }
 
+    bool --stat
+    {
+      "Display build statistics."
+    }
+
     size_t --jobs|-j
     {
       "<num>",
