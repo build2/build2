@@ -322,7 +322,7 @@ then have the following form (\i{epoch} is the versioning scheme version
 and \i{revision} is the package revision):
 
 \
-[<epoch>~]<major>.<minor>.<patch>[-<prerel>][+<revision>]
+[+<epoch>-]<major>.<minor>.<patch>[-<prerel>][+<revision>]
 \
 
 For example:
@@ -330,7 +330,7 @@ For example:
 \
 1.2.3
 1.2.3+1
-1~1.2.3-a.1+2
++1-1.2.3-a.1+2
 \
 
 The \i{major}, \i{minor}, and \i{patch} should be numeric values between \c{0}
@@ -495,7 +495,7 @@ While being loaded, it reads the project's manifest and extracts its version
 as the following build system variables (which can be used in the buildfiles):
 
 \
-[string] version                     # 2~1.2.3-b.4.1234567.deadbeef+3
+[string] version                     # +2-1.2.3-b.4.1234567.deadbeef+3
 
 [string] version.project             # 1.2.3-b.4.1234567.deadbeef
 [uint64] version.project_number      # 0010020025041
