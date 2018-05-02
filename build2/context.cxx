@@ -698,13 +698,13 @@ namespace build2
       var_import_target = &vp.insert<name> ("import.target");
 
       var_clean    = &vp.insert<bool> ("clean",    v_t);
-      var_backlink = &vp.insert<bool> ("backlink", v_t);
+      var_backlink = &vp.insert<string> ("backlink", v_t);
       vp.insert<string> (var_extension, v_t);
 
       // Backlink executables and (generated) documentation by default.
       //
-      gs.target_vars[exe::static_type]["*"].assign (var_backlink) = true;
-      gs.target_vars[doc::static_type]["*"].assign (var_backlink) = true;
+      gs.target_vars[exe::static_type]["*"].assign (var_backlink) = "true";
+      gs.target_vars[doc::static_type]["*"].assign (var_backlink) = "true";
 
       var_build_meta_operation = &vp.insert<string> ("build.meta_operation");
     }

@@ -277,7 +277,17 @@ namespace build2
   extern const variable* var_import_target;   // import.target
 
   extern const variable* var_clean;           // [bool] target visibility
-  extern const variable* var_backlink;        // [bool] target visibility
+
+  // Forwarded configuration backlink mode. Valid values are:
+  //
+  // false     - no link.
+  // true      - make a link using appropriate mechanism.
+  // symbolic  - make a symbolic link.
+  // hard      - make a hard link.
+  // copy      - make a copy.
+  // overwrite - copy over but don't remove on clean (committed gen code).
+  //
+  extern const variable* var_backlink;        // [string] target visibility
 
   extern const char var_extension[10];        // "extension"
 

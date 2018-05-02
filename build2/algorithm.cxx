@@ -895,8 +895,10 @@ namespace build2
   }
 
   void
-  update_backlink (const file& f, const path& l, bool changed)
+  update_backlink (const file& f, const path& l, bool changed, backlink_mode m)
   {
+    using mode = backlink_mode;
+
     const path& p (f.path ());
     dir_path d (l.directory ());
 
@@ -914,10 +916,22 @@ namespace build2
                                           false /* follow_symlinks */,
                                           true  /* ignore_errors */))
       {
+        const char* c (nullptr);
+        switch (m)
+        {
+        case mode::link:
+        case mode::symbolic:  c = verb >= 2 ? "ln -s" : "ln";         break;
+        case mode::hard:      c = "ln";                               break;
+        case mode::copy:
+        case mode::overwrite: c = l.to_directory () ? "cp -r" : "cp"; break;
+        }
+
+        // Note: 'ln foo/ bar/' means a different thing.
+        //
         if (verb >= 2)
-          text << "ln -s " << p << ' ' << l;
+          text << c << ' ' << p.string () << ' ' << l.string ();
         else
-          text << "ln " << f << " -> " << d;
+          text << c << ' ' << f << " -> " << d;
       }
     }
 
@@ -928,13 +942,15 @@ namespace build2
     if (!exists (d))
       mkdir_p (d, 2 /* verbosity */);
 
-    update_backlink (p, l);
+    update_backlink (p, l, m);
   }
 
   void
-  update_backlink (const path& p, const path& l, bool changed)
+  update_backlink (const path& p, const path& l, bool changed, backlink_mode m)
   {
     // As above but with a slightly different diagnostics.
+
+    using mode = backlink_mode;
 
     dir_path d (l.directory ());
 
@@ -944,85 +960,213 @@ namespace build2
                                           false /* follow_symlinks */,
                                           true  /* ignore_errors */))
       {
+        const char* c (nullptr);
+        switch (m)
+        {
+        case mode::link:
+        case mode::symbolic:  c = verb >= 2 ? "ln -s" : "ln";         break;
+        case mode::hard:      c = "ln";                               break;
+        case mode::copy:
+        case mode::overwrite: c = l.to_directory () ? "cp -r" : "cp"; break;
+        }
+
         if (verb >= 2)
-          text << "ln -s " << p.string () << ' ' << l.string ();
+          text << c << ' ' << p.string () << ' ' << l.string ();
         else
-          text << "ln " << p.string () << " -> " << d;
+          text << c << ' ' << p.string () << " -> " << d;
       }
     }
 
     if (!exists (d))
       mkdir_p (d, 2 /* verbosity */);
 
-    update_backlink (p, l);
+    update_backlink (p, l, m);
+  }
+
+  static inline void
+  try_rmbacklink (const path& l,
+                  backlink_mode m,
+                  bool ie /* ignore_errors */= false)
+  {
+    // See also clean_backlink() below.
+
+    using mode = backlink_mode;
+
+    if (l.to_directory ())
+    {
+      switch (m)
+      {
+      case mode::link:
+      case mode::symbolic:
+      case mode::hard:      try_rmsymlink (l, true /* directory */, ie); break;
+      case mode::copy:      try_rmdir_r   (path_cast<dir_path> (l), ie); break;
+      case mode::overwrite:                                              break;
+      }
+    }
+    else
+    {
+      // try_rmfile() should work for symbolic and hard file links.
+      //
+      switch (m)
+      {
+      case mode::link:
+      case mode::symbolic:
+      case mode::hard:
+      case mode::copy:      try_rmfile (l, ie); break;
+      case mode::overwrite:                     break;
+      }
+    }
   }
 
   void
-  update_backlink (const path& p, const path& l)
+  update_backlink (const path& p, const path& l, backlink_mode om)
   {
-    bool d (l.to_directory ());
+    using mode = backlink_mode;
 
-    bool sym (true);
-    auto print = [&sym, &p, &l] ()
+    bool d (l.to_directory ());
+    mode m (om); // Keep original mode.
+
+    auto print = [&p, &l, &m, d] ()
     {
       if (verb >= 3)
-        text << (sym ? "ln -sf" : "ln -f")
-             << ' ' << p.string ()
-             << ' ' << l.string (); // 'ln foo/ bar/' means different thing.
+      {
+        const char* c (nullptr);
+        switch (m)
+        {
+        case mode::link:
+        case mode::symbolic:  c = "ln -sf";           break;
+        case mode::hard:      c = "ln -f";            break;
+        case mode::copy:
+        case mode::overwrite: c = d ? "cp -r" : "cp"; break;
+        }
+
+        text << c << ' ' << p.string () << ' ' << l.string ();
+      }
     };
 
     try
     {
       // Normally will be there.
       //
-      if (l.to_directory ())
-        try_rmsymlink (l, true /* directory */);
-      else
-        try_rmfile (l);
+      try_rmbacklink (l, m);
 
       // Skip (ad hoc) targets that don't exist.
       //
       if (!(d ? dir_exists (p) : file_exists (p)))
         return;
 
+      for (;; ) // Retry/fallback loop.
       try
       {
-        mksymlink (p, l, d);
+        switch (m)
+        {
+        case mode::link:
+        case mode::symbolic:  mksymlink  (p, l, d);  break;
+        case mode::hard:      mkhardlink (p, l, d);  break;
+        case mode::copy:
+        case mode::overwrite:
+          {
+            if (d)
+            {
+              // Currently, for a directory, we do a "copy-link": we make the
+              // target directory and then link each entry (for now this is
+              // only used to "link" a Windows DLL assembly with only files
+              // inside).
+              //
+              dir_path fr (path_cast<dir_path> (p));
+              dir_path to (path_cast<dir_path> (l));
+
+              try_mkdir (to);
+
+              for (const auto& de: dir_iterator (fr))
+              {
+                path f (fr / de.path ());
+                path t (to / de.path ());
+
+                update_backlink (f, t, mode::link);
+              }
+            }
+            else
+              cpfile (p, l, cpflags::overwrite_content);
+
+            break;
+          }
+        }
+
+        break; // Success.
       }
       catch (const system_error& e)
       {
         // If symlinks not supported, try a hardlink.
         //
-        // Note that we are not guaranteed that the system_error exception is
-        // of the generic category.
-        //
-        int c (e.code ().value ());
-        if (!(e.code ().category () == generic_category () &&
+        if (m == mode::link)
+        {
+          // Note that we are not guaranteed that the system_error exception
+          // is of the generic category.
+          //
+          int c (e.code ().value ());
+          if (e.code ().category () == generic_category () &&
               (c == ENOSYS || // Not implemented.
-               c == EPERM)))  // Not supported by the filesystem(s).
-          throw;
+               c == EPERM))   // Not supported by the filesystem(s).
+          {
+            m = mode::hard;
+            continue;
+          }
+        }
 
-        sym = false;
-        mkhardlink (p, l, d);
+        throw;
       }
     }
     catch (const system_error& e)
     {
+      const char* w (nullptr);
+      switch (m)
+      {
+      case mode::link:
+      case mode::symbolic:  w = "symbolic link"; break;
+      case mode::hard:      w = "hard link";     break;
+      case mode::copy:
+      case mode::overwrite: w = "copy";          break;
+      }
+
       print ();
-      fail << "unable to create " << (sym ? "symlink " : " hardlink ") << l
-           << ": " << e;
+      fail << "unable to make " << w << ' ' << l << ": " << e;
     }
 
     print ();
   }
 
   void
-  clean_backlink (const path& l, uint16_t verbosity)
+  clean_backlink (const path& l, uint16_t v /*verbosity*/, backlink_mode m)
   {
+    // Like try_rmbacklink() but with diagnostics and error handling.
+
+    using mode = backlink_mode;
+
     if (l.to_directory ())
-      rmsymlink (l, true /* directory */, verbosity);
+    {
+      switch (m)
+      {
+      case mode::link:
+      case mode::symbolic:
+      case mode::hard:      rmsymlink (l, true /* directory */, v);     break;
+      case mode::copy:      rmdir_r (path_cast<dir_path> (l), true, v); break;
+      case mode::overwrite:                                             break;
+      }
+    }
     else
-      rmfile (l, verbosity); // Should work for symbolic and hard file links.
+    {
+      // remfile() should work for symbolic and hard file links.
+      //
+      switch (m)
+      {
+      case mode::link:
+      case mode::symbolic:
+      case mode::hard:
+      case mode::copy:      rmfile (l, v); break;
+      case mode::overwrite:                break;
+      }
+    }
   }
 
   // If target/link path are syntactically to a directory, then the backlink
@@ -1033,9 +1177,10 @@ namespace build2
     using path_type = build2::path;
 
     reference_wrapper<const path_type> target;
+    backlink_mode mode;
 
-    backlink (const path_type& t, path_type&& l)
-        : auto_rm<path_type> (move (l)), target (t)
+    backlink (const path_type& t, path_type&& l, backlink_mode m)
+        : auto_rm<path_type> (move (l)), target (t), mode (m)
     {
       assert (t.to_directory () == path.to_directory ());
     }
@@ -1044,11 +1189,7 @@ namespace build2
     {
       if (active)
       {
-        if (path.to_directory ())
-          try_rmsymlink (path, true /* directory */, true /* ignore_errors */);
-        else
-          try_rmfile (path, true /* ignore_errors */);
-
+        try_rmbacklink (path, mode, true /* ignore_errors */);
         active = false;
       }
     }
@@ -1062,7 +1203,27 @@ namespace build2
   //
   using backlinks = small_vector<backlink, 1>;
 
-  static bool
+  static optional<backlink_mode>
+  backlink_test (const target& t, const lookup& l)
+  {
+    using mode = backlink_mode;
+
+    optional<mode> r;
+    const string& v (cast<string> (l));
+
+    if      (v == "true")      r = mode::link;
+    else if (v == "symbolic")  r = mode::symbolic;
+    else if (v == "hard")      r = mode::hard;
+    else if (v == "copy")      r = mode::copy;
+    else if (v == "overwrite") r = mode::overwrite;
+    else if (v != "false")
+      fail << "invalid backlink variable value '" << v << "' "
+           << "specified for target " << t;
+
+    return r;
+  }
+
+  static optional<backlink_mode>
   backlink_test (action a, target& t)
   {
     // Note: the order of these checks is from the least to most expensive.
@@ -1070,24 +1231,24 @@ namespace build2
     // Only for plain update/clean.
     //
     if (a.outer () || (a != perform_update_id && a != perform_clean_id))
-      return false;
+      return nullopt;
 
     // Only file-based targets in the out tree can be backlinked.
     //
     if (!t.out.empty () || !t.is_a<file> ())
-      return false;
+      return nullopt;
 
     // Neither an out-of-project nor in-src configuration can be forwarded.
     //
     const scope& bs (t.base_scope ());
     const scope* rs (bs.root_scope ());
     if (rs == nullptr || bs.src_path () == bs.out_path ())
-      return false;
+      return nullopt;
 
     // Only for forwarded configurations.
     //
     if (!cast_false<bool> (rs->vars[var_forwarded]))
-      return false;
+      return nullopt;
 
     lookup l (t[var_backlink]);
 
@@ -1098,46 +1259,63 @@ namespace build2
     if (!l.defined ())
       l = global_scope->find (*var_backlink, t.key ());
 
-    return cast_false<bool> (l);
+    return l ? backlink_test (t, l) : nullopt;
   }
 
   static backlinks
-  backlink_collect (target& t)
+  backlink_collect (target& t, backlink_mode m)
   {
+    using mode = backlink_mode;
+
     const scope& s (t.base_scope ());
 
     backlinks bls;
-    auto add = [&bls, &s] (const path& p)
+    auto add = [&bls, &s] (const path& p, mode m)
     {
-      bls.emplace_back (p, s.src_path () / p.leaf (s.out_path ()));
+      bls.emplace_back (p, s.src_path () / p.leaf (s.out_path ()), m);
     };
 
     // First the target itself.
     //
-    add (t.as<file> ().path ());
+    add (t.as<file> ().path (), m);
 
     // Then ad hoc group file/fsdir members, if any.
     //
-    for (const target* m (t.member); m != nullptr; m = m->member)
+    for (const target* mt (t.member); mt != nullptr; mt = mt->member)
     {
-      if (const file* f = m->is_a<file> ())
-      {
-        const path& p (f->path ());
+      const path* p (nullptr);
 
-        if (!p.empty ()) // The "trust me, it's somewhere" case.
-          add (p);
+      if (const file* f = mt->is_a<file> ())
+      {
+        p = &f->path ();
+
+        if (p->empty ()) // The "trust me, it's somewhere" case.
+          p = nullptr;
       }
-      else if (const fsdir* d = m->is_a<fsdir> ())
-        add (d->dir);
+      else if (const fsdir* d = mt->is_a<fsdir> ())
+        p = &d->dir;
+
+      if (p != nullptr)
+      {
+        // Check for a custom backlink mode for this member. If none, then
+        // inherit the one from the group (so if the user asked to copy .exe,
+        // we will also copy .pdb).
+        //
+        lookup l (mt->vars[var_backlink]); // Note: no group or tt/patter-spec.
+        optional<mode> bm (l ? backlink_test (*mt, l) : m);
+
+        if (bm)
+          add (*p, *bm);
+      }
     }
 
     return bls;
   }
 
   static inline backlinks
-  backlink_update_pre (target& t)
+  backlink_update_pre (target& t, backlink_mode m)
   {
-    return backlink_collect (t);
+    return backlink_collect (t, m);
   }
 
   static void
@@ -1153,9 +1331,12 @@ namespace build2
       const backlink& bl (*i);
 
       if (i == b)
-        update_backlink (t.as<file> (), bl.path, ts == target_state::changed);
+        update_backlink (t.as<file> (),
+                         bl.path,
+                         ts == target_state::changed,
+                         bl.mode);
       else
-        update_backlink (bl.target, bl.path);
+        update_backlink (bl.target, bl.path, bl.mode);
     }
 
     // Cancel removal.
@@ -1165,20 +1346,17 @@ namespace build2
   }
 
   static void
-  backlink_clean_pre (target& t)
+  backlink_clean_pre (target& t, backlink_mode m)
   {
-    backlinks bls (backlink_collect (t));
+    backlinks bls (backlink_collect (t, m));
 
     for (auto b (bls.begin ()), i (b); i != bls.end (); ++i)
     {
-      backlink& bl (*i);
-      const path& l (bl.path);
-
-      bl.cancel ();
-
       // Printing anything at level 1 will probably just add more noise.
       //
-      clean_backlink (l, i == b ? 2 : 3 /* verbosity */);
+      backlink& bl (*i);
+      bl.cancel ();
+      clean_backlink (bl.path, i == b ? 2 : 3 /* verbosity */, bl.mode);
     }
   }
 
@@ -1200,19 +1378,19 @@ namespace build2
       // backlinking.
       //
       backlinks bls;
-      bool bl (backlink_test (a, t));
+      optional<backlink_mode> blm (backlink_test (a, t));
 
-      if (bl)
+      if (blm)
       {
         if (a == perform_update_id)
-          bls = backlink_update_pre (t);
+          bls = backlink_update_pre (t, *blm);
         else
-          backlink_clean_pre (t);
+          backlink_clean_pre (t, *blm);
       }
 
       ts = execute_recipe (a, t, s.recipe);
 
-      if (bl)
+      if (blm)
       {
         if (a == perform_update_id)
           backlink_update_post (t, ts, bls);

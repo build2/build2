@@ -503,6 +503,20 @@ namespace build2
                 t.out,
                 string ()));
 
+            // By default our backlinking logic will try to symlink the
+            // directory and it can even be done on Windows using junctions.
+            // The problem is the Windows DLL assembly "logic" refuses to
+            // recognize a junction as a valid assembly for some reason. So we
+            // are going to resort to copy-link (i.e., a real directory with a
+            // bunch on links).
+            //
+            // Interestingly, the directory symlink works just fine under
+            // Wine. So we only resort to copy-link'ing if we are running
+            // on Windows.
+            //
+#ifdef _WIN32
+            dir.target->assign (var_backlink) = "copy";
+#endif
             match_recipe (dir, group_recipe); // Set recipe and unlock.
           }
         }

@@ -644,19 +644,38 @@ namespace build2
   }
 
   // Update/clean a backlink issuing appropriate diagnostics at appropriate
-  // levels depending on first/changed.
+  // levels depending on the overload and the changed argument.
   //
-  void
-  update_backlink (const file&, const path& link, bool changed);
+  enum class backlink_mode
+  {
+    link,      // Make a symbolic link if possible, hard otherwise.
+    symbolic,  // Make a symbolic link.
+    hard,      // Make a hard link.
+    copy,      // Make a copy.
+    overwrite  // Copy over but don't remove on clean (committed gen code).
+  };
 
   void
-  update_backlink (const path& target, const path& link, bool changed);
+  update_backlink (const file& target,
+                   const path& link,
+                   bool changed,
+                   backlink_mode = backlink_mode::link);
 
   void
-  update_backlink (const path& target, const path& link);
+  update_backlink (const path& target,
+                   const path& link,
+                   bool changed,
+                   backlink_mode = backlink_mode::link);
 
   void
-  clean_backlink (const path& link, uint16_t verbosity);
+  update_backlink (const path& target,
+                   const path& link,
+                   backlink_mode = backlink_mode::link);
+
+  void
+  clean_backlink (const path& link,
+                  uint16_t verbosity,
+                  backlink_mode = backlink_mode::link);
 }
 
 #include <build2/algorithm.ixx>
