@@ -562,158 +562,136 @@ namespace build2
               if (n.qualified ())
                 fail (nloc) << "project name in target " << n;
 
-              if (n.directory () && !n.pair) // Not out-qualified.
+              // Figure out if this is a target or type/pattern-specific
+              // variable.
+              //
+              size_t p (n.value.find ('*'));
+
+              if (p == string::npos)
               {
-                // Scope variable.
-                //
-
-                // @@ TODO: break for now before changing to target.
-                //
-                fail (nloc) << "change of semantics: will be target, not scope" <<
-                  info << "remove ':' for scope semantics";
-
-                if (var.visibility == variable_visibility::target)
-                  fail (ploc) << "variable " << var << " has target "
-                              << "visibility but assigned in a scope" <<
-                    info << "consider changing to '.../*: " << var << "'";
-
-                enter_scope sg (*this, move (n.dir));
+                name o (n.pair ? move (*++i) : name ());
+                enter_target tg (
+                  *this, move (n), move (o), true, nloc, trace);
                 parse_variable (t, tt, var, att);
               }
               else
               {
-                // Figure out if this is a target or type/pattern-specific
-                // variable.
+                // See tests/variable/type-pattern.
                 //
-                size_t p (n.value.find ('*'));
+                if (n.pair)
+                  fail (nloc) << "out-qualified target type/pattern-"
+                              << "specific variable";
 
-                if (p == string::npos)
+                if (n.value.find ('*', p + 1) != string::npos)
+                  fail (nloc) << "multiple wildcards in target type/pattern "
+                              << n;
+
+                // If we have the directory, then it is the scope.
+                //
+                enter_scope sg;
+                if (!n.dir.empty ())
+                  sg = enter_scope (*this, move (n.dir));
+
+                // Resolve target type. If none is specified or if it is '*',
+                // use the root of the hierarchy. So these are all equivalent:
+                //
+                // *: foo = bar
+                // {*}: foo = bar
+                // *{*}: foo = bar
+                //
+                const target_type* ti (
+                  n.untyped () || n.type == "*"
+                  ? &target::static_type
+                  : scope_->find_target_type (n.type));
+
+                if (ti == nullptr)
+                  fail (nloc) << "unknown target type " << n.type;
+
+                // Note: expanding the value in the context of the scope.
+                //
+                value rhs (parse_variable_value (t, tt));
+
+                // Leave the value untyped unless we are assigning.
+                //
+                pair<reference_wrapper<value>, bool> p (
+                  scope_->target_vars[*ti][move (n.value)].insert (
+                    var, att == type::assign));
+
+                value& lhs (p.first);
+
+                // We store prepend/append values untyped (similar to
+                // overrides).
+                //
+                if (rhs.type != nullptr && att != type::assign)
+                  untypify (rhs);
+
+                if (p.second)
                 {
-                  name o (n.pair ? move (*++i) : name ());
-                  enter_target tg (
-                    *this, move (n), move (o), true, nloc, trace);
-                  parse_variable (t, tt, var, att);
+                  // Note: we are always using assign and we don't pass the
+                  // variable in case of prepend/append in order to keep the
+                  // value untyped.
+                  //
+                  apply_value_attributes (
+                    att == type::assign ? &var : nullptr,
+                    lhs,
+                    move (rhs),
+                    type::assign);
+
+                  // Map assignment type to value::extra constant.
+                  //
+                  lhs.extra =
+                    att == type::prepend ? 1 :
+                    att == type::append  ? 2 :
+                    0;
                 }
                 else
                 {
-                  // See tests/variable/type-pattern.
+                  // Existing value. What happens next depends on what we are
+                  // trying to do and what's already there.
                   //
-                  if (n.pair)
-                    fail (nloc) << "out-qualified target type/pattern-"
-                                << "specific variable";
-
-                  if (n.value.find ('*', p + 1) != string::npos)
-                    fail (nloc) << "multiple wildcards in target type/pattern "
-                                << n;
-
-                  // If we have the directory, then it is the scope.
+                  // Assignment is the easy one: we simply overwrite what's
+                  // already there. Also, if we are appending/prepending to a
+                  // previously assigned value, then we simply append or
+                  // prepend normally.
                   //
-                  enter_scope sg;
-                  if (!n.dir.empty ())
-                    sg = enter_scope (*this, move (n.dir));
-
-                  // Resolve target type. If none is specified or if it is
-                  // '*', use the root of the hierarchy. So these are all
-                  // equivalent:
-                  //
-                  // *: foo = bar
-                  // {*}: foo = bar
-                  // *{*}: foo = bar
-                  //
-                  const target_type* ti (
-                    n.untyped () || n.type == "*"
-                    ? &target::static_type
-                    : scope_->find_target_type (n.type));
-
-                  if (ti == nullptr)
-                    fail (nloc) << "unknown target type " << n.type;
-
-                  // Note: expanding the value in the context of the scope.
-                  //
-                  value rhs (parse_variable_value (t, tt));
-
-                  // Leave the value untyped unless we are assigning.
-                  //
-                  pair<reference_wrapper<value>, bool> p (
-                    scope_->target_vars[*ti][move (n.value)].insert (
-                      var, att == type::assign));
-
-                  value& lhs (p.first);
-
-                  // We store prepend/append values untyped (similar to
-                  // overrides).
-                  //
-                  if (rhs.type != nullptr && att != type::assign)
-                    untypify (rhs);
-
-                  if (p.second)
+                  if (att == type::assign || lhs.extra == 0)
                   {
-                    // Note: we are always using assign and we don't pass the
-                    // variable in case of prepend/append in order to keep the
-                    // value untyped.
+                    // Above we instructed insert() not to type the value so
+                    // we have to compensate for that now.
                     //
-                    apply_value_attributes (
-                      att == type::assign ? &var : nullptr,
-                      lhs,
-                      move (rhs),
-                      type::assign);
+                    if (att != type::assign)
+                    {
+                      if (var.type != nullptr && lhs.type != var.type)
+                        typify (lhs, *var.type, &var);
+                    }
+                    else
+                      lhs.extra = 0; // Change to assignment.
 
-                    // Map assignment type to value::extra constant.
-                    //
-                    lhs.extra =
-                      att == type::prepend ? 1 :
-                      att == type::append  ? 2 :
-                      0;
+                    apply_value_attributes (&var, lhs, move (rhs), att);
                   }
                   else
                   {
-                    // Existing value. What happens next depends on what we
-                    // are trying to do and what's already there.
+                    // This is an append/prepent to a previously appended or
+                    // prepended value. We can handle it as long as things are
+                    // consistent.
                     //
-                    // Assignment is the easy one: we simply overwrite what's
-                    // already there. Also, if we are appending/prepending to
-                    // a previously assigned value, then we simply append or
-                    // prepend normally.
+                    if (att == type::prepend && lhs.extra == 2)
+                      fail (at) << "prepend to a previously appended target "
+                                << "type/pattern-specific variable " << var;
+
+                    if (att == type::append && lhs.extra == 1)
+                      fail (at) << "append to a previously prepended target "
+                                << "type/pattern-specific variable " << var;
+
+                    // Do untyped prepend/append.
                     //
-                    if (att == type::assign || lhs.extra == 0)
-                    {
-                      // Above we instructed insert() not to type the value so
-                      // we have to compensate for that now.
-                      //
-                      if (att != type::assign)
-                      {
-                        if (var.type != nullptr && lhs.type != var.type)
-                          typify (lhs, *var.type, &var);
-                      }
-                      else
-                        lhs.extra = 0; // Change to assignment.
-
-                      apply_value_attributes (&var, lhs, move (rhs), att);
-                    }
-                    else
-                    {
-                      // This is an append/prepent to a previously appended or
-                      // prepended value. We can handle it as long as things
-                      // are consistent.
-                      //
-                      if (att == type::prepend && lhs.extra == 2)
-                        fail (at) << "prepend to a previously appended target "
-                                  << "type/pattern-specific variable " << var;
-
-                      if (att == type::append && lhs.extra == 1)
-                        fail (at) << "append to a previously prepended target "
-                                  << "type/pattern-specific variable " << var;
-
-                      // Do untyped prepend/append.
-                      //
-                      apply_value_attributes (nullptr, lhs, move (rhs), att);
-                    }
+                    apply_value_attributes (nullptr, lhs, move (rhs), att);
                   }
-
-                  if (lhs.extra != 0 && lhs.type != nullptr)
-                    fail (at) << "typed prepend/append to target type/pattern-"
-                              << "specific variable " << var;
                 }
+
+                if (lhs.extra != 0 && lhs.type != nullptr)
+                  fail (at) << "typed prepend/append to target type/pattern-"
+                            << "specific variable " << var;
               }
 
               if (++i != e)
