@@ -1594,7 +1594,7 @@ namespace build2
           catch (const system_error& e)
           {
             fail (ll) << "unable to execute " << c.program << " builtin: "
-                      << e << endf;
+                      << e;
           }
         }
         else
@@ -1602,6 +1602,27 @@ namespace build2
           // Execute the process.
           //
           cstrings args (process_args ());
+
+          // Resolve the relative not simple program path against the scope's
+          // working directory. The simple one will be left for the process
+          // path search machinery.
+          //
+          path p;
+
+          try
+          {
+            p = path (args[0]);
+
+            if (p.relative () && !p.simple ())
+            {
+              p = sp.wd_path / p;
+              args[0] = p.string ().c_str ();
+            }
+          }
+          catch (const invalid_path& e)
+          {
+            fail (ll) << "invalid program path " << e.path;
+          }
 
           try
           {
