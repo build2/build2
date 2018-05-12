@@ -2649,7 +2649,8 @@ namespace build2
       if (at.first)
         fail (at.second) << "attributes before target-qualified variable name";
 
-      attributes_pop ();
+      if (!pre_parse_)
+        attributes_pop ();
 
       const location nl (get_location (t));
       next (t, tt);
