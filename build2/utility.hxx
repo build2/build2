@@ -71,7 +71,7 @@ namespace build2
   using butl::trim;
   using butl::next_word;
 
-  using butl::exception_guard;
+  using butl::make_guard;
   using butl::make_exception_guard;
 
   using butl::throw_generic_error;
