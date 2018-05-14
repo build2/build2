@@ -20,12 +20,18 @@ namespace build2
     snapshot
     extract_snapshot (const scope& rs)
     {
-      const dir_path& src_root (rs.src_path ());
-
-      // .git can be either a directory or a file in case of a submodule.
+      // Ignore errors when checking for existence since we may be iterating
+      // over directories past any reasonable project boundaries.
       //
-      if (build2::entry_exists (src_root / git, true /* follow_symlinks */))
-        return extract_snapshot_git (src_root);
+      for (dir_path d (rs.src_path ()); !d.empty (); d = d.directory ())
+      {
+        // .git can be either a directory or a file in case of a submodule.
+        //
+        if (butl::entry_exists (d / git,
+                                true /* follow_symlinks */,
+                                true /* ignore_errors */))
+          return extract_snapshot_git (d);
+      }
 
       return snapshot ();
     }
