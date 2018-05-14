@@ -52,6 +52,7 @@ namespace build2
     "",      // to do anything.
     "",
     "",
+    true,    // bootstrap_outer
     nullptr, // meta-operation pre
     nullptr, // operation pre
     &load,
@@ -416,6 +417,7 @@ namespace build2
     "",
     "",
     "",
+    true,    // bootstrap_outer
     nullptr, // meta-operation pre
     nullptr, // operation pre
     &load,
@@ -507,6 +509,7 @@ namespace build2
     "",
     "",
     "",
+    false,   // bootstrap_outer
     nullptr, // meta-operation pre
     &info_operation_pre,
     &info_load,

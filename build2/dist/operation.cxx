@@ -630,6 +630,7 @@ namespace build2
       "distributing",
       "distributed",
       "has nothing to distribute", // We cannot "be distributed".
+      true,    // bootstrap_outer
       nullptr, // meta-operation pre
       &dist_operation_pre,
       &load,   // normal load

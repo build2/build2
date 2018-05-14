@@ -842,14 +842,30 @@ main (int argc, char* argv[])
               // If we also have src_root specified by the user, make sure
               // they match.
               //
-              const dir_path& p (cast<dir_path> (v));
+              dir_path& p (cast<dir_path> (v));
 
               if (src_root.empty ())
                 src_root = p;
               else if (src_root != p)
               {
-                fail << "bootstrapped src_root " << p << " does not match "
-                     << (forwarded ? "forwarded " : "specified ") << src_root;
+                // We used to fail here but that meant there were no way to
+                // actually fix the problem (i.e., remove a forward or
+                // reconfigure the out directory). So now we warn (unless
+                // quiet, which is helful to tools like the package manager
+                // that are running info underneath).
+                //
+                // We also save the old/new values since we may have to remap
+                // src_root for subprojects (amalgamations are handled by not
+                // loading outer project for disfigure and info).
+                //
+                if (verb)
+                  warn << "configured src_root " << p << " does not match "
+                       << (forwarded ? "forwarded " : "specified ")
+                       << src_root;
+
+                new_src_root = src_root;
+                old_src_root = move (p);
+                p = src_root;
               }
             }
             else
@@ -921,15 +937,6 @@ main (int argc, char* argv[])
             }
           }
 
-          // Create and bootstrap outer roots if any. Loading is done
-          // by load_root_pre() (that would normally be called by the
-          // meta-operation's load() callback below).
-          //
-          create_bootstrap_outer (rs);
-
-          if (!bstrapped)
-            bootstrap_post (rs);
-
           // The src bootstrap should have loaded all the modules that
           // may add new meta/operations. So at this stage they should
           // all be known. We store the combined action id in uint8_t;
@@ -976,7 +983,8 @@ main (int argc, char* argv[])
             // If this is the first target in the meta-operation batch, then
             // set the batch meta-operation id.
             //
-            if (mid == 0)
+            bool first (mid == 0);
+            if (first)
             {
               mid = m;
               mif = rs.meta_operations[m];
@@ -984,18 +992,6 @@ main (int argc, char* argv[])
               if (mif == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
                          << "operation " << meta_operation_table[m].name;
-
-              l5 ([&]{trace << "start meta-operation batch " << mif->name
-                            << ", id " << static_cast<uint16_t> (mid);});
-
-              if (mif->meta_operation_pre != nullptr)
-                mif->meta_operation_pre (mparams, l);
-              else if (!mparams.empty ())
-                fail (l) << "unexpected parameters for meta-operation "
-                         << mif->name;
-
-              set_current_mif (*mif);
-              dirty = true;
             }
             //
             // Otherwise, check that all the targets in a meta-operation
@@ -1012,6 +1008,31 @@ main (int argc, char* argv[])
               if (mi != mif)
                 fail (l) << "different implementations of meta-operation "
                          << mif->name << " in the same meta-operation batch";
+            }
+
+            // Create and bootstrap outer roots if any. Loading is done by
+            // load_root() (that would be called by the meta-operation's
+            // load() callback below).
+            //
+            if (mif->bootstrap_outer)
+              create_bootstrap_outer (rs);
+
+            if (!bstrapped)
+              bootstrap_post (rs);
+
+            if (first)
+            {
+              l5 ([&]{trace << "start meta-operation batch " << mif->name
+                            << ", id " << static_cast<uint16_t> (mid);});
+
+              if (mif->meta_operation_pre != nullptr)
+                mif->meta_operation_pre (mparams, l);
+              else if (!mparams.empty ())
+                fail (l) << "unexpected parameters for meta-operation "
+                         << mif->name;
+
+              set_current_mif (*mif);
+              dirty = true;
             }
 
             // If this is the first target in the operation batch, then set

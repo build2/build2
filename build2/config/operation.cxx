@@ -562,6 +562,7 @@ namespace build2
       "configuring",
       "configured",
       "is configured",
+      true,           // bootstrap_outer
       &configure_pre, // meta-operation pre
       &configure_operation_pre,
       &configure_load,   // normal load unless configuring forward
@@ -810,6 +811,7 @@ namespace build2
       "disfiguring",
       "disfigured",
       "is disfigured",
+      false,         // bootstrap_outer
       disfigure_pre, // meta-operation pre
       &disfigure_operation_pre,
       &disfigure_load,

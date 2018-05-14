@@ -57,6 +57,11 @@ namespace build2
   pair<dir_path, bool>
   find_out_root (const dir_path&);
 
+  // The old/new src_root paths. See main() (where they are set) for details.
+  //
+  extern dir_path old_src_root;
+  extern dir_path new_src_root;
+
   // If buildfile is '-', then read from STDIN.
   //
   void

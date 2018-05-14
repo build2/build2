@@ -253,6 +253,12 @@ namespace build2
     const string name_did;          // E.g., 'configured'.
     const string name_done;         // E.g., 'is configured'.
 
+    // Whether to bootstrap outer projects. If load() below calls load_root(),
+    // then this must be true. Note that this happens before
+    // meta_operation_pre() is called.
+    //
+    const bool bootstrap_outer;
+
     // The first argument in all the callback is the meta-operation
     // parameters.
     //

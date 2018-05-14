@@ -96,6 +96,23 @@ namespace build2
     return make_pair (dir_path (), false);
   }
 
+  dir_path old_src_root;
+  dir_path new_src_root;
+
+  // Remap the src_root variable value if it is inside old_src_root.
+  //
+  static inline void
+  remap_src_root (value& v)
+  {
+    if (!old_src_root.empty ())
+    {
+      dir_path& d (cast<dir_path> (v));
+
+      if (d.sub (old_src_root))
+        d = new_src_root / d.leaf (old_src_root);
+    }
+  }
+
   static void
   source (scope& root, scope& base, const path& bf, bool boot)
   {
@@ -444,32 +461,50 @@ namespace build2
   {
     tracer trace ("find_project_name");
 
-    // Load the project name. If this subdirectory is the subproject's
-    // src_root, then we can get directly to that. Otherwise, we first
-    // have to discover its src_root.
+    // First check if the root scope for this project has already been setup
+    // in which case we will have src_root and maybe even the name.
     //
-    const dir_path* src_root;
+    const dir_path* src_root (nullptr);
+    const scope& s (scopes.find (out_root));
+
+    if (s.root_scope () == &s && s.out_path () == out_root)
+    {
+      if (lookup l = s.vars[var_project])
+        return cast<string> (l);
+
+      src_root = s.src_path_;
+    }
+
+    // Load the project name. If this subdirectory is the subproject's
+    // src_root, then we can get directly to that. Otherwise, we first have to
+    // discover its src_root.
+    //
     value src_root_v; // Need it to live until the end.
 
-    if (src_hint != nullptr ? *src_hint : is_src_root (out_root))
-      src_root = &out_root;
-    else
+    if (src_root == nullptr)
     {
-      path f (out_root / src_root_file);
-
-      if (!fallback_src_root.empty () && !exists (f))
-        src_root = &fallback_src_root;
+      if (src_hint != nullptr ? *src_hint : is_src_root (out_root))
+        src_root = &out_root;
       else
       {
-        auto p (extract_variable (f, *var_src_root));
+        path f (out_root / src_root_file);
 
-        if (!p.second)
-          fail << "variable src_root expected as first line in " << f;
+        if (!fallback_src_root.empty () && !exists (f))
+          src_root = &fallback_src_root;
+        else
+        {
+          auto p (extract_variable (f, *var_src_root));
 
-        src_root_v = move (p.first);
-        src_root = &cast<dir_path> (src_root_v);
-        l5 ([&]{trace << "extracted src_root " << *src_root << " for "
-                      << out_root;});
+          if (!p.second)
+            fail << "variable src_root expected as first line in " << f;
+
+          src_root_v = move (p.first);
+          remap_src_root (src_root_v); // Remap if inside old_src_root.
+          src_root = &cast<dir_path> (src_root_v);
+
+          l5 ([&]{trace << "extracted src_root " << *src_root
+                        << " for " << out_root;});
+        }
       }
     }
 
@@ -871,6 +906,8 @@ namespace build2
           v = move (src_root);
         }
       }
+      else
+        remap_src_root (v); // Remap if inside old_src_root.
 
       setup_root (rs, forwarded (root, out_root, v.as<dir_path> ()));
       bootstrap_pre (rs);
@@ -917,9 +954,13 @@ namespace build2
           value& v (rs.assign (var_src_root));
 
           if (!v)
+          {
             v = is_src_root (out_root)
               ? out_root
               : (root.src_path () / p.second);
+          }
+          else
+            remap_src_root (v); // Remap if inside old_src_root.
 
           setup_root (rs, forwarded (root, out_root, v.as<dir_path> ()));
           bootstrap_pre (rs);
@@ -1234,10 +1275,14 @@ namespace build2
         auto l (root->vars[*var_src_root]);
         if (l)
         {
+          // Note that unlike main() here we fail hard. The idea is that if
+          // the project we are importing is misconfigured, then it should be
+          // fixed first.
+          //
           const dir_path& p (cast<dir_path> (l));
 
           if (!src_root.empty () && p != src_root)
-            fail (loc) << "bootstrapped src_root " << p << " does not match "
+            fail (loc) << "configured src_root " << p << " does not match "
                        << "discovered " << src_root;
         }
         else
