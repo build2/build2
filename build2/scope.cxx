@@ -569,7 +569,7 @@ namespace build2
   static const string file_tt ("file");
 
   const target_type* scope::
-  find_target_type (name& n, optional<string>& ext) const
+  find_target_type (name& n, optional<string>& ext, const location& loc) const
   {
     ext = nullopt;
 
@@ -622,7 +622,15 @@ namespace build2
 
       if (i != string::npos)
       {
-        n.dir /= dir_path (v, i != 0 ? i : 1); // Special case: "/".
+        try
+        {
+          n.dir /= dir_path (v, i != 0 ? i : 1); // Special case: "/".
+        }
+        catch (const invalid_path& e)
+        {
+          fail (loc) << "invalid path '" << e.path << "'";
+        }
+
         v = string (v, i + 1, string::npos);
       }
 

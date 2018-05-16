@@ -1263,7 +1263,7 @@ main (int argc, char* argv[])
           // Find the target type and extract the extension.
           //
           optional<string> e;
-          const target_type* ti (bs.find_target_type (tn, e));
+          const target_type* ti (bs.find_target_type (tn, e, l));
 
           if (ti == nullptr)
             fail (l) << "unknown target type " << tn.type;

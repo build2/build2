@@ -150,7 +150,7 @@ namespace build2
                     const location& loc)
     {
       optional<string> e;
-      const target_type* ti (p.scope_->find_target_type (n, e));
+      const target_type* ti (p.scope_->find_target_type (n, e, loc));
 
       if (ti == nullptr)
         p.fail (loc) << "unknown target type " << n.type;
@@ -735,7 +735,7 @@ namespace build2
             for (auto& pn: pns)
             {
               optional<string> e;
-              const target_type* ti (scope_->find_target_type (pn, e));
+              const target_type* ti (scope_->find_target_type (pn, e, ploc));
 
               if (ti == nullptr)
                 fail (ploc) << "unknown target type " << pn.type;
@@ -3104,19 +3104,27 @@ namespace build2
                    << " pattern";
       }
 
-      if (s == '+')
+      try
       {
-        if (p)
-          include_pattern (move (v), a);
+        if (s == '+')
+        {
+          if (p)
+            include_pattern (move (v), a);
+          else
+            include_match (move (v), a);
+        }
         else
-          include_match (move (v), a);
+        {
+          if (p)
+            exclude_pattern (move (v));
+          else
+            exclude_match (v);
+        }
       }
-      else
+      catch (const invalid_path& e)
       {
-        if (p)
-          exclude_pattern (move (v));
-        else
-          exclude_match (v);
+        fail (l) << "invalid path '" << e.path << "' in " << what
+                 << " pattern";
       }
     }
 
