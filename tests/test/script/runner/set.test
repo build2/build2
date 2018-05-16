@@ -254,7 +254,8 @@
   $c <<EOI && $b 2>>EOE != 0
   set -w x baz
   EOI
-  testscript:1:1: (x):1:1: error: expected '[' instead of 'x'
+  <attributes>:1:1: error: expected '[' instead of 'x'
+    testscript:1:1: info: while parsing attributes 'x'
   EOE
 
   : unknown
@@ -262,7 +263,8 @@
   $c <<EOI && $b 2>>EOE != 0
   set -w [x] baz
   EOI
-  testscript:1:1: ([x]):1:1: error: unknown value attribute x
+  <attributes>:1:1: error: unknown value attribute x
+    testscript:1:1: info: while parsing attributes '[x]'
   EOE
 
   : junk
@@ -270,6 +272,7 @@
   $c <<EOI && $b 2>>EOE != 0
   set -w '[string] x' baz
   EOI
-  testscript:1:1: ([string] x):1:10: error: trailing junk after ']'
+  <attributes>:1:10: error: trailing junk after ']'
+    testscript:1:1: info: while parsing attributes '[string] x'
   EOE
 }

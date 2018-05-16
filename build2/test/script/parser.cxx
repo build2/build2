@@ -2232,34 +2232,17 @@ namespace build2
                   add_word (move (s), l);
                 else
                 {
-                  // Come up with a "path" that contains both the original
-                  // location as well as the expanded string. The resulting
-                  // diagnostics will look like this:
+                  // If the chunk re-parsing results in error, our diagnostics
+                  // will look like this:
                   //
-                  // testscript:10:1 ('abc): unterminated single quote
+                  // <string>:1:4: error: stdout merge redirect file descriptor must be 2
+                  //   testscript:2:5: info: while parsing string '1>&a'
                   //
-                  path name;
-                  {
-                    string n (l.file->string ());
-                    n += ':';
-
-                    if (!ops.no_line ())
+                  auto df = make_diag_frame (
+                    [s, &l](const diag_record& dr)
                     {
-                      n += to_string (l.line);
-                      n += ':';
-
-                      if (!ops.no_column ())
-                      {
-                        n += to_string (l.column);
-                        n += ':';
-                      }
-                    }
-
-                    n += " (";
-                    n += s;
-                    n += ')';
-                    name = path (move (n));
-                  }
+                      dr << info (l) << "while parsing string '" << s << "'";
+                    });
 
                   // When re-lexing we do "effective escaping" and only for
                   // ['"\] (quotes plus the backslash itself). In particular,
@@ -2273,6 +2256,8 @@ namespace build2
                   // args = 'x=\"foo bar\"'
                   // cmd $args               # cmd x="foo bar"
                   //
+
+                  path name ("<string>");
                   istringstream is (s);
                   lexer lex (is, name,
                              lexer_mode::command_expansion,

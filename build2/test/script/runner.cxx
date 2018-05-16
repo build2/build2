@@ -1077,38 +1077,25 @@ namespace build2
             lhs.assign (move (ns), &var);
           else
           {
-            // Come up with a "path" that contains both the expression line
-            // location as well as the attributes string. The resulting
-            // diagnostics will look like this:
+            // If there is an error in the attributes string, our diagnostics
+            // will look like this:
             //
-            // testscript:10:1: ([x]):1:1: error: unknown value attribute x
+            // <attributes>:1:1 error: unknown value attribute x
+            //   testscript:10:1 info: while parsing attributes '[x]'
             //
-            path name;
-            {
-              string n (ll.file->string ());
-              n += ':';
-
-              if (!ops.no_line ())
+            auto df = make_diag_frame (
+              [ats, &ll](const diag_record& dr)
               {
-                n += to_string (ll.line);
-                n += ':';
-
-                if (!ops.no_column ())
-                {
-                  n += to_string (ll.column);
-                  n += ':';
-                }
-              }
-
-              n += " (";
-              n += *ats;
-              n += ')';
-              name = path (move (n));
-            }
+                dr << info (ll) << "while parsing attributes '" << *ats << "'";
+              });
 
             parser p;
-            p.apply_value_attributes(
-              &var, lhs, value (move (ns)), *ats, token_type::assign, name);
+            p.apply_value_attributes (&var,
+                                      lhs,
+                                      value (move (ns)),
+                                      *ats,
+                                      token_type::assign,
+                                      path ("<attributes>"));
           }
         }
         catch (const io_error& e)
