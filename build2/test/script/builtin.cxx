@@ -306,7 +306,8 @@ namespace build2
           if (cleanup)
             sp.clean ({cleanup_type::always, to}, true);
 
-          for (const auto& de: dir_iterator (from)) // Can throw.
+          for (const auto& de: dir_iterator (from,
+                                             false /* ignore_dangling */))
           {
             path f (from / de.path ());
             path t (to / de.path ());

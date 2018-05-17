@@ -158,17 +158,25 @@ namespace build2
     //
     prerequisites_type ps;
 
-    for (const dir_entry& e: dir_iterator (base.src_path ()))
+    try
     {
-      if (e.type () == entry_type::directory)
-        ps.push_back (
-          prerequisite (nullopt,
-                        dir::static_type,
-                        dir_path (e.path ().representation ()),
-                        dir_path (), // In the out tree.
-                        string (),
-                        nullopt,
-                        base));
+      for (const dir_entry& e: dir_iterator (base.src_path (),
+                                             true /* ignore_dangling */))
+      {
+        if (e.type () == entry_type::directory)
+          ps.push_back (
+            prerequisite (nullopt,
+                          dir::static_type,
+                          dir_path (e.path ().representation ()),
+                          dir_path (), // In the out tree.
+                          string (),
+                          nullopt,
+                          base));
+      }
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to iterate over " << base.src_path () << ": " << e;
     }
 
     if (ps.empty ())

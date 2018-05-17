@@ -132,7 +132,8 @@ namespace build2
         try
         {
           size_t n (0);
-          for (const dir_entry& de: dir_iterator (p))
+          for (const dir_entry& de: dir_iterator (p,
+                                                  false /* ignore_dangling */))
           {
             if (n++ < 10)
               d << '\n' << (de.ltype () == entry_type::directory
@@ -822,7 +823,10 @@ namespace build2
               //
               try
               {
-                path_search (p, rm);
+                path_search (p,
+                             rm,
+                             dir_path () /* start */,
+                             false /* follow_symlinks */);
               }
               catch (const system_error& e)
               {

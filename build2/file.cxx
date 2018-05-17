@@ -179,31 +179,41 @@ namespace build2
     // our needs are pretty basic and performance is quite important, so let's
     // handle this ourselves.
     //
-    for (const dir_entry& de: dir_iterator (d))
+    try
     {
-      // If this is a link, then type() will try to stat() it. And if the link
-      // is dangling or points to something inaccessible, it will fail. So
-      // let's first check that the name matches and only then check the type.
-      //
-      const path& n (de.path ());
-
-      if (n.string ().compare (0, pre ? 4 : 5, pre ? "pre-" : "post-") != 0 ||
-          n.extension () != "build")
-        continue;
-
-      path f (d / n);
-
-      try
+      for (const dir_entry& de: dir_iterator (d, false /* ignore_dangling */))
       {
-        if (de.type () != entry_type::regular)
+        // If this is a link, then type() will try to stat() it. And if the
+        // link is dangling or points to something inaccessible, it will fail.
+        // So let's first check that the name matches and only then check the
+        // type.
+        //
+        const path& n (de.path ());
+
+        if (n.string ().compare (0,
+                                 pre ? 4 : 5,
+                                 pre ? "pre-" : "post-") != 0 ||
+            n.extension () != "build")
           continue;
-      }
-      catch (const system_error& e)
-      {
-        fail << "unable to read buildfile " << f << ": " << e;
-      }
 
-      source_once (root, root, f);
+        path f (d / n);
+
+        try
+        {
+          if (de.type () != entry_type::regular)
+            continue;
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to read buildfile " << f << ": " << e;
+        }
+
+        source_once (root, root, f);
+      }
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to iterate over " << d << ": " << e;
     }
   }
 
@@ -536,74 +546,70 @@ namespace build2
   {
     tracer trace ("find_subprojects");
 
-    for (const dir_entry& de: dir_iterator (d))
+    try
     {
-      // If this is a link, then type() will try to stat() it. And if
-      // the link is dangling or points to something inaccessible, it
-      // will fail.
-      //
-      try
+      for (const dir_entry& de: dir_iterator (d, true /* ignore_dangling */))
       {
         if (de.type () != entry_type::directory)
           continue;
-      }
-      catch (const system_error&)
-      {
-        continue;
-      }
 
-      dir_path sd (d / path_cast<dir_path> (de.path ()));
+        dir_path sd (d / path_cast<dir_path> (de.path ()));
 
-      bool src (false);
-      if (!((out && is_out_root (sd)) || (src = is_src_root (sd))))
-      {
-        // We used to scan for subproject recursively but this is probably too
-        // loose (think of some tests laying around). In the future we should
-        // probably allow specifying something like extra/* or extra/** in
-        // subprojects.
+        bool src (false);
+        if (!((out && is_out_root (sd)) || (src = is_src_root (sd))))
+        {
+          // We used to scan for subproject recursively but this is probably
+          // too loose (think of some tests laying around). In the future we
+          // should probably allow specifying something like extra/* or
+          // extra/** in subprojects.
+          //
+          //find_subprojects (sps, sd, root, out);
+          //
+          continue;
+        }
+
+        // Calculate relative subdirectory for this subproject.
         //
-        //find_subprojects (sps, sd, root, out);
+        dir_path dir (sd.leaf (root));
+        l5 ([&]{trace << "subproject " << sd << " as " << dir;});
+
+        // Load its name. Note that here we don't use fallback src_root
+        // since this function is used to scan both out_root and src_root.
         //
-        continue;
+        string name (find_project_name (sd, dir_path (), &src));
+
+        // If the name is empty, then is is an unnamed project. While the
+        // 'project' variable stays empty, here we come up with a surrogate
+        // name for a key. The idea is that such a key should never conflict
+        // with a real project name. We ensure this by using the project's
+        // sub-directory and appending a trailing directory separator to it.
+        //
+        if (name.empty ())
+          name = dir.posix_string () + path::traits::directory_separator;
+
+        // @@ Can't use move() because we may need the values in diagnostics
+        // below. Looks like C++17 try_emplace() is what we need.
+        //
+        auto rp (sps.emplace (name, dir));
+
+        // Handle duplicates.
+        //
+        if (!rp.second)
+        {
+          const dir_path& dir1 (rp.first->second);
+
+          if (dir != dir1)
+            fail << "inconsistent subproject directories for " << name <<
+              info << "first alternative: " << dir1 <<
+              info << "second alternative: " << dir;
+
+          l6 ([&]{trace << "skipping duplicate";});
+        }
       }
-
-      // Calculate relative subdirectory for this subproject.
-      //
-      dir_path dir (sd.leaf (root));
-      l5 ([&]{trace << "subproject " << sd << " as " << dir;});
-
-      // Load its name. Note that here we don't use fallback src_root
-      // since this function is used to scan both out_root and src_root.
-      //
-      string name (find_project_name (sd, dir_path (), &src));
-
-      // If the name is empty, then is is an unnamed project. While the
-      // 'project' variable stays empty, here we come up with a surrogate
-      // name for a key. The idea is that such a key should never conflict
-      // with a real project name. We ensure this by using the project's
-      // sub-directory and appending a trailing directory separator to it.
-      //
-      if (name.empty ())
-        name = dir.posix_string () + path::traits::directory_separator;
-
-      // @@ Can't use move() because we may need the values in diagnostics
-      // below. Looks like C++17 try_emplace() is what we need.
-      //
-      auto rp (sps.emplace (name, dir));
-
-      // Handle duplicates.
-      //
-      if (!rp.second)
-      {
-        const dir_path& dir1 (rp.first->second);
-
-        if (dir != dir1)
-          fail << "inconsistent subproject directories for " << name <<
-            info << "first alternative: " << dir1 <<
-            info << "second alternative: " << dir;
-
-        l6 ([&]{trace << "skipping duplicate";});
-      }
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to iterate over " << d << ": " << e;
     }
   }
 

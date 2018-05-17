@@ -1055,7 +1055,7 @@ namespace build2
       if (!(d ? dir_exists (p) : file_exists (p)))
         return;
 
-      for (;; ) // Retry/fallback loop.
+      for (;;) // Retry/fallback loop.
       try
       {
         switch (m)
@@ -1078,7 +1078,8 @@ namespace build2
 
               try_mkdir (to);
 
-              for (const auto& de: dir_iterator (fr))
+              for (const auto& de: dir_iterator (fr,
+                                                 false /* ignore_dangling */))
               {
                 path f (fr / de.path ());
                 path t (to / de.path ());

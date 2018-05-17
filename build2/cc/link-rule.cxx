@@ -1975,7 +1975,10 @@ namespace build2
             return true;
           };
 
-          path_search (p, rm, dir_path (), false); // Don't follow symlinks.
+          path_search (p,
+                       rm,
+                       dir_path () /* start */,
+                       false /* follow_symlinks */);
         }
         catch (const system_error&) {} // Ignore errors.
       }
