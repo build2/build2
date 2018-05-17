@@ -14,10 +14,10 @@ echo.
 echo Normally this batch file is executed from one of the Visual Studio
 echo command prompts with cl.exe as the compiler executable (^<cxx^>).
 echo It assumes that all the relevant compiler environment variables
-echo (INCLUDE, LIB) are set.
+echo ^(INCLUDE, LIB^) are set.
 echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
-echo either in the current directory (build2 root) or one level up. The
+echo either in the current directory ^(build2 root^) or one level up. The
 echo result is saved as build2\b-boot.exe.
 echo.
 echo Example usage:

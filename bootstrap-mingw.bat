@@ -12,7 +12,7 @@ echo.
 echo Usage: %0 [/?] ^<cxx^> [^<cxx-option^>...]
 echo.
 echo The batch file expects to find the libbutl\ or libbutl-*\ directory
-echo either in the current directory (build2 root) or one level up. The
+echo either in the current directory ^(build2 root^) or one level up. The
 echo result is saved as build2\b-boot.exe.
 echo.
 echo Example usage:
