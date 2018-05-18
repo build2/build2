@@ -42,14 +42,14 @@ goto :eof
   echo on
   %cxx% /I%owd%\%libbutl% /I%owd% /DBUILD2_BOOTSTRAP /DBUILD2_HOST_TRIPLET=\"i686-microsoft-win32-msvc\" %ops% /c /TP %*
   @echo off
-  if errorlevel 1 goto error
+  if errorlevel 1 exit /b 1
 goto :eof
 
 :link
   echo on
   %cxx% %ops% %*
   @echo off
-  if errorlevel 1 goto error
+  if errorlevel 1 exit /b 1
 goto :eof
 
 :start
@@ -121,6 +121,7 @@ if "_%1_" == "__" (
 rem First clean up any stale .obj files we might have laying around.
 rem
 call :clean_obj %src%
+if errorlevel 1 goto error
 
 rem Compile.
 rem
@@ -131,6 +132,7 @@ set "obj="
 for %%d in (%src%) do (
   cd %%d
   call :compile *.cxx
+  if errorlevel 1 goto error
   cd %owd%
   set "obj=!obj! %%d\*.obj"
 )
@@ -138,10 +140,12 @@ for %%d in (%src%) do (
 rem Link.
 rem
 call :link /Fe: build2\b-boot.exe %obj% shell32.lib imagehlp.lib
+if errorlevel 1 goto error
 
 rem Clean up.
 rem
 call :clean_obj %src%
+if errorlevel 1 goto error
 
 goto end
 
