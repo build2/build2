@@ -202,7 +202,8 @@ namespace build2
       {
         auto& t (rs.target_types);
 
-        t.insert<testscript> ();
+        auto& tt (t.insert<testscript> ());
+        t.insert_file ("testscript", tt);
       }
 
       // Register our test running rule.

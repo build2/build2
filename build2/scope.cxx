@@ -551,56 +551,67 @@ namespace build2
       if (s->target_types.empty ())
         continue;
 
-      auto i (s->target_types.find (tt));
-
-      if (i != s->target_types.end ())
+      if (const target_type* r = s->target_types.find (tt))
       {
         if (rs != nullptr)
           *rs = s;
 
-        return &i->second.get ();
+        return r;
       }
     }
 
     return nullptr;
   }
 
-  static const string dir_tt ("dir");
-  static const string file_tt ("file");
+  // Find target type from file name.
+  //
+  static const target_type*
+  find_file_target_type (const scope* s, const string& n)
+  {
+    // Pretty much the same logic as in find_target_type() above.
+    //
+    for (; s != nullptr; s = s->root () ? global_scope : s->parent_scope ())
+    {
+      if (s->target_types.empty ())
+        continue;
+
+      if (const target_type* r = s->target_types.find_file (n))
+        return r;
+    }
+
+    return nullptr;
+  }
 
   const target_type* scope::
   find_target_type (name& n, optional<string>& ext, const location& loc) const
   {
     ext = nullopt;
-
     string& v (n.value);
 
-    // First determine the target type.
+    // If the target type is specified, resolve it and bail out if not found.
+    // Otherwise, we know in the end it will resolve to something (if nothing
+    // else, either dir{} or file{}), so we can go ahead and process the name.
     //
-    const string* tt;
-    if (n.untyped ())
+    const target_type* r (nullptr);
+    if (n.typed ())
     {
-      // Empty name or '.' and '..' signify a directory.
-      //
-      if (v.empty () || v == "." || v == "..")
-        tt = &dir_tt;
-      else
-        //@@ TODO: derive type from extension.
-        //
-        tt = &file_tt;
+      r = find_target_type (n.type);
+
+      if (r == nullptr)
+        return r;
     }
     else
-      tt = &n.type;
-
-    const target_type* r (find_target_type (*tt));
-
-    if (r == nullptr)
-      return r;
+    {
+      // Empty name as well as '.' and '..' signify a directory.
+      //
+      if (v.empty () || v == "." || v == "..")
+        r = &dir::static_type;
+    }
 
     // Directories require special name processing. If we find that more
     // targets deviate, then we should make this target-type-specific.
     //
-    if (r->is_a<dir> () || r->is_a<fsdir> ())
+    if (r != nullptr && (r->is_a<dir> () || r->is_a<fsdir> ()))
     {
       // The canonical representation of a directory name is with empty
       // value.
@@ -613,10 +624,9 @@ namespace build2
     }
     else if (!v.empty ())
     {
-      // Split the path into its directory part (if any) the name part,
-      // and the extension (if any). We cannot assume the name part is
-      // a valid filesystem name so we will have to do the splitting
-      // manually.
+      // Split the path into its directory part (if any) the name part, and
+      // the extension (if any). We cannot assume the name part is a valid
+      // filesystem name so we will have to do the splitting manually.
       //
       path::size_type i (path::traits::rfind_separator (v));
 
@@ -646,6 +656,22 @@ namespace build2
         ext = string (v.c_str () + j + 1);
         v.resize (j);
       }
+    }
+
+    // If the target type is still unknown, map it using the name/extension,
+    // falling back to file{}.
+    //
+    if (r == nullptr)
+    {
+      // We only consider files without extension for file name mapping.
+      //
+      if (!ext)
+        r = find_file_target_type (this, v);
+
+      //@@ TODO: derive type from extension.
+
+      if (r == nullptr)
+        r = &file::static_type;
     }
 
     return r;
@@ -724,17 +750,7 @@ namespace build2
       ? &target_print_0_ext_verb  // Fixed extension, no use printing.
       : nullptr;                  // Normal.
 
-    target_type& rdt (*dt); // Save a non-const reference to the object.
-
-    auto pr (target_types.emplace (name, target_type_ref (move (dt))));
-
-    // Patch the alias name to use the map's key storage.
-    //
-    if (pr.second)
-      rdt.name = pr.first->first.c_str ();
-
-    return pair<reference_wrapper<const target_type>, bool> (
-      pr.first->second.get (), pr.second);
+    return target_types.insert (name, move (dt));
   }
 
   scope* scope::global_;

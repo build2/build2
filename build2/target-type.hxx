@@ -91,45 +91,96 @@ namespace build2
 
   // Target type map.
   //
-  struct target_type_ref
-  {
-    // Like reference_wrapper except it sometimes deletes the target type.
-    //
-    explicit
-    target_type_ref (const target_type& r): p_ (&r), d_ (false) {}
-
-    explicit
-    target_type_ref (unique_ptr<target_type>&& p)
-        : p_ (p.release ()), d_ (true) {}
-
-    target_type_ref (target_type_ref&& r)
-        : p_ (r.p_), d_ (r.d_) {r.p_ = nullptr;}
-
-    ~target_type_ref () {if (p_ != nullptr && d_) delete p_;}
-
-    explicit operator const target_type& () const {return *p_;}
-    const target_type& get () const {return *p_;}
-
-  private:
-    const target_type* p_;
-    bool d_;
-  };
-
-  using target_type_map_base = std::map<string, target_type_ref>;
-
-  class target_type_map: public target_type_map_base
+  class target_type_map
   {
   public:
+    // Target type name to target type mapping.
+    //
+    const target_type*
+    find (const string& n) const
+    {
+      auto i (type_map_.find (n));
+      return i != type_map_.end () ? &i->second.get () : nullptr;
+    }
+
+    bool
+    empty () const
+    {
+      return type_map_.empty ();
+    }
+
     const target_type&
     insert (const target_type& tt)
     {
-      emplace (tt.name, target_type_ref (tt));
+      type_map_.emplace (tt.name, target_type_ref (tt));
       return tt;
     }
 
     template <typename T>
     const target_type&
-    insert () {return insert (T::static_type);}
+    insert ()
+    {
+      return insert (T::static_type);
+    }
+
+    pair<reference_wrapper<const target_type>, bool>
+    insert (const string& n, unique_ptr<target_type>&& tt)
+    {
+      target_type& rtt (*tt); // Save a non-const reference to the object.
+
+      auto p (type_map_.emplace (n, target_type_ref (move (tt))));
+
+      // Patch the alias name to use the map's key storage.
+      //
+      if (p.second)
+        rtt.name = p.first->first.c_str ();
+
+      return pair<reference_wrapper<const target_type>, bool> (
+        p.first->second.get (), p.second);
+    }
+
+    // File name to target type mapping.
+    //
+    const target_type*
+    find_file (const string& n) const
+    {
+      auto i (file_map_.find (n));
+      return i != file_map_.end () ? &i->second.get () : nullptr;
+    }
+
+    void
+    insert_file (const string& n, const target_type& tt)
+    {
+      file_map_.emplace (n, tt);
+    }
+
+  private:
+    struct target_type_ref
+    {
+      // Like reference_wrapper except it sometimes deletes the target type.
+      //
+      explicit
+      target_type_ref (const target_type& r): p_ (&r), d_ (false) {}
+
+      explicit
+      target_type_ref (unique_ptr<target_type>&& p)
+          : p_ (p.release ()), d_ (true) {}
+
+      target_type_ref (target_type_ref&& r)
+          : p_ (r.p_), d_ (r.d_) {r.p_ = nullptr;}
+
+      ~target_type_ref () {if (p_ != nullptr && d_) delete p_;}
+
+      explicit operator const target_type& () const {return *p_;}
+      const target_type& get () const {return *p_;}
+
+    private:
+      const target_type* p_;
+      bool d_;
+    };
+
+    std::map<string, target_type_ref> type_map_;
+    std::map<string, reference_wrapper<const target_type>> file_map_;
   };
 }
 

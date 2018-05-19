@@ -524,6 +524,11 @@ namespace build2
       t.insert<doc>   ();
       t.insert<man>   ();
       t.insert<man1>  ();
+
+      {
+        auto& tt (t.insert<buildfile> ());
+        t.insert_file ("buildfile", tt);
+      }
     }
 
     // Parse and enter the command line variables. We do it before entering
