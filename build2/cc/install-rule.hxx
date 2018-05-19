@@ -1,5 +1,5 @@
 // file      : build2/cc/install-rule.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2017 Code Synthesis Ltd
+// copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef BUILD2_CC_INSTALL_RULE_HXX
