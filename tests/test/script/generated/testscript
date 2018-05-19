@@ -23,7 +23,7 @@ EOI
 :
 ln -s $src_base/testscript.in ./;
 $* <<EOI
-./: test{testscript}
-test{testscript}: in{testscript} $src_root/file{manifest} #@@ in module
-test{testscript}: in.symbol = '@'
+./: testscript
+testscript: in{testscript} $src_root/manifest #@@ in module
+testscript: in.symbol = '@'
 EOI

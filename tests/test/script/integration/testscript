@@ -14,7 +14,7 @@
   : testscript-and-other
   :
   $* <<EOI 2>>/EOE != 0
-  ./: test{../testscript ../foo}
+  ./: ../testscript test{../foo}
   EOI
   error: both 'testscript' and other names specified for dir{./}
   EOE
@@ -22,7 +22,7 @@
   : other-and-testscript
   :
   $* <<EOI 2>>/EOE != 0
-  ./: test{../foo ../testscript}
+  ./: test{../foo} ../testscript
   EOI
   error: both 'testscript' and other names specified for dir{./}
   EOE

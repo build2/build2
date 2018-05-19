@@ -65,7 +65,7 @@ EOI
 #
 +cat <<EOI >=proj/units/buildfile
 d = simple/ script/
-./: $d test{testscript}
+./: $d testscript
 #include $d
 EOI
 +cat <<EOI >=proj/units/testscript
@@ -92,7 +92,7 @@ EOI
 #
 +mkdir proj/units/script
 +cat <<EOI >=proj/units/script/buildfile
-./: test{testscript}
+./: testscript
 EOI
 +cat <<EOI >=proj/units/script/testscript
 echo 'units/script/foo' >| : foo

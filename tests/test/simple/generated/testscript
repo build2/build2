@@ -30,7 +30,7 @@ driver = $src_root/../exe{driver}
 dir{./}: test = $driver # @@ TMP (target/scope regularity)
 ./: $driver
 ./: file{input}: test.input = true
-file{input}: in{input} $src_root/file{manifest} #@@ in module
+file{input}: in{input} $src_root/manifest #@@ in module
 EOI
 
 : output
@@ -41,5 +41,5 @@ driver = $src_root/../exe{driver}
 dir{./}: test = $driver # @@ TMP (target/scope regularity)
 ./: $driver
 ./: file{output}: test.stdout = true
-file{output}: in{output} $src_root/file{manifest} #@@ in module
+file{output}: in{output} $src_root/manifest #@@ in module
 EOI
