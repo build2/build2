@@ -1626,8 +1626,6 @@ namespace build2
 
   // Common documentation file targets.
   //
-  // @@ Maybe these should be in the built-in doc module?
-  //
   class doc: public file
   {
   public:
@@ -1686,6 +1684,21 @@ namespace build2
   {
   public:
     using man::man;
+
+  public:
+    static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
+  };
+
+  // We derive manifest from doc rather than file so that it get automatically
+  // installed into the same place where the rest of the documentation goes.
+  // If you think about it, it's kind of a documentation, similar to (but
+  // better than) the version file that many projects come with.
+  //
+  class manifest: public doc
+  {
+  public:
+    using doc::doc;
 
   public:
     static const target_type static_type;

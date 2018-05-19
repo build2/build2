@@ -4,7 +4,7 @@
 
 ./: {*/ -build/ -config/ -old-tests/}                             \
     doc{INSTALL LICENSE NEWS README version}                      \
-    file{INSTALL.cli bootstrap* config.guess config.sub manifest}
+    file{INSTALL.cli bootstrap* config.guess config.sub} manifest
 
 # The version file is auto-generated (by the version module) from manifest.
 # Include it in distribution and don't remove when cleaning in src (so that

@@ -526,6 +526,11 @@ namespace build2
       t.insert<man1>  ();
 
       {
+        auto& tt (t.insert<manifest> ());
+        t.insert_file ("manifest", tt);
+      }
+
+      {
         auto& tt (t.insert<buildfile> ());
         t.insert_file ("buildfile", tt);
       }

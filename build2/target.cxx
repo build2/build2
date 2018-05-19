@@ -1035,4 +1035,48 @@ namespace build2
     &file_search,
     false
   };
+
+  static const char*
+  manifest_target_extension (const target_key& tk)
+  {
+    // If the name is special 'manifest', then there is no extension,
+    // otherwise it is .manifest.
+    //
+    return *tk.name == "manifest" ? "" : "manifest";
+  }
+
+  static bool
+  manifest_target_pattern (const target_type&,
+                           const scope&,
+                           string& v,
+                           bool r)
+  {
+    size_t p (path::traits::find_extension (v));
+
+    if (r)
+    {
+      assert (p != string::npos);
+      v.resize (p);
+    }
+    else if (p == string::npos && v != "manifest")
+    {
+      v += ".manifest";
+      return true;
+    }
+
+    return false;
+  }
+
+  const target_type manifest::static_type
+  {
+    "manifest",
+    &doc::static_type,
+    &target_factory<manifest>,
+    &manifest_target_extension,
+    nullptr, /* default_extension */
+    &manifest_target_pattern,
+    nullptr,
+    &file_search,
+    false
+  };
 }
