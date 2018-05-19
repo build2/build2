@@ -11,6 +11,7 @@
 #include <build2/rule.hxx>
 #include <build2/target.hxx>
 #include <build2/operation.hxx>
+#include <build2/filesystem.hxx>
 
 namespace build2
 {
@@ -108,7 +109,7 @@ namespace build2
       static target_state
       perform_update (action, const target&);
 
-      // Extra un/installation hooks. Return true if anything was
+      // Extra un/installation hooks. Return true if anything was actually
       // un/installed.
       //
       using install_dir = install::install_dir; // For derived rules.
@@ -118,6 +119,19 @@ namespace build2
 
       virtual bool
       uninstall_extra (const file&, const install_dir&) const;
+
+      // Lower-level pre/post installation hooks that can be used to override
+      // the source file path being installed (for example, to implement
+      // post-processing, etc).
+      //
+      // Note that one cannot generally perform post-processing in-place
+      // because of permissions.
+      //
+      virtual auto_rmfile
+      install_pre (const file&, const install_dir&) const;
+
+      virtual bool
+      install_post (const file&, const install_dir&, auto_rmfile&&) const;
 
       // Installation/uninstallation "commands".
       //

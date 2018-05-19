@@ -341,6 +341,18 @@ namespace build2
       return false;
     }
 
+    auto_rmfile file_rule::
+    install_pre (const file& t, const install_dir&) const
+    {
+      return auto_rmfile (t.path (), false /* active */);
+    }
+
+    bool file_rule::
+    install_post (const file& t, const install_dir& id, auto_rmfile&&) const
+    {
+      return install_extra (t, id);
+    }
+
     struct install_dir
     {
       dir_path dir;
@@ -654,9 +666,10 @@ namespace build2
                const install_dir& base,
                const path& name,
                const file& t,
+               const path& f,
                bool verbose)
     {
-      path relf (relative (t.path ()));
+      path relf (relative (f));
 
       dir_path chd (chroot_path (rs, base.dir));
 
@@ -775,10 +788,25 @@ namespace build2
         if (auto l = t["install.mode"])
           id.mode = &cast<string> (l);
 
-        // Install the target and extras.
+        // Install the target.
         //
-        install_f (rs, id, n ? p.leaf () : path (), t, verbose);
-        install_extra (t, id);
+        auto_rmfile f (install_pre (t, id));
+
+        // If install_pre() returned a different file name, make sure we
+        // install it as the original.
+        //
+        const path& tp (t.path ());
+        const path& fp (f.path);
+
+        install_f (
+          rs,
+          id,
+          n ? p.leaf () : fp.leaf () != tp.leaf () ? tp.leaf () : path (),
+          t,
+          f.path,
+          verbose);
+
+        install_post (t, id, move (f));
       };
 
       // First handle installable prerequisites.
