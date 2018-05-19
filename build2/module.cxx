@@ -48,6 +48,8 @@ namespace build2
     i = lm.emplace (name,
                     module_state {true, false, mf.init, nullptr, loc}).first;
     i->second.first = mf.boot (rs, loc, i->second.module);
+
+    rs.assign (var_pool.rw (rs).insert (name + ".booted")) = true;
   }
 
   bool

@@ -678,10 +678,13 @@ namespace build2
 
     // module.cxx:load_module().
     //
-    vp.insert_pattern<bool> (
-      "**.loaded", false, variable_visibility::project);
-    vp.insert_pattern<bool> (
-      "**.configured", false, variable_visibility::project);
+    {
+      auto v_p (variable_visibility::project);
+
+      vp.insert_pattern<bool> ("**.booted", false, v_p);
+      vp.insert_pattern<bool> ("**.loaded", false, v_p);
+      vp.insert_pattern<bool> ("**.configured", false, v_p);
+    }
 
     {
       auto v_p (variable_visibility::project);
