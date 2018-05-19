@@ -15,23 +15,6 @@ namespace build2
 {
   namespace version
   {
-    // Generate a version file.
-    //
-    class doc_rule: public rule
-    {
-    public:
-      doc_rule () {}
-
-      virtual bool
-      match (action, target&, const string&) const override;
-
-      virtual recipe
-      apply (action, target&) const override;
-
-      static target_state
-      perform_update (action, const target&);
-    };
-
     // Preprocess an .in file.
     //
     class in_rule: public rule

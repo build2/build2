@@ -30,9 +30,7 @@ namespace build2
     static inline bool
     manifest_prerequisite (const scope& rs, const prerequisite_member& p)
     {
-      //@@ TODO: tighted to <manifest>.
-
-      if (!p.is_a<file> () || p.name () != "manifest")
+      if (!p.is_a<manifest> () || p.name () != "manifest")
         return false;
 
       const scope& s (p.scope ());
@@ -46,129 +44,6 @@ namespace build2
       d.normalize ();
 
       return d == rs.src_path ();
-    }
-
-    // doc_rule
-    //
-    bool doc_rule::
-    match (action a, target& xt, const string&) const
-    {
-      tracer trace ("version::doc_rule::match");
-
-      doc& t (static_cast<doc&> (xt));
-
-      // We match any doc{} target that is called version (potentially with
-      // some extension and different case) and that has a dependency on a
-      // file called manifest from the same project's src_root.
-      //
-      if (casecmp (t.name, "version") != 0)
-      {
-        l4 ([&]{trace << "name mismatch for target " << t;});
-        return false;
-      }
-
-      const scope& rs (t.root_scope ());
-
-      for (prerequisite_member p: group_prerequisite_members (a, t))
-      {
-        if (manifest_prerequisite (rs, p))
-          return true;
-      }
-
-      l4 ([&]{trace << "no manifest prerequisite for target " << t;});
-      return false;
-    }
-
-    recipe doc_rule::
-    apply (action a, target& xt) const
-    {
-      doc& t (static_cast<doc&> (xt));
-
-      // Derive the file name.
-      //
-      t.derive_path ();
-
-      // Inject dependency on the output directory.
-      //
-      inject_fsdir (a, t);
-
-      // Match prerequisite members.
-      //
-      match_prerequisite_members (a, t);
-
-      switch (a)
-      {
-      case perform_update_id: return &perform_update;
-      case perform_clean_id:  return &perform_clean; // Standard clean.
-      default:                return noop_recipe;    // Configure update.
-      }
-    }
-
-    target_state doc_rule::
-    perform_update (action a, const target& xt)
-    {
-      const doc& t (xt.as<const doc&> ());
-      const path& tp (t.path ());
-
-      const scope& rs (t.root_scope ());
-      const module& m (*rs.modules.lookup<module> (module::name));
-
-      // Determine if anything needs to be updated.
-      //
-      // While we use the manifest file to decide whether we need to
-      // regenerate the version file, the version itself we get from the
-      // module (we checked above that manifest and version files are in the
-      // same project).
-      //
-      // We also have to compare the contents (essentially using the file as
-      // its own depdb) in case of a snapshot since we can go back and forth
-      // between committed and uncommitted state that doesn't depend on any of
-      // our prerequisites.
-      //
-      {
-        optional<target_state> ts (
-          execute_prerequisites (a, t, t.load_mtime ()));
-
-        if (ts)
-        {
-          if (!m.version.snapshot ()) // Everything came from the manifest.
-            return *ts;
-
-          try
-          {
-            ifdstream ifs (tp, fdopen_mode::in, ifdstream::badbit);
-
-            string s;
-            getline (ifs, s);
-
-            if (s == m.version.string_project ())
-              return *ts;
-          }
-          catch (const io_error& e)
-          {
-            fail << "unable to read " << tp << ": " << e;
-          }
-        }
-      }
-
-      if (verb >= 2)
-        text << "cat >" << tp;
-
-      try
-      {
-        ofdstream ofs (tp);
-        auto_rmfile arm (tp);
-        ofs << m.version.string_project () << endl;
-        ofs.close ();
-        arm.cancel ();
-      }
-      catch (const io_error& e)
-      {
-        fail << "unable to write " << tp << ": " << e;
-      }
-
-      t.mtime (system_clock::now ());
-      return target_state::changed;
     }
 
     // in_rule
