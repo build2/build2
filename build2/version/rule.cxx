@@ -14,6 +14,7 @@
 #include <build2/diagnostics.hxx>
 
 #include <build2/version/module.hxx>
+#include <build2/version/utility.hxx>
 
 using namespace std;
 using namespace butl;
@@ -22,13 +23,15 @@ namespace build2
 {
   namespace version
   {
-    // Return true if this prerequisite looks like a project's manifest file.
-    // To be sure we would need to search it into target but that we can't
-    // do in match().
+    // Return true if this prerequisite is a project's manifest file. To be
+    // sure we would need to search it into target but that we can't do in
+    // match().
     //
     static inline bool
     manifest_prerequisite (const scope& rs, const prerequisite_member& p)
     {
+      //@@ TODO: tighted to <manifest>.
+
       if (!p.is_a<file> () || p.name () != "manifest")
         return false;
 
@@ -671,6 +674,43 @@ namespace build2
 
       t.mtime (system_clock::now ());
       return target_state::changed;
+    }
+
+    // manifest_install_rule
+    //
+    bool manifest_install_rule::
+    match (action a, target& t, const string&) const
+    {
+      // We only match project's manifest.
+      //
+      if (!t.is_a<manifest> () || t.name != "manifest")
+        return false;
+
+      // Must be in project's src_root.
+      //
+      const scope& s (t.base_scope ());
+      if (s.root_scope () != &s || s.src_path () != t.dir)
+        return false;
+
+      return file_rule::match (a, t, "");
+    }
+
+    auto_rmfile manifest_install_rule::
+    install_pre (const file& t, const install_dir&) const
+    {
+      const path& p (t.path ());
+
+      const scope& rs (t.root_scope ());
+      const module& m (*rs.modules.lookup<module> (module::name));
+
+      if (!m.rewritten)
+        return auto_rmfile (p, false /* active */);
+
+      // Our options are to use path::temp_path() or to create a .t file in
+      // the out tree. Somehow the latter feels more appropriate (even though
+      // if we crash in between, we won't clean it up).
+      //
+      return fixup_manifest (p, rs.out_path () / "manifest.t", m.version);
     }
   }
 }

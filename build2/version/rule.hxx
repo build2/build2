@@ -9,6 +9,7 @@
 #include <build2/utility.hxx>
 
 #include <build2/rule.hxx>
+#include <build2/install/rule.hxx>
 
 namespace build2
 {
@@ -46,6 +47,20 @@ namespace build2
 
       static target_state
       perform_update (action, const target&);
+    };
+
+    // Pre-process manifest before installation to patch in the version.
+    //
+    class manifest_install_rule: public install::file_rule
+    {
+    public:
+      manifest_install_rule () {}
+
+      virtual bool
+      match (action, target&, const string&) const override;
+
+      virtual auto_rmfile
+      install_pre (const file&, const install_dir&) const override;
     };
   }
 }

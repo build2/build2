@@ -5,7 +5,6 @@
 #include <build2/version/init.hxx>
 
 #include <libbutl/manifest-parser.mxx>
-#include <libbutl/manifest-serializer.mxx>
 
 #include <build2/scope.hxx>
 #include <build2/context.hxx>
@@ -18,6 +17,7 @@
 
 #include <build2/version/rule.hxx>
 #include <build2/version/module.hxx>
+#include <build2/version/utility.hxx>
 #include <build2/version/snapshot.hxx>
 
 using namespace std;
@@ -27,10 +27,11 @@ namespace build2
 {
   namespace version
   {
-    static const path manifest ("manifest");
+    static const path manifest_file ("manifest");
 
     static const doc_rule doc_rule_;
     static const in_rule in_rule_;
+    static const manifest_install_rule manifest_install_rule_;
 
     bool
     boot (scope& rs, const location& l, unique_ptr<module_base>& mod)
@@ -47,7 +48,7 @@ namespace build2
       standard_version v;
       dependency_constraints ds;
       {
-        path f (rs.src_path () / manifest);
+        path f (rs.src_path () / manifest_file);
 
         try
         {
@@ -168,6 +169,7 @@ namespace build2
       // snapshot number and id (e.g., commit date and id from git).
       //
       bool committed (true);
+      bool rewritten (false);
       if (v.snapshot () && v.snapshot_sn == standard_version::latest_sn)
       {
         snapshot ss (extract_snapshot (rs));
@@ -177,6 +179,7 @@ namespace build2
           v.snapshot_sn = ss.sn;
           v.snapshot_id = move (ss.id);
           committed = ss.committed;
+          rewritten = true;
         }
         else
           committed = false;
@@ -230,7 +233,7 @@ namespace build2
 
       // Create the module.
       //
-      mod.reset (new module (move (v), committed, move (ds)));
+      mod.reset (new module (move (v), committed, rewritten, move (ds)));
 
       return true; // Init first (dist.package, etc).
     }
@@ -286,10 +289,11 @@ namespace build2
           p += v.string ();
           val = move (p);
 
-          // Only register the post-processing callback if this a snapshot.
+          // Only register the post-processing callback if this is a rewritten
+          // snapshot.
           //
-          if (v.snapshot ())
-            dm->register_callback (dir_path (".") / manifest,
+          if (m.rewritten)
+            dm->register_callback (dir_path (".") / manifest_file,
                                    &dist_callback,
                                    &m);
         }
@@ -339,6 +343,12 @@ namespace build2
         r.insert<file> (perform_update_id,   "version.in", in_rule_);
         r.insert<file> (perform_clean_id,    "version.in", in_rule_);
         r.insert<file> (configure_update_id, "version.in", in_rule_);
+
+        if (cast_false<bool> (rs["install.booted"]))
+        {
+          r.insert<manifest> (
+            perform_install_id, "version.manifest", manifest_install_rule_);
+        }
       }
 
       return true;
@@ -348,68 +358,25 @@ namespace build2
     dist_callback (const path& f, const scope& rs, void* data)
     {
       module& m (*static_cast<module*> (data));
-      const standard_version& v (m.version);
 
       // Complain if this is an uncommitted snapshot.
       //
-      if (v.snapshot () && !m.committed && !m.dist_uncommitted)
+      if (!m.committed && !m.dist_uncommitted)
         fail << "distribution of uncommitted project " << rs.src_path () <<
           info << "specify config.dist.uncommitted=true to force";
 
-      // The plan is simple, re-serialize the manifest into a temporary file
-      // fixing up the version. Then move the temporary file to the original.
+      // The plan is simple: fixing up the version in a temporary file then
+      // move it to the original.
       //
-      path t;
       try
       {
-        permissions perm (path_permissions (f));
+        auto_rmfile t (fixup_manifest (f,
+                                       path::temp_path ("manifest"),
+                                       m.version));
 
-        ifdstream ifs (f);
-        manifest_parser p (ifs, f.string ());
-
-        t = path::temp_path ("manifest");
-        auto_fd ofd (fdopen (t,
-                             fdopen_mode::out       |
-                             fdopen_mode::create    |
-                             fdopen_mode::exclusive |
-                             fdopen_mode::binary,
-                             perm));
-        auto_rmfile arm (t); // Try to remove on failure ignoring errors.
-
-        ofdstream ofs (move (ofd));
-        manifest_serializer s (ofs, t.string ());
-
-        manifest_name_value nv (p.next ());
-        assert (nv.name.empty () && nv.value == "1"); // We just loaded it.
-        s.next (nv.name, nv.value);
-
-        for (nv = p.next (); !nv.empty (); nv = p.next ())
-        {
-          if (nv.name == "version")
-            nv.value = v.string ();
-
-          s.next (nv.name, nv.value);
-        }
-
-        s.next (nv.name, nv.value); // End of manifest.
-        s.next (nv.name, nv.value); // End of stream.
-
-        ofs.close ();
-        ifs.close ();
-
-        mvfile (t, f, (cpflags::overwrite_content |
-                       cpflags::overwrite_permissions));
-        arm.cancel ();
-      }
-      catch (const manifest_parsing& e)
-      {
-        location l (&f, e.line, e.column);
-        fail (l) << e.description;
-      }
-      catch (const manifest_serialization& e)
-      {
-        location l (&t);
-        fail (l) << e.description;
+        mvfile (t.path, f, (cpflags::overwrite_content |
+                            cpflags::overwrite_permissions));
+        t.cancel ();
       }
       catch (const io_error& e)
       {

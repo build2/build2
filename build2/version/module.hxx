@@ -26,6 +26,7 @@ namespace build2
 
       butl::standard_version version;
       bool committed; // Whether this is a committed snapshot.
+      bool rewritten; // Whether this is a rewritten .z snapshot.
 
       dependency_constraints dependencies;
 
@@ -36,9 +37,11 @@ namespace build2
 
       module (butl::standard_version v,
               bool c,
+              bool r,
               dependency_constraints d)
           : version (move (v)),
             committed (c),
+            rewritten (r),
             dependencies (move (d)) {}
     };
   }
