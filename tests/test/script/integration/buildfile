@@ -5,4 +5,4 @@
 # Test integration of testscript into build system.
 #
 
-./: test{testscript} $b
+./: testscript $b

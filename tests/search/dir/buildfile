@@ -5,4 +5,4 @@
 # Test loading of dir{} buildfiles during target search.
 #
 
-./: test{testscript} $b
+./: testscript $b

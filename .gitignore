@@ -15,7 +15,3 @@
 *.pc
 
 INSTALL
-
-# Generated version.
-#
-version

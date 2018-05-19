@@ -5,4 +5,4 @@
 # Test generated testscripts.
 #
 
-./: test{testscript} $b file{*.in}
+./: testscript $b file{*.in}

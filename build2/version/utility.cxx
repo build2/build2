@@ -60,18 +60,18 @@ namespace build2
       catch (const manifest_parsing& e)
       {
         location l (&in, e.line, e.column);
-        fail (l) << e.description;
+        fail (l) << e.description << endf;
       }
       catch (const manifest_serialization& e)
       {
         location l (&r.path);
-        fail (l) << e.description;
+        fail (l) << e.description << endf;
       }
       catch (const io_error& e)
       {
         fail << "io error: " << e <<
           info << "while reading " << in <<
-          info << "while writing " << r.path;
+          info << "while writing " << r.path << endf;
       }
     }
   }

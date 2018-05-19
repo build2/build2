@@ -5,4 +5,4 @@
 # Test {c, cxx}.preprocessed logic.
 #
 
-./: test{testscript} $b
+./: testscript $b

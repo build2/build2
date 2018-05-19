@@ -5,4 +5,4 @@
 # Test C++ modules support.
 #
 
-./: test{testscript} $b
+./: testscript $b

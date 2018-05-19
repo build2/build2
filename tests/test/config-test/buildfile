@@ -5,6 +5,6 @@
 # Test config.test.
 #
 
-./: test{testscript} exe{driver} $b
+./: testscript exe{driver} $b
 
 exe{driver}: {hxx cxx}{*}
