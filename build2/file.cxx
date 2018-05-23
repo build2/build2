@@ -940,6 +940,8 @@ namespace build2
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
+    scope* r (&root);
+
     if (auto l = root.vars[var_subprojects])
     {
       for (const auto& p: cast<subprojects> (l))
@@ -986,11 +988,14 @@ namespace build2
 
         // See if there are more inner roots.
         //
-        return create_bootstrap_inner (rs, out_base);
+        r = &create_bootstrap_inner (rs, out_base);
+
+        if (!out_base.empty ())
+          break; // We have found our subproject.
       }
     }
 
-    return root;
+    return *r;
   }
 
   void

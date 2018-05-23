@@ -165,10 +165,12 @@ namespace build2
   void
   create_bootstrap_outer (scope& root);
 
-  // Create and bootstrap inner root scopes between root and base, if any. If
-  // out_base is empty, then bootstrap all the way in. Return the innermost
-  // created root scope or root if none were created. Note: loading is done by
-  // load_root().
+  // Create and bootstrap inner root scopes, if any, recursively.
+  //
+  // If out_base is not empty, then only bootstrap scope between root and base
+  // returning the innermost created root scope or root if none were created.
+  //
+  // Note that loading is done by load_root().
   //
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base = dir_path ());
