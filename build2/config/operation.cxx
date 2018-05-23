@@ -891,9 +891,9 @@ namespace build2
       // Start with process parameters. The first parameter, if any, is a list
       // of root.build modules. The second parameter, if any, is a list of
       // bootstrap.build modules. If the second is not specified, then the
-      // default is test and install (config is mandatory).
+      // default is test, dist, and install (config is mandatory).
       //
-      strings bmod {"test", "install"};
+      strings bmod {"test", "dist", "install"};
       strings rmod;
       try
       {

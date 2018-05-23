@@ -292,9 +292,9 @@ namespace build2
          question mark (\cb{?}).
 
          The second optional parameter is the list of modules to load in
-         \cb{bootstrap.build}. If not specified, then the \cb{test} and
-         \cb{install} modules are loaded by default. The \cb{config} module
-         is always loaded first.
+         \cb{bootstrap.build}. If not specified, then the \cb{test},
+         \cb{dist}, and \cb{install} modules are loaded by default. The
+         \cb{config} module is always loaded first.
 
          Besides creating project's \cb{bootstrap.build} and \cb{root.build},
          \cb{create} also writes the root \cb{buildfile} with the following
