@@ -1344,8 +1344,10 @@ namespace build2
       size_t p (next_show_sense (l));
       if (p == string::npos)
       {
-        // Include note. We assume the path is always at the end but need to
-        // handle both absolute Windows and POSIX ones.
+        // Include note.
+        //
+        // We assume the path is always at the end but need to handle both
+        // absolute Windows and POSIX ones.
         //
         // Note that VC appears to always write the absolute path to the
         // included file even if it is ""-included and the source path is
@@ -1373,31 +1375,37 @@ namespace build2
         }
 
         if (p == string::npos)
-          fail << "unable to parse /showIncludes include note line '"
-               << l << "'";
+          fail << "unable to parse /showIncludes include note line \""
+               << l << '"';
 
         return string (l, p);
       }
       else if (l.compare (p, 4, "1083")  == 0 &&
                l.compare (0, 5, "c1xx:") != 0 /* Not the main source file. */ )
       {
-        // Include error. The path is conveniently quoted with ''.
+        // Include error.
         //
-        size_t p2 (l.rfind ('\''));
+        // The path is conveniently quoted with ''. Or so we thought: turns
+        // out different translations (e.g., Chinese) can use different quote
+        // characters. But the overall structure seems to be stable:
+        //
+        // ...C1083: <translated>: 'd/h.hpp': <translated>
+        //
+        size_t p1 (l.find (':', p + 5));
+        size_t p2 (l.rfind (':'));
 
-        if (p2 != string::npos && p2 != 0)
-        {
-          size_t p1 (l.rfind ('\'', p2 - 1));
+        // Let's have as many sanity checks as we can think of.
+        //
+        if (p1 == string::npos ||
+            p2 == string::npos ||
+            (p2 - p1) < 5      || // At least ": 'x':".
+            l[p1 + 1] != ' '   ||
+            l[p2 + 1] != ' ')
+          fail << "unable to parse /showIncludes include error line \""
+               << l << '"';
 
-          if (p1 != string::npos)
-          {
-            good_error = true;
-            return string (l, p1 + 1 , p2 - p1 - 1);
-          }
-        }
-
-        fail << "unable to parse /showIncludes include error line '"
-             << l << "'" << endf;
+        good_error = true;
+        return string (l, p1 + 3 , p2 - p1 - 4);
       }
       else
       {
