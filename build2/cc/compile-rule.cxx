@@ -858,7 +858,7 @@ namespace build2
         // (whitespaces, comments, etc).
         //
         {
-          string cs;
+          optional<string> cs;
           if (string* l = dd.read ())
             cs = move (*l);
           else
@@ -871,7 +871,7 @@ namespace build2
             {
               auto p (parse_unit (a, t, li, src, psrc.first, md));
 
-              if (cs != p.second)
+              if (!cs || *cs != p.second)
               {
                 assert (first); // Unchanged TU has a different checksum?
                 dd.write (p.second);
@@ -880,7 +880,7 @@ namespace build2
               // Don't clear if it was forced or the checksum should not be
               // relied upon.
               //
-              else if (first && !cs.empty ())
+              else if (first && !p.second.empty ())
               {
                 // Clear the update flag and set the touch flag. Unless there
                 // is no object file, of course. See also the md.mt logic

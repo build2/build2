@@ -97,7 +97,7 @@ namespace build2
     // the next line in the database (which you are free to move from). If you
     // then call write(), this line will be overwritten.
     //
-    // If the result is NULL, then it means no next line is available. This
+    // If the result is NULL, then it means no next line is unavailable. This
     // can be due to several reasons:
     //
     // - eof reached (you can detect this by calling more() before read())

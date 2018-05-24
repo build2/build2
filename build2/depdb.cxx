@@ -109,7 +109,7 @@ namespace build2
     if (state_ == state::read_eof)
       return nullptr;
 
-    getline (fs_, line_); // Calls data_.erase().
+    getline (fs_, line_); // Calls line_.erase().
 
     // The line should always end with a newline. If it doesn't, then this
     // line (and the rest of the database) is assumed corrupted. Also peek at
