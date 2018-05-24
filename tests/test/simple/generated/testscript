@@ -27,7 +27,7 @@ EOI
 ln -s $src_base/input.in ./;
 $* <<EOI
 driver = $src_root/../exe{driver}
-dir{./}: test = $driver # @@ TMP (target/scope regularity)
+./: test = $driver
 ./: $driver
 ./: file{input}: test.input = true
 file{input}: in{input} $src_root/manifest #@@ in module
@@ -38,7 +38,7 @@ EOI
 ln -s $src_base/output.in ./;
 $* <<EOI
 driver = $src_root/../exe{driver}
-dir{./}: test = $driver # @@ TMP (target/scope regularity)
+./: test = $driver
 ./: $driver
 ./: file{output}: test.stdout = true
 file{output}: in{output} $src_root/manifest #@@ in module

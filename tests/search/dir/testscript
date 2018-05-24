@@ -37,7 +37,7 @@ EOI
 : existing-target-implied
 :
 $* <<EOI >'bar'
-dir{bar/}: x = y # @@ TMP
+bar/: x = y
 ./: bar/
 EOI
 

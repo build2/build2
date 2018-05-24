@@ -8,8 +8,7 @@
 :
 $* <<EOI >>EOO
 x = x
-#./: x = X @@ TMP
-dir{./}: x = X
+./: x = X
 file{foo}: [uint64] y=00
 sub/
 {
