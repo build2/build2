@@ -1533,7 +1533,8 @@ namespace build2
       // LTO plugin though it seems more recent GNU binutils (2.25) are able
       // to load the plugin when needed automatically. So it doesn't seem we
       // should bother trying to support this on our end (one way we could do
-      // it is by passing config.bin.{ar,ranlib} as hints).
+      // it is by passing config.bin.{ar,ranlib} as hints). Actually, it seems
+      // there are cases with just -gcc-ar and no -ar.
       //
       if (r.bin_pattern.empty ())
       {
