@@ -2075,7 +2075,7 @@ namespace build2
 
       // Update and add a header file to the list of prerequisite targets.
       // Depending on the cache flag, the file is assumed to either have come
-      // from the depdb cache or from the compiler run. Return whether the
+      // from the depdb cache or from the compiler run. Return true if the
       // extraction process should be restarted.
       //
       auto add = [&trace, &pfx_map, &so_map,
@@ -2201,46 +2201,53 @@ namespace build2
         //
         if (f.relative ())
         {
-          f.normalize ();
-
           // This is probably as often an error as an auto-generated file, so
           // trace at level 4.
           //
           l4 ([&]{trace << "non-existent header '" << f << "'";});
 
-          if (!pfx_map)
-            pfx_map = build_prefix_map (bs, a, t, li);
+          f.normalize ();
 
-          // First try the whole file. Then just the directory.
+          // The relative path might still contain '..' (e.g., ../foo.hxx;
+          // presumably ""-include'ed). We don't attempt to support auto-
+          // generated headers with such inclusion styles.
           //
-          // @@ Has to be a separate map since the prefix can be the same as
-          //    the file name.
-          //
-          // auto i (pfx_map->find (f));
-
-          // Find the most qualified prefix of which we are a sub-path.
-          //
-          if (!pfx_map->empty ())
+          if (f.normalized ())
           {
-            dir_path d (f.directory ());
-            auto i (pfx_map->find_sup (d));
+            if (!pfx_map)
+              pfx_map = build_prefix_map (bs, a, t, li);
 
-            if (i != pfx_map->end ())
+            // First try the whole file. Then just the directory.
+            //
+            // @@ Has to be a separate map since the prefix can be the same as
+            //    the file name.
+            //
+            // auto i (pfx_map->find (f));
+
+            // Find the most qualified prefix of which we are a sub-path.
+            //
+            if (!pfx_map->empty ())
             {
-              const dir_path& pd (i->second.directory);
+              dir_path d (f.directory ());
+              auto i (pfx_map->find_sup (d));
 
-              // If this is a prefixless mapping, then only use it if we can
-              // resolve it to an existing target (i.e., it is explicitly
-              // spelled out in a buildfile).
-              //
-              // Note that at some point we will probably have a list of
-              // directories.
-              //
-              pt = find (pd / d, f.leaf (), !i->first.empty ());
-              if (pt != nullptr)
+              if (i != pfx_map->end ())
               {
-                f = pd / f;
-                l4 ([&]{trace << "mapped as auto-generated " << f;});
+                const dir_path& pd (i->second.directory);
+
+                // If this is a prefixless mapping, then only use it if we can
+                // resolve it to an existing target (i.e., it is explicitly
+                // spelled out in a buildfile).
+                //
+                // Note that at some point we will probably have a list of
+                // directories.
+                //
+                pt = find (pd / d, f.leaf (), !i->first.empty ());
+                if (pt != nullptr)
+                {
+                  f = pd / f;
+                  l4 ([&]{trace << "mapped as auto-generated " << f;});
+                }
               }
             }
           }
@@ -2260,7 +2267,7 @@ namespace build2
           // symlinks. So now we realize (i.e., realpath(3)) it instead.
           // Unless it comes from the depdb, in which case we've already done
           // that. This is also where we handle src-out remap (again, not
-          // needed if cached)
+          // needed if cached).
           //
           if (!cache)
           {
