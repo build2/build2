@@ -882,6 +882,14 @@ namespace build2
         }
       }
 
+      // If we have the lock (meaning this is the first time), set the
+      // traget's recipe to noop. Failed that we will keep re-locking it,
+      // updating its members, etc.
+      //
+      if (al) match_recipe (al, noop_recipe);
+      if (sl) match_recipe (sl, noop_recipe);
+      if (ll) match_recipe (ll, noop_recipe);
+
       return r;
     }
 
