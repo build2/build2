@@ -62,7 +62,8 @@ namespace build2
     const target* alias_rule::
     filter (action, const target& t, const prerequisite& p) const
     {
-      return &search (t, p);
+      const target& pt (search (t, p));
+      return pt.in (t.weak_scope ()) ? &pt : nullptr;
     }
 
     recipe alias_rule::
@@ -420,6 +421,7 @@ namespace build2
     resolve (const scope& s,
              const target* t,
              dir_path d,
+             bool fail_unknown = true,
              const string* var = nullptr)
     {
       install_dirs rs;
@@ -443,13 +445,25 @@ namespace build2
             fail << "empty installation directory for name " << sn <<
               info << "did you specified empty config." << var << "?";
 
-          rs = resolve (s, t, *dn, &var);
+          rs = resolve (s, t, *dn, fail_unknown, &var);
+
+          if (rs.empty ())
+          {
+            assert (!fail_unknown);
+            return rs; // Empty.
+          }
+
           d = rs.back ().dir / dir_path (++d.begin (), d.end ());
           rs.emplace_back (move (d.normalize ()), rs.back ());
         }
         else
-          fail << "unknown installation directory name '" << sn << "'" <<
-            info << "did you forget to specify config." << var << "?";
+        {
+          if (fail_unknown)
+            fail << "unknown installation directory name '" << sn << "'" <<
+              info << "did you forget to specify config." << var << "?";
+
+          return rs; // Empty.
+        }
       }
 
       install_dir* r (&rs.back ());
@@ -495,21 +509,23 @@ namespace build2
     }
 
     static inline install_dirs
-    resolve (const target& t, dir_path d, const string* var = nullptr)
+    resolve (const target& t, dir_path d, bool fail_unknown = true)
     {
-      return resolve (t.base_scope (), &t, d, var);
+      return resolve (t.base_scope (), &t, d, fail_unknown);
     }
 
     dir_path
-    resolve_dir (const target& t, dir_path d)
+    resolve_dir (const target& t, dir_path d, bool fail_unknown)
     {
-      return move (resolve (t, move (d)).back ().dir);
+      install_dirs r (resolve (t, move (d), fail_unknown));
+      return r.empty () ? dir_path () : move (r.back ().dir);
     }
 
     dir_path
-    resolve_dir (const scope& s, dir_path d)
+    resolve_dir (const scope& s, dir_path d, bool fail_unknown)
     {
-      return move (resolve (s, nullptr, move (d)).back ().dir);
+      install_dirs r (resolve (s, nullptr, move (d), fail_unknown));
+      return r.empty () ? dir_path () : move (r.back ().dir);
     }
 
     path

@@ -24,7 +24,8 @@ namespace build2
       match (action, target&, const string&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise. The default implementation accepts all prerequsites.
+      // target otherwise. The default implementation accepts prerequsites
+      // from the target's (weak) amalgamation.
       //
       // The prerequisite it passed as an iterator allowing the filter to
       // "see" inside groups.

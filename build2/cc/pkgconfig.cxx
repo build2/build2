@@ -1125,6 +1125,14 @@ namespace build2
       assert (t != nullptr);
 
       const path& p (t->path ());
+      auto_rmfile arm (p);
+
+      // By default we assume things go into install.{include, lib}.
+      //
+      using install::resolve_dir;
+
+      dir_path idir (resolve_dir (l, cast<dir_path> (l["install.include"])));
+      dir_path ldir (resolve_dir (l, cast<dir_path> (l["install.lib"])));
 
       if (verb >= 2)
         text << "cat >" << p;
@@ -1132,7 +1140,6 @@ namespace build2
       try
       {
         ofdstream os (p);
-        auto_rmfile arm (p);
 
         {
           const string& n (cast<string> (rs.vars[var_project]));
@@ -1225,19 +1232,13 @@ namespace build2
           os << " -l" << n;
         };
 
-        // By default we assume things go into install.{include, lib}.
-        //
         // @@ TODO: support whole archive?
         //
-        using install::resolve_dir;
-
-        dir_path id (resolve_dir (l, cast<dir_path> (l["install.include"])));
-        dir_path ld (resolve_dir (l, cast<dir_path> (l["install.lib"])));
 
         // Cflags.
         //
         os << "Cflags:";
-        os << " -I" << escape (id.string ());
+        os << " -I" << escape (idir.string ());
         save_poptions (c_export_poptions);
         save_poptions (x_export_poptions);
         os << endl;
@@ -1256,7 +1257,7 @@ namespace build2
         //   Libs.private split.
         //
         os << "Libs:";
-        os << " -L" << escape (ld.string ());
+        os << " -L" << escape (ldir.string ());
 
         // Now process ourselves as if we were being linked to something (so
         // pretty similar to link_rule::append_libraries()).

@@ -57,6 +57,8 @@ namespace build2
         if (const libx* l = pt->is_a<libx> ())
           pt = &link_member (*l, a, link_info (t.base_scope (), ot));
 
+        // Note: not redundant since we are returning a member.
+        //
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return pt->in (t.weak_scope ()) ? pt : nullptr;
 

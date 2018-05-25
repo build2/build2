@@ -54,13 +54,17 @@ namespace build2
     }
 
     // Resolve relative installation directory path (e.g., include/libfoo) to
-    // its absolute directory path (e.g., /usr/include/libfoo).
+    // its absolute directory path (e.g., /usr/include/libfoo). If the
+    // resolution encountered an unknown directory, issue diagnostics and fail
+    // unless fail_unknown is false, in which case return empty directory.
+    //
+    // Note: implemented in rule.cxx.
     //
     dir_path
-    resolve_dir (const target&, dir_path); // rule.cxx
+    resolve_dir (const target&, dir_path, bool fail_unknown = true);
 
     dir_path
-    resolve_dir (const scope&, dir_path); // rule.cxx
+    resolve_dir (const scope&, dir_path, bool fail_unknown = true);
 
     // Resolve file installation path returning empty path if not installable.
     //
