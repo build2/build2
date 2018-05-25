@@ -544,17 +544,17 @@ namespace build2
       // do it here to avoid duplication.
       //
       // Also, when cleaning, we ignore prerequisites that are not in the same
-      // or a subdirectory of our project root.
+      // or a subdirectory of our project root. Except for libraries: if we
+      // ignore them, then they won't be added to synthesized dependencies and
+      // this will break things if we do, say, update after clean in the same
+      // invocation. So for libraries we ignore them later, on pass 3.
       //
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
       compile_target_types tt (compile_types (ot));
 
-      auto skip = [&a, &rs] (const target*& pt)
+      auto skip = [&a, &rs] (const target* pt) -> bool
       {
-        if (a.operation () == clean_id && !pt->dir.sub (rs.out_path ()))
-          pt = nullptr;
-
-        return pt == nullptr;
+        return a.operation () == clean_id && !pt->dir.sub (rs.out_path ());
       };
 
       auto& pts (t.prerequisite_targets[a]);
@@ -568,7 +568,13 @@ namespace build2
         pts.push_back (nullptr);
         const target*& pt (pts.back ());
 
-        uint8_t m (0); // Mark: lib (0), src (1), mod (2), obj/bmi (3).
+        // Mark:
+        //   0 - lib
+        //   1 - src
+        //   2 - mod
+        //   3 - obj/bmi and also lib not to be cleaned
+        //
+        uint8_t m (0);
 
         bool mod (x_mod != nullptr && p.is_a (*x_mod));
 
@@ -630,7 +636,10 @@ namespace build2
           // another build system ;-)).
           //
           if (skip (pt))
+          {
+            pt = nullptr;
             continue;
+          }
 
           m = mod ? 2 : 1;
         }
@@ -654,7 +663,7 @@ namespace build2
             pt = &p.search (t);
 
           if (skip (pt))
-            continue;
+            m = 3; // Mark so it is not matched.
 
           // If this is the lib{}/libu{} group, then pick the appropriate
           // member.
@@ -690,7 +699,10 @@ namespace build2
           }
 
           if (skip (pt))
+          {
+            pt = nullptr;
             continue;
+          }
 
           m = 3;
         }
@@ -718,10 +730,19 @@ namespace build2
         if (pt == nullptr)
           continue;
 
-        uint8_t m (unmark (pt)); // New mark: completion (1), verfication (2).
+        // New mark:
+        //  1 - completion
+        //  2 - verification
+        //
+        uint8_t m (unmark (pt));
 
-        if (m == 3)                // obj/bmi{}
-          m = 1;                   // Just completion.
+        if (m == 3)                // obj/bmi or lib not to be cleaned
+        {
+          m = 1; // Just completion.
+
+          // Note that if this is a library not to be cleaned, we keep it
+          // marked for completion (see the next phase).
+        }
         else if (m == 1 || m == 2) // Source/module chain.
         {
           bool mod (m == 2);
@@ -778,6 +799,9 @@ namespace build2
               if (pt == nullptr)
                 continue;
 
+              // NOTE: pt may be marked (even for a library -- see clean
+              // above). So watch out for a faux pax in this careful dance.
+              //
               if (p.is_a<libx> () ||
                   p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> () ||
                   p.is_a<bmi> ()  || p.is_a (tt.bmi))
@@ -919,6 +943,15 @@ namespace build2
 
         if (uint8_t m = unmark (pt))
         {
+          // If this is a library not to be cleaned, we can finally blank it
+          // out.
+          //
+          if (skip (pt))
+          {
+            pt = nullptr;
+            continue;
+          }
+
           match_async (a, *pt, target::count_busy (), t[a].task_count);
           mark (pt, m);
         }
