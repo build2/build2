@@ -94,14 +94,14 @@ namespace build2
   {
     // We go an extra step and short-circuit to the target state even if the
     // raw state is not group provided the recipe is group_recipe and the
-    // state is not failed.
+    // state is unknown (see mtime() for some ideas on why we do it).
     //
     const opstate& s (state[a]);
 
     if (s.state == target_state::group)
       return true;
 
-    if (s.state != target_state::failed && group != nullptr)
+    if (s.state == target_state::unknown && group != nullptr)
     {
       if (recipe_function* const* f = s.recipe.target<recipe_function*> ())
         return *f == &group_action;

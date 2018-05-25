@@ -1790,15 +1790,29 @@ namespace build2
     //
     const target& g (*t.group);
 
-    if (execute (a, g) == target_state::busy)
+    target_state gs (execute (a, g));
+
+    if (gs == target_state::busy)
       sched.wait (target::count_executed (),
                   g[a].task_count,
                   scheduler::work_none);
 
-    // Indicate to execute() that this target's state comes from the group
-    // (which, BTW, can be failed).
+    // Return target_state::group to signal to execute() that this target's
+    // state comes from the group (which, BTW, can be failed).
     //
-    return target_state::group;
+    // There is just one small problem: if the returned group state is
+    // postponed, then this means the group hasn't been executed yet. And if
+    // we return target_state::group, then this means any state queries (see
+    // executed_state()) will be directed to the target which might still not
+    // be executed or, worse, is being executed as we query.
+    //
+    // So in this case we return target_state::postponed (which will result in
+    // the member being treated as unchanged). This is how it is done for
+    // prerequisites and seeing that we've been acting as if the group is our
+    // prerequisite, there is no reason to deviate (see the recipe return
+    // value documentation for details).
+    //
+    return gs != target_state::postponed ? target_state::group : gs;
   }
 
   target_state
