@@ -14,7 +14,8 @@
 "
 \h0#preface|Preface|
 
-This is the preface.
+This document describes the \c{build2} build system. For the build system
+driver command line interface refer to the \l{b(1)} man pages.
 
 \h1#name-patterns|Name Patterns|
 
