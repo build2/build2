@@ -1391,21 +1391,37 @@ namespace build2
         //
         // ...C1083: <translated>: 'd/h.hpp': <translated>
         //
+        // Plus, it seems the quote character could to be multi-byte.
+        //
         size_t p1 (l.find (':', p + 5));
         size_t p2 (l.rfind (':'));
 
-        // Let's have as many sanity checks as we can think of.
-        //
-        if (p1 == string::npos ||
-            p2 == string::npos ||
-            (p2 - p1) < 5      || // At least ": 'x':".
-            l[p1 + 1] != ' '   ||
-            l[p2 + 1] != ' ')
-          fail << "unable to parse /showIncludes include error line \""
-               << l << '"';
+        if (p1 != string::npos &&
+            p2 != string::npos &&
+            (p2 - p1) > 4      && // At least ": 'x':".
+            l[p1 + 1] == ' '   &&
+            l[p2 + 1] == ' ')
+        {
+          p1 += 3; // First character of the path.
+          p2 -= 1; // One past last character of the path.
 
-        good_error = true;
-        return string (l, p1 + 3 , p2 - p1 - 4);
+          // Skip any non-printable ASCII characters before/after (the mutli-
+          // byte quote case).
+          //
+          auto printable = [] (char c) { return c >= 0x20 && c <= 0x7e; };
+
+          for (; p1 != p2 && !printable (l[p1]);     ++p1) ;
+          for (; p2 != p1 && !printable (l[p2 - 1]); --p2) ;
+
+          if (p1 != p2)
+          {
+            good_error = true;
+            return string (l, p1 , p2 - p1);
+          }
+        }
+
+        fail << "unable to parse /showIncludes include error line \""
+             << l << '"' << endf;
       }
       else
       {
