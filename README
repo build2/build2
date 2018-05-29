@@ -1,7 +1,7 @@
 This package contains the build2 build system.
 
 build2 is an open source, cross-platform toolchain for building and packaging
-C++ code. Its aim is a modern build system and package manager for the C++
+C++ code. Its aim is a modern build system and dependency manager for the C++
 language that provide a consistent, out of the box interface across multiple
 platforms and compilers. For more information see:
 
