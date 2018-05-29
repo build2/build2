@@ -1,6 +1,6 @@
 [submodule "doc/style"]
 	path = doc/style
-	url = ../etc/style.git
+	url = ../style.git
 [submodule "config"]
 	path = config
 	url = http://git.sv.gnu.org/r/config.git
