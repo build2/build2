@@ -1,3 +1,123 @@
+Version 0.7.0
+
+ * Initial support for Clang targeting MSVC runtime (native Clang interface,
+   not the clang-cl wrapper).
+
+ * C++ Modules TS introduction, build system support, and design guidelines
+   documentation.
+
+ * New {c,cxx}.guess modules.
+
+   These can be loaded before {c,cxx} to guess the compiler. Based on this
+   information we can then choose the standard, experimental features, etc.
+   For example:
+
+   using cxx.guess
+
+   if ($cxx.id == 'clang')
+     cxx.features.modules = false
+
+   cxx.std = experimental
+
+   using cxx
+
+ * New {c,cxx}.class variables.
+
+   Compiler class describes a set of compilers that follow more or less
+   the same command line interface. Compilers that don't belong to any of
+   the existing classes are in classes of their own (say, Sun CC would be
+   on its own if we were to support it).
+
+   Currently defined compiler classes:
+
+   gcc   gcc, clang, clang-apple, icc (on non-Windows)
+   msvc  msvc, clang-cl, icc (Windows)
+
+ * Support for C/C++ runtime/stdlib detection ({c,cxx}.{runtime,stdlib}
+   variables; see cc/guess.hxx for possible values).
+
+
+ * New __build2_preprocess macro.
+
+   If cc.reprocess is true, the __build2_preprocess is defined during
+   dependency extraction. This can be used to work around separate
+   preprocessing bugs in the compiler.
+
+ * Support for for-loop. The semantics is similar to the C++11 range-based
+   for:
+
+   list = 1 2 3
+   for i: $list
+     print $i
+
+   Note that there is no scoping of any kind for the loop variable ('i' in the
+   above example). In the future the plan is to also support more general
+   while-loop as well as break and continue.
+
+ * New info meta operation.
+
+   This meta operation can be used to print basic information (name, version,
+   source/output roots, etc) for one or more projects.
+
+ * New update-for-{test,install} operation aliases.
+
+ * Support for forwarded configurations with target backlinking. See the
+   configure meta-operation discussion in b(1) for details.
+
+ * Improvements to the in module (in.symbol, in.substitution={strict|lax}).
+
+ * New $directory(), $base(), $leaf() and $extension() path functions.
+
+ * New $regex.split(), $regex.merge() and $regex.apply() functions.
+
+ * Support for (parallel) bootstrapping using GNU make makefile.
+
+ * Support for chroot'ed install (aka DESTDIR):
+
+   b config.install.root=/usr config.install.chroot=/tmp/install
+
+ * Support for prerequisite-specific variables, used for the bin.whole
+   variable ("link whole archive").
+
+ * Regularize directory target/scope-specific variable assignment syntax:
+
+   $out_root/: foo = bar # target
+   $out_root/  foo = bar # scope
+   $out_root/
+   {
+     foo = bar           # scope
+   }
+
+ * Support for structured result output (--structured-result).
+
+ * Support for build hooks.
+
+   The following buildfiles are loaded (if present) at appropriate times from
+   the out_root subdirectories of a project:
+
+   build/bootstrap/pre-*.build   # before loading bootstrap.build
+   build/bootstrap/post-*.build  # after  loading bootstrap.build
+   build/root/pre-*.build        # before loading root.build
+   build/root/post-*.build       # after  loading root.build
+
+ * New run directive.
+
+   Now it is possible to:
+
+   run echo 'foo = bar'
+   print $foo
+
+ * New dump directive.
+
+   It can be used to print (to stderr) a human-readable representation of the
+   current scope or a list of targets. For example:
+
+   dump                           # Dump current scope.
+   dump lib{foo} details/exe{bar} # Dump two targets.
+
+   This is primarily useful for debugging as well as to write build system
+   tests.
+
 Version 0.6.0
 
   * C++ Modules TS support for GCC, Clang, and VC.
