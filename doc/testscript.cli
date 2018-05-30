@@ -849,7 +849,7 @@ performed starting from the scope where the variable is referenced (expanded),
 continuing with the outer testscript scopes, and then continuing in the
 buildfile as described in \l{#integration Build System Integration}.
 
-A scope also establishes a cleanup context. All cleanups (\l{syntax-cleanup
+A scope also establishes a cleanup context. All cleanups (\l{#syntax-cleanup
 Cleanup}) registered in a scope are performed at the end of that scope's
 execution in the reverse order of their registration.
 
