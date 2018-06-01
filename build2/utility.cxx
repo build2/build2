@@ -7,7 +7,6 @@
 #include <time.h>   // tzset() (POSIX), _tzset() (Windows)
 
 #include <cstring>  // strlen(), str[n]cmp()
-#include <cstdlib>  // strtol()
 #include <iostream> // cerr
 
 #include <build2/target.hxx>
