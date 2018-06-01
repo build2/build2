@@ -1083,15 +1083,25 @@ namespace build2
             continue;
 
           dir_path d;
-          if (o.size () == 2)
-          {
-            if (++i == e)
-              break; // Let the compiler complain.
 
-            d = dir_path (*i);
+          try
+          {
+            if (o.size () == 2)
+            {
+              if (++i == e)
+                break; // Let the compiler complain.
+
+              d = dir_path (*i);
+            }
+            else
+              d = dir_path (*i, 2, string::npos);
           }
-          else
-            d = dir_path (*i, 2, string::npos);
+          catch (const invalid_path& e)
+          {
+            fail << "invalid -I directory " << e.path
+                 << " in variable " << var.name
+                 << " for target " << t;
+          }
 
           l6 ([&]{trace << "-I " << d;});
 
