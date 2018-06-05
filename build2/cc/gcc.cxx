@@ -82,9 +82,9 @@ namespace build2
           // End of search list.
           //
           // The exact text depends on the current locale. What we can rely on
-          // is the unique "#include <" prefix of the "opening" line and the
-          // fact that the paths are indented with a single space character,
-          // unlike the "closing" line.
+          // is the presence of the "#include <...>" substring in the
+          // "opening" line and the fact that the paths are indented with a
+          // single space character, unlike the "closing" line.
           //
           // Note that on Mac OS we will also see some framework paths among
           // system header paths, followed with a comment. For example:
@@ -93,13 +93,13 @@ namespace build2
           //
           // For now we ignore framework paths and to filter them out we will
           // only consider valid paths to existing directories, skipping those
-          // which we fail to stat or normalize.
+          // which we fail to normalize or stat.
           //
           string s;
           for (bool found (false); getline (is, s); )
           {
             if (!found)
-              found = s.compare (0, 10, "#include <") == 0;
+              found = s.find ("#include <...>") != string::npos;
             else
             {
               if (s[0] != ' ')
