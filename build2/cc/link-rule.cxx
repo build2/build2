@@ -994,7 +994,10 @@ namespace build2
             // Searching our own prerequisite is ok, p1 must already be
             // resolved.
             //
-            if (&p.search (t) != &p1.search (*pt))
+            const target& tp (p.search (t));
+            const target& tp1 (p1.search (*pt));
+
+            if (&tp != &tp1)
             {
               bool group (!p.prerequisite.belongs (t));
 
@@ -1006,6 +1009,8 @@ namespace build2
                    << "would be incompatible with existing target " << *pt <<
                 info << "existing prerequisite " << p1 << " does not match "
                    << p <<
+                info << p1 << " resolves to target " << tp1 <<
+                info << p << " resolves to target " << tp <<
                 info << "specify corresponding " << rtt.name << "{} "
                    << "dependency explicitly";
             }
