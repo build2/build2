@@ -46,6 +46,19 @@ namespace build2
       static const alias_rule instance;
     };
 
+    class fsdir_rule: public rule
+    {
+    public:
+      virtual bool
+      match (action, target&, const string&) const override;
+
+      virtual recipe
+      apply (action, target&) const override;
+
+      fsdir_rule () {}
+      static const fsdir_rule instance;
+    };
+
     // In addition to the alias rule's semantics, this rule sees through to
     // the group's members.
     //

@@ -125,6 +125,41 @@ namespace build2
       return default_recipe;
     }
 
+    // fsdir_rule
+    //
+    const fsdir_rule fsdir_rule::instance;
+
+    bool fsdir_rule::
+    match (action, target&, const string&) const
+    {
+      // We always match.
+      //
+      // Note that we are called both as the outer part during the update-for-
+      // un/install pre-operation and as the inner part during the un/install
+      // operation itself.
+      //
+      return true;
+    }
+
+    recipe fsdir_rule::
+    apply (action a, target& t) const
+    {
+      // If this is outer part of the update-for-un/install, delegate to the
+      // default fsdir rule. Otherwise, this is a noop (we don't install
+      // fsdir{}).
+      //
+      // For now we also assume we don't need to do anything for prerequisites
+      // (the only sensible prerequisite of fsdir{} is another fsdir{}).
+      //
+      if (a.operation () == update_id)
+      {
+        match_inner (a, t);
+        return &execute_inner;
+      }
+      else
+        return noop_recipe;
+    }
+
     // group_rule
     //
     const group_rule group_rule::instance (false /* see_through_only */);

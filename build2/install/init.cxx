@@ -216,11 +216,15 @@ namespace build2
         auto& r (bs.rules);
 
         const auto& ar (alias_rule::instance);
+        const auto& dr (fsdir_rule::instance);
         const auto& fr (file_rule::instance);
         const auto& gr (group_rule_);
 
         r.insert<alias> (perform_install_id,   "install.alias", ar);
         r.insert<alias> (perform_uninstall_id, "uninstall.alias", ar);
+
+        r.insert<fsdir> (perform_install_id,   "install.fsdir", dr);
+        r.insert<fsdir> (perform_uninstall_id, "install.fsdir", dr);
 
         r.insert<file> (perform_install_id,   "install.file", fr);
         r.insert<file> (perform_uninstall_id, "uninstall.file", fr);
