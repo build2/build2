@@ -2032,6 +2032,13 @@ namespace build2
           try_rmfile (relt, true);
       }
 
+      // Remove the target file if any of the subsequent (after ld) actions
+      // fail or if ld fails but does not clean up its mess (like link.exe).
+      // If we don't do that, then we will end up with a broken build that is
+      // up-to-date.
+      //
+      auto_rmfile rm (relt);
+
       if (verb >= 2)
         print_process (args);
       else if (verb)
@@ -2089,11 +2096,6 @@ namespace build2
 
         throw failed ();
       }
-
-      // Remove the target file if any of the subsequent actions fail. If we
-      // don't do that, we will end up with a broken build that is up-to-date.
-      //
-      auto_rmfile rm (relt);
 
       if (ranlib)
       {
