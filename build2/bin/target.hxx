@@ -264,6 +264,18 @@ namespace build2
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
+
+    // Windows module definition (.def).
+    //
+    class def: public file
+    {
+    public:
+      using file::file;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
   }
 }
 

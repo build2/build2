@@ -399,6 +399,12 @@ namespace build2
         t.insert<liba> ();
         t.insert<libs> ();
 
+        // Register the def{} target type. Note that we do it here since it is
+        // input and can be specified unconditionally (i.e., not only when
+        // building for Windows).
+        //
+        t.insert<def> ();
+
         // Note: libu*{} are not installable.
         //
         if (install_loaded)

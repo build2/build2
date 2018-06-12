@@ -679,6 +679,14 @@ namespace build2
           if      (p.is_a<obj> ()) pt = &search (t, tt.obj, p.key ());
           else if (p.is_a<bmi> ()) pt = &search (t, tt.bmi, p.key ());
           //
+          // Windows module definition (.def). For other platforms (and for
+          // static libraries) treat it as an ordinary prerequisite.
+          //
+          else if (p.is_a<def> () && tclass == "windows" && ot != otype::a)
+          {
+            pt = &p.search (t);
+          }
+          //
           // Something else. This could be something unrelated that the user
           // tacked on (e.g., a doc{}). Or it could be some ad hoc input to
           // the linker (say a linker script or some such).
@@ -690,6 +698,9 @@ namespace build2
               // @@ Temporary hack until we get the default outer operation
               // for update. This allows operations like test and install to
               // skip such tacked on stuff.
+              //
+              // @@ This is broken since, for example, update for install will
+              //    ignore ad hoc inputs.
               //
               if (current_outer_oif != nullptr)
                 continue;
@@ -1624,11 +1635,12 @@ namespace build2
 
       // Finally, hash and compare the list of input files.
       //
-      // Should we capture actual files or their checksum? The only good
-      // reason for capturing actual files is diagnostics: we will be able
-      // to pinpoint exactly what is causing the update. On the other hand,
-      // the checksum is faster and simpler. And we like simple.
+      // Should we capture actual file names or their checksum? The only good
+      // reason for capturing actual files is diagnostics: we will be able to
+      // pinpoint exactly what is causing the update. On the other hand, the
+      // checksum is faster and simpler. And we like simple.
       //
+      const file* def (nullptr); // Cache if present.
       {
         sha256 cs;
 
@@ -1672,6 +1684,21 @@ namespace build2
             }
             else
               hash_path (cs, f->path (), rs.out_path ());
+          }
+          else if ((f = pt->is_a<bin::def> ()))
+          {
+            if (tclass == "windows" && !lt.static_library ())
+            {
+              // At least link.exe only allows a single .def file.
+              //
+              if (def != nullptr)
+                fail << "multiple module definition files specified for " << t;
+
+              hash_path (cs, f->path (), rs.out_path ());
+              def = f;
+            }
+            else
+              f = nullptr; // Not an input.
           }
           else
             f = pt->is_a<exe> (); // Consider executable mtime (e.g., linker).
@@ -1736,7 +1763,7 @@ namespace build2
 
       // Ok, so we are updating. Finish building the command line.
       //
-      string out, out1, out2, out3; // Storage.
+      string in, out, out1, out2, out3; // Storage.
 
       // Translate paths to relative (to working directory) ones. This results
       // in easier to read diagnostics.
@@ -1841,6 +1868,12 @@ namespace build2
             args.push_back (out3.c_str ());
           }
 
+          if (def != nullptr)
+          {
+            in = "/DEF:" + relative (def->path ()).string ();
+            args.push_back (in.c_str ());
+          }
+
           if (ot == otype::s)
           {
             // On Windows libs{} is the DLL and its first ad hoc group member
@@ -1907,6 +1940,15 @@ namespace build2
 
               args.push_back ("-o");
               args.push_back (relt.string ().c_str ());
+
+              // For MinGW the .def file is just another input.
+              //
+              if (def != nullptr)
+              {
+                in = relative (def->path ()).string ();
+                args.push_back (in.c_str ());
+              }
+
               break;
             }
           case compiler_class::msvc: assert (false);

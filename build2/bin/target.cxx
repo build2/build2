@@ -364,5 +364,22 @@ namespace build2
       &file_search,
       false
     };
+
+    // def
+    //
+    extern const char def_ext[] = "def"; // VC14 rejects constexpr.
+
+    const target_type def::static_type
+    {
+      "def",
+      &file::static_type,
+      &target_factory<def>,
+      &target_extension_fix<def_ext>,
+      nullptr,                          /* default_extension */
+      &target_pattern_fix<def_ext>,
+      nullptr,
+      &file_search,
+      false
+    };
   }
 }
