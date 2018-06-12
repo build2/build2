@@ -674,6 +674,19 @@ namespace build2
         r = &file::static_type;
     }
 
+    // If the target type does not use extensions but one was specified,
+    // factor it back into the name (this way we won't assert when printing
+    // diagnostics; see to_stream(target_key) for details).
+    //
+    if (ext                             &&
+        r->fixed_extension   == nullptr &&
+        r->default_extension == nullptr)
+    {
+      v += '.';
+      v += *ext;
+      ext = nullopt;
+    }
+
     return r;
   }
 
