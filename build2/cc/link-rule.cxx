@@ -1346,6 +1346,11 @@ namespace build2
       timestamp mt (t.load_mtime ());
       target_state ts (straight_execute_prerequisites (a, t));
 
+      // Open the dependency database (do it before messing with Windows
+      // manifests to diagnose missing output directory).
+      //
+      depdb dd (tp + ".d");
+
       // If targeting Windows, take care of the manifest.
       //
       path manifest; // Manifest itself (msvc) or compiled object file.
@@ -1455,8 +1460,6 @@ namespace build2
 
       // Check/update the dependency database.
       //
-      depdb dd (tp + ".d");
-
       // First should come the rule name/version.
       //
       if (dd.expect (rule_id) != nullptr)
