@@ -125,7 +125,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write to " << m << ": " << e;
+        fail << "unable to write to " << mf << ": " << e;
       }
 
       return make_pair (move (mf), true);
