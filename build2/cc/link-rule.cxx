@@ -1289,7 +1289,7 @@ namespace build2
         {
           if (!for_install && !la)
           {
-            // Top-level sharen library dependency. It is either matched or
+            // Top-level shared library dependency. It is either matched or
             // imported so should be a cc library.
             //
             if (!cast_false<bool> (f->vars[c_system]))
