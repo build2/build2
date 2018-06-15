@@ -997,13 +997,13 @@ namespace build2
           const string& vname (i == e ? a : *i++);
 
           if (i != e)
-	    fail (ll) << "unexpected argument";
+            fail (ll) << "unexpected argument";
 
           if (ats != nullptr && ats->empty ())
-	    fail (ll) << "empty variable attributes";
+            fail (ll) << "empty variable attributes";
 
           if (vname.empty ())
-	    fail (ll) << "empty variable name";
+            fail (ll) << "empty variable name";
 
           // Read the input.
           //
