@@ -507,7 +507,7 @@ namespace build2
 
   protected:
     // Version that should be used during match after the target has been
-    // matched for this action (see the recipe override).
+    // matched for this action.
     //
     // Indicate whether there is a rule match with the first half of the
     // result (see try_match()).

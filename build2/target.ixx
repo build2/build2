@@ -67,6 +67,8 @@ namespace build2
   {
     assert (phase == run_phase::match);
 
+    // Note that the "tried" state is "final".
+    //
     const opstate& s (state[a]);
     size_t o (s.task_count.load (memory_order_relaxed) - // Synchronized.
               target::count_base ());

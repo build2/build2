@@ -439,6 +439,8 @@ namespace build2
 
           const rule_match* r (match_impl (a, t, nullptr, try_match));
 
+          assert (l.offset != target::offset_tried); // Should have failed.
+
           if (r == nullptr) // Not found (try_match == true).
           {
             l.offset = target::offset_tried;
