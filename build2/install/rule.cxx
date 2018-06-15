@@ -591,6 +591,9 @@ namespace build2
     // example, that .exe that we install won't be runnable by Windows (MSYS2
     // itself will still run them since it recognizes the file extension).
     //
+    // NOTE: this is no longer the case and we now use noacl (and acl causes
+    // other problems; see baseutils fstab for details).
+    //
     // The way we work around this (at least in our distribution of the MSYS2
     // tools) is by changing the mount option for cygdrives (/c, /d, etc) to
     // acl. But that's not all: we also have to install via a path that "hits"
