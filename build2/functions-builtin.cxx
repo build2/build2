@@ -2,12 +2,8 @@
 // copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <cstdlib> // getenv()
-
 #include <build2/function.hxx>
 #include <build2/variable.hxx>
-
-using namespace std;
 
 namespace build2
 {
@@ -15,15 +11,15 @@ namespace build2
   // otherwise.
   //
   static inline value
-  getenv (const string& name)
+  getvar (const string& name)
   {
-    const char* v (::getenv (name.c_str ()));
+    optional<string> v (getenv (name));
 
-    if (v == nullptr)
+    if (!v)
       return value ();
 
     names r;
-    r.emplace_back (to_name (v));
+    r.emplace_back (to_name (*v));
     return value (move (r));
   }
 
@@ -49,12 +45,12 @@ namespace build2
     //
     f["getenv"] = [](string name)
     {
-      return getenv (name);
+      return getvar (name);
     };
 
     f["getenv"] = [](names name)
     {
-      return getenv (convert<string> (move (name)));
+      return getvar (convert<string> (move (name)));
     };
   }
 }

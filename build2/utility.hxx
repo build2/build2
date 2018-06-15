@@ -16,8 +16,7 @@
 
 #include <libbutl/ft/lang.hxx>
 
-#include <libbutl/utility.mxx> // combine_hash(), reverse_iterate(), case*(),
-                               // etc
+#include <libbutl/utility.mxx> // combine_hash(), reverse_iterate(), etc
 
 #include <unordered_set>
 
@@ -73,6 +72,10 @@ namespace build2
 
   using butl::make_guard;
   using butl::make_exception_guard;
+
+  using butl::getenv;
+  using butl::setenv;
+  using butl::unsetenv;
 
   using butl::throw_generic_error;
   using butl::throw_system_error;

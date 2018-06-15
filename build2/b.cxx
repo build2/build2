@@ -8,8 +8,6 @@
 #  include <libbutl/win32-utility.hxx>
 #endif
 
-#include <stdlib.h>    // getenv() _putenv()(_WIN32)
-
 #ifdef __GLIBCXX__
 #  include <locale>
 #endif
@@ -144,15 +142,15 @@ main (int argc, char* argv[])
   //
 #ifdef _WIN32
   {
-    string mp ("PATH=");
-    if (const char* p = getenv ("PATH"))
+    string mp;
+    if (optional<string> p = getenv ("PATH"))
     {
-      mp += p;
+      mp = move (*p);
       mp += ';';
     }
     mp += "/bin";
 
-    _putenv (mp.c_str ());
+    setenv ("PATH", mp);
   }
 #endif
 
@@ -465,11 +463,11 @@ main (int argc, char* argv[])
     //
     if (verb >= 5)
     {
-      const char* p (getenv ("PATH"));
+      optional<string> p (getenv ("PATH"));
 
       trace << "work: " << work;
       trace << "home: " << home;
-      trace << "path: " << (p != nullptr ? p : "<NULL>");
+      trace << "path: " << (p ? *p : "<NULL>");
       trace << "jobs: " << jobs;
     }
 
