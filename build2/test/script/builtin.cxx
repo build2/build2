@@ -1337,12 +1337,13 @@ namespace build2
             string s;
             while (getline (cin, s))
             {
-              auto r (regex_replace_ex (s,
-                                        re,
-                                        subst->replacement,
-                                        subst->global
-                                        ? regex_constants::format_default
-                                        : regex_constants::format_first_only));
+              auto r (regex_replace_search (
+                        s,
+                        re,
+                        subst->replacement,
+                        subst->global
+                        ? regex_constants::format_default
+                        : regex_constants::format_first_only));
 
               // Add newline regardless whether the source line is newline-
               // terminated or not (in accordance with POSIX).

@@ -209,10 +209,10 @@ namespace build2
 
     try
     {
-      r.emplace_back (regex_replace_ex (to_string (move (v)),
-                                        rge,
-                                        fmt,
-                                        fl.second).first);
+      r.emplace_back (regex_replace_search (to_string (move (v)),
+                                            rge,
+                                            fmt,
+                                            fl.second).first);
     }
     catch (const regex_error& e)
     {
@@ -239,14 +239,14 @@ namespace build2
 
     try
     {
-      regex_replace_ex (to_string (move (v)), rge, fmt,
-                        [&r] (string::const_iterator b,
-                              string::const_iterator e)
-                        {
-                          if (b != e)
-                            r.emplace_back (string (b, e));
-                        },
-                        fl.second);
+      regex_replace_search (to_string (move (v)), rge, fmt,
+                            [&r] (string::const_iterator b,
+                                  string::const_iterator e)
+                            {
+                              if (b != e)
+                                r.emplace_back (string (b, e));
+                            },
+                            fl.second);
     }
     catch (const regex_error& e)
     {
@@ -274,10 +274,10 @@ namespace build2
     {
       for (auto& v: s)
       {
-        string s (regex_replace_ex (convert<string> (move (v)),
-                                    rge,
-                                    fmt,
-                                    fl.second).first);
+        string s (regex_replace_search (convert<string> (move (v)),
+                                        rge,
+                                        fmt,
+                                        fl.second).first);
 
         if (!s.empty ())
           r.emplace_back (move (s));
@@ -311,10 +311,10 @@ namespace build2
     {
       for (auto& v: s)
       {
-        string s (regex_replace_ex (convert<string> (move (v)),
-                                    rge,
-                                    fmt,
-                                    fl.second).first);
+        string s (regex_replace_search (convert<string> (move (v)),
+                                        rge,
+                                        fmt,
+                                        fl.second).first);
 
         if (!s.empty ())
         {
@@ -403,7 +403,7 @@ namespace build2
     // is always untyped, regardless of the argument type.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see butl::regex_replace_ex() for details).
+    // sequences (see libbutl/regex.mxx for details).
     //
     // The following flags are supported:
     //
@@ -452,7 +452,7 @@ namespace build2
     // value to string prior to matching.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see butl::regex_replace_ex() for details).
+    // sequences (see libbutl/regex.mxx for details).
     //
     // The following flags are supported:
     //
@@ -497,7 +497,7 @@ namespace build2
     // elements optionally separated with a delimiter.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see butl::regex_replace_ex() for details).
+    // sequences (see libbutl/regex.mxx for details).
     //
     // The following flags are supported:
     //
@@ -618,7 +618,7 @@ namespace build2
     // of transformed elements, omitting the empty ones.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see butl::regex_replace_ex() for details).
+    // sequences (see libbutl/regex.mxx for details).
     //
     // The following flags are supported:
     //
