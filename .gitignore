@@ -1,6 +1,10 @@
+.bdep/
+
 # Compiler/linker output.
 #
 *.d
+*.t
+*.i
 *.ii
 *.o
 *.obj
@@ -9,6 +13,8 @@
 *.a
 *.lib
 *.exp
+*.pdb
+*.ilk
 *.exe
 *.exe.dlls/
 *.exe.manifest
