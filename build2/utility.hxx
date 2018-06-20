@@ -154,7 +154,7 @@ namespace build2
 
   process_path
   run_search (const path&,
-              bool init,
+              bool init = false,
               const dir_path& fallback = dir_path (),
               const location& = location ());
 
@@ -388,11 +388,15 @@ namespace build2
       verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
-  // Empty string and path.
+  // Empty/nullopt string and path.
   //
-  extern const string empty_string;
-  extern const path empty_path;
+  extern const string   empty_string;
+  extern const path     empty_path;
   extern const dir_path empty_dir_path;
+
+  extern const optional<string>   nullopt_string;
+  extern const optional<path>     nullopt_path;
+  extern const optional<dir_path> nullopt_dir_path;
 
   // Hash a path potentially without the specific directory prefix.
   //

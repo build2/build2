@@ -1,0 +1,30 @@
+# file      : tests/function/process/testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.test
+
+: run
+:
+$* <<EOI >>~/EOO/
+print $process.run($build.path --version)
+EOI
+/build2 .+/
+/.+/*
+EOO
+
+: run-regex-match
+:
+$* <<EOI >>~/EOO/
+print $process.run_regex($build.path --version, 'build2 .+')
+EOI
+/build2 .+/
+EOO
+
+: run-regex-replace
+:
+$* <<EOI >>~/EOO/
+print $process.run_regex($build.path --version, 'build2 ([0-9.]+).*', '\1')
+EOI
+/[0-9]+.[0-9]+.[0-9]+/d
+EOO

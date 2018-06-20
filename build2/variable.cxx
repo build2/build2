@@ -600,7 +600,20 @@ namespace build2
         catch (invalid_path& e)
         {
           n.value = move (e.path); // Restore the name object for diagnostics.
+          // Fall through.
+        }
+      }
 
+      // Reassemble split dir/value.
+      //
+      if (n.untyped () && n.unqualified ())
+      {
+        try
+        {
+          return n.dir / n.value;
+        }
+        catch (const invalid_path&)
+        {
           // Fall through.
         }
       }
@@ -649,7 +662,26 @@ namespace build2
         {
           return dir_path (move (n.value));
         }
-        catch (const invalid_path&) {} // Fall through.
+        catch (invalid_path& e)
+        {
+          n.value = move (e.path); // Restore the name object for diagnostics.
+          // Fall through.
+        }
+      }
+
+      // Reassemble split dir/value.
+      //
+      if (n.untyped () && n.unqualified ())
+      {
+        try
+        {
+          n.dir /= n.value;
+          return move (n.dir);
+        }
+        catch (const invalid_path&)
+        {
+          // Fall through.
+        }
       }
 
       // Fall through.

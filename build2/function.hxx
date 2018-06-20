@@ -45,9 +45,15 @@ namespace build2
   // expected to issue diagnostics and throw failed. Note that the arguments
   // are conceptually "moved" and can be reused by the implementation.
   //
+  // @@ Maybe it makes sense to implicitly convert types like string to names
+  //    -- providing all the overload combinations really gets tedious.
+  //
   // A function can also optionally receive the current scope by having the
   // first argument of the const scope* type. It may be NULL is the function
   // is called out of any scope (e.g., command line).
+  //
+  // Note also that we don't pass the location to the function instead
+  // printing the info message pointing to the call site.
   //
   // Normally functions come in families that share a common qualification
   // (e.g., string. or path.). The function_family class is a "registrar"

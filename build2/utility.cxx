@@ -254,9 +254,13 @@ namespace build2
     fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
   }
 
-  const string empty_string;
-  const path empty_path;
+  const string   empty_string;
+  const path     empty_path;
   const dir_path empty_dir_path;
+
+  const optional<string>   nullopt_string;
+  const optional<path>     nullopt_path;
+  const optional<dir_path> nullopt_dir_path;
 
   void
   append_options (cstrings& args, const lookup& l, const char* e)

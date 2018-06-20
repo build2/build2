@@ -329,6 +329,7 @@ namespace build2
   void builtin_functions ();        // functions-builtin.cxx
   void filesystem_functions ();     // functions-filesystem.cxx
   void path_functions ();           // functions-path.cxx
+  void process_functions ();        // functions-process.cxx
   void process_path_functions ();   // functions-process-path.cxx
   void regex_functions ();          // functions-regex.cxx
   void string_functions ();         // functions-string.cxx
@@ -341,6 +342,7 @@ namespace build2
       builtin_functions ();
       filesystem_functions ();
       path_functions ();
+      process_functions ();
       process_path_functions ();
       regex_functions ();
       string_functions ();

@@ -29,7 +29,9 @@ namespace build2
 
   // Parse a regular expression. Throw invalid_argument if it is not valid.
   //
-  static regex
+  // Note: also used in functions-process.cxx (thus not static).
+  //
+  regex
   parse_regex (const string& s, regex::flag_type f)
   {
     try

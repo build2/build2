@@ -11,7 +11,7 @@ namespace build2
   // otherwise.
   //
   static inline value
-  getvar (const string& name)
+  getenvvar (const string& name)
   {
     optional<string> v (getenv (name));
 
@@ -19,7 +19,7 @@ namespace build2
       return value ();
 
     names r;
-    r.emplace_back (to_name (*v));
+    r.emplace_back (to_name (move (*v)));
     return value (move (r));
   }
 
@@ -45,12 +45,12 @@ namespace build2
     //
     f["getenv"] = [](string name)
     {
-      return getvar (name);
+      return getenvvar (name);
     };
 
     f["getenv"] = [](names name)
     {
-      return getvar (convert<string> (move (name)));
+      return getenvvar (convert<string> (move (name)));
     };
   }
 }
