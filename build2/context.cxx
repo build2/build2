@@ -309,7 +309,10 @@ namespace build2
     // longer be valid.
     //
     if (n == run_phase::load && uncaught_exception ())
+    {
+      mlock l (phase_mutex::instance.m_);
       phase_mutex::instance.fail_ = true;
+    }
 
     bool r (phase_mutex::instance.relock (n, o));
     phase_lock::instance->p = o;
