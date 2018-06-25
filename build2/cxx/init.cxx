@@ -103,12 +103,14 @@ namespace build2
             //
             // https://gist.github.com/yamaya/2924292
             //
-            // 5.1 -> 3.4
-            // 6.0 -> 3.5
-            // 7.0 -> 3.7
-            // 7.3 -> 3.8
-            // 8.0 -> 3.9
-            // 9.0 -> 4.0 (later ones could be 5.0)
+            // 5.1  -> 3.4
+            // 6.0  -> 3.5
+            // 7.0  -> 3.7
+            // 7.3  -> 3.8
+            // 8.0  -> 3.9
+            // 9.0  -> 4.0 (later ones could be 5.0)
+            // 9.1  -> ?
+            // 10.0 -> ?
             //
             // Note that this mapping is also used to enable experimental
             // features below.
