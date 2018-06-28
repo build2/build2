@@ -8,8 +8,8 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
+#include <build2/action.hxx>
 #include <build2/target.hxx>
-#include <build2/operation.hxx>
 
 namespace build2
 {
@@ -442,10 +442,10 @@ namespace build2
   // each non-ignored (non-NULL) prerequisite target in a loop and then wait
   // for their completion. Return target_state::changed if any of them were
   // changed and target_state::unchanged otherwise. If a prerequisite's
-  // execution is postponed, then set its pointer in prerequisite_targets to
-  // NULL (since its state cannot be queried MT-safely). If count is not 0,
-  // then only the first count prerequisites are executed beginning from
-  // start.
+  // execution is postponed (and thus its state cannot be queried MT-safely)
+  // of if the prerequisite is marked as ad hoc, then set its pointer in
+  // prerequisite_targets to NULL. If count is not 0, then only the first
+  // count prerequisites are executed beginning from start.
   //
   target_state
   straight_execute_prerequisites (action, const target&,
@@ -483,7 +483,7 @@ namespace build2
   // the first count prerequisites are executed.
   //
   // Note that the return value is an optional target state. If the target
-  // needs updating, then the value absent. Otherwise it is the state that
+  // needs updating, then the value is absent. Otherwise it is the state that
   // should be returned. This is used to handle the situation where some
   // prerequisites were updated but no update of the target is necessary. In
   // this case we still signal that the target was (conceptually, but not
@@ -535,7 +535,8 @@ namespace build2
   // Execute members of a group or similar prerequisite-like dependencies.
   // Similar in semantics to execute_prerequisites().
   //
-  // T can only be const target* or prerequisite_target.
+  // T can only be const target* or prerequisite_target. If it is the latter,
+  // the ad hoc semantics described in execute_prerequsites() is in effect.
   //
   template <typename T>
   target_state

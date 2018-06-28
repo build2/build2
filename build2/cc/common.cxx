@@ -224,7 +224,10 @@ namespace build2
       {
         for (const prerequisite_target& pt: l.prerequisite_targets[a])
         {
-          if (pt == nullptr)
+          // Note: adhoc prerequisites are not part of the library meta-
+          // information protocol.
+          //
+          if (pt == nullptr || pt.adhoc)
             continue;
 
           bool la;

@@ -570,7 +570,8 @@ namespace build2
       &configure_match,
       &configure_execute,
       nullptr, // operation post
-      nullptr  // meta-operation post
+      nullptr, // meta-operation post
+      nullptr  // include
     };
 
     // disfigure
@@ -820,6 +821,7 @@ namespace build2
       &disfigure_execute,
       nullptr, // operation post
       nullptr, // meta-operation post
+      nullptr  // include
     };
 
     // create

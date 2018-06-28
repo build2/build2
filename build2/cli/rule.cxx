@@ -44,11 +44,37 @@ namespace build2
     }
 
     bool compile_rule::
-    match (action a, target& xt, const string&) const
+    match (action a, target& t, const string&) const
     {
       tracer trace ("cli::compile_rule::match");
 
-      if (cli_cxx* pt = xt.is_a<cli_cxx> ())
+      // Find the .cli source file.
+      //
+      auto find = [&trace, a, &t] (auto&& r) -> optional<prerequisite_member>
+      {
+        for (prerequisite_member p: r)
+        {
+          // If excluded or ad hoc, then don't factor it into our tests.
+          //
+          if (include (a, t, p) != include_type::normal)
+            continue;
+
+          if (p.is_a<cli> ())
+          {
+            // Check that the stem match.
+            //
+            if (match_stem (t.name, p.name ()))
+              return p;
+
+            l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
+                          << "doesn't match target " << t;});
+          }
+        }
+
+        return nullopt;
+      };
+
+      if (cli_cxx* pt = t.is_a<cli_cxx> ())
       {
         // The cli.cxx{} group.
         //
@@ -56,29 +82,10 @@ namespace build2
 
         // See if we have a .cli source file.
         //
-        bool r (false);
-        for (prerequisite_member p: group_prerequisite_members (a, t))
-        {
-          if (p.is_a<cli> ())
-          {
-            // Check that the stem match.
-            //
-            if (!match_stem (t.name, p.name ()))
-            {
-              l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
-                            << "doesn't match target " << t;});
-              return false;
-            }
-
-            r = true;
-            break;
-          }
-        }
-
-        if (!r)
+        if (!find (group_prerequisite_members (a, t)))
         {
           l4 ([&]{trace << "no .cli source file for target " << t;});
-          return r;
+          return false;
         }
 
         // Figure out the member list.
@@ -95,13 +102,12 @@ namespace build2
           ? nullptr
           : &search<cxx::ixx> (t, t.dir, t.out, t.name);
 
-        return r;
+        return true;
       }
       else
       {
         // One of the ?xx{} members.
         //
-        target& t (xt);
 
         // Check if there is a corresponding cli.cxx{} group.
         //
@@ -113,24 +119,13 @@ namespace build2
         //
         if (g == nullptr || !g->has_prerequisites ())
         {
-          for (prerequisite_member p: prerequisite_members (a, t))
+          if (optional<prerequisite_member> p = find (
+                prerequisite_members (a, t)))
           {
-            if (p.is_a<cli> ())
-            {
-              // Check that the stems match.
-              //
-              if (match_stem (t.name, p.name ()))
-              {
-                if (g == nullptr)
-                  g = &targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
+            if (g == nullptr)
+              g = &targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
 
-                g->prerequisites (prerequisites {p.as_prerequisite ()});
-              }
-              else
-                l4 ([&]{trace << ".cli file stem '" << p.name () << "' "
-                              << "doesn't match target " << t;});
-              break;
-            }
+            g->prerequisites (prerequisites {p->as_prerequisite ()});
           }
         }
 
@@ -175,7 +170,7 @@ namespace build2
         {
         case perform_update_id: return &perform_update;
         case perform_clean_id:  return &perform_clean_group; // Standard impl.
-        default:                return noop_recipe; // Configure update.
+        default:                return noop_recipe; // Configure/dist update.
         }
       }
       else

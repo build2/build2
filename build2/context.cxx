@@ -343,6 +343,7 @@ namespace build2
 
   const variable* var_clean;
   const variable* var_backlink;
+  const variable* var_include;
 
   const char var_extension[10] = "extension";
 
@@ -715,6 +716,8 @@ namespace build2
 
       var_clean    = &vp.insert<bool> ("clean",    v_t);
       var_backlink = &vp.insert<string> ("backlink", v_t);
+      var_include  = &vp.insert<string> ("include", v_t);
+
       vp.insert<string> (var_extension, v_t);
 
       // Backlink executables and (generated) documentation by default.

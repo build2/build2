@@ -82,6 +82,13 @@ namespace build2
       {
         const prerequisite& p (i->prerequisite);
 
+        // Ignore excluded.
+        //
+        include_type pi (include (a, t, p));
+
+        if (!pi)
+          continue;
+
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
@@ -119,7 +126,7 @@ namespace build2
         }
 
         build2::match (a, *pt);
-        pts.push_back (pt);
+        pts.push_back (prerequisite_target (pt, pi));
       }
 
       return default_recipe;
@@ -228,7 +235,7 @@ namespace build2
           }
 
           build2::match (a, *mt);
-          pts.push_back (mt);
+          pts.push_back (mt); // Never ad hoc.
         }
       }
 
@@ -292,6 +299,13 @@ namespace build2
       {
         const prerequisite& p (i->prerequisite);
 
+        // Ignore excluded.
+        //
+        include_type pi (include (a, t, p));
+
+        if (!pi)
+          continue;
+
         // Ignore unresolved targets that are imported from other projects.
         // We are definitely not installing those.
         //
@@ -327,7 +341,7 @@ namespace build2
         // static installable content (headers, documentation, etc).
         //
         if (!build2::match (a, *pt, unmatch::unchanged))
-          pts.push_back (pt);
+          pts.push_back (prerequisite_target (pt, pi));
       }
 
       if (a.operation () == update_id)

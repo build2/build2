@@ -31,6 +31,9 @@ namespace build2
       for (prerequisite_member p:
              group_prerequisite_members (a, t, members_mode::maybe))
       {
+        // Note: no exclusion tests, we want all of them (and see also the
+        // dist_include() override).
+
         // Skip prerequisites imported from other projects.
         //
         if (p.proj ())
@@ -48,6 +51,8 @@ namespace build2
         // don't need the stronger "... and not implied" condition since if it
         // is mentioned as a target, then it is in out (we don't do the same
         // target in both src/out).
+        //
+        // @@ Note that this is still an issue in a custom dist rule.
         //
         const target* pt (nullptr);
         if (p.is_a<file> ())

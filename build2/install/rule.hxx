@@ -9,8 +9,8 @@
 #include <build2/utility.hxx>
 
 #include <build2/rule.hxx>
+#include <build2/action.hxx>
 #include <build2/target.hxx>
-#include <build2/operation.hxx>
 #include <build2/filesystem.hxx>
 
 namespace build2
@@ -24,7 +24,7 @@ namespace build2
       match (action, target&, const string&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise. The default implementation accepts prerequsites
+      // target otherwise. The default implementation accepts all prerequsites
       // from the target's (weak) amalgamation.
       //
       // The prerequisite it passed as an iterator allowing the filter to

@@ -9,8 +9,8 @@
 #include <build2/utility.hxx>
 
 #include <build2/rule.hxx>
+#include <build2/action.hxx>
 #include <build2/target.hxx>
-#include <build2/operation.hxx>
 
 namespace build2
 {
@@ -19,7 +19,7 @@ namespace build2
     // This is the default rule that simply matches all the prerequisites.
     //
     // A custom rule (usually the same as perform_update) may be necessary to
-    // establishing group links (so that we see the dist variable set on a
+    // establish group links (so that we see the dist variable set on a
     // group).
     //
     class rule: public build2::rule

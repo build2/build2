@@ -668,13 +668,20 @@ namespace build2
     size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
     {
+      // Ignore excluded.
+      //
+      include_type pi (include (a, t, p));
+
+      if (!pi)
+        continue;
+
       const target& pt (search (t, p));
 
       if (s != nullptr && !pt.in (*s))
         continue;
 
       match_async (a, pt, target::count_busy (), t[a].task_count);
-      pts.push_back (&pt);
+      pts.push_back (prerequisite_target (&pt, pi));
     }
 
     wg.wait ();
@@ -737,11 +744,12 @@ namespace build2
   // Instantiate only for what we need.
   //
   template void
-  match_members<const target*> (action, target&, const target* const*, size_t);
+  match_members<const target*> (action, target&,
+                                const target* const*, size_t);
 
   template void
-  match_members<prerequisite_target> (
-    action, target&, prerequisite_target const*, size_t);
+  match_members<prerequisite_target> (action, target&,
+                                      prerequisite_target const*, size_t);
 
   const fsdir*
   inject_fsdir (action a, target& t, bool parent)
@@ -1567,6 +1575,21 @@ namespace build2
     return t.executed_state (a);
   }
 
+  static inline bool
+  adhoc_member (const target*&)
+  {
+    return false;
+  }
+
+  static inline bool
+  adhoc_member (prerequisite_target& pt)
+  {
+    if (pt.adhoc)
+      pt.target = nullptr;
+
+    return pt.adhoc;
+  }
+
   template <typename T>
   target_state
   straight_execute_members (action a, atomic_count& tc,
@@ -1615,6 +1638,8 @@ namespace build2
         sched.wait (target::count_executed (), tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
+
+      adhoc_member (ts[i]);
     }
 
     return r;
@@ -1662,6 +1687,8 @@ namespace build2
         sched.wait (target::count_executed (), tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
+
+      adhoc_member (ts[i]);
     }
 
     return r;
@@ -1765,6 +1792,9 @@ namespace build2
             e = true;
         }
       }
+
+      if (adhoc_member (pts[i]))
+        continue;
 
       if (rt == nullptr && pt.is_a (*tt))
         rt = &pt;

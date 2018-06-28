@@ -60,6 +60,9 @@ namespace build2
       bool fi (false); // Found in.
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+          continue;
+
         fm = fm || manifest_prerequisite (rs, p);
         fi = fi || p.is_a<in> ();
       }

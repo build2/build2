@@ -289,6 +289,31 @@ namespace build2
   //
   extern const variable* var_backlink;        // [string] target visibility
 
+  // Prerequisite inclusion/exclusion. Valid values are:
+  //
+  // false  - exclude.
+  // true   - include.
+  // adhoc  - include but treat as an ad hoc input.
+  //
+  // If a rule uses prerequisites as inputs (as opposed to just matching them
+  // with the "pass-through" semantics), then the adhoc value signals that a
+  // prerequisite is an ad hoc input. A rule should match and execute such a
+  // prerequisite (whether its target type is recognized as suitable input or
+  // not) and assume that the rest will be handled by the user (e.g., it will
+  // be passed via a command line argument or some such). Note that this
+  // mechanism can be used to both treat unknown prerequisite types as inputs
+  // (for example, linker scripts) as well as prevent treatment of known
+  // prerequisite types as such while still matching and executing them (for
+  // example, plugin libraries).
+  //
+  // A rule with the "pass-through" semantics should treat the adhoc value
+  // the same as true.
+  //
+  // To query this value in rule implementations use the include() helpers
+  // from prerequisites.hxx.
+  //
+  extern const variable* var_include;         // [string] prereq visibility
+
   extern const char var_extension[10];        // "extension"
 
   // The build.* namespace.

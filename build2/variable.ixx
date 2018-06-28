@@ -201,6 +201,20 @@ namespace build2
 
   template <typename T>
   inline T
+  cast_default (const value& v, const T& d)
+  {
+    return v ? cast<T> (v) : d;
+  }
+
+  template <typename T>
+  inline T
+  cast_default (const lookup& l, const T& d)
+  {
+    return l ? cast<T> (l) : d;
+  }
+
+  template <typename T>
+  inline T
   cast_false (const value& v)
   {
     return v && cast<T> (v);

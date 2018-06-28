@@ -77,6 +77,11 @@ namespace build2
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        // If excluded or ad hoc, then don't factor it into our tests.
+        //
+        if (include (a, t, p) != include_type::normal)
+          continue;
+
         if (p.is_a (x_src) || (x_mod != nullptr && p.is_a (*x_mod)))
         {
           seen_x = seen_x || true;
@@ -562,11 +567,16 @@ namespace build2
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        include_type pi (include (a, t, p));
+
         // We pre-allocate a NULL slot for each (potential; see clean)
         // prerequisite target.
         //
-        pts.push_back (nullptr);
+        pts.push_back (prerequisite_target (nullptr, pi));
         const target*& pt (pts.back ());
+
+        if (pi != include_type::normal) // Skip excluded and ad hoc.
+          continue;
 
         // Mark:
         //   0 - lib
@@ -699,8 +709,8 @@ namespace build2
               // for update. This allows operations like test and install to
               // skip such tacked on stuff.
               //
-              // @@ This is broken since, for example, update for install will
-              //    ignore ad hoc inputs.
+              // Note that ad hoc inputs have to be explicitly marked with the
+              // include=adhoc prerequisite-specific variable.
               //
               if (current_outer_oif != nullptr)
                 continue;
@@ -730,9 +740,9 @@ namespace build2
       // bmi{} targets we haven't completed yet. Hairy, I know.
       //
 
-      // Parallel prerequisite_targets loop.
+      // Parallel prerequisites/prerequisite_targets loop.
       //
-      size_t i (start), n (pts.size ());
+      size_t i (start);
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         const target*& pt (pts[i].target);
@@ -807,7 +817,7 @@ namespace build2
             {
               const target* pt (pts[j++]);
 
-              if (pt == nullptr)
+              if (pt == nullptr) // Note: ad hoc is taken care of.
                 continue;
 
               // NOTE: pt may be marked (even for a library -- see clean
@@ -945,14 +955,25 @@ namespace build2
       //
       wait_guard wg (target::count_busy (), t[a].task_count, true);
 
-      for (i = start; i != n; ++i)
+      i = start;
+      for (prerequisite_member p: group_prerequisite_members (a, t))
       {
-        const target*& pt (pts[i]);
+        bool adhoc (pts[i].adhoc);
+        const target*& pt (pts[i++]);
+
+        uint8_t m;
 
         if (pt == nullptr)
-          continue;
+        {
+          // Handle ad hoc prerequisities.
+          //
+          if (!adhoc)
+            continue;
 
-        if (uint8_t m = unmark (pt))
+          pt = &p.search (t);
+          m = 1; // Mark for completion.
+        }
+        else if ((m = unmark (pt)) != 0)
         {
           // If this is a library not to be cleaned, we can finally blank it
           // out.
@@ -962,10 +983,10 @@ namespace build2
             pt = nullptr;
             continue;
           }
-
-          match_async (a, *pt, target::count_busy (), t[a].task_count);
-          mark (pt, m);
         }
+
+        match_async (a, *pt, target::count_busy (), t[a].task_count);
+        mark (pt, m);
       }
 
       wg.wait ();
@@ -1341,6 +1362,9 @@ namespace build2
 
       // Update prerequisites. We determine if any relevant ones render us
       // out-of-date manually below.
+      //
+      // Note that straight_execute_prerequisites() will blank out all the ad
+      // hoc prerequisites so we don't need to worry about them from now on.
       //
       bool update (false);
       timestamp mt (t.load_mtime ());

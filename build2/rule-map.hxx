@@ -12,7 +12,7 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
-#include <build2/operation.hxx>
+#include <build2/action.hxx>
 
 namespace build2
 {

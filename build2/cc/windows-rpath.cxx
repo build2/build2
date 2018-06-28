@@ -105,7 +105,7 @@ namespace build2
 
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
-        if (pt == nullptr)
+        if (pt == nullptr || pt.adhoc)
           continue;
 
         bool la;
@@ -195,7 +195,7 @@ namespace build2
 
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
-        if (pt == nullptr)
+        if (pt == nullptr || pt.adhoc)
           continue;
 
         bool la;

@@ -5,11 +5,10 @@
 #ifndef BUILD2_PREREQUISITE_HXX
 #define BUILD2_PREREQUISITE_HXX
 
-#include <unordered_set>
-
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
+#include <build2/action.hxx>
 #include <build2/variable.hxx>
 #include <build2/target-key.hxx>
 #include <build2/diagnostics.hxx>
@@ -182,6 +181,38 @@ namespace build2
   }
 
   using prerequisites = vector<prerequisite>;
+
+  // Helpers for dealing with the prerequisite inclusion/exclusion (the
+  // 'include' buildfile variable, see var_include in context.hxx).
+  //
+  // Note that the include(prerequisite_member) overload is also provided.
+  //
+  // @@ Maybe this filtering should be incorporated into *_prerequisites() and
+  // *_prerequisite_members() logic? Could make normal > adhoc > excluded and
+  // then pass the "threshold".
+  //
+  class include_type
+  {
+  public:
+    enum value {excluded, adhoc, normal};
+
+    include_type (value v): v_ (v) {}
+    include_type (bool  v): v_ (v ? normal : excluded) {}
+
+    operator         value () const {return v_;}
+    explicit operator bool () const {return v_ != excluded;}
+
+  private:
+    value v_;
+  };
+
+  include_type
+  include (action,
+           const target&,
+           const prerequisite&,
+           const target* = nullptr);
 }
+
+#include <build2/prerequisite.ixx>
 
 #endif // BUILD2_PREREQUISITE_HXX

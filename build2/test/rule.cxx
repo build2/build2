@@ -126,6 +126,9 @@ namespace build2
         for (prerequisite_member p:
                group_prerequisite_members (a, t, members_mode::maybe))
         {
+          if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+            continue;
+
           if (p.is_a<testscript> ())
           {
             if (!script)
@@ -203,6 +206,9 @@ namespace build2
               const auto& vars (p.prerequisite.vars);
 
               if (vars.empty ()) // Common case.
+                continue;
+
+              if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
                 continue;
 
               bool rt (      cast_false<bool> (vars[test_roundtrip]));

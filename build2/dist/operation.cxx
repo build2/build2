@@ -623,6 +623,28 @@ namespace build2
       out_rm.cancel ();
     }
 
+    static include_type
+    dist_include (action,
+                  const target&,
+                  const prerequisite_member& p,
+                  include_type i)
+    {
+      tracer trace ("dist_include");
+
+      // Override excluded to adhoc so that every source is included into the
+      // distribution. Note that this should be harmless to a custom rule
+      // given the prescribed semantics of adhoc (match/execute but otherwise
+      // ignore) is followed.
+      //
+      if (i == include_type::excluded)
+      {
+        l5 ([&]{trace << "overriding exclusion of " << p;});
+        i = include_type::adhoc;
+      }
+
+      return i;
+    }
+
     const meta_operation_info mo_dist {
       dist_id,
       "dist",
@@ -638,7 +660,8 @@ namespace build2
       nullptr, // no match (see execute()).
       &dist_execute,
       nullptr, // operation post
-      nullptr  // meta-operation post
+      nullptr, // meta-operation post
+      &dist_include
     };
   }
 }

@@ -9,7 +9,7 @@
 #include <build2/utility.hxx>
 
 #include <build2/rule.hxx>
-#include <build2/operation.hxx>
+#include <build2/action.hxx>
 
 #include <build2/test/common.hxx>
 

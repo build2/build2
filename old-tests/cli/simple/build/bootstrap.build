@@ -4,3 +4,6 @@ amalgamation = # Disabled.
 using config
 using install
 using test
+using dist
+
+dist.package = $project

@@ -8,8 +8,8 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
+#include <build2/action.hxx>
 #include <build2/target.hxx>
-#include <build2/operation.hxx>
 
 namespace build2
 {

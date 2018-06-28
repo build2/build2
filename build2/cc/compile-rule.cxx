@@ -237,6 +237,11 @@ namespace build2
       //
       for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
       {
+        // If excluded or ad hoc, then don't factor it into our tests.
+        //
+        if (include (a, t, p) != include_type::normal)
+          continue;
+
         if (p.is_a (mod ? *x_mod : x_src))
         {
           // Save in the target's auxiliary storage. Translation type will
@@ -292,6 +297,9 @@ namespace build2
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+          continue;
+
         // Should be already searched and matched for libraries.
         //
         if (const target* pt = p.load ())
@@ -342,6 +350,9 @@ namespace build2
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+          continue;
+
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
@@ -393,6 +404,9 @@ namespace build2
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+          continue;
+
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
@@ -599,15 +613,20 @@ namespace build2
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         const target* pt (nullptr);
+        include_type  pi (include (a, t, p));
+
+        if (!pi)
+          continue;
 
         // A dependency on a library is there so that we can get its
-        // *.export.poptions, modules, etc. This is the "library
-        // meta-information protocol". See also append_lib_options().
+        // *.export.poptions, modules, etc. This is the library
+        // meta-information protocol. See also append_lib_options().
         //
-        if (p.is_a<libx> () ||
-            p.is_a<liba> () ||
-            p.is_a<libs> () ||
-            p.is_a<libux> ())
+        if (pi == include_type::normal &&
+            (p.is_a<libx> () ||
+             p.is_a<liba> () ||
+             p.is_a<libs> () ||
+             p.is_a<libux> ()))
         {
           if (a.operation () == update_id)
           {
@@ -638,7 +657,8 @@ namespace build2
         // else (normally library/executable) also depends on it and will
         // clean it up.
         //
-        else if (p.is_a<bmi> () || p.is_a (tt.bmi))
+        else if (pi == include_type::normal &&
+                 (p.is_a<bmi> () || p.is_a (tt.bmi)))
           continue;
         else
         {
@@ -649,7 +669,7 @@ namespace build2
         }
 
         match_async (a, *pt, target::count_busy (), t[a].task_count);
-        pts.push_back (pt);
+        pts.push_back (prerequisite_target (pt, pi));
       }
 
       wg.wait ();
@@ -3529,6 +3549,9 @@ namespace build2
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
+        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+          continue;
+
         const target* pt (p.load ()); // Should be cached for libraries.
 
         if (pt != nullptr)
@@ -3625,6 +3648,9 @@ namespace build2
         for (prerequisite_member p:
                prerequisite_members (a, t, group_prerequisites (*pt, pg)))
         {
+          if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+            continue;
+
           if (p.is_a (*x_mod))
           {
             // Check for an explicit module name. Only look for an existing
@@ -3739,6 +3765,9 @@ namespace build2
             //
             for (prerequisite_member p: group_prerequisite_members (a, *bt))
             {
+              if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+                continue;
+
               if (p.is_a (*x_mod)) // Got to be there.
               {
                 fail (relative (src))
@@ -3961,6 +3990,9 @@ namespace build2
       ps.push_back (prerequisite (lt));
       for (prerequisite_member p: group_prerequisite_members (a, lt))
       {
+        if (include (a, lt, p) != include_type::normal) // Excluded/ad hoc.
+          continue;
+
         // @@ TODO: will probably need revision if using sidebuild for
         //    non-installed libraries (e.g., direct BMI dependencies
         //    will probably have to be translated to mxx{} or some such).

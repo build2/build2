@@ -15,8 +15,8 @@
 #include <build2/utility.hxx>
 
 #include <build2/scope.hxx>
+#include <build2/action.hxx>
 #include <build2/variable.hxx>
-#include <build2/operation.hxx>
 #include <build2/target-key.hxx>
 #include <build2/target-type.hxx>
 #include <build2/target-state.hxx>
@@ -92,14 +92,18 @@ namespace build2
   {
     using target_type = build2::target;
 
-    prerequisite_target (const target_type* t, uintptr_t d = 0)
-        : target (t), data (d) {}
+    prerequisite_target (const target_type* t, bool a = false, uintptr_t d = 0)
+        : target (t), adhoc (a), data (d) {}
+
+    prerequisite_target (const target_type* t, include_type a, uintptr_t d = 0)
+        : prerequisite_target (t, a == include_type::adhoc, d) {}
 
     operator const target_type*&  ()       {return target;}
     operator const target_type*   () const {return target;}
     const target_type* operator-> () const {return target;}
 
     const target_type* target;
+    bool               adhoc;  // True if include=adhoc.
     uintptr_t          data;
   };
   using prerequisite_targets = vector<prerequisite_target>;
@@ -930,6 +934,12 @@ namespace build2
   operator<< (ostream& os, const prerequisite_member& pm)
   {
     return os << pm.key ();
+  }
+
+  inline include_type
+  include (action a, const target& t, const prerequisite_member& pm)
+  {
+    return include (a, t, pm.prerequisite, pm.member);
   }
 
   // A "range" that presents a sequence of prerequisites (e.g., from

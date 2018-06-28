@@ -41,6 +41,8 @@ namespace build2
       // Note: for now we assume these prerequisites never come from see-
       // through groups.
       //
+      // Note: we install ad hoc prerequisites by default.
+      //
       otype ot (link_type (t).type);
 
       bool st (t.is_a<exe>  () || t.is_a<libs> ()); // Target needs shared.

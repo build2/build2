@@ -60,7 +60,8 @@ namespace build2
     nullptr, // match
     nullptr, // execute
     nullptr, // operation post
-    nullptr  // meta-operation post
+    nullptr, // meta-operation post
+    nullptr  // include
   };
 
   // perform
@@ -425,7 +426,8 @@ namespace build2
     &match,
     &execute,
     nullptr, // operation post
-    nullptr  // meta-operation post
+    nullptr, // meta-operation post
+    nullptr  // include
   };
 
   // info
@@ -517,7 +519,8 @@ namespace build2
     nullptr, // match
     &info_execute,
     nullptr, // operation post
-    nullptr  // meta-operation post
+    nullptr, // meta-operation post
+    nullptr  // include
   };
 
   // operations
