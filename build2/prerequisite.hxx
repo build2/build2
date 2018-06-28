@@ -84,6 +84,8 @@ namespace build2
 
     // Prerequisite-specific variables.
     //
+    // Note that the lookup is often ad hoc (see bin.whole as an example).
+    //
   public:
     variable_map vars;
 

@@ -94,16 +94,47 @@ namespace build2
     bool (*const empty) (const value&);
   };
 
-  enum class variable_visibility
+  // The order of the enumerators is arranged so that their integral values
+  // indicate whether one is more restrictive than the other.
+  //
+  enum class variable_visibility: uint8_t
   {
     // Note that the search for target type/pattern-specific terminates at
     // the project boundary.
     //
-    target,   // Target and target type/pattern-specific.
-    scope,    // This scope (no outer scopes).
-    project,  // This project (no outer projects).
-    normal    // All outer scopes.
+    normal,  // All outer scopes.
+    project, // This project (no outer projects).
+    scope,   // This scope (no outer scopes).
+    target,  // Target and target type/pattern-specific.
+    prereq   // Prerequisite-specific.
   };
+
+  inline bool
+  operator> (variable_visibility l, variable_visibility r)
+  {
+    return static_cast<uint8_t> (l) > static_cast<uint8_t> (r);
+  }
+
+  inline bool
+  operator>= (variable_visibility l, variable_visibility r)
+  {
+    return static_cast<uint8_t> (l) >= static_cast<uint8_t> (r);
+  }
+
+  inline bool
+  operator< (variable_visibility l, variable_visibility r)
+  {
+    return r > l;
+  }
+
+  inline bool
+  operator<= (variable_visibility l, variable_visibility r)
+  {
+    return r >= l;
+  }
+
+  ostream&
+  operator<< (ostream&, variable_visibility);
 
   // variable
   //

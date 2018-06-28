@@ -23,6 +23,9 @@ namespace build2
 
     size_t d (0);
 
+    if (var.visibility == variable_visibility::prereq)
+      return make_pair (lookup (), d);
+
     // Process target type/pattern-specific prepend/append values.
     //
     auto pre_app = [&var] (lookup& l,
@@ -164,6 +167,8 @@ namespace build2
       case variable_visibility::normal:
         s = s->parent_scope ();
         break;
+      case variable_visibility::prereq:
+        assert (false);
       }
     }
 
@@ -247,6 +252,7 @@ namespace build2
       case variable_visibility::normal:
         break;
       case variable_visibility::target:
+      case variable_visibility::prereq:
         assert (false);
       }
 

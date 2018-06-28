@@ -693,6 +693,7 @@ namespace build2
     {
       auto v_p (variable_visibility::project);
       auto v_t (variable_visibility::target);
+      auto v_q (variable_visibility::prereq);
 
       var_src_root = &vp.insert<dir_path> ("src_root");
       var_out_root = &vp.insert<dir_path> ("out_root");
@@ -714,9 +715,9 @@ namespace build2
 
       var_import_target = &vp.insert<name> ("import.target");
 
-      var_clean    = &vp.insert<bool> ("clean",    v_t);
+      var_clean    = &vp.insert<bool>   ("clean",    v_t);
       var_backlink = &vp.insert<string> ("backlink", v_t);
-      var_include  = &vp.insert<string> ("include", v_t);
+      var_include  = &vp.insert<string> ("include",  v_q);
 
       vp.insert<string> (var_extension, v_t);
 

@@ -13,6 +13,25 @@ using namespace std;
 
 namespace build2
 {
+  // variable_visibility
+  //
+  ostream&
+  operator<< (ostream& o, variable_visibility v)
+  {
+    const char* s (nullptr);
+
+    switch (v)
+    {
+    case variable_visibility::normal:  s = "normal";       break;
+    case variable_visibility::project: s = "project";      break;
+    case variable_visibility::scope:   s = "scope";        break;
+    case variable_visibility::target:  s = "target";       break;
+    case variable_visibility::prereq:  s = "prerequisite"; break;
+    }
+
+    return o << s;
+  }
+
   // value
   //
   void value::

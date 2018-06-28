@@ -544,6 +544,12 @@ namespace build2
             const variable& var (parse_variable_name (move (pns), ploc));
             apply_variable_attributes (var);
 
+            if (var.visibility >= variable_visibility::prereq)
+            {
+              fail (nloc) << "variable " << var << " has " << var.visibility
+                          << " visibility but is assigned in a target";
+            }
+
             // If we have multiple targets, then we save the value tokens when
             // parsing the first one and then replay them for the subsequent.
             // We have to do it this way because the value may contain
@@ -898,10 +904,16 @@ namespace build2
           const variable& var (parse_variable_name (move (ns), nloc));
           apply_variable_attributes (var);
 
-          if (var.visibility == variable_visibility::target)
-            fail (nloc) << "variable " << var << " has target visibility but "
-                        << "assigned in a scope" <<
-              info << "consider changing to '*: " << var << "'";
+          if (var.visibility >= variable_visibility::target)
+          {
+            diag_record dr (fail (nloc));
+
+            dr << "variable " << var << " has " << var.visibility
+               << " visibility but is assigned in a scope";
+
+            if (var.visibility == variable_visibility::target)
+              dr << info << "consider changing it to '*: " << var << "'";
+          }
 
           {
             enter_scope sg (d.empty ()
@@ -1325,6 +1337,8 @@ namespace build2
     //
     auto at (attributes_push (t, tt));
 
+    const location vloc (get_location (t));
+
     if (tt == type::word)
     {
       // Split the token into the variable name and value at position (p) of
@@ -1394,6 +1408,12 @@ namespace build2
     if (var != nullptr)
     {
       apply_variable_attributes (*var);
+
+      if (var->visibility >= variable_visibility::target)
+      {
+        fail (vloc) << "variable " << *var << " has " << var->visibility
+                    << " visibility but is assigned in import";
+      }
 
       val = atype == type::assign
         ? &scope_->assign (*var)
@@ -1770,9 +1790,11 @@ namespace build2
     const variable& var (parse_variable_name (move (vns), vloc));
     apply_variable_attributes (var);
 
-    if (var.visibility == variable_visibility::target)
-      fail (vloc) << "variable " << var << " has target visibility but "
-                  << "assigned in for-loop";
+    if (var.visibility >= variable_visibility::target)
+    {
+      fail (vloc) << "variable " << var << " has " << var.visibility
+                  << " visibility but is assigned in for-loop";
+    }
 
     // Now the value (list of names) to iterate over. Parse it as a variable
     // value to get expansion, attributes, etc.
@@ -4701,9 +4723,13 @@ namespace build2
     //
     const auto& var (var_pool.rw (*scope_).insert (move (name), true));
 
-    if (target_ == nullptr && var.visibility == variable_visibility::target)
-      fail (loc) << "variable " << var << " has target visibility but "
-                 << "expanded in a scope";
+    if ((var.visibility == variable_visibility::prereq) ||
+        (var.visibility == variable_visibility::target && target_ == nullptr))
+    {
+      fail (loc) << "variable " << var << " has " << var.visibility
+                 << " visibility but is expanded in a "
+                 << (target_ != nullptr ? "target" : "scope");
+    }
 
     return target_ != nullptr ? (*target_)[var] : (*scope_)[var];
 

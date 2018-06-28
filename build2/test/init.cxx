@@ -85,10 +85,10 @@ namespace build2
         // appending the input paths to test.arguments or by passing them in a
         // separate test.inputs variable).
         //
-        vp.insert<bool> ("test.stdin",     variable_visibility::target),
-        vp.insert<bool> ("test.stdout",    variable_visibility::target),
-        vp.insert<bool> ("test.roundtrip", variable_visibility::target),
-        vp.insert<bool> ("test.input",     variable_visibility::target),
+        vp.insert<bool> ("test.stdin",     variable_visibility::prereq),
+        vp.insert<bool> ("test.stdout",    variable_visibility::prereq),
+        vp.insert<bool> ("test.roundtrip", variable_visibility::prereq),
+        vp.insert<bool> ("test.input",     variable_visibility::prereq),
 
         // Test target platform.
         //
