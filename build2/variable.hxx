@@ -109,6 +109,9 @@ namespace build2
     prereq   // Prerequisite-specific.
   };
 
+  // VC14 reports ambiguity but seems to work if we don't provide any.
+  //
+#if !defined(_MSC_VER) || _MSC_VER > 1900
   inline bool
   operator> (variable_visibility l, variable_visibility r)
   {
@@ -132,6 +135,7 @@ namespace build2
   {
     return r >= l;
   }
+#endif
 
   ostream&
   operator<< (ostream&, variable_visibility);
