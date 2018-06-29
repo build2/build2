@@ -4,6 +4,7 @@
 
 #include <build2/cli/rule.hxx>
 
+#include <build2/depdb.hxx>
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/context.hxx>
@@ -166,10 +167,12 @@ namespace build2
         //
         match_prerequisite_members (a, t);
 
+        //@@ TODO: inject dependency on exe{cli}.
+
         switch (a)
         {
         case perform_update_id: return &perform_update;
-        case perform_clean_id:  return &perform_clean_group; // Standard impl.
+        case perform_clean_id:  return &perform_clean_group_depdb;
         default:                return noop_recipe; // Configure/dist update.
         }
       }
@@ -206,33 +209,75 @@ namespace build2
     target_state compile_rule::
     perform_update (action a, const target& xt)
     {
-      const cli_cxx& t (xt.as<cli_cxx> ());
-
-      // Update prerequisites and determine if any relevant ones render us
-      // out-of-date. Note that currently we treat all the prerequisites
-      // as potentially affecting the result (think prologues/epilogues,
-      // etc).
-      //
+      tracer trace ("cli::compile_rule::perform_update");
 
       // The rule has been matched which means the members should be resolved
-      // and paths assigned.
+      // and paths assigned. We use the header file as our "target path" for
+      // timestamp, depdb, etc.
       //
-      auto pr (
-        execute_prerequisites<cli> (
-          a, t, t.load_mtime (t.h->path ())));
+      const cli_cxx& t (xt.as<cli_cxx> ());
+      const scope& rs (t.root_scope ());
+      const path& tp (t.h->path ());
 
-      if (pr.first)
-        return *pr.first;
+      // Update prerequisites and determine if any relevant ones render us
+      // out-of-date. Note that currently we treat all the prerequisites as
+      // potentially affecting the result (think prologues/epilogues, etc).
+      //
+      timestamp mt (t.load_mtime (tp));
+      auto pr (execute_prerequisites<cli> (a, t, mt));
+
+      bool update (!pr.first);
+      target_state ts (update ? target_state::changed : *pr.first);
 
       const cli& s (pr.second);
 
-      // Translate paths to relative (to working directory). This
-      // results in easier to read diagnostics.
+      // We use depdb to track changes to the .cli file name, options,
+      // compiler, etc.
+      //
+      {
+        depdb dd (tp + ".d");
+
+        // First should come the rule name/version.
+        //
+        if (dd.expect ("cli.compile 1") != nullptr)
+          l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+        // Then the compiler checksum.
+        //
+        if (dd.expect (cast<string> (rs["cli.checksum"])) != nullptr)
+          l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+
+        // Then the options checksum.
+        //
+        sha256 cs;
+        hash_options (cs, t, "cli.options");
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "options mismatch forcing update of " << t;});
+
+        // Finally the .cli input file.
+        //
+        if (dd.expect (s.path ()) != nullptr)
+          l4 ([&]{trace << "input file mismatch forcing update of " << t;});
+
+        // Update if depdb mismatch.
+        //
+        if (dd.writing () || dd.mtime () > mt)
+          update = true;
+
+        dd.close ();
+      }
+
+      // If nothing changed, then we are done.
+      //
+      if (!update)
+        return ts;
+
+      // Translate paths to relative (to working directory). This results in
+      // easier to read diagnostics.
       //
       path relo (relative (t.dir));
       path rels (relative (s.path ()));
-
-      const scope& rs (t.root_scope ());
 
       const process_path& cli (cast<process_path> (rs["cli.path"]));
 

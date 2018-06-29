@@ -2056,4 +2056,33 @@ namespace build2
     r |= reverse_execute_prerequisites (a, g);
     return r;
   }
+
+  target_state
+  perform_clean_group_depdb (action a, const target& g)
+  {
+    // The same twisted target state merging logic as in clean_extra().
+    //
+    target_state er (target_state::unchanged);
+    path ep;
+
+    group_view gv (g.group_members (a));
+    if (gv.count != 0)
+    {
+      ep = gv.members[0]->as<file> ().path () + ".d";
+
+      if (rmfile (ep, 3))
+        er = target_state::changed;
+    }
+
+    target_state tr (perform_clean_group (a, g));
+
+    if (tr != target_state::changed && er == target_state::changed)
+    {
+      if (verb > (current_diag_noise ? 0 : 1) && verb < 3)
+        text << "rm " << ep;
+    }
+
+    tr |= er;
+    return tr;
+  }
 }

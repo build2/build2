@@ -616,6 +616,12 @@ namespace build2
   target_state
   perform_clean_group (action, const target&);
 
+  // As above but clean both the target group and depdb. The depdb file path
+  // is derived from the first member file path.
+  //
+  target_state
+  perform_clean_group_depdb (action, const target&);
+
   // Helper for custom perform(clean) implementations that cleans extra files
   // and directories (recursively) specified as a list of either absolute
   // paths or "path derivation directives". The directive string can be NULL,

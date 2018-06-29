@@ -53,7 +53,11 @@ namespace build2
         v.insert<path>    ("config.cli",         true);
         v.insert<strings> ("config.cli.options", true);
 
+        //@@ TODO: split version into componets (it is stdver).
+        //
         v.insert<process_path> ("cli.path");
+        v.insert<string>       ("cli.version");
+        v.insert<string>       ("cli.checksum");
         v.insert<strings>      ("cli.options");
       }
 
@@ -214,11 +218,23 @@ namespace build2
           nv = p.second;
         }
 
-        // Note that we are unconfigured so that we don't keep re-testing this
-        // on each run.
-        //
-        if (!conf)
+        string checksum;
+        if (conf)
+        {
+          // Hash the compiler path and version.
+          //
+          sha256 cs;
+          cs.append (pp.effect_string ());
+          cs.append (ver);
+          checksum = cs.string ();
+        }
+        else
+        {
+          // Note that we are unconfigured so that we don't keep re-testing
+          // this on each run.
+          //
           nv = config::unconfigured (rs, "cli", true) || nv;
+        }
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -230,13 +246,18 @@ namespace build2
 
           if (conf)
             dr << "  cli        " << pp << '\n'
-               << "  version    " << ver;
+               << "  version    " << ver << '\n'
+               << "  checksum   " << checksum;
           else
             dr << "  cli        " << "not found, leaving unconfigured";
         }
 
         if (conf)
-          rs.assign<process_path> ("cli.path") = move (pp);
+        {
+          rs.assign ("cli.path")     = move (pp);
+          rs.assign ("cli.version")  = move (ver);
+          rs.assign ("cli.checksum") = move (checksum);
+        }
       }
 
       if (conf)
