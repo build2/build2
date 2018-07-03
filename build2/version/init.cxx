@@ -267,15 +267,7 @@ namespace build2
         if (!cast_false<bool> (rs["dist.loaded"]))
           load_module (rs, rs, "dist", l);
 
-        // Add the config.dist.uncommitted configuration variable (a bit cozy
-        // adding other module's config variable but I am not sure calling it
-        // config.version.dist.uncommitted would be better).
-        //
-        auto& vp (var_pool.rw (rs));
-        {
-          const auto& var (vp.insert<bool> ("config.dist.uncommitted", true));
-          m.dist_uncommitted = cast_false<bool> (config::optional (rs, var));
-        }
+        m.dist_uncommitted = cast_false<bool> (rs["config.dist.uncommitted"]);
 
         // Don't touch if dist.package was set by the user.
         //

@@ -50,9 +50,15 @@ namespace build2
       vp.insert<paths>        ("config.dist.archives", true);
       vp.insert<path>         ("config.dist.cmd",      true);
 
+      // Allow distribution of uncommitted projects. This is enforced by the
+      // version module.
+      //
+      vp.insert<bool> ("config.dist.uncommitted", true);
+
       vp.insert<dir_path>     ("dist.root");
       vp.insert<process_path> ("dist.cmd");
       vp.insert<paths>        ("dist.archives");
+      vp.insert<paths>        ("dist.uncommitted");
 
       vp.insert<bool> ("dist", variable_visibility::target); // Flag.
 
@@ -147,6 +153,12 @@ namespace build2
             v = *l;
         }
       }
+
+      // dist.uncommitted
+      //
+      // Omit it from the configuration unless specified.
+      //
+      config::omitted (rs, "config.dist.uncommitted");
 
       return true;
     }
