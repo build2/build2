@@ -56,4 +56,9 @@ if $cli.configured
   #
   cli.cxx{*}: dist  = true
   cli.cxx{*}: clean = ($src_root != $out_root)
+
+  # We keep the generated code in the repository so copy it back to src in
+  # case of a forwarded configuration.
+  #
+  cli.cxx{*}: backlink = overwrite
 }
