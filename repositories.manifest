@@ -1,0 +1,10 @@
+: 1
+summary: build2 build system repository
+
+:
+role: prerequisite
+location: ../libbutl.git##HEAD
+
+:
+role: prerequisite
+location: https://git.build2.org/packaging/pkgconf/libpkgconf.git##HEAD
