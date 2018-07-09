@@ -94,6 +94,9 @@ namespace build2
     {
       os << "invalid value '" << value ().c_str () << "' for option '"
          << option ().c_str () << "'";
+
+      if (!message ().empty ())
+        os << ": " << message ().c_str ();
     }
 
     const char* invalid_value::

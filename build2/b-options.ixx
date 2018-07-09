@@ -86,8 +86,11 @@ namespace build2
     //
     inline invalid_value::
     invalid_value (const std::string& option,
-                   const std::string& value)
-    : option_ (option),  value_ (value)
+                   const std::string& value,
+                   const std::string& message)
+    : option_ (option),
+      value_ (value),
+      message_ (message)
     {
     }
 
@@ -101,6 +104,12 @@ namespace build2
     value () const
     {
       return value_;
+    }
+
+    inline const std::string& invalid_value::
+    message () const
+    {
+      return message_;
     }
 
     // file_io_failure

@@ -155,13 +155,17 @@ namespace build2
       ~invalid_value () throw ();
 
       invalid_value (const std::string& option,
-                     const std::string& value);
+                     const std::string& value,
+                     const std::string& message = std::string ());
 
       const std::string&
       option () const;
 
       const std::string&
       value () const;
+
+      const std::string&
+      message () const;
 
       virtual void
       print (::std::ostream&) const;
@@ -172,6 +176,7 @@ namespace build2
       private:
       std::string option_;
       std::string value_;
+      std::string message_;
     };
 
     class eos_reached: public exception
