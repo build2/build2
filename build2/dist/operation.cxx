@@ -4,6 +4,9 @@
 
 #include <build2/dist/operation.hxx>
 
+#include <libbutl/sha1.mxx>
+#include <libbutl/sha256.mxx>
+
 #include <libbutl/filesystem.mxx> // path_match()
 
 #include <build2/file.hxx>
@@ -36,13 +39,22 @@ namespace build2
     static path
     install (const process_path& cmd, const file&, const dir_path&);
 
-    // cd <root> && tar|zip ... <dir>/<pkg>.<ext> <pkg>
+    // tar|zip ... <dir>/<pkg>.<ext> <pkg>
     //
-    static void
+    // Return the archive file path.
+    //
+    static path
     archive (const dir_path& root,
              const string& pkg,
              const dir_path& dir,
              const string& ext);
+
+    // <ext>sum <arc> > <dir>/<arc>.<ext>
+    //
+    // Return the checksum file path.
+    //
+    static path
+    checksum (const path& arc, const dir_path& dir, const string& ext);
 
     static operation_id
     dist_operation_pre (const values&, operation_id o)
@@ -424,25 +436,42 @@ namespace build2
 
       rm_td.cancel ();
 
-      // Archive if requested.
+      // Archive and checksum if requested.
       //
-      if (auto l = rs->vars["dist.archives"])
+      if (lookup as = rs->vars["dist.archives"])
       {
-        for (const path& p: cast<paths> (l))
+        lookup cs (rs->vars["dist.checksums"]);
+
+        // Split the dist.{archives,checksums} value into a directory and
+        // extension.
+        //
+        auto split = [] (const path& p, const dir_path& r, const char* what)
         {
-          dir_path d (p.relative () ? dist_root : dir_path ());
+          dir_path d (p.relative () ? r : dir_path ());
           d /= p.directory ();
 
           const string& s (p.string ());
           size_t i (path::traits::find_leaf (s));
 
           if (i == string::npos)
-            fail << "invalid archive '" << s << "' in dist.archives";
+            fail << "invalid extension '" << s << "' in " << what;
 
-          if (s[i] == '.') // Skip dot if specified.
+          if (s[i] == '.') // Skip the dot if specified.
             ++i;
 
-          archive (dist_root, dist_package, d, string (s, i));
+          return pair<dir_path, string> (move (d), string (s, i));
+        };
+
+        for (const path& p: cast<paths> (as))
+        {
+          auto ap (split (p, dist_root, "dist.archives"));
+          path a (archive (dist_root, dist_package, ap.first, ap.second));
+
+          for (const path& p: cast<paths> (cs))
+          {
+            auto cp (split (p, ap.first, "dist.checksums"));
+            checksum (a, cp.first, cp.second);
+          }
         }
       }
     }
@@ -506,17 +535,17 @@ namespace build2
       return d / relf.leaf ();
     }
 
-    static void
+    static path
     archive (const dir_path& root,
              const string& pkg,
              const dir_path& dir,
              const string& e)
     {
-      string a (pkg + '.' + e);
+      path an (pkg + '.' + e);
 
       // Delete old archive for good measure.
       //
-      path ap (dir / path (a));
+      path ap (dir / an);
       if (exists (ap, false))
         rmfile (ap);
 
@@ -592,7 +621,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << args[0] << " " << ap;
+        text << args[0] << ' ' << ap;
 
       process apr;
       process cpr;
@@ -620,7 +649,121 @@ namespace build2
       }
 
       run_finish (args.data (), apr);
+
       out_rm.cancel ();
+      return ap;
+    }
+
+    static path
+    checksum (const path& ap, const dir_path& dir, const string& e)
+    {
+      path     an (ap.leaf ());
+      dir_path ad (ap.directory ());
+
+      path cn (an + '.' + e);
+
+      // Delete old checksum for good measure.
+      //
+      path cp (dir / cn);
+      if (exists (cp, false))
+        rmfile (cp);
+
+      auto_rmfile c_rm; // Note: must come first.
+      auto_fd c_fd;
+      try
+      {
+        c_fd = fdopen (cp,
+                       fdopen_mode::out     |
+                       fdopen_mode::create  |
+                       fdopen_mode::truncate);
+        c_rm = auto_rmfile (cp);
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to open " << cp << ": " << e;
+      }
+
+      // The plan is as follows: look for the <ext>sum program (e.g., sha1sum,
+      // md5sum, etc). If found, then use that, otherwise, fall back to our
+      // built-in checksum calculation support.
+      //
+      // There are two benefits to first trying the external program: it may
+      // supports more checksum algorithms and could be faster than our
+      // built-in code.
+      //
+      string pn (e + "sum");
+      process_path pp (process::try_path_search (pn, true /* init */));
+
+      if (!pp.empty ())
+      {
+        const char* args[] {
+          pp.recall_string (),
+          "-b" /* binary */,
+          an.string ().c_str (),
+          nullptr};
+
+        if (verb >= 2)
+          print_process (args);
+        else if (verb)
+          text << args[0] << ' ' << cp;
+
+        // Note that to only get the archive name (without the directory) in
+        // the output we have to run from the archive's directory.
+        //
+        process pr (run_start (pp,
+                               args,
+                               1             /* stdin */,
+                               c_fd.get ()   /* stdout */,
+                               true          /* error */,
+                               ad            /* cwd */));
+        run_finish (args, pr);
+      }
+      else
+      {
+        string (*f) (ifdstream&);
+
+        // Note: remember to update info: below if adding another algorithm.
+        //
+        if (e == "sha1")
+          f = [] (ifdstream& i) -> string {return sha1 (i).string ();};
+        else if (e == "sha256")
+          f = [] (ifdstream& i) -> string {return sha256 (i).string ();};
+        else
+          fail << "no built-in support for checksum algorithm " << e
+               << " nor " << e << "sum program found" <<
+            info << "built-in support is available for sha1, sha256" << endf;
+
+        if (verb >= 2)
+          text << "cat >" << cp;
+        else if (verb)
+          text << e << "sum " << cp;
+
+        string c;
+        try
+        {
+          ifdstream is (ap, fdopen_mode::in | fdopen_mode::binary);
+          c = f (is);
+          is.close ();
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to read " << ap << ": " << e;
+        }
+
+        try
+        {
+          ofdstream os (move (c_fd));
+          os << c << " *" << an << endl;
+          os.close ();
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to write " << cp << ": " << e;
+        }
+      }
+
+      c_rm.cancel ();
+      return cp;
     }
 
     static include_type

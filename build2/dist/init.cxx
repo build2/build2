@@ -41,14 +41,21 @@ namespace build2
 
       // Note: some overridable, some not.
       //
-      // config.dist.archives is a list of archive extensions that can be
-      // optionally prefixed with a directory. If it is relative, then it is
-      // prefixed with config.dist.root. Otherwise, the archive is written
-      // to the absolute location.
+      // config.dist.archives is a list of archive extensions (e.g., zip,
+      // tar.gz) that can be optionally prefixed with a directory. If it is
+      // relative, then it is prefixed with config.dist.root. Otherwise, the
+      // archive is written to the absolute location.
       //
-      vp.insert<abs_dir_path> ("config.dist.root",     true);
-      vp.insert<paths>        ("config.dist.archives", true);
-      vp.insert<path>         ("config.dist.cmd",      true);
+      // config.dist.checksums is a list of archive checksum extensions (e.g.,
+      // sha1, sha256) that can also be optionally prefixed with a directory
+      // with the same semantics as config.dist.archives. If the directory is
+      // absent, then the checksum file is written into the same directory as
+      // the corresponding archive.
+      //
+      vp.insert<abs_dir_path> ("config.dist.root",      true);
+      vp.insert<paths>        ("config.dist.archives",  true);
+      vp.insert<paths>        ("config.dist.checksums", true);
+      vp.insert<path>         ("config.dist.cmd",       true);
 
       // Allow distribution of uncommitted projects. This is enforced by the
       // version module.
@@ -58,6 +65,7 @@ namespace build2
       vp.insert<dir_path>     ("dist.root");
       vp.insert<process_path> ("dist.cmd");
       vp.insert<paths>        ("dist.archives");
+      vp.insert<paths>        ("dist.checksums");
       vp.insert<paths>        ("dist.uncommitted");
 
       vp.insert<bool> ("dist", variable_visibility::target); // Flag.
@@ -143,14 +151,26 @@ namespace build2
       }
 
       // dist.archives
+      // dist.checksums
       //
       {
-        value& v (rs.assign ("dist.archives"));
+        value& a (rs.assign ("dist.archives"));
+        value& c (rs.assign ("dist.checksums"));
 
         if (s)
         {
           if (lookup l = config::optional (rs, "config.dist.archives"))
-            v = *l;
+            a = *l;
+
+          if (lookup l = config::optional (rs, "config.dist.checksums"))
+          {
+            c = *l;
+
+            if (!c.empty () && (!a || a.empty ()))
+              fail << "config.dist.checksums specified without "
+                   << "config.dist.archives";
+
+          }
         }
       }
 
