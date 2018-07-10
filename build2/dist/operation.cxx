@@ -467,10 +467,13 @@ namespace build2
           auto ap (split (p, dist_root, "dist.archives"));
           path a (archive (dist_root, dist_package, ap.first, ap.second));
 
-          for (const path& p: cast<paths> (cs))
+          if (cs)
           {
-            auto cp (split (p, ap.first, "dist.checksums"));
-            checksum (a, cp.first, cp.second);
+            for (const path& p: cast<paths> (cs))
+            {
+              auto cp (split (p, ap.first, "dist.checksums"));
+              checksum (a, cp.first, cp.second);
+            }
           }
         }
       }
