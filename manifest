@@ -3,7 +3,7 @@ name: build2
 version: 0.8.0-a.0.z
 summary: build2 build system
 license: MIT
-tags: build2, c++, build, system
+tags: c++, build, system
 description-file: README
 changes-file: NEWS
 url: https://build2.org
