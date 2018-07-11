@@ -973,6 +973,16 @@ namespace build2
           //       t.prerequisite_targets!
           //
           extract_modules (a, bs, t, li, tt, src, md, move (tu.mod), dd, u);
+
+          // Currently in VC module interface units must be compiled from the
+          // original source (something to do with having to detect and store
+          // header boundaries in the .ifc files).
+          //
+          if (cid == compiler_id::msvc)
+          {
+            if (md.type == translation_type::module_iface)
+              psrc.second = false;
+          }
         }
 
         // If anything got updated, then we didn't rely on the cache. However,
