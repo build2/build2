@@ -170,7 +170,7 @@ $* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
 :
 ln -s ../core.mxx ./;
 cat <'import bar.core;' >=driver.cxx;
-$* test &*.d &*.ii <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
+$* test &*.d &?*.ii <'exe{test}: cxx{driver} mxx{core}' 2>>EOE != 0
   driver.cxx: error: failed to correctly guess module name from mxx{core}
     info: guessed: bar.core
     info: actual:  foo.core
