@@ -11,7 +11,7 @@
 #include <libbutl/regex.mxx>
 #include <libbutl/path-io.mxx>    // use default operator<< implementation
 #include <libbutl/fdstream.mxx>   // fdopen_mode, fdstream_mode
-#include <libbutl/filesystem.mxx> // mkdir_status
+#include <libbutl/filesystem.mxx>
 
 #include <build2/test/script/script.hxx>
 
@@ -909,6 +909,228 @@ namespace build2
         return 1;
       }
 
+      // mv [--no-cleanup] <src-path>    <dst-path>
+      // mv [--no-cleanup] <src-path>... <dst-dir>/
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      mv (scope& sp,
+          const strings& args,
+          auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "mv");
+        };
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          auto i (args.begin ());
+          auto e (args.end ());
+
+          // Process options.
+          //
+          bool no_cleanup (false);
+          bool force (false);
+          for (; i != e; ++i)
+          {
+            const string& o (*i);
+
+            if (o == "--no-cleanup")
+              no_cleanup = true;
+            else if (*i == "-f")
+              force = true;
+            else
+            {
+              if (o == "--")
+                ++i;
+
+              break;
+            }
+          }
+
+          // Move filesystem entries.
+          //
+          if (i == e)
+            error () << "missing arguments";
+
+          const dir_path& wd (sp.wd_path);
+
+          auto j (args.rbegin ());
+          path dst (parse_path (*j++, wd));
+          e = j.base ();
+
+          if (i == e)
+            error () << "missing source path";
+
+          auto mv = [no_cleanup, force, &wd, &sp, &error] (const path& from,
+                                                           const path& to)
+          {
+            const dir_path& rwd (sp.root->wd_path);
+
+            if (!from.sub (rwd) && !force)
+              error () << "'" << from << "' is out of working directory '"
+                       << rwd << "'";
+
+            try
+            {
+              auto check_wd = [&wd, &error] (const path& p)
+              {
+                if (wd.sub (path_cast<dir_path> (p)))
+                  error () << "'" << p << "' contains test working directory '"
+                           << wd << "'";
+              };
+
+              check_wd (from);
+              check_wd (to);
+
+              bool exists (entry_exists (to));
+
+              // Fail if the source and destination paths are the same.
+              //
+              // Note that for mventry() function (that is based on the POSIX
+              // rename() function) this is a noop.
+              //
+              if (exists && to == from)
+                error () << "unable to move entity '" << from << "' to itself";
+
+              // Rename/move the filesystem entry, replacing an existing one.
+              //
+              mventry (from,
+                       to,
+                       cpflags::overwrite_permissions |
+                       cpflags::overwrite_content);
+
+              // Unless suppressed, adjust the cleanups that are sub-paths of
+              // the source path.
+              //
+              if (!no_cleanup)
+              {
+                // "Move" the matching cleanup if the destination path doesn't
+                // exist and is a sub-path of the working directory. Otherwise
+                // just remove it.
+                //
+                // Note that it's not enough to just change the cleanup paths.
+                // We also need to make sure that these cleanups happen before
+                // the destination directory (or any of its parents) cleanup,
+                // that is potentially registered. To achieve that we can just
+                // relocate these cleanup entries to the end of the list,
+                // preserving their mutual order. Remember that cleanups in
+                // the list are executed in the reversed order.
+                //
+                bool mv_cleanups (!exists && to.sub (rwd));
+                cleanups cs;
+
+                // Remove the source path sub-path cleanups from the list,
+                // adjusting/caching them if required (see above).
+                //
+                for (auto i (sp.cleanups.begin ()); i != sp.cleanups.end (); )
+                {
+                  cleanup& c (*i);
+                  path&    p (c.path);
+
+                  if (p.sub (from))
+                  {
+                    if (mv_cleanups)
+                    {
+                      // Note that we need to preserve the cleanup path
+                      // trailing separator which indicates the removal
+                      // method. Also note that leaf(), in particular, does
+                      // that.
+                      //
+                      p = p != from
+                        ? to / p.leaf (path_cast<dir_path> (from))
+                        : p.to_directory ()
+                          ? path_cast<dir_path> (to)
+                          : to;
+
+                      cs.push_back (move (c));
+                    }
+
+                    i = sp.cleanups.erase (i);
+                  }
+                  else
+                    ++i;
+                }
+
+                // Re-insert the adjusted cleanups at the end of the list.
+                //
+                sp.cleanups.insert (sp.cleanups.end (),
+                                    make_move_iterator (cs.begin ()),
+                                    make_move_iterator (cs.end ()));
+              }
+            }
+            catch (const system_error& e)
+            {
+              error () << "unable to move entity '" << from << "' to '" << to
+                       << "': " << e;
+            }
+          };
+
+          // If destination is not a directory path (no trailing separator)
+          // then move the filesystem entry to the specified path (the only
+          // source path is allowed in such a case). Otherwise move the source
+          // filesystem entries into the destination directory.
+          //
+          if (!dst.to_directory ())
+          {
+            path src (parse_path (*i++, wd));
+
+            // If there are multiple sources but no trailing separator for the
+            // destination, then, most likelly, it is missing.
+            //
+            if (i != e)
+              error () << "multiple source paths without trailing separator "
+                       << "for destination directory";
+
+            // Synopsis 1: move an entity to the specified path.
+            //
+            mv (src, dst);
+          }
+          else
+          {
+            // Synopsis 2: move entities into the specified directory.
+            //
+            for (; i != e; ++i)
+            {
+              path src (parse_path (*i, wd));
+              mv (src, dst / src.leaf ());
+            }
+          }
+
+          r = 0;
+        }
+        catch (const invalid_path& e)
+        {
+          error (false) << "invalid path '" << e.path << "'";
+        }
+        // Can be thrown while closing in, out or writing to cerr.
+        //
+        catch (const io_error& e)
+        {
+          error (false) << e;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
+      }
+
       // rm [-r] [-f] <path>...
       //
       // The implementation deviates from POSIX in a number of ways. It doesn't
@@ -1630,6 +1852,7 @@ namespace build2
         {"false", &false_},
         {"ln",    &sync_impl<&ln>},
         {"mkdir", &sync_impl<&mkdir>},
+        {"mv",    &sync_impl<&mv>},
         {"rm",    &sync_impl<&rm>},
         {"rmdir", &sync_impl<&rmdir>},
         {"sed",   &async_impl<&sed>},

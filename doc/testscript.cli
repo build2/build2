@@ -2310,7 +2310,7 @@ if the \i{dst-dir/src-name} filesystem entry already exists.
 
   Copy permissions as well as modification and access times.||
 
-Unless the --no-cleanup option is specified, newly created files and
+Unless the \c{--no-cleanup} option is specified, newly created files and
 directories that are inside the script working directory are automatically
 registered for cleanup.
 
@@ -2403,8 +2403,8 @@ creation is not supported. If hard link creation is not supported either,
 then \c{ln} falls back to copying the content, recursively in case of a
 directory target.
 
-Unless the --no-cleanup option is specified, created filesystem entries that
-are inside the script working directory are automatically registered for
+Unless the \c{--no-cleanup} option is specified, created filesystem entries
+that are inside the script working directory are automatically registered for
 cleanup.
 
 
@@ -2424,9 +2424,55 @@ directories must exist and the directory itself must not exist.
   Create missing leading directories and ignore directories that already
   exist.||
 
-Unless the --no-cleanup option is specified, newly created directories
+Unless the \c{--no-cleanup} option is specified, newly created directories
 (including the leading ones) that are inside the script working directory are
 automatically registered for cleanup.
+
+
+\h#builtins-mv|\c{mv}|
+
+\
+mv [--no-cleanup] [-f] <src-path>    <dst-path>
+mv [--no-cleanup] [-f] <src-path>... <dst-dir>/
+\
+
+Rename or move files and/or directories.
+
+The first form moves an entity to the specified path. The parent directory of
+the destination path must exist. An existing destination entity is replaced
+with the source if they are both either directories or non-directories (files,
+symlinks, etc). In the former case the destination directory must be empty.
+The source and destination paths must not be the same nor be the test working
+directory or its parent directory. The source path must also not be outside
+the script working directory unless the \c{-f} option is specified.
+
+The second form moves one or more entities into the specified directory as if
+by executing the following command for each entity:
+
+\
+mv src-path dst-dir/src-name
+\
+
+Where \i{src-name} is the last path component in \i{src-path}.
+
+\dl|
+
+\li|\n\c{-f}
+
+  Do not fail if a source path is outside the script working directory.||
+
+Unless the \c{--no-cleanup} option is specified, the cleanups registered for
+the source entities are adjusted according to their new names and/or
+locations. If the destination entity already exists or is outside the test
+working directory then the source entity cleanup is canceled. Otherwise the
+source entity cleanup path is replaced with the destination path. If the
+source entity is a directory, then, in addition, cleanups that are sub-paths
+of this directory are made sub-paths of the destination directory.
+
+Note that the implementation deviates from POSIX in a number of ways. It never
+interacts with the user and fails immediately if unable to act on an argument.
+It does not check for dot containment in the path nor considers filesystem
+permissions. In essence, it simply tries to move the filesystem entry.
 
 
 \h#builtins-rm|\c{rm}|
@@ -2454,10 +2500,9 @@ is specified.
   the script working directory.||
 
 Note that the implementation deviates from POSIX in a number of ways. It never
-interacts with the user and fails immediately if unable to act on an
-argument. It does not check for dot containment in the path nor considers
-filesystem permissions. In essence, it simply tries to remove the filesystem
-entry.
+interacts with the user and fails immediately if unable to act on an argument.
+It does not check for dot containment in the path nor considers filesystem
+permissions. In essence, it simply tries to remove the filesystem entry.
 
 
 \h#builtins-rmdir|\c{rmdir}|
@@ -2643,7 +2688,7 @@ Change file access and modification times to the current time. Create files
 that do not exist. Fail if a filesystem entry other than the file exists for
 the specified name.
 
-Unless the --no-cleanup option is specified, newly created files that are
+Unless the \c{--no-cleanup} option is specified, newly created files that are
 inside the script working directory are automatically registered for cleanup.
 
 \h#builtins-true|\c{true}|
