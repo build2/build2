@@ -45,9 +45,6 @@ namespace build2
   // expected to issue diagnostics and throw failed. Note that the arguments
   // are conceptually "moved" and can be reused by the implementation.
   //
-  // @@ Maybe it makes sense to implicitly convert types like string to names
-  //    -- providing all the overload combinations really gets tedious.
-  //
   // A function can also optionally receive the current scope by having the
   // first argument of the const scope* type. It may be NULL is the function
   // is called out of any scope (e.g., command line).
@@ -71,6 +68,12 @@ namespace build2
   //
   // For more examples/ideas, study the existing function families (reside
   // in the functions-*.cxx files).
+  //
+  // Note that normally there will be a function overload that has all the
+  // parameters untyped with an implementation that falls back to one of the
+  // overloads that have all the parameters typed, possibly inferring the type
+  // from the argument value "syntax" (e.g., presence of a trailing slash for
+  // a directory path).
   //
   struct function_overload;
 

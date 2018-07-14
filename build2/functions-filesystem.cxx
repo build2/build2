@@ -187,64 +187,17 @@ namespace build2
       return path_match (pattern, name);
     };
 
-    f["path_match"] = [](string pattern, names name)
-    {
-      return path_match (pattern, convert<string> (move (name)));
-    };
-
-    f["path_match"] = [](names pattern, string name)
-    {
-      return path_match (convert<string> (move (pattern)), name);
-    };
-
     // Path matching.
-    //
-    //                   path      path      *
     //
     f["path_match"] = [](path pat, path ent, optional<dir_path> start)
     {
       return path_match (pat, ent, start);
     };
 
-    f["path_match"] = [](path pat, path ent, names start)
-    {
-      return path_match (pat, ent, convert<dir_path> (move (start)));
-    };
-
-    //                   path      untyped    *
-    //
-    f["path_match"] = [](path pat, names ent, optional<dir_path> start)
-    {
-      return path_match (pat, convert<path> (move (ent)), start);
-    };
-
-    f["path_match"] = [](path pat, names ent, names start)
-    {
-      return path_match (pat,
-                         convert<path> (move (ent)),
-                         convert<dir_path> (move (start)));
-    };
-
-    //                   untyped    path      *
-    //
-    f["path_match"] = [](names pat, path ent, optional<dir_path> start)
-    {
-      return path_match (convert<path> (move (pat)), ent, start);
-    };
-
-    f["path_match"] = [](names pat, path ent, names start)
-    {
-      return path_match (convert<path> (move (pat)),
-                         ent,
-                         convert<dir_path> (move (start)));
-    };
-
     // The semantics depends on the presence of the start directory or the
     // first two argument syntactic representation.
     //
-    //                   untyped    untyped    *
-    //
-    f["path_match"] = [](names pat, names ent, optional<dir_path> start)
+    f["path_match"] = [](names pat, names ent, optional<names> start)
     {
       auto path_arg = [] (const names& a) -> bool
       {
@@ -257,18 +210,11 @@ namespace build2
       return start || path_arg (pat) || path_arg (ent)
         ? path_match (convert<path> (move (pat)),   // Match as paths.
                       convert<path> (move (ent)),
-                      start)
-        : path_match (convert<string> (move (pat)), // Match as names.
+                      start
+                      ? convert<dir_path> (move (*start))
+                      : optional<dir_path> ())
+        : path_match (convert<string> (move (pat)), // Match as strings.
                       convert<string> (move (ent)));
-    };
-
-    f["path_match"] = [](names pat, names ent, names start)
-    {
-      // Match as paths.
-      //
-      return path_match (convert<path> (move (pat)),
-                         convert<path> (move (ent)),
-                         convert<dir_path> (move (start)));
     };
   }
 }

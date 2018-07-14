@@ -86,16 +86,7 @@
 
     : path
     :
-    $* <'print $getenv([path] a)' 2>>~/EOE/ != 0
-    <stdin>:1:8: error: unmatched call to getenv(path)
-    /((
-      info: candidate: getenv(<untyped>), qualified name builtin.getenv
-      info: candidate: getenv(string), qualified name builtin.getenv
-    /)|(
-      info: candidate: getenv(string), qualified name builtin.getenv
-      info: candidate: getenv(<untyped>), qualified name builtin.getenv
-    /))
-    EOE
+    $* <'print $getenv([path] a)' >'[null]'
 
     : none
     :

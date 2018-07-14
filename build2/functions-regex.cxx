@@ -423,22 +423,6 @@ namespace build2
       return replace (move (s), re, fmt, move (flags));
     };
 
-    f[".replace"] = [](value s, string re, names fmt, optional<names> flags)
-    {
-      return replace (move (s),
-                      re,
-                      convert<string> (move (fmt)),
-                      move (flags));
-    };
-
-    f[".replace"] = [](value s, names re, string fmt, optional<names> flags)
-    {
-      return replace (move (s),
-                      convert<string> (move (re)),
-                      fmt,
-                      move (flags));
-    };
-
     f[".replace"] = [](value s, names re, names fmt, optional<names> flags)
     {
       return replace (move (s),
@@ -465,22 +449,6 @@ namespace build2
     f[".split"] = [](value s, string re, string fmt, optional<names> flags)
     {
       return split (move (s), re, fmt, move (flags));
-    };
-
-    f[".split"] = [](value s, string re, names fmt, optional<names> flags)
-    {
-      return split (move (s),
-                    re,
-                    convert<string> (move (fmt)),
-                    move (flags));
-    };
-
-    f[".split"] = [](value s, names re, string fmt, optional<names> flags)
-    {
-      return split (move (s),
-                    convert<string> (move (re)),
-                    fmt,
-                    move (flags));
     };
 
     f[".split"] = [](value s, names re, names fmt, optional<names> flags)
@@ -523,93 +491,17 @@ namespace build2
     };
 
     f[".merge"] = [](names s,
-                     string re,
-                     names fmt,
-                     optional<string> delim,
-                     optional<names> flags)
-    {
-      return merge (move (s),
-                    re,
-                    convert<string> (move (fmt)),
-                    move (delim),
-                    move (flags));
-    };
-
-    f[".merge"] = [](names s,
-                     names re,
-                     string fmt,
-                     optional<string> delim,
-                     optional<names> flags)
-    {
-      return merge (move (s),
-                    convert<string> (move (re)),
-                    fmt,
-                    move (delim),
-                    move (flags));
-    };
-
-    f[".merge"] = [](names s,
                      names re,
                      names fmt,
-                     optional<string> delim,
+                     optional<names> delim,
                      optional<names> flags)
     {
       return merge (move (s),
                     convert<string> (move (re)),
                     convert<string> (move (fmt)),
-                    move (delim),
-                    move (flags));
-    };
-
-    f[".merge"] = [](names s,
-                     string re,
-                     string fmt,
-                     names delim,
-                     optional<names> flags)
-    {
-      return merge (move (s),
-                    re,
-                    fmt,
-                    convert<string> (move (delim)),
-                    move (flags));
-    };
-
-    f[".merge"] = [](names s,
-                     string re,
-                     names fmt,
-                     names delim,
-                     optional<names> flags)
-    {
-      return merge (move (s),
-                    re,
-                    convert<string> (move (fmt)),
-                    convert<string> (move (delim)),
-                    move (flags));
-    };
-
-    f[".merge"] = [](names s,
-                     names re,
-                     string fmt,
-                     names delim,
-                     optional<names> flags)
-    {
-      return merge (move (s),
-                    convert<string> (move (re)),
-                    fmt,
-                    convert<string> (move (delim)),
-                    move (flags));
-    };
-
-    f[".merge"] = [](names s,
-                     names re,
-                     names fmt,
-                     names delim,
-                     optional<names> flags)
-    {
-      return merge (move (s),
-                    convert<string> (move (re)),
-                    convert<string> (move (fmt)),
-                    convert<string> (move (delim)),
+                    delim
+                    ? convert<string> (move (*delim))
+                    : optional<string> (),
                     move (flags));
     };
 
@@ -637,22 +529,6 @@ namespace build2
     f[".apply"] = [](names s, string re, string fmt, optional<names> flags)
     {
       return apply (move (s), re, fmt, move (flags));
-    };
-
-    f[".apply"] = [](names s, string re, names fmt, optional<names> flags)
-    {
-      return apply (move (s),
-                    re,
-                    convert<string> (move (fmt)),
-                    move (flags));
-    };
-
-    f[".apply"] = [](names s, names re, string fmt, optional<names> flags)
-    {
-      return apply (move (s),
-                    convert<string> (move (re)),
-                    fmt,
-                    move (flags));
     };
 
     f[".apply"] = [](names s, names re, names fmt, optional<names> flags)

@@ -54,6 +54,8 @@ namespace build2
     f["ambig"] = [](names a, optional<string>)   {return a;};
     f["ambig"] = [](names a, optional<uint64_t>) {return a;};
 
+    f["reverse"] = [](names a) {return a;};
+
     f["scoped"]      = [](const scope*, names a) {return a;};
     f["scoped_void"] = [](const scope*, names) {};
     f["scoped"]      = &scoped;

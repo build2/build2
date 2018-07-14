@@ -74,6 +74,23 @@ buildfile:1:2: error: ambiguous call to ambig(<untyped>)
 /))
 EOE
 
+: unmatched
+:
+$* <'$ambig(abc, def)' 2>>~/EOE/ != 0
+buildfile:1:2: error: unmatched call to ambig(<untyped>, <untyped>)
+/((
+  info: candidate: ambig(<untyped> [, uint64]), qualified name dummy.ambig
+  info: candidate: ambig(<untyped> [, string]), qualified name dummy.ambig
+/)|(
+  info: candidate: ambig(<untyped> [, string]), qualified name dummy.ambig
+  info: candidate: ambig(<untyped> [, uint64]), qualified name dummy.ambig
+/))
+EOE
+
+: reverse
+:
+$* <'print $reverse([string] abc)' >'abc'
+
 : optional-absent
 :
 $* <'print $optional()' >'true'
@@ -118,7 +135,7 @@ EOE
 : print-fovl
 :
 $* <'$ambig([bool] true)' 2>>~/EOE/ != 0
-buildfile:1:2: error: unmatched call to ambig(bool)
+buildfile:1:2: error: ambiguous call to ambig(bool)
 /((
   info: candidate: ambig(<untyped> [, uint64]), qualified name dummy.ambig
   info: candidate: ambig(<untyped> [, string]), qualified name dummy.ambig

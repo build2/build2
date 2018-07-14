@@ -118,22 +118,21 @@ namespace build2
 
     // Overload resolution.
     //
-    // Ours is pretty simple: if all the arguments match exactly, then we have
-    // a perfect match. Otherwise, if any argument matches via the derived-to-
-    // base conversion, then we have an imperfect match. More than one perfect
-    // or imperfect match is ambiguous (i.e., we don't try to rank imperfect
-    // matches).
+    // Ours is pretty simple: we sort all the overloads into three ranks:
     //
-    size_t count (args.size ());
+    // 0 -- all the arguments match exactly (perfect match)
+    // 1 -- one or more arguments match via the derived-to-base conversion
+    // 2 -- one or more arguments match via the reversal to untyped
+    //
+    // More than one match of the same rank is ambiguous.
+    //
     auto ip (map_.equal_range (name));
 
-    // First look for a perfect match, then for imperfect. We do it this way
-    // to make sure we always stay small in the successful case.
-    //
-    small_vector<const function_overload*, 1> r;
-
-    for (bool perf (true);; perf = false)
+    size_t rank (~0);
+    small_vector<const function_overload*, 2> ovls;
     {
+      size_t count (args.size ());
+
       for (auto it (ip.first); it != ip.second; ++it)
       {
         const function_overload& f (it->second);
@@ -145,6 +144,7 @@ namespace build2
 
         // Argument types match.
         //
+        size_t r (0);
         {
           size_t i (0), n (min (count, f.arg_types.size ()));
           for (; i != n; ++i)
@@ -158,29 +158,50 @@ namespace build2
             if (at == ft) // Types match perfectly.
               continue;
 
-            if (!perf && at != nullptr && ft != nullptr)
+            if (at != nullptr && ft != nullptr)
             {
               while ((at = at->base_type) != nullptr && at != ft) ;
 
               if (at != nullptr) // Types match via derived-to-base.
+              {
+                if (r < 1)
+                  r = 1;
                 continue;
+              }
             }
 
-            break;
+            if (ft == nullptr) // Types match via reversal to untyped.
+            {
+              if (r < 2)
+                r = 2;
+              continue;
+            }
+
+            break; // No match.
           }
 
           if (i != n)
-            continue;
+            continue; // No match.
         }
 
-        r.push_back (&f); // Continue looking to detect ambiguities.
-      }
+        // Better or just as good a match?
+        //
+        if (r <= rank)
+        {
+          if (r < rank) // Better.
+          {
+            rank = r;
+            ovls.clear ();
+          }
 
-      if (!r.empty () || !perf)
-        break;
+          ovls.push_back (&f);
+        }
+
+        // Continue looking to detect ambiguities.
+      }
     }
 
-    switch (r.size ())
+    switch (ovls.size ())
     {
     case 1:
       {
@@ -197,7 +218,26 @@ namespace build2
               }
             }));
 
-        auto f (r.back ());
+        auto f (ovls.back ());
+
+        // If one or more arguments match via the reversal to untyped (rank 2),
+        // then we need to go over the overload's arguments one more time an
+        // untypify() those that we need to reverse.
+        //
+        if (rank == 2)
+        {
+          size_t n (args.size ());
+          assert (n <= f->arg_types.size ());
+
+          for (size_t i (0); i != n; ++i)
+          {
+            if (f->arg_types[i]             &&
+                *f->arg_types[i] == nullptr &&
+                args[i].type != nullptr)
+              untypify (args[i]);
+          }
+        }
+
         return make_pair (f->impl (base, move (args), *f), true);
       }
     case 0:
@@ -246,7 +286,7 @@ namespace build2
         diag_record dr;
         dr << fail (loc) << "ambiguous call to "; print_call (dr.os);
 
-        for (auto f: r)
+        for (auto f: ovls)
           dr << info << "candidate: " << *f;
 
         dr << endf;

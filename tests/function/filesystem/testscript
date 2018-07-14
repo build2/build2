@@ -95,10 +95,7 @@
 
     : string-path
     :
-    $* <'print $path_match([string] "b*", [path] "b")' 2>>~/EOE/ != 0
-    <stdin>:1:8: error: unmatched call to path_match(string, path)
-    /.{11}
-    EOE
+    $* <'print $path_match([string] "b*", [path] "b")' >'true'
   }
 
   : path
