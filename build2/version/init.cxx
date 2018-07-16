@@ -254,6 +254,11 @@ namespace build2
       if (!first)
         fail (l) << "multiple version module initializations";
 
+      // Load in.base (in.* varibales, in{} target type).
+      //
+      if (!cast_false<bool> (rs["in.base.loaded"]))
+        load_module (rs, rs, "in.base", l);
+
       module& m (static_cast<module&> (*mod));
       const standard_version& v (m.version);
 
@@ -293,33 +298,8 @@ namespace build2
       // Enter variables.
       //
       {
-        auto& vp (var_pool.rw (rs));
-
-        // @@ Note: these should be moved to the 'in' module once we have it.
-        //
-
-        // Alternative variable substitution symbol.
-        //
-        m.in_symbol = &vp.insert<string> ("in.symbol");
-
-        // Substitution mode. Valid values are 'strict' (default) and 'lax'.
-        // In the strict mode every substitution symbol is expected to start a
-        // substitution with the double symbol (e.g., $$) serving as an
-        // escape sequence.
-        //
-        // In the lax mode a pair of substitution symbols is only treated as a
-        // substitution if what's between them looks like a build2 variable
-        // name (i.e., doesn't contain spaces, etc). Everything else,
-        // including unterminated substitution symbols is copied as is. Note
-        // also that in this mode the double symbol is not treated as an
-        // escape sequence.
-        //
-        // The lax mode is mostly useful when trying to reuse existing .in
-        // files, for example from autoconf. Note, however, that the lax mode
-        // is still stricter than the autoconf's semantics which also leaves
-        // unknown substitutions as is.
-        //
-        m.in_substitution = &vp.insert<string> ("in.substitution");
+        m.in_symbol       = var_pool.find ("in.symbol");       // in.base
+        m.in_substitution = var_pool.find ("in.substitution"); // in.base
       }
 
       // Register rules.

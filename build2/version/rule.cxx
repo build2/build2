@@ -13,6 +13,8 @@
 #include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 
+#include <build2/in/target.hxx>
+
 #include <build2/version/module.hxx>
 #include <build2/version/utility.hxx>
 
@@ -23,6 +25,8 @@ namespace build2
 {
   namespace version
   {
+    using in::in;
+
     // Return true if this prerequisite is a project's manifest file. To be
     // sure we would need to search it into target but that we can't do in
     // match().
@@ -403,7 +407,7 @@ namespace build2
       };
 
       if (verb >= 2)
-        text << "ver -o " << tp << ' ' << ip;
+        text << "ver " << ip << " >" << tp;
       else if (verb)
         text << "ver " << ip;
 

@@ -46,7 +46,7 @@ namespace build2
                bool,
                const variable_map&)
     {
-      tracer trace ("cc::core_vars_init");
+      tracer trace ("bin::vars_init");
       l5 ([&]{trace << "for " << r.out_path ();});
 
       assert (first);

@@ -1,0 +1,96 @@
+# file      : tests/in/testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+crosstest = false
+test.arguments =
+
+.include ../common.test
+
++cat <<EOI >=build/root.build
+using in
+EOI
+
+: basic
+:
+cat <<EOI >=test.in;
+  foo = $foo$
+  EOI
+cat <<EOI >=buildfile;
+  file{test}: in{test}
+  file{test}: foo = FOO
+  EOI
+$* <<<buildfile;
+cat test >>EOO;
+  foo = FOO
+  EOO
+$* clean <<<buildfile
+
+: lax
+:
+cat <<EOI >=test.in;
+  $10
+  $foo bar$ baz
+  EOI
+$* <<EOI &test &test.d;
+  file{test}: in{test}
+  file{test}: in.substitution = lax
+  EOI
+cat test >>EOO
+  $10
+  $foo bar$ baz
+  EOO
+
+: rebuild
+:
+cat <'$foo$ $bar$' >=test.in;
+$* <<EOI &test &test.d;
+  foo = foo
+  bar = bar
+  file{test}: in{test}
+  EOI
+cat test >'foo bar';
+$* <<EOI;
+  foo = FOO
+  bar = bar
+  file{test}: in{test}
+  EOI
+cat test >'FOO bar';
+$* <<EOI;
+  foo = FOO
+  bar = BAR
+  file{test}: in{test}
+  EOI
+cat test >'FOO BAR';
+cat <'$fox$ $baz$' >=test.in;
+$* <<EOI;
+  fox = fox
+  baz = baz
+  file{test}: in{test}
+  EOI
+cat test >'fox baz';
+mv test.in tst.in;
+$* <<EOI;
+  fox = FOX
+  baz = BAZ
+  file{test}: in{tst.in}
+  EOI
+cat test >'FOX BAZ'
+
+: rebuild-diag
+:
+cat <<EOI >=test.in;
+  foo = $foo$
+  bar = $bar$
+  EOI
+$* <<EOI &test &test.d;
+  foo = foo
+  bar = bar
+  file{test}: in{test}
+  EOI
+$* <<EOI 2>>EOE != 0
+  foo = foo
+  file{test}: in{test}
+  EOI
+  test.in:2: error: undefined variable 'bar'
+  EOE

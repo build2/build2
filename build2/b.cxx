@@ -45,15 +45,19 @@ using namespace butl;
 using namespace std;
 
 #include <build2/config/init.hxx>
+#include <build2/version/init.hxx>
+#include <build2/test/init.hxx>
 #include <build2/dist/init.hxx>
+#include <build2/install/init.hxx>
+
+#include <build2/in/init.hxx>
+
 #include <build2/bin/init.hxx>
 #include <build2/c/init.hxx>
 #include <build2/cc/init.hxx>
 #include <build2/cxx/init.hxx>
+
 #include <build2/cli/init.hxx>
-#include <build2/test/init.hxx>
-#include <build2/install/init.hxx>
-#include <build2/version/init.hxx>
 
 namespace build2
 {
@@ -384,6 +388,9 @@ main (int argc, char* argv[])
       bm["test"]    = mf {&test::boot, &test::init};
       bm["install"] = mf {&install::boot, &install::init};
       bm["version"] = mf {&version::boot, &version::init};
+
+      bm["in.base"]  = mf {nullptr, &in::base_init};
+      bm["in"]       = mf {nullptr, &in::init};
 
       bm["bin.vars"] = mf {nullptr, &bin::vars_init};
       bm["bin.config"] = mf {nullptr, &bin::config_init};

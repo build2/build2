@@ -523,7 +523,6 @@ namespace build2
       t.insert<alias> ();
       t.insert<dir>   ();
       t.insert<fsdir> ();
-      t.insert<in>    ();
       t.insert<exe>   ();
       t.insert<doc>   ();
       t.insert<man>   ();

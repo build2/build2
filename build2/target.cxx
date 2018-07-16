@@ -942,50 +942,6 @@ namespace build2
     false
   };
 
-  // in
-  //
-  static const target*
-  in_search (const target& xt, const prerequisite_key& cpk)
-  {
-    // If we have no extension then derive it from our target. Then delegate
-    // to file_search().
-    //
-    prerequisite_key pk (cpk);
-    optional<string>& e (pk.tk.ext);
-
-    if (!e)
-    {
-      if (const file* t = xt.is_a<file> ())
-      {
-        const string& te (t->derive_extension ());
-        e = te + (te.empty () ? "" : ".") + "in";
-      }
-      else
-        fail << "prerequisite " << pk << " for a non-file target " << xt;
-    }
-
-    return file_search (xt, pk);
-  }
-
-  static bool
-  in_pattern (const target_type&, const scope&, string&, bool)
-  {
-    fail << "pattern in in{} prerequisite" << endf;
-  }
-
-  const target_type in::static_type
-  {
-    "in",
-    &file::static_type,
-    &target_factory<in>,
-    &target_extension_fix<file_ext_def>, // No extension by default.
-    nullptr, /* default_extension */     // Should be taken care if by search.
-    &in_pattern,
-    &target_print_1_ext_verb,            // Same as file.
-    &in_search,
-    false
-  };
-
   const target_type doc::static_type
   {
     "doc",
