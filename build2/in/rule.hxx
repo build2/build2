@@ -19,7 +19,8 @@ namespace build2
     class rule: public build2::rule
     {
     public:
-      rule () {}
+      rule (char symbol = '$', bool strict = true)
+          : symbol_ (symbol), strict_ (strict) {}
 
       virtual bool
       match (action, target&, const string&) const override;
@@ -43,6 +44,10 @@ namespace build2
 
       target_state
       perform_update (action, const target&) const;
+
+    protected:
+      char symbol_;
+      bool strict_;
     };
   }
 }

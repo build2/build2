@@ -146,7 +146,7 @@ namespace build2
 
       // Substitution symbol.
       //
-      char sym ('$');
+      char sym (symbol_);
       if (const string* s = cast_null<string> (t["in.symbol"]))
       {
         if (s->size () == 1)
@@ -157,7 +157,7 @@ namespace build2
 
       // Substitution mode.
       //
-      bool strict (true);
+      bool strict (strict_);
       if (const string* s = cast_null<string> (t["in.substitution"]))
       {
         if (*s == "lax")
