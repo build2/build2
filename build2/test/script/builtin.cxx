@@ -909,8 +909,8 @@ namespace build2
         return 1;
       }
 
-      // mv [--no-cleanup] <src-path>    <dst-path>
-      // mv [--no-cleanup] <src-path>... <dst-dir>/
+      // mv [--no-cleanup] [-f] <src-path>    <dst-path>
+      // mv [--no-cleanup] [-f] <src-path>... <dst-dir>/
       //
       // Note: can be executed synchronously.
       //
@@ -1413,7 +1413,7 @@ namespace build2
             else if (o == "-e")
             {
               // Only a single script is supported.
-	      //
+              //
               if (subst)
                 error () << "multiple scripts";
 
@@ -1490,15 +1490,15 @@ namespace build2
           //
           path p;
           if (i != e)
-	  {
-	    if (*i != "-")
+          {
+            if (*i != "-")
               p = parse_path (*i, sp.wd_path);
 
             ++i;
-	  }
+          }
 
           if (i != e)
-	    error () << "unexpected argument";
+            error () << "unexpected argument";
 
           // If we edit file in place make sure that the file path is specified
           // and obtain a temporary file path. We will be writing to the
@@ -1702,7 +1702,7 @@ namespace build2
         return 2;
       }
 
-      // touch [--no-cleanup] <file>...
+      // touch [--no-cleanup] [--after <ref-file>] <file>...
       //
       // Note that POSIX doesn't specify the behavior for touching an entry
       // other than file.
@@ -1732,8 +1732,25 @@ namespace build2
           in.close ();
           out.close ();
 
-          if (args.empty ())
-            error () << "missing file";
+          auto mtime = [&error] (const path& p) -> timestamp
+          {
+            try
+            {
+              timestamp t (file_mtime (p));
+
+              if (t == timestamp_nonexistent)
+                throw_generic_error (ENOENT);
+
+              return t;
+            }
+            catch (const system_error& e)
+            {
+              error () << "cannot obtain file '" << p
+                       << "' modification time: " << e;
+            }
+            assert (false); // Can't be here.
+            return timestamp ();
+          };
 
           auto i (args.begin ());
           auto e (args.end ());
@@ -1741,12 +1758,20 @@ namespace build2
           // Process options.
           //
           bool cleanup (true);
+          optional<timestamp> after;
           for (; i != e; ++i)
           {
             const string& o (*i);
 
             if (o == "--no-cleanup")
               cleanup = false;
+            else if (o == "--after")
+            {
+              if (++i == e)
+                error () << "missing --after option value";
+
+              after = mtime (parse_path (*i, sp.wd_path));
+            }
             else
             {
               if (o == "--")
@@ -1755,6 +1780,9 @@ namespace build2
               break;
             }
           }
+
+          if (i == e)
+            error () << "missing file";
 
           // Create files.
           //
@@ -1769,6 +1797,12 @@ namespace build2
               //
               if (touch_file (p) && cleanup)
                 sp.clean ({cleanup_type::always, p}, true);
+
+              if (after)
+              {
+                while (mtime (p) <= *after)
+                  touch_file (p, false /* create */);
+              }
             }
             catch (const system_error& e)
             {

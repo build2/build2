@@ -2681,12 +2681,19 @@ Note that tests dereference symbolic links.
 \h#builtins-touch|\c{touch}|
 
 \
-touch [--no-cleanup] <file>...
+touch [--no-cleanup] [--after <ref-file>] <file>...
 \
 
 Change file access and modification times to the current time. Create files
 that do not exist. Fail if a filesystem entry other than the file exists for
 the specified name.
+
+\dl|
+
+\li|\n\c{--after <ref-file>}\n
+
+  Keep touching the file until its modification time becomes after that of the
+  specified reference file.||
 
 Unless the \c{--no-cleanup} option is specified, newly created files that are
 inside the script working directory are automatically registered for cleanup.
