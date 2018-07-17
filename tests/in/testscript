@@ -62,6 +62,9 @@ $* <<EOI;
   file{test}: in{test}
   EOI
 cat test >'FOO BAR';
+if ($cxx.target.class != 'windows')
+ sleep 1
+end;
 cat <'$fox$ $baz$' >=test.in;
 $* <<EOI;
   fox = fox
