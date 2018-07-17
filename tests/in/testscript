@@ -94,3 +94,20 @@ $* <<EOI 2>>EOE != 0
   EOI
   test.in:2: error: undefined variable 'bar'
   EOE
+
+: executable
+:
+: Test creation of executables (permissions, extensions).
+:
+if ($test.target == $build.host && $build.host.class != 'windows')
+{
+  cat <<EOI >=hello.in;
+    #!/bin/sh
+    echo 'Hello, $name$!'
+    EOI
+  $* <<EOI &hello &hello.d;
+    exe{hello}: in{hello}
+    exe{hello}: name = 'World'
+    EOI
+  $~/hello >'Hello, World!'
+}

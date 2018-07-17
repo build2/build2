@@ -55,7 +55,10 @@ namespace build2
 
       // Derive the file name.
       //
-      t.derive_path ();
+      // If this is an executable with an uspecified extension, then default
+      // to no extension (i.e., a shell script).
+      //
+      t.derive_path (t.is_a<exe> () ? "" : nullptr);
 
       // Inject dependency on the output directory.
       //
@@ -306,8 +309,23 @@ namespace build2
         what = "open"; whom = &ip;
         ifdstream ifs (ip, fdopen_mode::in, ifdstream::badbit);
 
+        // See fdopen() for details (umask, etc).
+        //
+        permissions prm (permissions::ru | permissions::wu |
+                         permissions::rg | permissions::wg |
+                         permissions::ro | permissions::wo);
+
+        if (t.is_a<exe> ())
+          prm |= permissions::xu | permissions::xg | permissions::xo;
+
+        // Remove the existing file to make sure permissions take effect.
+        //
+        rmfile (tp, 3 /* verbosity */);
+
         what = "open"; whom = &tp;
-        ofdstream ofs (tp);
+        ofdstream ofs (fdopen (tp,
+                               fdopen_mode::out | fdopen_mode::create,
+                               prm));
         auto_rmfile arm (tp);
 
         string s; // Reuse the buffer.
