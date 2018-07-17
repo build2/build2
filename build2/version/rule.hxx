@@ -8,28 +8,25 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
-#include <build2/rule.hxx>
+#include <build2/in/rule.hxx>
 #include <build2/install/rule.hxx>
 
 namespace build2
 {
   namespace version
   {
-    // Preprocess an .in file.
+    // Preprocess an .in file that depends on manifest.
     //
-    class in_rule: public rule
+    class in_rule: public in::rule
     {
     public:
-      in_rule () {}
+      in_rule (): rule ("version.in 1", "ver") {}
 
       virtual bool
       match (action, target&, const string&) const override;
 
-      virtual recipe
-      apply (action, target&) const override;
-
-      static target_state
-      perform_update (action, const target&);
+      virtual string
+      lookup (const location&, const target&, const string&) const override;
     };
 
     // Pre-process manifest before installation to patch in the version.

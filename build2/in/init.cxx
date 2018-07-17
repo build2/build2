@@ -18,7 +18,7 @@ namespace build2
 {
   namespace in
   {
-    static const rule rule_;
+    static const rule rule_ ("in", "in");
 
     bool
     base_init (scope& rs,

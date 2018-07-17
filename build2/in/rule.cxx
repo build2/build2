@@ -55,7 +55,7 @@ namespace build2
 
       // Derive the file name.
       //
-      // If this is an executable with an uspecified extension, then default
+      // If this is an executable with an unspecified extension, then default
       // to no extension (i.e., a shell script).
       //
       t.derive_path (t.is_a<exe> () ? "" : nullptr);
@@ -187,7 +187,7 @@ namespace build2
 
       // First should come the rule name/version.
       //
-      if (dd.expect ("in 1") != nullptr)
+      if (dd.expect (rule_id_ + " 1") != nullptr)
         l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
       // Then the substitution symbol.
@@ -253,6 +253,9 @@ namespace build2
             //
             // <ln> <name> <hash>
             //
+            // Note that <name> can contain spaces (see the constraint check
+            // expressions in the version module).
+            //
             char* e (nullptr);
             uint64_t ln (strtoull (s->c_str (), &e, 10));
 
@@ -296,9 +299,9 @@ namespace build2
       }
 
       if (verb >= 2)
-        text << "in " << ip << " >" << tp;
+        text << program_ << ' ' << ip << " >" << tp;
       else if (verb)
-        text << "in " << ip;
+        text << program_ << ' ' << ip;
 
       // Read and process the file, one line at a time.
       //

@@ -16,11 +16,24 @@ namespace build2
   {
     // Preprocess an .in file.
     //
+    // Note that a derived rule can use the target data pad to cache data
+    // (e.g., in match()) to be used in substitute/lookup() calls.
+    //
     class rule: public build2::rule
     {
     public:
-      rule (char symbol = '$', bool strict = true)
-          : symbol_ (symbol), strict_ (strict) {}
+      // The rule id is used to form the rule name/version entry in depdb. The
+      // program argument is the pseudo-program name to use in the command
+      // line diagnostics.
+      //
+      rule (string rule_id,
+            string program,
+            char symbol = '$',
+            bool strict = true)
+          : rule_id_ (move (rule_id)),
+            program_ (move (program)),
+            symbol_ (symbol),
+            strict_ (strict) {}
 
       virtual bool
       match (action, target&, const string&) const override;
@@ -46,6 +59,8 @@ namespace build2
       perform_update (action, const target&) const;
 
     protected:
+      const string rule_id_;
+      const string program_;
       char symbol_;
       bool strict_;
     };

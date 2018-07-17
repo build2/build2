@@ -232,7 +232,11 @@ namespace build2
 
       // Create the module.
       //
-      mod.reset (new module (move (v), committed, rewritten, move (ds)));
+      mod.reset (new module (cast<string> (rs.vars[var_project]),
+                             move (v),
+                             committed,
+                             rewritten,
+                             move (ds)));
 
       return true; // Init first (dist.package, etc).
     }
@@ -293,13 +297,6 @@ namespace build2
                                    &dist_callback,
                                    &m);
         }
-      }
-
-      // Enter variables.
-      //
-      {
-        m.in_symbol       = var_pool.find ("in.symbol");       // in.base
-        m.in_substitution = var_pool.find ("in.substitution"); // in.base
       }
 
       // Register rules.

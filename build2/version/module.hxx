@@ -24,22 +24,23 @@ namespace build2
     {
       static const string name;
 
+      const string& project; // The project variable value.
+
       butl::standard_version version;
       bool committed; // Whether this is a committed snapshot.
       bool rewritten; // Whether this is a rewritten .z snapshot.
 
       dependency_constraints dependencies;
 
-      const variable* in_symbol       = nullptr; // in.symbol
-      const variable* in_substitution = nullptr; // in.substitution
-
       bool dist_uncommitted = false;
 
-      module (butl::standard_version v,
+      module (const string& p,
+              butl::standard_version v,
               bool c,
               bool r,
               dependency_constraints d)
-          : version (move (v)),
+          : project (p),
+            version (move (v)),
             committed (c),
             rewritten (r),
             dependencies (move (d)) {}
