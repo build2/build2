@@ -292,6 +292,16 @@ namespace build2
       // In both cases, the next step is to search, match, and collect all the
       // installable prerequisites.
       //
+      // But first, in case of the update pre-operation, match the inner rule
+      // (actual update). We used to do this after matching the prerequisites
+      // but the inner rule may provide some rule-specific information (like
+      // the target extension for exe{}) that may be required during the
+      // prerequisite search (like the base name for in{}).
+      //
+      optional<bool> unchanged;
+      if (a.operation () == update_id)
+        unchanged = match_inner (a, t, unmatch::unchanged);
+
       auto& pts (t.prerequisite_targets[a]);
 
       auto pms (group_prerequisite_members (a, t, members_mode::never));
@@ -346,14 +356,9 @@ namespace build2
 
       if (a.operation () == update_id)
       {
-        // For the update pre-operation match the inner rule (actual update).
-        //
-        if (match_inner (a, t, unmatch::unchanged))
-        {
-          return pts.empty () ? noop_recipe : default_recipe;
-        }
-
-        return &perform_update;
+        return *unchanged
+          ? (pts.empty () ? noop_recipe : default_recipe)
+          : &perform_update;
       }
       else
       {
