@@ -504,43 +504,60 @@ namespace build2
   }
 
   void
-  match_prerequisites (action, target&, const scope*);
+  match_prerequisites (action, target&, const match_search&, const scope*);
 
   void
-  match_prerequisite_members (action, target&, const scope*);
+  match_prerequisite_members (action, target&,
+                              const match_search_member&,
+                              const scope*);
 
   inline void
-  match_prerequisites (action a, target& t)
+  match_prerequisites (action a, target& t, const match_search& ms)
   {
     match_prerequisites (
       a,
       t,
+      ms,
       (a.operation () != clean_id ? nullptr : &t.root_scope ()));
   }
 
   inline void
-  match_prerequisite_members (action a, target& t)
+  match_prerequisite_members (action a, target& t,
+                              const match_search_member& msm)
   {
     if (a.operation () != clean_id)
-      match_prerequisite_members (a, t, nullptr);
+      match_prerequisite_members (a, t, msm, nullptr);
     else
-      // Note that here we don't iterate over members even for see-
-      // through groups since the group target should clean eveything
-      // up. A bit of an optimization.
+    {
+      // Note that here we don't iterate over members even for see-through
+      // groups since the group target should clean eveything up. A bit of an
+      // optimization.
       //
-      match_prerequisites (a, t, &t.root_scope ());
+      match_search ms (
+        msm
+        ? [&msm] (action a,
+                  const target& t,
+                  const prerequisite& p,
+                  include_type i)
+        {
+          return msm (a, t, prerequisite_member {p, nullptr}, i);
+        }
+        : match_search ());
+
+      match_prerequisites (a, t, ms, &t.root_scope ());
+    }
   }
 
   inline void
   match_prerequisites (action a, target& t, const scope& s)
   {
-    match_prerequisites (a, t, &s);
+    match_prerequisites (a, t, nullptr, &s);
   }
 
   inline void
   match_prerequisite_members (action a, target& t, const scope& s)
   {
-    match_prerequisite_members (a, t, &s);
+    match_prerequisite_members (a, t, nullptr, &s);
   }
 
   target_state
@@ -657,24 +674,24 @@ namespace build2
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type*,
                          action, const target&,
-                         const timestamp&, const prerequisite_filter&,
+                         const timestamp&, const execute_filter&,
                          size_t);
 
   inline optional<target_state>
   execute_prerequisites (action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf,
+                         const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    return execute_prerequisites (nullptr, a, t, mt, pf, n).first;
+    return execute_prerequisites (nullptr, a, t, mt, ef, n).first;
   }
 
   template <typename T>
   inline pair<optional<target_state>, const T&>
   execute_prerequisites (action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf,
+                         const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    auto p (execute_prerequisites (T::static_type, a, t, mt, pf, n));
+    auto p (execute_prerequisites (T::static_type, a, t, mt, ef, n));
     return pair<optional<target_state>, const T&> (
       p.first, static_cast<const T&> (p.second));
   }
@@ -682,10 +699,10 @@ namespace build2
   inline pair<optional<target_state>, const target&>
   execute_prerequisites (const target_type& tt,
                          action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf,
+                         const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    auto p (execute_prerequisites (&tt, a, t, mt, pf, n));
+    auto p (execute_prerequisites (&tt, a, t, mt, ef, n));
     return pair<optional<target_state>, const target&> (p.first, *p.second);
   }
 
@@ -693,10 +710,10 @@ namespace build2
   inline pair<optional<target_state>, const T&>
   execute_prerequisites (const target_type& tt,
                          action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf,
+                         const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    auto p (execute_prerequisites (tt, a, t, mt, pf, n));
+    auto p (execute_prerequisites (tt, a, t, mt, ef, n));
     return pair<optional<target_state>, const T&> (
       p.first, static_cast<const T&> (p.second));
   }

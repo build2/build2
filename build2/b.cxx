@@ -59,6 +59,8 @@ using namespace std;
 
 #include <build2/cli/init.hxx>
 
+#include <build2/bash/init.hxx>
+
 namespace build2
 {
   int
@@ -419,6 +421,8 @@ main (int argc, char* argv[])
 
       bm["cli.config"] = mf {nullptr, &cli::config_init};
       bm["cli"] = mf {nullptr, &cli::init};
+
+      bm["bash"] = mf {nullptr, &bash::init};
     }
 
     keep_going = !ops.serial_stop ();

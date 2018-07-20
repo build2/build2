@@ -41,22 +41,37 @@ namespace build2
       virtual recipe
       apply (action, target&) const override;
 
+      virtual target_state
+      perform_update (action, const target&) const;
+
+      // Customization hooks.
+      //
+
+      // Perform prerequisite search.
+      //
+      virtual prerequisite_target
+      search (action,
+              const target&,
+              const prerequisite_member&,
+              include_type) const;
+
       // Perform variable lookup.
       //
       virtual string
-      lookup (const location&, const target&, const string& name) const;
+      lookup (const location&,
+              action,
+              const target&,
+              const string& name) const;
 
       // Perform variable substitution. Return nullopt if it should be
       // ignored.
       //
       virtual optional<string>
       substitute (const location&,
+                  action,
                   const target&,
                   const string& name,
                   bool strict) const;
-
-      target_state
-      perform_update (action, const target&) const;
 
     protected:
       const string rule_id_;

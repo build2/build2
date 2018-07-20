@@ -91,7 +91,7 @@ namespace build2
       // Register rules.
       //
       {
-        auto& r (rs.rules);
+        auto& r (bs.rules);
 
         // There are rules that are "derived" from this generic in rule in
         // order to provide extended preprocessing functionality (see the

@@ -10,8 +10,6 @@ namespace build2
 {
   namespace in
   {
-    // in
-    //
     static const target*
     in_search (const target& xt, const prerequisite_key& cpk)
     {

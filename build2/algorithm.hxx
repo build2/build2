@@ -289,18 +289,34 @@ namespace build2
   match_inner (action, const target&, unmatch);
 
   // The standard prerequisite search and match implementations. They call
-  // search() and then match() for each prerequisite in a loop omitting out of
-  // project prerequisites for the clean operation. If this target is a member
-  // of a group, then they first do this to the group's prerequisites.
+  // search() (unless a custom is provided) and then match() (unless custom
+  // returned NULL) for each prerequisite in a loop omitting out of project
+  // prerequisites for the clean operation. If this target is a member of a
+  // group, then first do this to the group's prerequisites.
   //
-  void
-  match_prerequisites (action, target&);
+  using match_search =function<
+    prerequisite_target (action,
+                         const target&,
+                         const prerequisite&,
+                         include_type)>;
 
-  // If we are cleaning, this function doesn't go into group members,
-  // as an optimization (the group should clean everything up).
-  //
   void
-  match_prerequisite_members (action, target&);
+  match_prerequisites (action, target&, const match_search& = nullptr);
+
+  // As above but go into group members.
+  //
+  // Note that if we cleaning, this function doesn't go into group members, as
+  // an optimization (the group should clean everything up).
+  //
+  using match_search_member = function<
+    prerequisite_target (action,
+                         const target&,
+                         const prerequisite_member&,
+                         include_type)>;
+
+  void
+  match_prerequisite_members (action, target&,
+                              const match_search_member& = nullptr);
 
   // As above but omit prerequisites that are not in the specified scope.
   //
@@ -495,12 +511,12 @@ namespace build2
   // Note that because we use mtime, this function should normally only be
   // used in the perform_update action (which is straight).
   //
-  using prerequisite_filter = function<bool (const target&, size_t pos)>;
+  using execute_filter = function<bool (const target&, size_t pos)>;
 
   optional<target_state>
   execute_prerequisites (action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr,
+                         const execute_filter& = nullptr,
                          size_t count = 0);
 
   // Another version of the above that does two extra things for the caller:
@@ -514,14 +530,14 @@ namespace build2
   pair<optional<target_state>, const T&>
   execute_prerequisites (action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr,
+                         const execute_filter& = nullptr,
                          size_t count = 0);
 
   pair<optional<target_state>, const target&>
   execute_prerequisites (const target_type&,
                          action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr,
+                         const execute_filter& = nullptr,
                          size_t count = 0);
 
   template <typename T>
@@ -529,7 +545,7 @@ namespace build2
   execute_prerequisites (const target_type&,
                          action, const target&,
                          const timestamp&,
-                         const prerequisite_filter& = nullptr,
+                         const execute_filter& = nullptr,
                          size_t count = 0);
 
   // Execute members of a group or similar prerequisite-like dependencies.

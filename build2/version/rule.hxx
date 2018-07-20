@@ -20,13 +20,16 @@ namespace build2
     class in_rule: public in::rule
     {
     public:
-      in_rule (): rule ("version.in 1", "ver") {}
+      in_rule (): rule ("version.in 1", "version.in") {}
 
       virtual bool
       match (action, target&, const string&) const override;
 
       virtual string
-      lookup (const location&, const target&, const string&) const override;
+      lookup (const location&,
+              action,
+              const target&,
+              const string&) const override;
     };
 
     // Pre-process manifest before installation to patch in the version.

@@ -654,9 +654,12 @@ namespace build2
     match_impl (l, true /* step */, true /* try_match */);
   }
 
-  template <typename R>
+  template <typename R, typename S>
   static void
-  match_prerequisite_range (action a, target& t, R&& r, const scope* s)
+  match_prerequisite_range (action a, target& t,
+                            R&& r,
+                            const S& ms,
+                            const scope* s)
   {
     auto& pts (t.prerequisite_targets[a]);
 
@@ -675,13 +678,15 @@ namespace build2
       if (!pi)
         continue;
 
-      const target& pt (search (t, p));
+      prerequisite_target pt (ms
+                              ? ms (a, t, p, pi)
+                              : prerequisite_target (&search (t, p), pi));
 
-      if (s != nullptr && !pt.in (*s))
+      if (pt.target == nullptr || (s != nullptr && !pt.target->in (*s)))
         continue;
 
-      match_async (a, pt, target::count_busy (), t[a].task_count);
-      pts.push_back (prerequisite_target (&pt, pi));
+      match_async (a, *pt.target, target::count_busy (), t[a].task_count);
+      pts.push_back (move (pt));
     }
 
     wg.wait ();
@@ -696,15 +701,19 @@ namespace build2
   }
 
   void
-  match_prerequisites (action a, target& t, const scope* s)
+  match_prerequisites (action a, target& t,
+                       const match_search& ms,
+                       const scope* s)
   {
-    match_prerequisite_range (a, t, group_prerequisites (t), s);
+    match_prerequisite_range (a, t, group_prerequisites (t), ms, s);
   }
 
   void
-  match_prerequisite_members (action a, target& t, const scope* s)
+  match_prerequisite_members (action a, target& t,
+                              const match_search_member& msm,
+                              const scope* s)
   {
-    match_prerequisite_range (a, t, group_prerequisite_members (a, t), s);
+    match_prerequisite_range (a, t, group_prerequisite_members (a, t), msm, s);
   }
 
   template <typename T>
@@ -1715,7 +1724,7 @@ namespace build2
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,
                          action a, const target& t,
-                         const timestamp& mt, const prerequisite_filter& pf,
+                         const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
     assert (current_mode == execution_mode::first);
@@ -1770,7 +1779,7 @@ namespace build2
 
       // Should we compare the timestamp to this target's?
       //
-      if (!e && (!pf || pf (pt, i)))
+      if (!e && (!ef || ef (pt, i)))
       {
         // If this is an mtime-based target, then compare timestamps.
         //

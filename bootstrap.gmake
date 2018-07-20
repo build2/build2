@@ -141,7 +141,8 @@ test/script \
 test        \
 version     \
 install     \
-in
+in          \
+bash
 
 build2_src  := $(wildcard $(src_root)/build2/*.cxx)
 build2_src  += $(foreach d,$(sub_dirs),$(wildcard $(src_root)/build2/$d/*.cxx))

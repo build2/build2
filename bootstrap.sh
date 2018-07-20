@@ -129,6 +129,7 @@ src="$src build2/test/script/*.cxx"
 src="$src build2/version/*.cxx"
 src="$src build2/install/*.cxx"
 src="$src build2/in/*.cxx"
+src="$src build2/bash/*.cxx"
 src="$src $libbutl/libbutl/*.cxx"
 
 # Note that for as long as we support GCC 4.9 we have to compile in the C++14

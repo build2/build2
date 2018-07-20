@@ -1,0 +1,223 @@
+# file      : tests/bash/testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Only native testing on non-Windows platforms
+#
+: dummy
+:
+if ($test.target == $build.host && $build.host.class != 'windows')
+ {
+  buildfile = true
+  test.arguments =
+
+  .include ../common.test
+
+  +cat <<EOI >+build/bootstrap.build
+    using test
+    using install
+    EOI
+
+  +cat <<EOI >=build/root.build
+    using bash
+    test/bash{*}: install.subdirs = true
+    exe{*}: test = true
+    EOI
+
+  # Setup a subproject that we can import a module from.
+  #
+  # Note: used by multiple tests so should be static.
+  #
+  +mkdir -p sub.bash/build
+  +cat <<EOI >=sub.bash/build/bootstrap.build
+    project = sub.bash
+    using install
+    EOI
+  +cat <<EOI >=sub.bash/build/root.build
+    using bash
+    EOI
+  +cat <<EOI >=sub.bash/build/export.build
+    $out_root/
+    {
+      include sub/
+    }
+    export $src_root/sub/bash{foo}
+    EOI
+  +cat <<EOI >=sub.bash/buildfile
+    ./: dir{*/ -build/}
+    EOI
+  +mkdir sub.bash/sub
+  +cat <<EOI >=sub.bash/sub/foo.bash
+    echo sub
+    EOI
+  +cat <<EOI >=sub.bash/sub/buildfile
+    ./: bash{foo}
+    EOI
+
+  # This scopes creates the test/ subdirectory corresponding to our project in
+  # the import path. A bit of a hack but the alternative would be creating a
+  # project for each test.
+  #
+  : test
+  :
+  {
+    : basics
+    :
+    {
+      cat <<EOI >=hello.bash;
+        function hello () { echo "Hello, $@!"; }
+        EOI
+
+      cat <<EOI >=hello.in;
+        #!/usr/bin/env bash
+
+        if [[ "$OSTYPE" == darwin* ]]; then
+        function readlink ()
+        {
+          if [ "$1" != -f ]; then
+            command readlink "$@"
+          else
+            echo "$2"
+          fi
+        }
+        fi
+
+        @import test/basics/hello@
+
+        hello "$@"
+        EOI
+
+      cat <<EOI >=buildfile;
+        exe{hello}: in{hello} bash{hello}
+        exe{hello}: test.arguments = 'World'
+        EOI
+
+      $* test >'Hello, World!';
+
+      $* install config.install.root=tmp;
+      tmp/bin/hello 'John' >'Hello, John!';
+      $* uninstall config.install.root=tmp;
+
+      $* clean
+    }
+
+    : import
+    :
+    {
+      cat <<EOI >=driver.in;
+        #!/usr/bin/env bash
+
+        if [[ "$OSTYPE" == darwin* ]]; then
+        function readlink ()
+        {
+          if [ "$1" != -f ]; then
+            command readlink "$@"
+          else
+            echo "$2"
+          fi
+        }
+        fi
+
+        @import sub/foo@
+        EOI
+
+      cat <<EOI >=buildfile;
+        import mods = sub.bash%bash{foo}
+        exe{driver}: in{driver} $mods
+        EOI
+
+      $* test >'sub';
+
+      $* install config.install.root=tmp;
+      tmp/bin/driver >'sub';
+      $* uninstall config.install.root=tmp;
+
+      $* clean
+    }
+
+    : recursive
+    :
+    {
+      cat <<EOI >=test.bash.in;
+        @import sub/foo@
+        EOI
+
+      cat <<EOI >=driver.in;
+        #!/usr/bin/env bash
+
+        if [[ "$OSTYPE" == darwin* ]]; then
+        function readlink ()
+        {
+          if [ "$1" != -f ]; then
+            command readlink "$@"
+          else
+            local r="$2"
+            if test -L "$r"; then
+              r="$(command readlink "$r")"
+              if [[ "$r" != /* ]]; then
+                r="$(dirname "$2")/$r"
+              fi
+            fi
+            echo "$r"
+          fi
+        }
+        fi
+
+        @import test/recursive/test@
+        EOI
+
+      cat <<EOI >=buildfile;
+        import mods = sub.bash%bash{foo}
+        exe{driver}: in{driver} bash{test}
+        bash{test}: in{test} $mods
+        EOI
+
+      $* test >'sub';
+
+      $* install config.install.root=tmp;
+
+      tmp/bin/driver >'sub';
+
+      # Test execution via symlink.
+      #
+      mkdir bin;
+      ln -s tmp/bin/driver bin/driver;
+      bin/driver >'sub';
+
+      # Test execution via PATH.
+      #
+      #@@ TODO: add $~/bin to the PATH environment variable.
+      #driver >'sub';
+
+      $* uninstall config.install.root=tmp;
+      $* clean
+    }
+
+    #\
+    : import-installed
+    :
+    {
+      # Note that here we import the project as sub, not sub.bash in order
+      # to avoid importing as a subproject.
+      #
+      cat <<EOI >=driver.in;
+        #!/usr/bin/env bash
+        @import sub/foo@
+        EOI
+
+      cat <<EOI >=buildfile;
+        import mods = sub%bash{foo}
+        exe{driver}: in{driver} $mods
+        EOI
+
+      $* 'install(../../sub.bash/)' config.install.root=tmp;
+
+      #@@ TODO: add $~/tmp/bin to the PATH environment variable.
+      $* test clean >'sub';
+      $* clean;
+
+      $* 'uninstall(../../sub.bash/)' config.install.root=tmp
+    }
+    #\
+  }
+}

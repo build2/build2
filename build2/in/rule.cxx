@@ -66,7 +66,15 @@ namespace build2
 
       // Match prerequisite members.
       //
-      match_prerequisite_members (a, t);
+      match_prerequisite_members (a,
+                                  t,
+                                  [this] (action a,
+                                          const target& t,
+                                          const prerequisite_member& p,
+                                          include_type i)
+                                  {
+                                    return search (a, t, p, i);
+                                  });
 
       switch (a)
       {
@@ -77,66 +85,6 @@ namespace build2
       case perform_clean_id: return &perform_clean_depdb; // Standard clean.
       default:               return noop_recipe;          // Configure update.
       }
-    }
-
-    string rule::
-    lookup (const location& l, const target& t, const string& n) const
-    {
-      if (auto x = t[n])
-      {
-        value v (*x);
-
-        // For typed values call string() for conversion.
-        //
-        try
-        {
-          return convert<string> (
-            v.type == nullptr
-            ? move (v)
-            : functions.call (&t.base_scope (),
-                              "string",
-                              vector_view<value> (&v, 1),
-                              l));
-        }
-        catch (const invalid_argument& e)
-        {
-          fail (l) << e <<
-            info << "while substituting '" << n << "'" << endf;
-        }
-      }
-      else
-        fail (l) << "undefined variable '" << n << "'" << endf;
-    }
-
-    optional<string> rule::
-    substitute (const location& l,
-                const target& t,
-                const string& n,
-                bool strict) const
-    {
-      // In the lax mode scan the fragment to make sure it is a variable name
-      // (that is, it can be expanded in a buildfile as just $<name>; see
-      // lexer's variable mode for details).
-      //
-      if (!strict)
-      {
-        for (size_t i (0), e (n.size ()); i != e; )
-        {
-          bool f (i == 0); // First.
-          char c (n[i++]);
-          bool l (i == e); // Last.
-
-          if (c == '_' || (f ? alpha (c) : alnum (c)))
-            continue;
-
-          if (c == '.' && !l)
-            continue;
-
-          return nullopt; // Ignore this substitution.
-        }
-      }
-
-      return lookup (l, t, n);
     }
 
     target_state rule::
@@ -265,9 +213,18 @@ namespace build2
             if (p1 != string::npos && p2 != string::npos && p2 - p1 > 1)
             {
               string n (*s, p1 + 1, p2 - p1 - 1);
-              string v (lookup (location (&ip, ln), t, n));
 
-              if (s->compare (p2 + 1, string::npos, sha256 (v).string ()) == 0)
+              // Note that we have to call substitute(), not lookup() since it
+              // can be overriden with custom substitution semantics.
+              //
+              optional<string> v (
+                substitute (location (&ip, ln), a, t, n, strict));
+
+              assert (v); // Rule semantics change without version increment?
+
+              if (s->compare (p2 + 1,
+                              string::npos,
+                              sha256 (*v).string ()) == 0)
               {
                 dd_skip++;
                 continue;
@@ -391,7 +348,7 @@ namespace build2
             // pointing to the opening symbol and e -- to the closing.
             //
             string name (s, b + 1, e - b -1);
-            if (optional<string> val = substitute (l, t, name, strict))
+            if (optional<string> val = substitute (l, a, t, name, strict))
             {
               // Save in depdb.
               //
@@ -443,6 +400,76 @@ namespace build2
 
       t.mtime (system_clock::now ());
       return target_state::changed;
+    }
+
+    prerequisite_target rule::
+    search (action,
+            const target& t,
+            const prerequisite_member& p,
+            include_type i) const
+    {
+      return prerequisite_target (&build2::search (t, p), i);
+    }
+
+    string rule::
+    lookup (const location& l, action, const target& t, const string& n) const
+    {
+      if (auto x = t[n])
+      {
+        value v (*x);
+
+        // For typed values call string() for conversion.
+        //
+        try
+        {
+          return convert<string> (
+            v.type == nullptr
+            ? move (v)
+            : functions.call (&t.base_scope (),
+                              "string",
+                              vector_view<value> (&v, 1),
+                              l));
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (l) << e <<
+            info << "while substituting '" << n << "'" << endf;
+        }
+      }
+      else
+        fail (l) << "undefined variable '" << n << "'" << endf;
+    }
+
+    optional<string> rule::
+    substitute (const location& l,
+                action a,
+                const target& t,
+                const string& n,
+                bool strict) const
+    {
+      // In the lax mode scan the fragment to make sure it is a variable name
+      // (that is, it can be expanded in a buildfile as just $<name>; see
+      // lexer's variable mode for details).
+      //
+      if (!strict)
+      {
+        for (size_t i (0), e (n.size ()); i != e; )
+        {
+          bool f (i == 0); // First.
+          char c (n[i++]);
+          bool l (i == e); // Last.
+
+          if (c == '_' || (f ? alpha (c) : alnum (c)))
+            continue;
+
+          if (c == '.' && !l)
+            continue;
+
+          return nullopt; // Ignore this substitution.
+        }
+      }
+
+      return lookup (l, a, t, n);
     }
   }
 }
