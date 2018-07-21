@@ -318,7 +318,8 @@ namespace build2
         // So we have to determine the scripts's directory ourselves for which
         // we use the BASH_SOURCE array. Without going into the gory details,
         // the last element in this array is the script's path regardless of
-        // whether we are in the script or (sourced) module.
+        // whether we are in the script or (sourced) module (but it turned out
+        // not to be what we need; see below).
         //
         // We also want to get the script's "real" directory even if it was
         // itself symlinked somewhere else. And this is where things get
@@ -353,11 +354,35 @@ namespace build2
         // one-liner since the import can be in an (indented) if-block, etc.,
         // and we still want the resulting scripts to be human-readable.
         //
-        return
-          "source \"$(dirname"
-          " \"$(readlink -f"
-          " \"${BASH_SOURCE[${#BASH_SOURCE[@]}-1]}\")\")/"
-          + ip.string () + "\"";
+        if (t.is_a<exe> ())
+        {
+          return
+            "source \"$(dirname"
+            " \"$(readlink -f"
+            " \"${BASH_SOURCE[0]}\")\")/"
+            + ip.string () + "\"";
+        }
+        else
+        {
+          // Things turned out to be trickier for the installed modules: we
+          // cannot juts use the script's path since it itself might not be
+          // installed (import installed). So we have to use the importer's
+          // path and calculate its "offset" to the installation directory.
+          //
+          dir_path d (t.dir.leaf (t.root_scope ().out_path ()));
+
+          string o;
+          for (auto i (d.begin ()), e (d.end ()); i != e; ++i)
+            o += "../";
+
+          // Here we don't use readlink since we assume nobody will symlink
+          // the modules (or they will all be symlinked together).
+          //
+          return
+            "source \"$(dirname"
+            " \"${BASH_SOURCE[0]}\")/"
+            + o + ip.string () + "\"";
+        }
       }
       else
         return "source " + ap->string ();
