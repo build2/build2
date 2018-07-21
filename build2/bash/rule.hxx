@@ -58,8 +58,12 @@ namespace build2
                          const string&) const;
     };
 
-    // Installation rule for bash scripts (exe{}) and modules (bash{}) that
-    // signals to in_rule that this is update for install.
+    // Installation rule for bash scripts (exe{}) and modules (bash{}). Here
+    // we do:
+    //
+    // 1. Signal to in_rule that this is update for install.
+    //
+    // 2. Custom filtering of prerequisites.
     //
     class install_rule: public install::file_rule
     {
@@ -71,6 +75,9 @@ namespace build2
 
       virtual recipe
       apply (action, target&) const override;
+
+      virtual const target*
+      filter (action, const target&, const prerequisite&) const override;
 
     private:
       const in_rule& in_;

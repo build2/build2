@@ -422,5 +422,20 @@ namespace build2
 
       return r;
     }
+
+    const target* install_rule::
+    filter (action a, const target& t, const prerequisite& p) const
+    {
+      // If this is a module prerequisite, install it as long as it is in the
+      // same amalgamation as we are.
+      //
+      if (p.is_a<bash> ())
+      {
+        const target& pt (search (t, p));
+        return pt.in (t.weak_scope ()) ? &pt : nullptr;
+      }
+      else
+        return file_rule::filter (a, t, p);
+    }
   }
 }

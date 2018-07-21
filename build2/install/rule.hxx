@@ -27,7 +27,7 @@ namespace build2
       // target otherwise. The default implementation accepts all prerequsites
       // from the target's (weak) amalgamation.
       //
-      // The prerequisite it passed as an iterator allowing the filter to
+      // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
       //
       using prerequisite_iterator =
@@ -105,7 +105,11 @@ namespace build2
       // target otherwise. The default implementation ignores prerequsites
       // that are outside of this target's project.
       //
-      // The prerequisite it passed as an iterator allowing the filter to
+      // @@ I wonder why we do weak amalgamation for alias but project for
+      //    file? And then override this for prerequisite libraries/modules
+      //    in cc::install_rule and bash::install_rule...
+      //
+      // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
       //
       using prerequisite_iterator =
