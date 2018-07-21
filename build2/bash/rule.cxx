@@ -46,8 +46,11 @@ namespace build2
     {
       tracer trace ("bash::in_rule::match");
 
-      bool fi (false); // Found in.
-      bool fm (false); // Found module.
+      // Note that for bash{} we match even if the target does not depend on
+      // any modules.
+      //
+      bool fi (false);           // Found in.
+      bool fm (t.is_a<bash> ()); // Found module.
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
