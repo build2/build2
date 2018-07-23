@@ -1082,6 +1082,24 @@ namespace build2
     return rs;
   }
 
+  // Convert project name to import variable name.
+  //
+  static inline string
+  import_name (const string& p)
+  {
+    // For simplicity let's assume project name is a package name and only
+    // sanitize characters that we don't like from what's valid there.
+    //
+    auto sanitize = [] (char c)
+    {
+      return (c == '-' || c == '+' || c == '.') ? '_' : c;
+    };
+
+    string r;
+    transform (p.begin (), p.end (), back_inserter (r), sanitize);
+    return r;
+  }
+
   names
   import (scope& ibase, name target, const location& loc)
   {
@@ -1119,7 +1137,7 @@ namespace build2
 
     for (;;) // Break-out loop.
     {
-      string n ("config.import." + proj);
+      string n ("config.import." + import_name (proj));
 
       // config.import.<proj>
       //
@@ -1404,7 +1422,7 @@ namespace build2
     tracer trace ("import");
 
     assert (pk.proj);
-    const string& p (*pk.proj);
+    const string& proj (*pk.proj);
 
     // Target type-specific search.
     //
@@ -1470,12 +1488,12 @@ namespace build2
     diag_record dr;
     dr << fail << "unable to import target " << pk;
 
-    if (p.empty ())
+    if (proj.empty ())
       dr << info << "consider adding its installation location" <<
         info << "or explicitly specify its project name";
     else
-      dr << info << "use config.import." << p << " command line variable to "
-         << "specifying its project out_root";
+      dr << info << "use config.import." << import_name (proj)
+         << " command line variable to specifying its project out_root";
 
     dr << endf;
   }
