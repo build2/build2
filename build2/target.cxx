@@ -845,19 +845,19 @@ namespace build2
   static optional<string>
   exe_target_extension (const target_key&, const scope&, bool search)
   {
-    // If we are searching for an executable that is not a target, then
-    // use the build machine executable extension. Otherwise, if this is
-    // a target, then we expect the rule to use target machine extension.
+    // If we are searching for an executable that is not a target, then use
+    // the build machine executable extension. Otherwise, if this is a target,
+    // then we expect the rule to supply the target machine extension. But if
+    // it doesn't, then assume no extension (e.g., a script).
     //
-    return search
-      ? optional<string> (
+    return string (search
+                   ?
 #ifdef _WIN32
-        "exe"
+                   "exe"
 #else
-        ""
+                   ""
 #endif
-      )
-      : nullopt;
+                   : "");
   }
 
 #ifdef _WIN32

@@ -55,10 +55,7 @@ namespace build2
 
       // Derive the file name.
       //
-      // If this is an executable with an unspecified extension, then default
-      // to no extension (i.e., a shell script).
-      //
-      t.derive_path (t.is_a<exe> () ? "" : nullptr);
+      t.derive_path ();
 
       // Inject dependency on the output directory.
       //
