@@ -129,7 +129,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 module ;
 EOI
-stdin:1:8: error: module name expected instead of ';'
+stdin:1:1: error: module declaration expected after leading module marker
 EOE
 
 : import-missing-semi
