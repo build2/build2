@@ -177,7 +177,7 @@ namespace build2
     // Diagnostics plumbing.
     //
     inline location
-    get_location (const token& t, const void*)
+    get_location (const token& t, const void* = nullptr)
     {
       return location (&t.file, t.line, t.column);
     }

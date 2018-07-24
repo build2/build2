@@ -189,6 +189,23 @@ $* test clean <<EOI
   lib{foo}: {mxx cxx}{core}
   EOI
 
+: module-marker
+:
+: Test leading module marker (module;).
+:
+cat <<EOI >=core.mxx;
+#if __cpp_modules >= 201804
+module;
+#endif
+
+void g ();
+EOI
+cat <<<../core.mxx >+core.mxx;
+ln -s ../core.cxx ../driver.cxx ./;
+$* test clean <<EOI
+  exe{test}: cxx{driver} {mxx cxx}{core}
+  EOI
+
 : re-export
 :
 : Test module re-exporting (export import M;)

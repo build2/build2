@@ -43,6 +43,8 @@ namespace build2
     private:
       lexer* l_;
       translation_unit* u_;
+
+      optional<location> module_marker_;
     };
   }
 }

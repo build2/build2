@@ -28,7 +28,8 @@ namespace build2
       // diagnostics. However, the errors could as likely be because we are
       // mis-parsing things. Initially, as a middle ground, we were going to
       // issue warnings. But the problem with this approach is that they are
-      // easy to miss. So for now we fail.
+      // easy to miss. So for now we fail. And it turns out we don't mis-
+      // parse much.
       //
       size_t bb (0);     // {}-balance.
       bool   ex (false); // True if inside top-level export{} block.
@@ -63,6 +64,7 @@ namespace build2
             // Constructs we need to recognize (the last one is only not to
             // confuse it with others).
             //
+            //           module                              ;
             // [export]  import <module-name> [<attributes>] ;
             // [export]  module <module-name> [<attributes>] ;
             //  export { import <module-name> [<attributes>] ; }
@@ -120,6 +122,10 @@ namespace build2
       if (bb != 0)
         /*warn*/ fail (t) << "{}-imbalance detected";
 
+      if (module_marker_ && u.mod.name.empty ())
+        fail (*module_marker_) << "module declaration expected after "
+                               << "leading module marker";
+
       checksum = l.checksum ();
       return u;
     }
@@ -163,7 +169,23 @@ namespace build2
       // enter: module keyword
       // leave: semi
 
-      l_->next (t); // Start of name.
+      location l (get_location (t));
+
+      l_->next (t);
+
+      // Handle the leading 'module;' marker (p0713).
+      //
+      // Note that we don't bother diagnosing invalid/duplicate markers
+      // leaving that to the compiler.
+      //
+      if (!ex && t.type == type::semi)
+      {
+        module_marker_ = move (l);
+        return;
+      }
+
+      // Otherwise it should be the start of the module name.
+      //
       string n (parse_module_name (t));
 
       // Should be {}-balanced.
@@ -174,7 +196,7 @@ namespace build2
         fail (t) << "';' expected instead of " << t;
 
       if (!u_->mod.name.empty ())
-        fail (t) << "multiple module declarations";
+        fail (l) << "multiple module declarations";
 
       u_->mod.name = move (n);
       u_->mod.iface = ex;
