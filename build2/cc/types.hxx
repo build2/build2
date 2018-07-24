@@ -27,9 +27,9 @@ namespace build2
 
     struct module_info
     {
-      string         name;    // Not empty if a module unit.
-      bool           iface;   // True if a module interface unit.
-      module_imports imports; // Imported modules.
+      string         name;          // Not empty if a module unit.
+      bool           iface = false; // True if a module interface unit.
+      module_imports imports;       // Imported modules.
     };
 
     enum class translation_type {plain, module_iface, module_impl};

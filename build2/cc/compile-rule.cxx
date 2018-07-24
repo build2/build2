@@ -3217,24 +3217,36 @@ namespace build2
       if (dd.expect (cs.string ()) != nullptr)
         updating = true;
 
-#if 0
       // Save the module map for compilers that use it.
       //
-      if (md.mods.start != 0)
+      switch (cid)
       {
-        switch (cid)
+      case compiler_id::gcc:
         {
-        case compiler_id::gcc:
-        case compiler_id::clang:
-        case compiler_id::clang_apple:
+          // We don't need to redo this if the above hash hasn't changed and
+          // the database is still valid.
+          //
+          if (dd.writing () || !dd.skip ())
           {
-            // We don't need to redo this if the above hash hasn't changed and
-            // the database is valid.
-            //
-            if (dd.writing () || !dd.skip ())
+            auto write = [&dd] (const string& name, const path& file)
             {
-              const auto& pts (t.prerequisite_targets);
+              dd.write ("@ ", false);
+              dd.write (name, false);
+              dd.write (' ', false);
+              dd.write (file);
+            };
 
+            // The output mapping is provided in the same way as input.
+            //
+            if (mi.iface)
+              write (mi.name, t.path ());
+
+            if (md.mods.start != 0)
+            {
+              // Note that we map both direct and indirect imports to override
+              // any module paths that might be stored in the BMIs.
+              //
+              const auto& pts (t.prerequisite_targets[a]);
               for (size_t i (md.mods.start); i != pts.size (); ++i)
               {
                 if (const target* m = pts[i])
@@ -3242,20 +3254,17 @@ namespace build2
                   // Save a variable lookup by getting the module name from
                   // the import list (see search_modules()).
                   //
-                  dd.write ('@', false);
-                  dd.write (mi.imports[i - md.mods.start].name, false);
-                  dd.write ('=', false);
-                  dd.write (m->as<file> ().path ());
+                  write (mi.imports[i - md.mods.start].name,
+                         m->as<file> ().path ());
                 }
               }
             }
-            break;
           }
-        default:
           break;
         }
+      default:
+        break;
       }
-#endif
 
       // Set the cc.module_name variable if this is an interface unit. Note
       // that it may seem like a good idea to set it on the bmi{} group to
@@ -4046,27 +4055,39 @@ namespace build2
                     const match_data& md) const
     {
       const module_positions& ms (md.mods);
-      assert (ms.start != 0);
-
       dir_path stdifc; // See the VC case below.
 
-      auto& pts (t.prerequisite_targets[a]);
-
-#if 0
       switch (cid)
       {
       case compiler_id::gcc:
         {
           // Use the module map stored in depdb.
           //
-          string s (relative (md.dd).string ());
-          s.insert (0, "-fmodule-file-map=@=");
-          stor.push_back (move (s));
+          // Note that it is also used to specify the output BMI file.
+          //
+          if (ms.start != 0 || md.type == translation_type::module_iface)
+          {
+            string s (relative (md.dd).string ());
+            s.insert (0, "-fmodule-mapper=");
+            s += "?@"; // Cookie (aka line prefix).
+            stor.push_back (move (s));
+          }
+
           break;
         }
       case compiler_id::clang:
       case compiler_id::clang_apple:
         {
+          if (ms.start == 0)
+            return;
+
+          // Clang embeds module file references so we only need to specify
+          // our direct imports.
+          //
+          // If/when we get the ability to specify the mapping in a file, we
+          // will pass the whole list.
+          //
+#if 0
           // In Clang the module implementation's unit .pcm is special and
           // must be "loaded".
           //
@@ -4083,10 +4104,47 @@ namespace build2
           string s (relative (md.dd).string ());
           s.insert (0, "-fmodule-file-map=@=");
           stor.push_back (move (s));
+#else
+          auto& pts (t.prerequisite_targets[a]);
+          for (size_t i (ms.start),
+                 n (ms.copied != 0 ? ms.copied : pts.size ());
+               i != n;
+               ++i)
+          {
+            const target* pt (pts[i]);
+
+            if (pt == nullptr)
+              continue;
+
+            // Here we use whatever bmi type has been added. And we know all
+            // of these are bmi's.
+            //
+            const file& f (pt->as<file> ());
+            string s (relative (f.path ()).string ());
+
+            // In Clang the module implementation's unit .pcm is special and
+            // must be "loaded".
+            //
+            if (md.type == translation_type::module_impl && i == ms.start)
+              s.insert (0, "-fmodule-file=");
+            else
+            {
+              s.insert (0, 1, '=');
+              s.insert (0, cast<string> (f.vars[c_module_name]));
+              s.insert (0, "-fmodule-file=");
+            }
+
+            stor.push_back (move (s));
+          }
+#endif
           break;
         }
       case compiler_id::msvc:
         {
+          if (ms.start == 0)
+            return;
+
+          auto& pts (t.prerequisite_targets[a]);
           for (size_t i (ms.start), n (pts.size ());
                i != n;
                ++i)
@@ -4133,102 +4191,6 @@ namespace build2
       case compiler_id::icc:
         assert (false);
       }
-#else
-      size_t n (pts.size ());
-
-      // Clang embeds module file references so we only need to specify
-      // our direct imports.
-      //
-      // If/when we get the ability to specify the mapping in a file, we
-      // should probably pass the whole list.
-      //
-      switch (cid)
-      {
-      case compiler_id::gcc:   break; // All of them.
-      case compiler_id::clang_apple:
-      case compiler_id::clang: n = ms.copied != 0 ? ms.copied : n; break;
-      case compiler_id::msvc:  break; // All of them.
-      case compiler_id::icc:   assert (false);
-      }
-
-      for (size_t i (ms.start); i != n; ++i)
-      {
-        const target* pt (pts[i]);
-
-        if (pt == nullptr)
-          continue;
-
-        // Here we use whatever bmi type has been added. And we know all of
-        // these are bmi's.
-        //
-        const file& f (pt->as<file> ());
-        string s (relative (f.path ()).string ());
-
-        switch (cid)
-        {
-        case compiler_id::gcc:
-          {
-            s.insert (0, 1, '=');
-            s.insert (0, cast<string> (f.vars[c_module_name]));
-            s.insert (0, "-fmodule-file=");
-            break;
-          }
-        case compiler_id::clang:
-        case compiler_id::clang_apple:
-          {
-            // In Clang the module implementation's unit .pcm is special and
-            // must be "loaded".
-            //
-            if (md.type == translation_type::module_impl && i == ms.start)
-              s.insert (0, "-fmodule-file=");
-            else
-            {
-              s.insert (0, 1, '=');
-              s.insert (0, cast<string> (f.vars[c_module_name]));
-              s.insert (0, "-fmodule-file=");
-            }
-            break;
-          }
-        case compiler_id::msvc:
-          {
-            // In VC std.* modules can only come from a single directory
-            // specified with the IFCPATH environment variable or the
-            // /module:stdIfcDir option.
-            //
-            if (std_module (cast<string> (f.vars[c_module_name])))
-            {
-              dir_path d (f.path ().directory ());
-
-              if (stdifc.empty ())
-              {
-                // Go one directory up since /module:stdIfcDir will look in
-                // either Release or Debug subdirectories. Keeping the result
-                // absolute feels right.
-                //
-                s = d.directory ().string ();
-                stor.push_back ("/module:stdIfcDir");
-                stdifc = move (d);
-              }
-              else
-              {
-                if (d != stdifc) // Absolute and normalized.
-                  fail << "multiple std.* modules in different directories";
-
-                continue; // Skip.
-              }
-            }
-            else
-              stor.push_back ("/module:reference");
-
-            break;
-          }
-        case compiler_id::icc:
-          assert (false);
-        }
-
-        stor.push_back (move (s));
-      }
-#endif
 
       // Shallow-copy storage to args. Why not do it as we go along pushing
       // into storage? Because of potential reallocations.
@@ -4298,14 +4260,8 @@ namespace build2
       // If we are building a module, then the target is bmi*{} and its ad hoc
       // member is obj*{}.
       //
-      path relo, relm;
-      if (mod)
-      {
-        relm = relative (tp);
-        relo = relative (t.member->is_a<file> ()->path ());
-      }
-      else
-        relo = relative (tp);
+      path relm;
+      path relo (relative (mod ? t.member->is_a<file> ()->path () : tp));
 
       // Build the command line.
       //
@@ -4382,8 +4338,7 @@ namespace build2
         if (!find_option_prefixes ({"/MD", "/MT"}, args))
           args.push_back ("/MD");
 
-        if (md.mods.start != 0)
-          append_modules (env, args, mods, a, t, md);
+        append_modules (env, args, mods, a, t, md);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -4426,6 +4381,8 @@ namespace build2
 
         if (mod)
         {
+          relm = relative (tp);
+
           args.push_back ("/module:interface");
           args.push_back ("/module:output");
           args.push_back (relm.string ().c_str ());
@@ -4447,8 +4404,7 @@ namespace build2
             args.push_back ("-fPIC");
         }
 
-        if (md.mods.start != 0)
-          append_modules (env, args, mods, a, t, md);
+        append_modules (env, args, mods, a, t, md);
 
         // Note: the order of the following options is relied upon below.
         //
@@ -4460,19 +4416,19 @@ namespace build2
           {
           case compiler_id::gcc:
             {
+              // Output module file is specified in the mapping file, the
+              // same as input.
+              //
               args.push_back ("-o");
               args.push_back (relo.string ().c_str ());
-
-              out = "-fmodule-output=";
-              out += relm.string ();
-              args.push_back (out.c_str ());
-
               args.push_back ("-c");
               break;
             }
           case compiler_id::clang:
           case compiler_id::clang_apple:
             {
+              relm = relative (tp);
+
               args.push_back ("-o");
               args.push_back (relm.string ().c_str ());
               args.push_back ("--precompile");

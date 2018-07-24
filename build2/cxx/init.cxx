@@ -182,14 +182,17 @@ namespace build2
               }
             case compiler_id::gcc:
               {
-                // Enable starting with GCC 8.0.0 (currently the c++-modules
+                // Enable starting with GCC 9.0.0 (currently the c++-modules
                 // branch).
                 //
                 if (l && // Barely usable at the moment.
-                    mj >= 8 &&
+                    mj >= 9 &&
                     ci.version.build.find ("c++-modules") != string::npos)
                 {
-                  r.push_back ("-fmodules");
+                  // Currently defines __cpp_modules=201804 which is said to
+                  // correspond to p0713 ('module;' leading marker).
+                  //
+                  r.push_back ("-fmodules-ts");
                   modules = true;
                 }
                 break;
@@ -395,14 +398,14 @@ namespace build2
         v["cc.module_name"],
         v["cc.reprocess"],
 
-        // Ability to indicate that source is already (partially)
-        // preprocessed. Valid values are 'none' (not preprocessed),
-        // 'includes' (no #include directives in source), 'modules' (as above
-        // plus no module declaration depends on preprocessor, e.g., #ifdef,
-        // etc), and 'all' (the source is fully preprocessed). Note that for
-        // 'all' the source can still contain comments and line
-        // continuations. Note also that for some compilers (e.g., VC) there
-        // is no way to signal that the source is already preprocessed.
+        // Ability to signal that source is already (partially) preprocessed.
+        // Valid values are 'none' (not preprocessed), 'includes' (no #include
+        // directives in source), 'modules' (as above plus no module
+        // declaration depends on preprocessor, e.g., #ifdef, etc), and 'all'
+        // (the source is fully preprocessed). Note that for 'all' the source
+        // can still contain comments and line continuations. Note also that
+        // for some compilers (e.g., VC) there is no way to signal that the
+        // source is already preprocessed.
         //
         v.insert<string>   ("cxx.preprocessed"),
 
