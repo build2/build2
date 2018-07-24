@@ -715,7 +715,7 @@ namespace build2
         //
         process pr (run_start (pp,
                                args,
-                               1             /* stdin */,
+                               0             /* stdin */,
                                c_fd.get ()   /* stdout */,
                                true          /* error */,
                                ad            /* cwd */));
