@@ -582,13 +582,16 @@ shipped in the project root directory). The manifest installation rule in the
 actual snapshot number and id, just like during the preparation of
 distributions.
 
-The version header rule pre-processes a template file (which means it can
-be used to generate any kinds of files, not just C/C++ headers). It matches a
-\c{file}-based target that has a corresponding \c{in} prerequisite and also
-depends on the project's \c{manifest} file. As an example, let's assume we
-want to auto-generate a header called \c{version.hxx} for our \c{libhello}
-library. To acomplish this we add the \c{version.hxx.in} template as well as
-something along these lines to our \c{buildfile}:
+The version header rule is based on the \l{#module-in \c{in}} module rule and
+can be used to preprocesses a template file with version information. While it
+is usually used to generate C/C++ version headers (thus the name), it can
+really generate any kind of files.
+
+The rule matches a \c{file}-based target that has the corresponding \c{in}
+prerequisite and also depends on the project's \c{manifest} file. As an
+example, let's assume we want to auto-generate a header called \c{version.hxx}
+for our \c{libhello} library. To accomplish this we add the \c{version.hxx.in}
+template as well as something along these lines to our \c{buildfile}:
 
 \
 lib{hello}: ... hxx{version}
@@ -597,10 +600,11 @@ hxx{version}: in{version} $src_root/file{manifest}
 hxx{version}: dist = true
 \
 
-The header rule is a line-based pre-processor that substitutes fragments
+The header rule is a line-based preprocessor that substitutes fragments
 enclosed between (and including) a pair of dollar signs (\c{$}) with \c{$$}
-being the escape sequence. As an example, let's assume our \c{version.hxx.in}
-contains the following lines:
+being the escape sequence (see the \l{#module-in \c{in}} module for
+details). As an example, let's assume our \c{version.hxx.in} contains the
+following lines:
 
 \
 #ifndef LIBHELLO_VERSION
@@ -2339,4 +2343,297 @@ to explicitly import the module and include the header, especially if the
 macros may not be needed by all consumers. This way we can also keep the
 header macro-only which means it can be included freely, in or out of module
 purviews.
+
+
+\h1#module-in|\c{in} Module|
+
+The \c{in} build system module provides support for \c{.in} (input) file
+preprocessing. Specifically, the \c{.in} file can contain a number of
+\i{substitutions} \- build system variable names enclosed with the
+substitution symbol (\c{$} by default) \- which are replaced with the
+corresponding variable values to produce the output file. For example:
+
+\
+# build/root.build
+
+using in
+\
+
+\
+// config.hxx.in
+
+#define TARGET \"$cxx.target$\"
+\
+
+\
+# buildfile
+
+hxx{config}: in{config}
+\
+
+The \c{in} module defines the \c{in{\}} target type and implements the \c{in}
+build system rule.
+
+While we can specify the \c{.in} extension explicitly, it is not necessary
+because the \c{in{\}} target type implements \i{target-dependent search} by
+taking into account the target it is a prerequisite of. In other words, the
+following dependency declarations produce the same result:
+
+\
+hxx{config}: in{config}
+hxx{config}: in{config.hxx}
+hxx{config}: in{config.hxx.in}
+\
+
+By default the \c{in} rule uses \c{$} as the substitution symbol. This can be
+changed using the \c{in.symbol} variable. For example:
+
+\
+// data.cxx.in
+
+const char data[] = \"@data@\";
+\
+
+\
+# buildfile
+
+cxx{data}: in{data}
+cxx{data}: in.symbol = '@'
+cxx{data}: data = 'Hello, World!'
+\
+
+Note that the substitution symbol must be a single character.
+
+The default substitution mode is strict. In this mode every substitution
+symbol is expected to start a substitution with unresolved (to a variable
+value) names treated as errors. The double substitution symbol (for example,
+\c{$$}) serves as an escape sequence.
+
+The substitution mode can be relaxed using the \c{in.substitution} variable.
+Its valid values are \c{strict} (default) and \c{lax}. In the lax mode a pair
+of substitution symbols is only treated as a substitution if what's between
+them looks like a build system variable name (that is, it doesn't contain
+spaces, etc). Everything else, including unterminated substitution symbols, is
+copied as is. Note also that in this mode the double substitution symbol is
+not treated as an escape sequence.
+
+The lax mode is mostly useful when trying to reuse existing \c{.in} files from
+other build systems, such as \c{autoconf}. Note, however, that the lax mode is
+still stricter than the \c{autoconf}'s semantics which also leaves unresolved
+substitutions as is. For example:
+
+\
+# buildfile
+
+h{config}: in{config} # config.h.in
+h{config}: in.symbol = '@'
+h{config}: in.substitution = lax
+h{config}: CMAKE_SYSTEM_NAME = $c.target.system
+h{config}: CMAKE_SYSTEM_PROCESSOR = $c.target.cpu
+\
+
+The \c{in} rule tracks changes to the input file as well as the substituted
+variable values and automatically regenerates the output file if any were
+detected. Substituted variable values are looked up starting from the
+target-specific variables. Typed variable values are converted to string
+using the corresponding \c{builtin.string()} function overload before
+substitution.
+
+A number of other build system modules, for example, \l{#module-version
+\c{version}} and \l{#module-bash \c{bash}}, are based on the \c{in} module and
+provide extended functionality. The \c{in} preprocessing rule matches any
+\c{file{\}}-based target that has the corresponding \c{in{\}} prerequisite
+provided none of the extended rules match.
+
+
+\h1#module-bash|\c{bash} Module|
+
+The \c{bash} build system module provides modularization support for \c{bash}
+scripts. It is based on the \l{#module-in \c{in}} build system module and
+extends its preprocessing rule with support for \i{import substitutions} in
+the \c{@import\ <module>@} form. During preprocessing, such imports are
+replaced with suitable \c{source} builtin calls. For example:
+
+\
+# build/root.build
+
+using bash
+\
+
+\
+# hello/say-hello.bash
+
+function say_hello ()
+{
+  echo \"Hello, $1!\"
+}
+\
+
+\
+#!/usr/bin/env bash
+
+# hello/hello.in
+
+@import hello/say-hello@
+
+say_hello 'World'
+\
+
+\
+# hello/buildfile
+
+exe{hello}: in{hello} bash{say-hello}
+\
+
+By default the \c{bash} preprocessing rule uses the lax substitution mode and
+\c{@} as the substitution symbol but this can be overridden using the standard
+\c{in} module mechanisms.
+
+In the above example, \c{say-hello.bash} is a \i{module}. By convention,
+\c{bash} modules have the \c{.bash} extension and we use the \c{bash{\}}
+target type (defined by the \c{bash} build system module) to refer to them in
+buildfiles.
+
+The \c{say-hello.bash} module is \i{imported} by the \c{hello} script with the
+\c{@import\ hello/say-hello@} substitution. The \i{import path}
+(\c{hello/say-hello} in our case) is a relative path to the module file within
+the project. Its first component (\c{hello} in our case) must be the project
+base name. The \c{.bash} module extension can be omitted.
+
+During preprocessing, the import substitution will be replaced with a
+\c{source} builtin call and the import path resolved to one of the \c{bash{\}}
+prerequisites from the script's dependency declaration. The actual module path
+used in \c{source} depends on whether the script is preprocessed for
+installation. If it's not (development build), then the absolute path to the
+module file is used. Otherwise, a path relative to the sourcing script's
+directory is derived. This allows installed scripts and their modules to be
+moved around.
+
+\N|The derivation of the sourcing script's directory works even if the script
+is executed via a symbolic link from another directory. Implementing this,
+however, requires \c{readlink(1)} with support for the \c{-f} option. One
+notable platform that does not provide such \c{readlink(1)} by default is Mac
+OS. The script, however, can provide a suitable implementation as a function.
+See the \c{bash} module tests for a sample implementation of such a function.|
+
+By default, \c{bash} modules are installed into a subdirectory of the \c{bin/}
+installation directory named as the project base name. For instance, in the
+above example, the script will be installed as \c{bin/hello} and the module as
+\c{bin/hello/say-hello.bash} with the script sourcing the module relative to
+the \c{bin/} directory. Note that currently it is assumed the script and all
+its modules are installed into the same \c{bin/} directory.
+
+Naturally, modules can import other modules and modules can be packaged into
+\i{module libraries} and imported using the standard build system import
+mechanism. For example, we could factor the \c{say-hello.bash} module into a
+separate \c{libhello} project:
+
+\
+# build/export.build
+
+$out_root/
+{
+  include libhello/
+}
+
+export $src_root/libhello/$import.target
+\
+
+\
+# libhello/say-hello.bash
+
+function hello_say_hello ()
+{
+  echo \"Hello, $1!\"
+}
+\
+
+And then import it in a module of our \c{hello} project:
+
+\
+# hello/hello-world.bash.in
+
+@import libhello/say-hello@
+
+function hello_world ()
+{
+  hello_say_hello 'World'
+}
+\
+
+\
+#!/usr/bin/env bash
+
+# hello/hello.in
+
+@import hello/hello-world@
+
+hello_world
+\
+
+\
+# hello/buildfile
+
+import mods = libhello%bash{say-hello}
+
+exe{hello}:        in{hello}       bash{hello-world}
+bash{hello-world}: in{hello-world} $mods
+\
+
+The \c{bash} preprocessing rule also supports importation of installed modules
+by searching in the \c{PATH} environment variable.
+
+By convention, \c{bash} module libraries should use the \c{lib} name prefix,
+for example, \c{libhello}. If there is also a native library (that is, one
+written in C/C++) that provides the same functionality (or the \c{bash}
+library is a language binding for said library), then it is customary to add
+the \c{.bash} extension to the \c{bash} library name, for example,
+\c{libhello.bash}. Note that in this case the project base name is
+\c{libhello}.
+
+Modules can be \i{private} or \i{public}. Private modules are implementation
+details of a specific project and are not expected to be imported from other
+projects. The \c{hello/hello-world.bash.in} module above is an example of a
+private module. Public modules are meant to be used by other projects and are
+normally packaged into libraries, like the \c{libhello/say-hello.bash} module
+above.
+
+Public modules must take care to avoid name clashes. Since \c{bash} does not
+have a notion of namespaces, the recommended way is to prefix all module
+functions (and global variables, if any) with the library name (without the
+\c{lib} prefix), like in the \c{libhello/say-hello.bash} module above.
+
+While using such decorated function names can be unwieldy, it is relatively
+easy to create wrappers with shorter names and use those instead. For example:
+
+\
+@import libhello/say-hello@
+
+function say_hello () { hello_say_hello \"$@\"; }
+\
+
+A module should normally also prevent itself from being sourced multiple
+times. The recommended way to achieve this is to begin the module with a
+\i{source guard}. For example:
+
+\
+# libhello/say-hello.bash
+
+if [ \"$hello_say_hello\" ]; then
+  return 0
+else
+  hello_say_hello=true
+fi
+
+function hello_say_hello ()
+{
+  echo \"Hello, $1!\"
+}
+\
+
+The \c{bash} preprocessing rule matches \c{exe{\}} targets that have the
+corresponding \c{in{\}} and one or more \c{bash{\}} prerequisites as well as
+\c{bash{\}} targets that have the corresponding \c{in{\}} prerequisite (if you
+need to preprocess a script that does not depend on any modules, you can use
+the \c{in} module's rule).
 "

@@ -47,7 +47,8 @@ namespace build2
       tracer trace ("bash::in_rule::match");
 
       // Note that for bash{} we match even if the target does not depend on
-      // any modules.
+      // any modules (while it could have been handled by the in module, that
+      // would require loading it).
       //
       bool fi (false);           // Found in.
       bool fm (t.is_a<bash> ()); // Found module.
