@@ -471,6 +471,10 @@ namespace build2
   {
     // See also search_existing_file() if updating anything here.
 
+    // Should be no default extension if searching.
+    //
+    assert (!search || de == nullptr);
+
     // The target should use extensions and they should not be fixed.
     //
     assert (de == nullptr || type ().default_extension != nullptr);
@@ -484,24 +488,24 @@ namespace build2
     {
       optional<string> e;
 
-      // If the target type has the default extension function then try that
-      // first. The reason for preferring it over what's been provided by the
-      // caller is that this function will often use the 'extension' variable
-      // which the user can use to override extensions.
+      // Prefer the default extension specified (presumably) by the rule over
+      // the one returned by the default extension function. Here we assume
+      // the rule knows what it is doing (see the exe{} target type for a use
+      // case).
       //
-      if (auto f = type ().default_extension)
-        e = f (key (), base_scope (), search);
-
-      if (!e)
+      if (de != nullptr)
+        e = de;
+      else
       {
-        if (de != nullptr)
-          e = de;
-        else
+        if (auto f = type ().default_extension)
+          e = f (key (), base_scope (), search);
+
+        if (!e)
         {
           if (search)
             return nullptr;
 
-          fail << "no default extension for target " << *this;
+          fail << "no default extension for target " << *this << endf;
         }
       }
 
@@ -850,14 +854,13 @@ namespace build2
     // then we expect the rule to supply the target machine extension. But if
     // it doesn't, then assume no extension (e.g., a script).
     //
-    return string (search
-                   ?
+    return string (!search ? "" :
 #ifdef _WIN32
                    "exe"
 #else
                    ""
 #endif
-                   : "");
+    );
   }
 
 #ifdef _WIN32

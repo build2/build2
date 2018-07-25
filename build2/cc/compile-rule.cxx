@@ -2010,7 +2010,7 @@ namespace build2
 
                 // GCC until version 8 was not capable of writing the
                 // dependency info to stdout. We also need to sense the
-                // diagnostics on the -E runs (which we do by redirective
+                // diagnostics on the -E runs (which we do by redirecting
                 // stderr to stdout).
                 //
                 if (cid == compiler_id::gcc)
