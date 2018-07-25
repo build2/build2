@@ -2008,9 +2008,10 @@ namespace build2
                 //
                 args.push_back ("-MF");
 
-                // GCC is not capable of writing the dependency info to
-                // stdout. We also need to sense the diagnostics on the -E
-                // runs.
+                // GCC until version 8 was not capable of writing the
+                // dependency info to stdout. We also need to sense the
+                // diagnostics on the -E runs (which we do by redirective
+                // stderr to stdout).
                 //
                 if (cid == compiler_id::gcc)
                 {
