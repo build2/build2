@@ -2498,7 +2498,9 @@ The \c{say-hello.bash} module is \i{imported} by the \c{hello} script with the
 \c{@import\ hello/say-hello@} substitution. The \i{import path}
 (\c{hello/say-hello} in our case) is a relative path to the module file within
 the project. Its first component (\c{hello} in our case) must be the project
-base name. The \c{.bash} module extension can be omitted.
+base name and the \c{.bash} module extension can be omitted. \N{The constraint
+placed on the first component of the import path is required to implement
+importation of installed modules, as discussed below.}
 
 During preprocessing, the import substitution will be replaced with a
 \c{source} builtin call and the import path resolved to one of the \c{bash{\}}
