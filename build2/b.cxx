@@ -57,9 +57,10 @@ using namespace std;
 #include <build2/cc/init.hxx>
 #include <build2/cxx/init.hxx>
 
-#include <build2/cli/init.hxx>
-
-#include <build2/bash/init.hxx>
+#ifndef BUILD2_BOOTSTRAP
+#  include <build2/cli/init.hxx>
+#  include <build2/bash/init.hxx>
+#endif
 
 namespace build2
 {
@@ -419,10 +420,12 @@ main (int argc, char* argv[])
       bm["cxx.config"] = mf {nullptr, &cxx::config_init};
       bm["cxx"] = mf {nullptr, &cxx::init};
 
+#ifndef BUILD2_BOOTSTRAP
       bm["cli.config"] = mf {nullptr, &cli::config_init};
       bm["cli"] = mf {nullptr, &cli::init};
 
       bm["bash"] = mf {nullptr, &bash::init};
+#endif
     }
 
     keep_going = !ops.serial_stop ();
