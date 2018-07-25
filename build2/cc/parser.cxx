@@ -21,7 +21,7 @@ namespace build2
       lexer l (is, name);
       l_ = &l;
 
-      translation_unit u {{"", false, {}}};
+      translation_unit u;
       u_ = &u;
 
       // If the source has errors then we want the compiler to issues the
