@@ -105,7 +105,10 @@ namespace build2
 
   template <const char* var, const char* def>
   optional<string>
-  target_extension_var (const target_key& tk, const scope& s, bool)
+  target_extension_var (const target_key& tk,
+                        const scope& s,
+                        const char*,
+                        bool)
   {
     return target_extension_var_impl (*tk.type, *tk.name, s, var, def);
   }

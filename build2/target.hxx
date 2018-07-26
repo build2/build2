@@ -1713,7 +1713,7 @@ namespace build2
   //
   template <const char* var, const char* def>
   optional<string>
-  target_extension_var (const target_key&, const scope&, bool);
+  target_extension_var (const target_key&, const scope&, const char*, bool);
 
   template <const char* var, const char* def>
   bool
@@ -1722,12 +1722,12 @@ namespace build2
   // Always return NULL extension.
   //
   optional<string>
-  target_extension_null (const target_key&, const scope&, bool);
+  target_extension_null (const target_key&, const scope&, const char*, bool);
 
   // Assert if called.
   //
   optional<string>
-  target_extension_assert (const target_key&, const scope&, bool);
+  target_extension_assert (const target_key&, const scope&, const char*, bool);
 
   // Target print functions.
   //

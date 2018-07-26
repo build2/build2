@@ -1068,7 +1068,7 @@ namespace build2
 
         // This is like prerequisite search.
         //
-        if (optional<string> de = tt.default_extension (tk, s, true))
+        if (optional<string> de = tt.default_extension (tk, s, nullptr, true))
           if (*de == e)
             return true;
 

@@ -117,7 +117,7 @@ namespace build2
       if (auto f = ctk.type->fixed_extension)
         ext = f (ctk);
       else if (auto f = ctk.type->default_extension)
-        ext = f (ctk, *s, true);
+        ext = f (ctk, *s, nullptr, true);
 
       if (!ext)
       {

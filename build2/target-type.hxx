@@ -34,12 +34,14 @@ namespace build2
   // returns NULL, then it means the default extension for this target could
   // not be derived.
   //
-  // The default extension is used in two (key; there are others) places:
+  // The default extension is used in two key (there are others) places:
   // search_existing_file() (called for a prerequisite with the last argument
   // true) and in target::derive_extension() (called for a target with the
   // last argument false); see their respective implementations for details.
-  // Note that the default extension supplied to derive_extension() (e.g., by
-  // a rule) takes precedence over the one returned by default_extension.
+  // The third argument is the default extension that is supplied (e.g., by a
+  // rule) to derive_extension(), if any. The implementation can decide which
+  // takes precedence, etc (see the exe{} target type for some interesting
+  // logic).
   //
   // If the pattern function is not NULL, then it is used to amend a pattern
   // or match (reverse is false) and then, if the amendment call returned
@@ -55,6 +57,7 @@ namespace build2
     const char*      (*fixed_extension)   (const target_key&);
     optional<string> (*default_extension) (const target_key&,
                                            const scope&,
+                                           const char*,
                                            bool search);
 
     bool (*pattern) (const target_type&, const scope&, string&, bool reverse);

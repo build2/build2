@@ -488,19 +488,21 @@ namespace build2
     {
       optional<string> e;
 
-      // Prefer the default extension specified (presumably) by the rule over
-      // the one returned by the default extension function. Here we assume
-      // the rule knows what it is doing (see the exe{} target type for a use
-      // case).
+      // If the target type has the default extension function then try that
+      // first. The reason for preferring it over what's been provided by the
+      // caller is that this function will often use the 'extension' variable
+      // which the user can use to override extensions. But since we pass the
+      // provided default extension, the target type can override this logic
+      // (see the exe{} target type for a use case).
       //
-      if (de != nullptr)
-        e = de;
-      else
-      {
-        if (auto f = type ().default_extension)
-          e = f (key (), base_scope (), search);
+      if (auto f = type ().default_extension)
+        e = f (key (), base_scope (), de, search);
 
-        if (!e)
+      if (!e)
+      {
+        if (de != nullptr)
+          e = de;
+        else
         {
           if (search)
             return nullptr;
@@ -577,13 +579,13 @@ namespace build2
   }
 
   optional<string>
-  target_extension_null (const target_key&, const scope&, bool)
+  target_extension_null (const target_key&, const scope&, const char*, bool)
   {
     return nullopt;
   }
 
   optional<string>
-  target_extension_assert (const target_key&, const scope&, bool)
+  target_extension_assert (const target_key&, const scope&, const char*, bool)
   {
     assert (false); // Attempt to obtain the default extension.
     throw failed ();
@@ -847,14 +849,19 @@ namespace build2
   };
 
   static optional<string>
-  exe_target_extension (const target_key&, const scope&, bool search)
+  exe_target_extension (const target_key&,
+                        const scope&,
+                        const char* e,
+                        bool search)
   {
     // If we are searching for an executable that is not a target, then use
     // the build machine executable extension. Otherwise, if this is a target,
     // then we expect the rule to supply the target machine extension. But if
-    // it doesn't, then assume no extension (e.g., a script).
+    // it doesn't, then fallback to no extension (e.g., a script).
     //
-    return string (!search ? "" :
+    return string (!search
+                   ? (e != nullptr ? e : "")
+                   :
 #ifdef _WIN32
                    "exe"
 #else
