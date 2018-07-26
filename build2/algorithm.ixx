@@ -78,7 +78,7 @@ namespace build2
           const string& name,
           const string* ext,
           const scope* scope,
-          const optional<string>& proj)
+          const optional<project_name>& proj)
   {
     return search (
       t,
@@ -99,7 +99,7 @@ namespace build2
                    const string& name,
                    const string* ext,
                    const scope* scope,
-                   const optional<string>& proj)
+                   const optional<project_name>& proj)
   {
     return search_existing (
       prerequisite_key {

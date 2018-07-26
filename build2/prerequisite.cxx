@@ -15,8 +15,6 @@ namespace build2
 {
   // prerequisite_key
   //
-  const optional<string> prerequisite_key::nullproj = nullopt;
-
   ostream&
   operator<< (ostream& os, const prerequisite_key& pk)
   {

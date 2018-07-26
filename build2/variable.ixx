@@ -611,6 +611,17 @@ namespace build2
       new (&v.data_) target_triplet (move (x));
   }
 
+  // project_name value
+  //
+  inline void value_traits<project_name>::
+  assign (value& v, project_name&& x)
+  {
+    if (v)
+      v.as<project_name> () = move (x);
+    else
+      new (&v.data_) project_name (move (x));
+  }
+
   // vector<T> value
   //
   template <typename T>

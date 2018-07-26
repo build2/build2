@@ -444,6 +444,7 @@ namespace build2
         // search (name, scope).
         //
         dir_path out;
+
         prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
         xt = search_library_existing (a, sysd, usrd, pk);
 

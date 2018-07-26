@@ -307,7 +307,7 @@ namespace build2
                  const char* what = "name",
                  const string* separators = &name_separators,
                  size_t pairn = 0,
-                 const optional<string>& prj = nullopt,
+                 const optional<project_name>& prj = nullopt,
                  const dir_path* dir = nullptr,
                  const string* type = nullptr,
                  bool cross = true);
@@ -319,7 +319,7 @@ namespace build2
                          const char* what,
                          const string* separators,
                          size_t pairn,
-                         const optional<string>& prj,
+                         const optional<project_name>& prj,
                          const dir_path* dir,
                          const string* type,
                          bool cross);
@@ -341,7 +341,7 @@ namespace build2
                   names&,
                   const char* what,
                   size_t pairn,
-                  const optional<string>& prj,
+                  const optional<project_name>& prj,
                   const dir_path* dir,
                   const string* type);
 

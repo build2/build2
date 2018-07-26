@@ -882,14 +882,12 @@ namespace build2
       return member != nullptr ? member->dir : prerequisite.dir;
     }
 
-    const optional<string>&
+    const optional<project_name>&
     proj () const
     {
       // Member cannot be project-qualified.
       //
-      return member != nullptr
-        ? prerequisite_key::nullproj
-        : prerequisite.proj;
+      return member != nullptr ? nullopt_project_name : prerequisite.proj;
     }
 
     const scope_type&

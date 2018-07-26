@@ -54,7 +54,7 @@ namespace build2
         // Install into bin/<project>/ by default stripping the .bash
         // extension from <project> if present.
         //
-        const string& p (cast<string> (rs.vars[var_project]));
+        const project_name& p (cast<project_name> (rs.vars[var_project]));
 
         install_path<bash> (bs, dir_path ("bin") /= project_base (p));
         install_mode<bash> (bs, "644");

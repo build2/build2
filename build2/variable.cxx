@@ -549,7 +549,7 @@ namespace build2
     //
     if (n.qualified ())
     {
-      string p (*n.proj);
+      string p (move (*n.proj).string ());
       p += '%';
       p += s;
       p.swap (s);
@@ -563,7 +563,7 @@ namespace build2
 
       if (r->qualified ())
       {
-        s += *r->proj;
+        s += r->proj->string ();
         s += '%';
       }
 
@@ -1078,6 +1078,55 @@ namespace build2
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<target_triplet>,
     &default_empty<target_triplet>
+  };
+
+  // project_name value
+  //
+  project_name value_traits<project_name>::
+  convert (name&& n, name* r)
+  {
+    if (r == nullptr)
+    {
+      if (n.simple ())
+      {
+        try
+        {
+          return n.empty () ? project_name () : project_name (move (n.value));
+        }
+        catch (const invalid_argument& e)
+        {
+          throw invalid_argument (
+            string ("invalid project_name value: ") + e.what ());
+        }
+      }
+
+      // Fall through.
+    }
+
+    throw_invalid_argument (n, r, "project_name");
+  }
+
+  const project_name&
+  value_traits<project_name>::empty_instance = empty_project_name;
+
+  const char* const value_traits<project_name>::type_name = "project_name";
+
+  const value_type value_traits<project_name>::value_type
+  {
+    type_name,
+    sizeof (project_name),
+    nullptr,                         // No base.
+    nullptr,                         // No element.
+    &default_dtor<project_name>,
+    &default_copy_ctor<project_name>,
+    &default_copy_assign<project_name>,
+    &simple_assign<project_name>,
+    nullptr,                         // Append not supported.
+    nullptr,                         // Prepend not supported.
+    &simple_reverse<project_name>,
+    nullptr,                         // No cast (cast data_ directly).
+    &simple_compare<project_name>,
+    &default_empty<project_name>
   };
 
   // variable_pool

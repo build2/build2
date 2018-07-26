@@ -47,9 +47,10 @@ namespace build2
     {
       // See find_subprojects() for details.
       //
-      const string& n (path::traits::is_separator (i->first.back ())
-                       ? empty_string
-                       : i->first);
+      const project_name& n (
+        path::traits::is_separator (i->first.string ().back ())
+        ? empty_project_name
+        : i->first);
 
       os << (i != b ? " " : "") << n << '@' << i->second;
     }
@@ -464,7 +465,7 @@ namespace build2
 
   // Extract the project name from bootstrap.build.
   //
-  static string
+  static project_name
   find_project_name (const dir_path& out_root,
                      const dir_path& fallback_src_root,
                      bool* src_hint = nullptr)
@@ -480,7 +481,7 @@ namespace build2
     if (s.root_scope () == &s && s.out_path () == out_root)
     {
       if (lookup l = s.vars[var_project])
-        return cast<string> (l);
+        return cast<project_name> (l);
 
       src_root = s.src_path_;
     }
@@ -518,7 +519,7 @@ namespace build2
       }
     }
 
-    string name;
+    project_name name;
     {
       path f (*src_root / bootstrap_file);
       auto p (extract_variable (f, *var_project));
@@ -527,7 +528,7 @@ namespace build2
         fail << "variable " << var_project->name << " expected "
              << "as a first line in " << f;
 
-      name = cast<string> (move (p.first));
+      name = cast<project_name> (move (p.first));
     }
 
     l5 ([&]{trace << "extracted project name '" << name << "' for "
@@ -576,7 +577,7 @@ namespace build2
         // Load its name. Note that here we don't use fallback src_root
         // since this function is used to scan both out_root and src_root.
         //
-        string name (find_project_name (sd, dir_path (), &src));
+        project_name name (find_project_name (sd, dir_path (), &src));
 
         // If the name is empty, then is is an unnamed project. While the
         // 'project' variable stays empty, here we come up with a surrogate
@@ -585,7 +586,8 @@ namespace build2
         // sub-directory and appending a trailing directory separator to it.
         //
         if (name.empty ())
-          name = dir.posix_string () + path::traits::directory_separator;
+          name = project_name (dir.posix_string () + '/',
+                               project_name::raw_string);
 
         // @@ Can't use move() because we may need the values in diagnostics
         // below. Looks like C++17 try_emplace() is what we need.
@@ -770,7 +772,7 @@ namespace build2
           {
             // Project name.
             //
-            string n;
+            project_name n;
             if (i->pair)
             {
               if (i->pair != '@')
@@ -778,7 +780,7 @@ namespace build2
 
               try
               {
-                n = convert<string> (move (*i));
+                n = convert<project_name> (move (*i));
 
                 if (n.empty ())
                   fail << "empty project name in variable subprojects";
@@ -821,7 +823,8 @@ namespace build2
               // See find_subprojects() for details on unnamed projects.
               //
               if (n.empty ())
-                n = d.posix_string () + '/';
+                n = project_name (d.posix_string () + '/',
+                                  project_name::raw_string);
             }
 
             sps.emplace (move (n), move (d));
@@ -1082,24 +1085,6 @@ namespace build2
     return rs;
   }
 
-  // Convert project name to import variable name.
-  //
-  static inline string
-  import_name (const string& p)
-  {
-    // For simplicity let's assume project name is a package name and only
-    // sanitize characters that we don't like from what's valid there.
-    //
-    auto sanitize = [] (char c)
-    {
-      return (c == '-' || c == '+' || c == '.') ? '_' : c;
-    };
-
-    string r;
-    transform (p.begin (), p.end (), back_inserter (r), sanitize);
-    return r;
-  }
-
   names
   import (scope& ibase, name target, const location& loc)
   {
@@ -1113,13 +1098,13 @@ namespace build2
     //
     if (target.unqualified ())
     {
-      target.proj = string ();
+      target.proj = project_name ();
       return names {move (target)};
     }
 
     // Otherwise, get the project name and convert the target to unqualified.
     //
-    string proj (move (*target.proj));
+    project_name proj (move (*target.proj));
     target.proj = nullopt;
 
     scope& iroot (*ibase.root_scope ());
@@ -1137,7 +1122,7 @@ namespace build2
 
     for (;;) // Break-out loop.
     {
-      string n ("config.import." + import_name (proj));
+      string n ("config.import." + proj.variable ());
 
       // config.import.<proj>
       //
@@ -1230,7 +1215,7 @@ namespace build2
 
         // First check the amalgamation itself.
         //
-        if (r != &iroot && cast<string> (r->vars[var_project]) == proj)
+        if (r != &iroot && cast<project_name> (r->vars[var_project]) == proj)
         {
           out_root = r->out_path ();
           break;
@@ -1345,7 +1330,7 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (cast<string> (root->vars[var_project]) == proj)
+      if (cast<project_name> (root->vars[var_project]) == proj)
         break;
 
       if (auto l = root->vars[var_subprojects])
@@ -1422,7 +1407,7 @@ namespace build2
     tracer trace ("import");
 
     assert (pk.proj);
-    const string& proj (*pk.proj);
+    const project_name& proj (*pk.proj);
 
     // Target type-specific search.
     //
@@ -1492,7 +1477,7 @@ namespace build2
       dr << info << "consider adding its installation location" <<
         info << "or explicitly specify its project name";
     else
-      dr << info << "use config.import." << import_name (proj)
+      dr << info << "use config.import." << proj.variable ()
          << " command line variable to specifying its project out_root";
 
     dr << endf;

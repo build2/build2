@@ -65,7 +65,7 @@ namespace build2
           const string& name,
           const string* ext = nullptr,  // NULL means unspecified.
           const scope* = nullptr,       // NULL means dir is absolute.
-          const optional<string>& proj = nullopt);
+          const optional<project_name>& proj = nullopt);
 
   const target*
   search_existing (const target_type& type,
@@ -74,7 +74,7 @@ namespace build2
                    const string& name,
                    const string* ext = nullptr,
                    const scope* = nullptr,
-                   const optional<string>& proj = nullopt);
+                   const optional<project_name>& proj = nullopt);
 
   // As above but specify the target type as template argument.
   //

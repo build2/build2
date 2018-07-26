@@ -16,7 +16,8 @@ namespace build2
 {
   namespace version
   {
-    // The 'depends' values from manifest.
+    // The 'depends' values from manifest. Note that the package names are
+    // sanitized for use in variable names.
     //
     using dependency_constraints = std::map<string, string>;
 
@@ -24,7 +25,9 @@ namespace build2
     {
       static const string name;
 
-      const string& project; // The project variable value.
+      // The project variable value sanitized for use in variable names.
+      //
+      const string project;
 
       butl::standard_version version;
       bool committed; // Whether this is a committed snapshot.
@@ -34,12 +37,12 @@ namespace build2
 
       bool dist_uncommitted = false;
 
-      module (const string& p,
+      module (const project_name& p,
               butl::standard_version v,
               bool c,
               bool r,
               dependency_constraints d)
-          : project (p),
+          : project (p.variable ()),
             version (move (v)),
             committed (c),
             rewritten (r),

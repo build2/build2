@@ -250,7 +250,7 @@ namespace build2
         if (s)
           config::save_module (rs, "install", INT32_MAX);
 
-        const string& n (project (rs));
+        const string& n (project (rs).string ());
 
         // Global config.install.* values.
         //

@@ -42,6 +42,7 @@
 #include <libbutl/timestamp.mxx>
 #include <libbutl/vector-view.mxx>
 #include <libbutl/small-vector.mxx>
+#include <libbutl/project-name.mxx>
 #include <libbutl/target-triplet.mxx>
 #include <libbutl/standard-version.mxx>
 
@@ -272,6 +273,10 @@ namespace build2
   //
   using butl::standard_version;
   using butl::standard_version_constraint;
+
+  // <libbutl/project-name.mxx>
+  //
+  using butl::project_name;
 
   // Diagnostics location.
   //

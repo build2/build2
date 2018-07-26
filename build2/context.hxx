@@ -408,11 +408,11 @@ namespace build2
 
   // Return the project name or empty string if unnamed.
   //
-  inline const string&
+  inline const project_name&
   project (const scope& root)
   {
     auto l (root[var_project]);
-    return l ? cast<string> (l) : empty_string;
+    return l ? cast<project_name> (l) : empty_project_name;
   }
 
   // Return the src/out directory corresponding to the given out/src. The

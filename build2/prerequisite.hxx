@@ -31,11 +31,9 @@ namespace build2
   public:
     typedef build2::scope scope_type;
 
-    const optional<string>& proj;
+    const optional<project_name>& proj;
     target_key tk;                // The .dir and .out members can be relative.
     const scope_type* scope;      // Can be NULL if tk.dir is absolute.
-
-    static const optional<string> nullproj;
 
     template <typename T>
     bool is_a () const {return tk.is_a<T> ();}
@@ -65,7 +63,7 @@ namespace build2
     // bar/ here is relative to the scope, not to foo/. Plus, bar/ can resolve
     // to either src or out.
     //
-    const optional<string>  proj;
+    const optional<project_name> proj;
     const target_type_type& type;
     const dir_path dir;         // Normalized absolute or relative (to scope).
     const dir_path out;         // Empty, normalized absolute, or relative.
@@ -102,7 +100,7 @@ namespace build2
     append (const variable&, const target_type&);
 
   public:
-    prerequisite (optional<string> p,
+    prerequisite (optional<project_name> p,
                   const target_type_type& t,
                   dir_path d,
                   dir_path o,

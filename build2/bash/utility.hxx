@@ -14,13 +14,12 @@ namespace build2
   {
     // Strip the .bash extension from the project name.
     //
+    // Note that the result may not be a valid project name.
+    //
     inline string
-    project_base (const string& n)
+    project_base (const project_name& pn)
     {
-      size_t p (path::traits::find_extension (n));
-      return p == string::npos || casecmp (n.c_str () + p, ".bash", 5) != 0
-        ? n
-        : string (n, 0, p);
+      return pn.base ("bash");
     }
   }
 }

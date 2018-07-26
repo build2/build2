@@ -2150,6 +2150,7 @@ namespace build2
       n == "name"           ? ptr (value_traits<name>::value_type)           :
       n == "name_pair"      ? ptr (value_traits<name_pair>::value_type)      :
       n == "target_triplet" ? ptr (value_traits<target_triplet>::value_type) :
+      n == "project_name"   ? ptr (value_traits<project_name>::value_type)   :
 
       n == "uint64s"        ? ptr (value_traits<uint64s>::value_type)        :
       n == "strings"        ? ptr (value_traits<strings>::value_type)        :
@@ -2799,7 +2800,7 @@ namespace build2
                 names& ns,
                 const char* what,
                 size_t pairn,
-                const optional<string>& pp,
+                const optional<project_name>& pp,
                 const dir_path* dp,
                 const string* tp)
   {
@@ -2827,7 +2828,7 @@ namespace build2
 
       // Project.
       //
-      optional<string> p;
+      optional<project_name> p;
       if (cn.proj)
       {
         if (pp)
@@ -3186,7 +3187,7 @@ namespace build2
                        const char* what,
                        const string* separators,
                        size_t pairn,
-                       const optional<string>& pp,
+                       const optional<project_name>& pp,
                        const dir_path* dp,
                        const string* tp,
                        bool cross)
@@ -3209,7 +3210,7 @@ namespace build2
     // Parse names until closing '}' expanding patterns.
     //
     auto parse = [&r, &t, &tt, pmode, what, separators, this] (
-      const optional<string>& pp,
+      const optional<project_name>& pp,
       const dir_path* dp,
       const string* tp)
     {
@@ -3350,7 +3351,7 @@ namespace build2
                const char* what,
                const string* separators,
                size_t pairn,
-               const optional<string>& pp,
+               const optional<project_name>& pp,
                const dir_path* dp,
                const string* tp,
                bool cross) -> parse_names_result
@@ -3708,8 +3709,8 @@ namespace build2
         // First take care of project. A project-qualified name is not very
         // common, so we can afford some copying for the sake of simplicity.
         //
-        optional<string> p1;
-        const optional<string>* pp1 (&pp);
+        optional<project_name> p1;
+        const optional<project_name>* pp1 (&pp);
 
         if (p != string::npos)
         {
@@ -3733,7 +3734,17 @@ namespace build2
             if (pp)
               fail (t) << "nested project name " << proj;
 
-            p1 = move (proj);
+            try
+            {
+              p1 = !proj.empty ()
+                ? project_name (move (proj))
+                : project_name ();
+            }
+            catch (const invalid_argument& e)
+            {
+              fail (t) << "invalid project name '" << proj << "': " << e;
+            }
+
             pp1 = &p1;
           }
         }

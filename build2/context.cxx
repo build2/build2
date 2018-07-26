@@ -718,10 +718,10 @@ namespace build2
       // Note that subprojects is not typed since the value requires
       // pre-processing (see file.cxx).
       //
-      var_project      = &vp.insert<string>   ("project",      v_p);
-      var_amalgamation = &vp.insert<dir_path> ("amalgamation", v_p);
-      var_subprojects  = &vp.insert           ("subprojects",  v_p);
-      var_version      = &vp.insert<string>   ("version",      v_p);
+      var_project      = &vp.insert<project_name> ("project",      v_p);
+      var_amalgamation = &vp.insert<dir_path>     ("amalgamation", v_p);
+      var_subprojects  = &vp.insert               ("subprojects",  v_p);
+      var_version      = &vp.insert<string>       ("version",      v_p);
 
       var_project_url     = &vp.insert<string> ("project.url",     v_p);
       var_project_summary = &vp.insert<string> ("project.summary", v_p);

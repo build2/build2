@@ -375,6 +375,7 @@ namespace build2
   void regex_functions ();          // functions-regex.cxx
   void string_functions ();         // functions-string.cxx
   void target_triplet_functions (); // functions-target-triplet.cxx
+  void project_name_functions ();   // functions-target-triplet.cxx
 
   struct functions_init
   {
@@ -389,6 +390,7 @@ namespace build2
       regex_functions ();
       string_functions ();
       target_triplet_functions ();
+      project_name_functions ();
     }
   };
 

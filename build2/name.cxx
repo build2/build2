@@ -25,7 +25,7 @@ namespace build2
 
     if (n.proj)
     {
-      r += *n.proj;
+      r += n.proj->string ();
       r += '%';
     }
 
@@ -119,7 +119,7 @@ namespace build2
 
     if (n.proj)
     {
-      write_string (*n.proj);
+      write_string (n.proj->string ());
       os << '%';
     }
 

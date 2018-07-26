@@ -19,7 +19,7 @@ namespace build2
   class location;
   class prerequisite_key;
 
-  using subprojects = std::map<string, dir_path>;
+  using subprojects = std::map<project_name, dir_path>;
 
   ostream&
   operator<< (ostream&, const subprojects&); // Print as name@dir sequence.

@@ -33,7 +33,7 @@ namespace build2
   //
   struct name
   {
-    optional<string> proj;
+    optional<project_name> proj;
     dir_path dir;
     string type;
     string value;
@@ -48,7 +48,7 @@ namespace build2
     name (dir_path d, string t, string v)
         : dir (move (d)), type (move (t)), value (move (v)) {}
 
-    name (optional<string> p, dir_path d, string t, string v)
+    name (optional<project_name> p, dir_path d, string t, string v)
         : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)) {}
 
     bool

@@ -288,7 +288,7 @@ namespace build2
       bool
       pkgconfig_load (action, const scope&,
                       bin::lib&, bin::liba*, bin::libs*,
-                      const optional<string>&,
+                      const optional<project_name>&,
                       const string&,
                       const dir_path&,
                       const dir_paths&,

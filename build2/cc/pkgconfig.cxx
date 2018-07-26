@@ -456,7 +456,7 @@ namespace build2
                     lib& lt,
                     liba* at,
                     libs* st,
-                    const optional<string>& proj,
+                    const optional<project_name>& proj,
                     const string& stem,
                     const dir_path& libd,
                     const dir_paths& top_sysd,
@@ -551,7 +551,7 @@ namespace build2
         if (proj)
         {
           f = dir;
-          f /= *proj;
+          f /= proj->string ();
           f += sfx;
           f += ".pc";
           if (exists (f))
@@ -1102,7 +1102,7 @@ namespace build2
                     lib&,
                     liba*,
                     libs*,
-                    const optional<string>&,
+                    const optional<project_name>&,
                     const string&,
                     const dir_path&,
                     const dir_paths&,
@@ -1142,7 +1142,7 @@ namespace build2
         ofdstream os (p);
 
         {
-          const string& n (cast<string> (rs.vars[var_project]));
+          const project_name& n (cast<project_name> (rs.vars[var_project]));
 
           lookup vl (rs.vars[var_version]);
           if (!vl)

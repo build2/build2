@@ -820,7 +820,6 @@ namespace build2
     static const build2::value_type value_type;
   };
 
-
   // target_triplet
   //
   template <>
@@ -837,6 +836,27 @@ namespace build2
     static bool empty (const target_triplet& x) {return x.empty ();}
 
     static const bool empty_value = true;
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+  // project_name
+  //
+  template <>
+  struct value_traits<project_name>
+  {
+    static_assert (sizeof (project_name) <= value::size_,
+                   "insufficient space");
+
+    static project_name convert (name&&, name*);
+    static void assign (value&, project_name&&);
+    static name reverse (const project_name& x) {return name (x.string ());}
+    static int compare (const project_name& x, const project_name& y) {
+      return x.compare (y);}
+    static bool empty (const project_name& x) {return x.empty ();}
+
+    static const bool empty_value = true;
+    static const project_name& empty_instance;
     static const char* const type_name;
     static const build2::value_type value_type;
   };

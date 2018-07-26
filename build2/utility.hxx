@@ -388,15 +388,17 @@ namespace build2
       verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
-  // Empty/nullopt string and path.
+  // Empty/nullopt string, path, and project name.
   //
-  extern const string   empty_string;
-  extern const path     empty_path;
-  extern const dir_path empty_dir_path;
+  extern const string       empty_string;
+  extern const path         empty_path;
+  extern const dir_path     empty_dir_path;
+  extern const project_name empty_project_name;
 
-  extern const optional<string>   nullopt_string;
-  extern const optional<path>     nullopt_path;
-  extern const optional<dir_path> nullopt_dir_path;
+  extern const optional<string>       nullopt_string;
+  extern const optional<path>         nullopt_path;
+  extern const optional<dir_path>     nullopt_dir_path;
+  extern const optional<project_name> nullopt_project_name;
 
   // Hash a path potentially without the specific directory prefix.
   //

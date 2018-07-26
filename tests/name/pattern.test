@@ -9,8 +9,8 @@ define txt: file
 txt{*}: extension = txt
 EOI
 
-$* <'print p%*.txt'       >'p%*.txt'       : project-simple
-$* <'print p%{*.txt -x*}' >'p%*.txt p%-x*' : project-group
+$* <'print pp%*.txt'       >'pp%*.txt'        : project-simple
+$* <'print pp%{*.txt -x*}' >'pp%*.txt pp%-x*' : project-group
 
 $* <"print '*.txt'" >'*.txt' : quoted-single
 $* <'print "*.txt"' >'*.txt' : quoted-double

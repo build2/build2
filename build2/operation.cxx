@@ -493,7 +493,7 @@ namespace build2
       // This could be a simple project that doesn't set project name.
       //
       cout
-        << "project: "      << cast_empty<string> (s[var_project]) << endl
+        << "project: "      << cast_empty<project_name> (s[var_project]) << endl
         << "version: "      << cast_empty<string> (s[var_version]) << endl
         << "summary: "      << cast_empty<string> (s[var_project_summary]) << endl
         << "url: "          << cast_empty<string> (s[var_project_url]) << endl

@@ -138,10 +138,18 @@ namespace build2
                 catch (const invalid_argument& e)
                 {
                   fail (l) << "invalid version constraint for dependency "
-                           << b << ": " << e;
+                           << d << ": " << e;
                 }
 
-                ds.emplace (move (n), move (c));
+                try
+                {
+                  ds.emplace (project_name (move (n)).variable (), move (c));
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (l) << "invalid package name for dependency "
+                           << d << ": " << e;
+                }
               }
             }
           }
@@ -232,7 +240,7 @@ namespace build2
 
       // Create the module.
       //
-      mod.reset (new module (cast<string> (rs.vars[var_project]),
+      mod.reset (new module (cast<project_name> (rs.vars[var_project]),
                              move (v),
                              committed,
                              rewritten,
@@ -284,7 +292,7 @@ namespace build2
 
         if (!val)
         {
-          string p (cast<string> (rs.vars[var_project]));
+          string p (cast<project_name> (rs.vars[var_project]).string ());
           p += '-';
           p += v.string ();
           val = move (p);
