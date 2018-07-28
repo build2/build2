@@ -470,6 +470,20 @@ namespace build2
       set ("build.version.snapshot_sn",     v.snapshot_sn); // uint64
       set ("build.version.snapshot_id",     v.snapshot_id); // string
       set ("build.version.snapshot_string", v.string_snapshot ());
+
+      // Allow detection (for example, in tests) whether this is a staged
+      // toolchain.
+      //
+      // Note that it is either staged or public, without queued, since we do
+      // not re-package things during the queued-to-public transition.
+      //
+      // Currently the value is adjusted manually during release but in the
+      // future the idea is to use version metadata (e.g., 1.2.3-a.1+0.stage).
+      // This way it will all be managed in a central place (manifest), we
+      // can teach the version module to extract it, and we can also set it
+      // for the other packages in the toolchain.
+      //
+      set ("build.version.stage", true);
     }
 
     // Enter the host information. Rather than jumping through hoops like
