@@ -100,7 +100,8 @@ namespace build2
         //
         process_path pp;
 
-        // Return version or empty string if the cli executable is not found.
+        // Return version or empty string if the cli executable is not found
+        // or is not the command line interface compiler.
         //
         // @@ This needs some more thinking/cleanup. Specifically, what does
         //    it mean "cli not found"? Is it just not found in PATH? That plus
@@ -129,23 +130,35 @@ namespace build2
             {
               ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
 
-              // The version should be the last word on the first line.
+              // The version should be the last word on the first line. But
+              // also check the prefix since there are other things called
+              // 'cli', for example, "Mono JIT compiler".
               //
-              string ver;
-              getline (is, ver);
-              auto p (ver.rfind (' '));
-              if (p != string::npos)
-                ver = string (ver, p + 1);
+              string v;
+              getline (is, v);
+
+              if (v.compare (0, 37,
+                             "CLI (command line interface compiler)") == 0)
+              {
+                size_t p (v.rfind (' '));
+
+                if (p == string::npos)
+                  fail << "unexpected output from " << cli;
+
+                v.erase (0, p + 1);
+              }
+              else
+              {
+                if (!optional)
+                  fail << cli << " is not command line interface compiler";
+
+                v.clear ();
+              }
 
               is.close (); // Don't block the other end.
 
               if (pr.wait ())
-              {
-                if (ver.empty ())
-                  fail << "unexpected output from " << cli;
-
-                return ver;
-              }
+                return v;
 
               // Presumably issued diagnostics. Fall through.
             }
