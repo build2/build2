@@ -656,8 +656,11 @@ namespace build2
 
     // Combine the target name and extension into the name leaf.
     //
+    // If the target type has the default extension, then "escape" the
+    // existing extension if any.
+    //
     static void
-    combine_name (string&, const optional<string>&);
+    combine_name (string&, const optional<string>&, bool default_extension);
 
   public:
     virtual

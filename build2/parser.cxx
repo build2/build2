@@ -3214,14 +3214,19 @@ namespace build2
         }
       }
 
+      bool de (false); // Default extension.
       if ((n.pair & 0x01) != 0)
+      {
+        de = static_cast<bool> (e);
         tt->pattern (*tt, *scope_, v, e, true);
+        de = de && !e;
+      }
 
       if (dir)
         n.dir = dir_path (move (v));
       else
       {
-        target::combine_name (v, e);
+        target::combine_name (v, e, de);
         n.value = move (v);
       }
 

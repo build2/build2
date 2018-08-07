@@ -240,7 +240,7 @@ namespace build2
   }
 
   void target::
-  combine_name (string& v, const optional<string>& e)
+  combine_name (string& v, const optional<string>& e, bool de)
   {
     if (v.back () == '.')
     {
@@ -258,7 +258,7 @@ namespace build2
       v += '.';
       v += *e;  // Empty or not.
     }
-    else
+    else if (de)
     {
       if (path::traits::find_extension (v) != string::npos)
         v += "...";
