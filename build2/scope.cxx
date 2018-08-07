@@ -588,36 +588,38 @@ namespace build2
     return nullptr;
   }
 
-  const target_type* scope::
-  find_target_type (name& n, optional<string>& ext, const location& loc) const
+  pair<const target_type*, optional<string>> scope::
+  find_target_type (name& n, const location& loc) const
   {
-    ext = nullopt;
+    const target_type* tt (nullptr);
+    optional<string> ext;
+
     string& v (n.value);
 
     // If the target type is specified, resolve it and bail out if not found.
     // Otherwise, we know in the end it will resolve to something (if nothing
     // else, either dir{} or file{}), so we can go ahead and process the name.
     //
-    const target_type* r (nullptr);
     if (n.typed ())
     {
-      r = find_target_type (n.type);
+      tt = find_target_type (n.type);
 
-      if (r == nullptr)
-        return r;
+      if (tt == nullptr)
+        return make_pair (tt, move (ext));
     }
     else
     {
-      // Empty name as well as '.' and '..' signify a directory.
+      // Empty name as well as '.' and '..' signify a directory. Note that
+      // this logic must be consistent with other places (grep for "..").
       //
       if (v.empty () || v == "." || v == "..")
-        r = &dir::static_type;
+        tt = &dir::static_type;
     }
 
     // Directories require special name processing. If we find that more
-    // targets deviate, then we should make this target-type-specific.
+    // targets deviate, then we should make this target type-specific.
     //
-    if (r != nullptr && (r->is_a<dir> () || r->is_a<fsdir> ()))
+    if (tt != nullptr && (tt->is_a<dir> () || tt->is_a<fsdir> ()))
     {
       // The canonical representation of a directory name is with empty
       // value.
@@ -634,50 +636,43 @@ namespace build2
       // the extension (if any). We cannot assume the name part is a valid
       // filesystem name so we will have to do the splitting manually.
       //
-      path::size_type i (path::traits::rfind_separator (v));
+      // See also parser::expand_name_pattern() if changing anything here.
+      //
+      size_t p (path::traits::rfind_separator (v));
 
-      if (i != string::npos)
+      if (p != string::npos)
       {
         try
         {
-          n.dir /= dir_path (v, i != 0 ? i : 1); // Special case: "/".
+          n.dir /= dir_path (v, p != 0 ? p : 1); // Special case: "/".
         }
         catch (const invalid_path& e)
         {
           fail (loc) << "invalid path '" << e.path << "'";
         }
 
-        v = string (v, i + 1, string::npos);
+        v.erase (0, p + 1);
       }
 
-      // Extract the extension. Treat trailing dot as specified but empty
-      // extension.
+      // Extract the extension.
       //
-      string::size_type j (v.back () != '.'
-                           ? path::traits::find_extension (v)
-                           : v.size () - 1);
-
-      if (j != string::npos)
-      {
-        ext = string (v.c_str () + j + 1);
-        v.resize (j);
-      }
+      ext = target::split_name (v, loc);
     }
 
     // If the target type is still unknown, map it using the name/extension,
     // falling back to file{}.
     //
-    if (r == nullptr)
+    if (tt == nullptr)
     {
       // We only consider files without extension for file name mapping.
       //
       if (!ext)
-        r = find_file_target_type (this, v);
+        tt = find_file_target_type (this, v);
 
       //@@ TODO: derive type from extension.
 
-      if (r == nullptr)
-        r = &file::static_type;
+      if (tt == nullptr)
+        tt = &file::static_type;
     }
 
     // If the target type does not use extensions but one was specified,
@@ -685,15 +680,15 @@ namespace build2
     // diagnostics; see to_stream(target_key) for details).
     //
     if (ext                             &&
-        r->fixed_extension   == nullptr &&
-        r->default_extension == nullptr)
+        tt->fixed_extension   == nullptr &&
+        tt->default_extension == nullptr)
     {
       v += '.';
       v += *ext;
       ext = nullopt;
     }
 
-    return r;
+    return make_pair (tt, move (ext));
   }
 
   static target*

@@ -45,7 +45,9 @@ namespace build2
   //
   // If the pattern function is not NULL, then it is used to amend a pattern
   // or match (reverse is false) and then, if the amendment call returned
-  // true, to reverse it in the resulting matches.
+  // true, to reverse it in the resulting matches. The pattern function for a
+  // non-directory target must first call target::split_name() if reverse is
+  // false.
   //
   struct target_type
   {
@@ -60,7 +62,12 @@ namespace build2
                                            const char*,
                                            bool search);
 
-    bool (*pattern) (const target_type&, const scope&, string&, bool reverse);
+    bool (*pattern) (const target_type&,
+                     const scope&,
+                     string& name,
+                     optional<string>& extension,
+                     const location&,
+                     bool reverse);
 
     void (*print) (ostream&, const target_key&);
 

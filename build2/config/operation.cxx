@@ -931,8 +931,8 @@ namespace build2
         {
           const name& tn (ts.name);
 
-          // Figure out the project directory. This code must be consistent
-          // with find_target_type() and other places.
+          // Figure out the project directory. This logic must be consistent
+          // with find_target_type() and other places (grep for "..").
           //
           dir_path d;
 

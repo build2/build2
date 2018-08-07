@@ -213,12 +213,12 @@ namespace build2
 
     // Given a name, figure out its type, taking into account extensions,
     // special names (e.g., '.' and '..'), or anything else that might be
-    // relevant. Also process the name (in place) by extracting the
-    // extension, adjusting dir/value, etc., (note that the dir is not
+    // relevant. Process the name (in place) by extracting (and returning)
+    // extension, adjusting dir/leaf, etc., (note that the dir is not
     // necessarily normalized). Return NULL if not found.
     //
-    const target_type*
-    find_target_type (name&, optional<string>& ext, const location&) const;
+    pair<const target_type*, optional<string>>
+    find_target_type (name&, const location&) const;
 
     // Dynamically derive a new target type from an existing one. Return the
     // reference to the target type and an indicator of whether it was

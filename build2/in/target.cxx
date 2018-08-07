@@ -34,9 +34,14 @@ namespace build2
     }
 
     static bool
-    in_pattern (const target_type&, const scope&, string&, bool)
+    in_pattern (const target_type&,
+                const scope&,
+                string&,
+                optional<string>&,
+                const location& l,
+                bool)
     {
-      fail << "pattern in in{} prerequisite" << endf;
+      fail (l) << "pattern in in{} prerequisite" << endf;
     }
 
     extern const char in_ext_def[] = ""; // No extension by default.

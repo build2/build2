@@ -55,27 +55,30 @@ namespace build2
 
   template <const char* ext>
   bool
-  target_pattern_fix (const target_type&, const scope&, string& v, bool r)
+  target_pattern_fix (const target_type&,
+                      const scope&,
+                      string& v,
+                      optional<string>& e,
+                      const location& l,
+                      bool r)
   {
-    size_t p (path::traits::find_extension (v));
-
     if (r)
     {
       // If we get called to reverse then it means we've added the extension
-      // in the first place. So simply strip it.
+      // in the first place.
       //
-      assert (p != string::npos);
-      v.resize (p);
+      assert (e);
+      e = nullopt;
     }
-    //
-    // We only add our extension if there isn't one already.
-    //
-    else if (p == string::npos)
+    else
     {
-      if (*ext != '\0') // Don't add empty extension (means no extension).
+      e = target::split_name (v, l);
+
+      // We only add our extension if there isn't one already.
+      //
+      if (!e)
       {
-        v += '.';
-        v += ext;
+        e = ext;
         return true;
       }
     }
@@ -115,34 +118,34 @@ namespace build2
 
   template <const char* var, const char* def>
   bool
-  target_pattern_var (const target_type& tt, const scope& s, string& v, bool r)
+  target_pattern_var (const target_type& tt,
+                      const scope& s,
+                      string& v,
+                      optional<string>& e,
+                      const location& l,
+                      bool r)
   {
-    size_t p (path::traits::find_extension (v));
-
     if (r)
     {
       // If we get called to reverse then it means we've added the extension
-      // in the first place. So simply strip it.
+      // in the first place.
       //
-      assert (p != string::npos);
-      v.resize (p);
+      assert (e);
+      e = nullopt;
     }
-    //
-    // We only add our extension if there isn't one already.
-    //
-    else if (p == string::npos)
+    else
     {
-      // Use empty name as a target since we only want target type/pattern-
-      // specific variables that match any target (e.g., '*' but not '*.txt').
+      e = target::split_name (v, l);
+
+      // We only add our extension if there isn't one already.
       //
-      if (auto e = target_extension_var_impl (tt, string (), s, var, def))
+      if (!e)
       {
-        if (!e->empty ()) // Don't add empty extension (means no extension).
-        {
-          v += '.';
-          v += *e;
+        // Use empty name as a target since we only want target type/pattern-
+        // specific variables that match any target ('*' but not '*.txt').
+        //
+        if ((e = target_extension_var_impl (tt, string (), s, var, def)))
           return true;
-        }
       }
     }
 
