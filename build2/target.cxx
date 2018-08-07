@@ -192,6 +192,79 @@ namespace build2
     return r;
   }
 
+  optional<string> target::
+  split_name (string& v, const location& loc)
+  {
+    // We treat a single trailing dot as "specified no extension", double dots
+    // as a single trailing dot (that is, an escape sequence which can be
+    // repeated any number of times; in such cases we naturally assume there
+    // is no default extension) and triple dots as "unspecified (default)
+    // extension" (used when the extension in the name is not "ours", for
+    // example, cxx{foo.test...} for foo.test.cxx). An odd number of dots
+    // other than one or three is invalid.
+    //
+    optional<string> r;
+
+    size_t p;
+    if (v.back () != '.')
+    {
+      if ((p = path::traits::find_extension (v)) != string::npos)
+        r = string (v.c_str () + p + 1);
+    }
+    else
+    {
+      if ((p = v.find_last_not_of ('.')) == string::npos)
+        fail (loc) << "invalid target name '" << v << "'";
+
+      p++;                      // Position of the first trailing dot.
+      size_t n (v.size () - p); // Number of the trailing dots.
+
+      if (n == 1)
+        r = string ();
+      else if (n == 3)
+        ;
+      else if (n % 2 == 0)
+      {
+        p += n / 2; // Keep half of the dots.
+        r = string ();
+      }
+      else
+        fail (loc) << "invalid trailing dot sequence in target name '"
+                   << v << "'";
+    }
+
+    if (p != string::npos)
+      v.resize (p);
+
+    return r;
+  }
+
+  void target::
+  combine_name (string& v, const optional<string>& e)
+  {
+    if (v.back () == '.')
+    {
+      assert (e && e->empty ());
+
+      size_t p (v.find_last_not_of ('.'));
+      assert (p != string::npos);
+
+      p++;                      // Position of the first trailing dot.
+      size_t n (v.size () - p); // Number of the trailing dots.
+      v.append (n, '.');        // Double them.
+    }
+    else if (e)
+    {
+      v += '.';
+      v += *e;  // Empty or not.
+    }
+    else
+    {
+      if (path::traits::find_extension (v) != string::npos)
+        v += "...";
+    }
+  }
+
   // target_set
   //
   target_set targets;
@@ -802,7 +875,11 @@ namespace build2
   }
 
   static bool
-  dir_pattern (const target_type&, const scope&, string& v, bool r)
+  dir_pattern (const target_type&,
+               const scope&,
+               string& v,
+               optional<string>&,
+               bool r)
   {
     // Add/strip trailing directory separator unless already there.
     //
@@ -872,18 +949,20 @@ namespace build2
 
 #ifdef _WIN32
   static bool
-  exe_target_pattern (const target_type&, const scope&, string& v, bool r)
+  exe_target_pattern (const target_type&,
+                      const scope&,
+                      string& v,
+                      optional<string>& e,
+                      bool r)
   {
-    size_t p (path::traits::find_extension (v));
-
     if (r)
     {
-      assert (p != string::npos);
-      v.resize (p);
+      assert (e);
+      e = nullopt;
     }
-    else if (p == string::npos)
+    else if (!e)
     {
-      v += ".exe";
+      e = "exe";
       return true;
     }
 
@@ -921,18 +1000,17 @@ namespace build2
   buildfile_target_pattern (const target_type&,
                             const scope&,
                             string& v,
+                            optional<string>& e,
                             bool r)
   {
-    size_t p (path::traits::find_extension (v));
-
     if (r)
     {
-      assert (p != string::npos);
-      v.resize (p);
+      assert (e);
+      e = nullopt;
     }
-    else if (p == string::npos && v != "buildfile")
+    else if (!e && v != "buildfile")
     {
-      v += ".build";
+      e = "build";
       return true;
     }
 
@@ -1015,18 +1093,17 @@ namespace build2
   manifest_target_pattern (const target_type&,
                            const scope&,
                            string& v,
+                           optional<string>& e,
                            bool r)
   {
-    size_t p (path::traits::find_extension (v));
-
     if (r)
     {
-      assert (p != string::npos);
-      v.resize (p);
+      assert (e);
+      e = nullopt;
     }
-    else if (p == string::npos && v != "manifest")
+    else if (!e && v != "manifest")
     {
-      v += ".manifest";
+      e = "manifest";
       return true;
     }
 

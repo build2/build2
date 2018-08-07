@@ -648,6 +648,18 @@ namespace build2
     static const target_type static_type;
 
   public:
+    // Split the name leaf into target name (in place) and extension
+    // (returned).
+    //
+    static optional<string>
+    split_name (string&, const location&);
+
+    // Combine the target name and extension into the name leaf.
+    //
+    static void
+    combine_name (string&, const optional<string>&);
+
+  public:
     virtual
     ~target ();
 
@@ -1704,7 +1716,9 @@ namespace build2
 
   template <const char* ext>
   bool
-  target_pattern_fix (const target_type&, const scope&, string&, bool);
+  target_pattern_fix (const target_type&, const scope&,
+                      string&, optional<string>&,
+                      bool);
 
   // Get the extension from the variable or use the default if none set. If
   // the default is NULL, then return NULL.
@@ -1715,7 +1729,9 @@ namespace build2
 
   template <const char* var, const char* def>
   bool
-  target_pattern_var (const target_type&, const scope&, string&, bool);
+  target_pattern_var (const target_type&, const scope&,
+                      string&, optional<string>&,
+                      bool);
 
   // Always return NULL extension.
   //

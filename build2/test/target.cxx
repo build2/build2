@@ -24,18 +24,17 @@ namespace build2
     testscript_target_pattern (const target_type&,
                                const scope&,
                                string& v,
+                               optional<string>& e,
                                bool r)
     {
-      size_t p (path::traits::find_extension (v));
-
       if (r)
       {
-        assert (p != string::npos);
-        v.resize (p);
+        assert (e);
+        e = nullopt;
       }
-      else if (p == string::npos && v != "testscript")
+      else if (!e && v != "testscript")
       {
-        v += ".test";
+        e = "test";
         return true;
       }
 

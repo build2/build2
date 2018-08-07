@@ -60,7 +60,11 @@ namespace build2
                                            const char*,
                                            bool search);
 
-    bool (*pattern) (const target_type&, const scope&, string&, bool reverse);
+    bool (*pattern) (const target_type&,
+                     const scope&,
+                     string& name,
+                     optional<string>& extension,
+                     bool reverse);
 
     void (*print) (ostream&, const target_key&);
 

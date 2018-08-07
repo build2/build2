@@ -49,8 +49,9 @@ namespace build2
   {
     assert (phase == run_phase::match);
 
-    optional<string> ext;
-    const target_type* tt (s.find_target_type (n, ext, location ()));
+    auto rp (s.find_target_type (n, location ()));
+    const target_type* tt (rp.first);
+    optional<string>& ext (rp.second);
 
     if (tt == nullptr)
       fail << "unknown target type " << n.type << " in name " << n;
@@ -77,8 +78,9 @@ namespace build2
     assert (phase == run_phase::match || phase == run_phase::execute);
 
     name n (cn);
-    optional<string> ext;
-    const target_type* tt (s.find_target_type (n, ext, location ()));
+    auto rp (s.find_target_type (n, location ()));
+    const target_type* tt (rp.first);
+    optional<string>& ext (rp.second);
 
     // For now we treat an unknown target type as an unknown target. Seems
     // logical.

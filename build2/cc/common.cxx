@@ -431,11 +431,9 @@ namespace build2
       {
         // This is import.
         //
-        optional<string> ext;
-
-        // Changes name.
-        //
-        const target_type* tt (s.find_target_type (n, ext, location ()));
+        auto rp (s.find_target_type (n, location ())); // Note: changes name.
+        const target_type* tt (rp.first);
+        optional<string>& ext (rp.second);
 
         if (tt == nullptr)
           fail << "unknown target type '" << n.type << "' in library " << n;

@@ -1,0 +1,48 @@
+# file      : tests/name/extension.test
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = --match-only update
+
+.include ../common.test
+
++cat <<EOI >=build/root.build
+define txt: file
+txt{*}: extension = txt
+EOI
+
+: unspecified
+:
+touch foo.txt;
+$* <'./: txt{foo}'
+
+: specified
+:
+touch foo.text;
+$* <'./: txt{foo.text}'
+
+: specified-none
+:
+touch foo;
+$* <'./: txt{foo.}'
+
+: specified-default
+:
+touch foo.test.txt;
+$* <'./: txt{foo.test...}'
+
+: specified-escape-one
+:
+touch foo.;
+$* <'./: txt{foo..}'
+
+: specified-escape-two
+:
+touch foo..;
+$* <'./: txt{foo....}'
+
+: specified-invalid
+:
+$* <'./: txt{foo.....}' 2>>EOE != 0
+<stdin>:1:5: error: invalid trailing dot sequence in target name 'foo.....'
+EOE

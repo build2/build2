@@ -694,8 +694,9 @@ main (int argc, char* argv[])
             const string& v (tn.value);
 
             // Handle a few common cases as special: empty name, '.', '..', as
-            // well as dir{foo/bar} (without trailing '/'). This code must be
-            // consistent with find_target_type() and other places.
+            // well as dir{foo/bar} (without trailing '/'). This logic must be
+            // consistent with find_target_type() and other places (grep for
+            // "..").
             //
             if (v.empty () || v == "." || v == ".." || tn.type == "dir")
               out_base = dir_path (v);
@@ -1274,10 +1275,11 @@ main (int argc, char* argv[])
 
           // Find the target type and extract the extension.
           //
-          optional<string> e;
-          const target_type* ti (bs.find_target_type (tn, e, l));
+          auto rp (bs.find_target_type (tn, l));
+          const target_type* tt (rp.first);
+          optional<string>& e (rp.second);
 
-          if (ti == nullptr)
+          if (tt == nullptr)
             fail (l) << "unknown target type " << tn.type;
 
           if (mif->search != nullptr)
@@ -1303,7 +1305,7 @@ main (int argc, char* argv[])
 
             mif->search (mparams,
                          rs, bs,
-                         target_key {ti, &d, &out, &tn.value, e},
+                         target_key {tt, &d, &out, &tn.value, e},
                          l,
                          tgs);
           }

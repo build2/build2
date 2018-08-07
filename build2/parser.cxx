@@ -149,10 +149,9 @@ namespace build2
                     name& o,
                     const location& loc)
     {
-      optional<string> e;
-      const target_type* ti (p.scope_->find_target_type (n, e, loc));
+      auto r (p.scope_->find_target_type (n, loc));
 
-      if (ti == nullptr)
+      if (r.first == nullptr)
         p.fail (loc) << "unknown target type " << n.type;
 
       bool src (n.pair); // If out-qualified, then it is from src.
@@ -187,7 +186,7 @@ namespace build2
       }
       o.dir = move (out); // Result.
 
-      return make_pair (ti, move (e));
+      return r;
     }
 
     ~enter_target ()
@@ -740,10 +739,11 @@ namespace build2
             //
             for (auto& pn: pns)
             {
-              optional<string> e;
-              const target_type* ti (scope_->find_target_type (pn, e, ploc));
+              auto rp (scope_->find_target_type (pn, ploc));
+              const target_type* tt (rp.first);
+              optional<string>& e (rp.second);
 
-              if (ti == nullptr)
+              if (tt == nullptr)
                 fail (ploc) << "unknown target type " << pn.type;
 
               // Current dir collapses to an empty one.
@@ -762,7 +762,7 @@ namespace build2
               // path.
               //
               prerequisite p (pn.proj,
-                              *ti,
+                              *tt,
                               move (pn.dir),
                               dir_path (),
                               move (pn.value),
@@ -2955,16 +2955,29 @@ namespace build2
       return butl::path_match (pattern, p, *sp);
     };
 
-    // Append string to result according to dir. Store an indication of
-    // whether it was amended in the pair flag.
+    // Append name/extension to result according to dir. Store an indication
+    // of whether it was amended as well as whether the extension is present
+    // in the pair flag. The extension itself is stored in name::type.
     //
-    auto append = [&r, &dir] (string&& v, bool a)
+    auto append = [&r, &dir] (string&& v, optional<string>&& e, bool a)
     {
-      r.push_back (dir ? name (dir_path (move (v))) : name (move (v)));
-      r.back ().pair = a ? 'a' : '\0';
+      name n (dir ? name (dir_path (move (v))) : name (move (v)));
+
+      if (a)
+        n.pair |= 0x01;
+
+      if (e)
+      {
+        n.type = move (*e);
+        n.pair |= 0x02;
+      }
+
+      r.push_back (move (n));
     };
 
-    auto include_match = [&r, &equal, &append] (string&& m, bool a)
+    auto include_match = [&r, &equal, &append] (string&& m,
+                                                optional<string>&& e,
+                                                bool a)
     {
       auto i (find_if (
                 r.begin (),
@@ -2972,11 +2985,13 @@ namespace build2
                 [&m, &equal] (const name& n) {return equal (m, n);}));
 
       if (i == r.end ())
-        append (move (m), a);
+        append (move (m), move (e), a);
     };
 
     auto include_pattern =
-      [&r, &append, &include_match, sp, &l, this] (string&& p, bool a)
+      [&r, &append, &include_match, sp, &l, this] (string&& p,
+                                                   optional<string>&& e,
+                                                   bool a)
     {
       // If we don't already have any matches and our pattern doesn't contain
       // multiple recursive wildcards, then the result will be unique and we
@@ -2990,38 +3005,39 @@ namespace build2
         unique = (i == string::npos || p.find ("**", i + 2) == string::npos);
       }
 
-      function<bool (path&&, const string&, bool)> func;
+      function<void (string&&, optional<string>&&)> appf;
       if (unique)
-        func = [a, &append] (path&& m, const string& p, bool interm)
+        appf = [a, &append] (string&& v, optional<string>&& e)
           {
-            // Ignore entries that start with a dot unless the pattern that
-            // matched them also starts with a dot.
-            //
-            const string& s (m.string ());
-            if (p[0] != '.' && s[path::traits::find_leaf (s)] == '.')
-              return !interm;
-
-            if (!interm)
-              append (move (m).representation (), a);
-
-            return true;
+            append (move (v), move (e), a);
           };
       else
-        func = [a, &include_match] (path&& m, const string& p, bool interm)
+        appf = [a, &include_match] (string&& v, optional<string>&& e)
           {
-            const string& s (m.string ());
-            if (p[0] != '.' && s[path::traits::find_leaf (s)] == '.')
-              return !interm;
-
-            if (!interm)
-              include_match (move (m).representation (), a);
-
-            return true;
+            include_match (move (v), move (e), a);
           };
+
+      auto process = [&e, &appf] (path&& m, const string& p, bool interm)
+      {
+        // Ignore entries that start with a dot unless the pattern that
+        // matched them also starts with a dot.
+        //
+        const string& s (m.string ());
+        if (p[0] != '.' && s[path::traits::find_leaf (s)] == '.')
+          return !interm;
+
+        // Note that we have to make copies of the extension since there will
+        // multiple entries for each pattern.
+        //
+        if (!interm)
+          appf (move (m).representation (), optional<string> (e));
+
+        return true;
+      };
 
       try
       {
-        butl::path_search (path (move (p)), func, *sp);
+        butl::path_search (path (move (p)), process, *sp);
       }
       catch (const system_error& e)
       {
@@ -3058,7 +3074,7 @@ namespace build2
 
     // Process the pattern and inclusions/exclusions.
     //
-    for (auto b (pat.begin ()), i (b), e (pat.end ()); i != e; ++i)
+    for (auto b (pat.begin ()), i (b), end (pat.end ()); i != end; ++i)
     {
       name& n (*i);
       bool first (i == b);
@@ -3086,7 +3102,30 @@ namespace build2
       if (n.empty () || !(n.simple () || n.directory ()))
         fail (l) << "invalid '" << n << "' in " << what << " pattern";
 
-      string v (n.simple () ? move (n.value) : move (n.dir).representation ());
+      // Name splitting must be consistent with scope::find_target_type().
+      //
+      string v;
+      optional<string> e;
+      {
+        // Based on the first pattern figure out if the result is a directory
+        // or a file. For inclusions/exclusions verify it is consistent.
+        //
+        bool d (n.directory ());
+
+        if (first)
+          dir = d;
+        else if (d != dir)
+          fail (l) << "inconsistent file/directory result in " << what
+                   << " pattern";
+
+        if (d)
+          v = move (n.dir).representation ();
+        else
+        {
+          v = move (n.value);
+          e = target::split_name (v, l);
+        }
+      }
 
       // Figure out if this is inclusion or exclusion.
       //
@@ -3107,24 +3146,21 @@ namespace build2
       //
       bool a (tt != nullptr &&
               tt->pattern != nullptr &&
-              tt->pattern (*tt, *scope_, v, false));
+              tt->pattern (*tt, *scope_, v, e, false));
 
       // Figure out if this is a pattern.
       //
       bool p (v.find_first_of ("*?") != string::npos);
       assert (p || !first); // First must be a pattern.
 
-      // Based on the first pattern figure out if the result is a directory or
-      // a file. For inclusions/exclusions verify it is consistent.
+      // Factor non-empty extension back into the name.
       //
+      // Note that we don't support extension patterns.
+      //
+      if (e && !e->empty ())
       {
-        bool d (path::traits::is_separator (v.back ()));
-
-        if (first)
-          dir = d;
-        else if (d != dir)
-          fail (l) << "inconsistent file/directory result in " << what
-                   << " pattern";
+        v += '.';
+        v += *e;
       }
 
       try
@@ -3132,16 +3168,16 @@ namespace build2
         if (s == '+')
         {
           if (p)
-            include_pattern (move (v), a);
+            include_pattern (move (v), move (e), a);
           else
-            include_match (move (v), a);
+            include_match (move (v), move (e), a);
         }
         else
         {
           if (p)
             exclude_pattern (move (v));
           else
-            exclude_match (v);
+            exclude_match (move (v));
         }
       }
       catch (const invalid_path& e)
@@ -3151,26 +3187,45 @@ namespace build2
       }
     }
 
-    // Reverse target type-specific pattern/match amendments from the result.
-    // Essentially: cxx{*} -> *.cxx -> foo.cxx -> cxx{foo}.
+    // Post-process the result: remove extension, reverse target type-specific
+    // pattern/match amendments (essentially: cxx{*} -> *.cxx -> foo.cxx ->
+    // cxx{foo}), and recombined the result.
     //
-    if (tt != nullptr && tt->pattern != nullptr)
+    for (name& n: r)
     {
-      for (name& n: r)
+      string v;
+      optional<string> e;
+
+      if (dir)
+        v = move (n.dir).representation ();
+      else
       {
-        if (n.pair)
+        v = move (n.value);
+
+        if ((n.pair & 0x02) != 0)
         {
-          string v (dir ? move (n.dir).representation () : move (n.value));
-          tt->pattern (*tt, *scope_, v, true);
+          e = move (n.type);
 
-          if (dir)
-            n.dir = dir_path (move (v));
-          else
-            n.value = move (v);
-
-          n.pair = '\0';
+          // Remove non-empty extension from the name (it got to be there, see
+          // above).
+          //
+          if (!e->empty ())
+            v.resize (v.size () - e->size () - 1);
         }
       }
+
+      if ((n.pair & 0x01) != 0)
+        tt->pattern (*tt, *scope_, v, e, true);
+
+      if (dir)
+        n.dir = dir_path (move (v));
+      else
+      {
+        target::combine_name (v, e);
+        n.value = move (v);
+      }
+
+      n.pair = '\0';
     }
 
     return splice_names (
