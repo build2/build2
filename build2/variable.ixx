@@ -24,6 +24,14 @@ namespace build2
     new (&data_) names (move (ns));
   }
 
+  inline value::
+  value (optional<names> ns)
+      : type (nullptr), null (!ns), extra (0)
+  {
+    if (!null)
+      new (&data_) names (move (*ns));
+  }
+
   template <typename T>
   inline value::
   value (T v)
@@ -31,6 +39,18 @@ namespace build2
   {
     value_traits<T>::assign (*this, move (v));
     null = false;
+  }
+
+  template <typename T>
+  inline value::
+  value (optional<T> v)
+      : type (&value_traits<T>::value_type), null (true), extra (0)
+  {
+    if (v)
+    {
+      value_traits<T>::assign (*this, move (*v));
+      null = false;
+    }
   }
 
   inline value& value::

@@ -46,11 +46,15 @@ namespace build2
   // are conceptually "moved" and can be reused by the implementation.
   //
   // A function can also optionally receive the current scope by having the
-  // first argument of the const scope* type. It may be NULL is the function
+  // first argument of the const scope* type. It may be NULL if the function
   // is called out of any scope (e.g., command line).
   //
   // Note also that we don't pass the location to the function instead
   // printing the info message pointing to the call site.
+  //
+  // A function can return value or anything that can be converted to value.
+  // In particular, if a function returns optional<T>, then the result will be
+  // either NULL or value of type T.
   //
   // Normally functions come in families that share a common qualification
   // (e.g., string. or path.). The function_family class is a "registrar"

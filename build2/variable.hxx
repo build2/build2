@@ -250,9 +250,16 @@ namespace build2
     explicit
     value (names); // Create untyped value.
 
+    explicit
+    value (optional<names>);
+
     template <typename T>
     explicit
     value (T); // Create value of value_traits<T>::value_type type.
+
+    template <typename T>
+    explicit
+    value (optional<T>);
 
     // Note: preserves type.
     //
