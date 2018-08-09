@@ -3598,8 +3598,8 @@ namespace build2
       if (pmode == pattern_mode::detect && start != ns.size ())
         pmode = pattern_mode::expand;
 
-      // Return true if the next token which should be peeked at won't be part
-      // of the name.
+      // Return true if the next token (which should be peeked at) won't be
+      // part of the name.
       //
       auto last_token = [chunk, this] ()
       {
@@ -3614,10 +3614,11 @@ namespace build2
                  tt != type::pair_separator));
       };
 
-      // Return true if the next token which should be peeked at won't be part
-      // of this concatenation.
+      // Return true if the next token (which should be peeked at) won't be
+      // part of this concatenation. The et argument can be used to recognize
+      // an extra (unseparated) token type as being concatenated.
       //
-      auto last_concat = [this] ()
+      auto last_concat = [this] (type et = type::eos)
       {
         const token& t (peeked ());
         type tt (t.type);
@@ -3625,7 +3626,8 @@ namespace build2
         return (t.separated         ||
                 (tt != type::word   &&
                  tt != type::dollar &&
-                 tt != type::lparen));
+                 tt != type::lparen &&
+                 (et == type::eos ? true : tt != et)));
       };
 
       // If we have accumulated some concatenations, then we have two options:
@@ -3654,19 +3656,29 @@ namespace build2
         //
         // There is one exception, however: if the type is path, dir_path, or
         // string and what follows is an unseparated '{', then we need to
-        // de-type it and inject in order to support our directory/target-type
-        // syntax, for example:
+        // untypify it and inject in order to support our directory/target-
+        // type syntax (this means that a target type must be a valid path
+        // component). For example:
         //
-        // $out_root/foo/lib{bar}
-        // $out_root/$libtype{bar}
+        //   $out_root/foo/lib{bar}
+        //   $out_root/$libtype{bar}
         //
-        // This means that a target type must be a valid path component.
+        // And here is another exception: if we have a project, directory, or
+        // type, then this is a name and we should also untypify it (let's for
+        // now do it for the same set of types as the first exception). For
+        // example:
+        //
+        //   dir/{$str}
+        //   file{$str}
         //
         vnull = false; // A concatenation cannot produce NULL.
 
         if (vtype != nullptr)
         {
-          if (tt == type::lcbrace && !peeked ().separated)
+          bool e1 (tt == type::lcbrace && !peeked ().separated);
+          bool e2 (pp || dp != nullptr || tp != nullptr);
+
+          if (e1 || e2)
           {
             if (vtype == &value_traits<path>::value_type ||
                 vtype == &value_traits<string>::value_type)
@@ -3674,8 +3686,14 @@ namespace build2
             else if (vtype == &value_traits<dir_path>::value_type)
               concat_data.value = move (concat_data.dir).representation ();
             else
-              fail (t) << "expected directory and/or target type "
-                       << "instead of " << vtype->name;
+            {
+              diag_record dr (fail (t));
+
+              if      (e1) dr << "expected directory and/or target type";
+              else if (e2) dr << "expected name";
+
+              dr << " instead of " << vtype->name << endf;
+            }
 
             vtype = nullptr;
             // Fall through to injection.
@@ -3736,11 +3754,11 @@ namespace build2
 
         string val (move (t.value));
 
-        // Should we accumulate? If the buffer is not empty, then
-        // we continue accumulating (the case where we are separated
-        // should have been handled by the injection code above). If
-        // the next token is a var expansion or eval context and it
-        // is not separated, then we need to start accumulating.
+        // Should we accumulate? If the buffer is not empty, then we continue
+        // accumulating (the case where we are separated should have been
+        // handled by the injection code above). If the next token is a var
+        // expansion or eval context and it is not separated, then we need to
+        // start accumulating.
         //
         if (concat        || // Continue.
             !last_concat ()) // Start.
@@ -4164,11 +4182,12 @@ namespace build2
         // Should we accumulate? If the buffer is not empty, then we continue
         // accumulating (the case where we are separated should have been
         // handled by the injection code above). If the next token is a word
-        // or var expansion and it is not separated, then we need to start
-        // accumulating.
+        // or an expansion and it is not separated, then we need to start
+        // accumulating. We also reduce the $var{...} case to concatention
+        // and injection.
         //
-        if (concat        || // Continue.
-            !last_concat ()) // Start.
+        if (concat                     || // Continue.
+            !last_concat (type::lcbrace)) // Start.
         {
           // This can be a typed or untyped concatenation. The rules that
           // determine which one it is are as follows:

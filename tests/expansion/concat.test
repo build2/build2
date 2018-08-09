@@ -1,0 +1,28 @@
+# file      : tests/expansion/type.test
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test concatenated expansion.
+
+.include ../common.test
+
+: typed-exceptions
+:
+$* <<EOI >>EOO
+d = [dir_path] dir
+s = [string] foo
+
+print $d/{bar}
+print $s{bar}
+print $d/$s{bar}
+print file{x$s}
+print dir/{x$s}
+print prj%{x$s}
+EOI
+dir/bar
+foo{bar}
+dir/foo{bar}
+file{xfoo}
+dir/xfoo
+prj%xfoo
+EOO
