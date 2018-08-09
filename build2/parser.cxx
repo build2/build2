@@ -3153,11 +3153,6 @@ namespace build2
                    << " pattern";
       }
 
-      // Figure out if this is a pattern.
-      //
-      bool p (v.find_first_of ("*?") != string::npos);
-      assert (p || !first); // First must be a pattern.
-
       // Factor non-empty extension back into the name for searching.
       //
       // Note that doing it at this stage means we don't support extension
@@ -3172,15 +3167,10 @@ namespace build2
       try
       {
         if (s == '+')
-        {
-          if (p)
-            include_pattern (move (v), move (e), a);
-          else
-            include_match (move (v), move (e), a);
-        }
+          include_pattern (move (v), move (e), a);
         else
         {
-          if (p)
+          if (v.find_first_of ("*?") != string::npos)
             exclude_pattern (move (v));
           else
             exclude_match (move (v));
@@ -3300,11 +3290,13 @@ namespace build2
           t, tt,
           r,
           pmode == pattern_mode::expand ? pattern_mode::detect : pmode,
-          false,
+          false /* chunk */,
           what,
           separators,
           0,                    // Handled by the splice_names() call below.
-          pp, dp, tp, false).pattern);
+          pp, dp, tp,
+          false /* cross */,
+          true  /* curly */).pattern);
 
       if (tt != type::rcbrace)
         fail (t) << "expected '}' instead of " << t;
@@ -3420,7 +3412,8 @@ namespace build2
                const optional<project_name>& pp,
                const dir_path* dp,
                const string* tp,
-               bool cross) -> parse_names_result
+               bool cross,
+               bool curly) -> parse_names_result
   {
     // Note that support for pre-parsing is partial, it does not handle
     // groups ({}).
@@ -3906,11 +3899,15 @@ namespace build2
 
         // See if this is a wildcard pattern.
         //
+        // It should either contain a wildcard character or, in a curly
+        // context, start with unquoted '+'.
+        //
         if (pmode != pattern_mode::ignore   &&
             !*pp1                           && // Cannot be project-qualified.
             t.qtype == quote_type::unquoted && // Cannot be quoted.
             ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
-            val.find_first_of ("*?") != string::npos)
+            ((val.find_first_of ("*?") != string::npos) ||
+             (curly && val[0] == '+')))
         {
           // Resolve the target if there is one. If we fail, then this is not
           // a pattern.
@@ -4482,6 +4479,10 @@ namespace build2
       pair<char, bool> p (lexer_->peek_char ());
       char c (p.first);
 
+      // @@ Just checking for leading '+' is not sufficient, for example:
+      //
+      // print +foo
+      //
       return c == '\n' || c == '\0' || c == '(' ||
         (p.second && c != '=' && c != '+');
     }

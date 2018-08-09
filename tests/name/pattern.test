@@ -107,7 +107,7 @@ EOI
   $* <'print d*/*.txt' >/'dir/foo.txt'             : multi-pattern
 
   touch foo.txt bar.txt;
-  $* <'print {*.txt -bar.txt}' >'foo.txt'          : exclude-match
+  $* <'print {*.txt -bar.txt}' >'foo.txt'          : exclude-non-pattern
 
   mkdir baz;
   touch foo.txt bar.txt baz/fox.txt baz/box.txt;
@@ -117,7 +117,7 @@ EOI
   $* <'print {*.txt -{*z.txt bar.txt}}' >'foo.txt' : exclude-group
 
   touch bar.txt;
-  $* <'print {f*.txt +bar.txt}' >'bar.txt'         : include-match
+  $* <'print {f*.txt +bar.txt}' >'bar.txt'         : include-non-wildcard
 
   touch bar.txt;
   $* <'print {f*.txt +b*.txt}' >'bar.txt'          : include-pattern
@@ -127,6 +127,9 @@ EOI
 
   touch foo.txt fox.txt;
   $* <'print {*.txt -f*.txt +*x.txt}' >'fox.txt'   : include-exclude-order
+
+  touch foo.txt;
+  $* <'print {+foo.txt} {+bar.txt}' >'foo.txt'      : non-wildcard
 }
 
 : target-type

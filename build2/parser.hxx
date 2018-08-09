@@ -310,7 +310,8 @@ namespace build2
                  const optional<project_name>& prj = nullopt,
                  const dir_path* dir = nullptr,
                  const string* type = nullptr,
-                 bool cross = true);
+                 bool cross = true,
+                 bool curly = false);
 
     size_t
     parse_names_trailer (token&, token_type&,

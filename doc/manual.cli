@@ -76,24 +76,26 @@ inclusion or exclusion if it starts with a literal, unquoted plus (\c{+}) or
 minus (\c{-}) sign, respectively. In this case the remaining group values, if
 any, must all be inclusions or exclusions. If the second value doesn't start
 with a plus or minus, then all the group values are considered independent
-with leading pluses and minuses not having any special meaning. For
-regularity, the first pattern can also start with the plus sign. For example:
+with leading pluses and minuses not having any special meaning. For regularity
+as well as to allow patterns without wildcards, the first pattern can also
+start with the plus sign. For example:
 
 \
-exe{hello}: cxx{f* -foo}            # Exclude foo if present.
-exe{hello}: cxx{f* +foo}            # Include foo if not present.
-exe{hello}: cxx{f* -fo?}            # Exclude foo and fox if present.
-exe{hello}: cxx{f* +b* -foo -bar}   # Exclude foo and bar if present.
+exe{hello}: cxx{f* -foo}            # Exclude foo if exists.
+exe{hello}: cxx{f* +bar}            # Include bar if exists.
+exe{hello}: cxx{f* -fo?}            # Exclude foo and fox if exist.
+exe{hello}: cxx{f* +b* -foo -bar}   # Exclude foo and bar if exist.
 exe{hello}: cxx{+f* +b* -foo -bar}  # Same as above.
+exe{hello}: cxx{+foo}               # Pattern without wildcards.
 exe{hello}: cxx{f* b* -z*}          # Names matching three patterns.
 \
 
 Inclusions and exclusions are applied in the order specified and only to the
 result produced up to that point. The order of names in the result is
-unspecified. However, it is guaranteed not to contain duplicates. The
+unspecified. However, it is guaranteed not to contain duplicates. The first
 pattern and the following inclusions/exclusions must be consistent with
-regards to the type of filesystem entry they match. That is, they should
-all match either files or directories. For example:
+regards to the type of filesystem entry they match. That is, they should all
+match either files or directories. For example:
 
 \
 exe{hello}: cxx{f* -foo +*oo}  # Exclusion has no effect.
