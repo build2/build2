@@ -3510,10 +3510,21 @@ namespace build2
 
       if (!vnull)
       {
-        untypify (rhs);
+        if (vtype != nullptr)
+          untypify (rhs);
+
         names& d (rhs.as<names> ());
-        assert (d.size () == 1); // Must be single value.
-        concat_data = move (d[0]);
+
+        // If the value is empty, then untypify() will (typically; no pun
+        // intended) represent it as an empty sequence of names rather than
+        // a sequence of one empty name. This is usually what we need (see
+        // simple_reverse() for details) but not in this case.
+        //
+        if (!d.empty ())
+        {
+          assert (d.size () == 1); // Must be a single value.
+          concat_data = move (d[0]);
+        }
       }
     };
 
