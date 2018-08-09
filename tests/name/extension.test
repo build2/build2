@@ -34,15 +34,24 @@ EOI
   touch foo.test.txt;
   $* <'./: txt{foo.test...}'
 
+  # Trailing dots are not allowed on Windows.
+  #
+
   : specified-escape-one
   :
-  touch foo.;
-  $* <'./: txt{foo..}'
+  if ($test.target.class != 'windows')
+  {
+    touch foo.;
+    $* <'./: txt{foo..}'
+  }
 
   : specified-escape-two
   :
-  touch foo..;
-  $* <'./: txt{foo....}'
+  if ($test.target.class != 'windows')
+  {
+    touch foo..;
+    $* <'./: txt{foo....}'
+  }
 
   : specified-invalid
   :
@@ -64,8 +73,14 @@ EOI
   touch foo.test.txt;
   $* <'print txt{fo?.test...}' >'txt{foo.test...}'
 
+  # Trailing dots are not allowed on Windows.
+  #
+
   : specified-escape
   :
-  touch foo.;
-  $* <'print txt{fo?..}' >'txt{foo..}'
+  if ($test.target.class != 'windows')
+  {
+    touch foo.;
+    $* <'print txt{fo?..}' >'txt{foo..}'
+  }
 }

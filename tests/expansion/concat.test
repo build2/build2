@@ -8,7 +8,7 @@
 
 : typed-exceptions
 :
-$* <<EOI >>EOO
+$* <<EOI >>/EOO
 d = [dir_path] dir
 s = [string] foo
 
@@ -16,7 +16,7 @@ print $d/{bar}
 print $s{bar}
 print $d/$s{bar}
 print file{x$s}
-print dir/{x$s}
+print $d/{x$s}
 print prj%{x$s}
 EOI
 dir/bar
