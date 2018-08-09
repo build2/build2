@@ -39,7 +39,7 @@ EOI
 
   : specified-escape-one
   :
-  if ($test.target.class != 'windows')
+  if ($cxx.target.class != 'windows')
   {
     touch foo.;
     $* <'./: txt{foo..}'
@@ -47,7 +47,7 @@ EOI
 
   : specified-escape-two
   :
-  if ($test.target.class != 'windows')
+  if ($cxx.target.class != 'windows')
   {
     touch foo..;
     $* <'./: txt{foo....}'
@@ -78,7 +78,7 @@ EOI
 
   : specified-escape
   :
-  if ($test.target.class != 'windows')
+  if ($cxx.target.class != 'windows')
   {
     touch foo.;
     $* <'print txt{fo?..}' >'txt{foo..}'
