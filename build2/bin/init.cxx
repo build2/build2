@@ -584,11 +584,25 @@ namespace build2
         {
           diag_record dr (text);
 
-          dr << "bin.ar " << project (r) << '@' << r.out_path () << '\n'
-             << "  ar         " << ari.ar_path << '\n'
-             << "  id         " << ari.ar_id << '\n'
-             << "  signature  " << ari.ar_signature << '\n'
-             << "  checksum   " << ari.ar_checksum;
+          {
+            dr << "bin.ar " << project (r) << '@' << r.out_path () << '\n'
+               << "  ar         " << ari.ar_path << '\n'
+               << "  id         " << ari.ar_id << '\n'
+               << "  version    " << ari.ar_version.string () << '\n'
+               << "  major      " << ari.ar_version.major << '\n'
+               << "  minor      " << ari.ar_version.minor << '\n'
+               << "  patch      " << ari.ar_version.patch << '\n';
+          }
+
+          if (!ari.ar_version.build.empty ())
+          {
+            dr << "  build      " << ari.ar_version.build << '\n';
+          }
+
+          {
+            dr << "  signature  " << ari.ar_signature << '\n'
+               << "  checksum   " << ari.ar_checksum;
+          }
 
           if (ranlib != nullptr)
           {
@@ -604,6 +618,16 @@ namespace build2
         r.assign<string>       ("bin.ar.id")        = move (ari.ar_id);
         r.assign<string>       ("bin.ar.signature") = move (ari.ar_signature);
         r.assign<string>       ("bin.ar.checksum")  = move (ari.ar_checksum);
+
+        {
+          semantic_version& v (ari.ar_version);
+
+          r.assign<string>   ("bin.ar.version")       = v.string ();
+          r.assign<uint64_t> ("bin.ar.version.major") = v.major;
+          r.assign<uint64_t> ("bin.ar.version.minor") = v.minor;
+          r.assign<uint64_t> ("bin.ar.version.patch") = v.patch;
+          r.assign<string>   ("bin.ar.version.build") = move (v.build);
+        }
 
         if (ranlib != nullptr)
         {

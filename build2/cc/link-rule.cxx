@@ -1540,7 +1540,7 @@ namespace build2
 
       // Storage.
       //
-      string soname1, soname2;
+      string arg1, arg2;
       strings sargs;
 
       if (lt.static_library ())
@@ -1549,10 +1549,44 @@ namespace build2
         else
         {
           // If the user asked for ranlib, don't try to do its function with
-          // -s.  Some ar implementations (e.g., the LLVM one) don't support
+          // -s. Some ar implementations (e.g., the LLVM one) don't support
           // leading '-'.
           //
-          args.push_back (ranlib ? "rc" : "rcs");
+          arg1 = ranlib ? "rc" : "rcs";
+
+          // For utility libraries use thin archives if possible.
+          //
+          // Thin archives are supported by GNU ar since binutils 2.19.1 and
+          // LLVM ar since LLVM 3.8.0. Note that strictly speaking thin
+          // archives also have to be supported by the linker but it is
+          // probably safe to assume that the two came from the same version
+          // of binutils/LLVM.
+          //
+          if (lt.utility)
+          {
+            const string& id (cast<string> (rs["bin.ar.id"]));
+
+            for (bool g (id == "gnu"); g || id == "llvm"; ) // Breakout loop.
+            {
+              auto mj (cast<uint64_t> (rs["bin.ar.version.major"]));
+              if (mj <  (g ? 2 : 3)) break;
+              if (mj == (g ? 2 : 3))
+              {
+                auto mi (cast<uint64_t> (rs["bin.ar.version.minor"]));
+                if (mi  < (g ? 18 : 8)) break;
+                if (mi == 18 && g)
+                {
+                  auto pa (cast<uint64_t> (rs["bin.ar.version.patch"]));
+                  if (pa < 1) break;
+                }
+              }
+
+              arg1 += 'T';
+              break;
+            }
+          }
+
+          args.push_back (arg1.c_str ());
         }
       }
       else
@@ -1613,17 +1647,17 @@ namespace build2
               // install. However, if we don't make it @rpath, then the user
               // won't be able to use config.bin.rpath for installed libraries.
               //
-              soname1 = "-install_name";
-              soname2 = "@rpath/" + leaf;
+              arg1 = "-install_name";
+              arg2 = "@rpath/" + leaf;
             }
             else
-              soname1 = "-Wl,-soname," + leaf;
+              arg1 = "-Wl,-soname," + leaf;
 
-            if (!soname1.empty ())
-              args.push_back (soname1.c_str ());
+            if (!arg1.empty ())
+              args.push_back (arg1.c_str ());
 
-            if (!soname2.empty ())
-              args.push_back (soname2.c_str ());
+            if (!arg2.empty ())
+              args.push_back (arg2.c_str ());
           }
 
           // Add rpaths. We used to first add the ones specified by the user

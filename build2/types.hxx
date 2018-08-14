@@ -44,6 +44,7 @@
 #include <libbutl/small-vector.mxx>
 #include <libbutl/project-name.mxx>
 #include <libbutl/target-triplet.mxx>
+#include <libbutl/semantic-version.mxx>
 #include <libbutl/standard-version.mxx>
 
 namespace build2
@@ -268,6 +269,11 @@ namespace build2
   // <libbutl/target-triplet.mxx>
   //
   using butl::target_triplet;
+
+  // <libbutl/semantic-version.mxx>
+  //
+  using butl::semantic_version;
+  using butl::parse_semantic_version;
 
   // <libbutl/standard-version.mxx>
   //

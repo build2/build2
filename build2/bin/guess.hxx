@@ -34,6 +34,7 @@ namespace build2
       string ar_id;
       string ar_signature;
       string ar_checksum;
+      semantic_version ar_version;
 
       process_path ranlib_path;
       string ranlib_id;

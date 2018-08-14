@@ -17,14 +17,25 @@ namespace build2
       string id;
       string signature;
       string checksum;
+      semantic_version version;
 
       guess_result () = default;
-      guess_result (string&& i, string&& s)
-          : id (move (i)), signature (move (s)) {}
+      guess_result (string&& i, string&& s, semantic_version&& v)
+          : id (move (i)), signature (move (s)), version (move (v)) {}
 
       bool
       empty () const {return id.empty ();}
     };
+
+    // Try to parse a semantic-like version from the specified position.
+    // Return 0-version if the version is invalid.
+    //
+    static inline semantic_version
+    parse_version (const string& s, size_t p = 0, const char* bs = ".-+~ ")
+    {
+      optional<semantic_version> v (parse_semantic_version (s, p, bs));
+      return v ? *v : semantic_version ();
+    }
 
     ar_info
     guess_ar (const path& ar, const path* rl, const dir_path& fallback)
@@ -48,29 +59,63 @@ namespace build2
       {
         auto f = [] (string& l) -> guess_result
         {
-          // Binutils ar --version output has a line that starts with "GNU ar"
-          // and/or contains "GNU Binutils" (some embedded toolchain makers
-          // customize this stuff in all kinds of ways). So let's just look
-          // for "GNU ".
+          // Normally GNU binutils ar --version output has a line that starts
+          // with "GNU ar" and ends with the version. For example:
+          //
+          // "GNU ar (GNU Binutils) 2.26"
+          // "GNU ar (GNU Binutils for Ubuntu) 2.26.1"
+          //
+          // However, some embedded toolchain makers customize this stuff in
+          // all kinds of ways. For example:
+          //
+          // "ppc-vle-ar (HighTec Release HDP-v4.6.6.1-bosch-1.3-3c1e3bc) build on 2017-03-23 (GNU Binutils) 2.20"
+          // "GNU ar version 2.13 (tricore) using BFD version 2.13 (2008-12-10)"
+          //
+          // So let's look for "GNU " and be prepared to find junk instead of
+          // the version.
           //
           if (l.find ("GNU ") != string::npos)
-            return guess_result ("gnu", move (l));
+          {
+            semantic_version v (parse_version (l, l.rfind (' ') + 1));
+            return guess_result ("gnu", move (l), move (v));
+          }
 
           // LLVM ar --version output has a line that starts with
-          // "LLVM version ".
+          // "LLVM version " and ends with the version, for example:
+          //
+          // "LLVM version 3.5.2"
+          // "LLVM version 5.0.0"
           //
           if (l.compare (0, 13, "LLVM version ") == 0)
-            return guess_result ("llvm", move (l));
+          {
+            semantic_version v (parse_version (l, l.rfind (' ') + 1));
+            return guess_result ("llvm", move (l), move (v));
+          }
 
-          // FreeBSD ar --verison output starts with "BSD ar ".
+          // FreeBSD ar --verison output starts with "BSD ar " followed by
+          // the version and some extra information, for example:
+          //
+          // "BSD ar 1.1.0 - libarchive 3.1.2"
+          //
+          // We will treat the extra information as the build component.
           //
           if (l.compare (0, 7, "BSD ar ") == 0)
-            return guess_result ("bsd", move (l));
+          {
+            semantic_version v (parse_version (l, 7));
+            return guess_result ("bsd", move (l), move (v));
+          }
 
-          // Microsoft lib.exe output starts with "Microsoft (R) ".
+          // Microsoft lib.exe output starts with "Microsoft (R) " and ends
+          // with a four-component version, for example:
+          //
+          // "Microsoft (R) Library Manager Version 14.00.24215.1"
+          // "Microsoft (R) Library Manager Version 14.14.26428.1"
           //
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result ("msvc", move (l));
+          {
+            semantic_version v (parse_version (l, l.rfind (' ') + 1));
+            return guess_result ("msvc", move (l), move (v));
+          }
 
           return guess_result ();
         };
@@ -96,7 +141,7 @@ namespace build2
         auto f = [] (string& l) -> guess_result
         {
           return l.find (" ar ") != string::npos
-            ? guess_result ("generic", move (l))
+            ? guess_result ("generic", move (l), semantic_version ())
             : guess_result ();
         };
 
@@ -115,7 +160,8 @@ namespace build2
       if (arr.empty ())
         fail << "unable to guess " << ar << " signature";
 
-      // Now repeat pretty much the same steps for ranlib if requested.
+      // Now repeat pretty much the same steps for ranlib if requested. We
+      // don't bother with the version assuming it is the same as for ar.
       //
       if (rl != nullptr)
       {
@@ -128,18 +174,18 @@ namespace build2
             // but can vary.
             //
             if (l.find ("GNU ") != string::npos)
-              return guess_result ("gnu", move (l));
+              return guess_result ("gnu", move (l), semantic_version ());
 
             // "LLVM version ".
             //
             if (l.compare (0, 13, "LLVM version ") == 0)
-              return guess_result ("llvm", move (l));
+              return guess_result ("llvm", move (l), semantic_version ());
 
             // On FreeBSD we get "ranlib" rather than "BSD ranlib" for some
             // reason. Which means we can't really call it 'bsd' for sure.
             //
             //if (l.compare (0, 7, "ranlib ") == 0)
-            //  return guess_result ("bsd", move (l));
+            //  return guess_result ("bsd", move (l), semantic_version ());
 
             return guess_result ();
           };
@@ -158,7 +204,7 @@ namespace build2
           auto f = [] (string& l) -> guess_result
           {
             return l.find ("ranlib") != string::npos
-              ? guess_result ("generic", move (l))
+              ? guess_result ("generic", move (l), semantic_version ())
               : guess_result ();
           };
 
@@ -179,8 +225,16 @@ namespace build2
       }
 
       return ar_info {
-        move (arp), move (arr.id), move (arr.signature), move (arr.checksum),
-        move (rlp), move (rlr.id), move (rlr.signature), move (rlr.checksum)};
+        move (arp),
+        move (arr.id),
+        move (arr.signature),
+        move (arr.checksum),
+        move (arr.version),
+
+        move (rlp),
+        move (rlr.id),
+        move (rlr.signature),
+        move (rlr.checksum)};
     }
 
     ld_info
@@ -202,13 +256,15 @@ namespace build2
       // exit status. Our signatures are fairly specific to avoid any kind
       // of false positives.
       //
+      // Version extraction is a @@ TODO.
+      //
       {
         auto f = [] (string& l) -> guess_result
         {
           // Microsoft link.exe output starts with "Microsoft (R) ".
           //
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result ("msvc", move (l));
+            return guess_result ("msvc", move (l), semantic_version ());
 
           // Binutils ld.bfd --version output has a line that starts with
           // "GNU ld " while ld.gold -- "GNU gold". Again, fortify it against
@@ -216,10 +272,10 @@ namespace build2
           // former case.
           //
           if (l.compare (0, 9, "GNU gold ") == 0)
-            return guess_result ("gold", move (l));
+            return guess_result ("gold", move (l), semantic_version ());
 
           if (l.find ("GNU ") != string::npos)
-            return guess_result ("gnu", move (l));
+            return guess_result ("gnu", move (l), semantic_version ());
 
           return guess_result ();
         };
@@ -247,14 +303,14 @@ namespace build2
           // @(#)PROGRAM:ld  PROJECT:ld64-242.2
           //
           if (l.find ("PROJECT:ld64") != string::npos)
-            return guess_result ("ld64", move (l));
+            return guess_result ("ld64", move (l), semantic_version ());
 
           // Old ld has "cctools" in the first line, for example:
           //
           // Apple Computer, Inc. version cctools-622.9~2
           //
           if (l.find ("cctools") != string::npos)
-            return guess_result ("cctools", move (l));
+            return guess_result ("cctools", move (l), semantic_version ());
 
           return guess_result ();
         };
@@ -278,7 +334,7 @@ namespace build2
           // LLVM Linker Version: 3.7
           //
           if (l.compare (0, 19, "LLVM Linker Version") == 0)
-            return guess_result ("llvm", move (l));
+            return guess_result ("llvm", move (l), semantic_version ());
 
           return guess_result ();
         };
@@ -311,6 +367,7 @@ namespace build2
 
       // Binutils windres recognizes the --version option.
       //
+      // Version extraction is a @@ TODO.
       {
         auto f = [] (string& l) -> guess_result
         {
@@ -318,7 +375,7 @@ namespace build2
           // "GNU windres " but search for "GNU ", similar to other tools.
           //
           if (l.find ("GNU ") != string::npos)
-            return guess_result ("gnu", move (l));
+            return guess_result ("gnu", move (l), semantic_version ());
 
           return guess_result ();
         };
@@ -341,7 +398,7 @@ namespace build2
         auto f = [] (string& l) -> guess_result
         {
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result ("msvc", move (l));
+            return guess_result ("msvc", move (l), semantic_version ());
 
           return guess_result ();
         };
