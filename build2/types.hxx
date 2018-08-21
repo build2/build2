@@ -258,6 +258,7 @@ namespace build2
   // <libbutl/fdstream.mxx>
   //
   using butl::process;
+  using butl::process_env;
   using butl::process_path;
   using butl::process_error;
 

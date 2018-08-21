@@ -187,7 +187,7 @@ namespace build2
   //
   process
   run_start (uint16_t verbosity,
-             const process_path&,
+             const process_env&, // Implicit-constructible from process_path.
              const char* args[],
              int in,
              int out,
@@ -196,7 +196,7 @@ namespace build2
              const location& = location ());
 
   inline process
-  run_start (const process_path& pp,
+  run_start (const process_env& pe, // Implicit-constructible from process_path.
              const char* args[],
              int in,
              int out,
@@ -204,7 +204,7 @@ namespace build2
              const dir_path& cwd = dir_path (),
              const location& l = location ())
   {
-    return run_start (verb_never, pp, args, in, out, error, cwd, l);
+    return run_start (verb_never, pe, args, in, out, error, cwd, l);
   }
 
   inline void
@@ -292,7 +292,7 @@ namespace build2
   template <typename T, typename F>
   T
   run (uint16_t verbosity,
-       const process_path&,
+       const process_env&, // Implicit-constructible from process_path.
        const char* args[],
        F&&,
        bool error = true,
@@ -301,7 +301,7 @@ namespace build2
 
   template <typename T, typename F>
   inline T
-  run (const process_path& pp,
+  run (const process_env& pe, // Implicit-constructible from process_path.
        const char* args[],
        F&& f,
        bool error = true,
@@ -309,7 +309,7 @@ namespace build2
        sha256* checksum = nullptr)
   {
     return run<T> (
-      verb_never, pp, args, forward<F> (f), error, ignore_exit, checksum);
+      verb_never, pe, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   template <typename T, typename F>
@@ -345,15 +345,15 @@ namespace build2
   template <typename T, typename F>
   inline T
   run (uint16_t verbosity,
-       const process_path& pp,
+       const process_env& pe, // Implicit-constructible from process_path.
        F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
-    const char* args[] = {pp.recall_string (), nullptr};
+    const char* args[] = {pe.path->recall_string (), nullptr};
     return run<T> (
-      verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
+      verbosity, pe, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // run <prog> <arg>
@@ -376,16 +376,16 @@ namespace build2
   template <typename T, typename F>
   inline T
   run (uint16_t verbosity,
-       const process_path& pp,
+       const process_env& pe, // Implicit-constructible from process_path.
        const char* arg,
        F&& f,
        bool error = true,
        bool ignore_exit = false,
        sha256* checksum = nullptr)
   {
-    const char* args[] = {pp.recall_string (), arg, nullptr};
+    const char* args[] = {pe.path->recall_string (), arg, nullptr};
     return run<T> (
-      verbosity, pp, args, forward<F> (f), error, ignore_exit, checksum);
+      verbosity, pe, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
   // Empty/nullopt string, path, and project name.

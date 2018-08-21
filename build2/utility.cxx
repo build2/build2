@@ -174,7 +174,7 @@ namespace build2
 
   process
   run_start (uint16_t verbosity,
-             const process_path& pp,
+             const process_env& pe,
              const char* args[],
              int in,
              int out,
@@ -183,12 +183,21 @@ namespace build2
              const location& l)
   try
   {
-    assert (args[0] == pp.recall_string ());
+    assert (args[0] == pe.path->recall_string ());
 
     if (verb >= verbosity)
       print_process (args, 0);
 
-    return process (pp, args, in, out, (err ? 2 : 1), cwd.string ().c_str ());
+    return process (
+      *pe.path,
+      args,
+      in,
+      out,
+      (err ? 2 : 1),
+      (!cwd.empty ()
+       ? cwd.string ().c_str ()
+       : pe.cwd != nullptr ? pe.cwd->string ().c_str () : nullptr),
+      pe.vars);
   }
   catch (const process_error& e)
   {

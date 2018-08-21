@@ -59,7 +59,7 @@ namespace build2
   template <typename T, typename F>
   T
   run (uint16_t verbosity,
-       const process_path& pp,
+       const process_env& pe,
        const char* args[],
        F&& f,
        bool err,
@@ -67,7 +67,7 @@ namespace build2
        sha256* checksum)
   {
     process pr (run_start (verbosity,
-                           pp,
+                           pe,
                            args,
                            0  /* stdin */,
                            -1 /* stdout */,

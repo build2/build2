@@ -451,7 +451,16 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (3, xp, f, false);
+        // One can pass extra options/arguments to cl.exe with the CL and _CL_
+        // environment variables. However, if such extra options are passed
+        // without anything to compile, then cl.exe no longer prints usage and
+        // exits successfully but instead issues an error and fails. So we are
+        // going to unset these variables for our test (interestingly, only CL
+        // seem to cause the problem but let's unset both, for good measure).
+        //
+        const char* env[] = {"CL=", "_CL_=", nullptr};
+
+        r = run<guess_result> (3, process_env (xp, env), f, false);
       }
 
       if (!r.empty ())
