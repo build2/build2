@@ -2145,7 +2145,7 @@ namespace build2
       if (verb >= 2)
         print_process (args);
       else if (verb)
-        text << "ld " << t;
+        text << (lt.static_library () ? "ar " : "ld ") << t;
 
       try
       {
