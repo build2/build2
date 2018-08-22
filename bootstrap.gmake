@@ -161,7 +161,7 @@ $(out_root)/build2/%.b.o: $(src_root)/build2/%.cxx | $$(dir $$@).
 	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
 
 $(libbutl_out)/%.b.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
-	$(CXX) -I$(libbutl) $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
+	$(CXX) -I$(libbutl) -DBUILD2_BOOTSTRAP $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
 
 .PRECIOUS: %/.
 %/. :
