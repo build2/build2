@@ -790,8 +790,7 @@ namespace build2
 
           if (!pt->has_prerequisites ())
           {
-            prerequisites ps;
-            ps.push_back (p.as_prerequisite ()); // Source.
+            prerequisites ps {p.as_prerequisite ()}; // Source.
 
             // Add our lib*{} (see the export.* machinery for details) and
             // bmi*{} (both original and chained; see module search logic)
