@@ -153,12 +153,12 @@ namespace build2
   public:
     prerequisite (prerequisite&& x)
         : proj (move (x.proj)),
-          type (move (x.type)),
+          type (x.type),
           dir (move (x.dir)),
           out (move (x.out)),
           name (move (x.name)),
           ext (move (x.ext)),
-          scope (move (x.scope)),
+          scope (x.scope),
           target (x.target.load (memory_order_relaxed)),
           vars (move (x.vars)) {}
 
