@@ -220,9 +220,10 @@ namespace build2
         bool,
         lflags,
         const function<bool (const file&, bool)>&,
-        const function<void (const file*, const string&, lflags, bool)>&,
+        const function<void (const file* const*, const string&, lflags, bool)>&,
         const function<void (const file&, const string&, bool, bool)>&,
-        bool = false) const;
+        bool = false,
+        small_vector<const file*, 16>* = nullptr) const;
 
       const target*
       search_library (action a,

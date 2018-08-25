@@ -8,6 +8,7 @@
 #include <build2/variable.hxx>
 #include <build2/algorithm.hxx> // search()
 
+#include <build2/bin/rule.hxx>
 #include <build2/bin/target.hxx>
 
 using namespace std;
@@ -45,17 +46,35 @@ namespace build2
     const target&
     link_member (const bin::libx& x, action a, linfo li)
     {
-      if (const libu* u = x.is_a<libu> ())
+      bool ul;
+
+      if ((ul = x.is_a<libul> ()) || x.is_a<libu> ())
       {
-        const target_type& tt (li.type == otype::e ? libue::static_type :
-                               li.type == otype::a ? libua::static_type :
-                               libus::static_type);
+        // If this is a libul{} and we are linking an executable, then the
+        // member choice should be dictated by the members of lib{} this
+        // libul{} is "primarily" for. If both are being built, then it seems
+        // natural to prefer static over shared since it could be faster (but
+        // I am sure someone will probably want this configurable).
+        //
+        if (ul && li.type == otype::e)
+        {
+          // Utility libraries are project-local which means the primarily
+          // target should be in the same project as us.
+          //
+          li.type = lib_rule::build_members (x.root_scope ()).a
+            ? otype::a
+            : otype::s;
+        }
+
+        const target_type& tt (li.type == otype::a ? libua::static_type :
+                               li.type == otype::s ? libus::static_type :
+                               libue::static_type);
 
         // Called by the compile rule during execute.
         //
         return phase == run_phase::match
-          ? search (*u, tt, u->dir, u->out, u->name)
-          : *search_existing (tt, u->dir, u->out, u->name);
+          ? search (x, tt, x.dir, x.out, x.name)
+          : *search_existing (tt, x.dir, x.out, x.name);
       }
       else
       {

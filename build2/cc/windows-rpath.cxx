@@ -59,8 +59,13 @@ namespace build2
       //
       auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r] (const file* l, const string& f, lflags, bool sys)
+      auto lib = [&r] (const file* const* lc,
+                       const string& f,
+                       lflags,
+                       bool sys)
       {
+        const file* l (lc != nullptr ? *lc : nullptr);
+
         // We don't rpath system libraries.
         //
         if (sys)
@@ -135,8 +140,13 @@ namespace build2
 
       auto imp = [] (const file&, bool) {return true;};
 
-      auto lib = [&r, &bs] (const file* l, const string& f, lflags, bool sys)
+      auto lib = [&r, &bs] (const file* const* lc,
+                            const string& f,
+                            lflags,
+                            bool sys)
       {
+        const file* l (lc != nullptr ? *lc : nullptr);
+
         if (sys)
           return;
 

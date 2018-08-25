@@ -53,8 +53,8 @@ namespace build2
       {
         const target* pt (&search (t, p));
 
-        // If this is the lib{}/libu{} group, pick a member which we would
-        // link. For libu{} we want the "see through" logic.
+        // If this is the lib{}/libu*{} group, pick a member which we would
+        // link. For libu*{} we want the "see through" logic.
         //
         if (const libx* l = pt->is_a<libx> ())
           pt = &link_member (*l, a, link_info (t.base_scope (), ot));

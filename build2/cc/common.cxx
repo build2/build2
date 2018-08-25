@@ -41,8 +41,13 @@ namespace build2
     //
     // 1. options
     // 2. lib itself (if self is true)
-    // 3. dependency libs (prerequisite_targets)
+    // 3. dependency libs (prerequisite_targets, left to right, depth-first)
     // 4. dependency libs (*.libs variables).
+    //
+    // The first argument to proc_lib is a pointer to the last element of an
+    // array that contains the current library dependency chain all the way to
+    // the library passes to process_libraries(). The first element of this
+    // array is NULL.
     //
     void common::
     process_libraries (
@@ -55,7 +60,7 @@ namespace build2
       lflags lf,
       const function<bool (const file&,
                            bool la)>& proc_impl, // Implementation?
-      const function<void (const file*,          // Can be NULL.
+      const function<void (const file* const*,   // Can be NULL.
                            const string& path,   // Library path.
                            lflags,               // Link flags.
                            bool sys)>& proc_lib, // True if system library.
@@ -63,8 +68,16 @@ namespace build2
                            const string& type,   // cc.type
                            bool com,             // cc. or x.
                            bool exp)>& proc_opt, // *.export.
-      bool self /*= false*/) const               // Call proc_lib on l?
+      bool self /*= false*/,                     // Call proc_lib on l?
+      small_vector<const file*, 16>* chain) const
     {
+      small_vector<const file*, 16> chain_storage;
+      if (chain == nullptr)
+      {
+        chain = &chain_storage;
+        chain->push_back (nullptr);
+      }
+
       // See what type of library this is (C, C++, etc). Use it do decide
       // which x.libs variable name to use. If it's unknown, then we only
       // look into prerequisites.
@@ -177,6 +190,8 @@ namespace build2
       //
       if (self && proc_lib)
       {
+        chain->push_back (&l);
+
         // Note that while normally the path is assigned, in case of an import
         // stub the path to the DLL may not be known and so the path will be
         // empty (but proc_lib() will use the import stub).
@@ -187,7 +202,7 @@ namespace build2
                 ? cast_false<bool> (l.vars[c_system])
                 : !p.empty () && sys (top_sysd, p.string ()));
 
-        proc_lib (&l, p.string (), lf, s);
+        proc_lib (&chain->back (), p.string (), lf, s);
       }
 
       const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
@@ -242,7 +257,7 @@ namespace build2
 
             process_libraries (a, bs, *li, *sysd,
                                *f, la, pt.data,
-                               proc_impl, proc_lib, proc_opt, true);
+                               proc_impl, proc_lib, proc_opt, true, chain);
           }
         }
       }
@@ -251,148 +266,154 @@ namespace build2
       // handling import, etc.
       //
       // If it is not a C-common library, then it probably doesn't have any of
-      // the *.libs and we are done.
+      // the *.libs.
       //
-      if (t == nullptr)
-        return;
-
-      optional<dir_paths> usrd;                  // Extract lazily.
-
-      // Determine if a "simple path" is a system library.
-      //
-      auto sys_simple = [&sysd, &sys, &find_sysd] (const string& p) -> bool
+      if (t != nullptr)
       {
-        bool s (!path::traits::absolute (p));
+        optional<dir_paths> usrd; // Extract lazily.
 
-        if (!s)
+        // Determine if a "simple path" is a system library.
+        //
+        auto sys_simple = [&sysd, &sys, &find_sysd] (const string& p) -> bool
         {
-          if (sysd == nullptr) find_sysd ();
+          bool s (!path::traits::absolute (p));
 
-          s = sys (*sysd, p);
-        }
+          if (!s)
+          {
+            if (sysd == nullptr) find_sysd ();
 
-        return s;
-      };
+            s = sys (*sysd, p);
+          }
 
-      auto proc_int = [&l,
-                       &proc_impl, &proc_lib, &proc_opt,
-                       &sysd, &usrd,
-                       &find_sysd, &find_linfo, &sys_simple,
-                       &bs, a, &li, this] (const lookup& lu)
-      {
-        const vector<name>* ns (cast_null<vector<name>> (lu));
-        if (ns == nullptr || ns->empty ())
-          return;
+          return s;
+        };
 
-        for (const name& n: *ns)
+        auto proc_int = [&l,
+                         &proc_impl, &proc_lib, &proc_opt, chain,
+                         &sysd, &usrd,
+                         &find_sysd, &find_linfo, &sys_simple,
+                         &bs, a, &li, this] (const lookup& lu)
         {
-          if (n.simple ())
+          const vector<name>* ns (cast_null<vector<name>> (lu));
+          if (ns == nullptr || ns->empty ())
+            return;
+
+          for (const name& n: *ns)
+          {
+            if (n.simple ())
+            {
+              // This is something like -lpthread or shell32.lib so should be
+              // a valid path. But it can also be an absolute library path
+              // (e.g., something that in the future will come from our
+              // -static/-shared .pc files.
+              //
+              if (proc_lib)
+                proc_lib (nullptr, n.value, 0, sys_simple (n.value));
+            }
+            else
+            {
+              // This is a potentially project-qualified target.
+              //
+              if (sysd == nullptr) find_sysd ();
+              if (!li) find_linfo ();
+
+              const file& t (resolve_library (a, bs, n, *li, *sysd, usrd));
+
+              if (proc_lib)
+              {
+                // This can happen if the target is mentioned in *.export.libs
+                // (i.e., it is an interface dependency) but not in the
+                // library's prerequisites (i.e., it is not an implementation
+                // dependency).
+                //
+                // Note that we used to just check for path being assigned but
+                // on Windows import-installed DLLs may legally have empty
+                // paths.
+                //
+                if (t.mtime () == timestamp_unknown)
+                  fail << "interface dependency " << t << " is out of date" <<
+                    info << "mentioned in *.export.libs of target " << l <<
+                    info << "is it a prerequisite of " << l << "?";
+              }
+
+              // Process it recursively.
+              //
+              // @@ Where can we get the link flags? Should we try to find
+              //    them in the library's prerequisites? What about installed
+              //    stuff?
+              //
+              process_libraries (a, bs, *li, *sysd,
+                                 t, t.is_a<liba> () || t.is_a<libux> (), 0,
+                                 proc_impl, proc_lib, proc_opt, true, chain);
+            }
+          }
+        };
+
+        // Process libraries from *.libs (of type strings).
+        //
+        auto proc_imp = [&proc_lib, &sys_simple] (const lookup& lu)
+        {
+          const strings* ns (cast_null<strings> (lu));
+          if (ns == nullptr || ns->empty ())
+            return;
+
+          for (const string& n: *ns)
           {
             // This is something like -lpthread or shell32.lib so should be a
-            // valid path. But it can also be an absolute library path (e.g.,
-            // something that in the future will come from our -static/-shared
-            // .pc files.
+            // valid path.
             //
-            if (proc_lib)
-              proc_lib (nullptr, n.value, 0, sys_simple (n.value));
+            proc_lib (nullptr, n, 0, sys_simple (n));
           }
-          else
-          {
-            // This is a potentially project-qualified target.
-            //
-            if (sysd == nullptr) find_sysd ();
-            if (!li) find_linfo ();
+        };
 
-            const file& t (resolve_library (a, bs, n, *li, *sysd, usrd));
-
-            if (proc_lib)
-            {
-              // This can happen if the target is mentioned in *.export.libs
-              // (i.e., it is an interface dependency) but not in the
-              // library's prerequisites (i.e., it is not an implementation
-              // dependency).
-              //
-              // Note that we used to just check for path being assigned but
-              // on Windows import-installed DLLs may legally have empty
-              // paths.
-              //
-              if (t.mtime () == timestamp_unknown)
-                fail << "interface dependency " << t << " is out of date" <<
-                  info << "mentioned in *.export.libs of target " << l <<
-                  info << "is it a prerequisite of " << l << "?";
-            }
-
-            // Process it recursively.
-            //
-            // @@ Where can we get the link flags? Should we try to find them
-            //    in the library's prerequisites? What about installed stuff?
-            //
-            process_libraries (a, bs, *li, *sysd,
-                               t, t.is_a<liba> () || t.is_a<libux> (), 0,
-                               proc_impl, proc_lib, proc_opt, true);
-          }
-        }
-      };
-
-      // Process libraries from *.libs (of type strings).
-      //
-      auto proc_imp = [&proc_lib, &sys_simple] (const lookup& lu)
-      {
-        const strings* ns (cast_null<strings> (lu));
-        if (ns == nullptr || ns->empty ())
-          return;
-
-        for (const string& n: *ns)
+        // Note: the same structure as when processing options above.
+        //
+        // If all we know is it's a C-common library, then in both cases we
+        // only look for cc.export.libs.
+        //
+        if (cc)
         {
-          // This is something like -lpthread or shell32.lib so should be a
-          // valid path.
-          //
-          proc_lib (nullptr, n, 0, sys_simple (n));
-        }
-      };
-
-      // Note: the same structure as when processing options above.
-      //
-      // If all we know is it's a C-common library, then in both cases we only
-      // look for cc.export.libs.
-      //
-      if (cc)
-      {
-        if (c_e_libs) proc_int (c_e_libs);
-      }
-      else
-      {
-        if (impl)
-        {
-          // Interface and implementation: as discussed above, we can have two
-          // situations: overriden export or default export.
-          //
-          if (c_e_libs.defined () || x_e_libs.defined ())
-          {
-            if (c_e_libs) proc_int (c_e_libs);
-            if (x_e_libs) proc_int (x_e_libs);
-          }
-          else
-          {
-            // For default export we use the same options/libs as were used to
-            // build the library. Since libraries in (non-export) *.libs are
-            // not targets, we don't need to recurse.
-            //
-            if (proc_lib)
-            {
-              proc_imp (l[c_libs]);
-              proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
-            }
-          }
+          if (c_e_libs) proc_int (c_e_libs);
         }
         else
         {
-          // Interface: only add *.export.* (interface dependencies).
-          //
-          if (c_e_libs) proc_int (c_e_libs);
-          if (x_e_libs) proc_int (x_e_libs);
+          if (impl)
+          {
+            // Interface and implementation: as discussed above, we can have
+            // two situations: overriden export or default export.
+            //
+            if (c_e_libs.defined () || x_e_libs.defined ())
+            {
+              if (c_e_libs) proc_int (c_e_libs);
+              if (x_e_libs) proc_int (x_e_libs);
+            }
+            else
+            {
+              // For default export we use the same options/libs as were used
+              // to build the library. Since libraries in (non-export) *.libs
+              // are not targets, we don't need to recurse.
+              //
+              if (proc_lib)
+              {
+                proc_imp (l[c_libs]);
+                proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
+              }
+            }
+          }
+          else
+          {
+            // Interface: only add *.export.* (interface dependencies).
+            //
+            if (c_e_libs) proc_int (c_e_libs);
+            if (x_e_libs) proc_int (x_e_libs);
+          }
         }
       }
+
+      // Remove this library from the chain.
+      //
+      if (self && proc_lib)
+        chain->pop_back ();
     }
 
     // The name can be an absolute target name (e.g., /tmp/libfoo/lib{foo}) or
@@ -456,7 +477,7 @@ namespace build2
           fail << "unable to find library " << pk;
       }
 
-      // If this is lib{}/libu{}, pick appropriate member.
+      // If this is lib{}/libu*{}, pick appropriate member.
       //
       if (const libx* l = xt->is_a<libx> ())
         xt = &link_member (*l, a, li); // Pick lib*{e,a,s}{}.

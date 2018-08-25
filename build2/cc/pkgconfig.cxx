@@ -1265,11 +1265,13 @@ namespace build2
         bool priv (false);
         auto imp = [&priv] (const file&, bool la) {return priv && la;};
 
-        auto lib = [&os, &save_library] (const file* l,
+        auto lib = [&os, &save_library] (const file* const* c,
                                          const string& p,
                                          lflags,
                                          bool)
         {
+          const file* l (c != nullptr ? *c : nullptr);
+
           if (l != nullptr)
           {
             if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.

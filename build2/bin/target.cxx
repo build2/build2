@@ -71,7 +71,7 @@ namespace build2
     // running serial. For the members it is also safe to set the group during
     // creation.
 
-    // obj*{}, bmi*{}, libu*{} member factory.
+    // obj*{} and bmi*{} member factory.
     //
     template <typename M, typename G>
     static target*
@@ -111,19 +111,6 @@ namespace build2
       false
     };
 
-    const target_type libue::static_type
-    {
-      "libue",
-      &libux::static_type,
-      &m_factory<libue, libu>,
-      nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
-      nullptr,
-      &target_search, // Note: not _file(); don't look for an existing file.
-      false
-    };
-
     const target_type obja::static_type
     {
       "obja",
@@ -142,19 +129,6 @@ namespace build2
       "bmia",
       &bmix::static_type,
       &m_factory<bmia, bmi>,
-      nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
-      nullptr,
-      &target_search, // Note: not _file(); don't look for an existing file.
-      false
-    };
-
-    const target_type libua::static_type
-    {
-      "libua",
-      &libux::static_type,
-      &m_factory<libua, libu>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
       &target_pattern_var<var_extension, nullptr>,
@@ -189,11 +163,60 @@ namespace build2
       false
     };
 
+    // libu*{} member factory.
+    //
+    template <typename M>
+    static target*
+    libux_factory (const target_type&, dir_path dir, dir_path out, string n)
+    {
+      const target* g (targets.find<libu> (dir, out, n));
+
+      if (const target* g2 = targets.find<libul> (dir, out, n))
+      {
+        if (g != 0)
+          fail << "both " << *g << " and " << g2 << " targets declared";
+
+        g = g2;
+      }
+
+      M* m (new M (move (dir), move (out), move (n)));
+      m->group = g;
+
+      return m;
+    }
+
+    const target_type libue::static_type
+    {
+      "libue",
+      &libux::static_type,
+      &libux_factory<libue>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+
+    const target_type libua::static_type
+    {
+      "libua",
+      &libux::static_type,
+      &libux_factory<libua>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
     const target_type libus::static_type
     {
       "libus",
       &libux::static_type,
-      &m_factory<libus, libu>,
+      &libux_factory<libus>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
       &target_pattern_var<var_extension, nullptr>,
@@ -247,6 +270,39 @@ namespace build2
       "bmi",
       &target::static_type,
       &g_factory<bmi, bmie, bmia, bmis>,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
+    // The same as g_factory() but without E.
+    //
+    static target*
+    libul_factory (const target_type&, dir_path dir, dir_path out, string n)
+    {
+      libua* a (phase == run_phase::load
+                ? const_cast<libua*> (targets.find<libua> (dir, out, n))
+                : nullptr);
+      libus* s (phase == run_phase::load
+                ? const_cast<libus*> (targets.find<libus> (dir, out, n))
+                : nullptr);
+
+      libul* g (new libul (move (dir), move (out), move (n)));
+
+      if (a != nullptr) a->group = g;
+      if (s != nullptr) s->group = g;
+
+      return g;
+    }
+
+    const target_type libul::static_type
+    {
+      "libul",
+      &libx::static_type,
+      &libul_factory,
       nullptr,
       nullptr,
       nullptr,

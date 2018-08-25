@@ -130,14 +130,19 @@ namespace build2
       }
 
       if (!(seen_x || seen_c || seen_obj || seen_lib))
+      {
+        l4 ([&]{trace << "no " << x_lang << ", C, or obj/lib prerequisite "
+                      << "for target " << t;});
         return false;
+      }
 
       // We will only chain a C source if there is also an X source or we were
       // explicitly told to.
       //
       if (seen_c && !seen_x && hint < x)
       {
-        l4 ([&]{trace << "C prerequisite without " << x_lang << " or hint";});
+        l4 ([&]{trace << "C prerequisite without " << x_lang << " or hint "
+                      << "for target " << t;});
         return false;
       }
 
@@ -1070,47 +1075,126 @@ namespace build2
                       const file& l, bool la, lflags lf,
                       const scope& bs, action a, linfo li) const
     {
-      // Note: lack of the "small function object" optimization will really
-      // kill us here since we are called in a loop.
-      //
+      struct data
+      {
+        strings&    args;
+        const file& l;
+        action      a;
+        linfo       li;
+      } d {args, l, a, li};
+
       auto imp = [] (const file&, bool la) {return la;};
 
-      auto lib = [&args, this] (const file* l, const string& p, lflags f, bool)
+      auto lib = [&d, this] (const file* const* lc,
+                             const string& p,
+                             lflags f,
+                             bool)
       {
-        if (l != nullptr)
+        const file* l (lc != nullptr ? *lc : nullptr);
+
+        if (l == nullptr)
         {
-          // On Windows a shared library is a DLL with the import library as a
-          // first ad hoc group member. MinGW though can link directly to DLLs
-          // (see search_library() for details).
-          //
-          if (l->member != nullptr && l->is_a<libs> () && tclass == "windows")
-            l = &l->member->as<file> ();
-
-          string p (relative (l->path ()).string ());
-
-          if (f & lflag_whole)
-          {
-            if (tsys == "win32-msvc")
-            {
-              p.insert (0, "/WHOLEARCHIVE:"); // Only available from VC14U2.
-            }
-            else if (tsys == "darwin")
-            {
-              p.insert (0, "-Wl,-force_load,");
-            }
-            else
-            {
-              args.push_back ("-Wl,--whole-archive");
-              args.push_back (move (p));
-              args.push_back ("-Wl,--no-whole-archive");
-              return;
-            }
-          }
-
-          args.push_back (move (p));
+          d.args.push_back (p);
         }
         else
-          args.push_back (p);
+        {
+          bool lu (l->is_a<libux> ());
+
+          // The utility/non-utility case is tricky. Consider these two
+          // scenarios:
+          //
+          // exe -> (libu1-e -> libu1-e) -> (liba) -> libu-a -> (liba1)
+          // exe -> (liba) -> libu1-a -> libu1-a -> (liba1) -> libu-a1
+          //
+          // Libraries that should be linked are in '()'. That is, we need to
+          // link the initial sequence of utility libraries and then, after
+          // encountering a first non-utility, only link non-utilities
+          // (because they already contain their utility's object files).
+          //
+          if (lu)
+          {
+            for (ptrdiff_t i (-1); lc[i] != nullptr; --i)
+              if (!lc[i]->is_a<libux> ())
+                return;
+          }
+
+          if (d.li.type == otype::a)
+          {
+            // Linking a utility library to a static library.
+            //
+            // Note that utility library prerequisites of utility libraries
+            // are automatically handled by process_libraries(). So all we
+            // have to do is implement the "thin archive" logic.
+            //
+            // We may also end up trying to link a non-utility library to a
+            // static library via a utility library (direct linking is taken
+            // care of by perform_update()). So we cut it off here.
+            //
+            if (!lu)
+              return;
+
+            for (const target* pt: l->prerequisite_targets[d.a])
+            {
+              if (pt == nullptr)
+                continue;
+
+              if (modules)
+              {
+                if (pt->is_a<bmix> ())
+                  pt = pt->member;
+              }
+
+              // We could have dependency diamonds with utility libraries.
+              // Repeats will be handled by the linker (in fact, it could be
+              // required to repeat them to satisfy all the symbols) but here
+              // we have to suppress duplicates ourselves.
+              //
+              if (const file* f = pt->is_a<objx> ())
+              {
+                string p (relative (f->path ()).string ());
+                if (find (d.args.begin (), d.args.end (), p) == d.args.end ())
+                  d.args.push_back (move (p));
+              }
+            }
+          }
+          else
+          {
+            // Linking a library to a shared library or executable.
+            //
+
+            // On Windows a shared library is a DLL with the import library as
+            // a first ad hoc group member. MinGW though can link directly to
+            // DLLs (see search_library() for details).
+            //
+            if (l->member != nullptr &&
+                l->is_a<libs> ()     &&
+                tclass == "windows")
+              l = &l->member->as<file> ();
+
+            string p (relative (l->path ()).string ());
+
+            if (f & lflag_whole)
+            {
+              if (tsys == "win32-msvc")
+              {
+                p.insert (0, "/WHOLEARCHIVE:"); // Only available from VC14U2.
+              }
+              else if (tsys == "darwin")
+              {
+                p.insert (0, "-Wl,-force_load,");
+              }
+              else
+              {
+                d.args.push_back ("-Wl,--whole-archive");
+                d.args.push_back (move (p));
+                d.args.push_back ("-Wl,--no-whole-archive");
+                return;
+              }
+            }
+
+            d.args.push_back (move (p));
+          }
+        }
       };
 
       auto opt = [&args, this] (
@@ -1149,12 +1233,43 @@ namespace build2
         const dir_path& out_root;
         bool&           update;
         timestamp       mt;
-      } d {cs, bs.root_scope ()->out_path (), update, mt};
+        linfo           li;
+      } d {cs, bs.root_scope ()->out_path (), update, mt, li};
 
-      auto lib = [&d, this] (const file* l, const string& p, lflags f, bool)
+      auto lib = [&d, this] (const file* const* lc,
+                             const string& p,
+                             lflags f,
+                             bool)
       {
-        if (l != nullptr)
+        const file* l (lc != nullptr ? *lc : nullptr);
+
+        if (l == nullptr)
         {
+          d.cs.append (p);
+        }
+        else
+        {
+          bool lu (l->is_a<libux> ());
+
+          if (lu)
+          {
+            for (ptrdiff_t i (-1); lc[i] != nullptr; --i)
+              if (!lc[i]->is_a<libux> ())
+                return;
+          }
+
+          // We also don't need to do anything special for linking a utility
+          // library to a static library. If any of its object files (or the
+          // set of its object files) changes, then the library will have to
+          // be updated as well. In other words, we use the library timestamp
+          // as a proxy for all of its member's timestamps.
+          //
+          // We do need to cut of the static to static linking, just as in
+          // append_libraries().
+          //
+          if (d.li.type == otype::a && !lu)
+            return;
+
           // Check if this library renders us out of date.
           //
           d.update = d.update || l->newer (d.mt);
@@ -1169,8 +1284,6 @@ namespace build2
           d.cs.append (f);
           hash_path (d.cs, l->path (), d.out_root);
         }
-        else
-          d.cs.append (p);
       };
 
       auto opt = [&cs, this] (
@@ -1238,8 +1351,13 @@ namespace build2
         bool for_install;
       } d {args, for_install};
 
-      auto lib = [&d, this] (const file* l, const string& f, lflags, bool sys)
+      auto lib = [&d, this] (const file* const* lc,
+                             const string& f,
+                             lflags,
+                             bool sys)
       {
+        const file* l (lc != nullptr ? *lc : nullptr);
+
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on a napkin somewhere...
         //
@@ -1293,7 +1411,8 @@ namespace build2
       // In case we don't have the "small function object" optimization.
       //
       const function<bool (const file&, bool)> impf (imp);
-      const function<void (const file*, const string&, lflags, bool)> libf (lib);
+      const function<
+        void (const file* const*, const string&, lflags, bool)> libf (lib);
 
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
@@ -1544,7 +1663,10 @@ namespace build2
 
       if (lt.static_library ())
       {
-        if (tsys == "win32-msvc") ;
+        if (tsys == "win32-msvc")
+        {
+          // No options for lib.exe.
+        }
         else
         {
           // If the user asked for ranlib, don't try to do its function with
@@ -1700,7 +1822,7 @@ namespace build2
       // pinpoint exactly what is causing the update. On the other hand, the
       // checksum is faster and simpler. And we like simple.
       //
-      const file* def (nullptr); // Cache if present.
+      const file* def (nullptr); // Cached if present.
       {
         sha256 cs;
 
@@ -1722,10 +1844,16 @@ namespace build2
           const file* f;
           bool la (false), ls (false);
 
-          if ((f = pt->is_a<objx> ()) ||
-              (!lt.static_library () && // @@ UTL: TODO libua to liba link.
+          // We link utility libraries to everything except other utility
+          // libraries. In case of linking to liba{} we follow the "thin
+          // archive" lead and "see through" to their object file
+          // prerequisites (recursively, until we encounter a non-utility).
+          //
+          if ((f = pt->is_a<objx> ())           ||
+              (!lt.utility &&
+               (la = (f = pt->is_a<libux> ()))) ||
+              (!lt.static_library () &&
                ((la = (f = pt->is_a<liba>  ())) ||
-                (la = (f = pt->is_a<libux> ())) ||
                 (ls = (f = pt->is_a<libs>  ())))))
           {
             // Link all the dependent interface libraries (shared) or interface
@@ -1774,7 +1902,7 @@ namespace build2
         if (!manifest.empty ())
           hash_path (cs, manifest, rs.out_path ());
 
-        // Treat .libs as inputs, not options.
+        // Treat *.libs variable values as inputs, not options.
         //
         if (!lt.static_library ())
         {
@@ -2020,6 +2148,8 @@ namespace build2
 
       // The same logic as during hashing above.
       //
+      // See also a similar loop inside append_libraries().
+      //
       for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
         const target* pt (p.target);
@@ -2036,15 +2166,13 @@ namespace build2
         const file* f;
         bool la (false), ls (false);
 
-        if ((f = pt->is_a<objx> ()) ||
-            (!lt.static_library () && // @@ UTL: TODO libua to liba link.
+        if ((f = pt->is_a<objx> ())           ||
+            (!lt.utility &&
+             (la = (f = pt->is_a<libux> ()))) ||
+            (!lt.static_library () &&
              ((la = (f = pt->is_a<liba>  ())) ||
-              (la = (f = pt->is_a<libux> ())) ||
               (ls = (f = pt->is_a<libs>  ())))))
         {
-          // Link all the dependent interface libraries (shared) or interface
-          // and implementation (static), recursively.
-          //
           if (la || ls)
             append_libraries (sargs, *f, la, p.data, bs, a, li);
           else
@@ -2197,6 +2325,27 @@ namespace build2
           exit (1);
 
         throw failed ();
+      }
+
+      // VC link.exe creates an import library and .exp file for an executable
+      // if any of its object files export any symbols (think a unit test
+      // linking libus{}). And, no, there is no way to suppress it. Well,
+      // there is a way: create a .def file with an empty EXPORTS section,
+      // pass it to lib.exe to create a dummy .exp (and .lib), and then pass
+      // this empty .exp to link.exe. Wanna go this way? Didn't think so.
+      // Having no way to disable this, the next simplest thing seems to be
+      // just cleaning the mess up.
+      //
+      // Note also that if at some point we decide to support such "shared
+      // executables" (-rdynamic, etc), then it will probably have to be a
+      // different target type (exes{}?) since it will need a different set
+      // of object files (-fPIC so probably objs{}), etc.
+      //
+      if (lt.executable () && tsys == "win32-msvc")
+      {
+        path b (relt.base ());
+        try_rmfile (b + ".lib", true /* ignore_errors */);
+        try_rmfile (b + ".exp", true /* ignore_errors */);
       }
 
       if (ranlib)

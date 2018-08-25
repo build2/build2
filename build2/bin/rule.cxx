@@ -37,15 +37,10 @@ namespace build2
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.
     //
-    bool lib_rule::
-    match (action, target& xt, const string&) const
+    lib_rule::members lib_rule::
+    build_members (const scope& rs)
     {
-      lib& t (xt.as<lib> ());
-
-      // Get the library type to build. If not set for a target, this should
-      // be configured at the project scope by init().
-      //
-      const string& type (cast<string> (t["bin.lib"]));
+      const string& type (cast<string> (rs["bin.lib"]));
 
       bool a (type == "static" || type == "both");
       bool s (type == "shared" || type == "both");
@@ -54,8 +49,17 @@ namespace build2
         fail << "unknown library type: " << type <<
           info << "'static', 'shared', or 'both' expected";
 
-      t.a = a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
-      t.s = s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;
+      return members {a, s};
+    }
+
+    bool lib_rule::
+    match (action, target& xt, const string&) const
+    {
+      lib& t (xt.as<lib> ());
+
+      members bm (build_members (t.root_scope ()));
+      t.a = bm.a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
+      t.s = bm.s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;
 
       return true;
     }

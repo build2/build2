@@ -38,7 +38,7 @@ namespace build2
     static const strings libs_lib {"shared", "static"};
 
     bool
-    vars_init (scope& r,
+    vars_init (scope& rs,
                scope&,
                const location&,
                unique_ptr<module_base>&,
@@ -47,7 +47,7 @@ namespace build2
                const variable_map&)
     {
       tracer trace ("bin::vars_init");
-      l5 ([&]{trace << "for " << r.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       assert (first);
 
@@ -56,7 +56,7 @@ namespace build2
       // Target is a string and not target_triplet because it can be
       // specified by the user.
       //
-      auto& vp (var_pool.rw (r));
+      auto& vp (var_pool.rw (rs));
 
       vp.insert<string>    ("config.bin.target",   true);
       vp.insert<string>    ("config.bin.pattern",  true);
@@ -91,7 +91,7 @@ namespace build2
       // example:
       //
       // exe{test}: liba{foo}
-      // liba{foo}: libu{foo1 foo2}
+      // liba{foo}: libua{foo1 foo2}
       // liba{foo}: bin.whole = false # Affects test but not foo1 and foo2.
       //
       // If unspecified, defaults to false for liba{} and to true for libux{}.
@@ -121,6 +121,11 @@ namespace build2
       tracer trace ("bin::config_init");
       l5 ([&]{trace << "for " << bs.out_path ();});
 
+      // We only support root loading (which means there can only be one).
+      //
+      if (&rs != &bs)
+        fail (loc) << "bin.config module must be loaded in project root";
+
       // Load bin.vars.
       //
       if (!cast_false<bool> (rs["bin.vars.loaded"]))
@@ -149,7 +154,7 @@ namespace build2
       // config.bin.lib
       //
       {
-        value& v (bs.assign ("bin.lib"));
+        value& v (rs.assign ("bin.lib"));
         if (!v)
           v = *required (rs, "config.bin.lib", "both").first;
       }
@@ -157,7 +162,7 @@ namespace build2
       // config.bin.exe.lib
       //
       {
-        value& v (bs.assign ("bin.exe.lib"));
+        value& v (rs.assign ("bin.exe.lib"));
         if (!v)
           v = *required (rs, "config.bin.exe.lib", exe_lib).first;
       }
@@ -165,7 +170,7 @@ namespace build2
       // config.bin.liba.lib
       //
       {
-        value& v (bs.assign ("bin.liba.lib"));
+        value& v (rs.assign ("bin.liba.lib"));
         if (!v)
           v = *required (rs, "config.bin.liba.lib", liba_lib).first;
       }
@@ -173,7 +178,7 @@ namespace build2
       // config.bin.libs.lib
       //
       {
-        value& v (bs.assign ("bin.libs.lib"));
+        value& v (rs.assign ("bin.libs.lib"));
         if (!v)
           v = *required (rs, "config.bin.libs.lib", libs_lib).first;
       }
@@ -183,7 +188,7 @@ namespace build2
       // This one is optional and we merge it into bin.rpath, if any.
       // See the cxx module for details on merging.
       //
-      bs.assign ("bin.rpath") += cast_null<dir_paths> (
+      rs.assign ("bin.rpath") += cast_null<dir_paths> (
         optional (rs, "config.bin.rpath"));
 
       // config.bin.{lib,exe}.{prefix,suffix}
@@ -196,13 +201,13 @@ namespace build2
         lookup p (omitted (rs, "config.bin.prefix").first);
         lookup s (omitted (rs, "config.bin.suffix").first);
 
-        auto set = [&rs, &bs] (const char* bv, const char* cv, lookup l)
+        auto set = [&rs] (const char* bv, const char* cv, lookup l)
         {
           if (lookup o = omitted (rs, cv).first)
             l = o;
 
           if (l)
-            bs.assign (bv) = *l;
+            rs.assign (bv) = *l;
         };
 
         set ("bin.lib.prefix", "config.bin.lib.prefix", p);
@@ -364,8 +369,8 @@ namespace build2
 
       // Load bin.config.
       //
-      if (!cast_false<bool> (bs["bin.config.loaded"]))
-        load_module (rs, bs, "bin.config", loc, false, hints);
+      if (!cast_false<bool> (rs["bin.config.loaded"]))
+        load_module (rs, rs, "bin.config", loc, false, hints);
 
       // Cache some config values we will be needing below.
       //
@@ -391,6 +396,7 @@ namespace build2
         t.insert<bmis> ();
 
         t.insert<libu>  ();
+        t.insert<libul> ();
         t.insert<libue> ();
         t.insert<libua> ();
         t.insert<libus> ();
@@ -466,6 +472,9 @@ namespace build2
         r.insert<libu> (perform_update_id, "bin.libu", fail_);
         r.insert<libu> (perform_clean_id,  "bin.libu", fail_);
 
+        r.insert<libul> (perform_update_id, "bin.libul", fail_);
+        r.insert<libul> (perform_clean_id,  "bin.libul", fail_);
+
         // Similar to alias.
         //
 
@@ -493,8 +502,8 @@ namespace build2
     }
 
     bool
-    ar_config_init (scope& r,
-                    scope& b,
+    ar_config_init (scope& rs,
+                    scope& bs,
                     const location& loc,
                     unique_ptr<module_base>&,
                     bool first,
@@ -502,18 +511,18 @@ namespace build2
                     const variable_map& hints)
     {
       tracer trace ("bin::ar_config_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module (r, b, "bin.config", loc, false, hints);
+      if (!cast_false<bool> (rs["bin.config.loaded"]))
+        load_module (rs, bs, "bin.config", loc, false, hints);
 
       // Enter configuration variables.
       //
       if (first)
       {
-        auto& v (var_pool.rw (r));
+        auto& v (var_pool.rw (rs));
 
         v.insert<process_path> ("bin.rc.path");
         v.insert<process_path> ("bin.ranlib.path");
@@ -543,12 +552,12 @@ namespace build2
 
         // Use the target to decide on the default binutils program names.
         //
-        const string& tsys (cast<string> (r["bin.target.system"]));
+        const string& tsys (cast<string> (rs["bin.target.system"]));
         const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
 
         // This can be either a pattern or a fallback search directory.
         //
-        const string* pat (cast_null<string> (r["bin.pattern"]));
+        const string* pat (cast_null<string> (rs["bin.pattern"]));
         bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
 
         // Don't save the default value to config.build so that if the user
@@ -557,7 +566,7 @@ namespace build2
         //
         auto ap (
           config::required (
-            r,
+            rs,
             "config.bin.ar",
             path (apply_pattern (ar_d, fb ? nullptr : pat)),
             false,
@@ -565,7 +574,7 @@ namespace build2
 
         auto rp (
           config::required (
-            r,
+            rs,
             "config.bin.ranlib",
             nullptr,
             false,
@@ -585,7 +594,7 @@ namespace build2
           diag_record dr (text);
 
           {
-            dr << "bin.ar " << project (r) << '@' << r.out_path () << '\n'
+            dr << "bin.ar " << project (rs) << '@' << rs.out_path () << '\n'
                << "  ar         " << ari.ar_path << '\n'
                << "  id         " << ari.ar_id << '\n'
                << "  version    " << ari.ar_version.string () << '\n'
@@ -614,28 +623,28 @@ namespace build2
           }
         }
 
-        r.assign<process_path> ("bin.ar.path")      = move (ari.ar_path);
-        r.assign<string>       ("bin.ar.id")        = move (ari.ar_id);
-        r.assign<string>       ("bin.ar.signature") = move (ari.ar_signature);
-        r.assign<string>       ("bin.ar.checksum")  = move (ari.ar_checksum);
+        rs.assign<process_path> ("bin.ar.path")      = move (ari.ar_path);
+        rs.assign<string>       ("bin.ar.id")        = move (ari.ar_id);
+        rs.assign<string>       ("bin.ar.signature") = move (ari.ar_signature);
+        rs.assign<string>       ("bin.ar.checksum")  = move (ari.ar_checksum);
 
         {
           semantic_version& v (ari.ar_version);
 
-          r.assign<string>   ("bin.ar.version")       = v.string ();
-          r.assign<uint64_t> ("bin.ar.version.major") = v.major;
-          r.assign<uint64_t> ("bin.ar.version.minor") = v.minor;
-          r.assign<uint64_t> ("bin.ar.version.patch") = v.patch;
-          r.assign<string>   ("bin.ar.version.build") = move (v.build);
+          rs.assign<string>   ("bin.ar.version")       = v.string ();
+          rs.assign<uint64_t> ("bin.ar.version.major") = v.major;
+          rs.assign<uint64_t> ("bin.ar.version.minor") = v.minor;
+          rs.assign<uint64_t> ("bin.ar.version.patch") = v.patch;
+          rs.assign<string>   ("bin.ar.version.build") = move (v.build);
         }
 
         if (ranlib != nullptr)
         {
-          r.assign<process_path> ("bin.ranlib.path") = move (ari.ranlib_path);
-          r.assign<string>       ("bin.ranlib.id")   = move (ari.ranlib_id);
-          r.assign<string>       ("bin.ranlib.signature") =
+          rs.assign<process_path> ("bin.ranlib.path") = move (ari.ranlib_path);
+          rs.assign<string>       ("bin.ranlib.id")   = move (ari.ranlib_id);
+          rs.assign<string>       ("bin.ranlib.signature") =
             move (ari.ranlib_signature);
-          r.assign<string>       ("bin.ranlib.checksum") =
+          rs.assign<string>       ("bin.ranlib.checksum") =
             move (ari.ranlib_checksum);
         }
       }
@@ -644,8 +653,8 @@ namespace build2
     }
 
     bool
-    ar_init (scope& r,
-             scope& b,
+    ar_init (scope& rs,
+             scope& bs,
              const location& loc,
              unique_ptr<module_base>&,
              bool,
@@ -653,22 +662,22 @@ namespace build2
              const variable_map& hints)
     {
       tracer trace ("bin::ar_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Make sure the bin core and ar.config are loaded.
       //
-      if (!cast_false<bool> (b["bin.loaded"]))
-        load_module (r, b, "bin", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.loaded"]))
+        load_module (rs, bs, "bin", loc, false, hints);
 
-      if (!cast_false<bool> (b["bin.ar.config.loaded"]))
-        load_module (r, b, "bin.ar.config", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.ar.config.loaded"]))
+        load_module (rs, bs, "bin.ar.config", loc, false, hints);
 
       return true;
     }
 
     bool
-    ld_config_init (scope& r,
-                    scope& b,
+    ld_config_init (scope& rs,
+                    scope& bs,
                     const location& loc,
                     unique_ptr<module_base>&,
                     bool first,
@@ -676,18 +685,18 @@ namespace build2
                     const variable_map& hints)
     {
       tracer trace ("bin::ld_config_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module (r, b, "bin.config", loc, false, hints);
+      if (!cast_false<bool> (rs["bin.config.loaded"]))
+        load_module (rs, rs, "bin.config", loc, false, hints);
 
       // Enter configuration variables.
       //
       if (first)
       {
-        auto& v (var_pool.rw (r));
+        auto& v (var_pool.rw (rs));
 
         v.insert<process_path> ("bin.ld.path");
         v.insert<path>         ("config.bin.ld", true);
@@ -701,17 +710,17 @@ namespace build2
         //
         // Use the target to decide on the default ld name.
         //
-        const string& tsys (cast<string> (r["bin.target.system"]));
+        const string& tsys (cast<string> (rs["bin.target.system"]));
         const char* ld_d (tsys == "win32-msvc" ? "link" : "ld");
 
         // This can be either a pattern or a fallback search directory.
         //
-        const string* pat (cast_null<string> (r["bin.pattern"]));
+        const string* pat (cast_null<string> (rs["bin.pattern"]));
         bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
 
         auto p (
           config::required (
-            r,
+            rs,
             "config.bin.ld",
             path (apply_pattern (ld_d, fb ? nullptr : pat)),
             false,
@@ -725,25 +734,25 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.ld " << project (r) << '@' << r.out_path () << '\n'
+          text << "bin.ld " << project (rs) << '@' << rs.out_path () << '\n'
                << "  ld         " << ldi.path << '\n'
                << "  id         " << ldi.id << '\n'
                << "  signature  " << ldi.signature << '\n'
                << "  checksum   " << ldi.checksum;
         }
 
-        r.assign<process_path> ("bin.ld.path")      = move (ldi.path);
-        r.assign<string>       ("bin.ld.id")        = move (ldi.id);
-        r.assign<string>       ("bin.ld.signature") = move (ldi.signature);
-        r.assign<string>       ("bin.ld.checksum")  = move (ldi.checksum);
+        rs.assign<process_path> ("bin.ld.path")      = move (ldi.path);
+        rs.assign<string>       ("bin.ld.id")        = move (ldi.id);
+        rs.assign<string>       ("bin.ld.signature") = move (ldi.signature);
+        rs.assign<string>       ("bin.ld.checksum")  = move (ldi.checksum);
       }
 
       return true;
     }
 
     bool
-    ld_init (scope& r,
-             scope& b,
+    ld_init (scope& rs,
+             scope& bs,
              const location& loc,
              unique_ptr<module_base>&,
              bool,
@@ -751,17 +760,17 @@ namespace build2
              const variable_map& hints)
     {
       tracer trace ("bin::ld_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Make sure the bin core and ld.config are loaded.
       //
-      if (!cast_false<bool> (b["bin.loaded"]))
-        load_module (r, b, "bin", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.loaded"]))
+        load_module (rs, bs, "bin", loc, false, hints);
 
-      if (!cast_false<bool> (b["bin.ld.config.loaded"]))
-        load_module (r, b, "bin.ld.config", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.ld.config.loaded"]))
+        load_module (rs, bs, "bin.ld.config", loc, false, hints);
 
-      const string& lid (cast<string> (r["bin.ld.id"]));
+      const string& lid (cast<string> (rs["bin.ld.id"]));
 
       // Register the pdb{} target if using the VC toolchain.
       //
@@ -769,17 +778,17 @@ namespace build2
 
       if (lid == "msvc")
       {
-        const target_type& pdb (b.derive_target_type<file> ("pdb").first);
-        install_path (b, pdb, dir_path ("bin")); // Goes to install.bin
-        install_mode (b, pdb, "644");            // But not executable.
+        const target_type& pdb (bs.derive_target_type<file> ("pdb").first);
+        install_path (bs, pdb, dir_path ("bin")); // Goes to install.bin
+        install_mode (bs, pdb, "644");            // But not executable.
       }
 
       return true;
     }
 
     bool
-    rc_config_init (scope& r,
-                    scope& b,
+    rc_config_init (scope& rs,
+                    scope& bs,
                     const location& loc,
                     unique_ptr<module_base>&,
                     bool first,
@@ -787,18 +796,18 @@ namespace build2
                     const variable_map& hints)
     {
       tracer trace ("bin::rc_config_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (b["bin.config.loaded"]))
-        load_module (r, b, "bin.config", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.config.loaded"]))
+        load_module (rs, bs, "bin.config", loc, false, hints);
 
       // Enter configuration variables.
       //
       if (first)
       {
-        auto& v (var_pool.rw (r));
+        auto& v (var_pool.rw (rs));
 
         v.insert<process_path> ("bin.rc.path");
         v.insert<path>         ("config.bin.rc", true);
@@ -812,17 +821,17 @@ namespace build2
         //
         // Use the target to decide on the default rc name.
         //
-        const string& tsys (cast<string> (r["bin.target.system"]));
+        const string& tsys (cast<string> (rs["bin.target.system"]));
         const char* rc_d (tsys == "win32-msvc" ? "rc" : "windres");
 
         // This can be either a pattern or a fallback search directory.
         //
-        const string* pat (cast_null<string> (r["bin.pattern"]));
+        const string* pat (cast_null<string> (rs["bin.pattern"]));
         bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
 
         auto p (
           config::required (
-            r,
+            rs,
             "config.bin.rc",
             path (apply_pattern (rc_d, fb ? nullptr : pat)),
             false,
@@ -836,25 +845,25 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.rc " << project (r) << '@' << r.out_path () << '\n'
+          text << "bin.rc " << project (rs) << '@' << rs.out_path () << '\n'
                << "  rc         " << rci.path << '\n'
                << "  id         " << rci.id << '\n'
                << "  signature  " << rci.signature << '\n'
                << "  checksum   " << rci.checksum;
         }
 
-        r.assign<process_path> ("bin.rc.path")      = move (rci.path);
-        r.assign<string>       ("bin.rc.id")        = move (rci.id);
-        r.assign<string>       ("bin.rc.signature") = move (rci.signature);
-        r.assign<string>       ("bin.rc.checksum")  = move (rci.checksum);
+        rs.assign<process_path> ("bin.rc.path")      = move (rci.path);
+        rs.assign<string>       ("bin.rc.id")        = move (rci.id);
+        rs.assign<string>       ("bin.rc.signature") = move (rci.signature);
+        rs.assign<string>       ("bin.rc.checksum")  = move (rci.checksum);
       }
 
       return true;
     }
 
     bool
-    rc_init (scope& r,
-             scope& b,
+    rc_init (scope& rs,
+             scope& bs,
              const location& loc,
              unique_ptr<module_base>&,
              bool,
@@ -862,15 +871,15 @@ namespace build2
              const variable_map& hints)
     {
       tracer trace ("bin::rc_init");
-      l5 ([&]{trace << "for " << b.out_path ();});
+      l5 ([&]{trace << "for " << bs.out_path ();});
 
       // Make sure the bin core and rc.config are loaded.
       //
-      if (!cast_false<bool> (b["bin.loaded"]))
-        load_module (r, b, "bin", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.loaded"]))
+        load_module (rs, bs, "bin", loc, false, hints);
 
-      if (!cast_false<bool> (b["bin.rc.config.loaded"]))
-        load_module (r, b, "bin.rc.config", loc, false, hints);
+      if (!cast_false<bool> (bs["bin.rc.config.loaded"]))
+        load_module (rs, bs, "bin.rc.config", loc, false, hints);
 
       return true;
     }

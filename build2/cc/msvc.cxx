@@ -65,12 +65,22 @@ namespace build2
       {
         // "   Creating library foo\foo.dll.lib and object foo\foo.dll.exp"
         //
-        if (lt == otype::s && l.compare (0, 3, "   ") == 0)
+        // This can also appear when linking executables if any of the object
+        // files export any symbols.
+        //
+        if (l.compare (0, 3, "   ") == 0)
         {
-          path imp (t.member->as<file> ().path ().leaf ());
+          // Use the actual import library name if this is a library (since we
+          // override this name) and the executable name otherwise (by default
+          // .lib/.exp are named by replacing the .exe extension).
+          //
+          path i (
+            lt == otype::s
+            ? t.member->as<file> ().path ().leaf ()
+            : t.path ().leaf ().base () + ".lib");
 
-          if (l.find (imp.string ()) != string::npos &&
-              l.find (imp.base ().string () + ".exp") != string::npos)
+          if (l.find (i.string ())                  != string::npos &&
+              l.find (i.base ().string () + ".exp") != string::npos)
             continue;
         }
 

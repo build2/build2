@@ -44,6 +44,18 @@ namespace build2
 
       static target_state
       perform (action, const target&);
+
+      // Return library types to build according to the bin.lib value (set
+      // on project's root scope by init()).
+      //
+      struct members
+      {
+        bool a; // static
+        bool s; // shared
+      };
+
+      static members
+      build_members (const scope&);
     };
   }
 }
