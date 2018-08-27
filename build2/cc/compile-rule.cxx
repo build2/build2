@@ -3596,7 +3596,7 @@ namespace build2
               // available.
               //
               // @@ MOD: BMI compatibility check.
-              // @@ UTL: we need to (recursively) see through libux{} (and
+              // @@ UTL: we need to (recursively) see through libu*{} (and
               //    also in pkgconfig_save()).
               //
               if (bt->is_a<bmix> ())

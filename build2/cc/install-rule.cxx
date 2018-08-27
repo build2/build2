@@ -64,8 +64,8 @@ namespace build2
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
           return pt->in (t.weak_scope ()) ? pt : nullptr;
 
-        // See through libux{}. Note that we are always in the same project
-        // (and thus amalgamation).
+        // See through to libu*{} members. Note that we are always in the same
+        // project (and thus amalgamation).
         //
         if (pt->is_a<libux> ())
           return pt;

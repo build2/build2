@@ -53,9 +53,9 @@ namespace build2
 
     // Installation rule for libu*{}.
     //
-    // While libu*{} themselves are not installable, we need to see through
-    // them in case they depend on stuff that we need to install (e.g.,
-    // headers). Note that we use the alias_rule as a base.
+    // While libu*{} members themselves are not installable, we need to see
+    // through them in case they depend on stuff that we need to install
+    // (e.g., headers). Note that we use the alias_rule as a base.
     //
     class libux_install_rule: public install::alias_rule, virtual common
     {

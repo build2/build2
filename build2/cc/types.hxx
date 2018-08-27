@@ -96,7 +96,7 @@ namespace build2
     //
     using lflags = uintptr_t; // To match prerequisite_target::data.
 
-    const lflags lflag_whole = 0x00000001U; // Link whole liba{}/libux{}.
+    const lflags lflag_whole = 0x00000001U; // Link whole liba{}/libu*}.
   }
 }
 

@@ -20,8 +20,8 @@ namespace build2
   namespace install
   {
     // Lookup the install or install.* variable. Return NULL if not found or
-    // if the value is the special 'false' name (which means do not install).
-    // T is either scope or target.
+    // if the value is the special 'false' name (which means do not install;
+    // so the result can be used as bool). T is either scope or target.
     //
     template <typename P, typename T>
     static const P*
@@ -116,7 +116,7 @@ namespace build2
         // install module (and therefore has no file_rule registered). The
         // typical example would be the 'tests' subproject.
         //
-        // Note: not the same as lookup() above.
+        // Note: not the same as lookup_install() above.
         //
         auto l ((*pt)["install"]);
         if (l && cast<path> (l).string () == "false")
@@ -125,8 +125,19 @@ namespace build2
           continue;
         }
 
-        build2::match (a, *pt);
-        pts.push_back (prerequisite_target (pt, pi));
+        // If this is not a file-based target (e.g., a target group such as
+        // libu{}) then ignore it if there is no rule to install.
+        //
+        if (pt->is_a<file> ())
+          build2::match (a, *pt);
+        else if (!try_match (a, *pt).first)
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
+          pt = nullptr;
+        }
+
+        if (pt != nullptr)
+          pts.push_back (prerequisite_target (pt, pi));
       }
 
       return default_recipe;
@@ -223,9 +234,10 @@ namespace build2
             continue;
           }
 
-          // See if we were explicitly instructed not to touch this target.
+          // See if we were explicitly instructed not to touch this target
+          // (the same semantics as in the prerequisites match).
           //
-          // Note: not the same as lookup() above.
+          // Note: not the same as lookup_install() above.
           //
           auto l ((*mt)["install"]);
           if (l && cast<path> (l).string () == "false")
@@ -286,7 +298,7 @@ namespace build2
       // un/install) we delegate to the normal update and in the second
       // (un/install) -- perform the test.
       //
-      if (lookup_install<path> (t, "install") == nullptr)
+      if (!lookup_install<path> (t, "install"))
         return noop_recipe;
 
       // In both cases, the next step is to search, match, and collect all the
@@ -334,9 +346,10 @@ namespace build2
           continue;
         }
 
-        // See if we were explicitly instructed not to touch this target.
+        // See if we were explicitly instructed not to touch this target (the
+        // same semantics as in alias_rule).
         //
-        // Note: not the same as lookup() above.
+        // Note: not the same as lookup_install() above.
         //
         auto l ((*pt)["install"]);
         if (l && cast<path> (l).string () == "false")
@@ -345,12 +358,24 @@ namespace build2
           continue;
         }
 
-        // If the matched rule returned noop_recipe, then the target state is
-        // set to unchanged as an optimization. Use this knowledge to optimize
-        // things on our side as well since this will help a lot when updating
-        // static installable content (headers, documentation, etc).
-        //
-        if (!build2::match (a, *pt, unmatch::unchanged))
+        if (pt->is_a<file> ())
+        {
+          // If the matched rule returned noop_recipe, then the target state
+          // is set to unchanged as an optimization. Use this knowledge to
+          // optimize things on our side as well since this will help a lot
+          // when updating static installable content (headers, documentation,
+          // etc).
+          //
+          if (build2::match (a, *pt, unmatch::unchanged))
+            pt = nullptr;
+        }
+        else if (!try_match (a, *pt).first)
+        {
+          l5 ([&]{trace << "ignoring " << *pt << " (no rule)";});
+          pt = nullptr;
+        }
+
+        if (pt != nullptr)
           pts.push_back (prerequisite_target (pt, pi));
       }
 

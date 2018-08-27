@@ -1345,7 +1345,7 @@ namespace build2
 
           for (const target* pt: l.prerequisite_targets[a])
           {
-            // @@ UTL: we need to (recursively) see through libux{} (and
+            // @@ UTL: we need to (recursively) see through libu*{} (and
             //    also in search_modules()).
             //
             if (pt != nullptr && pt->is_a<bmix> ())

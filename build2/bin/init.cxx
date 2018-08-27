@@ -94,7 +94,7 @@ namespace build2
       // liba{foo}: libua{foo1 foo2}
       // liba{foo}: bin.whole = false # Affects test but not foo1 and foo2.
       //
-      // If unspecified, defaults to false for liba{} and to true for libux{}.
+      // If unspecified, defaults to false for liba{} and to true for libu*{}.
       //
       vp.insert<bool>      ("bin.whole", false, variable_visibility::target);
 
@@ -411,7 +411,7 @@ namespace build2
         //
         t.insert<def> ();
 
-        // Note: libu*{} are not installable.
+        // Note: libu*{} members are not installable.
         //
         if (install_loaded)
         {
