@@ -174,7 +174,7 @@ namespace build2
       if (const target* g2 = targets.find<libul> (dir, out, n))
       {
         if (g != 0)
-          fail << "both " << *g << " and " << g2 << " targets declared";
+          fail << "both " << *g << " and " << *g2 << " targets declared";
 
         g = g2;
       }
@@ -197,7 +197,6 @@ namespace build2
       &target_search, // Note: not _file(); don't look for an existing file.
       false
     };
-
 
     const target_type libua::static_type
     {
