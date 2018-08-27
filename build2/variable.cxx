@@ -6,6 +6,8 @@
 
 #include <cstring> // memcmp()
 
+#include <libbutl/filesystem.mxx> // path_match()
+
 #include <build2/context.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -1478,34 +1480,17 @@ namespace build2
 
       for (auto j (m.rbegin ()); j != m.rend (); ++j)
       {
-        const string& p (j->first);
-
-        size_t nn (name.size ());
-        size_t pn (p.size ());
-
-        if (nn < pn - 1) // One for '*'.
-          continue;
-
-        size_t w (p.find ('*'));
-        assert (w != string::npos);
-
-        // Compare prefix.
-        //
-        if (w != 0 &&
-            name.compare (0, w, p, 0, w) != 0)
-          continue;
-
-        ++w;     // First suffix character.
-        pn -= w; // Suffix length.
-
-        // Compare suffix.
-        //
-        if (pn != 0 &&
-            name.compare (nn - pn, pn, p, w, pn) != 0)
-          continue;
+        const string& pat (j->first);
 
         //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and 'foo-foo'?
         //   Right now the last defined will be used.
+        //
+        if (pat != "*")
+        {
+          if (name.size () < pat.size () - 1 || // One for '*' or '?'.
+              !butl::path_match (pat, name))
+            continue;
+        }
 
         // Ok, this pattern matches. But is there a variable?
         //
