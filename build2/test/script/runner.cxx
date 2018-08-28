@@ -168,6 +168,22 @@ namespace build2
         }
       }
 
+      // Return the value of the test.target variable.
+      //
+      static inline const target_triplet&
+      test_target (const script& s)
+      {
+        // @@ Would be nice to use cached value from test::common_data.
+        //
+        if (auto r = cast_null<target_triplet> (s.test_target["test.target"]))
+          return *r;
+
+        // We set it to default value in init() so it can only be NULL if the
+        // user resets it.
+        //
+        fail << "invalid test.target value" << endf;
+      }
+
       // Transform string according to here-* redirect modifiers from the {/}
       // set.
       //
@@ -182,10 +198,7 @@ namespace build2
 
         // For targets other than Windows leave the string intact.
         //
-        // @@ Would be nice to use cached value from test::common_data.
-        //
-        if (cast<target_triplet> (scr.test_target["test.target"]).class_ !=
-            "windows")
+        if (test_target (scr).class_ != "windows")
           return s;
 
         // Convert forward slashes to Windows path separators (escape for
@@ -288,7 +301,7 @@ namespace build2
             sp.clean_special (eop);
           }
 
-          // Use diff utility for the comparison.
+          // Use the diff utility for comparison.
           //
           path dp ("diff");
           process_path pp (run_search (dp, true));
@@ -297,10 +310,7 @@ namespace build2
 
           // Ignore Windows newline fluff if that's what we are running on.
           //
-          // @@ Would be nice to use cached value from test::common_data.
-          //
-          if (cast<target_triplet> (
-                sp.root->test_target["test.target"]).class_ == "windows")
+          if (test_target (*sp.root).class_ == "windows")
             args.push_back ("--strip-trailing-cr");
 
           args.push_back (eop.string ().c_str ());
