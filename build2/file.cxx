@@ -1478,7 +1478,7 @@ namespace build2
         info << "or explicitly specify its project name";
     else
       dr << info << "use config.import." << proj.variable ()
-         << " command line variable to specifying its project out_root";
+         << " command line variable to specify its project out_root";
 
     dr << endf;
   }
