@@ -1370,7 +1370,7 @@ namespace build2
       value& v (ts.assign (var_import_target));
 
       if (!target.empty ()) // Otherwise leave NULL.
-        v = move (target);
+        v = target; // Can't move (need for diagnostics below).
     }
 
     // Load the export stub. Note that it is loaded in the context
@@ -1391,7 +1391,16 @@ namespace build2
       // name?
       //
       parser p;
-      return p.parse_export_stub (ifs, es, iroot, ts);
+      names v (p.parse_export_stub (ifs, es, iroot, ts));
+
+      // If there were no export directive executed in an export stub, assume
+      // the target is not exported.
+      //
+      if (v.empty () && !target.empty ())
+        fail (loc) << "target " << target << " is not exported by project "
+                   << proj;
+
+      return v;
     }
     catch (const io_error& e)
     {

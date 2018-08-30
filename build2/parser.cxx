@@ -1509,6 +1509,9 @@ namespace build2
 
     export_value_ = move (rhs).as<names> ();
 
+    if (export_value_.empty ())
+      fail (l) << "empty value in export";
+
     if (tt == type::newline)
       next (t, tt);
     else if (tt != type::eos)
