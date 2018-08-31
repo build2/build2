@@ -6,6 +6,7 @@
 
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
+#include <iostream> // cout
 
 #include <build2/file.hxx>
 #include <build2/depdb.hxx>
@@ -962,6 +963,23 @@ namespace build2
                   info << "consider using " << x_mod->name << "{} instead";
               break;
             }
+          }
+
+          if (tu.type () == translation_type::module_iface)
+          {
+            cout << tu.mod.name << ' '
+                 << src.path ().string () << ' '
+                 << cid;
+
+            cstrings ops;
+            append_options (ops, tstd);
+            append_options (ops, t, c_poptions);
+            append_options (ops, t, x_poptions);
+
+            for (const char* o: ops)
+              cout << ' ' << o;
+
+            cout << endl;
           }
 
           md.type = tu.type ();
