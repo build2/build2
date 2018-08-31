@@ -15,6 +15,19 @@ namespace build2
 {
   namespace cc
   {
+    compiler_id::
+    compiler_id (value_type v)
+    {
+      switch (v)
+      {
+      case clang_apple: type = "clang"; variant = "apple"; break;
+      case clang:       type = "clang";                    break;
+      case gcc:         type = "gcc";                      break;
+      case msvc:        type = "msvc";                     break;
+      case icc:         type = "icc";                      break;
+      }
+    }
+
     auto compiler_id::
     value () const -> value_type
     {

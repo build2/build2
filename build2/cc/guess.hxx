@@ -48,12 +48,23 @@ namespace build2
 
       value_type
       value () const;
+
+      compiler_id () = default;
+      compiler_id (value_type);
+      compiler_id (std::string t, std::string v)
+          : type (move (t)), variant (move (v)) {}
     };
 
     inline ostream&
     operator<< (ostream& os, const compiler_id& id)
     {
       return os << id.string ();
+    }
+
+    inline ostream&
+    operator<< (ostream& os, const compiler_id::value_type& v)
+    {
+      return os << compiler_id (v);
     }
 
     // Compiler class describes a set of compilers that follow more or less
