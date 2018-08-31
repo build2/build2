@@ -470,7 +470,7 @@ namespace build2
 
         if (tt == type::newline)
         {
-          // See if this is a target scope.
+          // See if this is a target block.
           //
           if (peek () == type::lcbrace)
           {
@@ -482,13 +482,13 @@ namespace build2
               fail (t) << "expected newline after {";
 
             if (at.first)
-              fail (at.second) << "attributes before target scope";
+              fail (at.second) << "attributes before target block";
             else
               attributes_pop ();
 
-            // @@ TODO: target scope (also prerequisite scope below).
+            // @@ TODO: target block (also prerequisite block below).
             //
-            fail (nloc) << "target scopes are not yet supported" <<
+            fail (nloc) << "target blocks are not yet supported" <<
               info << "if migrating, remove ':'";
 
             if (tt != type::rcbrace)
@@ -789,7 +789,7 @@ namespace build2
               // Set the variable in the last pns.size() prerequisites of each
               // target. This code is similar to target-specific case above.
               //
-              // @@ TODO prerequisite scope (also target scope above).
+              // @@ TODO prerequisite block (also target block above).
               //
               next (t, tt);
               attributes_push (t, tt);
