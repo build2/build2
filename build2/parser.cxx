@@ -3011,22 +3011,24 @@ namespace build2
       function<void (string&&, optional<string>&&)> appf;
       if (unique)
         appf = [a, &append] (string&& v, optional<string>&& e)
-          {
-            append (move (v), move (e), a);
-          };
+        {
+          append (move (v), move (e), a);
+        };
       else
         appf = [a, &include_match] (string&& v, optional<string>&& e)
-          {
-            include_match (move (v), move (e), a);
-          };
+        {
+          include_match (move (v), move (e), a);
+        };
 
-      auto process = [&e, &appf] (path&& m, const string& p, bool interm)
+      auto process = [&e, &appf, sp] (path&& m, const string& p, bool interm)
       {
         // Ignore entries that start with a dot unless the pattern that
-        // matched them also starts with a dot.
+        // matched them also starts with a dot. Also ignore directories
+        // containing the .buildignore file.
         //
         const string& s (m.string ());
-        if (p[0] != '.' && s[path::traits::find_leaf (s)] == '.')
+        if ((p[0] != '.' && s[path::traits::find_leaf (s)] == '.') ||
+            (m.to_directory () && file_exists (*sp / m / ".buildignore")))
           return !interm;
 
         // Note that we have to make copies of the extension since there will
