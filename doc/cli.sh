@@ -70,6 +70,11 @@ function compile_doc () # <file> <prefix> <suffix>
 --generate-html --html-suffix .xhtml \
 --html-prologue-file doc-prologue.xhtml \
 --html-epilogue-file doc-epilogue.xhtml \
+--link-regex '%intro(#.+)?%../../build2-toolchain/doc/build2-toolchain-intro.xhtml$1%' \
+--link-regex '%bpkg([-.].+)%../../bpkg/doc/bpkg$1%' \
+--link-regex '%bpkg(#.+)?%../../bpkg/doc/build2-package-manager-manual.xhtml$1%' \
+--link-regex '%bdep([-.].+)%../../bdep/doc/bdep$1%' \
+--link-regex '%testscript(#.+)?%build2-testscript-manual.xhtml$1%' \
 --output-prefix "$2" \
 --output-suffix "$3" \
 "$1"

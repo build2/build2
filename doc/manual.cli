@@ -15,7 +15,3069 @@
 \h0#preface|Preface|
 
 This document describes the \c{build2} build system. For the build system
-driver command line interface refer to the \l{b(1)} man pages.
+driver command line interface refer to the \l{b(1)} man pages. @@ Ref to
+the toolchain members (package managers etc).
+
+\h1#intro|Introduction|
+
+The \c{build2} build system is a native, cross-platform build system with a
+terse, mostly declarative domain-specific language, a conceptual model of
+build, and a uniform interface with consistent behavior across all the
+platforms and compilers.
+
+Those familiar with \c{make} will see many similarities, though mostly
+conceptual rather than syntactic. This is not surprising since \c{build2}
+borrows the fundamental DAG-based build model from original \c{make} and many
+of its conceptual extensions from GNU \c{make}. We believe, paraphrasing a
+famous quote, that \i{those who do not understand \c{make} are condemned to
+reinvent it, poorly.} So the goal of \c{build2} is to reinvent \c{make}
+\i{well} while handling the demands and complexity of modern cross-platform
+software development.
+
+Like \c{make}, \c{build2} is an \i{honest} build system where you can expect
+to understand what's going on underneath and be able to customize most of its
+behavior to suit your needs. This is not to say that it's not an
+\i{opinionated} build system and if you find yourself \"fighting\" some of its
+fundamental design decisions, it would be wiser to look for alternatives.
+
+We also believe the importance and complexity of the problem warranted the
+design of a new purpose-built language and will hopefully justify the time it
+takes for you to master it. In the end we hope \c{build2} will make creating
+and maintain build infrastructure for your projects a pleasant task.
+
+Also note that \c{build2} is not specific to C/C++ or even to compiled
+languages and its build model is general enough to handle any DAG-based
+operations. See the \l{#module-bash \c{bash} Module} for a good example.
+
+While the build system is part of a larger, well-integrated build toolchain
+that includes the package/project dependency managers, it does not depend on
+them and its standalone usage is the only subject of this document.
+
+We begin with a tutorial introduction that aims to show the essential elements
+of the build system on real examples but without getting into too much
+detail. Specifically, we want to quickly get to the point where we can build
+useful executable and library projects.
+
+
+\h#intro-hello|Hello, World|
+
+Let's start with the customary \i{\"Hello, World\"} example: a single source
+file from which we would like to build an executable:
+
+\
+$ tree hello/
+hello/
+└── hello.cxx
+
+$ cat hello/hello.cxx
+
+#include <iostream>
+
+int main ()
+{
+  std::cout << \"Hello, World!\" << std::endl;
+}
+\
+
+While this very basic program hardly resemble what most software projects look
+today, it is useful for introducing key build system concepts without getting
+overwhelmed. In this spirit we will also use the \c{build2} \i{simple project}
+structure, which, similarly, should not be used for anything but quick
+sketches.
+
+\N|Simple projects have so many restrictions and limitations that they are
+hardly usable for anything but, well, \i{really} simple projects.
+Specifically, such projects cannot be imported by other projects nor can they
+use build system modules that require bootstrapping. Which includes \c{test},
+\c{install}, \c{dist}, and \c{config} modules. And without the \c{config}
+module there is no support for persistent configurations. As a result, only
+use a simple project if you are happy to always build in source and with the
+default build configuration or willing to specify the output directory and/or
+custom configuration on every invocation.|
+
+To turn our \c{hello/} directory into a simple project all we need to do
+is add a \c{buildfile}:
+
+\
+$ tree hello/
+hello/
+├── hello.cxx
+└── buildfile
+
+$ cat hello/buildfile
+
+using cxx
+
+exe{hello}: cxx{hello.cxx}
+\
+
+Let's start from the bottom: the second line is a \i{dependency declaration}.
+On the left hand side of \c{:} we have a \i{target}, the \c{hello} executable,
+and on the right hand side \- a \i{prerequisite}, the \c{hello.cxx} source
+file. Those \c{exe} and \c{cxx} in \c{exe{...\}} and \c{cxx{...\}} are called
+\i{target types}. In fact, for clarify, target type names are always
+mentioned with the trailing \c{{\}}, for example, \"the \c{exe{\}} target type
+denotes an executable\".
+
+Notice that the dependency declaration does not specify \i{how} to build an
+executable from a C++ source file \- this is the job of a \i{rule}. When the
+build system needs to update a target, it tries to \i{match} a suitable rule
+based on the types of the target and its prerequisites. The \c{build2} core
+has a number of predefined fundamental rules with the rest coming from
+\i{build system modules}. For example, the \c{cxx} module defines a number of
+rules for compiling C++ source code as well as linking executables and
+libraries.
+
+It's now easy to guess what the first line of our \c{buildfile} does: it loads
+the \c{cxx} module which defines the rules necessary to build our program (and
+it also registers the \c{cxx{\}} target type).
+
+Let's now try to build and run our program (\c{b} is the build system driver):
+
+\
+$ cd hello/
+
+$ b
+c++ cxx{hello}
+ld exe{hello}
+
+$ ls -1
+buildfile
+hello.cxx
+hello
+hello.d
+hello.o
+hello.o.d
+
+$ ./hello
+Hello, World!
+\
+
+Or, if we are on Windows and using Visual Studio, from the Visual Studio
+development command prompt:
+
+\
+> cd hello
+
+> b config.cxx=cl.exe
+c++ cxx{hello}
+ld exe{hello}
+
+> dir /b
+buildfile
+hello.cxx
+hello.exe
+hello.exe.d
+hello.exe.obj
+hello.exe.obj.d
+
+> .\hello.exe
+Hello, World!
+\
+
+Let's discuss a few points about the build output. Firstly, to reduce the
+noise, the commands being executed,
+
+\
+c++ cxx{hello}
+ld exe{hello}
+\
+
+are by default shown abbreviated and with the same target type notation as we
+used in the \c{buildfile}. If, however, you would like to see the actual
+command lines, you can pass \c{-v} (to see even more, there is the \c{-V}
+as well as the \c{--verbose} options; see \l{b(1)} for details). For example:
+
+\
+$ b -v
+g++ -o hello.o -c hello.cxx
+g++ -o hello hello.o
+\
+
+Most of the files produced by the build system should be self-explanatory: we
+have the object file (\c{hello.o}, \c{hello.obj}) and executable (\c{hello},
+\c{hello.exe}). For each of them we also have the corresponding \c{.d} files
+which store the \i{auxiliary dependency information}, things like compile
+options, header dependencies, etc.
+
+To remove the build system output we use the \c{clean} \i{operation} (if no
+operation is specified, the default is \c{update}):
+
+\
+$ b clean
+rm exe{hello}
+rm obje{hello}
+
+$ ls -1
+buildfile
+hello.cxx
+\
+
+One of the main reasons behing the \i{target type} concept is the
+platform/compiler-specified variences in file names as allistrated by the
+above listings. In our \c{buildfile} we refer to the executable target as
+\c{exe{hello\}}, not as \c{hello.exe} or \c{hello$EXT}. The actual file
+extension, if any, will be determined based on the compiler's target platform
+by the rule doing the linking. In this sense, target types are a
+platform-independent replacement of file extensions (though they do have other
+benefits, such as allowing non-file targets as well as being hierarchical).
+
+Let's revisit the dependency declaration line from our \c{buildfile}:
+
+\
+exe{hello}: cxx{hello.cxx}
+\
+
+In the light of target types replacing file extensions this looks
+tautological: why do we need to specify both the \c{cxx{\}} target type
+\i{and} the \c{.cxx} file extension? In fact, we don't if we specify the
+default file extension for the \c{cxx{\}} target type. Here is our updated
+\c{buildfile} in its entirety:
+
+\
+using cxx
+
+cxx{*}: extension = cxx
+
+exe{hello}: cxx{hello}
+\
+
+Let's unpack the new line. What we have here is a \i{target
+type/patter-specific variable}. It only applies to targets of the \c{cxx{\}}
+type whose names matche the \c{*} wildcard pattern. The \c{extension} variable
+name is reserved by the \c{build2} core for specifying default target type
+extensions.
+
+Let's see how all these pieces fit together. When the build systems needs to
+update \c{exe{hello\}}, it searches for a suitable rule. A rule from the
+\c{cxx} module matches since it knows how to build a target of type \c{exe{\}}
+from a prerequisite of type \c{cxx{\}}. When the matched rule is \i{applied},
+it searches for a target for the \c{cxx{hello\}} prerequisite. During this
+search, the \c{extension} variable is looked up and its value is used to end
+up with the \c{hello.cxx} file.
+
+Our new dependency declaration,
+
+\
+exe{hello}: cxx{hello}
+\
+
+has the canonical style: no extensions, only target types. Sometimes explicit
+extension specification is still necessary, for example, if your project uses
+multiple extensions for the same file type. But if unnecessary, it should be
+omitted for brievety.
+
+\N|If you prefer the \c{.cpp} file extension and your source file is called
+\c{hello.cpp}, then the only line in our \c{buildfile} that needs changing is
+the \c{extension} variable assignment:
+
+\
+cxx{*}: extension = cpp
+\
+
+|
+
+Let's say our \c{hello} program got complicated enough to warrant moving some
+functionality into a separate source/header module (or a real C++ module).
+For example:
+
+\
+$ tree hello/
+hello/
+├── hello.cxx
+├── utility.hxx
+├── utility.cxx
+└── buildfile
+\
+
+This is what our updated \c{buildfile} could look like:
+
+\
+using cxx
+
+hxx{*}: extension = hxx
+cxx{*}: extension = cxx
+
+exe{hello}: cxx{hello} hxx{utility} cxx{utility}
+\
+
+Nothing really new here: we've specified the default extension for the
+\c{hxx{\}} target type and listed the new header and source file as
+prerequisites. If you have experience with other build systems, then
+explicitly listing headers might seem strange to you. In \c{build2} you
+have to explicitly list all the prerequisites of a target that should
+end up in a distribution of your project.
+
+\N|You don't have to list \i{all} headers that you include, only the ones
+belonging to your project. In other words, \c{build2} performs automatic
+header dependency extraction like all modern C/C++ build systems.|
+
+In real projects with a substantial number of source files repeating target
+types and names will quickly become noisy. To tidy things up we can use
+\i{name generation}. Here are a few examples of dependency declarations
+equivalent to the above:
+
+\
+exe{hello}: cxx{hello utility} hxx{utility}
+exe{hello}: cxx{hello} {hxx cxx}{utility}
+\
+
+The last form is probably the best choice if your project contains a large
+number of header/source pairs. Here is a more realistic example:
+
+\
+exe{hello}: {    cxx}{hello}               \
+            {hxx    }{forward types}       \
+            {hxx cxx}{format print utility}
+\
+
+Manually listing a prerequisite every time we add a new source file to our
+project is both tedious and error prone. Instead, we can automate our
+dependency declarations with wildcard \i{name patterns}. For example:
+
+\
+exe{hello}: {hxx cxx}{*}
+\
+
+Based on the previous discussion of defaul extenions you can probably guess
+how this works: for each target type the value of the \c{extension} variable
+is added to the pattern and files matching the result become the
+prerequisites. So, in our case, we will end up with files matching the
+\c{*.hxx} and \c{*.cxx} wildcard patterns.
+
+In more complex projects it is often convenient to organize source code into
+subdirectories. To handle such project we can use the recursive wildcard:
+
+\
+exe{hello}: {hxx cxx}{**}
+\
+
+\N|Using wildcards is somewhat controvercial. Patterns definitely make
+development more pleasant and less error prone: you don't need to update your
+\c{buildfile} every time you add, remove, or rename a source file and you
+won't forget to explicitly list headers, a mistake that is often only detected
+when trying to build a distribution of a project. On the other hand, there is
+a possibility of including stray source files into your build without
+noticing. And, for more complex projects, name patterns can become equally
+complex (see \l{#name-patterns Name Patterns} for details). Note, however,
+that on modern hardware the performance of wildcard search hardly warrants a
+consideration.
+
+In our experience, at least when combined with modern version control systems
+like \c{git(1)}, stray source files are rarely an issue and generally the
+benefits of wildcards outweigh their drawbacks. But, in the end, whether to
+use them or not is a personal choice and, as shown above, \c{build2} supports
+both approaches.|
+
+And that's about all there is to our \c{hello} example. To summarize, we've
+seen that to build a simple project we need just a single \c{buildfile} which
+itself doesn't contain much more than a dependency declaration for what we
+want to build. But we've also learned that simple projects are only really
+meant for quick sketches. So let's convert our \c{hello} example to the
+\i{standard project} structure which is what we will be using in most of our
+real projects.
+
+
+\h#intro-proj-struct|Project Structure|
+
+A \c{build2} \i{standrad project} has the following overall layout:
+
+\
+hello/
+├── build/
+│   ├── bootstrap.build
+│   └── root.build
+├── ...
+└── buildfile
+\
+
+Specifically, the project's root directory should contain the \c{build/}
+subdirectory as well as the root \c{buildfile}. The \c{build/} subdirectory
+contains project-wide build system information.
+
+\N|The \l{bdep-new(1)} command is an easy way to create the standard layout
+executable (\c{-t\ exe}) and library (\c{-t\ lib}) projects. To change the C++
+file extensions to \c{.hpp/.cpp}, pass \c{-l c++,cpp}. For example:
+
+\
+$ bdep new --no-init -t exe -l c++,cpp hello
+\
+
+|
+
+To support lazy loading of subprojects (discussed later), reading of the
+project's build information is split into two phases: bootstrapping and
+loading. During boostrapping the project's \c{build/bootstrap.build} file is
+read. Then, when (and if) the project is loaded completely, its
+\c{build/root.build} file is read followed by the \c{buildfile} (normally from
+project root but could also be from a subdirectory).
+
+The \c{bootstrap.build} file is required. Let's see what it would look like
+for a typical project using our \c{hello} as an example:
+
+\
+project = hello
+
+using version
+using config
+using test
+using install
+using dist
+\
+
+The first non-comment line in \c{bootstrap.build} should be the assignment of
+the project name to the \c{project} variable. After that, a typical
+\c{bootstrap.build} file loads a number of build system modules. While most
+modules can be loaded during the project load phase, certain modules have to
+be loaded early, while bootstrapping (for example, because they define new
+operations).
+
+Let's examine briefly the modules loaded by our \c{bootstrap.build}: The
+\l{#module-version \c{version} module} helps with managing our project
+versioning. With this module we only maintain the version in a single place
+(project's \c{manifest} file) and it is made available in various forms
+throughout our project (\c{buildfiles}, header files, etc). The \c{version}
+module also automates versioning of snapshots between releases.
+
+The \c{manifest} file is what makes our build system project a \i{package}.
+It contains all the metadata that a user of a package might need to know:
+name, version, dependencies, etc., all in one place. However, even if you
+don't plan to package your project, it is a good idea to create a basic
+\c{manifest} if only to take advantage of the version management offered by
+the \c{version} module. So let's go ahead and add it next to our root
+\c{buildfile}:
+
+\
+$ tree hello/
+hello/
+├── build/
+│   └── ...
+├── ...
+├── buildfile
+└── manifest
+
+$ cat hello/manifest
+: 1
+name: hello
+version: 0.1.0
+summary: hello executable
+\
+
+The \c{config} module provides support for persistent configurations. While
+project configuration is a large topic that we will discuss in detail later,
+in a nutshell \c{build2} support for configuration is an integral part of the
+build system with the same mechanisms available to the build system core,
+modules, and your projects. However, without \c{config}, the configuration
+information is \i{transient}. That is, whatever configuration information was
+automatically discovered or that you have supplied on the command line is
+discarded after each build system invocation. With the \c{config} module,
+however, we can \i{configure} a project to make the configuration
+\i{persistent}. We will see an example of this shortly.
+
+Next up are the \c{test}, \c{install}, and \c{dist} modules. As their names
+suggest, they provide support for testing, installation and preparation of
+distributions. Specifically, the \c{test} modules defines \c{test} operation,
+the \c{install} module defines the \c{install} and \c{uninstall} operations,
+and the \c{dist} module defines the \c{dist} (meta-)operation. Again, we will
+try them in a moment.
+
+Moving on, the \c{root.build} file is optional though most projects will have
+it. This is the place where we normally load build system modules that provide
+support for the languages/tools that we use as well as establish project-wide
+settings. Here is what it could look like for our \c{hello} example:
+
+\
+cxx.std = latest
+
+using cxx
+
+hxx{*}: extension = hxx
+cxx{*}: extension = cxx
+\
+
+As you can see, we've moved the loading of the \c{cxx} modules and setting of
+the default file extensions from the root \c{buildfile} in our simple project
+to \c{root.build} when using the standard layout. We've also set the
+\c{cxx.std} variable to tell the \c{cxx} module to select the latest C++
+standard available in any particular C++ compiler we use.
+
+\N|Selecting the C++ standard is a messy issue. If we don't specify the
+standard explicitly with \c{cxx.std}, then the default standard in each
+compiler will be used, which, currently, can range from C++98 to C++14. So
+unless you carefully write your code to work with any standard, this is
+probably not a good idea.
+
+Fixing the standard (for example, to \c{c++11}, \c{c++14}, etc) should work
+theoretically. In practice, however, compilers add support for new standards
+incrementally with many versions, while perfectly usable, not being feature
+complete. As a result, a better practical strategy is to specify the set of
+minimum supported compiler versions rather than the C++ standard.
+
+There is also the issue of using libraries that require newer standard in
+older code. For example, headers from a library that relies on C++14 features
+will probably not compile when included in a project that is built as C++11.
+And, even if the headers compile (that is, C++14 features are only used in the
+implementation), strictly speaking, there is no guarantee that codebases
+compiled with different C++ standards are ABI compatible (though being able to
+link old-standard code to new-standard codebases appears to be a reasonable
+assumption, provided both a built with the same version of the compiler @@
+nope).
+
+As result, our recommendation is to set the standard to \c{latest} and specify
+the minimum supported compilers/versions. Practically, this should allow you
+to include and link any library, regardless of the C++ standard that it uses.|
+
+Let's now take a look at the root \c{buildfile}:
+
+\
+./: {*/ -build/}
+\
+
+In plain English this \c{buildfile} declares that building this directory
+(and, since it's the root of our project, building this entire project) means
+building all its subdirectories excluding \c{build/}. Let's now try to
+understand how this is actually achieved.
+
+We already know this is a dependency declaration, \c{./} is the target, and
+what's after \c{:} are its prerequisites, which seem to be generated with some
+kind of a name pattern (the wildcard character in \c{*/} should be the
+giveaway). What's unusual about this declaration, however, is the lack of any
+target types plus that strange-looking \c{./}.
+
+Let's start with the missing target types. In fact, the above \c{buildfile}
+can be rewritten as:
+
+\
+dir{.}: dir{* -build}
+\
+
+So the trailing slash (always forward, even on Windows) is a special shorthand
+notation for \c{dir{\}}. As we will see shortly, it fits naturally with other
+uses of directories in \c{builfiles} (for example, in scopes).
+
+The \c{dir{\}} target type is an \i{alias} (and, in fact, is derived from the
+more general \c{alias{\}}). Building it means building all its prerequisites.
+
+\N|If you are familiar with \c{make}, then you can probably see the similarity
+with the ubiquitous \c{all} \"alias\" pseudo-target. In \c{build2} we instead
+use directory names as more natural aliases for the \"build everything in this
+directory\" semantics.
+
+Note also that \c{dir{\}} is purely an alias and doesn't have anything to do
+with the filesystem. In particular, it does not create any directories. If you
+do want explicit directory creation (which should be rarely needed), use the
+\c{fsdir{}} target type instead.|
+
+The \c{./} target is a special \i{default target}. If we run the build system
+without specifying the target explicitly, then this target is built by
+default. Every \c{buildfile} has the \c{./} target. If we don't declare it
+explicitly, then a declaration with the first target in the \c{buildfile} as
+its prerequisite is implied. Recall our \c{buildfile} from the simple
+\c{hello} project:
+
+\
+exe{hello}: cxx{hello}
+\
+
+It is equivalent to:
+
+\
+./: exe{hello}
+exe{hello}: cxx{hello}
+\
+
+The last unexplained bit in our root \c{buildfile} is the \c{{*/\ -build/\}}
+name pattern. All it does is exclude \c{build/} from the subdirectories to
+build. See \l{#name-patterns Name Patterns} for details.
+
+Let's take a look at a slightly more realistic root \c{buildfile}:
+
+\
+./: {*/ -build/} doc{README LICENSE} manifest
+\
+
+Here we have the customary \c{README} and \c{LICENSE} files as well as the
+package \c{manifest}. Listing them as prerequisites achieves two things: they
+will be installed if/when our project is installed and, as discussed earlier,
+they will be included into the project distribution.
+
+The \c{README} and \c{LICENSE} files use the \c{doc{\}} target type. We could
+have used the generic \c{file{\}} but using the more precise \c{doc{\}} makes
+sure they are installed into the appropriate documentation directory. The
+\c{manifest} file doesn't need an explicit target type since it is a fixed
+name (\c{manifest{manifest}} is valid but redundant).
+
+The standard project infrastructure in place, where should we put our source
+code? While we could have everything in the root directory of our project,
+just like we did in the simple layout, it is recommended to instead place the
+source code into a subdirectory named the same as the project. For example:
+
+\
+hello/
+├── build/
+│    └── ...
+├── hello/
+│    ├── hello.cxx
+│    └── buildfile
+├── buildfile
+└── manifest
+\
+
+\N|There are several reasons for this layout: It implements the canonical
+inclusion scheme where each header is prefixed with its project name. It also
+has a predictable name where users can expect to find our project's source
+code. Finally, this layout prevents clutter in the project's root directory
+which usually contains various other files.|
+
+The source subdirectory \c{buildfile} is identical to the simple project minus
+the parts moved to \c{root.build}:
+
+\
+exe{hello}: {hxx cxx}{**}
+\
+
+Let's now build our project and see where the build system output ends up
+in this new layout:
+
+\
+$ cd hello/
+$ b
+c++ hello/cxx{hello}
+ld hello/exe{hello}
+
+$ tree ./
+./
+├── build/
+│    └── ...
+├── hello/
+│    ├── hello.cxx
+│    ├── hello
+│    ├── hello.d
+│    ├── hello.o
+│    ├── hello.o.d
+│    └── buildfile
+├── buildfile
+└── manifest
+
+$ hello/hello
+Hello, World!
+\
+
+If we don't specify a target to build (as we did above), then \c{build2} will
+build the current directory or, more precisely, the default target in the
+\c{buildfile} in the current directory. We can also build a directory other
+than the current, for example:
+
+\
+$ b hello/
+\
+
+\N|Note that the trailing slash is required. In fact, \c{hello/} in the above
+command line is a target and is equivalent to \c{dir{hello\}}, just like in
+the \c{buildfiles}.|
+
+Or we can build a specific target:
+
+\
+$ b hello/exe{hello}
+\
+
+@@ note: root buildfile not loaded, only root.build.
+
+Naturally, nothing prevents us from building multiple targets or even projects
+with the same build system invocation. For example, if we had the \c{libhello}
+project next to our \c{hello/}, then we could build both at once:
+
+\
+$ ls -1
+hello/
+libhello/
+
+$ b hello/ libhello/
+\
+
+Speaking of libraries, let's see what the standard project structure looks
+like for one, using \c{libhello} created by \l{bdep-new(1)} as an example:
+
+\
+$ bdep new --no-init -t lib libhello
+
+$ tree libhello/
+libhello/
+├── build/
+│    ├── bootstrap.build
+│    ├── root.build
+│    └── export.build
+├── libhello/
+│    ├── hello.hxx
+│    ├── hello.cxx
+│    ├── export.hxx
+│    ├── version.hxx.in
+│    └── buildfile
+├── tests/
+│    └──  ...
+├── buildfile
+└── manifest
+\
+
+The overall layout (\c{build/}, \c{libhello/} source directory) as well as the
+contents of the root files (\c{bootstrap.build}, \c{root.build}, root
+\c{buildfile}) are exactly the same. There is, however, a new file,
+\c{export.build}, in \c{build/}, a new subdirectory, \c{tests/}, and the
+contents of the project's source subdirectory, \c{libhello/}, look quite a bit
+different. We will examine all of these differences in the coming sections, as
+we learn more about the build system.
+
+\N|The standard project structure is not type (executable, library, etc) or
+even language specific. In fact, the same project can contain multiple
+executables and/or libraries (for example, both \c{hello} and \c{libhello}).
+However, if you plan to package your projects, it is a good idea to keep them
+as separate build system projects (they can still reside in the same version
+control repository, though).
+
+Speaking of terminology, the term \i{project} is unfortunately overloaded to
+mean two different things at different levels of software organization. At the
+bottom we have \i{build system projects} which, if packaged, become
+\i{packages}. And at the top, related packages are often grouped into what is
+also commonly referred to as \i{projects}. At this point both usages are
+probably too well established to look for alternatives.|
+
+And this completes the conversion of our simple \c{hello} project to the
+standard structure. Earlier, when examining \c{bootstrap.build}, we mentioned
+that modules loaded in this file usually provide additional operations. So we
+still need to discuss what exactly the term \i{build system operaton} means
+and see how to use operations that are provided by the modules we have loaded.
+But before we do that, let's see how we can build our projects \i{out of
+source} tree and learn about another cornerstone \c{build2} concept:
+\c{scopes}.
+
+
+\h#intro-dirs-scopes|Directories and Scopes|
+
+The two common requirements places on modern build systems are the ability to
+build projects out of the source directory tree (referred to as just \i{out of
+source} vs \i{in source}) as well as isolation of \c{buildfiles} from each
+other when it comes to target and variable names. In \c{build2} these
+mechanisms are closely-related, integral parts of the build system.
+
+\N|This tight integration has advantages, like being always available and
+working well with other build system mechanisms, as well disadvantages, like
+inability to implement a completely different out of source arrangement and/or
+isolation model. In the end, if you find yourself \"fighting\" this aspect of
+\c{build2}, it will likely be easier to use a different build system than
+subvert it.|
+
+Let's start with an example of an out of source build of our \c{hello}
+project. To recap, this is what we have:
+
+\
+$ ls -1
+hello/
+
+$ tree hello/
+hello/
+├── build/
+│    └── ...
+├── hello/
+│    └── ...
+├── buildfile
+└── manifest
+\
+
+To start, let's build it in the \c{hello-out/} directory, next to the project:
+
+\
+$ b hello/@hello-out/
+mkdir fsdir{hello-out/}
+mkdir hello-out/fsdir{hello/}
+c++ hello/hello/cxx{hello}@hello-out/hello/
+ld hello-out/hello/exe{hello}
+
+$ ls -1
+hello/
+hello-out/
+
+$ tree hello-out/
+hello-out/
+└── hello/
+      ├── hello
+      ├── hello.d
+      ├── hello.o
+      └── hello.o.d
+\
+
+This definitely requires some explaining. Let's start from bottom, with the
+\c{hello-out/} layout. It is \i{parallel} to the source directory. This
+mirrored side-by-side listing (of relevant parts) should illustrate this
+clearly:
+
+\
+hello/             ~~~                     hello-out/
+└── hello/         ~~~            hello/ ──┘
+    └── hello.cxx  ~~~  hello.o ──┘
+\
+
+In fact, if we copy the contents of \c{hello-out/} over to \c{hello/}, we will
+end up with exactly the same result as when we did an in source build. And
+this is not accidental: an in source build is just a special case of an out of
+source build where the \i{out} directory is the same as \i{src}.
+
+\N|The parallel structure of the out and src directories is a cornerstone
+design decision in \c{build2} and is non-negotiable, so to speak. In
+particular, out cannot be inside src. And while we can stash the build system
+output (objects files, executables, etc) into (potentially different)
+subdirectories, this is not recommended. As will be shown later, \c{build2}
+offers better mechanisms to achieve the same benefits (like reduced clutter,
+ability to run executables) but without the drawbacks (like name clashes).|
+
+Let's now examine how we invoked the build system to achieve this out of
+source build. Specifically, if we were building in source, our command line
+would have been
+
+\
+$ b hello/
+\
+
+but for the out of source build, we have
+
+\
+$ b hello/@hello-out/
+\
+
+In fact, that strange-looking construct, \c{hello/@hello-out/} is just a more
+complete target specification that explicitly spells out the target's src and
+out directories. Let's add an explicit target type to make it clearer:
+
+\
+$ b hello/@hello-out/dir{.}
+\
+
+What we have on the right of \c{@} is the target in the out directory and on
+the left \- its src directory. In plain English this command line means
+\"build me the default target from \c{hello/} in the \c{hello-out/}
+directory\".
+
+As an example, if instead we only wanted to build just the \c{hello}
+executable out of source, then the invocation would have looked like this:
+
+\
+$ b hello/hello/@hello-out/hello/exe{hello}
+\
+
+We could also specify out for an in source build, but that's redundant:
+
+\
+$ b hello/@hello/
+\
+
+There is another example of this complete target specification in the build
+diagnostics:
+
+\
+c++ hello/hello/cxx{hello}@hello-out/hello/
+\
+
+Notice, however, that now the target (\c{cxx{hello\}}) is on the left of
+\c{@}, that is, in the src directory. It does, however, make sense if you
+think about it - our \c{hello.cxx} is a \i{source file}, it is not built and
+it lives in the project's source directory. This is in contrast, for example,
+to the \c{exe{hello\}} target which is the output of the build system and goes
+to the out directory. So in \c{build2} targets can be either in src or in out
+(there can also be \i{out of project} targets, for example, installed files).
+
+The complete target specification can also be used in \c{buildfiles}. We
+haven't encountered any so far because targets mentioned without explicit
+src/out default to out and, naturally, most of the targets we mention in
+\c{buildfiles} are things we want built. One situation where you may encounter
+an src target mentioned explicitly is when configuring its installability
+(discussed in the next section). For example, if our project includes the
+customary \c{INSTALL} file, it probably doesn't make sense to install it.
+However, since it is a source file, we have to use the complete target
+specification when disabling its installation:
+
+\
+doc{INSTALL}@./: install = false
+\
+
+Note also that only targets but not prerequisites have this notion of src/out
+directories. In a sence, prerequisites are relative to the target they are
+prerequisites of and are resolved to targets in a manner that is specific to
+their target types. For \c{file{\}}-based prerequisites the corresponding
+target in out is first looked up and if found used. Otherwise, an existin file
+in src is searched for and if found the corresponding target (now in src) is
+used. In particular, this semantics gives preferences to genereted code over
+static.
+
+\N|More precisely, a preprequisite is relative to the scope (discussed below)
+in which the dependency is declared and not to the target that it is a
+prerequisite of. But in most practical cases, however, this means the
+same thing.|
+
+And this pretty much covers out of source builds. Let's summarize the key
+points we have established so far: Every build has two parallel directory
+trees, src and out, with the in source build being just a special where they
+are the same. Targets in a project can be either in the src or in out
+directory though most of the time targets we mention in our \c{buildfiles}
+will be in out, which is the default. Prerequsites are relative to targets
+they are prerequisites of and \c{file{}}-based prerequisites are first
+searched as existing targets in out and then as existing files in src.
+
+Note also that we can have as many out of source builds as we want and we can
+place them anywhere we want (but not inside src), say, on a RAM-backed
+disk/filesystem. For example, we can build our \c{hello} project with two
+different compilers:
+
+\
+$ b hello/@hello-gcc/    config.cxx=g++
+$ b hello/@hello-clang/  config.cxx=clang++
+\
+
+In the next section we will see how to configure these out of source builds so
+that we don't have to keep repeating these long command lines.
+
+\N|While technically you can have both an in source and out of source builds
+at the same time, this is not recommended. While it may work for simple
+projects, as soon as you start using generated source code (which is fairly
+common in \c{build2}), it becomes difficult to predict where the compiler will
+pick generated headers. There is support for remapping mis-picked headers but
+this may not work for older compilers. In other words, while you may have your
+cake and eat it too, it might not taste particularly great. Plus, as will be
+discussed in the next section, \c{build2} supports \i{forwarded
+configurations} which provide most of the benefits of an in source build but
+without the drawbacks.|
+
+Let's now turn to \c{buildfile} isolation. It is a common, well-establishes
+practice to organize complex software projects in directory hierarchies. One
+of the benefits of this organization is isolation: we can use the same, short
+file names in different subdirectories. In \c{build2} the project's directory
+tree is used as a basis for its \i{scope} hierarchy. In a sence, scopes are
+like C++ namespaces that track the project's filesystem structure and use
+directories as their names. The following listing illustrates the parallel
+directory and scope hierarchies for our \c{hello} project. \N{The \c{build/}
+subdirectory is special and does not have a corresponding scope.}
+
+\
+hello/                   hello/
+│                        {
+└── hello/                 hello/
+    │                      {
+    └── ...                  ...
+                           }
+                         }
+\
+
+Every \c{buildfile} is loaded in its corresponding scope, variables set in a
+\c{buildfile} are set in this scope and relative target mentioned in a
+\c{buildfile} are relative to this scope's directory. Let's \"load\" the
+\c{buildfile} contents from our \c{hello} to the above listing:
+
+\
+hello/                   hello/
+│                        {
+├── buildfile              ./: {*/ -build/}
+│
+└── hello/                 hello/
+      │                    {
+      └── buildfile          exe{hello}: {hxx cxx}{**}
+                           }
+                         }
+\
+
+In fact, to be absolutely precise, we should also add the contents of
+\c{bootstrap.build} and \c{root.build} to the project's root scope (module
+loading is omitted for brevity):
+
+\
+hello/                   hello/
+│                        {
+├── build/
+│   ├── bootstrap.build    project = hello
+│   │
+│   └── root.build         cxx.std = latest
+│                          hxx{*}: extension = hxx
+│                          cxx{*}: extension = cxx
+│
+├── buildfile              ./: {*/ -build/}
+│
+└── hello/                 hello/
+    │                      {
+    └── buildfile            exe{hello}: {hxx cxx}{**}
+                           }
+                         }
+\
+
+The above scope structure is very similar to what you will see (besides a lot
+of other things) if you build with \c{--verbose\ 6}. At this verbosity level
+the build system driver dumps the build state before and after matching the
+rules. Here is an abbreviated output for our \c{hello} (assuming an in source
+build from \c{/tmp/hello}):
+
+\
+$ b --verbose 6
+
+/
+{
+  [target_triplet] build.host = x86_64-linux-gnu
+  [string] build.host.class = linux
+  [string] build.host.cpu = x86_64
+  [string] build.host.system = linux-gnu
+
+  /tmp/hello/
+  {
+    [dir_path] src_base = /tmp/hello/
+    [dir_path] out_root = /tmp/hello/
+
+    [dir_path] src_root = /tmp/hello/
+    [dir_path] out_base = /tmp/hello/
+
+    [project_name] project = hello
+    [string] project.summary = hello executable
+    [string] project.url = https://example.org/hello
+
+    [string] version = 1.2.3
+    [uint64] version.major = 1
+    [uint64] version.minor = 2
+    [uint64] version.patch = 3
+
+    [string] cxx.std = latest
+
+    [string] cxx.id = gcc
+    [string] cxx.version = 8.1.0
+    [uint64] cxx.version.major = 8
+    [uint64] cxx.version.minor = 1
+    [uint64] cxx.version.patch = 0
+
+    [target_triplet] cxx.target = x86_64-w64-mingw32
+    [string] cxx.target.class = windows
+    [string] cxx.target.cpu = x86_64
+    [string] cxx.target.system = mingw32
+
+    hxx{*}: [string] extension = hxx
+    cxx{*}: [string] extension = cxx
+
+    hello/
+    {
+      [dir_path] src_base = /tmp/hello/hello/
+      [dir_path] out_base = /tmp/hello/hello/
+
+      dir{./}: exe{hello}
+      exe{hello.}: cxx{hello.cxx}
+    }
+
+    dir{./}: dir{hello/} manifest{manifest}
+  }
+}
+\
+
+This is probably quite a bit more information than what you've expected to see
+so let's explain a couple of things. Firstly, it appears there is another
+scope outer to our project's root. In fact, \c{build2} extends scoping outside
+of projects with the root of the filesystem (denoted by the special \c{/})
+being the \i{global scope}. This extension becomes useful when we try to build
+multiple unrelated projects or import one project in another. In this model
+all projects are part of single scope hierarchy with the global scope at its
+root.
+
+The global scope is read-only and contains a number of pre-defined
+\i{build-wide} variables such as the build system version, host platform
+(shown in the above listing), etc.
+
+Next, inside the global scope, we see our project's root scope
+(\c{/tmp/hello/}). Besides the variables that we have set ourselves (like
+\c{project}), it also contains a number of variable set by the build system
+core (for example, those \c{out_base}, \c{src_root}, etc) as well by build
+system modules (for example, \c{project.*} and \c{version.*} variables set by
+the \c{version} module and \c{cxx.*} variables set by the \c{cxx} module).
+
+The scope for our project's source directory (\c{hello/}) should look
+familiar. We again have a few special variables (\c{out_base}, \c{src_base}).
+Notice also that the name patterns in prerequisites have been expanded to
+the actual files.
+
+As you can probably guess from their names, the \c{src_*} and \c{out_*}
+variables track the association between scopes and src/out directories. They
+are maintained automatically by the build system core with the
+\c{src/out_base} pair set on each scope within the project and an additional
+\c{src/out_root} pair set on the project's root scope (so that we can get the
+project's root directories from anywhere in the project). Note that directory
+paths in their values are always absolute.
+
+In the above example the corresponding src/out variable pairs have the same
+values because we were building in source. As an example, this is what the
+association will look for an out of source build:
+
+\
+hello/ ~~~       hello-out/                             ~~~ hello-out/
+│                {                                          │
+│                  src_root = .../hello/                    │
+│                  out_root = .../hello-out/                │
+│                                                           │
+│                  src_base = .../hello/                    │
+│                  out_base = .../hello-out/                │
+│                                                           │
+└── hello/ ~~~     hello/                      ~~~ hello/ ──┘
+                   {
+                     src_base = .../hello/hello/
+                     out_base = .../hello-out/hello/
+                   }
+                 }
+\
+
+Now that we have some scopes and variables to play with, it's good time to
+introduce variable expansion. To get the value stored in a variable we use
+\c{$} followed by the variable's name. The variable is first looked up in the
+current scope (that is, the scope in which the expansion was encountered) and,
+if not found, in the outer scopes all the way to the global scope.
+
+\N|To be precise, this is the default \i{variable visibility}. Variables,
+however, can have more limited visibilities, such as \i{project}, \i{scope},
+\i{target}, or \i{prerequisite}.|
+
+To illustrate the lookup semantics, let's add the following line to each
+\c{buildfile} in our \c{hello} project:
+
+\
+$ cd hello/ # project root
+
+$ cat buildfile
+...
+info \"src_base: $src_base\"
+
+$ cat hello/buildfile
+...
+info \"src_base: $src_base\"
+\
+
+And then build it:
+
+\
+$ b
+buildfile:3:1: info: src_base: /tmp/hello/
+hello/buildfile:8:1: info: src_base: /tmp/hello/
+\
+
+In this case \c{src_base} is defined in each of the two scopes and we get
+their respective values. If, however, we change the above line to print
+\c{src_root} instead of \c{src_base} we will get the same value from the
+root scope:
+
+\
+buildfile:3:1: info: src_root: /tmp/hello/
+hello/buildfile:8:1: info: src_root: /tmp/hello/
+\
+
+One common place to find \c{src/out_root} expansions is in include search path
+options. For example, the source directory \c{buildfile} generated by
+l{bdep-new(1)} for an executable project actually looks like this
+(\i{poptions} stands for \i{preprocessor opsions}):
+
+\
+exe{hello}: {hxx cxx}{**}
+
+cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
+\
+
+This allows us to include our headers using the project's name as a prefix,
+inline with the \l{intro#structure-canonical Canonical Project Structure}
+guidelines. For example, if we added the \c{utility.hxx} header to our
+\c{hello} project, we would include it like this:
+
+\
+#include <iostream>
+
+#include <hello/utility.hxx>
+
+int main ()
+{
+...
+}
+\
+
+\N|In this section we've only scratched the surface when it comes to
+variables. In particular, variables and variable values in \c{build2} are
+optionally typed (those \c{[string]}, \c{[uint64]} we've seen in the build
+state dump). And in certain contexts the lookup semantics actually starts from
+the target, not from the scope (target-specific variables; there are also
+prerequisite-specific). For more information on these and other topics,
+see @@ ref.|
+
+As mentioned above, each \c{buildfile} in a project is loaded into its
+corresponding scope. As a result, we rarely need to open scopes explicitly.
+In the few cases that we do, we use the following syntax.
+
+\
+<directory>/
+{
+  ...
+}
+\
+
+If the scope directory is relative, then it is assumed to be relative to the
+current scope. As an exercise in understanding, let's reimplement our
+\c{hello} project as a single \c{buildfile}. That is, we move the contents of
+the source directory \c{buildfile} into the root \c{buildfile}:
+
+\
+$ tree hello/
+hello/
+├── build/
+│   └── ...
+├── hello/
+│   └── hello.cxx
+└── buildfile
+
+$ cat hello/buildfile
+
+./: hello/
+
+hello/
+{
+  ./: exe{hello}
+  exe{hello}: {hxx cxx}{**}
+}
+\
+
+\N|While this single \c{buildfile} setup is not recommended for new projects,
+it can be useful for a non-intrusive conversion of existing projects to
+\c{build2}. One approach is to place the unmodified original project into a
+subdirectory (potentially automating this with a mechanism such as \c{git(1)}
+submodules) then adding the \c{build/} directory and the root \c{buildfile}
+which opens explicit scope to define the build over the project's
+subdirectory.|
+
+Seeing this merged \c{buildfile} may make you wonder what exactly causes the
+loading of the source directory \c{buildfile} in our normal setup. In other
+words, when we build our \c{hello} from the project root, who and why loads
+\c{hello/buildfile}?
+
+Actually, in the earlier days of \c{build2} we had to explicitly load
+\c{buildfiles} that define targets we depend on with the \c{include}
+directive. In fact, we still can (and have to if we are depending on
+targets other than directories). For example:
+
+\
+./: hello/
+
+include hello/buildfile
+\
+
+We can also omit \c{buildfile} for brevity and have just:
+
+\
+include hello/
+\
+
+This explicit inclusion, however, quickly becomes tiresome as the number of
+directories grows. It also makes using wildcard patterns for subdirectory
+prerequisites a lot less appealing.
+
+To resolve this the \c{dir{\}} target type implements an interesting
+prerequisite to target resolution semantics: if there is no existing target
+with this name, a \c{buildfile} that (presumably) defines this target is
+automatically loaded from the corresponding directory. In fact, it goes
+a step further and, if the \c{buildfile} does not exist, then assumes
+one with the following contents was implied:
+
+\
+./: */
+\
+
+That is, it simply builds all the subdirectories. This is especially handy
+when organizing related tests into subdirectories.
+
+\N|As mentioned above, this automatic inclusion is only triggered if the
+target we depend on is \c{dir{\}} and we still have to explicitly include the
+necessary \c{buildfiles} for other target. One common example is a project
+consisting of a library and an executable that uses it, each residing in a
+separate directory next to each other (as noted earlier, not recommended for
+projects that are to be packaged). For example:
+
+\
+hello/
+├── build
+│   └── ...
+├── hello
+│   ├── main.cxx
+│   └── buildfile
+├── libhello
+│   ├── hello.hxx
+│   ├── hello.cxx
+│   └── buildfile
+└── buildfile
+\
+
+In this case the executable \c{buildfile} could look along these lines:
+
+\
+include ../libhello/ # Include lib{hello}.
+
+exe{hello}: {hxx cxx}{**} lib{hello}
+\
+
+Note also that \c{buildfile} inclusion is not the mechanism for accesing
+targets from other projects. For that we use target importation that is
+discussed in @@ ref.|
+
+@@ conclusion/summary
+
+\h#intro-operations|Operations|
+
+Modern build systems have to perform operations other than just building:
+cleaning the build output, running tests, installing/uninstalling the build
+results, prepring source distributions, and so on. And, if the build system has
+integrated configuration support, configuring the project would naturally
+belong on this list as well.
+
+\N|If you are familiar with \c{make}, you should recognize the parallel with
+the common \c{clean} \c{test}, \c{install}, etc., \"operation\"
+pseudo-targets.|
+
+In \c{build2} we have the concept of a \i{build system operation} performed on
+a target. The two pre-defined operations are \c{update} and \c{clean} with
+other operations provided by build system modules.
+
+Operations to perform and targets to perform them on are specified on the
+command line. As discussed earlier, \c{update} is the default operation and
+\c{./} in the current directory is the default target if no operation and/or
+target is specified explicitly. And, similar to targets, we can specify
+multiple operations (not necessarily on the same targets) in a single build
+system invocation. The list of operations to perform and targets to perform
+them on is called a \i{build specification} or \i{buildspec} for short (see
+\l{b(1)} for details). Here are a few example:
+
+\
+$ cd hello        # Change to project root.
+
+$ b               # Update current directory.
+$ b ./            # As above.
+$ b update        # As above.
+$ b update: ./    # As above.
+
+$ b clean update  # Rebuild.
+
+$ b clean:  hello/             # Clean specific target.
+$ b update: hello/exe{hello}   # Update specific target
+
+$ b update: libhello/ tests/   # Update two targets.
+\
+
+Let's revisit \c{build/bootstrap.build} from our \c{hello} project:
+
+\
+project = hello
+
+using version
+using config
+using test
+using install
+using dist
+\
+
+Other than \c{version}, all the modules we load define new operations. So
+let's examine each of them starting with \c{config}.
+
+
+\h2#intro-operations-config|Configuration|
+
+As mentioned briefly earlier, the \c{config} module provides support for
+perisiting configurations by allowing us to \i{configure} our projects. At
+first it may feels natural for \c{configure} to be another operation. There
+is, however, a conceptual problem: we don't really configure a target. And,
+perhaps after some meditation, it should become clear that what we are really
+doing is configuring operations on targets. For example, configuring updating
+a C++ project might involve detecting and saving information about the C++
+compiler while configuring installing it may require specifying the
+installation directory.
+
+So \c{configure} is an operation on operation on targets \- a meta-operation.
+And so in \c{build2} we have the concept of a \i{build system meta-operation}.
+If not specified explicitly (as part of the buildspec), the default is
+\c{perform}, which is to simply perform the operation.
+
+Back to \c{config}, this module provides two meta-operations: \c{configure}
+which saves the configuration of a project into the \c{build/config.build}
+file as well as \c{disfigure} which removes it.
+
+\N|While the common meaning of the word \i{disfigure} is somewhat different to
+what we make it mean in this context, we still prefer it over the commonly
+suggested \i{deconfigure} for the symmetry of their Latin \i{con-}
+(\"together\") and \i{dis-} (\"apart\") prefixes.|
+
+Let's say for the in source build of our \c{hello} project we want to use
+\c{Clang} and enable debug information. Without persistence we would have to
+repear this configuration on every build system invocation:
+
+\
+$ cd hello  # Change to project root.
+
+$ b config.cxx=clang++ config.cxx.coptions=-d
+\
+
+Instead, we can configure our porject with this information once and from
+then on invoke the build system without any arguments:
+
+\
+$ b configure config.cxx=clang++ config.cxx.coptions=-d
+
+$ tree ./
+./
+├── build/
+│   ├── ...
+│   └── config.build
+└── ...
+
+$ b
+$ b clean
+$ b
+...
+\
+
+Let't take a look at \c{config.build}:
+
+\
+$ cat build/config.build
+
+config.cxx = clang++
+config.cxx.poptions = [null]
+config.cxx.coptions = -d
+config.cxx.loptions = [null]
+config.cxx.libs = [null]
+...
+\
+
+As you can see, it's just a buildfile with a bunch of variable assignments. In
+particular, this means you can tweak your build configuration by modifying
+this file with your favorite editor. Or, alternatively, you can adjust the
+configuration by reconfigure the project:
+
+\
+$ b configure config.cxx=g++
+
+$ cat build/config.build
+
+config.cxx = g++
+config.cxx.poptions = [null]
+config.cxx.coptions = -d
+config.cxx.loptions = [null]
+config.cxx.libs = [null]
+...
+\
+
+Any variable value specified on the command line overrides those specified in
+the \c{buildfiles}. As a result, \c{config.cxx} was updated while the value of
+\c{config.cxx.coptions} was preserved.
+
+Command line variable overrides are also handy to adjust the configuration for
+a single build system invocation. For example, let's say we want to quickly
+check that our project builds with optimization but without changing the
+configuration:
+
+\
+$ b config.cxx.coptions=-O3  # Rebuild with -O3.
+$ b                          # Rebuild with -d.
+\
+
+We can also configure out of source builds of our projects. In this case,
+besides \c{config.build}, \c{configure} also saves the location of the source
+directory so that we don't have to repeat that either. Remember, this is how
+we used to build our \c{hello} out of source:
+
+\
+$ b hello/@hello-gcc/   config.cxx=g++
+$ b hello/@hello-clang/ config.cxx=clang++
+\
+
+And now we can do:
+
+\
+$ b configure: hello/@hello-gcc/   config.cxx=g++
+$ b configure: hello/@hello-clang/ config.cxx=clang++
+
+$ hello-clang/
+hello-clang/
+└── build/
+    ├── bootstrap/
+    │   └── src-root.build
+    └── config.build
+
+$ b hello-gcc/
+$ b hello-clang/
+$ b hello-gcc/ hello-clang/
+\
+
+One major benefit of an in source build is the ability to run executables as
+well as examine build/test output (test results, generated source code,
+documenation, etc) without leaving the source directory. Unfortunately we
+cannot have multiple in source builds and as was discussed earlier, mixing in
+and out of source builds is not recommended.
+
+To overcome this limitation \c{build2} has a notion of \i{forwarded
+configurations}. As the name suggests, we can configure a project's source
+directory to forward to one of its out of source builds. Specifically,
+whenever we run the build system from the source directory, it will
+automatically build in the corresponded forwareded output
+directory. Additionally, it will \i{backlink} (using symlinks or another
+suitable mechanism) certain \"interesting\" targets (\c{exe{\}}, \c{doc{\}})
+to the source directory for easy access. As an example, let's configure our
+\c{hello/} source directory to forward to the \c{hello-gcc/} build:
+
+\
+$ b configure: hello/@hello-gcc/,forward
+
+$ cd hello/
+$ b
+c++ hello/cxx{hello}@../hello-gcc/hello/
+ld ../hello-gcc/hello/exe{hello}
+ln ../hello-gcc/hello/exe{hello} -> hello/
+\
+
+Notice the last line in the above listing: it indicates that \c{exe{hello}}
+from the out directory was backlinked in our project's source subdirectory:
+
+\
+$ tree ./
+./
+├── build/
+│   ├── bootstrap/
+│   │   └── out-root.build
+│   └── ...
+├── hello/
+│   ├── ...
+│   └── hello -> ../../hello-gcc/hello/hello*
+└── ...
+
+$ ./hello/hello
+Hello World!
+\
+
+\N|By default only \c{exe{\}} and \c{doc{\}} targets are backlinked. This,
+however, can be customized with the \c{backlink} target-specific variable.
+Refer to the @@ ref (build system core variables reference?) for details.|
+
+
+\h2#intro-operations-test|Testing|
+
+The next module we load in \c{bootstrap.build} is \c{test} which defines the
+\c{test} operation. As the name suggests, this module provides support for
+running tests.
+
+@@ ref to test module
+
+There are two types of tests that we can run with the \c{test} module: simple
+tests and \c{testscript}-based.
+
+A simple test is just an executable target with the \c{test} target-specific
+variable set to \c{true}. For example:
+
+\
+exe{hello}: test = true
+\
+
+A simple test is executed once and in its most basic form (typical for unit
+testing) doesn't take any inputs nor produce any output, indicating success
+via the zero exit status. If we test our \c{hello} project with the above
+addition to its \c{buildfile}, then we will see the following output:
+
+\
+$ b test
+test hello/exe{hello}
+Hello, World!
+\
+
+While the test passes (since it exited with zero status), we probably don't
+want to see that \c{Hello, World!} every time we run it (this can, however, be
+quite useful for running examples). More importantly, we don't really test its
+functionality and if tomorrow our \c{hello} starts swearing rather than
+greeting, the test will still pass.
+
+Besides checking the exit status we can also supply some basic information to
+a simple test (more common for integration testing). Specifically, we can pass
+command line options (\c{test.options}) and arguments (\c{test.arguments}) as
+well as input (\c{test.stdin}, used to supply test's \c{stdin}) and output
+(\c{test.stdout}, used to compare test's \c{stdout}).
+
+Let's see how we can use this to fix our \c{hello} test by making sure our
+program prints the expected greeting. First we need to add a file that will
+contain the expected output, let's call it \c{test.out}:
+
+\
+$ ls -1 hello/
+hello.cxx
+test.out
+buildfile
+
+$ cat hello/test.out
+Hello, World!
+\
+
+Next we arrange for it to be compared to our test's \c{stdout}. Here is the
+new \c{hello/buildfile}:
+
+\
+exe{hello}: {hxx cxx}{**}
+exe{hello}: file{test.out}: test.stdout = true
+\
+
+Ok, this looks new. What we have here is a \i{prerequisite-specific variable}
+assignment. By setting \c{test.stdout} for the \c{file{test.out\}}
+prerequisite of target \c{exe{hello\}} we mark it as expected \c{stdout}
+output of \i{this} target (theoretically, we could have marked it as
+\c{test.input} for another target). Notice also that we no longer need the
+\c{test} target-specific variable. It's unnecessary if one of the other
+\c{test.*} variable is specified.
+
+Now, if we run our test, we won't see any output:
+
+\
+$ b test
+test hello/exe{hello}
+\
+
+And if we try to change the greeting in \c{hello.cxx} but not in \c{test.out},
+our test will fail printing the \c{diff(1)} comparison of the expected and
+actual output:
+
+\
+$ b test
+c++ hello/cxx{hello}
+ld hello/exe{hello}
+test hello/exe{hello}
+--- test.out
++++ -
+@@ -1 +1 @@
+-Hello, World!
++Hi, World!
+error: test hello/exe{hello} failed
+\
+
+Notice another interesting thing: we have modified \c{hello.cxx} to change the
+greeting and our test executable was automatically rebuilt before testing.
+This happenned because the \c{test} operation parform \c{update} as its
+\i{pre-operation} on all the targets to be tested.
+
+Let's make our \c{hello} program more flexible by accepting the name to
+greet on the command line:
+
+\
+#include <iostream>
+
+int main (int argc, char* argv[])
+{
+  if (argc < 2)
+  {
+    std::cerr << \"error: missing name\" << std::endl;
+    return 1;
+  }
+
+  std::cout << \"Hello, \" << argv[1] << '!' << std::endl;
+}
+\
+
+We can test its successful execution path with a simple test fairly easily:
+
+\
+exe{hello}: test.arguments = 'World'
+exe{hello}: file{test.out}: test.stdout = true
+\
+
+What if we also wanted to test its error handling? Since simple tests are
+single-run, this won't be easy. Even if we could overcome this, having
+expected output for each test in a separate file will quickly become untidy.
+And this is where \c{testscript}-based tests come in. Testscript is a portable
+language for running tests. It vaguely resembles Bash and is optimized for
+concise test description and fast, parallel execution.
+
+Just to give you an idea (see \l{testscript#intro Testscript Introduction} for
+a proper introduction), here is what testing our \c{hello} program with
+Testscript would look like:
+
+\
+$ ls -1 hello/
+hello.cxx
+testscript
+buildfile
+
+$ cat hello/buildfile
+
+exe{hello}: {hxx cxx}{**} testscript
+\
+
+And these are the contents of \c{hello/testscript}:
+
+\
+: basics
+:
+$* 'World' >'Hello, World!'
+
+: missing-name
+:
+$* 2>>EOE != 0
+error: missing name
+EOE
+\
+
+A couple of key points: The \c{test.out} file is gone with all the test inputs
+and expected outputs incorporated into \c{testscript}. To test an executable
+with Testscript all we have to is list the corresponding \c{testscript} file
+as its prerequisite (and which, being a fixed name, doesn't need an explicit
+target type, similar to \c{manifest}).
+
+To see Testscript in action, let's say we've made our program more
+user-friendly by falling back to a default name if one wasn't specified:
+
+\
+#include <iostream>
+
+int main (int argc, char* argv[])
+{
+  const char* n (argc > 1 ? argv[1] : \"World\");
+  std::cout << \"Hello, \" << n << '!' << std::endl;
+}
+\
+
+If we forgot to adjust the \c{missing-name} test, then this is what we could
+expect to see when running the tests:
+
+\
+b test
+c++ hello/cxx{hello}
+ld hello/exe{hello}
+test hello/test{testscript} hello/exe{hello}
+hello/testscript:7:1: error: hello/hello exit code 0 == 0
+  info: stdout: hello/test-hello/missing-name/stdout
+\
+
+Testscript-based integration testing is the default setup for executable
+(\c{-t\ exe}) projects created by \l{bdep-new(1)}. Here is the recap of the
+overall layout:
+
+\
+hello/
+├── build/
+│   └── ...
+├── hello/
+│   ├── hello.cxx
+│   ├── testscript
+│   └── buildfile
+├── buildfile
+└── manifest
+\
+
+For libraries (\c{-t\ lib}), however, the integration testing setup is a bit
+different. Here are the relevant parts of the layout:
+
+\
+libhello/
+├── build/
+│   └── ...
+├── libhello/
+│   ├── hello.hxx
+│   ├── hello.cxx
+│   ├── export.hxx
+│   ├── version.hxx.in
+│   └── buildfile
+├── tests/
+│   ├── build/
+│   │   ├── bootstrap.build
+│   │   └── root.build
+│   ├── basics/
+│   │   ├── driver.cxx
+│   │   └── buildfile
+│   └── buildfile
+├── buildfile
+└── manifest
+\
+
+Specifically, there is no \c{testscript} in \c{libhello/}, the project's
+source directory. Instead we have the \c{tests/} subdirectory which itself
+looks like a project: it contains the \c{build/} subdirectory with all the
+familiar files, etc. In fact, \c{tests} is a \i{subproject} of our
+\c{libhello} project.
+
+While we will be examining \c{tests} in greater detail later, in a nutshell,
+the reason it is a subproject is to be able to test an installed version of
+our library. By default, when \c{tests} is built as part of its parent project
+(called \c{amalgamation}), the locally built \c{libhello} library will be
+automatically imported. However, we can also configure a build of \c{tests}
+out of its amalgamation, in which case we can import an installed version of
+\c{libhello}. We will learn how to do all that as well as the underlying
+concepts (\i{subproject}/\i{amalgamation}, \i{import}, etc) in the coming
+sections.
+
+Inside \c{tests/} we have the \c{basics/} subdirectory which contains a simple
+test for our library's API. By default it doesn't use Testscript but if you
+want to, you can. You can also rename \c{basics/} to something more meaningful
+and add more tests next to it. For example, if we were creating an XML parsing
+and serialization library, then our \c{tests/} could have the following
+layout:
+
+\
+tests/
+├── build
+│   └── ...
+├── parser
+│   └── ...
+├── serializer
+│   └── ..
+└── buildfile
+\
+
+\N|Nothing prevents us from having the \c{tests/} subdirectory for executable
+projects. And it can be just a subdirectory or a subproject, the same as for
+libraries. Making it a subproject makes sense if your program has a complex
+installation, for example, if its execution requires configuration and/or data
+files that need to be found, etc. For simple programs, however, testing the
+executable before installing is usually sufficient.|
+
+@@\n
+- how do we get code  for unit tests (utility libraries)\n
+- unit vs integration (note): not specific (but kind of already covered)
+
+\h2#intro-operations-install|Installation|
+
+The \c{install} module defines the \c{install} and \c{uninstall} operations.
+As the name suggests, this module provides support for project installation.
+
+\N|Project installation in \c{build2} is modeled after UNIX-like operation
+systems though the installation directory layout is highly customizable (@@
+ref to install module). While \c{build2} projects can import \c{build2}
+libraries directly, installation is often a way to \"export\" them in a form
+usable by other build systems.|
+
+The root installation directory is specified with the \c{config.install.root}
+configuration variable. Let's install our \c{hello} program into
+\c{/tmp/install}:
+
+\
+$ cd hello/
+$ b install config.install.root=/tmp/install/
+\
+
+And see what we've got (executables are marked with \c{*}):
+
+\
+$ tree /tmp/install/
+
+/tmp/install/
+├── bin/
+│   └── *hello
+└── share/
+    └── doc/
+        └── hello/
+            └── manifest
+\
+
+Similar to the \c{test} operation, \c{install} performs \c{update} as a
+pre-operation for targets that it installs.
+
+\N|We can also configure our project with the desired \c{config.install.*}
+values so we don't have to repeat them on every install/uninstall. For
+example:
+
+\
+$ b configure config.install.root=/tmp/install/
+$ b install
+$ b uninstall
+\
+
+|
+
+Now the same for \c{libhello} (symbolic link targets are shown with \c{->} and
+actual static/shared library names may differ on your operating system):
+
+\
+$ rm -r /tmp/install
+
+$ cd libhello/
+$ b install config.install.root=/tmp/install/
+
+$ tree /tmp/install/
+
+/tmp/install/
+├── include/
+│   └── libhello/
+│       ├── hello.hxx
+│       ├── export.hxx
+│       └── version.hxx
+├── lib/
+│   ├── pkgconfig/
+│   │   ├── libhello.shared.pc
+│   │   └── libhello.static.pc
+│   ├── libhello.a
+│   ├── libhello.so -> libhello-0.1.so
+│   └── libhello-0.1.so
+└── share/
+    └── doc/
+        └── libhello/
+            └── manifest
+\
+
+As you can see, the library headers go into the customary \c{include/}
+subdirectory while static and shared libraries (and their \c{pkg-config(1)}
+files) \- into \c{lib/}. Using this installation we should be able to import
+this library from other build systems or even use it in a manual build:
+
+\
+$ g++ -I/tmp/install/include -L/tmp/install/lib greet.cxx -lhello
+\
+
+If we want to install into a system-wide location like \c{/usr} or
+\c{/usr/local}, then we most likely will need to specify the \c{sudo(1)}
+program:
+
+\
+$ cd hello/
+$ b config.install.root=/usr/local/ config.install.sudo=sudo
+\
+
+\N|In \c{build2} only actual install/uninstall commands are executed with
+\c{sudo(1)}. And while on the topic of sensible implementations, \c{uninstall}
+can be generally trusted to work reliably.|
+
+The default installability of a target as well as where it is installed is
+determined by its target type. For example, \c{exe{\}} is by default installed
+into \c{bin/}, \c{doc{\}} \- into \c{share/doc/<project>/}, and \c{file{\}} is
+not installed.
+
+We can, however, override this with the \c{install} target-specific variable.
+Its value should be either special \c{false} indicating that the target should
+not be installed or the directory to install the target to. As an example,
+here is what the root \c{buildfile} from our \c{libhello} project looks like:
+
+\
+./: {*/ -build/} manifest
+
+tests/: install = false
+\
+
+The first line we have already seen and the purpose of the second line should
+now be clear: it makes sure we don't try to install anything in the \c{tests/}
+subdirectory.
+
+If the value of the \c{install} variable is not \c{false}, then it is normally
+a relative path with the first path component being one of these names:
+
+\
+name        default                         override
+----        -------                         --------
+root                                        config.install.root
+
+data_root   root/                           config.install.data_root
+exec_root   root/                           config.install.exec_root
+
+bin         exec_root/bin/                  config.install.bin
+sbin        exec_root/sbin/                 config.install.sbin
+lib         exec_root/lib/                  config.install.lib
+libexec     exec_root/libexec/<project>/    config.install.libexec
+pkgconfig   lib/pkgconfig/                  config.install.pkgconfig
+
+data        data_root/share/<project>/      config.install.data
+include     data_root/include/              config.install.include
+
+doc         data_root/share/doc/<project>/  config.install.doc
+man         data_root/man/                  config.install.man
+man<N>      man/man<N>/                     config.install.man<N>
+\
+
+Let's see what happens here: The default install directory tree is derived
+from the \c{config.install.root} value but the location of each node in this
+tree can be overridden by the user that installs our project using the
+corresponding \c{config.install.*} variables. In our \c{buildfiles}, in turn,
+we use the node names instead of actual directories. As an example, here is a
+\c{buildfile} fragment from the source directory of our \c{libhello} project:
+
+\
+hxx{*}: install         = include/libhello/
+hxx{*}: install.subdirs = true
+\
+
+Here we set the installation location for headers to be the \c{libhello/}
+subdirectory of the \c{include} installation location. Assuming
+\c{config.install.root} is \c{/usr/}, the \c{install} module will perform the
+following steps to resolve this relative path to the actual, absolute
+installation directory:
+
+\
+include/libhello/
+data_root/include/libhello/
+root/include/libhello/
+/usr/include/libhello/
+\
+
+In the above example we also see the use of the \c{install.subdirs} variable.
+Setting it to \c{true} instructs the \c{install} module to recreate
+subdirectories starting from this point in the project's directory hierarchy.
+For example, if our \c{libhello/} source directory had the \c{details/}
+subdirectory with the \c{utility.hxx} header, then this header would have been
+installed as \c{.../include/libhello/details/utility.hxx}.
+
+@@\n
+- installation of dependencies?
+
+
+\h2#intro-operations-dist|Distribution|
+
+The last module that we load in our \c{bootstrap.build} is \c{dist} which
+provides support for preparation of distributions by defining the \c{dist}
+meta-operation. Similar to \c{configure}, \c{dist} is a meta-operation rather
+than an operation because, conceptually, we are preparing a distribution for
+performing operations (like \c{update}, \c{test}) on targets rather than
+targets themselves.
+
+Preparation of a correct distribution relies on all the necessary project
+files (sources, documentation, etc) being listed as prerequisites in the
+project's \c{buildfiles}.
+
+\N|You may wonder why not just use the export support offered by version
+control systems? The main reason is that in most real-world projects version
+control repositories contain a lot more than what needs to be distributed. In
+fact, it is not uncommon to host multiple build system projects/packages in a
+single repository. As a result, with this approach we seem to inevitably end
+up maintaining an exclusion list which feels backwards \- why specify all the
+things we don't want in a new list instead of just making sure the existing
+list of things that we do want is complete? Also, once we have the complete
+list, it can be put to good use by other tools, such as editors, IDEs, etc.|
+
+Preparation of a distribution requires an out of source build. This allows the
+\c{dist} module to distinguish between source and output targets. By default,
+targets found in src are includes into the distribution while those in out are
+excluded. However, we can customize this with the \c{dist} target-specific
+variable.
+
+As an example, let's prepare a distribution of our \c{hello} project using the
+out of source build configured in \c{hello-out/}. We use \c{config.dist.root}
+to specify the directory to place the distribution to:
+
+\
+$ b dist: hello-out/ config.dist.root=/tmp/dist
+
+$ ls -1 /tmp/dist
+hello-0.1.0/
+
+$ tree /tmp/dist/hello-0.1.0/
+/tmp/dist/hello-0.1.0/
+├── build/
+│   ├── bootstrap.build
+│   └── root.build
+├── hello/
+│   ├── hello.cxx
+│   ├── testscript
+│   └── buildfile
+├── buildfile
+└── manifest
+\
+
+As we can see, the distribution directory includes the project version (comes
+from the \c{version} variable which, in our case, is extracted from
+\c{manifest} by the \c{version} module). Inside the distribution directory we
+have our project's source files (but, for example, without any \c{.gitignore}
+files that we may have had in \c{hello/}.
+
+We can also ask the \c{dist} module to package the distribution directory
+into one or more archives and generate their schecksum files. For example:
+
+\
+$ b dist: hello-out/ \
+  config.dist.root=/tmp/dist \
+  config.dist.archives=\"tar.gz zip\" \
+  config.dist.checksums=sha256
+
+$ ls -1 /tmp/dist
+hello-0.1.0/
+hello-0.1.0.tar.gz
+hello-0.1.0.tar.gz.sha256
+hello-0.1.0.zip
+hello-0.1.0.zip.sha256
+\
+
+\N|We can also configure our project with the desired \c{config.dist.*} values
+so we don't have to repeat them every time. For example:
+
+\
+$ b configure: hello-out/ config.dist.root=/tmp/dist ...
+$ b dist
+\
+
+|
+
+Let's now take a look at an example of customizing what gets distributed.
+Most of the time you will be using this mechanism to include certain targets
+from out. Here is a fragment from the \c{libhello} source directory
+\c{buildfile}:
+
+\
+hxx{version}: in{version} $src_root/manifest
+hxx{version}: dist = true
+\
+
+Our library provides the \c{version.hxx} header that the users can include to
+examine its version. This header is generated by the \c{version} module from
+the \c{version.hxx.in} template. In essence, the \c{version} module takes the
+version value from our manifest, splits it into various components (major,
+minor, patch, etc) and then preprocesses the \c{in{\}} file substituting these
+value (see \l{#module-version \c{version} Module} for details). The end result
+is an automatically maintained version header.
+
+One problem with auto-generated headers is that if one does not yet exist,
+then the compiler may still find it somewhere else. For example, we may have
+an older version of a library installed somwhere where the compiler searches
+for headers by default (for example, \c{/usr/local/}). To overcome this
+problem it is a good idea to ship pre-generated headers in our distributions.
+But since they are output targets, we have to explicitly request this with
+\c{dist=true}.
+
+
+\h#intro-import|Target Importation|
+
+If we need to depend on a target defined in another \c{buildfile} within our
+project, then we simply include said \c{buildfile} and reference the target.
+For example, if our \c{hello} included both an executable and a library in
+separate directories next to each other:
+
+\
+hello/
+├── build/
+│   └── ...
+├── hello/
+│   ├── ...
+│   └── buildfile
+└── libhello/
+    ├── ...
+    └── buildfile
+\
+
+Then our executable \c{buildfile} could look like this:
+
+\
+include ../libhello/ # Include lib{hello}.
+
+exe{hello}: {hxx cxx}{**} lib{hello}
+\
+
+What if instead \c{libhello} is a separate project? The inclusion no longer
+works for two reasons: we don't know the path to \c{libhello} (after all, it's
+an independent project and can reside anywhere) and we can't assume the path
+to the \c{lib{hello\}} target within \c{libhello} (the project directory
+layout can change).
+
+To depend on a target from a separate project we use \i{importation} instead
+of inclusion. This mechanism is also used to depend on targets that are not
+part of any project, for example, installed libraries.
+
+The importing project's side is pretty simple. This is what the above
+\c{buildfile} will look like if \c{libhello} is a separate project:
+
+\
+import libs = libhello%lib{hello}
+
+exe{hello}: {hxx cxx}{**} $libs
+\
+
+The \c{import} directive is a kind of variable assignment that resolves a
+\i{project-qualified} relative target (\c{libhello%lib{hello\}} in our case)
+to an unqualified absolute target and stores it in the variable (\c{libs} in
+our case). We can then expand the variable (\c{$libs} in our case), normally
+in the dependency declaration, to get the imported target.
+
+If we needed to import several libraries then we simply repeat the \c{import}
+directive, usually accumulating the result in the same variable, for example:
+
+\
+import libs  = libformat%lib{format}
+import libs += libprint%lib{print}
+import libs += libhello%lib{hello}
+
+exe{hello}: {hxx cxx}{**} $libs
+\
+
+Let's now try to build our \c{hello} project that uses imported \c{libhello}:
+
+\
+$ b hello/
+error: unable to import target libhello%lib{hello}
+  info: use config.import.libhello command line variable to specify
+        its project out_root
+\
+
+While that didn't work out well, it does make sense: the build system cannot
+know the location of \c{libhello} or which of its builds we want to use.
+Though it does helpfully suggests that we use \c{config.import.libhello} to
+specify its out directory (\c{out_root}). Let's point it to \c{libhello}
+source directory to use an in source build (\c{out_root\ ==\ src_root}):
+
+\
+$ b hello/ config.import.libhello=libhello/
+c++ libhello/libhello/cxx{hello}
+ld libhello/libhello/libs{hello}
+c++ hello/hello/cxx{hello}
+ld hello/hello/exe{hello}
+\
+
+And it works. Naturally, the importation mechanism works the same for out of
+source builds and we can persist the \c{config.import.*} variables in the
+project's configuration. As an example, let's setup Clang builds of the two
+projects out of source:
+
+\
+$ b configure: libhello/@libhello-clang/ config.cxx=clang++
+$ b configure: hello/@hello-clang/ config.cxx=clang++ \
+  config.import.libhello=libhello-clang/
+
+$ b hello-clang/
+c++ libhello/libhello/cxx{hello}@libhello-clang/libhello/
+ld libhello-clang/libhello/libs{hello}
+c++ hello/hello/cxx{hello}@hello-clang/hello/
+ld hello-clang/hello/exe{hello}
+\
+
+If the corresponding \c{config.import.*} variable is not specified, \c{import}
+searches for a project in a couple of other places. First it looks in the list
+of subprojects starting from the importing project itself and then continuing
+with its outer amalgamations and their subprojects (see @@ref Subprojects and
+Amalgamations for details on this subject).
+
+\N|We've actually seen an example of this search step in action: the \c{tests}
+subproject in \c{libhello}. The tests import \c{libhello} which is
+automatically found as an amalgamation containing this subproject.|
+
+If the project being imported cannot be located using any of these methods,
+then \c{import} falls back to the rule-specific search. That is, a rule that
+matches the target may provide support for importing certain prerequisite
+types based on rule-specific knowledge. Support for importing installed
+libraries by the C++ link rule is a good example of this. Internally, the
+\c{cxx} module extracts the compiler library search paths (that is, paths that
+would be used to resolve \c{-lfoo}) and then its link rule uses them to search
+for installed libraries. This allows us to use the same \c{import} directive
+regardless of whether we import a library from a separate build, from a
+subproject, or from an installation directory.
+
+\N|Importation of an installed library will work even if it is not a
+\c{build2} project. Besides finding the library itself, the link rule will
+also try to locate its \c{pkg-config(1)} file and, if present, extract
+aditional compile/link flags from it. The link rule also produces
+\c{pkg-config(1)} files for libraries that it installs.|
+
+Let's now examine the exporting side of the importation mechanis. While a
+project doesn't need to do anything special to be found by \c{import}, it does
+need to handle locating the exported target (or targets; there could be
+several) within the project as well as loading their \c{buildfiles}. This is
+the job of an \i{export stub}, the \c{build/export.build} file that you might
+have noticed in the \c{libhello} project:
+
+\
+libhello
+├── build/
+│   └── export.build
+└── ...
+\
+
+Let's take a look inside:
+
+\
+$out_root/
+{
+  include libhello/
+}
+
+export $out_root/libhello/$import.target
+\
+
+An export stub is a special kind of \c{buildfile} that bridges from the
+importing project into exporting. It is loaded in a special temporary scope
+out of any project, in a \"no man's land\" so to speak. The following
+variables are set on the temporary scope: \c{src_root} and \c{out_root} of the
+project being imported as well as \c{import.target} containing the name of
+target (without project qualification) being imported.
+
+Typically, an export stub will open the scope of the exporting project, load
+the \c{buildfile} that defines the target being exported and finally
+\"return\" the absolute target to the importing project using the \c{export}
+directive. And this is exactly what the export stub in our \c{libhello} does.
+
+We now have all the pieces of the importation puzzle and you can probably see
+how they all fit together. To summarize, when the build system sees an
+\c{import} directive, it looks for a project with the specified name. If
+found, it creates a temporary scope, sets the \c{src/out_root} variables to
+point to the project and \c{import.target} \- to the target name specified in
+the \c{import} directive. And then it load the project's export stub in this
+scope. Inside the export stub we switch to the project's root scope, load its
+\c{buildfile} and then use the \c{export} directive to set the exported
+target. Once the export stub is processed, the build system obtains the
+exported target and assigns it to the variable specified in the \c{import}
+directive.
+
+\N|Our export stub is quite \"loose\" in that it allows importing any target
+defined in the project's source subdirectory \c{buildfile}. While we found it
+to be a good balance between strictness and flexibility, if you would like to
+\"tighten\" your export stubs, you can. For example:
+
+\
+if ($import.target == lib{hello})
+  export $out_root/libhello/$import.target
+\
+
+If no \c{export} directive is executed in an export stub then the build system
+assumes the target is not exported by the project and issues appropriate
+diagnostics.|
+
+
+\h#intro-lib|Library Exportation and Versioning|
+
+By now we have examine and explained every line of every \c{buildfile} in our
+\c{hello} executable project. There are, however, a few lines remain to be
+covered in the source subdirectory \c{buildfile} in \c{libhello}. Here it
+is in its entirety:
+
+\
+int_libs = # Interface dependencies.
+imp_libs = # Implementation dependencies.
+
+lib{hello}: {hxx ixx txx cxx}{** -version} hxx{version} \
+  $imp_libs $int_libs
+
+# Include the generated version header into the distribution (so that
+# we don't pick up an installed one) and don't remove it when cleaning
+# in src (so that clean results in a state identical to distributed).
+#
+hxx{version}: in{version} $src_root/manifest
+hxx{version}: dist  = true
+hxx{version}: clean = ($src_root != $out_root)
+
+cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
+
+obja{*}: cxx.poptions += -DLIBHELLO_STATIC_BUILD
+objs{*}: cxx.poptions += -DLIBHELLO_SHARED_BUILD
+
+lib{hello}: cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+
+liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
+libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
+
+lib{hello}: cxx.export.libs = $int_libs
+
+# For pre-releases use the complete version to make sure they cannot
+# be used in place of another pre-release or the final version.
+#
+if $version.pre_release
+  lib{hello}: bin.lib.version = @\"-$version.project_id\"
+else
+  lib{hello}: bin.lib.version = @\"-$version.major.$version.minor\"
+
+# Install into the libhello/ subdirectory of, say, /usr/include/
+# recreating subdirectories.
+#
+{hxx ixx txx}{*}: install         = include/libhello/
+{hxx ixx txx}{*}: install.subdirs = true
+\
+
+Let's start with all those \c{cxx.export.*} variables. It turns out that
+merely exporting a library target is not enough for the importers of the
+library to be able to use it. They also need to know where to find its
+headers, which other libraries to link, etc. This information is carried in a
+set of target-specific \c{cxx.export.*} variables that parallel the \c{cxx.*}
+set and that together with the library's prerequisites constitute the
+\i{library meta-information protocol}. Every time a source file that depends
+on a library is compiled or a binary is linked, this information is
+automatically extracted by the compile and link rules from the library
+dependency chain, recursively. And when the library is installed, this
+information is carried over to its \c{pkg-config(1)} file.
+
+\N|Similar to the \c{c.*} and \c{cc.*} sets discussed earlier, there are also
+\c{c.export.*} and \c{cc.export.*} sets.|
+
+Here are the parts relevant to the library meta-information protocol in the
+above \c{buildfile}:
+
+\
+int_libs = # Interface dependencies.
+imp_libs = # Implementation dependencies.
+
+lib{hello}: ... $imp_libs $int_libs
+
+lib{hello}: cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+
+liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
+libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
+
+lib{hello}: cxx.export.libs = $int_libs
+\
+
+As a first step we classify all our library dependecies into \i{interface
+dependencies} and \i{implementation dependencies}. A library is an interface
+dependency if it is referenced from our interface, for example, by including
+(importing) one of its headers (modules) from one of our (public) headers
+(modules) or if one of its functions is called from our inline or template
+functions.
+
+The preprocessor options (\c{poptions}) of an interface dependency must be
+made available to our library's users. The library itself shoud also be
+explicitly linked whenever our library is linked. All this is achieved by
+listing the interface dependencies in the \c{cxx.export.libs} variable (the
+last line in the above fragment).
+
+\N|More precisely, the interface dependency should be explicitly linked if a
+user of our library may end up with a direct call to the dependency in one of
+their object files. Not linking such a library is called \i{underlinking}
+while linking a library unnecessarily (which can happen because we've included
+its header but are not actually calling any of its non-inline/template
+functions) is called \i{overlinking}. Unrelinking is an error on some
+platforms while overlinking may slow down process startup and/or waste process
+memory.
+
+Note also that this only applies to shared libraries. In case of static
+libraries, both interface and implementation dependencies are always linked,
+recursively.|
+
+To illustrate the distinction, let's say we've reimplemented our \c{libhello}
+to use \c{libformat} to formal the greeting and \c{libprint} to print it.
+Here is our new header (\c{hello.hxx}):
+
+\
+#include <libformat/format.hxx>
+
+namespace hello
+{
+  void
+  say_hello_formatted (std::ostream&, const std::string& hello);
+
+  inline void
+  say_hello (std::ostream& o, const std::string& name)
+  {
+    say_hello_formatted (o, format::format_hello (\"Hello\", name));
+  }
+}
+\
+
+And this is the new source file (\c{hello.cxx}):
+
+\
+#include <libprint/print.hxx>
+
+namespace hello
+{
+  void
+  say_hello_formatted (ostream& o, const string& h)
+  {
+    print::print_hello (o, h);
+  }
+}
+\
+
+In this implementation, \c{libformat} is our interface dependency since we
+both include its header in our interface and call it from one of our inline
+functions. In contrast, \c{libprint} is only included and used in the source
+file and so we can safely treat it as an implementation dependency. The
+corresponding \c{import} directives in our \c{buildfile} will then look
+like this:
+
+\
+import int_libs = libformat%lib{format}
+import imp_libs = libprint%lib{print}
+\
+
+The remaining three lines in the library meta-information fragment are:
+
+\
+lib{hello}: cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+
+liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
+libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
+\
+
+The first line makes sure the users of our library can locate its headers by
+exporting the relevant \c{-I} options. The last two lines define the library
+type macros that are relied upon by the \c{export.hxx} header to setup symbol
+exporting.
+
+\N|The \c{liba{\}} and \c{libs{\}} target types correspond to the static and
+shared libraries, respectively. And \c{lib{\}} is actually a target group that
+can contain one, the other, or both as its members.
+
+Specifically, when we build a \c{lib{\}} target, which members will be built
+is determined by the \c{config.bin.lib} variable with the \c{static},
+\c{shared}, and \c{both} (default) possible values. So to only build a shared
+library we can do:
+
+$ b config.bin.lib=shared
+
+When it comes to linking \c{lib{\}} prerequisites, which member is picked is
+controlled by the \c{config.bin.{exe,liba,libs}.lib} variables for the
+executable, static library, and shared library targets, respectively. Their
+valid values are lists of \c{shared} and \c{static} that determine the member
+preference. For example, to build both shared and static libraries but to link
+executable to static libraries we can do:
+
+$ b config.bin.lib=both config.bin.exe.lib=static
+
+See the \c{bin} module for more information. @@ ref|
+
+Let's now turn to the second subject of this section and the last unexplained
+bit in our \c{buildfile}: shared library versionsing. Here is the relevant
+fragment:
+
+\
+if $version.pre_release
+  lib{hello}: bin.lib.version = @\"-$version.project_id\"
+else
+  lib{hello}: bin.lib.version = @\"-$version.major.$version.minor\"
+\
+
+Shared library versionsing is a murky, platform-specific area. Instead of
+trying to come up with a unified versioning scheme that few will comprehend
+(similar to \c{autoconf}), \c{build2} provides a platform-independen
+versioning scheme as well as the ability to specify platform-specific version
+in a native format.
+
+The library version is specified with the \c{bin.lib.version} target-specific
+variable. Its value should be a sequence of \c{@}-pairs with the left hand
+side (key) being the platform name and the right hand side (value) being the
+version. An empty key signifies the platform-independent version (see \c{bin}
+module for the exact semantics). For example:
+
+\
+lib{hello}: bin.lib.version = @-1.2 linux@3
+\
+
+\N{While the interface for platform-specific versions is defined, their
+support is not yet implemented by the C/C++ link and install rules.}
+
+A platform-independent version is embedded as a suffix into the library name
+(and into its \c{soname}, on relevant platforms) while platform-specific
+versions are handled according to the platform. Continuing with the above
+example, these would be the resulting shared library names for certain
+platforms:
+
+\
+libhello.so.3       # Linux
+libhello-1.2.dll    # Windows
+libhello-1.2.dylib  # Mac OS
+\
+
+With this background we can now explain what's going in our \c{buildfile}:
+
+\
+if $version.pre_release
+  lib{hello}: bin.lib.version = @\"-$version.project_id\"
+else
+  lib{hello}: bin.lib.version = @\"-$version.major.$version.minor\"
+\
+
+We only use platform-independent library versioning. For releases we embed
+both major and minor version components assuming that patch releases are
+binary compatible. For pre-releases, however we use the complete version to
+make sure it cannot be used in place of another pre-release or the final
+version (\c{version.project_id} is the project's, as opposed to package's,
+shortest \"version id\"; see the \l{#module-version \c{version} Module} for
+details).
+
+@@
+- we need to explain all the *.Xoptions, libs (don't I do it in intro
+  already). Also c module. Note on make vars -- associate CFLAGS CPPFLAGS
+  LDFLAGS, etc.
+
+
+\h#intro-lang|Buildfile Language|
+
+By now we should have a good overall sense of what writing \c{buildfiles}
+feels like. In this section examines the language in slightly more detail.
+
+Buildfile is primarily a declarative language with support for variables, pure
+functions, repetition (\c{for}-loop), and conditional inclusion/exclusion
+(\c{if-else}).
+
+\c{Buildfiles} are line-oriented. That is, every construct ends at the end of
+the line unless escaped with line continuation (trailing \c{\\}). Some lines
+may start a \i{block} if followed by \c{{} on the next line. Such a block ends
+with a closing \c{\}} on a separate line. Some types of blocks can nest. For
+example:
+
+\
+exe{hello}: {hxx cxx}{**} \
+  $libs
+
+if ($cxx.target.class == 'windows')
+{
+  if ($cxx.target.system == 'ming32')
+  {
+    ...
+  }
+}
+\
+
+A comment starts with \c{#} and everything from this character and until the
+end of the line is ignored. A multi-line comment starts with \c{{#\\} on a
+separate line and ends with the same character sequence, again on a separate
+line. For example:
+
+\
+# Single line comment.
+
+info 'Hello, World!' # Trailing comment.
+
+#\
+Multi-
+line
+comment.
+#\
+\
+
+The three primary Buildfile construct are dependency declaration, directive,
+and variable assignment. We've already used all three but let's see another
+example:
+
+\
+include ../libhello/                  # Directive.
+
+exe{hello}: {hxx cxx}{**} lib{hello}  # Dependency declaration.
+
+cxx.poptions += -DNDEBUG              # Variable assignment (append).
+\
+
+There is also the scope opening (we've seen one in \c{export.build}) as well
+as target-specific and prerequisite-specific variable assignment blocks. The
+latter two are used to assign several entity-specific variables at once, for
+example:
+
+\
+hxx{version}:
+{
+  dist  = true
+  clean = ($src_root != $out_root)
+}
+
+exe{test}: file{test.roundtrip}:
+{
+  test.stdin  = true
+  test.stdout = true
+}
+\
+
+\N|All prerequisite-specific variables must be assigned at once as part of the
+dependency declaration since repeating the same prerequisite again duplicates
+the dependency rather than references the already existing one.|
+
+\c{Buildfiles} are processed linearly with directives executed and variables
+expanded as they are encountered. However, certain variables, for example,
+\c{cxx.poptions} are also expanded by rules during execution in which case
+they will \"see\" the final value set in the \c{buildfile}.
+
+\N|Unlike GNU \c{make(1)}, which has deferred (\c{=}) and immediate (\c{:=})
+variable assignments, all assignments in \c{build2} are immediate. For
+example:
+
+\
+x = x
+y = $x
+x = X
+info $y # Prints 'x', not 'X'.
+\
+
+|
+
+
+\h2#intro-lang-expan|Expansion and Quoting|
+
+While we've discussed variable expansion and lookup earlier, to recap, to get
+the variable's value we use \c{$} followed by its name. The variable name is
+first looked up in the current scope (that is, the scope in which the
+expansion was encountered) and, if not found, in the outer scopes,
+recursively.
+
+There are two other kinds of expansions: function calls and \i{evaluation
+contexts}, or eval context for short. Let's start with the latter since
+function calls are built on top of eval contexts.
+
+An eval context is essentially a fragment of a line with additional
+interpretations of certain characters to support value comparison, logical
+operators, and a few other things. Eval contexts begin with \c{(}, end with
+\c{)}, and can nest. Here are a few examples:
+
+\
+info ($src_root != $out_root)                 # Prints true or false.
+info ($src_root == $out_root ? 'in' : 'out')  # Prints in or out.
+
+macos = ($cxx.target.class == 'macos')  # Assigns true or false.
+linux = ($cxx.target.class == 'linux')  # Assigns true or false.
+
+if ($macos || $linux)  # Also eval context.
+  ...
+\
+
+\N|Below is the eval context grammar that shows supported operators and their
+precedence.
+
+\
+eval:         '(' (eval-comma | eval-qual)? ')'
+eval-comma:   eval-ternary (',' eval-ternary)*
+eval-ternary: eval-or ('?' eval-ternary ':' eval-ternary)?
+eval-or:      eval-and ('||' eval-and)*
+eval-and:     eval-comp ('&&' eval-comp)*
+eval-comp:    eval-value (('=='|'!='|'<'|'>'|'<='|'>=') eval-value)*
+eval-value:   value-attributes? (<value> | eval | '!' eval-value)
+eval-qual:    <name> ':' <name>
+
+value-attributes: '[' <key-value-pairs> ']'
+\
+
+Note that \c{?:} (ternary operator) and \c{!} (logical not) are
+right-associative. Unlike C++, all the comparison operators have the same
+precedence. A qualified name cannot be combined with any other operator
+(including ternary) unless enclosed in parentheses. The \c{eval} option in the
+\c{eval-value} production shall contain single value only (no commas).|
+
+A function call starts with \c{$} followed by its name and an eval context
+listing its arguments. Note that there is no space between the name and
+\c{(}. For example:
+
+\
+x =
+y = Y
+
+info $empty($x)  # true
+info $empty($y)  # false
+
+if $regex.match($y, '[A-Z]')
+  ...
+
+p = $src_base/foo.txt
+
+info $path.leaf($src_base)              # foo.txt
+info $path.directory($src_base)         # $src_base
+info $path.base($path.leaf($src_base))  # foo
+\
+
+Note that functions in \c{build2} are \i{pure} in a sence that they do not
+alter the build state in any way.
+
+Variable and function names follow the C identifier rules. We can also group
+variables into namespaces and functions into families by combining multiple
+identifier with \c{.}. These rules are used to determine the end of the
+variable name in expansions. If, however, a name is being treated longer than
+it should, then we can use eval context to explicitly specify its boundaries.
+For example:
+
+\
+base = foo
+name = $(base).txt
+\
+
+What is a structure of a variable value? Consider this assignment:
+
+\
+x = foo bar
+\
+
+The value of \c{x} could be a string, a list of two strings, or something else
+entirely. In \c{build2} the fundamental, untyped value is a \i{list of
+names}. A value can be typed to something else later but it always starts with
+a list of names. So in the above example we have a list of two names, \c{foo}
+and \c{bar}, the same as in this example (notice the extra spaces):
+
+\
+x = foo    bar
+\
+
+\N|The motivation behind going with a list of names instead of a string or a
+list of strings is that at its core we are dealing with targets and their
+prerequisites and it would be natural to make the representation of their
+names (that is, the way we refer to them) the default. Consider the following
+two examples; it would be natural for them to mean the same thing:
+
+\
+exe{hello}: {hxx cxx}{**}
+\
+
+\
+prereqs = {hxx cxx}{**}
+exe{hello}: $prereqs
+\
+
+Note also that the name semantics was carefully tuned to be \i{reversible} to
+its syntactic representation for non-name values, such as paths, command line
+options, etc., that are commonly found in \c{buildfiles}.|
+
+Names are split into a list at whitespace boundaries with certain other
+characters treated as syntax rather than as part of the value. Here are
+a few example:
+
+\
+x = $y          # expansion
+x = (a == b)    # eval context
+x = {foo bar}   # name generation
+x = [null]      # attributes
+x = name@value  # pairs
+x = # comments
+\
+
+The complete set of syntax character is \c{$(){\}[]@#} plus space and tab.
+Additionally, will be \c{*?} treated as wildcards in a name pattern. If
+instead we need these characters to appear literally as part of the value,
+then we either have to \i{escape} or \i{quote} them.
+
+To escape a special character we prefix it with a backslash (\c{\\}; to
+specify a literal backslash double it). For example:
+
+\
+x = \$
+y = C:\\\\Program\ Files
+\
+
+Similar to UNIX shell, \c{build2} supports single (\c{''}) and double
+(\c{\"\"}) quoting with roughly the same semantics. Specifically, expansions
+(variable, function call, and eval context) and escaping are performed inside
+double-quited strings but not in single-quoted. Note also that quoted strings
+can span multiple lines with newlines treated literally (unless escaped in
+double-quoted strings). For example:
+
+\
+x = \"(a != b)\"  # true
+y = '(a != b)'    # (a != b)
+
+x = \"C:\\\\Program Files\"
+y = 'C:\Program Files'
+
+t = 'line one
+line two
+line three'
+\
+
+Since quote characters are now also part of the syntax, if you need to specify
+them literally in the value, then they will either have to be escaped or
+quoted. For example:
+
+\
+cxx.poptions += -DOUTPUT='\"debug\"'
+cxx.poptions += -DTARGET=\\\"$cxx.target\\\"
+\
+
+An expansion can be of two kinds: \i{spliced} or \c{concatenated}. In the
+spliced expansion the variable, function, or eval context is separated from
+other text with whitespaces. In this case, as the name suggest, the resulting
+list of names is spliced into the value. For example:
+
+\
+x = 'foo fox'
+y = bar $x baz  # Three names: 'bar' 'foo fox' 'baz'.
+\
+
+\N|This is an important difference compared to the semantics in UNIX shells
+where result of expansion is re-parsed. In particular, this is the reason why
+you won't see quoted expansions in \c{buildfiles} as often as in
+(well-written) shell scripts.|
+
+In concatenated expansion the variable, function, or eval context are combined
+with unseparated text before and/or after the expansion. For example:
+
+\
+x = 'foo fox'
+y = bar$(x)foz  # Single name: 'barfoo foxbaz'
+\
+
+A concatenated expansion is typed unless it is quoted. In typed concatenated
+expansion the parts are combined in a type-aware manner while in untyped \-
+literally as string. To illustrate the differnce, consider this \c{buildfile}
+fragment:
+
+\
+info $src_root/foo.txt
+info \"$src_root/foo.txt\"
+\
+
+If we run it on a UNIX-like operating system, we will see two identical
+lines, along these lines:
+
+\
+/tmp/test/foo.txt
+/tmp/test/foo.txt
+\
+
+However, if we run it on Windows (which uses backslash as a directory
+separator) we will see the output along these lines:
+
+\
+C:\test\foo.txt
+C:\test/foo.txt
+\
+
+The typed concatenation resulted in a native directory separator because
+\c{dir_path} (the \c{src_root} type) did the right thing.
+
+Not every typed concatenation is well defined and in certain situations we may
+need to force untyped concatenation with quoting. Options specifying header
+search paths (\c{-I}) are a typical case, for example:
+
+\
+cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
+\
+
+If we were to remove the quotes, we would see the following diagnostics:
+
+\
+buildfile:6:20: error: no typed concatenation of <untyped> to dir_path
+  info: use quoting to force untyped concatenation
+\
+
+- style guide for quoting
+
+
+\h2#intro-if-else|Conditions (\c{if-else})|
+
+The \c{if} directive can be used to conditionally exclude \c{buildfile}
+fragments from being processed. The conditional fragment can be a single
+(separate) line or a block and the inital \c{if} can be optionally followed by
+a number of \c{elif} directives and a final \c{else} which together form the
+\c{if-else} chain. An \c{if-else} block can contain nested \c{if-else}
+chains. For example:
+
+\
+if ($cxx.target.class == 'linux')
+  info 'linux'
+elif ($cxx.target.class == 'windows')
+{
+  if ($cxx.target.system == 'mingw32')
+    info 'windows-mingw'
+  elif ($cxx.target.system == 'win32-msvc')
+    info 'windows-msvc'
+  else
+    info 'windows-other'
+}
+else
+  info 'other'
+\
+
+The \c{if} and \c{elif} directive names must be followed by something that
+expands to a single, literal \c{true} or \c{false}. This can be a variable
+expansion, a function call, an eval context, or a literal value. For example:
+
+\
+if $version.pre_release
+  ...
+
+if $regex.match($x, '[A-Z]')
+  ...
+
+if ($cxx.target.class == 'linux')
+  ...
+
+if false
+{
+  # disabled fragment
+}
+
+x = X
+if $x  # Error, must expand to true or false.
+  ...
+\
+
+There are also \c{if!} and \c{elif!} directives which negate the condition
+that follows (note that there is no space before \c{!}). For example:
+
+\
+if! $version.pre_release
+  ...
+elif! $regex.match($x, '[A-Z]')
+  ...
+\
+
+Note also that there is no notion of variable locality in \c{if-else} blocks
+and any value set inside is visible outside. For example:
+
+\
+if true
+{
+  x = X
+}
+
+info $x  # Prints 'X'.
+\
+
+The \c{if-else} chains should not be used for conditional dependency
+declarations since this would violate the expectation that all the project's
+source files are listed as prerequisites, irrespective of the configuration.
+Instead, use the special \c{include} prerequisite-specific variable to
+conditionally include prerequisites into the build. For example:
+
+\
+# Incorrect.
+#
+if ($cxx.target.class == 'linux')
+  exe{hello}: cxx{utility-linux}
+elif ($cxx.target.class == 'windows')
+  exe{hello}: cxx{utility-win32}
+
+# Correct.
+#
+exe{hello}: cxx{utility-linux}: include = ($cxx.target.class == 'linux')
+exe{hello}: cxx{utility-win32}: include = ($cxx.target.class == 'windows')
+\
+
+
+\h2#intro-fir|Repetitions (\c{for})|
+
+The \c{for} directive can be used to repeat the same \c{buildfile} fragment
+multiple times, once for each element of a list. The fragment to repeat can be
+a single (separate) line or a block which together form the \c{for} loop. A
+\c{for} block can contain nested \c{for} loops. For example:
+
+\
+for n: foo bar baz
+{
+  exe{$n}: cxx{$n}
+}
+\
+
+The \c{for} directive name must be followed by the variable name (called
+\i{loop variable}) that on each iteration will be assigned the corresponding
+element, \c{:}, and something that expands to a potentially empty list of
+values. This can be a variable expansion, a function call, an eval context, or
+a literal list as in the example above. Here is a somewhat more realistic
+example that splits a space-seprated environment variable value into names and
+then generates a dependency declaration for each of them:
+
+\
+for n: $regex.split($getenv(NAMES), ' +', '')
+{
+  exe{$n}: cxx{$n}
+}
+\
+
+Note also that there is no notion of variable locality in \c{for} blocks and
+any value set inside us visible outside. At the end of the iteration the loop
+variable contains the value of the last element, if any. For example:
+
+\
+for x: x X
+{
+  y = Y
+}
+
+info $x  # Prints 'X'.
+info $y  # Prints 'Y'.
+\
+
+
+? explain unit tests implementation
+
+----------------------------------------------------------------------------
+
+@@ include includes once
+
+- amalgamation (I think leave to its section, maybe mention and ref in search
+  order)
+- create: as common configuration?
+
+@@ info (where? in scopes? could show some? separate section?)
+@@ other meta-ops: create (anything else)
+
+@@ all tree output needs extra space (review with mc) (also dir/ suffix)
+
+@@ Need to mention ixx/txx files somewhere since used in bdep-new-generated
+   projects.
+
+@@ TODO rename modules chapters
+
+@@ execution model
+@@ establish a chapter for each module
 
 \h1#name-patterns|Name Patterns|
 
@@ -229,27 +3291,6 @@ unknown, target type is unknown, or the target type is not directory or
 file-based, then the name pattern is returned as is (that is, as an ordinary
 name). Project-qualified names are never considered to be patterns.
 
-\h1#grammar|Grammar|
-
-\
-eval:         '(' (eval-comma | eval-qual)? ')'
-eval-comma:   eval-ternary (',' eval-ternary)*
-eval-ternary: eval-or ('?' eval-ternary ':' eval-ternary)?
-eval-or:      eval-and ('||' eval-and)*
-eval-and:     eval-comp ('&&' eval-comp)*
-eval-comp:    eval-value (('=='|'!='|'<'|'>'|'<='|'>=') eval-value)*
-eval-value:   value-attributes? (<value> | eval | '!' eval-value)
-eval-qual:    <name> ':' <name>
-
-value-attributes: '[' <key-value-pairs> ']'
-\
-
-Note that \c{?:} (ternary operator) and \c{!} (logical not) are
-right-associative. Unlike C++, all the comparison operators have the same
-precedence. A qualified name cannot be combined with any other operator
-(including ternary) unless enclosed in parentheses. The \c{eval} option
-in the \c{eval-value} production shall contain single value only (no
-commas).
 
 \h1#module-test|Test Module|
 
