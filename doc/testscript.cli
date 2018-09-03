@@ -1156,7 +1156,7 @@ escaped with a backslash (\c{\\}) to preserve their literal meaning (to
 specify literal backslash you need to escape it as well). For example:
 
 \
-foo = \$foo\\bar # '$foo\bar'
+foo = \$foo\\\\bar # '$foo\bar'
 \
 
 Note that quoting could often be a more readable way to achieve the same
@@ -1295,7 +1295,7 @@ echo $args      # echo foo
 To preserve quotes in this context we need to escape them:
 
 \
-args = \"\\'foo\\'\"  # \'foo\'
+args = \"\\\\'foo\\\\'\"  # \'foo\'
 echo $args          # echo 'foo'
 \
 
@@ -1729,7 +1729,7 @@ semantics is the same as in \c{scope-if}. For example:
 
 \
 if ($cxx.target.class == 'windows')
-  slash = \\
+  slash = \\\\
   case = false
 else
   slash = /
@@ -1741,7 +1741,7 @@ When conditionally setting a single variable, using the evaluation context
 with a ternary operator is often more concise:
 
 \
-slash = ($cxx.target.class == 'windows' ? \\ : /)
+slash = ($cxx.target.class == 'windows' ? \\\\ : /)
 \
 
 Note also that the only purpose of having a separate (from \c{command-if})
@@ -2596,7 +2596,7 @@ are supported.
     \U - Convert next characters until \E to the upper case.
     \L - Convert next characters until \E to the lower case.
 
-    \\ - Literal backslash.
+    \\\\ - Literal backslash.
   \
 
   Note that unlike POSIX semantics, just \c{&} does not have a special meaning
