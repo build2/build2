@@ -1,0 +1,184 @@
+# file      : tests/test/script/builtin/ln.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: args
+:
+{
+  : -s-option
+  :
+  $c <'ln 2>"ln: missing -s option" == 1' && $b
+
+  : none
+  :
+  $c <'ln -s 2>"ln: missing arguments" == 1' && $b
+
+  : no-target
+  :
+  $c <'ln -s a 2>"ln: missing target path" == 1' && $b
+
+  : no-trailing-sep
+  :
+  $c <<EOI && $b
+  ln -s a b c 2>"ln: multiple target paths with non-directory link path" == 1
+  EOI
+
+  : empty
+  :
+  {
+    : link
+    :
+    $c <<EOI && $b
+    ln -s '' 2>"ln: invalid path ''" == 1
+    EOI
+
+    : target1
+    :
+    $c <<EOI && $b
+    ln -s '' a 2>"ln: invalid path ''" == 1
+    EOI
+
+    : target2
+    :
+    $c <<EOI && $b
+    ln -s '' a b/ 2>"ln: invalid path ''" == 1
+    EOI
+  }
+}
+
+: file
+:
+: Test creating a file symlink.
+:
+{
+  : non-existing-link-path
+  :
+  $c <<EOI && $b
+  touch a;
+  ln -s a b && test -f b
+  EOI
+
+  : existing-link
+  :
+  {
+    : file
+    :
+    $c <<EOI && $b
+    touch a b;
+    ln -s a b 2>>/~%EOE% != 0
+    %(
+    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
+    %ln: unable to copy file '.+/a' to '.+/b': .+%
+    %)
+    EOE
+    EOI
+
+    : dir
+    :
+    $c <<EOI && $b
+    touch a;
+    mkdir b;
+    ln -s a b 2>>/~%EOE% != 0
+    %(
+    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
+    %ln: unable to copy file '.+/a' to '.+/b': .+%
+    %)
+    EOE
+    EOI
+  }
+
+  : non-existing
+  {
+    : target
+    :
+    $c <<EOI && $b
+    ln -s a b 2>>/~%EOE% != 0
+    %ln: unable to create symlink to '.+/a': no such file or directory%
+    EOE
+    EOI
+
+    : link-dir
+    :
+    $c <<EOI && $b
+    touch a;
+    ln -s a b/c 2>>/~%EOE% != 0
+    %(
+    %ln: unable to create .+link '.+/b/c' to '.+/a': .+%|
+    %ln: unable to copy file '.+/a' to '.+/b/c': .+%
+    %)
+    EOE
+    EOI
+  }
+}
+
+: dir
+:
+: Test creating a directory symlink.
+:
+{
+  : non-existing-link-path
+  :
+  $c <<EOI && $b
+  mkdir a;
+  touch a/b;
+  ln -s a c && test -f c/b
+  EOI
+
+  : existing-link
+  :
+  {
+    : dir
+    :
+    $c <<EOI && $b
+    mkdir a b;
+    ln -s a b 2>>/~%EOE% != 0
+    %(
+    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
+    %ln: unable to copy directory '.+/a' to '.+/b': .+%
+    %)
+    EOE
+    EOI
+
+    : file
+    :
+    $c <<EOI && $b
+    mkdir a;
+    touch b;
+    ln -s a b 2>>/~%EOE% != 0
+    %(
+    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
+    %ln: unable to copy directory '.+/a' to '.+/b': .+%
+    %)
+    EOE
+    EOI
+  }
+
+  : non-existing
+  {
+    : link-dir
+    :
+    $c <<EOI && $b
+    mkdir a;
+    ln -s a b/c 2>>/~%EOE% != 0
+    %(
+    %ln: unable to create .+link '.+/b/c' to '.+/a': .+%|
+    %ln: unable to copy directory '.+/a' to '.+/b/c': .+%
+    %)
+    EOE
+    EOI
+  }
+}
+
+: multiple-targets
+:
+: Test creating links for multiple targets in the specified directory.
+:
+{
+  $c <<EOI && $b
+  touch a;
+  mkdir b c;
+  ln -s a b c/ && test -f c/a && test -d c/b
+  EOI
+}

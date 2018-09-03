@@ -15,9 +15,9 @@ namespace build2
     testscript_target_extension (const target_key& tk)
     {
       // If the name is special 'testscript', then there is no extension,
-      // otherwise it is .test.
+      // otherwise it is .testscript.
       //
-      return *tk.name == "testscript" ? "" : "test";
+      return *tk.name == "testscript" ? "" : "testscript";
     }
 
     static bool
@@ -39,7 +39,7 @@ namespace build2
 
         if (!e && v != "testscript")
         {
-          e = "test";
+          e = "testscript";
           return true;
         }
       }
@@ -49,7 +49,7 @@ namespace build2
 
     const target_type testscript::static_type
     {
-      "test",
+      "testscript",
       &file::static_type,
       &target_factory<testscript>,
       &testscript_target_extension,

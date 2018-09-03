@@ -1,4 +1,4 @@
-# file      : tests/test/config-build/testscript
+# file      : tests/test/config-test/testscript
 # copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
@@ -44,9 +44,9 @@ EOI
 #
 +mkdir proj/tests/script
 +cat <<EOI >=proj/tests/script/buildfile
-./: test{basics.test}
+./: testscript{basics.testscript}
 EOI
-+cat <<EOI >=proj/tests/script/basics.test
++cat <<EOI >=proj/tests/script/basics.testscript
 echo 'tests/script/basics/foo' >| : foo
 echo 'tests/script/basics/bar' >| : bar
 

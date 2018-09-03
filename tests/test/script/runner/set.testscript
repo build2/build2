@@ -1,0 +1,278 @@
+# file      : tests/test/script/runner/set.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: special
+:
+{
+  : pipelining
+  :
+  $c <'set foo | cat >bar' && $b 2>>EOE != 0
+  testscript:1:1: error: set builtin must be the last pipe command
+  EOE
+
+  : redirecting
+  :
+  {
+    : stdout
+    :
+    $c <'set foo >bar' && $b 2>>EOE != 0
+    testscript:1:1: error: set builtin stdout cannot be redirected
+    EOE
+
+    : stderr
+    :
+    $c <'set foo 2>bar' && $b 2>>EOE != 0
+    testscript:1:1: error: set builtin stderr cannot be redirected
+    EOE
+  }
+
+  : status
+  :
+  $c <'set foo == 1' && $b 2>>EOE != 0
+  testscript:1:1: error: set builtin exit code cannot be non-zero
+  EOE
+}
+
+: arguments
+:
+{
+  : none
+  :
+  $c <'set -e' && $b 2>>EOE != 0
+  testscript:1:1: error: missing variable name
+  EOE
+
+  : unexpected
+  :
+  $c <'set foo bar baz' && $b 2>>EOE != 0
+  testscript:1:1: error: unexpected argument
+  EOE
+
+  : empty-attrs
+  :
+  $c <"set '' baz" && $b 2>>EOE != 0
+  testscript:1:1: error: empty variable attributes
+  EOE
+
+  : empty-var
+  :
+  $c <"set ''" && $b 2>>EOE != 0
+  testscript:1:1: error: empty variable name
+  EOE
+}
+
+: whitespace-separated-list
+:
+{
+  : non-exact
+  :
+  $c <<EOI && $b
+  set -w baz <' foo   bar ';
+  echo $baz >'foo bar'
+  EOI
+
+  : exact
+  :
+  {
+    : trailing-ws
+    :
+    $c <<EOI && $b
+    set -e -w baz <' foo   bar ';
+    echo $baz >'foo bar '
+    EOI
+
+    : no-trailing-ws
+    :
+    : Note that we need to strip the default trailing newline as well with the
+    : ':' modifier.
+    :
+    $c <<EOI && $b
+    set -e -w baz <:' foo bar';
+    echo $baz >'foo bar'
+    EOI
+  }
+}
+
+: newline-separated-list
+:
+{
+  : non-exact
+  :
+  $c <<EOI && $b
+  set -n baz <<EOF;
+
+  foo
+
+  bar
+
+  EOF
+  echo $baz >' foo  bar '
+  EOI
+
+  : exact
+  :
+  {
+    : trailing-newline
+    :
+    $c <<EOI && $b
+    set -e -n baz <<EOF;
+
+    foo
+
+    bar
+
+    EOF
+    echo $baz >' foo  bar  '
+    EOI
+
+    : no-trailing-newline
+    :
+    $c <<EOI && $b
+    set -e -n baz <<:EOF;
+
+    foo
+
+    bar
+    EOF
+    echo $baz >' foo  bar'
+    EOI
+  }
+}
+
+: string
+:
+{
+  : non-exact
+  :
+  $c <<EOI && $b
+  set baz <<EOF;
+
+  foo
+
+  bar
+
+  EOF
+  echo $baz >>EOO
+
+  foo
+
+  bar
+
+  EOO
+  EOI
+
+  : roundtrip
+  :
+  echo 'foo' | set bar;
+  echo "$bar" >'foo'
+
+  : exact
+  :
+  : Note that echo adds the trailing newline, so EOF and EOO here-documents
+  : differ by this newline.
+  :
+  {
+    : trailing-newline
+    :
+    $c <<EOI && $b
+    set -e baz <<EOF;
+
+    foo
+
+    bar
+    EOF
+    echo "$baz" >>EOO
+
+    foo
+
+    bar
+
+    EOO
+    EOI
+
+    : no-trailing-newline
+    :
+    $c <<EOI && $b
+    set -e baz <<:EOF;
+
+    foo
+
+    bar
+    EOF
+    echo "$baz" >>EOO
+
+    foo
+
+    bar
+    EOO
+    EOI
+  }
+}
+
+: attributes
+:
+{
+  : dir_path
+  :
+  $c <<EOI && $b
+  set [dir_path] bar <'foo';
+  echo $bar >/'foo/'
+  EOI
+
+  : null
+  :
+  $c <<EOI && $b
+  set [null] foo <-;
+  echo $foo >''
+  EOI
+
+  : none
+  :
+  $c <<EOI && $b 2>>EOE != 0
+  set -w baz <'foo bar';
+  echo "$baz"
+  EOI
+  testscript:2:8: error: concatenating variable expansion contains multiple values
+  EOE
+
+  # @@ Move the following tests to build2 parser unit tests when created.
+  #
+  : empty-brackets
+  :
+  $c <<EOI && $b 2>>EOE != 0
+  set -w '[]' baz <'foo bar';
+  echo "$baz"
+  EOI
+  testscript:2:8: error: concatenating variable expansion contains multiple values
+  EOE
+
+  : no-left-bracket
+  :
+  $c <<EOI && $b 2>>EOE != 0
+  set -w x baz
+  EOI
+  <attributes>:1:1: error: expected '[' instead of 'x'
+    testscript:1:1: info: while parsing attributes 'x'
+  EOE
+
+  : unknown
+  :
+  $c <<EOI && $b 2>>EOE != 0
+  set -w [x] baz
+  EOI
+  <attributes>:1:1: error: unknown value attribute x
+    testscript:1:1: info: while parsing attributes '[x]'
+  EOE
+
+  : junk
+  :
+  $c <<EOI && $b 2>>EOE != 0
+  set -w '[string] x' baz
+  EOI
+  <attributes>:1:10: error: trailing junk after ']'
+    testscript:1:1: info: while parsing attributes '[string] x'
+  EOE
+}

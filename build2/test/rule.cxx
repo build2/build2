@@ -113,8 +113,8 @@ namespace build2
         // it may not be a testable target at all). So as the first step
         // determine which case this is.
         //
-        // If we have any prerequisites of the test{} type, then this is the
-        // testscript case.
+        // If we have any prerequisites of the testscript{} type, then this is
+        // the testscript case.
         //
         // If we can, go inside see-through groups. Normally groups won't be
         // resolvable for this action but then normally they won't contain any

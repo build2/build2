@@ -1,0 +1,73 @@
+# file      : tests/value/concat.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: dir_path
+:
+{
+  : name
+  :
+  $* <<EOI >>/EOO
+  d = [dir_path] foo
+  f = bar
+  print $d/$f
+  EOI
+  foo/bar
+  EOO
+
+  : string
+  :
+  $* <<EOI >>/EOO
+  d = [dir_path] foo
+  f = [string] bar
+  print $d/$f
+  EOI
+  foo/bar
+  EOO
+
+  : leading-separator
+  :
+  $* <<EOI >>/EOO
+  d = [dir_path] foo
+  f = /bar
+  print $d/$f
+  EOI
+  foo/bar
+  EOO
+
+  : not-separated
+  :
+  $* <<EOI >>/EOO
+  d = [dir_path] foo
+  f = bar
+  print $d$f
+  EOI
+  foo/bar
+  EOO
+}
+
+: path
+:
+{
+  : separated
+  :
+  $* <<EOI >>/EOO
+  d = [path] foo
+  f = bar
+  print $d/$f
+  EOI
+  foo/bar
+  EOO
+
+  : not-separated
+  :
+  $* <<EOI >>/EOO
+  d = [path] foo
+  f = bar
+  print $d$f
+  EOI
+  foobar
+  EOO
+}

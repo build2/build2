@@ -3,4 +3,4 @@
 # license   : MIT; see accompanying LICENSE file
 
 include ../../build2/
-exe{driver}: {hxx cxx}{*} ../../build2/libu{b} test{*}
+exe{driver}: {hxx cxx}{*} ../../build2/libu{b} testscript{*}

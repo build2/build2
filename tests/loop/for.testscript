@@ -1,0 +1,112 @@
+# file      : tests/loop/for.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test for-loop.
+
+.include ../common.testscript
+
+: line
+:
+$* <<EOI >>EOO
+for i: 1 2 3
+  print $i
+EOI
+1
+2
+3
+EOO
+
+: block
+:
+$* <<EOI >>EOO
+for i: 1 2 3
+{
+  # This is a block if you haven't noticed.
+  j = $i
+  print $j
+}
+EOI
+1
+2
+3
+EOO
+
+: empty
+:
+$* <<EOI
+i = x
+nums =
+for i: $nums
+  print $i
+assert ($i == x)
+EOI
+
+: nested
+:
+$* <<EOI >>EOO
+for i: 1 2 3
+{
+  for j: + -
+  {
+    print $j$i
+  }
+}
+EOI
++1
+-1
++2
+-2
++3
+-3
+EOO
+
+: diag-line
+:
+$* <<EOI 2>>EOE != 0
+for i: true false
+{
+  assert $i
+}
+EOI
+<stdin>:3:3: error: assertion failed
+EOE
+
+: var-attribute
+:
+$* <<EOI >>EOO
+for [uint64] i: 0 1 2
+{
+  i += 1
+  print $i
+}
+EOI
+1
+2
+3
+EOO
+
+: val-attribute
+:
+$* <<EOI >>EOO
+for i: [uint64s] 0 1 2
+{
+  i += 1
+  print $i
+}
+EOI
+1
+2
+3
+EOO
+
+: pairs
+:
+$* <<EOI >>EOO
+for i: a@1 b@2 c@3
+  print $i
+EOI
+a@1
+b@2
+c@3
+EOO

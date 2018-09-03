@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-.include ../../common.test
+.include ../../common.testscript
 
 # There is currently no support for expanding prerequisite-specific variables
 # (since there is no way to id a prerequisite) so we use dump.

@@ -1,0 +1,86 @@
+# file      : tests/name/extension.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
++cat <<EOI >=build/root.build
+define txt: file
+txt{*}: extension = txt
+EOI
+
+: name
+:
+{
+  test.arguments = --match-only update
+
+  : unspecified
+  :
+  touch foo.txt;
+  $* <'./: txt{foo}'
+
+  : specified
+  :
+  touch foo.text;
+  $* <'./: txt{foo.text}'
+
+  : specified-none
+  :
+  touch foo;
+  $* <'./: txt{foo.}'
+
+  : specified-default
+  :
+  touch foo.testscript.txt;
+  $* <'./: txt{foo.testscript...}'
+
+  # Trailing dots are not allowed on Windows.
+  #
+
+  : specified-escape-one
+  :
+  if ($cxx.target.class != 'windows')
+  {
+    touch foo.;
+    $* <'./: txt{foo..}'
+  }
+
+  : specified-escape-two
+  :
+  if ($cxx.target.class != 'windows')
+  {
+    touch foo..;
+    $* <'./: txt{foo....}'
+  }
+
+  : specified-invalid
+  :
+  $* <'./: txt{foo.....}' 2>>EOE != 0
+  <stdin>:1:5: error: invalid trailing dot sequence in target name 'foo.....'
+  EOE
+}
+
+: pattern
+:
+{
+  : specified-none
+  :
+  touch foo;
+  $* <'print txt{fo?.}' >'txt{foo.}'
+
+  : specified-default
+  :
+  touch foo.testscript.txt;
+  $* <'print txt{fo?.testscript...}' >'txt{foo.testscript...}'
+
+  # Trailing dots are not allowed on Windows.
+  #
+
+  : specified-escape
+  :
+  if ($cxx.target.class != 'windows')
+  {
+    touch foo.;
+    $* <'print txt{fo?..}' >'txt{foo..}'
+  }
+}

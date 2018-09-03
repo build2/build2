@@ -2,9 +2,9 @@
 # copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-./: test{*} exe{driver} $b
+./: testscript{*} exe{driver} $b
 
-test{*}: target = exe{driver}
+testscript{*}: target = exe{driver}
 
 import libs = libbutl%lib{butl}
 exe{driver}: {hxx cxx}{*} $libs

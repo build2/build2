@@ -4,7 +4,7 @@
 
 test.arguments = test clean
 
-.include ../../common.test
+.include ../../common.testscript
 
 # @@ in module
 #

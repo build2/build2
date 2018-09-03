@@ -2,4 +2,4 @@
 # copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-./: test{*} file{cp-dir/cp-file} $b
+./: testscript{*} file{cp-dir/cp-file} $b

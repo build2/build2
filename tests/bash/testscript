@@ -11,7 +11,7 @@ if ($test.target == $build.host && $build.host.class != 'windows')
   buildfile = true
   test.arguments =
 
-  .include ../common.test
+  .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
     using test

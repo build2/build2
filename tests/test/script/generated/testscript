@@ -4,9 +4,9 @@
 
 test.arguments = test clean
 
-# Note: using common.test from test/, not script/.
+# Note: using common.testscript from test/, not script/.
 #
-.include ../../common.test
+.include ../../common.testscript
 
 # @@ in module
 #

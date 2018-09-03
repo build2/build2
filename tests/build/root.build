@@ -13,7 +13,7 @@ cxx{*}: extension = cxx
 # as our $build.path).
 #
 import b = build2%exe{b}
-test{*}: test = $b
+testscript{*}: test = $b
 
 # Specify the test target for cross-testing.
 #

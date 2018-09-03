@@ -1,0 +1,252 @@
+# file      : tests/test/script/builtin/mv.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: args
+:
+{
+  : none
+  :
+  $c <'mv 2>"mv: missing arguments" == 1' && $b
+
+  : no-source
+  :
+  $c <'mv a 2>"mv: missing source path" == 1' && $b
+
+  : no-trailing-sep
+  :
+  $c <<EOI && $b
+  mv a b c 2>"mv: multiple source paths without trailing separator for destination directory" == 1
+  EOI
+
+  : empty
+  :
+  {
+    : dest
+    :
+    $c <<EOI && $b
+    mv '' 2>"mv: invalid path ''" == 1
+    EOI
+
+    : src1
+    :
+    $c <<EOI && $b
+    mv '' a 2>"mv: invalid path ''" == 1
+    EOI
+
+    : src2
+    :
+    $c <<EOI && $b
+    mv '' a b/ 2>"mv: invalid path ''" == 1
+    EOI
+  }
+}
+
+: synopsis-1
+:
+: Move an entity to the specified path.
+:
+{
+  : file
+  :
+  {
+    : existing
+    :
+    {
+      : to-non-existing
+      :
+      $c <<EOI && $b
+      touch a;
+      mv a b && test -f b && test -f a == 1
+      EOI
+
+      : to-existing
+      :
+      $c <<EOI && $b
+      touch a b;
+      mv a b && test -f b && test -f a == 1
+      EOI
+
+      : to-self
+      :
+      $c <<EOI && $b
+      touch a;
+      mv a a 2>>/~%EOE% != 0
+      %mv: unable to move entity '.+/a' to itself%
+      EOE
+      EOI
+
+      : to-dir
+      :
+      $c <<EOI && $b
+      touch a;
+      mkdir b;
+      mv a b 2>>/~%EOE% != 0
+      %mv: unable to move entity '.+/a' to '.+/b': .+%
+      EOE
+      EOI
+    }
+
+    : outside-scope
+    :
+    : Need to use a path that unlikely exists (not to remove something useful).
+    :
+    {
+      : fail
+      :
+      : Moving path outside the testscript working directory fails.
+      :
+      $c <<EOI && $b
+      mv ../../a/b/c ./c 2>>/~%EOE% == 1
+      %mv: '.+/fail/a/b/c' is out of working directory '.+/fail/test'%
+      EOE
+      EOI
+
+      : force
+      :
+      : Moving path outside the testscript working directory is allowed with -f
+      : option. We fail after this check succeeds as the source path does not
+      : exist.
+      :
+      $c <<EOI && $b
+      mv -f ../../a/b/c ./c 2>>/~%EOE% == 1
+      %mv: unable to move entity '.+/force/a/b/c' to '.+/c': .+%
+      EOE
+      EOI
+    }
+
+    : cleanup
+    :
+    {
+      : existing
+      :
+      : Test that moving over an existing file does not move the cleanup. If
+      : it does, then the file would be removed while leaving the embedded
+      : scope, and so the cleanup registered by the outer touch would fail. We
+      : also test that the source path cleanup is removed, otherwise it would
+      : fail.
+      :
+      $c <<EOI && $b
+      +touch b
+      {
+        touch a;
+        mv a ../b
+      }
+      EOI
+    }
+  }
+
+  : dir
+  :
+  {
+    : existing
+    :
+    {
+      : to-non-existing
+      :
+      : Note the here we also test that b path is cleaned up as a directory.
+      :
+      $c <<EOI && $b
+      mkdir a;
+      mv a b && test -d b && test -d a == 1
+      EOI
+
+      : to-non-empty
+      :
+      $c <<EOI && $b
+      mkdir a b;
+      touch b/c;
+      mv a b 2>>/~%EOE% != 0
+      %mv: unable to move entity '.+/a' to '.+/b': .+%
+      EOE
+      EOI
+
+      : to-non-dir
+      :
+      $c <<EOI && $b
+      mkdir a;
+      touch b;
+      mv a b 2>>/~%EOE% != 0
+      %mv: unable to move entity '.+/a' to '.+/b': .+%
+      EOE
+      EOI
+    }
+
+    : working-dir
+    :
+    {
+      : src
+      :
+      {
+        $c <<EOI && $b
+        mv $~ b 2>"mv: '([string] $~)' contains test working directory '$~'" != 0
+        EOI
+      }
+
+      : dst
+      :
+      {
+        $c <<EOI && $b
+        mkdir a;
+        mv a "$~" 2>"mv: '$~' contains test working directory '$~'" != 0
+        EOI
+      }
+    }
+
+    : overlap
+    :
+    $c <<EOI && $b
+    mkdir a;
+    mv a a/b 2>>/~%EOE% != 0
+    %mv: unable to move entity '.+/a' to '.+/a/b': .+%
+    EOE
+    EOI
+
+    : cleanup
+    :
+    {
+      : sub-entry
+      :
+      {
+	mkdir a;
+	touch a/b;
+	mv a c
+      }
+
+      : reorder
+      :
+      : Test that a/, that is created before b/ and so should be removed after
+      : it, get removed before b/ after being renamed to b/c.
+      :
+      $c <<EOI && $b
+      mkdir a b;
+      mv a b/c
+      EOI
+    }
+  }
+
+  : non-existing
+  :
+  {
+    $c <<EOI && $b
+    mv a b 2>>/~%EOE% != 0
+    %mv: unable to move entity '.+/a' to '.+/b': .+%
+    EOE
+    EOI
+  }
+}
+
+: synopsis-2
+:
+: Move entities into the specified directory.
+:
+{
+  $c <<EOI && $b
+  mkdir a c;
+  touch a/b b;
+  mv a b c/;
+  test -d c/a && test -f c/a/b && test -f c/b
+  EOI
+}

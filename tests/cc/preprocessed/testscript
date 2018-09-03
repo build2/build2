@@ -5,7 +5,7 @@
 crosstest = false
 test.arguments = config.cxx="$recall($cxx.path)" update
 
-.include ../../common.test
+.include ../../common.testscript
 
 # Trace filter.
 #

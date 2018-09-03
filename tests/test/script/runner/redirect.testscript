@@ -1,0 +1,515 @@
+# file      : tests/test/script/runner/redirect.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+b += --no-column
+
+ps  = ($cxx.target.class != 'windows' ? '/' : '\')  # Path separator.
+psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
+
+: pass
+:
+{
+  cat <'$* -i 1 -e bar <| >| 2>|' >=testscript;
+  cat <<EOI >=buildfile;
+  testscript{testscript}: $target
+  EOI
+  $0 --serial-stop --quiet test <foo >foo 2>bar
+}
+
+: null
+:
+{
+  $c <'$* -o foo >-' && $b  : out
+  $c <'$* -e foo 2>-' && $b : err
+}
+
+: trace
+:
+{
+  : default
+  :
+  $c <'$* -o foo -e bar >! 2>!' && $b
+
+  : verbose
+  :
+  {
+    b += -v
+
+    : out
+    :
+    $c <'$* -o foo >!' && $b >foo 2>>/~%EOE%
+    %test .+%
+    mkdir test/
+    cd test/
+    mkdir test/1/
+    cd test/1/
+    %.*/driver(.exe)? -o foo%
+    rmdir test/1/
+    cd test/
+    rmdir test/
+    cd ./
+    EOE
+
+    : err
+    :
+    $c <'$* -e foo 2>!' && $b 2>>/~%EOE%
+    %test .+%
+    mkdir test/
+    cd test/
+    mkdir test/1/
+    cd test/1/
+    %.*/driver(.exe)? -e foo%
+    foo
+    rmdir test/1/
+    cd test/
+    rmdir test/
+    cd ./
+    EOE
+  }
+}
+
+: str
+:
+{
+  : literal
+  :
+  {
+    $c <'$* -i 0 <foo' && $b      : in
+    $c <'$* -o foo >foo' && $b    : out
+    $c <'$* -e foo 2>foo' && $b   : err
+    $c <'$* -i 1 <foo >foo' && $b : inout
+
+    : inout-fail
+    :
+    $c <'$* -i 1 <foo >bar' && $b 2>>/~%EOE%d != 0
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match expected%
+      info: stdout: test/1/stdout
+      info: expected stdout: test/1/stdout.orig
+      info: stdout diff: test/1/stdout.diff
+      info: stdin: test/1/stdin
+    %--- \.*%
+    %\+\+\+ \.*%
+    %@@ \.*%
+    -bar
+    +foo
+    EOE
+
+    $c <'$* -i 2 <foo 2>foo' && $b              : inerr
+    $c <'$* -i 1 -e bar <foo 1>foo 2>bar' && $b : inout-err
+    $c <'$* -o "" >""' && $b                    : empty
+    $c <'$* -i 1 <:"foo" >:"foo"' && $b         : no-newline
+    $c <'$* -i 1 <:"" >:""' && $b               : no-newline-empty
+
+    : no-newline-fail1
+    :
+    $c <'$* -i 1 <:"foo" >"foo"' && $b 2>>~/EOE/ != 0
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    /.{7}
+    -foo
+    +foo
+    \ No newline at end of file
+    EOE
+
+    : no-newline-fail2
+    :
+    $c <'$* -i 1 <"foo" >:"foo"' && $b 2>>~/EOE/ != 0
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    /.{7}
+    -foo
+    \ No newline at end of file
+    +foo
+    EOE
+
+    : merge
+    :
+    $c <<EOI && $b
+    $* -o foo -e bar 2>>EOE 1>&2
+    foo
+    bar
+    EOE
+    EOI
+
+    : portable-path
+    :
+    {
+      $c <"\$* -i 1 </'foo/' >'foo$ps'" && $b  : in
+      $c <"\$* -i 1 <'foo$ps' >/'foo/'" && $b  : out
+      $c <"\$* -i 2 <'foo$ps' 2>/'foo/'" && $b : err
+    }
+  }
+
+  : regex
+  :
+  : Test regex matching. Note that tests that check regex parsing are located
+  : in regex.testscript.
+  :
+  {
+    : match
+    :
+    $c <'$* -o foo >~/Foo?/i' && $b
+
+    : mismatch
+    :
+    $c <'$* -o fooo >~/Foo?/i' && $b 2>>/~%EOE%d != 0
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
+      info: stdout: test/1/stdout
+      info: stdout regex: test/1/stdout.regex
+    fooo
+    EOE
+
+    : portable-path-failure
+    :
+    : Note that we check not only build2 diagnostics being produced, but also
+    : the correctness of regex being saved to file (for troubleshooting).
+    :
+    {
+      : newline
+      :
+      $c <"\$* -i 1 <'foo' >/~%bar/%" && $b 2>>/~%EOE%d != 0;
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex
+        info: stdin: test/1/stdin
+      foo
+      EOE
+      cat test/1/stdout.regex >"%bar$psr%"
+
+      : no-newline
+      :
+      $c <"\$* -i 1 <'foo' >:/~%bar/%" && $b 2>>/~%EOE%d != 0;
+      %testscript:1: error: ../../../../../../driver(.exe)? stdout doesn't match regex%
+        info: stdout: test/1/stdout
+        info: stdout regex: test/1/stdout.regex
+        info: stdin: test/1/stdin
+      foo
+      EOE
+      cat test/1/stdout.regex >:"%bar$psr%"
+    }
+  }
+}
+
+: doc
+:
+{
+  : literal
+  :
+  {
+    : in
+    :
+    $c <<EOI && $b
+    $* -i 0 <<EOO
+    foo
+    bar
+    EOO
+    EOI
+
+    : out
+    :
+    $c <<EOI && $b
+    $* -o foo -o bar >>EOO
+    foo
+    bar
+    EOO
+    EOI
+
+    : err
+    :
+    $c <<EOI && $b
+    $* -e foo -e bar 2>>EOO
+    foo
+    bar
+    EOO
+    EOI
+
+    : inout
+    :
+    $c <<EOI && $b
+    $* -i 1 <<EOF >>EOO
+    foo
+    bar
+    EOF
+    foo
+    bar
+    EOO
+    EOI
+
+    : inerr
+    :
+    $c <<EOI && $b
+    $* -i 2 <<EOF 2>>EOE
+    foo
+    bar
+    EOF
+    foo
+    bar
+    EOE
+    EOI
+
+    : empty
+    :
+    $c <<EOI && $b
+    $* -i 1 <<EOF >>EOO
+    EOF
+    EOO
+    EOI
+
+    : shared
+    :
+    $c <<EOI && $b
+    $* -i 1 <<EOF >>EOF
+    foo
+    bar
+    EOF
+    EOI
+
+    : extra-newline
+    :
+    $c <<EOI && $b
+    $* -i 1 <<EOF >>EOO
+
+    EOF
+
+    EOO
+    EOI
+
+    : no-newline
+    :
+    $c <<EOI && $b
+    $* -i 1 <<:EOF >>:EOO
+    foo
+    EOF
+    foo
+    EOO
+    EOI
+
+    : no-newline-fail1
+    :
+    $c <<EOI && $b 2>>~/EOE/ != 0
+    $* -i 1 <<:EOF >>EOO
+    foo
+    EOF
+    foo
+    EOO
+    EOI
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    /.{7}
+    -foo
+    +foo
+    \ No newline at end of file
+    EOE
+
+    : no-newline-fail2
+    :
+    $c <<EOI && $b 2>>~/EOE/ != 0
+    $* -i 1 <<EOF >>:EOO
+    foo
+    EOF
+    foo
+    EOO
+    EOI
+    /testscript:1: error: .+driver(\.exe)? stdout doesn't match expected/
+    /.{7}
+    -foo
+    \ No newline at end of file
+    +foo
+    EOE
+
+    : no-newline-empty
+    :
+    $c <<EOI && $b
+    $* -i 1 <<:EOF >>:EOO
+    EOF
+    EOO
+    EOI
+
+    : no-newline-extra-newline
+    :
+    $c <<EOI && $b
+    $* -i 1 <<:EOF >>:EOO
+
+    EOF
+
+    EOO
+    EOI
+
+    : merge
+    :
+    $c <<EOI && $b
+    $* -i 1 <<EOF -e baz >>EOO 2>&1
+    foo
+    bar
+    EOF
+    foo
+    bar
+    baz
+    EOO
+    EOI
+
+    : large-diff
+    :
+    : Make sure that the large (>4KB) expected/real output difference is not
+    : printed as a part of the diagnostics.
+    :
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    s="----------------------------------------------------------------------";
+    s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s";
+    $* -i 1 <<"EOF" >>"EOO"
+    $s
+    EOF
+    x$s
+    EOO
+    EOI
+    %testscript:3: error: ../../../../../driver(.exe)? stdout doesn't match expected%
+      info: stdout: test/1/stdout
+      info: expected stdout: test/1/stdout.orig
+      info: stdout diff: test/1/stdout.diff
+      info: stdin: test/1/stdin
+    EOE
+
+    : portable-path
+    :
+    {
+      : in
+      :
+      $c <<"EOI" && $b
+      \$* -i 1 <</EOF >'foo$ps'
+      foo/
+      EOF
+      EOI
+
+      : out
+      :
+      $c <<"EOI" && $b
+      \$* -i 1 <'foo$ps' >>/EOO
+      foo/
+      EOO
+      EOI
+
+      : err
+      :
+      $c <<"EOI" && $b
+      \$* -i 2 <'foo$ps' 2>>/EOE
+      foo/
+      EOE
+      EOI
+    }
+  }
+
+  : regex
+  :
+  : Test regex matching. Note that tests that check regex parsing are located
+  : in regex.testscript.
+  :
+  {
+    : match
+    :
+    $c <<EOI && $b
+    $* -o foo -o foo -o bar >>~/EOO/i
+    /FO*/*
+    bar
+    /*
+    EOO
+    EOI
+
+    : match-empty
+    :
+    $c <<EOI && $b
+    $* >>:~/EOO/
+    /.{0}
+    EOO
+    EOI
+
+    : shared
+    :
+    $c <<EOI && $b
+    $* -o foo -e foo >>~/EOF/ 2>>~/EOF/
+    foo
+    EOF
+    EOI
+
+    : mismatch
+    :
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    $* -o foo >>~/EOO/
+    bar
+    EOO
+    EOI
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
+      info: stdout: test/1/stdout
+      info: stdout regex: test/1/stdout.regex
+    foo
+    EOE
+
+    : mismatch-icase
+    :
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    $* -o foo >>~/EOO/i
+    bar
+    EOO
+    EOI
+    %testscript:1: error: ../../../../../driver(.exe)? stdout doesn't match regex%
+      info: stdout: test/1/stdout
+      info: stdout regex: test/1/stdout.regex-i
+    foo
+    EOE
+  }
+}
+
+: file
+:
+{
+  : in
+  :
+  $c <<EOI && $b
+  $* -o foo >=out;
+  $* -i 1 <<<out >foo
+  EOI
+
+  : out
+  :
+  {
+    : match
+    :
+    $c <<EOI && $b
+    $* -o foo >=out;
+    $* -e bar 2>+out;
+    $* -i 1 <<EOF >>>out
+    foo
+    bar
+    EOF
+    EOI
+
+    : mismatch
+    :
+    $c <<EOI && $b 2>>/~%EOE%d != 0
+    $* -o foo >=out;
+    $* -o bar >>>out
+    EOI
+    %testscript:2: error: ../../../../../driver(.exe)? stdout doesn't match expected%
+      info: stdout: test/1/stdout-2
+      info: expected stdout: test/1/out
+      info: stdout diff: test/1/stdout-2.diff
+    %--- \.*%
+    %\+\+\+ \.*%
+    %@@ \.*%
+    -foo
+    +bar
+    EOE
+  }
+
+  : merge
+  :
+  $c <<EOI && $b
+  $* -o foo -e bar 2>&1 >=out;
+  $* -e baz -o biz 1>&2 2>+out;
+  $* -i 1 <<<out >>EOO
+  foo
+  bar
+  baz
+  biz
+  EOO
+  EOI
+}

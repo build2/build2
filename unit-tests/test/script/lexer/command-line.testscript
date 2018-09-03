@@ -1,0 +1,208 @@
+# file      : unit-tests/test/script/lexer/command-line.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = command-line
+
+: semi
+{
+  : immediate
+  :
+  $* <"cmd;" >>EOO
+  'cmd'
+  ;
+  <newline>
+  EOO
+
+  : separated
+  :
+  $* <"cmd ;" >>EOO
+  'cmd'
+  ;
+  <newline>
+  EOO
+
+  : only
+  :
+  $* <";" >>EOO
+  ;
+  <newline>
+  EOO
+}
+
+: colon
+:
+{
+  : immediate
+  :
+  $* <"cmd: dsc" >>EOO
+  'cmd'
+  :
+  'dsc'
+  <newline>
+  EOO
+
+  : separated
+  :
+  $* <"cmd :dsc" >>EOO
+  'cmd'
+  :
+  'dsc'
+  <newline>
+  EOO
+
+  : only
+  :
+  $* <":" >>EOO
+  :
+  <newline>
+  EOO
+}
+
+: redirect
+:
+{
+  : pass
+  :
+  $* <"cmd <| 1>|" >>EOO
+  'cmd'
+  <|
+  '1'
+  >|
+  <newline>
+  EOO
+
+  : null
+  :
+  $* <"cmd <- 1>-" >>EOO
+  'cmd'
+  <-
+  '1'
+  >-
+  <newline>
+  EOO
+
+  : trace
+  :
+  $* <"cmd 1>!" >>EOO
+  'cmd'
+  '1'
+  >!
+  <newline>
+  EOO
+
+  : merge
+  :
+  $* <"cmd 1>&2" >>EOO
+  'cmd'
+  '1'
+  >&
+  '2'
+  <newline>
+  EOO
+
+  : str
+  :
+  $* <"cmd <a 1>b" >>EOO
+  'cmd'
+  <
+  'a'
+  '1'
+  >
+  'b'
+  <newline>
+  EOO
+
+  : str-nn
+  :
+  $* <"cmd <:a 1>:b" >>EOO
+  'cmd'
+  <:
+  'a'
+  '1'
+  >:
+  'b'
+  <newline>
+  EOO
+
+  : doc
+  :
+  $* <"cmd <<EOI 1>>EOO" >>EOO
+  'cmd'
+  <<
+  'EOI'
+  '1'
+  >>
+  'EOO'
+  <newline>
+  EOO
+
+  : doc-nn
+  :
+  $* <"cmd <<:EOI 1>>:EOO" >>EOO
+  'cmd'
+  <<:
+  'EOI'
+  '1'
+  >>:
+  'EOO'
+  <newline>
+  EOO
+
+  : file-cmp
+  :
+  $* <"cmd <<<in >>>out 2>>>err" >>EOO
+  'cmd'
+  <<<
+  'in'
+  >>>
+  'out'
+  '2'
+  >>>
+  'err'
+  <newline>
+  EOO
+
+  : file-write
+  :
+  $* <"cmd >=out 2>+err" >>EOO
+  'cmd'
+  >=
+  'out'
+  '2'
+  >+
+  'err'
+  <newline>
+  EOO
+}
+
+: cleanup
+:
+{
+  : always
+  :
+  $* <"cmd &file" >>EOO
+  'cmd'
+  &
+  'file'
+  <newline>
+  EOO
+
+  : maybe
+  :
+  $* <"cmd &?file" >>EOO
+  'cmd'
+  &?
+  'file'
+  <newline>
+  EOO
+
+  : never
+  :
+  $* <"cmd &!file" >>EOO
+  'cmd'
+  &!
+  'file'
+  <newline>
+  EOO
+}

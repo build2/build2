@@ -1,0 +1,248 @@
+# file      : unit-tests/test/script/lexer/command-expansion.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = command-expansion
+
+: pass-redirect
+:
+{
+  : in
+  :
+  $* <:"0<|" >>EOO
+  '0'
+  <|
+  EOO
+
+  : arg-in
+  :
+  $* <:"0 <|" >>EOO
+  '0 '
+  <|
+  EOO
+
+  : out
+  :
+  $* <:"1>|" >>EOO
+  '1'
+  >|
+  EOO
+
+  : arg-out
+  :
+  $* <:"1 >|" >>EOO
+  '1 '
+  >|
+  EOO
+}
+
+: null-redirect
+:
+{
+  : in
+  :
+  $* <:"0<-" >>EOO
+  '0'
+  <-
+  EOO
+
+  : arg-in
+  :
+  $* <:"0 <-" >>EOO
+  '0 '
+  <-
+  EOO
+
+  : out
+  :
+  $* <:"1>-" >>EOO
+  '1'
+  >-
+  EOO
+
+  : arg-out
+  :
+  $* <:"1 >-" >>EOO
+  '1 '
+  >-
+  EOO
+}
+
+: trace-redirect
+:
+{
+  : out
+  :
+  $* <:"1>!" >>EOO
+  '1'
+  >!
+  EOO
+
+  : arg-out
+  :
+  $* <:"1 >!" >>EOO
+  '1 '
+  >!
+  EOO
+}
+
+: merge-redirect
+:
+{
+  : out
+  :
+  $* <:"1>&2" >>EOO
+  '1'
+  >&
+  '2'
+  EOO
+
+  : arg-out
+  :
+  $* <:"1 >&2" >>EOO
+  '1 '
+  >&
+  '2'
+  EOO
+}
+
+: str-redirect
+:
+{
+  : in
+  :
+  {
+    : newline
+    :
+    $* <:"0<a b" >>EOO
+    '0'
+    <
+    'a b'
+    EOO
+
+    : no-newline
+    :
+    $* <:"0<:a b" >>EOO
+    '0'
+    <:
+    'a b'
+    EOO
+  }
+
+  : out
+  :
+  {
+    : newline
+    :
+    $* <:"1>a b" >>EOO
+    '1'
+    >
+    'a b'
+    EOO
+
+    : no-newline
+    :
+    $* <:"1>:a b" >>EOO
+    '1'
+    >:
+    'a b'
+    EOO
+  }
+}
+
+: doc-redirect
+:
+{
+  : in
+  :
+  {
+    : newline
+    :
+    $* <:"0<<E O I" >>EOO
+    '0'
+    <<
+    'E O I'
+    EOO
+
+    : no-newline
+    :
+    $* <:"0<<:E O I" >>EOO
+    '0'
+    <<:
+    'E O I'
+    EOO
+  }
+
+  : out
+  :
+  {
+    : newline
+    :
+    $* <:"1>>E O O" >>EOO
+    '1'
+    >>
+    'E O O'
+    EOO
+
+    : no-newline
+    :
+    $* <:"1>>:E O O" >>EOO
+    '1'
+    >>:
+    'E O O'
+    EOO
+  }
+}
+
+: file-redirect
+:
+{
+  : in
+  :
+  $* <:"0<<<a b" >>EOO
+  '0'
+  <<<
+  'a b'
+  EOO
+
+  : out
+  :
+  $* <:"1>=a b" >>EOO
+  '1'
+  >=
+  'a b'
+  EOO
+
+  : out-app
+  :
+  $* <:"1>+a b" >>EOO
+  '1'
+  >+
+  'a b'
+  EOO
+}
+
+: cleanup
+:
+{
+  : always
+  :
+  $* <:"&file" >>EOO
+  &
+  'file'
+  EOO
+
+  : maybe
+  :
+  $* <:"&?file" >>EOO
+  &?
+  'file'
+  EOO
+
+  : never
+  :
+  $* <:"&!file" >>EOO
+  &!
+  'file'
+  EOO
+}

@@ -1,0 +1,548 @@
+# file      : unit-tests/test/script/parser/command-if.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: if
+:
+{
+  : true
+  :
+  $* <<EOI >>EOO
+  if true foo
+    cmd1
+    cmd2
+  end
+  EOI
+  ? true foo
+  cmd1
+  cmd2
+  EOO
+
+  : false
+  :
+  $* <<EOI >>EOO
+  if false foo
+    cmd1
+    cmd2
+  end
+  EOI
+  ? false foo
+  EOO
+
+  : not-true
+  :
+  $* <<EOI >>EOO
+  if! true foo
+    cmd1
+    cmd2
+  end
+  EOI
+  ? true foo
+  EOO
+
+  : not-false
+  :
+  $* <<EOI >>EOO
+  if! false foo
+    cmd1
+    cmd2
+  end
+  EOI
+  ? false foo
+  cmd1
+  cmd2
+  EOO
+
+  : without-command
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    cmd
+  end
+  EOI
+  testscript:1:3: error: missing program
+  EOE
+
+  : after-semi
+  :
+  $* -s <<EOI >>EOO
+  cmd1;
+  if true
+    cmd2
+  end
+  EOI
+  {
+    {
+      cmd1
+      ? true
+      cmd2
+    }
+  }
+  EOO
+
+  : setup
+  :
+  $* -s <<EOI >>EOO
+  +if true
+    cmd
+  end
+  EOI
+  {
+    ? true
+    +cmd
+  }
+  EOO
+
+  : tdown
+  :
+  $* -s <<EOI >>EOO
+  -if true
+    cmd
+  end
+  EOI
+  {
+    ? true
+    -cmd
+  }
+  EOO
+}
+
+: elif
+:
+{
+  : true
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd1
+    cmd2
+  elif true
+    cmd3
+    cmd4
+  end
+  EOI
+  ? false
+  ? true
+  cmd3
+  cmd4
+  EOO
+
+  : false
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd1
+    cmd2
+  elif false
+    cmd3
+    cmd4
+  end
+  EOI
+  ? false
+  ? false
+  EOO
+
+  : not-true
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd1
+    cmd2
+  elif! true
+    cmd3
+    cmd4
+  end
+  EOI
+  ? false
+  ? true
+  EOO
+
+  : not-false
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd1
+    cmd2
+  elif! false
+    cmd3
+    cmd4
+  end
+  EOI
+  ? false
+  ? false
+  cmd3
+  cmd4
+  EOO
+
+  : without-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  elif true
+    cmd
+  end
+  EOI
+  testscript:2:1: error: 'elif' without preceding 'if'
+  EOE
+
+  : not-without-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  elif! true
+    cmd
+  end
+  EOI
+  testscript:2:1: error: 'elif!' without preceding 'if'
+  EOE
+
+  : after-else
+  :
+  $* <<EOI 2>>EOE != 0
+  if false
+    cmd
+  else
+    cmd
+  elif true
+    cmd
+  end
+  EOI
+  testscript:5:1: error: 'elif' after 'else'
+  EOE
+}
+
+: else
+:
+{
+  : true
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd1
+    cmd2
+  else
+    cmd3
+    cmd4
+  end
+  EOI
+  ? false
+  cmd3
+  cmd4
+  EOO
+
+  : false
+  :
+  $* <<EOI >>EOO
+  if true
+    cmd1
+    cmd2
+  else
+    cmd3
+    cmd4
+  end
+  EOI
+  ? true
+  cmd1
+  cmd2
+  EOO
+
+  : chain
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd
+    cmd
+  elif false
+    cmd
+    cmd
+  elif false
+    cmd
+    cmd
+  elif true
+    cmd1
+    cmd2
+  elif false
+    cmd
+    cmd
+  else
+    cmd
+    cmd
+  end
+  EOI
+  ? false
+  ? false
+  ? false
+  ? true
+  cmd1
+  cmd2
+  EOO
+
+  : command-after
+  :
+  $* <<EOI 2>>EOE != 0
+  if true
+    cmd
+  else cmd
+    cmd
+  end
+  EOI
+  testscript:3:6: error: expected newline instead of 'cmd'
+  EOE
+
+  : without-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  else
+    cmd
+  end
+  EOI
+  testscript:2:1: error: 'else' without preceding 'if'
+  EOE
+
+  : after-else
+  :
+  $* <<EOI 2>>EOE != 0
+  if false
+    cmd
+  else
+    cmd
+  else
+    cmd
+  end
+  EOI
+  testscript:5:1: error: 'else' after 'else'
+  EOE
+}
+
+: end
+{
+  : without-if
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd
+  end
+  EOI
+  testscript:2:1: error: 'end' without preceding 'if'
+  EOE
+
+  : before
+  {
+    : semi
+    :
+    $* -s <<EOI >>EOO
+    if true
+      cmd1
+    end;
+    cmd2
+    EOI
+    {
+      {
+        ? true
+        cmd1
+        cmd2
+      }
+    }
+    EOO
+
+    : command
+    :
+    $* <<EOI 2>>EOE != 0
+    if true
+      cmd
+    end cmd
+    EOI
+    testscript:3:5: error: expected newline instead of 'cmd'
+    EOE
+
+    : colon
+    :
+    $* -s <<EOI >>EOO
+    if true
+      cmd1
+      cmd2
+    end : test
+    EOI
+    {
+      : id:test
+      {
+        ? true
+        cmd1
+        cmd2
+      }
+    }
+    EOO
+  }
+}
+
+: nested
+:
+{
+  : take
+  :
+  $* <<EOI >>EOO
+  if true
+    cmd1
+    if false
+      cmd
+    elif false
+      if true
+        cmd
+      end
+    else
+      cmd2
+    end
+    cmd3
+  end
+  EOI
+  ? true
+  cmd1
+  ? false
+  ? false
+  cmd2
+  cmd3
+  EOO
+
+  : skip
+  :
+  $* <<EOI >>EOO
+  if false
+    cmd1
+    if false
+      cmd
+    elif false
+      if true
+        cmd
+      end
+    else
+      cmd2
+    end
+    cmd3
+  else
+    cmd
+  end
+  EOI
+  ? false
+  cmd
+  EOO
+}
+
+: contained
+{
+  : semi
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    cmd;
+    cmd
+  end
+  EOI
+  testscript:2:3: error: ';' inside 'if'
+  EOE
+
+  : colon-leading
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    : foo
+    cmd
+  end
+  EOI
+  testscript:2:3: error: description inside 'if'
+  EOE
+
+  : colon-trailing
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    cmd : foo
+  end
+  EOI
+  testscript:2:3: error: description inside 'if'
+  EOE
+
+  : eos
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+  EOI
+  testscript:2:1: error: expected closing 'end'
+  EOE
+
+  : scope
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    cmd
+    {
+    }
+  end
+  EOI
+  testscript:3:3: error: expected closing 'end'
+  EOE
+
+  : setup
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    +cmd
+  end
+  EOI
+  testscript:2:3: error: setup command inside 'if'
+  EOE
+
+  : tdown
+  :
+  $* <<EOI 2>>EOE != 0
+  if
+    -cmd
+  end
+  EOI
+  testscript:2:3: error: teardown command inside 'if'
+  EOE
+}
+
+: line-index
+:
+$* -l <<EOI >>EOO
+if false
+  cmd
+  if true
+    cmd
+  end
+  cmd
+elif false
+  cmd
+else
+  cmd
+end
+EOI
+? false # 1
+? false # 6
+cmd # 8
+EOO
+
+: var
+:
+$* <<EOI >>EOO
+if true
+  x = foo
+else
+  x = bar
+end;
+cmd $x
+EOI
+? true
+cmd foo
+EOO
+
+: leading-and-trailing-description
+:
+$* <<EOI 2>>EOE != 0
+: foo
+if true
+  cmd
+end : bar
+EOI
+testscript:4:1: error: both leading and trailing descriptions
+EOE

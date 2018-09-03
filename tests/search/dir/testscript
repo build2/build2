@@ -4,7 +4,7 @@
 
 test.arguments = 'update(../)'
 
-.include ../../common.test
+.include ../../common.testscript
 
 # foo/ has no buildfile
 # bar/ has valid buildfile

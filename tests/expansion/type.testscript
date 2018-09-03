@@ -1,0 +1,50 @@
+# file      : tests/expansion/type.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test type propagation during expansion.
+
+.include ../common.testscript
+
+: var
+:
+$* <<EOI
+x = [bool] true
+y = $x
+assert ($type($y) == bool)
+EOI
+
+: eval
+:
+$* <<EOI
+y = ([bool] true)
+assert ($type($y) == bool)
+EOI
+
+: func
+:
+$* <<EOI
+y = $identity([bool] true)
+assert ($type($y) == bool)
+EOI
+
+: untypify
+:
+$* <<EOI
+x = [bool] true
+y = "$x"
+assert ($type($y) == "")
+EOI
+
+: retypify
+:
+$* <'print [bool] ([string] true)' >'true'
+
+: retypify-quote
+:
+$* <'print [bool] "([string] true)"' >'true'
+
+: retypify-name
+: Test the "steal" case of untypify()
+:
+$* <'print [bool] "([name] true)"' >'true'

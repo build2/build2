@@ -5,7 +5,7 @@
 crosstest = false
 test.arguments =
 
-.include ../common.test
+.include ../common.testscript
 
 +cat <<EOI >=build/root.build
 using in

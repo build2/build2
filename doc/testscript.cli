@@ -104,7 +104,7 @@ testscript file tests a specific target we simply list it as a target's
 prerequisite, for example:
 
 \
-exe{hello}: cxx{hello} test{testscript}
+exe{hello}: cxx{hello} testscript
 \
 
 Let's assume our \c{hello} program expects us to pass the name to greet as a
@@ -482,9 +482,9 @@ platform test to \c{buildfile}:
 \
 # buildfile
 
-exe{hello}: cxx{hello} test{testscript}
+exe{hello}: cxx{hello} testscript
 
-test{*}: windows = ($cxx.target.class == windows)
+testscript{*}: windows = ($cxx.target.class == windows)
 \
 
 \
@@ -612,13 +612,14 @@ prerequisite that describes how to test the target similar to how, for
 example, the \c{INSTALL} file describes how to install it. For example:
 
 \
-exe{hello}: test{testscript} doc{INSTALL README}
+exe{hello}: testscript doc{INSTALL README}
 \
 
 By convention, the testscript file should be called either \c{testscript} if
-you only have one or have the \c{.test} extension, for example,
-\c{basics.test}. The \c{test} module registers the \c{test{\}} target type to
-be used for testscript files.
+you only have one or have the \c{.testscript} extension, for example,
+\c{basics.testscript}. The \c{test} module registers the \c{testscript{\}}
+target type to be used for testscript files. We don't have to use explicit
+target type for the \c{testscript} file.
 
 A testscript prerequisite can be specified for any target. For example, if
 our directory contains a bunch of shell scripts that we want to test together,
@@ -626,22 +627,22 @@ then it makes sense to specify the testscript prerequisite for the directory
 target:
 
 \
-./: test{basics}
+./: testscript{basics}
 \
 
 During variable lookup if a variable is not found in one of the testscript
 scopes (see \l{#model Model and Execution}), then the search continues in the
 \c{buildfile} starting with the target-specific variables of the target being
 tested (e.g., \c{exe{hello\}}; called \i{test target}), then target-specific
-variables of the testscript target (e.g., \c{test{basics\}}; called \i{script
-target}), and then continuing with the scopes starting with the one containing
-the script target. As a result, a testscript can \"see\" all the existing
-buildfile variables plus we can use target-specific variables to pass
+variables of the testscript target (e.g., \c{testscript{basics\}}; called
+\i{script target}), and then continuing with the scopes starting with the one
+containing the script target. As a result, a testscript can \"see\" all the
+existing buildfile variables plus we can use target-specific variables to pass
 additional, test-specific, information to testscrips. As an example, consider
 this testscript and buildfile pair:
 
 \
-# basics.test
+# basics.testscript
 
 if ($cxx.target.class == windows)
   test.arguments += $foo
@@ -655,19 +656,19 @@ end
 \
 # buildfile
 
-exe{hello}: test{basics}
+exe{hello}: testscript{basics}
 
 # All testscripts in this scope.
 #
-test{*}: windows = ($cxx.target.class == windows)
+testscript{*}: windows = ($cxx.target.class == windows)
 
 # All testscripts for target exe{hello}.
 #
 exe{hello}: bar = BAR
 
-# Only basics.test.
+# Only basics.testscript.
 #
-test{basics}@./: foo = FOO
+testscript{basics}@./: foo = FOO
 \
 
 Additionally, by convention, a number of pre-defined \c{test.*} variables are
@@ -678,7 +679,7 @@ variable is automatically set to the target path being tested. For example,
 given this \c{buildfile}:
 
 \
-exe{hello}: test{testscript}
+exe{hello}: testscript
 \
 
 The value of \c{test} inside the testscript will be the absolute path to the
@@ -704,7 +705,7 @@ This is how we can implement \c{tests/buildfile} for this setup:
 \
 hello = ../hello/exe{hello}
 
-./: $hello test{testscript}
+./: $hello testscript
 ./: test = $hello
 
 include ../hello/
@@ -762,8 +763,8 @@ directory, then the subdirectory is called \c{test}. Otherwise, it is the name
 of the target prefixed with\c{test-}. For example:
 
 \
-./:         test{foo}   # $out_base/test/
-exe{hello}: test{bar}   # $out_base/test-hello/
+./:         testscript{foo}  # $out_base/test/
+exe{hello}: testscript{bar}  # $out_base/test-hello/
 \
 
 
@@ -787,8 +788,8 @@ A scope (both group and test) has an \i{id}. If not specified explicitly (as
 part of the description), it is derived automatically from the group/test
 location in the testscript file (see \l{#syntax-description Description} for
 details). The id of the implicit outermost scope is the script file name
-without the \c{.test} extension, except if the file name is \c{testscript},
-in which case the id is empty.
+without the \c{.testscript} extension, except if the file name is
+\c{testscript}, in which case the id is empty.
 
 Based on the ids each nested group and test has an \i{id path} that uniquely
 identifies it. It starts with the id of the implied outermost group (unless
@@ -799,7 +800,7 @@ temporary directory where the test is executed (as described below). Inside a
 scope its id path is available via the special \c{$@} variable (read-only).
 
 As an example, consider the following testscript file which we assume is
-called \c{basics.test}:
+called \c{basics.testscript}:
 
 \
 test0: test0
@@ -861,9 +862,9 @@ is not empty, then the test is considered to have failed (unexpected output).
 Inside a scope its working directory is available via the special \c{$~}
 variable (read-only).
 
-As an example, consider the following version of \c{basics.test}. We also
-assume that its test target is a directory (so the target test directory is
-\c{$out_base/test/}).
+As an example, consider the following version of \c{basics.testscript}. We
+also assume that its test target is a directory (so the target test directory
+is \c{$out_base/test/}).
 
 \
 : group
@@ -960,7 +961,7 @@ the teardown commands are executed sequentially and in the order specified.
 Again, if any of them fail, the group execution is terminated and the group is
 considered to have failed.
 
-As an example, consider the following version of \c{basics.test}:
+As an example, consider the following version of \c{basics.testscript}:
 
 \
 test0
@@ -1016,7 +1017,7 @@ for this example:
 A testscript would normally contain multiple tests and sometimes it is
 desirable to only execute a specific test or a group of tests. For example,
 you may be debugging a failing test and would like to re-run it. As an
-example, consider the following testscript file called \c{basics.test}:
+example, consider the following testscript file called \c{basics.testscript}:
 
 \
 $* foo : foo
@@ -1037,10 +1038,10 @@ basics/fox/baz
 \
 
 To only run individual tests, test groups, or testscript files we can specify
-their id paths in the \c{config.test} variable, for example:
+their id paths in the \c{config.testscript} variable, for example:
 
 \
-$ b test config.test=basics                      # All in basics.test
+$ b test config.test=basics                      # All in basics.testscript
 $ b test config.test=basics/fox                  # All in fox
 $ b test config.test=basics/foo                  # Only foo
 $ b test 'config.test=basics/foo basics/fox/bar' # Only foo and bar
@@ -1624,7 +1625,7 @@ variable is assigned. You can, however, use variables assigned in the
 buildfile. For example:
 
 \
-include common-$(cxx.target.class).test
+include common-$(cxx.target.class).testscript
 \
 
 \h2#syntax-directive-include|Include|
@@ -2827,9 +2828,9 @@ tests. It is also a good idea to give the summary of the group, for example:
 \
 
 In the same vein, don't repeat the testscript id in group or test ids. For
-example, if the above tests were in the \c{greeting.test} testscript, then
-using \c{custom-greeting} as the group id would be unnecessarily repetitive
-since the id path would then become \c{greeting/custom-greeting/john}, etc.
+example, if the above tests were in \c{greeting.testscript}, then using
+\c{custom-greeting} as the group id would be unnecessarily repetitive since
+the id path would then become \c{greeting/custom-greeting/john}, etc.
 
 We quote values that are \i{strings} as opposed to options, file names, paths
 (unless contain spaces), integers, or boolean. When quoting, use the single

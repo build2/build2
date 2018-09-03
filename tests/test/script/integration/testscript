@@ -2,19 +2,19 @@
 # copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-# Note: using common.test from test/, not script/.
+# Note: using common.testscript from test/, not script/.
 #
-.include ../../common.test
+.include ../../common.testscript
 
 : script-files
 :
 {
-  +touch testscript foo.test bar.test
+  +touch testscript foo.testscript bar.testscript
 
   : testscript-and-other
   :
   $* <<EOI 2>>/EOE != 0
-  ./: ../testscript test{../foo}
+  ./: ../testscript testscript{../foo}
   EOI
   error: both 'testscript' and other names specified for dir{./}
   EOE
@@ -22,7 +22,7 @@
   : other-and-testscript
   :
   $* <<EOI 2>>/EOE != 0
-  ./: test{../foo} ../testscript
+  ./: testscript{../foo} ../testscript
   EOI
   error: both 'testscript' and other names specified for dir{./}
   EOE
@@ -30,7 +30,7 @@
   : others
   :
   $* <<EOI
-  ./: test{../foo ../bar}
+  ./: testscript{../foo ../bar}
   EOI
 }
 
@@ -39,31 +39,31 @@
 : Note that here we can not use portable path modifier as not all slashes are
 : path separators.
 :
-touch foo.test;
+touch foo.testscript;
 touch test;
 $* <<EOI 2>>~%EOE% != 0
-./: test{foo}
+./: testscript{foo}
 EOI
 %error: working directory test[/\\] is a file/symlink%
 EOE
 
 : wd-exists-before
 :
-touch foo.test;
+touch foo.testscript;
 mkdir test &!test/;
 $* <<EOI 2>>/EOE
-./: test{foo}
+./: testscript{foo}
 EOI
 warning: working directory test/ exists at the beginning of the test
 EOE
 
 : wd-not-empty-before
 :
-touch foo.test;
+touch foo.testscript;
 mkdir test &!test/;
 touch test/dummy &!test/dummy;
 $* <<EOI 2>>/EOE
-./: test{foo}
+./: testscript{foo}
 EOI
 warning: working directory test/ exists and is not empty at the beginning of the test
 EOE
@@ -76,11 +76,11 @@ EOE
 : scope. Also note that we still have to remove everything after detecting the
 : failure.
 :
-cat <<EOI >=foo.test;
+cat <<EOI >=foo.testscript;
 touch ../../dummy
 EOI
 $* <<EOI 2>>/EOE &test/*** != 0
-./: test{foo}
+./: testscript{foo}
 EOI
 error: working directory test/ is not empty at the end of the test
 EOE

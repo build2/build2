@@ -1,0 +1,67 @@
+# file      : unit-tests/cc/lexer/char-literal.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test character literals.
+#
+
+: normal
+:
+$* <<EOI >>EOO
+'a'
+'aa'
+'"'
+EOI
+<char literal>
+<char literal>
+<char literal>
+EOO
+
+: prefix
+:
+$* <<EOI >>EOO
+L'a'
+U'a'
+u'a'
+u8'a'
+u8R'a'
+EOI
+<char literal>
+<char literal>
+<char literal>
+<char literal>
+'u8R'
+<char literal>
+EOO
+
+: suffix
+:
+$* <<EOI >>EOO
+'a'x
+'a'_X123
+EOI
+<char literal>
+<char literal>
+EOO
+
+: escape
+:
+$* <<EOI >>EOO
+'\''
+'\\'
+'\\\''
+'\n'
+U'\U0001f34c'
+EOI
+<char literal>
+<char literal>
+<char literal>
+<char literal>
+<char literal>
+EOO
+
+: unterminated
+:
+$* <"'a" 2>>EOE != 0
+stdin:1:1: error: unterminated character literal
+EOE

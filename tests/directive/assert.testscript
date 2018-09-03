@@ -1,0 +1,28 @@
+# file      : tests/directive/assert.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+$* <'assert true'                     : true
+$* <'assert! false foo'               : not-false
+$* <'assert true $no_such_function()' : skip-line
+$* <'assert! $empty($build.version)'  : expr
+
+: false
+:
+$* <'assert false' 2>>EOE != 0
+<stdin>:1:1: error: assertion failed
+EOE
+
+: false-desc
+:
+$* <'assert false bad thing happened: (a == b)' 2>>EOE != 0
+<stdin>:1:1: error: assertion failed: bad thing happened: false
+EOE
+
+: invalid
+:
+$* <'assert junk' 2>>EOE != 0
+<stdin>:1:8: error: invalid bool value: 'junk'
+EOE

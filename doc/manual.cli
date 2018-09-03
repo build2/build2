@@ -1742,7 +1742,7 @@ expect to see when running the tests:
 b test
 c++ hello/cxx{hello}
 ld hello/exe{hello}
-test hello/test{testscript} hello/exe{hello}
+test hello/testscript{testscript} hello/exe{hello}
 hello/testscript:7:1: error: hello/hello exit code 0 == 0
   info: stdout: hello/test-hello/missing-name/stdout
 \

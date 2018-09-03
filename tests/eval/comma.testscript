@@ -1,0 +1,13 @@
+# file      : tests/eval/comma.testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test value packs (eval-comma).
+
+.include ../common.testscript
+
+: comma
+:
+$* <'print (foo, bar)' 2>>EOE != 0
+<stdin>:1:7: error: expected single value
+EOE
