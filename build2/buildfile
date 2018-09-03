@@ -17,6 +17,18 @@ hxx{version}: in{version} $src_root/manifest
 #
 obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
+# Pass native C and C++ compiler paths (not forgetting to escape backslashes
+# on Windows). These are used as defaults for BUILD2_DEFAULT_*.
+#
+if ($cxx.target == $build.host)
+{
+  c/obj{init}: cxx.poptions += \
+    -DBUILD2_NATIVE_C=\"$regex.replace($recall($c.path), '\\', '\\\\')\"
+
+  cxx/obj{init}: cxx.poptions += \
+    -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
+}
+
 if ($cxx.target.class != "windows")
   cxx.libs += -lpthread
 else

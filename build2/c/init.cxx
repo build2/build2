@@ -13,6 +13,14 @@
 
 #include <build2/c/target.hxx>
 
+#ifndef BUILD2_DEFAULT_C
+#  ifdef BUILD2_NATIVE_C
+#    define BUILD2_DEFAULT_C BUILD2_NATIVE_C
+#  else
+#    define BUILD2_DEFAULT_C ""
+#  endif
+#endif
+
 using namespace std;
 using namespace butl;
 
@@ -145,7 +153,7 @@ namespace build2
 
         "c",
         "c",
-        "gcc",
+        BUILD2_DEFAULT_C,
         ".i",
 
         hinters,

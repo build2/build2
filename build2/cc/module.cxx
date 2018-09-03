@@ -87,11 +87,20 @@ namespace build2
         // (optional) pattern to guess an appropriate default (e.g., for {gcc,
         // *-4.9} we will get g++-4.9).
         //
-        path d (cc_loaded
-                ? guess_default (x_lang,
-                                 cast<string> (rs["cc.id"]),
-                                 cast<string> (rs["cc.pattern"]))
-                : path (x_default));
+        path d;
+
+        if (cc_loaded)
+          d = guess_default (x_lang,
+                             cast<string> (rs["cc.id"]),
+                             cast<string> (rs["cc.pattern"]));
+        else
+        {
+          d = path (x_default);
+
+          if (d.empty ())
+            fail << "not built with default " << x_lang << " compiler" <<
+              info << "use config." << x << " to specify";
+        }
 
         // If this value was hinted, save it as commented out so that if the
         // user changes the source of the pattern, this one will get updated

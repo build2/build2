@@ -13,6 +13,14 @@
 
 #include <build2/cxx/target.hxx>
 
+#ifndef BUILD2_DEFAULT_CXX
+#  ifdef BUILD2_NATIVE_CXX
+#    define BUILD2_DEFAULT_CXX BUILD2_NATIVE_CXX
+#  else
+#    define BUILD2_DEFAULT_CXX ""
+#  endif
+#endif
+
 using namespace std;
 using namespace butl;
 
@@ -351,7 +359,7 @@ namespace build2
 
         "cxx",
         "c++",
-        "g++",
+        BUILD2_DEFAULT_CXX,
         ".ii",
 
         hinters,
