@@ -450,6 +450,10 @@ namespace build2
       // the root directory is used directly as test's working directory and
       // it's the runner's responsibility to create and clean it up.
       //
+      // Note that we create the root directory containing the .buildignore
+      // file to make sure that it is ignored by name patterns (see the
+      // buildignore description for details).
+      //
       // What should we do if the directory already exists? We used to fail
       // which meant the user had to go and clean things up manually every
       // time a test failed. This turned out to be really annoying. So now we
@@ -467,7 +471,9 @@ namespace build2
           bool fail (before == output_before::fail);
 
           (fail ? error : warn) << "working directory " << wd << " exists "
-                                << (empty (wd) ? "" : "and is not empty ")
+                                << (empty_buildignore (wd)
+                                    ? ""
+                                    : "and is not empty ")
                                 << "at the beginning of the test";
           if (fail)
             throw failed ();
@@ -507,7 +513,7 @@ namespace build2
         {
           if (mk)
           {
-            mkdir (wd, 2);
+            mkdir_buildignore (wd, 2);
             mk = false;
           }
 
@@ -562,11 +568,11 @@ namespace build2
       //
       if (!bad && !one && !mk && after == output_after::clean)
       {
-        if (!empty (wd))
+        if (!empty_buildignore (wd))
           fail << "working directory " << wd << " is not empty at the "
                << "end of the test";
 
-        rmdir (wd, 2);
+        rmdir_buildignore (wd, 2);
       }
 
       // Backlink if the working directory exists.

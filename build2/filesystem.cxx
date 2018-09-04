@@ -189,4 +189,63 @@ namespace build2
       fail << "unable to scan directory " << d << ": " << e << endf;
     }
   }
+
+  const path buildignore (".buildignore");
+
+  fs_status<mkdir_status>
+  mkdir_buildignore (const dir_path& d, uint16_t verbosity)
+  {
+    fs_status<mkdir_status> r (mkdir (d, verbosity));
+
+    // Create the .buildignore file if the directory was created (and so is
+    // empty) or the file doesn't exist.
+    //
+    path p (d / buildignore);
+    if (r || !exists (p))
+      touch (p, true /* create */, verbosity);
+
+    return r;
+  }
+
+  bool
+  empty_buildignore (const dir_path& d)
+  {
+    try
+    {
+      for (const dir_entry& de: dir_iterator (d, false /* ignore_dangling */))
+      {
+        // The .buildignore filesystem entry should be of the regular file
+        // type.
+        //
+        if (de.path () != buildignore || de.ltype () != entry_type::regular)
+          return false;
+      }
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to scan directory " << d << ": " << e;
+    }
+
+    return true;
+  }
+
+  fs_status<rmdir_status>
+  rmdir_buildignore (const dir_path& d, uint16_t verbosity)
+  {
+    // We should remove the .buildignore file only if the subsequent rmdir()
+    // will succeed. In other words if the directory stays after the function
+    // call then the .buildignore file must stay also, if present. Thus, we
+    // first check that the directory is otherwise empty and doesn't contain
+    // the working directory.
+    //
+    path p (d / buildignore);
+    if (exists (p) && empty_buildignore (d) && !work.sub (d))
+      rmfile (p, verbosity);
+
+    // Note that in case of a system error the directory is likely to stay and
+    // the .buildfile is already removed. Trying to restore it feels like an
+    // overkill here.
+    //
+    return rmdir (d, verbosity);
+  }
 }

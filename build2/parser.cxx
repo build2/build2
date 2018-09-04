@@ -17,6 +17,7 @@
 #include <build2/context.hxx>
 #include <build2/function.hxx>
 #include <build2/variable.hxx>
+#include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 #include <build2/prerequisite.hxx>
 
@@ -3028,7 +3029,7 @@ namespace build2
         //
         const string& s (m.string ());
         if ((p[0] != '.' && s[path::traits::find_leaf (s)] == '.') ||
-            (m.to_directory () && file_exists (*sp / m / ".buildignore")))
+            (m.to_directory () && exists (*sp / m / buildignore)))
           return !interm;
 
         // Note that we have to make copies of the extension since there will

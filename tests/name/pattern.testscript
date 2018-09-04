@@ -181,6 +181,21 @@ EOI
   $* <'print .*/*.txt' >/'.dir/foo.txt'              : dir-interm-incl
 }
 
+: buildignore
+:
+: Test filtering of a directory and its sub-entries if it contains the
+: .buildignore file.
+:
+{
+  mkdir dir1 dir2;
+  touch dir2/.buildignore;
+  $* <'print */' >/'dir1/'                           : self-excl
+
+  mkdir dir1 dir2;
+  touch dir1/foo dir2/foo dir2/.buildignore;
+  $* <'print f**' >/'dir1/foo'                       : sub-entry-excl
+}
+
 : expansion
 :
 : Test interaction with expansion/concatenation/re-parse.

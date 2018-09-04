@@ -701,11 +701,19 @@ namespace build2
         // directory is cleaned up by the test rule prior the script
         // execution).
         //
+        // Create the root working directory containing the .buildignore file
+        // to make sure that it is ignored by name patterns (see buildignore
+        // description for details).
+        //
         // @@ Shouldn't we add an optional location parameter to mkdir() and
         // alike utility functions so the failure message can contain
         // location info?
         //
-        if (mkdir (sp.wd_path, 2) == mkdir_status::already_exists)
+        fs_status<mkdir_status> r (sp.parent == nullptr
+                                   ? mkdir_buildignore (sp.wd_path, 2)
+                                   : mkdir (sp.wd_path, 2));
+
+        if (r == mkdir_status::already_exists)
           fail << "working directory " << sp.wd_path << " already exists" <<
             info << "are tests stomping on each other's feet?";
 
@@ -865,15 +873,19 @@ namespace build2
             if (p.to_directory ())
             {
               dir_path d (path_cast<dir_path> (p));
+              bool wd (d == sp.wd_path);
 
               // Trace the scope working directory removal with the verbosity
               // level 2 (that was used for its creation). For other
               // directories use level 3 (as for other cleanups).
               //
-              int v (d == sp.wd_path ? 2 : 3);
+              int v (wd ? 2 : 3);
 
               // Don't remove the working directory for the recursive cleanup
               // (it will be removed by the dedicated one).
+              //
+              // Note that the root working directory contains the
+              // .buildignore file (see above).
               //
               // @@ If 'd' is a file then will fail with a diagnostics having
               //    no location info. Probably need to add an optional location
@@ -881,11 +893,11 @@ namespace build2
               //    a file cleanup when try to rmfile() directory instead of
               //    file.
               //
-              rmdir_status r (!recursive
-                              ? rmdir (d, v)
-                              : rmdir_r (d,
-                                         d != sp.wd_path,
-                                         static_cast <uint16_t> (v)));
+              rmdir_status r (recursive
+                              ? rmdir_r (d, !wd, static_cast <uint16_t> (v))
+                              : wd && sp.parent == nullptr
+                                ? rmdir_buildignore (d, v)
+                                : rmdir (d, v));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))

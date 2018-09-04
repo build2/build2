@@ -128,6 +128,28 @@ namespace build2
   //
   bool
   empty (const dir_path&);
+
+  // Directories containing .buildignore file are automatically ignored by
+  // recursive names patterns. For now the file is just a marker and its
+  // contents don't matter.
+  //
+  extern const path buildignore; // .buildignore
+
+  // Create a directory containing an empty .buildignore file.
+  //
+  fs_status<mkdir_status>
+  mkdir_buildignore (const dir_path&, uint16_t verbosity = 1);
+
+  // Return true if the directory is empty or only contains the .buildignore
+  // file. Fail if the directory doesn't exist.
+  //
+  bool
+  empty_buildignore (const dir_path&);
+
+  // Remove a directory if it is empty or only contains the .buildignore file.
+  //
+  fs_status<rmdir_status>
+  rmdir_buildignore (const dir_path&, uint16_t verbosity = 1);
 }
 
 #include <build2/filesystem.txx>
