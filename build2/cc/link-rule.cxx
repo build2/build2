@@ -1171,9 +1171,6 @@ namespace build2
         }
         else
         {
-          if (l->path ().empty ()) // Binless.
-            return;
-
           bool lu (l->is_a<libux> ());
 
           // The utility/non-utility case is tricky. Consider these two
@@ -1207,6 +1204,9 @@ namespace build2
             // care of by perform_update()). So we cut it off here.
             //
             if (!lu)
+              return;
+
+            if (l->path ().empty ()) // Binless.
               return;
 
             for (const target* pt: l->prerequisite_targets[d.a])
@@ -1246,6 +1246,9 @@ namespace build2
                 l->is_a<libs> ()     &&
                 tclass == "windows")
               l = &l->member->as<file> ();
+
+            if (l->path ().empty ()) // Binless.
+              return;
 
             string p (relative (l->path ()).string ());
 
@@ -1325,9 +1328,6 @@ namespace build2
         }
         else
         {
-          if (l->path ().empty ()) // Binless.
-            return;
-
           bool lu (l->is_a<libux> ());
 
           if (lu)
@@ -1349,16 +1349,21 @@ namespace build2
           if (d.li.type == otype::a && !lu)
             return;
 
-          // Check if this library renders us out of date.
-          //
-          d.update = d.update || l->newer (d.mt);
-
           // On Windows a shared library is a DLL with the import library as a
           // first ad hoc group member. MinGW though can link directly to DLLs
           // (see search_library() for details).
           //
-          if (l->member != nullptr && l->is_a<libs> () && tclass == "windows")
+          if (l->member != nullptr &&
+              l->is_a<libs> ()     &&
+              tclass == "windows")
             l = &l->member->as<file> ();
+
+          if (l->path ().empty ()) // Binless.
+            return;
+
+          // Check if this library renders us out of date.
+          //
+          d.update = d.update || l->newer (d.mt);
 
           d.cs.append (f);
           hash_path (d.cs, l->path (), d.out_root);
