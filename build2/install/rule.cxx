@@ -847,7 +847,11 @@ namespace build2
     perform_install (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());
-      assert (!t.path ().empty ()); // Should have been assigned by update.
+      const path& tp (t.path ());
+
+      // Path should have been assigned by update unless it is unreal.
+      //
+      assert (!tp.empty () || t.mtime () == timestamp_unreal);
 
       const scope& rs (t.root_scope ());
 
@@ -916,15 +920,22 @@ namespace build2
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          install_target (m->as<file> (), *p, false);
+        {
+          install_target (m->as<file> (), *p, tp.empty () /* verbose */);
+          r |= target_state::changed;
+        }
       }
 
       // Finally install the target itself (since we got here we know the
       // install variable is there).
       //
-      install_target (t, cast<path> (t["install"]), true);
+      if (!tp.empty ())
+      {
+        install_target (t, cast<path> (t["install"]), true /* verbose */);
+        r |= target_state::changed;
+      }
 
-      return (r |= target_state::changed);
+      return r;
     }
 
     // uninstall -d <dir>
@@ -1103,7 +1114,11 @@ namespace build2
     perform_uninstall (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());
-      assert (!t.path ().empty ()); // Should have been assigned by update.
+      const path& tp (t.path ());
+
+      // Path should have been assigned by update unless it is unreal.
+      //
+      assert (!tp.empty () || t.mtime () == timestamp_unreal);
 
       const scope& rs (t.root_scope ());
 
@@ -1154,7 +1169,10 @@ namespace build2
       // Reverse order of installation: first the target itself (since we got
       // here we know the install variable is there).
       //
-      target_state r (uninstall_target (t, cast<path> (t["install"]), true));
+      target_state r (target_state::unchanged);
+
+      if (!tp.empty ())
+        r |= uninstall_target (t, cast<path> (t["install"]), true);
 
       // Then installable ad hoc group members, if any. To be anally precise
       // we would have to do it in reverse, but that's not easy (it's a
@@ -1163,8 +1181,9 @@ namespace build2
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          r |= uninstall_target (
-            m->as<file> (), *p, r != target_state::changed);
+          r |= uninstall_target (m->as<file> (),
+                                 *p,
+                                 tp.empty () || r != target_state::changed);
       }
 
       // Finally handle installable prerequisites.

@@ -98,6 +98,8 @@ namespace build2
         //
         optional<bool> for_install;
 
+        bool binless; // Binary-less library.
+
         libs_paths libs_data;
       };
 
@@ -155,7 +157,7 @@ namespace build2
       // pkg-config's .pc file generation (pkgconfig.cxx).
       //
       void
-      pkgconfig_save (action, const file&, bool) const;
+      pkgconfig_save (action, const file&, bool, bool) const;
 
     private:
       const string rule_id;

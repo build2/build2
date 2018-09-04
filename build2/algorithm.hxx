@@ -656,6 +656,9 @@ namespace build2
   //
   // You can also clean extra files derived from ad hoc group members.
   //
+  // Note that if the target path is empty then it is assumed "unreal" and
+  // is not cleaned (but its prerequisites/members still are).
+  //
   target_state
   clean_extra (action, const file&,
                initializer_list<initializer_list<const char*>> extra);

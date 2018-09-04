@@ -144,7 +144,8 @@ namespace build2
       const target_type* x_mod; // Module target type (mxx{}), if any.
 
       // Array of target types that are considered headers. Keep them in the
-      // most likely to appear order and terminate with NULL.
+      // most likely to appear order with the "header header" first and
+      // terminated with NULL.
       //
       const target_type* const* x_hdr;
 

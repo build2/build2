@@ -82,11 +82,14 @@ namespace build2
         if (include (a, t, p) != include_type::normal)
           continue;
 
-        if (p.is_a (x_src) || (x_mod != nullptr && p.is_a (*x_mod)))
+        if (p.is_a (x_src)                           ||
+            (lt.library ()    && p.is_a (*x_hdr[0])) || // Header-only library.
+            (x_mod != nullptr && p.is_a (*x_mod)))
         {
           seen_x = seen_x || true;
         }
-        else if (p.is_a<c> ())
+        else if (p.is_a<c> ()                  ||
+                 (lt.library () && p.is_a<h> ())) // Header-only library.
         {
           seen_c = seen_c || true;
         }
@@ -297,6 +300,41 @@ namespace build2
       return libs_paths {move (lk), move (so), move (in), &re, move (cp)};
     }
 
+    // Look for binary-full utility library recursively until we hit a
+    // non-utility "barier".
+    //
+    static bool
+    find_binfull (action a, const target& t, linfo li)
+    {
+      for (const target* pt: t.prerequisite_targets[a])
+      {
+        if (pt == nullptr || unmark (pt) != 0) // Called after pass 1 below.
+          continue;
+
+        const file* pf;
+
+        // If this is the libu*{} group, then pick the appropriate member.
+        //
+        const libx* ul;
+        if ((ul = pt->is_a<libul> ()) ||
+            (ul = pt->is_a<libu>  ()))
+        {
+          pf = &link_member (*ul, a, li).as<file> ();
+        }
+        else if ((pf = pt->is_a<libue> ()) ||
+                 (pf = pt->is_a<libus> ()) ||
+                 (pf = pt->is_a<libua> ()))
+          ;
+        else
+          continue;
+
+        if (!pf->path ().empty () || find_binfull (a, *pf, li))
+          return true;
+      }
+
+      return false;
+    };
+
     recipe link_rule::
     apply (action a, target& xt) const
     {
@@ -321,224 +359,22 @@ namespace build2
       if (lt.library ())
         t.vars.assign (c_type) = string (x);
 
-      // Derive file name(s) and add ad hoc group members.
-      //
-      {
-        target_lock libi; // Have to hold until after PDB member addition.
+      bool binless (lt.library ()); // Binary-less until proven otherwise.
 
-        const char* e (nullptr); // Extension.
-        const char* p (nullptr); // Prefix.
-        const char* s (nullptr); // Suffix.
-
-        if (lt.utility)
-        {
-          // These are all static libraries with names indicating the kind of
-          // object files they contain (similar to how we name object files
-          // themselves). We add the 'u' extension to avoid clashes with
-          // real libraries/import stubs.
-          //
-          // libue  libhello.u.a     hello.exe.u.lib
-          // libua  libhello.a.u.a   hello.lib.u.lib
-          // libus  libhello.so.u.a  hello.dll.u.lib  hello.dylib.u.lib
-          //
-          // Note that we currently don't add bin.lib.{prefix,suffix} since
-          // these are not installed.
-          //
-          if (tsys == "win32-msvc")
-          {
-            switch (ot)
-            {
-            case otype::e: e = "exe.u.lib"; break;
-            case otype::a: e = "lib.u.lib"; break;
-            case otype::s: e = "dll.u.lib"; break;
-            }
-          }
-          else
-          {
-            p = "lib";
-
-            if (tsys == "mingw32")
-            {
-              switch (ot)
-              {
-              case otype::e: e = "exe.u.a"; break;
-              case otype::a: e = "a.u.a";   break;
-              case otype::s: e = "dll.u.a"; break;
-              }
-
-            }
-            else if (tsys == "darwin")
-            {
-              switch (ot)
-              {
-              case otype::e: e = "u.a";       break;
-              case otype::a: e = "a.u.a";     break;
-              case otype::s: e = "dylib.u.a"; break;
-              }
-            }
-            else
-            {
-              switch (ot)
-              {
-              case otype::e: e = "u.a";    break;
-              case otype::a: e = "a.u.a";  break;
-              case otype::s: e = "so.u.a"; break;
-              }
-            }
-          }
-
-          t.derive_path (e, p, s);
-        }
-        else
-        {
-          if (auto l = t[ot == otype::e ? "bin.exe.prefix" : "bin.lib.prefix"])
-            p = cast<string> (l).c_str ();
-          if (auto l = t[ot == otype::e ? "bin.exe.suffix" : "bin.lib.suffix"])
-            s = cast<string> (l).c_str ();
-
-          switch (ot)
-          {
-          case otype::e:
-            {
-              if (tclass == "windows")
-                e = "exe";
-              else
-                e = "";
-
-              t.derive_path (e, p, s);
-              break;
-            }
-          case otype::a:
-            {
-              if (tsys == "win32-msvc")
-                e = "lib";
-              else
-              {
-                if (p == nullptr) p = "lib";
-                e = "a";
-              }
-
-              t.derive_path (e, p, s);
-              break;
-            }
-          case otype::s:
-            {
-              // On Windows libs{} is an ad hoc group. The libs{} itself is
-              // the DLL and we add libi{} import library as its member.
-              //
-              if (tclass == "windows")
-                libi = add_adhoc_member<bin::libi> (a, t);
-
-              md.libs_data = derive_libs_paths (t, p, s);
-
-              if (libi)
-                match_recipe (libi, group_recipe); // Set recipe and unlock.
-
-              break;
-            }
-          }
-
-          // Add VC's .pdb. Note that we are looking for the link.exe /DEBUG
-          // option.
-          //
-          if (ot != otype::a                               &&
-              tsys == "win32-msvc"                         &&
-              (find_option ("/DEBUG", t, c_loptions, true) ||
-               find_option ("/DEBUG", t, x_loptions, true)))
-          {
-            // Note: add after the import library if any.
-            //
-            target_lock pdb (
-              add_adhoc_member (a, t, *bs.find_target_type ("pdb")));
-
-            // We call it foo.{exe,dll}.pdb rather than just foo.pdb because
-            // we can have both foo.exe and foo.dll in the same directory.
-            //
-            pdb.target->as<file> ().derive_path (t.path (), "pdb");
-
-            match_recipe (pdb, group_recipe); // Set recipe and unlock.
-          }
-
-          // Add pkg-config's .pc file.
-          //
-          // Note that we do it here regardless of whether we are installing
-          // or not for two reasons. Firstly, it is not easy to detect this
-          // situation in apply() since the for-install hasn't yet been
-          // communicated by install_rule. Secondly, always having the member
-          // takes care of cleanup automagically. The actual generation
-          // happens in perform_update() below.
-          //
-          if (ot != otype::e)
-          {
-            target_lock pc (
-              add_adhoc_member (
-                a, t,
-                ot == otype::a ? pca::static_type : pcs::static_type));
-
-            // Note that here we always use the lib name prefix, even on
-            // Windows with VC. The reason is the user needs a consistent name
-            // across platforms by which they can refere to the library. This
-            // is also the reason why we use the static/shared suffixes rather
-            // that a./.lib/.so/.dylib/.dll.
-            //
-            pc.target->as<file> ().derive_path (nullptr,
-                                                (p == nullptr ? "lib" : p),
-                                                s);
-
-            match_recipe (pc, group_recipe); // Set recipe and unlock.
-          }
-
-          // Add the Windows rpath emulating assembly directory as fsdir{}.
-          //
-          // Currently this is used in the backlinking logic and in the future
-          // could also be used for clean (though there we may want to clean
-          // old assemblies).
-          //
-          if (ot == otype::e && tclass == "windows")
-          {
-            // Note that here we cannot determine whether we will actually
-            // need one (for_install, library timestamps are not available at
-            // this point to call windows_rpath_timestamp()). So we may add
-            // the ad hoc target but actually not produce the assembly. So
-            // whomever relies on this must check if the directory actually
-            // exists (windows_rpath_assembly() does take care to clean it up
-            // if not used).
-            //
-            target_lock dir (
-              add_adhoc_member (
-                a,
-                t,
-                fsdir::static_type,
-                path_cast<dir_path> (t.path () + ".dlls"),
-                t.out,
-                string ()));
-
-            // By default our backlinking logic will try to symlink the
-            // directory and it can even be done on Windows using junctions.
-            // The problem is the Windows DLL assembly "logic" refuses to
-            // recognize a junction as a valid assembly for some reason. So we
-            // are going to resort to copy-link (i.e., a real directory with a
-            // bunch on links).
-            //
-            // Interestingly, the directory symlink works just fine under
-            // Wine. So we only resort to copy-link'ing if we are running
-            // on Windows.
-            //
-#ifdef _WIN32
-            dir.target->assign (var_backlink) = "copy";
-#endif
-            match_recipe (dir, group_recipe); // Set recipe and unlock.
-          }
-        }
-      }
-
-      // Inject dependency on the output directory.
+      // Inject dependency on the output directory. Note that we do it even
+      // for binless libraries since there could be other output (e.g., .pc
+      // files).
       //
       inject_fsdir (a, t);
 
       // Process prerequisites, pass 1: search and match prerequisite
       // libraries, search obj/bmi{} targets, and search targets we do rule
       // chaining for.
+      //
+      // Also clear the binless flag if we see any source or object files.
+      // Note that if we don't see any this still doesn't mean the library is
+      // binless since it can depend on a binfull utility library. This we
+      // check below, after matching the libraries.
       //
       // We do libraries first in order to indicate that we will execute these
       // targets before matching any of the obj/bmi{}. This makes it safe for
@@ -595,6 +431,8 @@ namespace build2
 
         if (mod || p.is_a (x_src) || p.is_a<c> ())
         {
+          binless = binless && false;
+
           // Rule chaining, part 1.
           //
 
@@ -730,6 +568,8 @@ namespace build2
             continue;
           }
 
+          binless = binless && !(pt->is_a<objx> () || pt->is_a<bmix> ());
+
           m = 3;
         }
 
@@ -739,6 +579,237 @@ namespace build2
       // Match lib{} (the only unmarked) in parallel and wait for completion.
       //
       match_members (a, t, pts, start);
+
+      // Check if we have any binfull utility libraries.
+      //
+      binless = binless && !find_binfull (a, t, li);
+
+      // Now that we know for sure whether we are binless, derive file name(s)
+      // and add ad hoc group members. Note that for binless we still need the
+      // .pc member (whose name depends on the libray prefix) so we take care
+      // to not derive the path for the library target itself inside.
+      //
+      {
+        target_lock libi; // Have to hold until after PDB member addition.
+
+        const char* e (nullptr); // Extension.
+        const char* p (nullptr); // Prefix.
+        const char* s (nullptr); // Suffix.
+
+        if (lt.utility)
+        {
+          // These are all static libraries with names indicating the kind of
+          // object files they contain (similar to how we name object files
+          // themselves). We add the 'u' extension to avoid clashes with
+          // real libraries/import stubs.
+          //
+          // libue  libhello.u.a     hello.exe.u.lib
+          // libua  libhello.a.u.a   hello.lib.u.lib
+          // libus  libhello.so.u.a  hello.dll.u.lib  hello.dylib.u.lib
+          //
+          // Note that we currently don't add bin.lib.{prefix,suffix} since
+          // these are not installed.
+          //
+          if (tsys == "win32-msvc")
+          {
+            switch (ot)
+            {
+            case otype::e: e = "exe.u.lib"; break;
+            case otype::a: e = "lib.u.lib"; break;
+            case otype::s: e = "dll.u.lib"; break;
+            }
+          }
+          else
+          {
+            p = "lib";
+
+            if (tsys == "mingw32")
+            {
+              switch (ot)
+              {
+              case otype::e: e = "exe.u.a"; break;
+              case otype::a: e = "a.u.a";   break;
+              case otype::s: e = "dll.u.a"; break;
+              }
+
+            }
+            else if (tsys == "darwin")
+            {
+              switch (ot)
+              {
+              case otype::e: e = "u.a";       break;
+              case otype::a: e = "a.u.a";     break;
+              case otype::s: e = "dylib.u.a"; break;
+              }
+            }
+            else
+            {
+              switch (ot)
+              {
+              case otype::e: e = "u.a";    break;
+              case otype::a: e = "a.u.a";  break;
+              case otype::s: e = "so.u.a"; break;
+              }
+            }
+          }
+
+          if (binless)
+            t.path (empty_path);
+          else
+            t.derive_path (e, p, s);
+        }
+        else
+        {
+          if (auto l = t[ot == otype::e ? "bin.exe.prefix" : "bin.lib.prefix"])
+            p = cast<string> (l).c_str ();
+          if (auto l = t[ot == otype::e ? "bin.exe.suffix" : "bin.lib.suffix"])
+            s = cast<string> (l).c_str ();
+
+          switch (ot)
+          {
+          case otype::e:
+            {
+              if (tclass == "windows")
+                e = "exe";
+              else
+                e = "";
+
+              t.derive_path (e, p, s);
+              break;
+            }
+          case otype::a:
+            {
+              if (tsys == "win32-msvc")
+                e = "lib";
+              else
+              {
+                if (p == nullptr) p = "lib";
+                e = "a";
+              }
+
+              if (binless)
+                t.path (empty_path);
+              else
+                t.derive_path (e, p, s);
+
+              break;
+            }
+          case otype::s:
+            {
+              if (binless)
+                t.path (empty_path);
+              else
+              {
+                // On Windows libs{} is an ad hoc group. The libs{} itself is
+                // the DLL and we add libi{} import library as its member.
+                //
+                if (tclass == "windows")
+                  libi = add_adhoc_member<bin::libi> (a, t);
+
+                md.libs_data = derive_libs_paths (t, p, s);
+
+                if (libi)
+                  match_recipe (libi, group_recipe); // Set recipe and unlock.
+              }
+
+              break;
+            }
+          }
+
+          // Add VC's .pdb. Note that we are looking for the link.exe /DEBUG
+          // option.
+          //
+          if (!binless && ot != otype::a && tsys == "win32-msvc")
+          {
+            if (find_option ("/DEBUG", t, c_loptions, true) ||
+                find_option ("/DEBUG", t, x_loptions, true))
+            {
+              // Note: add after the import library if any.
+              //
+              target_lock pdb (
+                add_adhoc_member (a, t, *bs.find_target_type ("pdb")));
+
+              // We call it foo.{exe,dll}.pdb rather than just foo.pdb because
+              // we can have both foo.exe and foo.dll in the same directory.
+              //
+              pdb.target->as<file> ().derive_path (t.path (), "pdb");
+
+              match_recipe (pdb, group_recipe); // Set recipe and unlock.
+            }
+          }
+
+          // Add pkg-config's .pc file.
+          //
+          // Note that we do it regardless of whether we are installing or not
+          // for two reasons. Firstly, it is not easy to detect this situation
+          // here since the for-install hasn't yet been communicated by
+          // install_rule. Secondly, always having this member takes care of
+          // cleanup automagically. The actual generation happens in
+          // perform_update() below.
+          //
+          if (ot != otype::e)
+          {
+            target_lock pc (
+              add_adhoc_member (
+                a, t,
+                ot == otype::a ? pca::static_type : pcs::static_type));
+
+            // Note that here we always use the lib name prefix, even on
+            // Windows with VC. The reason is the user needs a consistent name
+            // across platforms by which they can refer to the library. This
+            // is also the reason why we use the static/shared suffixes rather
+            // that a./.lib/.so/.dylib/.dll.
+            //
+            pc.target->as<file> ().derive_path (nullptr,
+                                                (p == nullptr ? "lib" : p),
+                                                s);
+
+            match_recipe (pc, group_recipe); // Set recipe and unlock.
+          }
+
+          // Add the Windows rpath emulating assembly directory as fsdir{}.
+          //
+          // Currently this is used in the backlinking logic and in the future
+          // could also be used for clean (though there we may want to clean
+          // old assemblies).
+          //
+          if (ot == otype::e && tclass == "windows")
+          {
+            // Note that here we cannot determine whether we will actually
+            // need one (for_install, library timestamps are not available at
+            // this point to call windows_rpath_timestamp()). So we may add
+            // the ad hoc target but actually not produce the assembly. So
+            // whomever relies on this must check if the directory actually
+            // exists (windows_rpath_assembly() does take care to clean it up
+            // if not used).
+            //
+            target_lock dir (
+              add_adhoc_member (
+                a,
+                t,
+                fsdir::static_type,
+                path_cast<dir_path> (t.path () + ".dlls"),
+                t.out,
+                string ()));
+
+            // By default our backlinking logic will try to symlink the
+            // directory and it can even be done on Windows using junctions.
+            // The problem is the Windows DLL assembly "logic" refuses to
+            // recognize a junction as a valid assembly for some reason. So we
+            // are going to resort to copy-link (i.e., a real directory with a
+            // bunch on links).
+            //
+            // Interestingly, the directory symlink works just fine under
+            // Wine. So we only resort to copy-link'ing if we are running
+            // on Windows.
+            //
+#ifdef _WIN32
+            dir.target->assign (var_backlink) = "copy";
+#endif
+            match_recipe (dir, group_recipe); // Set recipe and unlock.
+          }
+        }
+      }
 
       // Process prerequisites, pass 2: finish rule chaining but don't start
       // matching anything yet since that may trigger recursive matching of
@@ -1056,6 +1127,8 @@ namespace build2
         }
       }
 
+      md.binless = binless;
+
       switch (a)
       {
       case perform_update_id: return [this] (action a, const target& t)
@@ -1098,6 +1171,9 @@ namespace build2
         }
         else
         {
+          if (l->path ().empty ()) // Binless.
+            return;
+
           bool lu (l->is_a<libux> ());
 
           // The utility/non-utility case is tricky. Consider these two
@@ -1249,6 +1325,9 @@ namespace build2
         }
         else
         {
+          if (l->path ().empty ()) // Binless.
+            return;
+
           bool lu (l->is_a<libux> ());
 
           if (lu)
@@ -1368,6 +1447,9 @@ namespace build2
         {
           if (!l->is_a<libs> ())
             return;
+
+          if (l->path ().empty ()) // Binless.
+            return;
         }
         else
         {
@@ -1428,12 +1510,16 @@ namespace build2
         {
           if (!for_install && !la)
           {
-            // Top-level shared library dependency. It is either matched or
-            // imported so should be a cc library.
+            // Top-level shared library dependency.
             //
-            if (!cast_false<bool> (f->vars[c_system]))
-              args.push_back (
-                "-Wl,-rpath," + f->path ().directory ().string ());
+            if (!f->path ().empty ()) // Not binless.
+            {
+              // It is either matched or imported so should be a cc library.
+              //
+              if (!cast_false<bool> (f->vars[c_system]))
+                args.push_back (
+                  "-Wl,-rpath," + f->path ().directory ().string ());
+            }
           }
 
           process_libraries (a, bs, li, sys_lib_dirs,
@@ -1478,15 +1564,41 @@ namespace build2
       otype ot (lt.type);
       linfo li (link_info (bs, ot));
 
+      bool binless (md.binless);
+      assert (ot != otype::e || !binless); // Sanity check.
+
       // Update prerequisites. We determine if any relevant ones render us
       // out-of-date manually below.
       //
       // Note that straight_execute_prerequisites() will blank out all the ad
       // hoc prerequisites so we don't need to worry about them from now on.
       //
+      target_state ts (straight_execute_prerequisites (a, t));
+
+      // (Re)generate pkg-config's .pc file. While the target itself might be
+      // up-to-date from a previous run, there is no guarantee that .pc exists
+      // or also up-to-date. So to keep things simple we just regenerate it
+      // unconditionally.
+      //
+      // Also, if you are wondering why don't we just always produce this .pc,
+      // install or no install, the reason is unless and until we are updating
+      // for install, we have no idea where-to things will be installed.
+      //
+      if (for_install && lt.library () && !lt.utility)
+        pkgconfig_save (a, t, lt.static_library (), binless);
+
+      // If we have no binary to build then we are done.
+      //
+      if (binless)
+      {
+        t.mtime (timestamp_unreal);
+        return ts;
+      }
+
+      // Determine if we are out-of-date.
+      //
       bool update (false);
       timestamp mt (t.load_mtime ());
-      target_state ts (straight_execute_prerequisites (a, t));
 
       // Open the dependency database (do it before messing with Windows
       // manifests to diagnose missing output directory).
@@ -1924,25 +2036,6 @@ namespace build2
         scratch = update = true;
 
       dd.close ();
-
-      // (Re)generate pkg-config's .pc file. While the target itself might be
-      // up-to-date from a previous run, there is no guarantee that .pc exists
-      // or also up-to-date. So to keep things simple we just regenerate it
-      // unconditionally.
-      //
-      // Also, if you are wondering why don't we just always produce this .pc,
-      // install or no install, the reason is unless and until we are updating
-      // for install, we have no idea where-to things will be installed.
-      //
-      if (for_install)
-      {
-        bool la;
-        const file* f;
-
-        if ((la = (f = t.is_a<liba> ())) ||
-            (      f = t.is_a<libs> ()))
-          pkgconfig_save (a, *f, la);
-      }
 
       // If nothing changed, then we are done.
       //
@@ -2438,33 +2531,42 @@ namespace build2
             return clean_extra (
               a, t, {".d", ".dlls/", ".manifest", "-.ilk"});
         }
+        // For other platforms it's the defaults.
       }
-      else if (lt.shared_library ())
+      else
       {
-        if (tclass == "windows")
-        {
-          // Assuming it's VC or alike. Clean up .exp and .ilk.
-          //
-          // Note that .exp is based on the .lib, not .dll name. And with
-          // versioning their bases may not be the same.
-          //
-          if (tsys != "mingw32")
-            return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});
-        }
-        else
-        {
-          // Here we can have a bunch of symlinks that we need to remove. If
-          // the paths are empty, then they will be ignored.
-          //
-          const libs_paths& paths (t.data<match_data> ().libs_data);
+        const match_data& md (t.data<match_data> ());
 
-          return clean_extra (a, t, {".d",
-                paths.link.string ().c_str (),
-                paths.soname.string ().c_str (),
-                paths.interm.string ().c_str ()});
+        if (md.binless)
+          return clean_extra (a, t, {nullptr}); // Clean prerequsites/members.
+
+        if (lt.shared_library ())
+        {
+          if (tclass == "windows")
+          {
+            // Assuming it's VC or alike. Clean up .exp and .ilk.
+            //
+            // Note that .exp is based on the .lib, not .dll name. And with
+            // versioning their bases may not be the same.
+            //
+            if (tsys != "mingw32")
+              return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});
+          }
+          else
+          {
+            // Here we can have a bunch of symlinks that we need to remove. If
+            // the paths are empty, then they will be ignored.
+            //
+            const libs_paths& paths (md.libs_data);
+
+            return clean_extra (a, t, {".d",
+                  paths.link.string ().c_str (),
+                  paths.soname.string ().c_str (),
+                  paths.interm.string ().c_str ()});
+          }
         }
+        // For static library it's the defaults.
       }
-      // For static library it's just the defaults.
 
       return clean_extra (a, t, {".d"});
     }

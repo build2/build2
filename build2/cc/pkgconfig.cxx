@@ -1114,7 +1114,7 @@ namespace build2
 #endif
 
     void link_rule::
-    pkgconfig_save (action a, const file& l, bool la) const
+    pkgconfig_save (action a, const file& l, bool la, bool binless) const
     {
       tracer trace (x, "pkgconfig_save");
 
@@ -1132,7 +1132,9 @@ namespace build2
       using install::resolve_dir;
 
       dir_path idir (resolve_dir (l, cast<dir_path> (l["install.include"])));
-      dir_path ldir (resolve_dir (l, cast<dir_path> (l["install.lib"])));
+      dir_path ldir (binless
+                     ? dir_path ()
+                     : resolve_dir (l, cast<dir_path> (l["install.lib"])));
 
       if (verb >= 2)
         text << "cat >" << p;
@@ -1256,75 +1258,78 @@ namespace build2
         //   the second position, not first. Gets even trickier with
         //   Libs.private split.
         //
-        os << "Libs:";
-        os << " -L" << escape (ldir.string ());
-
-        // Now process ourselves as if we were being linked to something (so
-        // pretty similar to link_rule::append_libraries()).
-        //
-        bool priv (false);
-        auto imp = [&priv] (const file&, bool la) {return priv && la;};
-
-        auto lib = [&os, &save_library] (const file* const* c,
-                                         const string& p,
-                                         lflags,
-                                         bool)
+        if (!binless)
         {
-          const file* l (c != nullptr ? *c : nullptr);
+          os << "Libs:";
+          os << " -L" << escape (ldir.string ());
 
-          if (l != nullptr)
-          {
-            if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
-              save_library (*l);
-          }
-          else
-            os << ' ' << p; // Something "system'y", pass as is.
-        };
-
-        auto opt = [] (const file&,
-                       const string&,
-                       bool, bool)
-        {
-          //@@ TODO: should we filter -L similar to -I?
-          //@@ TODO: how will the Libs/Libs.private work?
-          //@@ TODO: remember to use escape()
-
-          /*
-          // If we need an interface value, then use the group (lib{}).
+          // Now process ourselves as if we were being linked to something (so
+          // pretty similar to link_rule::append_libraries()).
           //
-          if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
+          bool priv (false);
+          auto imp = [&priv] (const file&, bool la) {return priv && la;};
+
+          auto lib = [&os, &save_library] (const file* const* c,
+                                           const string& p,
+                                           lflags,
+                                           bool)
           {
-            const variable& var (
-              com
-              ? (exp ? c_export_loptions : c_loptions)
-              : (t == x
-                 ? (exp ? x_export_loptions : x_loptions)
-                 : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+            const file* l (c != nullptr ? *c : nullptr);
 
-            append_options (args, *g, var);
-          }
-          */
-        };
+            if (l != nullptr)
+            {
+              if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
+                save_library (*l);
+            }
+            else
+              os << ' ' << p; // Something "system'y", pass as is.
+          };
 
-        // Pretend we are linking an executable using what would be normal,
-        // system-default link order.
-        //
-        linfo li {otype::e, la ? lorder::a_s : lorder::s_a};
+          auto opt = [] (const file&,
+                         const string&,
+                         bool, bool)
+          {
+            //@@ TODO: should we filter -L similar to -I?
+            //@@ TODO: how will the Libs/Libs.private work?
+            //@@ TODO: remember to use escape()
 
-        process_libraries (a, bs, li, sys_lib_dirs,
-                           l, la, 0, // Link flags.
-                           imp, lib, opt, true);
-        os << endl;
+            /*
+            // If we need an interface value, then use the group (lib{}).
+            //
+            if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
+            {
+              const variable& var (
+                com
+                ? (exp ? c_export_loptions : c_loptions)
+                : (t == x
+                   ? (exp ? x_export_loptions : x_loptions)
+                   : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-        if (la)
-        {
-          os << "Libs.private:";
+              append_options (args, *g, var);
+            }
+            */
+          };
 
-          priv = true;
+          // Pretend we are linking an executable using what would be normal,
+          // system-default link order.
+          //
+          linfo li {otype::e, la ? lorder::a_s : lorder::s_a};
+
           process_libraries (a, bs, li, sys_lib_dirs,
                              l, la, 0, // Link flags.
-                             imp, lib, opt, false);
+                             imp, lib, opt, true);
           os << endl;
+
+          if (la)
+          {
+            os << "Libs.private:";
+
+            priv = true;
+            process_libraries (a, bs, li, sys_lib_dirs,
+                               l, la, 0, // Link flags.
+                               imp, lib, opt, false);
+            os << endl;
+          }
         }
 
         // If we have modules, list them in the modules variable. We also save

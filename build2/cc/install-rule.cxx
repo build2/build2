@@ -174,7 +174,7 @@ namespace build2
       else // install or uninstall
       {
         // Derive shared library paths and cache them in the target's aux
-        // storage if we are un/installing (used in *_extra() functions
+        // storage if we are un/installing (used in the *_extra() functions
         // below).
         //
         static_assert (sizeof (link_rule::libs_paths) <= target::data_size,
@@ -183,12 +183,15 @@ namespace build2
         file* f;
         if ((f = t.is_a<libs> ()) != nullptr && tclass != "windows")
         {
-          const string* p (cast_null<string> (t["bin.lib.prefix"]));
-          const string* s (cast_null<string> (t["bin.lib.suffix"]));
-          t.data (
-            link_.derive_libs_paths (*f,
-                                     p != nullptr ? p->c_str (): nullptr,
-                                     s != nullptr ? s->c_str (): nullptr));
+          if (!f->path ().empty ()) // Not binless.
+          {
+            const string* p (cast_null<string> (t["bin.lib.prefix"]));
+            const string* s (cast_null<string> (t["bin.lib.suffix"]));
+            t.data (
+              link_.derive_libs_paths (*f,
+                                       p != nullptr ? p->c_str (): nullptr,
+                                       s != nullptr ? s->c_str (): nullptr));
+          }
         }
       }
 

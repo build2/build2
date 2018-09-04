@@ -1952,10 +1952,18 @@ namespace build2
       }
     };
 
-    auto ei (extra.begin ()), ee (extra.end ());
+    const path& fp (ft.path ());
 
+    auto ei (extra.begin ()), ee (extra.end ());
     if (ei != ee)
-      clean_extra (ft, nullptr, *ei++);
+    {
+      if (!fp.empty ())
+        clean_extra (ft, nullptr, *ei);
+
+      ++ei;
+    }
+
+    target_state tr (target_state::unchanged);
 
     // Check if we were asked not to actually remove the files. The extras are
     // tricky: some of them, like depdb should definitely be removed. But
@@ -1970,31 +1978,44 @@ namespace build2
     //
     for (const target* m (ft.member); m != nullptr; m = m->member)
     {
-      const file* fm (m->is_a<file> ());
-      const path* fp (fm != nullptr ? &fm->path () : nullptr);
+      const file* mf (m->is_a<file> ());
+      const path* mp (mf != nullptr ? &mf->path () : nullptr);
 
-      if (fm == nullptr || fp->empty ())
+      if (mf == nullptr || mp->empty ())
         continue;
 
       if (ei != ee)
-        clean_extra (*fm, fp, *ei++);
+        clean_extra (*mf, mp, *ei++);
 
-      target_state r (clean && rmfile (*fp, 3)
-                      ? target_state::changed
-                      : target_state::unchanged);
+      if (!clean)
+        continue;
 
-      if (r == target_state::changed && ep.empty ())
-        ep = *fp;
+      // Make this "primary target" for diagnostics/result purposes if the
+      // primary target is unreal.
+      //
+      if (fp.empty ())
+      {
+        if (rmfile (*mp, *mf))
+          tr = target_state::changed;
+      }
+      else
+      {
+        target_state r (rmfile (*mp, 3)
+                        ? target_state::changed
+                        : target_state::unchanged);
 
-      er |= r;
+        if (r == target_state::changed && ep.empty ())
+          ep = *mp;
+
+        er |= r;
+      }
     }
 
     // Now clean the primary target and its prerequisited in the reverse order
     // of update: first remove the file, then clean the prerequisites.
     //
-    target_state tr (clean && rmfile (ft.path (), ft) // Path must be assigned.
-                     ? target_state::changed
-                     : target_state::unchanged);
+    if (clean && !fp.empty () && rmfile (fp, ft))
+      tr = target_state::changed;
 
     // Update timestamp in case there are operations after us that could use
     // the information.
@@ -2032,13 +2053,17 @@ namespace build2
   target_state
   perform_clean (action a, const target& t)
   {
-    return clean_extra (a, t.as<file> (), {nullptr});
+    const file& f (t.as<file> ());
+    assert (!f.path ().empty ());
+    return clean_extra (a, f, {nullptr});
   }
 
   target_state
   perform_clean_depdb (action a, const target& t)
   {
-    return clean_extra (a, t.as<file> (), {".d"});
+    const file& f (t.as<file> ());
+    assert (!f.path ().empty ());
+    return clean_extra (a, f, {".d"});
   }
 
   target_state
