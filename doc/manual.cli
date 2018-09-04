@@ -3124,9 +3124,10 @@ this character.
 
 In addition to the above wildcard characters, \c{**} and \c{***} are
 recognized as wildcard character sequences. If a pattern contains \c{**}, then
-it is matched just like \c{*} but in all the subdirectories, recursively. The
-\c{***} wildcard behaves like \c{**} but also matches the start directory
-itself. For example:
+it is matched just like \c{*} but in all the subdirectories, recursively, but
+excluding directories that contain the \c{.buildignore} file. The \c{***}
+wildcard behaves like \c{**} but also matches the start directory itself. For
+example:
 
 \
 exe{hello}: cxx{**}  # All C++ source files recursively.
