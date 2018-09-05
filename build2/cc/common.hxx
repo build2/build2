@@ -287,15 +287,6 @@ namespace build2
       dir_paths
       extract_library_dirs (const scope&) const;
 
-      bool
-      pkgconfig_load (action, const scope&,
-                      bin::lib&, bin::liba*, bin::libs*,
-                      const optional<project_name>&,
-                      const string&,
-                      const dir_path&,
-                      const dir_paths&,
-                      const dir_paths&) const; // pkgconfig.cxx
-
       // Alternative search logic for VC (msvc.cxx).
       //
       bin::liba*
@@ -310,6 +301,34 @@ namespace build2
                           const prerequisite_key&,
                           bool existing) const;
 
+      // The pkg-config file searching and loading (pkgconfig.cxx)
+      //
+      using pkgconfig_callback = function<bool (dir_path&& d)>;
+
+      bool
+      pkgconfig_search (const dir_path&, const pkgconfig_callback&) const;
+
+      pair<path, path>
+      pkgconfig_search (const dir_path&,
+                        const optional<project_name>&,
+                        const string&) const;
+
+      void
+      pkgconfig_load (action, const scope&,
+                      bin::lib&, bin::liba*, bin::libs*,
+                      const pair<path, path>&,
+                      const dir_path&,
+                      const dir_paths&,
+                      const dir_paths&) const;
+
+      bool
+      pkgconfig_load (action, const scope&,
+                      bin::lib&, bin::liba*, bin::libs*,
+                      const optional<project_name>&,
+                      const string&,
+                      const dir_path&,
+                      const dir_paths&,
+                      const dir_paths&) const;
     };
   }
 }

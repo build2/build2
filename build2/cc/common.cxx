@@ -532,7 +532,7 @@ namespace build2
       bool l (p.is_a<lib> ());
       const optional<string>& ext (l ? nullopt : p.tk.ext); // Only liba/libs.
 
-      // Then figure out what we need to search for.
+      // First figure out what we need to search for.
       //
       const string& name (*p.tk.name);
 
@@ -613,10 +613,12 @@ namespace build2
       liba* a (nullptr);
       libs* s (nullptr);
 
+      pair<path, path> pc; // pkg-config .pc file paths.
+
       path f; // Reuse the buffer.
       const dir_path* pd (nullptr);
 
-      auto search =[&a, &s,
+      auto search =[&a, &s, &pc,
                     &an, &ae,
                     &sn, &se,
                     &name, ext,
@@ -736,6 +738,39 @@ namespace build2
 
           if (a == nullptr && !an.empty ())
             a = msvc_search_static (ld, d, p, exist);
+        }
+
+        // Look for binary-less libraries via pkg-config .pc files. Note that
+        // it is possible we have already found one of them as binfull but the
+        // other is binless.
+        //
+        {
+          bool na (a == nullptr && !an.empty ()); // Need static.
+          bool ns (s == nullptr && !sn.empty ()); // Need shared.
+
+          if (na || ns)
+          {
+            pair<path, path> r (pkgconfig_search (d, p.proj, name));
+
+            if (na && !r.first.empty ())
+            {
+              insert_library (a, name, d, nullopt, exist, trace);
+              a->mtime (timestamp_unreal);
+              a->path (empty_path);
+            }
+
+            if (ns && !r.second.empty ())
+            {
+              insert_library (s, name, d, nullopt, exist, trace);
+              s->mtime (timestamp_unreal);
+              s->path (empty_path);
+            }
+
+            // Only keep these .pc paths if we found anything via them.
+            //
+            if ((na && a != nullptr) || (ns && s != nullptr))
+              pc = move (r);
+          }
         }
 
         return a != nullptr || s != nullptr;
@@ -890,19 +925,24 @@ namespace build2
 
       if (ll && (a != nullptr || s != nullptr))
       {
-        // Try to extract library information from pkg-config. We only add
-        // the default macro if we could not extract more precise
-        // information. The idea is that when we auto-generate .pc files, we
-        // will copy those macros (or custom ones) from *.export.poptions.
+        // Try to extract library information from pkg-config. We only add the
+        // default macro if we could not extract more precise information. The
+        // idea is that in .pc files that we generate, we copy those macros
+        // (or custom ones) from *.export.poptions.
         //
-        if (!pkgconfig_load (act, *p.scope,
-                             *lt, a, s,
-                             p.proj, name,
-                             *pd, sysd, *usrd))
+        if (pc.first.empty () && pc.second.empty ())
         {
-          if (a != nullptr) add_macro (*a, "STATIC");
-          if (s != nullptr) add_macro (*s, "SHARED");
+          if (!pkgconfig_load (act, *p.scope,
+                               *lt, a, s,
+                               p.proj, name,
+                               *pd, sysd, *usrd))
+          {
+            if (a != nullptr) add_macro (*a, "STATIC");
+            if (s != nullptr) add_macro (*s, "SHARED");
+          }
         }
+        else
+          pkgconfig_load (act, *p.scope, *lt, a, s, pc, *pd, sysd, *usrd);
       }
 
       // If we have the lock (meaning this is the first time), set the

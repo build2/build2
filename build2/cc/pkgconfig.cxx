@@ -450,68 +450,48 @@ namespace build2
     // .pc files, always returning false (see above for the reasoning).
     //
 #ifndef BUILD2_BOOTSTRAP
+
+    // Iterate over pkgconf directories that correspond to the specified
+    // library directory, passing them to the callback function, until the
+    // function returns false.
+    //
     bool common::
-    pkgconfig_load (action a,
-                    const scope& s,
-                    lib& lt,
-                    liba* at,
-                    libs* st,
-                    const optional<project_name>& proj,
-                    const string& stem,
-                    const dir_path& libd,
-                    const dir_paths& top_sysd,
-                    const dir_paths& top_usrd) const
+    pkgconfig_search (const dir_path& d, const pkgconfig_callback& f) const
     {
-      tracer trace (x, "pkgconfig_load");
+      dir_path pd (d);
 
-      assert (at != nullptr || st != nullptr);
-
-      // Iterate over pkgconf directories that correspond to the specified
-      // library's directory, passing them to the callback function, until
-      // the function returns false.
-      //
-      // First always check the pkgconfig/ subdirectory in this library's
+      // First always check the pkgconfig/ subdirectory in this library
       // directory. Even on platforms where this is not the canonical place,
       // .pc files of autotools-based packages installed by the user often
       // still end up there.
       //
-      using callback = function<bool (dir_path&& d)>;
-      auto pkgconf_dir = [this] (const dir_path& d, const callback& f) -> bool
-      {
-        dir_path pd (d);
-        if (exists (pd /= "pkgconfig") && !f (move (pd)))
-          return false;
+      if (exists (pd /= "pkgconfig") && !f (move (pd)))
+        return false;
 
-        // Platform-specific locations.
-        //
-        if (tsys == "freebsd")
-        {
-          // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
-          //
-          pd = d;
-          if (exists (((pd /= "..") /= "libdata") /= "pkgconfig") &&
-              !f (move (pd)))
-            return false;
-        }
-
-        return true;
-      };
-
-      // Same as above but iterate over pkgconfig directories for multiple
-      // library directories.
+      // Platform-specific locations.
       //
-      auto pkgconf_dirs = [&pkgconf_dir] (const dir_paths& ds,
-                                          const callback& f) -> bool
+      if (tsys == "freebsd")
       {
-        for (const auto& d: ds)
-        {
-          if (!pkgconf_dir (d, f))
-            return false;
-        }
+        // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
+        //
+        pd = d;
+        if (exists (((pd /= "..") /= "libdata") /= "pkgconfig") &&
+            !f (move (pd)))
+          return false;
+      }
 
-        return true;
-      };
+      return true;
+    }
 
+    // Search for the .pc files in the pkgconf directories that correspond to
+    // the specified library directory. If found, return static (first) and
+    // shared (second) library .pc files.
+    //
+    pair<path, path> common::
+    pkgconfig_search (const dir_path& libd,
+                      const optional<project_name>& proj,
+                      const string& stem) const
+    {
       // When it comes to looking for .pc files we have to decide where to
       // search (which directory(ies)) as well as what to search for (which
       // names). Suffix is our ".shared" or ".static" extension.
@@ -521,10 +501,10 @@ namespace build2
       {
         path f;
 
-        // See if there is a corresponding .pc file. About half of them called
-        // foo.pc and half libfoo.pc (and one of the pkg-config's authors
-        // suggests that some of you should call yours foolib.pc, just to keep
-        // things interesting, you know).
+        // See if there is a corresponding .pc file. About half of them are
+        // called foo.pc and half libfoo.pc (and one of the pkg-config's
+        // authors suggests that some of you should call yours foolib.pc, just
+        // to keep things interesting, you know).
         //
         // Given the (general) import in the form <proj>%lib{<stem>}, we will
         // first try lib<stem>.pc, then <stem>.pc. Maybe it also makes sense
@@ -561,39 +541,81 @@ namespace build2
         return path ();
       };
 
-      auto search = [&libd, &search_dir, &pkgconf_dir] () -> pair<path, path>
+      pair<path, path> r;
+
+      // Return false (and so stop the iteration) if a .pc file is found.
+      //
+      // Note that we rely on the "small function object" optimization here.
+      //
+      auto check = [&r, &search_dir] (dir_path&& d) -> bool
       {
-        pair<path, path> r;
-
-        // Return false (and so stop to iterate) if .pc file is found.
+        // First look for static/shared-specific files.
         //
-        // Note that we rely on "small function object" optimization here.
+        r.first  = search_dir (d, ".static");
+        r.second = search_dir (d, ".shared");
+
+        if (!r.first.empty () || !r.second.empty ())
+          return false;
+
+        // Then the common.
         //
-        auto check = [&r, &search_dir] (dir_path&& d) -> bool
-        {
-          // First look for static/shared-specific files.
-          //
-          r.first  = search_dir (d, ".static");
-          r.second = search_dir (d, ".shared");
-
-          if (!r.first.empty () || !r.second.empty ())
-            return false;
-
-          // Then the common.
-          //
-          r.first = r.second = search_dir (d, string ());
-          return r.first.empty ();
-        };
-
-        pkgconf_dir (libd, check);
-        return r;
+        r.first = r.second = search_dir (d, string ());
+        return r.first.empty ();
       };
+
+      pkgconfig_search (libd, check);
+      return r;
+    };
+
+    bool common::
+    pkgconfig_load (action a,
+                    const scope& s,
+                    lib& lt,
+                    liba* at,
+                    libs* st,
+                    const optional<project_name>& proj,
+                    const string& stem,
+                    const dir_path& libd,
+                    const dir_paths& top_sysd,
+                    const dir_paths& top_usrd) const
+    {
+      assert (at != nullptr || st != nullptr);
+
+      pair<path, path> p (pkgconfig_search (libd, proj, stem));
+
+      if (p.first.empty () && p.second.empty ())
+        return false;
+
+      pkgconfig_load (a, s, lt, at, st, p, libd, top_sysd, top_usrd);
+      return true;
+    }
+
+    void common::
+    pkgconfig_load (action a,
+                    const scope& s,
+                    lib& lt,
+                    liba* at,
+                    libs* st,
+                    const pair<path, path>& paths,
+                    const dir_path& libd,
+                    const dir_paths& top_sysd,
+                    const dir_paths& top_usrd) const
+    {
+      tracer trace (x, "pkgconfig_load");
+
+      assert (at != nullptr || st != nullptr);
+
+      const path& ap (paths.first);
+      const path& sp (paths.second);
+
+      assert (!ap.empty () || !sp.empty ());
 
       // Extract --cflags and set them as lib?{}:export.poptions. Note that we
       // still pass --static in case this is pkgconf which has Cflags.private.
       //
-      auto parse_cflags =
-        [&trace, this] (target& t, const pkgconf& pc, bool la)
+      auto parse_cflags = [&trace, this] (target& t,
+                                          const pkgconf& pc,
+                                          bool la)
       {
         strings pops;
 
@@ -647,22 +669,26 @@ namespace build2
       // Parse --libs into loptions/libs (interface and implementation). If
       // ps is not NULL, add each resolves library target as a prerequisite.
       //
-      auto parse_libs = [a, &s, top_sysd, this]
-        (target& t, const pkgconf& pc, bool la, prerequisites* ps)
+      auto parse_libs = [a, &s, top_sysd, this] (target& t,
+                                                 bool binless,
+                                                 const pkgconf& pc,
+                                                 bool la,
+                                                 prerequisites* ps)
       {
         strings lops;
         vector<name> libs;
 
         // Normally we will have zero or more -L's followed by one or more
-        // -l's, with the first one being the library itself. But sometimes
-        // we may have other linker options, for example, -Wl,... or
-        // -pthread. It's probably a bad idea to ignore them. Also,
-        // theoretically, we could have just the library name/path.
+        // -l's, with the first one being the library itself, unless the
+        // library is binless. But sometimes we may have other linker options,
+        // for example, -Wl,... or -pthread. It's probably a bad idea to
+        // ignore them. Also, theoretically, we could have just the library
+        // name/path.
         //
         // The tricky part, of course, is to know whether what follows after
         // an option we don't recognize is its argument or another option or
-        // library. What we do at the moment is stop recognizing just
-        // library names (without -l) after seeing an unknown option.
+        // library. What we do at the moment is stop recognizing just library
+        // names (without -l) after seeing an unknown option.
         //
         bool arg (false), first (true), known (true), have_L;
         for (auto& o: pc.libs (la))
@@ -693,14 +719,17 @@ namespace build2
           if ((known && o[0] != '-') ||
               (n > 2 && o[0] == '-' && o[1] == 'l'))
           {
-            // First one is the library itself, which we skip. Note that we
-            // don't verify this and theoretically it could be some other
-            // library, but we haven't encountered such a beast yet.
+            // Unless binless, the first one is the library itself, which we
+            // skip. Note that we don't verify this and theoretically it could
+            // be some other library, but we haven't encountered such a beast
+            // yet.
             //
             if (first)
             {
               first = false;
-              continue;
+
+              if (!binless)
+                continue;
             }
 
             // @@ If by some reason this is the library itself (doesn't go
@@ -739,7 +768,7 @@ namespace build2
           return r;
         };
 
-        if (first)
+        if (first && !binless)
           fail << "library expected in '" << lflags () << "'" <<
             info << "while parsing pkg-config --libs " << pc.path;
 
@@ -1015,13 +1044,6 @@ namespace build2
         }
       };
 
-      pair<path, path> pp (search ());
-      const path& ap (pp.first);
-      const path& sp (pp.second);
-
-      if (ap.empty () && sp.empty ())
-        return false;
-
       // For now we only populate prerequisites for lib{}. To do it for
       // liba{} would require weeding out duplicates that are already in
       // lib{}.
@@ -1035,7 +1057,7 @@ namespace build2
       //
       dir_paths pc_dirs;
 
-      // Note that we rely on "small function object" optimization here.
+      // Note that we rely on the "small function object" optimization here.
       //
       auto add_pc_dir = [&pc_dirs] (dir_path&& d) -> bool
       {
@@ -1043,9 +1065,9 @@ namespace build2
         return true;
       };
 
-      pkgconf_dir  (libd,     add_pc_dir);
-      pkgconf_dirs (top_usrd, add_pc_dir);
-      pkgconf_dirs (top_sysd, add_pc_dir);
+      pkgconfig_search (libd, add_pc_dir);
+      for (const dir_path& d: top_usrd) pkgconfig_search (d, add_pc_dir);
+      for (const dir_path& d: top_sysd) pkgconfig_search (d, add_pc_dir);
 
       // First sort out the interface dependencies (which we are setting on
       // lib{}). If we have the shared .pc variant, then we use that.
@@ -1053,6 +1075,7 @@ namespace build2
       // the saving logic).
       //
       pkgconf& ipc (sp.empty () ? apc : spc); // Interface package info.
+      bool ibl ((sp.empty () ? st->path () : at->path ()).empty ()); // Binless.
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())
@@ -1062,12 +1085,12 @@ namespace build2
       if (ps || ap.empty ())
         spc = pkgconf (sp, pc_dirs, sys_lib_dirs, sys_inc_dirs);
 
-      parse_libs (lt, ipc, false, &prs);
+      parse_libs (lt, ibl, ipc, false, &prs);
 
       if (pa)
       {
         parse_cflags (*at, apc, true);
-        parse_libs (*at, apc, true, nullptr);
+        parse_libs (*at, at->path ().empty (), apc, true, nullptr);
       }
 
       if (ps)
@@ -1090,11 +1113,17 @@ namespace build2
       // file rule won't match.
       //
       lt.mtime (file_mtime (ipc.path));
-
-      return true;
     }
 
 #else
+
+    pair<path, path> common::
+    pkgconfig_search (const dir_path&,
+                      const optional<project_name>&,
+                      const string&) const
+    {
+      return pair<path, path> ();
+    }
 
     bool common::
     pkgconfig_load (action,
@@ -1109,6 +1138,20 @@ namespace build2
                     const dir_paths&) const
     {
       return false;
+    }
+
+    void common::
+    pkgconfig_load (action,
+                    const scope&,
+                    lib&,
+                    liba*,
+                    libs*,
+                    const pair<path, path>&,
+                    const dir_path&,
+                    const dir_paths&,
+                    const dir_paths&) const
+    {
+      assert (false); // Should never be called.
     }
 
 #endif
@@ -1132,9 +1175,7 @@ namespace build2
       using install::resolve_dir;
 
       dir_path idir (resolve_dir (l, cast<dir_path> (l["install.include"])));
-      dir_path ldir (binless
-                     ? dir_path ()
-                     : resolve_dir (l, cast<dir_path> (l["install.lib"])));
+      dir_path ldir (resolve_dir (l, cast<dir_path> (l["install.lib"])));
 
       if (verb >= 2)
         text << "cat >" << p;
@@ -1258,9 +1299,12 @@ namespace build2
         //   the second position, not first. Gets even trickier with
         //   Libs.private split.
         //
-        if (!binless)
         {
           os << "Libs:";
+
+          // While we don't need it for a binless library itselt, it may be
+          // necessary to resolve its binfull dependencies.
+          //
           os << " -L" << escape (ldir.string ());
 
           // Now process ourselves as if we were being linked to something (so
@@ -1317,7 +1361,7 @@ namespace build2
 
           process_libraries (a, bs, li, sys_lib_dirs,
                              l, la, 0, // Link flags.
-                             imp, lib, opt, true);
+                             imp, lib, opt, !binless);
           os << endl;
 
           if (la)
