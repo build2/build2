@@ -1084,7 +1084,7 @@ namespace build2
       // the saving logic).
       //
       pkgconf& ipc (sp.empty () ? apc : spc); // Interface package info.
-      bool ibl ((sp.empty () ? st->path () : at->path ()).empty ()); // Binless.
+      bool ibl ((sp.empty () ? at->path () : st->path ()).empty ()); // Binless.
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())
