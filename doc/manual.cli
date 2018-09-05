@@ -2511,6 +2511,20 @@ $ b config.bin.lib=both config.bin.exe.lib=static
 
 See the \c{bin} module for more information. @@ ref|
 
+Note also that we don't need to change anything in the above \c{buildfile} if
+our library is header-only. In \c{build2} this is handled dynamically based on
+the absence of source file prerequisites. In fact, the same library can be
+header-only on some platforms or in some configuration and \"source-full\" in
+others.
+
+\N|In \c{build2} a header-only library (or a module interface-only library) is
+not a different kind of library compared to static/shared libraries but is
+rather a binary-less, or \i{binless} for short, library. So, theoretically, it
+is possible to have a library that has a binless static and a binary-full
+(\i{binfull}) shared variants. Note also that binless libraries can depend on
+binfull libraries and are fully supported where the \c{pkg-config(1)}
+functionality is concerned.|
+
 Let's now turn to the second subject of this section and the last unexplained
 bit in our \c{buildfile}: shared library versionsing. Here is the relevant
 fragment:
