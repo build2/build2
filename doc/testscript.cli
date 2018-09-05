@@ -581,14 +581,14 @@ the working directory structure will be as follows:
 \
 $out_base/
 └── test-hello/
-      ├── command-name/
-      ├── command-names/
-      ├── stdin-names/
-      ├── config/
-      │    ├── hello.conf
-      │    ├── custom-greet/
-      │    └── default-greet/
-      └── missing-name/
+    ├── command-name/
+    ├── command-names/
+    ├── stdin-names/
+    ├── config/
+    │   ├── hello.conf
+    │   ├── custom-greet/
+    │   └── default-greet/
+    └── missing-name/
 \
 
 If all the tests succeed, then this working directory structure is
