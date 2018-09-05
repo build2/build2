@@ -311,7 +311,8 @@ namespace build2
       pair<path, path>
       pkgconfig_search (const dir_path&,
                         const optional<project_name>&,
-                        const string&) const;
+                        const string&,
+                        bool) const;
 
       void
       pkgconfig_load (action, const scope&,

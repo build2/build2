@@ -750,7 +750,11 @@ namespace build2
 
           if (na || ns)
           {
-            pair<path, path> r (pkgconfig_search (d, p.proj, name));
+            // Only consider the common .pc file if we can be sure there
+            // is no binfull variant.
+            //
+            pair<path, path> r (
+              pkgconfig_search (d, p.proj, name, na && ns /* common */));
 
             if (na && !r.first.empty ())
             {

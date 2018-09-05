@@ -485,12 +485,14 @@ namespace build2
 
     // Search for the .pc files in the pkgconf directories that correspond to
     // the specified library directory. If found, return static (first) and
-    // shared (second) library .pc files.
+    // shared (second) library .pc files. If common is false, then only
+    // consider our .static/.shared files.
     //
     pair<path, path> common::
     pkgconfig_search (const dir_path& libd,
                       const optional<project_name>& proj,
-                      const string& stem) const
+                      const string& stem,
+                      bool common) const
     {
       // When it comes to looking for .pc files we have to decide where to
       // search (which directory(ies)) as well as what to search for (which
@@ -541,30 +543,36 @@ namespace build2
         return path ();
       };
 
-      pair<path, path> r;
-
       // Return false (and so stop the iteration) if a .pc file is found.
       //
       // Note that we rely on the "small function object" optimization here.
       //
-      auto check = [&r, &search_dir] (dir_path&& d) -> bool
+      struct data
+      {
+        pair<path, path> r;
+        bool common;
+      } d {{}, common};
+
+      auto check = [&d, &search_dir] (dir_path&& p) -> bool
       {
         // First look for static/shared-specific files.
         //
-        r.first  = search_dir (d, ".static");
-        r.second = search_dir (d, ".shared");
+        d.r.first  = search_dir (p, ".static");
+        d.r.second = search_dir (p, ".shared");
 
-        if (!r.first.empty () || !r.second.empty ())
+        if (!d.r.first.empty () || !d.r.second.empty ())
           return false;
 
         // Then the common.
         //
-        r.first = r.second = search_dir (d, string ());
-        return r.first.empty ();
+        if (d.common)
+          d.r.first = d.r.second = search_dir (p, string ());
+
+        return d.r.first.empty ();
       };
 
       pkgconfig_search (libd, check);
-      return r;
+      return d.r;
     };
 
     bool common::
@@ -581,7 +589,8 @@ namespace build2
     {
       assert (at != nullptr || st != nullptr);
 
-      pair<path, path> p (pkgconfig_search (libd, proj, stem));
+      pair<path, path> p (
+        pkgconfig_search (libd, proj, stem, true /* common */));
 
       if (p.first.empty () && p.second.empty ())
         return false;
@@ -1120,7 +1129,8 @@ namespace build2
     pair<path, path> common::
     pkgconfig_search (const dir_path&,
                       const optional<project_name>&,
-                      const string&) const
+                      const string&,
+                      bool) const
     {
       return pair<path, path> ();
     }
