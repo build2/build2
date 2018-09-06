@@ -12,12 +12,9 @@
 //
 
 // @@ backlink variable ref (build system core variables reference?)
-// @@ how do we get code for unit tests (utility libraries)
 // @@ installation of dependencies
 
 /*
-@@ explain unit tests implementation (utility libs by example)
-
 @@ include includes once (also source)
 
 - amalgamation (I think leave to its section, maybe mention and ref in search
@@ -1881,7 +1878,9 @@ files that need to be found, etc. For simple programs, however, testing the
 executable before installing is usually sufficient.
 
 For a general discussion of functional/integration and unit testing refer to
-the \l{intro#proj-struct-tests Tests} section in the toolchain introduction.|
+the \l{intro#proj-struct-tests Tests} section in the toolchain introduction.
+For details on the unit test support implementation see \l{#intro-unit-test
+Unit Testing}.|
 
 
 \h2#intro-operations-install|Installation|
@@ -3115,6 +3114,183 @@ for x: x X
 info $x  # Prints 'X'.
 info $y  # Prints 'Y'.
 \
+
+
+\h#intro-unit-test|Unit Testing|
+
+As an example of how many of these features fit together to implement more
+advanced functionality, let's examine a \c{buildfile} that provides support
+for unit testing. This support is added by the \l{bdep-new(1)} command if we
+specify the \c{unit-tests} option when creating executable (\c{-t\
+exe,unit-tests}) or library (\c{-t\ lib,unit-tests}) projects. Here is the
+source subdirectory \c{buildfile} of an executable created with this option:
+
+\
+./: exe{hello}
+exe{hello}: libue{hello} testscript
+libue{hello}: {hxx cxx}{** -**.test...}
+
+# Unit tests.
+#
+exe{*.test}: test = true
+exe{*.test}: install = false
+
+for t: cxx{**.test...}
+{
+  d = $directory($t)
+  n = $name($t)...
+
+  ./: $d/exe{$n}
+  $d/exe{$n}: $t $d/hxx{+$n} $d/testscript{+$n}
+  $d/exe{$n}: libue{hello}: bin.whole = false
+}
+
+cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
+\
+
+The basic idea behind this unit testing arrangement is to keep unit tests next
+to the source code files that they test and automatically recognize and build
+them into test executables without having to manually list each in our
+\c{buildfile}. Specifically, if we have \c{hello.hxx} and \c{hello.cxx},
+then to add a unit test for this module all we have to do is drop the
+\c{hello.test.cxx} source file next to them and it will be automatically
+picked up, built into an executable, and ran during the \c{test} operation.
+
+As an example, let's say we've renamed \c{hello.cxx} to \c{main.cxx} and
+factored the printing code into the \c{hello.hxx/hello.cxx} module that we
+would like to unit-test. Here is the new layout:
+
+\
+hello/
+├── build
+│   └── ...
+├── hello
+│   ├── hello.cxx
+│   ├── hello.hxx
+│   ├── hello.test.cxx
+│   ├── main.cxx
+│   └── buildfile
+└── ...
+\
+
+Let's see how this is implemented line by line. Because now have to link
+\c{hello.cxx} object code to multiple executables (unit tests and the
+\c{hello} program itself), we have to place it into a \i{utility library}.
+This is what the first three lines do (the first line explicitly lists
+\c{exe{hello\}} as a prerequisites of the default targets since we now have
+multiple targets that should be built by default):
+
+\
+./: exe{hello}
+exe{hello}: libue{hello} testscript
+libue{hello}: {hxx cxx}{** -**.test...}
+\
+
+A utility library (\cb{u} in \c{lib\b{u}e}) is a static library that is built
+for a specific type of a \i{primary target} (\cb{e} in \c{libu\b{e}} for
+executable). If we were building a utility library for a library then we would
+have used the \c{libul{\}} target type instead. In fact, this would be the
+only difference in the above unit testing implementation if it were for a
+library project instead of executable:
+
+\
+./: lib{hello}
+lib{hello}: libul{hello}
+libul{hello}: {hxx cxx}{** -**.test...}
+
+# Unit tests.
+#
+...
+
+for t: cxx{**.test...}
+{
+  ...
+
+  $d/exe{$n}: libul{hello}: bin.whole = false
+}
+\
+
+Back to the first three lines of the executable \c{buildfile}, notice that we
+had to exclude source files in the \c{*.test.cxx} form from the utility
+library. This makes sense since we don't want unit testing code (each with its
+own \c{main()}) to end up in the utility library.
+
+The exclusion pattern, \c{-**.test...}, looks a bit cryptic. What we have here
+is a second-level extension (\c{.test}) which we use to classify our source
+files as belonging to unit tests. Because it is a second-level extension we
+have to indicate this fact to the pattern matching machinery with the trailing
+triple dot (meaning \"there are more extensions coming\"). If we didn't do
+that it would have thought we've specified an explicit first-level extension
+for our source files and it is \c{.test}.
+
+\N|If you need to specify a name that does not have an extension then end it
+with a single dot. For example, for a header \c{utility} you would write
+\c{hxx{utility.\}}. If you need to specify a name with an actual trailing
+dot, then escape it with a double dot, for example, \c{hxx{utility..\}}.|
+
+The next couple of lines use target/pattern-specific variables to treat
+all unit test executables as tests that should not be installed:
+
+\
+exe{*.test}: test = true
+exe{*.test}: install = false
+\
+
+Then we have the \c{for}-loop that declares an executable target for each unit
+test source file. The list of these files is generated with a name pattern
+that is the inverse of what we've used for the utility library:
+
+\
+for t: cxx{**.test...}
+{
+  d = $directory($t)
+  n = $name($t)...
+
+  ./: $d/exe{$n}
+  $d/exe{$n}: $t $d/hxx{+$n} $d/testscript{+$n}
+  $d/exe{$n}: libue{hello}: bin.whole = false
+}
+\
+
+In the loop body we first split the test source file into the directory
+(remember, we can have sources, including tests, in subdirectories) and name
+(which contains the \c{.test} second-level extension and which we immediately
+escape with \c{...}). And then we use these components to declare a dependency
+for the corresponding unit test executable. There is nothing here that we
+haven't already seen except for using variable expansions instead of literal
+names.
+
+By default utility libraries are linked in the \"whole archive\" mode where
+every object file from the static library ends up in the resulting executable
+or library. This behavior is normally what we want when linking the primary
+target but can be relaxed for unit tests to speed linking up. This is what
+the last line in the loop does using the \c{bin.whole} prerequisite-specific
+variable.
+
+\N|You can easily customize this and other aspects on the test-by-test basis
+by excluding the specific test(s) from the loop and then providing a custom
+implementation. For example:
+
+\
+for t: cxx{**.test... -special.test...}
+{
+  ...
+}
+
+./: exe{special.test...}
+exe{special.test...}: cxx{special.test...} libue{hello}
+\
+
+Note also that if you plan to link any of your unit tests in the whole archive
+mode, then you will also need to exclude the source file containing the
+primary executable's \c{main()} from the utility library. For example:
+
+\
+exe{hello}: cxx{main} libue{hello} testscript
+libue{hello}: {hxx cxx}{** -main -**.test...}
+\
+
+|
 
 
 \h1#name-patterns|Name Patterns|
