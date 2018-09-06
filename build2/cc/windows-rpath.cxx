@@ -77,7 +77,7 @@ namespace build2
         {
           // This can be an "undiscovered" DLL (see search_library()).
           //
-          if (!l->is_a<libs> () || l->path ().empty ()) // Covers binless.
+          if (!l->is_a<libs> () || l->path ().empty ()) // Also covers binless.
             return;
         }
         else
@@ -152,7 +152,7 @@ namespace build2
 
         if (l != nullptr)
         {
-          if (l->is_a<libs> () && !l->path ().empty ()) // Covers binless.
+          if (l->is_a<libs> () && !l->path ().empty ()) // Also covers binless.
           {
             // Get .pdb if there is one.
             //

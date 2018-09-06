@@ -614,9 +614,7 @@ namespace build2
       libs* s (nullptr);
 
       pair<path, path> pc; // pkg-config .pc file paths.
-
-      path f; // Reuse the buffer.
-      const dir_path* pd (nullptr);
+      path f;              // Reuse the buffer.
 
       auto search =[&a, &s, &pc,
                     &an, &ae,
@@ -670,7 +668,7 @@ namespace build2
                 // but valid timestamp (aka "trust me, it's there").
                 //
                 s->mtime (mt);
-                s->path (path ());
+                s->path (empty_path);
               }
             }
             else
@@ -787,6 +785,7 @@ namespace build2
       if (!usrd)
         usrd = extract_library_dirs (*p.scope);
 
+      const dir_path* pd (nullptr);
       for (const dir_path& d: *usrd)
       {
         if (search (d))

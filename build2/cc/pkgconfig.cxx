@@ -549,30 +549,38 @@ namespace build2
       //
       struct data
       {
-        pair<path, path> r;
+        path a;
+        path s;
         bool common;
-      } d {{}, common};
+      } d {path (), path (), common};
 
       auto check = [&d, &search_dir] (dir_path&& p) -> bool
       {
         // First look for static/shared-specific files.
         //
-        d.r.first  = search_dir (p, ".static");
-        d.r.second = search_dir (p, ".shared");
+        d.a = search_dir (p, ".static");
+        d.s = search_dir (p, ".shared");
 
-        if (!d.r.first.empty () || !d.r.second.empty ())
+        if (!d.a.empty () || !d.s.empty ())
           return false;
 
         // Then the common.
         //
         if (d.common)
-          d.r.first = d.r.second = search_dir (p, string ());
+          d.a = d.s = search_dir (p, "");
 
-        return d.r.first.empty ();
+        return d.a.empty ();
       };
 
-      pkgconfig_search (libd, check);
-      return d.r;
+      pair<path, path> r;
+
+      if (pkgconfig_search (libd, check))
+      {
+        r.first  = move (d.a);
+        r.second = move (d.s);
+      }
+
+      return r;
     };
 
     bool common::
@@ -1084,7 +1092,14 @@ namespace build2
       // the saving logic).
       //
       pkgconf& ipc (sp.empty () ? apc : spc); // Interface package info.
-      bool ibl ((sp.empty () ? at->path () : st->path ()).empty ()); // Binless.
+      bool ibl (sp.empty () // Binless.
+                ? at->path ().empty ()
+                //
+                // On Windows the shared library could be a DLL with an empty
+                // path (unknown location) and an ad hoc member that is the
+                // import library. See search_library() for details.
+                //
+                : st->path ().empty () && st->member != nullptr);
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())

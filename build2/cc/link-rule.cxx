@@ -1238,6 +1238,12 @@ namespace build2
             // Linking a library to a shared library or executable.
             //
 
+            // Note: on Windows shared library could be the DLL with unknown
+            // location (empty path). See search_library() for details.
+            //
+            if (l->path ().empty () && l->member != nullptr) // Binless.
+              return;
+
             // On Windows a shared library is a DLL with the import library as
             // a first ad hoc group member. MinGW though can link directly to
             // DLLs (see search_library() for details).
@@ -1246,9 +1252,6 @@ namespace build2
                 l->is_a<libs> ()     &&
                 tclass == "windows")
               l = &l->member->as<file> ();
-
-            if (l->path ().empty ()) // Binless.
-              return;
 
             string p (relative (l->path ()).string ());
 
@@ -1349,6 +1352,16 @@ namespace build2
           if (d.li.type == otype::a && !lu)
             return;
 
+          // Note: on Windows shared library could be the DLL with unknown
+          // location (empty path). See search_library() for details.
+          //
+          if (l->path ().empty () && l->member != nullptr) // Binless.
+            return;
+
+          // Check if this library renders us out of date.
+          //
+          d.update = d.update || l->newer (d.mt);
+
           // On Windows a shared library is a DLL with the import library as a
           // first ad hoc group member. MinGW though can link directly to DLLs
           // (see search_library() for details).
@@ -1357,13 +1370,6 @@ namespace build2
               l->is_a<libs> ()     &&
               tclass == "windows")
             l = &l->member->as<file> ();
-
-          if (l->path ().empty ()) // Binless.
-            return;
-
-          // Check if this library renders us out of date.
-          //
-          d.update = d.update || l->newer (d.mt);
 
           d.cs.append (f);
           hash_path (d.cs, l->path (), d.out_root);
