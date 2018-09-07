@@ -1241,7 +1241,7 @@ namespace build2
             // Note: on Windows shared library could be the DLL with unknown
             // location (empty path). See search_library() for details.
             //
-            if (l->path ().empty () && l->member != nullptr) // Binless.
+            if (l->path ().empty () && l->member == nullptr) // Binless.
               return;
 
             // On Windows a shared library is a DLL with the import library as
@@ -1355,7 +1355,7 @@ namespace build2
           // Note: on Windows shared library could be the DLL with unknown
           // location (empty path). See search_library() for details.
           //
-          if (l->path ().empty () && l->member != nullptr) // Binless.
+          if (l->path ().empty () && l->member == nullptr) // Binless.
             return;
 
           // Check if this library renders us out of date.

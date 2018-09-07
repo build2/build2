@@ -452,8 +452,9 @@ namespace build2
 #ifndef BUILD2_BOOTSTRAP
 
     // Iterate over pkgconf directories that correspond to the specified
-    // library directory, passing them to the callback function, until the
-    // function returns false.
+    // library directory, passing them to the callback function for as long as
+    // it returns false (not found). Return true if the callback returned
+    // true.
     //
     bool common::
     pkgconfig_search (const dir_path& d, const pkgconfig_callback& f) const
@@ -465,8 +466,8 @@ namespace build2
       // .pc files of autotools-based packages installed by the user often
       // still end up there.
       //
-      if (exists (pd /= "pkgconfig") && !f (move (pd)))
-        return false;
+      if (exists (pd /= "pkgconfig") && f (move (pd)))
+        return true;
 
       // Platform-specific locations.
       //
@@ -474,13 +475,13 @@ namespace build2
       {
         // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
         //
-        pd = d;
-        if (exists (((pd /= "..") /= "libdata") /= "pkgconfig") &&
-            !f (move (pd)))
-          return false;
+        (((pd = d) /= "..") /= "libdata") /= "pkgconfig";
+
+        if (exists (pd) && f (move (pd)))
+          return true;
       }
 
-      return true;
+      return false;
     }
 
     // Search for the .pc files in the pkgconf directories that correspond to
@@ -562,14 +563,14 @@ namespace build2
         d.s = search_dir (p, ".shared");
 
         if (!d.a.empty () || !d.s.empty ())
-          return false;
+          return true;
 
         // Then the common.
         //
         if (d.common)
           d.a = d.s = search_dir (p, "");
 
-        return d.a.empty ();
+        return !d.a.empty ();
       };
 
       pair<path, path> r;
@@ -1079,7 +1080,7 @@ namespace build2
       auto add_pc_dir = [&pc_dirs] (dir_path&& d) -> bool
       {
         pc_dirs.emplace_back (move (d));
-        return true;
+        return false;
       };
 
       pkgconfig_search (libd, add_pc_dir);
@@ -1099,7 +1100,7 @@ namespace build2
                 // path (unknown location) and an ad hoc member that is the
                 // import library. See search_library() for details.
                 //
-                : st->path ().empty () && st->member != nullptr);
+                : st->path ().empty () && st->member == nullptr);
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())
