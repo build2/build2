@@ -17,10 +17,6 @@
 /*
 @@ include includes once (also source)
 
-- amalgamation (I think leave to its section, maybe mention and ref in search
-  order)
-- create: as common configuration?
-
 @@ info (where? in scopes? could show some? separate section?)
 @@ other meta-ops: create (anything else?)
 
@@ -30,6 +26,7 @@
    projects.
 
 @@ establish a chapter for each module
+@@ module synopsis idea
 */
 
 "
@@ -2633,7 +2630,250 @@ details).
 
 \h#intro-subproj|Subprojects and Amalgamations|
 
-@@ TODO
+In \c{build2} projects can contain other projects, recursively. In this
+arrangement the outer project is called an \i{amalgamation} and the inner \-
+\i{subprojects}. In contrast to importation where we merely reference a
+project somewhere else, amalgamation is physical containment. It can be
+\i{strong} where the src directory of a subproject is within the amalgamating
+project or \i{weak} where only the out directory is contained.
+
+There are several distinct use cases for amalgamations. We've already
+discussed the \c{tests/} subproject in \c{libhello}. To recap, traditionally
+it is made a subproject rather than a subdirectory to support building it as a
+standalone project in order to test the library installation.
+
+As discussed in \l{#intro-import Target Importation}, subprojects and
+amalgamations (as well as their subprojects, recursively) are automatically
+considered when resolving imports. As a result, amalgamation can be used to
+\i{bundle} our dependencies to produce an external dependency-free
+distribution. For example, if our \c{hello} project imports \c{libhello}, then
+we could copy the \c{libhello} project inside \c{hello}, for example:
+
+\
+$ tree hello/
+hello/
+├── build/
+│   └── ...
+├── hello/
+│   ├── hello.cxx
+│   └── ...
+├── libhello/
+│   ├── build/
+│   │   └── ...
+│   ├── libhello/
+│   │   ├── hello.hxx
+│   │   ├── hello.cxx
+│   │   └── ...
+│   ├── tests/
+│   │   └── ...
+│   └── buildfile
+└── buildfile
+
+$ b hello/
+c++ hello/libhello/libhello/cxx{hello}
+ld hello/libhello/libhello/libs{hello}
+c++ hello/hello/cxx{hello}
+ld hello/hello/exe{hello}
+\
+
+Note, however, that while project bundling can be useful in certain cases, it
+does not scale as a general dependency management solution. For that packaging
+and \l{bpkg(1)}, the \c{build2} package dependency manager, are the
+appropriate mechanisms.
+
+\N|By default \c{build2} looks for subprojects only in the root directory of a
+project. That is, every root subdirectory is examined to be a project root. If
+you need to place a subproject somewhere else in your project's directory
+hierarchy, then you will need to specify its location (and of all other
+subprojects) explicitly with the \c{subprojects} variable in
+\c{bootstrap.build}. For example, if above we placed \c{libhello} into the
+\c{extras/} subdirectory of \c{hello}, then our \c{bootstrap.build} would
+need to start like this:
+
+\
+project = hello
+subprojects = extras/libhello/
+...
+\
+
+Note also that while importation of specific targets from subprojects is
+always performed, whether they are loaded and built as part of the overall
+project build is controlled using the standard subdirectories inclusion
+and dependency. Continue with the above example, if we adjust the root
+\c{buildfile} in \c{hello} project to exclude the \c{extras/} subdirectory
+from the build:
+
+\
+./: {*/ -build/ -extras/}
+\
+
+Then while we can still import \c{libhello} from any \c{buildfile} in our
+project, the entire \c{libhello} (for example, its tests) will never be built
+as part of the \c{hello} build.
+
+Similar to subprojects we can also explicitly specify the project's
+amalgamation with the \c{amalgamation} variable (again, in
+\c{bootstrap.build}). This is rarely necessary except if you want to prevent
+the project from being amalgamated, in which case you should set it to the
+empty value.
+
+If either of these variables is not explicitly set, then it will contain
+the automatically discovered value.|
+
+Besides affecting importation, another important property of amalgamation is
+configuration inheritance. As an example, let's configure the above bundled
+\c{hello} project in the src directory:
+
+\
+$ b configure: hello/ config.cxx=clang++ config.cxx.coptions=-d
+
+$ b tree
+hello/
+├── build/
+│   ├── config.build
+│   └── ...
+├── libhello/
+│   ├── build/
+│   │   ├── config.build
+│   │   └── ...
+│   └── ...
+└── ...
+\
+
+As you can see, we now have the \c{config.build} files in both project's
+\c{build/} subdirectories. If we examine the amalgamation's \c{config.build},
+we will see the familiar picture:
+
+\
+$ cat hello/build/config.build
+
+config.cxx = clang++
+config.cxx.poptions = [null]
+config.cxx.coptions = -d
+config.cxx.loptions = [null]
+config.cxx.libs = [null]
+
+...
+
+\
+
+The subproject's \c{config.build}, however, is pretty much empty:
+
+\
+$ cat hello/libhello/build/config.build
+
+# Base configuration inherited from ../
+\
+
+As the comment suggests, the base configuration is inherited from the outer
+project. We can, however, override some values if we need to. For example
+(note that we are re-configuring the \c{libhello} subproject):
+
+\
+$ b configure: hello/libhello/ config.cxx.coptions+=-O2
+
+$ cat hello/libhello/build/config.build
+
+# Base configuration inherited from ../
+
+config.cxx.coptions = -O2
+\
+
+This configuration inheritance combined with import resolution is behind the
+most common use of amalgamations in \c{build2} \- shared build
+configurations. Let's say we are developing multiple projects, for example,
+\c{libhello} and \c{hello} that imports it:
+
+\
+$ ls -1
+hello/
+libhello/
+\
+
+And we want to build them with several compilers, let's say GCC and Clang. As
+we have already seen in \l{#intro-operations-config Configuration}, we can
+configure several out of source builds for each of them, for example:
+
+\
+$ b configure: libhello/@libhello-gcc/   config.cxx=g++
+$ b configure: libhello/@libhello-clang/ config.cxx=clang++
+
+$ b configure: hello/@hello-gcc/   \
+               config.cxx=g++      \
+               config.import.libhello=libhello-gcc/
+$ b configure: hello/@hello-clang/ \
+               config.cxx=clang++  \
+               config.import.libhello=libhello-clang/
+
+$ ls -l
+hello/
+hello-gcc/
+hello-clang/
+libhello/
+libhello-gcc/
+libhello-clang/
+\
+
+Needless to say, a lot of repetitive typing. Another problem is changes to the
+configurations. If, for example, we need to adjust compile options in the GCC
+configuration we will have to (remember to) do it in multiple places.
+
+You can probably sense where this is going: why not create a shared build
+configuration (that is, an amalgamation) for GCC and Clang where we build both
+of our projects (as its subprojects). This is how we can do that:
+
+\
+$ b create: build-gcc/,cc   config.cxx=g++
+$ b create: build-clang/,cc config.cxx=clang++
+
+$ b configure: libhello/@build-gcc/libhello/
+$ b configure: hello/@build-gcc/hello/
+
+$ b configure: libhello/@build-clang/libhello/
+$ b configure: hello/@build-clang/hello/
+
+$ ls -l
+hello/
+libhello/
+build-gcc/
+build-clang/
+\
+
+Let's explain what's going on here. First we create two build configurations
+using the \c{create} meta-operation. These are real \c{build2} projects just
+tailored for housing other projects as subprojects. After the directory name
+we specify the list of modules to load in the project's \c{root.build}. In our
+case we specify \c{cc} which is a common module for C-based languages (see
+\l{b(1)} for details on \c{create} and its parameters).
+
+\N|When creating build configurations it is a good idea to get into the habit
+of using the \c{cc} module instead of \c{c} or \c{cxx} since with more complex
+dependency chains we may not know whether every project we build only uses C
+or C++. In fact, it is not uncommon for C++ project to have C implementation
+details and even the other way around (yes, really, there are C libraries with
+a C++ implementation).|
+
+Once the configurations are ready we simply configure our \c{libhello} and
+\c{hello} as subprojects in each of them. Note that now we neither need to
+specify \c{config.cxx} since it will be inherited from the amalgamation nor
+\c{config.import.*} since the import will be automatically resolved to a
+subproject.
+
+Now to build a specific project in a particular configuration we simply build
+the corresponding subdirectory. We can also build the entire build
+configuration if we want to. For Example:
+
+\
+$ b build-gcc/hello/
+
+$ b build-clang/
+\
+
+\N|In case you've already looking into \l{bpkg(1)} and/or \l{bdep(1)}, their
+build configurations are actually these same amalgamations (created underneath
+with the \c{create} meta-operation) and their packages are just subprojects.
+And with this understanding you are free to interact with them directly using
+the build system interface.|
 
 
 \h#intro-lang|Buildfile Language|
