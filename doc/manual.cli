@@ -66,7 +66,7 @@ alternatives.
 We believe the importance and complexity of the problem warranted the design
 of a new purpose-built language and will hopefully justify the time it takes
 for you to master it. In the end we hope \c{build2} will make creating and
-maintain build infrastructure for your projects a pleasant task.
+maintaining build infrastructure for your projects a pleasant task.
 
 Also note that \c{build2} is not specific to C/C++ or even to compiled
 languages; its build model is general enough to handle any DAG-based
