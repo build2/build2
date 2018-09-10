@@ -1,3 +1,142 @@
+Version 0.8.0
+
+ * BREAKING: rename the .test extension (Testscript file) to .testscript and
+   the test{} target type to testscript{}.
+
+ * Introduction chapter in the build system manual.
+
+   The introduction covers every aspect of the build infrastructure, including
+   the underlying concepts, for the canonical executable and library projects
+   as produced by bdep-new(1).
+
+ * New 'in' build system module.
+
+   Given test.in containing something along these lines:
+
+   foo = $foo$
+
+   Now we can do:
+
+   using in
+
+   file{test}: in{test.in}
+   file{test}: foo = FOO
+
+   The alternative variable substitution symbol can be specified with the
+   in.symbol variable and lax (instead of the default strict) mode with
+   in.substitution. For example:
+
+   file{test}: in.symbol = '@'
+   file{test}: in.substitution = lax
+
+ * New 'bash' build system module that provides modularization support for bash
+   scripts. See the build system manual for all the details.
+
+ * Support for 'binless' (binary-less aka header-only) libraries.
+
+   A header-only library (or, in the future, a module interface-only library)
+   is not a different kind of library compared to static/shared libraries but
+   is rather a binary-less, or binless for short, static or shared library.
+   Whether a library is binless is determined dynamically and automatically
+   based on the absence of source file prerequisites. See the build system
+   manual for details.
+
+ * Use thin archives for utility libraries if available.
+
+   Thin archives are supported by GNU ar since binutils 2.19.1 and LLVM ar
+   since LLVM 3.8.0.
+
+ * Support for archive checksum generation during distribution:
+
+   Now we can do:
+
+   $ b dist: ... \
+   config.dist.archives='tar.gz zip' \
+   config.dist.checksums='sha1 sha256'
+
+   And end up with .tar.gz.sha1, .tar.gz.sha256, .zip.sha1, and .zip.sha256
+   checksum files in addition to archives.
+
+ * Support for excluded and ad hoc prerequisites:
+
+   The inclusion/exclusion is controlled via the 'include' prerequisite-
+   specific variable. Valid values are:
+
+   false  - exclude
+   true   - include
+   adhoc  - include but treat as an ad hoc input
+
+   For example:
+
+   lib{foo}: cxx{win32-utility}: include = ($cxx.targe.class == 'windows')
+   exe{bar}: libs{plugin}: include = adhoc
+
+ * C++ Modules support:
+
+   - handle the leading 'module;' marker (p0713)
+   - switch to new GCC module interface (-fmodule-mapper)
+   - force reprocessing for module interface units if compiling with MSVC
+
+ * Testscript:
+
+   - new mv built
+   - new --after <ref-file> option in touch builtin
+
+ * New $process.run() and $process.run_regex() functions:
+
+   $process.run(<prog>[ <args>...])
+
+   Return trimmed stdout.
+
+   $process.run_regex(<prog>[ <args>...], <pat> [, <fmt>])
+
+   Return stdout lines matched and optionally processed with regex.
+
+   Each line of stdout (including the customary trailing blank) is matched (as
+   a whole) against <pat> and, if successful, returned, optionally processed
+   with <fmt>, as an element of a list.
+
+ * Support for name patterns without wildcard characters.
+
+   In particular, this allows the "if-exists" specification of prerequisites,
+   for example:
+
+   for t: $tests
+     exe{$t}: cxx{$t} test{+$t}
+
+ * Functions for decomposing name as target/prerequisite name:
+
+   $name.name()
+   $name.extension()
+   $name.directory()
+   $name.target_type()
+   $name.project()
+
+ * Add support for default extension specification, trailing dot escaping.
+
+   For example:
+
+   cxx{*}: extension = cxx
+
+   cxx{foo}         # foo.cxx
+   cxx{foo.test}    # foo.test      (probably what we want...)
+   cxx{foo.test...} # foo.test.cxx  (... is this)
+   cxx{foo..}       # foo.
+   cxx{foo....}     # foo..
+   cxx{foo.....}    # error (must come in escape pairs)
+
+ * Use (native) C and C++ compilers we were built with as defaults for
+   config.c and config.cxx, respectively.
+
+ * Implement missing pieces in utility libraries support. In particular, we
+   can now build static libraries out of utility libraries.
+
+ * Built-in support for Windows module definition files (.def/def{}).
+
+ * Project names are now sanitized when forming the config.import.<proj>
+   variables. Specifically, '-', '+', and '.' are replaced with '_' to form a
+   "canonical" variable name.
+
 Version 0.7.0
 
  * Initial support for Clang targeting MSVC runtime (native Clang interface,
