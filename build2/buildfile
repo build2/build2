@@ -5,11 +5,11 @@
 import libs  = libbutl%lib{butl}
 import libs += libpkgconf%lib{pkgconf}
 
-exe{b}:  cxx{b} libu{b}
+exe{b}:  cxx{b} libue{b}
 
-libu{b}: {hxx ixx txx cxx}{** -b -b-options -version} \
-         {hxx ixx cxx}{b-options} {hxx}{version}      \
-         $libs
+libue{b}: {hxx ixx txx cxx}{** -b -b-options -version} \
+          {hxx ixx cxx}{b-options} {hxx}{version}      \
+          $libs
 
 hxx{version}: in{version} $src_root/manifest
 
