@@ -79,7 +79,7 @@ Version 0.8.0
 
  * Testscript:
 
-   - new mv built
+   - new mv builtin
    - new --after <ref-file> option in touch builtin
 
  * New $process.run() and $process.run_regex() functions:
