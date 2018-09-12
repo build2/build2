@@ -483,7 +483,7 @@ namespace build2
       // can teach the version module to extract it, and we can also set it
       // for the other packages in the toolchain.
       //
-      set ("build.version.stage", false);
+      set ("build.version.stage", true);
     }
 
     // Enter the host information. Rather than jumping through hoops like
