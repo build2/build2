@@ -3879,28 +3879,35 @@ namespace build2
           string t1;
           const string* tp1 (tp);
 
-          if (p == string::npos) // type
-            tp1 = &val;
-          else if (p == n) // directory
+          try
           {
-            if (dp == nullptr)
-              d1 = dir_path (val);
-            else
-              d1 = *dp / dir_path (val);
+            if (p == string::npos) // type
+              tp1 = &val;
+            else if (p == n) // directory
+            {
+              if (dp == nullptr)
+                d1 = dir_path (val);
+              else
+                d1 = *dp / dir_path (val);
 
-            dp1 = &d1;
+              dp1 = &d1;
+            }
+            else // both
+            {
+              t1.assign (val, p + 1, n - p);
+
+              if (dp == nullptr)
+                d1 = dir_path (val, 0, p + 1);
+              else
+                d1 = *dp / dir_path (val, 0, p + 1);
+
+              dp1 = &d1;
+              tp1 = &t1;
+            }
           }
-          else // both
+          catch (const invalid_path& e)
           {
-            t1.assign (val, p + 1, n - p);
-
-            if (dp == nullptr)
-              d1 = dir_path (val, 0, p + 1);
-            else
-              d1 = *dp / dir_path (val, 0, p + 1);
-
-            dp1 = &d1;
-            tp1 = &t1;
+            fail (t) << "invalid path '" << e.path << "'";
           }
 
           count = parse_names_trailer (
