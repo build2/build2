@@ -2034,7 +2034,7 @@ data        data_root/share/<project>/      config.install.data
 include     data_root/include/              config.install.include
 
 doc         data_root/share/doc/<project>/  config.install.doc
-man         data_root/man/                  config.install.man
+man         data_root/share/man/            config.install.man
 man<N>      man/man<N>/                     config.install.man<N>
 \
 
