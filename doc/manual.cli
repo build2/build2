@@ -654,7 +654,14 @@ inclusion scheme where each header is prefixed with its project name. It also
 has a predictable name where users can expect to find our project's source
 code. Finally, this layout prevents clutter in the project's root directory
 which usually contains various other files. See \l{intro#structure-canonical
-Canonical Project Structure} for more information.|
+Canonical Project Structure} for more information.
+
+Note also that while we can name our header and source files however we like
+(but, again, see \l{intro#structure-canonical Canonical Project Structure} for
+some sensible guidelines), C++ module interface files need to embed a
+sufficient amount of the module name suffix in their names to unambiguously
+resolve all the modules within a project. See \l{#cxx-modules-build
+Building Modules} for details.|
 
 The source subdirectory \c{buildfile} is identical to the simple project's
 minus the parts moved to \c{root.build}:
