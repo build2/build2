@@ -1056,10 +1056,11 @@ $ b --verbose 6
 
   /tmp/hello/
   {
-    [dir_path] src_base = /tmp/hello/
-    [dir_path] out_root = /tmp/hello/
 
     [dir_path] src_root = /tmp/hello/
+    [dir_path] out_root = /tmp/hello/
+
+    [dir_path] src_base = /tmp/hello/
     [dir_path] out_base = /tmp/hello/
 
     [project_name] project = hello
@@ -1474,14 +1475,14 @@ repeat this configuration on every build system invocation:
 \
 $ cd hello/  # Change to project root.
 
-$ b config.cxx=clang++ config.cxx.coptions=-d
+$ b config.cxx=clang++ config.cxx.coptions=-g
 \
 
 Instead, we can configure our project with this information once and from
 then on invoke the build system without any arguments:
 
 \
-$ b configure config.cxx=clang++ config.cxx.coptions=-d
+$ b configure config.cxx=clang++ config.cxx.coptions=-g
 
 $ tree ./
 ./
@@ -1503,7 +1504,7 @@ $ cat build/config.build
 
 config.cxx = clang++
 config.cxx.poptions = [null]
-config.cxx.coptions = -d
+config.cxx.coptions = -g
 config.cxx.loptions = [null]
 config.cxx.libs = [null]
 ...
@@ -1521,7 +1522,7 @@ $ cat build/config.build
 
 config.cxx = g++
 config.cxx.poptions = [null]
-config.cxx.coptions = -d
+config.cxx.coptions = -g
 config.cxx.loptions = [null]
 config.cxx.libs = [null]
 ...
@@ -1538,7 +1539,7 @@ changing the configuration:
 
 \
 $ b config.cxx.coptions=-O3  # Rebuild with -O3.
-$ b                          # Rebuild with -d.
+$ b                          # Rebuild with -g.
 \
 
 We can also configure out of source builds of our projects. In this case,
@@ -2757,7 +2758,7 @@ configuration inheritance. As an example, let's configure the above bundled
 \c{hello} project in its src directory:
 
 \
-$ b configure: hello/ config.cxx=clang++ config.cxx.coptions=-d
+$ b configure: hello/ config.cxx=clang++ config.cxx.coptions=-g
 
 $ b tree
 hello/
@@ -2781,7 +2782,7 @@ $ cat hello/build/config.build
 
 config.cxx = clang++
 config.cxx.poptions = [null]
-config.cxx.coptions = -d
+config.cxx.coptions = -g
 config.cxx.loptions = [null]
 config.cxx.libs = [null]
 
