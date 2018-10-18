@@ -1447,14 +1447,14 @@ namespace build2
     // any time but any subsequent updates must set the same path. Or, in
     // other words, once the path is set, it never changes.
     //
-    // A set empty path may signify special unknown/undetermined location (for
-    // example an installed import library -- we know it's there, just not
-    // exactly where). In this case you would also normally set its mtime. We
-    // used to return a pointer to properly distinguish between not set and
-    // empty but that proved too tedious. Note that this means there could be
-    // a race between path and mtime (unless you lock the target in some other
-    // way; see file_rule) so for this case it makes sense to set the
-    // timestamp first.
+    // A set empty path may signify special unknown/undetermined/unreal
+    // location (for example, a binless library or an installed import library
+    // -- we know the DLL is there, just not exactly where). In this case you
+    // would also normally set its mtime. We used to return a pointer to
+    // properly distinguish between not set and empty but that proved too
+    // tedious. Note that this means there could be a race between path and
+    // mtime (unless you lock the target in some other way; see file_rule) so
+    // for this case it makes sense to set the timestamp first.
     //
     const path_type&
     path () const;

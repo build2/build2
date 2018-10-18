@@ -1093,14 +1093,9 @@ namespace build2
       // the saving logic).
       //
       pkgconf& ipc (sp.empty () ? apc : spc); // Interface package info.
-      bool ibl (sp.empty () // Binless.
-                ? at->path ().empty ()
-                //
-                // On Windows the shared library could be a DLL with an empty
-                // path (unknown location) and an ad hoc member that is the
-                // import library. See search_library() for details.
-                //
-                : st->path ().empty () && st->member == nullptr);
+      bool ibl ((sp.empty ()
+                 ? at->mtime ()
+                 : st->mtime ()) == timestamp_unreal); // Binless.
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())

@@ -1206,7 +1206,7 @@ namespace build2
             if (!lu)
               return;
 
-            if (l->path ().empty ()) // Binless.
+            if (l->mtime () == timestamp_unreal) // Binless.
               return;
 
             for (const target* pt: l->prerequisite_targets[d.a])
@@ -1238,10 +1238,7 @@ namespace build2
             // Linking a library to a shared library or executable.
             //
 
-            // Note: on Windows shared library could be the DLL with unknown
-            // location (empty path). See search_library() for details.
-            //
-            if (l->path ().empty () && l->member == nullptr) // Binless.
+            if (l->mtime () == timestamp_unreal) // Binless.
               return;
 
             // On Windows a shared library is a DLL with the import library as
@@ -1352,10 +1349,7 @@ namespace build2
           if (d.li.type == otype::a && !lu)
             return;
 
-          // Note: on Windows shared library could be the DLL with unknown
-          // location (empty path). See search_library() for details.
-          //
-          if (l->path ().empty () && l->member == nullptr) // Binless.
+          if (l->mtime () == timestamp_unreal) // Binless.
             return;
 
           // Check if this library renders us out of date.
@@ -1459,7 +1453,7 @@ namespace build2
           if (!l->is_a<libs> ())
             return;
 
-          if (l->path ().empty ()) // Binless.
+          if (l->mtime () == timestamp_unreal) // Binless.
             return;
         }
         else
@@ -2250,7 +2244,7 @@ namespace build2
 
       args[0] = ld->recall_string ();
 
-      // The same logic as during hashing above.
+      // Append input files. The same logic as during hashing above.
       //
       // See also a similar loop inside append_libraries().
       //
