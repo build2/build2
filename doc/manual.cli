@@ -2598,7 +2598,17 @@ rather a binary-less, or \i{binless} for short, static or shared library. So,
 theoretically, it is possible to have a library that has a binless static and
 a binary-full (\i{binfull}) shared variants. Note also that binless libraries
 can depend on binfull libraries and are fully supported where the
-\c{pkg-config(1)} functionality is concerned.|
+\c{pkg-config(1)} functionality is concerned.
+
+If you are creating a new library with \l{bdep-new(1)} and are certain that it
+will always be binless and in all configurations, then you can produce a
+simplified \c{buildfile} by specifying the \c{binless} option, for example:
+
+\
+$ bdep new -t lib -l c++,binless libheader-only
+\
+
+|
 
 Let's now turn to the second subject of this section and the last unexplained
 bit in our \c{buildfile}: shared library versioning. Here is the relevant
