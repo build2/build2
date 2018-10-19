@@ -2824,27 +2824,33 @@ namespace build2
                 l6 ([&]{trace << "trying again without generated headers";});
               else
               {
-                // In some pathological situations (e.g., we are out of disk
-                // space) we may end up switching back and forth indefinitely
-                // without making any headway. So we use skip_count to track
-                // our progress.
+                // In some pathological situations we may end up switching
+                // back and forth indefinitely without making any headway. So
+                // we use skip_count to track our progress.
+                //
+                // Examples that have been encountered so far:
+                //
+                // - Running out of disk space.
+                //
+                // - Using __COUNTER__ in #if which is incompatible with the
+                //   GCC's -fdirectives-only mode.
+                //
+                // So let's show the yo-yo'ing command lines and ask the user
+                // to investigate.
                 //
                 if (force_gen_skip && *force_gen_skip == skip_count)
                 {
                   diag_record dr (fail);
 
-                  dr << "inconsistent " << x_lang << " compiler behavior";
+                  dr << "inconsistent " << x_lang << " compiler behavior" <<
+                    info << "run the following two commands to investigate";
 
-                  // Show the yo-yo'ing command lines.
-                  //
                   dr << info;
                   print_process (dr, args.data ()); // No pipes.
 
                   init_args ((gen = true));
                   dr << info << "";
                   print_process (dr, args.data ()); // No pipes.
-
-                  dr << info << "perhaps you are running out of disk space?";
                 }
 
                 restart = true;
