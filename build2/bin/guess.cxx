@@ -42,12 +42,29 @@ namespace build2
     {
       tracer trace ("bin::guess_ar");
 
+      process_path arp, rlp;
       guess_result arr, rlr;
 
-      process_path arp (run_search (ar, true, fallback));
-      process_path rlp (rl != nullptr
-                        ? run_search (*rl, true, fallback)
-                        : process_path ());
+      {
+        auto df = make_diag_frame (
+          [](const diag_record& dr)
+          {
+            dr << info << "use config.bin.ar to override";
+          });
+
+        arp = run_search (ar, true, fallback);
+      }
+
+      if (rl != nullptr)
+      {
+        auto df = make_diag_frame (
+          [](const diag_record& dr)
+          {
+            dr << info << "use config.bin.ranlib to override";
+          });
+
+        rlp = run_search (*rl, true, fallback);
+      }
 
       // Binutils, LLVM, and FreeBSD ar/ranlib all recognize the --version
       // option. While Microsoft's lib.exe doesn't support --version, it only
@@ -244,7 +261,16 @@ namespace build2
 
       guess_result r;
 
-      process_path pp (run_search (ld, true, fallback));
+      process_path pp;
+      {
+        auto df = make_diag_frame (
+          [](const diag_record& dr)
+          {
+            dr << info << "use config.bin.ld to override";
+          });
+
+        pp = run_search (ld, true, fallback);
+      }
 
       // Binutils ld recognizes the --version option. Microsoft's link.exe
       // doesn't support --version (nor any other way to get the version
@@ -363,7 +389,16 @@ namespace build2
 
       guess_result r;
 
-      process_path pp (run_search (rc, true, fallback));
+      process_path pp;
+      {
+        auto df = make_diag_frame (
+          [](const diag_record& dr)
+          {
+            dr << info << "use config.bin.rc to override";
+          });
+
+        pp = run_search (rc, true, fallback);
+      }
 
       // Binutils windres recognizes the --version option.
       //

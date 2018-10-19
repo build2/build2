@@ -150,7 +150,8 @@ namespace build2
               else
               {
                 if (!optional)
-                  fail << cli << " is not command line interface compiler";
+                  fail << cli << " is not command line interface compiler" <<
+                    info << "use config.cli to override";
 
                 v.clear ();
               }
@@ -178,7 +179,8 @@ namespace build2
             // found). So it would be good to redirect child's STDERR.
             //
             if (!optional)
-              error << "unable to execute " << args[0] << ": " << e;
+              error << "unable to execute " << args[0] << ": " << e <<
+                info << "use config.cli to override";
 
             if (e.child)
               exit (1);

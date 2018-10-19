@@ -288,13 +288,22 @@ namespace build2
     // Allowed to change pre if succeeds.
     //
     static guess_result
-    guess (lang, const path& xc, string& pre)
+    guess (lang, const string& xv, const path& xc, string& pre)
     {
       tracer trace ("cc::guess");
 
       guess_result r;
 
-      process_path xp (run_search (xc, false /* init */)); // Note: cached.
+      process_path xp;
+      {
+        auto df = make_diag_frame (
+          [&xv](const diag_record& dr)
+          {
+            dr << info << "use " << xv << " to override";
+          });
+
+        xp = run_search (xc, false /* init */); // Note: cached.
+      }
 
       // Start with -v. This will cover gcc and clang.
       //
@@ -1450,6 +1459,7 @@ namespace build2
 
     const compiler_info&
     guess (lang xl,
+           const string& xv,
            const path& xc,
            const strings* c_po, const strings* x_po,
            const strings* c_co, const strings* x_co,
@@ -1485,16 +1495,17 @@ namespace build2
 
       if (!type.empty ())
       {
-        gr = guess (xl, xc, type);
+        gr = guess (xl, xv, xc, type);
 
         if (gr.empty ())
-          warn << xc << " name looks like " << type << " but it is not";
+          warn << xc << " looks like " << type << " but it is not" <<
+            info << "use " << xv << " to override";
 
         type.clear ();
       }
 
       if (gr.empty ())
-        gr = guess (xl, xc, type);
+        gr = guess (xl, xv, xc, type);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc;

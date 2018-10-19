@@ -117,6 +117,7 @@ namespace build2
       //
       const path& xc (cast<path> (*p.first));
       ci_ = &build2::cc::guess (x_lang,
+                                config_x.name,
                                 xc,
                                 cast_null<strings> (rs[config_c_poptions]),
                                 cast_null<strings> (rs[config_x_poptions]),

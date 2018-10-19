@@ -215,6 +215,7 @@ namespace build2
     //
     const compiler_info&
     guess (lang,
+           const string& xv, // Override variable (config.x) for diagnostics.
            const path& xc,
            const strings* c_poptions, const strings* x_poptions,
            const strings* c_coptions, const strings* x_coptions,
