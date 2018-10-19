@@ -1551,16 +1551,24 @@ namespace build2
       // still want to try the target in case we could not pre-guess (think
       // x86_64-w64-mingw32-c++).
       //
-      // BTW, for GCC we also get gcc-{ar,ranlib} which add support for the
-      // LTO plugin though it seems more recent GNU binutils (2.25) are able
-      // to load the plugin when needed automatically. So it doesn't seem we
-      // should bother trying to support this on our end (one way we could do
-      // it is by passing config.bin.{ar,ranlib} as hints). Actually, it seems
-      // there are cases with just -gcc-ar and no -ar.
+      // BTW, for GCC we also get gcc-{ar,ranlib} (but not -ld) which add
+      // support for the LTO plugin though it seems more recent GNU binutils
+      // (2.25) are able to load the plugin when needed automatically. So it
+      // doesn't seem we should bother trying to support this on our end (one
+      // way we could do it is by passing config.bin.{ar,ranlib} as hints).
+      //
+      // It's also normal for native (i.e., non-cross-compiler) builds of GCC
+      // and Clang to not have binutils installed in the same directory and
+      // instead relying on the system ones. In this case, if the compiler is
+      // specified with the absolute path, the pattern will be the fallback
+      // search directory (though it feels like it should be checked first
+      // rather than last).
       //
       if (r.bin_pattern.empty ())
       {
-        if (pre.second != 0 && pre.second != string::npos)
+        if (pre.second != 0 &&
+            pre.second != string::npos &&
+            !path::traits::is_separator (xc.string ()[pre.second - 1]))
         {
           r.bin_pattern.assign (xc.string (), 0, pre.second);
           r.bin_pattern += '*'; // '-' or similar is already there.
