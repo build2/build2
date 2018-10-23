@@ -221,12 +221,12 @@ namespace build2
   class function_family
   {
   public:
-    // The default thunk catches invalid_argument and issues diagnostics
-    // by assuming it is related to function arguments and contains useful
-    // description.
+    // The call() function above catches invalid_argument and issues
+    // diagnostics by assuming it is related to function arguments and
+    // contains useful description.
     //
-    // In order to implement a custom thunk (e.g., to catch additional extra
-    // exceptions), you would normally call the default implementation.
+    // In order to catch additional exceptions, you can implement a custom
+    // thunk which would normally call this default implementation.
     //
     static value
     default_thunk (const scope*, vector_view<value>, const function_overload&);

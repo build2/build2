@@ -238,7 +238,20 @@ namespace build2
           }
         }
 
-        return make_pair (f->impl (base, move (args), *f), true);
+        try
+        {
+          return make_pair (f->impl (base, move (args), *f), true);
+        }
+        catch (const invalid_argument& e)
+        {
+          diag_record dr (fail);
+          dr << "invalid argument";
+
+          if (*e.what () != '\0')
+            dr << ": " << e;
+
+          dr << endf;
+        }
       }
     case 0:
       {
@@ -298,7 +311,6 @@ namespace build2
   default_thunk (const scope* base,
                  vector_view<value> args,
                  const function_overload& f)
-  try
   {
     // Call the cast thunk.
     //
@@ -309,16 +321,6 @@ namespace build2
 
     auto d (reinterpret_cast<const cast_data*> (&f.data));
     return d->thunk (base, move (args), d);
-  }
-  catch (const invalid_argument& e)
-  {
-    diag_record dr (fail);
-    dr << "invalid argument";
-
-    if (*e.what () != '\0')
-      dr << ": " << e;
-
-    dr << endf;
   }
 
 #if !defined(_MSC_VER) || _MSC_VER > 1910
