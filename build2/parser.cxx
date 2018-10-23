@@ -3751,6 +3751,14 @@ namespace build2
 
       // Name.
       //
+      // A user may specify a value that is an invalid name (e.g., it contains
+      // '%' but the project name is invalid). While it may seem natural to
+      // expect quoting/escaping to be the answer, we may need to quote names
+      // (e.g., spaces in paths) and so in our model quoted values are still
+      // treated as names and we rely on reversibility if we need to treat
+      // them as values. The reasonable solution to the invalid name problem is
+      // then to treat them as values if they are quoted.
+      //
       if (tt == type::word)
       {
         tt = peek ();
@@ -3759,6 +3767,7 @@ namespace build2
           continue;
 
         string val (move (t.value));
+        bool quoted (t.qtype != quote_type::unquoted);
 
         // Should we accumulate? If the buffer is not empty, then we continue
         // accumulating (the case where we are separated should have been
@@ -3790,7 +3799,8 @@ namespace build2
           }
 
           concat = true;
-          concat_quoted = t.qtype != quote_type::unquoted || concat_quoted;
+          concat_quoted = quoted || concat_quoted;
+
           continue;
         }
 
@@ -3811,22 +3821,11 @@ namespace build2
           bool last (val[p] == '%');
           string::size_type q (last ? p : val.rfind ('%', p - 1));
 
-          if (q != string::npos)
+          for (; q != string::npos; ) // Breakout loop.
           {
-            string proj;
-            proj.swap (val);
-
-            // First fix the rest of the name.
+            // Process the project name.
             //
-            val.assign (proj, q + 1, string::npos);
-            p = last ? string::npos : p - (q + 1);
-
-            // Now process the project name.
-            //
-            proj.resize (q);
-
-            if (pp)
-              fail (t) << "nested project name " << proj;
+            string proj (val, 0, q);
 
             try
             {
@@ -3836,10 +3835,23 @@ namespace build2
             }
             catch (const invalid_argument& e)
             {
+              if (quoted) // See above.
+                break;
+
               fail (t) << "invalid project name '" << proj << "': " << e;
             }
 
+            if (pp)
+              fail (t) << "nested project name " << *p1;
+
             pp1 = &p1;
+
+            // Now fix the rest of the name.
+            //
+            val.erase (0, q + 1);
+            p = last ? string::npos : p - (q + 1);
+
+            break;
           }
         }
 
@@ -3925,6 +3937,7 @@ namespace build2
           }
 
           tt = peek ();
+
           continue;
         }
 
@@ -3935,7 +3948,7 @@ namespace build2
         //
         if (pmode != pattern_mode::ignore   &&
             !*pp1                           && // Cannot be project-qualified.
-            t.qtype == quote_type::unquoted && // Cannot be quoted.
+            !quoted                         && // Cannot be quoted.
             ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
             ((val.find_first_of ("*?") != string::npos) ||
              (curly && val[0] == '+')))
@@ -4003,9 +4016,6 @@ namespace build2
         // scope. Instead, this is handled higher up the processing chain,
         // in scope::find_target_type(). This would also mess up
         // reversibility to simple name.
-        //
-        // @@ TODO: and not quoted (but what about partially quoted, e.g.,
-        //    "foo bar"/ or concatenated, e.g., $dir/foo/).
         //
         if (p == n)
         {

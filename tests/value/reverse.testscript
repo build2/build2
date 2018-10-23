@@ -39,12 +39,22 @@
   foo@bar foo/@bar/ foo@ @bar @ @@
   EOO
 
-  : combined
+  : proj-pair
   :
   $* <<EOI >>EOO
   print ([strings] xx%foo@yy%bar xx%foo/@yy%bar/)
   EOI
   xx%foo@yy%bar xx%foo/@yy%bar/
+  EOO
+
+  : invalid
+  :
+  : We should be able to represent an invalid name provided it is quoted.
+  :
+  $* <<EOI >>EOO
+  print ([strings] "pkcs11:object=SIGN%20key")
+  EOI
+  pkcs11:object=SIGN%20key
   EOO
 }
 
