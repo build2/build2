@@ -169,6 +169,7 @@ namespace build2
           case lang::cxx: return "c++";
           }
         }
+        // Fall through.
       case compiler_id::clang:
       case compiler_id::clang_apple:
         {
@@ -183,6 +184,7 @@ namespace build2
           case lang::cxx: return m ? "c++-module" : "c++";
           }
         }
+        // Fall through.
       case compiler_id::msvc:
         {
           switch (x_lang)
@@ -191,6 +193,7 @@ namespace build2
           case lang::cxx: return "/TP";
           }
         }
+        // Fall through.
       case compiler_id::icc:
         {
           switch (x_lang)
