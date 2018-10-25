@@ -1567,16 +1567,22 @@ namespace build2
           memory_order_acq_rel,  // Synchronize on success.
           memory_order_acquire)) // Synchronize on failure.
     {
-      if (s.state == target_state::unchanged)
+      if (s.state == target_state::unknown)
+        execute_impl (a, t);
+      else
       {
-        if (t.is_a<dir> ())
-          execute_recipe (a, t, nullptr /* recipe */);
+        assert (s.state == target_state::unchanged ||
+                s.state == target_state::failed);
+
+        if (s.state == target_state::unchanged)
+        {
+          if (t.is_a<dir> ())
+            execute_recipe (a, t, nullptr /* recipe */);
+        }
 
         s.task_count.store (exec, memory_order_release);
         sched.resume (s.task_count);
       }
-      else
-        execute_impl (a, t);
     }
     else
     {
