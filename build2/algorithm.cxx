@@ -225,7 +225,10 @@ namespace build2
     assert (l.target != nullptr); // Someone messing with ad hoc members?
 
     if (*mp == nullptr)
+    {
       *mp = l.target;
+      l.target->group = &t;
+    }
     else
       assert ((*mp)->dir == dir && (*mp)->name == n); // Basic sanity check.
 
