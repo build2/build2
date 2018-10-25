@@ -163,7 +163,7 @@ namespace build2
       // Assign values to variables that describe the compiler.
       //
       rs.assign (x_id) = ci.id.string ();
-      rs.assign (x_id_type) = ci.id.type;
+      rs.assign (x_id_type) = to_string (ci.id.type);
       rs.assign (x_id_variant) = ci.id.variant;
 
       rs.assign (x_class) = to_string (ci.class_);

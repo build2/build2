@@ -23,7 +23,9 @@
 #include <build2/cc/target.hxx>  // c, pc*
 #include <build2/cc/utility.hxx>
 
-using namespace std;
+using std::map;
+using std::exit;
+
 using namespace butl;
 
 namespace build2
@@ -2143,7 +2145,7 @@ namespace build2
           if (!find_option ("/INCREMENTAL", args, true))
             args.push_back ("/INCREMENTAL:NO");
 
-          if (cid == compiler_id::clang)
+          if (ctype == compiler_type::clang)
           {
             // According to Clang's MSVC.cpp, we shall link libcmt.lib (static
             // multi-threaded runtime) unless -nostdlib or -nostartfiles is

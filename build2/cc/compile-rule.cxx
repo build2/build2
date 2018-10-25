@@ -23,7 +23,9 @@
 #include <build2/cc/module.hxx>
 #include <build2/cc/utility.hxx>
 
-using namespace std;
+using std::exit;
+using std::strlen;
+
 using namespace butl;
 
 namespace build2
@@ -156,9 +158,9 @@ namespace build2
       bool m (md.type == translation_type::module_iface);
       //preprocessed p (md.pp);
 
-      switch (cid)
+      switch (ctype)
       {
-      case compiler_id::gcc:
+      case compiler_type::gcc:
         {
           // Ignore the preprocessed value since for GCC it is handled via
           // -fpreprocessed -fdirectives-only.
@@ -170,8 +172,7 @@ namespace build2
           }
         }
         // Fall through.
-      case compiler_id::clang:
-      case compiler_id::clang_apple:
+      case compiler_type::clang:
         {
           // Clang has *-cpp-output (but not c++-module-cpp-output) and they
           // handle comments and line continuations. However, currently this
@@ -185,7 +186,7 @@ namespace build2
           }
         }
         // Fall through.
-      case compiler_id::msvc:
+      case compiler_type::msvc:
         {
           switch (x_lang)
           {
@@ -194,7 +195,7 @@ namespace build2
           }
         }
         // Fall through.
-      case compiler_id::icc:
+      case compiler_type::icc:
         {
           switch (x_lang)
           {
@@ -552,25 +553,24 @@ namespace build2
           }
         }
 
-        switch (cid)
+        switch (ctype)
         {
-        case compiler_id::gcc:
+        case compiler_type::gcc:
           {
             e += mod ? "nms" : o;
             break;
           }
-        case compiler_id::clang:
-        case compiler_id::clang_apple:
+        case compiler_type::clang:
           {
             e += mod ? "pcm" : o;
             break;
           }
-        case compiler_id::msvc:
+        case compiler_type::msvc:
           {
             e += mod ? "ifc" : o;
             break;
           }
-        case compiler_id::icc:
+        case compiler_type::icc:
           {
             assert (!mod);
             e += o;
@@ -981,7 +981,7 @@ namespace build2
           // original source (something to do with having to detect and store
           // header boundaries in the .ifc files).
           //
-          if (cid == compiler_id::msvc)
+          if (ctype == compiler_type::msvc)
           {
             if (md.type == translation_type::module_iface)
               psrc.second = false;
@@ -1516,9 +1516,9 @@ namespace build2
       //
       const char* pp (nullptr);
 
-      switch (cid)
+      switch (ctype)
       {
-      case compiler_id::gcc:
+      case compiler_type::gcc:
         {
           // -fdirectives-only is available since GCC 4.3.0.
           //
@@ -1527,8 +1527,7 @@ namespace build2
 
           break;
         }
-      case compiler_id::clang:
-      case compiler_id::clang_apple:
+      case compiler_type::clang:
         {
           // -frewrite-includes is available since vanilla Clang 3.2.0.
           //
@@ -1536,19 +1535,19 @@ namespace build2
           // option (4.2 is based on 3.2svc so it may or may not have it and,
           // no, we are not going to try to find out).
           //
-          if (cid == compiler_id::clang_apple
+          if (cvariant == "apple"
               ? (cmaj >= 5)
               : (cmaj > 3 || (cmaj == 3 && cmin >= 2)))
             pp = "-frewrite-includes";
 
           break;
         }
-      case compiler_id::msvc:
+      case compiler_type::msvc:
         {
           pp = "/C";
           break;
         }
-      case compiler_id::icc:
+      case compiler_type::icc:
         break;
       }
 
@@ -1914,8 +1913,7 @@ namespace build2
           case compiler_class::msvc: werror = "/WX";     break;
           }
 
-          bool clang (cid == compiler_id::clang      ||
-                      cid == compiler_id::clang_apple);
+          bool clang (ctype == compiler_type::clang);
 
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
@@ -2016,7 +2014,7 @@ namespace build2
                 // diagnostics on the -E runs (which we do by redirecting
                 // stderr to stdout).
                 //
-                if (cid == compiler_id::gcc)
+                if (ctype == compiler_type::gcc)
                 {
                   // Use the .t extension (for "temporary"; .d is taken).
                   //
@@ -2068,7 +2066,7 @@ namespace build2
             args[i++] = src.path ().string ().c_str ();
             args[i]   = nullptr;
 
-            if (cid == compiler_id::gcc)
+            if (ctype == compiler_type::gcc)
             {
               sense_diag = false;
             }
@@ -2082,7 +2080,7 @@ namespace build2
             args[i++] = pp;
             args[i]   = "-MF";
 
-            if (cid == compiler_id::gcc)
+            if (ctype == compiler_type::gcc)
             {
               r = &drm.path;
               sense_diag = true;
@@ -2980,8 +2978,7 @@ namespace build2
           case compiler_class::msvc: werror = "/WX";     break;
           }
 
-          bool clang (cid == compiler_id::clang      ||
-                      cid == compiler_id::clang_apple);
+          bool clang (ctype == compiler_type::clang);
 
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
@@ -3024,7 +3021,7 @@ namespace build2
                 args.push_back ("-x");
                 args.push_back (langopt (md));
 
-                if (cid == compiler_id::gcc)
+                if (ctype == compiler_type::gcc)
                 {
                   args.push_back ("-fpreprocessed");
                   args.push_back ("-fdirectives-only");
@@ -3104,7 +3101,7 @@ namespace build2
             // syntax so we use the preprequisite type to distinguish between
             // interface and implementation units.
             //
-            if (cid == compiler_id::msvc &&
+            if (ctype == compiler_type::msvc &&
                 cmaj == 19 && cmin <= 11 &&
                 x_mod != nullptr && src.is_a (*x_mod))
             {
@@ -3229,9 +3226,9 @@ namespace build2
 
       // Save the module map for compilers that use it.
       //
-      switch (cid)
+      switch (ctype)
       {
-      case compiler_id::gcc:
+      case compiler_type::gcc:
         {
           // We don't need to redo this if the above hash hasn't changed and
           // the database is still valid.
@@ -4067,9 +4064,9 @@ namespace build2
       const module_positions& ms (md.mods);
       dir_path stdifc; // See the VC case below.
 
-      switch (cid)
+      switch (ctype)
       {
-      case compiler_id::gcc:
+      case compiler_type::gcc:
         {
           // Use the module map stored in depdb.
           //
@@ -4085,8 +4082,7 @@ namespace build2
 
           break;
         }
-      case compiler_id::clang:
-      case compiler_id::clang_apple:
+      case compiler_type::clang:
         {
           if (ms.start == 0)
             return;
@@ -4149,7 +4145,7 @@ namespace build2
 #endif
           break;
         }
-      case compiler_id::msvc:
+      case compiler_type::msvc:
         {
           if (ms.start == 0)
             return;
@@ -4198,7 +4194,7 @@ namespace build2
           }
           break;
         }
-      case compiler_id::icc:
+      case compiler_type::icc:
         assert (false);
       }
 
@@ -4422,9 +4418,9 @@ namespace build2
 
         if (mod)
         {
-          switch (cid)
+          switch (ctype)
           {
-          case compiler_id::gcc:
+          case compiler_type::gcc:
             {
               // Output module file is specified in the mapping file, the
               // same as input.
@@ -4434,8 +4430,7 @@ namespace build2
               args.push_back ("-c");
               break;
             }
-          case compiler_id::clang:
-          case compiler_id::clang_apple:
+          case compiler_type::clang:
             {
               relm = relative (tp);
 
@@ -4452,8 +4447,8 @@ namespace build2
 
               break;
             }
-          case compiler_id::msvc:
-          case compiler_id::icc:
+          case compiler_type::msvc:
+          case compiler_type::icc:
             assert (false);
           }
         }
@@ -4472,9 +4467,9 @@ namespace build2
           // Note that the mode we select must still handle comments and line
           // continuations. So some more compiler-specific voodoo.
           //
-          switch (cid)
+          switch (ctype)
           {
-          case compiler_id::gcc:
+          case compiler_type::gcc:
             {
               // -fdirectives-only is available since GCC 4.3.0.
               //
@@ -4485,17 +4480,16 @@ namespace build2
               }
               break;
             }
-          case compiler_id::clang:
-          case compiler_id::clang_apple:
+          case compiler_type::clang:
             {
               // Clang handles comments and line continuations in the
               // preprocessed source (it does not have -fpreprocessed).
               //
               break;
             }
-          case compiler_id::icc:
+          case compiler_type::icc:
             break; // Compile as normal source for now.
-          case compiler_id::msvc:
+          case compiler_type::msvc:
             assert (false);
           }
         }
@@ -4530,9 +4524,9 @@ namespace build2
 
         // This should match with how we setup preprocessing.
         //
-        switch (cid)
+        switch (ctype)
         {
-        case compiler_id::gcc:
+        case compiler_type::gcc:
           {
             // The -fpreprocessed is implied by .i/.ii.
             //
@@ -4541,21 +4535,20 @@ namespace build2
             args.push_back ("-fdirectives-only");
             break;
           }
-        case compiler_id::clang:
-        case compiler_id::clang_apple:
+        case compiler_type::clang:
           {
             // Note that without -x Clang will treat .i/.ii as fully
             // preprocessed.
             //
             break;
           }
-        case compiler_id::msvc:
+        case compiler_type::msvc:
           {
             // Nothing to do (/TP or /TC already there).
             //
             break;
           }
-        case compiler_id::icc:
+        case compiler_type::icc:
           assert (false);
         }
 
@@ -4583,7 +4576,7 @@ namespace build2
         // tries to pull off something similar. For sane compilers this should
         // be harmless.
         //
-        bool filter (cid == compiler_id::msvc);
+        bool filter (ctype == compiler_type::msvc);
 
         process pr (cpath,
                     args.data (),
@@ -4631,8 +4624,7 @@ namespace build2
       // Clang's module compilation requires two separate compiler
       // invocations.
       //
-      if (mod && (cid == compiler_id::clang ||
-                  cid == compiler_id::clang_apple))
+      if (mod && ctype == compiler_type::clang)
       {
         // Remove the target file if this fails. If we don't do that, we will
         // end up with a broken build that is up-to-date.
@@ -4688,15 +4680,14 @@ namespace build2
     {
       const file& t (xt.as<file> ());
 
-      using id = compiler_id;
+      using ct = compiler_type;
 
-      switch (cid)
+      switch (ctype)
       {
-      case id::gcc:   return clean_extra (a, t, {".d", x_pext, ".t"});
-      case id::clang_apple:
-      case id::clang: return clean_extra (a, t, {".d", x_pext});
-      case id::msvc:  return clean_extra (a, t, {".d", x_pext, ".idb", ".pdb"});
-      case id::icc:   return clean_extra (a, t, {".d"});
+      case ct::gcc:   return clean_extra (a, t, {".d", x_pext, ".t"});
+      case ct::clang: return clean_extra (a, t, {".d", x_pext});
+      case ct::msvc:  return clean_extra (a, t, {".d", x_pext, ".idb", ".pdb"});
+      case ct::icc:   return clean_extra (a, t, {".d"});
       }
 
       assert (false);

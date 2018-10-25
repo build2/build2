@@ -26,45 +26,53 @@ namespace build2
     // msvc         Microsoft cl.exe
     // icc          Intel icc/icpc
     //
+    // Note that the user can provide a custom id with one of the predefined
+    // types and a custom variant (say 'gcc-tasking').
+    //
+    enum class compiler_type
+    {
+      gcc = 1, // 0 value represents invalid type.
+      clang,
+      msvc,
+      icc
+      // Update compiler_id(string) and to_string() if adding a new type.
+    };
+
+    const compiler_type invalid_compiler_type = static_cast<compiler_type> (0);
+
+    string
+    to_string (compiler_type);
+
+    inline ostream&
+    operator<< (ostream& o, const compiler_type& t)
+    {
+      return o << to_string (t);
+    }
+
     struct compiler_id
     {
-      std::string type;
-      std::string variant;
+      compiler_type type = invalid_compiler_type;
+      std::string   variant;
 
       bool
-      empty () const {return type.empty ();}
+      empty () const {return type == invalid_compiler_type;}
 
       std::string
-      string () const {return variant.empty () ? type : type + "-" + variant;}
+      string () const;
 
-      enum value_type
-      {
-        gcc,
-        clang,
-        clang_apple,
-        msvc,
-        icc
-      };
+      compiler_id ()
+          : type (invalid_compiler_type) {}
 
-      value_type
-      value () const;
+      compiler_id (compiler_type t, std::string v)
+          : type (t), variant (move (v)) {}
 
-      compiler_id () = default;
-      compiler_id (value_type);
-      compiler_id (std::string t, std::string v)
-          : type (move (t)), variant (move (v)) {}
+      //compiler_id (const std::string& type, std::string variant);
     };
 
     inline ostream&
-    operator<< (ostream& os, const compiler_id& id)
+    operator<< (ostream& o, const compiler_id& id)
     {
-      return os << id.string ();
-    }
-
-    inline ostream&
-    operator<< (ostream& os, const compiler_id::value_type& v)
-    {
-      return os << compiler_id (v);
+      return o << id.string ();
     }
 
     // Compiler class describes a set of compilers that follow more or less
@@ -87,9 +95,9 @@ namespace build2
     to_string (compiler_class);
 
     inline ostream&
-    operator<< (ostream& os, compiler_class cl)
+    operator<< (ostream& o, compiler_class c)
     {
-      return os << to_string (cl);
+      return o << to_string (c);
     }
 
     // Compiler version. Here we map the various compiler version formats to

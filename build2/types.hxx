@@ -86,6 +86,7 @@ namespace build2
 
   using std::istream;
   using std::ostream;
+  using std::endl;
 
   // Concurrency.
   //

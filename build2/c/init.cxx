@@ -314,7 +314,8 @@ namespace build2
         "c.install",
         "c.uninstall",
 
-        cm.ci_->id.value (),
+        cm.ci_->id.type,
+        cm.ci_->id.variant,
         cm.ci_->class_,
         cm.ci_->version.major,
         cm.ci_->version.minor,
@@ -326,8 +327,8 @@ namespace build2
         false, // No C modules yet.
         false, // No __symexport support since no modules.
 
-        cast<dir_paths>         (rs[cm.x_sys_lib_dirs]),
-        cast<dir_paths>         (rs[cm.x_sys_inc_dirs]),
+        cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
+        cast<dir_paths> (rs[cm.x_sys_inc_dirs]),
 
         cm.sys_lib_dirs_extra,
         cm.sys_inc_dirs_extra,

@@ -119,20 +119,21 @@ namespace build2
       // Cached values for some commonly-used variables/values.
       //
 
-      compiler_id::value_type cid; // x.id
-      compiler_class cclass;       // x.class
-      uint64_t cmaj;               // x.version.major
-      uint64_t cmin;               // x.version.minor
-      const process_path& cpath;   // x.path
+      compiler_type ctype;          // x.id.type
+      const string& cvariant;       // x.id.variant
+      compiler_class cclass;        // x.class
+      uint64_t cmaj;                // x.version.major
+      uint64_t cmin;                // x.version.minor
+      const process_path& cpath;    // x.path
 
-      const target_triplet& ctgt;  // x.target
-      const string& tsys;          // x.target.system
-      const string& tclass;        // x.target.class
+      const target_triplet& ctgt;   // x.target
+      const string& tsys;           // x.target.system
+      const string& tclass;         // x.target.class
 
-      const strings& tstd;         // Translated x_std value (options).
+      const strings& tstd;          // Translated x_std value (options).
 
-      bool modules;                // x.features.modules
-      bool symexport;              // x.features.symexport
+      bool modules;                 // x.features.modules
+      bool symexport;               // x.features.symexport
 
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
@@ -173,7 +174,9 @@ namespace build2
             const char* link,
             const char* install,
             const char* uninstall,
-            compiler_id::value_type id, compiler_class cl,
+            compiler_type ct,
+            const string& cv,
+            compiler_class cl,
             uint64_t mj, uint64_t mi,
             const process_path& path,
             const target_triplet& tgt,
@@ -193,7 +196,9 @@ namespace build2
             x_link (link),
             x_install (install),
             x_uninstall (uninstall),
-            cid (id), cclass (cl), cmaj (mj), cmin (mi), cpath (path),
+            ctype (ct), cvariant (cv), cclass (cl),
+            cmaj (mj), cmin (mi),
+            cpath (path),
             ctgt (tgt), tsys (ctgt.system), tclass (ctgt.class_),
             tstd (std),
             modules (fm),

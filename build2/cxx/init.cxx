@@ -29,6 +29,7 @@ namespace build2
   namespace cxx
   {
     using cc::compiler_id;
+    using cc::compiler_type;
     using cc::compiler_class;
     using cc::compiler_info;
 
@@ -52,7 +53,7 @@ namespace build2
     {
       strings r;
 
-      compiler_id::value_type id (ci.id.value ());
+      compiler_type ct (ci.id.type);
       compiler_class cl (ci.class_);
       uint64_t mj (ci.version.major);
       uint64_t mi (ci.version.minor);
@@ -81,9 +82,9 @@ namespace build2
         //
         const char* o (nullptr);
 
-        switch (id)
+        switch (ct)
         {
-        case compiler_id::msvc:
+        case compiler_type::msvc:
           {
             // VC14u3 and later has /std:c++latest.
             //
@@ -92,7 +93,7 @@ namespace build2
 
             break;
           }
-        case compiler_id::gcc:
+        case compiler_type::gcc:
           {
             if      (mj >= 8)            o = "-std=c++2a"; // 20
             else if (mj >= 5)            o = "-std=c++1z"; // 17
@@ -101,8 +102,7 @@ namespace build2
 
             break;
           }
-        case compiler_id::clang:
-        case compiler_id::clang_apple:
+        case compiler_type::clang:
           {
             // Remap Apple versions to vanilla Clang based on the following
             // release point. Note that Apple no longer discloses the mapping
@@ -123,7 +123,7 @@ namespace build2
             // Note that this mapping is also used to enable experimental
             // features below.
             //
-            if (id == compiler_id::clang_apple)
+            if (ci.id.variant == "apple")
             {
               if      (mj >= 9)            {mj = 4; mi = 0;}
               else if (mj == 8)            {mj = 3; mi = 9;}
@@ -141,7 +141,7 @@ namespace build2
 
             break;
           }
-        case compiler_id::icc:
+        case compiler_type::icc:
           {
             if      (mj >= 17)                         o = "-std=c++1z"; // 17
             else if (mj >  15 || (mj == 15 && p >= 3)) o = "-std=c++1y"; // 14
@@ -166,9 +166,9 @@ namespace build2
           lookup l;
           if (!(l = rs[v_m]) || cast<bool> (l))
           {
-            switch (id)
+            switch (ct)
             {
-            case compiler_id::msvc:
+            case compiler_type::msvc:
               {
                 // While modules are supported in VC15u0 (19.10), there is a
                 // bug in separate interface/implementation unit support which
@@ -188,7 +188,7 @@ namespace build2
                 }
                 break;
               }
-            case compiler_id::gcc:
+            case compiler_type::gcc:
               {
                 // Enable starting with GCC 9.0.0 (currently the c++-modules
                 // branch).
@@ -205,8 +205,7 @@ namespace build2
                 }
                 break;
               }
-            case compiler_id::clang:
-            case compiler_id::clang_apple:
+            case compiler_type::clang:
               {
                 // Enable starting with Clang 6.0.0.
                 //
@@ -223,7 +222,7 @@ namespace build2
                 }
                 break;
               }
-            case compiler_id::icc:
+            case compiler_type::icc:
               break; // No modules support yet.
             }
           }
@@ -553,7 +552,8 @@ namespace build2
         "cxx.install",
         "cxx.uninstall",
 
-        cm.ci_->id.value (),
+        cm.ci_->id.type,
+        cm.ci_->id.variant,
         cm.ci_->class_,
         cm.ci_->version.major,
         cm.ci_->version.minor,
