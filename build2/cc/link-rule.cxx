@@ -857,6 +857,10 @@ namespace build2
             ? &search (t, (mod ? tt.bmi : tt.obj), rt.dir, rt.out, rt.name)
             : &rt;
 
+          const target_type& rtt (mod
+                                  ? (group ? bmi::static_type : tt.bmi)
+                                  : (group ? obj::static_type : tt.obj));
+
           // If this obj*{} already has prerequisites, then verify they are
           // "compatible" with what we are doing here. Otherwise, synthesize
           // the dependency. Note that we may also end up synthesizing with
@@ -864,7 +868,12 @@ namespace build2
           //
           bool verify (true);
 
-          if (!pt->has_prerequisites ())
+          // Note that we cannot use has_group_prerequisites() since the
+          // target is not yet matched. So we check the group directly. Of
+          // course, all of this is racy (see below).
+          //
+          if (!pt->has_prerequisites () &&
+              (!group || !rt.has_prerequisites ()))
           {
             prerequisites ps {p.as_prerequisite ()}; // Source.
 
@@ -922,9 +931,33 @@ namespace build2
               }
             }
 
-            // Note: add to the group, not the member.
+            // Note: adding to the group, not the member.
             //
             verify = !rt.prerequisites (move (ps));
+
+            // Recheck that the target still has no prerequisites. If that's
+            // no longer the case, then verify the result is compatible with
+            // what we need.
+            //
+            // Note that there are scenarios where we will not detect this or
+            // the detection will be racy. For example, thread 1 adds the
+            // prerequisite to the group and then thread 2, which doesn't use
+            // the group, adds the prerequisite to the member. This could be
+            // triggered by something like this (undetectable):
+            //
+            // lib{foo}: cxx{foo}
+            // exe{foo}: cxx{foo}
+            //
+            // Or this (detection is racy):
+            //
+            // lib{bar}: cxx{foo}
+            // liba{baz}: cxx{foo}
+            //
+            // The current feeling, however, is that in non-contrived cases
+            // (i.e., the source file is the same) this should be harmless.
+            //
+            if (!verify && group)
+              verify = pt->has_prerequisites ();
           }
 
           if (verify)
@@ -939,10 +972,6 @@ namespace build2
             // async match here and finish this verification in the "harvest"
             // loop below.
             //
-            const target_type& rtt (mod
-                                    ? (group ? bmi::static_type : tt.bmi)
-                                    : (group ? obj::static_type : tt.obj));
-
             resolve_group (a, *pt); // Not matched yet so resolve group.
 
             bool src (false);

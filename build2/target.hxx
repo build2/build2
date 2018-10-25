@@ -193,6 +193,10 @@ namespace build2
     // special target_state::group state. You would normally also use the
     // group_recipe for group members.
     //
+    // Note that the group-member link-up can happen anywhere between the
+    // member creation and rule matching so reading the group before the
+    // member has been matched can be racy.
+    //
     const target* group = nullptr;
 
     // What has been described above is a "normal" group. That is, there is
@@ -320,14 +324,20 @@ namespace build2
     bool
     prerequisites (prerequisites_type&&) const;
 
-    // Check if there are any prerequisites, taking into account group
-    // prerequisites.
+    // Check if there are any prerequisites. Note that the group version may
+    // be racy (see target::group).
     //
     bool
     has_prerequisites () const
     {
-      return !prerequisites ().empty () ||
-        (group != nullptr && !group->prerequisites ().empty ());
+      return !prerequisites ().empty ();
+    }
+
+    bool
+    has_group_prerequisites () const
+    {
+      return has_prerequisites () ||
+        (group != nullptr && !group->has_prerequisites ());
     }
 
   private:

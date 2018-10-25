@@ -116,7 +116,7 @@ namespace build2
     // to unchanged. This is an important optimization on which quite a few
     // places that deal with predominantly static content rely.
     //
-    if (!t.has_prerequisites ())
+    if (!t.has_group_prerequisites ()) // Group as in match_prerequisites().
       return noop_recipe;
 
     // Match all the prerequisites.
