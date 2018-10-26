@@ -262,7 +262,7 @@ namespace build2
             s = run<string> (3,
                              ops.config_sub (),
                              s.c_str (),
-                             [] (string& l) {return move (l);});
+                             [] (string& l, bool) {return move (l);});
             l5 ([&]{trace << "config.sub target: '" << s << "'";});
           }
 

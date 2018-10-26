@@ -115,16 +115,20 @@ namespace build2
 
       // Figure out which compiler we are dealing with, its target, etc.
       //
-      const path& xc (cast<path> (*p.first));
-      ci_ = &build2::cc::guess (x_lang,
-                                config_x.name,
-                                xc,
-                                cast_null<strings> (rs[config_c_poptions]),
-                                cast_null<strings> (rs[config_x_poptions]),
-                                cast_null<strings> (rs[config_c_coptions]),
-                                cast_null<strings> (rs[config_x_coptions]),
-                                cast_null<strings> (rs[config_c_loptions]),
-                                cast_null<strings> (rs[config_x_loptions]));
+      ci_ = &build2::cc::guess (
+        x,
+        x_lang,
+        cast<path> (*p.first),
+        cast_null<string> (config::omitted (rs, config_x_id).first),
+        cast_null<string> (config::omitted (rs, config_x_version).first),
+        cast_null<string> (config::omitted (rs, config_x_target).first),
+        cast_null<strings> (rs[config_c_poptions]),
+        cast_null<strings> (rs[config_x_poptions]),
+        cast_null<strings> (rs[config_c_coptions]),
+        cast_null<strings> (rs[config_x_coptions]),
+        cast_null<strings> (rs[config_c_loptions]),
+        cast_null<strings> (rs[config_x_loptions]));
+
       const compiler_info& ci (*ci_);
 
       // Split/canonicalize the target. First see if the user asked us to
@@ -139,7 +143,7 @@ namespace build2
           ct = run<string> (3,
                             ops.config_sub (),
                             ci.target.c_str (),
-                            [] (string& l) {return move (l);});
+                            [] (string& l, bool) {return move (l);});
           l5 ([&]{trace << "config.sub target: '" << ct << "'";});
         }
 

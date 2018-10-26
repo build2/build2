@@ -31,9 +31,10 @@ namespace build2
       //
       {
         const char* args[] {"git", "-C", d, "status", "--porcelain", nullptr};
-        r.committed = run<string> (3 /* verbosity */,
-                                   args,
-                                   [](string& s) {return move (s);}).empty ();
+        r.committed = run<string> (
+          3 /* verbosity */,
+          args,
+          [](string& s, bool) {return move (s);}).empty ();
       }
 
       // Now extract the commit id and date. One might think that would be

@@ -366,6 +366,9 @@ namespace build2
         // Note: some overridable, some not.
         //
         v.insert<path>    ("config.cxx",          true),
+        v.insert<string>  ("config.cxx.id",       true),
+        v.insert<string>  ("config.cxx.version",  true),
+        v.insert<string>  ("config.cxx.target",   true),
         v.insert<strings> ("config.cxx.poptions", true),
         v.insert<strings> ("config.cxx.coptions", true),
         v.insert<strings> ("config.cxx.loptions", true),

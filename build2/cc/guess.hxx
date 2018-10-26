@@ -66,7 +66,8 @@ namespace build2
       compiler_id (compiler_type t, std::string v)
           : type (t), variant (move (v)) {}
 
-      //compiler_id (const std::string& type, std::string variant);
+      explicit
+      compiler_id (const std::string&);
     };
 
     inline ostream&
@@ -222,14 +223,17 @@ namespace build2
     // that most of it will be the same, at least for C and C++.
     //
     const compiler_info&
-    guess (lang,
-           const string& xv, // Override variable (config.x) for diagnostics.
-           const path& xc,
+    guess (const char* xm,    // Module (for variable names in diagnostics).
+           lang xl,           // Language.
+           const path& xc,    // Compiler path.
+           const string* xi,  // Compiler id (optional).
+           const string* xv,  // Compiler version (optional).
+           const string* xt,  // Compiler target (optional).
            const strings* c_poptions, const strings* x_poptions,
            const strings* c_coptions, const strings* x_coptions,
            const strings* c_loptions, const strings* x_loptions);
 
-    // Given a language, toolchain id, and optionally (empty) a pattern,
+    // Given a language, compiler id, and optionally an (empty) pattern,
     // return an appropriate default compiler path.
     //
     // For example, for (lang::cxx, gcc, *-4.9) we will get g++-4.9.

@@ -79,9 +79,13 @@ namespace build2
     {
       ifdstream is (move (pr.in_ofd), butl::fdstream_mode::skip);
 
-      while (is.peek () != ifdstream::traits_type::eof () && // Keep last line.
-             getline (is, l))
+      // Make sure we keep the last line.
+      //
+      for (bool last (is.peek () == ifdstream::traits_type::eof ());
+           !last && getline (is, l); )
       {
+        last = (is.peek () == ifdstream::traits_type::eof ());
+
         trim (l);
 
         if (checksum != nullptr)
@@ -89,7 +93,7 @@ namespace build2
 
         if (r.empty ())
         {
-          r = f (l);
+          r = f (l, last);
 
           if (!r.empty () && checksum == nullptr)
             break;

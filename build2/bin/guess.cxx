@@ -74,7 +74,7 @@ namespace build2
       // that.
       //
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           // Normally GNU binutils ar --version output has a line that starts
           // with "GNU ar" and ends with the version. For example:
@@ -155,7 +155,7 @@ namespace build2
       //
       if (arr.empty ())
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           return l.find (" ar ") != string::npos
             ? guess_result ("generic", move (l), semantic_version ())
@@ -185,7 +185,7 @@ namespace build2
         // Binutils, LLVM, and FreeBSD.
         //
         {
-          auto f = [] (string& l) -> guess_result
+          auto f = [] (string& l, bool) -> guess_result
           {
             // The same story as with ar: normally starts with "GNU ranlib "
             // but can vary.
@@ -218,7 +218,7 @@ namespace build2
         //
         if (rlr.empty ())
         {
-          auto f = [] (string& l) -> guess_result
+          auto f = [] (string& l, bool) -> guess_result
           {
             return l.find ("ranlib") != string::npos
               ? guess_result ("generic", move (l), semantic_version ())
@@ -285,7 +285,7 @@ namespace build2
       // Version extraction is a @@ TODO.
       //
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           // Microsoft link.exe output starts with "Microsoft (R) ".
           //
@@ -321,7 +321,7 @@ namespace build2
       //
       if (r.empty ())
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           // New ld64 has "PROJECT:ld64" in the first line (output to stderr),
           // for example:
@@ -352,7 +352,7 @@ namespace build2
       //
       if (r.empty ())
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           // Unlike other LLVM tools (e.g., ar), the lld's version is printed
           // (to stderr) as:
@@ -404,7 +404,7 @@ namespace build2
       //
       // Version extraction is a @@ TODO.
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           // Binutils windres --version output has a line that starts with
           // "GNU windres " but search for "GNU ", similar to other tools.
@@ -430,7 +430,7 @@ namespace build2
       //
       if (r.empty ())
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [] (string& l, bool) -> guess_result
         {
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
             return guess_result ("msvc", move (l), semantic_version ());

@@ -280,7 +280,9 @@ namespace build2
   //
   // The predicate can move the value out of the passed string but, if error
   // is false, only in case of a "content match" (so that any diagnostics
-  // lines are left intact).
+  // lines are left intact). The function signature should be:
+  //
+  // T (string& line, bool last)
   //
   // If ignore_exit is true, then the program's exist status is ignored (if it
   // is false and the program exits with the non-zero status, then an empty T

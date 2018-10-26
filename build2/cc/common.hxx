@@ -40,6 +40,9 @@ namespace build2
       const char* const* x_hinters;
 
       const variable& config_x;
+      const variable& config_x_id;      // <type>[-<variant>]
+      const variable& config_x_version;
+      const variable& config_x_target;
       const variable& config_x_poptions;
       const variable& config_x_coptions;
       const variable& config_x_loptions;

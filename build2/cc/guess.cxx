@@ -31,19 +31,29 @@ namespace build2
       return r;
     }
 
-#if 0
     compiler_id::
-    compiler_id (const std::string& t, std::string v)
-        : type (t == "gcc"   ? compiler_type::gcc   :
-                t == "clang" ? compiler_type::clang :
-                t == "msvc"  ? compiler_type::msvc  :
-                t == "icc"   ? compiler_type::icc   : invalid_compiler_type),
-          variant (move (v))
+    compiler_id (const std::string& id)
     {
-      if (t == invalid_compiler_type)
-        throw invalid_argument ("invalid compiler type value '" + t + "'");
+      using std::string;
+
+      size_t p (id.find ('-'));
+
+      if      (id.compare (0, p, "gcc"  ) == 0) type = compiler_type::gcc;
+      else if (id.compare (0, p, "clang") == 0) type = compiler_type::clang;
+      else if (id.compare (0, p, "msvc" ) == 0) type = compiler_type::msvc;
+      else if (id.compare (0, p, "icc"  ) == 0) type = compiler_type::icc;
+      else
+        throw invalid_argument (
+          "invalid compiler type '" + string (id, 0, p) + "'");
+
+      if (p != string::npos)
+      {
+        variant.assign (id, p + 1, string::npos);
+
+        if (variant.empty ())
+          throw invalid_argument ("empty compiler variant");
+      }
     }
-#endif
 
     string compiler_id::
     string () const
@@ -202,7 +212,7 @@ namespace build2
     // only guesses the type, not the variant.
     //
     static pair<compiler_type, size_t>
-    pre_guess (lang xl, const path& xc)
+    pre_guess (lang xl, const path& xc, const optional<compiler_id>& xi)
     {
       tracer trace ("cc::pre_guess");
 
@@ -231,16 +241,30 @@ namespace build2
         : string::npos;
       };
 
+      using type = compiler_type;
+      using pair = std::pair<type, size_t>;
+
+      // If the user specified the compiler id, then only check the stem for
+      // that compiler.
+      //
+      auto check = [&xi, &stem] (type t, const char* s) -> optional<pair>
+      {
+        if (!xi || xi->type == t)
+        {
+          size_t p (stem (s));
+
+          if (p != string::npos)
+            return pair (t, p);
+        }
+
+        return nullopt;
+      };
+
       // Warn if the user specified a C compiler instead of C++ or vice versa.
       //
       lang o;                   // Other language.
       const char* as (nullptr); // Actual stem.
       const char* es (nullptr); // Expected stem.
-      size_t p;                 // Executable name position.
-
-      using type = compiler_type;
-      using pair = std::pair<type, size_t>;
-      const size_t npos (string::npos);
 
       switch (xl)
       {
@@ -248,15 +272,15 @@ namespace build2
         {
           // Keep msvc last since 'cl' is very generic.
           //
-          if ((p = stem ("gcc"))   != npos) return pair (type::gcc,   p);
-          if ((p = stem ("clang")) != npos) return pair (type::clang, p);
-          if ((p = stem ("icc"))   != npos) return pair (type::icc,   p);
-          if ((p = stem ("cl"))    != npos) return pair (type::msvc,  p);
+          if (auto r = check (type::gcc,   "gcc")  ) return *r;
+          if (auto r = check (type::clang, "clang")) return *r;
+          if (auto r = check (type::icc,   "icc")  ) return *r;
+          if (auto r = check (type::msvc,  "cl")   ) return *r;
 
-          if      (stem (as = "g++")     != npos) es = "gcc";
-          else if (stem (as = "clang++") != npos) es = "clang";
-          else if (stem (as = "icpc")    != npos) es = "icc";
-          else if (stem (as = "c++")     != npos) es = "cc";
+          if      (check (type::gcc,   as = "g++")    ) es = "gcc";
+          else if (check (type::clang, as = "clang++")) es = "clang";
+          else if (check (type::icc,   as = "icpc")   ) es = "icc";
+          else if (check (type::msvc,  as = "c++")    ) es = "cc";
 
           o = lang::cxx;
           break;
@@ -265,15 +289,15 @@ namespace build2
         {
           // Keep msvc last since 'cl' is very generic.
           //
-          if ((p = stem ("g++"))     != npos) return pair (type::gcc,   p);
-          if ((p = stem ("clang++")) != npos) return pair (type::clang, p);
-          if ((p = stem ("icpc"))    != npos) return pair (type::icc,   p);
-          if ((p = stem ("cl"))      != npos) return pair (type::msvc,  p);
+          if (auto r = check (type::gcc,   "g++")    ) return *r;
+          if (auto r = check (type::clang, "clang++")) return *r;
+          if (auto r = check (type::icc,   "icpc")   ) return *r;
+          if (auto r = check (type::msvc,  "cl")     ) return *r;
 
-          if      (stem (as = "gcc")   != npos) es = "g++";
-          else if (stem (as = "clang") != npos) es = "clang++";
-          else if (stem (as = "icc")   != npos) es = "icpc";
-          else if (stem (as = "cc")    != npos) es = "c++";
+          if      (check (type::gcc,   as = "gcc")  ) es = "g++";
+          else if (check (type::clang, as = "clang")) es = "clang++";
+          else if (check (type::icc,   as = "icc")  ) es = "icpc";
+          else if (check (type::msvc,  as = "cc")   ) es = "c++";
 
           o = lang::c;
           break;
@@ -283,6 +307,11 @@ namespace build2
       if (es != nullptr)
         warn << xc << " looks like a " << o << " compiler" <<
           info << "should it be '" << es << "' instead of '" << as << "'?";
+
+      // If the user specified the id, then continue as if we pre-guessed.
+      //
+      if (xi)
+        return pair (xi->type, string::npos);
 
       l4 ([&]{trace << "unable to guess compiler type of " << xc;});
 
@@ -301,7 +330,7 @@ namespace build2
       process_path path;
 
       guess_result () = default;
-      guess_result (compiler_id&& i, string&& s)
+      guess_result (compiler_id i, string&& s)
           : id (move (i)), signature (move (s)) {}
 
       bool
@@ -311,18 +340,24 @@ namespace build2
     // Allowed to change pre if succeeds.
     //
     static guess_result
-    guess (lang, const string& xv, const path& xc, compiler_type& pre)
+    guess (const char* xm,
+           lang,
+           const path& xc,
+           const optional<compiler_id>& xi,
+           compiler_type& pre)
     {
       tracer trace ("cc::guess");
+
+      assert (!xi || xi->type == pre);
 
       guess_result r;
 
       process_path xp;
       {
         auto df = make_diag_frame (
-          [&xv](const diag_record& dr)
+          [&xm](const diag_record& dr)
           {
-            dr << info << "use " << xv << " to override";
+            dr << info << "use config." << xm << " to override";
           });
 
         xp = run_search (xc, false /* init */); // Note: cached.
@@ -350,10 +385,17 @@ namespace build2
                          pre == type::gcc ||
                          pre == type::clang))
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [&xi] (string& l, bool last) -> guess_result
         {
-          // The gcc/g++ -v output will have a line (currently last) in the
-          // form:
+          if (xi)
+          {
+            // The signature line is first in Clang and last in GCC.
+            //
+            if (xi->type != type::gcc || last)
+              return guess_result (*xi, move (l));
+          }
+
+          // The gcc/g++ -v output will have a last line in the form:
           //
           // "gcc version X.Y.Z ..."
           //
@@ -367,7 +409,7 @@ namespace build2
           // gcc version 5.1.0 (Ubuntu 5.1.0-0ubuntu11~14.04.1)
           // gcc version 6.0.0 20160131 (experimental) (GCC)
           //
-          if (l.compare (0, 4, "gcc ") == 0)
+          if (last && l.compare (0, 4, "gcc ") == 0)
             return guess_result (compiler_id {type::gcc, ""}, move (l));
 
           // The Apple clang/clang++ -v output will have a line (currently
@@ -400,8 +442,8 @@ namespace build2
                l.compare (6, 6, "clang ") == 0))
             return guess_result (compiler_id {type::clang, "apple"}, move (l));
 
-          // The vanilla clang/clang++ -v output will have a line (currently
-          // first) in the form:
+          // The vanilla clang/clang++ -v output will have a first line in the
+          // form:
           //
           // "[... ]clang version X.Y.Z[-...] ..."
           //
@@ -434,7 +476,12 @@ namespace build2
         //
         r = run<guess_result> (3, xp, "-v", f, false, false, &cs);
 
-        if (!r.empty ())
+        if (r.empty ())
+        {
+          if (xi)
+            fail << "unable to obtain " << xc << " signature with -v";
+        }
+        else
         {
           // If this is clang-apple and pre-guess was gcc then change it so
           // that we don't issue any warnings.
@@ -452,8 +499,13 @@ namespace build2
       //
       if (r.empty () && (pre == invalid || pre == type::icc))
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [&xi] (string& l, bool) -> guess_result
         {
+          // Assume the first line is the signature.
+          //
+          if (xi)
+            return guess_result (*xi, move (l));
+
           // The first line has the " (ICC) " in it, for example:
           //
           // icpc (ICC) 9.0 20060120
@@ -471,6 +523,12 @@ namespace build2
         };
 
         r = run<guess_result> (3, xp, "--version", f, false);
+
+        if (r.empty ())
+        {
+          if (xi)
+            fail << "unable to obtain " << xc << " signature with --version";
+        }
       }
 
       // Finally try to run it without any options to detect msvc.
@@ -478,8 +536,13 @@ namespace build2
       //
       if (r.empty () && (pre == invalid || pre == type::msvc))
       {
-        auto f = [] (string& l) -> guess_result
+        auto f = [&xi] (string& l, bool) -> guess_result
         {
+          // Assume the first line is the signature.
+          //
+          if (xi)
+            return guess_result (*xi, move (l));
+
           // Check for "Microsoft (R)" and "C/C++" in the first line as a
           // signature since all other words/positions can be translated. For
           // example:
@@ -513,6 +576,12 @@ namespace build2
         const char* env[] = {"CL=", "_CL_=", nullptr};
 
         r = run<guess_result> (3, process_env (xp, env), f, false);
+
+        if (r.empty ())
+        {
+          if (xi)
+            fail << "unable to obtain " << xc << " signature";
+        }
       }
 
       if (!r.empty ())
@@ -590,8 +659,11 @@ namespace build2
 
 
     static compiler_info
-    guess_gcc (lang xl,
+    guess_gcc (const char* xm,
+               lang xl,
                const path& xc,
+               const string* xv,
+               const string* xt,
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
@@ -607,52 +679,63 @@ namespace build2
       //
       // "gcc version A.B.C[ ...]"
       //
-      string& s (gr.signature);
-
-      // Scan the string as words and look for one that looks like a version.
-      //
-      size_t b (0), e (0);
-      while (next_word (s, b, e))
-      {
-        // The third argument to find_first_not_of() is the length of the
-        // first argument, not the length of the interval to check. So to
-        // limit it to [b, e) we are also going to compare the result to the
-        // end of the word position (first space). In fact, we can just check
-        // if it is >= e.
-        //
-        if (s.find_first_not_of ("1234567890.", b, 11) >= e)
-          break;
-      }
-
-      if (b == e)
-        fail << "unable to extract gcc version from '" << s << "'";
-
       compiler_version v;
-      v.string.assign (s, b, string::npos);
-
-      // Split the version into components.
-      //
-      size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
       {
-        try
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        // Treat the custom version as just a tail of the signature.
+        //
+        const string& s (xv == nullptr ? gr.signature : *xv);
+
+        // Scan the string as words and look for one that looks like a
+        // version.
+        //
+        size_t b (0), e (0);
+        while (next_word (s, b, e))
         {
-          if (next_word (s, e, vb, ve, '.'))
-            return stoull (string (s, vb, ve - vb));
+          // The third argument to find_first_not_of() is the length of the
+          // first argument, not the length of the interval to check. So to
+          // limit it to [b, e) we are also going to compare the result to the
+          // end of the word position (first space). In fact, we can just
+          // check if it is >= e.
+          //
+          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
+            break;
         }
-        catch (const invalid_argument&) {}
-        catch (const out_of_range&) {}
 
-        fail << "unable to extract gcc " << m << " version from '"
-             << string (s, b, e - b) << "'" << endf;
-      };
+        if (b == e)
+          fail << "unable to extract gcc version from '" << s << "'";
 
-      v.major = next ("major");
-      v.minor = next ("minor");
-      v.patch = next ("patch");
+        v.string.assign (s, b, string::npos);
 
-      if (e != s.size ())
-        v.build.assign (s, e + 1, string::npos);
+        // Split the version into components.
+        //
+        size_t vb (b), ve (b);
+        auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
+        {
+          try
+          {
+            if (next_word (s, e, vb, ve, '.'))
+              return stoull (string (s, vb, ve - vb));
+          }
+          catch (const invalid_argument&) {}
+          catch (const out_of_range&) {}
+
+          fail << "unable to extract gcc " << m << " version from '"
+               << string (s, b, e - b) << "'" << endf;
+        };
+
+        v.major = next ("major");
+        v.minor = next ("minor");
+        v.patch = next ("patch");
+
+        if (e != s.size ())
+          v.build.assign (s, e + 1, string::npos);
+      }
 
       // Figure out the target architecture. This is actually a lot trickier
       // than one would have hoped.
@@ -675,32 +758,40 @@ namespace build2
       // multi-arch support), then use the result. Otherwise, fallback to
       // -dumpmachine (older gcc or not multi-arch).
       //
-      cstrings args {xp.recall_string (), "-print-multiarch"};
-      if (c_co != nullptr) append_options (args, *c_co);
-      if (x_co != nullptr) append_options (args, *x_co);
-      args.push_back (nullptr);
+      string t, ot;
 
-      // The output of both -print-multiarch and -dumpmachine is a single line
-      // containing just the target triplet.
-      //
-      auto f = [] (string& l) {return move (l);};
-
-      string t (run<string> (3, xp, args.data (), f, false));
-
-      if (t.empty ())
+      if (xt == nullptr)
       {
-        l5 ([&]{trace << xc << " doesn's support -print-multiarch, "
-                      << "falling back to -dumpmachine";});
+        cstrings args {xp.recall_string (), "-print-multiarch"};
+        if (c_co != nullptr) append_options (args, *c_co);
+        if (x_co != nullptr) append_options (args, *x_co);
+        args.push_back (nullptr);
 
-        args[1] = "-dumpmachine";
-        t = run<string> (3, xp, args.data (), f);
+        // The output of both -print-multiarch and -dumpmachine is a single
+        // line containing just the target triplet.
+        //
+        auto f = [] (string& l, bool) {return move (l);};
+
+        t = run<string> (3, xp, args.data (), f, false);
+
+        if (t.empty ())
+        {
+          l5 ([&]{trace << xc << " doesn's support -print-multiarch, "
+                        << "falling back to -dumpmachine";});
+
+          args[1] = "-dumpmachine";
+          t = run<string> (3, xp, args.data (), f, false);
+        }
+
+        if (t.empty ())
+          fail << "unable to extract target architecture from " << xc
+               << " using -print-multiarch or -dumpmachine output" <<
+            info << "use config." << xm << ".target to override";
+
+        ot = t;
       }
-
-      if (t.empty ())
-        fail << "unable to extract target architecture from " << xc
-             << " -print-multiarch or -dumpmachine output";
-
-      string ot (t);
+      else
+        ot = t = *xt;
 
       // Parse the target into triplet (for further tests) ignoring any
       // failures.
@@ -759,8 +850,11 @@ namespace build2
     }
 
     static compiler_info
-    guess_clang (lang xl,
+    guess_clang (const char* xm,
+                 lang xl,
                  const path& xc,
+                 const string* xv,
+                 const string* xt,
                  const strings* c_po, const strings* x_po,
                  const strings* c_co, const strings* x_co,
                  const strings* c_lo, const strings* x_lo,
@@ -776,87 +870,105 @@ namespace build2
       // "[... ]clang version A.B.C[( |-)...]"
       // "Apple (clang|LLVM) version A.B[.C] ..."
       //
-      string& s (gr.signature);
-
-      // Some overrides for testing.
-      //
-      //s = "clang version 3.7.0 (tags/RELEASE_370/final)";
-      //
-      //gr.id.variant = "apple";
-      //s = "Apple LLVM version 7.3.0 (clang-703.0.16.1)";
-      //s = "Apple clang version 3.1 (tags/Apple/clang-318.0.58) (based on LLVM 3.1svn)";
-
-      // Scan the string as words and look for one that looks like a version.
-      // Use '-' as a second delimiter to handle versions like
-      // "3.6.0-2ubuntu1~trusty1".
-      //
-      size_t b (0), e (0);
-      while (next_word (s, b, e, ' ', '-'))
-      {
-        // The third argument to find_first_not_of() is the length of the
-        // first argument, not the length of the interval to check. So to
-        // limit it to [b, e) we are also going to compare the result to the
-        // end of the word position (first space). In fact, we can just check
-        // if it is >= e.
-        //
-        if (s.find_first_not_of ("1234567890.", b, 11) >= e)
-          break;
-      }
-
-      if (b == e)
-        fail << "unable to extract clang version from '" << s << "'";
-
       compiler_version v;
-      v.string.assign (s, b, string::npos);
-
-      // Split the version into components.
-      //
-      size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
       {
-        try
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        // Treat the custom version as just a tail of the signature.
+        //
+        const string& s (xv == nullptr ? gr.signature : *xv);
+
+        // Some overrides for testing.
+        //
+        //s = "clang version 3.7.0 (tags/RELEASE_370/final)";
+        //
+        //gr.id.variant = "apple";
+        //s = "Apple LLVM version 7.3.0 (clang-703.0.16.1)";
+        //s = "Apple clang version 3.1 (tags/Apple/clang-318.0.58) (based on LLVM 3.1svn)";
+
+        // Scan the string as words and look for one that looks like a
+        // version.  Use '-' as a second delimiter to handle versions like
+        // "3.6.0-2ubuntu1~trusty1".
+        //
+        size_t b (0), e (0);
+        while (next_word (s, b, e, ' ', '-'))
         {
-          if (next_word (s, e, vb, ve, '.'))
-            return stoull (string (s, vb, ve - vb));
-
-          if (opt)
-            return 0;
+          // The third argument to find_first_not_of() is the length of the
+          // first argument, not the length of the interval to check. So to
+          // limit it to [b, e) we are also going to compare the result to the
+          // end of the word position (first space). In fact, we can just
+          // check if it is >= e.
+          //
+          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
+            break;
         }
-        catch (const invalid_argument&) {}
-        catch (const out_of_range&) {}
 
-        fail << "unable to extract clang " << m << " version from '"
-             << string (s, b, e - b) << "'" << endf;
-      };
+        if (b == e)
+          fail << "unable to extract clang version from '" << s << "'";
 
-      v.major = next ("major", false);
-      v.minor = next ("minor", false);
-      v.patch = next ("patch", gr.id.variant == "apple");
+        v.string.assign (s, b, string::npos);
 
-      if (e != s.size ())
-        v.build.assign (s, e + 1, string::npos);
+        // Split the version into components.
+        //
+        size_t vb (b), ve (b);
+        auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
+        {
+          try
+          {
+            if (next_word (s, e, vb, ve, '.'))
+              return stoull (string (s, vb, ve - vb));
+
+            if (opt)
+              return 0;
+          }
+          catch (const invalid_argument&) {}
+          catch (const out_of_range&) {}
+
+          fail << "unable to extract clang " << m << " version from '"
+               << string (s, b, e - b) << "'" << endf;
+        };
+
+        v.major = next ("major", false);
+        v.minor = next ("minor", false);
+        v.patch = next ("patch", gr.id.variant == "apple");
+
+        if (e != s.size ())
+          v.build.assign (s, e + 1, string::npos);
+      }
 
       // Figure out the target architecture.
       //
       // Unlike gcc, clang doesn't have -print-multiarch. Its -dumpmachine,
       // however, respects the compile options (e.g., -m32).
       //
-      cstrings args {xp.recall_string (), "-dumpmachine"};
-      if (c_co != nullptr) append_options (args, *c_co);
-      if (x_co != nullptr) append_options (args, *x_co);
-      args.push_back (nullptr);
+      string t, ot;
 
-      // The output of -dumpmachine is a single line containing just the
-      // target triplet.
-      //
-      auto f = [] (string& l) {return move (l);};
-      string t (run<string> (3, xp, args.data (), f));
+      if (xt == nullptr)
+      {
+        cstrings args {xp.recall_string (), "-dumpmachine"};
+        if (c_co != nullptr) append_options (args, *c_co);
+        if (x_co != nullptr) append_options (args, *x_co);
+        args.push_back (nullptr);
 
-      if (t.empty ())
-        fail << "unable to extract target architecture from " << xc
-             << " -dumpmachine output";
+        // The output of -dumpmachine is a single line containing just the
+        // target triplet.
+        //
+        auto f = [] (string& l, bool) {return move (l);};
+        t = run<string> (3, xp, args.data (), f, false);
 
-      string ot (t);
+        if (t.empty ())
+          fail << "unable to extract target architecture from " << xc
+               << " using -dumpmachine output" <<
+            info << "use config." << xm << ".target to override";
+
+        ot = t;
+      }
+      else
+        ot = t = *xt;
 
       // Parse the target into triplet (for further tests) ignoring any
       // failures.
@@ -978,8 +1090,11 @@ namespace build2
     }
 
     static compiler_info
-    guess_icc (lang xl,
+    guess_icc (const char* xm,
+               lang xl,
                const path& xc,
+               const string* xv,
+               const string* xt,
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
@@ -1012,95 +1127,110 @@ namespace build2
       // We should probably also assume the language words can be translated
       // and even rearranged.
       //
-      string& s (gr.signature);
-      s.clear ();
-
-      auto f = [] (string& l)
+      auto f = [] (string& l, bool)
       {
         return l.compare (0, 5, "Intel") == 0 && (l[5] == '(' || l[5] == ' ')
         ? move (l)
         : string ();
       };
 
-      // The -V output is sent to STDERR.
-      //
-      s = run<string> (3, xp, "-V", f, false);
+      if (xv == nullptr)
+      {
+        string& s (gr.signature);
+        s.clear ();
 
-      if (s.empty ())
-        fail << "unable to extract signature from " << xc << " -V output";
+        // The -V output is sent to STDERR.
+        //
+        s = run<string> (3, xp, "-V", f, false);
 
-      if (s.find (xl == lang::c ? " C " : " C++ ") == string::npos)
-        fail << xc << " does not appear to be the Intel " << xl
-             << " compiler" <<
-          info << "extracted signature: '" << s << "'";
+        if (s.empty ())
+          fail << "unable to extract signature from " << xc << " -V output";
+
+        if (s.find (xl == lang::c ? " C " : " C++ ") == string::npos)
+          fail << xc << " does not appear to be the Intel " << xl
+               << " compiler" <<
+            info << "extracted signature: '" << s << "'";
+      }
 
       // Scan the string as words and look for the version. It consist of only
       // digits and periods and contains at least one period.
       //
-
-      // Some overrides for testing.
-      //
-      //s = "Intel(R) C++ Compiler for 32-bit applications, Version 9.1 Build 20070215Z Package ID: l_cc_c_9.1.047";
-      //s = "Intel(R) C++ Compiler for applications running on Intel(R) 64, Version 10.1 Build 20071116";
-      //s = "Intel(R) C++ Compiler for applications running on IA-32, Version 10.1 Build 20071116 Package ID: l_cc_p_10.1.010";
-      //s = "Intel C++ Intel 64 Compiler Professional for applications running on Intel 64, Version 11.0 Build 20081105 Package ID: l_cproc_p_11.0.074";
-      //s = "Intel(R) C++ Intel(R) 64 Compiler Professional for applications running on Intel(R) 64, Version 11.1 Build 20091130 Package ID: l_cproc_p_11.1.064";
-      //s = "Intel C++ Intel 64 Compiler XE for applications running on Intel 64, Version 12.0.4.191 Build 20110427";
-
-      size_t b (0), e (0), n;
-      while (next_word (s, b, e, ' ', ',') != 0)
-      {
-        // The third argument to find_first_not_of() is the length of the
-        // first argument, not the length of the interval to check. So to
-        // limit it to [b, e) we are also going to compare the result to the
-        // end of the word position (first space). In fact, we can just check
-        // if it is >= e. Similar logic for find_first_of() except that we add
-        // space to the list of character to make sure we don't go too far.
-        //
-        if (s.find_first_not_of ("1234567890.", b, 11) >= e &&
-            s.find_first_of (". ", b, 2) < e)
-          break;
-      }
-
-      if (b == e)
-        fail << "unable to extract icc version from '" << s << "'";
-
       compiler_version v;
-      v.string.assign (s, b, string::npos);
-
-      // Split the version into components.
-      //
-      size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
       {
-        try
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        // Treat the custom version as just a tail of the signature.
+        //
+        const string& s (xv == nullptr ? gr.signature : *xv);
+
+        // Some overrides for testing.
+        //
+        //s = "Intel(R) C++ Compiler for 32-bit applications, Version 9.1 Build 20070215Z Package ID: l_cc_c_9.1.047";
+        //s = "Intel(R) C++ Compiler for applications running on Intel(R) 64, Version 10.1 Build 20071116";
+        //s = "Intel(R) C++ Compiler for applications running on IA-32, Version 10.1 Build 20071116 Package ID: l_cc_p_10.1.010";
+        //s = "Intel C++ Intel 64 Compiler Professional for applications running on Intel 64, Version 11.0 Build 20081105 Package ID: l_cproc_p_11.0.074";
+        //s = "Intel(R) C++ Intel(R) 64 Compiler Professional for applications running on Intel(R) 64, Version 11.1 Build 20091130 Package ID: l_cproc_p_11.1.064";
+        //s = "Intel C++ Intel 64 Compiler XE for applications running on Intel 64, Version 12.0.4.191 Build 20110427";
+
+        size_t b (0), e (0);
+        while (next_word (s, b, e, ' ', ',') != 0)
         {
-          if (next_word (s, e, vb, ve, '.'))
-            return stoull (string (s, vb, ve - vb));
-
-          if (opt)
-            return 0;
+          // The third argument to find_first_not_of() is the length of the
+          // first argument, not the length of the interval to check. So to
+          // limit it to [b, e) we are also going to compare the result to the
+          // end of the word position (first space). In fact, we can just
+          // check if it is >= e. Similar logic for find_first_of() except
+          // that we add space to the list of character to make sure we don't
+          // go too far.
+          //
+          if (s.find_first_not_of ("1234567890.", b, 11) >= e &&
+              s.find_first_of (". ", b, 2) < e)
+            break;
         }
-        catch (const invalid_argument&) {}
-        catch (const out_of_range&) {}
 
-        fail << "unable to extract icc " << m << " version from '"
-             << string (s, b, e - b) << "'" << endf;
-      };
+        if (b == e)
+          fail << "unable to extract icc version from '" << s << "'";
 
-      v.major = next ("major", false);
-      v.minor = next ("minor", false);
-      v.patch = next ("patch", true);
+        v.string.assign (s, b, string::npos);
 
-      if (vb != ve && next_word (s, e, vb, ve, '.'))
-        v.build.assign (s, vb, ve - vb);
+        // Split the version into components.
+        //
+        size_t vb (b), ve (b);
+        auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
+        {
+          try
+          {
+            if (next_word (s, e, vb, ve, '.'))
+              return stoull (string (s, vb, ve - vb));
 
-      if (e != s.size ())
-      {
-        if (!v.build.empty ())
-          v.build += ' ';
+            if (opt)
+              return 0;
+          }
+          catch (const invalid_argument&) {}
+          catch (const out_of_range&) {}
 
-        v.build.append (s, e + 1, string::npos);
+          fail << "unable to extract icc " << m << " version from '"
+               << string (s, b, e - b) << "'" << endf;
+        };
+
+        v.major = next ("major", false);
+        v.minor = next ("minor", false);
+        v.patch = next ("patch", true);
+
+        if (vb != ve && next_word (s, e, vb, ve, '.'))
+          v.build.assign (s, vb, ve - vb);
+
+        if (e != s.size ())
+        {
+          if (!v.build.empty ())
+            v.build += ' ';
+
+          v.build.append (s, e + 1, string::npos);
+        }
       }
 
       // Figure out the target CPU by re-running the compiler with -V and
@@ -1116,75 +1246,91 @@ namespace build2
       // "Intel(R)" "64"
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
-      cstrings args {xp.recall_string (), "-V"};
-      if (c_co != nullptr) append_options (args, *c_co);
-      if (x_co != nullptr) append_options (args, *x_co);
-      args.push_back (nullptr);
+      string t, ot;
 
-      // The -V output is sent to STDERR.
-      //
-      string t (run<string> (3, xp, args.data (), f, false));
-
-      if (t.empty ())
-        fail << "unable to extract target architecture from " << xc
-             << " -V output";
-
-      string arch;
-      for (b = e = 0; (n = next_word (t, b, e, ' ', ',')) != 0; )
+      if (xt == nullptr)
       {
-        if (t.compare (b, n, "Intel(R)", 8) == 0 ||
-            t.compare (b, n, "Intel", 5) == 0)
-        {
-          if ((n = next_word (t, b, e, ' ', ',')) != 0)
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
           {
-            if (t.compare (b, n, "64", 2) == 0)
-            {
-              arch = "x86_64";
-            }
-            else if (t.compare (b, n, "MIC", 3) == 0)
-            {
-              arch = "x86_64"; // Plus "-k1om-linux" from -dumpmachine below.
-            }
-          }
-          else
-            break;
-        }
-        else if (t.compare (b, n, "IA-32", 5) == 0 ||
-                 t.compare (b, n, "32-bit", 6) == 0)
+            dr << info << "use config." << xm << ".target to override";
+          });
+
+        cstrings args {xp.recall_string (), "-V"};
+        if (c_co != nullptr) append_options (args, *c_co);
+        if (x_co != nullptr) append_options (args, *x_co);
+        args.push_back (nullptr);
+
+        // The -V output is sent to STDERR.
+        //
+        t = run<string> (3, xp, args.data (), f, false);
+
+        if (t.empty ())
+          fail << "unable to extract target architecture from " << xc
+               << " -V output";
+
+        string arch;
+        for (size_t b (0), e (0), n;
+             (n = next_word (t, b, e, ' ', ',')) != 0; )
         {
-          arch = "i386";
+          if (t.compare (b, n, "Intel(R)", 8) == 0 ||
+              t.compare (b, n, "Intel", 5) == 0)
+          {
+            if ((n = next_word (t, b, e, ' ', ',')) != 0)
+            {
+              if (t.compare (b, n, "64", 2) == 0)
+              {
+                arch = "x86_64";
+              }
+              else if (t.compare (b, n, "MIC", 3) == 0)
+              {
+                arch = "x86_64"; // Plus "-k1om-linux" from -dumpmachine below.
+              }
+            }
+            else
+              break;
+          }
+          else if (t.compare (b, n, "IA-32", 5) == 0 ||
+                 t.compare (b, n, "32-bit", 6) == 0)
+          {
+            arch = "i386";
+          }
         }
+
+        if (arch.empty ())
+          fail << "unable to extract icc target architecture from '"
+               << t << "'";
+
+        // So we have the CPU but we still need the rest of the triplet. While
+        // icc currently doesn't support cross-compilation (at least on Linux)
+        // and we could have just used the build triplet (i.e., the
+        // architecture on which we are running), who knows what will happen
+        // in the future. So instead we are going to use -dumpmachine and
+        // substitute the CPU.
+        //
+        {
+          auto f = [] (string& l, bool) {return move (l);};
+          t = run<string> (3, xp, "-dumpmachine", f);
+        }
+
+        if (t.empty ())
+          fail << "unable to extract target architecture from " << xc
+               << " using -dumpmachine output";
+
+        // The first component in the triplet is always CPU.
+        //
+        size_t p (t.find ('-'));
+
+        if (p == string::npos)
+          fail << "unable to parse icc target architecture '" << t << "'";
+
+        t.swap (arch);
+        t.append (arch, p, string::npos);
+
+        ot = t;
       }
-
-      if (arch.empty ())
-        fail << "unable to extract icc target architecture from '" << t << "'";
-
-      // So we have the CPU but we still need the rest of the triplet. While
-      // icc currently doesn't support cross-compilation (at least on Linux)
-      // and we could have just used the build triplet (i.e., the architecture
-      // on which we are running), who knows what will happen in the future.
-      // So instead we are going to use -dumpmachine and substitute the CPU.
-      //
-      {
-        auto f = [] (string& l) {return move (l);};
-        t = run<string> (3, xp, "-dumpmachine", f);
-      }
-
-      if (t.empty ())
-        fail << "unable to extract target architecture from " << xc
-             << " -dumpmachine output";
-
-      // The first component in the triplet is always CPU.
-      //
-      size_t p (t.find ('-'));
-
-      if (p == string::npos)
-        fail << "unable to parse icc target architecture '" << t << "'";
-
-      t.swap (arch);
-      t.append (arch, p, string::npos);
-
-      string ot (t);
+      else
+        ot = t = *xt;
 
       // Parse the target into triplet (for further tests) ignoring any
       // failures.
@@ -1198,7 +1344,7 @@ namespace build2
 
       // Use the signature line to generate the checksum.
       //
-      sha256 cs (s);
+      sha256 cs (gr.signature);
 
       // Runtime and standard library.
       //
@@ -1237,8 +1383,11 @@ namespace build2
     }
 
     static compiler_info
-    guess_msvc (lang xl,
+    guess_msvc (const char* xm,
+                lang xl,
                 const path& xc,
+                const string* xv,
+                const string* xt,
                 const strings*, const strings*,
                 const strings*, const strings*,
                 const strings*, const strings*,
@@ -1257,190 +1406,199 @@ namespace build2
       // "x64"
       // "ARM"
       //
-      string& s (gr.signature);
-
-      // Some overrides for testing.
-      //
-      //s = "Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.30729.01 for 80x86";
-      //s = "Compilador de optimizacion de C/C++ de Microsoft (R) version 16.00.30319.01 para x64";
-
-      // Scan the string as words and look for the version. While doing this
-      // also keep an eye on the CPU keywords.
-      //
-      string arch;
-      size_t b (0), e (0);
-
-      auto check_cpu = [&arch, &s, &b, &e] () -> bool
-      {
-        size_t n (e - b);
-
-        if (s.compare (b, n, "x64", 3) == 0 ||
-            s.compare (b, n, "x86", 3) == 0 ||
-            s.compare (b, n, "ARM", 3) == 0 ||
-            s.compare (b, n, "80x86", 5) == 0)
-        {
-          arch.assign (s, b, n);
-          return true;
-        }
-
-        return false;
-      };
-
-      while (next_word (s, b, e, ' ', ','))
-      {
-        // First check for the CPU keywords in case in some language they come
-        // before the version.
-        //
-        if (check_cpu ())
-          continue;
-
-        // The third argument to find_first_not_of() is the length of the
-        // first argument, not the length of the interval to check. So to
-        // limit it to [b, e) we are also going to compare the result to the
-        // end of the word position (first space). In fact, we can just check
-        // if it is >= e.
-        //
-        if (s.find_first_not_of ("1234567890.", b, 11) >= e)
-          break;
-      }
-
-      if (b == e)
-        fail << "unable to extract msvc version from '" << s << "'";
-
       compiler_version v;
-      v.string.assign (s, b, e - b);
-
-      // Split the version into components.
-      //
-      size_t vb (b), ve (b);
-      auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
       {
-        try
-        {
-          if (next_word (s, e, vb, ve, '.'))
-            return stoull (string (s, vb, ve - vb));
-        }
-        catch (const invalid_argument&) {}
-        catch (const out_of_range&) {}
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
 
-        fail << "unable to extract msvc " << m << " version from '"
-             << string (s, b, e - b) << "'" << endf;
-      };
+        // Treat the custom version as just a tail of the signature.
+        //
+        const string& s (xv == nullptr ? gr.signature : *xv);
 
-      v.major = next ("major");
-      v.minor = next ("minor");
-      v.patch = next ("patch");
+        // Some overrides for testing.
+        //
+        //s = "Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.30729.01 for 80x86";
+        //s = "Compilador de optimizacion de C/C++ de Microsoft (R) version 16.00.30319.01 para x64";
 
-      if (next_word (s, e, vb, ve, '.'))
-        v.build.assign (s, vb, ve - vb);
-
-      // Continue scanning for the CPU.
-      //
-      if (e != s.size ())
-      {
+        // Scan the string as words and look for the version.
+        //
+        size_t b (0), e (0);
         while (next_word (s, b, e, ' ', ','))
         {
-          if (check_cpu ())
+          // The third argument to find_first_not_of() is the length of the
+          // first argument, not the length of the interval to check. So to
+          // limit it to [b, e) we are also going to compare the result to the
+          // end of the word position (first space). In fact, we can just
+          // check if it is >= e.
+          //
+          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
             break;
         }
+
+        if (b == e)
+          fail << "unable to extract msvc version from '" << s << "'";
+
+        v.string.assign (s, b, e - b);
+
+        // Split the version into components.
+        //
+        size_t vb (b), ve (b);
+        auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
+        {
+          try
+          {
+            if (next_word (s, e, vb, ve, '.'))
+              return stoull (string (s, vb, ve - vb));
+          }
+          catch (const invalid_argument&) {}
+          catch (const out_of_range&) {}
+
+          fail << "unable to extract msvc " << m << " version from '"
+               << string (s, b, e - b) << "'" << endf;
+        };
+
+        v.major = next ("major");
+        v.minor = next ("minor");
+        v.patch = next ("patch");
+
+        if (next_word (s, e, vb, ve, '.'))
+          v.build.assign (s, vb, ve - vb);
       }
 
-      if (arch.empty ())
-        fail << "unable to extract msvc target architecture from "
-             << "'" << s << "'";
 
-      // Now we need to map x86, x64, and ARM to the target triplets. The
-      // problem is, there aren't any established ones so we got to invent
-      // them ourselves. Based on the discussion in
-      // <libbutl/target-triplet.mxx>, we need something in the
-      // CPU-VENDOR-OS-ABI form.
+      // Figure out the target architecture.
       //
-      // The CPU part is fairly straightforward with x86 mapped to 'i386' (or
-      // maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also
-      // include the version, e.g., 'amrv8').
-      //
-      // The (toolchain) VENDOR is also straightforward: 'microsoft'. Why not
-      // omit it? Two reasons: firstly, there are other compilers with the
-      // otherwise same target, for example Intel C/C++, and it could be
-      // useful to distinguish between them. Secondly, by having all four
-      // components we remove any parsing ambiguity.
-      //
-      // OS-ABI is where things are not as clear cut. The OS part shouldn't
-      // probably be just 'windows' since we have Win32 and WinCE. And WinRT.
-      // And Universal Windows Platform (UWP). So perhaps the following values
-      // for OS: 'win32', 'wince', 'winrt', 'winup'.
-      //
-      // For 'win32' the ABI part could signal the Microsoft C/C++ runtime by
-      // calling it 'msvc'. And seeing that the runtimes are incompatible from
-      // version to version, we should probably add the 'X.Y' version at the
-      // end (so we essentially mimic the DLL name, e.g, msvcr120.dll).  Some
-      // suggested we also encode the runtime type (those /M* options) though
-      // I am not sure: the only "redistributable" runtime is multi-threaded
-      // release DLL.
-      //
-      // The ABI part for the other OS values needs thinking. For 'winrt' and
-      // 'winup' it probably makes sense to encode the WINAPI_FAMILY macro
-      // value (perhaps also with the version). Some of its values:
-      //
-      // WINAPI_FAMILY_APP        Windows 10
-      // WINAPI_FAMILY_PC_APP     Windows 8.1
-      // WINAPI_FAMILY_PHONE_APP  Windows Phone 8.1
-      //
-      // For 'wince' we may also want to add the OS version, e.g., 'wince4.2'.
-      //
-      // Putting it all together, Visual Studio 2015 will then have the
-      // following target triplets:
-      //
-      // x86  i386-microsoft-win32-msvc14.0
-      // x64  x86_64-microsoft-win32-msvc14.0
-      // ARM  arm-microsoft-winup-???
-      //
-      string t;
+      string t, ot;
 
-      if (arch == "ARM")
-        fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
-      else
+      if (xt == nullptr)
       {
-        if (arch == "x64")
-          t = "x86_64-microsoft-win32-msvc";
-        else if (arch == "x86" || arch == "80x86")
-          t = "i386-microsoft-win32-msvc";
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".target to override";
+          });
+
+        const string& s (gr.signature);
+
+        // Scan the string as words and look for the CPU.
+        //
+        string arch;
+
+        for (size_t b (0), e (0), n;
+             (n = next_word (s, b, e, ' ', ',')) != 0; )
+        {
+          if (s.compare (b, n, "x64", 3) == 0 ||
+              s.compare (b, n, "x86", 3) == 0 ||
+              s.compare (b, n, "ARM", 3) == 0 ||
+              s.compare (b, n, "80x86", 5) == 0)
+          {
+            arch.assign (s, b, n);
+            break;
+          }
+        }
+
+        if (arch.empty ())
+          fail << "unable to extract msvc target architecture from "
+               << "'" << s << "'";
+
+        // Now we need to map x86, x64, and ARM to the target triplets. The
+        // problem is, there aren't any established ones so we got to invent
+        // them ourselves. Based on the discussion in
+        // <libbutl/target-triplet.mxx>, we need something in the
+        // CPU-VENDOR-OS-ABI form.
+        //
+        // The CPU part is fairly straightforward with x86 mapped to 'i386'
+        // (or maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also
+        // include the version, e.g., 'amrv8').
+        //
+        // The (toolchain) VENDOR is also straightforward: 'microsoft'. Why
+        // not omit it? Two reasons: firstly, there are other compilers with
+        // the otherwise same target, for example Intel C/C++, and it could be
+        // useful to distinguish between them. Secondly, by having all four
+        // components we remove any parsing ambiguity.
+        //
+        // OS-ABI is where things are not as clear cut. The OS part shouldn't
+        // probably be just 'windows' since we have Win32 and WinCE. And
+        // WinRT.  And Universal Windows Platform (UWP). So perhaps the
+        // following values for OS: 'win32', 'wince', 'winrt', 'winup'.
+        //
+        // For 'win32' the ABI part could signal the Microsoft C/C++ runtime
+        // by calling it 'msvc'. And seeing that the runtimes are incompatible
+        // from version to version, we should probably add the 'X.Y' version
+        // at the end (so we essentially mimic the DLL name, for example,
+        // msvcr120.dll). Some suggested we also encode the runtime type
+        // (those pesky /M* options) though I am not sure: the only
+        // "redistributable" runtime is multi-threaded release DLL.
+        //
+        // The ABI part for the other OS values needs thinking. For 'winrt'
+        // and 'winup' it probably makes sense to encode the WINAPI_FAMILY
+        // macro value (perhaps also with the version). Some of its values:
+        //
+        // WINAPI_FAMILY_APP        Windows 10
+        // WINAPI_FAMILY_PC_APP     Windows 8.1
+        // WINAPI_FAMILY_PHONE_APP  Windows Phone 8.1
+        //
+        // For 'wince' we may also want to add the OS version, for example,
+        // 'wince4.2'.
+        //
+        // Putting it all together, Visual Studio 2015 will then have the
+        // following target triplets:
+        //
+        // x86  i386-microsoft-win32-msvc14.0
+        // x64  x86_64-microsoft-win32-msvc14.0
+        // ARM  arm-microsoft-winup-???
+        //
+        if (arch == "ARM")
+          fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
         else
-          assert (false);
+        {
+          if (arch == "x64")
+            t = "x86_64-microsoft-win32-msvc";
+          else if (arch == "x86" || arch == "80x86")
+            t = "i386-microsoft-win32-msvc";
+          else
+            assert (false);
 
-        // Mapping of compiler versions to runtime versions:
-        //
-        // Note that VC15 has runtime version 14.1 but the DLLs are still
-        // called *140.dll (they are said to be backwards-compatible).
-        //
-        // year   ver cl.exe  crt/dll
-        //
-        // 2017   15u7  19.14  14.1/140
-        // 2017   15u6  19.13  14.1/140
-        // 2017   15u5  19.12  14.1/140
-        // 2017   15u3  19.11  14.1/140
-        // 2017   15    19.10  14.1/140
-        // 2015   14    19.00  14.0/140
-        // 2013   12    18.00  12.0/120
-        // 2012   11    17.00  11.0/110
-        // 2010   10    16.00  10.0/100
-        // 2008    9    15.00   9.0/90
-        // 2005    8    14.00   8.0/80
-        // 2003  7.1    13.10   7.1/71
-        //
-        /**/ if (v.major == 19 && v.minor >= 10) t += "14.1";
-        else if (v.major == 19 && v.minor ==  0) t += "14.0";
-        else if (v.major == 18 && v.minor ==  0) t += "12.0";
-        else if (v.major == 17 && v.minor ==  0) t += "11.0";
-        else if (v.major == 16 && v.minor ==  0) t += "10.0";
-        else if (v.major == 15 && v.minor ==  0) t += "9.0";
-        else if (v.major == 14 && v.minor ==  0) t += "8.0";
-        else if (v.major == 13 && v.minor == 10) t += "7.1";
-        else fail << "unable to map msvc compiler version '" << v.string
-                  << "' to runtime version";
+          // Mapping of compiler versions to runtime versions:
+          //
+          // Note that VC15 has runtime version 14.1 but the DLLs are still
+          // called *140.dll (they are said to be backwards-compatible).
+          //
+          // year   ver cl.exe  crt/dll
+          //
+          // 2017   15u8  19.15  14.1/140
+          // 2017   15u7  19.14  14.1/140
+          // 2017   15u6  19.13  14.1/140
+          // 2017   15u5  19.12  14.1/140
+          // 2017   15u3  19.11  14.1/140
+          // 2017   15    19.10  14.1/140
+          // 2015   14    19.00  14.0/140
+          // 2013   12    18.00  12.0/120
+          // 2012   11    17.00  11.0/110
+          // 2010   10    16.00  10.0/100
+          // 2008    9    15.00   9.0/90
+          // 2005    8    14.00   8.0/80
+          // 2003  7.1    13.10   7.1/71
+          //
+          /**/ if (v.major == 19 && v.minor >= 10) t += "14.1";
+          else if (v.major == 19 && v.minor ==  0) t += "14.0";
+          else if (v.major == 18 && v.minor ==  0) t += "12.0";
+          else if (v.major == 17 && v.minor ==  0) t += "11.0";
+          else if (v.major == 16 && v.minor ==  0) t += "10.0";
+          else if (v.major == 15 && v.minor ==  0) t += "9.0";
+          else if (v.major == 14 && v.minor ==  0) t += "8.0";
+          else if (v.major == 13 && v.minor == 10) t += "7.1";
+          else fail << "unable to map msvc compiler version '" << v.string
+                    << "' to runtime version";
+        }
+
+        ot = t;
       }
-
-      string ot (t);
+      else
+        ot = t = *xt;
 
       // Derive the toolchain pattern.
       //
@@ -1453,7 +1611,7 @@ namespace build2
 
       // Use the signature line to generate the checksum.
       //
-      sha256 cs (s);
+      sha256 cs (gr.signature);
 
       // Runtime and standard library.
       //
@@ -1488,9 +1646,12 @@ namespace build2
     static map<string, compiler_info> cache;
 
     const compiler_info&
-    guess (lang xl,
-           const string& xv,
+    guess (const char* xm,
+           lang xl,
            const path& xc,
+           const string* xis,
+           const string* xv,
+           const string* xt,
            const strings* c_po, const strings* x_po,
            const strings* c_co, const strings* x_co,
            const strings* c_lo, const strings* x_lo)
@@ -1502,6 +1663,7 @@ namespace build2
         sha256 cs;
         cs.append (static_cast<size_t> (xl));
         cs.append (xc.string ());
+        if (xis != nullptr) cs.append (*xis);
         if (c_po != nullptr) hash_options (cs, *c_po);
         if (x_po != nullptr) hash_options (cs, *x_po);
         if (c_co != nullptr) hash_options (cs, *c_co);
@@ -1515,7 +1677,23 @@ namespace build2
           return i->second;
       }
 
-      pair<compiler_type, size_t> pre (pre_guess (xl, xc));
+      // Parse the user-specified compiler id (config.x.id).
+      //
+      optional<compiler_id> xi;
+      if (xis != nullptr)
+      {
+        try
+        {
+          xi = compiler_id (*xis);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail << "invalid compiler id '" << *xis << "' "
+               << "specified in variable config." << xm << ".id: " << e;
+        }
+      }
+
+      pair<compiler_type, size_t> pre (pre_guess (xl, xc, xi));
       compiler_type& type (pre.first);
 
       // If we could pre-guess the type based on the excutable name, then
@@ -1525,20 +1703,23 @@ namespace build2
 
       if (type != invalid_compiler_type)
       {
-        gr = guess (xl, xv, xc, type);
+        gr = guess (xm, xl, xc, xi, type);
 
         if (gr.empty ())
+        {
           warn << xc << " looks like " << type << " but it is not" <<
-            info << "use " << xv << " to override";
+            info << "use config." << xm << " to override";
 
-        type = invalid_compiler_type;
+          type = invalid_compiler_type; // Clear pre-guess.
+        }
       }
 
       if (gr.empty ())
-        gr = guess (xl, xv, xc, type);
+        gr = guess (xm, xl, xc, xi, type);
 
       if (gr.empty ())
-        fail << "unable to guess " << xl << " compiler type of " << xc;
+        fail << "unable to guess " << xl << " compiler type of " << xc <<
+          info << "use config." << xm << ".id to specify explicitly";
 
       compiler_info r;
       const compiler_id& id (gr.id);
@@ -1547,28 +1728,28 @@ namespace build2
       {
       case compiler_type::gcc:
         {
-          r = guess_gcc (xl, xc,
+          r = guess_gcc (xm, xl, xc, xv, xt,
                          c_po, x_po, c_co, x_co, c_lo, x_lo,
                          move (gr));
           break;
         }
       case compiler_type::clang:
         {
-          r = guess_clang (xl, xc,
+          r = guess_clang (xm, xl, xc, xv, xt,
                            c_po, x_po, c_co, x_co, c_lo, x_lo,
                            move (gr));
           break;
         }
       case compiler_type::msvc:
         {
-          r = guess_msvc (xl, xc,
+          r = guess_msvc (xm, xl, xc, xv, xt,
                           c_po, x_po, c_co, x_co, c_lo, x_lo,
                           move (gr));
           break;
         }
       case compiler_type::icc:
         {
-          r = guess_icc (xl, xc,
+          r = guess_icc (xm, xl, xc, xv, xt,
                          c_po, x_po, c_co, x_co, c_lo, x_lo,
                          move (gr));
           break;
@@ -1645,29 +1826,36 @@ namespace build2
     }
 
     path
-    guess_default (lang xl, const string& c, const string& pat)
+    guess_default (lang xl, const string& cid, const string& pat)
     {
+      compiler_id id (cid);
       const char* s (nullptr);
+
+      using type = compiler_type;
 
       switch (xl)
       {
       case lang::c:
         {
-          if      (c == "gcc")         s = "gcc";
-          else if (c == "clang")       s = "clang";
-          else if (c == "clang-apple") s = "clang";
-          else if (c == "icc")         s = "icc";
-          else if (c == "msvc")        s = "cl";
+          switch (id.type)
+          {
+          case type::gcc:    s = "gcc";   break;
+          case type::clang:  s = "clang"; break;
+          case type::icc:    s = "icc";   break;
+          case type::msvc:   s = "cl";    break;
+          }
 
           break;
         }
       case lang::cxx:
         {
-          if      (c == "gcc")         s = "g++";
-          else if (c == "clang")       s = "clang++";
-          else if (c == "clang-apple") s = "clang++";
-          else if (c == "icc")         s = "icpc";
-          else if (c == "msvc")        s = "cl";
+          switch (id.type)
+          {
+          case type::gcc:    s = "g++";     break;
+          case type::clang:  s = "clang++"; break;
+          case type::icc:    s = "icpc";    break;
+          case type::msvc:   s = "cl";      break;
+          }
 
           break;
         }
