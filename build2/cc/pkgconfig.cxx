@@ -29,12 +29,50 @@
 #include <build2/cc/compile-rule.hxx>
 #include <build2/cc/link-rule.hxx>
 
+#ifndef BUILD2_BOOTSTRAP
+
+// Note that the libpkgconf library doesn't provide the version macro that we
+// could use to compile the code conditionally against different API versions.
+// Thus, we need to sense the pkgconf_client_new() function signature
+// ourselves to call it properly.
+//
+namespace details
+{
+  void*
+  pkgconf_cross_personality_default (); // Never called.
+}
+
+using namespace details;
+
+template <typename H>
+static inline pkgconf_client_t*
+call_pkgconf_client_new (pkgconf_client_t* (*f) (H, void*),
+                         H error_handler,
+                         void* error_handler_data)
+{
+  return f (error_handler, error_handler_data);
+}
+
+template <typename H, typename P>
+static inline pkgconf_client_t*
+call_pkgconf_client_new (pkgconf_client_t* (*f) (H, void*, P),
+                         H error_handler,
+                         void* error_handler_data)
+{
+  return f (error_handler,
+            error_handler_data,
+            ::pkgconf_cross_personality_default ());
+}
+
+#endif
+
 using namespace std;
 using namespace butl;
 
 namespace build2
 {
 #ifndef BUILD2_BOOTSTRAP
+
   // Load package information from a .pc file. Filter out the -I/-L options
   // that refer to system directories.
   //
@@ -275,8 +313,9 @@ namespace build2
     // Initialize the client handle.
     //
     unique_ptr<pkgconf_client_t, void (*) (pkgconf_client_t*)> c (
-      pkgconf_client_new (pkgconf_error_handler,
-                          nullptr /* error_handler_data */),
+      call_pkgconf_client_new (&pkgconf_client_new,
+                               pkgconf_error_handler,
+                               nullptr /* handler_data */),
       [] (pkgconf_client_t* c) {pkgconf_client_free (c);});
 
     pkgconf_client_set_flags (c.get (), pkgconf_flags);
