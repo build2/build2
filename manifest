@@ -17,4 +17,4 @@ depends: * bpkg >= 0.8.0-
 # @@ Should probably become conditional dependency.
 requires: ? cli ; Only required if changing .cli files.
 depends: libbutl [0.9.0-a.0.1 0.9.0-a.1)
-depends: libpkgconf ~1.4.2
+depends: libpkgconf [1.4.2 1.6.0-)
