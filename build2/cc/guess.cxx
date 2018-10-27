@@ -472,14 +472,19 @@ namespace build2
         sha256 cs;
 
         // Suppress all the compiler errors because we may be trying an
-        // unsupported option.
+        // unsupported option (but still consider the exit code).
         //
         r = run<guess_result> (3, xp, "-v", f, false, false, &cs);
 
         if (r.empty ())
         {
           if (xi)
-            fail << "unable to obtain " << xc << " signature with -v";
+          {
+            // Fallback to --version below in case this GCC/Clang-like
+            // compiler doesn't support -v.
+            //
+            //fail << "unable to obtain " << xc << " signature with -v";
+          }
         }
         else
         {
@@ -495,9 +500,13 @@ namespace build2
         }
       }
 
-      // Next try --version to detect icc.
+      // Next try --version to detect icc. As well as obtain signature for
+      // GCC/Clang-like compilers in case -v above didn't work.
       //
-      if (r.empty () && (pre == invalid || pre == type::icc))
+      if (r.empty () && (pre == invalid   ||
+                         pre == type::icc ||
+                         pre == type::gcc ||
+                         pre == type::clang))
       {
         auto f = [&xi] (string& l, bool) -> guess_result
         {
@@ -532,7 +541,6 @@ namespace build2
       }
 
       // Finally try to run it without any options to detect msvc.
-      //
       //
       if (r.empty () && (pre == invalid || pre == type::msvc))
       {
@@ -1342,10 +1350,6 @@ namespace build2
       //
       string pat (pattern (xc, xl == lang::c ? "icc" : "icpc"));
 
-      // Use the signature line to generate the checksum.
-      //
-      sha256 cs (gr.signature);
-
       // Runtime and standard library.
       //
       // For now we assume that unless it is Windows, we are targeting
@@ -1372,7 +1376,7 @@ namespace build2
         compiler_class::gcc, //@@ TODO: msvc on Windows?
         move (v),
         move (gr.signature),
-        cs.string (),
+        "",
         move (t),
         move (ot),
         move (pat),
@@ -1609,10 +1613,6 @@ namespace build2
       string cpat (pattern (xc, "cl", nullptr, ".-"));
       string bpat (cpat); // Binutils pattern is the same as toolchain.
 
-      // Use the signature line to generate the checksum.
-      //
-      sha256 cs (gr.signature);
-
       // Runtime and standard library.
       //
       string rt ("msvc");
@@ -1630,7 +1630,7 @@ namespace build2
         compiler_class::msvc,
         move (v),
         move (gr.signature),
-        cs.string (),
+        "",
         move (t),
         move (ot),
         move (cpat),
@@ -1755,6 +1755,11 @@ namespace build2
           break;
         }
       }
+
+      // By default use the signature line to generate the checksum.
+      //
+      if (r.checksum.empty ())
+        r.checksum = sha256 (r.signature).string ();
 
       // Derive binutils pattern unless this has already been done by the
       // compiler-specific code.
