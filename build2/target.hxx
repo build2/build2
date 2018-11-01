@@ -465,7 +465,7 @@ namespace build2
     class opstate
     {
     public:
-      mutable atomic_count task_count = 0; // Start offset_touched - 1.
+      mutable atomic_count task_count {0}; // Start offset_touched - 1.
 
       // Number of direct targets that depend on this target in the current
       // operation. It is incremented during match and then decremented during
@@ -473,7 +473,7 @@ namespace build2
       // detect the last chance (i.e., last dependent) to execute the command
       // (see also the first/last execution modes in <operation.hxx>).
       //
-      mutable atomic_count dependents = 0;
+      mutable atomic_count dependents {0};
 
       // Matched rule (pointer to hint_rule_map element). Note that in case of
       // a direct recipe assignment we may not have a rule (NULL).
