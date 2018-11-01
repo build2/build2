@@ -356,10 +356,10 @@ namespace build2
       otype ot (lt.type);
       linfo li (link_info (bs, ot));
 
-      // Set the library type (C, C++, etc).
+      // Set the library type (C, C++, etc) as rule-specific variable.
       //
       if (lt.library ())
-        t.vars.assign (c_type) = string (x);
+        t.state[a].assign (c_type) = string (x);
 
       bool binless (lt.library ()); // Binary-less until proven otherwise.
 

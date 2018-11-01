@@ -78,6 +78,8 @@ namespace build2
       //
       auto& v (var_pool.rw (rs));
 
+      auto v_t (variable_visibility::target);
+
       v.insert<strings> ("config.cc.poptions", true);
       v.insert<strings> ("config.cc.coptions", true);
       v.insert<strings> ("config.cc.loptions", true);
@@ -106,24 +108,26 @@ namespace build2
       v.insert<string> ("cc.stdlib");
 
       // Target type, for example, "C library" or "C++ library". Should be set
-      // on the target by the matching rule to the name of the module (e.g.,
-      // "c", "cxx"). Currenly only set for libraries and is used to decide
-      // which *.libs to use during static linking.
+      // on the target as a rule-specific variable by the matching rule to the
+      // name of the module (e.g., "c", "cxx"). Currenly only set for
+      // libraries and is used to decide which *.libs to use during static
+      // linking.
       //
       // It can also be the special "cc" value which means a C-common library
-      // but specific language is not known. Used in import installed logic.
+      // but specific language is not known. Used in the import installed
+      // logic.
       //
-      v.insert<string> ("cc.type");
+      v.insert<string> ("cc.type", v_t);
 
       // If set and is true, then this (imported) library has been found in a
       // system library search directory.
       //
-      v.insert<bool> ("cc.system");
+      v.insert<bool> ("cc.system", v_t);
 
       // C++ module name. Should be set on the bmi*{} target by the matching
       // rule.
       //
-      v.insert<string> ("cc.module_name");
+      v.insert<string> ("cc.module_name", v_t);
 
       // Ability to disable using preprocessed output for compilation.
       //

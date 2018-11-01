@@ -53,7 +53,7 @@ namespace build2
     }
   }
 
-  enum class variable_kind {scope, tt_pat, target, prerequisite};
+  enum class variable_kind {scope, tt_pat, target, rule, prerequisite};
 
   static void
   dump_variable (ostream& os,
@@ -107,7 +107,10 @@ namespace build2
           //
           lookup l (
             s.find_override (
-              var, make_pair (org, 1), k == variable_kind::target).first);
+              var,
+              make_pair (org, 1),
+              k == variable_kind::target || k == variable_kind::rule,
+              k == variable_kind::rule).first);
 
           assert (l.defined ()); // We at least have the original.
 
@@ -190,7 +193,8 @@ namespace build2
   }
 
   static void
-  dump_target (ostream& os,
+  dump_target (optional<action> a,
+               ostream& os,
                string& ind,
                const target& t,
                const scope& s,
@@ -213,26 +217,54 @@ namespace build2
 
     os << ind << t << ':';
 
-    // First print target-specific variables, if any.
+    // First print target/rule-specific variables, if any.
     //
-    if (!t.vars.empty ())
     {
-      if (rel)
-        stream_verb (os, osv); // We want variable values in full.
+      bool tv (!t.vars.empty ());
+      bool rv (a && !t.state[*a].vars.empty ());
 
-      os << endl
-         << ind << '{';
-      ind += "  ";
-      dump_variables (os, ind, t.vars, s, variable_kind::target);
-      ind.resize (ind.size () - 2);
-      os << endl
-         << ind << '}';
+      if (tv || rv)
+      {
+        if (rel)
+          stream_verb (os, osv); // We want variable values in full.
 
-      if (rel)
-        stream_verb (os, nsv);
+        os << endl
+           << ind << '{';
+        ind += "  ";
 
-      os << endl
-         << ind << t << ':';
+        if (tv)
+          dump_variables (os, ind, t.vars, s, variable_kind::target);
+
+        if (rv)
+        {
+          // To distinguish target and rule-specific variables, we put the
+          // latter into a nested block.
+          //
+          // @@ Maybe if we also print the rule name, then we could make
+          //    the block associated with that?
+
+          if (tv)
+            os << endl;
+
+          os << endl
+             << ind << '{';
+          ind += "  ";
+          dump_variables (os, ind, t.state[*a].vars, s, variable_kind::rule);
+          ind.resize (ind.size () - 2);
+          os << endl
+             << ind << '}';
+        }
+
+        ind.resize (ind.size () - 2);
+        os << endl
+           << ind << '}';
+
+        if (rel)
+          stream_verb (os, nsv);
+
+        os << endl
+           << ind << t << ':';
+      }
     }
 
     bool used (false); // Target header has been used to display prerequisites.
@@ -318,7 +350,8 @@ namespace build2
   }
 
   static void
-  dump_scope (ostream& os,
+  dump_scope (optional<action> a,
+              ostream& os,
               string& ind,
               scope_map::const_iterator& i,
               bool rel)
@@ -383,7 +416,7 @@ namespace build2
         os << endl; // Extra newline between scope blocks.
 
       os << endl;
-      dump_scope (os, ind, i, true /* relative */);
+      dump_scope (a, os, ind, i, true /* relative */);
       sb = true;
     }
 
@@ -406,7 +439,7 @@ namespace build2
       }
 
       os << endl;
-      dump_target (os, ind, t, p, true /* relative */);
+      dump_target (a, os, ind, t, p, true /* relative */);
       tb = true;
     }
 
@@ -418,7 +451,7 @@ namespace build2
   }
 
   void
-  dump ()
+  dump (optional<action> a)
   {
     auto i (scopes.cbegin ());
     assert (&i->second == global_scope);
@@ -428,7 +461,7 @@ namespace build2
     //
     string ind;
     ostream& os (*diag_stream);
-    dump_scope (os, ind, i, false /* relative */);
+    dump_scope (a, os, ind, i, false /* relative */);
     os << endl;
   }
 
@@ -441,7 +474,7 @@ namespace build2
 
     string ind (cind);
     ostream& os (*diag_stream);
-    dump_scope (os, ind, i, false /* relative */);
+    dump_scope (nullopt /* action */, os, ind, i, false /* relative */);
     os << endl;
   }
 
@@ -450,7 +483,12 @@ namespace build2
   {
     string ind (cind);
     ostream& os (*diag_stream);
-    dump_target (os, ind, t, t.base_scope (), false /* relative */);
+    dump_target (nullopt /* action */,
+                 os,
+                 ind,
+                 t,
+                 t.base_scope (),
+                 false /* relative */);
     os << endl;
   }
 }

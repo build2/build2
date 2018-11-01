@@ -1351,6 +1351,9 @@ namespace build2
     explicit
     variable_map (bool global = false): global_ (global) {}
 
+    void
+    clear () {m_.clear ();}
+
   private:
     friend class variable_type_map;
 

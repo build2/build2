@@ -114,10 +114,10 @@ namespace build2
   template <typename T>
   struct action_state
   {
-    T states[2]; // [0] -- inner, [1] -- outer.
+    T data[2]; // [0] -- inner, [1] -- outer.
 
-    T&       operator[] (action a)       {return states[a.inner () ? 0 : 1];}
-    const T& operator[] (action a) const {return states[a.inner () ? 0 : 1];}
+    T&       operator[] (action a)       {return data[a.inner () ? 0 : 1];}
+    const T& operator[] (action a) const {return data[a.inner () ? 0 : 1];}
   };
 
   // Id constants for build-in and pre-defined meta/operations.

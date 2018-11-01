@@ -357,6 +357,8 @@ namespace build2
 
     // Target-specific variables.
     //
+    // See also rule-specific variables below.
+    //
   public:
     variable_map vars;
 
@@ -460,9 +462,10 @@ namespace build2
 
     // Inner/outer operation state. See operation.hxx for details.
     //
-    struct opstate
+    class opstate
     {
-      mutable atomic_count task_count {0}; // Start offset_touched - 1.
+    public:
+      mutable atomic_count task_count = 0; // Start offset_touched - 1.
 
       // Number of direct targets that depend on this target in the current
       // operation. It is incremented during match and then decremented during
@@ -470,7 +473,7 @@ namespace build2
       // detect the last chance (i.e., last dependent) to execute the command
       // (see also the first/last execution modes in <operation.hxx>).
       //
-      mutable atomic_count dependents {0};
+      mutable atomic_count dependents = 0;
 
       // Matched rule (pointer to hint_rule_map element). Note that in case of
       // a direct recipe assignment we may not have a rule (NULL).
@@ -485,6 +488,79 @@ namespace build2
       // a rule is matched and recipe applied (see set_recipe()).
       //
       target_state state;
+
+      // Rule-specific variables.
+      //
+      // The rule (for this action) has to be matched before these variables
+      // can be accessed and only the rule being matched can modify them (so
+      // no iffy modifications of the group's variables by member's rules).
+      //
+      // They are also automatically cleared before another rule is matched,
+      // similar to the data pad. In other words, rule-specific variables are
+      // only valid for this match-execute phase.
+      //
+      variable_map vars;
+
+      // Lookup, continuing in the target-specific variables, etc. Note that
+      // the group's rule-specific variables are not included. If you only
+      // want to lookup in this target, do it on the variable map directly
+      // (and note that there will be no overrides).
+      //
+      lookup
+      operator[] (const variable& var) const
+      {
+        return find (var).first;
+      }
+
+      lookup
+      operator[] (const variable* var) const // For cached variables.
+      {
+        assert (var != nullptr);
+        return operator[] (*var);
+      }
+
+      lookup
+      operator[] (const string& name) const
+      {
+        const variable* var (var_pool.find (name));
+        return var != nullptr ? operator[] (*var) : lookup ();
+      }
+
+      // As above but also return the depth at which the value is found. The
+      // depth is calculated by adding 1 for each test performed. So a value
+      // that is from the rule will have depth 1. That from the target - 2,
+      // and so on, similar to target-specific variables.
+      //
+      pair<lookup, size_t>
+      find (const variable& var) const
+      {
+        auto p (find_original (var));
+        return var.override == nullptr
+          ? p
+          : target_->base_scope ().find_override (var, move (p), true, true);
+      }
+
+      // If target_only is true, then only look in target and its target group
+      // without continuing in scopes.
+      //
+      pair<lookup, size_t>
+      find_original (const variable&, bool target_only = false) const;
+
+      // Return a value suitable for assignment. See target for details.
+      //
+      value&
+      assign (const variable& var) {return vars.assign (var);}
+
+      value&
+      assign (const variable* var) {return vars.assign (var);} // For cached.
+
+    public:
+      opstate (): vars (false /* global */) {}
+
+    private:
+      friend class target_set;
+
+      const target* target_ = nullptr; // Back-pointer, set by target_set.
     };
 
     action_state<opstate> state;
@@ -672,21 +748,23 @@ namespace build2
     static void
     combine_name (string&, const optional<string>&, bool default_extension);
 
+    // Targets should be created via the targets set below.
+    //
   public:
-    virtual
-    ~target ();
+    target (dir_path d, dir_path o, string n)
+        : dir (move (d)), out (move (o)), name (move (n)),
+          vars (false /* global */) {}
+
+    target (target&&) = delete;
+    target& operator= (target&&) = delete;
 
     target (const target&) = delete;
     target& operator= (const target&) = delete;
 
-    // The only way to create a target should be via the targets set below.
-    //
-  public:
-    friend class target_set;
+    virtual
+    ~target ();
 
-    target (dir_path d, dir_path o, string n)
-        : dir (move (d)), out (move (o)), name (move (n)),
-          vars (false /* global */) {}
+    friend class target_set;
   };
 
   // All targets are from the targets set below.

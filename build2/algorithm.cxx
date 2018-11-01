@@ -434,11 +434,12 @@ namespace build2
           // Match.
           //
 
-          // Clear the resolved targets list and the data pad before calling
-          // match(). The rule is free to modify these in its match()
-          // (provided that it matches) in order to, for example, convey some
-          // information to apply().
+          // Clear the rule-specific variables, resolved targets list, and the
+          // data pad before calling match(). The rule is free to modify these
+          // in its match() (provided that it matches) in order to, for
+          // example, convey some information to apply().
           //
+          s.vars.clear ();
           t.prerequisite_targets[a].clear ();
           if (a.inner ()) t.clear_data ();
 
@@ -479,6 +480,7 @@ namespace build2
       // As a sanity measure clear the target data since it can be incomplete
       // or invalid (mark()/unmark() should give you some ideas).
       //
+      s.vars.clear ();
       t.prerequisite_targets[a].clear ();
       if (a.inner ()) t.clear_data ();
 

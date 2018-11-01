@@ -238,7 +238,7 @@ namespace build2
     assert (phase == run_phase::load);
 
     if (verb >= 6)
-      dump ();
+      dump (a);
   }
 
   void

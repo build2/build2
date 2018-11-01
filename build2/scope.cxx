@@ -178,8 +178,11 @@ namespace build2
   pair<lookup, size_t> scope::
   find_override (const variable& var,
                  pair<lookup, size_t> original,
-                 bool target) const
+                 bool target,
+                 bool rule) const
   {
+    assert (!rule || target); // Rule-specific is target-specific.
+
     // Normally there would be no overrides and if there are, there will only
     // be a few of them. As a result, here we concentrate on keeping the logic
     // as straightforward as possible without trying to optimize anything.
@@ -204,14 +207,15 @@ namespace build2
     const variable_map* inner_vars (nullptr);
     const scope* inner_proj (nullptr);
 
-    // One special case is if the original is target-specific, which is the
-    // most innermost. Or is it innermostest?
+    // One special case is if the original is target/rule-specific, which is
+    // the most innermost. Or is it innermostest?
     //
     bool targetspec (false);
     if (target)
     {
-      targetspec = orig.defined () && (orig_depth == 1 || orig_depth == 2);
-
+      targetspec = orig.defined () && (orig_depth == 1 ||
+                                       orig_depth == 2 ||
+                                       (rule && orig_depth == 3));
       if (targetspec)
       {
         inner_vars = orig.vars;
@@ -354,7 +358,7 @@ namespace build2
     size_t stem_depth (0);
     const scope* stem_proj (nullptr);
 
-    // Again the special case of a target-specific variable.
+    // Again the special case of a target/rule-specific variable.
     //
     if (targetspec)
     {
@@ -363,7 +367,9 @@ namespace build2
       stem_proj = root_scope ();
     }
 
-    size_t ovr_depth (target ? 2 : 0); // For implied target-specific lookup.
+    // For implied target/rule-specific lookup.
+    //
+    size_t ovr_depth (target ? (rule ? 3 : 2) : 0);
 
     for (s = this; s != nullptr; s = s->parent_scope ())
     {
@@ -462,7 +468,7 @@ namespace build2
     const variable_map* vars (stem.vars);
     const scope* proj (stem_proj);
 
-    ovr_depth = target ? 2 : 0;
+    ovr_depth = target ? (rule ? 3 : 2) : 0;
 
     for (s = this; s != nullptr; s = s->parent_scope ())
     {

@@ -280,7 +280,6 @@ namespace build2
     typify (v, t, var, memory_order_relaxed);
   }
 
-
   inline vector_view<const name>
   reverse (const value& v, names& storage)
   {

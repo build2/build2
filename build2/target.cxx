@@ -192,6 +192,31 @@ namespace build2
     return r;
   }
 
+  pair<lookup, size_t> target::opstate::
+  find_original (const variable& var, bool target_only) const
+  {
+    pair<lookup, size_t> r (lookup (), 0);
+
+    ++r.second;
+    {
+      auto p (vars.find (var));
+      if (p.first != nullptr)
+        r.first = lookup (*p.first, p.second, vars);
+    }
+
+    // Delegate to target's find_original().
+    //
+    if (!r.first)
+    {
+      auto p (target_->find_original (var, target_only));
+
+      r.first = move (p.first);
+      r.second = r.first ? r.second + p.second : p.second;
+    }
+
+    return r;
+  }
+
   optional<string> target::
   split_name (string& v, const location& loc)
   {
@@ -366,6 +391,8 @@ namespace build2
       {
         t->ext_ = &i->first.ext;
         t->implied = implied;
+        t->state.data[0].target_ = t;
+        t->state.data[1].target_ = t;
         return pair<target&, ulock> (*t, move (ul));
       }
 

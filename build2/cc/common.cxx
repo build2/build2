@@ -80,9 +80,10 @@ namespace build2
 
       // See what type of library this is (C, C++, etc). Use it do decide
       // which x.libs variable name to use. If it's unknown, then we only
-      // look into prerequisites.
+      // look into prerequisites. Note: lookup starting from rule-specific
+      // variables (target should already be matched).
       //
-      const string* t (cast_null<string> (l.vars[c_type]));
+      const string* t (cast_null<string> (l.state[a][c_type]));
 
       bool impl (proc_impl && proc_impl (l, la));
       bool cc (false), same (false);
