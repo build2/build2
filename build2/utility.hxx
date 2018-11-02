@@ -284,7 +284,7 @@ namespace build2
   //
   // T (string& line, bool last)
   //
-  // If ignore_exit is true, then the program's exist status is ignored (if it
+  // If ignore_exit is true, then the program's exit status is ignored (if it
   // is false and the program exits with the non-zero status, then an empty T
   // instance is returned).
   //

@@ -2772,7 +2772,7 @@ namespace build2
                 if (!bad_error)
                   continue;
 
-                fail << "expected error exist status from " << x_lang
+                fail << "expected error exit status from " << x_lang
                      << " compiler";
               }
               else if (pr.exit->normal ())

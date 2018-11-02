@@ -274,7 +274,7 @@ namespace build2
 
       // Binutils ld recognizes the --version option. Microsoft's link.exe
       // doesn't support --version (nor any other way to get the version
-      // without the error exist status) but it will still print its banner.
+      // without the error exit status) but it will still print its banner.
       // We also want to recognize link.exe as fast as possible since it will
       // be the most commonly configured linker (for other platoforms the
       // linker will normally be used indirectly via the compiler and the
