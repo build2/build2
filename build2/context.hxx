@@ -287,6 +287,8 @@ namespace build2
   // copy      - make a copy.
   // overwrite - copy over but don't remove on clean (committed gen code).
   //
+  // Note that it can be set by a matching rule as a rule-specific variable.
+  //
   extern const variable* var_backlink;        // [string] target visibility
 
   // Prerequisite inclusion/exclusion. Valid values are:

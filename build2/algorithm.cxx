@@ -1277,7 +1277,7 @@ namespace build2
     if (!cast_false<bool> (rs->vars[var_forwarded]))
       return nullopt;
 
-    lookup l (t[var_backlink]);
+    lookup l (t.state[a][var_backlink]);
 
     // If not found, check for some defaults in the global scope (this does
     // not happen automatically since target type/pattern-specific lookup
@@ -1290,7 +1290,7 @@ namespace build2
   }
 
   static backlinks
-  backlink_collect (target& t, backlink_mode m)
+  backlink_collect (action a, target& t, backlink_mode m)
   {
     using mode = backlink_mode;
 
@@ -1328,7 +1328,14 @@ namespace build2
         // inherit the one from the group (so if the user asked to copy .exe,
         // we will also copy .pdb).
         //
-        lookup l (mt->vars[var_backlink]); // Note: no group or tt/patter-spec.
+        // Note that we want to avoid group or tt/patter-spec lookup. And
+        // since this is an ad hoc member (which means it was added by the
+        // rule), we assume that the value, if any, will be set as a rule-
+        // specific variable (since setting it as a target-specific wouldn't
+        // be MT-safe).
+        //
+        lookup l (mt->state[a].vars[var_backlink]);
+
         optional<mode> bm (l ? backlink_test (*mt, l) : m);
 
         if (bm)
@@ -1340,9 +1347,9 @@ namespace build2
   }
 
   static inline backlinks
-  backlink_update_pre (target& t, backlink_mode m)
+  backlink_update_pre (action a, target& t, backlink_mode m)
   {
-    return backlink_collect (t, m);
+    return backlink_collect (a, t, m);
   }
 
   static void
@@ -1373,9 +1380,9 @@ namespace build2
   }
 
   static void
-  backlink_clean_pre (target& t, backlink_mode m)
+  backlink_clean_pre (action a, target& t, backlink_mode m)
   {
-    backlinks bls (backlink_collect (t, m));
+    backlinks bls (backlink_collect (a, t, m));
 
     for (auto b (bls.begin ()), i (b); i != bls.end (); ++i)
     {
@@ -1410,9 +1417,9 @@ namespace build2
       if (blm)
       {
         if (a == perform_update_id)
-          bls = backlink_update_pre (t, *blm);
+          bls = backlink_update_pre (a, t, *blm);
         else
-          backlink_clean_pre (t, *blm);
+          backlink_clean_pre (a, t, *blm);
       }
 
       ts = execute_recipe (a, t, s.recipe);

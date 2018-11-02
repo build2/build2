@@ -799,14 +799,14 @@ namespace build2
             // The problem is the Windows DLL assembly "logic" refuses to
             // recognize a junction as a valid assembly for some reason. So we
             // are going to resort to copy-link (i.e., a real directory with a
-            // bunch on links).
+            // bunch of links).
             //
             // Interestingly, the directory symlink works just fine under
-            // Wine. So we only resort to copy-link'ing if we are running
-            // on Windows.
+            // Wine. So we only resort to copy-link'ing if we are running on
+            // Windows.
             //
 #ifdef _WIN32
-            dir.target->assign (var_backlink) = "copy";
+            dir.target->state[a].assign (var_backlink) = "copy";
 #endif
             match_recipe (dir, group_recipe); // Set recipe and unlock.
           }
