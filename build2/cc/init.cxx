@@ -124,8 +124,9 @@ namespace build2
       //
       v.insert<bool> ("cc.system", v_t);
 
-      // C++ module name. Should be set on the bmi*{} target by the matching
-      // rule.
+      // C++ module name. Set on the bmi*{} target as a rule-specific variable
+      // by the matching rule. Can also be set by the user (normally via the
+      // x.module_name alias) on the x_mod{} source.
       //
       v.insert<string> ("cc.module_name", v_t);
 

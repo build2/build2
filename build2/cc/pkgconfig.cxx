@@ -1077,6 +1077,11 @@ namespace build2
           //    exist but for a "different purpose" (e.g., it could be used as
           //    a header).
           //
+          // @@ Could setting it in the rule-specific vars help? (But we
+          //    are not matching a rule for it.) Note that we are setting
+          //    it on the module source, not bmi*{}! So rule-specific vars
+          //    don't seem to the answer here.
+          //
           if (tl.second.owns_lock ())
           {
             mt.vars.assign (c_module_name) = move (mn);
@@ -1486,7 +1491,7 @@ namespace build2
 
               modules.push_back (
                 module {
-                  cast<string> (pt->vars[c_module_name]),
+                  cast<string> (pt->state[a].vars[c_module_name]),
                   move (p),
                   move (pp),
                   symexport

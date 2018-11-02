@@ -3273,14 +3273,14 @@ namespace build2
         break;
       }
 
-      // Set the cc.module_name variable if this is an interface unit. Note
-      // that it may seem like a good idea to set it on the bmi{} group to
-      // avoid duplication. We, however, cannot do it MT-safely since we don't
-      // match the group.
+      // Set the cc.module_name rule-specific variable if this is an interface
+      // unit. Note that it may seem like a good idea to set it on the bmi{}
+      // group to avoid duplication. We, however, cannot do it MT-safely since
+      // we don't match the group.
       //
       if (mi.iface)
       {
-        if (value& v = t.vars.assign (c_module_name))
+        if (value& v = t.state[a].assign (c_module_name))
           assert (cast<string> (v) == mi.name);
         else
           v = move (mi.name); // Note: move.
@@ -3607,7 +3607,8 @@ namespace build2
               //
               if (bt->is_a<bmix> ())
               {
-                const string& n (cast<string> (bt->vars[c_module_name]));
+                const string& n (
+                  cast<string> (bt->state[a].vars[c_module_name]));
 
                 if (const target** p = check_exact (n))
                   *p = bt;
@@ -3622,6 +3623,7 @@ namespace build2
                 // something else is going on and ignore.
                 //
                 const string* n (cast_null<string> (bt->vars[c_module_name]));
+
                 if (n == nullptr)
                   continue;
 
@@ -3783,7 +3785,7 @@ namespace build2
 
         if (m.score <= in.size ())
         {
-          const string& mn (cast<string> (bt->vars[c_module_name]));
+          const string& mn (cast<string> (bt->state[a].vars[c_module_name]));
 
           if (in != mn)
           {
@@ -3827,7 +3829,7 @@ namespace build2
             if (et == nullptr)
               continue; // Unresolved (std.*).
 
-            const string& mn (cast<string> (et->vars[c_module_name]));
+            const string& mn (cast<string> (et->state[a].vars[c_module_name]));
 
             if (find_if (imports.begin (), imports.end (),
                          [&mn] (const module_import& i)
@@ -4136,7 +4138,7 @@ namespace build2
             else
             {
               s.insert (0, 1, '=');
-              s.insert (0, cast<string> (f.vars[c_module_name]));
+              s.insert (0, cast<string> (f.state[a].vars[c_module_name]));
               s.insert (0, "-fmodule-file=");
             }
 
@@ -4169,7 +4171,7 @@ namespace build2
             // specified with the IFCPATH environment variable or the
             // /module:stdIfcDir option.
             //
-            if (std_module (cast<string> (f.vars[c_module_name])))
+            if (std_module (cast<string> (f.state[a].vars[c_module_name])))
             {
               dir_path d (f.path ().directory ());
 
