@@ -2585,7 +2585,10 @@ namespace build2
                       //
                       if (l != src.path ().leaf ().string ())
                       {
-                        if (msvc_sense_diag (l, 'D') != string::npos)
+                        // D8XXX are errors while D9XXX are warnings.
+                        //
+                        size_t p (msvc_sense_diag (l, 'D'));
+                        if (p != string::npos && l[p] == '9')
                           continue;
 
                         text << l;

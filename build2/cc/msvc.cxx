@@ -140,7 +140,7 @@ namespace build2
     {
       // While it appears VC always prints the source name (event if the
       // file does not exist), let's do a sanity check. Also handle the
-      // command line warnings which come before the file name.
+      // command line errors/warnings which come before the file name.
       //
       for (string l; !eof (getline (is, l)); )
       {
