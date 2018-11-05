@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <cstring> // strcmp()
+
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/context.hxx>
@@ -16,7 +18,8 @@
 #include <build2/cc/common.hxx>
 #include <build2/cc/module.hxx>
 
-using namespace std;
+using std::strcmp;
+
 using namespace butl;
 
 namespace build2
@@ -42,6 +45,61 @@ namespace build2
       return m;
     }
 
+    // Sanitize cl.exe options.
+    //
+    void
+    msvc_sanitize_cl (cstrings& args)
+    {
+      // VC is trying to be "helpful" and warn about one command line option
+      // overriding another. For example:
+      //
+      // cl : Command line warning D9025 : overriding '/W1' with '/W2'
+      //
+      // So we have to sanitize the command line and suppress duplicates of
+      // certain options.
+      //
+      // Note also that it is theoretically possible we will treat an option's
+      // argument as an option. Oh, well, nobody is perfect in the Microsoft
+      // land.
+
+      // We want to keep the last option seen at the position (relative to
+      // other options) that it was encountered. If we were to iterate forward
+      // and keep positions of the enountered options, then we would have had
+      // to adjust some of them once we remove a duplicate. So instead we are
+      // going to iterate backwards, in which case we don't even need to keep
+      // positions, just flags. Note that args[0] is cl.exe itself in which we
+      // are conveniently not interested.
+      //
+      bool W (false); // /WN /Wall /w
+
+      for (size_t i (args.size () - 1); i != 0; --i)
+      {
+        auto erase = [&args, &i] ()
+        {
+          args.erase (args.begin () + i);
+        };
+
+        const char* a (args[i]);
+
+        if (*a != '/' && *a != '-') // Not an option.
+          continue;
+
+        ++a;
+
+        // /WN /Wall /w
+        //
+        if ((a[0] == 'W' && digit (a[1]) && a[2] == '\0') || // WN
+            (a[0] == 'W' && strcmp (a + 1, "all") == 0)   || // Wall
+            (a[0] == 'w' && a[1] == '\0'))                   // w
+        {
+          if (W)
+            erase ();
+          else
+            W = true;
+        }
+      }
+    }
+
     // Sense whether this is a diagnostics line returning the postion of the
     // NNNN code in XNNNN and npos otherwise.
     //
@@ -59,15 +117,13 @@ namespace build2
            p != string::npos;
            p = ++p != n ? l.find_first_of (": ", p) : string::npos)
       {
-        auto isnum = [](char c) {return c >= '0' && c <= '9';};
-
         if (p > 5 &&
             l[p - 6] == ' '  &&
             l[p - 5] == f    &&
-            isnum (l[p - 4]) &&
-            isnum (l[p - 3]) &&
-            isnum (l[p - 2]) &&
-            isnum (l[p - 1]))
+            digit (l[p - 4]) &&
+            digit (l[p - 3]) &&
+            digit (l[p - 2]) &&
+            digit (l[p - 1]))
         {
           p -= 4; // Start of the error code.
           break;

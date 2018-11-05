@@ -1448,6 +1448,9 @@ namespace build2
       }
     }
 
+    void
+    msvc_sanitize_cl (cstrings&); // msvc.cxx
+
     // Extract and inject header dependencies. Return the preprocessed source
     // file as well as an indication if it is usable for compilation (see
     // below for details).
@@ -1915,6 +1918,8 @@ namespace build2
               args.push_back ("/showIncludes"); // Goes to stdout (with diag).
               args.push_back (pp);              // /C (preserve comments).
               args.push_back ("/WX");           // Warning as error (see above).
+
+              msvc_sanitize_cl (args);
 
               psrc = auto_rmfile (t.path () + x_pext);
 
@@ -2984,6 +2989,9 @@ namespace build2
 
               args.push_back ("/E");
               args.push_back ("/C");
+
+              msvc_sanitize_cl (args);
+
               args.push_back (langopt (md)); // Compile as.
 
               break;
@@ -4330,6 +4338,8 @@ namespace build2
         //
         if (!find_option_prefixes ({"/MD", "/MT"}, args))
           args.push_back ("/MD");
+
+        msvc_sanitize_cl (args);
 
         append_modules (env, args, mods, a, t, md);
 
