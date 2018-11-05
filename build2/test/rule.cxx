@@ -765,7 +765,7 @@ namespace build2
         args.push_back (nullptr);
       }
 
-      process_path pp (run_search (p, true));
+      process_path pp (run_search (p, true /* init */));
       args.push_back (pp.recall_string ());
 
       // Do we have options and/or arguments?

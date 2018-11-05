@@ -360,7 +360,13 @@ namespace build2
             dr << info << "use config." << xm << " to override";
           });
 
-        xp = run_search (xc, false /* init */); // Note: cached.
+        // Only search in PATH (specifically, omitting the current
+        // executable's directory on Windows).
+        //
+        xp = run_search (xc,
+                         false       /* init */,    // Note: result is cached.
+                         dir_path () /* fallback */,
+                         true        /* path_only */);
       }
 
       using type = compiler_type;

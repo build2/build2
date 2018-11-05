@@ -148,10 +148,10 @@ namespace build2
   }
 
   process_path
-  run_search (const char*& args0, const location& l)
+  run_search (const char*& args0, bool path_only, const location& l)
   try
   {
-    return process::path_search (args0);
+    return process::path_search (args0, dir_path () /* fallback */, path_only);
   }
   catch (const process_error& e)
   {
@@ -162,10 +162,11 @@ namespace build2
   run_search (const path& f,
               bool init,
               const dir_path& fallback,
+              bool path_only,
               const location& l)
   try
   {
-    return process::path_search (f, init, fallback);
+    return process::path_search (f, init, fallback, path_only);
   }
   catch (const process_error& e)
   {

@@ -52,7 +52,10 @@ namespace build2
             dr << info << "use config.bin.ar to override";
           });
 
-        arp = run_search (ar, true, fallback);
+        // Only search in PATH (specifically, omitting the current
+        // executable's directory on Windows).
+        //
+        arp = run_search (ar, true, fallback, true /* path_only */);
       }
 
       if (rl != nullptr)
@@ -63,7 +66,7 @@ namespace build2
             dr << info << "use config.bin.ranlib to override";
           });
 
-        rlp = run_search (*rl, true, fallback);
+        rlp = run_search (*rl, true, fallback, true /* path_only */);
       }
 
       // Binutils, LLVM, and FreeBSD ar/ranlib all recognize the --version
@@ -269,7 +272,10 @@ namespace build2
             dr << info << "use config.bin.ld to override";
           });
 
-        pp = run_search (ld, true, fallback);
+        // Only search in PATH (specifically, omitting the current
+        // executable's directory on Windows).
+        //
+        pp = run_search (ld, true, fallback, true /* path_only */);
       }
 
       // Binutils ld recognizes the --version option. Microsoft's link.exe
@@ -397,7 +403,10 @@ namespace build2
             dr << info << "use config.bin.rc to override";
           });
 
-        pp = run_search (rc, true, fallback);
+        // Only search in PATH (specifically, omitting the current
+        // executable's directory on Windows).
+        //
+        pp = run_search (rc, true, fallback, true /* path_only */);
       }
 
       // Binutils windres recognizes the --version option.

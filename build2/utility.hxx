@@ -150,12 +150,21 @@ namespace build2
   // case of an error.
   //
   process_path
-  run_search (const char*& args0, const location& = location ());
+  run_search (const char*& args0,
+              bool path_only,
+              const location& = location ());
+
+  inline process_path
+  run_search (const char*& args0, const location& l = location ())
+  {
+    return run_search (args0, false, l);
+  }
 
   process_path
   run_search (const path&,
               bool init = false,
               const dir_path& fallback = dir_path (),
+              bool path_only = false,
               const location& = location ());
 
   // Wait for process termination. Issue diagnostics and throw failed in case

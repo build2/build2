@@ -118,7 +118,13 @@ namespace build2
 
           try
           {
-            pp = process::path_search (cli, true); // Can throw.
+            // Only search in PATH (specifically, omitting the current
+            // executable's directory on Windows).
+            //
+            pp = process::path_search (cli,
+                                       true        /* init */,
+                                       dir_path () /* fallback */,
+                                       true        /* path_only */);
             args[0] = pp.recall_string ();
 
             if (verb >= 3)
