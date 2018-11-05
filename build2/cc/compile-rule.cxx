@@ -1337,40 +1337,14 @@ namespace build2
     // translation, etc.
     //
     // It turns out C1083 is also used when we are unable to open the main
-    // source file and the error line looks like this:
+    // source file and the error line (which is printed after the first line
+    // containing the file name) looks like this:
     //
     // c1xx: fatal error C1083: Cannot open source file: 's.cpp': No such
     // file or directory
 
-    // Sense whether this is an include note (return npos) or a diagnostics
-    // line (return postion of the NNNN code in CNNNN).
-    //
-    static inline size_t
-    next_show_sense (const string& l)
-    {
-      size_t p (l.find (':'));
-
-      for (size_t n (l.size ());
-           p != string::npos;
-           p = ++p != n ? l.find (':', p) : string::npos)
-      {
-        auto isnum = [](char c) {return c >= '0' && c <= '9';};
-
-        if (p > 5 &&
-            l[p - 6] == ' '  &&
-            l[p - 5] == 'C'  &&
-            isnum (l[p - 4]) &&
-            isnum (l[p - 3]) &&
-            isnum (l[p - 2]) &&
-            isnum (l[p - 1]))
-        {
-          p -= 4; // Start of the error code.
-          break;
-        }
-      }
-
-      return p;
-    }
+    size_t
+    msvc_sense_diag (const string&, char); // msvc.cxx
 
     // Extract the include path from the VC /showIncludes output line. Return
     // empty string if the line is not an include note or include error. Set
@@ -1384,7 +1358,7 @@ namespace build2
       //
       assert (!good_error);
 
-      size_t p (next_show_sense (l));
+      size_t p (msvc_sense_diag (l, 'C'));
       if (p == string::npos)
       {
         // Include note.
@@ -2596,8 +2570,19 @@ namespace build2
                       // exist). In this case the first line (and everything
                       // after it) is presumably diagnostics.
                       //
+                      // It can, however, be a command line warning, for
+                      // example:
+                      //
+                      // cl : Command line warning D9025 : overriding '/W3' with '/W4'
+                      //
+                      // So we try to detect and skip them assuming they will
+                      // also show up during the compilation proper.
+                      //
                       if (l != src.path ().leaf ().string ())
                       {
+                        if (msvc_sense_diag (l, 'D') != string::npos)
+                          continue;
+
                         text << l;
                         bad_error = true;
                         break;
@@ -2746,7 +2731,7 @@ namespace build2
                 //
                 for (; !eof (getline (is, l)); )
                 {
-                  size_t p (next_show_sense (l));
+                  size_t p (msvc_sense_diag (l, 'C'));
                   if (p != string::npos && l.compare (p, 4, "1083") != 0)
                     diag_stream_lock () << l << endl;
                 }

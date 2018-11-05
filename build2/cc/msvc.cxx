@@ -42,17 +42,62 @@ namespace build2
       return m;
     }
 
+    // Sense whether this is a diagnostics line returning the postion of the
+    // NNNN code in XNNNN and npos otherwise.
+    //
+    size_t
+    msvc_sense_diag (const string& l, char f)
+    {
+      size_t p (l.find (':'));
+
+      // Note that while the C-numbers seems to all be in the ' CNNNN:' form,
+      // the D ones can be ' DNNNN :', for example:
+      //
+      // cl : Command line warning D9025 : overriding '/W3' with '/W4'
+      //
+      for (size_t n (l.size ());
+           p != string::npos;
+           p = ++p != n ? l.find_first_of (": ", p) : string::npos)
+      {
+        auto isnum = [](char c) {return c >= '0' && c <= '9';};
+
+        if (p > 5 &&
+            l[p - 6] == ' '  &&
+            l[p - 5] == f    &&
+            isnum (l[p - 4]) &&
+            isnum (l[p - 3]) &&
+            isnum (l[p - 2]) &&
+            isnum (l[p - 1]))
+        {
+          p -= 4; // Start of the error code.
+          break;
+        }
+      }
+
+      return p;
+    }
+
     // Filter cl.exe and link.exe noise.
     //
     void
     msvc_filter_cl (ifdstream& is, const path& src)
     {
       // While it appears VC always prints the source name (event if the
-      // file does not exist), let's do a sanity check.
+      // file does not exist), let's do a sanity check. Also handle the
+      // command line warnings which come before the file name.
       //
-      string l;
-      if (getline (is, l) && l != src.leaf ().string ())
-        diag_stream_lock () << l << endl;
+      for (string l; !eof (getline (is, l)); )
+      {
+        if (l != src.leaf ().string ())
+        {
+          diag_stream_lock () << l << endl;
+
+          if (msvc_sense_diag (l, 'D') != string::npos)
+            continue;
+        }
+
+        break;
+      }
     }
 
     void
