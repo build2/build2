@@ -272,6 +272,12 @@ namespace build2
       }
     }
 
+#ifndef _WIN32
+    static const dir_path usr_inc     ("/usr/include");
+    static const dir_path usr_loc_lib ("/usr/local/lib");
+    static const dir_path usr_loc_inc ("/usr/local/include");
+#endif
+
     void config_module::
     init (scope& rs, const location& loc, const variable_map&)
     {
@@ -317,26 +323,31 @@ namespace build2
       // that we will use is this: if the compiler's system include directories
       // contain /usr/include then we add /usr/local/*.
       //
-      if (find (inc_dirs.begin (), inc_dirs.end (),
-                dir_path ("/usr/include")) != inc_dirs.end ())
+      // Note that similar to GCC we also check for the directory existence.
+      // Failed that, we can end up with some bizarre yo-yo'ing cases where
+      // uninstall removes the directories which in turn triggers a rebuild
+      // on the next invocation.
+      //
       {
-        // Many platforms don't search in /usr/local/lib by default (but do
-        // for headers in /usr/local/include). So add it as the last option.
-        //
-        {
-          dir_path d ("/usr/local/lib");
-          if (find (lib_dirs.begin (), lib_dirs.end (), d) == lib_dirs.end ())
-            lib_dirs.emplace_back (move (d));
-        }
+        auto& is (inc_dirs);
+        auto& ls (lib_dirs);
 
-        // FreeBSD is at least consistent: it searches in neither. Quoting its
-        // wiki: "FreeBSD can't even find libraries that it installed." So
-        // let's help it a bit.
-        //
+        if (find (is.begin (), is.end (), usr_inc) != is.end ())
         {
-          dir_path d ("/usr/local/include");
-          if (find (inc_dirs.begin (), inc_dirs.end (), d) == inc_dirs.end ())
-            inc_dirs.emplace_back (move (d));
+          // Many platforms don't search in /usr/local/lib by default (but do
+          // for headers in /usr/local/include). So add it as the last option.
+          //
+          if (find (ls.begin (), ls.end (), usr_loc_lib) == ls.end () &&
+              exists (usr_loc_lib, true /* ignore_error */))
+            ls.push_back (usr_loc_lib);
+
+          // FreeBSD is at least consistent: it searches in neither. Quoting
+          // its wiki: "FreeBSD can't even find libraries that it installed."
+          // So let's help it a bit.
+          //
+          if (find (is.begin (), is.end (), usr_loc_inc) == is.end () &&
+              exists (usr_loc_inc, true /* ignore_error */))
+            is.push_back (usr_loc_inc);
         }
       }
 #endif
