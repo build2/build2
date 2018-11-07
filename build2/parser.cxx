@@ -796,7 +796,7 @@ namespace build2
               //
               if (pns.empty ())
                 fail (ploc) << "no prerequisites in prerequisite-specific "
-                            << " variable assignment";
+                            << "variable assignment";
 
               // Set the variable in the last pns.size() prerequisites of each
               // target. This code is similar to target-specific case above.
