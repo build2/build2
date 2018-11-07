@@ -787,6 +787,17 @@ namespace build2
             //
             if (tt == type::colon)
             {
+              // What should we do if there are no prerequisites (for example,
+              // because of an empty wildcard result)? We can fail or we can
+              // ignore. In most cases, however, this is probably an error
+              // (for example, forgetting to checkout a git submodule) so
+              // let's not confuse the user and fail (one can always handle
+              // the optional prerequisites case with a variable and an if).
+              //
+              if (pns.empty ())
+                fail (ploc) << "no prerequisites in prerequisite-specific "
+                            << " variable assignment";
+
               // Set the variable in the last pns.size() prerequisites of each
               // target. This code is similar to target-specific case above.
               //
