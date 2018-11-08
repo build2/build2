@@ -83,7 +83,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test ./:v=X <<EOF
+test ./v=X <<EOF
 /     :
 .     : X
 d     : X
@@ -93,7 +93,7 @@ p/d   : X
 p/d/t : X
 EOF
 
-test ./p/:v=X <<EOF
+test ./p/v=X <<EOF
 /     :
 .     :
 d     :

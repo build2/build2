@@ -571,34 +571,86 @@ namespace build2
       //
       lexer l (is, path ("<cmdline>"), 1 /* line */, "\'\"\\$(");
 
-      // The first token should be a word, either the variable name or the
-      // scope qualification.
+      // At the buildfile level the scope-specific variable should be
+      // separated from the directory with a whitespace, for example:
+      //
+      // ./ foo=$bar
+      //
+      // However, requiring this for command line variables would be too
+      // inconvinient so we support both.
+      //
+      // We also have the optional visibility modifier as a first character of
+      // the variable name:
+      //
+      // ! - global
+      // % - project
+      // / - scope
+      //
+      // The last one clashes a bit with the directory prefix:
+      //
+      // ./ /foo=bar
+      // .//foo=bar
+      //
+      // But that's probably ok (the need for a scope-qualified override with
+      // scope visibility should be pretty rare). Note also that to set the
+      // value on the root (global) scope we use !.
+      //
+      // And so the first token should be a word which can be either a
+      // variable name (potentially with the directory qualification) or just
+      // the directory, in which case it should be followed by another word
+      // (unqualified variable name).
       //
       token t (l.next ());
-      token_type tt (l.next ().type);
 
       dir_path dir;
-      if (t.type == token_type::word && tt == token_type::colon)
+      if (t.type == token_type::word)
       {
-        if (!path::traits::is_separator (t.value.back ()))
-          fail << "expected directory (with trailing slash) instead of "
-               << "'" << t.value << "'";
+        string& v (t.value);
+        size_t p (path::traits::rfind_separator (v));
 
-        dir = dir_path (move (t.value));
+        if (p != string::npos && p != 0) // If first then visibility.
+        {
+          if (p == v.size () - 1)
+          {
+            // Separate directory.
+            //
+            dir = dir_path (move (v));
+            t = l.next ();
 
-        if (dir.relative ())
-          dir.complete ();
+            // Target-specific overrides are not yet supported (and probably
+            // never will be; the beast is already complex enough).
+            //
+            if (t.type == token_type::colon)
+              fail << "'" << s << "' is a target-specific override" <<
+                info << "use double '--' to treat this argument as buildspec";
+          }
+          else
+          {
+            // Combined directory.
+            //
+            // If double separator (visibility marker), then keep the first in
+            // name.
+            //
+            if (p != 0 && path::traits::is_separator (v[p - 1]))
+              --p;
 
-        dir.normalize ();
+            dir = dir_path (t.value, 0, p + 1); // Include the separator.
+            t.value.erase (0, p + 1);           // Erase the separator.
+          }
 
-        t = l.next ();
-        tt = l.next ().type;
+          if (dir.relative ())
+            dir.complete ();
+
+          dir.normalize ();
+        }
       }
 
-      // This should be the variable name followed by =, +=, or =+.
+      token_type tt (l.next ().type);
+
+      // The token should be the variable name followed by =, +=, or =+.
       //
       if (t.type != token_type::word || t.value.empty () ||
-          (tt != token_type::assign &&
+          (tt != token_type::assign  &&
            tt != token_type::prepend &&
            tt != token_type::append))
       {
@@ -610,6 +662,10 @@ namespace build2
       // none of these characters are lexer's name separators.
       //
       char c (t.value[0]);
+
+      if (path::traits::is_separator (c))
+        c = '/'; // Normalize.
+
       string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
 
       if (c == '!' && !dir.empty ())
