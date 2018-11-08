@@ -39,4 +39,16 @@ namespace build2
       for (; r->parent_->root_ != nullptr; r = r->parent_->root_) ;
     return r;
   }
+
+  inline bool scope::
+  sub_root (const scope& r) const
+  {
+    // Scan the parent root scope chain looking for this scope.
+    //
+    for (const scope* pr (&r); (pr = pr->parent_->root_) != nullptr; )
+      if (pr == this)
+        return true;
+
+    return false;
+  }
 }

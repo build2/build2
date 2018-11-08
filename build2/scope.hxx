@@ -70,6 +70,12 @@ namespace build2
     scope*       weak_scope ();
     const scope* weak_scope () const;
 
+    // Return true if the specified root scope is a sub-scope of this root
+    // scope. Note that both scopes must be root.
+    //
+    bool
+    sub_root (const scope&) const;
+
     // Variables.
     //
   public:

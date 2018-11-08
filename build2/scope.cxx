@@ -225,9 +225,9 @@ namespace build2
 
     const scope* s;
 
-    // Return true if the override applies. Note that it expects vars and proj
-    // to be not NULL; if there is nothing "more inner", then any override
-    // will still be "visible".
+    // Return true if the override applies to a value from vars/proj. Note
+    // that it expects vars and proj to be not NULL; if there is nothing "more
+    // inner", then any override will still be "visible".
     //
     auto applies = [&s] (const variable* o,
                          const variable_map* vars,
@@ -246,9 +246,15 @@ namespace build2
       }
       case variable_visibility::project:
       {
-        // Does not apply if in a different project.
+        // Does not apply if in a subproject.
         //
-        if (proj != s->root_scope ())
+        // Note that before we used to require the same project but that
+        // missed values that are "visible" from the outer projects.
+        //
+        // If root scope is NULL, then we are looking at the global scope.
+        //
+        const scope* rs (s->root_scope ());
+        if (rs != nullptr && rs->sub_root (*proj))
           return false;
 
         break;
