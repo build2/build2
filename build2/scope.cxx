@@ -373,7 +373,8 @@ namespace build2
       stem_proj = root_scope ();
     }
 
-    // For implied target/rule-specific lookup.
+    // Depth at which we found the override (with implied target/rule-specific
+    // lookup counts).
     //
     size_t ovr_depth (target ? (rule ? 3 : 2) : 0);
 
@@ -496,21 +497,24 @@ namespace build2
         // variable itself is typed. We also pass the original variable for
         // diagnostics.
         //
-        auto l (find (o, ".__prefix"));
+        auto lp (find (o, ".__prefix"));
+        auto ls (find (o, ".__suffix"));
 
         if (cl)
         {
-          if (l) // No sense to prepend/append if NULL.
+          // Note: if we have both, then the prefix is already in the stem.
+          //
+          if (lp) // No sense to prepend/append if NULL.
           {
-            cv.prepend (names (cast<names> (l)), &var);
+            cv.prepend (names (cast<names> (lp)), &var);
           }
-          else if ((l = find (o, ".__suffix")))
+          else if (ls)
           {
-            cv.append (names (cast<names> (l)), &var);
+            cv.append (names (cast<names> (ls)), &var);
           }
         }
 
-        if (l.defined ())
+        if (lp.defined () || ls.defined ())
         {
           // If we had no stem, use the first override as a surrogate stem.
           //
