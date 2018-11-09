@@ -221,7 +221,7 @@ namespace build2
   scope_map::iterator
   create_root (scope& l, const dir_path& out_root, const dir_path& src_root)
   {
-    auto i (scopes.rw (l).insert (out_root, true));
+    auto i (scopes.rw (l).insert (out_root, true /* root */));
     scope& rs (i->second);
 
     // Set out_path. Note that src_path is set in setup_root() below.
@@ -348,7 +348,7 @@ namespace build2
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
-    auto i (scopes.rw (root).insert (p, false));
+    auto i (scopes.rw (root).insert (p));
     scope& base (i->second);
     scope* rs (base.root_scope ());
 

@@ -1192,50 +1192,67 @@ main (int argc, char* argv[])
           //
           // This is further complicated by the project vs amalgamation logic
           // (we may have already done the amalgamation but not the project).
+          // So we split it into two passes.
           //
-          bool first_a (true);
-          for (const variable_override& o: var_ovs)
           {
-            if (o.ovr.visibility != variable_visibility::normal)
-              continue;
+            auto& sm (scope_map::instance);
 
-            auto p (rs.weak_scope ()->vars.insert (o.ovr));
-
-            if (!p.second)
+            bool first_a (true);
+            for (const variable_override& o: var_ovs)
             {
-              if (first_a)
-                break;
+              if (o.ovr.visibility != variable_visibility::normal)
+                continue;
 
-              fail << "multiple amalgamation overrides of variable "
-                   << o.var.name;
+              // If we have a directory, enter the scope, similar to how we do
+              // it in the context's reset().
+              //
+              scope& s (o.dir
+                        ? sm.insert ((out_base / *o.dir).normalize ())->second
+                        : *rs.weak_scope ());
+
+              auto p (s.vars.insert (o.ovr));
+
+              if (!p.second)
+              {
+                if (first_a)
+                  break;
+
+                fail << "multiple " << (o.dir ? "scope" : "amalgamation")
+                     << " overrides of variable " << o.var.name;
+              }
+
+              value& v (p.first);
+              v = o.val;
+              first_a = false;
             }
 
-            value& v (p.first);
-            v = o.val;
-            first_a = false;
-          }
-
-          bool first_p (true);
-          for (const variable_override& o: var_ovs)
-          {
-            // Ours is either project (%foo) or scope (/foo).
-            //
-            if (o.ovr.visibility == variable_visibility::normal)
-              continue;
-
-            auto p (rs.vars.insert (o.ovr));
-
-            if (!p.second)
+            bool first_p (true);
+            for (const variable_override& o: var_ovs)
             {
-              if (first_p)
-                break;
+              // Ours is either project (%foo) or scope (/foo).
+              //
+              if (o.ovr.visibility == variable_visibility::normal)
+                continue;
 
-              fail << "multiple project overrides of variable " << o.var.name;
+              scope& s (o.dir
+                        ? sm.insert ((out_base / *o.dir).normalize ())->second
+                        : rs);
+
+              auto p (s.vars.insert (o.ovr));
+
+              if (!p.second)
+              {
+                if (first_p)
+                  break;
+
+                fail << "multiple " << (o.dir ? "scope" : "project")
+                     << " overrides of variable " << o.var.name;
+              }
+
+              value& v (p.first);
+              v = o.val;
+              first_p = false;
             }
-
-            value& v (p.first);
-            v = o.val;
-            first_p = false;
           }
 
           ts.root_scope = &rs;

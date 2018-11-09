@@ -412,7 +412,7 @@ namespace build2
     //
     auto make_global_scope = [] () -> scope&
     {
-      auto i (scope_map::instance.insert (dir_path (), false));
+      auto i (scope_map::instance.insert (dir_path ()));
       scope& r (i->second);
       r.out_path_ = &i->first;
       global_scope = scope::global_ = &r;
@@ -602,7 +602,7 @@ namespace build2
       //
       token t (l.next ());
 
-      dir_path dir;
+      optional<dir_path> dir;
       if (t.type == token_type::word)
       {
         string& v (t.value);
@@ -638,10 +638,20 @@ namespace build2
             t.value.erase (0, p + 1);           // Erase the separator.
           }
 
-          if (dir.relative ())
-            dir.complete ();
+          if (dir->relative ())
+          {
+            // Handle the special relative to base scope case (.../).
+            //
+            auto i (dir->begin ());
 
-          dir.normalize ();
+            if (*i == "...")
+              dir = dir_path (++i, dir->end ()); // Note: can become empty.
+            else
+              dir->complete (); // Relative to CWD.
+          }
+
+          if (dir->absolute ())
+            dir->normalize ();
         }
       }
 
@@ -668,7 +678,7 @@ namespace build2
 
       string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);
 
-      if (c == '!' && !dir.empty ())
+      if (c == '!' && dir)
         fail << "scope-qualified global override of variable " << n;
 
       variable_visibility v (c == '/' ? variable_visibility::scope   :
@@ -713,12 +723,13 @@ namespace build2
       if (r.first.type != nullptr)
         fail << "typed override of variable " << n;
 
-      // Global and scope overrides we can enter directly. Project ones will
-      // be entered by the caller for each amalgamation/project.
+      // Global and absolute scope overrides we can enter directly. Project
+      // and relative scope ones will be entered by the caller for each
+      // amalgamation/project.
       //
-      if (c == '!' || !dir.empty ())
+      if (c == '!' || (dir && dir->absolute ()))
       {
-        scope& s (c == '!' ? gs : sm.insert (dir, false)->second);
+        scope& s (c == '!' ? gs : sm.insert (*dir)->second);
         auto p (s.vars.insert (*o));
 
         if (!p.second)
@@ -727,14 +738,15 @@ namespace build2
             fail << "multiple global overrides of variable " << n;
           else
             fail << "multiple overrides of variable " << n
-                 << " in scope " << dir;
+                 << " in scope " << *dir;
         }
 
         value& v (p.first);
         v = move (r.first);
       }
       else
-        vos.emplace_back (variable_override {var, *o, move (r.first)});
+        vos.push_back (
+          variable_override {var, *o, move (dir), move (r.first)});
     }
 
     // Enter builtin variables and patterns.

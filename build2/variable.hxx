@@ -927,9 +927,10 @@ namespace build2
   //
   struct variable_override
   {
-    const variable& var; // Original variable.
-    const variable& ovr; // Override variable.
-    value val;
+    const variable&    var; // Original variable.
+    const variable&    ovr; // Override variable.
+    optional<dir_path> dir; // Scope directory relative to base.
+    value              val;
   };
 
   using variable_overrides = vector<variable_override>;

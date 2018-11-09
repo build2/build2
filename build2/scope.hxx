@@ -352,7 +352,7 @@ namespace build2
     // global scope with empty key.
     //
     iterator
-    insert (const dir_path&, bool root);
+    insert (const dir_path&, bool root = false);
 
     // Find the most qualified scope that encompasses this path.
     //
@@ -396,6 +396,7 @@ namespace build2
 
     // Entities that can access bypassing the lock proof.
     //
+    friend int main (int, char*[]);
     friend variable_overrides reset (const strings&);
 
     scope&

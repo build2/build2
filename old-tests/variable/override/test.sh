@@ -93,7 +93,27 @@ p/d   : X
 p/d/t : X
 EOF
 
+test .../v=X <<EOF
+/     :
+.     : X
+d     : X
+d/t   : X
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
 test ./p/v=X <<EOF
+/     :
+.     :
+d     :
+d/t   :
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
+test .../p/v=X <<EOF
 /     :
 .     :
 d     :
@@ -108,6 +128,16 @@ test v=X --buildfile loader ./p/ <<EOF
 .     : X
 d     : X
 d/t   : X
+p     : X
+p/d   : X
+p/d/t : X
+EOF
+
+test .../v=X --buildfile loader ./p/ <<EOF
+/     :
+.     :
+d     :
+d/t   :
 p     : X
 p/d   : X
 p/d/t : X
