@@ -27,7 +27,7 @@ namespace build2
   // execute  - execute the matched rule
   //
   // The build system starts with a "serial load" phase and then continues
-  // with parallel search and execute. Match, however, can be interrupted
+  // with parallel match and execute. Match, however, can be interrupted
   // both with load and execute.
   //
   // Match can be interrupted with "exclusive load" in order to load
@@ -39,12 +39,12 @@ namespace build2
   // phase_mutex (which is also used to synchronize the state changes between
   // phases).
   //
-  // Serial load can perform arbitrary changes to the model. Exclusive load,
-  // however, can only perform "island appends". That is, it can create new
-  // "nodes" (variables, scopes, etc) but not (semantically) change already
-  // existing nodes or invalidate any references to such (the idea here is
-  // that one should be able to load additional buildfiles as long as they
-  // don't interfere with the existing build state). The "islands" are
+  // Serial load can perform arbitrary changes to the build state. Exclusive
+  // load, however, can only perform "island appends". That is, it can create
+  // new "nodes" (variables, scopes, etc) but not (semantically) change
+  // already existing nodes or invalidate any references to such (the idea
+  // here is that one should be able to load additional buildfiles as long as
+  // they don't interfere with the existing build state). The "islands" are
   // identified by the load_generation number (0 for the initial/serial
   // load). It is incremented in case of a phase switch and can be stored in
   // various "nodes" to verify modifications are only done "within the

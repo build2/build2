@@ -937,7 +937,7 @@ namespace build2
 
   // Variable pool.
   //
-  // The global version is protected by the model mutex.
+  // The global version is protected by the phase mutex.
   //
   class variable_pool
   {
@@ -1346,7 +1346,7 @@ namespace build2
     size () const {return m_.size ();}
 
   public:
-    // Global should be true if this map is part of the global (model) state
+    // Global should be true if this map is part of the global build state
     // (e.g., scopes, etc).
     //
     explicit

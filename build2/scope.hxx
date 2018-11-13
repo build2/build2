@@ -340,7 +340,7 @@ namespace build2
 
   // Scope map.
   //
-  // Protected by the model mutex. Note that the scope map is only for paths
+  // Protected by the phase mutex. Note that the scope map is only for paths
   // from the out tree.
   //
   using scope_map_base = butl::dir_path_map<scope>;

@@ -777,7 +777,7 @@ namespace build2
       project_set projects;
 
       // Note: doing everything in the load phase (disfigure_project () does
-      // modify the model).
+      // modify the build state).
       //
       for (const action_target& at: ts)
       {
