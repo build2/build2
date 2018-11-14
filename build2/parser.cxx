@@ -1979,10 +1979,11 @@ namespace build2
               : names ());
 
     diag_record dr (fail (al));
-    dr << "assertion failed";
 
-    if (!ns.empty ())
-      dr << ": " << ns;
+    if (ns.empty ())
+      dr << "assertion failed";
+    else
+      dr << ns;
   }
 
   void parser::
