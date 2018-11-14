@@ -133,7 +133,7 @@ namespace build2
   // recursive names patterns. For now the file is just a marker and its
   // contents don't matter.
   //
-  extern const path buildignore; // .buildignore
+  extern const path buildignore_file; // .buildignore
 
   // Create a directory containing an empty .buildignore file.
   //

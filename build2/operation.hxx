@@ -106,6 +106,7 @@ namespace build2
     void (*search) (const values&,
                     const scope& root,
                     const scope& base,
+                    const path& buildfile,
                     const target_key&,
                     const location&,
                     action_targets&);
@@ -166,6 +167,7 @@ namespace build2
   search (const values&,
           const scope&,
           const scope&,
+          const path&,
           const target_key&,
           const location&,
           action_targets&);

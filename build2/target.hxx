@@ -1668,6 +1668,17 @@ namespace build2
     template <typename K>
     static const target*
     search_implied (const scope&, const K&, tracer&);
+
+    // Return true if the implied buildfile is plausible for the specified
+    // directory, that is, there is a buildfile in at least one of its
+    // subdirectories. Note that the directory must exist.
+    //
+    static bool
+    check_implied (const dir_path&);
+
+  private:
+    static prerequisites_type
+    collect_implied (const scope&);
   };
 
   // While a filesystem directory is mtime-based, the semantics is not very

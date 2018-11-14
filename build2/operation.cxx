@@ -94,6 +94,7 @@ namespace build2
   search (const values&,
           const scope&,
           const scope& bs,
+          const path& bf,
           const target_key& tk,
           const location& l,
           action_targets& ts)
@@ -104,11 +105,23 @@ namespace build2
 
     const target* t (targets.find (tk, trace));
 
-    if (t == nullptr && tk.is_a<dir> ())
+    // Only do the implied buildfile if we haven't loaded one. Failed that we
+    // may try go this route even though we've concluded the implied buildfile
+    // is implausible and have loaded an outer buildfile (see main() for
+    // details).
+    //
+    if (t == nullptr && tk.is_a<dir> () && bf.empty ())
       t = dir::search_implied (bs, tk, trace);
 
     if (t == nullptr)
-      fail (l) << "unknown target " << tk;
+    {
+      diag_record dr (fail (l));
+
+      dr << "unknown target " << tk;
+
+      if (!bf.empty ())
+        dr << " in " << bf;
+    }
 
     ts.push_back (t);
   }
@@ -463,6 +476,7 @@ namespace build2
   info_search (const values&,
                const scope& rs,
                const scope&,
+               const path&,
                const target_key& tk,
                const location& l,
                action_targets& ts)

@@ -156,34 +156,13 @@ namespace build2
   //
   template <typename K>
   const target* dir::
-  search_implied (const scope& base, const K& k, tracer& trace)
+  search_implied (const scope& bs, const K& k, tracer& trace)
   {
     using namespace butl;
 
-    // See if we have any subdirectories.
+    // See if we have any prerequisites.
     //
-    prerequisites_type ps;
-
-    try
-    {
-      for (const dir_entry& e: dir_iterator (base.src_path (),
-                                             true /* ignore_dangling */))
-      {
-        if (e.type () == entry_type::directory)
-          ps.push_back (
-            prerequisite (nullopt,
-                          dir::static_type,
-                          dir_path (e.path ().representation ()),
-                          dir_path (), // In the out tree.
-                          string (),
-                          nullopt,
-                          base));
-      }
-    }
-    catch (const system_error& e)
-    {
-      fail << "unable to iterate over " << base.src_path () << ": " << e;
-    }
+    prerequisites_type ps (collect_implied (bs));
 
     if (ps.empty ())
       return nullptr;
@@ -194,7 +173,7 @@ namespace build2
     // buildfile. Thus not implied.
     //
     target& t (targets.insert (dir::static_type,
-                               base.out_path (),
+                               bs.out_path (),
                                dir_path (),
                                string (),
                                nullopt,

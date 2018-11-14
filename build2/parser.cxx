@@ -1133,14 +1133,14 @@ namespace build2
       //
       path p (move (n.dir));
       if (n.value.empty ())
-        p /= "buildfile";
+        p /= buildfile_file;
       else
       {
         bool d (path::traits::is_separator (n.value.back ()));
 
         p /= path (move (n.value));
         if (d)
-          p /= "buildfile";
+          p /= buildfile_file;
       }
 
       l6 ([&]{trace (l) << "relative path " << p;});
@@ -3041,7 +3041,7 @@ namespace build2
         //
         const string& s (m.string ());
         if ((p[0] != '.' && s[path::traits::find_leaf (s)] == '.') ||
-            (m.to_directory () && exists (*sp / m / buildignore)))
+            (m.to_directory () && exists (*sp / m / buildignore_file)))
           return !interm;
 
         // Note that we have to make copies of the extension since there will

@@ -471,6 +471,7 @@ namespace build2
     configure_search (const values& params,
                       const scope& root,
                       const scope& base,
+                      const path& bf,
                       const target_key& tk,
                       const location& l,
                       action_targets& ts)
@@ -483,7 +484,7 @@ namespace build2
         ts.push_back (&root);
       }
       else
-        search (params, root, base, tk, l, ts); // Normal search.
+        search (params, root, base, bf, tk, l, ts); // Normal search.
     }
 
     static void
@@ -751,6 +752,7 @@ namespace build2
     disfigure_search (const values&,
                       const scope& root,
                       const scope&,
+                      const path&,
                       const target_key&,
                       const location&,
                       action_targets& ts)

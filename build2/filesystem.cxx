@@ -190,7 +190,7 @@ namespace build2
     }
   }
 
-  const path buildignore (".buildignore");
+  const path buildignore_file (".buildignore");
 
   fs_status<mkdir_status>
   mkdir_buildignore (const dir_path& d, uint16_t verbosity)
@@ -200,7 +200,7 @@ namespace build2
     // Create the .buildignore file if the directory was created (and so is
     // empty) or the file doesn't exist.
     //
-    path p (d / buildignore);
+    path p (d / buildignore_file);
     if (r || !exists (p))
       touch (p, true /* create */, verbosity);
 
@@ -217,7 +217,8 @@ namespace build2
         // The .buildignore filesystem entry should be of the regular file
         // type.
         //
-        if (de.path () != buildignore || de.ltype () != entry_type::regular)
+        if (de.path () != buildignore_file ||
+            de.ltype () != entry_type::regular)
           return false;
       }
     }
@@ -238,7 +239,7 @@ namespace build2
     // first check that the directory is otherwise empty and doesn't contain
     // the working directory.
     //
-    path p (d / buildignore);
+    path p (d / buildignore_file);
     if (exists (p) && empty_buildignore (d) && !work.sub (d))
       rmfile (p, verbosity);
 

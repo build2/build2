@@ -281,7 +281,7 @@ namespace build2
       //
       if (buildfile)
       {
-        path f (d / "buildfile");
+        path f (d / buildfile_file);
 
         if (verb >= verbosity)
           text << (verb >= 2 ? "cat >" : "save ") << f;

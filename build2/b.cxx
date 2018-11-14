@@ -511,20 +511,30 @@ main (int argc, char* argv[])
     if (bspec.empty ())
       bspec.push_back (metaopspec ()); // Default meta-operation.
 
-    // Check for a buildfile in the specified directory returning empty path
-    // if it does not exist.
+    // Check for a buildfile starting from the specified directory and
+    // continuing in the parent directories until root. Return empty path if
+    // not found.
     //
-    auto find_buildfile = [] (const dir_path& d)
+    auto find_buildfile = [] (const dir_path& d, const dir_path& root)
     {
       const path& n (ops.buildfile ());
 
-      if (n.string () != "-")
-      {
-        path f (d / n);
-        return exists (f) ? f : path ();
-      }
-      else
+      if (n.string () == "-")
         return n;
+
+      for (path f (d / n);; )
+      {
+        if (exists (f))
+          return f;
+
+        dir_path p (f.directory ());
+        if (p == root)
+          break;
+
+        f = p.directory () / n;
+      }
+
+      return path ();
     };
 
     // If not NULL, then lifted points to the operation that has been "lifted"
@@ -814,9 +824,16 @@ main (int argc, char* argv[])
               // then this can only mean a simple project. Which in turn means
               // there should be a buildfile in out_base.
               //
+              // Note that unlike the normal project case below, here we don't
+              // try to look for outer buildfiles since we don't have the root
+              // to stop at. However, this shouldn't be an issue since simple
+              // project won't normally have targets in subdirectories (or, in
+              // other words, we are not very interested "complex simple
+              // projects").
+              //
               if (out_root.empty ())
               {
-                if (find_buildfile (out_base).empty ())
+                if (find_buildfile (out_base, out_base).empty ())
                 {
                   fail << "no buildfile in " << out_base <<
                     info << "consider explicitly specifying its src_base";
@@ -1157,6 +1174,53 @@ main (int argc, char* argv[])
             }
           }
 
+          // If we cannot find the buildfile in this directory, then try our
+          // luck with the nearest outer buildfile, in case our target is
+          // defined there (common with non-intrusive project conversions
+          // where everything is built from a single root buildfile).
+          //
+          // The directory target case is ambigous since it can also be the
+          // implied buildfile. The heuristics that we use is to check whether
+          // the implied buildfile is plausible: there is a subdirectory with
+          // a buildfile. Checking for plausability feels expensive since we
+          // have to recursively traverse the directory tree. Note, however,
+          // that if the answer is positive, then shortly after we will be
+          // traversing this tree anyway and presumably this time getting the
+          // data from the cash (we don't really care about the negative
+          // answer since this is a degenerate case).
+          //
+          path bf (find_buildfile (src_base, src_base));
+          if (bf.empty ())
+          {
+            // If the target is a directory and the implied buildfile is
+            // plausible, then assume that. Otherwise, search for an outer
+            // buildfile.
+            //
+            if ((tn.directory () || tn.type == "dir") &&
+                exists (src_base)                     &&
+                dir::check_implied (src_base))
+              ; // Leave bf empty.
+            else
+            {
+              if (src_base != src_root)
+                bf = find_buildfile (src_base.directory (), src_root);
+
+              if (bf.empty ())
+                fail << "no buildfile in " << src_base << " or parent "
+                     << "directories" <<
+                  info << "consider explicitly specifying src_base for "
+                     << out_base;
+
+              // Adjust bases to match the directory where we found the
+              // buildfile since that's the scope it will be loaded in. Note:
+              // but not the target since it is resolved relative to work; see
+              // below.
+              //
+              src_base = bf.directory ();
+              out_base = out_src (src_base, out_root, src_root);
+            }
+          }
+
           if (verb >= 5)
           {
             trace << "bootstrapped " << tn << ':';
@@ -1167,18 +1231,6 @@ main (int argc, char* argv[])
             trace << "  forwarded:    " << (forwarded ? "true" : "false");
             if (auto l = rs.vars[var_amalgamation])
               trace << "  amalgamation: " << cast<dir_path> (l);
-          }
-
-          path bf (find_buildfile (src_base));
-          if (bf.empty ())
-          {
-            // If the target is a directory and src_base exists, then assume
-            // implied buildfile; see dir::search_implied().
-            //
-            if (!((tn.directory () || tn.type == "dir") && exists (src_base)))
-              fail << "no buildfile in " << src_base <<
-                info << "consider explicitly specifying src_base for "
-                   << out_base;
           }
 
           // Enter project-wide (as opposed to global) variable overrides.
@@ -1322,6 +1374,7 @@ main (int argc, char* argv[])
 
             mif->search (mparams,
                          rs, bs,
+                         ts.buildfile,
                          target_key {tt, &d, &out, &tn.value, e},
                          l,
                          tgs);

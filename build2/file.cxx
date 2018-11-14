@@ -24,21 +24,23 @@ using namespace butl;
 
 namespace build2
 {
-  const dir_path build_dir ("build");
-  const dir_path root_dir (dir_path (build_dir) /= "root");
+  const dir_path build_dir     ("build");
+  const dir_path root_dir      (dir_path (build_dir) /= "root");
   const dir_path bootstrap_dir (dir_path (build_dir) /= "bootstrap");
 
-  const path root_file (build_dir / "root.build");
-  const path bootstrap_file (build_dir / "bootstrap.build");
-  const path src_root_file (bootstrap_dir / "src-root.build");
-  const path out_root_file (bootstrap_dir / "out-root.build");
-  const path export_file (build_dir / "export.build");
+  const path root_file      (build_dir     / "root.build");
+  const path bootstrap_file (build_dir     / "bootstrap.build");
+  const path src_root_file  (bootstrap_dir / "src-root.build");
+  const path out_root_file  (bootstrap_dir / "out-root.build");
+  const path export_file    (build_dir     / "export.build");
 
   // While strictly speaking it belongs in, say, config/module.cxx, the static
   // initialization order strikes again. If we ever make the config module
   // loadable, then we can move it there.
   //
   const path config_file (build_dir / "config.build");
+
+  const path buildfile_file ("buildfile");
 
   ostream&
   operator<< (ostream& os, const subprojects& sps)

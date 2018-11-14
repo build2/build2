@@ -35,6 +35,8 @@ namespace build2
   extern const path export_file;       // build/export.build
   extern const path config_file;       // build/config.build
 
+  extern const path buildfile_file;    // buildfile
+
   bool
   is_src_root (const dir_path&);
 

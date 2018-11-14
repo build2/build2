@@ -791,6 +791,73 @@ namespace build2
     false
   };
 
+  // dir
+  //
+  bool dir::
+  check_implied (const dir_path& d)
+  {
+    try
+    {
+      for (const dir_entry& e: dir_iterator (d, true /* ignore_dangling */))
+      {
+        switch (e.type ())
+        {
+        case entry_type::directory:
+          {
+            if (check_implied (d / path_cast<dir_path> (e.path ())))
+              return true;
+
+            break;
+          }
+        case entry_type::regular:
+          {
+            if (e.path () == buildfile_file)
+              return true;
+
+            break;
+          }
+        default:
+          break;
+        }
+      }
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to iterate over " << d << ": " << e << endf;
+    }
+
+    return false;
+  }
+
+  prerequisites dir::
+  collect_implied (const scope& bs)
+  {
+    prerequisites_type r;
+    const dir_path& d (bs.src_path ());
+
+    try
+    {
+      for (const dir_entry& e: dir_iterator (d, true /* ignore_dangling */))
+      {
+        if (e.type () == entry_type::directory)
+          r.push_back (
+            prerequisite (nullopt,
+                          dir::static_type,
+                          dir_path (e.path ().representation ()), // Relative.
+                          dir_path (), // In the out tree.
+                          string (),
+                          nullopt,
+                          bs));
+      }
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to iterate over " << d << ": " << e;
+    }
+
+    return r;
+  }
+
   static const target*
   dir_search (const target&, const prerequisite_key& pk)
   {
@@ -869,7 +936,7 @@ namespace build2
 
             const dir_path& src_base (base.src_path ());
 
-            path bf (src_base / "buildfile");
+            path bf (src_base / buildfile_file);
 
             if (exists (bf))
             {
