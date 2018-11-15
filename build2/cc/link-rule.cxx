@@ -2071,6 +2071,8 @@ namespace build2
       if (dd.writing () || dd.mtime () > mt)
         scratch = update = true;
 
+      timestamp dd_tt (system_clock::now ());
+      bool      dd_rd (dd.reading ());
       dd.close ();
 
       // If nothing changed, then we are done.
@@ -2538,6 +2540,24 @@ namespace build2
       }
 
       rm.cancel ();
+
+      {
+        timestamp tp_tt (system_clock::now ());
+
+        path dd (tp + ".d");
+
+        timestamp dd_mt (file_mtime (dd));
+        timestamp tp_mt (file_mtime (tp));
+
+        if (dd_mt > tp_mt)
+        {
+          fail << "backwards modification times:\n"
+               << dd.string () <<   " " << dd_mt << " (" << dd_rd << ")\n"
+               << tp.string () << "   " << tp_mt << '\n'
+               << dd_tt << '\n'
+               << tp_tt;
+        }
+      }
 
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.
