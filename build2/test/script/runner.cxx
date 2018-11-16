@@ -1607,7 +1607,7 @@ namespace build2
           catch (const system_error& e)
           {
             fail (ll) << "unable to execute " << c.program << " builtin: "
-                      << e;
+                      << e << endf;
           }
         }
         else
