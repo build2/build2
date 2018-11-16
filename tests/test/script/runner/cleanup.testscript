@@ -49,6 +49,7 @@ b += --no-column
   :
   $c <'$* &a' && $b 2>>/EOE != 0
   testscript:1: error: registered for cleanup file test/1/a does not exist
+    info: test id: 1
   EOE
 
   : out-wd
@@ -57,6 +58,7 @@ b += --no-column
   :
   $c <'$* &../../a' && $b 2>>/EOE != 0
   testscript:1: error: file cleanup ../../a is out of working directory test/
+    info: test id: 1
   EOE
 
   : in-wd
@@ -66,6 +68,7 @@ b += --no-column
   :
   $c <'$* &../a' && $b 2>>/EOE != 0
   testscript:1: error: registered for cleanup file test/a does not exist
+    info: test id: 1
   EOE
 
   : not-file
@@ -74,6 +77,7 @@ b += --no-column
   :
   $c <'$* -d a &a' && $b 2>>/~%EOE% != 0
   %error: unable to remove file test/1/a: .+%
+    info: test id: 1
   EOE
 }
 
@@ -105,6 +109,7 @@ b += --no-column
   :
   $c <'$* &a/' && $b 2>>/EOE != 0
   testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+    info: test id: 1
   EOE
 
   : out-wd
@@ -113,6 +118,7 @@ b += --no-column
   :
   $c <'$* &../../a/' && $b 2>>/EOE != 0
   testscript:1: error: directory cleanup ../../a/ is out of working directory test/
+    info: test id: 1
   EOE
 
   : in-wd
@@ -122,6 +128,7 @@ b += --no-column
   :
   $c <'$* &../a/' && $b 2>>/EOE != 0
   testscript:1: error: registered for cleanup directory test/a/ does not exist
+    info: test id: 1
   EOE
 
   : not-empty
@@ -138,6 +145,7 @@ b += --no-column
     testscript:2: error: registered for cleanup directory test/1/a/ is not empty
     %.%{10}
     and 2 more file(s)
+      info: test id: 1
     EOE
 
     : dir
@@ -145,6 +153,7 @@ b += --no-column
     $c <'$* -d a/b' && $b 2>>/EOE != 0
     testscript:1: error: registered for cleanup directory test/1/ is not empty
     a/
+      info: test id: 1
     EOE
   }
 
@@ -154,6 +163,7 @@ b += --no-column
   :
   $c <'$* -f a &a/' && $b 2>>/~%EOE% != 0
   %error: unable to remove directory test/1/a/: .+%
+    info: test id: 1
   EOE
 }
 
@@ -180,6 +190,7 @@ b += --no-column
       testscript:1: error: registered for cleanup directory test/1/a/ is not empty
       c
         info: wildcard: 'test/1/a/***/'
+        info: test id: 1
       EOE
     }
 
@@ -202,6 +213,7 @@ b += --no-column
       :
       $c <'$* &a/***' && $b 2>>/EOE != 0
       testscript:1: error: registered for cleanup directory test/1/a/ does not exist
+        info: test id: 1
       EOE
 
       : out-wd
@@ -210,6 +222,7 @@ b += --no-column
       :
       $c <'$* &../../a/***' && $b 2>>/EOE != 0
       testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
+        info: test id: 1
       EOE
 
       : in-wd
@@ -220,6 +233,7 @@ b += --no-column
       :
       $c <'$* &../a/***' && $b 2>>/EOE != 0
       testscript:1: error: registered for cleanup directory test/a/ does not exist
+        info: test id: 1
       EOE
 
       : not-dir
@@ -228,6 +242,7 @@ b += --no-column
       :
       $c <'$* -f a &a/***' && $b 2>>/~%EOE% != 0
       %error: unable to remove directory test/1/a/: .*%
+        info: test id: 1
       EOE
     }
   }
@@ -257,6 +272,7 @@ b += --no-column
     :
     $c <'$* &a/**/' && $b 2>>/EOE != 0
     testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match any directory
+      info: test id: 1
     EOE
 
     : not-dir
@@ -265,6 +281,7 @@ b += --no-column
     :
     $c <'$* -f a &a/**/' && $b 2>>/EOE != 0
     testscript:1: error: registered for cleanup wildcard test/1/a/**/ doesn't match any directory
+      info: test id: 1
     EOE
 
     : not-empty
@@ -275,6 +292,7 @@ b += --no-column
     testscript:1: error: registered for cleanup directory test/1/a/b/ is not empty
     d
       info: wildcard: 'test/1/a/**/'
+      info: test id: 1
     EOE
   }
 
@@ -331,6 +349,7 @@ EOI
 $c <'$* -o foo >=a &!a' && $b 2>>/EOE != 0
 testscript:1: error: registered for cleanup directory test/1/ is not empty
 a
+  info: test id: 1
 EOE
 
 : explicit-overwrite
@@ -343,4 +362,5 @@ $* -o foo >=a
 EOO
 testscript:2: error: registered for cleanup directory test/1/ is not empty
 a
+  info: test id: 1
 EOE

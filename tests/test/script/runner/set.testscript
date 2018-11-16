@@ -11,6 +11,7 @@
   :
   $c <'set foo | cat >bar' && $b 2>>EOE != 0
   testscript:1:1: error: set builtin must be the last pipe command
+    info: test id: 1
   EOE
 
   : redirecting
@@ -20,12 +21,14 @@
     :
     $c <'set foo >bar' && $b 2>>EOE != 0
     testscript:1:1: error: set builtin stdout cannot be redirected
+      info: test id: 1
     EOE
 
     : stderr
     :
     $c <'set foo 2>bar' && $b 2>>EOE != 0
     testscript:1:1: error: set builtin stderr cannot be redirected
+      info: test id: 1
     EOE
   }
 
@@ -33,6 +36,7 @@
   :
   $c <'set foo == 1' && $b 2>>EOE != 0
   testscript:1:1: error: set builtin exit code cannot be non-zero
+    info: test id: 1
   EOE
 }
 
@@ -43,24 +47,28 @@
   :
   $c <'set -e' && $b 2>>EOE != 0
   testscript:1:1: error: missing variable name
+    info: test id: 1
   EOE
 
   : unexpected
   :
   $c <'set foo bar baz' && $b 2>>EOE != 0
   testscript:1:1: error: unexpected argument
+    info: test id: 1
   EOE
 
   : empty-attrs
   :
   $c <"set '' baz" && $b 2>>EOE != 0
   testscript:1:1: error: empty variable attributes
+    info: test id: 1
   EOE
 
   : empty-var
   :
   $c <"set ''" && $b 2>>EOE != 0
   testscript:1:1: error: empty variable name
+    info: test id: 1
   EOE
 }
 
@@ -256,6 +264,7 @@
   EOI
   <attributes>:1:1: error: expected '[' instead of 'x'
     testscript:1:1: info: while parsing attributes 'x'
+    info: test id: 1
   EOE
 
   : unknown
@@ -265,6 +274,7 @@
   EOI
   <attributes>:1:1: error: unknown value attribute x
     testscript:1:1: info: while parsing attributes '[x]'
+    info: test id: 1
   EOE
 
   : junk
@@ -274,5 +284,6 @@
   EOI
   <attributes>:1:10: error: trailing junk after ']'
     testscript:1:1: info: while parsing attributes '[string] x'
+    info: test id: 1
   EOE
 }

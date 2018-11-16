@@ -17,6 +17,7 @@ b += --no-column
   :
   $c <'$* -s 1 == 0' && $b 2>>/~%EOE%d != 0
   %testscript:1: error: ../../../../driver(.exe)? exit code 1 != 0%
+    info: test id: 1
   EOE
 }
 
@@ -31,6 +32,7 @@ b += --no-column
   :
   $c <'$* -s 1 != 1' && $b 2>>/~%EOE% != 0
   %testscript:1: error: ../../../../driver(.exe)? exit code 1 == 1%
+    info: test id: 1
   EOE
 }
 
@@ -40,6 +42,7 @@ $c <'$* -s 1 -e "Error"' && $b 2>>/~%EOE% != 0
 %testscript:1: error: ../../../driver(.exe)? exit code 1 != 0%
   info: stderr: test/1/stderr
 Error
+  info: test id: 1
 EOE
 
 #\

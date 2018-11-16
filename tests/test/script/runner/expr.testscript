@@ -21,7 +21,7 @@
   true  = '$* >| -o'
   false = '$* -s 1 >| -o'
 
-  bf = $b 2>/~'%.+/driver(\.exe)? exit code 1 != 0%'
+  bf = $b 2>-
 
   : true
   :
@@ -510,6 +510,7 @@
   /.{7}
   -X
   +2
+    info: test id: 1
   EOE
 
   : non-trailing
@@ -518,5 +519,6 @@
   /.{7}
   -X
   +2
+    info: test id: 1
   EOE
 }

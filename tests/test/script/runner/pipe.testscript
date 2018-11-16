@@ -19,6 +19,7 @@ $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
   $c <'$* -o foo -s 1 | $* -i 1 >foo -s 2' && $b 2>>/~%EOE% != 0
   %testscript:1:1: error: .+ exit code 2 != 0%
     info: stdout: test/1/stdout-2
+    info: test id: 1
   EOE
 
   : stderr
@@ -31,5 +32,6 @@ $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
   %.{3}
   -baz
   +foo
+    info: test id: 1
   EOE
 }

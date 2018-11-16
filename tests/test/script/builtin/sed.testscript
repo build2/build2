@@ -23,6 +23,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     sed: missing script
+      info: test id: 1
     EOE
 
     : missed-val
@@ -31,6 +32,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     sed: missing script
+      info: test id: 1
     EOE
 
     : empty
@@ -39,6 +41,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     sed: empty script
+      info: test id: 1
     EOE
 
     : multiple
@@ -47,6 +50,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     sed: multiple scripts
+      info: test id: 1
     EOE
 
     : invalid
@@ -55,6 +59,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     sed: only 's' command supported
+      info: test id: 1
     EOE
   }
 
@@ -86,6 +91,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     %sed: unable to edit '.+/1/f': .+%
+      info: test id: 1
     EOE
 
     : empty
@@ -94,6 +100,7 @@
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
     sed: invalid path ''
+      info: test id: 1
     EOE
   }
 
@@ -103,6 +110,7 @@
   testscript:1:1: error: sed exit code 1 != 0
     info: stderr: test/1/stderr
   sed: unexpected argument
+    info: test id: 1
   EOE
 }
 
@@ -124,6 +132,7 @@
         testscript:1:1: error: sed exit code 1 != 0
           info: stderr: test/1/stderr
         sed: no delimiter for 's' command
+          info: test id: 1
         EOE
 
         : invalid
@@ -132,6 +141,7 @@
         testscript:1:1: error: sed exit code 1 != 0
           info: stderr: test/1/stderr
         sed: invalid delimiter for 's' command
+          info: test id: 1
         EOE
       }
 
@@ -144,6 +154,7 @@
         testscript:1:1: error: sed exit code 1 != 0
           info: stderr: test/1/stderr
         sed: unterminated 's' command regex
+          info: test id: 1
         EOE
 
         : empty
@@ -152,6 +163,7 @@
         testscript:1:1: error: sed exit code 1 != 0
           info: stderr: test/1/stderr
         sed: empty regex in 's' command
+          info: test id: 1
         EOE
 
         : invalid
@@ -163,6 +175,7 @@
         testscript:1:1: error: sed exit code 1 != 0
           info: stderr: test/1/stderr
         %sed: invalid regex.*%
+          info: test id: 1
         EOE
       }
 
@@ -172,6 +185,7 @@
       testscript:1:1: error: sed exit code 1 != 0
         info: stderr: test/1/stderr
       sed: unterminated 's' command replacement
+        info: test id: 1
       EOE
 
       : invalid-flags
@@ -180,6 +194,7 @@
       testscript:1:1: error: sed exit code 1 != 0
         info: stderr: test/1/stderr
       sed: invalid 's' command flag 'a'
+        info: test id: 1
       EOE
     }
 
@@ -307,6 +322,7 @@
   testscript:1:1: error: sed exit code 1 != 0
     info: stderr: test/1/stderr
   sed: -i option specified while reading from stdin
+    info: test id: 1
   EOE
 
   : edit

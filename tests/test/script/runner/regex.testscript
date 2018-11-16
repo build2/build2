@@ -35,6 +35,7 @@
     $c <'cat <foo >~/foo[/' && $b 2>>~/EOE/ != 0
     /testscript:1:12: error: invalid stdout regex redirect.*/
       info: regex: '/foo[/'
+      info: test id: 1
     EOE
 
     : no-match
@@ -45,6 +46,7 @@
       info: stdout regex: test/1/stdout.regex
       info: stdin: test/1/stdin
     foo
+      info: test id: 1
     EOE
   }
 
@@ -129,6 +131,7 @@
     EOI
     testscript:2:1: error: invalid syntax character 'x' in stdout regex redirect
       info: regex line: '/x'
+      info: test id: 1
     EOE
 
     : invalid-char-regex
@@ -140,6 +143,7 @@
     EOI
     /testscript:2:1: error: invalid char-regex in stdout regex redirect.*/
       info: regex line: '/foo[/'
+      info: test id: 1
     EOE
 
     : invalid-line-regex
@@ -152,6 +156,7 @@
     EOI
     %testscript:4:1: error: invalid stdout regex redirect.*%
       info: stdout regex: test/1/stdout.regex
+      info: test id: 1
     EOE
 
     : no-match
@@ -170,6 +175,7 @@
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
       foo
+        info: test id: 1
       EOE
     }
   }

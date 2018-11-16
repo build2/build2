@@ -4,6 +4,8 @@
 
 .include ../common.testscript
 
+empty_id = ''
+
 : special
 :
 {
@@ -14,12 +16,14 @@
     :
     $c <'exit | cat' && $b 2>>EOE != 0
     testscript:1:1: error: exit builtin must be the only pipe command
+      info: test id: 1
     EOE
 
     : from
     :
     $c <'echo "foo" | exit' && $b 2>>EOE != 0
     testscript:1:1: error: exit builtin must be the only pipe command
+      info: test id: 1
     EOE
   }
 
@@ -30,18 +34,21 @@
     :
     $c <'exit <foo' && $b 2>>EOE != 0
     testscript:1:1: error: exit builtin stdin cannot be redirected
+      info: test id: 1
     EOE
 
     : stdout
     :
     $c <'exit >foo' && $b 2>>EOE != 0
     testscript:1:1: error: exit builtin stdout cannot be redirected
+      info: test id: 1
     EOE
 
     : stderr
     :
     $c <'exit 2>foo' && $b 2>>EOE != 0
     testscript:1:1: error: exit builtin stderr cannot be redirected
+      info: test id: 1
     EOE
   }
 
@@ -49,6 +56,7 @@
   :
   $c <'exit != 0' && $b 2>>EOE != 0
   testscript:1:1: error: exit builtin exit code cannot be non-zero
+    info: test id: 1
   EOE
 }
 
@@ -63,12 +71,14 @@
   :
   $c <'exit "foo"' && $b 2>>EOE != 0
   testscript:1:1: error: foo
+    info: test id: 1
   EOE
 
   : unexpected
   :
   $c <'exit "foo" "bar"' && $b 2>>EOE != 0
   testscript:1:1: error: unexpected argument
+    info: test id: 1
   EOE
 }
 
@@ -101,13 +111,16 @@
     : not executed. If they were, there would be a diagnostics printed to
     : stderr regarding non-existent file.
     :
-    $c <<EOI && $b >>EOO 2>'testscript:1:1: error: message' != 0
+    $c <<EOI && $b >>EOO 2>>EOE != 0
     echo foo >| &b && exit 'message' && echo bar >|
     echo baz >|;
     echo boz >|
     EOI
     foo
     EOO
+    testscript:1:1: error: message
+      info: test id: 1
+    EOE
   }
 
   : command-if
@@ -130,7 +143,7 @@
 
       : failure
       :
-      $c <<EOI && $b 2>'testscript:2:3: error: message' != 0
+      $c <<EOI && $b 2>>EOE != 0
       if true
         exit 'message'
         echo foo >|
@@ -139,6 +152,9 @@
       end
       echo baz >|
       EOI
+      testscript:2:3: error: message
+        info: test id: 1
+      EOE
     }
 
     : else-clause
@@ -158,7 +174,7 @@
 
       : failure
       :
-      $c <<EOI && $b 2>'testscript:4:3: error: message' != 0
+      $c <<EOI && $b 2>>EOE != 0
       if false
         echo foo >|
       else
@@ -167,6 +183,9 @@
       end
       echo baz >|
       EOI
+      testscript:4:3: error: message
+        info: test id: 1
+      EOE
     }
   }
 
@@ -189,7 +208,7 @@
 
       : failure
       :
-      $c <<EOI && $b 2>'testscript:1:1: error: message' != 0
+      $c <<EOI && $b 2>>EOE != 0
       if exit 'message'
         echo foo >|
       else
@@ -197,6 +216,9 @@
       end;
       echo baz >|
       EOI
+      testscript:1:1: error: message
+        info: test id: 1
+      EOE
     }
 
     : elif
@@ -216,7 +238,7 @@
 
       : failure
       :
-      $c <<EOI && $b 2>'testscript:2:1: error: message' != 0
+      $c <<EOI && $b 2>>EOE != 0
       if false
       elif exit 'message'
         echo foo >|
@@ -225,6 +247,9 @@
       end;
       echo baz >|
       EOI
+      testscript:2:1: error: message
+        info: test id: 1
+      EOE
     }
   }
 
@@ -249,7 +274,7 @@
 
       : failure
       :
-      $c <<EOI && $b 2>'testscript:1:1: error: message' != 0
+      $c <<EOI && $b 2>>"EOE" != 0
       if exit 'message'
       {
         echo foo >|
@@ -259,6 +284,9 @@
         echo bar >|
       }
       EOI
+      testscript:1:1: error: message
+        info: test id: $empty_id
+      EOE
     }
 
     : elif
@@ -282,7 +310,7 @@
 
       : failure
       :
-      $c <<EOI && $b 2>'testscript:4:1: error: message' != 0
+      $c <<EOI && $b 2>>"EOE" != 0
       if false
       {
       }
@@ -295,6 +323,9 @@
         echo bar >|
       }
       EOI
+      testscript:4:1: error: message
+        info: test id: $empty_id
+      EOE
     }
   }
 
@@ -325,7 +356,7 @@
       : and cleanups are also not executed (they would fail due to non-existent
       : file 'a').
       :
-      $c <<EOI && $b 2>'testscript:2:2: error: message' != 0
+      $c <<EOI && $b 2>>"EOE" != 0
       +true &a
       +exit 'message'
 
@@ -333,6 +364,9 @@
 
       -touch b/c
       EOI
+      testscript:2:2: error: message
+        info: test id: $empty_id
+      EOE
     }
 
     : inner-scope
@@ -362,7 +396,7 @@
       : as well as the independent inner scope (remember the sequential
       : execution).
       :
-      $c <<EOI && $b 2>'testscript:3:1: error: message' != 0
+      $c <<EOI && $b 2>>EOE != 0
       +true &a
 
       exit 'message'
@@ -371,6 +405,9 @@
 
       -touch b/c
       EOI
+      testscript:3:1: error: message
+        info: test id: 3
+      EOE
     }
 
     : teardown
@@ -390,11 +427,14 @@
       :
       : Test that cleanups are not executed.
       :
-      $c <<EOI && $b 2>'testscript:2:2: error: message' != 0
+      $c <<EOI && $b 2>>"EOE" != 0
       -true &a
       -exit 'message'
       -echo foo >|
       EOI
+      testscript:2:2: error: message
+        info: test id: $empty_id
+      EOE
     }
   }
 }

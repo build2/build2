@@ -99,6 +99,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     %@@ \.*%
     -bar
     +foo
+      info: test id: 1
     EOE
 
     $c <'$* -i 2 <foo 2>foo' && $b              : inerr
@@ -115,6 +116,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     -foo
     +foo
     \ No newline at end of file
+      info: test id: 1
     EOE
 
     : no-newline-fail2
@@ -125,6 +127,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     -foo
     \ No newline at end of file
     +foo
+      info: test id: 1
     EOE
 
     : merge
@@ -162,6 +165,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
     fooo
+      info: test id: 1
     EOE
 
     : portable-path-failure
@@ -178,6 +182,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
       foo
+        info: test id: 1
       EOE
       cat test/1/stdout.regex >"%bar$psr%"
 
@@ -189,6 +194,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
         info: stdout regex: test/1/stdout.regex
         info: stdin: test/1/stdin
       foo
+        info: test id: 1
       EOE
       cat test/1/stdout.regex >:"%bar$psr%"
     }
@@ -303,6 +309,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     -foo
     +foo
     \ No newline at end of file
+      info: test id: 1
     EOE
 
     : no-newline-fail2
@@ -319,6 +326,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     -foo
     \ No newline at end of file
     +foo
+      info: test id: 1
     EOE
 
     : no-newline-empty
@@ -371,6 +379,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       info: expected stdout: test/1/stdout.orig
       info: stdout diff: test/1/stdout.diff
       info: stdin: test/1/stdin
+      info: test id: 1
     EOE
 
     : portable-path
@@ -445,6 +454,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex
     foo
+      info: test id: 1
     EOE
 
     : mismatch-icase
@@ -458,6 +468,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
       info: stdout: test/1/stdout
       info: stdout regex: test/1/stdout.regex-i
     foo
+      info: test id: 1
     EOE
   }
 }
@@ -501,6 +512,7 @@ psr = ($cxx.target.class != 'windows' ? '/' : '\\') # Path separator in regex.
     %@@ \.*%
     -foo
     +bar
+      info: test id: 1
     EOE
   }
 

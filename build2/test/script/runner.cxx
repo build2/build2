@@ -12,6 +12,7 @@
 
 #include <build2/variable.hxx>
 #include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
 
 #include <build2/test/common.hxx>
 
@@ -697,6 +698,15 @@ namespace build2
       void default_runner::
       enter (scope& sp, const location&)
       {
+        auto df = make_diag_frame (
+          [&sp](const diag_record& dr)
+          {
+            // Let's not depend on how the path representation can be improved
+            // for readability on printing.
+            //
+            dr << info << "test id: " << sp.id_path.posix_string ();
+          });
+
         // Scope working directory shall be empty (the script working
         // directory is cleaned up by the test rule prior the script
         // execution).
@@ -729,6 +739,15 @@ namespace build2
       void default_runner::
       leave (scope& sp, const location& ll)
       {
+        auto df = make_diag_frame (
+          [&sp](const diag_record& dr)
+          {
+            // Let's not depend on how the path representation can be improved
+            // for readability on printing.
+            //
+            dr << info << "test id: " << sp.id_path.posix_string ();
+          });
+
         // Perform registered cleanups if requested.
         //
         if (common_.after == output_after::clean)
@@ -1761,6 +1780,17 @@ namespace build2
                 size_t li, const location& ll,
                 bool diag)
       {
+        // Print test id once per test expression.
+        //
+        auto df = make_diag_frame (
+          [&sp](const diag_record& dr)
+          {
+            // Let's not depend on how the path representation can be improved
+            // for readability on printing.
+            //
+            dr << info << "test id: " << sp.id_path.posix_string ();
+          });
+
         // Commands are numbered sequentially throughout the expression
         // starting with 1. Number 0 means the command is a single one.
         //

@@ -8,8 +8,6 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
-#include <build2/diagnostics.hxx> // location
-
 #include <build2/test/script/script.hxx>
 
 namespace build2
