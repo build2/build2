@@ -62,10 +62,15 @@ EOI
   }
 EOE
 
-: expect-assignment
+: chain
 :
-$* <<EOI 2>>EOE != 0
-dir{x}: dir{a}:
+$* <<EOI 2>>/~%EOE%
+dir{x}: dir{y}: dir{a}: foo = FOO
+dump dir{y}
 EOI
-<stdin>:1:16: error: expected name instead of <newline>
+<stdin>:2:1: dump:
+%  .+/dir\{y/\}: .+:dir\{a/\}:%
+  {
+    foo = FOO
+  }
 EOE

@@ -1,0 +1,39 @@
+# file      : tests/dependency/chain/testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.testscript
+
+: basic
+:
+$* <<EOI 2>>/~%EOE%
+./: dir{x}: dir{a}
+dump dir{x}
+EOI
+<stdin>:2:1: dump:
+%  .+/dir\{x/\}: .+:dir\{a/\}%
+EOE
+
+: long
+:
+$* <<EOI 2>>/~%EOE%
+./: dir{x}: dir{y}: dir{a}
+dump dir{x} dir{y}
+EOI
+<stdin>:2:1: dump:
+%  .+/dir\{x/\}: .+:dir\{y/\}%
+
+%  .+/dir\{y/\}: .+:dir\{a/\}%
+EOE
+
+: multiple
+:
+$* <<EOI 2>>/~%EOE%
+./: dir{x} dir{y}: dir{a} dir{b}
+dump dir{x} dir{y}
+EOI
+<stdin>:2:1: dump:
+%  .+/dir\{x/\}: .+:dir\{a/\} .+:dir\{b/\}%
+
+%  .+/dir\{y/\}: .+:dir\{a/\} .+:dir\{b/\}%
+EOE

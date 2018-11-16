@@ -67,13 +67,18 @@ namespace build2
 
     // If one is true then parse a single (logical) line (logical means it
     // can actually be several lines, e.g., an if-block). Return false if
-    // nothing has been parsed (i.e., we are on the same token).
+    // nothing has been parsed (i.e., we are still on the same token).
     //
-    // Note that after this function returns, the token is the first token on
+    // Note that after this function returns, the token is the first token of
     // the next line (or eos).
     //
     bool
     parse_clause (token&, token_type&, bool one = false);
+
+    void
+    parse_dependency (token&, token_type&,
+                      names&&, const location&,
+                      names&&, const location&);
 
     void
     parse_assert (token&, token_type&);

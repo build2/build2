@@ -509,8 +509,9 @@ namespace build2
           // prerequisites. Fall through.
         }
 
-        // Dependency declaration (including prerequisite-specific variable
-        // assignment) or target-specific variable assignment.
+        // Target-specific variable assignment or dependency declaration,
+        // including a dependency chain and/or prerequisite-specific variable
+        // assignment.
         //
 
         if (at.first)
@@ -704,8 +705,8 @@ namespace build2
                 rg.play (); // Replay.
             }
           }
-          // Dependency declaration potentially followed by prerequisite-
-          // specific variable assignment).
+          // Dependency declaration potentially followed by a chain and/or
+          // a prerequisite-specific variable assignment.
           //
           else
           {
@@ -714,138 +715,7 @@ namespace build2
             else
               attributes_pop ();
 
-            // First enter all the targets (normally we will have just one).
-            //
-            small_vector<reference_wrapper<target>, 1> tgs;
-
-            for (auto i (ns.begin ()), e (ns.end ()); i != e; ++i)
-            {
-              name& n (*i);
-
-              if (n.qualified ())
-                fail (nloc) << "project name in target " << n;
-
-              name o (n.pair ? move (*++i) : name ());
-              enter_target tg (*this, move (n), move (o), false, nloc, trace);
-
-              if (default_target_ == nullptr)
-                default_target_ = target_;
-
-              target_->prerequisites_state_.store (2, memory_order_relaxed);
-              target_->prerequisites_.reserve (pns.size ());
-              tgs.push_back (*target_);
-            }
-
-            // Now enter each prerequisite into each target.
-            //
-            for (auto& pn: pns)
-            {
-              auto rp (scope_->find_target_type (pn, ploc));
-              const target_type* tt (rp.first);
-              optional<string>& e (rp.second);
-
-              if (tt == nullptr)
-                fail (ploc) << "unknown target type " << pn.type;
-
-              // Current dir collapses to an empty one.
-              //
-              if (!pn.dir.empty ())
-                pn.dir.normalize (false, true);
-
-              // @@ OUT: for now we assume the prerequisite's out is
-              // undetermined. The only way to specify an src prerequisite
-              // will be with the explicit @-syntax.
-              //
-              // Perhaps use @file{foo} as a way to specify it is in the out
-              // tree, e.g., to suppress any src searches? The issue is what
-              // to use for such a special indicator. Also, one can easily and
-              // natually suppress any searches by specifying the absolute
-              // path.
-              //
-              prerequisite p (pn.proj,
-                              *tt,
-                              move (pn.dir),
-                              dir_path (),
-                              move (pn.value),
-                              move (e),
-                              *scope_);
-
-              for (auto i (tgs.begin ()), e (tgs.end ()); i != e; )
-              {
-                // Move last prerequisite (which will normally be the only
-                // one).
-                //
-                target& t (*i);
-                t.prerequisites_.push_back (
-                  ++i == e
-                  ? move (p)
-                  : prerequisite (p, memory_order_relaxed)); // Serial
-              }
-            }
-
-            // Do we have prerequisite-specific variable assignment?
-            //
-            if (tt == type::colon)
-            {
-              // What should we do if there are no prerequisites (for example,
-              // because of an empty wildcard result)? We can fail or we can
-              // ignore. In most cases, however, this is probably an error
-              // (for example, forgetting to checkout a git submodule) so
-              // let's not confuse the user and fail (one can always handle
-              // the optional prerequisites case with a variable and an if).
-              //
-              if (pns.empty ())
-                fail (ploc) << "no prerequisites in prerequisite-specific "
-                            << "variable assignment";
-
-              // Set the variable in the last pns.size() prerequisites of each
-              // target. This code is similar to target-specific case above.
-              //
-              // @@ TODO prerequisite block (also target block above).
-              //
-              next (t, tt);
-              attributes_push (t, tt);
-
-              // @@ PAT: currently we pattern-expand prerequisite-specific
-              //         vars.
-              //
-              const location vloc (get_location (t));
-              names vns (parse_names (t, tt, pattern_mode::expand));
-
-              if (tt != type::assign  &&
-                  tt != type::prepend &&
-                  tt != type::append)
-                fail (t) << "expected assignment instead of " << t;
-
-              type at (tt);
-
-              const variable& var (parse_variable_name (move (vns), vloc));
-              apply_variable_attributes (var);
-
-              // We handle multiple targets and/or prerequisites by replaying
-              // the tokens (see the target-specific case above for details).
-              //
-              replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
-
-              for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
-              {
-                target& tg (*ti);
-                enter_target tgg (*this, tg);
-
-                for (size_t pn (tg.prerequisites_.size ()),
-                       pi (pn - pns.size ()); pi != pn; )
-                {
-                  enter_prerequisite pg (*this, tg.prerequisites_[pi]);
-                  parse_variable (t, tt, var, at);
-
-                  if (++pi != pn)
-                    rg.play (); // Replay.
-                }
-
-                if (++ti != te)
-                  rg.play (); // Replay.
-              }
-            }
+            parse_dependency (t, tt, move (ns), nloc, move (pns), ploc);
           }
 
           if (tt == type::newline)
@@ -995,6 +865,167 @@ namespace build2
     }
 
     return parsed;
+  }
+
+  void parser::
+  parse_dependency (token& t, token_type& tt,
+                    names&& tns, const location& tloc, // Target names.
+                    names&& pns, const location& ploc) // Prereq names.
+  {
+    tracer trace ("parser::parse_dependency", &path_);
+
+    // First enter all the targets (normally we will have just one).
+    //
+    small_vector<reference_wrapper<target>, 1> tgs;
+
+    for (auto i (tns.begin ()), e (tns.end ()); i != e; ++i)
+    {
+      name& n (*i);
+
+      if (n.qualified ())
+        fail (tloc) << "project name in target " << n;
+
+      name o (n.pair ? move (*++i) : name ());
+      enter_target tg (*this, move (n), move (o), false, tloc, trace);
+
+      if (default_target_ == nullptr)
+        default_target_ = target_;
+
+      target_->prerequisites_state_.store (2, memory_order_relaxed);
+      target_->prerequisites_.reserve (pns.size ());
+      tgs.push_back (*target_);
+    }
+
+    // Now enter each prerequisite into each target.
+    //
+    for (auto& pn: pns)
+    {
+      auto rp (scope_->find_target_type (pn, ploc));
+      const target_type* tt (rp.first);
+      optional<string>& e (rp.second);
+
+      if (tt == nullptr)
+        fail (ploc) << "unknown target type " << pn.type;
+
+      // Current dir collapses to an empty one.
+      //
+      if (!pn.dir.empty ())
+        pn.dir.normalize (false, true);
+
+      // @@ OUT: for now we assume the prerequisite's out is undetermined. The
+      // only way to specify an src prerequisite will be with the explicit
+      // @-syntax.
+      //
+      // Perhaps use @file{foo} as a way to specify it is in the out tree,
+      // e.g., to suppress any src searches? The issue is what to use for such
+      // a special indicator. Also, one can easily and natually suppress any
+      // searches by specifying the absolute path.
+      //
+      // Note: we cannot move values out of pn since we may need to pass them
+      // as targets in case of a chain (see below).
+      //
+      prerequisite p (pn.proj,
+                      *tt,
+                      pn.dir,
+                      dir_path (),
+                      pn.value,
+                      move (e),
+                      *scope_);
+
+      for (auto i (tgs.begin ()), e (tgs.end ()); i != e; )
+      {
+        // Move last prerequisite (which will normally be the only one).
+        //
+        target& t (*i);
+        t.prerequisites_.push_back (++i == e
+                                    ? move (p)
+                                    : prerequisite (p, memory_order_relaxed));
+      }
+    }
+
+    // Do we have a dependency chain and/or prerequisite-specific variable
+    // assignment?
+    //
+    if (tt != type::colon)
+      return;
+
+    // What should we do if there are no prerequisites (for example, because
+    // of an empty wildcard result)? We can fail or we can ignore. In most
+    // cases, however, this is probably an error (for example, forgetting to
+    // checkout a git submodule) so let's not confuse the user and fail (one
+    // can always handle the optional prerequisites case with a variable and
+    // an if).
+    //
+    if (pns.empty ())
+      fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
+                  << "specific variable assignment";
+
+    next (t, tt);
+    auto at (attributes_push (t, tt));
+
+    // @@ PAT: currently we pattern-expand prerequisite-specific vars.
+    //
+    const location loc (get_location (t));
+    names ns (tt != type::newline && tt != type::eos
+              ? parse_names (t, tt, pattern_mode::expand)
+              : names ());
+
+    // Prerequisite-specific variable assignment.
+    //
+    if (tt == type::assign || tt == type::prepend || tt == type::append)
+    {
+      // Set the variable in the last pns.size() prerequisites of each target.
+      // This code is similar to the target-specific variable case.
+      //
+      // @@ TODO prerequisite block (also target block above).
+      //
+      type at (tt);
+
+      const variable& var (parse_variable_name (move (ns), loc));
+      apply_variable_attributes (var);
+
+      // We handle multiple targets and/or prerequisites by replaying the
+      // tokens (see the target-specific case above for details).
+      //
+      replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
+
+      for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
+      {
+        target& tg (*ti);
+        enter_target tgg (*this, tg);
+
+        for (size_t pn (tg.prerequisites_.size ()), pi (pn - pns.size ());
+             pi != pn; )
+        {
+          enter_prerequisite pg (*this, tg.prerequisites_[pi]);
+          parse_variable (t, tt, var, at);
+
+          if (++pi != pn)
+            rg.play (); // Replay.
+        }
+
+        if (++ti != te)
+          rg.play (); // Replay.
+      }
+    }
+    //
+    // Dependency chain.
+    //
+    else
+    {
+      if (at.first)
+        fail (at.second) << "attributes before prerequisites";
+      else
+        attributes_pop ();
+
+      // Note that we could have "pre-resolved" these prerequisites to actual
+      // targets or, at least, made they directories absolute. We don't do it
+      // for easy of documentation: with the current semantics we can just say
+      // that the dependency chain is equivalent to specifying each dependency
+      // separately.
+      //
+      parse_dependency (t, tt, move (pns), ploc, move (ns), loc);
+    }
   }
 
   void parser::
