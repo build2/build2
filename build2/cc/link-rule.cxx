@@ -2080,6 +2080,9 @@ namespace build2
       if (!update)
         return ts;
 
+      path ddp (tp + ".d");
+      timestamp dd_mt (file_mtime (ddp));
+
       // Ok, so we are updating. Finish building the command line.
       //
       string in, out, out1, out2, out3; // Storage.
@@ -2543,16 +2546,12 @@ namespace build2
 
       {
         timestamp tp_tt (system_clock::now ());
-
-        path dd (tp + ".d");
-
-        timestamp dd_mt (file_mtime (dd));
         timestamp tp_mt (file_mtime (tp));
 
         if (dd_mt > tp_mt)
         {
           fail << "backwards modification times:\n"
-               << dd.string () <<   " " << dd_mt << " (" << dd_rd << ")\n"
+               << ddp.string () <<   " " << dd_mt << " (" << dd_rd << ")\n"
                << tp.string () << "   " << tp_mt << '\n'
                << dd_tt << '\n'
                << tp_tt;
