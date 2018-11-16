@@ -66,11 +66,14 @@ namespace build2
         fi = fi || p.is_a<in> ();
       }
 
+      // Note that while normally we print these at verbosity level 4, these
+      // ones get quite noisy since we try this rule any file target.
+      //
       if (!fm)
-        l4 ([&]{trace << "no manifest prerequisite for target " << t;});
+        l5 ([&]{trace << "no manifest prerequisite for target " << t;});
 
       if (!fi)
-        l4 ([&]{trace << "no in file prerequisite for target " << t;});
+        l5 ([&]{trace << "no in file prerequisite for target " << t;});
 
       bool r (fm && fi);
 
