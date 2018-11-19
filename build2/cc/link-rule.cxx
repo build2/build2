@@ -2076,7 +2076,7 @@ namespace build2
       timestamp dd_tt (system_clock::now ());
 #endif
 
-      dd.close ();
+      timestamp dd_ct (dd.close ());
 
       // If nothing changed, then we are done.
       //
@@ -2569,6 +2569,7 @@ namespace build2
         if (dd_mt > tp_mt)
           fail << "backwards modification times:\n"
                << dd_tt << " window start\n"
+               << dd_ct << " close mtime\n"
                << dd_mt << " " << dd.path.string () << '\n'
                << tp_mt << " " << tp.string () << '\n'
                << tp_tt << " window end";

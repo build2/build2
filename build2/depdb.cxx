@@ -201,7 +201,7 @@ namespace build2
       fs_.put ('\n');
   }
 
-  void depdb::
+  timestamp depdb::
   close ()
   {
     // If we are at eof, then it means all lines are good, there is the "end
@@ -263,7 +263,9 @@ namespace build2
     //
 #if defined(_WIN32) || defined(__FreeBSD__)
     if (state_ == state::write)
-      file_mtime (path);
+      mtime = file_mtime (path);
 #endif
+
+    return mtime;
   }
 }
