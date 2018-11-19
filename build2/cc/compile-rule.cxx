@@ -3182,7 +3182,8 @@ namespace build2
       if (!modules)
       {
         if (!mi.name.empty () || !mi.imports.empty ())
-          fail (relative (src)) << "modules support not enabled/available";
+          fail (relative (src)) << "modules support not available or not "
+                                << "enabled";
 
         return;
       }
