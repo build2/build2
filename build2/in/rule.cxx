@@ -157,7 +157,7 @@ namespace build2
 
       // Update if any mismatch or depdb is newer that the output.
       //
-      if (dd.writing () || dd.mtime () > mt)
+      if (dd.writing () || dd.mtime > mt)
         update = true;
 
       // Substituted variable values.

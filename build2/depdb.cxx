@@ -14,15 +14,15 @@ using namespace butl;
 namespace build2
 {
   depdb::
-  depdb (const path& f)
-      : mtime_ (file_mtime (f)), touch_ (false)
+  depdb (path_type p)
+      : path (move (p)), mtime (file_mtime (path)), touch (false)
   {
     fstream::openmode om (fstream::out | fstream::binary);
     fstream::iostate em (fstream::badbit);
 
-    if (mtime_ == timestamp_nonexistent)
+    if (mtime == timestamp_nonexistent)
     {
-      mtime_ = timestamp_unknown;
+      mtime = timestamp_unknown;
       state_ = state::write;
       em |= fstream::failbit;
     }
@@ -32,13 +32,13 @@ namespace build2
       om |= fstream::in;
     }
 
-    fs_.open (f.string (), om);
+    fs_.open (path.string (), om);
     if (!fs_.is_open ())
     {
       bool c (state_ == state::write);
 
       diag_record dr (fail);
-      dr << "unable to " << (c ? "create" : "open") << ' ' << f;
+      dr << "unable to " << (c ? "create" : "open") << ' ' << path;
 
       if (c)
         dr << info << "did you forget to add fsdir{} prerequisite for "
@@ -93,7 +93,7 @@ namespace build2
     fs_.seekp (pos_); // Must be done when changing from read to write.
 
     state_ = state::write;
-    mtime_ = timestamp_unknown;
+    mtime = timestamp_unknown;
   }
 
   string* depdb::
@@ -217,15 +217,17 @@ namespace build2
       // and skip updating mtime (which would probably be incorrect).
       //
       // It would be interesting to one day write an implementation that uses
-      // POSIX file OI, futimens(), and ftruncate() and see how much better it
+      // POSIX file IO, futimens(), and ftruncate() and see how much better it
       // performs.
       //
-      if (touch_)
+      if (touch)
       {
         fs_.clear ();
         fs_.exceptions (fstream::failbit | fstream::badbit);
         fs_.seekp (0, fstream::cur); // Required to switch from read to write.
         fs_.put ('\0');
+
+        state_ = state::write; // See below.
       }
     }
     else
@@ -246,5 +248,22 @@ namespace build2
     }
 
     fs_.close ();
+
+    // On some platforms (currently confirmed on Windows and FreeBSD, both
+    // running as VMs) one can sometimes end up with a modification time that
+    // is quite a bit after the call to close(). And this messes with our
+    // arrangement that a valid depdb should be no older than the target it
+    // is for.
+    //
+    // Note that this does not seem to be related to clock adjustments but
+    // rather feels like the modification time is set when the changes
+    // actually hit some lower-level layer (e.g., OS or filesystem driver).
+    // One workaround that appears to work is to query the mtime. This seems
+    // to force that layer to commit to a timestamp.
+    //
+#if defined(_WIN32) || defined(__FreeBSD__)
+    if (state_ == state::write)
+      file_mtime (path);
+#endif
   }
 }

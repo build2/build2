@@ -262,7 +262,7 @@ namespace build2
 
         // Update if depdb mismatch.
         //
-        if (dd.writing () || dd.mtime () > mt)
+        if (dd.writing () || dd.mtime > mt)
           update = true;
 
         dd.close ();

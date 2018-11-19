@@ -751,8 +751,7 @@ namespace build2
         // Note: the leading '@' is reserved for the module map prefix (see
         // extract_modules()) and no other line must start with it.
         //
-        md.dd = tp + ".d";
-        depdb dd (md.dd);
+        depdb dd (tp + ".d");
 
         // First should come the rule name/version.
         //
@@ -824,7 +823,7 @@ namespace build2
         // the target (interrupted update), then do unconditional update.
         //
         timestamp mt;
-        bool u (dd.writing () || dd.mtime () > (mt = file_mtime (tp)));
+        bool u (dd.writing () || dd.mtime > (mt = file_mtime (tp)));
         if (u)
           mt = timestamp_nonexistent; // Treat as if it doesn't exist.
 
@@ -996,9 +995,10 @@ namespace build2
         // we will keep re-validating the cached data over and over again.
         //
         if (u && dd.reading ())
-          dd.touch ();
+          dd.touch = true;
 
         dd.close ();
+        md.dd = move (dd.path);
 
         // If the preprocessed output is suitable for compilation, then pass
         // it along.
@@ -1036,7 +1036,7 @@ namespace build2
         // store the first in the target file (so we do touch it) and the
         // second in depdb (which is never newer that the target).
         //
-        md.mt = u ? timestamp_nonexistent : dd.mtime ();
+        md.mt = u ? timestamp_nonexistent : dd.mtime;
       }
 
       switch (a)

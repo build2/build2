@@ -2068,20 +2068,20 @@ namespace build2
       // this situation in the "from scratch" flag.
       //
       bool scratch (false);
-      if (dd.writing () || dd.mtime () > mt)
+      if (dd.writing () || dd.mtime > mt)
         scratch = update = true;
 
+#define MTIME_SANITY_CHECK
+#ifdef MTIME_SANITY_CHECK
       timestamp dd_tt (system_clock::now ());
-      bool      dd_rd (dd.reading ());
+#endif
+
       dd.close ();
 
       // If nothing changed, then we are done.
       //
       if (!update)
         return ts;
-
-      path ddp (tp + ".d");
-      timestamp dd_mt (file_mtime (ddp));
 
       // Ok, so we are updating. Finish building the command line.
       //
@@ -2544,19 +2544,20 @@ namespace build2
 
       rm.cancel ();
 
+#ifdef MTIME_SANITY_CHECK
       {
-        timestamp tp_tt (system_clock::now ());
         timestamp tp_mt (file_mtime (tp));
+        timestamp dd_mt (file_mtime (dd.path));
+        timestamp tp_tt (system_clock::now ());
 
         if (dd_mt > tp_mt)
-        {
           fail << "backwards modification times:\n"
-               << ddp.string () <<   " " << dd_mt << " (" << dd_rd << ")\n"
-               << tp.string () << "   " << tp_mt << '\n'
-               << dd_tt << '\n'
-               << tp_tt;
-        }
+               << dd_tt << " window start\n"
+               << dd_mt << " " << dd.path.string () << '\n'
+               << tp_mt << " " << tp.string () << '\n'
+               << tp_tt << " window end";
       }
+#endif
 
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.

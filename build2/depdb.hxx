@@ -61,6 +61,19 @@ namespace build2
   class depdb
   {
   public:
+    using path_type = build2::path;
+
+    // The modification time of the database only makes sense while reading
+    // (in the write mode it will be set to timestamp_unknown).
+    //
+    // If touch is set to true, update the database modification time in
+    // close() even if otherwise no modifications are necessary (i.e., the
+    // database is in the read mode and is at eof).
+    //
+    path_type path;
+    timestamp mtime;
+    bool      touch;
+
     // Open the database for reading. Note that if the file does not exist,
     // has wrong format version, or is corrupt, then the database will be
     // immediately switched to writing.
@@ -71,20 +84,7 @@ namespace build2
     // prerequisite. Handling this as io_error in every rule that uses depdb
     // would be burdensome thus we issue the diagnostics here.
     //
-    depdb (const path&);
-
-    // Return the modification time of the database. This value only makes
-    // sense while reading (in the write mode it will be timestamp_unknown).
-    //
-    timestamp
-    mtime () const {return mtime_;}
-
-    // Update the database modification time in close() even if otherwise
-    // no modifications are necessary (i.e., the database is in the read
-    // mode and is at eof).
-    //
-    void
-    touch () {touch_ = true;}
+    depdb (path_type);
 
     // Close the database. If this function is not called, then the database
     // may be left in the old/currupt state. Note that in the read mode this
@@ -121,9 +121,6 @@ namespace build2
     bool
     writing () const {return state_ == state::write;}
 
-    bool
-    touched () const {return touch_;}
-
     // Skip to the end of the database and return true if it is valid.
     // Otherwise, return false, in which case the database must be
     // overwritten. Note that this function expects the database to be in the
@@ -140,7 +137,7 @@ namespace build2
     write (const string& l, bool nl = true) {write (l.c_str (), l.size (), nl);}
 
     void
-    write (const path& p, bool nl = true) {write (p.string (), nl);}
+    write (const path_type& p, bool nl = true) {write (p.string (), nl);}
 
     void
     write (const char* s, bool nl = true) {write (s, std::strlen (s), nl);}
@@ -178,10 +175,10 @@ namespace build2
     }
 
     string*
-    expect (const path& v)
+    expect (const path_type& v)
     {
       string* l (read ());
-      if (l == nullptr || path::traits::compare (*l, v.string ()) != 0)
+      if (l == nullptr || path_type::traits::compare (*l, v.string ()) != 0)
       {
         write (v);
         return l;
@@ -211,14 +208,11 @@ namespace build2
     read_ ();
 
   private:
-    timestamp mtime_;
-    std::fstream fs_;
-
-    std::fstream::pos_type pos_; // Start of the last returned line.
-    string line_;
-
     enum class state {read, read_eof, write} state_;
-    bool touch_;
+
+    std::fstream           fs_;
+    std::fstream::pos_type pos_;  // Start of the last returned line.
+    string                 line_; // Current line.
   };
 }
 
