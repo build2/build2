@@ -90,7 +90,7 @@ namespace build2
     // may be left in the old/currupt state. Note that in the read mode this
     // function will "chop off" lines that haven't been read.
     //
-    timestamp
+    void
     close ();
 
     // Read the next line. If the result is not NULL, then it is a pointer to

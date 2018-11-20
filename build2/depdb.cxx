@@ -201,7 +201,7 @@ namespace build2
       fs_.put ('\n');
   }
 
-  timestamp depdb::
+  void depdb::
   close ()
   {
     // If we are at eof, then it means all lines are good, there is the "end
@@ -225,9 +225,7 @@ namespace build2
         fs_.clear ();
         fs_.exceptions (fstream::failbit | fstream::badbit);
         fs_.seekp (0, fstream::cur); // Required to switch from read to write.
-        fs_.put ('\0');
-
-        state_ = state::write; // See below.
+        state_ = state::write;       // Write end marker below.
       }
     }
     else
@@ -238,8 +236,6 @@ namespace build2
         change (false); // Don't flush.
       }
 
-      fs_.put ('\0'); // The "end marker".
-
       // Truncating an fstream is actually a non-portable pain in the butt.
       // What if we leave the junk after the "end marker"? These files are
       // pretty small and chances are they will occupy the filesystem's block
@@ -247,25 +243,50 @@ namespace build2
       // actually be faster not to truncate.
     }
 
-    fs_.close ();
-
     // On some platforms (currently confirmed on Windows and FreeBSD, both
     // running as VMs) one can sometimes end up with a modification time that
     // is quite a bit after the call to close(). And this messes with our
-    // arrangement that a valid depdb should be no older than the target it
-    // is for.
+    // arrangement that a valid depdb should be no older than the target it is
+    // for.
     //
     // Note that this does not seem to be related to clock adjustments but
     // rather feels like the modification time is set when the changes
-    // actually hit some lower-level layer (e.g., OS or filesystem driver).
-    // One workaround that appears to work is to query the mtime. This seems
-    // to force that layer to commit to a timestamp.
+    // actually hit some lower-level layer (e.g., OS or filesystem
+    // driver). One workaround that appears to work is to query the
+    // mtime. This seems to force that layer to commit to a timestamp.
+    //
+    // Well, this seems to work on FreeBSD but on Windows we may still end up
+    // getting the old mtime if we ask for it too soon. For such cases we are
+    // going to just set it ourselves.
     //
 #if defined(_WIN32) || defined(__FreeBSD__)
-    if (state_ == state::write)
-      mtime = file_mtime (path);
+#  define BUILD2_NEED_MTIME_FIX
 #endif
 
-    return mtime;
+#ifdef BUILD2_NEED_MTIME_FIX
+    timestamp mt;
+#endif
+
+    if (state_ == state::write)
+    {
+#ifdef BUILD2_NEED_MTIME_FIX
+      mt = system_clock::now ();
+#endif
+      fs_.put ('\0'); // The "end marker".
+    }
+
+    fs_.close ();
+
+#ifdef BUILD2_NEED_MTIME_FIX
+    if (state_ == state::write)
+    {
+      // Save the original returned time for debugging.
+      //
+      mtime = file_mtime (path);
+
+      if (mtime < mt)
+        file_mtime (path, mt);
+    }
+#endif
   }
 }

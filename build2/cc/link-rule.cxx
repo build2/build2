@@ -2071,12 +2071,12 @@ namespace build2
       if (dd.writing () || dd.mtime > mt)
         scratch = update = true;
 
-#define MTIME_SANITY_CHECK
-#ifdef MTIME_SANITY_CHECK
+#define BUILD2_MTIME_CHECK
+#ifdef BUILD2_MTIME_CHECK
       timestamp dd_tt (system_clock::now ());
 #endif
 
-      timestamp dd_ct (dd.close ());
+      dd.close ();
 
       // If nothing changed, then we are done.
       //
@@ -2560,7 +2560,7 @@ namespace build2
 
       rm.cancel ();
 
-#ifdef MTIME_SANITY_CHECK
+#ifdef BUILD2_MTIME_CHECK
       {
         timestamp tp_mt (file_mtime (tp));
         timestamp dd_mt (file_mtime (dd.path));
@@ -2568,11 +2568,11 @@ namespace build2
 
         if (dd_mt > tp_mt)
           fail << "backwards modification times:\n"
-               << dd_tt << " window start\n"
-               << dd_ct << " close mtime\n"
-               << dd_mt << " " << dd.path.string () << '\n'
-               << tp_mt << " " << tp.string () << '\n'
-               << tp_tt << " window end";
+               << dd_tt    << " window start\n"
+               << dd.mtime << " close mtime\n"
+               << dd_mt    << " " << dd.path.string () << '\n'
+               << tp_mt    << " " << tp.string () << '\n'
+               << tp_tt    << " window end";
       }
 #endif
 
