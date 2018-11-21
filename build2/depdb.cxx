@@ -6,6 +6,10 @@
 
 #include <libbutl/filesystem.mxx> // file_mtime()
 
+#ifdef _WIN32
+#  include <libbutl/win32-utility.hxx>
+#endif
+
 #include <build2/diagnostics.hxx>
 
 using namespace std;
@@ -201,7 +205,7 @@ namespace build2
       fs_.put ('\n');
   }
 
-  void depdb::
+  timestamp depdb::
   close ()
   {
     // If we are at eof, then it means all lines are good, there is the "end
@@ -259,34 +263,51 @@ namespace build2
     // getting the old mtime if we ask for it too soon. For such cases we are
     // going to just set it ourselves.
     //
-#if defined(_WIN32) || defined(__FreeBSD__)
-#  define BUILD2_NEED_MTIME_FIX
-#endif
-
-#ifdef BUILD2_NEED_MTIME_FIX
-    timestamp mt;
+#ifdef _WIN32
+    timestamp mt (timestamp_unknown);
 #endif
 
     if (state_ == state::write)
     {
-#ifdef BUILD2_NEED_MTIME_FIX
-      mt = system_clock::now ();
+#ifdef _WIN32
+      FILETIME ft;
+      GetSystemTimeAsFileTime (&ft);
+
+      // See libbutl/filesystem.cxx for details.
+      //
+      uint64_t nsec ((static_cast<uint64_t> (ft.dwHighDateTime) << 32) |
+                     ft.dwLowDateTime);
+      nsec -= 11644473600ULL * 10000000;
+      nsec *= 100;
+
+      mt = timestamp (
+        chrono::duration_cast<duration> (chrono::nanoseconds (nsec)));
 #endif
+
       fs_.put ('\0'); // The "end marker".
     }
 
     fs_.close ();
 
-#ifdef BUILD2_NEED_MTIME_FIX
+#if defined(_WIN32) || defined(__FreeBSD__)
     if (state_ == state::write)
     {
-      // Save the original returned time for debugging.
-      //
-      mtime = file_mtime (path);
+      mtime = file_mtime (path); // Save for debugging.
 
+#ifdef _WIN32
       if (mtime < mt)
+      {
         file_mtime (path, mt);
+        assert (file_mtime (path) == mt);
+      }
+#endif
     }
+#endif
+
+#ifdef _WIN32
+    return mt;
+#else
+    return timestamp_unknown;
 #endif
   }
 }
