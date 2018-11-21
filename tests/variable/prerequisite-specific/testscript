@@ -62,6 +62,58 @@ EOI
   }
 EOE
 
+: block
+:
+$* <<EOI 2>>/~%EOE%
+foo = COX
+dir{x}: foo = FOX
+dir{x}: dir{a}:
+{
+  foo = FOO
+  bar = BAR
+}
+dump dir{x}
+EOI
+<stdin>:8:1: dump:
+%  .+/dir\{x/\}:%
+  {
+    foo = FOX
+  }
+%  .+/dir\{x/\}: .+:dir\{a/\}:%
+  {
+    bar = BAR
+    foo = FOO
+  }
+EOE
+
+: block-multiple
+:
+$* <<EOI 2>>/~%EOE%
+dir{y}: foo = FOX
+dir{x} dir{y}: dir{a} dir{b}:
+{
+  foo += FOO
+  bar = BAR $foo
+}
+dump dir{y}
+EOI
+<stdin>:7:1: dump:
+%  .+/dir\{y/\}:%
+  {
+    foo = FOX
+  }
+%  .+/dir\{y/\}: .+:dir\{a/\}:%
+  {
+    bar = BAR FOX FOO
+    foo = FOX FOO
+  }
+%  .+/dir\{y/\}: .+:dir\{b/\}:%
+  {
+    bar = BAR FOX FOO
+    foo = FOX FOO
+  }
+EOE
+
 : chain
 :
 $* <<EOI 2>>/~%EOE%

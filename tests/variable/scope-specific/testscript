@@ -42,7 +42,7 @@ EOO
 $* <<EOI 2>>EOE != 0
 foo/ [uint64] y
 EOI
-<stdin>:1:16: error: variable assignment expected instead of <newline>
+<stdin>:1:16: error: expected variable assignment instead of <newline>
 EOE
 
 : unexpected-attribute

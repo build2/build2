@@ -1227,6 +1227,9 @@ namespace build2
       size_t version = 0; // Incremented on each modification (variable_cache).
     };
 
+    // Note that we guarantee ascending iteration order (e.g., for predictable
+    // dump output in tests).
+    //
     using map_type = butl::prefix_map<reference_wrapper<const variable>,
                                       value_data,
                                       '.'>;

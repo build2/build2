@@ -83,6 +83,7 @@ namespace build2
     // Prerequisite-specific variables.
     //
     // Note that the lookup is often ad hoc (see bin.whole as an example).
+    // But see also parser::lookup_variable() if adding something here.
     //
   public:
     variable_map vars;

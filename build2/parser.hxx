@@ -76,6 +76,9 @@ namespace build2
     parse_clause (token&, token_type&, bool one = false);
 
     void
+    parse_variable_block (token&, token_type&, const target_type*, string);
+
+    void
     parse_dependency (token&, token_type&,
                       names&&, const location&,
                       names&&, const location&);
@@ -121,6 +124,11 @@ namespace build2
 
     void
     parse_variable (token&, token_type&, const variable&, token_type);
+
+    void
+    parse_type_pattern_variable (token&, token_type&,
+                                 const target_type&, string,
+                                 const variable&, token_type, const location&);
 
     const variable&
     parse_variable_name (names&&, const location&);

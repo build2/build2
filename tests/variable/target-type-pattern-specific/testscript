@@ -1,0 +1,58 @@
+# file      : tests/variable/target-type-pattern-specific/testscript
+# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# NOTE: see also old tests.
+
+.include ../../common.testscript
+
+: basic
+:
+$* <<EOI >>EOO
+x = x
+y = y
+dir{*}: x  = X
+dir{*}: y += Y
+print $(./: x)
+print $(./: y)
+EOI
+X
+y Y
+EOO
+
+: block
+:
+$* <<EOI >>EOO
+x = x
+y = y
+dir{*}:
+{
+  x  = X
+  y += Y
+  z  = $x # Note: from scope.
+}
+print $(./: x)
+print $(./: y)
+print $(./: z)
+EOI
+X
+y Y
+x
+EOO
+
+: block-multiple
+:
+$* <<EOI >>EOO
+x = x
+y = y
+file{f*} file{b*}:
+{
+  x  = X
+  y += Y
+}
+print $(file{foo}: x)
+print $(file{bar}: y)
+EOI
+X
+y Y
+EOO

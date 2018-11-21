@@ -1,10 +1,10 @@
-# file      : tests/variable/scope-specific/testscript
+# file      : tests/variable/target-specific/testscript
 # copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 .include ../../common.testscript
 
-: basic-line
+: basic
 :
 $* <<EOI >>EOO
 x = x
@@ -23,6 +23,38 @@ x
 X
 0
 Z
+EOO
+
+: block
+:
+$* <<EOI >>EOO
+x = x
+./:
+{
+  x = X
+  y = $x
+}
+print $(./: x)
+print $(./: y)
+EOI
+X
+X
+EOO
+
+: block-multiple
+:
+$* <<EOI >>EOO
+x = x
+file{foo} file{bar}:
+{
+  x += X
+  y = $x
+}
+print $(file{foo}: y)
+print $(file{bar}: y)
+EOI
+x X
+x X
 EOO
 
 : eval-qual

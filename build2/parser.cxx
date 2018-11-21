@@ -161,7 +161,7 @@ namespace build2
         assert (n.pair == '@');
 
         if (!o.directory ())
-          p.fail (loc) << "directory expected after @";
+          p.fail (loc) << "expected directory after @";
       }
 
       dir_path& d (n.dir);
@@ -465,10 +465,81 @@ namespace build2
         // means empty list.
         //
         if (ns.empty ())
-          fail (t) << "target expected before :";
+          fail (t) << "expected target before :";
+
+        // Call the specified parsing function (either variable or block) for
+        // each target. We handle multiple targets by replaying the tokens.
+        // since the value/block may contain variable expansions that would be
+        // sensitive to the target context in which they are evaluated. The
+        // function signature is:
+        //
+        // void (token& t, type& tt, const target_type* type, string pat)
+        //
+        auto for_each = [this, &trace, &t, &tt, &ns, &nloc] (auto&& f)
+        {
+          // Note: watch out for an out-qualified single target (two names).
+          //
+          replay_guard rg (*this,
+                           ns.size () > 2 || (ns.size () == 2 && !ns[0].pair));
+
+          for (auto i (ns.begin ()), e (ns.end ()); i != e; )
+          {
+            name& n (*i);
+
+            if (n.qualified ())
+              fail (nloc) << "project name in target " << n;
+
+            // Figure out if this is a target or a target type/pattern (yeah,
+            // it can be a mixture).
+            //
+            if (n.value.find_first_of ("*?") == string::npos)
+            {
+              name o (n.pair ? move (*++i) : name ());
+              enter_target tg (*this,
+                               move (n),
+                               move (o),
+                               true /* implied */,
+                               nloc,
+                               trace);
+
+              f (t, tt, nullptr, string ());
+            }
+            else
+            {
+              if (n.pair)
+                fail (nloc) << "out-qualified target type/pattern-specific "
+                            << "variable";
+
+              // If we have the directory, then it is the scope.
+              //
+              enter_scope sg;
+              if (!n.dir.empty ())
+                sg = enter_scope (*this, move (n.dir));
+
+              // Resolve target type. If none is specified or if it is '*',
+              // use the root of the hierarchy. So these are all equivalent:
+              //
+              // *: foo = bar
+              // {*}: foo = bar
+              // *{*}: foo = bar
+              //
+              const target_type* ti (
+                n.untyped () || n.type == "*"
+                ? &target::static_type
+                : scope_->find_target_type (n.type));
+
+              if (ti == nullptr)
+                fail (nloc) << "unknown target type " << n.type;
+
+              f (t, tt, ti, move (n.value));
+            }
+
+            if (++i != e)
+              rg.play (); // Replay.
+          }
+        };
 
         next (t, tt);
-
         if (tt == type::newline)
         {
           // See if this is a target block.
@@ -487,13 +558,18 @@ namespace build2
             else
               attributes_pop ();
 
-            // @@ TODO: target block (also prerequisite block below).
+            // Parse the block for each target.
             //
-            fail (nloc) << "target blocks are not yet supported" <<
-              info << "if migrating, remove ':'";
+            for_each ([this] (token& t, type& tt,
+                              const target_type* type, string pat)
+                      {
+                        next (t, tt); // First token inside the block.
 
-            if (tt != type::rcbrace)
-              fail (t) << "expected } instead of " << t;
+                        parse_variable_block (t, tt, type, move (pat));
+
+                        if (tt != type::rcbrace)
+                          fail (t) << "expected } instead of " << t;
+                      });
 
             // Should be on its own line.
             //
@@ -505,7 +581,7 @@ namespace build2
             continue;
           }
 
-          // If this is not a scope, then it is a target without any
+          // If this is not a block, then it is a target without any
           // prerequisites. Fall through.
         }
 
@@ -539,171 +615,31 @@ namespace build2
           //
           if (tt == type::assign || tt == type::prepend || tt == type::append)
           {
-            token at (t);
-            type att (tt);
+            type akind (tt);
+            const location aloc (get_location (t));
 
             const variable& var (parse_variable_name (move (pns), ploc));
             apply_variable_attributes (var);
 
-            if (var.visibility >= variable_visibility::prereq)
+            if (var.visibility > variable_visibility::target)
             {
               fail (nloc) << "variable " << var << " has " << var.visibility
-                          << " visibility but is assigned in a target";
+                          << " visibility but is assigned on a target";
             }
 
-            // If we have multiple targets, then we save the value tokens when
-            // parsing the first one and then replay them for the subsequent.
-            // We have to do it this way because the value may contain
-            // variable expansions that would be sensitive to the target/scope
-            // context in which they are evaluated.
+            // Parse the assignment for each target.
             //
-            // Note: watch out for an out-qualified single target (two names).
-            //
-            replay_guard rg (
-              *this, ns.size () > 2 || (ns.size () == 2 && !ns[0].pair));
-
-            for (auto i (ns.begin ()), e (ns.end ()); i != e; )
-            {
-              name& n (*i);
-
-              if (n.qualified ())
-                fail (nloc) << "project name in target " << n;
-
-              // Figure out if this is a target or type/pattern-specific
-              // variable.
-              //
-              size_t p (n.value.find ('*'));
-
-              if (p == string::npos)
-              {
-                name o (n.pair ? move (*++i) : name ());
-                enter_target tg (
-                  *this, move (n), move (o), true, nloc, trace);
-                parse_variable (t, tt, var, att);
-              }
-              else
-              {
-                // See tests/variable/type-pattern.
-                //
-                if (n.pair)
-                  fail (nloc) << "out-qualified target type/pattern-"
-                              << "specific variable";
-
-                if (n.value.find ('*', p + 1) != string::npos)
-                  fail (nloc) << "multiple wildcards in target type/pattern "
-                              << n;
-
-                // If we have the directory, then it is the scope.
-                //
-                enter_scope sg;
-                if (!n.dir.empty ())
-                  sg = enter_scope (*this, move (n.dir));
-
-                // Resolve target type. If none is specified or if it is '*',
-                // use the root of the hierarchy. So these are all equivalent:
-                //
-                // *: foo = bar
-                // {*}: foo = bar
-                // *{*}: foo = bar
-                //
-                const target_type* ti (
-                  n.untyped () || n.type == "*"
-                  ? &target::static_type
-                  : scope_->find_target_type (n.type));
-
-                if (ti == nullptr)
-                  fail (nloc) << "unknown target type " << n.type;
-
-                // Note: expanding the value in the context of the scope.
-                //
-                value rhs (parse_variable_value (t, tt));
-
-                // Leave the value untyped unless we are assigning.
-                //
-                pair<reference_wrapper<value>, bool> p (
-                  scope_->target_vars[*ti][move (n.value)].insert (
-                    var, att == type::assign));
-
-                value& lhs (p.first);
-
-                // We store prepend/append values untyped (similar to
-                // overrides).
-                //
-                if (rhs.type != nullptr && att != type::assign)
-                  untypify (rhs);
-
-                if (p.second)
-                {
-                  // Note: we are always using assign and we don't pass the
-                  // variable in case of prepend/append in order to keep the
-                  // value untyped.
-                  //
-                  apply_value_attributes (
-                    att == type::assign ? &var : nullptr,
-                    lhs,
-                    move (rhs),
-                    type::assign);
-
-                  // Map assignment type to value::extra constant.
-                  //
-                  lhs.extra =
-                    att == type::prepend ? 1 :
-                    att == type::append  ? 2 :
-                    0;
-                }
-                else
-                {
-                  // Existing value. What happens next depends on what we are
-                  // trying to do and what's already there.
-                  //
-                  // Assignment is the easy one: we simply overwrite what's
-                  // already there. Also, if we are appending/prepending to a
-                  // previously assigned value, then we simply append or
-                  // prepend normally.
-                  //
-                  if (att == type::assign || lhs.extra == 0)
-                  {
-                    // Above we instructed insert() not to type the value so
-                    // we have to compensate for that now.
-                    //
-                    if (att != type::assign)
-                    {
-                      if (var.type != nullptr && lhs.type != var.type)
-                        typify (lhs, *var.type, &var);
-                    }
-                    else
-                      lhs.extra = 0; // Change to assignment.
-
-                    apply_value_attributes (&var, lhs, move (rhs), att);
-                  }
-                  else
-                  {
-                    // This is an append/prepent to a previously appended or
-                    // prepended value. We can handle it as long as things are
-                    // consistent.
-                    //
-                    if (att == type::prepend && lhs.extra == 2)
-                      fail (at) << "prepend to a previously appended target "
-                                << "type/pattern-specific variable " << var;
-
-                    if (att == type::append && lhs.extra == 1)
-                      fail (at) << "append to a previously prepended target "
-                                << "type/pattern-specific variable " << var;
-
-                    // Do untyped prepend/append.
-                    //
-                    apply_value_attributes (nullptr, lhs, move (rhs), att);
-                  }
-                }
-
-                if (lhs.extra != 0 && lhs.type != nullptr)
-                  fail (at) << "typed prepend/append to target type/pattern-"
-                            << "specific variable " << var;
-              }
-
-              if (++i != e)
-                rg.play (); // Replay.
-            }
+            for_each ([this, &var, akind, &aloc] (token& t, type& tt,
+                                                  const target_type* type,
+                                                  string pat)
+                      {
+                        if (type == nullptr)
+                          parse_variable (t, tt, var, akind);
+                        else
+                          parse_type_pattern_variable (t, tt,
+                                                       *type, move (pat),
+                                                       var, akind, aloc);
+                      });
           }
           // Dependency declaration potentially followed by a chain and/or
           // a prerequisite-specific variable assignment.
@@ -772,7 +708,7 @@ namespace build2
             if (tt != type::assign  &&
                 tt != type::prepend &&
                 tt != type::append)
-              fail (t) << "variable assignment expected instead of " << t;
+              fail (t) << "expected variable assignment instead of " << t;
           }
           else
           {
@@ -791,7 +727,7 @@ namespace build2
             diag_record dr (fail (nloc));
 
             dr << "variable " << var << " has " << var.visibility
-               << " visibility but is assigned in a scope";
+               << " visibility but is assigned on a scope";
 
             if (var.visibility == variable_visibility::target)
               dr << info << "consider changing it to '*: " << var << "'";
@@ -825,7 +761,7 @@ namespace build2
         name& n (ns[0]);
 
         if (!n.directory ())
-          fail (nloc) << "scope directory expected";
+          fail (nloc) << "expected scope directory";
 
         next (t, tt);
 
@@ -868,10 +804,70 @@ namespace build2
   }
 
   void parser::
+  parse_variable_block (token& t, type& tt,
+                        const target_type* type, string pat)
+  {
+    // Parse a target or prerequisite-specific variable block. If type is not
+    // NULL, then this is a target type/pattern-specific block.
+    //
+    // enter: first token of first line in the block
+    // leave: rcbrace
+    //
+    // This is a more restricted variant of parse_clause() that only allows
+    // variable assignments.
+    //
+    tracer trace ("parser::parse_variable_block", &path_);
+
+    while (tt != type::rcbrace && tt != type::eos)
+    {
+      attributes_push (t, tt);
+
+      location nloc (get_location (t));
+      names ns (parse_names (t, tt,
+                             pattern_mode::ignore,
+                             false /* chunk */,
+                             "variable name"));
+
+      if (tt != type::assign  &&
+          tt != type::prepend &&
+          tt != type::append)
+        fail (t) << "expected variable assignment instead of " << t;
+
+      const variable& var (parse_variable_name (move (ns), nloc));
+      apply_variable_attributes (var);
+
+      if (prerequisite_ != nullptr                   &&
+          var.visibility > variable_visibility::target)
+      {
+        fail (t) << "variable " << var << " has " << var.visibility
+                 << " visibility but is assigned on a target";
+      }
+
+      if (type == nullptr)
+        parse_variable (t, tt, var, tt);
+      else
+        parse_type_pattern_variable (t, tt,
+                                     *type, pat, // Note: can't move.
+                                     var, tt, get_location (t));
+
+      if (tt != type::newline)
+        fail (t) << "expected newline instead of " << t;
+
+      next (t, tt);
+    }
+  }
+
+  void parser::
   parse_dependency (token& t, token_type& tt,
                     names&& tns, const location& tloc, // Target names.
                     names&& pns, const location& ploc) // Prereq names.
   {
+    // Parse a dependency chain and/or a prerequisite-specific variable
+    // assignment.
+    //
+    // enter: colon (anything else is not handled)
+    // leave: newline
+    //
     tracer trace ("parser::parse_dependency", &path_);
 
     // First enter all the targets (normally we will have just one).
@@ -960,8 +956,72 @@ namespace build2
       fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
                   << "specific variable assignment";
 
+    // Call the specified parsing function (either variable or block) for the
+    // last pns.size() prerequisites of each target. We handle multiple
+    // targets and/or prerequisites by replaying the tokens (see the target-
+    // specific case above for details). The function signature is:
+    //
+    // void (token& t, type& tt)
+    //
+    auto for_each = [this, &t, &tt, &tgs, &pns] (auto&& f)
+    {
+      replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
+
+      for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
+      {
+        target& tg (*ti);
+        enter_target tgg (*this, tg);
+
+        for (size_t pn (tg.prerequisites_.size ()), pi (pn - pns.size ());
+             pi != pn; )
+        {
+          enter_prerequisite pg (*this, tg.prerequisites_[pi]);
+
+          f (t, tt);
+
+          if (++pi != pn)
+            rg.play (); // Replay.
+        }
+
+        if (++ti != te)
+          rg.play (); // Replay.
+      }
+    };
+
     next (t, tt);
     auto at (attributes_push (t, tt));
+
+    // See if this is a prerequisite block.
+    //
+    if (tt == type::newline && peek () == type::lcbrace)
+    {
+      next (t, tt);
+
+      // Should be on its own line.
+      //
+      if (next (t, tt) != type::newline)
+        fail (t) << "expected newline after {";
+
+      if (at.first)
+        fail (at.second) << "attributes before prerequisite block";
+      else
+        attributes_pop ();
+
+      // Parse the block for each prerequisites of each target.
+      //
+      for_each ([this] (token& t, token_type& tt)
+                {
+                  next (t, tt); // First token of first line in the block.
+
+                  parse_variable_block (t, tt, nullptr, string ());
+
+                  if (tt != type::rcbrace)
+                    fail (t) << "expected } instead of " << t;
+                });
+
+      next (t, tt); // Presumably newline after '}'.
+      return;
+    }
 
     // @@ PAT: currently we pattern-expand prerequisite-specific vars.
     //
@@ -974,39 +1034,17 @@ namespace build2
     //
     if (tt == type::assign || tt == type::prepend || tt == type::append)
     {
-      // Set the variable in the last pns.size() prerequisites of each target.
-      // This code is similar to the target-specific variable case.
-      //
-      // @@ TODO prerequisite block (also target block above).
-      //
       type at (tt);
 
       const variable& var (parse_variable_name (move (ns), loc));
       apply_variable_attributes (var);
 
-      // We handle multiple targets and/or prerequisites by replaying the
-      // tokens (see the target-specific case above for details).
+      // Parse the assignment for each prerequisites of each target.
       //
-      replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
-
-      for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
-      {
-        target& tg (*ti);
-        enter_target tgg (*this, tg);
-
-        for (size_t pn (tg.prerequisites_.size ()), pi (pn - pns.size ());
-             pi != pn; )
-        {
-          enter_prerequisite pg (*this, tg.prerequisites_[pi]);
-          parse_variable (t, tt, var, at);
-
-          if (++pi != pn)
-            rg.play (); // Replay.
-        }
-
-        if (++ti != te)
-          rg.play (); // Replay.
-      }
+      for_each ([this, &var, at] (token& t, token_type& tt)
+                {
+                  parse_variable (t, tt, var, at);
+                });
     }
     //
     // Dependency chain.
@@ -1283,7 +1321,7 @@ namespace build2
     }
 
     if (args.empty () || args[0].empty ())
-      fail (l) << "executable name expected after run";
+      fail (l) << "expected executable name after run";
 
     cstrings cargs;
     cargs.reserve (args.size () + 1);
@@ -1591,7 +1629,7 @@ namespace build2
       standard_version v;
 
       if (!i->simple ())
-        fail (l) << "module name expected instead of " << *i;
+        fail (l) << "expected module name instead of " << *i;
 
       n = move (i->value);
 
@@ -1603,7 +1641,7 @@ namespace build2
 
         ++i;
         if (!i->simple ())
-          fail (l) << "module version expected instead of " << *i;
+          fail (l) << "expected module version instead of " << *i;
 
         v = standard_version (i->value, standard_version::allow_earliest);
       }
@@ -2132,7 +2170,7 @@ namespace build2
     // The list should contain a single, simple name.
     //
     if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
-      fail (l) << "variable name expected instead of " << ns;
+      fail (l) << "expected variable name instead of " << ns;
 
     string& n (ns[0].value);
 
@@ -2164,6 +2202,97 @@ namespace build2
          /*                      */ scope_->append (var)));
 
     apply_value_attributes (&var, lhs, move (rhs), kind);
+  }
+
+  void parser::
+  parse_type_pattern_variable (token& t, token_type& tt,
+                               const target_type& type, string pat,
+                               const variable& var, token_type kind,
+                               const location& loc)
+  {
+    // Parse target type/pattern-specific variable assignment.
+    //
+    // See old-tests/variable/type-pattern.
+
+    // Note: expanding the value in the current scope context.
+    //
+    value rhs (parse_variable_value (t, tt));
+
+    // Leave the value untyped unless we are assigning.
+    //
+    pair<reference_wrapper<value>, bool> p (
+      scope_->target_vars[type][move (pat)].insert (
+        var, kind == type::assign));
+
+    value& lhs (p.first);
+
+    // We store prepend/append values untyped (similar to overrides).
+    //
+    if (rhs.type != nullptr && kind != type::assign)
+      untypify (rhs);
+
+    if (p.second)
+    {
+      // Note: we are always using assign and we don't pass the variable in
+      // case of prepend/append in order to keep the value untyped.
+      //
+      apply_value_attributes (kind == type::assign ? &var : nullptr,
+                              lhs,
+                              move (rhs),
+                              type::assign);
+
+      // Map assignment type to the value::extra constant.
+      //
+      lhs.extra = (kind == type::prepend ? 1 :
+                   kind == type::append  ? 2 :
+                   0);
+    }
+    else
+    {
+      // Existing value. What happens next depends on what we are trying to do
+      // and what's already there.
+      //
+      // Assignment is the easy one: we simply overwrite what's already
+      // there. Also, if we are appending/prepending to a previously assigned
+      // value, then we simply append or prepend normally.
+      //
+      if (kind == type::assign || lhs.extra == 0)
+      {
+        // Above we've instructed insert() not to type the value so we have to
+        // compensate for that now.
+        //
+        if (kind != type::assign)
+        {
+          if (var.type != nullptr && lhs.type != var.type)
+            typify (lhs, *var.type, &var);
+        }
+        else
+          lhs.extra = 0; // Change to assignment.
+
+        apply_value_attributes (&var, lhs, move (rhs), kind);
+      }
+      else
+      {
+        // This is an append/prepent to a previously appended or prepended
+        // value. We can handle it as long as things are consistent.
+        //
+        if (kind == type::prepend && lhs.extra == 2)
+          fail (loc) << "prepend to a previously appended target type/pattern-"
+                     << "specific variable " << var;
+
+        if (kind == type::append && lhs.extra == 1)
+          fail (loc) << "append to a previously prepended target type/pattern-"
+                     << "specific variable " << var;
+
+        // Do untyped prepend/append.
+        //
+        apply_value_attributes (nullptr, lhs, move (rhs), kind);
+      }
+    }
+
+    if (lhs.extra != 0 && lhs.type != nullptr)
+      fail (loc) << "typed prepend/append to target type/pattern-specific "
+                 << "variable " << var;
   }
 
   value parser::
@@ -3394,6 +3523,11 @@ namespace build2
         continue;
       }
 
+      //@@ This can be a nested replay (which we don't support), for example,
+      //   via target-specific var assignment. Add support for nested (2-level
+      //   replay)? Why not use replay_guard for storage? Alternatively, don't
+      //   use it here (see parse_for() for an alternative approach).
+      //
       replay_guard rg (*this, ln.size () > 1);
       for (auto i (ln.begin ()), e (ln.end ()); i != e; )
       {
@@ -3789,7 +3923,7 @@ namespace build2
         // must start inclusions or exclusions (see above).
         //
         if (rpat && t.separated && tt != type::rcbrace && !pattern_prefix (t))
-          fail (t) << "name pattern inclusion or exclusion expected";
+          fail (t) << "expected name pattern inclusion or exclusion";
       }
 
       // Name.
@@ -4633,7 +4767,7 @@ namespace build2
                  : buildspec ());
 
     if (tt != type::eos)
-      fail (t) << "operation or target expected instead of " << t;
+      fail (t) << "expected operation or target instead of " << t;
 
     return r;
   }
@@ -4675,7 +4809,7 @@ namespace build2
           tt != type::pair_separator) // Empty pair LHS: '@foo ...'
       {
         if (first)
-          fail (t) << "operation or target expected instead of " << t;
+          fail (t) << "expected operation or target instead of " << t;
 
         break;
       }
@@ -4688,7 +4822,7 @@ namespace build2
       names ns (parse_names (t, tt, pattern_mode::expand, depth < 2));
 
       if (ns.empty ()) // Can happen if pattern expansion.
-        fail (l) << "operation or target expected";
+        fail (l) << "expected operation or target";
 
       // What these names mean depends on what's next. If it is an opening
       // paren, then they are operation/meta-operation names. Otherwise they
@@ -4697,11 +4831,11 @@ namespace build2
       if (tt == type::lparen) // Got by parse_names().
       {
         if (ns.empty ())
-          fail (t) << "operation name expected before '('";
+          fail (t) << "expected operation name before '('";
 
         for (const name& n: ns)
           if (!opname (n))
-            fail (l) << "operation name expected instead of '" << n << "'";
+            fail (l) << "expected operation name instead of '" << n << "'";
 
         // Inside '(' and ')' we have another, nested, buildspec. Push another
         // mode to keep track of the depth (used in the lexer implementation
@@ -4730,7 +4864,7 @@ namespace build2
         }
 
         if (tt != type::rparen)
-          fail (t) << "')' expected instead of " << t;
+          fail (t) << "expected ')' instead of " << t;
 
         expire_mode ();
         next (t, tt); // Get what's after ')'.
@@ -4811,7 +4945,7 @@ namespace build2
           // @@ We may actually want to support this at some point.
           //
           if (i->qualified ())
-            fail (l) << "target name expected instead of " << *i;
+            fail (l) << "expected target name instead of " << *i;
 
           if (opname (*i))
             ms.push_back (opspec (move (i->value)));
@@ -4864,12 +4998,22 @@ namespace build2
       //@@ TODO : append namespace if any.
     }
 
+    const scope* s (nullptr);
+    const target* t (nullptr);
+    const prerequisite* p (nullptr);
+
     // If we are qualified, it can be a scope or a target.
     //
     enter_scope sg;
     enter_target tg;
 
-    if (!qual.empty ())
+    if (qual.empty ())
+    {
+      s = scope_;
+      t = target_;
+      p = prerequisite_;
+    }
+    else
     {
       switch (qual.pair)
       {
@@ -4877,6 +5021,7 @@ namespace build2
         {
           assert (qual.directory ());
           sg = enter_scope (*this, move (qual.dir));
+          s = scope_;
           break;
         }
       case ':':
@@ -4887,6 +5032,7 @@ namespace build2
           //
           tg = enter_target (
             *this, move (qual), build2::name (), true, loc, trace);
+          t = target_;
           break;
         }
       default: assert (false);
@@ -4897,15 +5043,42 @@ namespace build2
     //
     const auto& var (var_pool.rw (*scope_).insert (move (name), true));
 
-    if ((var.visibility == variable_visibility::prereq) ||
-        (var.visibility == variable_visibility::target && target_ == nullptr))
+    if (p != nullptr)
     {
-      fail (loc) << "variable " << var << " has " << var.visibility
-                 << " visibility but is expanded in a "
-                 << (target_ != nullptr ? "target" : "scope");
+      // The lookup depth is a bit of a hack but should be harmless since
+      // unused.
+      //
+      pair<lookup, size_t> r (p->vars[var], 1);
+
+      if (!r.first.defined ())
+        r = t->find_original (var);
+
+      return var.override == nullptr
+        ? r.first
+        : t->base_scope ().find_override (var, move (r), true).first;
     }
 
-    return target_ != nullptr ? (*target_)[var] : (*scope_)[var];
+    if (t != nullptr)
+    {
+      if (var.visibility > variable_visibility::target)
+      {
+        fail (loc) << "variable " << var << " has " << var.visibility
+                   << " visibility but is expanded in target context";
+      }
+
+      return (*t)[var];
+    }
+
+    if (s != nullptr)
+    {
+      if (var.visibility > variable_visibility::scope)
+      {
+        fail (loc) << "variable " << var << " has " << var.visibility
+                   << " visibility but is expanded in scope context";
+      }
+
+      return (*s)[var];
+    }
 
     // Undefined/NULL namespace variables are not allowed.
     //
@@ -4916,6 +5089,8 @@ namespace build2
     //   if (var.name.find ('.') != string::npos)
     //     fail (loc) << "undefined/null namespace variable " << var;
     // }
+
+    return lookup ();
   }
 
   void parser::

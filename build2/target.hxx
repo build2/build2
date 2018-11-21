@@ -395,7 +395,6 @@ namespace build2
     // that given two lookups from the same target, we can say which one came
     // earlier. If no value is found, then the depth is set to ~0.
     //
-    //
     pair<lookup, size_t>
     find (const variable& var) const
     {

@@ -45,19 +45,19 @@ EOI
   : simple
   :
   $* <'print {*.txt +foo file{bar}}' 2>>EOE != 0
-  <stdin>:1:19: error: name pattern inclusion or exclusion expected
+  <stdin>:1:19: error: expected name pattern inclusion or exclusion
   EOE
 
   : inclusion-exclusion-sign
   :
   $* <'print {*.txt -foo bar}' 2>>EOE != 0
-  <stdin>:1:19: error: name pattern inclusion or exclusion expected
+  <stdin>:1:19: error: expected name pattern inclusion or exclusion
   EOE
 
   : inclusion-quoted
   :
   $* <'print {*.txt -foo "+bar"}' 2>>EOE != 0
-  <stdin>:1:19: error: name pattern inclusion or exclusion expected
+  <stdin>:1:19: error: expected name pattern inclusion or exclusion
   EOE
 
   : empty-inclusion-exclusion
