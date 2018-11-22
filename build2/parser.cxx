@@ -894,19 +894,24 @@ namespace build2
 
     // Now enter each prerequisite into each target.
     //
-    for (auto& pn: pns)
+    for (name& pn: pns)
     {
-      auto rp (scope_->find_target_type (pn, ploc));
+      // We cannot reuse the names if we (potentially) may need to pass them
+      // as targets in case of a chain (see below).
+      //
+      name n (tt != type::colon ? move (pn) : pn);
+
+      auto rp (scope_->find_target_type (n, ploc));
       const target_type* tt (rp.first);
       optional<string>& e (rp.second);
 
       if (tt == nullptr)
-        fail (ploc) << "unknown target type " << pn.type;
+        fail (ploc) << "unknown target type " << n.type;
 
       // Current dir collapses to an empty one.
       //
-      if (!pn.dir.empty ())
-        pn.dir.normalize (false, true);
+      if (!n.dir.empty ())
+        n.dir.normalize (false, true);
 
       // @@ OUT: for now we assume the prerequisite's out is undetermined. The
       // only way to specify an src prerequisite will be with the explicit
@@ -917,14 +922,11 @@ namespace build2
       // a special indicator. Also, one can easily and natually suppress any
       // searches by specifying the absolute path.
       //
-      // Note: we cannot move values out of pn since we may need to pass them
-      // as targets in case of a chain (see below).
-      //
-      prerequisite p (pn.proj,
+      prerequisite p (move (n.proj),
                       *tt,
-                      pn.dir,
+                      move (n.dir),
                       dir_path (),
-                      pn.value,
+                      move (n.value),
                       move (e),
                       *scope_);
 
@@ -1057,8 +1059,8 @@ namespace build2
         attributes_pop ();
 
       // Note that we could have "pre-resolved" these prerequisites to actual
-      // targets or, at least, made they directories absolute. We don't do it
-      // for easy of documentation: with the current semantics we can just say
+      // targets or, at least, made their directories absolute. We don't do it
+      // for ease of documentation: with the current semantics we can just say
       // that the dependency chain is equivalent to specifying each dependency
       // separately.
       //
