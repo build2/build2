@@ -378,7 +378,9 @@ namespace build2
           }
 
           what = "write"; whom = &tp;
-          ofs << s << endl;
+          if (ln != 1)
+            ofs << endl; // See below.
+          ofs << s;
         }
 
         // Close depdb before closing the output file so its mtime is not
@@ -387,6 +389,7 @@ namespace build2
         dd.close ();
 
         what = "close"; whom = &tp;
+        ofs << endl; // Last write to make sure our mtime is older than dd.
         ofs.close ();
         arm.cancel ();
 
