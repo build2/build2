@@ -2372,10 +2372,9 @@ namespace build2
             return true;
           };
 
-          path_search (p,
-                       rm,
-                       dir_path () /* start */,
-                       false /* follow_symlinks */);
+          // Doesn't follow symlinks.
+          //
+          path_search (p, rm, dir_path () /* start */, path_match_flags::none);
         }
         catch (const system_error&) {} // Ignore errors.
       }

@@ -860,10 +860,12 @@ namespace build2
               //
               try
               {
+                // Doesn't follow symlinks.
+                //
                 path_search (p,
                              rm,
                              dir_path () /* start */,
-                             false /* follow_symlinks */);
+                             path_match_flags::none);
               }
               catch (const system_error& e)
               {
