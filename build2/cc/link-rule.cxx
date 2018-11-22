@@ -1639,7 +1639,9 @@ namespace build2
       // Open the dependency database (do it before messing with Windows
       // manifests to diagnose missing output directory).
       //
-      depdb dd (tp + ".d");
+      depdb dd ((lt.executable () && tclass == "windows"
+                 ? tp.base ()
+                 : tp) + ".d");
 
       // If targeting Windows, take care of the manifest.
       //
@@ -2576,13 +2578,13 @@ namespace build2
         {
           if (tsys == "mingw32")
             return clean_extra (
-              a, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
+              a, t, {"-.d", ".dlls/", ".manifest.o", ".manifest"});
           else
             // Assuming it's VC or alike. Clean up .ilk in case the user
             // enabled incremental linking (note that .ilk replaces .exe).
             //
             return clean_extra (
-              a, t, {".d", ".dlls/", ".manifest", "-.ilk"});
+              a, t, {"-.d", ".dlls/", ".manifest", "-.ilk"});
         }
         // For other platforms it's the defaults.
       }
