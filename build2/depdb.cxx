@@ -205,7 +205,7 @@ namespace build2
       fs_.put ('\n');
   }
 
-  timestamp depdb::
+  void depdb::
   close ()
   {
     // If we are at eof, then it means all lines are good, there is the "end
@@ -265,23 +265,40 @@ namespace build2
     //
 #ifdef _WIN32
     timestamp mt (timestamp_unknown);
+
+    // See libbutl/filesystem.cxx for details.
+    //
+    auto to_timestamp = [] (const FILETIME& t) -> timestamp
+    {
+      uint64_t nsec ((static_cast<uint64_t> (t.dwHighDateTime) << 32) |
+                     t.dwLowDateTime);
+      nsec -= 11644473600ULL * 10000000;
+      nsec *= 100;
+
+      return timestamp (
+        chrono::duration_cast<duration> (chrono::nanoseconds (nsec)));
+    };
 #endif
 
     if (state_ == state::write)
     {
+#ifdef BUILD2_MTIME_CHECK
+      start_ = system_clock::now ();
+#endif
+
 #ifdef _WIN32
+      //
+      // On Windows there are two times, the precise time (which is what we
+      // get with system_clock::now()) and what we will call "filesystem time"
+      // which can lag the precise time by as much as couple of milliseconds.
+      //
       FILETIME ft;
       GetSystemTimeAsFileTime (&ft);
+      mt = to_timestamp (ft);
 
-      // See libbutl/filesystem.cxx for details.
-      //
-      uint64_t nsec ((static_cast<uint64_t> (ft.dwHighDateTime) << 32) |
-                     ft.dwLowDateTime);
-      nsec -= 11644473600ULL * 10000000;
-      nsec *= 100;
-
-      mt = timestamp (
-        chrono::duration_cast<duration> (chrono::nanoseconds (nsec)));
+#ifdef BUILD2_MTIME_CHECK
+      wtime_ = mt; // Save for check below.
+#endif
 #endif
 
       fs_.put ('\0'); // The "end marker".
@@ -292,22 +309,88 @@ namespace build2
 #if defined(_WIN32) || defined(__FreeBSD__)
     if (state_ == state::write)
     {
-      mtime = file_mtime (path); // Save for debugging.
-
 #ifdef _WIN32
+      auto file_mtime_h = [&to_timestamp] (const path_type& p) -> timestamp
+      {
+        HANDLE h (CreateFile (p.string ().c_str (),
+                              FILE_READ_ATTRIBUTES,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE,
+                              NULL,
+                              OPEN_EXISTING,
+                              0,
+                              NULL));
+
+        assert (h != INVALID_HANDLE_VALUE);
+
+        BY_HANDLE_FILE_INFORMATION fi;
+        if (!GetFileInformationByHandle (h, &fi))
+          assert (false);
+
+        timestamp r (to_timestamp (fi.ftLastWriteTime));
+        CloseHandle (h);
+        return r;
+      };
+
+      mtime = file_mtime_h (path); // Save for check below.
+
       if (mtime < mt)
       {
         file_mtime (path, mt);
-        assert (file_mtime (path) == mt);
+        assert (file_mtime_h (path) == mt);
       }
+#else
+      mtime = file_mtime (path); // Save for check below.
 #endif
     }
 #endif
-
-#ifdef _WIN32
-    return mt;
-#else
-    return timestamp_unknown;
-#endif
   }
+
+#ifdef BUILD2_MTIME_CHECK
+  void depdb::
+  verify (const path_type& t, timestamp e)
+  {
+    if (state_ != state::write)
+      return;
+
+    // We could call the static version but then we would have lost additional
+    // information for some platforms.
+    //
+    timestamp t_mt (file_mtime (t));
+    timestamp d_mt (file_mtime (path));
+
+    if (d_mt > t_mt)
+    {
+      if (e == timestamp_unknown)
+        e = system_clock::now ();
+
+      fail << "backwards modification times detected:\n"
+           << start_ << " sequence start\n"
+#if defined(_WIN32)
+           << wtime_ << " write time\n"
+#endif
+#if defined(_WIN32) || defined(__FreeBSD__)
+           << mtime  << " close mtime\n"
+#endif
+           << d_mt   << " " << path.string () << '\n'
+           << t_mt   << " " << t.string () << '\n'
+           << e      << " sequence end";
+    }
+  }
+
+  void depdb::
+  verify (timestamp s, const path_type& d, const path_type& t, timestamp e)
+  {
+    timestamp t_mt (file_mtime (t));
+    timestamp d_mt (file_mtime (d));
+
+    if (d_mt > t_mt)
+    {
+      fail << "backwards modification times detected:\n"
+           << s    << " sequence start\n"
+           << d_mt << " " << d.string () << '\n'
+           << t_mt << " " << t.string () << '\n'
+           << e    << " sequence end";
+    }
+  }
+#endif // BUILD2_MTIME_CHECK
 }

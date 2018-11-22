@@ -4249,7 +4249,8 @@ namespace build2
         return *pr.first;
       }
 
-      // Make sure depdb is no older than any of our prerequisites.
+      // Make sure depdb is no older than any of our prerequisites (see md.mt
+      // logic description above for details).
       //
       touch (md.dd, false, verb_never);
 
@@ -4668,11 +4669,14 @@ namespace build2
         rm.cancel ();
       }
 
+      timestamp now (system_clock::now ());
+      depdb::verify (timestamp_unknown, md.dd, tp, now);
+
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.
       // It has the advantage of having the subseconds precision.
       //
-      t.mtime (system_clock::now ());
+      t.mtime (now);
       return target_state::changed;
     }
 

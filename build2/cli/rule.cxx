@@ -234,9 +234,8 @@ namespace build2
       // We use depdb to track changes to the .cli file name, options,
       // compiler, etc.
       //
+      depdb dd (tp + ".d");
       {
-        depdb dd (tp + ".d");
-
         // First should come the rule name/version.
         //
         if (dd.expect ("cli.compile 1") != nullptr)
@@ -259,14 +258,14 @@ namespace build2
         //
         if (dd.expect (s.path ()) != nullptr)
           l4 ([&]{trace << "input file mismatch forcing update of " << t;});
-
-        // Update if depdb mismatch.
-        //
-        if (dd.writing () || dd.mtime > mt)
-          update = true;
-
-        dd.close ();
       }
+
+      // Update if depdb mismatch.
+      //
+      if (dd.writing () || dd.mtime > mt)
+        update = true;
+
+      dd.close ();
 
       // If nothing changed, then we are done.
       //
@@ -324,6 +323,8 @@ namespace build2
         text << "cli " << s;
 
       run (cli, args);
+
+      dd.verify (tp);
 
       t.mtime (system_clock::now ());
       return target_state::changed;

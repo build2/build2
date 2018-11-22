@@ -398,6 +398,8 @@ namespace build2
         fail << "unable to " << what << ' ' << *whom << ": " << e;
       }
 
+      dd.verify (tp);
+
       t.mtime (system_clock::now ());
       return target_state::changed;
     }
