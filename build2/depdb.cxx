@@ -286,6 +286,7 @@ namespace build2
       start_ = system_clock::now ();
 #endif
 
+      /*
 #ifdef _WIN32
       //
       // On Windows there are two times, the precise time (which is what we
@@ -300,6 +301,7 @@ namespace build2
       wtime_ = mt; // Save for check below.
 #endif
 #endif
+      */
 
       fs_.put ('\0'); // The "end marker".
     }
@@ -310,6 +312,19 @@ namespace build2
     if (state_ == state::write)
     {
 #ifdef _WIN32
+      //
+      // On Windows there are two times, the precise time (which is what we
+      // get with system_clock::now()) and what we will call "filesystem time"
+      // which can lag the precise time by as much as couple of milliseconds.
+      //
+      FILETIME ft;
+      GetSystemTimeAsFileTime (&ft);
+      mt = to_timestamp (ft);
+
+#ifdef BUILD2_MTIME_CHECK
+      wtime_ = mt; // Save for check below.
+#endif
+
       auto file_mtime_h = [&to_timestamp] (const path_type& p) -> timestamp
       {
         HANDLE h (CreateFile (p.string ().c_str (),
