@@ -457,6 +457,13 @@ namespace build2
         continue;
       }
 
+      // Check if a string is a wildcard pattern.
+      //
+      auto pattern = [] (const string& s)
+      {
+        return s.find_first_of ("*?") != string::npos;
+      };
+
       // If we have a colon, then this is target-related.
       //
       if (tt == type::colon)
@@ -475,7 +482,9 @@ namespace build2
         //
         // void (token& t, type& tt, const target_type* type, string pat)
         //
-        auto for_each = [this, &trace, &t, &tt, &ns, &nloc] (auto&& f)
+        auto for_each = [this, &trace, &pattern,
+                         &t, &tt,
+                         &ns, &nloc] (auto&& f)
         {
           // Note: watch out for an out-qualified single target (two names).
           //
@@ -492,19 +501,7 @@ namespace build2
             // Figure out if this is a target or a target type/pattern (yeah,
             // it can be a mixture).
             //
-            if (n.value.find_first_of ("*?") == string::npos)
-            {
-              name o (n.pair ? move (*++i) : name ());
-              enter_target tg (*this,
-                               move (n),
-                               move (o),
-                               true /* implied */,
-                               nloc,
-                               trace);
-
-              f (t, tt, nullptr, string ());
-            }
-            else
+            if (pattern (n.value))
             {
               if (n.pair)
                 fail (nloc) << "out-qualified target type/pattern-specific "
@@ -532,6 +529,18 @@ namespace build2
                 fail (nloc) << "unknown target type " << n.type;
 
               f (t, tt, ti, move (n.value));
+            }
+            else
+            {
+              name o (n.pair ? move (*++i) : name ());
+              enter_target tg (*this,
+                               move (n),
+                               move (o),
+                               true /* implied */,
+                               nloc,
+                               trace);
+
+              f (t, tt, nullptr, string ());
             }
 
             if (++i != e)
@@ -589,7 +598,6 @@ namespace build2
         // including a dependency chain and/or prerequisite-specific variable
         // assignment.
         //
-
         if (at.first)
           fail (at.second) << "attributes before target";
         else
@@ -651,6 +659,15 @@ namespace build2
             else
               attributes_pop ();
 
+            // Make sure none of our targets are patterns (maybe we will allow
+            // quoting later).
+            //
+            for (const name& n: ns)
+            {
+              if (pattern (n.value))
+                fail (nloc) << "pattern in target " << n;
+            }
+
             parse_dependency (t, tt, move (ns), nloc, move (pns), ploc);
           }
 
@@ -661,6 +678,8 @@ namespace build2
 
           continue;
         }
+        else
+          fail (t) << "unexpected " << t;
 
         if (tt == type::eos)
           continue;
@@ -717,6 +736,12 @@ namespace build2
           }
         }
 
+        // Make sure not a pattern (see also the target case above and scope
+        // below).
+        //
+        if (pattern (d.string ()))
+          fail (nloc) << "pattern in directory " << d.representation ();
+
         if (tt != type::lsbrace)
         {
           const variable& var (parse_variable_name (move (ns), nloc));
@@ -763,6 +788,14 @@ namespace build2
         if (!n.directory ())
           fail (nloc) << "expected scope directory";
 
+        dir_path& d (n.dir);
+
+        // Make sure not a pattern (see also the target and directory cases
+        // above).
+        //
+        if (pattern (d.string ()))
+          fail (nloc) << "pattern in directory " << d.representation ();
+
         next (t, tt);
 
         // Should be on its own line.
@@ -780,7 +813,7 @@ namespace build2
         // Can contain anything that a top level can.
         //
         {
-          enter_scope sg (*this, move (n.dir));
+          enter_scope sg (*this, move (d));
           parse_clause (t, tt);
         }
 
