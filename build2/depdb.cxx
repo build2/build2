@@ -334,10 +334,10 @@ namespace build2
     else
       is_.close ();
 
-    /*
-#if defined(_WIN32) || defined(__FreeBSD__)
+#if /*defined(_WIN32) ||*/ defined(__FreeBSD__)
     if (state_ == state::write)
     {
+      /*
 #ifdef _WIN32
       auto file_mtime_h = [&to_timestamp] (const path_type& p) -> timestamp
       {
@@ -368,11 +368,15 @@ namespace build2
         assert (file_mtime_h (path) == mt);
       }
 #else
+      */
+
       mtime = file_mtime (path); // Save for check below.
+
+      /*
 #endif
+      */
     }
 #endif
-    */
   }
 
 #ifdef BUILD2_MTIME_CHECK
