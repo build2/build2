@@ -4,6 +4,15 @@
 
 namespace build2
 {
+  inline depdb_base::
+  ~depdb_base ()
+  {
+    if (state_ != state::write)
+      is_.~ifdstream ();
+    else
+      os_.~ofdstream ();
+  }
+
 #ifndef BUILD2_MTIME_CHECK
   inline void depdb::
   verify (const path_type&, timestamp)

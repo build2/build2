@@ -17,40 +17,66 @@ using namespace butl;
 
 namespace build2
 {
-  depdb::
-  depdb (path_type p)
-      : path (move (p)), mtime (file_mtime (path)), touch (false)
+  depdb_base::
+  depdb_base (const path& p, timestamp mt)
   {
-    fstream::openmode om (fstream::out | fstream::binary);
-    fstream::iostate em (fstream::badbit);
+    fdopen_mode om (fdopen_mode::out | fdopen_mode::binary);
+    ifdstream::iostate em (ifdstream::badbit);
 
-    if (mtime == timestamp_nonexistent)
+    if (mt == timestamp_nonexistent)
     {
-      mtime = timestamp_unknown;
       state_ = state::write;
-      em |= fstream::failbit;
+      om |= fdopen_mode::create | fdopen_mode::exclusive;
+      em |= ifdstream::failbit;
     }
     else
     {
       state_ = state::read;
-      om |= fstream::in;
+      om |= fdopen_mode::in;
     }
 
-    fs_.open (path.string (), om);
-    if (!fs_.is_open ())
+    auto_fd fd;
+    try
+    {
+      fd = fdopen (p, om);
+    }
+    catch (const io_error&)
     {
       bool c (state_ == state::write);
 
       diag_record dr (fail);
-      dr << "unable to " << (c ? "create" : "open") << ' ' << path;
+      dr << "unable to " << (c ? "create" : "open") << ' ' << p;
 
       if (c)
         dr << info << "did you forget to add fsdir{} prerequisite for "
            << "output directory?";
+
+      dr << endf;
     }
 
-    fs_.exceptions (em);
+    // Open the corresponding stream. Note that if we throw after that, the
+    // corresponding member will not be destroyed. This is the reason for the
+    // depdb/base split.
+    //
+    if (state_ == state::read)
+    {
+      new (&is_) ifdstream (move (fd), em);
+      buf_ = static_cast<fdbuf*> (is_.rdbuf ());
+    }
+    else
+    {
+      new (&os_) ofdstream (move (fd), em);
+      buf_ = static_cast<fdbuf*> (os_.rdbuf ());
+    }
+  }
 
+  depdb::
+  depdb (path_type&& p, timestamp mt)
+      : depdb_base (p, mt),
+        path (move (p)),
+        mtime (mt != timestamp_nonexistent ? mt : timestamp_unknown),
+        touch (false)
+  {
     // Read/write the database format version.
     //
     if (state_ == state::read)
@@ -63,38 +89,46 @@ namespace build2
       write ('1');
   }
 
+  depdb::
+  depdb (path_type p)
+      : depdb (move (p), file_mtime (p))
+  {
+  }
+
   void depdb::
-  change (bool flush)
+  change (bool trunc)
   {
     assert (state_ != state::write);
 
-    fs_.clear ();
-    fs_.exceptions (fstream::failbit | fstream::badbit);
+    // Transfer the file descriptor from ifdstream to ofdstream. Note that the
+    // steps in this dance must be carefully ordered to make sure we don't
+    // call any destructors twice in the face of exceptions.
+    //
+    auto_fd fd (is_.release ());
 
     // Consider this scenario: we are overwriting an old line (so it ends with
     // a newline and the "end marker") but the operation failed half way
     // through. Now we have the prefix from the new line, the suffix from the
     // old, and everything looks valid. So what we need is to somehow
     // invalidate the old content so that it can never combine with (partial)
-    // new content to form a valid line. One way would be to truncate the file
-    // but that is not straightforward (see note in close()). Alternatively,
-    // we can replace everything with the "end markers".
+    // new content to form a valid line. One way to do that would be to
+    // truncate the file.
     //
-    fs_.seekg (0, fstream::end);
-    fstream::pos_type end (fs_.tellg ());
+    if (trunc)
+      fdtruncate (fd.get (), pos_);
 
-    if (end != pos_)
-    {
-      fs_.seekp (pos_);
+    // Note: seek is required to switch from reading to writing.
+    //
+    fdseek (fd.get (), pos_, fdseek_mode::set);
 
-      for (auto i (end - pos_); i != 0; --i)
-        fs_.put ('\0');
-
-      if (flush)
-        fs_.flush ();
-    }
-
-    fs_.seekp (pos_); // Must be done when changing from read to write.
+    // @@ Strictly speaking, ofdstream can throw which will leave us
+    //    in a non-destructible state.
+    //
+    is_.~ifdstream ();
+    new (&os_) ofdstream (move (fd),
+                          ofdstream::badbit | ofdstream::failbit,
+                          pos_);
+    buf_ = static_cast<fdbuf*> (os_.rdbuf ());
 
     state_ = state::write;
     mtime = timestamp_unknown;
@@ -105,7 +139,7 @@ namespace build2
   {
     // Save the start position of this line so that we can overwrite it.
     //
-    pos_ = fs_.tellg ();
+    pos_ = buf_->tellg ();
 
     // Note that we intentionally check for eof after updating the write
     // position.
@@ -113,7 +147,7 @@ namespace build2
     if (state_ == state::read_eof)
       return nullptr;
 
-    getline (fs_, line_); // Calls line_.erase().
+    getline (is_, line_); // Calls line_.erase().
 
     // The line should always end with a newline. If it doesn't, then this
     // line (and the rest of the database) is assumed corrupted. Also peek at
@@ -121,10 +155,10 @@ namespace build2
     // '\0', which is our "end marker", that is, it indicates the database
     // was properly closed.
     //
-    fstream::int_type c;
-    if (fs_.fail () || // Nothing got extracted.
-        fs_.eof ()  || // Eof reached before delimiter.
-        (c = fs_.peek ()) == fstream::traits_type::eof ())
+    ifdstream::int_type c;
+    if (is_.fail () || // Nothing got extracted.
+        is_.eof ()  || // Eof reached before delimiter.
+        (c = is_.peek ()) == ifdstream::traits_type::eof ())
     {
       // Preemptively switch to writing. While we could have delayed this
       // until the user called write(), if the user calls read() again (for
@@ -154,22 +188,22 @@ namespace build2
 
     // The rest is pretty similar in logic to read_() above.
     //
-    pos_ = fs_.tellg ();
+    pos_ = buf_->tellg ();
 
     // Keep reading lines checking for the end marker after each newline.
     //
-    fstream::int_type c;
+    ifdstream::int_type c;
     do
     {
-      if ((c = fs_.get ()) == '\n')
+      if ((c = is_.get ()) == '\n')
       {
-        if ((c = fs_.get ()) == '\0')
+        if ((c = is_.get ()) == '\0')
         {
           state_ = state::read_eof;
           return true;
         }
       }
-    } while (c != fstream::traits_type::eof ());
+    } while (c != ifdstream::traits_type::eof ());
 
     // Invalid database so change over to writing.
     //
@@ -185,10 +219,10 @@ namespace build2
     if (state_ != state::write)
       change ();
 
-    fs_.write (s, static_cast<streamsize> (n));
+    os_.write (s, static_cast<streamsize> (n));
 
     if (nl)
-      fs_.put ('\n');
+      os_.put ('\n');
   }
 
   void depdb::
@@ -199,10 +233,10 @@ namespace build2
     if (state_ != state::write)
       change ();
 
-    fs_.put (c);
+    os_.put (c);
 
     if (nl)
-      fs_.put ('\n');
+      os_.put ('\n');
   }
 
   void depdb::
@@ -210,41 +244,30 @@ namespace build2
   {
     // If we are at eof, then it means all lines are good, there is the "end
     // marker" at the end, and we don't need to do anything, except, maybe
-    // touch the file. Otherwise, we need to add the "end marker" and truncate
-    // the rest.
+    // touch the file. Otherwise, if we are still in the read mode, truncate
+    // the rest, and then add the "end marker" (we cannot have anything in the
+    // write mode since we truncate in change()).
     //
     if (state_ == state::read_eof)
     {
       // While there are utime(2)/utimensat(2) (and probably something similar
       // for Windows), for now we just overwrite the "end marker". Hopefully
       // no implementation will be smart enough to recognize this is a no-op
-      // and skip updating mtime (which would probably be incorrect).
+      // and skip updating mtime (which would probably be incorrect, spec-
+      // wise). And this could even be faster since we already have the file
+      // descriptor. @@ Might still be faster since we are in reading mode?
       //
       // It would be interesting to one day write an implementation that uses
       // POSIX file IO, futimens(), and ftruncate() and see how much better it
       // performs.
       //
       if (touch)
-      {
-        fs_.clear ();
-        fs_.exceptions (fstream::failbit | fstream::badbit);
-        fs_.seekp (0, fstream::cur); // Required to switch from read to write.
-        state_ = state::write;       // Write end marker below.
-      }
+        change (false /* truncate */); // Write end marker below.
     }
-    else
+    else if (state_ != state::write)
     {
-      if (state_ != state::write)
-      {
-        pos_ = fs_.tellg (); // The last line is accepted.
-        change (false); // Don't flush.
-      }
-
-      // Truncating an fstream is actually a non-portable pain in the butt.
-      // What if we leave the junk after the "end marker"? These files are
-      // pretty small and chances are they will occupy the filesystem's block
-      // size (usually 4KB) whether they are truncated or not. So it might
-      // actually be faster not to truncate.
+      pos_ = buf_->tellg (); // The last line is accepted.
+      change (true /* truncate */);
     }
 
     // On some platforms (currently confirmed on Windows and FreeBSD, both
@@ -263,6 +286,7 @@ namespace build2
     // getting the old mtime if we ask for it too soon. For such cases we are
     // going to just set it ourselves.
     //
+    /*
 #ifdef _WIN32
     timestamp mt (timestamp_unknown);
 
@@ -279,6 +303,7 @@ namespace build2
         chrono::duration_cast<duration> (chrono::nanoseconds (nsec)));
     };
 #endif
+    */
 
     if (state_ == state::write)
     {
@@ -303,28 +328,17 @@ namespace build2
 #endif
       */
 
-      fs_.put ('\0'); // The "end marker".
+      os_.put ('\0'); // The "end marker".
+      os_.close ();
     }
+    else
+      is_.close ();
 
-    fs_.close ();
-
+    /*
 #if defined(_WIN32) || defined(__FreeBSD__)
     if (state_ == state::write)
     {
 #ifdef _WIN32
-      //
-      // On Windows there are two times, the precise time (which is what we
-      // get with system_clock::now()) and what we will call "filesystem time"
-      // which can lag the precise time by as much as couple of milliseconds.
-      //
-      FILETIME ft;
-      GetSystemTimeAsFileTime (&ft);
-      mt = to_timestamp (ft);
-
-#ifdef BUILD2_MTIME_CHECK
-      wtime_ = mt; // Save for check below.
-#endif
-
       auto file_mtime_h = [&to_timestamp] (const path_type& p) -> timestamp
       {
         HANDLE h (CreateFile (p.string ().c_str (),
@@ -358,6 +372,7 @@ namespace build2
 #endif
     }
 #endif
+    */
   }
 
 #ifdef BUILD2_MTIME_CHECK
@@ -380,12 +395,14 @@ namespace build2
 
       fail << "backwards modification times detected:\n"
            << start_ << " sequence start\n"
+        /*
 #if defined(_WIN32)
            << wtime_ << " write time\n"
 #endif
 #if defined(_WIN32) || defined(__FreeBSD__)
            << mtime  << " close mtime\n"
 #endif
+        */
            << d_mt   << " " << path.string () << '\n'
            << t_mt   << " " << t.string () << '\n'
            << e      << " sequence end";

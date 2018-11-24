@@ -5,7 +5,6 @@
 #ifndef BUILD2_DEPDB_HXX
 #define BUILD2_DEPDB_HXX
 
-#include <fstream>
 #include <cstring> // strlen()
 
 #include <build2/types.hxx>
@@ -60,7 +59,25 @@ namespace build2
   // target, then this "interrupted update" situation can be easily detected
   // by comparing the database and target modification timestamps.
   //
-  class depdb
+  struct depdb_base
+  {
+    explicit
+    depdb_base (const path&, timestamp);
+
+    ~depdb_base ();
+
+    enum class state {read, read_eof, write} state_;
+
+    union
+    {
+      ifdstream is_; // read, read_eof
+      ofdstream os_; // write
+    };
+
+    butl::fdbuf* buf_; // Current buffer (for tellg()/tellp()).
+  };
+
+  class depdb: private depdb_base
   {
   public:
     using path_type = build2::path;
@@ -86,19 +103,20 @@ namespace build2
     // prerequisite. Handling this as io_error in every rule that uses depdb
     // would be burdensome thus we issue the diagnostics here.
     //
+    explicit
     depdb (path_type);
 
     // Close the database. If this function is not called, then the database
     // may be left in the old/currupt state. Note that in the read mode this
     // function will "chop off" lines that haven't been read.
     //
-    // Make sure to call verify() after updating the target for modification
-    // times sanity check after.
+    // Make sure to also call verify() after updating the target to perform
+    // the target/database modification times sanity check.
     //
     void
     close ();
 
-    // Perform target/db modification times sanity check.
+    // Perform target/database modification times sanity check.
     //
     void
     verify (const path_type& target, timestamp end = timestamp_unknown);
@@ -216,25 +234,34 @@ namespace build2
       return nullptr;
     }
 
+    // Could be supported if required.
+    //
+    depdb (depdb&&) = delete;
+    depdb (const depdb&) = delete;
+
+    depdb& operator= (depdb&&) = delete;
+    depdb& operator= (const depdb&) = delete;
+
   private:
+    depdb (path_type&&, timestamp);
+
     void
-    change (bool flush = true);
+    change (bool truncate = true);
 
     string*
     read_ ();
 
   private:
-    enum class state {read, read_eof, write} state_;
-
-    std::fstream           fs_;
-    std::fstream::pos_type pos_;  // Start of the last returned line.
-    string                 line_; // Current line.
+    uint64_t pos_;  // Start of the last returned line.
+    string   line_; // Current line.
 
 #ifdef BUILD2_MTIME_CHECK
     timestamp start_;
+    /*
 #ifdef _WIN32
     timestamp wtime_;
 #endif
+    */
 #endif
   };
 }
