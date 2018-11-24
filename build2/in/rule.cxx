@@ -379,7 +379,7 @@ namespace build2
 
           what = "write"; whom = &tp;
           if (ln != 1)
-            ofs << endl; // See below.
+            ofs << '\n'; // See below.
           ofs << s;
         }
 
@@ -389,7 +389,7 @@ namespace build2
         dd.close ();
 
         what = "close"; whom = &tp;
-        ofs << endl; // Last write to make sure our mtime is older than dd.
+        ofs << '\n'; // Last write to make sure our mtime is older than dd.
         ofs.close ();
         arm.cancel ();
 
