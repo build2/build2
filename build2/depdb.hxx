@@ -257,11 +257,6 @@ namespace build2
 
 #ifdef BUILD2_MTIME_CHECK
     timestamp start_;
-    /*
-#ifdef _WIN32
-    timestamp wtime_;
-#endif
-    */
 #endif
   };
 }

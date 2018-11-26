@@ -121,8 +121,8 @@ namespace build2
     //
     fdseek (fd.get (), pos_, fdseek_mode::set);
 
-    // @@ Strictly speaking, ofdstream can throw which will leave us
-    //    in a non-destructible state.
+    // @@ Strictly speaking, ofdstream can throw which will leave us in a
+    //    non-destructible state. Unlikely but possible.
     //
     is_.~ifdstream ();
     new (&os_) ofdstream (move (fd),
@@ -250,19 +250,21 @@ namespace build2
     //
     if (state_ == state::read_eof)
     {
+      if (!touch)
+      {
+        is_.close ();
+        return;
+      }
+
       // While there are utime(2)/utimensat(2) (and probably something similar
       // for Windows), for now we just overwrite the "end marker". Hopefully
       // no implementation will be smart enough to recognize this is a no-op
       // and skip updating mtime (which would probably be incorrect, spec-
       // wise). And this could even be faster since we already have the file
-      // descriptor. @@ Might still be faster since we are in reading mode?
+      // descriptor. Or it might be slower since so far we've only been
+      // reading.
       //
-      // It would be interesting to one day write an implementation that uses
-      // POSIX file IO, futimens(), and ftruncate() and see how much better it
-      // performs.
-      //
-      if (touch)
-        change (false /* truncate */); // Write end marker below.
+      change (false /* truncate */); // Write end marker below.
     }
     else if (state_ != state::write)
     {
@@ -270,10 +272,17 @@ namespace build2
       change (true /* truncate */);
     }
 
-    // On some platforms (currently confirmed on Windows and FreeBSD, both
-    // running as VMs) one can sometimes end up with a modification time that
-    // is quite a bit after the call to close(). And this messes with our
-    // arrangement that a valid depdb should be no older than the target it is
+#ifdef BUILD2_MTIME_CHECK
+    start_ = system_clock::now ();
+#endif
+
+    os_.put ('\0'); // The "end marker".
+    os_.close ();
+
+    // On some platforms (currently confirmed on FreeBSD running as VMs) one
+    // can sometimes end up with a modification time that is a bit after the
+    // call to close(). And in some tight cases this can mess with our
+    // "protocol" that a valid depdb should be no older than the target it is
     // for.
     //
     // Note that this does not seem to be related to clock adjustments but
@@ -282,100 +291,8 @@ namespace build2
     // driver). One workaround that appears to work is to query the
     // mtime. This seems to force that layer to commit to a timestamp.
     //
-    // Well, this seems to work on FreeBSD but on Windows we may still end up
-    // getting the old mtime if we ask for it too soon. For such cases we are
-    // going to just set it ourselves.
-    //
-    /*
-#ifdef _WIN32
-    timestamp mt (timestamp_unknown);
-
-    // See libbutl/filesystem.cxx for details.
-    //
-    auto to_timestamp = [] (const FILETIME& t) -> timestamp
-    {
-      uint64_t nsec ((static_cast<uint64_t> (t.dwHighDateTime) << 32) |
-                     t.dwLowDateTime);
-      nsec -= 11644473600ULL * 10000000;
-      nsec *= 100;
-
-      return timestamp (
-        chrono::duration_cast<duration> (chrono::nanoseconds (nsec)));
-    };
-#endif
-    */
-
-    if (state_ == state::write)
-    {
-#ifdef BUILD2_MTIME_CHECK
-      start_ = system_clock::now ();
-#endif
-
-      /*
-#ifdef _WIN32
-      //
-      // On Windows there are two times, the precise time (which is what we
-      // get with system_clock::now()) and what we will call "filesystem time"
-      // which can lag the precise time by as much as couple of milliseconds.
-      //
-      FILETIME ft;
-      GetSystemTimeAsFileTime (&ft);
-      mt = to_timestamp (ft);
-
-#ifdef BUILD2_MTIME_CHECK
-      wtime_ = mt; // Save for check below.
-#endif
-#endif
-      */
-
-      os_.put ('\0'); // The "end marker".
-      os_.close ();
-    }
-    else
-      is_.close ();
-
-#if /*defined(_WIN32) ||*/ defined(__FreeBSD__)
-    if (state_ == state::write)
-    {
-      /*
-#ifdef _WIN32
-      auto file_mtime_h = [&to_timestamp] (const path_type& p) -> timestamp
-      {
-        HANDLE h (CreateFile (p.string ().c_str (),
-                              FILE_READ_ATTRIBUTES,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE,
-                              NULL,
-                              OPEN_EXISTING,
-                              0,
-                              NULL));
-
-        assert (h != INVALID_HANDLE_VALUE);
-
-        BY_HANDLE_FILE_INFORMATION fi;
-        if (!GetFileInformationByHandle (h, &fi))
-          assert (false);
-
-        timestamp r (to_timestamp (fi.ftLastWriteTime));
-        CloseHandle (h);
-        return r;
-      };
-
-      mtime = file_mtime_h (path); // Save for check below.
-
-      if (mtime < mt)
-      {
-        file_mtime (path, mt);
-        assert (file_mtime_h (path) == mt);
-      }
-#else
-      */
-
-      mtime = file_mtime (path); // Save for check below.
-
-      /*
-#endif
-      */
-    }
+#if defined(__FreeBSD__)
+    mtime = file_mtime (path); // Save for debugging/check below.
 #endif
   }
 
@@ -399,14 +316,9 @@ namespace build2
 
       fail << "backwards modification times detected:\n"
            << start_ << " sequence start\n"
-        /*
-#if defined(_WIN32)
-           << wtime_ << " write time\n"
-#endif
-#if defined(_WIN32) || defined(__FreeBSD__)
+#if defined(__FreeBSD__)
            << mtime  << " close mtime\n"
 #endif
-        */
            << d_mt   << " " << path.string () << '\n'
            << t_mt   << " " << t.string () << '\n'
            << e      << " sequence end";
