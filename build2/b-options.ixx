@@ -279,6 +279,18 @@ namespace build2
     return this->stat_;
   }
 
+  inline const std::set<string>& options::
+  dump () const
+  {
+    return this->dump_;
+  }
+
+  inline bool options::
+  dump_specified () const
+  {
+    return this->dump_specified_;
+  }
+
   inline const size_t& options::
   jobs () const
   {

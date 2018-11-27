@@ -7,7 +7,6 @@
 #include <iostream> // cout
 
 #include <build2/file.hxx>
-#include <build2/dump.hxx>
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/algorithm.hxx>
@@ -131,9 +130,6 @@ namespace build2
   {
     tracer trace ("match");
 
-    if (verb >= 6)
-      dump ();
-
     {
       phase_lock l (run_phase::match);
 
@@ -249,9 +245,6 @@ namespace build2
     // Phase restored to load.
     //
     assert (phase == run_phase::load);
-
-    if (verb >= 6)
-      dump (a);
   }
 
   void

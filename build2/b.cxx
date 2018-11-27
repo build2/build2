@@ -23,19 +23,20 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
-#include <build2/spec.hxx>
-#include <build2/operation.hxx>
-#include <build2/scope.hxx>
-#include <build2/target.hxx>
-#include <build2/prerequisite.hxx>
-#include <build2/rule.hxx>
+#include <build2/dump.hxx>
 #include <build2/file.hxx>
+#include <build2/rule.hxx>
+#include <build2/spec.hxx>
+#include <build2/scope.hxx>
 #include <build2/module.hxx>
-#include <build2/algorithm.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
+#include <build2/target.hxx>
 #include <build2/context.hxx>
 #include <build2/variable.hxx>
+#include <build2/algorithm.hxx>
+#include <build2/operation.hxx>
+#include <build2/filesystem.hxx>
+#include <build2/diagnostics.hxx>
+#include <build2/prerequisite.hxx>
 
 #include <build2/parser.hxx>
 
@@ -536,6 +537,14 @@ main (int argc, char* argv[])
 
       return path ();
     };
+
+    bool dump_load (false);
+    bool dump_match (false);
+    if (ops.dump_specified ())
+    {
+      dump_load  = ops.dump ().find ("load") != ops.dump ().end ();
+      dump_match = ops.dump ().find ("match") != ops.dump ().end ();
+    }
 
     // If not NULL, then lifted points to the operation that has been "lifted"
     // to the meta-operaion (see the logic below for details). Skip is the
@@ -1381,6 +1390,9 @@ main (int argc, char* argv[])
           }
         } // target
 
+        if (dump_load)
+          dump ();
+
         // Finally, match the rules and perform the operation.
         //
         if (pre_oid != 0)
@@ -1401,6 +1413,9 @@ main (int argc, char* argv[])
 
             if (mif->match != nullptr)
               mif->match (mparams, a, tgs, diag, true /* progress */);
+
+            if (dump_match)
+              dump (a);
 
             if (mif->execute != nullptr && !ops.match_only ())
               mif->execute (mparams, a, tgs, diag, true /* progress */);
@@ -1426,6 +1441,9 @@ main (int argc, char* argv[])
           if (mif->match != nullptr)
             mif->match (mparams, a, tgs, diag, true /* progress */);
 
+          if (dump_match)
+            dump (a);
+
           if (mif->execute != nullptr && !ops.match_only ())
             mif->execute (mparams, a, tgs, diag, true /* progress */);
         }
@@ -1450,6 +1468,9 @@ main (int argc, char* argv[])
 
             if (mif->match != nullptr)
               mif->match (mparams, a, tgs, diag, true /* progress */);
+
+            if (dump_match)
+              dump (a);
 
             if (mif->execute != nullptr && !ops.match_only ())
               mif->execute (mparams, a, tgs, diag, true /* progress */);

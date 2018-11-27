@@ -601,6 +601,8 @@ namespace build2
     verbose_ (1),
     verbose_specified_ (false),
     stat_ (),
+    dump_ (),
+    dump_specified_ (false),
     jobs_ (),
     jobs_specified_ (false),
     max_jobs_ (),
@@ -734,10 +736,16 @@ namespace build2
        << "                     3. All underlying commands being executed." << ::std::endl
        << "                     4. Information that could be helpful to the user." << ::std::endl
        << "                     5. Information that could be helpful to the developer." << ::std::endl
-       << "                     6. Even more detailed information, including state dumps." << ::std::endl;
+       << "                     6. Even more detailed information." << ::std::endl;
 
     os << std::endl
        << "\033[1m--stat\033[0m               Display build statistics." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--dump\033[0m \033[4mphase\033[0m         Dump the build system state after the specified phase." << ::std::endl
+       << "                     Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m) and" << ::std::endl
+       << "                     \033[1mmatch\033[0m (after matching rules to targets). Repeat this" << ::std::endl
+       << "                     option to dump the state after multiple phases." << ::std::endl;
 
     os << std::endl
        << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of active jobs to perform in parallel. This" << ::std::endl
@@ -890,6 +898,9 @@ namespace build2
         &options::verbose_specified_ >;
       _cli_options_map_["--stat"] = 
       &::build2::cl::thunk< options, bool, &options::stat_ >;
+      _cli_options_map_["--dump"] = 
+      &::build2::cl::thunk< options, std::set<string>, &options::dump_,
+        &options::dump_specified_ >;
       _cli_options_map_["--jobs"] = 
       &::build2::cl::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;

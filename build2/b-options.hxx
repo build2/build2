@@ -363,6 +363,8 @@ namespace build2
   }
 }
 
+#include <set>
+
 #include <build2/types.hxx>
 
 namespace build2
@@ -436,6 +438,12 @@ namespace build2
 
     const bool&
     stat () const;
+
+    const std::set<string>&
+    dump () const;
+
+    bool
+    dump_specified () const;
 
     const size_t&
     jobs () const;
@@ -539,6 +547,8 @@ namespace build2
     uint16_t verbose_;
     bool verbose_specified_;
     bool stat_;
+    std::set<string> dump_;
+    bool dump_specified_;
     size_t jobs_;
     bool jobs_specified_;
     size_t max_jobs_;

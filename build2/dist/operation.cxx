@@ -803,7 +803,7 @@ namespace build2
       &dist_operation_pre,
       &load,   // normal load
       &search, // normal search
-      nullptr, // no match (see execute()).
+      nullptr, // no match (see dist_execute()).
       &dist_execute,
       nullptr, // operation post
       nullptr, // meta-operation post
