@@ -754,13 +754,13 @@ namespace build2
        << "                     includes both the number of active threads inside the" << ::std::endl
        << "                     build system as well as the number of external commands" << ::std::endl
        << "                     (compilers, linkers, etc) started but not yet finished. If" << ::std::endl
-       << "                     this option is not specified or specified with the 0\033[0m" << ::std::endl
+       << "                     this option is not specified or specified with the \033[1m0\033[0m" << ::std::endl
        << "                     value, then the number of available hardware threads is" << ::std::endl
        << "                     used." << ::std::endl;
 
     os << std::endl
        << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m    Maximum number of jobs (threads) to create. The default is" << ::std::endl
-       << "                     8x the number of active jobs (--jobs|j\033[0m) on 32-bit" << ::std::endl
+       << "                     8x the number of active jobs (\033[1m--jobs|j\033[0m) on 32-bit" << ::std::endl
        << "                     architectures and 32x on 64-bit. See the build system" << ::std::endl
        << "                     scheduler implementation for details." << ::std::endl;
 
@@ -791,7 +791,7 @@ namespace build2
        << "                     useful to investigate build failures that are caused by" << ::std::endl
        << "                     build system errors rather than compilation errors. Note" << ::std::endl
        << "                     that if you don't want to keep going but still want" << ::std::endl
-       << "                     parallel execution, add --jobs|-j\033[0m (for example -j 0\033[0m for" << ::std::endl
+       << "                     parallel execution, add \033[1m--jobs|-j\033[0m (for example \033[1m-j 0\033[0m for" << ::std::endl
        << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
