@@ -10,8 +10,6 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
-#define BUILD2_MTIME_CHECK
-
 namespace build2
 {
   // Auxiliary dependency database (those .d files). Uses io_error and
@@ -110,8 +108,8 @@ namespace build2
     // may be left in the old/currupt state. Note that in the read mode this
     // function will "chop off" lines that haven't been read.
     //
-    // Make sure to also call verify() after updating the target to perform
-    // the target/database modification times sanity check.
+    // Make sure to also call check_mtime() after updating the target to
+    // perform the target/database modification times sanity checks.
     //
     void
     close ();
@@ -119,13 +117,18 @@ namespace build2
     // Perform target/database modification times sanity check.
     //
     void
-    verify (const path_type& target, timestamp end = timestamp_unknown);
+    check_mtime (const path_type& target, timestamp end = timestamp_unknown);
 
     static void
-    verify (timestamp start,
-            const path_type& db,
-            const path_type& target,
-            timestamp end);
+    check_mtime (timestamp start,
+                 const path_type& db,
+                 const path_type& target,
+                 timestamp end);
+
+    // Return true if mtime checks are enabled.
+    //
+    static bool
+    mtime_check ();
 
     // Read the next line. If the result is not NULL, then it is a pointer to
     // the next line in the database (which you are free to move from). If you
@@ -251,13 +254,16 @@ namespace build2
     string*
     read_ ();
 
-  private:
-    uint64_t pos_;  // Start of the last returned line.
-    string   line_; // Current line.
+    void
+    check_mtime_ (const path_type&, timestamp);
 
-#ifdef BUILD2_MTIME_CHECK
-    timestamp start_;
-#endif
+    static void
+    check_mtime_ (timestamp, const path_type&, const path_type&, timestamp);
+
+  private:
+    uint64_t  pos_;   // Start of the last returned line.
+    string    line_;  // Current line.
+    timestamp start_; // Sequence start (mtime check).
   };
 }
 

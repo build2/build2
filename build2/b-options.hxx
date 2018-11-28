@@ -473,6 +473,12 @@ namespace build2
     serial_stop () const;
 
     const bool&
+    mtime_check () const;
+
+    const bool&
+    no_mtime_check () const;
+
+    const bool&
     structured_result () const;
 
     const bool&
@@ -558,6 +564,8 @@ namespace build2
     size_t max_stack_;
     bool max_stack_specified_;
     bool serial_stop_;
+    bool mtime_check_;
+    bool no_mtime_check_;
     bool structured_result_;
     bool match_only_;
     bool no_column_;

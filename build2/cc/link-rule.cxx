@@ -2554,7 +2554,7 @@ namespace build2
       }
 
       rm.cancel ();
-      dd.verify (tp);
+      dd.check_mtime (tp);
 
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.

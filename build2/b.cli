@@ -508,6 +508,19 @@ namespace build2
        \c{-j 0} for default concurrency)."
     }
 
+    bool --mtime-check
+    {
+      "Perform file modification time sanity checks. These checks can be
+       helpful in diagnosing spurious rebuilds and are enabled by default
+       for the staged version of the build system. Use \cb{--no-mtime-check}
+       to disable."
+    }
+
+    bool --no-mtime-check
+    {
+      "Don't perform file modification time sanity checks."
+    }
+
     bool --structured-result
     {
       "Write the result of execution in a structured form. In this mode,

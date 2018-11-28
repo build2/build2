@@ -272,9 +272,8 @@ namespace build2
       change (true /* truncate */);
     }
 
-#ifdef BUILD2_MTIME_CHECK
-    start_ = system_clock::now ();
-#endif
+    if (mtime_check ())
+      start_ = system_clock::now ();
 
     os_.put ('\0'); // The "end marker".
     os_.close ();
@@ -296,13 +295,9 @@ namespace build2
 #endif
   }
 
-#ifdef BUILD2_MTIME_CHECK
   void depdb::
-  verify (const path_type& t, timestamp e)
+  check_mtime_ (const path_type& t, timestamp e)
   {
-    if (state_ != state::write)
-      return;
-
     // We could call the static version but then we would have lost additional
     // information for some platforms.
     //
@@ -315,18 +310,21 @@ namespace build2
         e = system_clock::now ();
 
       fail << "backwards modification times detected:\n"
-           << start_ << " sequence start\n"
+           << "    " << start_ << " sequence start\n"
 #if defined(__FreeBSD__)
-           << mtime  << " close mtime\n"
+           << "    " << mtime  << " close mtime\n"
 #endif
-           << d_mt   << " " << path.string () << '\n'
-           << t_mt   << " " << t.string () << '\n'
-           << e      << " sequence end";
+           << "    " << d_mt   << " " << path.string () << '\n'
+           << "    " << t_mt   << " " << t.string () << '\n'
+           << "    " << e      << " sequence end";
     }
   }
 
   void depdb::
-  verify (timestamp s, const path_type& d, const path_type& t, timestamp e)
+  check_mtime_ (timestamp s,
+                const path_type& d,
+                const path_type& t,
+                timestamp e)
   {
     timestamp t_mt (file_mtime (t));
     timestamp d_mt (file_mtime (d));
@@ -334,11 +332,10 @@ namespace build2
     if (d_mt > t_mt)
     {
       fail << "backwards modification times detected:\n"
-           << s    << " sequence start\n"
-           << d_mt << " " << d.string () << '\n'
-           << t_mt << " " << t.string () << '\n'
-           << e    << " sequence end";
+           << "    " << s    << " sequence start\n"
+           << "    " << d_mt << " " << d.string () << '\n'
+           << "    " << t_mt << " " << t.string () << '\n'
+           << "    " << e    << " sequence end";
     }
   }
-#endif // BUILD2_MTIME_CHECK
 }

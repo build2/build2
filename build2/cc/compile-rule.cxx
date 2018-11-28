@@ -4250,8 +4250,13 @@ namespace build2
       }
 
       // Make sure depdb is no older than any of our prerequisites (see md.mt
-      // logic description above for details).
+      // logic description above for details). Also save the sequence start
+      // time if doing mtime checks (see the depdb::check_mtime() call below).
       //
+      timestamp start (depdb::mtime_check ()
+                       ? system_clock::now ()
+                       : timestamp_unknown);
+
       touch (md.dd, false, verb_never);
 
       const scope& bs (t.base_scope ());
@@ -4670,7 +4675,7 @@ namespace build2
       }
 
       timestamp now (system_clock::now ());
-      depdb::verify (timestamp_unknown, md.dd, tp, now);
+      depdb::check_mtime (start, md.dd, tp, now);
 
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.

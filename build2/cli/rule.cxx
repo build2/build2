@@ -324,7 +324,7 @@ namespace build2
 
       run (cli, args);
 
-      dd.verify (tp);
+      dd.check_mtime (tp);
 
       t.mtime (system_clock::now ());
       return target_state::changed;

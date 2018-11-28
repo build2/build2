@@ -327,7 +327,10 @@ main (int argc, char* argv[])
     // Validate options.
     //
     if (ops.progress () && ops.no_progress ())
-      fail << "inconsistent progress display options";
+      fail << "both --progress and --no-progress specified";
+
+    if (ops.mtime_check () && ops.no_mtime_check ())
+      fail << "both --mtime-check and --no-mtime-check specified";
 
     // Global initializations.
     //

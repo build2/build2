@@ -612,6 +612,8 @@ namespace build2
     max_stack_ (),
     max_stack_specified_ (false),
     serial_stop_ (),
+    mtime_check_ (),
+    no_mtime_check_ (),
     structured_result_ (),
     match_only_ (),
     no_column_ (),
@@ -793,6 +795,15 @@ namespace build2
        << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--mtime-check\033[0m        Perform file modification time sanity checks. These checks" << ::std::endl
+       << "                     can be helpful in diagnosing spurious rebuilds and are" << ::std::endl
+       << "                     enabled by default for the staged version of the build" << ::std::endl
+       << "                     system. Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-mtime-check\033[0m     Don't perform file modification time sanity checks." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--structured-result\033[0m  Write the result of execution in a structured form. In" << ::std::endl
        << "                     this mode, instead of printing to \033[1mSTDERR\033[0m diagnostics" << ::std::endl
        << "                     messages about the outcome of executing actions on" << ::std::endl
@@ -926,6 +937,10 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      _cli_options_map_["--mtime-check"] = 
+      &::build2::cl::thunk< options, bool, &options::mtime_check_ >;
+      _cli_options_map_["--no-mtime-check"] = 
+      &::build2::cl::thunk< options, bool, &options::no_mtime_check_ >;
       _cli_options_map_["--structured-result"] = 
       &::build2::cl::thunk< options, bool, &options::structured_result_ >;
       _cli_options_map_["--match-only"] = 

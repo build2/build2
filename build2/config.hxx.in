@@ -21,6 +21,15 @@
 //
 #define BUILD2_STAGE true
 
+// Modification time sanity checks are by default only enabled for the staged
+// version but this can be overridden at runtime with --[no-]mtime-check.
+//
+#if BUILD2_STAGE
+#  define BUILD2_MTIME_CHECK true
+#else
+#  define BUILD2_MTIME_CHECK false
+#endif
+
 #ifdef BUILD2_BOOTSTRAP
 #else
 #endif

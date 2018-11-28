@@ -13,15 +13,30 @@ namespace build2
       os_.~ofdstream ();
   }
 
-#ifndef BUILD2_MTIME_CHECK
-  inline void depdb::
-  verify (const path_type&, timestamp)
+  inline bool depdb::
+  mtime_check ()
   {
+    // Note: options were validated in main().
+    //
+    return (ops.   mtime_check () ? true  :
+            ops.no_mtime_check () ? false :
+            BUILD2_MTIME_CHECK);
   }
 
   inline void depdb::
-  verify (timestamp, const path_type&, const path_type&, timestamp)
+  check_mtime (const path_type& t, timestamp e)
   {
+    if (state_ == state::write && mtime_check ())
+      check_mtime_ (t, e);
   }
-#endif
+
+  inline void depdb::
+  check_mtime (timestamp s,
+               const path_type& d,
+               const path_type& t,
+               timestamp e)
+  {
+    if (mtime_check ())
+      check_mtime_ (s, d, t, e);
+  }
 }

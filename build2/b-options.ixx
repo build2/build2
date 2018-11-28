@@ -346,6 +346,18 @@ namespace build2
   }
 
   inline const bool& options::
+  mtime_check () const
+  {
+    return this->mtime_check_;
+  }
+
+  inline const bool& options::
+  no_mtime_check () const
+  {
+    return this->no_mtime_check_;
+  }
+
+  inline const bool& options::
   structured_result () const
   {
     return this->structured_result_;

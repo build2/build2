@@ -401,7 +401,7 @@ namespace build2
         fail << "unable to " << what << ' ' << *whom << ": " << e;
       }
 
-      dd.verify (tp);
+      dd.check_mtime (tp);
 
       t.mtime (system_clock::now ());
       return target_state::changed;
