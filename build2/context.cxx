@@ -477,13 +477,7 @@ namespace build2
       // Note that it is either staged or public, without queued, since we do
       // not re-package things during the queued-to-public transition.
       //
-      // Currently the value is adjusted manually during release but in the
-      // future the idea is to use version metadata (e.g., 1.2.3-a.1+0.stage).
-      // This way it will all be managed in a central place (manifest), we
-      // can teach the version module to extract it, and we can also set it
-      // for the other packages in the toolchain.
-      //
-      set ("build.version.stage", true);
+      set ("build.version.stage", BUILD2_STAGE);
     }
 
     // Enter the host information. Rather than jumping through hoops like

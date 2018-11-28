@@ -5,6 +5,14 @@
 #ifndef BUILD2_TYPES_HXX
 #define BUILD2_TYPES_HXX
 
+// Include unprocessed file during bootstrap. See config.hxx.in for details.
+//
+#ifdef BUILD2_BOOTSTRAP
+#  include <build2/config.hxx.in>
+#else
+#  include <build2/config.hxx>
+#endif
+
 #include <array>
 #include <tuple>
 #include <vector>

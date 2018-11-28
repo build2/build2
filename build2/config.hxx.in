@@ -1,0 +1,28 @@
+// file      : build2/config.hxx.in -*- C++ -*-
+// copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+// This file is included by <build2/types.hxx> so normally you don't need to
+// include it directly. Note that this file is included unprocessed (i.e., as
+// an .in) during bootstrap.
+//
+// Also, note that some BUILD_* configuration macros are passed directly from
+// the buildfile with the -D options.
+
+#ifndef BUILD2_CONFIG_HXX
+#define BUILD2_CONFIG_HXX
+
+// Currently the value is adjusted manually during release but in the future
+// the idea is to use version metadata (e.g., 1.2.3-a.1+0.stage). This way it
+// will all be managed in a central place (manifest), we can teach the version
+// module to extract it, and we can also set it for the other packages in the
+// toolchain. Bootstrap will be a problem though. (Maybe set it to nullptr and
+// say that it shall not be queried?)
+//
+#define BUILD2_STAGE true
+
+#ifdef BUILD2_BOOTSTRAP
+#else
+#endif
+
+#endif // BUILD2_CONFIG_HXX

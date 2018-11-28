@@ -7,10 +7,11 @@ import libs += libpkgconf%lib{pkgconf}
 
 exe{b}:  cxx{b} libue{b}
 
-libue{b}: {hxx ixx txx cxx}{** -b -b-options -version} \
-          {hxx ixx cxx}{b-options} {hxx}{version}      \
+libue{b}: {hxx ixx txx cxx}{** -b -b-options -config -version} \
+          {hxx ixx cxx}{b-options} {hxx}{config version}       \
           $libs
 
+hxx{config}: in{config}
 hxx{version}: in{version} $src_root/manifest
 
 # Pass our compiler target to be used as build2 host.

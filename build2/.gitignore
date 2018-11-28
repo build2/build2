@@ -2,4 +2,5 @@ b
 b-boot
 #*-options
 #*-options.?xx
+config.hxx
 version.hxx
