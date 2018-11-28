@@ -116,6 +116,12 @@ namespace build2
 
     // Perform target/database modification times sanity check.
     //
+    // Note that it would also be good to compare the target timestamp against
+    // the newest prerequisite. However, obtaining this information would cost
+    // extra (see execute_prerequisites()). So maybe later, if we get a case
+    // where this is a problem (in a sense, the database is a buffer between
+    // prerequisites and the target).
+    //
     void
     check_mtime (const path_type& target, timestamp end = timestamp_unknown);
 
