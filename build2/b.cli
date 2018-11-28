@@ -462,7 +462,7 @@ namespace build2
       "Number of active jobs to perform in parallel. This includes both the
        number of active threads inside the build system as well as the number
        of external commands (compilers, linkers, etc) started but not yet
-       finished. If this option is not specified or specified with the \c{0}
+       finished. If this option is not specified or specified with the \cb{0}
        value, then the number of available hardware threads is used."
     }
 
@@ -470,7 +470,7 @@ namespace build2
     {
       "<num>",
       "Maximum number of jobs (threads) to create. The default is 8x the
-       number of active jobs (\c{--jobs|j}) on 32-bit architectures and 32x
+       number of active jobs (\cb{--jobs|j}) on 32-bit architectures and 32x
        on 64-bit. See the build system scheduler implementation for details."
     }
 
@@ -504,8 +504,8 @@ namespace build2
       "Run serially and stop at the first error. This mode is useful to
        investigate build failures that are caused by build system errors
        rather than compilation errors. Note that if you don't want to keep
-       going but still want parallel execution, add \c{--jobs|-j} (for example
-       \c{-j 0} for default concurrency)."
+       going but still want parallel execution, add \cb{--jobs|-j} (for
+       example \cb{-j\ 0} for default concurrency)."
     }
 
     bool --mtime-check
