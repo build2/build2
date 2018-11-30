@@ -29,7 +29,13 @@
 @@ module synopsis idea
 
 @@ - style guide for quoting. What's naturally reversed (paths, options)
-     should not be quited?). Also indentation (two spaces).
+     should not be quoted?). Also indentation (two spaces).
+
+@@ Copy/expand variable prepend/append/replace assignment note to Variables
+   section. Add ref from the note.
+
+@@ Synthesized dependencies (where did that obj{} target come form?)
+
 */
 
 "
@@ -56,12 +62,12 @@ reinvent it, poorly.} So our goal with \c{build2} was to reinvent \c{make}
 \i{well} while handling the demands and complexity of modern cross-platform
 software development.
 
-Like \c{make}, \c{build2} is an \i{honest} build system without magic or black
-boxes. You can expect to understand what's going on underneath and be able to
-customize most of its behavior to suit your needs. This is not to say that
-it's not an \i{opinionated} build system and if you find yourself \"fighting\"
-some of its fundamental design choices, it would probably be wiser to look for
-alternatives.
+Like \c{make}, \c{build2} is an \i{\"honest\"} build system without magic or
+black boxes. You can expect to understand what's going on underneath and be
+able to customize most of its behavior to suit your needs. This is not to say
+that it's not an \i{opinionated} build system and if you find yourself
+\"fighting\" some of its fundamental design choices, it would probably be
+wiser to look for alternatives.
 
 We believe the importance and complexity of the problem warranted the design
 of a new purpose-built language and will hopefully justify the time it takes
@@ -74,7 +80,7 @@ operations. See the \l{#module-bash \c{bash} Module} for a good example.
 
 While the build system is part of a larger, well-integrated build toolchain
 that includes the package and project dependency managers, it does not depend
-on them and its standalone usage is the only subject of this document.
+on them and its standalone usage is the only subject of this manual.
 
 We begin with a tutorial introduction that aims to show the essential elements
 of the build system on real examples but without getting into too much
@@ -188,18 +194,43 @@ hello.exe.obj.d
 Hello, World!
 \
 
+By default \c{build2} uses the same C++ compiler it was built with and without
+passing any extra options, such as debug or optimization. To change these
+defaults we use \i{configuration variables}. For example, to specify a
+different C++ compiler we use \c{config.cxx}:
+
+\
+$ b config.cxx=clang++
+\
+
+And for additional compile options, such as debug information or optimization
+level, there is \c{config.cxx.coptions}. For example:
+
+\
+$ b config.cxx=clang++ config.cxx.coptions=-g
+\
+
+\N|These and other configuration variables will be discussed in more detail
+later. We will also learn how to make our configuration persistent so that we
+don't have to repeat such long command lines on every build system invocation.
+
+Similar to \c{config.cxx}, there is also \c{config.c} for specifying the C
+compiler. Note, however, that if your project uses both C and C++, then you
+normally only need to specify one of them \- \c{build2} will determine the
+other automatically.|
+
 Let's discuss a few points about the build output. Firstly, to reduce the
-noise, the commands being executed,
+noise, the commands being executed are by default shown abbreviated and with
+the same target type notation as we used in the \c{buildfile}. For example:
 
 \
 c++ cxx{hello}
 ld exe{hello}
 \
 
-are by default shown abbreviated and with the same target type notation as we
-used in the \c{buildfile}. If, however, you would like to see the actual
-command lines, you can pass \c{-v} (to see even more, there is the \c{-V}
-as well as the \c{--verbose} options; see \l{b(1)} for details). For example:
+If, however, you would like to see the actual command lines, you can pass
+\c{-v} (to see even more, there is the \c{-V} as well as \c{--verbose}
+options; see \l{b(1)} for details). For example:
 
 \
 $ b -v
@@ -269,16 +300,16 @@ it searches for a target for the \c{cxx{hello\}} prerequisite. During this
 search, the \c{extension} variable is looked up and its value is used to end
 up with the \c{hello.cxx} file.
 
-Our new dependency declaration,
+Here is our new dependency declaration again:
 
 \
 exe{hello}: cxx{hello}
 \
 
-has the canonical form: no extensions, only target types. Sometimes explicit
-extension specification is still necessary, for example, if your project uses
-multiple extensions for the same file type. But if unnecessary, it should be
-omitted for brevity.
+It has the canonical form: no extensions, only target types. Sometimes
+explicit extension specification is still necessary, for example, if your
+project uses multiple extensions for the same file type. But if unnecessary,
+it should be omitted for brevity.
 
 \N|If you prefer the \c{.cpp} file extension and your source file is called
 \c{hello.cpp}, then the only line in our \c{buildfile} that needs changing is
@@ -612,9 +643,41 @@ It is equivalent to:
 exe{hello}: cxx{hello}
 \
 
-The last unexplained bit in our root \c{buildfile} is the \c{{*/\ -build/\}}
-name pattern. All it does is exclude \c{build/} from the subdirectories to
-build. See \l{#name-patterns Name Patterns} for details.
+If, however, we had several targets in the same directory that we wanted built
+by default, then we would need to explicitly list them as prerequisites of the
+default target. For example:
+
+\
+./: exe{hello}
+exe{hello}: cxx{hello}
+
+./: exe{goodby}
+exe{goodby}: cxx{goodby}
+\
+
+While straightforward, this is somewhat inelegant in its repetitiveness. To
+tidy things up we can use \i{dependency declaration chains} that allow us to
+chain together several target-prerequisite declarations in a single line.
+For example:
+
+\
+./: exe{hello}: cxx{hello}
+
+./: exe{goodby}: cxx{goodby}
+\
+
+With dependency chains a prerequisite of the preceding target becomes a
+target itself for the following prerequisites.
+
+Let's get back to our root \c{buildfile}:
+
+\
+./: {*/ -build/}
+\
+
+The last unexplained bit is the \c{{*/\ -build/\}} name pattern. All it does
+is exclude \c{build/} from the subdirectories to build. See \l{#name-patterns
+Name Patterns} for details.
 
 Let's take a look at a slightly more realistic root \c{buildfile}:
 
@@ -1039,13 +1102,14 @@ hello/                   hello/
 \
 
 The above scope structure is very similar to what you will see (besides a lot
-of other things) if you build with \c{--verbose\ 6}. At this verbosity level
-the build system driver dumps the build state before and after matching the
-rules. Here is an abbreviated output for our \c{hello} (assuming an in source
-build in \c{/tmp/hello}):
+of other things) if you build with \c{--dump\ match}. With this option the
+build system driver dumps the build state after matching rules to targets (see
+\l{#intro-diag-debug Diagnostics and Debugging} for more information). Here is
+an abbreviated output of bulding our \c{hello} with \c{--dump} (assuming an in
+source build in \c{/tmp/hello}):
 
 \
-$ b --verbose 6
+$ b --dump match
 
 /
 {
@@ -1199,6 +1263,14 @@ buildfile:3:1: info: src_root: /tmp/hello/
 hello/buildfile:8:1: info: src_root: /tmp/hello/
 \
 
+\N|In this section we've only scratched the surface when it comes to
+variables. In particular, variables and variable values in \c{build2} are
+optionally typed (those \c{[string]}, \c{[uint64]} we've seen in the build
+state dump). And in certain contexts the lookup semantics actually starts from
+the target, not from the scope (target-specific variables; there are also
+prerequisite-specific). These and other variable-related topics will be
+covered in subsequent sections.|
+
 One typical place to find \c{src/out_root} expansions is in the include search
 path options. For example, the source directory \c{buildfile} generated by
 \l{bdep-new(1)} for an executable project actually looks like this
@@ -1210,10 +1282,23 @@ exe{hello}: {hxx cxx}{**}
 cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
 \
 
-This allows us to include our headers using the project's name as a prefix,
-inline with the \l{intro#structure-canonical Canonical Project Structure}
-guidelines. For example, if we added the \c{utility.hxx} header to our
-\c{hello} project, we would include it like this:
+\N|The strange-looking \c{=+} line is a \i{prepend} variable assignment. It
+adds the value on the right hand side to the beginning of the existing
+value. So, in the above example, the two header search paths will be added
+before any of the existing preprocessor options (and thus will be considered
+first).
+
+There are also the \i{append} assignment, \c{+=}, which adds the value on the
+right hand side to the end of the existing value, as well as, of course, the
+normal or \i{replace} assignment, \c{=}, which replaces the existing value
+with the right hand side. One way to remember where the existing and new
+values end up in the \c{=+} and \c{+=} results is to imagine the new value
+taking the position of \c{=} and the existing value \- of \c{+}.|
+
+The above \c{buildfile} allows us to include our headers using the project's
+name as a prefix, inline with the \l{intro#structure-canonical Canonical
+Project Structure} guidelines. For example, if we added the \c{utility.hxx}
+header to our \c{hello} project, we would include it like this:
 
 \
 #include <iostream>
@@ -1231,8 +1316,8 @@ int main ()
 familiar with \c{make}, these are roughly equivalent to \c{CPPFLAGS},
 \c{CFLAGS}/\c{CXXFLAGS}, \c{LDFLAGS}, and \c{LIBS}.
 
-Specifically, there are three sets of these variables: \c{cc.*} (stands for
-\i{C-common}) which applies to all C-like languages as well as \c{c.*} and
+More specifically, there are three sets of these variables: \c{cc.*} (stands
+for \i{C-common}) which applies to all C-like languages as well as \c{c.*} and
 \c{cxx.*} which only apply during the C and C++ compilation, respectively. We
 can use these variables in our \c{buildfiles} to adjust the compiler/linker
 behavior. For example:
@@ -1254,18 +1339,54 @@ which are used by the users of our projects to provide external configuration.
 The initial values of the \c{cc.*}, \c{c.*}, and \c{cxx.*} variables are taken
 from the corresponding \c{config.*.*} values.
 
-And finally, as we will learn in \l{#intro-lib Library Exportation}, there are
-also the \c{cc.export.*}, \c{c.export.*}, and \c{cxx.export.*} sets that are
-used to specify options that should be exported to the users of our library.|
+And, as we will learn in \l{#intro-lib Library Exportation}, there are also
+the \c{cc.export.*}, \c{c.export.*}, and \c{cxx.export.*} sets that are used
+to specify options that should be exported to the users of our library.
 
+If we adjust the \c{cc.*}, \c{c.*}, and \c{cxx.*} variables at the scope
+level, as in the above fragment, then the changes will apply when building
+every target in this scope (as well as in the nested scopes, if any). Usually
+this is what we want but sometimes we may need to pass additional options only
+when compiling certain source files or linking certain libraries or
+executables. For that we use the target-specific variable assignment. For
+example:
 
-\N|In this section we've only scratched the surface when it comes to
-variables. In particular, variables and variable values in \c{build2} are
-optionally typed (those \c{[string]}, \c{[uint64]} we've seen in the build
-state dump). And in certain contexts the lookup semantics actually starts from
-the target, not from the scope (target-specific variables; there are also
-prerequisite-specific). These and other variable-related topics will be
-discussed in subsequent sections.|
+\
+exe{hello}: {hxx cxx}{**}
+
+obj{utility}: cxx.poptions += -DNDEBUG
+exe{hello}: cxx.loptions += -static
+\
+
+Note that we set these variables on targets which they affect. In particular,
+those with a background in other build systems may, for example, erroneously
+expect that setting \c{poptions} on a library target will affect compilation
+of its prerequisites. For example, the following does not work:
+
+\
+exe{hello}: cxx.poptions += -DNDEBUG
+\
+
+The recommended way to achieve this behavior in \c{build2} is to organize your
+targets into subdirectories, in which case we can just set the variables on
+the scope. And if this is impossible or undesirable, then we can use target
+type/pattern-specific variables (if there is a common pattern) or simply list
+the affected targets explicitly. For example:
+
+\
+obj{*.test}: cxx.poptions += -DDEFINE_MAIN
+obj{main utility}: cxx.poptions += -DNDEBUG
+\
+
+The first line covers compilation of source files that have the \c{.test}
+second-level extension (see \l{#intro-unit-test Implementing Unit Testing}
+for background) while the second simply lists the targets explicitly.
+
+It is also possible to specify different options when producing different
+types of object files (\c{obje{\}} \- executable, \c{obja{\}} \- static
+library, or \c{objs{\}} \- shared library) or when linking different libraries
+(\c{liba{\}} \- static library or \c{libs{\}} \- shared library). See
+\l{#intro-lib Library Exportation and Versioning} for an example.|
 
 As mentioned above, each \c{buildfile} in a project is loaded into its
 corresponding scope. As a result, we rarely need to open scopes explicitly.
@@ -1298,8 +1419,7 @@ $ cat hello/buildfile
 
 hello/
 {
-  ./: exe{hello}
-  exe{hello}: {hxx cxx}{**}
+  ./: exe{hello}: {hxx cxx}{**}
 }
 \
 
@@ -1895,7 +2015,7 @@ executable before installing it is usually sufficient.
 For a general discussion of functional/integration and unit testing refer to
 the \l{intro#proj-struct-tests Tests} section in the toolchain introduction.
 For details on the unit test support implementation see \l{#intro-unit-test
-Unit Testing}.|
+Implementing Unit Testing}.|
 
 
 \h2#intro-operations-install|Installation|
@@ -2054,8 +2174,11 @@ we use the node names instead of actual directories. As an example, here is a
 \c{buildfile} fragment from the source directory of our \c{libhello} project:
 
 \
-hxx{*}: install         = include/libhello/
-hxx{*}: install.subdirs = true
+hxx{*}:
+{
+  install         = include/libhello/
+  install.subdirs = true
+}
 \
 
 Here we set the installation location for headers to be the \c{libhello/}
@@ -2407,20 +2530,29 @@ lib{hello}: {hxx ixx txx cxx}{** -version} hxx{version} \
 # in src (so that clean results in a state identical to distributed).
 #
 hxx{version}: in{version} $src_root/manifest
-hxx{version}: dist  = true
-hxx{version}: clean = ($src_root != $out_root)
+hxx{version}:
+{
+  dist  = true
+  clean = ($src_root != $out_root)
+}
 
+# Build options.
+#
 cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
 
 obja{*}: cxx.poptions += -DLIBHELLO_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBHELLO_SHARED_BUILD
 
-lib{hello}: cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+# Export options.
+#
+lib{hello}:
+{
+  cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+  cxx.export.libs = $int_libs
+}
 
 liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
 libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
-
-lib{hello}: cxx.export.libs = $int_libs
 
 # For pre-releases use the complete version to make sure they cannot
 # be used in place of another pre-release or the final version. See
@@ -2434,8 +2566,11 @@ else
 # Install into the libhello/ subdirectory of, say, /usr/include/
 # recreating subdirectories.
 #
-{hxx ixx txx}{*}: install         = include/libhello/
-{hxx ixx txx}{*}: install.subdirs = true
+{hxx ixx txx}{*}:
+{
+  install         = include/libhello/
+  install.subdirs = true
+}
 \
 
 Let's start with all those \c{cxx.export.*} variables. It turns out that
@@ -2462,12 +2597,14 @@ imp_libs = # Implementation dependencies.
 
 lib{hello}: ... $imp_libs $int_libs
 
-lib{hello}: cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+lib{hello}:
+{
+  cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+  cxx.export.libs = $int_libs
+}
 
 liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
 libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
-
-lib{hello}: cxx.export.libs = $int_libs
 \
 
 As a first step we classify all our library dependencies into \i{interface
@@ -2530,7 +2667,10 @@ explicitly linked whenever our library is linked. All this is achieved by
 listing the interface dependencies in the \c{cxx.export.libs} variable:
 
 \
-lib{hello}: cxx.export.libs = $int_libs
+lib{hello}:
+{
+  cxx.export.libs = $int_libs
+}
 \
 
 \N|More precisely, the interface dependency should be explicitly linked if a
@@ -2546,10 +2686,13 @@ Note also that this only applies to shared libraries. In case of static
 libraries, both interface and implementation dependencies are always linked,
 recursively.|
 
-The remaining three lines in the library meta-information fragment are:
+The remaining lines in the library meta-information fragment are:
 
 \
-lib{hello}: cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+lib{hello}:
+{
+  cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
+}
 
 liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
 libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
@@ -3009,7 +3152,20 @@ exe{test}: file{test.roundtrip}:  # prerequisite-specific
 
 \N|All prerequisite-specific variables must be assigned at once as part of the
 dependency declaration since repeating the same dependency again duplicates
-the prerequisite rather than references the already existing one.|
+the prerequisite rather than references the already existing one.
+
+There is also the target type/pattern-specific variable assignment block,
+for example:
+
+\
+exe{*.test}:
+{
+  test = true
+  install = false
+}
+\
+
+See \l{#variables Variables} for more information.|
 
 Each \c{buildfile} is processed linearly with directives executed and
 variables expanded as they are encountered. However, certain variables, for
@@ -3358,14 +3514,14 @@ variable to conditionally include prerequisites into the build. For example:
 # Incorrect.
 #
 if ($cxx.target.class == 'linux')
-  exe{hello}: cxx{utility-linux}
+  exe{hello}: cxx{hello-linux}
 elif ($cxx.target.class == 'windows')
-  exe{hello}: cxx{utility-win32}
+  exe{hello}: cxx{hello-win32}
 
 # Correct.
 #
-exe{hello}: cxx{utility-linux}: include = ($cxx.target.class == 'linux')
-exe{hello}: cxx{utility-win32}: include = ($cxx.target.class == 'windows')
+exe{hello}: cxx{hello-linux}: include = ($cxx.target.class == 'linux')
+exe{hello}: cxx{hello-win32}: include = ($cxx.target.class == 'windows')
 \
 
 
@@ -3413,7 +3569,7 @@ info $y  # Prints 'Y'.
 \
 
 
-\h#intro-unit-test|Unit Testing|
+\h#intro-unit-test|Implementing Unit Testing|
 
 As an example of how many of these features fit together to implement more
 advanced functionality, let's examine a \c{buildfile} that provides support
@@ -3423,22 +3579,22 @@ exe,unit-tests}) or library (\c{-t\ lib,unit-tests}) projects. Here is the
 source subdirectory \c{buildfile} of an executable created with this option:
 
 \
-./: exe{hello}
-exe{hello}: libue{hello} testscript
-libue{hello}: {hxx cxx}{** -**.test...}
+./: exe{hello}: libue{hello}: {hxx cxx}{** -**.test...}
 
 # Unit tests.
 #
-exe{*.test}: test = true
-exe{*.test}: install = false
+exe{*.test}
+{
+  test = true
+  install = false
+}
 
 for t: cxx{**.test...}
 {
   d = $directory($t)
   n = $name($t)...
 
-  ./: $d/exe{$n}
-  $d/exe{$n}: $t $d/hxx{+$n} $d/testscript{+$n}
+  ./: $d/exe{$n}: $t $d/hxx{+$n} $d/testscript{+$n}
   $d/exe{$n}: libue{hello}: bin.whole = false
 }
 
@@ -3473,14 +3629,12 @@ hello/
 Let's examine how this support is implemented in our \c{buildifle}, line by
 line. Because now we link \c{hello.cxx} object code into multiple executables
 (unit tests and the \c{hello} program itself), we have to place it into a
-\i{utility library}. This is what the first three lines do (the first line
-explicitly lists \c{exe{hello\}} as a prerequisite of the default targets
-since we now have multiple targets that should be built by default):
+\i{utility library}. This is what the first line does (it has to explicitly
+list \c{exe{hello\}} as a prerequisite of the default targets since we now
+have multiple targets that should be built by default):
 
 \
-./: exe{hello}
-exe{hello}: libue{hello} testscript
-libue{hello}: {hxx cxx}{** -**.test...}
+./: exe{hello}: libue{hello}: {hxx cxx}{** -**.test...}
 \
 
 A utility library (\cb{u} in \c{lib\b{u}e}) is a static library that is built
@@ -3491,9 +3645,9 @@ only difference in the above unit testing implementation if it were for a
 library project instead of an executable:
 
 \
-./: lib{hello}
-lib{hello}: libul{hello}
-libul{hello}: {hxx cxx}{** -**.test...}
+./: lib{hello}: libul{hello}: {hxx cxx}{** -**.test...}
+
+...
 
 # Unit tests.
 #
@@ -3525,12 +3679,15 @@ with a single dot. For example, for a header \c{utility} you would write
 \c{hxx{utility.\}}. If you need to specify a name with an actual trailing
 dot, then escape it with a double dot, for example, \c{hxx{utility..\}}.|
 
-The next couple of lines use target/pattern-specific variables to treat
+The next couple of lines set target type/pattern-specific variables to treat
 all unit test executables as tests that should not be installed:
 
 \
-exe{*.test}: test = true
-exe{*.test}: install = false
+exe{*.test}:
+{
+  test = true
+  install = false
+}
 \
 
 \N|You may be wondering why we had to escape the second-level \c{.test}
@@ -3550,8 +3707,7 @@ for t: cxx{**.test...}
   d = $directory($t)
   n = $name($t)...
 
-  ./: $d/exe{$n}
-  $d/exe{$n}: $t $d/hxx{+$n} $d/testscript{+$n}
+  ./: $d/exe{$n}: $t $d/hxx{+$n} $d/testscript{+$n}
   $d/exe{$n}: libue{hello}: bin.whole = false
 }
 \
@@ -3581,8 +3737,7 @@ for t: cxx{**.test... -special.test...}
   ...
 }
 
-./: exe{special.test...}
-exe{special.test...}: cxx{special.test...} libue{hello}
+./: exe{special.test...}: cxx{special.test...} libue{hello}
 \
 
 Note also that if you plan to link any of your unit tests in the whole archive
@@ -3590,11 +3745,311 @@ mode, then you will also need to exclude the source file containing the
 primary executable's \c{main()} from the utility library. For example:
 
 \
-exe{hello}: cxx{main} libue{hello} testscript
+./: exe{hello}: cxx{main} libue{hello}
 libue{hello}: {hxx cxx}{** -main -**.test...}
 \
 
 |
+
+
+
+\h#intro-diag-debug|Diagnostics and Debugging|
+
+Sooner or later we will run into a situation where our \c{buildfiles} don't do
+what we expect them to. In this section we examine a number of techniques and
+mechanisms that can help us understand the cause of a misbehaving build.
+
+To perform a build the build system goes through several phases. During the
+\i{load} phase the \c{buildfiles} are loaded and processed. The result of this
+phase is the in-memory \i{build state} that contains the scopes, targets,
+variables, etc., defined by the \c{buildfiles}. Next, is the \i{match} phase
+during which rules are matched to the targets that need to be built,
+recursively. Finally, during the \i{execute} phase the matched rules are
+executed to perform the build.
+
+The load phase is always serial and stops at the first error. In contrast, by
+default, both match and execute are parallel and continue in the presence of
+errors (similar to the \"keep going\" \c{make} mode). While beneficial in
+normal circumstances, during debugging this can lead to both interleaved
+output that is hard to correlate as well as extra noise from cascading
+errors. As a result, for debugging, it is usually helpful to run serially and
+stop at the first error, which can be achieved with the \c{--serial-stop|-s}
+option.
+
+\N|The match phase can be temporarily switched to either (serial) load or
+(parallel) execute. The former is used, for example, to load additional
+\c{buildfiles} during the \c{dir{\}} prerequisite to target resolution, as
+described in \l{#intro-dirs-scopes Output Directories and Scopes}. While the
+latter is used to update generated source code (such as headers) that is
+required to complete the match.|
+
+Debugging issues in each phase requires different techniques. Let's start with
+the load phase. As mentioned in \l{#intro-lang Build Language}, \c{buildfiles}
+are processed linearly with directives executed and variables expanded as they
+are encountered. As we have already seen, to print a variable value we can use
+the \c{info} directive. For example:
+
+\
+x = X
+info $x
+\
+
+This will print something along these lines:
+
+\
+buildfile:2:1: info: X
+\
+
+Or, if we want to clearly see where the value begins and ends (useful when
+investigating whitespace-related issues):
+
+\
+x = \" X \"
+info \"'$x'\"
+\
+
+Which prints:
+
+\
+buildfile:2:1: info: ' X '
+\
+
+Besides the \c{info} directive, there are also \c{text}, which doesn't print
+the \c{info:} prefix, \c{warn}, which prints a warning, as well as \c{fail}
+which prints an error and causes the build system to exit with an error. Here
+is an example of using each:
+
+\
+text 'note: we are about to get an error'
+warn 'the error is imminent'
+fail 'this is the end'
+info 'we will never get here'
+\
+
+This will produce the following output:
+
+\
+buildfile:1:1: note: we are about to get an error
+buildfile:2:1: warning: the error is imminent
+buildfile:3:1: error: this is the end
+\
+
+If you find yourself writing code like this:
+
+\
+if ($cxx.target.class == 'windows')
+  fail 'Windows is not supported'
+\
+
+Then the \c{assert} directive is a more concise way to express the same:
+
+\
+assert ($cxx.target.class != 'windows') 'Windows is not supported'
+\
+
+The assert condition must be something that evaluates to \c{true} or
+\c{false}, similar to the \c{if} directive (see \l{#intro-if-else Conditions
+(\c{if-else})} for details). The description after the condition is optional
+and, similar to \c{if}, there is also the \c{assert!} variant, which fails if
+the condition is \c{true}.
+
+All the diagnostics directives write to \c{stderr}. If instead we need to
+write something to \c{stdout}, for example, to send some information back to
+our caller, then we can use the \c{print} directive. For example, this will
+print the C++ compiler id and its target:
+
+\
+print \"$cxx.id $cxx.target\"
+\
+
+\N|To query the value of a target-specific variable we use the qualified name
+syntax (the \c{eval-qual} production) of eval context, for example:
+
+\
+obj{main}: cxx.poptions += -DMAIN
+info $(obj{main}: cxx.poptions)
+\
+
+There is no direct way to query the value of a prerequisite-specific variable
+since a prerequisite has no identity. Instead, we can use the \c{dump}
+directive discussed next to print the entire dependency declaration, including
+prerequisite-specific variables for each prerequisite.|
+
+While printing variables values is the most common mechanism for diagnosing
+\c{buildfile} issues, sometimes it is also helpful to examine targets and
+scopes. For that we use the \c{dump} directive.
+
+Without any arguments, \c{dump} prints (to \c{stderr}) the contents of the
+scope it was encountered in and at that point of processing the \c{buildfile}.
+Its output includes variables, targets and their prerequsites, as well as
+nested scopes, recursively. As an example, let's print the source directory
+scope of our \c{hello} executable project. Here is its \c{buildfile} with
+the \c{dump} directive at the end:
+
+\
+exe{hello}: {hxx cxx}{**}
+
+cxx.poptions =+ \"-I$out_root\" \"-I$src_root\"
+
+dump
+\
+
+This will produce the output along these lines:
+
+\
+buildfile:5:1: dump:
+  /tmp/hello/hello/
+  {
+    [strings] cxx.poptions = -I/tmp/hello -I/tmp/hello
+    [dir_path] out_base = /tmp/hello/hello/
+    [dir_path] src_base = /tmp/hello/hello/
+
+    build{buildfile.}:
+
+    exe{hello.?}: cxx{hello.?}
+  }
+\
+
+\N|The question marks (\c{?}) in the dependency declaration mean that the file
+extensions haven't been assigned yet, which happens during the match phase.|
+
+Instead of printing the entire scope, we can also print individual targets by
+specifying one or more target names in \c{dump}. To make things more
+interesting, let's convert our \c{hello} project to use a utility library,
+similar to the unit testing setup (\l{#intro-unit-test Implementing Unit
+Testing}). We will also link to the \c{pthread} library to see an example of a
+target-specific variable being dumped:
+
+\
+exe{hello}: libue{hello}: bin.whole = false
+exe{hello}: cxx.libs += -lpthread
+libue{hello}: {hxx cxx}{**}
+
+dump exe{hello}
+\
+
+The output will look along these lines:
+
+\
+buildfile:5:1: dump:
+  /tmp/hello/hello/exe{hello.?}:
+  {
+    [strings] cxx.libs = -lpthread
+  }
+  /tmp/hello/hello/exe{hello.?}: /tmp/hello/hello/:libue{hello.?}:
+  {
+    [bool] bin.whole = false
+  }
+\
+
+The output of \c{dump} might look familiar: in \l{#intro-dirs-scopes Output
+Directories and Scopes} we've used the \c{--dump} option to print the entire
+build state, which looks pretty similar. In fact, the \c{dump} directive uses
+the same mechanism but allows us to print individual scopes and targets.
+
+There is, however, an important difference to keep in mind: \c{dump} prints
+the state of a target or scope at the point in the \c{buildfile} load phase
+where it was executed. In contrast, the \c{--dump} option can be used to print
+the state after the load phase (\c{--dump load}) and/or after the match phase
+(\c{--dump match}). In particular, the after match printout reflects the
+changes to the build state made by the matching rules, which may include
+entering of additional dependencies, setting of additional variables,
+resolution of prerequsites to targets, assignment of file extensions, etc. As
+a result, while the \c{dump} directive should be sufficient in most cases,
+sometimes you may need to use the \c{--dump} option to examine the build state
+just before rule execution.
+
+Let's now move from state to behavior. As we already know, to see the
+underlying commands executed by the build system we use the \c{-v} options
+(which is equivalent to \c{--verbose\ 2}). Note, however, that these are
+\i{logical} rather than actual commands. You can still run them and they
+should produce the desired result, but in reality the build system may have
+achieved the same result in a different way. To see the actual commands we use
+the \c{-V} option instead (equivalent to \c{--verbose\ 3}). Let's see the
+difference in an example. Here is what building our \c{hello} executable
+with \c{-v} might look like:
+
+\
+$ b -s -v
+g++ -o hello.o -c hello.cxx
+g++ -o hello hello.o
+\
+
+And here is the same build with \c{-V}:
+
+\
+$ b -s -V
+g++ -MD -E -fdirectives-only -MF hello.o.t -o hello.o.ii hello.cxx
+g++ -E -fpreprocessed -fdirectives-only hello.o.ii
+g++ -o hello.o -c -fdirectives-only hello.o.ii
+g++ -o hello hello.o
+\
+
+From the second listing we can see that in reality \c{build2} first partially
+preprocessed \c{hello.cxx} while extracting its header dependency information.
+It then preprocessed it fully, which is used to extract module dependency
+information, calculate the checksum for ignorable change detection, etc.  When
+it comes to producing \c{hello.o}, the build system compiled the partially
+preprocessed output rather than the original \c{hello.cxx}. The end result,
+however, is the same as in the first listing.
+
+Verbosity level \c{3} (\c{-V}) also triggers printing of the build system
+module configuration information. Here is what we would see for the \c{cxx}
+module:
+
+\
+cxx hello@/tmp/hello/
+  cxx        g++@/usr/bin/g++
+  id         gcc
+  version    7.2.0 (Ubuntu 7.2.0-1ubuntu1~16.04)
+  major      7
+  minor      2
+  patch      0
+  build      (Ubuntu 7.2.0-1ubuntu1~16.04)
+  signature  gcc version 7.2.0 (Ubuntu 7.2.0-1ubuntu1~16.04)
+  checksum   09b3b59d337eb9a760dd028fa0df585b307e6a49c2bfa00b3[...]
+  target     x86_64-linux-gnu
+  runtime    libgcc
+  stdlib     libstdc++
+  c stdlib   glibc
+...
+\
+
+Verbosity levels higher than \c{3} enable build system tracing. In particular,
+level \c{4} is useful for understanding why a rule doesn't match a target or
+if it does, why it determined the target to be out of date. For example,
+assuming we have an up-to-date build of our \c{hello}, let's change a compile
+option:
+
+\
+$ b -s --verbose 4
+info: /tmp/hello/dir{hello/} is up to date
+
+$ b -s --verbose 4 config.cxx.poptions+=-DNDEBUG
+trace: cxx::compile_rule::apply: options mismatch forcing update
+of /tmp/hello/hello/obje{hello.o}
+...
+\
+
+Higher verbosity levels result in more and more tracing statements being
+printed. These include \c{buildfile} loading and parsing, prerequisite to
+target resolution, as well as build system module and rule-specific logic.
+
+Another useful diagnostics option is \c{--mtime-check}. When specified, the
+build system performs a number of file modification time sanity checks that
+can be helpful in diagnosing spurious rebuilds.
+
+If neither state dumps nor behavior analysis are sufficient to understand the
+problem, there is always an option of running the build system under a C++
+debugger in order to better understand what's going on. This can be
+particularly productive for debugging complex rules.
+
+Finally, to help with diagnosing the build system performance issues, there is
+the \c{--stat} option. It causes \c{build2} to print various execution
+statistics which can be useful for pin-pointing the bottlenecks. There are
+also a number of options for tuning the build system's performance, such as,
+the number of jobs to perform in parallel, the stack size, queue depths, etc.
+See the \l{b(1)} man pages for details.
 
 
 \h1#name-patterns|Name Patterns|
@@ -3810,6 +4265,43 @@ unknown, target type is unknown, or the target type is not directory or
 file-based, then the name pattern is returned as is (that is, as an ordinary
 name). Project-qualified names are never considered to be patterns.
 
+
+\h1#variables|Variables|
+
+Note: this section is a work in progress.
+
+Note that while expansions in the target and prerequisite-specific assignments
+happen in the corresponding target and prerequisite contexts, respectively,
+for type/pattern-specific assignments they happen in the scope context. Plus,
+a type/pattern-specific prepend/append is applied at the time of expansion for
+the actual target. For example:
+
+\
+x = s
+
+file{foo}:              # target
+{
+  x += t    # s t
+  y = $x y  # s t y
+}
+
+file{foo}: file{bar}    # prerequisite
+{
+  x += p    # x t p
+  y = $x y  # x t p y
+}
+
+file{b*}:               # type/pattern
+{
+  x += w   # <append w>
+  y = $x w # <assign s w>
+}
+
+x = S
+
+info $(file{bar}: x) # S w
+info $(file{bar}: y) # s w
+\
 
 \h1#module-test|\c{test} Module|
 
@@ -5965,8 +6457,11 @@ const char data[] = \"@data@\";
 # buildfile
 
 cxx{data}: in{data}
-cxx{data}: in.symbol = '@'
-cxx{data}: data = 'Hello, World!'
+cxx{data}:
+{
+  in.symbol = '@'
+  data = 'Hello, World!'
+}
 \
 
 Note that the substitution symbol must be a single character.
@@ -5993,10 +6488,14 @@ substitutions as is. For example:
 # buildfile
 
 h{config}: in{config} # config.h.in
-h{config}: in.symbol = '@'
-h{config}: in.substitution = lax
-h{config}: CMAKE_SYSTEM_NAME = $c.target.system
-h{config}: CMAKE_SYSTEM_PROCESSOR = $c.target.cpu
+h{config}:
+{
+  in.symbol = '@'
+  in.substitution = lax
+
+  CMAKE_SYSTEM_NAME = $c.target.system
+  CMAKE_SYSTEM_PROCESSOR = $c.target.cpu
+}
 \
 
 The \c{in} rule tracks changes to the input file as well as the substituted
