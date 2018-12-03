@@ -4283,7 +4283,9 @@ namespace build2
           name qual;
           string name;
 
-          if (tt == type::word)
+          if (t.separated)
+            ; // Leave the name empty to fail below.
+          else if (tt == type::word)
           {
             if (!pre_parse_)
               name = move (t.value);
