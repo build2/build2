@@ -31,17 +31,6 @@ namespace build2
     template <typename T>
     bool is_a () const {return type->is_a<T> ();}
     bool is_a (const target_type& tt) const {return type->is_a (tt);}
-
-    // The above references have to track the original objects so we cannot
-    // have assignment.
-    //
-    // @@ We could use references for all members, not just ext.
-    //
-    target_key (target_key&&) = default;
-    target_key (const target_key&) = default;
-
-    target_key& operator= (target_key&&) = delete;
-    target_key& operator= (const target_key&) = delete;
   };
 
   inline bool
