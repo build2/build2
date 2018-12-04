@@ -223,10 +223,10 @@ $* test clean <<EOI
 
     export module foo.extra;
 
+    export import foo.base; // Note: cannot be combined with the below.
+
     export
     {
-      import foo.base;
-
       // VC appears to require dll-export of inline functions.
       //
       LIBFOO_EXPORT inline int g (int i) {return i != 0 ? i : -1;}
@@ -236,12 +236,9 @@ $* test clean <<EOI
   +cat <<EOI >=foo.mxx
     export module foo;
 
-    export
-    {
-      import foo.core;
-      import foo.base;
-      import foo.extra;
-    }
+    export import foo.core;
+    export import foo.base;
+    export import foo.extra;
     EOI
 
   : basic
