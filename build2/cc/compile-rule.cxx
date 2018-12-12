@@ -1470,6 +1470,8 @@ namespace build2
 
       l5 ([&]{trace << "target: " << t;});
 
+      otype ot (li.type);
+
       bool reprocess (cast_false<bool> (t[c_reprocess]));
 
       auto_rmfile psrc;
@@ -1679,7 +1681,7 @@ namespace build2
       // Return NULL if the dependency information goes to stdout and a
       // pointer to the temporary file path otherwise.
       //
-      auto init_args = [&t, a, li, reprocess,
+      auto init_args = [a, &t, ot, li, reprocess,
                         &src, &md, &psrc, &sense_diag,
                         &rs, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm,
@@ -1940,7 +1942,7 @@ namespace build2
             }
           case compiler_class::gcc:
             {
-              if (t.is_a<objs> ())
+              if (ot == otype::s)
               {
                 // On Darwin, Win32 -fPIC is the default.
                 //
@@ -2890,12 +2892,14 @@ namespace build2
     pair<translation_unit, string> compile_rule::
     parse_unit (action a,
                 file& t,
-                linfo lo,
+                linfo li,
                 const file& src,
                 auto_rmfile& psrc,
                 const match_data& md) const
     {
       tracer trace (x, "compile_rule::parse_unit");
+
+      otype ot (li.type);
 
       // If things go wrong give the user a bit extra context.
       //
@@ -2946,7 +2950,7 @@ namespace build2
           if (reprocess)
             args.push_back ("-D__build2_preprocess");
 
-          append_lib_options (t.base_scope (), args, a, t, lo);
+          append_lib_options (t.base_scope (), args, a, t, li);
 
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
@@ -3001,7 +3005,7 @@ namespace build2
             }
           case compiler_class::gcc:
             {
-              if (t.is_a<objs> ())
+              if (ot == otype::s)
               {
                 if (tclass == "linux" || tclass == "bsd")
                   args.push_back ("-fPIC");
