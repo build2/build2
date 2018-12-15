@@ -118,7 +118,7 @@ namespace build2
       // Increment the logical line similar to how base will increment the
       // physical (the column counts are the same).
       //
-      if (log_line_ && c == '\n' && !unget_ && !unpeek_)
+      if (log_line_ && c == '\n' && !unget_)
         ++*log_line_;
 
       base::get (c);

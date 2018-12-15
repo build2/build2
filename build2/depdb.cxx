@@ -117,7 +117,9 @@ namespace build2
     if (trunc)
       fdtruncate (fd.get (), pos_);
 
-    // Note: seek is required to switch from reading to writing.
+    // Note: the file descriptor position can be beyond the pos_ value due to
+    // the ifdstream buffering. That's why we need to seek to switch from
+    // reading to writing.
     //
     fdseek (fd.get (), pos_, fdseek_mode::set);
 
