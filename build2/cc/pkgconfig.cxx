@@ -1131,16 +1131,6 @@ namespace build2
       for (const dir_path& d: top_usrd) pkgconfig_search (d, add_pc_dir);
       for (const dir_path& d: top_sysd) pkgconfig_search (d, add_pc_dir);
 
-      // First sort out the interface dependencies (which we are setting on
-      // lib{}). If we have the shared .pc variant, then we use that.
-      // Otherwise -- static but extract without the --static option (see also
-      // the saving logic).
-      //
-      pkgconf& ipc (sp.empty () ? apc : spc); // Interface package info.
-      bool ibl ((sp.empty ()
-                 ? at->mtime ()
-                 : st->mtime ()) == timestamp_unreal); // Binless.
-
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())
         apc = pkgconf (ap, pc_dirs, sys_lib_dirs, sys_inc_dirs);
@@ -1149,7 +1139,19 @@ namespace build2
       if (ps || ap.empty ())
         spc = pkgconf (sp, pc_dirs, sys_lib_dirs, sys_inc_dirs);
 
-      parse_libs (lt, ibl, ipc, false, &prs);
+      // Sort out the interface dependencies (which we are setting on lib{}).
+      // If we have the shared .pc variant, then we use that.  Otherwise --
+      // static but extract without the --static option (see also the saving
+      // logic).
+      //
+      pkgconf& ipc (ps ? spc : apc); // Interface package info.
+
+      parse_libs (
+        lt,
+        (ps ? st->mtime () : at->mtime ()) == timestamp_unreal /* binless */,
+        ipc,
+        false,
+        &prs);
 
       if (pa)
       {
