@@ -132,7 +132,7 @@ namespace build2
         // then we shouldn't try to handle that (it may need to be compiled,
         // etc). But we assume everyone can handle a C header.
         //
-        else if (p.is_a<cc> () && !p.is_a<h> ())
+        else if (p.is_a<cc> () && !(x_header (p) || p.is_a<h> ()))
         {
           l4 ([&]{trace << "non-" << x_lang << " prerequisite " << p
                         << " for target " << t;});
