@@ -18,30 +18,30 @@ namespace build2
     using cc::h;
     using cc::c;
 
-    class hxx: public file
+    class hxx: public cc::cc
     {
     public:
-      using file::file;
+      using cc::cc;
 
     public:
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class ixx: public file
+    class ixx: public cc::cc
     {
     public:
-      using file::file;
+      using cc::cc;
 
     public:
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class txx: public file
+    class txx: public cc::cc
     {
     public:
-      using file::file;
+      using cc::cc;
 
     public:
       static const target_type static_type;
@@ -61,12 +61,12 @@ namespace build2
     // The module interface unit is both like a header (e.g., we need to
     // install it) and like a source (we need to compile it). Plus, to
     // support dual use (modules/headers) it could actually be #include'd
-    // (and even in both cases).
+    // (and even in both cases e.g., by different codebases).
     //
-    class mxx: public file
+    class mxx: public cc::cc
     {
     public:
-      using file::file;
+      using cc::cc;
 
     public:
       static const target_type static_type;

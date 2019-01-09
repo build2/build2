@@ -30,7 +30,7 @@ namespace build2
     const target_type h::static_type
     {
       "h",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<h>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, h_ext_def>,

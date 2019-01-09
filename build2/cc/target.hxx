@@ -14,10 +14,10 @@ namespace build2
 {
   namespace cc
   {
-    // This is an abstract base target for all c-common source files. We use
-    // this arrangement in rule matching to detect "unknown" (to this rule)
-    // source files that it cannot handle but should not ignore either. For
-    // example, a C link rule that sees a C++ source file.
+    // This is an abstract base target for all c-common header/source files.
+    // We use this arrangement during rule matching to detect "unknown" (to
+    // this rule) source/header files that it cannot handle but should not
+    // ignore either. For example, a C link rule that sees a C++ source file.
     //
     class cc: public file
     {
@@ -32,10 +32,10 @@ namespace build2
     // There is hardly a c-family compilation without a C header inclusion.
     // As a result, this target type is registered for any c-family module.
     //
-    class h: public file
+    class h: public cc
     {
     public:
-      using file::file;
+      using cc::cc;
 
     public:
       static const target_type static_type;

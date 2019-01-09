@@ -71,7 +71,8 @@ namespace build2
       }
 
       // Scan prerequisites and see if we can work with what we've got. Note
-      // that X could be C. We handle this by always checking for X first.
+      // that X could be C (as in language). We handle this by always checking
+      // for X first.
       //
       // Note also that we treat bmi{} as obj{}.
       //
@@ -84,9 +85,9 @@ namespace build2
         if (include (a, t, p) != include_type::normal)
           continue;
 
-        if (p.is_a (x_src)                           ||
-            (lt.library ()    && p.is_a (*x_hdr[0])) || // Header-only library.
-            (x_mod != nullptr && p.is_a (*x_mod)))
+        if (p.is_a (x_src)                        ||
+            (x_mod != nullptr && p.is_a (*x_mod)) ||
+            (lt.library ()    && x_header (p))) // Header-only library.
         {
           seen_x = seen_x || true;
         }
@@ -127,11 +128,16 @@ namespace build2
         {
           seen_lib = seen_lib || true;
         }
-        // If this is some other c-common source (say C++ in a C rule), then
-        // it will most definitely need to be compiled but we can't do that.
+        // If this is some other c-common header/source (say C++ in a C rule),
+        // then we shouldn't try to handle that (it may need to be compiled,
+        // etc). But we assume everyone can handle a C header.
         //
-        else if (p.is_a<cc> ())
+        else if (p.is_a<cc> () && !p.is_a<h> ())
+        {
+          l4 ([&]{trace << "non-" << x_lang << " prerequisite " << p
+                        << " for target " << t;});
           return false;
+        }
       }
 
       if (!(seen_x || seen_c || seen_obj || seen_lib))

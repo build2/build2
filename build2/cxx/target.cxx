@@ -16,7 +16,7 @@ namespace build2
     const target_type hxx::static_type
     {
       "hxx",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<hxx>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, hxx_ext_def>,
@@ -30,7 +30,7 @@ namespace build2
     const target_type ixx::static_type
     {
       "ixx",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<ixx>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, ixx_ext_def>,
@@ -44,7 +44,7 @@ namespace build2
     const target_type txx::static_type
     {
       "txx",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<txx>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, txx_ext_def>,
@@ -72,7 +72,7 @@ namespace build2
     const target_type mxx::static_type
     {
       "mxx",
-      &file::static_type,
+      &cc::static_type,
       &target_factory<mxx>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, mxx_ext_def>,
