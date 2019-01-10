@@ -495,19 +495,37 @@ namespace build2
       if (i != 0)
         cout << endl;
 
-      const scope& s (*static_cast<const scope*> (ts[i].target));
+      const scope& rs (*static_cast<const scope*> (ts[i].target));
+
+      // Print [meta_]operation names. Due to the way our aliasing works, we
+      // have to go through the [meta_]operation_table.
+      //
+      auto print_ops = [] (const auto& ov, const auto& ot)
+      {
+        // This is a sparse vector with NULL holes. id 0 is invalid while 1 is
+        // the noop meta-operation and the default operation; we omit printing
+        // both.
+        //
+        for (size_t id (2); id < ov.size (); ++id)
+        {
+          if (ov[id] != nullptr)
+            cout << ' ' << ot[id];
+        }
+      };
 
       // This could be a simple project that doesn't set project name.
       //
       cout
-        << "project: "      << cast_empty<project_name> (s[var_project]) << endl
-        << "version: "      << cast_empty<string> (s[var_version]) << endl
-        << "summary: "      << cast_empty<string> (s[var_project_summary]) << endl
-        << "url: "          << cast_empty<string> (s[var_project_url]) << endl
-        << "src_root: "     << cast<dir_path> (s[var_src_root]) << endl
-        << "out_root: "     << cast<dir_path> (s[var_out_root]) << endl
-        << "amalgamation: " << cast_empty<dir_path> (s[var_amalgamation]) << endl
-        << "subprojects: "  << cast_empty<subprojects> (s[var_subprojects]) << endl;
+        << "project: "      << cast_empty<project_name> (rs[var_project]) << endl
+        << "version: "      << cast_empty<string> (rs[var_version]) << endl
+        << "summary: "      << cast_empty<string> (rs[var_project_summary]) << endl
+        << "url: "          << cast_empty<string> (rs[var_project_url]) << endl
+        << "src_root: "     << cast<dir_path> (rs[var_src_root]) << endl
+        << "out_root: "     << cast<dir_path> (rs[var_out_root]) << endl
+        << "amalgamation: " << cast_empty<dir_path> (rs[var_amalgamation]) << endl
+        << "subprojects: "  << cast_empty<subprojects> (rs[var_subprojects]) << endl
+        << "operations:";      print_ops (rs.operations, operation_table); cout << endl
+        << "meta-operations:"; print_ops (rs.meta_operations, meta_operation_table); cout << endl;
     }
   }
 

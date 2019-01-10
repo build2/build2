@@ -287,6 +287,12 @@ namespace build2
     process_func* process;
   };
 
+  inline ostream&
+  operator<< (ostream& os, const meta_operation_data& d)
+  {
+    return os << d.name;
+  }
+
   extern butl::string_table<meta_operation_id,
                             meta_operation_data> meta_operation_table;
   extern butl::string_table<operation_id> operation_table;
