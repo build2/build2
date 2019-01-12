@@ -224,11 +224,14 @@ namespace build2
       set ("version.minor", uint64_t (v.minor ()));
       set ("version.patch", uint64_t (v.patch ()));
 
-      set ("version.alpha",              v.alpha ()); // bool
-      set ("version.beta",               v.beta ());  // bool
-      set ("version.pre_release",        v.alpha () || v.beta ());
+      optional<uint16_t> a (v.alpha ());
+      optional<uint16_t> b (v.beta ());
+
+      set ("version.alpha",              a.has_value ());
+      set ("version.beta",               b.has_value ());
+      set ("version.pre_release",        v.pre_release ().has_value ());
       set ("version.pre_release_string", v.string_pre_release ());
-      set ("version.pre_release_number", uint64_t (v.pre_release ()));
+      set ("version.pre_release_number", uint64_t (a ? *a : b ? *b : 0));
 
       set ("version.snapshot",           v.snapshot ()); // bool
       set ("version.snapshot_sn",        v.snapshot_sn); // uint64
