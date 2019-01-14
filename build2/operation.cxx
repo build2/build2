@@ -506,7 +506,7 @@ namespace build2
         // the noop meta-operation and the default operation; we omit printing
         // both.
         //
-        for (size_t id (2); id < ov.size (); ++id)
+        for (uint8_t id (2); id < ov.size (); ++id)
         {
           if (ov[id] != nullptr)
             cout << ' ' << ot[id];
