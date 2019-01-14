@@ -218,11 +218,11 @@ namespace build2
     const target_type*
     find_target_type (const string&, const scope** = nullptr) const;
 
-    // Given a name, figure out its type, taking into account extensions,
-    // special names (e.g., '.' and '..'), or anything else that might be
-    // relevant. Process the name (in place) by extracting (and returning)
-    // extension, adjusting dir/leaf, etc., (note that the dir is not
-    // necessarily normalized). Return NULL if not found.
+    // Given a target name, figure out its type, taking into account
+    // extensions, special names (e.g., '.' and '..'), or anything else that
+    // might be relevant. Process the name (in place) by extracting (and
+    // returning) extension, adjusting dir/leaf, etc., (note that the dir is
+    // not necessarily normalized). Return NULL if not found.
     //
     pair<const target_type*, optional<string>>
     find_target_type (name&, const location&) const;

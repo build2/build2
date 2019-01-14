@@ -220,6 +220,8 @@ namespace build2
   optional<string> target::
   split_name (string& v, const location& loc)
   {
+    assert (!v.empty ());
+
     // We treat a single trailing dot as "specified no extension", double dots
     // as a single trailing dot (that is, an escape sequence which can be
     // repeated any number of times; in such cases we naturally assume there

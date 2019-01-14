@@ -667,7 +667,15 @@ namespace build2
           fail (loc) << "invalid path '" << e.path << "'";
         }
 
-        v.erase (0, p + 1);
+        // This is probably too general of a place to ignore multiple trailing
+        // slashes and treat it as a directory (e.g., we don't want to
+        // encourage this sloppiness in buildfiles). We could, however, do it
+        // for certain contexts, such as buildspec. Maybe a lax flag?
+        //
+        if (++p == v.size ())
+          fail (loc) << "invalid name '" << v << "'";
+
+        v.erase (0, p);
       }
 
       // Extract the extension.

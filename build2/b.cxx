@@ -630,7 +630,7 @@ main (int argc, char* argv[])
         }
       }
 
-      // Expose eraly so can be used during bootstrap (with the same
+      // Expose early so can be used during bootstrap (with the same
       // limitations as for pre-processing).
       //
       global_scope->rw ().assign (var_build_meta_operation) = mname;
