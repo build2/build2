@@ -1,5 +1,5 @@
 // file      : unit-tests/test/script/parser/driver.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <cassert>

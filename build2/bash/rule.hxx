@@ -1,5 +1,5 @@
 // file      : build2/bash/rule.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef BUILD2_BASH_RULE_HXX

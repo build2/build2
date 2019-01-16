@@ -1,5 +1,5 @@
 # file      : bootstrap.gmake -*- Makefile -*-
-# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 # This makefile requires GNU make 3.81 or later and can be used to bootstrap

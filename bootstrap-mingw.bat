@@ -1,7 +1,7 @@
 @echo off
 
 rem file      : bootstrap-mingw.bat
-rem copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+rem copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 rem license   : MIT; see accompanying LICENSE file
 
 setlocal EnableDelayedExpansion

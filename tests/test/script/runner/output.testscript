@@ -1,5 +1,5 @@
 # file      : tests/test/script/runner/output.testscript
-# copyright : Copyright (c) 2014-2018 Code Synthesis Ltd
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 # Some of the tests below (*/script-wd, before/*) are probably more appropriate
