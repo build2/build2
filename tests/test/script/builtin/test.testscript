@@ -58,7 +58,9 @@ $c <'test -c a 2>"test: invalid option" == 2' && $b
 :
 : Test passing extra argument.
 :
-$c <'test -f a b 2>"test: unexpected argument" == 2' && $b
+$c <<EOI && $b
+test -f a b 2>"test: unexpected argument 'b'" == 2
+EOI
 
 : empty-path
 :

@@ -4,14 +4,18 @@
 
 #include <build2/test/script/builtin.hxx>
 
+#include <chrono>
 #include <locale>
 #include <ostream>
 #include <sstream>
+#include <cstdlib> // strtoull()
 
 #include <libbutl/regex.mxx>
 #include <libbutl/path-io.mxx>    // use default operator<< implementation
 #include <libbutl/fdstream.mxx>   // fdopen_mode, fdstream_mode
 #include <libbutl/filesystem.mxx>
+
+#include <build2/context.hxx> // sched
 
 #include <build2/test/script/script.hxx>
 
@@ -1498,7 +1502,7 @@ namespace build2
           }
 
           if (i != e)
-            error () << "unexpected argument";
+            error () << "unexpected argument '" << *i << "'";
 
           // If we edit file in place make sure that the file path is specified
           // and obtain a temporary file path. We will be writing to the
@@ -1634,6 +1638,81 @@ namespace build2
         return 1;
       }
 
+      // sleep <seconds>
+      //
+      // Note: can be executed synchronously.
+      //
+      static uint8_t
+      sleep (scope&,
+             const strings& args,
+             auto_fd in, auto_fd out, auto_fd err) noexcept
+      try
+      {
+        uint8_t r (1);
+        ofdstream cerr (move (err));
+
+        auto error = [&cerr] (bool fail = true)
+        {
+          return error_record (cerr, fail, "sleep");
+        };
+
+        try
+        {
+          in.close ();
+          out.close ();
+
+          if (args.empty ())
+            error () << "missing time interval";
+
+          if (args.size () > 1)
+            error () << "unexpected argument '" << args[1] << "'";
+
+          uint64_t n;
+
+          for (;;) // Breakout loop.
+          {
+            const string& a (args[0]);
+
+            // Note: strtoull() allows these.
+            //
+            if (!a.empty () && a[0] != '-' && a[0] != '+')
+            {
+              char* e (nullptr);
+              n = strtoull (a.c_str (), &e, 10); // Can't throw.
+
+              if (errno != ERANGE && e == a.c_str () + a.size ())
+                break;
+            }
+
+            error () << "invalid time interval '" << a << "'";
+          }
+
+          // If/when required we could probably support the precise sleep mode
+          // (e.g., via an option).
+          //
+          sched.sleep (chrono::seconds (n));
+
+          r = 0;
+        }
+        // Can be thrown while closing in, out or writing to cerr.
+        //
+        catch (const io_error& e)
+        {
+          error (false) << e;
+        }
+        catch (const failed&)
+        {
+          // Diagnostics has already been issued.
+        }
+
+        cerr.close ();
+        return r;
+      }
+      catch (const std::exception&)
+      {
+        return 1;
+      }
+
       // test -f|-d <path>
       //
       // Note: can be executed synchronously.
@@ -1666,7 +1745,7 @@ namespace build2
             error () << "invalid option";
 
           if (args.size () > 2)
-            error () << "unexpected argument";
+            error () << "unexpected argument '" << args[2] << "'";
 
           path p (parse_path (args[1], sp.wd_path));
 
@@ -1890,6 +1969,7 @@ namespace build2
         {"rm",    &sync_impl<&rm>},
         {"rmdir", &sync_impl<&rmdir>},
         {"sed",   &async_impl<&sed>},
+        {"sleep", &sync_impl<&sleep>},
         {"test",  &sync_impl<&test>},
         {"touch", &sync_impl<&touch>},
         {"true",  &true_}

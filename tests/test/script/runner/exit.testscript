@@ -77,7 +77,7 @@ empty_id = ''
   : unexpected
   :
   $c <'exit "foo" "bar"' && $b 2>>EOE != 0
-  testscript:1:1: error: unexpected argument
+  testscript:1:1: error: unexpected argument 'bar'
     info: test id: 1
   EOE
 }

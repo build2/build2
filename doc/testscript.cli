@@ -2657,6 +2657,17 @@ set [null] $foo <-
 \
 
 
+\h#builtins-sleep|\c{sleep}|
+
+\
+sleep <seconds>
+\
+
+Suspend the current test or test group execution for at least the specified
+number of seconds. Note that in order to improve resource utilization, the
+implementation may sleep longer than requested, potentially significantly.
+
+
 \h#builtins-test|\c{test}|
 
 \

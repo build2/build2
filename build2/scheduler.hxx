@@ -140,6 +140,13 @@ namespace build2
     void
     activate (bool collision = false);
 
+    // Sleep for the specified duration, deactivating the thread before going
+    // to sleep and re-activating it after waking up (which means this
+    // function may sleep potentially significantly longer than requested).
+    //
+    void
+    sleep (const duration&);
+
     // Startup and shutdown.
     //
   public:

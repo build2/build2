@@ -53,7 +53,7 @@
   : unexpected
   :
   $c <'set foo bar baz' && $b 2>>EOE != 0
-  testscript:1:1: error: unexpected argument
+  testscript:1:1: error: unexpected argument 'baz'
     info: test id: 1
   EOE
 

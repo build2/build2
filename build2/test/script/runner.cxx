@@ -978,7 +978,7 @@ namespace build2
         const string& s (*i++);
 
         if (i != e)
-          fail (ll) << "unexpected argument";
+          fail (ll) << "unexpected argument '" << *i << "'";
 
         error (ll) << s;
         throw exit_scope (false);
@@ -1040,7 +1040,7 @@ namespace build2
           const string& vname (i == e ? a : *i++);
 
           if (i != e)
-            fail (ll) << "unexpected argument";
+            fail (ll) << "unexpected argument '" << *i << "'";
 
           if (ats != nullptr && ats->empty ())
             fail (ll) << "empty variable attributes";

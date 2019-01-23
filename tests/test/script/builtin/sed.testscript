@@ -109,7 +109,7 @@
   $c <"sed -e 's/a//' a b" && $b 2>>/EOE != 0
   testscript:1:1: error: sed exit code 1 != 0
     info: stderr: test/1/stderr
-  sed: unexpected argument
+  sed: unexpected argument 'b'
     info: test id: 1
   EOE
 }

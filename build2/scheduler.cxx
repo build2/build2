@@ -11,6 +11,14 @@
 #  endif
 #endif
 
+#ifndef _WIN32
+#  include <thread> // this_thread::sleep_for()
+#else
+#  include <libbutl/win32-utility.hxx>
+
+#  include <chrono>
+#endif
+
 #include <cerrno>
 #include <exception> // std::terminate()
 
@@ -173,6 +181,24 @@ namespace build2
 
     if (shutdown_)
       throw_generic_error (ECANCELED);
+  }
+
+  void scheduler::
+  sleep (const duration& d)
+  {
+    deactivate ();
+
+    // MINGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
+    //
+#ifndef _WIN32
+    this_thread::sleep_for (d);
+#else
+    using namespace chrono;
+
+    Sleep (static_cast<DWORD> (duration_cast<milliseconds> (d).count ()));
+#endif
+
+    activate ();
   }
 
   size_t scheduler::
