@@ -193,8 +193,7 @@ namespace build2
                 // Enable starting with GCC 9.0.0 (currently the c++-modules
                 // branch).
                 //
-                if (l && // Barely usable at the moment.
-                    mj >= 9 &&
+                if (mj >= 9 &&
                     ci.version.build.find ("c++-modules") != string::npos)
                 {
                   // Currently defines __cpp_modules=201804 which is said to
