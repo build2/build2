@@ -135,8 +135,6 @@ namespace build2
       // of the MT-safety.
       //
       standard_version_constraint c;
-
-      try
       {
         auto i (m.dependencies.find (pn));
 
@@ -146,12 +144,15 @@ namespace build2
         if (i->second.empty ())
           fail (l) << "no version constraint for dependency " << pn;
 
-        c = standard_version_constraint (i->second);
-      }
-      catch (const invalid_argument& e)
-      {
-        fail (l) << "invalid version constraint for dependency " << pn
-                 << ": " << e;
+        try
+        {
+          c = standard_version_constraint (i->second, m.version);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (l) << "invalid version constraint for dependency " << pn
+                   << " " << i->second << ": " << e;
+        }
       }
 
       // Now substitute.

@@ -120,26 +120,12 @@ namespace build2
                 string d (v, b, e - b);
                 trim (d);
 
-                p = d.find_first_of (" \t=<>[(");
+                p = d.find_first_of (" \t=<>[(~^");
                 string n (d, 0, p);
                 string c (p != string::npos ? string (d, p) : string ());
 
                 trim (n);
                 trim (c);
-
-                // If this is a dependency on the build system itself, check
-                // it (so there is no need for explicit using build@X.Y.Z).
-                //
-                if (n == "build2" && !c.empty ())
-                try
-                {
-                  check_build_version (standard_version_constraint (c), l);
-                }
-                catch (const invalid_argument& e)
-                {
-                  fail (l) << "invalid version constraint for dependency "
-                           << d << ": " << e;
-                }
 
                 try
                 {
@@ -190,6 +176,24 @@ namespace build2
         }
         else
           committed = false;
+      }
+
+      // If there is a dependency on the build system itself, check it (so
+      // there is no need for explicit using build@X.Y.Z).
+      //
+      {
+        auto i (ds.find ("build2"));
+
+        if (i != ds.end () && !i->second.empty ())
+        try
+        {
+          check_build_version (standard_version_constraint (i->second, v), l);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (l) << "invalid version constraint for dependency build2 "
+                   << i->second << ": " << e;
+        }
       }
 
       // Set all the version.* variables.
