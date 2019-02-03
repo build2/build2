@@ -524,7 +524,7 @@ namespace build2
       {
         auto& v (var_pool.rw (rs));
 
-        v.insert<process_path> ("bin.rc.path");
+        v.insert<process_path> ("bin.ar.path");
         v.insert<process_path> ("bin.ranlib.path");
 
         v.insert<path>         ("config.bin.ar", true);
