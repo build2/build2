@@ -3011,16 +3011,16 @@ namespace build2
                   args.push_back ("-fPIC");
               }
 
+              args.push_back ("-E");
+
+              args.push_back ("-x");
+              args.push_back (langopt (md));
+
               // Options that trigger preprocessing of partially preprocessed
               // output are a bit of a compiler-specific voodoo.
               //
-              args.push_back ("-E");
-
               if (ps)
               {
-                args.push_back ("-x");
-                args.push_back (langopt (md));
-
                 if (ctype == compiler_type::gcc)
                 {
                   args.push_back ("-fpreprocessed");
