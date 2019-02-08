@@ -1,3 +1,128 @@
+Version 0.9.0
+
+ * New "Diagnostics and Debugging" section in the manual on debugging build
+   issues.
+
+ * Support for dependency chains.
+
+   Now instead of:
+
+   ./: exe{foo}
+   exe{foo}: cxx{*}
+
+   We can write:
+
+   ./: exe{foo}: cxx{*}
+
+   Or even:
+
+   ./: exe{foo}: libue{foo}: cxx{*}
+
+   This can be combined with prerequisite-specific variables (which naturally
+   only apply to the last set of prerequisites in the chain):
+
+   ./: exe{foo}: libue{foo}: bin.whole = false
+
+ * Support for target and prerequisite specific variable blocks.
+
+   For example, now instead of:
+
+   lib{foo}: cxx.loptions += -static
+   lib{foo}: cxx.libs += -lpthread
+
+   We can write:
+
+   lib{foo}:
+   {
+     cxx.loptions += -static
+     cxx.libs += -lpthread
+   }
+
+   The same works for prerequisites as well as target type/patterns. For
+   example:
+
+   exe{*.test}:
+   {
+     test = true
+     install = false
+   }
+
+ * Fallback to loading outer buildfile if there isn't one in the target's
+   directory (src_base).
+
+   This covers the case where the target is defined in the outer buildfile
+   which is common with non-intrusive project conversions where everything is
+   built from a single root buildfile.
+
+ * Command line variable override scope syntax is now consistent with
+   buildfile syntax.
+
+   Before:
+
+   $ b dir/:foo=bar ...
+
+   After:
+
+   $ b dir/foo=bar
+
+   Alternatively (the buildfile syntax):
+
+   $ b 'dir/ foo=bar'
+
+   Note that the (rarely used) scope visibility modifier now leads to a double
+   slash:
+
+   $ b dir//foo=bar
+
+ * Support for relative to base scope command line variable overrides.
+
+   Currently, if we do:
+
+   $ b dir/ ./foo=bar
+
+   The scope the foo=bar is set on is relative to CWD, not dir/. While this
+   may seem wrong at first, this is the least surprising behavior when we take
+   into account that there can be multiple dir/'s.
+
+   Sometimes, however, we do want the override directory to be treated
+   relative to (every) target's base scope that we are building. To support
+   this we are extending the '.' and '..' special directory names (which are
+   still resolved relative to CWD) with '...', which means "relative to the
+   base scope of every target in the buildspec". For example:
+
+   $ b dir/ .../foo=bar
+
+   Is equivalent to:
+
+   $ b dir/ dir/foo=bar
+
+   And:
+
+   $ b liba/ libb/ .../tests/foo=bar
+
+   Is equivalent to:
+
+   $ b liba/ libb/ liba/tests/foo=bar libb/tests/foo=bar
+
+ * New config.{c,cxx}.{id,version,target} configuration variables.
+
+   These variables allow overriding guessed compiler id/version/target, for
+   example, in case of mis-guesses or when working with compilers that don't
+   report their base (e.g., GCC, Clang) with -v/--version (common in the
+   embedded space).
+
+ * New --[no-]mtime-check options to control backwards modification time
+   checks at runtime.
+
+   By default the checks are enabled only for the staged toolchain.
+
+ * New --dump <phase> option, remove state dumping from verbosity level 6.
+
+ * The info meta-operation new prints the list of operations and meta-
+   operations supported by the project.
+
+ * New sleep Testscript builtin.
+
 Version 0.8.0
 
  * BREAKING: rename the .test extension (Testscript file) to .testscript and
