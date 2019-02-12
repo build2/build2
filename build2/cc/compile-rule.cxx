@@ -1143,6 +1143,12 @@ namespace build2
                  << " in variable " << var.name
                  << " for target " << t;
 
+          // If the directory is not normalized, we can complain or normalize
+          // it. Let's go with normalizing to minimize questions/complaints.
+          //
+          if (!d.normalized (false)) // Allow non-canonical dir separators.
+            d.normalize ();
+
           // If we are not inside our project root, then ignore.
           //
           if (!d.sub (out_root))
