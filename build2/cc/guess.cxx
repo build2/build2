@@ -1430,8 +1430,10 @@ namespace build2
 
         // Some overrides for testing.
         //
+        //string s;
         //s = "Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.30729.01 for 80x86";
         //s = "Compilador de optimizacion de C/C++ de Microsoft (R) version 16.00.30319.01 para x64";
+        //s = "Compilateur d'optimisation Microsoft (R) C/C++ version 19.16.27026.1 pour x64";
 
         // Scan the string as words and look for the version.
         //
@@ -1579,11 +1581,12 @@ namespace build2
           //
           // year   ver cl.exe  crt/dll
           //
-          // 2017   15u8  19.15  14.1/140
-          // 2017   15u7  19.14  14.1/140
-          // 2017   15u6  19.13  14.1/140
-          // 2017   15u5  19.12  14.1/140
-          // 2017   15u3  19.11  14.1/140
+          // 2017   15.9  19.16  14.1/140
+          // 2017   15.8  19.15  14.1/140
+          // 2017   15.7  19.14  14.1/140
+          // 2017   15.6  19.13  14.1/140
+          // 2017   15.5  19.12  14.1/140
+          // 2017   15.3  19.11  14.1/140
           // 2017   15    19.10  14.1/140
           // 2015   14    19.00  14.0/140
           // 2013   12    18.00  12.0/120
