@@ -305,8 +305,8 @@ namespace build2
             {
               // This is something like -lpthread or shell32.lib so should be
               // a valid path. But it can also be an absolute library path
-              // (e.g., something that in the future will come from our
-              // -static/-shared .pc files.
+              // (e.g., something that may come from our .static/shared.pc
+              // files).
               //
               if (proc_lib)
                 proc_lib (nullptr, n.value, 0, sys_simple (n.value));

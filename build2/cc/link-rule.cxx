@@ -1193,7 +1193,10 @@ namespace build2
         linfo       li;
       } d {args, l, a, li};
 
-      auto imp = [] (const file&, bool la) {return la;};
+      auto imp = [] (const file&, bool la)
+      {
+        return la;
+      };
 
       auto lib = [&d, this] (const file* const* lc,
                              const string& p,
@@ -1204,7 +1207,11 @@ namespace build2
 
         if (l == nullptr)
         {
-          d.args.push_back (p);
+          // Don't try to link a library (whether -lfoo or foo.lib) to a
+          // static library.
+          //
+          if (d.li.type != otype::a)
+            d.args.push_back (p);
         }
         else
         {
@@ -1313,9 +1320,16 @@ namespace build2
         }
       };
 
-      auto opt = [&args, this] (
-        const file& l, const string& t, bool com, bool exp)
+      auto opt = [&d, this] (const file& l,
+                             const string& t,
+                             bool com,
+                             bool exp)
       {
+        // Don't try to pass any loptions when linking a static library.
+        //
+        if (d.li.type == otype::a)
+          return;
+
         // If we need an interface value, then use the group (lib{}).
         //
         if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
@@ -1327,7 +1341,7 @@ namespace build2
                ? (exp ? x_export_loptions : x_loptions)
                : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-          append_options (args, *g, var);
+          append_options (d.args, *g, var);
         }
       };
 
@@ -1341,8 +1355,6 @@ namespace build2
                     const file& l, bool la, lflags lf,
                     const scope& bs, action a, linfo li) const
     {
-      auto imp = [] (const file&, bool la) {return la;};
-
       struct data
       {
         sha256&         cs;
@@ -1351,6 +1363,11 @@ namespace build2
         timestamp       mt;
         linfo           li;
       } d {cs, bs.root_scope ()->out_path (), update, mt, li};
+
+      auto imp = [] (const file&, bool la)
+      {
+        return la;
+      };
 
       auto lib = [&d, this] (const file* const* lc,
                              const string& p,
@@ -1361,7 +1378,8 @@ namespace build2
 
         if (l == nullptr)
         {
-          d.cs.append (p);
+          if (d.li.type != otype::a)
+            d.cs.append (p);
         }
         else
         {
@@ -1407,9 +1425,14 @@ namespace build2
         }
       };
 
-      auto opt = [&cs, this] (
-        const file& l, const string& t, bool com, bool exp)
+      auto opt = [&d, this] (const file& l,
+                             const string& t,
+                             bool com,
+                             bool exp)
       {
+        if (d.li.type == otype::a)
+          return;
+
         if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
           const variable& var (
@@ -1419,7 +1442,7 @@ namespace build2
                ? (exp ? x_export_loptions : x_loptions)
                : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-          hash_options (cs, *g, var);
+          hash_options (d.cs, *g, var);
         }
       };
 
