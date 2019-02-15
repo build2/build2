@@ -321,7 +321,7 @@ namespace build2
       // it's possible the compiler uses some carefully crafted sysroot and by
       // adding /usr/local/* we will just mess things up. So the heuristics
       // that we will use is this: if the compiler's system include directories
-      // contain /usr/include then we add /usr/local/*.
+      // contain /usr[/local]/include then we add /usr/local/*.
       //
       // Note that similar to GCC we also check for the directory existence.
       // Failed that, we can end up with some bizarre yo-yo'ing cases where
@@ -332,21 +332,24 @@ namespace build2
         auto& is (inc_dirs);
         auto& ls (lib_dirs);
 
-        if (find (is.begin (), is.end (), usr_inc) != is.end ())
+        bool ui  (find (is.begin (), is.end (), usr_inc)     != is.end ());
+        bool uli (find (is.begin (), is.end (), usr_loc_inc) != is.end ());
+
+        if (ui || uli)
         {
+          bool ull (find (ls.begin (), ls.end (), usr_loc_lib) != ls.end ());
+
           // Many platforms don't search in /usr/local/lib by default (but do
           // for headers in /usr/local/include). So add it as the last option.
           //
-          if (find (ls.begin (), ls.end (), usr_loc_lib) == ls.end () &&
-              exists (usr_loc_lib, true /* ignore_error */))
+          if (!ull && exists (usr_loc_lib, true /* ignore_error */))
             ls.push_back (usr_loc_lib);
 
           // FreeBSD is at least consistent: it searches in neither. Quoting
           // its wiki: "FreeBSD can't even find libraries that it installed."
           // So let's help it a bit.
           //
-          if (find (is.begin (), is.end (), usr_loc_inc) == is.end () &&
-              exists (usr_loc_inc, true /* ignore_error */))
+          if (!uli && exists (usr_loc_inc, true /* ignore_error */))
             is.push_back (usr_loc_inc);
         }
       }
