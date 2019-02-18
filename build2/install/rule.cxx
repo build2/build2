@@ -621,10 +621,14 @@ namespace build2
       dir_path d (n ? p->directory () : path_cast<dir_path> (*p));
 
       install_dirs ids (resolve (f, d));
-      if (auto l = f["install.subdirs"])
+
+      if (!n)
       {
-        if (cast<bool> (l))
-          resolve_subdir (ids, f, f.base_scope (), l);
+        if (auto l = f["install.subdirs"])
+        {
+          if (cast<bool> (l))
+            resolve_subdir (ids, f, f.base_scope (), l);
+        }
       }
 
       return ids.back ().dir / (n ? p->leaf () : f.path ().leaf ());
@@ -868,12 +872,16 @@ namespace build2
         //
         install_dirs ids (resolve (t, d));
 
-        // Handle install.subdirs if one was specified.
+        // Handle install.subdirs if one was specified. Unless the target path
+        // includes the file name in which case we assume it's a "final" path.
         //
-        if (auto l = t["install.subdirs"])
+        if (!n)
         {
-          if (cast<bool> (l))
-            resolve_subdir (ids, t, t.base_scope (), l);
+          if (auto l = t["install.subdirs"])
+          {
+            if (cast<bool> (l))
+              resolve_subdir (ids, t, t.base_scope (), l);
+          }
         }
 
         // Create leading directories. Note that we are using the leading
@@ -1135,10 +1143,13 @@ namespace build2
 
         // Handle install.subdirs if one was specified.
         //
-        if (auto l = t["install.subdirs"])
+        if (!n)
         {
-          if (cast<bool> (l))
-            resolve_subdir (ids, t, t.base_scope (), l);
+          if (auto l = t["install.subdirs"])
+          {
+            if (cast<bool> (l))
+              resolve_subdir (ids, t, t.base_scope (), l);
+          }
         }
 
         // Remove extras and the target itself.
