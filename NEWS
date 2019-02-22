@@ -118,7 +118,7 @@ Version 0.9.0
 
  * New --dump <phase> option, remove state dumping from verbosity level 6.
 
- * The info meta-operation new prints the list of operations and meta-
+ * The info meta-operation now prints the list of operations and meta-
    operations supported by the project.
 
  * New sleep Testscript builtin.
