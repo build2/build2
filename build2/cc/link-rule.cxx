@@ -6,6 +6,7 @@
 
 #include <map>
 #include <cstdlib>  // exit()
+#include <cstring>  // strlen()
 
 #include <libbutl/path-map.mxx>
 #include <libbutl/filesystem.mxx> // file_exists()
@@ -2304,9 +2305,14 @@ namespace build2
 
       args[0] = ld->recall_string ();
 
-      // Append input files. The same logic as during hashing above.
+      // Append input files noticing the position of the first.
       //
-      // See also a similar loop inside append_libraries().
+#ifdef _WIN32
+      size_t args_input (args.size ());
+#endif
+
+      // The same logic as during hashing above. See also a similar loop
+      // inside append_libraries().
       //
       for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
@@ -2344,7 +2350,7 @@ namespace build2
         sargs.push_back (relative (manifest).string ());
 
       // Shallow-copy sargs to args. Why not do it as we go along pushing into
-      // sargs? Because of potential reallocations.
+      // sargs? Because of potential reallocations in sargs.
       //
       for (const string& a: sargs)
         args.push_back (a.c_str ());
@@ -2419,17 +2425,103 @@ namespace build2
           try_rmfile (relt, true);
       }
 
-      // Remove the target file if any of the subsequent (after ld) actions
-      // fail or if ld fails but does not clean up its mess (like link.exe).
-      // If we don't do that, then we will end up with a broken build that is
-      // up-to-date.
+      // Remove the target file if any of the subsequent (after the linker)
+      // actions fail or if the linker fails but does not clean up its mess
+      // (like link.exe). If we don't do that, then we will end up with a
+      // broken build that is up-to-date.
       //
       auto_rmfile rm (relt);
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb)
+      if (verb == 1)
         text << (lt.static_library () ? "ar " : "ld ") << t;
+      else if (verb == 2)
+        print_process (args);
+
+      // Do any necessary fixups to the command line to make it runnable.
+      //
+      // Notice the split in the diagnostics: at verbosity level 1 we print
+      // the "logical" command line while at level 2 and above -- what we are
+      // actually executing.
+      //
+      // On Windows we need to deal with the command line length limit. The
+      // best workaround seems to be passing (part of) the command line in an
+      // "options file" ("response file" in Microsoft's terminology). Both
+      // Microsoft's link.exe/lib.exe as well as GNU g??.exe/ar.exe support
+      // the same @<file> notation (and with a compatible subset of the
+      // content format; see below). Note also that GCC is smart enough to use
+      // an options file to call the underlying linker if we called it with
+      // @<file>. We will also assume that any other linker that we might be
+      // using supports this notation.
+      //
+      // Note that this is a limitation of the host platform, not the target
+      // (and Wine, where these lines are a bit blurred, does not have this
+      // length limitation).
+      //
+#ifdef _WIN32
+      auto_rmfile trm;
+      string targ;
+      {
+        // Calculate the would-be command line length similar to how process'
+        // implementation does it.
+        //
+        auto quote = [s = string ()] (const char* a) mutable -> const char*
+        {
+          return process::quote_argument (a, s);
+        };
+
+        size_t n (0);
+        for (const char* a: args)
+        {
+          if (a != nullptr)
+          {
+            if (n != 0)
+              n++; // For the space separator.
+
+            n += strlen (quote (a));
+          }
+        }
+
+        if (n > 32766) // 32768 - "Unicode terminating null character".
+        {
+          // Use the .t extension (for "temporary").
+          //
+          const path& f ((trm = auto_rmfile (relt + ".t")).path);
+
+          try
+          {
+            ofdstream ofs (f);
+
+            // Both Microsoft and GNU support a space-separated list of
+            // potentially-quoted arguments. GNU also supports backslash-
+            // escaping but whether Microsoft supports it is unclear.
+            //
+            for (size_t i (args_input), n (args.size () - 1); i != n; ++i)
+            {
+              ofs << (i != args_input ? " " : "") << quote (args[i]);
+            }
+
+            ofs << '\n';
+            ofs.close ();
+          }
+          catch (const io_error& e)
+          {
+            fail << "unable to write " << f << ": " << e;
+          }
+
+          // Replace input arguments with @file.
+          //
+          targ = '@' + f.string ();
+          args.resize (args_input);
+          args.push_back (targ.c_str());
+          args.push_back (nullptr);
+
+          //@@ TODO: leave .t file if linker failed and verb > 2?
+        }
+      }
+#endif
+
+      if (verb > 2)
+        print_process (args);
 
       try
       {
@@ -2479,7 +2571,13 @@ namespace build2
         // the stack and running destructors).
         //
         if (e.child)
+        {
+          rm.cancel ();
+#ifdef _WIN32
+          trm.cancel ();
+#endif
           exit (1);
+        }
 
         throw failed ();
       }
@@ -2597,6 +2695,9 @@ namespace build2
     {
       const file& t (xt.as<file> ());
       ltype lt (link_type (t));
+
+      //@@ TODO add .t to clean if _WIN32 (currently that would be just too
+      //   messy).
 
       if (lt.executable ())
       {
