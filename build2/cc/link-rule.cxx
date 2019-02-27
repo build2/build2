@@ -2493,11 +2493,31 @@ namespace build2
 
             // Both Microsoft and GNU support a space-separated list of
             // potentially-quoted arguments. GNU also supports backslash-
-            // escaping but whether Microsoft supports it is unclear.
+            // escaping (whether Microsoft supports it is unclear; but it
+            // definitely doesn't need it for backslashes themselves, for
+            // example, in paths).
             //
+            bool e (tsys != "win32-msvc"); // Assume GNU if not MSVC.
+            string b;
+
             for (size_t i (args_input), n (args.size () - 1); i != n; ++i)
             {
-              ofs << (i != args_input ? " " : "") << quote (args[i]);
+              const char* a (args[i]);
+
+              if (e) // We will most likely have backslashes so just do it.
+              {
+                for (b.clear (); *a != '\0'; ++a)
+                {
+                  if (*a != '\\')
+                    b += *a;
+                  else
+                    b += "\\\\";
+                }
+
+                a = b.c_str ();
+              }
+
+              ofs << (i != args_input ? " " : "") << quote (a);
             }
 
             ofs << '\n';
