@@ -2837,6 +2837,8 @@ namespace build2
                 // - Using __COUNTER__ in #if which is incompatible with the
                 //   GCC's -fdirectives-only mode.
                 //
+                // - A Clang bug: https://bugs.llvm.org/show_bug.cgi?id=35580
+                //
                 // So let's show the yo-yo'ing command lines and ask the user
                 // to investigate.
                 //
