@@ -2842,6 +2842,12 @@ namespace build2
                 // So let's show the yo-yo'ing command lines and ask the user
                 // to investigate.
                 //
+                // Note: we could restart one more time but this time without
+                // suppressing diagnostics. This could be useful since, say,
+                // running out of disk space may not reproduce on its own (for
+                // example, because we have removed all the partially
+                // preprocessed source files).
+                //
                 if (force_gen_skip && *force_gen_skip == skip_count)
                 {
                   diag_record dr (fail);
