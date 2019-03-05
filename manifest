@@ -11,7 +11,7 @@ doc-url: https://build2.org/doc.xhtml
 src-url: https://git.build2.org/cgit/build2/tree/
 email: users@build2.org
 build-email: builds@build2.org
-#builds: all
+builds: all
 requires: c++14
 depends: * build2 >= 0.9.0
 depends: * bpkg >= 0.9.0
