@@ -5,7 +5,7 @@
 import libs  = libbutl%lib{butl}
 import libs += libpkgconf%lib{pkgconf}
 
-exe{b}:  cxx{b} libue{b}
+exe{b}: cxx{b} libue{b}
 
 libue{b}: {hxx ixx txx cxx}{** -b -b-options -config -version} \
           {hxx ixx cxx}{b-options} {hxx}{config version}       \
@@ -14,6 +14,8 @@ libue{b}: {hxx ixx txx cxx}{** -b -b-options -config -version} \
 hxx{config}: in{config}
 hxx{version}: in{version} $src_root/manifest
 
+# Build options.
+#
 # Pass our compiler target to be used as build2 host.
 #
 obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
@@ -63,15 +65,18 @@ if $cli.configured
   cli.options += --suppress-undocumented --long-usage --ansi-color \
 --page-usage 'build2::print_$name$_' --option-length 20
 
-  # Include the generated cli files into the distribution and don't remove
-  # them when cleaning in src (so that clean results in a state identical to
-  # distributed).
-  #
-  cli.cxx{*}: dist  = true
-  cli.cxx{*}: clean = ($src_root != $out_root)
+  cli.cxx{*}:
+  {
+    # Include the generated cli files into the distribution and don't remove
+    # them when cleaning in src (so that clean results in a state identical to
+    # distributed).
+    #
+    dist  = true
+    clean = ($src_root != $out_root)
 
-  # We keep the generated code in the repository so copy it back to src in
-  # case of a forwarded configuration.
-  #
-  cli.cxx{*}: backlink = overwrite
+    # We keep the generated code in the repository so copy it back to src in
+    # case of a forwarded configuration.
+    #
+    backlink = overwrite
+  }
 }
