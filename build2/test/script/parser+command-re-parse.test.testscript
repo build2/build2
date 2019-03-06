@@ -1,0 +1,12 @@
+# file      : build2/test/script/parser+command-re-parse.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: double-quote
+:
+$* <<EOI >>EOO
+x = cmd \">-\" "'<-'"
+$x
+EOI
+cmd '>-' '<-'
+EOO

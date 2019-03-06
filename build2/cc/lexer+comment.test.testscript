@@ -1,0 +1,88 @@
+# file      : build2/cc/lexer+comment.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test C and C++ comments.
+#
+
+: c-comment
+:
+$* <<EOI
+/* 'one' */
+/* "two" // three
+*/
+/**
+four
+// five */
+/**
+six /*
+*/
+EOI
+
+: cxx-comment
+:
+$* <<EOI
+// 'one'
+// "two" // three
+// four /* five */
+EOI
+
+: commented-out
+:
+$* <<EOI >"';'"
+// /*
+;
+// */
+EOI
+
+: c-unterminated
+:
+$* <<EOI 2>>EOE != 0
+/*
+comment
+EOI
+stdin:1:2: error: unterminated comment
+EOE
+
+: cxx-unterminated
+:
+$* <<:EOI
+// comment
+EOI
+
+: in-char-literal
+:
+$* <<EOI >>EOO
+'//'
+'/*'*/
+EOI
+<char literal>
+<char literal>
+<punctuation>
+<punctuation>
+EOO
+
+: in-string-literal
+:
+$* <<EOI >>EOO
+"//foo"
+"/*"*/
+EOI
+<string literal>
+<string literal>
+<punctuation>
+<punctuation>
+EOO
+
+: in-raw-string-literal
+:
+$* <<EOI >>EOO
+R"X(
+// foo
+/* bar
+)X"*/
+EOI
+<string literal>
+<punctuation>
+<punctuation>
+EOO

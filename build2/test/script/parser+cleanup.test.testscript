@@ -1,0 +1,58 @@
+# file      : build2/test/script/parser+cleanup.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: always
+:
+$* <<EOI >>EOO
+cmd &file
+EOI
+cmd &file
+EOO
+
+: maybe
+:
+$* <<EOI >>EOO
+cmd &?file
+EOI
+cmd &?file
+EOO
+
+: never
+:
+$* <<EOI >>EOO
+cmd &!file
+EOI
+cmd &!file
+EOO
+
+: empty
+:
+$* <<EOI 2>>EOE != 0
+cmd &""
+EOI
+testscript:1:6: error: empty cleanup path
+EOE
+
+: missed-before
+:
+{
+  : token
+  :
+  : Path missed before command next token
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd & >file
+  EOI
+  testscript:1:7: error: missing cleanup path
+  EOE
+
+  : end
+  : Test path missed before end of command
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd &
+  EOI
+  testscript:1:6: error: missing cleanup path
+  EOE
+}

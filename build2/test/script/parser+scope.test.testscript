@@ -1,0 +1,280 @@
+# file      : build2/test/script/parser+scope.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+$* testscript     <'cmd $@' >"cmd 1"     : id-testscript
+$* foo.testscript <'cmd $@' >"cmd foo/1" : id
+
+: wd-testscript
+:
+$* testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]1'?%"
+
+: wd
+:
+$* foo.testscript <'cmd "$~"' >~"%cmd '?.+[/\\\\]test-driver[/\\\\]foo[/\\\\]1'?%"
+
+: group
+:
+{
+  : empty
+  :
+  $* -s <<EOI
+  {
+  }
+  EOI
+
+  : empty-empty
+  :
+  $* -s <<EOI
+  {
+    {
+    }
+  }
+  EOI
+
+  : non-empty
+  :
+  $* -s <<EOI >>EOO
+  {
+    cmd1
+    cmd2
+  }
+  EOI
+  {
+    {
+      {
+        cmd1
+      }
+      {
+        cmd2
+      }
+    }
+  }
+  EOO
+}
+
+: test
+:
+{
+  : explicit
+  :
+  {
+    : one-level
+    :
+    $* -s -i <<EOI >>EOO
+    {
+      cmd
+    }
+    EOI
+    {
+      { # 1
+        cmd
+      }
+    }
+    EOO
+
+    : nested
+    :
+    $* -s -i <<EOI >>EOO
+    {
+      {
+        cmd
+      }
+    }
+    EOI
+    {
+      { # 1
+        cmd
+      }
+    }
+    EOO
+
+    : var
+    :
+    $* -s -i <<EOI >>EOO
+    {
+      x = abc
+      cmd $x
+    }
+    EOI
+    {
+      { # 1
+        cmd abc
+      }
+    }
+    EOO
+
+    : setup
+    :
+    $* -s -i <<EOI >>EOO
+    {
+      x = abc
+      +setup
+      cmd $x
+    }
+    EOI
+    {
+      { # 1
+        +setup
+        { # 1/4
+          cmd abc
+        }
+      }
+    }
+    EOO
+  }
+
+  : implicit
+  {
+    : one-cmd
+    :
+    $* -s <<EOI >>EOO
+    cmd1
+    EOI
+    {
+      {
+        cmd1
+      }
+    }
+    EOO
+
+    : two-cmd
+    :
+    $* -s <<EOI >>EOO
+    cmd1;
+    cmd2
+    EOI
+    {
+      {
+        cmd1
+        cmd2
+      }
+    }
+    EOO
+
+    : three-cmd
+    :
+    $* -s <<EOI >>EOO
+    cmd1;
+    cmd2;
+    cmd3
+    EOI
+    {
+      {
+        cmd1
+        cmd2
+        cmd3
+      }
+    }
+    EOO
+
+    : var
+    :
+    $* -s <<EOI >>EOO
+    cmd1;
+    x = abc;
+    cmd2 $x
+    EOI
+    {
+      {
+        cmd1
+        cmd2 abc
+      }
+    }
+    EOO
+
+    : var-first
+    :
+    $* -s <<EOI >>EOO
+    x = abc;
+    cmd $x
+    EOI
+    {
+      {
+        cmd abc
+      }
+    }
+    EOO
+
+    : var-setup-tdown
+    :
+    $* -s <<EOI >>EOO
+    x = abc
+    cmd $x
+    y = 123
+    EOI
+    {
+      {
+        cmd abc
+      }
+    }
+    EOO
+
+    : after-tdown
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd1
+    x = abc
+    cmd2
+    EOI
+    testscript:3:1: error: test after teardown
+      testscript:2:1: info: last teardown line appears here
+    EOE
+  }
+}
+
+: expected
+{
+  : newline-lcbrace
+  :
+  $* <:"{x" 2>>EOE != 0
+  testscript:1:2: error: expected newline after '{'
+  EOE
+
+  : rcbrace
+  :
+  $* <"{" 2>>EOE != 0
+  testscript:2:1: error: expected '}' at the end of the scope
+  EOE
+
+  : line-rcbrace
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    cmd;
+  }
+  EOI
+  testscript:3:1: error: expected another line after ';'
+  EOE
+
+  : newline-rcbrace
+  :
+  $* <<:EOI 2>>EOE != 0
+  {
+  }
+  EOI
+  testscript:2:2: error: expected newline after '}'
+  EOE
+
+  : line-eof
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd;
+  EOI
+  testscript:2:1: error: expected another line after ';'
+  EOE
+
+  : newline-cmd
+  :
+  $* <<:EOI 2>>EOE != 0
+  cmd;
+  EOI
+  testscript:1:5: error: expected newline instead of <end of file>
+  EOE
+
+  : newline-var
+  :
+  $* <:"x = abc;" 2>>EOE != 0
+  testscript:1:9: error: expected newline instead of <end of file>
+  EOE
+}

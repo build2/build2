@@ -1,6 +1,0 @@
-# file      : unit-tests/cc/lexer/buildfile
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
-# license   : MIT; see accompanying LICENSE file
-
-include ../../../build2/
-exe{driver}: {hxx cxx}{*} ../../../build2/libue{b} testscript{*}

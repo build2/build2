@@ -1,0 +1,36 @@
+# file      : build2/test/script/parser+expansion.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: quote
+:
+: Make sure everything expanded as strings.
+:
+$* <<EOI >>EOO
+x = dir/ proj% proj%name proj%proj%dir/type{name   name   {name}}
+cmd dir/ proj% proj%name proj%proj%dir/type{name   name   {name}}
+cmd $x
+EOI
+cmd dir/ proj% proj%name proj%proj%dir/type{name name {name}}
+cmd dir/ proj% proj%name proj%proj%dir/type{name name {name}}
+EOO
+
+: unterm-quoted-seq
+:
+$* <<EOI 2>>EOE != 0
+x = "'a bc"
+cmd xy$x
+EOI
+<string>:1:8: error: unterminated single-quoted sequence
+  testscript:2:5: info: while parsing string 'xy'a bc'
+EOE
+
+: invalid-redirect
+:
+$* <<EOI 2>>EOE != 0
+x = "1>&a"
+cmd $x
+EOI
+<string>:1:4: error: stdout merge redirect file descriptor must be 2
+  testscript:2:5: info: while parsing string '1>&a'
+EOE

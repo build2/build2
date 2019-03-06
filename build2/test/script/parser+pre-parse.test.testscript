@@ -1,0 +1,23 @@
+# file      : build2/test/script/parser+pre-parse.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: attribute
+:
+{
+  : pair
+  :
+  $* <<EOI 2>>EOE != 0
+  x = [foo=bar]
+  EOI
+  testscript:1:5: error: unknown value attribute foo=bar
+  EOE
+
+  : pair-empty
+  :
+  $* <<EOI 2>>EOE != 0
+  x = [foo=]
+  EOI
+  testscript:1:5: error: unknown value attribute foo
+  EOE
+}

@@ -34,12 +34,6 @@ using c
 #
 using? cli
 
-# All exe{} in unit-tests/ are, well, tests. Also don't link whole archives
-# by default there.
-#
-unit-tests/exe{*}: test = true
-unit-tests/libu{*}: bin.whole = false
-
 # Specify the test target for cross-testing.
 #
 test.target = $cxx.target
