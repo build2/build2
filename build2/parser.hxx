@@ -610,11 +610,12 @@ namespace build2
     bool boot_;
 
     const path* path_; // Current path.
-    lexer* lexer_;
-    prerequisite* prerequisite_; // Current prerequisite, if any.
-    target* target_;             // Current target, if any.
-    scope* scope_;               // Current base scope (out_base).
-    scope* root_;                // Current root scope (out_root).
+    lexer*      lexer_;
+
+    prerequisite* prerequisite_ = nullptr; // Current prerequisite, if any.
+    target*       target_       = nullptr; // Current target, if any.
+    scope*        scope_        = nullptr; // Current base scope (out_base).
+    scope*        root_         = nullptr; // Current root scope (out_root).
 
     const dir_path* pbase_ = nullptr; // Current pattern base directory.
 
