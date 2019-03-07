@@ -284,7 +284,7 @@ namespace build2
       // If the dist module is used, set its dist.package and register the
       // post-processing callback.
       //
-      if (auto* dm = rs.modules.lookup<dist::module> (dist::module::name))
+      if (auto* dm = rs.lookup_module<dist::module> (dist::module::name))
       {
         // Make sure dist is init'ed, not just boot'ed.
         //

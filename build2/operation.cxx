@@ -524,8 +524,8 @@ namespace build2
         << "out_root: "     << cast<dir_path> (rs[var_out_root]) << endl
         << "amalgamation: " << cast_empty<dir_path> (rs[var_amalgamation]) << endl
         << "subprojects: "  << cast_empty<subprojects> (rs[var_subprojects]) << endl
-        << "operations:";      print_ops (rs.operations, operation_table); cout << endl
-        << "meta-operations:"; print_ops (rs.meta_operations, meta_operation_table); cout << endl;
+        << "operations:";      print_ops (rs.root_extra->operations, operation_table); cout << endl
+        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, meta_operation_table); cout << endl;
     }
   }
 

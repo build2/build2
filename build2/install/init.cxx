@@ -129,10 +129,10 @@ namespace build2
     functions (); // functions.cxx
 
     bool
-    boot (scope& r, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("install::boot");
-      l5 ([&]{trace << "for " << r.out_path ();});
+      l5 ([&]{trace << "for " << rs.out_path ();});
 
       // Register install function family if this is the first instance of the
       // install modules.
@@ -142,9 +142,9 @@ namespace build2
 
       // Register our operations.
       //
-      r.operations.insert (install_id,            op_install);
-      r.operations.insert (uninstall_id,          op_uninstall);
-      r.operations.insert (update_for_install_id, op_update_for_install);
+      rs.insert_operation (install_id,            op_install);
+      rs.insert_operation (uninstall_id,          op_uninstall);
+      rs.insert_operation (update_for_install_id, op_update_for_install);
 
       return false;
     }

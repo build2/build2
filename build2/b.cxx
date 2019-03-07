@@ -1076,7 +1076,7 @@ main (int argc, char* argv[])
             if (first)
             {
               mid = m;
-              mif = rs.meta_operations[m];
+              mif = rs.root_extra->meta_operations[m];
 
               if (mif == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
@@ -1088,7 +1088,8 @@ main (int argc, char* argv[])
             //
             else
             {
-              const meta_operation_info* mi (rs.meta_operations[mid]);
+              const meta_operation_info* mi (
+                rs.root_extra->meta_operations[mid]);
 
               if (mi == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
@@ -1132,7 +1133,7 @@ main (int argc, char* argv[])
               auto lookup =
                 [&rs, &l, &tn] (operation_id o) -> const operation_info*
                 {
-                  const operation_info* r (rs.operations[o]);
+                  const operation_info* r (rs.root_extra->operations[o]);
 
                   if (r == nullptr)
                     fail (l) << "target " << tn << " does not support "
@@ -1209,7 +1210,7 @@ main (int argc, char* argv[])
               auto check =
                 [&rs, &l, &tn] (operation_id o, const operation_info* i)
                 {
-                  const operation_info* r (rs.operations[o]);
+                  const operation_info* r (rs.root_extra->operations[o]);
 
                   if (r == nullptr)
                     fail (l) << "target " << tn << " does not support "

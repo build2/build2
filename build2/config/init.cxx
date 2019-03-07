@@ -52,8 +52,8 @@ namespace build2
       // Register meta-operations. Note that we don't register create_id
       // since it will be pre-processed into configure.
       //
-      rs.meta_operations.insert (configure_id, mo_configure);
-      rs.meta_operations.insert (disfigure_id, mo_disfigure);
+      rs.insert_meta_operation (configure_id, mo_configure);
+      rs.insert_meta_operation (disfigure_id, mo_disfigure);
 
       return true; // Initialize first (load config.build).
     }

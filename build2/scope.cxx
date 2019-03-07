@@ -424,8 +424,13 @@ namespace build2
 
     // Check the cache.
     //
+    variable_override_cache& cache (
+      inner_proj == global_scope
+      ? global_override_cache
+      : inner_proj->root_extra->override_cache);
+
     pair<value&, ulock> entry (
-      inner_proj->override_cache.insert (
+      cache.insert (
         make_pair (&var, inner_vars),
         stem,
         0, // Overrides are immutable.
@@ -792,6 +797,7 @@ namespace build2
   }
 
   scope* scope::global_;
+  scope::variable_override_cache scope::global_override_cache;
 
   // scope_map
   //

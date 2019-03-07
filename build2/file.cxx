@@ -278,25 +278,6 @@ namespace build2
       rs.out_path_ = &i->first;
     }
 
-    // First time create_root() is called on this scope.
-    //
-    bool first (rs.meta_operations.empty ());
-
-    // Enter built-in meta-operation and operation names. Loading of
-    // modules (via the src bootstrap; see below) can result in
-    // additional meta/operations being added.
-    //
-    if (first)
-    {
-      rs.meta_operations.insert (noop_id, mo_noop);
-      rs.meta_operations.insert (perform_id, mo_perform);
-      rs.meta_operations.insert (info_id, mo_info);
-
-      rs.operations.insert (default_id, op_default);
-      rs.operations.insert (update_id, op_update);
-      rs.operations.insert (clean_id, op_clean);
-    }
-
     // If this is already a root scope, verify that things are consistent.
     //
     {
@@ -474,7 +455,23 @@ namespace build2
         a ? alt_root_file        : std_root_file,
         a ? alt_export_file      : std_export_file,
         a ? alt_src_root_file    : std_src_root_file,
-        a ? alt_out_root_file    : std_out_root_file});
+        a ? alt_out_root_file    : std_out_root_file,
+        {}, /* meta_operations */
+        {}, /* operations */
+        {}, /* modules */
+        {}  /* override_cache */});
+
+    // Enter built-in meta-operation and operation names. Loading of
+    // modules (via the src bootstrap; see below) can result in
+    // additional meta/operations being added.
+    //
+    root.insert_meta_operation (noop_id,    mo_noop);
+    root.insert_meta_operation (perform_id, mo_perform);
+    root.insert_meta_operation (info_id,    mo_info);
+
+    root.insert_operation (default_id, op_default);
+    root.insert_operation (update_id,  op_update);
+    root.insert_operation (clean_id,   op_clean);
   }
 
   void
@@ -723,6 +720,16 @@ namespace build2
     {
       path f (exists (src_root, std_bootstrap_file, alt_bootstrap_file, altn));
 
+      if (root.root_extra == nullptr)
+      {
+        // If nothing so far has indicated the naming, assume standard.
+        //
+        if (!altn)
+          altn = false;
+
+        setup_root_extra (root, altn);
+      }
+
       if (!f.empty ())
       {
         // We assume that bootstrap out cannot load this file explicitly. It
@@ -737,16 +744,6 @@ namespace build2
 
         r = true;
       }
-    }
-
-    if (root.root_extra == nullptr)
-    {
-      // If nothing so far has indicated the naming, assume standard.
-      //
-      if (!altn)
-        altn = false;
-
-      setup_root_extra (root, altn);
     }
 
     // See if we are a part of an amalgamation. There are two key players: the
@@ -1176,7 +1173,7 @@ namespace build2
 
     // Finish off loading bootstrapped modules.
     //
-    for (auto& p: root.modules)
+    for (auto& p: root.root_extra->modules)
     {
       module_state& s (p.second);
 
@@ -1184,7 +1181,7 @@ namespace build2
         load_module (root, root, p.first, s.loc);
     }
 
-    for (auto& p: root.modules)
+    for (auto& p: root.root_extra->modules)
     {
       module_state& s (p.second);
 

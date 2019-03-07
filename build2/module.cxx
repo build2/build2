@@ -19,7 +19,7 @@ namespace build2
   {
     // First see if this modules has already been loaded for this project.
     //
-    loaded_module_map& lm (rs.modules);
+    loaded_module_map& lm (rs.root_extra->modules);
     auto i (lm.find (name));
 
     if (i != lm.end ())
@@ -62,7 +62,7 @@ namespace build2
   {
     // First see if this modules has already been loaded for this project.
     //
-    loaded_module_map& lm (rs.modules);
+    loaded_module_map& lm (rs.root_extra->modules);
     auto i (lm.find (name));
     bool f (i == lm.end ());
 

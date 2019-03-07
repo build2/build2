@@ -30,9 +30,9 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs.out_path ();});
 
-      // Register meta-operation.
+      // Register the meta-operation.
       //
-      rs.meta_operations.insert (dist_id, mo_dist);
+      rs.insert_meta_operation (dist_id, mo_dist);
 
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build (which is customary for, e.g., dist.package).

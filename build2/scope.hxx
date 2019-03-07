@@ -183,7 +183,8 @@ namespace build2
     //
     variable_type_map target_vars;
 
-    // Variable override cache (project root and global scope only).
+    // Variable override caches. Only on project roots (in root_extra) plus a
+    // global one for the global scope.
     //
     // The key is the variable plus the innermost (scope-wise) variable map to
     // which this override applies. See find_override() for details.
@@ -191,24 +192,17 @@ namespace build2
     // Note: since it can be modified on any lookup (including during the
     // execute phase), the cache is protected by its own mutex shard.
     //
-    mutable
-    variable_cache<pair<const variable*, const variable_map*>>
-    override_cache;
+    using variable_override_cache = variable_cache<pair<const variable*,
+                                                        const variable_map*>>;
 
-    // Meta/operations supported by this project (set on the root
-    // scope only).
-    //
-  public:
-    build2::meta_operations meta_operations;
-    build2::operations operations;
-
-    using path_type = build2::path;
+    static variable_override_cache global_override_cache;
 
     // Set of buildfiles already loaded for this scope. The included
     // buildfiles are checked against the project's root scope while
     // imported -- against the global scope (global_scope).
     //
-    std::unordered_set<path_type> buildfiles;
+  public:
+    std::unordered_set<path> buildfiles;
 
     // Target types.
     //
@@ -274,11 +268,6 @@ namespace build2
 
     operation_callback_map operation_callbacks;
 
-    // Modules.
-    //
-  public:
-    loaded_module_map modules; // Only on root scope.
-
     // Extra root scope-only data.
     //
   public:
@@ -300,9 +289,41 @@ namespace build2
       const path&     export_file;    // build[2]/export.build[2]
       const path&     src_root_file;  // build[2]/bootstrap/src-root.build[2]
       const path&     out_root_file;  // build[2]/bootstrap/src-root.build[2]
+
+      // Meta/operations supported by this project.
+      //
+      build2::meta_operations meta_operations;
+      build2::operations operations;
+
+      // Modules.
+      //
+      loaded_module_map modules;
+
+      // Variable override cache (see above).
+      //
+      mutable variable_override_cache override_cache;
     };
 
     unique_ptr<root_data> root_extra;
+
+    void
+    insert_operation (operation_id id, const operation_info& in)
+    {
+      root_extra->operations.insert (id, in);
+    }
+
+    void
+    insert_meta_operation (meta_operation_id id, const meta_operation_info& in)
+    {
+      root_extra->meta_operations.insert (id, in);
+    }
+
+    template <typename T>
+    T*
+    lookup_module (const string& name) const
+    {
+      return root_extra->modules.lookup<T> (name);
+    }
 
   public:
     // RW access.
@@ -337,7 +358,7 @@ namespace build2
 
     scope* parent_;
     scope* root_;
-    scope* strong_ = nullptr; // Only set on root sopes.
+    scope* strong_ = nullptr; // Only set on root scopes.
                               // NULL means no strong amalgamtion.
   };
 

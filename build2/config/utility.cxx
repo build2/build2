@@ -141,7 +141,7 @@ namespace build2
       // The project might not be using the config module. But then how
       // could we be configuring it? Good question.
       //
-      if (module* m = r.modules.lookup<module> (module::name))
+      if (module* m = r.lookup_module<module> (module::name))
         m->save_variable (var, flags);
     }
 
@@ -151,7 +151,7 @@ namespace build2
       if (current_mif->id != configure_id)
         return;
 
-      if (module* m = r.modules.lookup<module> (module::name))
+      if (module* m = r.lookup_module<module> (module::name))
         m->save_module (name, prio);
     }
 

@@ -143,11 +143,13 @@ namespace build2
       const path locf ("<dist>");
       const location loc (&locf); // Dummy location.
 
-      for (operations::size_type id (default_id + 1);
-           id < rs->operations.size ();
+      const operations& ops (rs->root_extra->operations);
+
+      for (operations::size_type id (default_id + 1); // Skip default_id.
+           id < ops.size ();
            ++id)
       {
-        if (const operation_info* oif = rs->operations[id])
+        if (const operation_info* oif = ops[id])
         {
           // Skip aliases (e.g., update-for-install). In fact, one can argue
           // the default update should be sufficient since it is assumed to
@@ -164,7 +166,7 @@ namespace build2
           {
             if (operation_id pid = oif->pre (params, dist_id, loc))
             {
-              const operation_info* poif (rs->operations[pid]);
+              const operation_info* poif (ops[pid]);
               set_current_oif (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
@@ -183,7 +185,7 @@ namespace build2
           {
             if (operation_id pid = oif->post (params, dist_id))
             {
-              const operation_info* poif (rs->operations[pid]);
+              const operation_info* poif (ops[pid]);
               set_current_oif (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
@@ -340,7 +342,7 @@ namespace build2
 
       // Copy over all the files. Apply post-processing callbacks.
       //
-      module& mod (*rs->modules.lookup<module> (module::name));
+      module& mod (*rs->lookup_module<module> (module::name));
 
       prog = prog && show_progress (1 /* max_verb */);
       size_t prog_percent (0);
@@ -374,7 +376,7 @@ namespace build2
             {
               srs = &scopes.find (out_root / pd);
 
-              if (auto* m = srs->modules.lookup<module> (module::name))
+              if (auto* m = srs->lookup_module<module> (module::name))
                 cbs = &m->callbacks_;
               else
                 fail << "dist module not loaded in subproject " << pd;

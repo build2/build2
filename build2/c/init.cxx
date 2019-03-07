@@ -267,7 +267,7 @@ namespace build2
       if (!cast_false<bool> (rs["c.guess.loaded"]))
         load_module (rs, rs, "c.guess", loc, false, hints);
 
-      config_module& cm (*rs.modules.lookup<config_module> ("c.guess"));
+      config_module& cm (*rs.lookup_module<config_module> ("c.guess"));
       cm.init (rs, loc, hints);
       return true;
     }
@@ -307,7 +307,7 @@ namespace build2
       if (!cast_false<bool> (rs["c.config.loaded"]))
         load_module (rs, rs, "c.config", loc, false, hints);
 
-      config_module& cm (*rs.modules.lookup<config_module> ("c.guess"));
+      config_module& cm (*rs.lookup_module<config_module> ("c.guess"));
 
       cc::data d {
         cm,

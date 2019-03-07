@@ -95,7 +95,7 @@ namespace build2
       if (verb)
         text << (verb >= 2 ? "cat >" : "save ") << f;
 
-      const module& mod (*root.modules.lookup<const module> (module::name));
+      const module& mod (*root.lookup_module<const module> (module::name));
 
       try
       {
@@ -169,7 +169,7 @@ namespace build2
                 {
                   // Find the config module.
                   //
-                  if (auto* m = r->modules.lookup<const module> (module::name))
+                  if (auto* m = r->lookup_module<const module> (module::name))
                   {
                     // Find the corresponding saved module.
                     //
@@ -539,11 +539,13 @@ namespace build2
         if (rs == nullptr)
           fail << "out of project target " << t;
 
-        for (operation_id id (default_id + 1); // Skip default_id
-             id < rs->operations.size ();
+        const operations& ops (rs->root_extra->operations);
+
+        for (operation_id id (default_id + 1); // Skip default_id.
+             id < ops.size ();
              ++id)
         {
-          if (const operation_info* oif = rs->operations[id])
+          if (const operation_info* oif = ops[id])
           {
             // Skip aliases (e.g., update-for-install).
             //
@@ -846,7 +848,7 @@ namespace build2
       //
       scope& gs (*scope::global_);
       scope& rs (load_project (gs, d, d, false /* fwd */, false /* load */));
-      module& m (*rs.modules.lookup<module> (module::name));
+      module& m (*rs.lookup_module<module> (module::name));
 
       // Save all the global config.import.* variables.
       //

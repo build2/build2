@@ -492,7 +492,7 @@ namespace build2
           r.insert<lib> (perform_uninstall_id, "bin.lib", gr);
         }
 
-        if (const test::module* m = rs.modules.lookup<test::module> ("test"))
+        if (const test::module* m = rs.lookup_module<test::module> ("test"))
         {
           r.insert<lib> (perform_test_id, "bin.lib", m->group_rule ());
         }
