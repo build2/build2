@@ -719,9 +719,13 @@ namespace build2
         // alike utility functions so the failure message can contain
         // location info?
         //
-        fs_status<mkdir_status> r (sp.parent == nullptr
-                                   ? mkdir_buildignore (sp.wd_path, 2)
-                                   : mkdir (sp.wd_path, 2));
+        fs_status<mkdir_status> r (
+          sp.parent == nullptr
+          ? mkdir_buildignore (
+            sp.wd_path,
+            sp.root->target_scope.root_scope ()->root_extra->buildignore_file,
+            2)
+          : mkdir (sp.wd_path, 2));
 
         if (r == mkdir_status::already_exists)
           fail << "working directory " << sp.wd_path << " already exists" <<
@@ -914,11 +918,15 @@ namespace build2
               //    a file cleanup when try to rmfile() directory instead of
               //    file.
               //
-              rmdir_status r (recursive
-                              ? rmdir_r (d, !wd, static_cast <uint16_t> (v))
-                              : wd && sp.parent == nullptr
-                                ? rmdir_buildignore (d, v)
-                                : rmdir (d, v));
+              rmdir_status r (
+                recursive
+                ? rmdir_r (d, !wd, static_cast <uint16_t> (v))
+                : (wd && sp.parent == nullptr
+                   ? rmdir_buildignore (
+                       d,
+                       sp.root->target_scope.root_scope ()->root_extra->buildignore_file,
+                       v)
+                   : rmdir (d, v)));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))

@@ -371,9 +371,10 @@ namespace build2
       //
       assert (phase != run_phase::execute);
 
-      optional<string> e (tt.fixed_extension != nullptr
-                          ? string (tt.fixed_extension (tk))
-                          : move (tk.ext));
+      optional<string> e (
+        tt.fixed_extension != nullptr
+        ? string (tt.fixed_extension (tk, nullptr /* root scope */))
+        : move (tk.ext));
 
       t = tt.factory (tt, move (dir), move (out), move (name));
 
@@ -680,19 +681,6 @@ namespace build2
     return search_existing_file (pk);
   }
 
-  optional<string>
-  target_extension_null (const target_key&, const scope&, const char*, bool)
-  {
-    return nullopt;
-  }
-
-  optional<string>
-  target_extension_assert (const target_key&, const scope&, const char*, bool)
-  {
-    assert (false); // Attempt to obtain the default extension.
-    throw failed ();
-  }
-
   void
   target_print_0_ext_verb (ostream& os, const target_key& k)
   {
@@ -796,7 +784,7 @@ namespace build2
   // dir
   //
   bool dir::
-  check_implied (const dir_path& d)
+  check_implied (const scope& rs, const dir_path& d)
   {
     try
     {
@@ -806,14 +794,14 @@ namespace build2
         {
         case entry_type::directory:
           {
-            if (check_implied (d / path_cast<dir_path> (e.path ())))
+            if (check_implied (rs, d / path_cast<dir_path> (e.path ())))
               return true;
 
             break;
           }
         case entry_type::regular:
           {
-            if (e.path () == buildfile_file)
+            if (e.path () == rs.root_extra->buildfile_file)
               return true;
 
             break;
@@ -938,7 +926,7 @@ namespace build2
 
             const dir_path& src_base (base.src_path ());
 
-            path bf (src_base / buildfile_file);
+            path bf (src_base / root.root_extra->buildfile_file);
 
             if (exists (bf))
             {
@@ -1091,17 +1079,43 @@ namespace build2
   };
 
   static const char*
-  buildfile_target_extension (const target_key& tk)
+  buildfile_target_extension (const target_key& tk, const scope* root)
   {
-    // If the name is special 'buildfile', then there is no extension,
-    // otherwise it is .build.
+    // If the name is the special 'buildfile', then there is no extension,
+    // otherwise it is 'build' (or 'build2file' and 'build2' in the
+    // alternative naming scheme).
+
+    // Let's try hard not to need the root scope by trusting the extensions
+    // we were given.
     //
-    return *tk.name == "buildfile" ? "" : "build";
+    // BTW, one way to get rid of all this root scope complication is to
+    // always require explicit extension specification for buildfiles. Since
+    // they are hardly ever mentioned explicitly, this should probably be ok.
+    //
+    if (tk.ext)
+      return tk.ext->c_str ();
+
+    if (root == nullptr)
+    {
+      // The same login as in target::root_scope().
+      //
+      // Note: we are guaranteed the scope is never NULL for prerequisites
+      // (where out/dir could be relative and none of this will work).
+      //
+      root = scopes.find (tk.out->empty () ? *tk.dir : *tk.out).root_scope ();
+
+      if (root == nullptr || root->root_extra == nullptr)
+        fail << "unable to determine extension for buildfile target " << tk;
+    }
+
+    return *tk.name == root->root_extra->buildfile_file.string ()
+      ? ""
+      : root->root_extra->build_ext.c_str ();
   }
 
   static bool
   buildfile_target_pattern (const target_type&,
-                            const scope&,
+                            const scope& base,
                             string& v,
                             optional<string>& e,
                             const location& l,
@@ -1116,10 +1130,18 @@ namespace build2
     {
       e = target::split_name (v, l);
 
-      if (!e && v != "buildfile")
+      if (!e)
       {
-        e = "build";
-        return true;
+        const scope* root (base.root_scope ());
+
+        if (root == nullptr || root->root_extra == nullptr)
+          fail (l) << "unable to determine extension for buildfile pattern";
+
+        if (v != root->root_extra->buildfile_file.string ())
+        {
+          e = root->root_extra->build_ext;
+          return true;
+        }
       }
     }
 
@@ -1153,7 +1175,7 @@ namespace build2
   };
 
   static const char*
-  man_extension (const target_key& tk)
+  man_extension (const target_key& tk, const scope*)
   {
     if (!tk.ext)
       fail << "man target " << tk << " must include extension (man section)";
@@ -1190,7 +1212,7 @@ namespace build2
   };
 
   static const char*
-  manifest_target_extension (const target_key& tk)
+  manifest_target_extension (const target_key& tk, const scope*)
   {
     // If the name is special 'manifest', then there is no extension,
     // otherwise it is .manifest.

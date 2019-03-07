@@ -618,7 +618,7 @@ namespace build2
     match_only_ (),
     no_column_ (),
     no_line_ (),
-    buildfile_ ("buildfile"),
+    buildfile_ (),
     buildfile_specified_ (false),
     config_guess_ (),
     config_guess_specified_ (false),
@@ -835,13 +835,14 @@ namespace build2
 
     os << std::endl
        << "\033[1m--buildfile\033[0m \033[4mpath\033[0m     The alternative file to read build information from. The" << ::std::endl
-       << "                     default is \033[1mbuildfile\033[0m. If \033[4mpath\033[0m is '\033[1m-\033[0m', then read from" << ::std::endl
-       << "                     \033[1mSTDIN\033[0m. Note that this option only affects the files read" << ::std::endl
-       << "                     as part of the buildspec processing. Specifically, it has" << ::std::endl
-       << "                     no effect on the \033[1msource\033[0m and \033[1minclude\033[0m directives. As a" << ::std::endl
-       << "                     result, this option is primarily intended for testing" << ::std::endl
-       << "                     rather than changing the build file names in real" << ::std::endl
-       << "                     projects." << ::std::endl;
+       << "                     default is \033[1mbuildfile\033[0m or \033[1mbuild2file\033[0m, depending on the" << ::std::endl
+       << "                     project's build file/directory naming scheme. If \033[4mpath\033[0m is" << ::std::endl
+       << "                     '\033[1m-\033[0m', then read from \033[1mSTDIN\033[0m. Note that this option only" << ::std::endl
+       << "                     affects the files read as part of the buildspec" << ::std::endl
+       << "                     processing. Specifically, it has no effect on the \033[1msource\033[0m" << ::std::endl
+       << "                     and \033[1minclude\033[0m directives. As a result, this option is" << ::std::endl
+       << "                     primarily intended for testing rather than changing the" << ::std::endl
+       << "                     build file names in real projects." << ::std::endl;
 
     os << std::endl
        << "\033[1m--config-guess\033[0m \033[4mpath\033[0m  The path to the \033[1mconfig.guess(1)\033[0m script that should be used" << ::std::endl

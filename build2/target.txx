@@ -43,7 +43,7 @@ namespace build2
   //
   template <const char* ext>
   const char*
-  target_extension_fix (const target_key& tk)
+  target_extension_fix (const target_key& tk, const scope*)
   {
     // A generic file target type doesn't imply any extension while a very
     // specific one (say man1) may have a fixed extension. So if one wasn't

@@ -27,7 +27,9 @@ namespace build2
     static target_state
     clean_module_sidebuilds (action, const scope& rs, const dir&)
     {
-      dir_path d (rs.out_path () / modules_sidebuild_dir);
+      const dir_path& out_root (rs.out_path ());
+
+      dir_path d (out_root / rs.root_extra->build_dir / modules_sidebuild_dir);
 
       if (exists (d))
       {
@@ -35,7 +37,7 @@ namespace build2
         {
           // Clean up cc/ if it became empty.
           //
-          d = rs.out_path () / module_dir;
+          d = out_root / rs.root_extra->build_dir / module_dir;
           if (empty (d))
           {
             rmdir (d);
@@ -43,7 +45,7 @@ namespace build2
             // And build/ if it also became empty (e.g., in case of a build
             // with a transient configuration).
             //
-            d = rs.out_path () / build_dir;
+            d = out_root / rs.root_extra->build_dir;
             if (empty (d))
               rmdir (d);
           }

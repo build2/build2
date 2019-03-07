@@ -437,9 +437,11 @@ namespace build2
       // backlink_*() in algorithm.cxx for details.)
       //
       const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
+      const path& buildignore_file (rs.root_extra->buildignore_file);
 
       dir_path bl;
-      if (cast_false<bool> (bs.root_scope ()->vars[var_forwarded]))
+      if (cast_false<bool> (rs.vars[var_forwarded]))
       {
         bl = bs.src_path () / wd.leaf (bs.out_path ());
         clean_backlink (bl, verb_never);
@@ -471,10 +473,11 @@ namespace build2
           bool fail (before == output_before::fail);
 
           (fail ? error : warn) << "working directory " << wd << " exists "
-                                << (empty_buildignore (wd)
+                                << (empty_buildignore (wd, buildignore_file)
                                     ? ""
                                     : "and is not empty ")
                                 << "at the beginning of the test";
+
           if (fail)
             throw failed ();
         }
@@ -513,7 +516,7 @@ namespace build2
         {
           if (mk)
           {
-            mkdir_buildignore (wd, 2);
+            mkdir_buildignore (wd, buildignore_file, 2);
             mk = false;
           }
 
@@ -568,11 +571,11 @@ namespace build2
       //
       if (!bad && !one && !mk && after == output_after::clean)
       {
-        if (!empty_buildignore (wd))
+        if (!empty_buildignore (wd, buildignore_file))
           fail << "working directory " << wd << " is not empty at the "
                << "end of the test";
 
-        rmdir_buildignore (wd, 2);
+        rmdir_buildignore (wd, buildignore_file, 2);
       }
 
       // Backlink if the working directory exists.

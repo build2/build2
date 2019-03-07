@@ -8,6 +8,7 @@
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
+#include <build2/scope.hxx>
 #include <build2/variable.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -160,6 +161,14 @@ namespace build2
                     bool buildfile,                 // Create root buildfile.
                     const char* who,                // Who is creating it.
                     uint16_t verbosity = 1);        // Diagnostic verbosity.
+
+    inline path
+    config_file (const scope& root)
+    {
+      return (root.out_path () /
+              root.root_extra->build_dir /
+              "config." + root.root_extra->build_ext);
+    }
   }
 }
 

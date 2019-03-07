@@ -459,6 +459,41 @@ $ bdep new --no-init -t exe -l c++,cpp hello
 
 |
 
+\N|It is also possible to use an alternative build file/directory naming
+scheme where every instance of the word \i{build} is replaced with \i{build2},
+for example:
+
+\
+hello/
+├── build2/
+│   ├── bootstrap.build2
+│   └── root.build2
+├── ...
+└── build2file
+\
+
+Note that the naming must be consistent within a project with all the
+filesystem entries either following \i{build} or \i{build2} scheme. In
+other words, we cannot call the directory \c{build2/} while still using
+\c{buildfile}.
+
+The alternative naming scheme is primarily useful when adding \c{build2}
+support to an existing project along with other build systems. In this case,
+the fairly generic standard names might already be in use. For example, it is
+customary to have \c{build/} in \c{.gitignore}. Plus more specific naming will
+make it easier to identify files and directories as belonging to the
+\c{build2} support. For new projects as well as for existing projects that are
+switching exclusively to \c{build2} the standard naming scheme is recommended.
+
+To create a project with the alternative naming using \l{bdep-new(1)} pass
+the \c{alt-naming} project type sub-option. For example:
+
+\
+$ bdep new -t exe,alt-naming ...
+\
+
+|
+
 To support lazy loading of subprojects (discussed later), reading of the
 project's build information is split into two phases: bootstrapping and
 loading. During bootstrapping the project's \c{build/bootstrap.build} file is

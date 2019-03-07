@@ -25,14 +25,19 @@ namespace build2
   //
   // If the extension derivation functions are NULL, then it means this target
   // type does not use extensions. Note that this is relied upon when deciding
-  // whether to print the extension; if the target does use extensions but the
-  // defaults couldn't (and its ok), couldn't (and its not ok), or shouldn't
-  // (logically) be obtained, then use target_extension_{null,fail,assert}(),
-  // respectively. The fixed extension function should return the fixed
-  // extension (which can point to the key's ext member if the explicit
-  // extension specificaton is allowed). If the default extension function
-  // returns NULL, then it means the default extension for this target could
-  // not be derived.
+  // whether to print the extension.
+  //
+  // The fixed extension function should return the fixed extension (which can
+  // point to the key's ext member; note that for performance reasons we
+  // currently only verify the explicitly specified extension on target
+  // insersion -- see target_key comparison for details).
+  //
+  // The root scope argument to the fixed extension function may be NULL which
+  // means the root scope is not known. A target type that relies on this must
+  // be prepared to resolve the root scope itself and handle the cases where
+  // the target is not (yet) in any project (this is currently only used to
+  // handle the alternative build file/directory naming scheme and hopefully
+  // it will stay that way).
   //
   // The default extension is used in two key (there are others) places:
   // search_existing_file() (called for a prerequisite with the last argument
@@ -41,7 +46,8 @@ namespace build2
   // The third argument is the default extension that is supplied (e.g., by a
   // rule) to derive_extension(), if any. The implementation can decide which
   // takes precedence, etc (see the exe{} target type for some interesting
-  // logic).
+  // logic). If the default extension function returns NULL, then it means the
+  // default extension for this target could not be derived.
   //
   // If the pattern function is not NULL, then it is used to amend a pattern
   // or match (reverse is false) and then, if the amendment call returned
@@ -56,14 +62,15 @@ namespace build2
 
     target* (*factory) (const target_type&, dir_path, dir_path, string);
 
-    const char*      (*fixed_extension)   (const target_key&);
+    const char*      (*fixed_extension)   (const target_key&,
+                                           const scope* root);
     optional<string> (*default_extension) (const target_key&,
-                                           const scope&,
+                                           const scope& base,
                                            const char*,
                                            bool search);
 
     bool (*pattern) (const target_type&,
-                     const scope&,
+                     const scope& base,
                      string& name,
                      optional<string>& extension,
                      const location&,

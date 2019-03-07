@@ -220,7 +220,7 @@ namespace build2
         }
       };
 
-      add_adhoc (*rs, export_file);
+      add_adhoc (*rs, rs->root_extra->export_file);
 
       // The same for subprojects that have been loaded.
       //
@@ -238,7 +238,7 @@ namespace build2
           if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
             continue;
 
-          add_adhoc (nrs, export_file);
+          add_adhoc (nrs, nrs.root_extra->export_file);
         }
       }
 

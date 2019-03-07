@@ -24,23 +24,37 @@ using namespace butl;
 
 namespace build2
 {
-  const dir_path build_dir     ("build");
-  const dir_path root_dir      (dir_path (build_dir) /= "root");
-  const dir_path bootstrap_dir (dir_path (build_dir) /= "bootstrap");
-
-  const path root_file      (build_dir     / "root.build");
-  const path bootstrap_file (build_dir     / "bootstrap.build");
-  const path src_root_file  (bootstrap_dir / "src-root.build");
-  const path out_root_file  (bootstrap_dir / "out-root.build");
-  const path export_file    (build_dir     / "export.build");
-
-  // While strictly speaking it belongs in, say, config/module.cxx, the static
-  // initialization order strikes again. If we ever make the config module
-  // loadable, then we can move it there.
+  // Standard and alternative build file/directory naming schemes.
   //
-  const path config_file (build_dir / "config.build");
+  const dir_path std_build_dir     ("build");
+  const dir_path std_root_dir      (dir_path (std_build_dir) /= "root");
+  const dir_path std_bootstrap_dir (dir_path (std_build_dir) /= "bootstrap");
 
-  const path buildfile_file ("buildfile");
+  const path std_root_file      (std_build_dir     / "root.build");
+  const path std_bootstrap_file (std_build_dir     / "bootstrap.build");
+  const path std_src_root_file  (std_bootstrap_dir / "src-root.build");
+  const path std_out_root_file  (std_bootstrap_dir / "out-root.build");
+  const path std_export_file    (std_build_dir     / "export.build");
+
+  const string std_build_ext        ("build");
+  const path   std_buildfile_file   ("buildfile");
+  const path   std_buildignore_file (".buildignore");
+
+  //
+
+  const dir_path alt_build_dir     ("build2");
+  const dir_path alt_root_dir      (dir_path (alt_build_dir) /= "root");
+  const dir_path alt_bootstrap_dir (dir_path (alt_build_dir) /= "bootstrap");
+
+  const path alt_root_file      (alt_build_dir     / "root.build2");
+  const path alt_bootstrap_file (alt_build_dir     / "bootstrap.build2");
+  const path alt_src_root_file  (alt_bootstrap_dir / "src-root.build2");
+  const path alt_out_root_file  (alt_bootstrap_dir / "out-root.build2");
+  const path alt_export_file    (alt_build_dir     / "export.build2");
+
+  const string alt_build_ext        ("build2");
+  const path   alt_buildfile_file   ("build2file");
+  const path   alt_buildignore_file (".build2ignore");
 
   ostream&
   operator<< (ostream& os, const subprojects& sps)
@@ -60,26 +74,61 @@ namespace build2
     return os;
   }
 
-  bool
-  is_src_root (const dir_path& d)
+  // Check if the standard/alternative file/directory exists, returning empty
+  // path if it does not.
+  //
+  template <typename T>
+  static T
+  exists (const dir_path& d, const T& s, const T& a, optional<bool>& altn)
   {
-    // We can't have root without bootstrap.
-    //
-    return exists (d / bootstrap_file);
+    T p;
+    bool e;
+
+    if (altn)
+    {
+      p = d / (*altn ? a : s);
+      e = exists (p);
+    }
+    else
+    {
+      // Check the alternative name first since it is more specific.
+      //
+      p = d / a;
+
+      if ((e = exists (p)))
+        altn = true;
+      else
+      {
+        p = d / s;
+
+        if ((e = exists (p)))
+          altn = false;
+      }
+    }
+
+    return e ? p : T ();
   }
 
   bool
-  is_out_root (const dir_path& d)
+  is_src_root (const dir_path& d, optional<bool>& altn)
   {
-    return exists (d / src_root_file);
+    // We can't have root without bootstrap.build.
+    //
+    return !exists (d, std_bootstrap_file, alt_bootstrap_file, altn).empty ();
+  }
+
+  bool
+  is_out_root (const dir_path& d, optional<bool>& altn)
+  {
+    return !exists (d, std_src_root_file, alt_src_root_file, altn).empty ();
   }
 
   dir_path
-  find_src_root (const dir_path& b)
+  find_src_root (const dir_path& b, optional<bool>& altn)
   {
     for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
-      if (is_src_root (d))
+      if (is_src_root (d, altn))
         return d;
     }
 
@@ -87,12 +136,12 @@ namespace build2
   }
 
   pair<dir_path, bool>
-  find_out_root (const dir_path& b)
+  find_out_root (const dir_path& b, optional<bool>& altn)
   {
     for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
       bool s;
-      if ((s = is_src_root (d)) || is_out_root (d))
+      if ((s = is_src_root (d, altn)) || is_out_root (d, altn))
         return make_pair (move (d), s);
     }
 
@@ -167,17 +216,12 @@ namespace build2
   }
 
   // Source (once) pre-*.build (pre is true) or post-*.build (otherwise) hooks
-  // from the specified subdirectory (build/bootstrap/ or build/root/) of
-  // out_root/.
+  // from the specified directory (build/{bootstrap,root}/ of out_root) which
+  // must exist.
   //
-  void
-  source_hooks (scope& root, const dir_path& sd, bool pre)
+  static void
+  source_hooks (scope& root, const dir_path& d, bool pre)
   {
-    dir_path d (root.out_path () / sd);
-
-    if (!exists (d))
-      return;
-
     // While we could have used the wildcard pattern matching functionality,
     // our needs are pretty basic and performance is quite important, so let's
     // handle this ourselves.
@@ -196,7 +240,7 @@ namespace build2
         if (n.string ().compare (0,
                                  pre ? 4 : 5,
                                  pre ? "pre-" : "post-") != 0 ||
-            n.extension () != "build")
+            n.extension () != root.root_extra->build_ext)
           continue;
 
         path f (d / n);
@@ -387,20 +431,20 @@ namespace build2
   }
 
   dir_path
-  bootstrap_fwd (const dir_path& src_root)
+  bootstrap_fwd (const dir_path& src_root, optional<bool>& altn)
   {
+    path f (exists (src_root, std_out_root_file, alt_out_root_file, altn));
+
+    if (f.empty ())
+      return src_root;
+
     // We cannot just source the buildfile since there is no scope to do
     // this on yet.
     //
-    path bf (src_root / out_root_file);
-
-    if (!exists (bf))
-      return src_root;
-
-    auto p (extract_variable (bf, *var_out_root));
+    auto p (extract_variable (f, *var_out_root));
 
     if (!p.second)
-      fail << "variable out_root expected as first line in " << bf;
+      fail << "variable out_root expected as first line in " << f;
 
     try
     {
@@ -408,25 +452,50 @@ namespace build2
     }
     catch (const invalid_argument& e)
     {
-      fail << "invalid out_root value in " << bf << ": " << e << endf;
+      fail << "invalid out_root value in " << f << ": " << e << endf;
     }
   }
 
-  void
-  bootstrap_out (scope& root)
+  static void
+  setup_root_extra (scope& root, optional<bool>& altn)
   {
-    path bf (root.out_path () / src_root_file);
+    assert (altn && root.root_extra == nullptr);
+    bool a (*altn);
 
-    if (!exists (bf))
+    root.root_extra = unique_ptr<scope::root_data> (
+      new scope::root_data {
+        a,
+        a ? alt_build_ext        : std_build_ext,
+        a ? alt_build_dir        : std_build_dir,
+        a ? alt_buildfile_file   : std_buildfile_file,
+        a ? alt_buildignore_file : std_buildignore_file,
+        a ? alt_root_dir         : std_root_dir,
+        a ? alt_bootstrap_dir    : std_bootstrap_dir,
+        a ? alt_root_file        : std_root_file,
+        a ? alt_export_file      : std_export_file,
+        a ? alt_src_root_file    : std_src_root_file,
+        a ? alt_out_root_file    : std_out_root_file});
+  }
+
+  void
+  bootstrap_out (scope& root, optional<bool>& altn)
+  {
+    const dir_path& out_root (root.out_path ());
+
+    path f (exists (out_root, std_src_root_file, alt_src_root_file, altn));
+
+    if (f.empty ())
       return;
 
-    //@@ TODO: if bootstrap files can source other bootstrap files
-    //   (the way to express dependecies), then we need a way to
-    //   prevent multiple sourcing. We handle it here but we still
-    //   need something like source_once (once [scope] source) in
-    //   buildfiles.
+    if (root.root_extra == nullptr)
+      setup_root_extra (root, altn);
+
+    //@@ TODO: if bootstrap files can source other bootstrap files (for
+    //   example, as a way to express dependecies), then we need a way to
+    //   prevent multiple sourcing. We handle it here but we still need
+    //   something like source_once (once [scope] source) in buildfiles.
     //
-    source_once (root, root, bf);
+    source_once (root, root, f);
   }
 
   pair<value, bool>
@@ -470,7 +539,8 @@ namespace build2
   static project_name
   find_project_name (const dir_path& out_root,
                      const dir_path& fallback_src_root,
-                     bool* src_hint = nullptr)
+                     optional<bool> out_src, // True if out_root is src_root.
+                     optional<bool>& altn)
   {
     tracer trace ("find_project_name");
 
@@ -482,6 +552,14 @@ namespace build2
 
     if (s.root_scope () == &s && s.out_path () == out_root)
     {
+      if (s.root_extra != nullptr)
+      {
+        if (!altn)
+          altn = s.root_extra->altn;
+        else
+          assert (*altn == s.root_extra->altn);
+      }
+
       if (lookup l = s.vars[var_project])
         return cast<project_name> (l);
 
@@ -496,14 +574,22 @@ namespace build2
 
     if (src_root == nullptr)
     {
-      if (src_hint != nullptr ? *src_hint : is_src_root (out_root))
+      if (out_src ? *out_src : is_src_root (out_root, altn))
         src_root = &out_root;
       else
       {
-        path f (out_root / src_root_file);
+        path f (exists (out_root, std_src_root_file, alt_src_root_file, altn));
 
-        if (!fallback_src_root.empty () && !exists (f))
+        if (f.empty ())
+        {
+          // Note: the same diagnostics as in main().
+          //
+          if (fallback_src_root.empty ())
+            fail << "no bootstrapped src_root for " << out_root <<
+              info << "consider reconfiguring this out_root";
+
           src_root = &fallback_src_root;
+        }
         else
         {
           auto p (extract_variable (f, *var_src_root));
@@ -523,7 +609,11 @@ namespace build2
 
     project_name name;
     {
-      path f (*src_root / bootstrap_file);
+      path f (exists (*src_root, std_bootstrap_file, alt_bootstrap_file, altn));
+
+      if (f.empty ())
+        fail << "no build/bootstrap.build in " << *src_root;
+
       auto p (extract_variable (f, *var_project));
 
       if (!p.second)
@@ -559,7 +649,10 @@ namespace build2
         dir_path sd (d / path_cast<dir_path> (de.path ()));
 
         bool src (false);
-        if (!((out && is_out_root (sd)) || (src = is_src_root (sd))))
+        optional<bool> altn;
+
+        if (!((out && is_out_root (sd, altn)) ||
+              (src =  is_src_root (sd, altn))))
         {
           // We used to scan for subproject recursively but this is probably
           // too loose (think of some tests laying around). In the future we
@@ -579,7 +672,7 @@ namespace build2
         // Load its name. Note that here we don't use fallback src_root
         // since this function is used to scan both out_root and src_root.
         //
-        project_name name (find_project_name (sd, dir_path (), &src));
+        project_name name (find_project_name (sd, dir_path (), src, altn));
 
         // If the name is empty, then is is an unnamed project. While the
         // 'project' variable stays empty, here we come up with a surrogate
@@ -618,7 +711,7 @@ namespace build2
   }
 
   bool
-  bootstrap_src (scope& root)
+  bootstrap_src (scope& root, optional<bool>& altn)
   {
     tracer trace ("bootstrap_src");
 
@@ -627,21 +720,33 @@ namespace build2
     const dir_path& out_root (root.out_path ());
     const dir_path& src_root (root.src_path ());
 
-    path bf (src_root / bootstrap_file);
-
-    if (exists (bf))
     {
-      // We assume that bootstrap out cannot load this file explicitly. It
-      // feels wrong to allow this since that makes the whole bootstrap
-      // process hard to reason about. But we may try to bootstrap the
-      // same root scope multiple time.
-      //
-      if (root.buildfiles.insert (bf).second)
-        source (root, root, bf, true);
-      else
-        l5 ([&]{trace << "skipping already sourced " << bf;});
+      path f (exists (src_root, std_bootstrap_file, alt_bootstrap_file, altn));
 
-      r = true;
+      if (!f.empty ())
+      {
+        // We assume that bootstrap out cannot load this file explicitly. It
+        // feels wrong to allow this since that makes the whole bootstrap
+        // process hard to reason about. But we may try to bootstrap the same
+        // root scope multiple time.
+        //
+        if (root.buildfiles.insert (f).second)
+          source (root, root, f, true);
+        else
+          l5 ([&]{trace << "skipping already sourced " << f;});
+
+        r = true;
+      }
+    }
+
+    if (root.root_extra == nullptr)
+    {
+      // If nothing so far has indicated the naming, assume standard.
+      //
+      if (!altn)
+        altn = false;
+
+      setup_root_extra (root, altn);
     }
 
     // See if we are a part of an amalgamation. There are two key players: the
@@ -704,7 +809,8 @@ namespace build2
         // outer directories is a project's out_root. If so, then
         // that's our amalgamation.
         //
-        const dir_path& ad (find_out_root (out_root.directory ()).first);
+        optional<bool> altn;
+        const dir_path& ad (find_out_root (out_root.directory (), altn).first);
 
         if (!ad.empty ())
         {
@@ -816,11 +922,15 @@ namespace build2
             //
             if (n.empty ())
             {
-              // Pass fallback src_root since this is a subproject that
-              // was specified by the user so it is most likely in our
-              // src.
+              optional<bool> altn;
+
+              // Pass fallback src_root since this is a subproject that was
+              // specified by the user so it is most likely in our src.
               //
-              n = find_project_name (out_root / d, src_root / d);
+              n = find_project_name (out_root / d,
+                                     src_root / d,
+                                     nullopt /* out_src */,
+                                     altn);
 
               // See find_subprojects() for details on unnamed projects.
               //
@@ -842,6 +952,40 @@ namespace build2
     return r;
   }
 
+  void
+  bootstrap_pre (scope& root, optional<bool>& altn)
+  {
+    const dir_path& out_root (root.out_path ());
+
+    // This test is a bit loose in a sense that there can be a stray
+    // build/bootstrap/ directory that will make us mis-treat a project as
+    // following the standard naming scheme (the other way, while also
+    // possible, is a lot less likely). If this does becomes a problem, we can
+    // always tighten the test by also looking for a hook file with the
+    // correct extension.
+    //
+    dir_path d (exists (out_root, std_bootstrap_dir, alt_bootstrap_dir, altn));
+
+    if (!d.empty ())
+    {
+      if (root.root_extra == nullptr)
+        setup_root_extra (root, altn);
+
+      source_hooks (root, d, true /* pre */);
+    }
+  }
+
+  void
+  bootstrap_post (scope& root)
+  {
+    const dir_path& out_root (root.out_path ());
+
+    dir_path d (out_root / root.root_extra->bootstrap_dir);
+
+    if (exists (d))
+      source_hooks (root, d, false /* pre */);
+  }
+
   bool
   bootstrapped (scope& root)
   {
@@ -859,7 +1003,8 @@ namespace build2
   static inline bool
   forwarded (const scope& orig,
              const dir_path& out_root,
-             const dir_path& src_root)
+             const dir_path& src_root,
+             optional<bool>& altn)
   {
     // The conditions are:
     //
@@ -871,7 +1016,7 @@ namespace build2
     //
     return (out_root != src_root                        &&
             cast_false<bool> (orig.vars[var_forwarded]) &&
-            bootstrap_fwd (src_root) == out_root);
+            bootstrap_fwd (src_root, altn) == out_root);
   }
 
   void
@@ -900,15 +1045,16 @@ namespace build2
 
     bool bstrapped (bootstrapped (rs));
 
+    optional<bool> altn;
     if (!bstrapped)
     {
-      bootstrap_out (rs); // #3 happens here (or it can be #1).
+      bootstrap_out (rs, altn); // #3 happens here (or it can be #1).
 
       value& v (rs.assign (var_src_root));
 
       if (!v)
       {
-        if (is_src_root (out_root)) // #2
+        if (is_src_root (out_root, altn)) // #2
           v = out_root;
         else // #1
         {
@@ -920,14 +1066,16 @@ namespace build2
       else
         remap_src_root (v); // Remap if inside old_src_root.
 
-      setup_root (rs, forwarded (root, out_root, v.as<dir_path> ()));
-      bootstrap_pre (rs);
-      bootstrap_src (rs);
+      setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
+      bootstrap_pre (rs, altn);
+      bootstrap_src (rs, altn);
       // bootstrap_post() delayed until after create_bootstrap_outer().
     }
     else
     {
-      if (forwarded (root, rs.out_path (), rs.src_path ()))
+      altn = rs.root_extra->altn;
+
+      if (forwarded (root, rs.out_path (), rs.src_path (), altn))
         rs.assign (var_forwarded) = true; // Only upgrade (see main()).
     }
 
@@ -960,29 +1108,31 @@ namespace build2
         //
         scope& rs (create_root (root, out_root, dir_path ())->second);
 
+        optional<bool> altn;
         if (!bootstrapped (rs))
         {
-          bootstrap_out (rs);
+          bootstrap_out (rs, altn);
 
           value& v (rs.assign (var_src_root));
 
           if (!v)
           {
-            v = is_src_root (out_root)
+            v = is_src_root (out_root, altn)
               ? out_root
               : (root.src_path () / p.second);
           }
           else
             remap_src_root (v); // Remap if inside old_src_root.
 
-          setup_root (rs, forwarded (root, out_root, v.as<dir_path> ()));
-          bootstrap_pre (rs);
-          bootstrap_src (rs);
+          setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
+          bootstrap_pre (rs, altn);
+          bootstrap_src (rs, altn);
           bootstrap_post (rs);
         }
         else
         {
-          if (forwarded (root, rs.out_path (), rs.src_path ()))
+          altn = rs.root_extra->altn;
+          if (forwarded (root, rs.out_path (), rs.src_path (), altn))
             rs.assign (var_forwarded) = true; // Only upgrade (see main()).
         }
 
@@ -1008,12 +1158,15 @@ namespace build2
   {
     tracer trace ("load_root");
 
+    const dir_path& out_root (root.out_path ());
+    const dir_path& src_root (root.src_path ());
+
     // As an optimization, check if we have already loaded root.build. If
     // that's the case, then we have already been called for this project.
     //
-    path bf (root.src_path () / root_file);
+    path f (src_root / root.root_extra->root_file);
 
-    if (root.buildfiles.find (bf) != root.buildfiles.end ())
+    if (root.buildfiles.find (f) != root.buildfiles.end ())
       return;
 
     // First load outer roots, if any.
@@ -1047,9 +1200,12 @@ namespace build2
     // however, that one can probably achieve adequate pre-modules behavior
     // with a post-bootstrap hook.
     //
-    source_hooks (root, root_dir, true /* pre */);
-    if (exists (bf)) source_once (root, root, bf);
-    source_hooks (root, root_dir, false /* pre */);
+    dir_path hd (out_root / root.root_extra->root_dir);
+    bool he (exists (hd));
+
+    if (he)         source_hooks (root, hd, true /* pre */);
+    if (exists (f)) source_once  (root, root, f);
+    if (he)         source_hooks (root, hd, false /* pre */);
   }
 
   scope&
@@ -1066,10 +1222,11 @@ namespace build2
 
     if (!bootstrapped (rs))
     {
-      bootstrap_out (rs);
+      optional<bool> altn;
+      bootstrap_out (rs, altn);
       setup_root (rs, forwarded);
-      bootstrap_pre (rs);
-      bootstrap_src (rs);
+      bootstrap_pre (rs, altn);
+      bootstrap_src (rs, altn);
       bootstrap_post (rs);
     }
     else
@@ -1267,10 +1424,11 @@ namespace build2
     // create_bootstrap_inner().
     //
     bool fwd (false);
-    if (is_src_root (out_root))
+    optional<bool> altn;
+    if (is_src_root (out_root, altn))
     {
       src_root = move (out_root);
-      out_root = bootstrap_fwd (src_root);
+      out_root = bootstrap_fwd (src_root, altn);
       fwd = (src_root != out_root);
     }
 
@@ -1284,7 +1442,7 @@ namespace build2
 
       if (!bstrapped)
       {
-        bootstrap_out (*root);
+        bootstrap_out (*root, altn);
 
         // Check that the bootstrap process set src_root.
         //
@@ -1305,20 +1463,24 @@ namespace build2
           fail (loc) << "unable to determine src_root for imported " << proj <<
             info << "consider configuring " << out_root;
 
-        setup_root (
-          *root,
-          top ? fwd : forwarded (*proot, out_root, l->as<dir_path> ()));
-        bootstrap_pre (*root);
-        bootstrap_src (*root);
+        setup_root (*root,
+                    (top
+                     ? fwd
+                     : forwarded (*proot, out_root, l->as<dir_path> (), altn)));
+
+        bootstrap_pre (*root, altn);
+        bootstrap_src (*root, altn);
         if (!top)
           bootstrap_post (*root);
       }
       else
       {
+        altn = root->root_extra->altn;
+
         if (src_root.empty ())
           src_root = root->src_path ();
 
-        if (top ? fwd : forwarded (*proot, out_root, src_root))
+        if (top ? fwd : forwarded (*proot, out_root, src_root, altn))
           root->assign (var_forwarded) = true; // Only upgrade (see main()).
       }
 
@@ -1343,8 +1505,9 @@ namespace build2
         if (i != m.end ())
         {
           const dir_path& d ((*i).second);
+          altn = nullopt;
           out_root = root->out_path () / d;
-          src_root = is_src_root (out_root) ? out_root : dir_path ();
+          src_root = is_src_root (out_root, altn) ? out_root : dir_path ();
           continue;
         }
       }
@@ -1380,7 +1543,7 @@ namespace build2
     // stub will normally switch to the imported root scope at some
     // point.
     //
-    path es (root->src_path () / export_file);
+    path es (root->src_path () / root->root_extra->export_file);
 
     try
     {

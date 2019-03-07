@@ -50,8 +50,16 @@ namespace build2
       return !x.ext || !y.ext || *x.ext == *y.ext;
     else
     {
-      const char* xe (x.ext ? x.ext->c_str () : tt.fixed_extension (x));
-      const char* ye (y.ext ? y.ext->c_str () : tt.fixed_extension (y));
+      // Note that for performance reasons here we use the specified extension
+      // without calling fixed_extension().
+      //
+      const char* xe (x.ext
+                      ? x.ext->c_str ()
+                      : tt.fixed_extension (x, nullptr /* root scope */));
+
+      const char* ye (y.ext
+                      ? y.ext->c_str ()
+                      : tt.fixed_extension (y, nullptr /* root scope */));
 
       return strcmp (xe, ye) == 0;
     }

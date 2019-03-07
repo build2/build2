@@ -1669,11 +1669,12 @@ namespace build2
     search_implied (const scope&, const K&, tracer&);
 
     // Return true if the implied buildfile is plausible for the specified
-    // directory, that is, there is a buildfile in at least one of its
-    // subdirectories. Note that the directory must exist.
+    // subdirectory of a project with the specified root scope. That is, there
+    // is a buildfile in at least one of its subdirectories. Note that the
+    // directory must exist.
     //
     static bool
-    check_implied (const dir_path&);
+    check_implied (const scope& root, const dir_path&);
 
   private:
     static prerequisites_type
@@ -1813,7 +1814,7 @@ namespace build2
   //
   template <const char* ext>
   const char*
-  target_extension_fix (const target_key&);
+  target_extension_fix (const target_key&, const scope*);
 
   template <const char* ext>
   bool
@@ -1833,16 +1834,6 @@ namespace build2
   target_pattern_var (const target_type&, const scope&,
                       string&, optional<string>&, const location&,
                       bool);
-
-  // Always return NULL extension.
-  //
-  optional<string>
-  target_extension_null (const target_key&, const scope&, const char*, bool);
-
-  // Assert if called.
-  //
-  optional<string>
-  target_extension_assert (const target_key&, const scope&, const char*, bool);
 
   // Target print functions.
   //

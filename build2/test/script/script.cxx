@@ -517,6 +517,7 @@ namespace build2
               const dir_path& rwd)
           : group (st.name == "testscript" ? string () : st.name, this),
             test_target (tt),
+            target_scope (tt.base_scope ()),
             script_target (st)
       {
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
@@ -563,7 +564,7 @@ namespace build2
               //
               // @@ OUT: what if this is a @-qualified pair of names?
               //
-              t = search_existing (*n, tt.base_scope ());
+              t = search_existing (*n, target_scope);
 
               if (t == nullptr)
                 fail << "unknown target '" << *n << "' in test variable";
@@ -653,8 +654,7 @@ namespace build2
           if (p.first)
           {
             if (var.override != nullptr)
-              p = s.test_target.base_scope ().find_override (
-                var, move (p), true);
+              p = s.target_scope.find_override (var, move (p), true);
 
             return p.first;
           }

@@ -183,12 +183,14 @@ namespace build2
 
       // Create the build/ subdirectory.
       //
-      mkdir (d / build_dir, verbosity);
+      // Note that for now we use the standard build file/directory scheme.
+      //
+      mkdir (d / std_build_dir, verbosity);
 
       // Write build/bootstrap.build.
       //
       {
-        path f (d / bootstrap_file);
+        path f (d / std_bootstrap_file);
 
         if (verb >= verbosity)
           text << (verb >= 2 ? "cat >" : "save ") << f;
@@ -232,7 +234,7 @@ namespace build2
       // Write build/root.build.
       //
       {
-        path f (d / root_file);
+        path f (d / std_root_file);
 
         if (verb >= verbosity)
           text << (verb >= 2 ? "cat >" : "save ") << f;
@@ -281,7 +283,7 @@ namespace build2
       //
       if (buildfile)
       {
-        path f (d / buildfile_file);
+        path f (d / std_buildfile_file);
 
         if (verb >= verbosity)
           text << (verb >= 2 ? "cat >" : "save ") << f;

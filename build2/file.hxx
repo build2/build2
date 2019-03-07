@@ -24,24 +24,26 @@ namespace build2
   ostream&
   operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
 
-  extern const dir_path build_dir;     // build/
-  extern const dir_path root_dir;      // build/root/
-  extern const dir_path bootstrap_dir; // build/bootstrap/
+  extern const dir_path std_build_dir;  // build/
+  extern const path std_root_file;      // build/root.build
+  extern const path std_bootstrap_file; // build/bootstrap.build
 
-  extern const path root_file;         // build/root.build
-  extern const path bootstrap_file;    // build/bootstrap.build
-  extern const path src_root_file;     // build/bootstrap/src-root.build
-  extern const path out_root_file;     // build/bootstrap/out-root.build
-  extern const path export_file;       // build/export.build
-  extern const path config_file;       // build/config.build
+  extern const path std_buildfile_file; // buildfile
+  extern const path alt_buildfile_file; // build2file
 
-  extern const path buildfile_file;    // buildfile
+  // If the altn argument value is present, then it indicates whether we are
+  // using the standard or the alternative build file/directory naming.
+  //
+  // The overall plan is to run various "file exists" tests using the standard
+  // and the alternative names. The first test that succeeds determines the
+  // naming scheme (by setting altn) and from then on all the remaining tests
+  // only look for things in this scheme.
+  //
+  bool
+  is_src_root (const dir_path&, optional<bool>& altn);
 
   bool
-  is_src_root (const dir_path&);
-
-  bool
-  is_out_root (const dir_path&);
+  is_out_root (const dir_path&, optional<bool>& altn);
 
   // Given an src_base directory, look for a project's src_root based on the
   // presence of known special files. Return empty path if not found. Note
@@ -49,7 +51,7 @@ namespace build2
   // well.
   //
   dir_path
-  find_src_root (const dir_path&);
+  find_src_root (const dir_path&, optional<bool>& altn);
 
   // The same as above but for project's out. Note that we also check whether
   // a directory happens to be src_root, in case this is an in-tree build with
@@ -57,7 +59,7 @@ namespace build2
   // input is normalized/actualized, then the output will be as well.
   //
   pair<dir_path, bool>
-  find_out_root (const dir_path&);
+  find_out_root (const dir_path&, optional<bool>& altn);
 
   // The old/new src_root paths. See main() (where they are set) for details.
   //
@@ -126,21 +128,22 @@ namespace build2
                 bool load = true);
 
   // Bootstrap the project's forward. Return the forwarded-to out_root or
-  // src_root if there is no forward.
+  // src_root if there is no forward. See is_{src,out}_root() for the altn
+  // argument semantics.
   //
   dir_path
-  bootstrap_fwd (const dir_path& src_root);
+  bootstrap_fwd (const dir_path& src_root, optional<bool>& altn);
 
   // Bootstrap the project's root scope, the out part.
   //
   void
-  bootstrap_out (scope& root);
+  bootstrap_out (scope& root, optional<bool>& altn);
 
   // Bootstrap the project's root scope, the src part. Return true if we
   // loaded anything (which confirms the src_root is not bogus).
   //
   bool
-  bootstrap_src (scope& root);
+  bootstrap_src (scope& root, optional<bool>& altn);
 
   // Return true if this scope has already been bootstrapped, that is, the
   // following calls have already been made:
@@ -156,7 +159,7 @@ namespace build2
   // only be called once per project bootstrap.
   //
   void
-  bootstrap_pre (scope& root);
+  bootstrap_pre (scope& root, optional<bool>& altn);
 
   void
   bootstrap_post (scope& root);

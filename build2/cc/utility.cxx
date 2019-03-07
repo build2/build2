@@ -19,7 +19,7 @@ namespace build2
   {
     using namespace bin;
 
-    const dir_path module_dir (dir_path ("build") /= "cc");
+    const dir_path module_dir ("cc");
     const dir_path modules_sidebuild_dir (dir_path (module_dir) /= "modules");
 
     lorder

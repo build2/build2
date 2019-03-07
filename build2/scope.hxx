@@ -279,6 +279,31 @@ namespace build2
   public:
     loaded_module_map modules; // Only on root scope.
 
+    // Extra root scope-only data.
+    //
+  public:
+    struct root_data
+    {
+      bool altn; // True if using alternative build file/directory naming.
+
+      // Build file/directory naming scheme used by this project.
+      //
+      const string&   build_ext;        // build        or  build2     (no dot)
+      const dir_path& build_dir;        // build/       or  build2/
+      const path&     buildfile_file;   // buildfile    or  build2file
+      const path&     buildignore_file; // buildignore  or  build2ignore
+
+      const dir_path& root_dir;       // build[2]/root/
+      const dir_path& bootstrap_dir;  // build[2]/bootstrap/
+
+      const path&     root_file;      // build[2]/root.build[2]
+      const path&     export_file;    // build[2]/export.build[2]
+      const path&     src_root_file;  // build[2]/bootstrap/src-root.build[2]
+      const path&     out_root_file;  // build[2]/bootstrap/src-root.build[2]
+    };
+
+    unique_ptr<root_data> root_extra;
+
   public:
     // RW access.
     //

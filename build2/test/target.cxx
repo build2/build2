@@ -12,7 +12,7 @@ namespace build2
   namespace test
   {
     static const char*
-    testscript_target_extension (const target_key& tk)
+    testscript_target_extension (const target_key& tk, const scope*)
     {
       // If the name is special 'testscript', then there is no extension,
       // otherwise it is .testscript.

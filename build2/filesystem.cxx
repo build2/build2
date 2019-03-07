@@ -190,17 +190,15 @@ namespace build2
     }
   }
 
-  const path buildignore_file (".buildignore");
-
   fs_status<mkdir_status>
-  mkdir_buildignore (const dir_path& d, uint16_t verbosity)
+  mkdir_buildignore (const dir_path& d, const path& n, uint16_t verbosity)
   {
     fs_status<mkdir_status> r (mkdir (d, verbosity));
 
     // Create the .buildignore file if the directory was created (and so is
     // empty) or the file doesn't exist.
     //
-    path p (d / buildignore_file);
+    path p (d / n);
     if (r || !exists (p))
       touch (p, true /* create */, verbosity);
 
@@ -208,7 +206,7 @@ namespace build2
   }
 
   bool
-  empty_buildignore (const dir_path& d)
+  empty_buildignore (const dir_path& d, const path& n)
   {
     try
     {
@@ -217,8 +215,7 @@ namespace build2
         // The .buildignore filesystem entry should be of the regular file
         // type.
         //
-        if (de.path () != buildignore_file ||
-            de.ltype () != entry_type::regular)
+        if (de.path () != n || de.ltype () != entry_type::regular)
           return false;
       }
     }
@@ -231,7 +228,7 @@ namespace build2
   }
 
   fs_status<rmdir_status>
-  rmdir_buildignore (const dir_path& d, uint16_t verbosity)
+  rmdir_buildignore (const dir_path& d, const path& n, uint16_t verbosity)
   {
     // We should remove the .buildignore file only if the subsequent rmdir()
     // will succeed. In other words if the directory stays after the function
@@ -239,13 +236,13 @@ namespace build2
     // first check that the directory is otherwise empty and doesn't contain
     // the working directory.
     //
-    path p (d / buildignore_file);
-    if (exists (p) && empty_buildignore (d) && !work.sub (d))
+    path p (d / n);
+    if (exists (p) && empty_buildignore (d, n) && !work.sub (d))
       rmfile (p, verbosity);
 
-    // Note that in case of a system error the directory is likely to stay and
-    // the .buildfile is already removed. Trying to restore it feels like an
-    // overkill here.
+    // Note that in case of a system error the directory is likely to stay with
+    // the .buildignore file already removed. Trying to restore it feels like
+    // an overkill here.
     //
     return rmdir (d, verbosity);
   }

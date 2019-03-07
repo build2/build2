@@ -88,7 +88,7 @@ namespace build2
       const variable& c_v (vp.insert<uint64_t> ("config.version", false));
 
       {
-        path f (out_root / config_file);
+        path f (config_file (rs));
 
         if (exists (f))
         {

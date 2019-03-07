@@ -28,9 +28,12 @@ namespace build2
     // configure
     //
     static void
-    save_src_root (const dir_path& out_root, const dir_path& src_root)
+    save_src_root (const scope& root)
     {
-      path f (out_root / src_root_file);
+      const dir_path& out_root (root.out_path ());
+      const dir_path& src_root (root.src_path ());
+
+      path f (out_root / root.root_extra->src_root_file);
 
       if (verb >= 2)
         text << "cat >" << f;
@@ -54,9 +57,12 @@ namespace build2
     }
 
     static void
-    save_out_root (const dir_path& out_root, const dir_path& src_root)
+    save_out_root (const scope& root)
     {
-      path f (src_root / out_root_file);
+      const dir_path& out_root (root.out_path ());
+      const dir_path& src_root (root.src_path ());
+
+      path f (src_root / root.root_extra->out_root_file);
 
       if (verb)
         text << (verb >= 2 ? "cat >" : "save ") << f;
@@ -84,8 +90,7 @@ namespace build2
     static void
     save_config (const scope& root, const project_set& projects)
     {
-      const dir_path& out_root (root.out_path ());
-      path f (out_root / config_file);
+      path f (config_file (root));
 
       if (verb)
         text << (verb >= 2 ? "cat >" : "save ") << f;
@@ -319,8 +324,8 @@ namespace build2
       //
       if (out_root != src_root)
       {
-        mkdir_p (out_root / build_dir);
-        mkdir (out_root / bootstrap_dir, 2);
+        mkdir_p (out_root / root.root_extra->build_dir);
+        mkdir (out_root / root.root_extra->bootstrap_dir, 2);
       }
 
       // We distinguish between a complete configure and operation-
@@ -333,7 +338,7 @@ namespace build2
         // Save src-root.build unless out_root is the same as src.
         //
         if (out_root != src_root)
-          save_src_root (out_root, src_root);
+          save_src_root (root);
 
         // Save config.build.
         //
@@ -378,8 +383,8 @@ namespace build2
         return;
       }
 
-      mkdir (src_root / bootstrap_dir, 2); // Make sure exists.
-      save_out_root (out_root, src_root);
+      mkdir (src_root / root.root_extra->bootstrap_dir, 2); // Make sure exists.
+      save_out_root (root);
 
       // Configure subprojects. Since we don't load buildfiles if configuring
       // a forward, we do it for all known subprojects.
@@ -636,19 +641,19 @@ namespace build2
       {
         l5 ([&]{trace << "completely disfiguring " << out_root;});
 
-        r = rmfile (out_root / config_file) || r;
+        r = rmfile (config_file (root)) || r;
 
         if (out_root != src_root)
         {
-          r = rmfile (out_root / src_root_file, 2) || r;
+          r = rmfile (out_root / root.root_extra->src_root_file, 2) || r;
 
           // Clean up the directories.
           //
           // Note: try to remove the root/ hooks directory if it is empty.
           //
-          r = rmdir (out_root / root_dir,      2) || r;
-          r = rmdir (out_root / bootstrap_dir, 2) || r;
-          r = rmdir (out_root / build_dir,     2) || r;
+          r = rmdir (out_root / root.root_extra->root_dir,      2) || r;
+          r = rmdir (out_root / root.root_extra->bootstrap_dir, 2) || r;
+          r = rmdir (out_root / root.root_extra->build_dir,     2) || r;
 
           switch (rmdir (out_root))
           {
@@ -712,8 +717,8 @@ namespace build2
       // Remove the out-root.build file and try to remove the bootstrap/
       // directory if it is empty.
       //
-      r = rmfile (src_root / out_root_file) || r;
-      r = rmdir (src_root / bootstrap_dir, 2) || r;
+      r = rmfile (src_root / root.root_extra->out_root_file)    || r;
+      r = rmdir  (src_root / root.root_extra->bootstrap_dir, 2) || r;
 
       return r;
     }

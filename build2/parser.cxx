@@ -1236,15 +1236,24 @@ namespace build2
       // 'buildfile'.
       //
       path p (move (n.dir));
+
+      bool a;
       if (n.value.empty ())
-        p /= buildfile_file;
+        a = true;
       else
       {
-        bool d (path::traits::is_separator (n.value.back ()));
-
+        a = path::traits::is_separator (n.value.back ());
         p /= path (move (n.value));
-        if (d)
-          p /= buildfile_file;
+      }
+
+      if (a)
+      {
+        // This shouldn't happen but let's make sure.
+        //
+        if (root_->root_extra == nullptr)
+          fail (l) << "build file naming scheme is not yet known";
+
+        p /= root_->root_extra->buildfile_file;
       }
 
       l6 ([&]{trace (l) << "relative path " << p;});
@@ -3228,15 +3237,21 @@ namespace build2
           include_match (move (v), move (e), a);
         };
 
-      auto process = [&e, &appf, sp] (path&& m, const string& p, bool interm)
+      auto process = [this, &e, &appf, sp] (path&& m,
+                                            const string& p,
+                                            bool interm)
       {
         // Ignore entries that start with a dot unless the pattern that
         // matched them also starts with a dot. Also ignore directories
-        // containing the .buildignore file.
+        // containing the .buildignore file (ignoring the test if we don't
+        // have a sufficiently setup project root).
         //
         const string& s (m.string ());
         if ((p[0] != '.' && s[path::traits::find_leaf (s)] == '.') ||
-            (m.to_directory () && exists (*sp / m / buildignore_file)))
+            (root_ != nullptr              &&
+             root_->root_extra != nullptr  &&
+             m.to_directory ()             &&
+             exists (*sp / m / root_->root_extra->buildignore_file)))
           return !interm;
 
         // Note that we have to make copies of the extension since there will

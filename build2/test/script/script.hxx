@@ -536,8 +536,9 @@ namespace build2
         script& operator= (const script&) = delete;
 
       public:
-        const target& test_target;       // Target we are testing.
-        const testscript& script_target; // Target of the testscript file.
+        const target&        test_target;   // Target we are testing.
+        const build2::scope& target_scope;  // Base scope of test target.
+        const testscript&    script_target; // Target of the testscript file.
 
         // Pre-parse data.
         //

@@ -19,8 +19,12 @@ namespace build2
 
   namespace cc
   {
-    extern const dir_path module_dir;             // build/cc/
-    extern const dir_path modules_sidebuild_dir;  // build/cc/modules/
+    // To form the complete path do:
+    //
+    //   root.out_path () / root.root_extra->build_dir / module_dir
+    //
+    extern const dir_path module_dir;             // cc/
+    extern const dir_path modules_sidebuild_dir;  // cc/modules/
 
     // Compile output type.
     //

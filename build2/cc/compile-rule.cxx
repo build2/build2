@@ -3922,7 +3922,10 @@ namespace build2
       // So the first step is to check if the project has already been created
       // and/or loaded and if not, then to go ahead and do so.
       //
-      dir_path pd (as->out_path () / modules_sidebuild_dir /= x);
+      dir_path pd (as->out_path () /
+                   as->root_extra->build_dir /
+                   modules_sidebuild_dir /=
+                   x);
       {
         const scope* ps (&scopes.find (pd));
 
@@ -3942,7 +3945,8 @@ namespace build2
             // The project might already be created in which case we just need
             // to load it.
             //
-            if (!is_src_root (pd))
+            optional<bool> altn (false); // Standard naming scheme.
+            if (!is_src_root (pd, altn))
             {
               // Copy our standard and force modules.
               //

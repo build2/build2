@@ -519,23 +519,59 @@ main (int argc, char* argv[])
     // continuing in the parent directories until root. Return empty path if
     // not found.
     //
-    auto find_buildfile = [] (const dir_path& d, const dir_path& root)
+    auto find_buildfile = [] (const dir_path& sd,
+                              const dir_path& root,
+                              optional<bool>& altn)
     {
-      const path& n (ops.buildfile ());
+      const path& n (ops.buildfile_specified () ? ops.buildfile () : path ());
 
       if (n.string () == "-")
         return n;
 
-      for (path f (d / n);; )
+      path f;
+      dir_path p;
+
+      for (;;)
       {
-        if (exists (f))
+        const dir_path& d (p.empty () ? sd : p.directory ());
+
+        // Note that we don't attempt to derive the project's naming scheme
+        // from the buildfile name specified by the user.
+        //
+        bool e;
+        if (!n.empty () || altn)
+        {
+          f = d / (!n.empty () ? n : (*altn
+                                      ? alt_buildfile_file
+                                      : std_buildfile_file));
+          e = exists (f);
+        }
+        else
+        {
+          // Note: this case seems to be only needed for simple projects.
+          //
+
+          // Check the alternative name first since it is more specific.
+          //
+          f = d / alt_buildfile_file;
+
+          if ((e = exists (f)))
+            altn = true;
+          else
+          {
+            f = d / std_buildfile_file;
+
+            if ((e = exists (f)))
+              altn = false;
+          }
+        }
+
+        if (e)
           return f;
 
-        dir_path p (f.directory ());
+        p = f.directory ();
         if (p == root)
           break;
-
-        f = p.directory () / n;
       }
 
       return path ();
@@ -751,6 +787,10 @@ main (int argc, char* argv[])
           dir_path src_root;
           dir_path out_root;
 
+          // Standard/alternative build file/directory naming.
+          //
+          optional<bool> altn;
+
           // Update these in buildspec.
           //
           bool& forwarded (ts.forwarded);
@@ -782,7 +822,7 @@ main (int argc, char* argv[])
 
             // If the src_base was explicitly specified, search for src_root.
             //
-            src_root = find_src_root (src_base);
+            src_root = find_src_root (src_base, altn);
 
             // If not found, assume this is a simple project with src_root
             // being the same as src_base.
@@ -812,7 +852,7 @@ main (int argc, char* argv[])
           {
             // If no src_base was explicitly specified, search for out_root.
             //
-            auto p (find_out_root (out_base));
+            auto p (find_out_root (out_base, altn));
 
             if (p.second) // Also src_root.
             {
@@ -821,7 +861,7 @@ main (int argc, char* argv[])
               // Handle a forwarded configuration. Note that if we've changed
               // out_root then we also have to remap out_base.
               //
-              out_root = bootstrap_fwd (src_root);
+              out_root = bootstrap_fwd (src_root, altn);
               if (src_root != out_root)
               {
                 out_base = out_root / out_base.leaf (src_root);
@@ -840,12 +880,12 @@ main (int argc, char* argv[])
               // try to look for outer buildfiles since we don't have the root
               // to stop at. However, this shouldn't be an issue since simple
               // project won't normally have targets in subdirectories (or, in
-              // other words, we are not very interested "complex simple
+              // other words, we are not very interested in "complex simple
               // projects").
               //
               if (out_root.empty ())
               {
-                if (find_buildfile (out_base, out_base).empty ())
+                if (find_buildfile (out_base, out_base, altn).empty ())
                 {
                   fail << "no buildfile in " << out_base <<
                     info << "consider explicitly specifying its src_base";
@@ -873,7 +913,7 @@ main (int argc, char* argv[])
 
           if (!bstrapped)
           {
-            bootstrap_out (rs);
+            bootstrap_out (rs, altn);
 
             // See if the bootstrap process set/changed src_root.
             //
@@ -928,21 +968,28 @@ main (int argc, char* argv[])
             // Now that we have src_root, load the src_root bootstrap file,
             // if there is one.
             //
-            bootstrap_pre (rs);
-            bootstrap_src (rs);
+            bootstrap_pre (rs, altn);
+            bootstrap_src (rs, altn);
             // bootstrap_post() delayed until after create_bootstrap_outer().
           }
           else
           {
-            if (src_root.empty ())
-              src_root = rs.src_path ();
-
             // Note that we only "upgrade" the forwarded value since the same
             // project root can be arrived at via multiple paths (think
             // command line and import).
             //
             if (forwarded)
               rs.assign (var_forwarded) = true;
+
+            // Sync local variable that are used below with actual values.
+            //
+            if (src_root.empty ())
+              src_root = rs.src_path ();
+
+            if (!altn)
+              altn = rs.root_extra->altn;
+            else
+              assert (*altn == rs.root_extra->altn);
           }
 
           // At this stage we should have both roots and out_base figured
@@ -1201,7 +1248,7 @@ main (int argc, char* argv[])
           // data from the cash (we don't really care about the negative
           // answer since this is a degenerate case).
           //
-          path bf (find_buildfile (src_base, src_base));
+          path bf (find_buildfile (src_base, src_base, altn));
           if (bf.empty ())
           {
             // If the target is a directory and the implied buildfile is
@@ -1210,12 +1257,12 @@ main (int argc, char* argv[])
             //
             if ((tn.directory () || tn.type == "dir") &&
                 exists (src_base)                     &&
-                dir::check_implied (src_base))
+                dir::check_implied (rs, src_base))
               ; // Leave bf empty.
             else
             {
               if (src_base != src_root)
-                bf = find_buildfile (src_base.directory (), src_root);
+                bf = find_buildfile (src_base.directory (), src_root, altn);
 
               if (bf.empty ())
                 fail << "no buildfile in " << src_base << " or parent "

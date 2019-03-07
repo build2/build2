@@ -26,19 +26,4 @@ namespace build2
     assert (phase == run_phase::match || phase == run_phase::execute);
     return import (pk, true);
   }
-
-  void
-  source_hooks (scope&, const dir_path&, bool);
-
-  inline void
-  bootstrap_pre (scope& root)
-  {
-    source_hooks (root, bootstrap_dir, true /* pre */);
-  }
-
-  inline void
-  bootstrap_post (scope& root)
-  {
-    source_hooks (root, bootstrap_dir, false /* pre */);
-  }
 }
