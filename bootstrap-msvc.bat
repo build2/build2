@@ -131,7 +131,12 @@ rem
 set "obj="
 for %%d in (%src%) do (
   cd %%d
-  call :compile *.cxx
+
+  set "r="
+  for /F "tokens=*" %%i in ('dir /b *.cxx ^| findstr /v "\.test\.cxx"') do (
+    set "r=!r! %%i")
+
+  call :compile !r!
   if errorlevel 1 goto error
   cd %owd%
   set "obj=!obj! %%d\*.obj"
