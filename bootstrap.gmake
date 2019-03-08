@@ -146,6 +146,11 @@ build2_src  := $(wildcard $(src_root)/build2/*.cxx)
 build2_src  += $(foreach d,$(sub_dirs),$(wildcard $(src_root)/build2/$d/*.cxx))
 libbutl_src := $(wildcard $(libbutl)/libbutl/*.cxx)
 
+# Filter out *.test.cxx sources.
+#
+build2_src  := $(filter-out %.test.cxx,$(build2_src))
+libbutl_src := $(filter-out %.test.cxx,$(libbutl_src))
+
 # Note that we use the .b.o object file extension to avoid clashing with the
 # build2 builds.
 #
