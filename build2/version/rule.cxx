@@ -134,25 +134,30 @@ namespace build2
       // all of them are necessarily in the standard form and secondly because
       // of the MT-safety.
       //
-      standard_version_constraint c;
+      standard_version_constraint dc;
+      const package_name* dn;
       {
         auto i (m.dependencies.find (pn));
 
         if (i == m.dependencies.end ())
           fail (l) << "unknown dependency '" << pn << "'";
 
-        if (i->second.empty ())
-          fail (l) << "no version constraint for dependency " << pn;
+        const dependency& dp (i->second);
+
+        if (dp.constraint.empty ())
+          fail (l) << "no version constraint for dependency " << dp.name;
 
         try
         {
-          c = standard_version_constraint (i->second, m.version);
+          dc = standard_version_constraint (dp.constraint, m.version);
         }
         catch (const invalid_argument& e)
         {
-          fail (l) << "invalid version constraint for dependency " << pn
-                   << " " << i->second << ": " << e;
+          fail (l) << "invalid version constraint for dependency " << dp.name
+                   << " " << dp.constraint << ": " << e;
         }
+
+        dn = &dp.name;
       }
 
       // Now substitute.
@@ -160,7 +165,7 @@ namespace build2
       size_t i;
       if (vn == "version")
       {
-        return c.string (); // Use normalized representation.
+        return dc.string (); // Use normalized representation.
       }
       if (vn.compare (0, (i = 6),  "check(")     == 0 ||
           vn.compare (0, (i = 10), "condition(") == 0)
@@ -178,18 +183,18 @@ namespace build2
         trim (vm);
         trim (sm);
 
-        auto cond = [&l, &c, &vm, &sm] () -> string
+        auto cond = [&l, &dc, &vm, &sm] () -> string
         {
-          auto& miv (c.min_version);
-          auto& mav (c.max_version);
+          auto& miv (dc.min_version);
+          auto& mav (dc.max_version);
 
-          bool mio (c.min_open);
-          bool mao (c.max_open);
+          bool mio (dc.min_open);
+          bool mao (dc.max_open);
 
           if (sm.empty () &&
               ((miv && miv->snapshot ()) ||
                (mav && mav->snapshot ())))
-            fail (l) << "snapshot macro required for " << c.string ();
+            fail (l) << "snapshot macro required for " << dc.string ();
 
           auto cmp = [] (const string& m, const char* o, uint64_t v)
           {
@@ -278,8 +283,8 @@ namespace build2
         //
         r += "#ifdef " + vm + "\n";
         r += "#  if !(" + cond () + ")\n";
-        r += "#    error incompatible " + pn + " version, ";
-        r +=       pn + ' ' + c.string () + " is required\n";
+        r += "#    error incompatible " + dn->string () + " version, ";
+        r +=       dn->string () + ' ' + dc.string () + " is required\n";
         r += "#  endif\n";
         r += "#endif";
 

@@ -45,7 +45,7 @@ namespace build2
       string url;
 
       standard_version v;
-      dependency_constraints ds;
+      dependencies ds;
       {
         path f (rs.src_path () / manifest_file);
 
@@ -129,7 +129,10 @@ namespace build2
 
                 try
                 {
-                  ds.emplace (project_name (move (n)).variable (), move (c));
+                  package_name pn (move (n));
+                  string v (pn.variable ());
+
+                  ds.emplace (move (v), dependency {move (pn), move (c)});
                 }
                 catch (const invalid_argument& e)
                 {
@@ -184,15 +187,16 @@ namespace build2
       {
         auto i (ds.find ("build2"));
 
-        if (i != ds.end () && !i->second.empty ())
+        if (i != ds.end () && !i->second.constraint.empty ())
         try
         {
-          check_build_version (standard_version_constraint (i->second, v), l);
+          check_build_version (
+            standard_version_constraint (i->second.constraint, v), l);
         }
         catch (const invalid_argument& e)
         {
           fail (l) << "invalid version constraint for dependency build2 "
-                   << i->second << ": " << e;
+                   << i->second.constraint << ": " << e;
         }
       }
 
