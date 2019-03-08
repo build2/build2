@@ -5,7 +5,7 @@
 import libs  = libbutl%lib{butl}
 import libs += libpkgconf%lib{pkgconf}
 
-./: exe{b}: cxx{b} libue{b}
+./: exe{b}: {hxx ixx txx cxx}{+b} libue{b}
 
 libue{b}: {hxx ixx txx cxx}{** -b -b-options -config -version -**.test...} \
           {hxx ixx cxx}{b-options} {hxx}{config version}                   \
