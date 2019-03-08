@@ -132,9 +132,10 @@ set "obj="
 for %%d in (%src%) do (
   cd %%d
 
+  rem Filter out *.test.cxx sources.
+  rem
   set "r="
-  for /F "tokens=*" %%i in ('dir /b *.cxx ^| findstr /v "\.test\.cxx"') do (
-    set "r=!r! %%i")
+  for /F "tokens=*" %%i in ('dir /b *.cxx ^| findstr /v "\.test\.cxx"') do set "r=!r! %%i"
 
   call :compile !r!
   if errorlevel 1 goto error
