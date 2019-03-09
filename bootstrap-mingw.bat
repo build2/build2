@@ -60,19 +60,19 @@ if "_%libbutl%_" == "__" (
 
 rem All the source directories.
 rem
-set "src=build2\*.cxx"
-set "src=%src% build2\config\*.cxx"
-set "src=%src% build2\dist\*.cxx"
-set "src=%src% build2\bin\*.cxx"
-set "src=%src% build2\c\*.cxx"
-set "src=%src% build2\cc\*.cxx"
-set "src=%src% build2\cxx\*.cxx"
-set "src=%src% build2\test\*.cxx"
-set "src=%src% build2\test\script\*.cxx"
-set "src=%src% build2\version\*.cxx"
-set "src=%src% build2\install\*.cxx"
-set "src=%src% build2\in\*.cxx"
-set "src=%src% %libbutl%\libbutl\*.cxx"
+set "src=build2"
+set "src=%src% build2\config"
+set "src=%src% build2\dist"
+set "src=%src% build2\bin"
+set "src=%src% build2\c"
+set "src=%src% build2\cc"
+set "src=%src% build2\cxx"
+set "src=%src% build2\test"
+set "src=%src% build2\test\script"
+set "src=%src% build2\version"
+set "src=%src% build2\install"
+set "src=%src% build2\in"
+set "src=%src% %libbutl%\libbutl"
 
 rem Get the compile options.
 rem
@@ -94,8 +94,16 @@ rem Compile.
 rem
 rem Note that echo does not override errorlevel.
 rem
+
+rem Filter out *.test.cxx sources.
+rem
+set "r="
+for %%d in (%src%) do (
+  for /F "tokens=*" %%i in ('dir /b "%%d\*.cxx" ^| findstr /v "\.test\.cxx"') do set "r=!r! %%d\%%i"
+)
+
 echo on
-%cxx% -I%libbutl% -I. -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %src% -limagehlp
+%cxx% -I%libbutl% -I. -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"i686-w64-mingw32\" %ops% -o build2\b-boot.exe %r% -limagehlp
 @echo off
 if errorlevel 1 goto error
 

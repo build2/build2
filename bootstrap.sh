@@ -132,8 +132,17 @@ src="$src build2/in/*.cxx"
 src="$src build2/bash/*.cxx"
 src="$src $libbutl/libbutl/*.cxx"
 
+# Filter out *.test.cxx sources.
+#
+r=
+for f in $src; do
+  if test -n "${f##*.test.cxx}"; then
+    r="$r $f"
+  fi
+done
+
 # Note that for as long as we support GCC 4.9 we have to compile in the C++14
 # mode since 4.9 doesn't recognize c++1z.
 #
 set -x
-"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $src -lpthread
+"$cxx" "-I$libbutl" -I. -DBUILD2_BOOTSTRAP '-DBUILD2_HOST_TRIPLET="'"$host"'"' -std=c++1y "$@" -o build2/b-boot $r -lpthread
