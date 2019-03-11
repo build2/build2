@@ -134,6 +134,9 @@ for %%d in (%src%) do (
 
   rem Filter out *.test.cxx sources.
   rem
+  rem Note that we don't need to worry about *.obj since we clean them all up
+  rem before compiling so after compiling we will only have the ones we need.
+  rem
   set "r="
   for /F "tokens=*" %%i in ('dir /b *.cxx ^| findstr /v "\.test\.cxx"') do set "r=!r! %%i"
 
