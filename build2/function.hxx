@@ -135,10 +135,10 @@ namespace build2
                        D d)
         : function_overload (an, mi, ma, move (ts), im)
     {
-      // std::is_pod appears to be broken in VC15 and also in GCC up to
+      // std::is_pod appears to be broken in VC16 and also in GCC up to
       // 5 (pointers to members).
       //
-#if !((defined(_MSC_VER) && _MSC_VER < 1920) || \
+#if !((defined(_MSC_VER) && _MSC_VER < 2000) || \
       (defined(__GNUC__) && !defined(__clang__) && __GNUC__ <= 5))
       static_assert (std::is_pod<D>::value, "type is not POD");
 #endif
