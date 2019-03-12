@@ -417,9 +417,13 @@ namespace build2
         chain->pop_back ();
     }
 
-    // The name can be an absolute target name (e.g., /tmp/libfoo/lib{foo}) or
-    // a potentially project-qualified relative target name (e.g.,
-    // libfoo%lib{foo}).
+    // The name can be an absolute or relative target name (for example,
+    // /tmp/libfoo/lib{foo} or ../libfoo/lib{foo}) or a project-qualified
+    // relative target name (e.g., libfoo%lib{foo}).
+    //
+    // Note that in case of the relative target that comes from export.libs,
+    // the resolution happens relative to the base scope of the target from
+    // which this export.libs came, which is exactly what we want.
     //
     // Note that the scope, search paths, and the link order should all be
     // derived from the library target that mentioned this name. This way we
@@ -439,7 +443,7 @@ namespace build2
 
       const target* xt (nullptr);
 
-      if (n.dir.absolute () && !n.qualified ())
+      if (!n.qualified ())
       {
         // Search for an existing target with this name "as if" it was a
         // prerequisite.
