@@ -1293,8 +1293,11 @@ namespace build2
       const dir_path* opb (pbase_);
       switch_scope (out_base);
 
-      // Use the new scope's src_base to get absolute buildfile path
-      // if it is relative.
+      if (root_ == nullptr)
+        fail (l) << "out of project include from " << out_base;
+
+      // Use the new scope's src_base to get absolute buildfile path if it is
+      // relative.
       //
       if (p.relative ())
         p = scope_->src_path () / p.leaf ();
@@ -5152,12 +5155,18 @@ namespace build2
 
     auto p (build2::switch_scope (*root_, d));
     scope_ = &p.first;
-    pbase_ = scope_->src_path_;
+    pbase_ = scope_->src_path_ != nullptr ? scope_->src_path_ : &d;
 
-    if (p.second != nullptr && p.second != root_)
+    if (p.second != root_)
     {
       root_ = p.second;
-      l5 ([&]{trace << "switching to root scope " << root_->out_path ();});
+      l5 ([&]
+          {
+            if (root_ != nullptr)
+              trace << "switching to root scope " << root_->out_path ();
+            else
+              trace << "switching to out of project scope";
+          });
     }
   }
 
