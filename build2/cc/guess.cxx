@@ -1576,11 +1576,18 @@ namespace build2
 
           // Mapping of compiler versions to runtime versions:
           //
-          // Note that VC15 has runtime version 14.1 but the DLLs are still
+          // Note that VC 15 has runtime version 14.1 but the DLLs are still
           // called *140.dll (they are said to be backwards-compatible).
           //
-          // year   ver cl.exe  crt/dll
+          // And VC 16 seems to have the runtime version 14.1 (and not 14.2,
+          // as one might expect; DLLs are still *140.dll but there are now _1
+          // and _2 variants for, say, msvcp140.dll). We will, however, call
+          // it 14.2 (which is the version of the "toolset") in our target
+          // triplet.
           //
+          // year   ver   cl     crt/dll
+          //
+          // 2019   16.0  19.20  14.2/140
           // 2017   15.9  19.16  14.1/140
           // 2017   15.8  19.15  14.1/140
           // 2017   15.7  19.14  14.1/140
@@ -1596,7 +1603,8 @@ namespace build2
           // 2005    8    14.00   8.0/80
           // 2003  7.1    13.10   7.1/71
           //
-          /**/ if (v.major == 19 && v.minor >= 10) t += "14.1";
+          /**/ if (v.major == 19 && v.minor >= 20) t += "14.2";
+          else if (v.major == 19 && v.minor >= 10) t += "14.1";
           else if (v.major == 19 && v.minor ==  0) t += "14.0";
           else if (v.major == 18 && v.minor ==  0) t += "12.0";
           else if (v.major == 17 && v.minor ==  0) t += "11.0";
