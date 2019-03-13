@@ -1529,7 +1529,10 @@ namespace build2
         }
       case compiler_type::msvc:
         {
-          pp = "/C";
+          // Asking MSVC to preserve comments doesn't really buy us anything
+          // but does cause some extra buggy behavior.
+          //
+          //pp = "/C";
           break;
         }
       case compiler_type::icc:
@@ -1909,8 +1912,6 @@ namespace build2
           {
           case compiler_class::msvc:
             {
-              assert (pp != nullptr);
-
               args.push_back ("/nologo");
 
               // See perform_update() for details on overriding the default
@@ -1924,7 +1925,8 @@ namespace build2
 
               args.push_back ("/P");            // Preprocess to file.
               args.push_back ("/showIncludes"); // Goes to stdout (with diag).
-              args.push_back (pp);              // /C (preserve comments).
+              if (pp != nullptr)
+                args.push_back (pp);            // /C (preserve comments).
               args.push_back ("/WX");           // Warning as error (see above).
 
               msvc_sanitize_cl (args);
@@ -3009,7 +3011,7 @@ namespace build2
                 args.push_back ("/MD");
 
               args.push_back ("/E");
-              args.push_back ("/C");
+              // args.push_back ("/C"); // See above.
 
               msvc_sanitize_cl (args);
 
