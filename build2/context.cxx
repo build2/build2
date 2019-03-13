@@ -590,7 +590,7 @@ namespace build2
       //
       // But that's probably ok (the need for a scope-qualified override with
       // scope visibility should be pretty rare). Note also that to set the
-      // value on the root (global) scope we use !.
+      // value on the global scope we use !.
       //
       // And so the first token should be a word which can be either a
       // variable name (potentially with the directory qualification) or just

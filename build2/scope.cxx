@@ -269,8 +269,8 @@ namespace build2
       return true;
     };
 
-    // Return the override value if it is present and (optionally) ends with
-    // a suffix.
+    // Return the override value if present in scope s and (optionally) ends
+    // with the specified suffix.
     //
     auto find = [&s, &var] (const variable* o,
                             const char* sf = nullptr) -> lookup
@@ -363,6 +363,7 @@ namespace build2
     lookup stem;
     size_t stem_depth (0);
     const scope* stem_proj (nullptr);
+    const variable* stem_ovr (nullptr); // __override if found and applies.
 
     // Again the special case of a target/rule-specific variable.
     //
@@ -413,6 +414,7 @@ namespace build2
           stem = move (l);
           stem_depth = ovr_depth;
           stem_proj = s->root_scope ();
+          stem_ovr = o;
           done = true;
           break;
         }
@@ -486,10 +488,23 @@ namespace build2
     {
       ++ovr_depth;
 
+      // Skip any append/prepend overrides that appear before __override,
+      // provided it is from this scope.
+      //
+      bool skip (stem_ovr != nullptr && stem_depth == ovr_depth);
+
       for (const variable* o (var.override.get ());
            o != nullptr;
            o = o->override.get ())
       {
+        if (skip)
+        {
+          if (stem_ovr == o) // Keep skipping until after we see __override.
+            skip = false;
+
+          continue;
+        }
+
         // First see if this override applies. This is tricky: what if the
         // stem is a "visible" override from an outer project?  Shouldn't its
         // overrides apply? Sure sounds logical. So we use the project of the
@@ -507,7 +522,7 @@ namespace build2
 
         if (cl)
         {
-          // Note: if we have both, then the prefix is already in the stem.
+          // Note: if we have both, then one is already in the stem.
           //
           if (lp) // No sense to prepend/append if NULL.
           {

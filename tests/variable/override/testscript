@@ -56,6 +56,7 @@
 }
 
 : override-cached
+:
 : Test overriding cached target type/pattern-specific prepend/append
 :
 {
@@ -74,5 +75,33 @@
   0 a X
   1 a X
   1 a b X
+  EOO
+}
+
+: order
+:
+{
+  : after
+  :
+  $* x=1 x+=2 x=+0 <<EOI >>EOO
+  print $x
+  EOI
+  0 1 2
+  EOO
+
+  : before
+  :
+  $* x+=2 x=+0 x=1 <<EOI >>EOO
+  print $x
+  EOI
+  1
+  EOO
+
+  : both
+  :
+  $* x=+0 x=1 x+=2 <<EOI >>EOO
+  print $x
+  EOI
+  1 2
   EOO
 }
