@@ -557,8 +557,10 @@ namespace build2
     // marked as such first. Then, as we enter variables, we can verify that
     // the override is alowed.
     //
-    for (const string& s: cmd_vars)
+    for (size_t i (0); i != cmd_vars.size (); ++i)
     {
+      const string& s (cmd_vars[i]);
+
       istringstream is (s);
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
@@ -678,48 +680,39 @@ namespace build2
       if (c == '!' && dir)
         fail << "scope-qualified global override of variable " << n;
 
-      variable_visibility v (c == '/' ? variable_visibility::scope   :
-                             c == '%' ? variable_visibility::project :
-                             variable_visibility::normal);
-
       variable& var (const_cast<variable&> (
                        vp.insert (n, true /* overridable */)));
-      const char* k (tt == token_type::assign ? ".__override" :
-                     tt == token_type::append ? ".__suffix" : ".__prefix");
 
-      // We might already have a variable for this kind of override.
-      //
-      const variable* o (var.override.get ());
-      for (; o != nullptr; o = o->override.get ())
+      const variable* o;
       {
-        if (o->visibility == v && o->name.rfind (k) != string::npos)
-          break;
-      }
+        variable_visibility v (c == '/' ? variable_visibility::scope   :
+                               c == '%' ? variable_visibility::project :
+                               variable_visibility::normal);
 
-      // Add it if not found.
-      //
-      if (o == nullptr)
-      {
+        const char* k (tt == token_type::assign ? "__override" :
+                       tt == token_type::append ? "__suffix" : "__prefix");
+
         unique_ptr<variable> p (
           new variable {
-            n + k,
-            nullptr /* alias    */,
-            nullptr /* type     */,
-            nullptr /* override */,
+            n + '.' + to_string (i + 1) + '.' + k,
+            nullptr /* aliases   */,
+            nullptr /* type      */,
+            nullptr /* overrides */,
             v});
 
         // Back link.
         //
-        p->alias = p.get ();
-        if (var.override != nullptr)
-          swap (p->alias, const_cast<variable*> (var.override.get ())->alias);
+        p->aliases = p.get ();
+        if (var.overrides != nullptr)
+          swap (p->aliases,
+                const_cast<variable*> (var.overrides.get ())->aliases);
 
         // Forward link.
         //
-        p->override = move (var.override);
-        var.override = move (p);
+        p->overrides = move (var.overrides);
+        var.overrides = move (p);
 
-        o = var.override.get ();
+        o = var.overrides.get ();
       }
 
       // Currently we expand project overrides in the global scope to keep
@@ -745,16 +738,9 @@ namespace build2
       if (c == '!' || (dir && dir->absolute ()))
       {
         scope& s (c == '!' ? gs : sm.insert (*dir)->second);
-        auto p (s.vars.insert (*o));
 
-        if (!p.second)
-        {
-          if (c == '!')
-            fail << "multiple global overrides of variable " << n;
-          else
-            fail << "multiple overrides of variable " << n
-                 << " in scope " << *dir;
-        }
+        auto p (s.vars.insert (*o));
+        assert (p.second); // Variable name is unique.
 
         value& v (p.first);
         v = move (r.first);

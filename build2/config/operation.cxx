@@ -131,7 +131,7 @@ namespace build2
             const variable& var (sv.var);
 
             pair<lookup, size_t> org (root.find_original (var));
-            pair<lookup, size_t> ovr (var.override == nullptr
+            pair<lookup, size_t> ovr (var.overrides == nullptr
                                       ? org
                                       : root.find_override (var, org));
             const lookup& l (ovr.first);
@@ -859,19 +859,11 @@ namespace build2
       {
         const variable& var (p.first->first);
 
-        // Annoyingly, this is one of the __override/__prefix/__suffix
-        // values. So we strip the last component.
+        // Annoyingly, this can be (always is?) one of the overrides
+        // (__override, __prefix, etc).
         //
-        size_t n (var.name.size ());
-
-        if (var.name.compare (n - 11, 11, ".__override") == 0)
-          n -= 11;
-        else if (var.name.compare (n - 9, 9, ".__prefix") == 0)
-          n -= 9;
-        else if (var.name.compare (n - 9, 9, ".__suffix") == 0)
-          n -= 9;
-
-        m.save_variable (*vp.find (string (var.name, 0, n)));
+        size_t n (var.override ());
+        m.save_variable (n != 0 ? *vp.find (string (var.name, 0, n)) : var);
       }
 
       // Now project-specific. For now we just save all of them and let

@@ -191,7 +191,7 @@ namespace build2
 
       rs.assign (x_pattern) = ci.pattern;
 
-      if (!x_stdlib.aliases (c_stdlib))
+      if (!x_stdlib.alias (c_stdlib))
         rs.assign (x_stdlib) = ci.x_stdlib;
 
       new_ = p.second;
@@ -390,7 +390,7 @@ namespace build2
           dr << "\n  runtime    " << ci.runtime
              << "\n  stdlib     " << ci.x_stdlib;
 
-          if (!x_stdlib.aliases (c_stdlib))
+          if (!x_stdlib.alias (c_stdlib))
             dr << "\n  c stdlib   " << ci.c_stdlib;
         }
 

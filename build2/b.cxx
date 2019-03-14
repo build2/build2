@@ -1296,11 +1296,10 @@ main (int argc, char* argv[])
           // Enter project-wide (as opposed to global) variable overrides.
           //
           // The mildly tricky part here is to distinguish the situation where
-          // we are bootstrapping the same project multiple times (which is
-          // ok) vs overriding the same variable multiple times (which is not
-          // ok). The first override that we set cannot possibly end up in the
-          // second sitution so if it is already set, then it can only be the
-          // first case.
+          // we are bootstrapping the same project multiple times. The first
+          // override that we set cannot already exist (because the override
+          // variable names are unique) so if it is already set, then it can
+          // only mean this project is already bootstrapped.
           //
           // This is further complicated by the project vs amalgamation logic
           // (we may have already done the amalgamation but not the project).
@@ -1309,7 +1308,6 @@ main (int argc, char* argv[])
           {
             auto& sm (scope_map::instance);
 
-            bool first_a (true);
             for (const variable_override& o: var_ovs)
             {
               if (o.ovr.visibility != variable_visibility::normal)
@@ -1325,20 +1323,12 @@ main (int argc, char* argv[])
               auto p (s.vars.insert (o.ovr));
 
               if (!p.second)
-              {
-                if (first_a)
-                  break;
-
-                fail << "multiple " << (o.dir ? "scope" : "amalgamation")
-                     << " overrides of variable " << o.var.name;
-              }
+                break;
 
               value& v (p.first);
               v = o.val;
-              first_a = false;
             }
 
-            bool first_p (true);
             for (const variable_override& o: var_ovs)
             {
               // Ours is either project (%foo) or scope (/foo).
@@ -1353,17 +1343,10 @@ main (int argc, char* argv[])
               auto p (s.vars.insert (o.ovr));
 
               if (!p.second)
-              {
-                if (first_p)
-                  break;
-
-                fail << "multiple " << (o.dir ? "scope" : "project")
-                     << " overrides of variable " << o.var.name;
-              }
+                break;
 
               value& v (p.first);
               v = o.val;
-              first_p = false;
             }
           }
 

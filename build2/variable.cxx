@@ -1142,7 +1142,7 @@ namespace build2
     // Check overridability (all overrides, if any, should already have
     // been entered (see context.cxx:reset()).
     //
-    if (var.override != nullptr && (o == nullptr || !*o))
+    if (var.overrides != nullptr && (o == nullptr || !*o))
       fail << "variable " << var.name << " cannot be overridden";
 
     bool ut (t != nullptr && var.type != t);
@@ -1150,7 +1150,7 @@ namespace build2
 
     // Variable should not be updated post-aliasing.
     //
-    assert (var.alias == &var || (!ut && !uv));
+    assert (var.aliases == &var || (!ut && !uv));
 
     // Update type?
     //
@@ -1277,12 +1277,12 @@ namespace build2
     variable& r (p.first->second);
 
     if (p.second)
-      r.alias = &r;
+      r.aliases = &r;
     else // Note: overridden variable will always exist.
     {
       if (t != nullptr || v != nullptr || o != nullptr)
         update (r, t, v, o); // Not changing the key.
-      else if (r.override != nullptr)
+      else if (r.overrides != nullptr)
         fail << "variable " << r.name << " cannot be overridden";
     }
 
@@ -1292,7 +1292,7 @@ namespace build2
   const variable& variable_pool::
   insert_alias (const variable& var, string n)
   {
-    assert (var.alias != nullptr && var.override == nullptr);
+    assert (var.aliases != nullptr && var.overrides == nullptr);
 
     variable& a (insert (move (n),
                          var.type,
@@ -1300,13 +1300,13 @@ namespace build2
                          nullptr /* override */,
                          false   /* pattern  */));
 
-    if (a.alias == &a) // Not aliased yet.
+    if (a.aliases == &a) // Not aliased yet.
     {
-      a.alias = var.alias;
-      const_cast<variable&> (var).alias = &a;
+      a.aliases = var.aliases;
+      const_cast<variable&> (var).aliases = &a;
     }
     else
-      assert (a.aliases (var)); // Make sure it is already an alias of var.
+      assert (a.alias (var)); // Make sure it is already an alias of var.
 
     return a;
   }
@@ -1406,7 +1406,7 @@ namespace build2
         break;
       }
 
-      v = v->alias;
+      v = v->aliases;
 
     } while (v != &var && v != nullptr);
 

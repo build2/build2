@@ -191,7 +191,7 @@ namespace build2
     // no overrides apply, then we return the original value and not its copy
     // in the cache (this is used to detect if the value was overriden).
     //
-    assert (var.override != nullptr);
+    assert (var.overrides != nullptr);
 
     const lookup& orig (original.first);
     size_t orig_depth (original.second);
@@ -269,13 +269,13 @@ namespace build2
       return true;
     };
 
-    // Return the override value if present in scope s and (optionally) ends
-    // with the specified suffix.
+    // Return the override value if present in scope s and (optionally) of
+    // the specified kind (__override, __prefix, etc).
     //
     auto find = [&s, &var] (const variable* o,
-                            const char* sf = nullptr) -> lookup
+                            const char* k = nullptr) -> lookup
     {
-      if (sf != nullptr && o->name.rfind (sf) == string::npos)
+      if (k != nullptr && !o->override (k))
         return lookup ();
 
       // Note: using the original as storage variable.
@@ -317,9 +317,9 @@ namespace build2
         inner_proj = s->root_scope ();
       }
 
-      for (const variable* o (var.override.get ());
+      for (const variable* o (var.overrides.get ());
            o != nullptr;
-           o = o->override.get ())
+           o = o->overrides.get ())
       {
         if (inner_vars != nullptr && !applies (o, inner_vars, inner_proj))
           continue;
@@ -400,9 +400,9 @@ namespace build2
       // Note that the override list is in the reverse order of appearance and
       // so we will naturally see the most recent override first.
       //
-      for (const variable* o (var.override.get ());
+      for (const variable* o (var.overrides.get ());
            o != nullptr;
-           o = o->override.get ())
+           o = o->overrides.get ())
       {
         // If we haven't yet found anything, then any override will still be
         // "visible" even if it doesn't apply.
@@ -410,7 +410,7 @@ namespace build2
         if (stem.defined () && !applies (o, stem.vars, stem_proj))
           continue;
 
-        auto l (find (o, ".__override"));
+        auto l (find (o, "__override"));
 
         if (l.defined ())
         {
@@ -500,9 +500,9 @@ namespace build2
       //
       bool skip (stem_ovr != nullptr && stem_depth == ovr_depth);
 
-      for (const variable* o (var.override->alias); // Last override.
+      for (const variable* o (var.overrides->aliases); // Last override.
            o != nullptr;
-           o = (o->alias != var.override->alias ? o->alias : nullptr))
+           o = (o->aliases != var.overrides->aliases ? o->aliases : nullptr))
       {
         if (skip)
         {
@@ -524,8 +524,8 @@ namespace build2
         // variable itself is typed. We also pass the original variable for
         // diagnostics.
         //
-        auto lp (find (o, ".__prefix"));
-        auto ls (find (o, ".__suffix"));
+        auto lp (find (o, "__prefix"));
+        auto ls (find (o, "__suffix"));
 
         if (cl)
         {

@@ -653,7 +653,7 @@ namespace build2
 
           if (p.first)
           {
-            if (var.override != nullptr)
+            if (var.overrides != nullptr)
               p = s.target_scope.find_override (var, move (p), true);
 
             return p.first;

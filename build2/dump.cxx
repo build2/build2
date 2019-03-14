@@ -96,10 +96,7 @@ namespace build2
       //
       if (k != variable_kind::prerequisite)
       {
-        if (var.override != nullptr &&
-            var.name.rfind (".__override") == string::npos &&
-            var.name.rfind (".__suffix") == string::npos &&
-            var.name.rfind (".__prefix") == string::npos)
+        if (var.overrides != nullptr && !var.override ())
         {
           lookup org (v, var, vm);
 

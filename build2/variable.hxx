@@ -145,24 +145,38 @@ namespace build2
   // The two variables are considered the same if they have the same name.
   //
   // Variables can be aliases of each other in which case they form a circular
-  // linked list (alias for variable without any aliases points to the
-  // variable itself).
+  // linked list (the aliases pointer for variable without any aliases points
+  // to the variable itself).
   //
   // If the variable is overridden on the command line, then override is the
   // linked list of the special override variables. Their names are derived
-  // from the main variable name as <name>.{__override,__prefix,__suffix} and
-  // they are not entered into the var_pool. The override variables only vary
-  // in their names and visibility. Their alias pointer is re-purposed to make
-  // the list doubly-linked with the first override's alias pointing to the
-  // last element (or itself).
-  //
-  // Note that the override list is in the reverse order of the overrides
-  // appearing on the command line, which is important when deciding whether
-  // and in what order they apply (see find_override() for details).
+  // from the main variable name as <name>.<N>.{__override,__prefix,__suffix}
+  // and they are not entered into the var_pool. The override variables only
+  // vary in their names and visibility. Their aliases pointer is re-purposed
+  // to make the list doubly-linked with the first override's aliases pointer
+  // pointing to the last element (or itself).
   //
   // Note also that we don't propagate the variable type to override variables
   // and we keep override values as untyped names. They get "typed" when they
   // are applied.
+  //
+  // The overrides list is in the reverse order of the overrides appearing on
+  // the command line, which is important when deciding whether and in what
+  // order they apply (see find_override() for details).
+  //
+  // The <N> part in the override variable name is its position on the command
+  // line, which effectively means we will have as many variable names as
+  // there are overrides. This strange arrangement is here to support multiple
+  // overrides. For example:
+  //
+  // b config.cc.coptions=-O2 config.cc.coptions+=-g config.cc.coptions+=-Wall
+  //
+  // We cannot yet apply them to form a single value since this requires
+  // knowing their type. And there is no way to store multiple values of the
+  // same variable in any given variable_map. As a result, the best option
+  // appears to be to store them as multiple variables. While not very
+  // efficient, this shouldn't be a big deal since we don't expect to have
+  // many overrides.
   //
   // We use the "modify original, override on query" model. Because of that, a
   // modified value does not necessarily represent the actual value so care
@@ -179,19 +193,55 @@ namespace build2
   struct variable
   {
     string name;
-    const variable* alias;               // Circular linked list.
-    const value_type* type;              // If NULL, then not (yet) typed.
-    unique_ptr<const variable> override;
+    const variable* aliases;               // Circular linked list.
+    const value_type* type;                // If NULL, then not (yet) typed.
+    unique_ptr<const variable> overrides;
     variable_visibility visibility;
 
     // Return true if this variable is an alias of the specified variable.
     //
     bool
-    aliases (const variable& var) const
+    alias (const variable& var) const
     {
-      const variable* v (alias);
-      for (; v != &var && v != this; v = v->alias) ;
+      const variable* v (aliases);
+      for (; v != &var && v != this; v = v->aliases) ;
       return v == &var;
+    }
+
+    // Return the length of the original variable if this is an override,
+    // optionally of the specified kind (__override, __prefix, etc), and 0
+    // otherwise (so this function can be used as a predicate).
+    //
+    // @@ It would be nicer to return the original variable but there is no
+    //    natural place to store such a "back" pointer. The overrides pointer
+    //    in the last element could work but it is owning. So let's not
+    //    complicate things for now seeing that there are only a few places
+    //    where we need this.
+    //
+    size_t
+    override (const char* k = nullptr) const
+    {
+      size_t p (name.rfind ('.'));
+      if (p != string::npos)
+      {
+        auto cmp = [this, p] (const char* k)
+        {
+          return name.compare (p + 1, string::npos, k) == 0;
+        };
+
+        if (k != nullptr
+            ? (cmp (k))
+            : (cmp ("__override") || cmp ("__prefix") || cmp ("__suffix")))
+        {
+          // Skip .<N>.
+          //
+          p = name.rfind ('.', p - 1);
+          assert (p != string::npos && p != 0);
+          return p;
+        }
+      }
+
+      return 0;
     }
   };
 

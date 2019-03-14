@@ -105,3 +105,33 @@
   1 2
   EOO
 }
+
+: multiple
+:
+{
+  : assign
+  :
+  $* x=0 !y=0 x=1 !y=1 <<EOI >>EOO
+  print $x
+  print $y
+  EOI
+  1
+  1
+  EOO
+
+  : append
+  :
+  $* x=0 x+=1 x+=2 <<EOI >>EOO
+  print $x
+  EOI
+  0 1 2
+  EOO
+
+  : prepend
+  :
+  $* x=2 x=+1 x=+0 <<EOI >>EOO
+  print $x
+  EOI
+  0 1 2
+  EOO
+}

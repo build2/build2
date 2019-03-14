@@ -399,7 +399,7 @@ namespace build2
     find (const variable& var) const
     {
       auto p (find_original (var));
-      return var.override == nullptr
+      return var.overrides == nullptr
         ? p
         : base_scope ().find_override (var, move (p), true);
     }
@@ -534,7 +534,7 @@ namespace build2
       find (const variable& var) const
       {
         auto p (find_original (var));
-        return var.override == nullptr
+        return var.overrides == nullptr
           ? p
           : target_->base_scope ().find_override (var, move (p), true, true);
       }

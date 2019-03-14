@@ -33,7 +33,7 @@ namespace build2
       if (l.defined () && l->extra)
         n = true;
 
-      if (var.override != nullptr)
+      if (var.overrides != nullptr)
       {
         pair<lookup, size_t> ovr (r.find_override (var, move (org)));
 

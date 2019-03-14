@@ -125,7 +125,7 @@ namespace build2
           const string* tn = nullptr) const
     {
       auto p (find_original (var, tt, tn));
-      return var.override == nullptr ? p : find_override (var, move (p));
+      return var.overrides == nullptr ? p : find_override (var, move (p));
     }
 
     // Implementation details (used by scope target lookup). The start_depth

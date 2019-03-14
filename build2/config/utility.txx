@@ -47,7 +47,7 @@ namespace build2
       else if (l->extra)
         n = (save_flags & save_commented) == 0; // Absence means default.
 
-      if (var.override != nullptr)
+      if (var.overrides != nullptr)
       {
         pair<lookup, size_t> ovr (root.find_override (var, move (org)));
 
