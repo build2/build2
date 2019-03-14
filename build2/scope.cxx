@@ -397,6 +397,9 @@ namespace build2
 
       // Then look for an __override that applies.
       //
+      // Note that the override list is in the reverse order of appearance and
+      // so we will naturally see the most recent override first.
+      //
       for (const variable* o (var.override.get ());
            o != nullptr;
            o = o->override.get ())
@@ -488,14 +491,18 @@ namespace build2
     {
       ++ovr_depth;
 
-      // Skip any append/prepend overrides that appear before __override,
-      // provided it is from this scope.
+      // The override list is in the reverse order of appearance so we need to
+      // iterate backwards in order to apply things in the correct order.
+      //
+      // We also need to skip any append/prepend overrides that appear before
+      // __override (in the command line order), provided it is from this
+      // scope.
       //
       bool skip (stem_ovr != nullptr && stem_depth == ovr_depth);
 
-      for (const variable* o (var.override.get ());
+      for (const variable* o (var.override->alias); // Last override.
            o != nullptr;
-           o = o->override.get ())
+           o = (o->alias != var.override->alias ? o->alias : nullptr))
       {
         if (skip)
         {

@@ -682,27 +682,45 @@ namespace build2
                              c == '%' ? variable_visibility::project :
                              variable_visibility::normal);
 
-      const variable& var (vp.insert (n, true)); // Allow overrides.
+      variable& var (const_cast<variable&> (
+                       vp.insert (n, true /* overridable */)));
       const char* k (tt == token_type::assign ? ".__override" :
                      tt == token_type::append ? ".__suffix" : ".__prefix");
 
       // We might already have a variable for this kind of override.
       //
-      const variable* o (&var); // Step behind.
-      for (; o->override != nullptr; o = o->override.get ())
+      const variable* o (var.override.get ());
+      for (; o != nullptr; o = o->override.get ())
       {
-        if (o->override->visibility == v &&
-            o->override->name.rfind (k) != string::npos)
+        if (o->visibility == v && o->name.rfind (k) != string::npos)
           break;
       }
 
       // Add it if not found.
       //
-      if (o->override == nullptr)
-        const_cast<variable*> (o)->override.reset (
-          new variable {n + k, nullptr , nullptr, nullptr, v});
+      if (o == nullptr)
+      {
+        unique_ptr<variable> p (
+          new variable {
+            n + k,
+            nullptr /* alias    */,
+            nullptr /* type     */,
+            nullptr /* override */,
+            v});
 
-      o = o->override.get ();
+        // Back link.
+        //
+        p->alias = p.get ();
+        if (var.override != nullptr)
+          swap (p->alias, const_cast<variable*> (var.override.get ())->alias);
+
+        // Forward link.
+        //
+        p->override = move (var.override);
+        var.override = move (p);
+
+        o = var.override.get ();
+      }
 
       // Currently we expand project overrides in the global scope to keep
       // things simple. Pass original variable for diagnostics. Use current

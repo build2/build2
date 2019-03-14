@@ -149,10 +149,16 @@ namespace build2
   // variable itself).
   //
   // If the variable is overridden on the command line, then override is the
-  // chain of the special override variables. Their names are derived from the
-  // main variable name as <name>.{__override,__prefix,__suffix} and they are
-  // not entered into the var_pool. The override variables only vary in their
-  // names and visibility. Their alias pointer is always NULL.
+  // linked list of the special override variables. Their names are derived
+  // from the main variable name as <name>.{__override,__prefix,__suffix} and
+  // they are not entered into the var_pool. The override variables only vary
+  // in their names and visibility. Their alias pointer is re-purposed to make
+  // the list doubly-linked with the first override's alias pointing to the
+  // last element (or itself).
+  //
+  // Note that the override list is in the reverse order of the overrides
+  // appearing on the command line, which is important when deciding whether
+  // and in what order they apply (see find_override() for details).
   //
   // Note also that we don't propagate the variable type to override variables
   // and we keep override values as untyped names. They get "typed" when they
