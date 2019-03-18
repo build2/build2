@@ -1,3 +1,30 @@
+Version 0.10.0
+
+ * Support for an alternative build file/directory naming scheme.
+
+   Now the build/*.build, buildfile, and .buildignore filesystem entries in
+   a project can alternatively (but consistently) be called build2/*.build2,
+   build2file, and .build2ignore. See a note at the beginning of the Project
+   Structure section in the manual for details (motivation, restrictions,
+   etc).
+
+ * Support for multiple variable overrides.
+
+   Now we can do:
+
+   $ b config.cxx.coptions=-O3 config.cxx.coptions=-O0
+
+   Or even:
+
+   $ b config.cxx.coptions=-O3 config.cxx.coptions+=-g
+
+ * Support for MSVC 16 (2019).
+
+ * Support for automatic switching to option files (AKA response files) on
+   Windows if the linker command line is too long.
+
+   This covers both MSVC link.exe/lib.exe and MinGW gcc.exe/ar.exe.
+
 Version 0.9.0
 
  * New "Diagnostics and Debugging" section in the manual on debugging build
