@@ -19,7 +19,7 @@
 // toolchain. Bootstrap will be a problem though. (Maybe set it to nullptr and
 // say that it shall not be queried?)
 //
-#define BUILD2_STAGE false
+#define BUILD2_STAGE true
 
 // Modification time sanity checks are by default only enabled for the staged
 // version but this can be overridden at runtime with --[no-]mtime-check.
