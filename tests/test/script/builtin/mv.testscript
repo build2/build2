@@ -210,9 +210,9 @@
       : sub-entry
       :
       {
-	mkdir a;
-	touch a/b;
-	mv a c
+        mkdir a;
+        touch a/b;
+        mv a c
       }
 
       : reorder

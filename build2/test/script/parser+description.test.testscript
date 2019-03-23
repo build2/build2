@@ -429,10 +429,10 @@ EOO
 : strip
 :
 $* <<EOI >>EOO
-:  	  foo-bar
-:  	  bar baz
+:         foo-bar
+:         bar baz
 :
-:  	    baz fox
+:           baz fox
 : fox biz
 :biz buz
 :
