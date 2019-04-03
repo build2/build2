@@ -1178,7 +1178,7 @@ namespace build2
       // that, if we add it as a prerequisite (like we do above), the fallback
       // file rule won't match.
       //
-      lt.mtime (file_mtime (ipc.path));
+      lt.mtime (mtime (ipc.path));
     }
 
 #else

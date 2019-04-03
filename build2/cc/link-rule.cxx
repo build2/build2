@@ -1689,7 +1689,7 @@ namespace build2
         path& mf (p.first);
         bool mf_cf (p.second); // Changed flag (timestamp resolution).
 
-        timestamp mf_mt (file_mtime (mf));
+        timestamp mf_mt (mtime (mf));
 
         if (tsys == "mingw32")
         {
@@ -1699,7 +1699,7 @@ namespace build2
           //
           manifest = mf + ".o";
 
-          if (mf_mt > file_mtime (manifest) || mf_cf)
+          if (mf_mt > mtime (manifest) || mf_cf)
           {
             path of (relative (manifest));
 

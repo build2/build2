@@ -12,9 +12,8 @@
 
 namespace build2
 {
-  // Auxiliary dependency database (those .d files). Uses io_error and
-  // system_error exceptions to signal errors except for openning (see
-  // below).
+  // Auxiliary dependency database (those .d files). Prints the diagnostics
+  // and fails on system and IO errors.
   //
   // This is a strange beast: a line-oriented, streaming database that can, at
   // some point, be switched from reading to (over)writing. The idea is to
@@ -95,11 +94,10 @@ namespace build2
     // has wrong format version, or is corrupt, then the database will be
     // immediately switched to writing.
     //
-    // If the database cannot be opened, issue diagnostics and throw failed.
-    // This commonly happens when the user tries to stash the target in a
-    // non-existent subdirectory but forgets to add the corresponding fsdir{}
-    // prerequisite. Handling this as io_error in every rule that uses depdb
-    // would be burdensome thus we issue the diagnostics here.
+    // The failure commonly happens when the user tries to stash the target in
+    // a non-existent subdirectory but forgets to add the corresponding fsdir{}
+    // prerequisite. That's why the issued diagnostics may provide the
+    // corresponding hint.
     //
     explicit
     depdb (path_type);

@@ -38,6 +38,19 @@ namespace build2
   bool
   touch (const path&, bool create, uint16_t verbosity = 1);
 
+  // Return the modification time for an existing regular file and
+  // timestamp_nonexistent otherwise. Print the diagnostics and fail on system
+  // error.
+  //
+  timestamp
+  mtime (const char*);
+
+  inline timestamp
+  mtime (const path& p)
+  {
+    return mtime (p.string ().c_str ());
+  }
+
   // Create the directory and print the standard diagnostics starting from
   // the specified verbosity level.
   //

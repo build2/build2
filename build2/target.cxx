@@ -4,8 +4,6 @@
 
 #include <build2/target.hxx>
 
-#include <libbutl/filesystem.mxx> // file_mtime()
-
 #include <build2/file.hxx>
 #include <build2/scope.hxx>
 #include <build2/search.hxx>

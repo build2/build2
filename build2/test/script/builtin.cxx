@@ -996,7 +996,7 @@ namespace build2
               check_wd (from);
               check_wd (to);
 
-              bool exists (entry_exists (to));
+              bool exists (butl::entry_exists (to));
 
               // Fail if the source and destination paths are the same.
               //

@@ -4,12 +4,11 @@
 
 #include <build2/depdb.hxx>
 
-#include <libbutl/filesystem.mxx> // file_mtime()
-
 #ifdef _WIN32
 #  include <libbutl/win32-utility.hxx>
 #endif
 
+#include <build2/filesystem.hxx>  // mtime()
 #include <build2/diagnostics.hxx>
 
 using namespace std;
@@ -91,7 +90,7 @@ namespace build2
 
   depdb::
   depdb (path_type p)
-      : depdb (move (p), file_mtime (p))
+      : depdb (move (p), build2::mtime (p))
   {
   }
 
@@ -347,7 +346,7 @@ namespace build2
     // mtime. This seems to force that layer to commit to a timestamp.
     //
 #if defined(__FreeBSD__)
-    mtime = file_mtime (path); // Save for debugging/check below.
+    mtime = build2::mtime (path); // Save for debugging/check below.
 #endif
   }
 
@@ -357,8 +356,8 @@ namespace build2
     // We could call the static version but then we would have lost additional
     // information for some platforms.
     //
-    timestamp t_mt (file_mtime (t));
-    timestamp d_mt (file_mtime (path));
+    timestamp t_mt (build2::mtime (t));
+    timestamp d_mt (build2::mtime (path));
 
     if (d_mt > t_mt)
     {
@@ -382,8 +381,10 @@ namespace build2
                 const path_type& t,
                 timestamp e)
   {
-    timestamp t_mt (file_mtime (t));
-    timestamp d_mt (file_mtime (d));
+    using build2::mtime;
+
+    timestamp t_mt (mtime (t));
+    timestamp d_mt (mtime (d));
 
     if (d_mt > t_mt)
     {

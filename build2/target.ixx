@@ -4,6 +4,8 @@
 
 #include <cstring> // memcpy()
 
+#include <build2/filesystem.hxx> // mtime()
+
 namespace build2
 {
   // target
@@ -314,7 +316,7 @@ namespace build2
     {
       assert (!p.empty ());
 
-      r = file_mtime (p).time_since_epoch ().count ();
+      r = build2::mtime (p).time_since_epoch ().count ();
       mtime_.store (r, memory_order_release);
     }
 

@@ -83,7 +83,7 @@ namespace build2
           p = &pt->derive_path ();
         }
 
-        ts = file_mtime (*p);
+        ts = mtime (*p);
         pt->mtime (ts);
 
         if (ts != timestamp_unknown && ts != timestamp_nonexistent)

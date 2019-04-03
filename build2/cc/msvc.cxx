@@ -396,7 +396,7 @@ namespace build2
 
       // Check if the file exists and is of the expected type.
       //
-      timestamp mt (file_mtime (f));
+      timestamp mt (mtime (f));
 
       if (mt != timestamp_nonexistent && library_type (ld, f) == lt)
       {

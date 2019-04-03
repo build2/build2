@@ -102,7 +102,7 @@ namespace build2
         //
         timestamp t (l != nullptr
                      ? l->load_mtime ()
-                     : file_mtime (f.c_str ()));
+                     : mtime (f.c_str ()));
 
         if (t > r)
           r = t;
@@ -260,7 +260,7 @@ namespace build2
         // through the "from scratch" update. Actually this can happen when
         // switching to update-for-install.
         //
-        if (ts != timestamp_nonexistent && ts <= file_mtime (am))
+        if (ts != timestamp_nonexistent && ts <= mtime (am))
           return;
       }
 

@@ -639,7 +639,7 @@ namespace build2
         {
           f = d;
           f /= sn;
-          mt = file_mtime (f);
+          mt = mtime (f);
 
           if (mt != timestamp_nonexistent)
           {
@@ -694,7 +694,7 @@ namespace build2
             //
             se = string ("dll");
             f = f.base (); // Remove .a from .dll.a.
-            mt = file_mtime (f);
+            mt = mtime (f);
 
             if (mt != timestamp_nonexistent)
             {
@@ -715,7 +715,7 @@ namespace build2
           f = d;
           f /= an;
 
-          if ((mt = file_mtime (f)) != timestamp_nonexistent)
+          if ((mt = mtime (f)) != timestamp_nonexistent)
           {
             // Enter the target. Note that because the search paths are
             // normalized, the result is automatically normalized as well.

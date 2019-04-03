@@ -4,11 +4,10 @@
 
 #include <build2/search.hxx>
 
-#include <libbutl/filesystem.mxx> // file_mtime()
-
 #include <build2/scope.hxx>
 #include <build2/target.hxx>
 #include <build2/context.hxx>
+#include <build2/filesystem.hxx>   // mtime()
 #include <build2/prerequisite.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -148,7 +147,7 @@ namespace build2
       f += *ext;
     }
 
-    timestamp mt (file_mtime (f));
+    timestamp mt (mtime (f));
 
     if (mt == timestamp_nonexistent)
     {

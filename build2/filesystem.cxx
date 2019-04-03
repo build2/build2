@@ -27,6 +27,20 @@ namespace build2
     }
   }
 
+  timestamp
+  mtime (const char* p)
+  {
+    try
+    {
+      return file_mtime (p);
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to obtain file " << p << " modification time: " << e
+           << endf;
+    }
+  }
+
   fs_status<mkdir_status>
   mkdir (const dir_path& d, uint16_t v)
   {

@@ -13,6 +13,7 @@
 #include <build2/context.hxx>
 #include <build2/variable.hxx>
 #include <build2/algorithm.hxx>
+#include <build2/filesystem.hxx>  // mtime()
 #include <build2/diagnostics.hxx>
 
 #include <build2/bin/target.hxx>
@@ -823,7 +824,7 @@ namespace build2
         // the target (interrupted update), then do unconditional update.
         //
         timestamp mt;
-        bool u (dd.writing () || dd.mtime > (mt = file_mtime (tp)));
+        bool u (dd.writing () || dd.mtime > (mt = mtime (tp)));
         if (u)
           mt = timestamp_nonexistent; // Treat as if it doesn't exist.
 
