@@ -115,13 +115,27 @@ namespace build2
     // truncate the file.
     //
     if (trunc)
+    try
+    {
       fdtruncate (fd.get (), pos_);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to truncate " << path << ": " << e;
+    }
 
     // Note: the file descriptor position can be beyond the pos_ value due to
     // the ifdstream buffering. That's why we need to seek to switch from
     // reading to writing.
     //
-    fdseek (fd.get (), pos_, fdseek_mode::set);
+    try
+    {
+      fdseek (fd.get (), pos_, fdseek_mode::set);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to rewind " << path << ": " << e;
+    }
 
     // @@ Strictly speaking, ofdstream can throw which will leave us in a
     //    non-destructible state. Unlikely but possible.
@@ -143,39 +157,46 @@ namespace build2
     //
     pos_ = buf_->tellg ();
 
-    // Note that we intentionally check for eof after updating the write
-    // position.
-    //
-    if (state_ == state::read_eof)
-      return nullptr;
-
-    getline (is_, line_); // Calls line_.erase().
-
-    // The line should always end with a newline. If it doesn't, then this
-    // line (and the rest of the database) is assumed corrupted. Also peek at
-    // the character after the newline. We should either have the next line or
-    // '\0', which is our "end marker", that is, it indicates the database
-    // was properly closed.
-    //
-    ifdstream::int_type c;
-    if (is_.fail () || // Nothing got extracted.
-        is_.eof ()  || // Eof reached before delimiter.
-        (c = is_.peek ()) == ifdstream::traits_type::eof ())
+    try
     {
-      // Preemptively switch to writing. While we could have delayed this
-      // until the user called write(), if the user calls read() again (for
-      // whatever misguided reason) we will mess up the overwrite position.
+      // Note that we intentionally check for eof after updating the write
+      // position.
       //
-      change ();
-      return nullptr;
-    }
+      if (state_ == state::read_eof)
+        return nullptr;
 
-    // Handle the "end marker". Note that the caller can still switch to the
-    // write mode on this line. And, after calling read() again, write to the
-    // next line (i.e., start from the "end marker").
-    //
-    if (c == '\0')
-      state_ = state::read_eof;
+      getline (is_, line_); // Calls line_.erase().
+
+      // The line should always end with a newline. If it doesn't, then this
+      // line (and the rest of the database) is assumed corrupted. Also peek
+      // at the character after the newline. We should either have the next
+      // line or '\0', which is our "end marker", that is, it indicates the
+      // database was properly closed.
+      //
+      ifdstream::int_type c;
+      if (is_.fail () || // Nothing got extracted.
+          is_.eof ()  || // Eof reached before delimiter.
+          (c = is_.peek ()) == ifdstream::traits_type::eof ())
+      {
+        // Preemptively switch to writing. While we could have delayed this
+        // until the user called write(), if the user calls read() again (for
+        // whatever misguided reason) we will mess up the overwrite position.
+        //
+        change ();
+        return nullptr;
+      }
+
+      // Handle the "end marker". Note that the caller can still switch to the
+      // write mode on this line. And, after calling read() again, write to
+      // the next line (i.e., start from the "end marker").
+      //
+      if (c == '\0')
+        state_ = state::read_eof;
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to read from " << path << ": " << e;
+    }
 
     return &line_;
   }
@@ -192,20 +213,27 @@ namespace build2
     //
     pos_ = buf_->tellg ();
 
-    // Keep reading lines checking for the end marker after each newline.
-    //
-    ifdstream::int_type c;
-    do
+    try
     {
-      if ((c = is_.get ()) == '\n')
+      // Keep reading lines checking for the end marker after each newline.
+      //
+      ifdstream::int_type c;
+      do
       {
-        if ((c = is_.get ()) == '\0')
+        if ((c = is_.get ()) == '\n')
         {
-          state_ = state::read_eof;
-          return true;
+          if ((c = is_.get ()) == '\0')
+          {
+            state_ = state::read_eof;
+            return true;
+          }
         }
-      }
-    } while (c != ifdstream::traits_type::eof ());
+      } while (c != ifdstream::traits_type::eof ());
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to read from " << path << ": " << e;
+    }
 
     // Invalid database so change over to writing.
     //
@@ -221,10 +249,17 @@ namespace build2
     if (state_ != state::write)
       change ();
 
-    os_.write (s, static_cast<streamsize> (n));
+    try
+    {
+      os_.write (s, static_cast<streamsize> (n));
 
-    if (nl)
-      os_.put ('\n');
+      if (nl)
+        os_.put ('\n');
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to write to " << path << ": " << e;
+    }
   }
 
   void depdb::
@@ -235,10 +270,17 @@ namespace build2
     if (state_ != state::write)
       change ();
 
-    os_.put (c);
+    try
+    {
+      os_.put (c);
 
-    if (nl)
-      os_.put ('\n');
+      if (nl)
+        os_.put ('\n');
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to write to " << path << ": " << e;
+    }
   }
 
   void depdb::
@@ -253,9 +295,14 @@ namespace build2
     if (state_ == state::read_eof)
     {
       if (!touch)
+      try
       {
         is_.close ();
         return;
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to close " << path << ": " << e;
       }
 
       // While there are utime(2)/utimensat(2) (and probably something similar
@@ -277,8 +324,15 @@ namespace build2
     if (mtime_check ())
       start_ = system_clock::now ();
 
-    os_.put ('\0'); // The "end marker".
-    os_.close ();
+    try
+    {
+      os_.put ('\0'); // The "end marker".
+      os_.close ();
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to flush " << path << ": " << e;
+    }
 
     // On some platforms (currently confirmed on FreeBSD running as VMs) one
     // can sometimes end up with a modification time that is a bit after the
