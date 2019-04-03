@@ -375,45 +375,59 @@ namespace build2
         if (line.empty () || line[0] == '#')
           continue;
 
-        string::size_type p (line.find (' '));
-
-        if (p == string::npos)
+        string::size_type p (string::npos);
+        if (line.compare (0, 1, "-") == 0)
         {
-          if (!skip_)
-            skip_ = (line == "--");
+          p = line.find (' ');
 
-          args_.push_back (line);
+          string::size_type q (line.find ('='));
+          if (q != string::npos && q < p)
+            p = q;
         }
-        else
+
+        string s1;
+        if (p != string::npos)
         {
-          string s1 (line, 0, p);
+          s1.assign (line, 0, p);
 
           // Skip leading whitespaces in the argument.
           //
-          n = line.size ();
-          for (++p; p < n; ++p)
+          if (line[p] == '=')
+            ++p;
+          else
           {
-            char c (line[p]);
-
-            if (c != ' ' && c != '\t' && c != '\r')
-              break;
+            n = line.size ();
+            for (++p; p < n; ++p)
+            {
+              char c (line[p]);
+              if (c != ' ' && c != '\t' && c != '\r')
+                break;
+            }
           }
+        }
+        else if (!skip_)
+          skip_ = (line == "--");
 
-          string s2 (line, p);
+        string s2 (line, p != string::npos ? p : 0);
 
-          // If the string is wrapped in quotes, remove them.
+        // If the string (which is an option value or argument) is
+        // wrapped in quotes, remove them.
+        //
+        n = s2.size ();
+        char cf (s2[0]), cl (s2[n - 1]);
+
+        if (cf == '"' || cf == '\'' || cl == '"' || cl == '\'')
+        {
+          if (n == 1 || cf != cl)
+            throw unmatched_quote (s2);
+
+          s2 = string (s2, 1, n - 2);
+        }
+
+        if (!s1.empty ())
+        {
+          // See if this is another file option.
           //
-          n = s2.size ();
-          char cf (s2[0]), cl (s2[n - 1]);
-
-          if (cf == '"' || cf == '\'' || cl == '"' || cl == '\'')
-          {
-            if (n == 1 || cf != cl)
-              throw unmatched_quote (s2);
-
-            s2 = string (s2, 1, n - 2);
-          }
-
           const option_info* oi;
           if (!skip_ && (oi = find (s1.c_str ())))
           {
@@ -423,19 +437,19 @@ namespace build2
             if (oi->search_func != 0)
             {
               std::string f (oi->search_func (s2.c_str (), oi->arg));
-
               if (!f.empty ())
                 load (f);
             }
             else
               load (s2);
+
+            continue;
           }
-          else
-          {
-            args_.push_back (s1);
-            args_.push_back (s2);
-          }
+
+          args_.push_back (s1);
         }
+
+        args_.push_back (s2);
       }
     }
 
