@@ -2241,7 +2241,7 @@ namespace build2
               dr << "mapping of header " << f << " to target type is ambiguous";
               for (const target_type* tt: tts)
                 dr << info << "could be " << tt->name << "{}";
-              dr << info << "spell-out its target to this resolve ambiguity";
+              dr << info << "spell-out its target to resolve this ambiguity";
             }
 #endif
           }
