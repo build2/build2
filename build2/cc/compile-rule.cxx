@@ -2171,8 +2171,9 @@ namespace build2
 
           // It's possible the extension-to-target type mapping is ambiguous
           // (usually because both C and X-language headers use the same .h
-          // extension). In this case we will pick one that matches an
-          // explicit target (similar logic to when insert is false).
+          // extension). In this case we will first try to find one that
+          // matches an explicit target (similar logic to when insert is
+          // false).
           //
           small_vector<const target_type*, 2> tts;
 
@@ -2201,18 +2202,12 @@ namespace build2
 
           // Find or insert target.
           //
-          // Note that in case of the target type ambiguity we degenerate to
-          // find (that is, there has to be an explicit target that resolves
-          // this ambiguity).
+          // Note that in case of the target type ambiguity we first try to
+          // find an explicit target that resolves this ambiguity.
           //
           const target* r (nullptr);
 
-          if (insert && tts.size () == 1)
-            //
-            // @@ OPT: move d, out, n
-            //
-            r = &search (t, *tts[0], d, out, n, &e, nullptr);
-          else
+          if (!insert || tts.size () > 1)
           {
             // Note that we skip any target type-specific searches (like for
             // an existing file) and go straight for the target object since
@@ -2225,6 +2220,14 @@ namespace build2
               if ((r = targets.find (*tt, d, out, n, e, trace)) != nullptr)
                 break;
 
+            // Note: we can't do this because of the in-source builds where
+            // there won't be explicit targets for non-generated headers.
+            //
+            // This should be harmless, however, since in our world generated
+            // headers are normally spelled-out as explicit targets. And if
+            // not, we will still get an error, just a bit less specific.
+            //
+#if 0
             if (r == nullptr && insert)
             {
               f = d / n;
@@ -2240,7 +2243,13 @@ namespace build2
                 dr << info << "could be " << tt->name << "{}";
               dr << info << "spell-out its target to this resolve ambiguity";
             }
+#endif
           }
+
+          // @@ OPT: move d, out, n
+          //
+          if (r == nullptr && insert)
+            r = &search (t, *tts[0], d, out, n, &e, nullptr);
 
           return static_cast<const path_target*> (r);
         };
