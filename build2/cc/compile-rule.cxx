@@ -1054,9 +1054,9 @@ namespace build2
       }
     }
 
-    // Reverse-lookup target type from extension.
+    // Reverse-lookup target type(s) from extension.
     //
-    const target_type* compile_rule::
+    small_vector<const target_type*, 2> compile_rule::
     map_extension (const scope& s, const string& n, const string& e) const
     {
       // We will just have to try all of the possible ones, in the "most
@@ -1079,10 +1079,13 @@ namespace build2
         return false;
       };
 
-      for (const target_type* const* p (x_inc); *p != nullptr; ++p)
-        if (test (**p)) return *p;
+      small_vector<const target_type*, 2> r;
 
-      return nullptr;
+      for (const target_type* const* p (x_inc); *p != nullptr; ++p)
+        if (test (**p))
+          r.push_back (*p);
+
+      return r;
     }
 
     void compile_rule::
@@ -2151,11 +2154,9 @@ namespace build2
           if (!e.empty ())
             n.resize (n.size () - e.size () - 1); // One for the dot.
 
-          // Determine the target type.
+          // See if this directory is part of any project out_root hierarchy
+          // and if so determine the target type.
           //
-          const target_type* tt (nullptr);
-
-          // See if this directory is part of any project out_root hierarchy.
           // Note that this will miss all the headers that come from src_root
           // (so they will be treated as generic C headers below). Generally,
           // we don't have the ability to determine that some file belongs to
@@ -2168,10 +2169,17 @@ namespace build2
           //
           dir_path out;
 
+          // It's possible the extension-to-target type mapping is ambiguous
+          // (usually because both C and X-language headers use the same .h
+          // extension). In this case we will pick one that matches an
+          // explicit target (similar logic to when insert is false).
+          //
+          small_vector<const target_type*, 2> tts;
+
           const scope& bs (scopes.find (d));
           if (const scope* rs = bs.root_scope ())
           {
-            tt = map_extension (bs, n, e);
+            tts = map_extension (bs, n, e);
 
             if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
               out = out_src (d, *rs);
@@ -2180,31 +2188,58 @@ namespace build2
           // If it is outside any project, or the project doesn't have such an
           // extension, assume it is a plain old C header.
           //
-          if (tt == nullptr)
+          if (tts.empty ())
           {
-            // If the project doesn't "know" this extension then we won't
+            // If the project doesn't "know" this extension then we can't
             // possibly find an explicit target of this type.
             //
             if (!insert)
               return nullptr;
 
-            tt = &h::static_type;
+            tts.push_back (&h::static_type);
           }
 
           // Find or insert target.
           //
-          // @@ OPT: move d, out, n
+          // Note that in case of the target type ambiguity we degenerate to
+          // find (that is, there has to be an explicit target that resolves
+          // this ambiguity).
           //
-          const target* r;
-          if (insert)
-            r = &search (t, *tt, d, out, n, &e, nullptr);
+          const target* r (nullptr);
+
+          if (insert && tts.size () == 1)
+            //
+            // @@ OPT: move d, out, n
+            //
+            r = &search (t, *tts[0], d, out, n, &e, nullptr);
           else
           {
             // Note that we skip any target type-specific searches (like for
             // an existing file) and go straight for the target object since
             // we need to find the target explicitly spelled out.
             //
-            r = targets.find (*tt, d, out, n, e, trace);
+            // Also, it doesn't feel like we should be able to resolve an
+            // absolute path with a spelled-out extension to multiple targets.
+            //
+            for (const target_type* tt: tts)
+              if ((r = targets.find (*tt, d, out, n, e, trace)) != nullptr)
+                break;
+
+            if (r == nullptr && insert)
+            {
+              f = d / n;
+              if (!e.empty ())
+              {
+                f += '.';
+                f += e;
+              }
+
+              diag_record dr (fail);
+              dr << "mapping of header " << f << " to target type is ambiguous";
+              for (const target_type* tt: tts)
+                dr << info << "could be " << tt->name << "{}";
+              dr << info << "spell-out its target to this resolve ambiguity";
+            }
           }
 
           return static_cast<const path_target*> (r);

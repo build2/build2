@@ -106,9 +106,7 @@ namespace build2
       prefix_map
       build_prefix_map (const scope&, action, target&, linfo) const;
 
-      // Reverse-lookup target type from extension.
-      //
-      const target_type*
+      small_vector<const target_type*, 2>
       map_extension (const scope&, const string&, const string&) const;
 
       pair<auto_rmfile, bool>
