@@ -61,11 +61,25 @@ namespace build2
       vp.insert<string>    ("config.bin.target",   true);
       vp.insert<string>    ("config.bin.pattern",  true);
 
+      // Library types to build.
+      //
       vp.insert<string>    ("config.bin.lib",      true);
+
+      // Library types to use (in priority order).
+      //
       vp.insert<strings>   ("config.bin.exe.lib",  true);
       vp.insert<strings>   ("config.bin.liba.lib", true);
       vp.insert<strings>   ("config.bin.libs.lib", true);
-      vp.insert<dir_paths> ("config.bin.rpath",    true);
+
+      // The rpath[_link].auto flag controls automatic rpath behavior, for
+      // example, addition of rpaths for prerequisite libraries (see the cc
+      // module for an example). Default is true.
+      //
+      vp.insert<dir_paths> ("config.bin.rpath",      true);
+      vp.insert<bool>      ("config.bin.rpath.auto", true);
+
+      vp.insert<dir_paths> ("config.bin.rpath_link",      true);
+      vp.insert<bool>      ("config.bin.rpath_link.auto", true);
 
       vp.insert<string>    ("config.bin.prefix", true);
       vp.insert<string>    ("config.bin.suffix", true);
@@ -75,10 +89,16 @@ namespace build2
       vp.insert<string>    ("config.bin.exe.suffix", true);
 
       vp.insert<string>    ("bin.lib");
+
       vp.insert<strings>   ("bin.exe.lib");
       vp.insert<strings>   ("bin.liba.lib");
       vp.insert<strings>   ("bin.libs.lib");
+
       vp.insert<dir_paths> ("bin.rpath");
+      vp.insert<bool>      ("bin.rpath.auto");
+
+      vp.insert<dir_paths> ("bin.rpath_link");
+      vp.insert<bool>      ("bin.rpath_link.auto");
 
       // Link whole archive. Note: non-overridable with target visibility.
       //
@@ -183,13 +203,32 @@ namespace build2
           v = *required (rs, "config.bin.libs.lib", libs_lib).first;
       }
 
-      // config.bin.rpath
+      // config.bin.rpath[_link]
       //
-      // This one is optional and we merge it into bin.rpath, if any.
-      // See the cxx module for details on merging.
+      // These ones are optional and we merge them into bin.rpath[_link], if
+      // any.
       //
       rs.assign ("bin.rpath") += cast_null<dir_paths> (
         optional (rs, "config.bin.rpath"));
+
+      rs.assign ("bin.rpath_link") += cast_null<dir_paths> (
+        optional (rs, "config.bin.rpath_link"));
+
+      // config.bin.rpath[_link].auto
+      //
+      {
+        lookup l;
+
+        rs.assign ("bin.rpath.auto") =
+          (l = omitted (rs, "config.bin.rpath.auto").first)
+          ? cast<bool> (l)
+          : true;
+
+        rs.assign ("bin.rpath_link.auto") =
+          (l = omitted (rs, "config.bin.rpath_link.auto").first)
+          ? cast<bool> (l)
+          : true;
+      }
 
       // config.bin.{lib,exe}.{prefix,suffix}
       //

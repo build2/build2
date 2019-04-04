@@ -1457,20 +1457,20 @@ namespace build2
                      const scope& bs,
                      action a,
                      linfo li,
-                     bool for_install) const
+                     bool link) const
     {
-      // Use -rpath-link on targets that support it (Linux, *BSD). Note
+      // Use -rpath-link only on targets that support it (Linux, *BSD). Note
       // that we don't really need it for top-level libraries.
       //
-      if (for_install)
+      if (link)
       {
         if (tclass != "linux" && tclass != "bsd")
           return;
       }
 
-      auto imp = [for_install] (const file& l, bool la)
+      auto imp = [link] (const file& l, bool la)
       {
-        // If we are not installing, then we only need to rpath interface
+        // If we are not rpath-link'ing, then we only need to rpath interface
         // libraries (they will include rpath's for their implementations)
         // Otherwise, we have to do this recursively. In both cases we also
         // want to see through utility libraries.
@@ -1484,7 +1484,7 @@ namespace build2
         // except for some noise on the command line.
         //
         //
-        return (for_install ? !la : false) || l.is_a<libux> ();
+        return (link ? !la : false) || l.is_a<libux> ();
       };
 
       // Package the data to keep within the 2-pointer small std::function
@@ -1493,8 +1493,8 @@ namespace build2
       struct
       {
         strings& args;
-        bool for_install;
-      } d {args, for_install};
+        bool     link;
+      } d {args, link};
 
       auto lib = [&d, this] (const file* const* lc,
                              const string& f,
@@ -1547,7 +1547,7 @@ namespace build2
         // Ok, if we are here then it means we have a non-system, shared
         // library and its absolute path is in f.
         //
-        string o (d.for_install ? "-Wl,-rpath-link," : "-Wl,-rpath,");
+        string o (d.link ? "-Wl,-rpath-link," : "-Wl,-rpath,");
 
         size_t p (path::traits::rfind_separator (f));
         assert (p != string::npos);
@@ -1574,7 +1574,7 @@ namespace build2
             (la = (f = pt->is_a<libux> ())) ||
             (      f = pt->is_a<libs>  ()))
         {
-          if (!for_install && !la)
+          if (!link && !la)
           {
             // Top-level shared library dependency.
             //
@@ -1613,6 +1613,9 @@ namespace build2
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
 
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
+
       match_data& md (t.data<match_data> ());
 
       // Unless the outer install rule signalled that this is update for
@@ -1622,9 +1625,6 @@ namespace build2
         md.for_install = false;
 
       bool for_install (*md.for_install);
-
-      const scope& bs (t.base_scope ());
-      const scope& rs (*bs.root_scope ());
 
       ltype lt (link_type (t));
       otype ot (lt.type);
@@ -1682,7 +1682,7 @@ namespace build2
         // assembly itself is generated later, after updating the target. Omit
         // it if we are updating for install.
         //
-        if (!for_install)
+        if (!for_install && cast_true<bool> (t["bin.rpath.auto"]))
           rpath_timestamp = windows_rpath_timestamp (t, bs, a, li);
 
         auto p (windows_manifest (t, rpath_timestamp != timestamp_nonexistent));
@@ -1921,12 +1921,15 @@ namespace build2
         if (tclass == "windows")
         {
           // Limited emulation for Windows with no support for user-defined
-          // rpaths.
+          // rpath/rpath-link.
           //
-          auto l (t["bin.rpath"]);
+          lookup l;
 
-          if (l && !l->empty ())
+          if ((l = t["bin.rpath"]) && !l->empty ())
             fail << ctgt << " does not support rpath";
+
+          if ((l = t["bin.rpath_link"]) && !l->empty ())
+            fail << ctgt << " does not support rpath-link";
         }
         else
         {
@@ -1970,11 +1973,27 @@ namespace build2
           // rpath of the imported libraries (i.e., we assume they are also
           // installed). But we add -rpath-link for some platforms.
           //
-          rpath_libraries (sargs, t, bs, a, li, for_install);
+          if (cast_true<bool> (t[for_install
+                                 ? "bin.rpath_link.auto"
+                                 : "bin.rpath.auto"]))
+            rpath_libraries (sargs, t, bs, a, li, for_install /* link */);
 
-          if (auto l = t["bin.rpath"])
+          lookup l;
+
+          if ((l = t["bin.rpath"]) && !l->empty ())
             for (const dir_path& p: cast<dir_paths> (l))
               sargs.push_back ("-Wl,-rpath," + p.string ());
+
+          if ((l = t["bin.rpath_link"]) && !l->empty ())
+          {
+            // Only certain targets support -rpath-link (Linux, *BSD).
+            //
+            if (tclass != "linux" && tclass != "bsd")
+              fail << ctgt << " does not support rpath-link";
+
+            for (const dir_path& p: cast<dir_paths> (l))
+              sargs.push_back ("-Wl,-rpath-link," + p.string ());
+          }
         }
       }
 
