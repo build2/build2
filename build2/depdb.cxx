@@ -312,6 +312,7 @@ namespace build2
       // descriptor. Or it might be slower since so far we've only been
       // reading.
       //
+      pos_ = buf_->tellg ();         // The last line is accepted.
       change (false /* truncate */); // Write end marker below.
     }
     else if (state_ != state::write)
