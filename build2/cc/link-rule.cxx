@@ -2705,7 +2705,7 @@ namespace build2
       // Apple ar (from cctools) for some reason truncates fractional seconds
       // when running on APFS (HFS has a second resolution so it's not an
       // issue there). This can lead to object files being newer than the
-      // archive, which is naturally bad news.
+      // archive, which is naturally bad news. Filed as bug 49604334.
       //
       // Note that this block is not inside #ifdef __APPLE__ because we could
       // be cross-compiling, theoretically. We also make sure we use Apple's
