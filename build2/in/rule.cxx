@@ -179,6 +179,9 @@ namespace build2
       // For now we assume this is ok since this is probably not very common
       // and it makes the overall logic simpler.
       //
+      // Note also that because updating the depdb essentially requires
+      // performing the substitutions, this rule ignored the dry-run mode.
+      //
       size_t dd_skip (0); // Number of "good" variable lines.
 
       if (update)
@@ -260,7 +263,7 @@ namespace build2
       else if (verb)
         text << program_ << ' ' << ip;
 
-      // Read and process the file, one line at a time.
+      // Read and process the file, one line at a time, while updating depdb.
       //
       const char* what;
       const path* whom;
@@ -278,9 +281,11 @@ namespace build2
         if (t.is_a<exe> ())
           prm |= permissions::xu | permissions::xg | permissions::xo;
 
-        // Remove the existing file to make sure permissions take effect.
+        // Remove the existing file to make sure permissions take effect. If
+        // this fails then presumable writing to it will fail as well and we
+        // will complain there.
         //
-        rmfile (tp, 3 /* verbosity */);
+        try_rmfile (tp, true /* ignore_error */);
 
         what = "open"; whom = &tp;
         ofdstream ofs (fdopen (tp,

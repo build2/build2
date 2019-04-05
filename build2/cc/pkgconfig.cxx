@@ -1234,9 +1234,6 @@ namespace build2
       auto* t (find_adhoc_member<pc> (l));
       assert (t != nullptr);
 
-      const path& p (t->path ());
-      auto_rmfile arm (p);
-
       // By default we assume things go into install.{include, lib}.
       //
       using install::resolve_dir;
@@ -1244,8 +1241,15 @@ namespace build2
       dir_path idir (resolve_dir (l, cast<dir_path> (l["install.include"])));
       dir_path ldir (resolve_dir (l, cast<dir_path> (l["install.lib"])));
 
+      const path& p (t->path ());
+
       if (verb >= 2)
         text << "cat >" << p;
+
+      if (dry_run)
+        return;
+
+      auto_rmfile arm (p);
 
       try
       {

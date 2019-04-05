@@ -269,6 +269,10 @@ namespace build2
 
     phase_lock pl (run_phase::execute); // Never switched.
 
+    // Set the dry-run flag.
+    //
+    dry_run = ops.dry_run ();
+
     // Setup progress reporting if requested.
     //
     string what; // Note: must outlive monitor_guard.
@@ -337,6 +341,10 @@ namespace build2
     //
 
     sched.tune (0); // Restore original scheduler settings.
+
+    // Clear the dry-run flag.
+    //
+    dry_run = false;
 
     // Clear the progress if present.
     //

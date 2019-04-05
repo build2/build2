@@ -364,6 +364,7 @@ namespace build2
   atomic_count skip_count;
 
   bool keep_going = false;
+  bool dry_run = false;
 
   variable_overrides
   reset (const strings& cmd_vars)

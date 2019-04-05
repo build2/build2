@@ -14,15 +14,15 @@ namespace build2
   {
     "<options>
      <variables>
-     <build-spec> <meta-operation> <operation> <target> <parameters>",
+     <buildspec> <meta-operation> <operation> <target> <parameters>",
 
     "\h|SYNOPSIS|
 
      \c{\b{b --help}\n
         \b{b --version}\n
-        \b{b} [<options>] [<variables>] [<build-spec>]}
+        \b{b} [<options>] [<variables>] [<buildspec>]}
 
-     \c{<build-spec> = <meta-operation>\b{(}<operation>\b{(}<target>...[\b{,}<parameters>]\b{)}...\b{)}...}
+     \c{<buildspec> = <meta-operation>\b{(}<operation>\b{(}<target>...[\b{,}<parameters>]\b{)}...\b{)}...}
 
      \h|DESCRIPTION|
 
@@ -31,7 +31,7 @@ namespace build2
      This process can be controlled by specifying driver <options> and build
      system <variables>.
 
-     Note that <options>, <variables>, and <build-spec> fragments can be
+     Note that <options>, <variables>, and <buildspec> fragments can be
      specified in any order. To avoid treating an argument that starts with
      \cb{'-'} as an option, add the \cb{'--'} separator. To avoid treating an
      argument that contains \cb{'='} as a variable, add the second \cb{'--'}
@@ -401,18 +401,6 @@ namespace build2
        \cb{--verbose 3}."
     }
 
-    bool --progress
-    {
-      "Display build progress. If printing to a terminal the progress is
-       displayed by default for low verbosity levels. Use \cb{--no-progress}
-       to suppress."
-    }
-
-    bool --no-progress
-    {
-      "Don't display build progress."
-    }
-
     bool --quiet|-q
     {
       "Run quietly, only printing error messages. This is equivalent to
@@ -454,6 +442,18 @@ namespace build2
        values are \cb{load} (after loading \cb{buildfiles}) and \cb{match}
        (after matching rules to targets). Repeat this option to dump the
        state after multiple phases."
+    }
+
+    bool --progress
+    {
+      "Display build progress. If printing to a terminal the progress is
+       displayed by default for low verbosity levels. Use \cb{--no-progress}
+       to suppress."
+    }
+
+    bool --no-progress
+    {
+      "Don't display build progress."
     }
 
     size_t --jobs|-j
@@ -508,17 +508,21 @@ namespace build2
        example \cb{-j\ 0} for default concurrency)."
     }
 
-    bool --mtime-check
+    bool --dry-run|-n
     {
-      "Perform file modification time sanity checks. These checks can be
-       helpful in diagnosing spurious rebuilds and are enabled by default
-       for the staged version of the build system. Use \cb{--no-mtime-check}
-       to disable."
+      "Print commands without actually executing them. Note that commands
+       that are required to create an accurate build state will still be
+       executed and the extracted auxiliary dependency information saved. In
+       other words, this is not the \i{\"don't touch the filesystem\"} mode
+       but rather \i{\"do minimum amount of work to show what needs to be
+       done\"}. Note also that only the \cb{perform} meta-operation supports
+       this mode."
     }
 
-    bool --no-mtime-check
+    bool --match-only
     {
-      "Don't perform file modification time sanity checks."
+      "Match the rules but do not execute the operation. This mode is primarily
+       useful for profiling."
     }
 
     bool --structured-result
@@ -540,15 +544,22 @@ namespace build2
        changed perform test /tmp/dir{hello/}
        \
 
-       Currently only the \cb{perform} meta-operation supports the structured
+       Note that only the \cb{perform} meta-operation supports the structured
        result output.
        "
     }
 
-    bool --match-only
+    bool --mtime-check
     {
-      "Match the rules but do not execute the operation. This mode is primarily
-       useful for profiling."
+      "Perform file modification time sanity checks. These checks can be
+       helpful in diagnosing spurious rebuilds and are enabled by default
+       for the staged version of the build system. Use \cb{--no-mtime-check}
+       to disable."
+    }
+
+    bool --no-mtime-check
+    {
+      "Don't perform file modification time sanity checks."
     }
 
     bool --no-column

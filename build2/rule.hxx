@@ -58,6 +58,9 @@ namespace build2
     static const alias_rule instance;
   };
 
+  // Note that this rule ignores the dry_run flag; see mkdir() in filesystem
+  // for the rationale.
+  //
   class fsdir_rule: public rule
   {
   public:

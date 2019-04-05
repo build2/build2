@@ -19,6 +19,9 @@ namespace build2
     // Note that a derived rule can use the target data pad to cache data
     // (e.g., in match()) to be used in substitute/lookup() calls.
     //
+    // Note also that currently this rule ignores the dry-run mode (see
+    // perform_update() for the rationale).
+    //
     class rule: public build2::rule
     {
     public:

@@ -37,9 +37,9 @@ namespace build2
 
     // Generate a Windows manifest and if necessary create/update the manifest
     // file corresponding to the exe{} target. Return the manifest file path
-    // as well as whether it was changed.
+    // and its timestamp if unchanged or timestamp_nonexistent otherwise.
     //
-    pair<path, bool> link_rule::
+    pair<path, timestamp> link_rule::
     windows_manifest (const file& t, bool rpath_assembly) const
     {
       tracer trace (x, "link_rule::windows_manifest");
@@ -100,13 +100,15 @@ namespace build2
       //
       path mf (t.path () + ".manifest");
 
-      if (exists (mf))
+      timestamp mt (mtime (mf));
+
+      if (mt != timestamp_nonexistent)
       {
         try
         {
-          ifdstream ifs (mf);
-          if (ifs.read_text () == m)
-            return make_pair (move (mf), false);
+          ifdstream is (mf);
+          if (is.read_text () == m)
+            return make_pair (move (mf), mt);
         }
         catch (const io_error&)
         {
@@ -117,18 +119,25 @@ namespace build2
       if (verb >= 3)
         text << "cat >" << mf;
 
-      try
+      if (!dry_run)
       {
-        ofdstream ofs (mf);
-        ofs << m;
-        ofs.close ();
-      }
-      catch (const io_error& e)
-      {
-        fail << "unable to write to " << mf << ": " << e;
+        auto_rmfile rm (mf);
+
+        try
+        {
+          ofdstream os (mf);
+          os << m;
+          os.close ();
+          rm.cancel ();
+
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to write to " << mf << ": " << e;
+        }
       }
 
-      return make_pair (move (mf), true);
+      return make_pair (move (mf), timestamp_nonexistent);
     }
   }
 }

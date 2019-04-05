@@ -151,7 +151,7 @@ namespace build2
 
       // Windows-specific (windows-manifest.cxx).
       //
-      pair<path, bool>
+      pair<path, timestamp>
       windows_manifest (const file&, bool rpath_assembly) const;
 
       // pkg-config's .pc file generation (pkgconfig.cxx).

@@ -422,12 +422,6 @@ namespace build2
     V () const;
 
     const bool&
-    progress () const;
-
-    const bool&
-    no_progress () const;
-
-    const bool&
     quiet () const;
 
     const uint16_t&
@@ -444,6 +438,12 @@ namespace build2
 
     bool
     dump_specified () const;
+
+    const bool&
+    progress () const;
+
+    const bool&
+    no_progress () const;
 
     const size_t&
     jobs () const;
@@ -473,16 +473,19 @@ namespace build2
     serial_stop () const;
 
     const bool&
-    mtime_check () const;
+    dry_run () const;
 
     const bool&
-    no_mtime_check () const;
+    match_only () const;
 
     const bool&
     structured_result () const;
 
     const bool&
-    match_only () const;
+    mtime_check () const;
+
+    const bool&
+    no_mtime_check () const;
 
     const bool&
     no_column () const;
@@ -547,14 +550,14 @@ namespace build2
     public:
     bool v_;
     bool V_;
-    bool progress_;
-    bool no_progress_;
     bool quiet_;
     uint16_t verbose_;
     bool verbose_specified_;
     bool stat_;
     std::set<string> dump_;
     bool dump_specified_;
+    bool progress_;
+    bool no_progress_;
     size_t jobs_;
     bool jobs_specified_;
     size_t max_jobs_;
@@ -564,10 +567,11 @@ namespace build2
     size_t max_stack_;
     bool max_stack_specified_;
     bool serial_stop_;
+    bool dry_run_;
+    bool match_only_;
+    bool structured_result_;
     bool mtime_check_;
     bool no_mtime_check_;
-    bool structured_result_;
-    bool match_only_;
     bool no_column_;
     bool no_line_;
     path buildfile_;

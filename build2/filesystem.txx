@@ -4,7 +4,7 @@
 
 #include <type_traits> // is_base_of
 
-#include <build2/context.hxx>     // work
+#include <build2/context.hxx>
 #include <build2/diagnostics.hxx>
 
 namespace build2
@@ -34,7 +34,9 @@ namespace build2
 
     try
     {
-      rs = try_rmfile (f);
+      rs = dry_run
+        ? file_exists (f) ? rmfile_status::success : rmfile_status::not_exist
+        : try_rmfile (f);
     }
     catch (const system_error& e)
     {
@@ -54,9 +56,6 @@ namespace build2
   {
     using namespace butl;
 
-    bool w (work.sub (d)); // Don't try to remove working directory.
-    rmdir_status rs;
-
     // We don't want to print the command if we couldn't remove the directory
     // because it does not exist (just like we don't print mkdir if it already
     // exists) or if it is not empty. This makes the below code a bit ugly.
@@ -72,9 +71,13 @@ namespace build2
       }
     };
 
+    bool w (false); // Don't try to remove working directory.
+    rmdir_status rs;
     try
     {
-      rs = !w ? try_rmdir (d) : rmdir_status::not_empty;
+      rs = dry_run
+        ? dir_exists (d) ? rmdir_status::success : rmdir_status::not_exist
+        : !(w = work.sub (d)) ? try_rmdir (d) : rmdir_status::not_empty;
     }
     catch (const system_error& e)
     {

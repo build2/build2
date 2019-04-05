@@ -54,7 +54,9 @@ namespace build2
   //
   // If we assume that an update of the database also means an update of the
   // target, then this "interrupted update" situation can be easily detected
-  // by comparing the database and target modification timestamps.
+  // by comparing the database and target modification timestamps. This is
+  // also used to handle the dry-run mode where we essentially do the
+  // interruption ourselves.
   //
   struct depdb_base
   {

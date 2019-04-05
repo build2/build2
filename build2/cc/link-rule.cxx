@@ -1687,9 +1687,7 @@ namespace build2
 
         auto p (windows_manifest (t, rpath_timestamp != timestamp_nonexistent));
         path& mf (p.first);
-        bool mf_cf (p.second); // Changed flag (timestamp resolution).
-
-        timestamp mf_mt (mtime (mf));
+        timestamp mf_mt (p.second);
 
         if (tsys == "mingw32")
         {
@@ -1699,7 +1697,7 @@ namespace build2
           //
           manifest = mf + ".o";
 
-          if (mf_mt > mtime (manifest) || mf_cf)
+          if (mf_mt == timestamp_nonexistent || mf_mt > mtime (manifest))
           {
             path of (relative (manifest));
 
@@ -1717,53 +1715,59 @@ namespace build2
             if (verb >= 3)
               print_process (args);
 
-            try
+            if (!dry_run)
             {
-              process pr (rc, args, -1);
+              auto_rmfile rm (of);
 
               try
               {
-                ofdstream os (move (pr.out_fd));
+                process pr (rc, args, -1);
 
-                // 1 is resource ID, 24 is RT_MANIFEST. We also need to escape
-                // Windows path backslashes.
-                //
-                os << "1 24 \"";
-
-                const string& s (mf.string ());
-                for (size_t i (0), j;; i = j + 1)
+                try
                 {
-                  j = s.find ('\\', i);
-                  os.write (s.c_str () + i,
-                            (j == string::npos ? s.size () : j) - i);
+                  ofdstream os (move (pr.out_fd));
 
-                  if (j == string::npos)
-                    break;
+                  // 1 is resource ID, 24 is RT_MANIFEST. We also need to
+                  // escape Windows path backslashes.
+                  //
+                  os << "1 24 \"";
 
-                  os.write ("\\\\", 2);
+                  const string& s (mf.string ());
+                  for (size_t i (0), j;; i = j + 1)
+                  {
+                    j = s.find ('\\', i);
+                    os.write (s.c_str () + i,
+                              (j == string::npos ? s.size () : j) - i);
+
+                    if (j == string::npos)
+                      break;
+
+                    os.write ("\\\\", 2);
+                  }
+
+                  os << "\"" << endl;
+
+                  os.close ();
+                  rm.cancel ();
+                }
+                catch (const io_error& e)
+                {
+                  if (pr.wait ()) // Ignore if child failed.
+                    fail << "unable to pipe resource file to " << args[0]
+                         << ": " << e;
                 }
 
-                os << "\"" << endl;
-
-                os.close ();
+                run_finish (args, pr);
               }
-              catch (const io_error& e)
+              catch (const process_error& e)
               {
-                if (pr.wait ()) // Ignore if child failed.
-                  fail << "unable to pipe resource file to " << args[0]
-                       << ": " << e;
+                error << "unable to execute " << args[0] << ": " << e;
+
+                if (e.child)
+                  exit (1);
+
+                throw failed ();
               }
-
-              run_finish (args, pr);
-            }
-            catch (const process_error& e)
-            {
-              error << "unable to execute " << args[0] << ": " << e;
-
-              if (e.child)
-                exit (1);
-
-              throw failed ();
             }
 
             update = true; // Manifest changed, force update.
@@ -1773,7 +1777,7 @@ namespace build2
         {
           manifest = move (mf); // Save for link.exe's /MANIFESTINPUT.
 
-          if (mf_mt > mt || mf_cf)
+          if (mf_mt == timestamp_nonexistent || mf_mt > mt)
             update = true; // Manifest changed, force update.
         }
       }
@@ -2382,7 +2386,8 @@ namespace build2
 
       args.push_back (nullptr);
 
-      // Cleanup old (versioned) libraries.
+      // Cleanup old (versioned) libraries. Let's do it even for dry-run to
+      // keep things simple.
       //
       if (lt.shared_library ())
       {
@@ -2437,19 +2442,12 @@ namespace build2
         // We use relative paths to the object files which means we may end
         // up with different ones depending on CWD and some implementation
         // treat them as different archive members. So remote the file to
-        // be sure. Note that we ignore errors leaving it to the achiever
+        // be sure. Note that we ignore errors leaving it to the archiever
         // to complain.
         //
         if (mt != timestamp_nonexistent)
           try_rmfile (relt, true);
       }
-
-      // Remove the target file if any of the subsequent (after the linker)
-      // actions fail or if the linker fails but does not clean up its mess
-      // (like link.exe). If we don't do that, then we will end up with a
-      // broken build that is up-to-date.
-      //
-      auto_rmfile rm (relt);
 
       if (verb == 1)
         text << (lt.static_library () ? "ar " : "ld ") << t;
@@ -2562,84 +2560,96 @@ namespace build2
       if (verb > 2)
         print_process (args);
 
-      try
+      // Remove the target file if any of the subsequent (after the linker)
+      // actions fail or if the linker fails but does not clean up its mess
+      // (like link.exe). If we don't do that, then we will end up with a
+      // broken build that is up-to-date.
+      //
+      auto_rmfile rm;
+
+      if (!dry_run)
       {
-        // VC tools (both lib.exe and link.exe) send diagnostics to stdout.
-        // Also, link.exe likes to print various gratuitous messages. So for
-        // link.exe we redirect stdout to a pipe, filter that noise out, and
-        // send the rest to stderr.
-        //
-        // For lib.exe (and any other insane compiler that may try to pull off
-        // something like this) we are going to redirect stdout to stderr. For
-        // sane compilers this should be harmless.
-        //
-        bool filter (tsys == "win32-msvc" && !lt.static_library ());
+        rm = auto_rmfile (relt);
 
-        process pr (*ld, args.data (), 0, (filter ? -1 : 2));
-
-        if (filter)
+        try
         {
-          try
+          // VC tools (both lib.exe and link.exe) send diagnostics to stdout.
+          // Also, link.exe likes to print various gratuitous messages. So for
+          // link.exe we redirect stdout to a pipe, filter that noise out, and
+          // send the rest to stderr.
+          //
+          // For lib.exe (and any other insane linker that may try to pull off
+          // something like this) we are going to redirect stdout to stderr.
+          // For sane compilers this should be harmless.
+          //
+          bool filter (tsys == "win32-msvc" && !lt.static_library ());
+
+          process pr (*ld, args.data (), 0, (filter ? -1 : 2));
+
+          if (filter)
           {
-            ifdstream is (
-              move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
+            try
+            {
+              ifdstream is (
+                move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
-            msvc_filter_link (is, t, ot);
+              msvc_filter_link (is, t, ot);
 
-            // If anything remains in the stream, send it all to stderr. Note
-            // that the eof check is important: if the stream is at eof, this
-            // and all subsequent writes to the diagnostics stream will fail
-            // (and you won't see a thing).
-            //
-            if (is.peek () != ifdstream::traits_type::eof ())
-              diag_stream_lock () << is.rdbuf ();
+              // If anything remains in the stream, send it all to stderr.
+              // Note that the eof check is important: if the stream is at
+              // eof, this and all subsequent writes to the diagnostics stream
+              // will fail (and you won't see a thing).
+              //
+              if (is.peek () != ifdstream::traits_type::eof ())
+                diag_stream_lock () << is.rdbuf ();
 
-            is.close ();
+              is.close ();
+            }
+            catch (const io_error&) {} // Assume exits with error.
           }
-          catch (const io_error&) {} // Assume exits with error.
+
+          run_finish (args, pr);
         }
-
-        run_finish (args, pr);
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
-
-        // In a multi-threaded program that fork()'ed but did not exec(),
-        // it is unwise to try to do any kind of cleanup (like unwinding
-        // the stack and running destructors).
-        //
-        if (e.child)
+        catch (const process_error& e)
         {
-          rm.cancel ();
+          error << "unable to execute " << args[0] << ": " << e;
+
+          // In a multi-threaded program that fork()'ed but did not exec(), it
+          // is unwise to try to do any kind of cleanup (like unwinding the
+          // stack and running destructors).
+          //
+          if (e.child)
+          {
+            rm.cancel ();
 #ifdef _WIN32
-          trm.cancel ();
+            trm.cancel ();
 #endif
-          exit (1);
+            exit (1);
+          }
+
+          throw failed ();
         }
 
-        throw failed ();
-      }
-
-      // VC link.exe creates an import library and .exp file for an executable
-      // if any of its object files export any symbols (think a unit test
-      // linking libus{}). And, no, there is no way to suppress it. Well,
-      // there is a way: create a .def file with an empty EXPORTS section,
-      // pass it to lib.exe to create a dummy .exp (and .lib), and then pass
-      // this empty .exp to link.exe. Wanna go this way? Didn't think so.
-      // Having no way to disable this, the next simplest thing seems to be
-      // just cleaning the mess up.
-      //
-      // Note also that if at some point we decide to support such "shared
-      // executables" (-rdynamic, etc), then it will probably have to be a
-      // different target type (exes{}?) since it will need a different set
-      // of object files (-fPIC so probably objs{}), etc.
-      //
-      if (lt.executable () && tsys == "win32-msvc")
-      {
-        path b (relt.base ());
-        try_rmfile (b + ".lib", true /* ignore_errors */);
-        try_rmfile (b + ".exp", true /* ignore_errors */);
+        // VC link.exe creates an import library and .exp file for an
+        // executable if any of its object files export any symbols (think a
+        // unit test linking libus{}). And, no, there is no way to suppress
+        // it. Well, there is a way: create a .def file with an empty EXPORTS
+        // section, pass it to lib.exe to create a dummy .exp (and .lib), and
+        // then pass this empty .exp to link.exe. Wanna go this way? Didn't
+        // think so. Having no way to disable this, the next simplest thing
+        // seems to be just cleaning the mess up.
+        //
+        // Note also that if at some point we decide to support such "shared
+        // executables" (-rdynamic, etc), then it will probably have to be a
+        // different target type (exes{}?) since it will need a different set
+        // of object files (-fPIC so probably objs{}), etc.
+        //
+        if (lt.executable () && tsys == "win32-msvc")
+        {
+          path b (relt.base ());
+          try_rmfile (b + ".lib", true /* ignore_errors */);
+          try_rmfile (b + ".exp", true /* ignore_errors */);
+        }
       }
 
       if (ranlib)
@@ -2654,7 +2664,8 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        run (rl, args);
+        if (!dry_run)
+          run (rl, args);
       }
 
       if (tclass == "windows")
@@ -2675,6 +2686,9 @@ namespace build2
         {
           if (verb >= 3)
             text << "ln -sf " << f << ' ' << l;
+
+          if (dry_run)
+            return;
 
           try
           {
@@ -2701,29 +2715,35 @@ namespace build2
         if (!so.empty ()) {ln (f->leaf (), so); f = &so;}
         if (!lk.empty ()) {ln (f->leaf (), lk);}
       }
-
-      // Apple ar (from cctools) for some reason truncates fractional seconds
-      // when running on APFS (HFS has a second resolution so it's not an
-      // issue there). This can lead to object files being newer than the
-      // archive, which is naturally bad news. Filed as bug 49604334.
-      //
-      // Note that this block is not inside #ifdef __APPLE__ because we could
-      // be cross-compiling, theoretically. We also make sure we use Apple's
-      // ar (which is (un)recognized as 'generic') instead of, say, llvm-ar.
-      //
-      if (lt.static_library ()                      &&
-          tsys == "darwin"                          &&
-          cast<string> (rs["bin.ar.id"]) == "generic")
+      else if (lt.static_library ())
       {
-        touch (tp, false /* create */, verb_never);
+        // Apple ar (from cctools) for some reason truncates fractional
+        // seconds when running on APFS (HFS has a second resolution so it's
+        // not an issue there). This can lead to object files being newer than
+        // the archive, which is naturally bad news. Filed as bug 49604334.
+        //
+        // Note that this block is not inside #ifdef __APPLE__ because we
+        // could be cross-compiling, theoretically. We also make sure we use
+        // Apple's ar (which is (un)recognized as 'generic') instead of, say,
+        // llvm-ar.
+        //
+        if (tsys == "darwin" && cast<string> (rs["bin.ar.id"]) == "generic")
+        {
+          if (!dry_run)
+            touch (tp, false /* create */, verb_never);
+        }
       }
 
-      rm.cancel ();
-      dd.check_mtime (tp);
+      if (!dry_run)
+      {
+        rm.cancel ();
+        dd.check_mtime (tp);
+      }
 
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.
-      // It has the advantage of having the subseconds precision.
+      // It has the advantage of having the subseconds precision. Plus, in
+      // case of dry-run, the file won't be modified.
       //
       t.mtime (system_clock::now ());
       return target_state::changed;

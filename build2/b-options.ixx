@@ -244,18 +244,6 @@ namespace build2
   }
 
   inline const bool& options::
-  progress () const
-  {
-    return this->progress_;
-  }
-
-  inline const bool& options::
-  no_progress () const
-  {
-    return this->no_progress_;
-  }
-
-  inline const bool& options::
   quiet () const
   {
     return this->quiet_;
@@ -289,6 +277,18 @@ namespace build2
   dump_specified () const
   {
     return this->dump_specified_;
+  }
+
+  inline const bool& options::
+  progress () const
+  {
+    return this->progress_;
+  }
+
+  inline const bool& options::
+  no_progress () const
+  {
+    return this->no_progress_;
   }
 
   inline const size_t& options::
@@ -346,15 +346,15 @@ namespace build2
   }
 
   inline const bool& options::
-  mtime_check () const
+  dry_run () const
   {
-    return this->mtime_check_;
+    return this->dry_run_;
   }
 
   inline const bool& options::
-  no_mtime_check () const
+  match_only () const
   {
-    return this->no_mtime_check_;
+    return this->match_only_;
   }
 
   inline const bool& options::
@@ -364,9 +364,15 @@ namespace build2
   }
 
   inline const bool& options::
-  match_only () const
+  mtime_check () const
   {
-    return this->match_only_;
+    return this->mtime_check_;
+  }
+
+  inline const bool& options::
+  no_mtime_check () const
+  {
+    return this->no_mtime_check_;
   }
 
   inline const bool& options::

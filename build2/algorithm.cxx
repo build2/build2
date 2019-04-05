@@ -1074,14 +1074,15 @@ namespace build2
     {
       // Normally will be there.
       //
-      try_rmbacklink (l, m);
+      if (!dry_run)
+        try_rmbacklink (l, m);
 
       // Skip (ad hoc) targets that don't exist.
       //
       if (!(d ? dir_exists (p) : file_exists (p)))
         return;
 
-      for (;;) // Retry/fallback loop.
+      for (; !dry_run; ) // Retry/fallback loop.
       try
       {
         switch (m)
@@ -1890,6 +1891,8 @@ namespace build2
     // Clean the extras first and don't print the commands at verbosity level
     // below 3. Note the first extra file/directory that actually got removed
     // for diagnostics below.
+    //
+    // Note that dry-run is taken care of by the filesystem functions.
     //
     target_state er (target_state::unchanged);
     bool ed (false);

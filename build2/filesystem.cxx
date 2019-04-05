@@ -4,6 +4,7 @@
 
 #include <build2/filesystem.hxx>
 
+#include <build2/context.hxx>
 #include <build2/diagnostics.hxx>
 
 using namespace std;
@@ -11,15 +12,18 @@ using namespace butl;
 
 namespace build2
 {
-  bool
+  void
   touch (const path& p, bool create, uint16_t v)
   {
     if (verb >= v)
       text << "touch " << p;
 
+    if (dry_run)
+      return;
+
     try
     {
-      return touch_file (p, create);
+      touch_file (p, create);
     }
     catch (const system_error& e)
     {
@@ -112,7 +116,11 @@ namespace build2
 
     try
     {
-      rs = try_rmsymlink (p, d);
+      rs = dry_run
+        ? (butl::entry_exists (p)
+           ? rmfile_status::success
+           : rmfile_status::not_exist)
+        : try_rmsymlink (p, d);
     }
     catch (const system_error& e)
     {
@@ -140,13 +148,16 @@ namespace build2
     if (verb >= v)
       text << "rmdir -r " << d;
 
-    try
+    if (!dry_run)
     {
-      butl::rmdir_r (d, dir);
-    }
-    catch (const system_error& e)
-    {
-      fail << "unable to remove directory " << d << ": " << e;
+      try
+      {
+        butl::rmdir_r (d, dir);
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to remove directory " << d << ": " << e;
+      }
     }
 
     return rmdir_status::success;

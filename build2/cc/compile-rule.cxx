@@ -995,7 +995,15 @@ namespace build2
         // We do need to update the database timestamp, however. Failed that,
         // we will keep re-validating the cached data over and over again.
         //
-        if (u && dd.reading ())
+        // @@ DRYRUN: note that for dry-run we would keep re-touching the
+        // database on every run (because u is true). So for now we suppress
+        // it (the file will be re-validated on the real run anyway). It feels
+        // like support for reusing the (partially) preprocessed output (see
+        // note below) should help solve this properly (i.e., we don't want
+        // to keep re-validating the file on every subsequent dry-run as well
+        // on the real run).
+        //
+        if (u && dd.reading () && !dry_run)
           dd.touch = true;
 
         dd.close ();
@@ -4642,58 +4650,73 @@ namespace build2
       if (verb >= 3)
         print_process (args);
 
-      try
+      // @@ DRYRUN: Currently we discard the (partially) preprocessed file on
+      // dry-run which is a waste. Even if we keep the file around (like we do
+      // for the error case; see above), we currently have no support for
+      // re-using the previously preprocessed output. However, everything
+      // points towards us needing this in the near future since with modules
+      // we may be out of date but not needing to re-preprocess the
+      // translation unit (i.e., one of the imported module's has BMIs
+      // changed).
+      //
+      if (!dry_run)
       {
-        // VC cl.exe sends diagnostics to stdout. It also prints the file name
-        // being compiled as the first line. So for cl.exe we redirect stdout
-        // to a pipe, filter that noise out, and send the rest to stderr.
-        //
-        // For other compilers redirect stdout to stderr, in case any of them
-        // tries to pull off something similar. For sane compilers this should
-        // be harmless.
-        //
-        bool filter (ctype == compiler_type::msvc);
-
-        process pr (cpath,
-                    args.data (),
-                    0, (filter ? -1 : 2), 2,
-                    nullptr, // CWD
-                    env.empty () ? nullptr : env.data ());
-
-        if (filter)
+        try
         {
-          try
+          // VC cl.exe sends diagnostics to stdout. It also prints the file
+          // name being compiled as the first line. So for cl.exe we redirect
+          // stdout to a pipe, filter that noise out, and send the rest to
+          // stderr.
+          //
+          // For other compilers redirect stdout to stderr, in case any of
+          // them tries to pull off something similar. For sane compilers this
+          // should be harmless.
+          //
+          bool filter (ctype == compiler_type::msvc);
+
+          process pr (cpath,
+                      args.data (),
+                      0, (filter ? -1 : 2), 2,
+                      nullptr, // CWD
+                      env.empty () ? nullptr : env.data ());
+
+          if (filter)
           {
-            ifdstream is (
-              move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
+            try
+            {
+              ifdstream is (
+                move (pr.in_ofd), fdstream_mode::text, ifdstream::badbit);
 
-            msvc_filter_cl (is, *sp);
+              msvc_filter_cl (is, *sp);
 
-            // If anything remains in the stream, send it all to stderr. Note
-            // that the eof check is important: if the stream is at eof, this
-            // and all subsequent writes to the diagnostics stream will fail
-            // (and you won't see a thing).
-            //
-            if (is.peek () != ifdstream::traits_type::eof ())
-              diag_stream_lock () << is.rdbuf ();
+              // If anything remains in the stream, send it all to stderr.
+              // Note that the eof check is important: if the stream is at
+              // eof, this and all subsequent writes to the diagnostics stream
+              // will fail (and you won't see a thing).
+              //
+              if (is.peek () != ifdstream::traits_type::eof ())
+                diag_stream_lock () << is.rdbuf ();
 
-            is.close ();
+              is.close ();
+            }
+            catch (const io_error&) {} // Assume exits with error.
           }
-          catch (const io_error&) {} // Assume exits with error.
+
+          run_finish (args, pr);
         }
+        catch (const process_error& e)
+        {
+          error << "unable to execute " << args[0] << ": " << e;
 
-        run_finish (args, pr);
-      }
-      catch (const process_error& e)
-      {
-        error << "unable to execute " << args[0] << ": " << e;
+          if (e.child)
+            exit (1);
 
-        if (e.child)
-          exit (1);
-
-        throw failed ();
+          throw failed ();
+        }
       }
 
+      // Remove preprocessed file (see above).
+      //
       if (pact && verb >= 3)
         md.psrc.active = true;
 
@@ -4702,11 +4725,6 @@ namespace build2
       //
       if (mod && ctype == compiler_type::clang)
       {
-        // Remove the target file if this fails. If we don't do that, we will
-        // end up with a broken build that is up-to-date.
-        //
-        auto_rmfile rm (relm);
-
         // Adjust the command line. First discard everything after -o then
         // build the new "tail".
         //
@@ -4720,35 +4738,46 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        try
+        if (!dry_run)
         {
-          process pr (cpath,
-                      args.data (),
-                      0, 2, 2,
-                      nullptr, // CWD
-                      env.empty () ? nullptr : env.data ());
+          // Remove the target file if this fails. If we don't do that, we
+          // will end up with a broken build that is up-to-date.
+          //
+          auto_rmfile rm (relm);
 
-          run_finish (args, pr);
+          try
+          {
+            process pr (cpath,
+                        args.data (),
+                        0, 2, 2,
+                        nullptr, // CWD
+                        env.empty () ? nullptr : env.data ());
+
+            run_finish (args, pr);
+          }
+          catch (const process_error& e)
+          {
+            error << "unable to execute " << args[0] << ": " << e;
+
+            if (e.child)
+              exit (1);
+
+            throw failed ();
+          }
+
+          rm.cancel ();
         }
-        catch (const process_error& e)
-        {
-          error << "unable to execute " << args[0] << ": " << e;
-
-          if (e.child)
-            exit (1);
-
-          throw failed ();
-        }
-
-        rm.cancel ();
       }
 
       timestamp now (system_clock::now ());
-      depdb::check_mtime (start, md.dd, tp, now);
+
+      if (!dry_run)
+        depdb::check_mtime (start, md.dd, tp, now);
 
       // Should we go to the filesystem and get the new mtime? We know the
       // file has been modified, so instead just use the current clock time.
-      // It has the advantage of having the subseconds precision.
+      // It has the advantage of having the subseconds precision. Plus, in
+      // case of dry-run, the file won't be modified.
       //
       t.mtime (now);
       return target_state::changed;

@@ -402,6 +402,37 @@ namespace build2
   //
   extern bool keep_going;
 
+  // Dry run flag (see --dry-run|-n).
+  //
+  // This flag is set only for the final execute phase (as opposed to those
+  // that interrupt match) by the perform meta operation's execute() callback.
+  //
+  // Note that for this mode to function properly we have to use fake mtimes.
+  // Specifically, a rule that pretends to update a target must set its mtime
+  // to system_clock::now() and everyone else must use this cached value. In
+  // other words, there should be no mtime re-query from the filesystem.
+  //
+  // At first, it may seem like we should also "dry-run" changes to depdb. But
+  // that would be both problematic (some rules update it in apply() during
+  // the match phase) and wasteful (why discard information). Also, depdb may
+  // serve as an input to some commands (for example, to provide C++ module
+  // mapping) which means that without updating it the commands we print might
+  // not be runnable (think of the compilation database).
+  //
+  // One thing we need to be careful about if we are updating depdb is to not
+  // render the target up-to-date. But in this case the depdb file will be
+  // older than the target which in our model is treated as an interrupted
+  // update (see depdb for details).
+  //
+  // Note also that sometimes it makes sense to do a bit more than absolutely
+  // necessary or to discard information in order to keep the rule logic sane.
+  // And some rules may choose to ignore this flag altogether. In this case,
+  // however, the rule should be careful not to rely on functions (notably
+  // from filesystem) that respect this flag in order not to end up with a
+  // job half done.
+  //
+  extern bool dry_run;
+
   // Reset the build state. In particular, this removes all the targets,
   // scopes, and variables.
   //

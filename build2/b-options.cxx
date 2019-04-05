@@ -609,14 +609,14 @@ namespace build2
   options ()
   : v_ (),
     V_ (),
-    progress_ (),
-    no_progress_ (),
     quiet_ (),
     verbose_ (1),
     verbose_specified_ (false),
     stat_ (),
     dump_ (),
     dump_specified_ (false),
+    progress_ (),
+    no_progress_ (),
     jobs_ (),
     jobs_specified_ (false),
     max_jobs_ (),
@@ -626,10 +626,11 @@ namespace build2
     max_stack_ (),
     max_stack_specified_ (false),
     serial_stop_ (),
+    dry_run_ (),
+    match_only_ (),
+    structured_result_ (),
     mtime_check_ (),
     no_mtime_check_ (),
-    structured_result_ (),
-    match_only_ (),
     no_column_ (),
     no_line_ (),
     buildfile_ (),
@@ -729,14 +730,6 @@ namespace build2
        << "                     equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--progress\033[0m           Display build progress. If printing to a terminal the" << ::std::endl
-       << "                     progress is displayed by default for low verbosity levels." << ::std::endl
-       << "                     Use \033[1m--no-progress\033[0m to suppress." << ::std::endl;
-
-    os << std::endl
-       << "\033[1m--no-progress\033[0m        Don't display build progress." << ::std::endl;
-
-    os << std::endl
        << "\033[1m--quiet\033[0m|\033[1m-q\033[0m           Run quietly, only printing error messages. This is" << ::std::endl
        << "                     equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
 
@@ -762,6 +755,14 @@ namespace build2
        << "                     Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m) and" << ::std::endl
        << "                     \033[1mmatch\033[0m (after matching rules to targets). Repeat this" << ::std::endl
        << "                     option to dump the state after multiple phases." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--progress\033[0m           Display build progress. If printing to a terminal the" << ::std::endl
+       << "                     progress is displayed by default for low verbosity levels." << ::std::endl
+       << "                     Use \033[1m--no-progress\033[0m to suppress." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-progress\033[0m        Don't display build progress." << ::std::endl;
 
     os << std::endl
        << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of active jobs to perform in parallel. This" << ::std::endl
@@ -809,13 +810,18 @@ namespace build2
        << "                     default concurrency)." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--mtime-check\033[0m        Perform file modification time sanity checks. These checks" << ::std::endl
-       << "                     can be helpful in diagnosing spurious rebuilds and are" << ::std::endl
-       << "                     enabled by default for the staged version of the build" << ::std::endl
-       << "                     system. Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
+       << "\033[1m--dry-run\033[0m|\033[1m-n\033[0m         Print commands without actually executing them. Note that" << ::std::endl
+       << "                     commands that are required to create an accurate build" << ::std::endl
+       << "                     state will still be executed and the extracted auxiliary" << ::std::endl
+       << "                     dependency information saved. In other words, this is not" << ::std::endl
+       << "                     the \033[4m\"don't touch the filesystem\"\033[0m mode but rather \033[4m\"do" << ::std::endl
+       << "                     minimum amount of work to show what needs to be done\"\033[0m." << ::std::endl
+       << "                     Note also that only the \033[1mperform\033[0m meta-operation supports" << ::std::endl
+       << "                     this mode." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-mtime-check\033[0m     Don't perform file modification time sanity checks." << ::std::endl;
+       << "\033[1m--match-only\033[0m         Match the rules but do not execute the operation. This" << ::std::endl
+       << "                     mode is primarily useful for profiling." << ::std::endl;
 
     os << std::endl
        << "\033[1m--structured-result\033[0m  Write the result of execution in a structured form. In" << ::std::endl
@@ -834,12 +840,17 @@ namespace build2
        << "                     unchanged perform update(test) /tmp/dir{hello/}" << ::std::endl
        << "                     changed perform test /tmp/dir{hello/}" << ::std::endl
        << ::std::endl
-       << "                     Currently only the \033[1mperform\033[0m meta-operation supports the" << ::std::endl
+       << "                     Note that only the \033[1mperform\033[0m meta-operation supports the" << ::std::endl
        << "                     structured result output." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--match-only\033[0m         Match the rules but do not execute the operation. This" << ::std::endl
-       << "                     mode is primarily useful for profiling." << ::std::endl;
+       << "\033[1m--mtime-check\033[0m        Perform file modification time sanity checks. These checks" << ::std::endl
+       << "                     can be helpful in diagnosing spurious rebuilds and are" << ::std::endl
+       << "                     enabled by default for the staged version of the build" << ::std::endl
+       << "                     system. Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--no-mtime-check\033[0m     Don't perform file modification time sanity checks." << ::std::endl;
 
     os << std::endl
        << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
@@ -911,10 +922,6 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::v_ >;
       _cli_options_map_["-V"] = 
       &::build2::cl::thunk< options, bool, &options::V_ >;
-      _cli_options_map_["--progress"] = 
-      &::build2::cl::thunk< options, bool, &options::progress_ >;
-      _cli_options_map_["--no-progress"] = 
-      &::build2::cl::thunk< options, bool, &options::no_progress_ >;
       _cli_options_map_["--quiet"] = 
       &::build2::cl::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["-q"] = 
@@ -927,6 +934,10 @@ namespace build2
       _cli_options_map_["--dump"] = 
       &::build2::cl::thunk< options, std::set<string>, &options::dump_,
         &options::dump_specified_ >;
+      _cli_options_map_["--progress"] = 
+      &::build2::cl::thunk< options, bool, &options::progress_ >;
+      _cli_options_map_["--no-progress"] = 
+      &::build2::cl::thunk< options, bool, &options::no_progress_ >;
       _cli_options_map_["--jobs"] = 
       &::build2::cl::thunk< options, size_t, &options::jobs_,
         &options::jobs_specified_ >;
@@ -952,14 +963,18 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
       _cli_options_map_["-s"] = 
       &::build2::cl::thunk< options, bool, &options::serial_stop_ >;
+      _cli_options_map_["--dry-run"] = 
+      &::build2::cl::thunk< options, bool, &options::dry_run_ >;
+      _cli_options_map_["-n"] = 
+      &::build2::cl::thunk< options, bool, &options::dry_run_ >;
+      _cli_options_map_["--match-only"] = 
+      &::build2::cl::thunk< options, bool, &options::match_only_ >;
+      _cli_options_map_["--structured-result"] = 
+      &::build2::cl::thunk< options, bool, &options::structured_result_ >;
       _cli_options_map_["--mtime-check"] = 
       &::build2::cl::thunk< options, bool, &options::mtime_check_ >;
       _cli_options_map_["--no-mtime-check"] = 
       &::build2::cl::thunk< options, bool, &options::no_mtime_check_ >;
-      _cli_options_map_["--structured-result"] = 
-      &::build2::cl::thunk< options, bool, &options::structured_result_ >;
-      _cli_options_map_["--match-only"] = 
-      &::build2::cl::thunk< options, bool, &options::match_only_ >;
       _cli_options_map_["--no-column"] = 
       &::build2::cl::thunk< options, bool, &options::no_column_ >;
       _cli_options_map_["--no-line"] = 
@@ -1180,9 +1195,9 @@ namespace build2
        << ::std::endl
        << "\033[1mb --help\033[0m" << ::std::endl
        << "\033[1mb --version\033[0m" << ::std::endl
-       << "\033[1mb\033[0m [\033[4moptions\033[0m] [\033[4mvariables\033[0m] [\033[4mbuild-spec\033[0m]\033[0m" << ::std::endl
+       << "\033[1mb\033[0m [\033[4moptions\033[0m] [\033[4mvariables\033[0m] [\033[4mbuildspec\033[0m]\033[0m" << ::std::endl
        << ::std::endl
-       << "\033[4mbuild-spec\033[0m = \033[4mmeta-operation\033[0m\033[1m(\033[0m\033[4moperation\033[0m\033[1m(\033[0m\033[4mtarget\033[0m...[\033[1m,\033[0m\033[4mparameters\033[0m]\033[1m)\033[0m...\033[1m)\033[0m...\033[0m" << ::std::endl
+       << "\033[4mbuildspec\033[0m = \033[4mmeta-operation\033[0m\033[1m(\033[0m\033[4moperation\033[0m\033[1m(\033[0m\033[4mtarget\033[0m...[\033[1m,\033[0m\033[4mparameters\033[0m]\033[1m)\033[0m...\033[1m)\033[0m...\033[0m" << ::std::endl
        << ::std::endl
        << "\033[1mDESCRIPTION\033[0m" << ::std::endl
        << ::std::endl
@@ -1190,7 +1205,7 @@ namespace build2
        << "according to the build specification, or \033[4mbuildspec\033[0m for short. This process can" << ::std::endl
        << "be controlled by specifying driver \033[4moptions\033[0m and build system \033[4mvariables\033[0m." << ::std::endl
        << ::std::endl
-       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m, and \033[4mbuild-spec\033[0m fragments can be specified in any" << ::std::endl
+       << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m, and \033[4mbuildspec\033[0m fragments can be specified in any" << ::std::endl
        << "order. To avoid treating an argument that starts with \033[1m'-'\033[0m as an option, add the" << ::std::endl
        << "\033[1m'--'\033[0m separator. To avoid treating an argument that contains \033[1m'='\033[0m as a variable," << ::std::endl
        << "add the second \033[1m'--'\033[0m separator." << ::std::endl;

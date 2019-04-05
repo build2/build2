@@ -290,23 +290,9 @@ namespace build2
           mkdir (ad, 3);
       }
 
-      const char* pa (windows_manifest_arch (tcpu));
-
-      if (verb >= 3)
-        text << "cat >" << am;
-
-      try
+      // Symlink or copy the DLLs.
+      //
       {
-        ofdstream ofs (am);
-
-        ofs << "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
-            << "<assembly xmlns='urn:schemas-microsoft-com:asm.v1'\n"
-            << "          manifestVersion='1.0'>\n"
-            << "  <assemblyIdentity name='" << an << "'\n"
-            << "                    type='win32'\n"
-            << "                    processorArchitecture='" << pa << "'\n"
-            << "                    version='0.0.0.0'/>\n";
-
         const scope& as (*t.root_scope ().weak_scope ()); // Amalgamation.
 
         auto link = [&as, &ad] (const path& f, const path& l)
@@ -328,15 +314,20 @@ namespace build2
             // part of the same amalgamation. This way if the amalgamation is
             // moved as a whole, the links will remain valid.
             //
-            if (f.sub (as.out_path ()))
-              mksymlink (f.relative (ad), l);
-            else
-              mksymlink (f, l);
+            if (!dry_run)
+            {
+              if (f.sub (as.out_path ()))
+                mksymlink (f.relative (ad), l);
+              else
+                mksymlink (f, l);
+            }
 
             print ("ln -s");
           }
           catch (const system_error& e)
           {
+            // Note: can never end up here on dry-run.
+
             // Note that we are not guaranteed (here and below) that the
             // system_error exception is of the generic category.
             //
@@ -378,7 +369,6 @@ namespace build2
               }
             }
           }
-
         };
 
         for (const windows_dll& wd: dlls)
@@ -398,13 +388,40 @@ namespace build2
             path pp (*wd.pdb);
             link (pp, ad / pp.leaf ());
           }
-
-          ofs << "  <file name='" << dn.string () << "'/>\n";
         }
+      }
 
-        ofs << "</assembly>\n";
+      if (verb >= 3)
+        text << "cat >" << am;
 
-        ofs.close ();
+      if (dry_run)
+        return;
+
+      auto_rmfile rm (am);
+
+      try
+      {
+        ofdstream os (am);
+
+        const char* pa (windows_manifest_arch (tcpu));
+
+        os << "<?xml version='1.0' encoding='UTF-8' standalone='yes'?>\n"
+           << "<assembly xmlns='urn:schemas-microsoft-com:asm.v1'\n"
+           << "          manifestVersion='1.0'>\n"
+           << "  <assemblyIdentity name='" << an << "'\n"
+           << "                    type='win32'\n"
+           << "                    processorArchitecture='" << pa << "'\n"
+           << "                    version='0.0.0.0'/>\n";
+
+
+
+        for (const windows_dll& wd: dlls)
+          os << "  <file name='" << path (wd.dll).leaf () << "'/>\n";
+
+        os << "</assembly>\n";
+
+        os.close ();
+        rm.cancel ();
       }
       catch (const io_error& e)
       {

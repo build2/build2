@@ -322,9 +322,11 @@ namespace build2
       else if (verb)
         text << "cli " << s;
 
-      run (cli, args);
-
-      dd.check_mtime (tp);
+      if (!dry_run)
+      {
+        run (cli, args);
+        dd.check_mtime (tp);
+      }
 
       t.mtime (system_clock::now ());
       return target_state::changed;

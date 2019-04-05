@@ -196,6 +196,8 @@ namespace build2
         text << "mkdir " << t;
     };
 
+    // Note: ignoring the dry_run flag.
+    //
     mkdir_status ms;
 
     try

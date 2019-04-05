@@ -12,6 +12,11 @@
 
 // Higher-level filesystem utilities built on top of <libbutl/filesystem.mxx>.
 //
+// Compared to the libbutl's versions, these handle errors and issue
+// diagnostics. Some of them also print the corresponding command line
+// equivalent at the specified verbosity level. Note that most of such
+// functions also handle the dry_run flag.
+//
 namespace build2
 {
   using butl::auto_rmfile;
@@ -30,12 +35,12 @@ namespace build2
     explicit operator bool () const {return v == T::success;}
   };
 
-  // Set the file access and modification times to the current time printing
-  // the standard diagnostics starting from the specified verbosity level. If
-  // the file does not exist and create is true, create it and fail otherwise.
-  // Return true if the file was created and false otherwise.
+  // Set the file access and modification times (unless dry-run) to the
+  // current time printing the standard diagnostics starting from the
+  // specified verbosity level. If the file does not exist and create is true,
+  // create it and fail otherwise.
   //
-  bool
+  void
   touch (const path&, bool create, uint16_t verbosity = 1);
 
   // Return the modification time for an existing regular file and
@@ -51,12 +56,16 @@ namespace build2
     return mtime (p.string ().c_str ());
   }
 
-  // Create the directory and print the standard diagnostics starting from
-  // the specified verbosity level.
+  // Create the directory and print the standard diagnostics starting from the
+  // specified verbosity level.
   //
-  // Note that this implementation is not suitable if it is expected that the
-  // directory will exist in the majority of cases and performance is
-  // important. See the fsdir{} rule for details.
+  // Note that these functions ignore the dry_run flag (we might need to save
+  // something in such a directory, such as depdb, ignoring dry_run). Overall,
+  // it feels like we should establish the structure even for dry-run.
+  //
+  // Note that the implementation may not be suitable if the performance is
+  // important and it is expected that the directory will exist in most cases.
+  // See the fsdir{} rule for details.
   //
   using mkdir_status = butl::mkdir_status;
 
@@ -66,10 +75,10 @@ namespace build2
   fs_status<mkdir_status>
   mkdir_p (const dir_path&, uint16_t verbosity = 1);
 
-  // Remove the file and print the standard diagnostics starting from the
-  // specified verbosity level. The second argument is only used in
-  // diagnostics, to print the target name. Passing the path for target will
-  // result in the relative path being printed.
+  // Remove the file (unless dry-run) and print the standard diagnostics
+  // starting from the specified verbosity level. The second argument is only
+  // used in diagnostics, to print the target name. Passing the path for
+  // target will result in the relative path being printed.
   //
   using rmfile_status = butl::rmfile_status;
 
@@ -89,6 +98,8 @@ namespace build2
     return rmfile (f, f, verbosity);
   }
 
+  // Similar to rmfile() but for symlinks.
+  //
   fs_status<rmfile_status>
   rmsymlink (const path&, bool dir, uint16_t verbosity);
 
@@ -112,10 +123,10 @@ namespace build2
     return rmdir (d, d, verbosity);
   }
 
-  // Remove the directory recursively and print the standard diagnostics
-  // starting from the specified verbosity level. Note that this function
-  // returns not_empty if we try to remove a working directory. If the dir
-  // argument is false, then the directory itself is not removed.
+  // Remove the directory recursively (unless dry-run) and print the standard
+  // diagnostics starting from the specified verbosity level. Note that this
+  // function returns not_empty if we try to remove a working directory. If
+  // the dir argument is false, then the directory itself is not removed.
   //
   // @@ Collides (via ADL) with butl::rmdir_r(), which sucks.
   //
