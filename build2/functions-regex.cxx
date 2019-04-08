@@ -343,7 +343,7 @@ namespace build2
   {
     function_family f ("regex");
 
-    // $regex.match(<string>, <pat> [, <flags>])
+    // $regex.match(<val>, <pat> [, <flags>])
     //
     // Match a value of an arbitrary type against the regular expression.
     // Convert the value to string prior to matching. Return the boolean value
@@ -367,7 +367,7 @@ namespace build2
       return match (move (s), convert<string> (move (re)), move (flags));
     };
 
-    // $regex.search(<string>, <pat> [, <flags>])
+    // $regex.search(<val>, <pat> [, <flags>])
     //
     // Determine if there is a match between the regular expression and some
     // part of a value of an arbitrary type. Convert the value to string prior
@@ -398,7 +398,7 @@ namespace build2
       return search (move (s), convert<string> (move (re)), move (flags));
     };
 
-    // $regex.replace(<string>, <pat>, <fmt> [, <flags>])
+    // $regex.replace(<val>, <pat>, <fmt> [, <flags>])
     //
     // Replace matched parts in a value of an arbitrary type, using the format
     // string. Convert the value to string prior to matching. The result value
@@ -431,7 +431,7 @@ namespace build2
                       move (flags));
     };
 
-    // $regex.split(<string>, <pat>, <fmt> [, <flags>])
+    // $regex.split(<val>, <pat>, <fmt> [, <flags>])
     //
     // Split a value of an arbitrary type into a list of unmatched value parts
     // and replacements of the matched parts, omitting empty ones. Convert the
@@ -459,7 +459,7 @@ namespace build2
                     move (flags));
     };
 
-    // $regex.merge(<strings>, <pat>, <fmt> [, <delim> [, <flags>]])
+    // $regex.merge(<vals>, <pat>, <fmt> [, <delim> [, <flags>]])
     //
     // Replace matched parts in a list of elements using the regex format
     // string. Convert the elements to string prior to matching. The result
@@ -505,7 +505,7 @@ namespace build2
                     move (flags));
     };
 
-    // $regex.apply(<strings>, <pat>, <fmt> [, <flags>])
+    // $regex.apply(<vals>, <pat>, <fmt> [, <flags>])
     //
     // Replace matched parts of each element in a list using the regex format
     // string. Convert the elements to string prior to matching. Return a list
