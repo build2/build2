@@ -154,7 +154,7 @@ namespace build2
       // Installation/uninstallation "commands".
       //
       // If verbose is false, then only print the command at verbosity level 2
-      // or higher.
+      // or higher. Note that these functions respect the dry_run flag.
 
       // Install a symlink: base/link -> target.
       //

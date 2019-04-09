@@ -690,15 +690,25 @@ namespace build2
 
     // install -d <dir>
     //
-    // If verbose is false, then only print the command at verbosity level 2
-    // or higher.
-    //
     static void
     install_d (const scope& rs,
                const install_dir& base,
                const dir_path& d,
                bool verbose = true)
     {
+      // Here is the problem: if this is a dry-run, then we will keep showing
+      // the same directory creation commands over and over again (because we
+      // don't actually create them). There are two alternative ways to solve
+      // this: actually create the directories or simply don't show anything.
+      // While we use the former approach during update (see mkdir() in
+      // filesystem), here it feels like we really shouldn't be touching the
+      // destination filesystem. Plus, not showing anything will be symmetric
+      // with uninstall since the directories won't be empty (because we don't
+      // actually uninstall any files).
+      //
+      if (dry_run)
+        return;
+
       dir_path chd (chroot_path (rs, d));
 
       try
@@ -760,9 +770,6 @@ namespace build2
     // install <file> <dir>/
     // install <file> <file>
     //
-    // If verbose is false, then only print the command at verbosity level 2
-    // or higher.
-    //
     static void
     install_f (const scope& rs,
                const install_dir& base,
@@ -809,7 +816,8 @@ namespace build2
       else if (verb && verbose)
         text << "install " << t;
 
-      run (pp, args);
+      if (!dry_run)
+        run (pp, args);
     }
 
     void file_rule::
@@ -844,7 +852,8 @@ namespace build2
       else if (verb && verbose)
         text << "install " << rell << " -> " << target;
 
-      run (pp, args);
+      if (!dry_run)
+        run (pp, args);
     }
 
     target_state file_rule::
@@ -952,15 +961,17 @@ namespace build2
     // itself unless base == dir. Return false if nothing has been removed
     // (i.e., the directories do not exist or are not empty).
     //
-    // If verbose is false, then only print the command at verbosity level 2
-    // or higher.
-    //
     static bool
     uninstall_d (const scope& rs,
                  const install_dir& base,
                  const dir_path& d,
                  bool verbose)
     {
+      // See install_d() for the rationale.
+      //
+      if (dry_run)
+        return false;
+
       dir_path chd (chroot_path (rs, d));
 
       // Figure out if we should try to remove this directory. Note that if
@@ -1086,13 +1097,16 @@ namespace build2
         if (verb >= 2)
           text << "rm " << relf;
 
-        try
+        if (!dry_run)
         {
-          try_rmfile (f);
-        }
-        catch (const system_error& e)
-        {
-          fail << "unable to remove file " << f << ": " << e;
+          try
+          {
+            try_rmfile (f);
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to remove file " << f << ": " << e;
+          }
         }
       }
       else
@@ -1112,7 +1126,8 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        run (pp, args);
+        if (!dry_run)
+          run (pp, args);
       }
 
       return true;

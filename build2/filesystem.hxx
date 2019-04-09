@@ -15,7 +15,7 @@
 // Compared to the libbutl's versions, these handle errors and issue
 // diagnostics. Some of them also print the corresponding command line
 // equivalent at the specified verbosity level. Note that most of such
-// functions also handle the dry_run flag.
+// functions also respect the dry_run flag.
 //
 namespace build2
 {
