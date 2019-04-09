@@ -240,6 +240,8 @@ namespace build2
   {
     ~wait_guard () noexcept (false);
 
+    wait_guard (); // Empty.
+
     explicit
     wait_guard (atomic_count& task_count,
                 bool phase = false);
@@ -250,6 +252,14 @@ namespace build2
 
     void
     wait ();
+
+    // Note: move-assignable to empty only.
+    //
+    wait_guard (wait_guard&&);
+    wait_guard& operator= (wait_guard&&);
+
+    wait_guard (const wait_guard&) = delete;
+    wait_guard& operator= (const wait_guard&) = delete;
 
     size_t start_count;
     atomic_count* task_count;

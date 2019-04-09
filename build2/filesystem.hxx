@@ -155,7 +155,8 @@ namespace build2
 
   // Directories containing .buildignore (or .build2ignore in the alternative
   // naming scheme) file are automatically ignored by recursive name patterns.
-  // For now the file is just a marker and its contents don't matter.
+  // For now the file is just a marker and its contents don't matter. Note
+  // that these functions ignore dry-run.
 
   // Create a directory containing an empty .buildignore file.
   //

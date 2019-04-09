@@ -7,6 +7,12 @@ namespace build2
   // wait_guard
   //
   inline wait_guard::
+  wait_guard ()
+      : start_count (0), task_count (nullptr), phase (false)
+  {
+  }
+
+  inline wait_guard::
   wait_guard (atomic_count& tc, bool p)
       : wait_guard (0, tc, p)
   {
@@ -23,6 +29,25 @@ namespace build2
   {
     if (task_count != nullptr)
       wait ();
+  }
+
+  inline wait_guard::
+  wait_guard (wait_guard&& x)
+      : start_count (x.start_count), task_count (x.task_count), phase (x.phase)
+  {
+    x.task_count = nullptr;
+  }
+
+  inline wait_guard& wait_guard::
+  operator= (wait_guard&& x)
+  {
+    if (&x != this)
+    {
+      assert (task_count == nullptr);
+      start_count = x.start_count; task_count = x.task_count; phase = x.phase;
+      x.task_count = nullptr;
+    }
+    return *this;
   }
 
   inline void wait_guard::

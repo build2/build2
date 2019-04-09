@@ -360,15 +360,6 @@ namespace build2
 
       try
       {
-        if (verb)
-        {
-          diag_record dr (text);
-          dr << "test " << ts;
-
-          if (!t.is_a<alias> ())
-            dr << ' ' << t;
-        }
-
         build2::test::script::script s (t, ts, wd);
 
         {
@@ -495,14 +486,17 @@ namespace build2
 
       // Start asynchronous execution of the testscripts.
       //
-      wait_guard wg (target::count_busy (), t[a].task_count);
+      wait_guard wg;
+
+      if (!dry_run)
+        wg = wait_guard (target::count_busy (), t[a].task_count);
 
       // Result vector.
       //
       using script::scope_state;
 
-      vector<scope_state> result;
-      result.reserve (pts_n - pass_n); // Make sure there are no reallocations.
+      vector<scope_state> res;
+      res.reserve (pts_n - pass_n); // Make sure there are no reallocations.
 
       for (size_t i (pass_n); i != pts_n; ++i)
       {
@@ -514,47 +508,69 @@ namespace build2
         //
         if (one || test (t, path (ts.name)))
         {
-          if (mk)
+          // Because the creation of the output directory is shared between us
+          // and the script implementation (plus the fact that we actually
+          // don't clean the existing one), we are going to ignore it for
+          // dry-run.
+          //
+          if (!dry_run)
           {
-            mkdir_buildignore (wd, buildignore_file, 2);
-            mk = false;
+            if (mk)
+            {
+              mkdir_buildignore (wd, buildignore_file, 2);
+              mk = false;
+            }
           }
 
-          result.push_back (scope_state::unknown);
-          scope_state& r (result.back ());
-
-          if (!sched.async (target::count_busy (),
-                            t[a].task_count,
-                            [this] (const diag_frame* ds,
-                                    scope_state& r,
-                                    const target& t,
-                                    const testscript& ts,
-                                    const dir_path& wd)
-                            {
-                              diag_frame::stack_guard dsg (ds);
-                              r = perform_script_impl (t, ts, wd, *this);
-                            },
-                            diag_frame::stack,
-                            ref (r),
-                            cref (t),
-                            cref (ts),
-                            cref (wd)))
+          if (verb)
           {
-            // Executed synchronously. If failed and we were not asked to keep
-            // going, bail out.
-            //
-            if (r == scope_state::failed && !keep_going)
-              break;
+            diag_record dr (text);
+            dr << "test " << ts;
+
+            if (!t.is_a<alias> ())
+              dr << ' ' << t;
+          }
+
+          res.push_back (dry_run ? scope_state::passed : scope_state::unknown);
+
+          if (!dry_run)
+          {
+            scope_state& r (res.back ());
+
+            if (!sched.async (target::count_busy (),
+                              t[a].task_count,
+                              [this] (const diag_frame* ds,
+                                      scope_state& r,
+                                      const target& t,
+                                      const testscript& ts,
+                                      const dir_path& wd)
+                              {
+                                diag_frame::stack_guard dsg (ds);
+                                r = perform_script_impl (t, ts, wd, *this);
+                              },
+                              diag_frame::stack,
+                              ref (r),
+                              cref (t),
+                              cref (ts),
+                              cref (wd)))
+            {
+              // Executed synchronously. If failed and we were not asked to
+              // keep going, bail out.
+              //
+              if (r == scope_state::failed && !keep_going)
+                break;
+            }
           }
         }
       }
 
-      wg.wait ();
+      if (!dry_run)
+        wg.wait ();
 
       // Re-examine.
       //
       bool bad (false);
-      for (scope_state r: result)
+      for (scope_state r: res)
       {
         switch (r)
         {
@@ -569,18 +585,24 @@ namespace build2
 
       // Cleanup.
       //
-      if (!bad && !one && !mk && after == output_after::clean)
+      if (!dry_run)
       {
-        if (!empty_buildignore (wd, buildignore_file))
-          fail << "working directory " << wd << " is not empty at the "
-               << "end of the test";
+        if (!bad && !one && !mk && after == output_after::clean)
+        {
+          if (!empty_buildignore (wd, buildignore_file))
+            fail << "working directory " << wd << " is not empty at the "
+                 << "end of the test";
 
-        rmdir_buildignore (wd, buildignore_file, 2);
+          rmdir_buildignore (wd, buildignore_file, 2);
+        }
       }
 
       // Backlink if the working directory exists.
       //
-      if (!bl.empty () && exists (wd))
+      // If we dry-run then presumably all tests passed and we shouldn't
+      // have anything left unless we are keeping the output.
+      //
+      if (!bl.empty () && (dry_run ? after == output_after::keep : exists (wd)))
         update_backlink (wd, bl, true /* changed */);
 
       if (bad)
@@ -752,13 +774,16 @@ namespace build2
         const path& ip (it.path ());
         assert (!ip.empty ()); // Should have been assigned by update.
 
-        try
+        if (!dry_run)
         {
-          cat.in_ofd = fdopen (ip, fdopen_mode::in);
-        }
-        catch (const io_error& e)
-        {
-          fail << "unable to open " << ip << ": " << e;
+          try
+          {
+            cat.in_ofd = fdopen (ip, fdopen_mode::in);
+          }
+          catch (const io_error& e)
+          {
+            fail << "unable to open " << ip << ": " << e;
+          }
         }
 
         // Purely for diagnostics.
@@ -768,8 +793,12 @@ namespace build2
         args.push_back (nullptr);
       }
 
-      process_path pp (run_search (p, true /* init */));
-      args.push_back (pp.recall_string ());
+      // If dry-run, the target may not exist.
+      //
+      process_path pp (!dry_run
+                       ? run_search     (p, true /* init */)
+                       : try_run_search (p, true));
+      args.push_back (pp.empty () ? p.string ().c_str () : pp.recall_string ());
 
       // Do we have options and/or arguments?
       //
@@ -831,15 +860,18 @@ namespace build2
       else if (verb)
         text << "test " << tt;
 
-      diag_record dr;
-      if (!run_test (tt,
-                     dr,
-                     args.data () + (sin ? 3 : 0), // Skip cat.
-                     sin ? &cat : nullptr))
+      if (!dry_run)
       {
-        dr << info << "test command line: ";
-        print_process (dr, args);
-        dr << endf; // return
+        diag_record dr;
+        if (!run_test (tt,
+                       dr,
+                       args.data () + (sin ? 3 : 0), // Skip cat.
+                       sin ? &cat : nullptr))
+        {
+          dr << info << "test command line: ";
+          print_process (dr, args);
+          dr << endf; // return
+        }
       }
 
       return target_state::changed;

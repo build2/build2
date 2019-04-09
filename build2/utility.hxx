@@ -167,6 +167,12 @@ namespace build2
               bool path_only = false,
               const location& = location ());
 
+  process_path
+  try_run_search (const path&,
+                  bool init = false,
+                  const dir_path& fallback = dir_path (),
+                  bool path_only = false);
+
   // Wait for process termination. Issue diagnostics and throw failed in case
   // of abnormal termination. If the process has terminated normally but with
   // a non-zero exit status, then, if error is true, assume the diagnostics

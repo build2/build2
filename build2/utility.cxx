@@ -173,6 +173,15 @@ namespace build2
     fail (l) << "unable to execute " << f << ": " << e << endf;
   }
 
+  process_path
+  try_run_search (const path& f,
+                  bool init,
+                  const dir_path& fallback,
+                  bool path_only)
+  {
+    return process::try_path_search (f, init, fallback, path_only);
+  }
+
   process
   run_start (uint16_t verbosity,
              const process_env& pe,
