@@ -35,7 +35,6 @@ namespace build2
         builtin (uint8_t& r, thread&& t = thread ()): r_ (r), t_ (move (t)) {}
 
         builtin (builtin&&) = default;
-        builtin& operator= (builtin&&) = default;
 
       private:
         uint8_t& r_;

@@ -119,8 +119,6 @@ namespace build2
     std::aligned_storage<sizeof (void*) * 3>::type data;
     static const size_t data_size = sizeof (decltype (data));
 
-    function_overload () = default;
-
     function_overload (const char* an,
                        size_t mi, size_t ma, types ts,
                        function_impl* im)
