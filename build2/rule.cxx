@@ -55,8 +55,8 @@ namespace build2
 
         timestamp ts (mt.mtime ());
 
-        if (ts != timestamp_unknown && ts != timestamp_nonexistent)
-          return true;
+        if (ts != timestamp_unknown)
+          return ts != timestamp_nonexistent;
 
         // Otherwise, if this is not a path_target, then we don't match.
         //
@@ -86,7 +86,7 @@ namespace build2
         ts = mtime (*p);
         pt->mtime (ts);
 
-        if (ts != timestamp_unknown && ts != timestamp_nonexistent)
+        if (ts != timestamp_nonexistent)
           return true;
 
         l4 ([&]{trace << "no existing file for target " << *pt;});

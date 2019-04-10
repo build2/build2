@@ -420,7 +420,9 @@ namespace build2
   // Note that for this mode to function properly we have to use fake mtimes.
   // Specifically, a rule that pretends to update a target must set its mtime
   // to system_clock::now() and everyone else must use this cached value. In
-  // other words, there should be no mtime re-query from the filesystem.
+  // other words, there should be no mtime re-query from the filesystem. The
+  // same is required for "logical clean" (i.e., dry-run 'clean update' in
+  // order to see all the command lines).
   //
   // At first, it may seem like we should also "dry-run" changes to depdb. But
   // that would be both problematic (some rules update it in apply() during

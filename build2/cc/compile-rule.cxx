@@ -823,8 +823,22 @@ namespace build2
         // compiler, options, or source file) or if the depdb is newer than
         // the target (interrupted update), then do unconditional update.
         //
+        // Note that load_mtime() can only be used in the execute phase so we
+        // have to check for a cached value manually.
+        //
+        bool u;
         timestamp mt;
-        bool u (dd.writing () || dd.mtime > (mt = mtime (tp)));
+
+        if (dd.writing ())
+          u = true;
+        else
+        {
+          if ((mt = t.mtime ()) == timestamp_unknown)
+            t.mtime (mt = mtime (tp)); // Cache.
+
+          u = dd.mtime > mt;
+        }
+
         if (u)
           mt = timestamp_nonexistent; // Treat as if it doesn't exist.
 
@@ -1044,6 +1058,9 @@ namespace build2
         // prerequisites (like modules) below. So what we are going to do is
         // store the first in the target file (so we do touch it) and the
         // second in depdb (which is never newer that the target).
+        //
+        // Perhaps when we start keeping the partially preprocessed this will
+        // fall away? Yes, please.
         //
         md.mt = u ? timestamp_nonexistent : dd.mtime;
       }
@@ -4319,10 +4336,11 @@ namespace build2
         if (md.touch)
         {
           touch (tp, false, 2);
+          t.mtime (system_clock::now ());
           skip_count.fetch_add (1, memory_order_relaxed);
         }
+        // Note: else mtime should be cached.
 
-        t.mtime (md.mt);
         return *pr.first;
       }
 
