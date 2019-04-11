@@ -463,6 +463,22 @@ namespace build2
       rs.assign (x_libs) += cast_null<strings> (
         config::optional (rs, config_x_libs));
 
+      // config.x.header_units
+      //
+      // It's still fuzzy whether specifying (or maybe tweaking) this list in
+      // the configuration will be a common thing to do so for now we use
+      // omitted. It's also probably too early to think whether we should have
+      // the cc.* version and what the semantics should be.
+      //
+      if (x_header_units != nullptr)
+      {
+        lookup l (config::omitted (rs, *config_x_header_units).first);
+
+        // @@ MODHDR: if(modules) ?
+        //
+        rs.assign (x_header_units) += cast_null<strings> (l);
+      }
+
       // Load cc.core.config.
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))
@@ -486,6 +502,23 @@ namespace build2
       //
       if (!cast_false<bool> (rs["cc.core.loaded"]))
         load_module (rs, rs, "cc.core", loc);
+
+      // Process, sort, and cache (in this->hdr_units) the header units list.
+      // Keep the cache NULL if unused or empty.
+      //
+      // @@ MODHDR TODO: translate <> to absolute paths.
+      // @@ MODHDR TODO: support exclusions entries (e.g., -<stdio.h>)?
+      //
+      if (modules && x_header_units != nullptr)
+      {
+        strings* v (cast_null<strings> (rs.assign (x_header_units)));
+
+        if (v != nullptr && !v->empty ())
+        {
+          sort (v->begin (), v->end ());
+          hdr_units = v;
+        }
+      }
 
       // Register target types and configure their "installability".
       //
@@ -548,13 +581,25 @@ namespace build2
           r.insert<bmie> (perform_clean_id,     x_compile, cr);
           r.insert<bmie> (configure_update_id,  x_compile, cr);
 
+          r.insert<hbmie> (perform_update_id,    x_compile, cr);
+          r.insert<hbmie> (perform_clean_id,     x_compile, cr);
+          r.insert<hbmie> (configure_update_id,  x_compile, cr);
+
           r.insert<bmia> (perform_update_id,    x_compile, cr);
           r.insert<bmia> (perform_clean_id,     x_compile, cr);
           r.insert<bmia> (configure_update_id,  x_compile, cr);
 
+          r.insert<hbmia> (perform_update_id,    x_compile, cr);
+          r.insert<hbmia> (perform_clean_id,     x_compile, cr);
+          r.insert<hbmia> (configure_update_id,  x_compile, cr);
+
           r.insert<bmis> (perform_update_id,   x_compile, cr);
           r.insert<bmis> (perform_clean_id,    x_compile, cr);
           r.insert<bmis> (configure_update_id, x_compile, cr);
+
+          r.insert<hbmis> (perform_update_id,   x_compile, cr);
+          r.insert<hbmis> (perform_clean_id,    x_compile, cr);
+          r.insert<hbmis> (configure_update_id, x_compile, cr);
         }
 
         r.insert<libue> (perform_update_id,    x_link, lr);

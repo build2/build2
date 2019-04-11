@@ -15,13 +15,13 @@ namespace build2
   {
     using type = token_type;
 
-    translation_unit parser::
+    unit parser::
     parse (ifdstream& is, const path& name)
     {
       lexer l (is, name);
       l_ = &l;
 
-      translation_unit u;
+      unit u {unit_type::non_modular, {}};
       u_ = &u;
 
       // If the source has errors then we want the compiler to issues the
@@ -31,8 +31,7 @@ namespace build2
       // easy to miss. So for now we fail. And it turns out we don't mis-
       // parse much.
       //
-      size_t bb (0);     // {}-balance.
-      bool   ex (false); // True if inside top-level export{} block.
+      size_t bb (0); // {}-balance.
 
       token t;
       for (bool n (true); (n ? l_->next (t) : t.type) != type::eos; )
@@ -54,27 +53,26 @@ namespace build2
             if (bb-- == 0)
               break; // Imbalance.
 
-            if (ex && bb == 0)
-              ex = false; // Closed top-level export{}.
-
             continue;
           }
         case type::identifier:
           {
-            // Constructs we need to recognize (the last one is only not to
-            // confuse it with others).
+            // Constructs we need to recognize:
             //
             //           module                              ;
             // [export]  import <module-name> [<attributes>] ;
+            // [export]  import <header-name> [<attributes>] ;
             // [export]  module <module-name> [<attributes>] ;
-            //  export { import <module-name> [<attributes>] ; }
-            //  extern   module ...
+            //
+            // Additionally, when include is translated to an import, it's
+            // normally replaced with the special __import keyword since it
+            // may appear in C context.
             //
             const string& id (t.value);
 
             if (bb == 0)
             {
-              if      (id == "import")
+              if      (id == "import" || id == "__import")
               {
                 parse_import (t, false);
               }
@@ -84,31 +82,14 @@ namespace build2
               }
               else if (id == "export")
               {
-                switch (l_->next (t))
+                if (l_->next (t) == type::identifier)
                 {
-                case type::lcbrace:    ++bb; ex = true; break;
-                case type::identifier:
-                  {
-                    if      (id == "module") parse_module (t, true);
-                    else if (id == "import") parse_import (t, true);
-                    else n = false; // Something else (e.g., export namespace).
-                    break;
-                  }
-                default: n = false; break;
+                  if      (id == "module") parse_module (t, true);
+                  else if (id == "import") parse_import (t, true);
+                  else n = false; // Something else (e.g., export namespace).
                 }
-              }
-              else if (id == "extern")
-              {
-                // Skip to make sure not recognized as module.
-                //
-                n = l_->next (t) == type::identifier && t.value == "module";
-              }
-            }
-            else if (ex && bb == 1)
-            {
-              if (id == "import")
-              {
-                parse_import (t, true);
+                else
+                  n = false;
               }
             }
             continue;
@@ -122,7 +103,7 @@ namespace build2
       if (bb != 0)
         /*warn*/ fail (t) << "{}-imbalance detected";
 
-      if (module_marker_ && u.mod.name.empty ())
+      if (module_marker_ && u.module_info.name.empty ())
         fail (*module_marker_) << "module declaration expected after "
                                << "leading module marker";
 
@@ -136,8 +117,26 @@ namespace build2
       // enter: import keyword
       // leave: semi
 
-      l_->next (t); // Start of name.
-      string n (parse_module_name (t));
+      string un;
+      unit_type ut;
+      switch (l_->next (t)) // Start of module/header name.
+      {
+      case type::less:
+      case type::string:
+        {
+          un = parse_header_name (t);
+          ut = unit_type::module_header;
+          break;
+        }
+      case type::identifier:
+        {
+          un = parse_module_name (t);
+          ut = unit_type::module_iface;
+          break;
+        }
+      default:
+        fail (t) << "module or header name expected instead of " << t << endf;
+      }
 
       // Should be {}-balanced.
       //
@@ -146,19 +145,27 @@ namespace build2
       if (t.type != type::semi)
         fail (t) << "';' expected instead of " << t;
 
-      // Ignore duplicates. We don't expect a large numbers of imports so
-      // vector/linear search is probably more efficient than a set.
+      // For now we skip header units (see a comment on module type/info
+      // string serialization in compile rule for details). Note that
+      // currently parse_header_name() always returns empty name.
       //
-      auto& is (u_->mod.imports);
+      if (ut == unit_type::module_header)
+        return;
+
+      // Ignore duplicates. We don't expect a large numbers of (direct)
+      // imports so vector/linear search is probably more efficient than a
+      // set.
+      //
+      auto& is (u_->module_info.imports);
 
       auto i (find_if (is.begin (), is.end (),
-                       [&n] (const module_import& i)
+                       [&un] (const module_import& i)
                        {
-                         return i.name == n;
+                         return i.name == un;
                        }));
 
       if (i == is.end ())
-        is.push_back (module_import {move (n), ex, 0});
+        is.push_back (module_import {ut, move (un), ex, 0});
       else
         i->exported = i->exported || ex;
     }
@@ -195,11 +202,11 @@ namespace build2
       if (t.type != type::semi)
         fail (t) << "';' expected instead of " << t;
 
-      if (!u_->mod.name.empty ())
+      if (!u_->module_info.name.empty ())
         fail (l) << "multiple module declarations";
 
-      u_->mod.name = move (n);
-      u_->mod.iface = ex;
+      u_->type = ex ? unit_type::module_iface : unit_type::module_impl;
+      u_->module_info.name = move (n);
     }
 
     string parser::
@@ -225,6 +232,31 @@ namespace build2
         n += '.';
       }
 
+      return n;
+    }
+
+    string parser::
+    parse_header_name (token& t)
+    {
+      // enter: first token of module name, either string or less
+      // leave: token after module name
+
+      string n;
+
+      // NOTE: actual name is a TODO if/when we need it.
+      //
+      if (t.type == type::string)
+        /*n = move (t.value)*/;
+      else
+      {
+        while (l_->next (t) != type::greater)
+        {
+          if (t.type == type::eos)
+            fail (t) << "closing '>' expected after header name" << endf;
+        }
+      }
+
+      l_->next (t);
       return n;
     }
   }

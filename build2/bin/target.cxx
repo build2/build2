@@ -38,6 +38,19 @@ namespace build2
       false
     };
 
+    const target_type hbmix::static_type
+    {
+      "hbmix",
+      &bmix::static_type,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
     const target_type libx::static_type
     {
       "libx",
@@ -71,7 +84,7 @@ namespace build2
     // running serial. For the members it is also safe to set the group during
     // creation.
 
-    // obj*{} and bmi*{} member factory.
+    // obj*{} and [h]bmi*{} member factory.
     //
     template <typename M, typename G>
     static target*
@@ -111,6 +124,19 @@ namespace build2
       false
     };
 
+    const target_type hbmie::static_type
+    {
+      "hbmie",
+      &hbmix::static_type,
+      &m_factory<hbmie, hbmi>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
     const target_type obja::static_type
     {
       "obja",
@@ -137,6 +163,19 @@ namespace build2
       false
     };
 
+    const target_type hbmia::static_type
+    {
+      "hbmia",
+      &hbmix::static_type,
+      &m_factory<hbmia, hbmi>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
     const target_type objs::static_type
     {
       "objs",
@@ -155,6 +194,19 @@ namespace build2
       "bmis",
       &bmix::static_type,
       &m_factory<bmis, bmi>,
+      nullptr, /* fixed_extension */
+      &target_extension_var<var_extension, nullptr>,
+      &target_pattern_var<var_extension, nullptr>,
+      nullptr,
+      &target_search, // Note: not _file(); don't look for an existing file.
+      false
+    };
+
+    const target_type hbmis::static_type
+    {
+      "hbmis",
+      &hbmix::static_type,
+      &m_factory<hbmis, hbmi>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
       &target_pattern_var<var_extension, nullptr>,
@@ -224,7 +276,7 @@ namespace build2
       false
     };
 
-    // obj{}, bmi{}, and libu{} group factory.
+    // obj{}, [h]bmi{}, and libu{} group factory.
     //
     template <typename G, typename E, typename A, typename S>
     static target*
@@ -269,6 +321,19 @@ namespace build2
       "bmi",
       &target::static_type,
       &g_factory<bmi, bmie, bmia, bmis>,
+      nullptr,
+      nullptr,
+      nullptr,
+      nullptr,
+      &target_search,
+      false
+    };
+
+    const target_type hbmi::static_type
+    {
+      "hbmi",
+      &target::static_type,
+      &g_factory<hbmi, hbmie, hbmia, hbmis>,
       nullptr,
       nullptr,
       nullptr,

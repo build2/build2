@@ -5,12 +5,23 @@
 # Test C++ module constructs.
 #
 
+# NOTE: currently header unit imports don't produce anything.
+#
+
 : import
 :
 $* <<EOI >>EOI
 import foo;
 import foo.bar;
 import foo.bar.baz;
+EOI
+
+: import-header
+:
+$* <<EOI
+import "foo.h";
+import <sys/foo.h>;
+__import "/usr/include/stdio.h";
 EOI
 
 : module-implementation
@@ -29,30 +40,9 @@ EOI
 :
 $* <<EOI >>EOO
 export import foo;
+export import "foo.h";
+export import <sys/foo.h>;
 EOI
-export import foo;
-EOO
-
-: export-imported-block
-:
-$* <<EOI >>EOO
-import bar;
-
-export {import foo;}
-
-export
-{
-  namespace foo
-  {
-    class c {};
-  }
-
-  template <typename T> int f ();
-
-  import bar;
-}
-EOI
-export import bar;
 export import foo;
 EOO
 
@@ -62,7 +52,6 @@ $* <<EOI
 #pragma import module foo;
 #pragma export module foo;
 #pragma module foo;
-extern module foo: int foo ();
 export namespace bar {int fox ();}
 EOI
 
@@ -70,6 +59,7 @@ EOI
 :
 $* <<EOI >>EOO
 import foo [[export({import})]];
+import "foo.h" [[export({import})]];
 module bar [[module({module})]];
 EOI
 import foo;
@@ -121,7 +111,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 import ;
 EOI
-stdin:1:8: error: module name expected instead of ';'
+stdin:1:8: error: module or header name expected instead of ';'
 EOE
 
 : module-missing-name
@@ -146,4 +136,12 @@ $* <<EOI 2>>EOE != 0
 export module foo
 EOI
 stdin:2:1: error: ';' expected instead of <end of file>
+EOE
+
+: import-missing-header
+:
+$* <<EOI 2>>EOE != 0
+import <foo.h;
+EOI
+stdin:2:1: error: closing '>' expected after header name
 EOE

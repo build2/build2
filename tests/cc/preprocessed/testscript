@@ -9,10 +9,10 @@ test.arguments = config.cxx="$recall($cxx.path)" update
 
 # Trace filter.
 #
-# trace: cxx::compile::extract_(headers|modules): target: .../obje{(test).o...}
+# trace: cxx::compile::apply extracting (headers|modules) from: .../obje{(test).o...}
 #
 filter = sed -n -e \
-  \''s/^trace: cxx::compile_rule::extract_([^:]+): target:[^{]+\{([^.]+).*/\1 \2/p'\'
+  \''s/^trace: cxx::compile_rule::apply: extracting ([^ ]+) from[^{]+\{([^.]+).*/\1 \2/p'\'
 
 +cat <<EOI >=build/root.build
 cxx.std = latest
@@ -98,7 +98,7 @@ $* &test* <<EOI 2>>EOE != 0
   cxx.preprocessed = modules
   exe{test}: cxx{test}
   EOI
-  test.cxx: error: modules support not available or not enabled
+  error: modules support required by cxx{test}
   EOE
 
 : all

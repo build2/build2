@@ -5,4 +5,4 @@
 # Test C++ modules support.
 #
 
-./: testscript $b
+./: testscript{* -common} file{common.testscript} $b

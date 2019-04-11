@@ -168,6 +168,7 @@ namespace build2
         v.insert<strings> ("config.c.coptions", true),
         v.insert<strings> ("config.c.loptions", true),
         v.insert<strings> ("config.c.libs",     true),
+        nullptr          /* config.c.header_units */,
 
         v.insert<process_path> ("c.path"),
         v.insert<dir_paths>    ("c.sys_lib_dirs"),
@@ -177,6 +178,7 @@ namespace build2
         v.insert<strings>      ("c.coptions"),
         v.insert<strings>      ("c.loptions"),
         v.insert<strings>      ("c.libs"),
+        nullptr               /* c.header_units */,
 
         v["cc.poptions"],
         v["cc.coptions"],

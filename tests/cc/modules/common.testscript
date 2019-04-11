@@ -1,0 +1,49 @@
+# file      : tests/cc/modules/common.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+crosstest = false
+test.arguments = config.cxx="$recall($cxx.path)"
+
+.include ../../common.testscript
+
++cat <<EOI >+build/bootstrap.build
+using test
+EOI
+
++cat <<EOI >=build/root.build
+cxx.std = experimental
+
+cxx.features.symexport = true
+
+# Force modules.
+#
+cxx.features.modules = true
+
+using cxx
+
+# We forced modules but for VC we need at least 15u5 (19.12). So "unforce"
+# them in this case.
+#
+if ($cxx.id == 'msvc' && $cxx.version.major == 19 && $cxx.version.minor < 12)
+  cxx.features.modules = false
+
+hxx{*}: extension = hxx
+mxx{*}: extension = mxx
+cxx{*}: extension = cxx
+
+if ($cxx.target.class == 'windows')
+  bmis{*}: cxx.poptions += '-DLIBFOO_EXPORT=__declspec(dllexport)'
+
+exe{*}: test = true
+EOI
+
+# Determine if we have modules and header units support.
+#
++$* noop <<EOI | set modules
+print $cxx.features.modules
+EOI
+
++$* noop <<EOI | set headers
+print ($cxx.features.modules && $cxx.id == 'gcc')
+EOI

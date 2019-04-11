@@ -5,7 +5,7 @@
 #include <build2/cc/compile-rule.hxx>
 
 #include <cstdlib>  // exit()
-#include <cstring>  // strlen()
+#include <cstring>  // strlen(), strchr()
 
 #include <build2/file.hxx>
 #include <build2/depdb.hxx>
@@ -35,13 +35,13 @@ namespace build2
   {
     using namespace bin;
 
-    // module_info string serialization.
+    // Module type/info string serialization.
     //
     // The string representation is a space-separated list of module names
-    // with the following rules:
+    // or quoted paths for header units with the following rules:
     //
-    // 1. If this is a module interface unit, then the first name is the
-    //    module name intself following by either '!' for an interface unit or
+    // 1. If this is a module unit, then the first name is the module name
+    //    intself following by either '!' for an interface or header unit and
     //    by '+' for an implementation unit.
     //
     // 2. If an imported module is re-exported, then the module name is
@@ -52,40 +52,63 @@ namespace build2
     // foo! foo.core* foo.base* foo.impl
     // foo.base+ foo.impl
     // foo.base foo.impl
+    // "/usr/include/stdio.h"!
+    // "/usr/include/stdio.h"! "/usr/include/stddef.h"
+    //
+    // NOTE: currently we omit the imported header units since we have no need
+    //       for this information (everything is handled by the mapper). Plus,
+    //       resolving an import declaration to an absolute path would require
+    //       some effort.
     //
     static string
-    to_string (const module_info& m)
+    to_string (unit_type ut, const module_info& mi)
     {
       string s;
 
-      if (!m.name.empty ())
+      if (ut != unit_type::non_modular)
       {
-        s += m.name;
-        s += m.iface ? '!' : '+';
+        if (ut == unit_type::module_header) s += '"';
+        s += mi.name;
+        if (ut == unit_type::module_header) s += '"';
+
+        s += (ut == unit_type::module_impl ? '+' : '!');
       }
 
-      for (const module_import& i: m.imports)
+      for (const module_import& mi: mi.imports)
       {
         if (!s.empty ())
           s += ' ';
 
-        s += i.name;
+        if (mi.type == unit_type::module_header) s += '"';
+        s += mi.name;
+        if (mi.type == unit_type::module_header) s += '"';
 
-        if (i.exported)
+        if (mi.exported)
           s += '*';
       }
 
       return s;
     }
 
-    static module_info
+    static pair<unit_type, module_info>
     to_module_info (const string& s)
     {
-      module_info m;
+      unit_type ut;
+      module_info mi;
 
-      for (size_t b (0), e (0), n; (n = next_word (s, b, e, ' ')) != 0; )
+      for (size_t b (0), e (0), n (s.size ()), m; e < n; )
       {
-        char c (s[e - 1]);
+        // Let's handle paths with spaces seeing that we already quote them.
+        //
+        char d (s[b = e] == '"' ? '"' : ' ');
+
+        if ((m = next_word (s, n, b, e, d)) == 0)
+          break;
+
+        char c (d == ' '  ? s[e - 1] : // Before delimiter.
+                e + 1 < n ? s[e + 1] : // After delimiter.
+                '\0');
+
         switch (c)
         {
         case '!':
@@ -94,18 +117,26 @@ namespace build2
         default:  c = '\0';
         }
 
-        string w (s, b, n - (c == '\0' ? 0 : 1));
+        string w (s, b, m - (d == ' ' && c != '\0' ? 1 : 0));
+
+        unit_type t (c == '+' ? unit_type::module_impl  :
+                     d == ' ' ? unit_type::module_iface :
+                     unit_type::module_header);
 
         if (c == '!' || c == '+')
         {
-          m.name = move (w);
-          m.iface = (c == '!');
+          ut = t;
+          mi.name = move (w);
         }
         else
-          m.imports.push_back (module_import {move (w), c == '*', 0});
+          mi.imports.push_back (module_import {t, move (w), c == '*', 0});
+
+        // Skip to the next word (quote and space or just space).
+        //
+        e += (d == '"' ? 2 : 1);
       }
 
-      return m;
+      return pair<unit_type, module_info> (move (ut), move (mi));
     }
 
     // preprocessed
@@ -130,18 +161,19 @@ namespace build2
     struct compile_rule::match_data
     {
       explicit
-      match_data (translation_type t, const prerequisite_member& s)
+      match_data (unit_type t, const prerequisite_member& s)
           : type (t), src (s) {}
 
-      translation_type type;
+      unit_type type;
       preprocessed pp = preprocessed::none;
-      bool symexport = false;                // Target uses __symexport.
-      bool touch = false;                    // Target needs to be touched.
-      timestamp mt = timestamp_unknown;      // Target timestamp.
+      bool symexport = false;               // Target uses __symexport.
+      bool touch = false;                   // Target needs to be touched.
+      timestamp mt = timestamp_unknown;     // Target timestamp.
       prerequisite_member src;
-      auto_rmfile psrc;                      // Preprocessed source, if any.
-      path dd;                               // Dependency database path.
-      module_positions mods = {0, 0, 0};
+      auto_rmfile psrc;                     // Preprocessed source, if any.
+      path dd;                              // Dependency database path.
+      size_t headers = 0;                   // Number of imported header units.
+      module_positions modules = {0, 0, 0}; // Positions of imported modules.
     };
 
     compile_rule::
@@ -153,60 +185,96 @@ namespace build2
                      "insufficient space");
     }
 
-    const char* compile_rule::
-    langopt (const match_data& md) const
+    size_t compile_rule::
+    append_lang_options (cstrings& args, const match_data& md) const
     {
-      bool m (md.type == translation_type::module_iface);
-      //preprocessed p (md.pp);
+      size_t r (args.size ());
 
-      switch (ctype)
+      // Normally there will be one or two options/arguments.
+      //
+      const char* o1 (nullptr);
+      const char* o2 (nullptr);
+
+      switch (cclass)
       {
-      case compiler_type::gcc:
+      case compiler_class::msvc:
         {
-          // Ignore the preprocessed value since for GCC it is handled via
-          // -fpreprocessed -fdirectives-only.
-          //
           switch (x_lang)
           {
-          case lang::c:   return "c";
-          case lang::cxx: return "c++";
+          case lang::c:   o1 = "/TC"; break;
+          case lang::cxx: o1 = "/TP"; break;
           }
+          break;
         }
-        // Fall through.
-      case compiler_type::clang:
+      case compiler_class::gcc:
         {
+          // For GCC we ignore the preprocessed value since it is handled via
+          // -fpreprocessed -fdirectives-only.
+          //
           // Clang has *-cpp-output (but not c++-module-cpp-output) and they
           // handle comments and line continuations. However, currently this
           // is only by accident since these modes are essentially equivalent
           // to their cpp-output-less versions.
           //
-          switch (x_lang)
+          switch (md.type)
           {
-          case lang::c:   return "c";
-          case lang::cxx: return m ? "c++-module" : "c++";
+          case unit_type::non_modular:
+          case unit_type::module_impl:
+            {
+              o1 = "-x";
+              switch (x_lang)
+              {
+              case lang::c:   o2 = "c";   break;
+              case lang::cxx: o2 = "c++"; break;
+              }
+              break;
+            }
+          case unit_type::module_iface:
+          case unit_type::module_header:
+            {
+              // Here things get rather compiler-specific. We also assume
+              // the language is C++.
+              //
+              bool h (md.type == unit_type::module_header);
+
+              //@@ MODHDR TODO: should we try to distinguish c-header vs
+              //   c++-header based on the source target type?
+
+              switch (ctype)
+              {
+              case compiler_type::gcc:
+                {
+                  // In GCC compiling a header unit required -fmodule-header
+                  // in addition to -x c/c++-header. Probably because relying
+                  // on just -x would be ambigous with its PCH support.
+                  //
+                  if (h)
+                    args.push_back ("-fmodule-header");
+
+                  o1 = "-x";
+                  o2 = h ? "c++-header" : "c++";
+                  break;
+                }
+              case compiler_type::clang:
+                {
+                  o1 = "-x";
+                  o2 =  h ? "c++-header" : "c++-module";
+                  break;
+                }
+              default:
+                  assert (false);
+              }
+              break;
+            }
           }
-        }
-        // Fall through.
-      case compiler_type::msvc:
-        {
-          switch (x_lang)
-          {
-          case lang::c:   return "/TC";
-          case lang::cxx: return "/TP";
-          }
-        }
-        // Fall through.
-      case compiler_type::icc:
-        {
-          switch (x_lang)
-          {
-          case lang::c:   return "c";
-          case lang::cxx: return "c++";
-          }
+          break;
         }
       }
 
-      return nullptr;
+      if (o1 != nullptr) args.push_back (o1);
+      if (o2 != nullptr) args.push_back (o2);
+
+      return args.size () - r;
     }
 
     inline void compile_rule::
@@ -226,14 +294,20 @@ namespace build2
     {
       tracer trace (x, "compile_rule::match");
 
-      bool mod (t.is_a<bmix> ());
+      // Note: unit type will be refined in apply().
+      //
+      unit_type ut (t.is_a<hbmix> () ? unit_type::module_header :
+                    t.is_a<bmix> ()  ? unit_type::module_iface  :
+                    unit_type::non_modular);
 
       // Link-up to our group (this is the obj/bmi{} target group protocol
       // which means this can be done whether we match or not).
       //
       if (t.group == nullptr)
         t.group = &search (t,
-                           mod ? bmi::static_type : obj::static_type,
+                           (ut == unit_type::module_header ? hbmi::static_type:
+                            ut == unit_type::module_iface  ? bmi::static_type :
+                            obj::static_type),
                            t.dir, t.out, t.name);
 
       // See if we have a source file. Iterate in reverse so that a source
@@ -247,15 +321,15 @@ namespace build2
         if (include (a, t, p) != include_type::normal)
           continue;
 
-        if (p.is_a (mod ? *x_mod : x_src))
+        // For a header unit we check the "real header" plus the C header.
+        //
+        if (ut == unit_type::module_header ? p.is_a (**x_hdr) || p.is_a<h> () :
+            ut == unit_type::module_iface  ? p.is_a (*x_mod)                  :
+            p.is_a (x_src))
         {
-          // Save in the target's auxiliary storage. Translation type will
-          // be refined in apply().
+          // Save in the target's auxiliary storage.
           //
-          t.data (match_data (mod
-                              ? translation_type::module_iface
-                              : translation_type::plain,
-                              p));
+          t.data (match_data (ut, p));
           return true;
         }
       }
@@ -501,14 +575,18 @@ namespace build2
       file& t (xt.as<file> ()); // Either obj*{} or bmi*{}.
 
       match_data& md (t.data<match_data> ());
-      bool mod (md.type == translation_type::module_iface);
+
+      // Note: until refined below, non-BMI-generating translation unit is
+      // assumed non-modular.
+      //
+      unit_type ut (md.type);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype ot (compile_type (t, mod));
+      otype ot (compile_type (t, ut));
       linfo li (link_info (bs, ot)); // Link info for selecting libraries.
-      compile_target_types tt (compile_types (ot));
+      compile_target_types tts (compile_types (ot));
 
       // Derive file name from target name.
       //
@@ -558,36 +636,48 @@ namespace build2
         {
         case compiler_type::gcc:
           {
-            e += mod ? "gcm" : o;
+            // For some reason GCC uses a different extension for header unit
+            // BMIs.
+            //
+            e += (ut == unit_type::module_iface  ? "gcm"  :
+                  ut == unit_type::module_header ? "gchm" :
+                  o);
             break;
           }
         case compiler_type::clang:
           {
-            e += mod ? "pcm" : o;
+            // Clang seems to be using the same extension for both header and
+            // module BMIs.
+            //
+            e += (ut != unit_type::non_modular ? "pcm" : o);
             break;
           }
         case compiler_type::msvc:
           {
-            e += mod ? "ifc" : o;
+            // MSVC doesn't have header unit support yet so for now we assume
+            // it will be the same.
+            //
+            e += (ut != unit_type::non_modular ? "ifc" : o);
             break;
           }
         case compiler_type::icc:
           {
-            assert (!mod);
+            assert (ut == unit_type::non_modular);
             e += o;
           }
         }
 
         // If we are compiling a module, then the obj*{} is an ad hoc member
-        // of bmi*{}.
+        // of bmi*{}. For now neither GCC nor Clang produce an object file
+        // for a header unit (but something tells me this is going to change).
         //
-        if (mod)
+        if (ut == unit_type::module_iface)
         {
           // The module interface unit can be the same as an implementation
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
           // collide. So we add the module extension to the target name.
           //
-          target_lock obj (add_adhoc_member (a, t, tt.obj, e.c_str ()));
+          target_lock obj (add_adhoc_member (a, t, tts.obj, e.c_str ()));
           obj.target->as<file> ().derive_path (o);
           match_recipe (obj, group_recipe); // Set recipe and unlock.
         }
@@ -662,7 +752,8 @@ namespace build2
         // clean it up.
         //
         else if (pi == include_type::normal &&
-                 (p.is_a<bmi> () || p.is_a (tt.bmi)))
+                 (p.is_a<bmi> ()  || p.is_a (tts.bmi) ||
+                  p.is_a<hbmi> () || p.is_a (tts.hbmi)))
           continue;
         else
         {
@@ -702,7 +793,7 @@ namespace build2
 
       // Inject additional prerequisites. We only do it when performing update
       // since chances are we will have to update some of our prerequisites in
-      // the process (auto-generated source code).
+      // the process (auto-generated source code, header units).
       //
       if (a == perform_update_id)
       {
@@ -717,7 +808,11 @@ namespace build2
         // a target-specific value for installed modules (which we sidebuild
         // as part of our project).
         //
-        if (modules && src.is_a (*x_mod))
+        // @@ MODHDR MSVC: are we going to do the same for header units? I
+        //    guess we will figure it out when MSVC supports header units.
+        //    Also see hashing below.
+        //
+        if (ut == unit_type::module_iface)
         {
           lookup l (src.vars[x_symexport]);
           md.symexport = l ? cast<bool> (l) : symexport;
@@ -778,7 +873,12 @@ namespace build2
           // depdb so factor them in.
           //
           cs.append (&md.pp, sizeof (md.pp));
-          cs.append (&md.symexport, sizeof (md.symexport));
+
+          if (ut == unit_type::module_iface)
+            cs.append (&md.symexport, sizeof (md.symexport));
+
+          if (hdr_units != nullptr)
+            hash_options (cs,  *hdr_units);
 
           if (md.pp != preprocessed::all)
           {
@@ -878,12 +978,17 @@ namespace build2
                << "for target " << src << ": " << e;
         }
 
-        // If we have no #include directives, then skip header dependency
-        // extraction.
+        // If we have no #include directives (or header unit imports), then
+        // skip header dependency extraction.
         //
         pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
         if (md.pp < preprocessed::includes)
+        {
+          // Note: trace is used in a test.
+          //
+          l5 ([&]{trace << "extracting headers from " << t;});
           psrc = extract_headers (a, bs, t, li, src, md, dd, u, mt);
+        }
 
         // Next we "obtain" the translation unit information. What exactly
         // "obtain" entails is tricky: If things changed, then we re-parse the
@@ -891,7 +996,7 @@ namespace build2
         // depdb. We, however, have to do it here and now in case the database
         // is invalid and we still have to fallback to re-parse.
         //
-        // Store a translation unit's checksum to detect ignorable changes
+        // Store the translation unit's checksum to detect ignorable changes
         // (whitespaces, comments, etc).
         //
         {
@@ -901,12 +1006,18 @@ namespace build2
           else
             u = true; // Database is invalid, force re-parse.
 
-          translation_unit tu;
+          unit tu;
           for (bool first (true);; first = false)
           {
             if (u)
             {
-              auto p (parse_unit (a, t, li, src, psrc.first, md));
+              // Flush depdb since it can be used (as a module map) by
+              // parse_unit().
+              //
+              if (dd.writing ())
+                dd.flush ();
+
+              auto p (parse_unit (a, t, li, src, psrc.first, md, dd.path));
 
               if (!cs || *cs != p.second)
               {
@@ -937,7 +1048,7 @@ namespace build2
             {
               if (u || !first)
               {
-                string s (to_string (tu.mod));
+                string s (to_string (tu.type, tu.module_info));
 
                 if (first)
                   dd.expect (s);
@@ -947,7 +1058,11 @@ namespace build2
               else
               {
                 if (string* l = dd.read ())
-                  tu.mod = to_module_info (*l);
+                {
+                  auto p (to_module_info (*l));
+                  tu.type = p.first;
+                  tu.module_info = move (p.second);
+                }
                 else
                 {
                   u = true; // Database is invalid, force re-parse.
@@ -962,26 +1077,37 @@ namespace build2
           // Make sure the translation unit type matches the resulting target
           // type.
           //
-          switch (tu.type ())
+          switch (tu.type)
           {
-          case translation_type::plain:
-          case translation_type::module_impl:
+          case unit_type::non_modular:
+          case unit_type::module_impl:
             {
-              if (mod)
+              if (ut != unit_type::non_modular)
                 fail << "translation unit " << src << " is not a module interface" <<
                   info << "consider using " << x_src.name << "{} instead";
               break;
             }
-          case translation_type::module_iface:
+          case unit_type::module_iface:
             {
-              if (!mod)
+              if (ut != unit_type::module_iface)
                 fail << "translation unit " << src << " is a module interface" <<
                   info << "consider using " << x_mod->name << "{} instead";
               break;
             }
+          case unit_type::module_header:
+            {
+              assert (ut == unit_type::module_header);
+              break;
+            }
           }
 
-          md.type = tu.type ();
+          // Refine the non-modular/module-impl decision from match().
+          //
+          ut = md.type = tu.type;
+
+          // Note: trace is used in a test.
+          //
+          l5 ([&]{trace << "extracting modules from " << t;});
 
           // Extract the module dependency information in addition to header
           // dependencies.
@@ -989,16 +1115,24 @@ namespace build2
           // NOTE: assumes that no further targets will be added into
           //       t.prerequisite_targets!
           //
-          extract_modules (a, bs, t, li, tt, src, md, move (tu.mod), dd, u);
-
-          // Currently in VC module interface units must be compiled from the
-          // original source (something to do with having to detect and store
-          // header boundaries in the .ifc files).
-          //
-          if (ctype == compiler_type::msvc)
+          if (modules)
           {
-            if (md.type == translation_type::module_iface)
-              psrc.second = false;
+            extract_modules (a, bs, t, li,
+                             tts, src,
+                             md, move (tu.module_info), dd, u);
+
+            // Currently in VC module interface units must be compiled from
+            // the original source (something to do with having to detect and
+            // store header boundaries in the .ifc files).
+            //
+            // @@ MODHDR MSVC: should we do the same for header units? I guess
+            //    we will figure it out when MSVC supports header units.
+            //
+            if (ctype == compiler_type::msvc)
+            {
+              if (ut == unit_type::module_iface)
+                psrc.second = false;
+            }
           }
         }
 
@@ -1486,9 +1620,748 @@ namespace build2
     void
     msvc_sanitize_cl (cstrings&); // msvc.cxx
 
+    // GCC module mapper handler.
+    //
+    // Note that the input stream is non-blocking while output is blocking
+    // and this function should be prepared to handle closed input stream.
+    // Any unhandled io_error is handled by the caller as a generic module
+    // mapper io error.
+    //
+    struct compile_rule::module_mapper_state
+    {
+      const char* expected = nullptr; // Expected next command.
+      const void* data     = nullptr; // Auxiliary data cache.
+      size_t      headers  = 0;       // Number of header units imported.
+      size_t      skip;               // Number of depdb entries to skip.
+
+      explicit
+      module_mapper_state (size_t skip_count): skip (skip_count) {}
+    };
+
+    void compile_rule::
+    gcc_module_mapper (module_mapper_state& st,
+                       action a, const scope& bs, file& t, linfo li,
+                       ifdstream& is,
+                       ofdstream& os,
+                       depdb& dd, bool& update, bool& bad_error,
+                       optional<prefix_map>& pfx_map, srcout_map& so_map) const
+    {
+      tracer trace (x, "compile_rule::gcc_module_mapper");
+
+      // Read in the request line.
+      //
+      // Because the dynamic mapper is only used during preprocessing, we
+      // can assume there is no batching and expect to see one line at a
+      // time.
+      //
+      string rq;
+      for (char buf[4096]; !is.eof (); )
+      {
+        streamsize n (is.readsome (buf, sizeof (buf) - 1));
+        buf[n] = '\0';
+
+        if (char* p = strchr (buf, '\n'))
+        {
+          *p = '\0';
+
+          if (++p != buf + n)
+            fail << "batched module mapper request: '" << p << "'";
+
+          rq += buf;
+          break;
+        }
+        else
+          rq += buf;
+      }
+
+      if (rq.empty ()) // EOF
+      {
+        if (st.expected != nullptr)
+        {
+          l4 ([&]{trace << "expected command " << st.expected;});
+          bad_error = true;
+        }
+
+        return;
+      }
+
+      // @@ MODHDR: Should we print the pid we are talking to? It gets hard to
+      //            follow once things get nested.
+      //
+      if (verb >= 3)
+        text << "  > " << rq;
+
+      // Check for a command. If match, remove it and the following space from
+      // the request string saving it in cmd (for diagnostics) unless the
+      // second argument is false, and return true.
+      //
+      const char* cmd (nullptr);
+      auto command = [&rq, &cmd] (const char* c, bool r = true)
+      {
+        size_t n (strlen (c));
+        bool m (rq.compare (0, n, c) == 0 && rq[n] == ' ');
+
+        if (m && r)
+        {
+          cmd = c;
+          rq.erase (0, n + 1);
+        }
+
+        return m;
+      };
+
+      string rs;
+      for (;;) // Breakout loop.
+      {
+        bool expected (false);
+        if (const char* e = st.expected)
+        {
+          st.expected = nullptr;
+
+          if (!(expected = command (e, false)))
+          {
+            rs = string ("ERROR expected command '") + e +
+              "' instead of '" + rq + "'";
+            bad_error = true;
+            break;
+          }
+        }
+
+        if (command ("HELLO"))
+        {
+          // HELLO <ver> <kind> <ident>
+          //
+          //@@ MODHDR TODO: check protocol version.
+
+          // We don't use "repository path" (whatever it is) so we pass '.'.
+          //
+          rs = "HELLO 0 build2 .";
+        }
+
+        else if (command ("INCLUDE") || command ("IMPORT"))
+        {
+          // INCLUDE [<"]<name>[>"] <path>
+          // IMPORT [<"]<name>[>"] <path>
+          //
+          // <path> is the resolved path or empty if the header is not found.
+          // It can be relative if it is derived from a relative path (either
+          // via -I or includer).
+
+          // Turns out it's easiest to handle IMPORT together with INCLUDE
+          // since it can also trigger a re-search, etc. In a sense, IMPORT is
+          // all of the INCLUDE logic (except translation) plus the BMI rule
+          // synthesis.
+          //
+          bool im (cmd[1] == 'M');
+
+          path f;
+          bool exists;
+          if (im)       // @@ MODHDR TODO: GCC IMPORT command improvements
+          {
+            exists = true;
+            f = path (move (rq));
+          }
+          else
+          {
+            size_t p (rq.find (rq[0] == '<' ? '>' : '"', 1));
+            if (p == string::npos || rq[p + 1] != ' ')
+              break; // Malformed command.
+
+            exists = (p + 2 != rq.size ()); // [>"] and space.
+
+            if (exists)
+            {
+              rq.erase (0, p + 2); // <path>
+              f = path (move (rq));
+
+              // Complete the relative path not to confuse with non-existent.
+              //
+              if (!f.absolute ())
+                f.complete ();
+            }
+            else
+            {
+              rq.erase (p);
+              rq.erase (0, 1); // <name>
+              f = path (move (rq));
+            }
+          }
+
+          // The skip_count logic: in a nutshell (and similar to the non-
+          // mapper case), we may have "processed" some portion of the headers
+          // based on the depdb cache and we need to avoid re-processing them
+          // here. See the skip_count discussion for details.
+          //
+          // Note also that we need to be careful not to decrementing the
+          // count for re-searches and include translation.
+          //
+          bool skip (st.skip != 0);
+
+          // Resolve header path to target.
+          //
+          const file* ht (nullptr);
+
+          // If this command was expected, then it means we are called after
+          // a re-search or translation.
+          //
+          if (expected)
+          {
+            assert (st.data != nullptr);
+
+            // As a sanity check, verify the header found by the compiler
+            // resolves to the expected target. It's a bit of extra work but
+            // seeing that we are unlikely to have lots of generated headers,
+            // this is probably worth it.
+            //
+            if (exists)
+            {
+              pair<const file*, bool> r (
+                enter_header (a, bs, t, li,
+                              move (f), false /* cache */,
+                              pfx_map, so_map));
+
+              if (!r.second) // Shouldn't be remapped.
+                ht = r.first;
+            }
+
+            if (ht != st.data)
+            {
+              ht = static_cast<const file*> (st.data);
+              rs = "ERROR expected header '" + ht->path ().string () +
+                "' to be found instead";
+              bad_error = true; // We expect an error from the compiler.
+              break;
+            }
+
+            // Fall through.
+          }
+          else
+          {
+            // First see if we need to re-search this header. In this case we
+            // may be called again to see if we want to translate it (or we
+            // may not if the newly found header has already been included).
+            //
+            bool updated (false), remapped;
+            try
+            {
+              pair<const file*, bool> er (
+                enter_header (a, bs, t, li,
+                              move (f), false /* cache */,
+                              pfx_map, so_map));
+
+              ht = er.first;
+              remapped = er.second;
+
+              // If we couldn't enter this header as a target (as opposed to
+              // not finding a rule to update it), then our diagnostics won't
+              // really add anything to the compiler's.
+              //
+              if (ht == nullptr)
+              {
+                assert (!exists); // Sanity check.
+                throw failed ();
+              }
+
+              // Note that we explicitly update even for IMPORT (instead of,
+              // say, letting the BMI rule do it implicitly) since we may need
+              // to cause a re-search (see below). We, however, don't want to
+              // add this header as our direct prerequisite in this case
+              // (which would be harmless but unnecessary).
+              //
+              // @@ Shouldn't we also do it in case of include translation?
+              //
+              // @@ MODHDR: this did not pan out (dependency_count). Can't we
+              //            somehow "transfer" out count to BMI rule? Is it
+              //            worth the complexity though? See also the cache
+              //            case below. We just don't match in
+              //            make_header_sidebuild(), assume already matched?
+              //
+              if (!skip)
+              {
+                optional<bool> ir (inject_header (a, t,
+                                                  *ht, false /* cache */,
+                                                  timestamp_unknown,
+                                                  true /*!im*/ /* add */));
+                assert (ir); // Not from cache.
+                updated = *ir;
+              }
+            }
+            catch (const failed&)
+            {
+              // If the header does not exist or could not be updated, do we
+              // want our diagnostics, the compiler's, or both? We definitely
+              // want the compiler's since it points to the exact location.
+              // Ours could also be helpful. So while it will look a bit
+              // messy, let's keep both (it would have been nicer to print
+              // ours after the compiler's but that isn't easy).
+              //
+              rs = !exists
+                ? string ("TEXT")
+                : ("ERROR unable to update header '" +
+                   (ht != nullptr ? ht->path () : f).string () + "'");
+
+              bad_error = true;
+              break;
+            }
+
+            if (!im) // Same reasoning as for the direct prerequisite above.
+              update = updated || update;
+
+            // A mere update is not enough to cause a re-search. It either had
+            // to also not exist or be remapped.
+            //
+            if ((updated && !exists) || remapped)
+            {
+              //@@ MODHDR: we may not get what we are expecting. Maybe save
+              //           the header name to correlate?
+
+              rs = "SEARCH";
+              st.expected = im ? "IMPORT" : "INCLUDE";
+              st.data = ht;
+              break;
+            }
+
+            assert (exists); // A bit iffy with the skip logic.
+
+            // Fall through.
+          }
+
+          const string& hp (ht->path ().string ());
+
+          if (im)
+          {
+            try
+            {
+              // Synthesize the BMI dependency then update and add the BMI
+              // target as a prerequisite.
+              //
+              const file& bt (make_header_sidebuild (a, bs, li, *ht));
+
+              if (!skip)
+              {
+                optional<bool> ir (inject_header (a, t,
+                                                  bt, false /* cache */,
+                                                  timestamp_unknown));
+                assert (ir); // Not from cache.
+                update = *ir || update;
+              }
+
+              const string& bp (bt.path ().string ());
+
+              if (!skip)
+              {
+                st.headers++;
+                dd.expect ("@ " + hp + ' ' + bp);
+              }
+              else
+                st.skip--;
+
+              rs = "OK " + bp;
+            }
+            catch (const failed&)
+            {
+              rs = "ERROR unable to update header unit '" + hp + "'";
+              bad_error = true;
+              break;
+            }
+          }
+          else
+          {
+            // See if we need to translate this include to import.
+            //
+            if (hdr_units != nullptr)
+            {
+              auto i (lower_bound (hdr_units->begin (), hdr_units->end (), hp));
+
+              if (i != hdr_units->end () && *i == hp)
+              {
+                // Note that we may not get (and thus cannot expect) the
+                // IMPORT command since the compiler might have already
+                // imported this header unit, for example, via the import
+                // declaration rather then include translation.
+                //
+                // @@ MODHDR: maybe we can do "maybe-expect" similar to above?
+                //
+                rs = "IMPORT";
+                break;
+              }
+            }
+
+            if (!skip)
+              dd.expect (hp);
+            else
+              st.skip--;
+
+            rs = "TEXT";
+          }
+        }
+
+        break;
+      }
+
+      if (rs.empty ())
+      {
+        rs = "ERROR unexpected command '";
+
+        if (cmd != nullptr)
+        {
+          rs += cmd; // Add the command back.
+          rs += ' ';
+        }
+
+        rs += rq;
+        rs += "'";
+
+        bad_error = true;
+      }
+
+      if (verb >= 3)
+        text << "  < " << rs;
+
+      os << rs << endl;
+    }
+
+    // Enter as a target a header file. Depending on the cache flag, the file
+    // is assumed to either have come from the depdb cache or from the
+    // compiler run.
+    //
+    // Return the header target and an indication of whether it was remapped
+    // or NULL if the header does not exist and cannot be generated. In the
+    // latter case the passed header path is guaranteed to be still valid but
+    // might have been adjusted (e.g., normalized, etc).
+    //
+    // Note: this used to be a lambda inside extract_headers() so refer to the
+    // body of that function for the overall picture.
+    //
+    pair<const file*, bool> compile_rule::
+    enter_header (action a, const scope& bs, file& t, linfo li,
+                  path&& f, bool cache,
+                  optional<prefix_map>& pfx_map, srcout_map& so_map) const
+    {
+      tracer trace (x, "compile_rule::enter_header");
+
+      // Find or maybe insert the target. The directory is only moved from if
+      // insert is true.
+      //
+      auto find = [&trace, &t, this] (dir_path&& d,
+                                      path&& f,
+                                      bool insert) -> const file*
+      {
+        // Split the file into its name part and extension. Here we can assume
+        // the name part is a valid filesystem name.
+        //
+        // Note that if the file has no extension, we record an empty
+        // extension rather than NULL (which would signify that the default
+        // extension should be added).
+        //
+        string e (f.extension ());
+        string n (move (f).string ());
+
+        if (!e.empty ())
+          n.resize (n.size () - e.size () - 1); // One for the dot.
+
+        // See if this directory is part of any project out_root hierarchy and
+        // if so determine the target type.
+        //
+        // Note that this will miss all the headers that come from src_root
+        // (so they will be treated as generic C headers below). Generally, we
+        // don't have the ability to determine that some file belongs to
+        // src_root of some project. But that's not a problem for our
+        // purposes: it is only important for us to accurately determine
+        // target types for headers that could be auto-generated.
+        //
+        // While at it also try to determine if this target is from the src or
+        // out tree of said project.
+        //
+        dir_path out;
+
+        // It's possible the extension-to-target type mapping is ambiguous
+        // (usually because both C and X-language headers use the same .h
+        // extension). In this case we will first try to find one that matches
+        // an explicit target (similar logic to when insert is false).
+        //
+        small_vector<const target_type*, 2> tts;
+
+        const scope& bs (scopes.find (d));
+        if (const scope* rs = bs.root_scope ())
+        {
+          tts = map_extension (bs, n, e);
+
+          if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
+            out = out_src (d, *rs);
+        }
+
+        // If it is outside any project, or the project doesn't have such an
+        // extension, assume it is a plain old C header.
+        //
+        if (tts.empty ())
+        {
+          // If the project doesn't "know" this extension then we can't
+          // possibly find an explicit target of this type.
+          //
+          if (!insert)
+            return nullptr;
+
+          tts.push_back (&h::static_type);
+        }
+
+        // Find or insert target.
+        //
+        // Note that in case of the target type ambiguity we first try to find
+        // an explicit target that resolves this ambiguity.
+        //
+        const target* r (nullptr);
+
+        if (!insert || tts.size () > 1)
+        {
+          // Note that we skip any target type-specific searches (like for an
+          // existing file) and go straight for the target object since we
+          // need to find the target explicitly spelled out.
+          //
+          // Also, it doesn't feel like we should be able to resolve an
+          // absolute path with a spelled-out extension to multiple targets.
+          //
+          for (const target_type* tt: tts)
+            if ((r = targets.find (*tt, d, out, n, e, trace)) != nullptr)
+              break;
+
+          // Note: we can't do this because of the in-source builds where
+          // there won't be explicit targets for non-generated headers.
+          //
+          // This should be harmless, however, since in our world generated
+          // headers are normally spelled-out as explicit targets. And if not,
+          // we will still get an error, just a bit less specific.
+          //
+#if 0
+          if (r == nullptr && insert)
+          {
+            f = d / n;
+            if (!e.empty ())
+            {
+              f += '.';
+              f += e;
+            }
+
+            diag_record dr (fail);
+            dr << "mapping of header " << f << " to target type is ambiguous";
+            for (const target_type* tt: tts)
+              dr << info << "could be " << tt->name << "{}";
+            dr << info << "spell-out its target to resolve this ambiguity";
+          }
+#endif
+        }
+
+        // @@ OPT: move d, out, n
+        //
+        if (r == nullptr && insert)
+          r = &search (t, *tts[0], d, out, n, &e, nullptr);
+
+        return static_cast<const file*> (r);
+      };
+
+      // If it's not absolute then it either does not (yet) exist or is a
+      // relative ""-include (see init_args() for details). Reduce the second
+      // case to absolute.
+      //
+      // Note: we now always use absolute path to the translation unit so this
+      // no longer applies. But let's keep it for posterity.
+      //
+#if 0
+      if (f.relative () && rels.relative ())
+      {
+        // If the relative source path has a directory component, make sure
+        // it matches since ""-include will always start with that (none of
+        // the compilers we support try to normalize this path). Failed that
+        // we may end up searching for a generated header in a random
+        // (working) directory.
+        //
+        const string& fs (f.string ());
+        const string& ss (rels.string ());
+
+        size_t p (path::traits::rfind_separator (ss));
+
+        if (p == string::npos || // No directory.
+            (fs.size () > p + 1 &&
+             path::traits::compare (fs.c_str (), p, ss.c_str (), p) == 0))
+        {
+          path t (work / f); // The rels path is relative to work.
+
+          if (exists (t))
+            f = move (t);
+        }
+      }
+#endif
+
+      const file* pt (nullptr);
+      bool remapped (false);
+
+      // If still relative then it does not exist.
+      //
+      if (f.relative ())
+      {
+        // This is probably as often an error as an auto-generated file, so
+        // trace at level 4.
+        //
+        l4 ([&]{trace << "non-existent header '" << f << "'";});
+
+        f.normalize ();
+
+        // The relative path might still contain '..' (e.g., ../foo.hxx;
+        // presumably ""-include'ed). We don't attempt to support auto-
+        // generated headers with such inclusion styles.
+        //
+        if (f.normalized ())
+        {
+          if (!pfx_map)
+            pfx_map = build_prefix_map (bs, a, t, li);
+
+          // First try the whole file. Then just the directory.
+          //
+          // @@ Has to be a separate map since the prefix can be the same as
+          //    the file name.
+          //
+          // auto i (pfx_map->find (f));
+
+          // Find the most qualified prefix of which we are a sub-path.
+          //
+          if (!pfx_map->empty ())
+          {
+            dir_path d (f.directory ());
+            auto i (pfx_map->find_sup (d));
+
+            if (i != pfx_map->end ())
+            {
+              const dir_path& pd (i->second.directory);
+
+              // If this is a prefixless mapping, then only use it if we can
+              // resolve it to an existing target (i.e., it is explicitly
+              // spelled out in a buildfile).
+              //
+              // Note that at some point we will probably have a list of
+              // directories.
+              //
+              pt = find (pd / d, f.leaf (), !i->first.empty ());
+              if (pt != nullptr)
+              {
+                f = pd / f;
+                l4 ([&]{trace << "mapped as auto-generated " << f;});
+              }
+            }
+          }
+        }
+      }
+      else
+      {
+        // We used to just normalize the path but that could result in an
+        // invalid path (e.g., on CentOS 7 with Clang 3.4) because of the
+        // symlinks. So now we realize (i.e., realpath(3)) it instead. Unless
+        // it comes from the depdb, in which case we've already done that.
+        // This is also where we handle src-out remap (again, not needed if
+        // cached).
+        //
+        if (!cache)
+        {
+          // While we can reasonably expect this path to exit, things do go
+          // south from time to time (like compiling under wine with file
+          // wlantypes.h included as WlanTypes.h).
+          //
+          try
+          {
+            f.realize ();
+          }
+          catch (const invalid_path&)
+          {
+            fail << "invalid header path '" << f << "'";
+          }
+          catch (const system_error& e)
+          {
+            fail << "invalid header path '" << f << "': " << e;
+          }
+
+          if (!so_map.empty ())
+          {
+            // Find the most qualified prefix of which we are a sub-path.
+            //
+            auto i (so_map.find_sup (f));
+            if (i != so_map.end ())
+            {
+              // Ok, there is an out tree for this headers. Remap to a path
+              // from the out tree and see if there is a target for it.
+              //
+              dir_path d (i->second);
+              d /= f.leaf (i->first).directory ();
+              pt = find (move (d), f.leaf (), false); // d is not moved from.
+
+              if (pt != nullptr)
+              {
+                path p (d / f.leaf ());
+                l4 ([&]{trace << "remapping " << f << " to " << p;});
+                f = move (p);
+                remapped = true;
+              }
+            }
+          }
+        }
+
+        if (pt == nullptr)
+        {
+          l6 ([&]{trace << "entering " << f;});
+          pt = find (f.directory (), f.leaf (), true);
+        }
+      }
+
+      return make_pair (pt, remapped);
+    }
+
+    // Update and add (unless add is false) to the list of prerequisite
+    // targets a header or header unit target. Depending on the cache flag,
+    // the target is assumed to either have come from the depdb cache or from
+    // the compiler run.
+    //
+    // Return the indication of whether it has changed or, if the passed
+    // timestamp is not timestamp_unknown, is older than the target. If the
+    // header came from the cache and it no longer exists nor can be
+    // generated, then return nullopt.
+    //
+    // Note: this used to be a lambda inside extract_headers() so refer to the
+    // body of that function for the overall picture.
+    //
+    optional<bool> compile_rule::
+    inject_header (action a, file& t,
+                   const file& pt, bool cache, timestamp mt, bool add) const
+    {
+      tracer trace (x, "compile_rule::inject_header");
+
+      // Match to a rule.
+      //
+      // If we are reading the cache, then it is possible the file has since
+      // been removed (think of a header in /usr/local/include that has been
+      // uninstalled and now we need to use one from /usr/include). This will
+      // lead to the match failure which we translate to a restart.
+      //
+      if (!cache)
+        build2::match (a, pt);
+      else if (!build2::try_match (a, pt).first)
+        return nullopt;
+
+      bool r (update (trace, a, pt, mt));
+
+      // Add to our prerequisite target list.
+      //
+      if (add)
+        t.prerequisite_targets[a].push_back (&pt);
+
+      return r;
+    }
+
     // Extract and inject header dependencies. Return the preprocessed source
     // file as well as an indication if it is usable for compilation (see
     // below for details).
+    //
+    // This is also the place where we handle header units which are a lot
+    // more like auto-generated headers than modules. In particular, if a
+    // header unit BMI is out-of-date, then we have to re-preprocess this
+    // translation unit.
     //
     pair<auto_rmfile, bool> compile_rule::
     extract_headers (action a,
@@ -1496,14 +2369,12 @@ namespace build2
                      file& t,
                      linfo li,
                      const file& src,
-                     const match_data& md,
+                     match_data& md,
                      depdb& dd,
-                     bool& updating,
+                     bool& update,
                      timestamp mt) const
     {
       tracer trace (x, "compile_rule::extract_headers");
-
-      l5 ([&]{trace << "target: " << t;});
 
       otype ot (li.type);
 
@@ -1524,7 +2395,7 @@ namespace build2
 
       const scope& rs (*bs.root_scope ());
 
-      // Preprocess mode that preserves as much information as possible while
+      // Preprocesor mode that preserves as much information as possible while
       // still performing inclusions. Also serves as a flag indicating whether
       // this compiler uses the separate preprocess and compile setup.
       //
@@ -1616,8 +2487,8 @@ namespace build2
       // dependency info on error. We just try to use it and if it's not
       // there we ignore the io error since the compiler has failed.
       //
-      bool args_gen; // Current state of args.
-      size_t args_i; // Start of the -M/-MD "tail".
+      bool args_gen;     // Current state of args.
+      size_t args_i (0); // Start of the -M/-MD "tail".
 
       // Ok, all good then? Not so fast, the rabbit hole is deeper than it
       // seems: When we run with -E we have to discard diagnostics. This is
@@ -1663,6 +2534,14 @@ namespace build2
       // So seeing that it is hard to trigger a legitimate VC preprocessor
       // warning, for now, we will just treat them as errors by adding /WX.
       //
+      // Finally, if we are using the module mapper, then all this mess falls
+      // away: we only run the compiler once, we let the diagnostics through,
+      // we get a compiler error (with location information) if a header is
+      // not found, and there is no problem with outdated generated headers
+      // since we update/remap them before the compiler has a chance to read
+      // them. Overall, this "dependency mapper" approach is how it should
+      // have been done from the beginning.
+
       // Note: diagnostics sensing is currently only supported if dependency
       // info is written to a file (see above).
       //
@@ -1708,8 +2587,11 @@ namespace build2
       // Note that we use path_map instead of dir_path_map to allow searching
       // using path (file path).
       //
-      using srcout_map = path_map<dir_path>;
-      srcout_map so_map;
+      srcout_map so_map; // path_map<dir_path>
+
+      // Dynamic module mapper.
+      //
+      bool mod_mapper (false);
 
       // The gen argument to init_args() is in/out. The caller signals whether
       // to force the generated header support and on return it signals
@@ -1720,7 +2602,7 @@ namespace build2
       // pointer to the temporary file path otherwise.
       //
       auto init_args = [a, &t, ot, li, reprocess,
-                        &src, &md, &psrc, &sense_diag,
+                        &src, &md, &psrc, &sense_diag, &mod_mapper,
                         &rs, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm,
                         &so_map, this]
@@ -1920,6 +2802,9 @@ namespace build2
           // is to remove the -fmodules-ts option when preprocessing. Hopefully
           // there will be a "pure modules" mode at some point.
           //
+          // @@ MODHDR Clang: should be solved with the dynamic module mapper
+          //    if/when Clang supports it?
+          //
 
           // Don't treat warnings as errors.
           //
@@ -1973,7 +2858,7 @@ namespace build2
                 args.push_back (out.c_str ());
               }
 
-              args.push_back (langopt (md)); // Compile as.
+              append_lang_options (args, md); // Compile as.
               gen = args_gen = true;
               break;
             }
@@ -1985,6 +2870,22 @@ namespace build2
                 //
                 if (tclass == "linux" || tclass == "bsd")
                   args.push_back ("-fPIC");
+              }
+
+              // Setup the dynamic module mapper if needed.
+              //
+              // Note that it's plausible in the future we will use it even if
+              // modules are disabled, for example, to implement better -MG.
+              // In which case it will have probably be better called a
+              // "dependency mapper".
+              //
+              if (modules)
+              {
+                if (ctype == compiler_type::gcc)
+                {
+                  args.push_back ("-fmodule-mapper=<>");
+                  mod_mapper = true;
+                }
               }
 
               // Depending on the compiler, decide whether (and how) we can
@@ -2000,49 +2901,65 @@ namespace build2
               if (clang)
                 args.push_back ("-w");
 
-              // Previously we used '*' as a target name but it gets expanded
-              // to the current directory file names by GCC (4.9) that comes
-              // with MSYS2 (2.4). Yes, this is the (bizarre) behavior of GCC
-              // being executed in the shell with -MQ '*' option and not just
-              // -MQ *.
-              //
-              args.push_back ("-MQ"); // Quoted target name.
-              args.push_back ("^");   // Old versions can't do empty target.
-
-              args.push_back ("-x");
-              args.push_back (langopt (md));
+              append_lang_options (args, md);
 
               if (pp != nullptr)
               {
-                // Note that the options are carefully laid out to be easy to
-                // override (see below).
+                // With the GCC module mapper the dependency information is
+                // written directly to depdb by the mapper.
                 //
-                args_i = args.size ();
-
-                args.push_back ("-MD");
-                args.push_back ("-E");
-                args.push_back (pp);
-
-                // Dependency output.
-                //
-                args.push_back ("-MF");
-
-                // GCC until version 8 was not capable of writing the
-                // dependency info to stdout. We also need to sense the
-                // diagnostics on the -E runs (which we do by redirecting
-                // stderr to stdout).
-                //
-                if (ctype == compiler_type::gcc)
+                if (ctype == compiler_type::gcc && mod_mapper)
                 {
-                  // Use the .t extension (for "temporary"; .d is taken).
+                  // Note that in this mode we don't have -MG re-runs. In a
+                  // sense we are in the -MG mode (or, more precisely, the "no
+                  // -MG required" mode) right away.
                   //
-                  r = &(drm = auto_rmfile (t.path () + ".t")).path;
-                  args.push_back (r->string ().c_str ());
-
-                  sense_diag = true;
+                  args.push_back ("-E");
+                  args.push_back (pp);
+                  gen = args_gen = true;
+                  r = &drm.path; // Bogus/hack to force desired process start.
                 }
                 else
-                  args.push_back ("-");
+                {
+                  // Previously we used '*' as a target name but it gets
+                  // expanded to the current directory file names by GCC (4.9)
+                  // that comes with MSYS2 (2.4). Yes, this is the (bizarre)
+                  // behavior of GCC being executed in the shell with -MQ '*'
+                  // option and not just -MQ *.
+                  //
+                  args.push_back ("-MQ"); // Quoted target name.
+                  args.push_back ("^");   // Old versions can't do empty.
+
+                  // Note that the options are carefully laid out to be easy
+                  // to override (see below).
+                  //
+                  args_i = args.size ();
+
+                  args.push_back ("-MD");
+                  args.push_back ("-E");
+                  args.push_back (pp);
+
+                  // Dependency output.
+                  //
+                  // GCC until version 8 was not capable of writing the
+                  // dependency information to stdout. We also either need to
+                  // sense the diagnostics on the -E runs (which we currently
+                  // can only do if we don't need to read stdout) or we could
+                  // be communicating with the module mapper via stdin/stdout.
+                  //
+                  if (ctype == compiler_type::gcc)
+                  {
+                    // Use the .t extension (for "temporary"; .d is taken).
+                    //
+                    r = &(drm = auto_rmfile (t.path () + ".t")).path;
+                  }
+
+                  args.push_back ("-MF");
+                  args.push_back (r != nullptr ? r->string ().c_str () : "");
+
+                  sense_diag = (ctype == compiler_type::gcc);
+                  gen = args_gen = false;
+                }
 
                 // Preprocessor output.
                 //
@@ -2052,11 +2969,13 @@ namespace build2
               }
               else
               {
+                args.push_back ("-MQ");
+                args.push_back ("^");
                 args.push_back ("-M");
                 args.push_back ("-MG"); // Treat missing headers as generated.
+                gen = args_gen = true;
               }
 
-              gen = args_gen = (pp == nullptr);
               break;
             }
           }
@@ -2071,7 +2990,7 @@ namespace build2
         }
         else
         {
-          assert (gen != args_gen);
+          assert (gen != args_gen && args_i != 0);
 
           size_t i (args_i);
 
@@ -2149,337 +3068,77 @@ namespace build2
       //
       size_t skip_count (0);
 
-      // Update and add a header file to the list of prerequisite targets.
-      // Depending on the cache flag, the file is assumed to either have come
-      // from the depdb cache or from the compiler run. Return true if the
-      // extraction process should be restarted.
+      // Enter as a target, update, and add to the list of prerequisite
+      // targets a header file. Depending on the cache flag, the file is
+      // assumed to either have come from the depdb cache or from the compiler
+      // run. Return true if the extraction process should be restarted.
       //
-      auto add = [&trace, &pfx_map, &so_map,
-                  a, &t, li,
-                  &dd, &updating, &skip_count,
-                  &bs, this]
-        (path f, bool cache, timestamp mt) -> bool
+      auto add = [a, &bs, &t, li,
+                  &pfx_map, &so_map,
+                  &dd, &skip_count,
+                  this] (path hp, bool cache, timestamp mt) -> bool
       {
-        // Find or maybe insert the target. The directory is only moved
-        // from if insert is true.
-        //
-        auto find = [&trace, &t, this]
-          (dir_path&& d, path&& f, bool insert) -> const path_target*
+        const file* ht (enter_header (a, bs, t, li,
+                                      move (hp), cache,
+                                      pfx_map, so_map).first);
+        if (ht == nullptr)
+          fail << "header '" << hp << "' not found and cannot be generated";
+
+        if (optional<bool> u = inject_header (a, t, *ht, cache, mt))
         {
-          // Split the file into its name part and extension. Here we can
-          // assume the name part is a valid filesystem name.
-          //
-          // Note that if the file has no extension, we record an empty
-          // extension rather than NULL (which would signify that the default
-          // extension should be added).
-          //
-          string e (f.extension ());
-          string n (move (f).string ());
-
-          if (!e.empty ())
-            n.resize (n.size () - e.size () - 1); // One for the dot.
-
-          // See if this directory is part of any project out_root hierarchy
-          // and if so determine the target type.
-          //
-          // Note that this will miss all the headers that come from src_root
-          // (so they will be treated as generic C headers below). Generally,
-          // we don't have the ability to determine that some file belongs to
-          // src_root of some project. But that's not a problem for our
-          // purposes: it is only important for us to accurately determine
-          // target types for headers that could be auto-generated.
-          //
-          // While at it also try to determine if this target is from the src
-          // or out tree of said project.
-          //
-          dir_path out;
-
-          // It's possible the extension-to-target type mapping is ambiguous
-          // (usually because both C and X-language headers use the same .h
-          // extension). In this case we will first try to find one that
-          // matches an explicit target (similar logic to when insert is
-          // false).
-          //
-          small_vector<const target_type*, 2> tts;
-
-          const scope& bs (scopes.find (d));
-          if (const scope* rs = bs.root_scope ())
-          {
-            tts = map_extension (bs, n, e);
-
-            if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
-              out = out_src (d, *rs);
-          }
-
-          // If it is outside any project, or the project doesn't have such an
-          // extension, assume it is a plain old C header.
-          //
-          if (tts.empty ())
-          {
-            // If the project doesn't "know" this extension then we can't
-            // possibly find an explicit target of this type.
-            //
-            if (!insert)
-              return nullptr;
-
-            tts.push_back (&h::static_type);
-          }
-
-          // Find or insert target.
-          //
-          // Note that in case of the target type ambiguity we first try to
-          // find an explicit target that resolves this ambiguity.
-          //
-          const target* r (nullptr);
-
-          if (!insert || tts.size () > 1)
-          {
-            // Note that we skip any target type-specific searches (like for
-            // an existing file) and go straight for the target object since
-            // we need to find the target explicitly spelled out.
-            //
-            // Also, it doesn't feel like we should be able to resolve an
-            // absolute path with a spelled-out extension to multiple targets.
-            //
-            for (const target_type* tt: tts)
-              if ((r = targets.find (*tt, d, out, n, e, trace)) != nullptr)
-                break;
-
-            // Note: we can't do this because of the in-source builds where
-            // there won't be explicit targets for non-generated headers.
-            //
-            // This should be harmless, however, since in our world generated
-            // headers are normally spelled-out as explicit targets. And if
-            // not, we will still get an error, just a bit less specific.
-            //
-#if 0
-            if (r == nullptr && insert)
-            {
-              f = d / n;
-              if (!e.empty ())
-              {
-                f += '.';
-                f += e;
-              }
-
-              diag_record dr (fail);
-              dr << "mapping of header " << f << " to target type is ambiguous";
-              for (const target_type* tt: tts)
-                dr << info << "could be " << tt->name << "{}";
-              dr << info << "spell-out its target to resolve this ambiguity";
-            }
-#endif
-          }
-
-          // @@ OPT: move d, out, n
-          //
-          if (r == nullptr && insert)
-            r = &search (t, *tts[0], d, out, n, &e, nullptr);
-
-          return static_cast<const path_target*> (r);
-        };
-
-        // If it's not absolute then it either does not (yet) exist or is
-        // a relative ""-include (see init_args() for details). Reduce the
-        // second case to absolute.
-        //
-        // Note: we now always use absolute path to the translation unit so
-        // this no longer applies.
-        //
-#if 0
-        if (f.relative () && rels.relative ())
-        {
-          // If the relative source path has a directory component, make sure
-          // it matches since ""-include will always start with that (none of
-          // the compilers we support try to normalize this path). Failed that
-          // we may end up searching for a generated header in a random
-          // (working) directory.
-          //
-          const string& fs (f.string ());
-          const string& ss (rels.string ());
-
-          size_t p (path::traits::rfind_separator (ss));
-
-          if (p == string::npos || // No directory.
-              (fs.size () > p + 1 &&
-               path::traits::compare (fs.c_str (), p, ss.c_str (), p) == 0))
-          {
-            path t (work / f); // The rels path is relative to work.
-
-            if (exists (t))
-              f = move (t);
-          }
-        }
-#endif
-
-        const path_target* pt (nullptr);
-
-        // If still relative then it does not exist.
-        //
-        if (f.relative ())
-        {
-          // This is probably as often an error as an auto-generated file, so
-          // trace at level 4.
-          //
-          l4 ([&]{trace << "non-existent header '" << f << "'";});
-
-          f.normalize ();
-
-          // The relative path might still contain '..' (e.g., ../foo.hxx;
-          // presumably ""-include'ed). We don't attempt to support auto-
-          // generated headers with such inclusion styles.
-          //
-          if (f.normalized ())
-          {
-            if (!pfx_map)
-              pfx_map = build_prefix_map (bs, a, t, li);
-
-            // First try the whole file. Then just the directory.
-            //
-            // @@ Has to be a separate map since the prefix can be the same as
-            //    the file name.
-            //
-            // auto i (pfx_map->find (f));
-
-            // Find the most qualified prefix of which we are a sub-path.
-            //
-            if (!pfx_map->empty ())
-            {
-              dir_path d (f.directory ());
-              auto i (pfx_map->find_sup (d));
-
-              if (i != pfx_map->end ())
-              {
-                const dir_path& pd (i->second.directory);
-
-                // If this is a prefixless mapping, then only use it if we can
-                // resolve it to an existing target (i.e., it is explicitly
-                // spelled out in a buildfile).
-                //
-                // Note that at some point we will probably have a list of
-                // directories.
-                //
-                pt = find (pd / d, f.leaf (), !i->first.empty ());
-                if (pt != nullptr)
-                {
-                  f = pd / f;
-                  l4 ([&]{trace << "mapped as auto-generated " << f;});
-                }
-              }
-            }
-          }
-
-          if (pt == nullptr)
-          {
-            diag_record dr (fail);
-            dr << "header '" << f << "' not found and cannot be generated";
-            //for (const auto& p: pm)
-            //  dr << info << p.first.string () << " -> " << p.second.string ();
-          }
-        }
-        else
-        {
-          // We used to just normalize the path but that could result in an
-          // invalid path (e.g., on CentOS 7 with Clang 3.4) because of the
-          // symlinks. So now we realize (i.e., realpath(3)) it instead.
-          // Unless it comes from the depdb, in which case we've already done
-          // that. This is also where we handle src-out remap (again, not
-          // needed if cached).
+          // Verify/add it to the dependency database.
           //
           if (!cache)
-          {
-            // While we can reasonably expect this path to exit, things do
-            // go south from time to time (like compiling under wine with
-            // file wlantypes.h included as WlanTypes.h).
-            //
-            try
-            {
-              f.realize ();
-            }
-            catch (const invalid_path&)
-            {
-              fail << "invalid header path '" << f << "'";
-            }
-            catch (const system_error& e)
-            {
-              fail << "invalid header path '" << f << "': " << e;
-            }
+            dd.expect (ht->path ());
 
-            if (!so_map.empty ())
-            {
-              // Find the most qualified prefix of which we are a sub-path.
-              //
-              auto i (so_map.find_sup (f));
-              if (i != so_map.end ())
-              {
-                // Ok, there is an out tree for this headers. Remap to a path
-                // from the out tree and see if there is a target for it.
-                //
-                dir_path d (i->second);
-                d /= f.leaf (i->first).directory ();
-                pt = find (move (d), f.leaf (), false); // d is not moved from.
-
-                if (pt != nullptr)
-                {
-                  path p (d / f.leaf ());
-                  l4 ([&]{trace << "remapping " << f << " to " << p;});
-                  f = move (p);
-                }
-              }
-            }
-          }
-
-          if (pt == nullptr)
-          {
-            l6 ([&]{trace << "injecting " << f;});
-            pt = find (f.directory (), f.leaf (), true);
-          }
+          skip_count++;
+          return *u;
         }
 
-        // Cache the path.
-        //
-        const path& pp (pt->path (move (f)));
-
-        // Match to a rule.
-        //
-        // If we are reading the cache, then it is possible the file has since
-        // been removed (think of a header in /usr/local/include that has been
-        // uninstalled and now we need to use one from /usr/include). This
-        // will lead to the match failure which we translate to a restart.
-        //
-        if (!cache)
-          build2::match (a, *pt);
-        else if (!build2::try_match (a, *pt).first)
-        {
-          dd.write (); // Invalidate this line.
-          updating = true;
-          return true;
-        }
-
-        // Update.
-        //
-        bool restart (update (trace, a, *pt, mt));
-
-        // Verify/add it to the dependency database. We do it after update in
-        // order not to add bogus files (non-existent and without a way to
-        // update).
-        //
-        if (!cache)
-          dd.expect (pp);
-
-        // Add to our prerequisite target list.
-        //
-        t.prerequisite_targets[a].push_back (pt);
-        skip_count++;
-
-        updating = updating || restart;
-        return restart;
+        dd.write (); // Invalidate this line.
+        return true;
       };
 
-      // If nothing so far has invalidated the dependency database, then try
-      // the cached data before running the compiler.
+      // As above but for a header unit. Note that currently it is only used
+      // for the cached case (the other case is handled by the mapper).
       //
-      bool cache (!updating);
+      auto add_unit = [a, &bs, &t, li,
+                       &pfx_map, &so_map,
+                       &dd, &skip_count, &md,
+                       this] (path hp, path bp, timestamp mt) -> bool
+      {
+        const file* ht (enter_header (a, bs, t, li,
+                                      move (hp), true /* cache */,
+                                      pfx_map, so_map).first);
+        if (ht == nullptr)
+          fail << "header '" << hp << "' not found and cannot be generated";
+
+        // Again, looks like we have to update the header explicitly since
+        // we want to restart rather than fail if it cannot be updated.
+        //
+        if (inject_header (a, t, *ht, true /* cache */, mt))
+        {
+          const file& bt (make_header_sidebuild (a, bs, li, *ht));
+
+          // It doesn't look like we need the cache semantics here since given
+          // the header, we should be able to build its BMI. In other words, a
+          // restart is not going to change anything.
+          //
+          optional<bool> u (inject_header (a, t,
+                                           bt, false /* cache */, mt));
+          assert (u); // Not from cache.
+
+          if (bt.path () == bp)
+          {
+            md.headers++;
+            skip_count++;
+            return *u;
+          }
+        }
+
+        dd.write (); // Invalidate this line.
+        return true;
+      };
 
       // See init_args() above for details on generated header support.
       //
@@ -2488,6 +3147,11 @@ namespace build2
       optional<size_t> force_gen_skip; // Skip count at last force_gen run.
 
       const path* drmp (nullptr); // Points to drm.path () if active.
+
+      // If nothing so far has invalidated the dependency database, then try
+      // the cached data before running the compiler.
+      //
+      bool cache (!update);
 
       for (bool restart (true); restart; cache = false)
       {
@@ -2523,14 +3187,33 @@ namespace build2
                 : make_pair (auto_rmfile (), false);
             }
 
-            // If this header came from the depdb, make sure it is no older
-            // than the target (if it has changed since the target was
+            // This can be a header or a header unit (mapping).
+            //
+            // If this header (unit) came from the depdb, make sure it is no
+            // older than the target (if it has changed since the target was
             // updated, then the cached data is stale).
             //
-            restart = add (path (move (*l)), true, mt);
+            //
+            if ((*l)[0] == '@')
+            {
+              size_t p (l->find (' ', 2));
+
+              if (p != string::npos)
+              {
+                path h (*l, 2, p - 2);
+                path b (move (l->erase (0, p + 1)));
+
+                restart = add_unit (move (h), move (b), mt);
+              }
+              else
+                restart = true; // Corrupt database?
+            }
+            else
+              restart = add (path (move (*l)), true, mt);
 
             if (restart)
             {
+              update = true;
               l6 ([&]{trace << "restarting (cache)";});
               break;
             }
@@ -2564,15 +3247,20 @@ namespace build2
               //
               timestamp pmt (system_clock::now ());
 
+              // In some cases we may need to ignore the error return status.
+              // The good_error flag keeps track of that. Similarly, sometimes
+              // we expect the error return status based on the output that we
+              // see. The bad_error flag is for that.
+              //
+              bool good_error (false), bad_error (false);
+
               // If we have no generated header support, then suppress all
               // diagnostics (if things go badly we will restart with this
               // support).
               //
-              if (drmp == nullptr)
+              if (drmp == nullptr) // Dependency info goes to stdout.
               {
-                // Dependency info goes to stdout.
-                //
-                assert (!sense_diag);
+                assert (!sense_diag); // Note: could support with fdselect().
 
                 // For VC with /P the dependency info and diagnostics all go
                 // to stderr so redirect it to stdout.
@@ -2586,263 +3274,386 @@ namespace build2
                   nullptr, // CWD
                   env.empty () ? nullptr : env.data ());
               }
-              else
+              else // Dependency info goes to a temporary file.
               {
-                // Dependency info goes to a temporary file.
-                //
                 pr = process (cpath,
                               args.data (),
-                              0,
-                              2, // Send stdout to stderr.
+                              mod_mapper ? -1 : 0,
+                              mod_mapper ? -1 : 2, // Send stdout to stderr.
                               gen ? 2 : sense_diag ? -1 : -2,
                               nullptr, // CWD
                               env.empty () ? nullptr : env.data ());
 
-                // If requested, monitor for diagnostics and if detected, mark
-                // the preprocessed output as unusable for compilation.
+                // Monitor for module mapper requests and/or diagnostics. If
+                // diagnostics is detected, mark the preprocessed output as
+                // unusable for compilation.
                 //
-                if (sense_diag)
+                if (mod_mapper || sense_diag)
                 {
-                  ifdstream is (move (pr.in_efd), fdstream_mode::skip);
-                  puse = puse && (is.peek () == ifdstream::traits_type::eof ());
-                  is.close ();
+                  module_mapper_state mm_state (skip_count);
+
+                  const char* w (nullptr);
+                  try
+                  {
+                    fdselect_set fds;
+                    auto add = [&fds] (const auto_fd& afd) -> fdselect_state*
+                    {
+                      int fd (afd.get ());
+                      fdmode (fd, fdstream_mode::non_blocking);
+                      fds.push_back (fd);
+                      return &fds.back ();
+                    };
+
+                    // Note that while we read both streams until eof in
+                    // normal circumstances, we cannot use fdstream_mode::skip
+                    // for the exception case on both of them: we may end up
+                    // being blocked trying to read one stream while the
+                    // process may be blocked writing to the other. So in case
+                    // of an exception we only skip the diagnostics and close
+                    // the mapper stream hard. The latter should happen first
+                    // so the order of the following variable is important.
+                    //
+                    ifdstream es;
+                    ofdstream os;
+                    ifdstream is;
+
+                    fdselect_state* ds (nullptr);
+                    if (sense_diag)
+                    {
+                      w = "diagnostics";
+                      ds = add (pr.in_efd);
+                      es.open (move (pr.in_efd), fdstream_mode::skip);
+                    }
+
+                    fdselect_state* ms (nullptr);
+                    if (mod_mapper)
+                    {
+                      w = "module mapper request";
+                      ms = add (pr.in_ofd);
+                      is.open (move (pr.in_ofd));
+                      os.open (move (pr.out_fd)); // Note: blocking.
+                    }
+
+                    // Set each state pointer to NULL when the respective
+                    // stream reaches eof.
+                    //
+                    while (ds != nullptr || ms != nullptr)
+                    {
+                      w = "output";
+                      ifdselect (fds);
+
+                      // First read out the diagnostics in case the mapper
+                      // interaction produces more. To make sure we don't get
+                      // blocked by full stderr, the mapper should only handle
+                      // one request at a time.
+                      //
+                      if (ds != nullptr && ds->ready)
+                      {
+                        w = "diagnostics";
+
+                        for (char buf[4096];;)
+                        {
+                          streamsize c (sizeof (buf));
+                          streamsize n (es.readsome (buf, c));
+
+                          if (puse && n > 0)
+                            puse = false;
+
+                          if (n < c)
+                            break;
+                        }
+
+                        if (es.eof ())
+                        {
+                          es.close ();
+                          ds->fd = nullfd;
+                          ds = nullptr;
+                        }
+                      }
+
+                      if (ms != nullptr && ms->ready)
+                      {
+                        w = "module mapper request";
+
+                        gcc_module_mapper (mm_state,
+                                           a, bs, t, li,
+                                           is, os,
+                                           dd, update, bad_error,
+                                           pfx_map, so_map);
+                        if (is.eof ())
+                        {
+                          os.close ();
+                          is.close ();
+                          ms->fd = nullfd;
+                          ms = nullptr;
+                        }
+                      }
+                    }
+                  }
+                  catch (const io_error& e)
+                  {
+                    if (pr.wait ())
+                      fail << "io error handling " << x_lang << " compiler "
+                           << w << ": " << e;
+
+                    // Fall through.
+                  }
+
+                  if (mod_mapper)
+                    md.headers += mm_state.headers;
                 }
 
-                // The idea is to reduce it to the stdout case.
+                // The idea is to reduce this to the stdout case.
                 //
                 pr.wait ();
-                pr.in_ofd = fdopen (*drmp, fdopen_mode::in);
+
+                // With -MG we want to read dependency info even if there is
+                // an error (in case an outdated header file caused it). But
+                // with the GCC module mapper an error is non-negotiable, so
+                // to speak, and so we want to skip all of that. In fact, we
+                // now write directly to depdb without generating and then
+                // parsing an intermadiate dependency makefile.
+                //
+                pr.in_ofd = (ctype == compiler_type::gcc && mod_mapper)
+                  ? auto_fd (nullfd)
+                  : fdopen (*drmp, fdopen_mode::in);
               }
 
-              // We may not read all the output (e.g., due to a restart).
-              // Before we used to just close the file descriptor to signal to
-              // the other end that we are not interested in the rest. This
-              // works fine with GCC but Clang (3.7.0) finds this impolite and
-              // complains, loudly (broken pipe). So now we are going to skip
-              // until the end.
-              //
-              ifdstream is (move (pr.in_ofd),
-                            fdstream_mode::text | fdstream_mode::skip,
-                            ifdstream::badbit);
-
-              // In some cases we may need to ignore the error return status.
-              // The good_error flag keeps track of that. Similarly we
-              // sometimes expect the error return status based on the output
-              // we see. The bad_error flag is for that.
-              //
-              bool good_error (false), bad_error (false);
-
-              size_t skip (skip_count);
-              string l; // Reuse.
-              for (bool first (true), second (false); !restart; )
+              if (pr.in_ofd != nullfd)
               {
-                if (eof (getline (is, l)))
-                  break;
-
-                l6 ([&]{trace << "header dependency line '" << l << "'";});
-
-                // Parse different dependency output formats.
+                // We may not read all the output (e.g., due to a restart).
+                // Before we used to just close the file descriptor to signal
+                // to the other end that we are not interested in the rest.
+                // This works fine with GCC but Clang (3.7.0) finds this
+                // impolite and complains, loudly (broken pipe). So now we are
+                // going to skip until the end.
                 //
-                switch (cclass)
-                {
-                case compiler_class::msvc:
-                  {
-                    if (first)
-                    {
-                      // The first line should be the file we are compiling.
-                      // If it is not, then something went wrong even before
-                      // we could compile anything (e.g., file does not
-                      // exist). In this case the first line (and everything
-                      // after it) is presumably diagnostics.
-                      //
-                      // It can, however, be a command line warning, for
-                      // example:
-                      //
-                      // cl : Command line warning D9025 : overriding '/W3' with '/W4'
-                      //
-                      // So we try to detect and skip them assuming they will
-                      // also show up during the compilation proper.
-                      //
-                      if (l != src.path ().leaf ().string ())
-                      {
-                        // D8XXX are errors while D9XXX are warnings.
-                        //
-                        size_t p (msvc_sense_diag (l, 'D'));
-                        if (p != string::npos && l[p] == '9')
-                          continue;
+                ifdstream is (move (pr.in_ofd),
+                              fdstream_mode::text | fdstream_mode::skip,
+                              ifdstream::badbit);
 
+                size_t skip (skip_count);
+                string l; // Reuse.
+                for (bool first (true), second (false); !restart; )
+                {
+                  if (eof (getline (is, l)))
+                    break;
+
+                  l6 ([&]{trace << "header dependency line '" << l << "'";});
+
+                  // Parse different dependency output formats.
+                  //
+                  switch (cclass)
+                  {
+                  case compiler_class::msvc:
+                    {
+                      if (first)
+                      {
+                        // The first line should be the file we are compiling.
+                        // If it is not, then something went wrong even before
+                        // we could compile anything (e.g., file does not
+                        // exist). In this case the first line (and everything
+                        // after it) is presumably diagnostics.
+                        //
+                        // It can, however, be a command line warning, for
+                        // example:
+                        //
+                        // cl : Command line warning D9025 : overriding '/W3' with '/W4'
+                        //
+                        // So we try to detect and skip them assuming they
+                        // will also show up during the compilation proper.
+                        //
+                        if (l != src.path ().leaf ().string ())
+                        {
+                          // D8XXX are errors while D9XXX are warnings.
+                          //
+                          size_t p (msvc_sense_diag (l, 'D'));
+                          if (p != string::npos && l[p] == '9')
+                            continue;
+
+                          text << l;
+                          bad_error = true;
+                          break;
+                        }
+
+                        first = false;
+                        continue;
+                      }
+
+                      string f (next_show (l, good_error));
+
+                      if (f.empty ()) // Some other diagnostics.
+                      {
                         text << l;
                         bad_error = true;
                         break;
                       }
 
-                      first = false;
-                      continue;
-                    }
-
-                    string f (next_show (l, good_error));
-
-                    if (f.empty ()) // Some other diagnostics.
-                    {
-                      text << l;
-                      bad_error = true;
-                      break;
-                    }
-
-                    // Skip until where we left off.
-                    //
-                    if (skip != 0)
-                    {
-                      // We can't be skipping over a non-existent header.
-                      //
-                      assert (!good_error);
-                      skip--;
-                    }
-                    else
-                    {
-                      restart = add (path (move (f)), false, pmt);
-
-                      // If the header does not exist (good_error), then
-                      // restart must be true. Except that it is possible that
-                      // someone running in parallel has already updated it.
-                      // In this case we must force a restart since we haven't
-                      // yet seen what's after this at-that-time-non-existent
-                      // header.
-                      //
-                      // We also need to force the target update (normally
-                      // done by add()).
-                      //
-                      if (good_error)
-                        restart = updating = true;
-                      //
-                      // And if we have updated the header (restart is true),
-                      // then we may end up in this situation: an old header
-                      // got included which caused the preprocessor to fail
-                      // down the line. So if we are restarting, set the good
-                      // error flag in case the process fails because of
-                      // something like this (and if it is for a valid reason,
-                      // then we will pick it up on the next round).
-                      //
-                      else if (restart)
-                        good_error = true;
-
-                      if (restart)
-                        l6 ([&]{trace << "restarting";});
-                    }
-
-                    break;
-                  }
-                case compiler_class::gcc:
-                  {
-                    // Make dependency declaration.
-                    //
-                    size_t pos (0);
-
-                    if (first)
-                    {
-                      // Empty/invalid output should mean the wait() call
-                      // below will return false.
-                      //
-                      if (l.empty ()  ||
-                          l[0] != '^' || l[1] != ':' || l[2] != ' ')
-                      {
-                        if (!l.empty ())
-                          text << l;
-
-                        bad_error = true;
-                        break;
-                      }
-
-                      first = false;
-                      second = true;
-
-                      // While normally we would have the source file on the
-                      // first line, if too long, it will be moved to the next
-                      // line and all we will have on this line is "^: \".
-                      //
-                      if (l.size () == 4 && l[3] == '\\')
-                        continue;
-                      else
-                        pos = 3; // Skip "^: ".
-
-                      // Fall through to the 'second' block.
-                    }
-
-                    if (second)
-                    {
-                      second = false;
-                      next_make (l, pos); // Skip the source file.
-                    }
-
-                    while (pos != l.size ())
-                    {
-                      string f (next_make (l, pos));
-
                       // Skip until where we left off.
                       //
                       if (skip != 0)
                       {
-                        skip--;
-                        continue;
-                      }
-
-                      restart = add (path (move (f)), false, pmt);
-
-                      if (restart)
-                      {
-                        // The same "preprocessor may fail down the line"
-                        // logic as above.
+                        // We can't be skipping over a non-existent header.
                         //
-                        good_error = true;
-
-                        l6 ([&]{trace << "restarting";});
-                        break;
+                        assert (!good_error);
+                        skip--;
                       }
-                    }
+                      else
+                      {
+                        restart = add (path (move (f)), false, pmt);
 
+                        // If the header does not exist (good_error), then
+                        // restart must be true. Except that it is possible
+                        // that someone running in parallel has already
+                        // updated it. In this case we must force a restart
+                        // since we haven't yet seen what's after this
+                        // at-that-time-non-existent header.
+                        //
+                        // We also need to force the target update (normally
+                        // done by add()).
+                        //
+                        if (good_error)
+                          restart = true;
+                        //
+                        // And if we have updated the header (restart is
+                        // true), then we may end up in this situation: an old
+                        // header got included which caused the preprocessor
+                        // to fail down the line. So if we are restarting, set
+                        // the good error flag in case the process fails
+                        // because of something like this (and if it is for a
+                        // valid reason, then we will pick it up on the next
+                        // round).
+                        //
+                        else if (restart)
+                          good_error = true;
+
+                        if (restart)
+                        {
+                          update = true;
+                          l6 ([&]{trace << "restarting";});
+                        }
+                      }
+
+                      break;
+                    }
+                  case compiler_class::gcc:
+                    {
+                      // Make dependency declaration.
+                      //
+                      size_t pos (0);
+
+                      if (first)
+                      {
+                        // Empty/invalid output should mean the wait() call
+                        // below will return false.
+                        //
+                        if (l.empty ()  ||
+                            l[0] != '^' || l[1] != ':' || l[2] != ' ')
+                        {
+                          // @@ Hm, we don't seem to redirect stderr to stdout
+                          //    for this class of compilers so I wonder why
+                          //    we are doing this?
+                          //
+                          if (!l.empty ())
+                            text << l;
+
+                          bad_error = true;
+                          break;
+                        }
+
+                        first = false;
+                        second = true;
+
+                        // While normally we would have the source file on the
+                        // first line, if too long, it will be moved to the
+                        // next line and all we will have on this line is:
+                        // "^: \".
+                        //
+                        if (l.size () == 4 && l[3] == '\\')
+                          continue;
+                        else
+                          pos = 3; // Skip "^: ".
+
+                        // Fall through to the 'second' block.
+                      }
+
+                      if (second)
+                      {
+                        second = false;
+                        next_make (l, pos); // Skip the source file.
+                      }
+
+                      while (pos != l.size ())
+                      {
+                        string f (next_make (l, pos));
+
+                        // Skip until where we left off.
+                        //
+                        if (skip != 0)
+                        {
+                          skip--;
+                          continue;
+                        }
+
+                        restart = add (path (move (f)), false, pmt);
+
+                        if (restart)
+                        {
+                          // The same "preprocessor may fail down the line"
+                          // logic as above.
+                          //
+                          good_error = true;
+
+                          update = true;
+                          l6 ([&]{trace << "restarting";});
+                          break;
+                        }
+                      }
+
+                      break;
+                    }
+                  }
+
+                  if (bad_error)
                     break;
+                }
+
+                // In case of VC, we are parsing stderr and if things go
+                // south, we need to copy the diagnostics for the user to see.
+                //
+                if (bad_error && cclass == compiler_class::msvc)
+                {
+                  // We used to just dump the whole rdbuf but it turns out VC
+                  // may continue writing include notes interleaved with the
+                  // diagnostics. So we have to filter them out.
+                  //
+                  for (; !eof (getline (is, l)); )
+                  {
+                    size_t p (msvc_sense_diag (l, 'C'));
+                    if (p != string::npos && l.compare (p, 4, "1083") != 0)
+                      diag_stream_lock () << l << endl;
                   }
                 }
 
-                if (bad_error)
-                  break;
-              }
+                is.close ();
 
-              // In case of VC, we are parsing stderr and if things go south,
-              // we need to copy the diagnostics for the user to see.
-              //
-              if (bad_error && cclass == compiler_class::msvc)
-              {
-                // We used to just dump the whole rdbuf but it turns out VC
-                // may continue writing include notes interleaved with the
-                // diagnostics. So we have to filter them out.
+                // This is tricky: it is possible that in parallel someone has
+                // generated all our missing headers and we wouldn't restart
+                // normally.
                 //
-                for (; !eof (getline (is, l)); )
+                // In this case we also need to force the target update (which
+                // is normally done by add()).
+                //
+                if (force_gen && *force_gen)
                 {
-                  size_t p (msvc_sense_diag (l, 'C'));
-                  if (p != string::npos && l.compare (p, 4, "1083") != 0)
-                    diag_stream_lock () << l << endl;
+                  restart = update = true;
+                  force_gen = false;
                 }
-              }
-
-              is.close ();
-
-              // This is tricky: it is possible that in parallel someone has
-              // generated all our missing headers and we wouldn't restart
-              // normally.
-              //
-              // In this case we also need to force the target update
-              // (normally done by add()).
-              //
-              if (force_gen && *force_gen)
-              {
-                restart = updating = true;
-                force_gen = false;
               }
 
               if (pr.wait ())
               {
-                if (!bad_error)
+                if (!bad_error) // Ignore expected successes (we are done).
                   continue;
 
                 fail << "expected error exit status from " << x_lang
@@ -2856,11 +3667,11 @@ namespace build2
 
               // Fall through.
             }
-            catch (const io_error&)
+            catch (const io_error& e)
             {
               if (pr.wait ())
                 fail << "unable to read " << x_lang << " compiler header "
-                     << "dependency output";
+                     << "dependency output: " << e;
 
               // Fall through.
             }
@@ -2975,13 +3786,14 @@ namespace build2
     // Return the translation unit information (first) and its checksum
     // (second). If the checksum is empty, then it should not be used.
     //
-    pair<translation_unit, string> compile_rule::
+    pair<unit, string> compile_rule::
     parse_unit (action a,
                 file& t,
                 linfo li,
                 const file& src,
                 auto_rmfile& psrc,
-                const match_data& md) const
+                const match_data& md,
+                const path& dd) const
     {
       tracer trace (x, "compile_rule::parse_unit");
 
@@ -3008,6 +3820,8 @@ namespace build2
       //
       environment env;
       cstrings args;
+      small_vector<string, 2> header_args; // Header unit options storage.
+
       const path* sp; // Source path.
 
       bool reprocess (cast_false<bool> (t[c_reprocess]));
@@ -3068,6 +3882,8 @@ namespace build2
           append_options (args, tstd,
                           tstd.size () - (modules && clang ? 1 : 0));
 
+          append_headers (env, args, header_args, a, t, md, dd);
+
           switch (cclass)
           {
           case compiler_class::msvc:
@@ -3085,7 +3901,7 @@ namespace build2
 
               msvc_sanitize_cl (args);
 
-              args.push_back (langopt (md)); // Compile as.
+              append_lang_options (args, md); // Compile as.
 
               break;
             }
@@ -3098,9 +3914,7 @@ namespace build2
               }
 
               args.push_back ("-E");
-
-              args.push_back ("-x");
-              args.push_back (langopt (md));
+              append_lang_options (args, md);
 
               // Options that trigger preprocessing of partially preprocessed
               // output are a bit of a compiler-specific voodoo.
@@ -3174,7 +3988,7 @@ namespace build2
                         fdstream_mode::binary | fdstream_mode::skip);
 
           parser p;
-          translation_unit tu (p.parse (is, *sp));
+          unit tu (p.parse (is, *sp));
 
           is.close ();
 
@@ -3183,32 +3997,62 @@ namespace build2
             if (ps)
               psrc.active = true; // Re-arm.
 
-            // Prior to 15.5 (19.12) VC was not using the 'export module M;'
-            // syntax so we use the preprequisite type to distinguish between
-            // interface and implementation units.
-            //
-            if (ctype == compiler_type::msvc &&
-                cmaj == 19 && cmin <= 11 &&
-                x_mod != nullptr && src.is_a (*x_mod))
+            unit_type& ut (tu.type);
+            module_info& mi (tu.module_info);
+
+            if (!modules)
             {
-              tu.mod.iface = true;
+              if (ut != unit_type::non_modular || !mi.imports.empty ())
+                fail << "modules support required by " << src;
+            }
+            else
+            {
+              // Sanity checks.
+              //
+              // If we are compiling a module interface, make sure the
+              // translation unit has the necessary declarations.
+              //
+              if (ut != unit_type::module_iface && src.is_a (*x_mod))
+                fail << src << " is not a module interface unit";
+
+              // A header unit should look like a non-modular translation unit.
+              //
+              if (md.type == unit_type::module_header)
+              {
+                if (ut != unit_type::non_modular)
+                  fail << "module declaration in header unit " << src;
+
+                ut = md.type;
+                mi.name = src.path ().string ();
+              }
+
+              // Prior to 15.5 (19.12) VC was not using the 'export module M;'
+              // syntax so we use the preprequisite type to distinguish
+              // between interface and implementation units.
+              //
+              if (ctype == compiler_type::msvc && cmaj == 19 && cmin <= 11)
+              {
+                if (ut == unit_type::module_impl && src.is_a (*x_mod))
+                  ut = unit_type::module_iface;
+              }
             }
 
             // If we were forced to reprocess, assume the checksum is not
             // accurate (parts of the translation unit could have been
             // #ifdef'ed out; see __build2_preprocess).
             //
-            return pair<translation_unit, string> (
+            return pair<unit, string> (
               move (tu),
               reprocess ? string () : move (p.checksum));
           }
 
           // Fall through.
         }
-        catch (const io_error&)
+        catch (const io_error& e)
         {
           if (pr.wait ())
-            fail << "unable to read " << x_lang << " preprocessor output";
+            fail << "unable to read " << x_lang << " preprocessor output: "
+                 << e;
 
           // Fall through.
         }
@@ -3250,15 +4094,14 @@ namespace build2
                      const scope& bs,
                      file& t,
                      linfo li,
-                     const compile_target_types& tt,
+                     const compile_target_types& tts,
                      const file& src,
                      match_data& md,
                      module_info&& mi,
                      depdb& dd,
-                     bool& updating) const
+                     bool& update) const
     {
       tracer trace (x, "compile_rule::extract_modules");
-      l5 ([&]{trace << "target: " << t;});
 
       // If things go wrong, give the user a bit extra context.
       //
@@ -3269,22 +4112,8 @@ namespace build2
             dr << info << "while extracting module dependencies from " << src;
         });
 
-      if (!modules)
-      {
-        if (!mi.name.empty () || !mi.imports.empty ())
-          fail (relative (src)) << "modules support not available or not "
-                                << "enabled";
-
-        return;
-      }
-
-      // Sanity checks.
-      //
-      // If we are compiling a module interface unit, make sure it has the
-      // necessary declarations.
-      //
-      if (src.is_a (*x_mod) && (mi.name.empty () || !mi.iface))
-        fail << src << " is not a module interface unit";
+      unit_type ut (md.type);
+      module_imports& is (mi.imports);
 
       // Search and match all the modules we depend on. If this is a module
       // implementation unit, then treat the module itself as if it was
@@ -3292,9 +4121,10 @@ namespace build2
       // differentiate between this special module and real imports). Note:
       // move.
       //
-      if (!mi.iface && !mi.name.empty ())
-        mi.imports.insert (mi.imports.begin (),
-                           module_import {move (mi.name), false, 0});
+      if (ut == unit_type::module_impl)
+        is.insert (
+          is.begin (),
+          module_import {unit_type::module_iface, move (mi.name), false, 0});
 
       // The change to the set of imports would have required a change to
       // source code (or options). Changes to the bmi{}s themselves will be
@@ -3305,11 +4135,11 @@ namespace build2
       //
       sha256 cs;
 
-      if (!mi.imports.empty ())
-        md.mods = search_modules (a, bs, t, li, tt.bmi, src, mi.imports, cs);
+      if (!is.empty ())
+        md.modules = search_modules (a, bs, t, li, tts.bmi, src, is, cs);
 
       if (dd.expect (cs.string ()) != nullptr)
-        updating = true;
+        update = true;
 
       // Save the module map for compilers that use it.
       //
@@ -3332,24 +4162,25 @@ namespace build2
 
             // The output mapping is provided in the same way as input.
             //
-            if (mi.iface)
+            if (ut == unit_type::module_iface ||
+                ut == unit_type::module_header)
               write (mi.name, t.path ());
 
-            if (md.mods.start != 0)
+            if (size_t start = md.modules.start)
             {
               // Note that we map both direct and indirect imports to override
-              // any module paths that might be stored in the BMIs.
+              // any module paths that might be stored in the BMIs (or
+              // resolved relative to "repository path", whatever that is).
               //
               const auto& pts (t.prerequisite_targets[a]);
-              for (size_t i (md.mods.start); i != pts.size (); ++i)
+              for (size_t i (start); i != pts.size (); ++i)
               {
                 if (const target* m = pts[i])
                 {
                   // Save a variable lookup by getting the module name from
                   // the import list (see search_modules()).
                   //
-                  write (mi.imports[i - md.mods.start].name,
-                         m->as<file> ().path ());
+                  write (is[i - start].name, m->as<file> ().path ());
                 }
               }
             }
@@ -3365,7 +4196,10 @@ namespace build2
       // group to avoid duplication. We, however, cannot do it MT-safely since
       // we don't match the group.
       //
-      if (mi.iface)
+      // @@ MODHDR TODO: do we need this for header units? Currently we don't
+      //    see header units here.
+      //
+      if (ut == unit_type::module_iface /*|| ut == unit_type::module_header*/)
       {
         if (value& v = t.state[a].assign (c_module_name))
           assert (cast<string> (v) == mi.name);
@@ -3390,12 +4224,15 @@ namespace build2
                     const scope& bs,
                     file& t,
                     linfo li,
-                    const target_type& mtt,
+                    const target_type& btt,
                     const file& src,
                     module_imports& imports,
                     sha256& cs) const
     {
       tracer trace (x, "compile_rule::search_modules");
+
+      // NOTE: currently we don't see header unit imports (they are
+      //       handled by extract_headers() and are not in imports).
 
       // So we have a list of imports and a list of "potential" module
       // prerequisites. They are potential in the sense that they may or may
@@ -3523,7 +4360,7 @@ namespace build2
       // prerequisite BMIs known, recursively. The only bit that is missing is
       // the re-export flag of some sorts. As well as deciding where to handle
       // it: here or in append_modules(). After some meditation it became
-      // clear handling it here will be simpler: We need to weed out
+      // clear handling it here will be simpler: we need to weed out
       // duplicates for which we can re-use the imports vector. And we may
       // also need to save this "flattened" list of modules in depdb.
       //
@@ -3747,9 +4584,9 @@ namespace build2
         if (p.is_a<bmi> ())
         {
           pg = pt != nullptr ? pt : &p.search (t);
-          pt = &search (t, mtt, p.key ()); // Same logic as in picking obj*{}.
+          pt = &search (t, btt, p.key ()); // Same logic as in picking obj*{}.
         }
-        else if (p.is_a (mtt))
+        else if (p.is_a (btt))
         {
           pg = &search (t, bmi::static_type, p.key ());
           if (pt == nullptr) pt = &p.search (t);
@@ -3903,7 +4740,7 @@ namespace build2
 
         // Copy over bmi{}s from our prerequisites weeding out duplicates.
         //
-        if (size_t j = bt->data<match_data> ().mods.start)
+        if (size_t j = bt->data<match_data> ().modules.start)
         {
           // Hard to say whether we should reserve or not. We will probably
           // get quite a bit of duplications.
@@ -3928,11 +4765,12 @@ namespace build2
               cs.append (static_cast<const file&> (*et).path ().string ());
 
               // Add to the list of imports for further duplicate suppression.
-              // We could have probably stored reference to the name (e.g., in
-              // score) but it's probably not worth it if we have a small
-              // string optimization.
+              // We could have stored reference to the name (e.g., in score)
+              // but it's probably not worth it if we have a small string
+              // optimization.
               //
-              imports.push_back (module_import {mn, true, 0});
+              imports.push_back (
+                module_import {unit_type::module_iface, mn, true, 0});
             }
           }
         }
@@ -3949,24 +4787,17 @@ namespace build2
       return module_positions {start, exported, copied};
     }
 
-    // Synthesize a dependency for building a module binary interface on
-    // the side.
+    // Find or create a modules sidebuild subproject returning its root
+    // directory.
     //
-    const target& compile_rule::
-    make_module_sidebuild (action a,
-                           const scope& bs,
-                           const target& lt,
-                           const target& mt,
-                           const string& mn) const
+    dir_path compile_rule::
+    find_modules_sidebuild (const scope& rs) const
     {
-      tracer trace (x, "compile_rule::make_module_sidebuild");
-
       // First figure out where we are going to build. We want to avoid
       // multiple sidebuilds so the outermost scope that has loaded the
       // cc.config module and that is within our amalgmantion seems like a
       // good place.
       //
-      const scope& rs (*bs.root_scope ());
       const scope* as (&rs);
       {
         const scope* ws (as->weak_scope ());
@@ -3990,77 +4821,95 @@ namespace build2
       }
 
       // We build modules in a subproject (since there might be no full
-      // language support module loaded in the amalgamation, only *.config).
-      // So the first step is to check if the project has already been created
-      // and/or loaded and if not, then to go ahead and do so.
+      // language support loaded in the amalgamation, only *.config). So the
+      // first step is to check if the project has already been created and/or
+      // loaded and if not, then to go ahead and do so.
       //
       dir_path pd (as->out_path () /
                    as->root_extra->build_dir /
                    modules_sidebuild_dir /=
                    x);
+
+      const scope* ps (&scopes.find (pd));
+
+      if (ps->out_path () != pd)
       {
-        const scope* ps (&scopes.find (pd));
+        // Switch the phase to load then create and load the subproject.
+        //
+        phase_switch phs (run_phase::load);
+
+        // Re-test again now that we are in exclusive phase (another thread
+        // could have already created and loaded the subproject).
+        //
+        ps = &scopes.find (pd);
 
         if (ps->out_path () != pd)
         {
-          // Switch the phase to load then create and load the subproject.
+          // The project might already be created in which case we just need
+          // to load it.
           //
-          phase_switch phs (run_phase::load);
-
-          // Re-test again now that we are in exclusive phase (another thread
-          // could have already created and loaded the subproject).
-          //
-          ps = &scopes.find (pd);
-
-          if (ps->out_path () != pd)
+          optional<bool> altn (false); // Standard naming scheme.
+          if (!is_src_root (pd, altn))
           {
-            // The project might already be created in which case we just need
-            // to load it.
+            // Copy our standard and force modules.
             //
-            optional<bool> altn (false); // Standard naming scheme.
-            if (!is_src_root (pd, altn))
-            {
-              // Copy our standard and force modules.
-              //
-              string extra;
+            string extra;
 
-              if (const string* std = cast_null<string> (rs[x_std]))
-                extra += string (x) + ".std = " + *std + '\n';
+            if (const string* std = cast_null<string> (rs[x_std]))
+              extra += string (x) + ".std = " + *std + '\n';
 
-              extra += string (x) + ".features.modules = true";
+            extra += string (x) + ".features.modules = true";
 
-              config::create_project (
-                pd,
-                as->out_path ().relative (pd),  /* amalgamation */
-                {},                             /* boot_modules */
-                extra,                          /* root_pre */
-                {string (x) + '.'},             /* root_modules */
-                "",                             /* root_post */
-                false,                          /* config */
-                false,                          /* buildfile */
-                "the cc module",
-                2);                             /* verbosity */
-            }
-
-            ps = &load_project (as->rw () /* lock */,
-                                pd,
-                                pd,
-                                false /* forwarded */);
+            config::create_project (
+              pd,
+              as->out_path ().relative (pd),  /* amalgamation */
+              {},                             /* boot_modules */
+              extra,                          /* root_pre */
+              {string (x) + '.'},             /* root_modules */
+              "",                             /* root_post */
+              false,                          /* config */
+              false,                          /* buildfile */
+              "the cc module",
+              2);                             /* verbosity */
           }
-        }
 
-        // Some sanity checks.
-        //
-#ifndef NDEBUG
-        assert (ps->root ());
-        const module* m (ps->lookup_module<module> (x));
-        assert (m != nullptr && m->modules);
-#endif
+          ps = &load_project (as->rw () /* lock */,
+                              pd,
+                              pd,
+                              false /* forwarded */);
+        }
       }
 
-      // Next we need to come up with a file/target name that will be unique
-      // enough not to conflict with other modules. If we assume that within
-      // an amalgamation there is only one "version" of each module, then the
+      // Some sanity checks.
+      //
+#ifndef NDEBUG
+      assert (ps->root ());
+      const module* m (ps->lookup_module<module> (x));
+      assert (m != nullptr && m->modules);
+#endif
+
+      return pd;
+    }
+
+    // Synthesize a dependency for building a module binary interface on
+    // the side.
+    //
+    const file& compile_rule::
+    make_module_sidebuild (action a,
+                           const scope& bs,
+                           const target& lt,
+                           const target& mt,
+                           const string& mn) const
+    {
+      tracer trace (x, "compile_rule::make_module_sidebuild");
+
+      // Note: see also make_header_sidebuild() below.
+
+      dir_path pd (find_modules_sidebuild (*bs.root_scope ()));
+
+      // We need to come up with a file/target name that will be unique enough
+      // not to conflict with other modules. If we assume that within an
+      // amalgamation there is only one "version" of each module, then the
       // module name itself seems like a good fit. We just replace '.' with
       // '-'.
       //
@@ -4074,20 +4923,14 @@ namespace build2
       // going to come from (though things will probably be different for
       // module-only libraries).
       //
-      const target_type* tt (nullptr);
-      switch (link_type (lt).type)
-      {
-      case otype::a: tt = &bmia::static_type; break;
-      case otype::s: tt = &bmis::static_type; break;
-      case otype::e: assert (false);
-      }
+      const target_type& tt (compile_types (link_type (lt).type).bmi);
 
       // Store the BMI target in the subproject root. If the target already
       // exists then we assume all this is already done (otherwise why would
       // someone have created such a target).
       //
-      if (const target* bt = targets.find (
-            *tt,
+      if (const file* bt = targets.find<file> (
+            tt,
             pd,
             dir_path (), // Always in the out tree.
             mf,
@@ -4123,14 +4966,83 @@ namespace build2
         }
       }
 
-      auto p (targets.insert_locked (*tt,
+      auto p (targets.insert_locked (tt,
                                      move (pd),
                                      dir_path (), // Always in the out tree.
                                      move (mf),
                                      nullopt,     // Use default extension.
                                      true,        // Implied.
                                      trace));
-      const target& bt (p.first);
+      file& bt (static_cast<file&> (p.first));
+
+      // Note that this is racy and someone might have created this target
+      // while we were preparing the prerequisite list.
+      //
+      if (p.second.owns_lock ())
+        bt.prerequisites (move (ps));
+
+      return bt;
+    }
+
+    // Synthesize a dependency for building a header unit binary interface on
+    // the side.
+    //
+    const file& compile_rule::
+    make_header_sidebuild (action,
+                           const scope& bs,
+                           linfo li,
+                           const file& ht) const
+    {
+      tracer trace (x, "compile_rule::make_header_sidebuild");
+
+      // Note: similar to make_module_sidebuild() above.
+
+      dir_path pd (find_modules_sidebuild (*bs.root_scope ()));
+
+      // What should we use as a file/target name? On one hand we want it
+      // unique enough so that <stdio.h> and <custom/stdio.h> don't end up
+      // with the same BMI. On the other, we need the same headers resolving
+      // to the same target, regardless of how they were imported. So it feels
+      // like the name should be the absolute and normalized (actualized on
+      // case-insensitive filesystems) header path. We could try to come up
+      // with something by sanitizing certain characters, etc. But then the
+      // names will be very long and ugly, they will run into path length
+      // limits, etc. So instead we will use the file name plus an abbreviated
+      // hash of the whole path, something like stdio-211321fe6de7.
+      //
+      string mf;
+      {
+        // @@ MODHDR: Can we assume the path is actualized since the header
+        //            target came from enter_header()?
+        //
+        const path& hp (ht.path ());
+        mf = hp.leaf ().make_base ().string ();
+        mf += '-';
+        mf += sha256 (hp.string ()).abbreviated_string (12);
+      }
+
+      const target_type& tt (compile_types (li.type).hbmi);
+
+      if (const file* bt = targets.find<file> (
+            tt,
+            pd,
+            dir_path (), // Always in the out tree.
+            mf,
+            nullopt,     // Use default extension.
+            trace))
+        return *bt;
+
+      prerequisites ps;
+      ps.push_back (prerequisite (ht));
+
+      auto p (targets.insert_locked (tt,
+                                     move (pd),
+                                     dir_path (), // Always in the out tree.
+                                     move (mf),
+                                     nullopt,     // Use default extension.
+                                     true,        // Implied.
+                                     trace));
+      file& bt (static_cast<file&> (p.first));
 
       // Note that this is racy and someone might have created this target
       // while we were preparing the prerequisite list.
@@ -4146,15 +5058,65 @@ namespace build2
     void
     msvc_filter_cl (ifdstream&, const path& src);
 
+    // Append header unit-related options.
+    //
+    // Note that this function is called for both full preprocessing and
+    // compilation proper and in the latter case it is followed by a call
+    // to append_modules().
+    //
+    void compile_rule::
+    append_headers (environment&,
+                    cstrings& args,
+                    small_vector<string, 2>& stor,
+                    action,
+                    const file&,
+                    const match_data& md,
+                    const path& dd) const
+    {
+      switch (ctype)
+      {
+      case compiler_type::gcc:
+        {
+          if (md.headers != 0)
+          {
+            string s (relative (dd).string ());
+            s.insert (0, "-fmodule-mapper=");
+            s += "?@"; // Cookie (aka line prefix).
+            stor.push_back (move (s));
+          }
+
+          break;
+        }
+      case compiler_type::clang:
+      case compiler_type::msvc:
+      case compiler_type::icc:
+        break;
+      }
+
+      // Shallow-copy storage to args. Why not do it as we go along pushing
+      // into storage? Because of potential reallocations.
+      //
+      for (const string& a: stor)
+        args.push_back (a.c_str ());
+    }
+
+    // Append module-related options.
+    //
+    // Note that this function is only called for the compilation proper and
+    // after a call to append_headers() (so watch out for duplicate options).
+    //
     void compile_rule::
     append_modules (environment& env,
                     cstrings& args,
-                    strings& stor,
+                    small_vector<string, 2>& stor,
                     action a,
                     const file& t,
-                    const match_data& md) const
+                    const match_data& md,
+                    const path& dd) const
     {
-      const module_positions& ms (md.mods);
+      unit_type ut (md.type);
+      const module_positions& ms (md.modules);
+
       dir_path stdifc; // See the VC case below.
 
       switch (ctype)
@@ -4165,9 +5127,12 @@ namespace build2
           //
           // Note that it is also used to specify the output BMI file.
           //
-          if (ms.start != 0 || md.type == translation_type::module_iface)
+          if (md.headers == 0                && // Done in append_headers()?
+              (ms.start != 0                 ||
+               ut == unit_type::module_iface ||
+               ut == unit_type::module_header))
           {
-            string s (relative (md.dd).string ());
+            string s (relative (dd).string ());
             s.insert (0, "-fmodule-mapper=");
             s += "?@"; // Cookie (aka line prefix).
             stor.push_back (move (s));
@@ -4190,7 +5155,7 @@ namespace build2
           // In Clang the module implementation's unit .pcm is special and
           // must be "loaded".
           //
-          if (md.type == translation_type::module_impl)
+          if (ut == unit_type::module_impl)
           {
             const file& f (pts[ms.start]->as<file> ());
             string s (relative (f.path ()).string ());
@@ -4200,7 +5165,7 @@ namespace build2
 
           // Use the module map stored in depdb for others.
           //
-          string s (relative (md.dd).string ());
+          string s (relative (dd).string ());
           s.insert (0, "-fmodule-file-map=@=");
           stor.push_back (move (s));
 #else
@@ -4224,7 +5189,7 @@ namespace build2
             // In Clang the module implementation's unit .pcm is special and
             // must be "loaded".
             //
-            if (md.type == translation_type::module_impl && i == ms.start)
+            if (ut == unit_type::module_impl && i == ms.start)
               s.insert (0, "-fmodule-file=");
             else
             {
@@ -4288,7 +5253,7 @@ namespace build2
           break;
         }
       case compiler_type::icc:
-        assert (false);
+        break;
       }
 
       // Shallow-copy storage to args. Why not do it as we go along pushing
@@ -4311,7 +5276,7 @@ namespace build2
       const path& tp (t.path ());
 
       match_data md (move (t.data<match_data> ()));
-      bool mod (md.type == translation_type::module_iface);
+      unit_type ut (md.type);
 
       // While all our prerequisites are already up-to-date, we still have to
       // execute them to keep the dependency counts straight. Actually, no, we
@@ -4322,14 +5287,14 @@ namespace build2
       //
       auto pr (
         execute_prerequisites<file> (
-          (mod ? *x_mod : x_src),
+          md.src.type (),
           a, t,
           md.mt,
-          [s = md.mods.start] (const target&, size_t i)
+          [s = md.modules.start] (const target&, size_t i)
           {
             return s != 0 && i >= s; // Only compare timestamps for modules.
           },
-          md.mods.copied)); // See search_modules() for details.
+          md.modules.copied)); // See search_modules() for details.
 
       const file& s (pr.second);
       const path* sp (&s.path ());
@@ -4360,17 +5325,21 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      otype ot (compile_type (t, mod));
+      otype ot (compile_type (t, ut));
       linfo li (link_info (bs, ot));
 
       environment env;
       cstrings args {cpath.recall_string ()};
 
-      // If we are building a module, then the target is bmi*{} and its ad hoc
-      // member is obj*{}.
+      // If we are building a module interface, then the target is bmi*{} and
+      // its ad hoc member is obj*{}. For header units there is no obj*{}.
       //
       path relm;
-      path relo (relative (mod ? t.member->is_a<file> ()->path () : tp));
+      path relo (ut == unit_type::module_header
+                 ? path ()
+                 : relative (ut == unit_type::module_iface
+                             ? t.member->is_a<file> ()->path ()
+                             : tp));
 
       // Build the command line.
       //
@@ -4399,9 +5368,12 @@ namespace build2
       append_options (args, t, x_coptions);
       append_options (args, tstd);
 
-      string out, out1; // Output options storage.
-      strings mods;     // Module options storage.
-      size_t out_i (0); // Index of the -o option.
+      string out, out1;                    // Output options storage.
+      small_vector<string, 2> header_args; // Header unit options storage.
+      small_vector<string, 2> module_args; // Module options storage.
+
+      size_t out_i (0);  // Index of the -o option.
+      size_t lang_n (0); // Number of lang options.
 
       if (cclass == compiler_class::msvc)
       {
@@ -4449,7 +5421,8 @@ namespace build2
 
         msvc_sanitize_cl (args);
 
-        append_modules (env, args, mods, a, t, md);
+        append_headers (env, args, header_args, a, t, md, md.dd);
+        append_modules (env, args, module_args, a, t, md, md.dd);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -4490,7 +5463,9 @@ namespace build2
           args.push_back (out.c_str ());
         }
 
-        if (mod)
+        // @@ MODHDR MSVC
+        //
+        if (ut == unit_type::module_iface)
         {
           relm = relative (tp);
 
@@ -4502,7 +5477,7 @@ namespace build2
         // Note: no way to indicate that the source if already preprocessed.
 
         args.push_back ("/c");                   // Compile only.
-        args.push_back (langopt (md));           // Compile as.
+        append_lang_options (args, md);          // Compile as.
         args.push_back (sp->string ().c_str ()); // Note: relied on being last.
       }
       else
@@ -4515,13 +5490,14 @@ namespace build2
             args.push_back ("-fPIC");
         }
 
-        append_modules (env, args, mods, a, t, md);
+        append_headers (env, args, header_args, a, t, md, md.dd);
+        append_modules (env, args, module_args, a, t, md, md.dd);
 
         // Note: the order of the following options is relied upon below.
         //
         out_i = args.size (); // Index of the -o option.
 
-        if (mod)
+        if (ut == unit_type::module_iface || ut == unit_type::module_header)
         {
           switch (ctype)
           {
@@ -4530,9 +5506,12 @@ namespace build2
               // Output module file is specified in the mapping file, the
               // same as input.
               //
-              args.push_back ("-o");
-              args.push_back (relo.string ().c_str ());
-              args.push_back ("-c");
+              if (ut != unit_type::module_header) // No object file.
+              {
+                args.push_back ("-o");
+                args.push_back (relo.string ().c_str ());
+                args.push_back ("-c");
+              }
               break;
             }
           case compiler_type::clang:
@@ -4564,8 +5543,7 @@ namespace build2
           args.push_back ("-c");
         }
 
-        args.push_back ("-x");
-        args.push_back (langopt (md));
+        lang_n = append_lang_options (args, md);
 
         if (md.pp == preprocessed::all)
         {
@@ -4633,10 +5611,20 @@ namespace build2
         {
         case compiler_type::gcc:
           {
-            // The -fpreprocessed is implied by .i/.ii.
+            // The -fpreprocessed is implied by .i/.ii. But not when compiling
+            // a header unit (there is no .hi/.hii).
             //
-            args.pop_back (); // lang()
-            args.pop_back (); // -x
+            if (ut == unit_type::module_header)
+              args.push_back ("-fpreprocessed");
+            else
+              // Pop -x since it takes precedence over the extension.
+              //
+              // @@ I wonder why bother and not just add -fpreprocessed? Are
+              //    we trying to save an option or does something break?
+              //
+              for (; lang_n != 0; --lang_n)
+                args.pop_back ();
+
             args.push_back ("-fdirectives-only");
             break;
           }
@@ -4744,7 +5732,7 @@ namespace build2
       // Clang's module compilation requires two separate compiler
       // invocations.
       //
-      if (mod && ctype == compiler_type::clang)
+      if (ctype == compiler_type::clang && ut == unit_type::module_iface)
       {
         // Adjust the command line. First discard everything after -o then
         // build the new "tail".

@@ -1,0 +1,31 @@
+# file      : tests/cc/modules/headers.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test header units.
+#
+
+.include common.testscript
+
++$headers || exit
+
+: include-translation
+:
+cat <<EOI >=core.hxx;
+  #ifdef CORE_IN
+  #  error macro isolation
+  #endif
+  #define CORE_OUT 1
+  inline int f () {return 1;}
+  EOI
+cat <<EOI >=driver.cxx;
+  #define CORE_IN 1
+  #include "core.hxx"
+  #ifndef CORE_OUT
+  #  error macro export
+  #endif
+  int main () {return f () - 1 /* CORE_OUT */;}
+  EOI
+$* test clean config.cxx.header_units="$~/core.hxx" &$~/../build/cc/*** <<EOI
+  exe{test}: cxx{driver}
+  EOI

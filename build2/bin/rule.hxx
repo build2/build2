@@ -14,7 +14,7 @@ namespace build2
 {
   namespace bin
   {
-    // "Fail rule" for obj{}, bmi{}, and libu{} that issues diagnostics if
+    // "Fail rule" for obj{}, [h]bmi{}, and libu{} that issues diagnostics if
     // someone tries to build any of these groups directly.
     //
     class fail_rule: public rule

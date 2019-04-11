@@ -323,8 +323,8 @@ namespace build2
             t.type = type::punctuation;
             return;
           }
-        case '>': // > >= >> >>=
         case '<': // < <= << <<=
+        case '>': // > >= >> >>=
           {
             xchar p (peek ());
 
@@ -333,11 +333,16 @@ namespace build2
               geth (p);
               if ((p = peek ()) == '=')
                 geth (p);
+              t.type = type::punctuation;
             }
             else if (p == '=')
+            {
               geth (p);
+              t.type = type::punctuation;
+            }
+            else
+              t.type = (c == '<' ? type::less : type::greater);
 
-            t.type = type::punctuation;
             return;
           }
         case '+': // + ++ +=
@@ -1102,6 +1107,8 @@ namespace build2
       {
       case type::dot:         o << "'.'";                   break;
       case type::semi:        o << "';'";                   break;
+      case type::less:        o << "'<'";                   break;
+      case type::greater:     o << "'>'";                   break;
       case type::lcbrace:     o << "'{'";                   break;
       case type::rcbrace:     o << "'}'";                   break;
       case type::punctuation: o << "<punctuation>";         break;

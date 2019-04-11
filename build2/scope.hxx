@@ -8,8 +8,6 @@
 #include <map>
 #include <unordered_set>
 
-#include <libbutl/path-map.mxx>
-
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
@@ -389,7 +387,7 @@ namespace build2
   // Protected by the phase mutex. Note that the scope map is only for paths
   // from the out tree.
   //
-  using scope_map_base = butl::dir_path_map<scope>;
+  using scope_map_base = dir_path_map<scope>;
 
   class scope_map: public scope_map_base
   {

@@ -8,7 +8,6 @@
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
 
-#include <libbutl/path-map.mxx>
 #include <libbutl/filesystem.mxx> // file_exists()
 
 #include <build2/depdb.hxx>

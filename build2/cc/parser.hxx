@@ -24,7 +24,7 @@ namespace build2
     class parser
     {
     public:
-      translation_unit
+      unit
       parse (ifdstream&, const path& name);
 
     private:
@@ -37,12 +37,15 @@ namespace build2
       string
       parse_module_name (token&);
 
+      string
+      parse_header_name (token&);
+
     public:
       string checksum; // Translation unit checksum.
 
     private:
       lexer* l_;
-      translation_unit* u_;
+      unit* u_;
 
       optional<location> module_marker_;
     };

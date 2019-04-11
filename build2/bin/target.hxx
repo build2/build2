@@ -65,7 +65,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    // Binary module interface.
+    // Binary module interface (BMI).
     //
     // While currently there are only C++ modules, if things pan out, chances
     // are we will have C (or Obj-C) modules. And in that case it is plausible
@@ -86,6 +86,12 @@ namespace build2
     // organization. So, at least for now, we produce the two at the same time
     // and make obj*{} an ad hoc member of bmi*{}.
     //
+    // There are also header units for which we define a parallel hbmi*{}
+    // hierarchy. Note that hbmix{} is-a bmix{} (we think of header BMIs as a
+    // more specialized kind of BMI) so where you need to distinguish between
+    // header and module BMIs, you should check for headers first. Note also
+    // that in case of a header unit there may be no obj*{}.
+    //
     class bmix: public file // Common base of all bmiX{} interface files.
     {
     public:
@@ -95,10 +101,29 @@ namespace build2
       static const target_type static_type;
     };
 
+    class hbmix: public bmix // Common base of all hbmiX{} interface files.
+    {
+    public:
+      using bmix::bmix;
+
+    public:
+      static const target_type static_type;
+    };
+
     class bmie: public bmix
     {
     public:
       using bmix::bmix;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class hbmie: public hbmix
+    {
+    public:
+      using hbmix::hbmix;
 
     public:
       static const target_type static_type;
@@ -115,10 +140,30 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
+    class hbmia: public hbmix
+    {
+    public:
+      using hbmix::hbmix;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
     class bmis: public bmix
     {
     public:
       using bmix::bmix;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
+    class hbmis: public hbmix
+    {
+    public:
+      using hbmix::hbmix;
 
     public:
       static const target_type static_type;
@@ -134,6 +179,17 @@ namespace build2
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
+
+    class hbmi: public target
+    {
+    public:
+      using target::target;
+
+    public:
+      static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
+    };
+
 
     // Common base for lib{} and libul{}/libu{} groups.
     //

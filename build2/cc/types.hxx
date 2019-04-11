@@ -16,35 +16,41 @@ namespace build2
   {
     // Translation unit information.
     //
+    // We use absolute and normalized header path as the header unit module
+    // name.
+    //
+    // Note that our terminology doesn't exactly align with the (current)
+    // standard where a header unit is not a module (that is, you either
+    // import a module unit or a header unit).
+    //
+    enum class unit_type
+    {
+      non_modular,
+      module_iface,
+      module_impl,
+      module_header
+    };
+
     struct module_import
     {
-      string name;
-      bool   exported; // True if re-exported (export import M;).
-      size_t score;    // See compile::search_modules().
+      unit_type  type;      // Either module_iface or module_header.
+      string     name;
+      bool       exported;  // True if re-exported (export import M;).
+      size_t     score;     // Match score (see compile::search_modules()).
     };
 
     using module_imports = vector<module_import>;
 
     struct module_info
     {
-      string         name;          // Not empty if a module unit.
-      bool           iface = false; // True if a module interface unit.
-      module_imports imports;       // Imported modules.
+      string         name;     // Empty if non-modular.
+      module_imports imports;  // Imported modules.
     };
 
-    enum class translation_type {plain, module_iface, module_impl};
-
-    struct translation_unit
+    struct unit
     {
-      module_info mod;
-
-      translation_type
-      type () const
-      {
-        return (mod.name.empty () ? translation_type::plain :
-                mod.iface         ? translation_type::module_iface
-                :                   translation_type::module_impl);
-      }
+      unit_type               type;
+      build2::cc::module_info module_info;
     };
 
     // Compiler language.
@@ -78,6 +84,7 @@ namespace build2
     {
       const target_type& obj;
       const target_type& bmi;
+      const target_type& hbmi;
     };
 
     // Library link order.

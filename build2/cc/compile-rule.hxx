@@ -5,8 +5,6 @@
 #ifndef BUILD2_CC_COMPILE_RULE_HXX
 #define BUILD2_CC_COMPILE_RULE_HXX
 
-#include <libbutl/path-map.mxx>
-
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
 
@@ -91,7 +89,7 @@ namespace build2
         dir_path directory;
         size_t priority;
       };
-      using prefix_map = butl::dir_path_map<prefix_value>;
+      using prefix_map = dir_path_map<prefix_value>;
 
       void
       append_prefixes (prefix_map&, const target&, const variable&) const;
@@ -109,14 +107,37 @@ namespace build2
       small_vector<const target_type*, 2>
       map_extension (const scope&, const string&, const string&) const;
 
+      // Src-to-out re-mapping. See extract_headers() for details.
+      //
+      using srcout_map = path_map<dir_path>;
+
+      struct module_mapper_state;
+
+      void
+      gcc_module_mapper (module_mapper_state&,
+                         action, const scope&, file&, linfo,
+                         ifdstream&, ofdstream&,
+                         depdb&, bool&, bool&,
+                         optional<prefix_map>&, srcout_map&) const;
+
+      pair<const file*, bool>
+      enter_header (action, const scope&, file&, linfo,
+                    path&&, bool,
+                    optional<prefix_map>&, srcout_map&) const;
+
+      optional<bool>
+      inject_header (action, file&,
+                     const file&, bool, timestamp, bool = true) const;
+
       pair<auto_rmfile, bool>
       extract_headers (action, const scope&, file&, linfo,
-                       const file&, const match_data&,
+                       const file&, match_data&,
                        depdb&, bool&, timestamp) const;
 
-      pair<translation_unit, string>
+      pair<unit, string>
       parse_unit (action, file&, linfo,
-                  const file&, auto_rmfile&, const match_data&) const;
+                  const file&, auto_rmfile&,
+                  const match_data&, const path&) const;
 
       void
       extract_modules (action, const scope&, file&, linfo,
@@ -129,18 +150,31 @@ namespace build2
                       const target_type&,
                       const file&, module_imports&, sha256&) const;
 
-      const target&
+      dir_path
+      find_modules_sidebuild (const scope&) const;
+
+      const file&
       make_module_sidebuild (action, const scope&, const target&,
                              const target&, const string&) const;
 
-      void
-      append_modules (environment&, cstrings&, strings&,
-                      action, const file&, const match_data&) const;
+      const file&
+      make_header_sidebuild (action, const scope&, linfo, const file&) const;
 
-      // Language selection option (for VC) or the value for the -x option.
+      void
+      append_headers (environment&, cstrings&, small_vector<string, 2>&,
+                      action, const file&,
+                      const match_data&, const path&) const;
+
+      void
+      append_modules (environment&, cstrings&, small_vector<string, 2>&,
+                      action, const file&,
+                      const match_data&, const path&) const;
+
+      // Compiler-specific language selection option. Return the number of
+      // options (arguments, really) appended.
       //
-      const char*
-      langopt (const match_data&) const;
+      size_t
+      append_lang_options (cstrings&, const match_data&) const;
 
       void
       append_symexport_options (cstrings&, const target&) const;

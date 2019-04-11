@@ -40,8 +40,11 @@ namespace build2
 
       dot,         // .
       semi,        // ;
+      less,        // <
+      greater,     // >
       lcbrace,     // {
       rcbrace,     // }
+
       punctuation, // Other punctuation.
 
       identifier,

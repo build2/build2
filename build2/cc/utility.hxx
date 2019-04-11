@@ -29,7 +29,7 @@ namespace build2
     // Compile output type.
     //
     otype
-    compile_type (const target&, bool module);
+    compile_type (const target&, unit_type);
 
     compile_target_types
     compile_types (otype);

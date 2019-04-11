@@ -42,6 +42,7 @@
 #include <system_error>
 
 #include <libbutl/path.mxx>
+#include <libbutl/path-map.mxx>
 #include <libbutl/sha256.mxx>
 #include <libbutl/process.mxx>
 #include <libbutl/fdstream.mxx>
@@ -95,6 +96,7 @@ namespace build2
   using std::istream;
   using std::ostream;
   using std::endl;
+  using std::streamsize; // C++'s ssize_t.
 
   // Concurrency.
   //
@@ -219,12 +221,16 @@ namespace build2
   using butl::const_ptr;
 
   // <libbutl/path.mxx>
+  // <libbutl/path-map.mxx>
   //
   using butl::path;
   using butl::dir_path;
   using butl::basic_path;
   using butl::invalid_path;
   using butl::path_cast;
+
+  using butl::path_map;
+  using butl::dir_path_map;
 
   // Absolute directory path. Note that for now we don't do any checking that
   // the path is in fact absolute.
@@ -276,6 +282,8 @@ namespace build2
   using butl::ofdstream;
   using butl::fdopen_mode;
   using butl::fdstream_mode;
+  using butl::fdselect_state;
+  using butl::fdselect_set;
 
   // <libbutl/target-triplet.mxx>
   //

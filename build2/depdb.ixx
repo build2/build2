@@ -13,6 +13,13 @@ namespace build2
       os_.~ofdstream ();
   }
 
+  inline void depdb::
+  flush ()
+  {
+    if (state_ == state::write)
+      os_.flush ();
+  }
+
   inline bool depdb::
   mtime_check ()
   {

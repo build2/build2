@@ -387,14 +387,26 @@ namespace build2
         v.insert<strings> ("config.cxx.loptions", true),
         v.insert<strings> ("config.cxx.libs",     true),
 
+        // List of modular headers. Inclusion of such headers is translated to
+        // the corresponding header unit imports.
+        //
+        // A header can be specified either as an absolute and normalized path
+        // or as a <>-style include name. The latter kind is automatically
+        // translated to the absolute form based on the include search paths
+        // extracted from the compiler. Note also that all entries must be
+        // specified before loading the module.
+        //
+        &v.insert<strings> ("config.cxx.header_units", true),
+
         v.insert<process_path> ("cxx.path"),
         v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
         v.insert<dir_paths>    ("cxx.sys_inc_dirs"),
 
-        v.insert<strings> ("cxx.poptions"),
-        v.insert<strings> ("cxx.coptions"),
-        v.insert<strings> ("cxx.loptions"),
-        v.insert<strings> ("cxx.libs"),
+        v.insert<strings>  ("cxx.poptions"),
+        v.insert<strings>  ("cxx.coptions"),
+        v.insert<strings>  ("cxx.loptions"),
+        v.insert<strings>  ("cxx.libs"),
+        &v.insert<strings> ("cxx.header_units"),
 
         v["cc.poptions"],
         v["cc.coptions"],
@@ -429,6 +441,9 @@ namespace build2
         // can still contain comments and line continuations. Note also that
         // for some compilers (e.g., VC) there is no way to signal that the
         // source is already preprocessed.
+        //
+        // What about header unit imports? Well, they are in a sense
+        // standardized precompiled headers so we treat them as includes.
         //
         v.insert<string>   ("cxx.preprocessed"),
 

@@ -114,6 +114,13 @@ namespace build2
     void
     close ();
 
+    // Flush any unwritten data to disk. This is primarily useful when reusing
+    // a (partially written) database as an input to external programs (e.g.,
+    // as a module map).
+    //
+    void
+    flush ();
+
     // Perform target/database modification times sanity check.
     //
     // Note that it would also be good to compare the target timestamp against

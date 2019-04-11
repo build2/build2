@@ -39,15 +39,16 @@ namespace build2
         }
 
         parser p;
-        translation_unit u (p.parse (is, path (file)));
+        unit u (p.parse (is, path (file)));
+        unit_type ut (u.type);
 
-        for (const module_import& m: u.mod.imports)
+        for (const module_import& m: u.module_info.imports)
           cout << (m.exported ? "export " : "")
                << "import " << m.name << ';' << endl;
 
-        if (!u.mod.name.empty ())
-          cout << (u.mod.iface ? "export " : "")
-               << "module " << u.mod.name << ';' << endl;
+        if (ut == unit_type::module_iface || ut == unit_type::module_impl)
+          cout << (ut == unit_type::module_iface ? "export " : "")
+               << "module " << u.module_info.name << ';' << endl;
       }
       catch (const failed&)
       {

@@ -434,6 +434,11 @@ namespace build2
         t.insert<bmia> ();
         t.insert<bmis> ();
 
+        t.insert<hbmi>  ();
+        t.insert<hbmie> ();
+        t.insert<hbmia> ();
+        t.insert<hbmis> ();
+
         t.insert<libu>  ();
         t.insert<libul> ();
         t.insert<libue> ();
@@ -507,6 +512,9 @@ namespace build2
 
         r.insert<bmi> (perform_update_id, "bin.bmi", fail_);
         r.insert<bmi> (perform_clean_id,  "bin.bmi", fail_);
+
+        r.insert<hbmi> (perform_update_id, "bin.hbmi", fail_);
+        r.insert<hbmi> (perform_clean_id,  "bin.hbmi", fail_);
 
         r.insert<libu> (perform_update_id, "bin.libu", fail_);
         r.insert<libu> (perform_clean_id,  "bin.libu", fail_);
