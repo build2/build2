@@ -196,8 +196,8 @@ namespace build2
                 if (mj >= 9 &&
                     ci.version.build.find ("c++-modules") != string::npos)
                 {
-                  // Currently defines __cpp_modules=201804 which is said to
-                  // correspond to p0713 ('module;' leading marker).
+                  // Currently defines __cpp_modules=201810 which is said to
+                  // correspond to p1103 (merged modules).
                   //
                   r.push_back ("-fmodules-ts");
                   modules = true;

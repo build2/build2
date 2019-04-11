@@ -558,7 +558,7 @@ namespace build2
         {
         case compiler_type::gcc:
           {
-            e += mod ? "nms" : o;
+            e += mod ? "gcm" : o;
             break;
           }
         case compiler_type::clang:

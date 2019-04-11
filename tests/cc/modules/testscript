@@ -191,14 +191,17 @@ $* test clean <<EOI
 
 : module-marker
 :
-: Test leading module marker (module;).
+: Test global module fragment/leading module marker (module;).
 :
+cat <<EOI >=g.hxx;
+void g ();
+EOI
 cat <<EOI >=core.mxx;
 #if __cpp_modules >= 201804
 module;
 #endif
 
-void g ();
+#include "g.hxx"
 EOI
 cat <<<../core.mxx >+core.mxx;
 ln -s ../core.cxx ../driver.cxx ./;
