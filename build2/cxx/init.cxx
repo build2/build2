@@ -146,12 +146,6 @@ namespace build2
           if (!o.empty ())
             r.push_back (move (o));
 
-          // Starting with 15.5 (19.12) Visual Studio-created projects default
-          // to the strict mode.
-          //
-          if (mj > 19 || (mj == 19 && mi >= 12))
-            r.push_back ("/permissive-");
-
           break;
         }
       case compiler_class::gcc:
@@ -247,6 +241,24 @@ namespace build2
 
       if (experimental)
       {
+        switch (ct)
+        {
+        case compiler_type::msvc:
+          {
+            // Starting with 15.5 (19.12) Visual Studio-created projects
+            // default to the strict mode. However, this flag currently tends
+            // to trigger too many compiler bugs. So for now we leave it
+            // to the experimenters to enjoy.
+            //
+            if (mj > 19 || (mj == 19 && mi >= 12))
+              r.push_back ("/permissive-");
+
+            break;
+          }
+        default:
+          break;
+        }
+
         // Unless disabled by the user, try to enable C++ modules. Here we use
         // a tri-state:
         //
