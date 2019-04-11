@@ -3183,7 +3183,7 @@ namespace build2
             if (ps)
               psrc.active = true; // Re-arm.
 
-            // Prior to 15u5 (19.12) VC was not using the 'export module M;'
+            // Prior to 15.5 (19.12) VC was not using the 'export module M;'
             // syntax so we use the preprequisite type to distinguish between
             // interface and implementation units.
             //

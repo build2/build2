@@ -51,7 +51,7 @@ namespace build2
   //
   // Note that max size for the "small capture optimization" in std::function
   // ranges (in pointer sizes) from 0 (GCC prior to 5) to 2 (GCC 5) to 6 (VC
-  // 14u2). With the size ranging (in bytes for 64-bit target) from 32 (GCC)
+  // 14.2). With the size ranging (in bytes for 64-bit target) from 32 (GCC)
   // to 64 (VC).
   //
   using recipe_function = target_state (action, const target&);
