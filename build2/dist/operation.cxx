@@ -95,11 +95,11 @@ namespace build2
         fail << "unknown root distribution directory" <<
           info << "did you forget to specify config.dist.root?";
 
+      // We used to complain if dist.root does not exist but then, similar
+      // to install, got tired of user's complaints. So now we just let
+      // install -d for the package directory create it if necessary.
+      //
       const dir_path& dist_root (cast<dir_path> (l));
-
-      if (!exists (dist_root))
-        fail << "root distribution directory " << dist_root
-             << " does not exist";
 
       l = rs->vars["dist.package"];
 
