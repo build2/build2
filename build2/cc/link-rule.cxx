@@ -1636,8 +1636,8 @@ namespace build2
       // Update prerequisites. We determine if any relevant ones render us
       // out-of-date manually below.
       //
-      // Note that straight_execute_prerequisites() will blank out all the ad
-      // hoc prerequisites so we don't need to worry about them from now on.
+      // Note that straight_execute_prerequisites() blanks out all the ad hoc
+      // prerequisites so we don't need to worry about them from now on.
       //
       target_state ts (straight_execute_prerequisites (a, t));
 
