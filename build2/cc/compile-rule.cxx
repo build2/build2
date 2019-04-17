@@ -4317,6 +4317,9 @@ namespace build2
       // execute them to keep the dependency counts straight. Actually, no, we
       // may also have to update the modules.
       //
+      // Note that this also takes care of forcing update on any ad hoc
+      // prerequisite change.
+      //
       auto pr (
         execute_prerequisites<file> (
           (mod ? *x_mod : x_src),

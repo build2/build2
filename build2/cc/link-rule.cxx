@@ -1633,13 +1633,34 @@ namespace build2
       bool binless (md.binless);
       assert (ot != otype::e || !binless); // Sanity check.
 
-      // Update prerequisites. We determine if any relevant ones render us
-      // out-of-date manually below.
+      // Determine if we are out-of-date.
       //
-      // Note that straight_execute_prerequisites() blanks out all the ad hoc
+      bool update (false);
+      bool scratch (false);
+      timestamp mt (binless ? timestamp_unreal : t.load_mtime ());
+
+      // Update prerequisites. We determine if any relevant non-ad hoc ones
+      // render us out-of-date manually below.
+      //
+      // Note that execute_prerequisites() blanks out all the ad hoc
       // prerequisites so we don't need to worry about them from now on.
       //
-      target_state ts (straight_execute_prerequisites (a, t));
+      target_state ts;
+
+      if (optional<target_state> s =
+          execute_prerequisites (a,
+                                 t,
+                                 mt,
+                                 [] (const target&, size_t) {return false;}))
+        ts = *s;
+      else
+      {
+        // An ad hoc prerequisite renders us out-of-date. Let's update from
+        // scratch for good measure.
+        //
+        scratch = update = true;
+        ts = target_state::changed;
+      }
 
       // (Re)generate pkg-config's .pc file. While the target itself might be
       // up-to-date from a previous run, there is no guarantee that .pc exists
@@ -1660,11 +1681,6 @@ namespace build2
         t.mtime (timestamp_unreal);
         return ts;
       }
-
-      // Determine if we are out-of-date.
-      //
-      bool update (false);
-      timestamp mt (t.load_mtime ());
 
       // Open the dependency database (do it before messing with Windows
       // manifests to diagnose missing output directory).
@@ -2120,7 +2136,6 @@ namespace build2
       // target (interrupted update) then force the target update. Also note
       // this situation in the "from scratch" flag.
       //
-      bool scratch (false);
       if (dd.writing () || dd.mtime > mt)
         scratch = update = true;
 

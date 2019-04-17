@@ -463,6 +463,12 @@ namespace build2
   // prerequisite_targets to NULL. If count is not 0, then only the first
   // count prerequisites are executed beginning from start.
   //
+  // Note that because after the call the ad hoc prerequisites are no longer
+  // easily accessible, this function shouldn't be used in rules that make a
+  // timestamp-based out-of-date'ness determination (which must take into
+  // account such prerequisites). Instead, consider the below versions that
+  // incorporate the timestamp check and do the right thing.
+  //
   target_state
   straight_execute_prerequisites (action, const target&,
                                   size_t count = 0, size_t start = 0);
@@ -491,12 +497,13 @@ namespace build2
   execute_prerequisites_inner (action, const target&, size_t count = 0);
 
   // A version of the above that also determines whether the action needs to
-  // be executed on the target based on the passed timestamp and filter.
+  // be executed on the target based on the passed timestamp and filter. If
+  // count is not 0, then only the first count prerequisites are executed.
   //
   // The filter is passed each prerequisite target and is expected to signal
   // which ones should be used for timestamp comparison. If the filter is
-  // NULL, then all the prerequisites are used. If count is not 0, then only
-  // the first count prerequisites are executed.
+  // NULL, then all the prerequisites are used. Note that ad hoc prerequisites
+  // are always used.
   //
   // Note that the return value is an optional target state. If the target
   // needs updating, then the value is absent. Otherwise it is the state that
@@ -524,7 +531,7 @@ namespace build2
   // on the passed timestamp and finds a prerequisite of the specified type
   // (e.g., a source file). If there are multiple prerequisites of this type,
   // then the first is returned (this can become important if additional
-  // prerequisites of the same type may get injected).
+  // prerequisites of the same type get injected).
   //
   template <typename T>
   pair<optional<target_state>, const T&>
@@ -552,7 +559,8 @@ namespace build2
   // Similar in semantics to execute_prerequisites().
   //
   // T can only be const target* or prerequisite_target. If it is the latter,
-  // the ad hoc semantics described in execute_prerequsites() is in effect.
+  // the ad hoc blank out semantics described in execute_prerequsites() is in
+  // effect.
   //
   template <typename T>
   target_state

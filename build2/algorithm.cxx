@@ -1605,19 +1605,16 @@ namespace build2
     return t.executed_state (a);
   }
 
-  static inline bool
-  adhoc_member (const target*&)
+  static inline void
+  blank_adhoc_member (const target*&)
   {
-    return false;
   }
 
-  static inline bool
-  adhoc_member (prerequisite_target& pt)
+  static inline void
+  blank_adhoc_member (prerequisite_target& pt)
   {
     if (pt.adhoc)
       pt.target = nullptr;
-
-    return pt.adhoc;
   }
 
   template <typename T>
@@ -1669,7 +1666,7 @@ namespace build2
 
       r |= mt.executed_state (a);
 
-      adhoc_member (ts[i]);
+      blank_adhoc_member (ts[i]);
     }
 
     return r;
@@ -1718,7 +1715,7 @@ namespace build2
 
       r |= mt.executed_state (a);
 
-      adhoc_member (ts[i]);
+      blank_adhoc_member (ts[i]);
     }
 
     return r;
@@ -1786,10 +1783,12 @@ namespace build2
 
     for (size_t i (0); i != n; ++i)
     {
-      if (pts[i] == nullptr)
+      prerequisite_target& p (pts[i]);
+
+      if (p == nullptr)
         continue;
 
-      const target& pt (*pts[i]);
+      const target& pt (*p.target);
 
       const auto& tc (pt[a].task_count);
       if (tc.load (memory_order_acquire) >= target::count_busy ())
@@ -1800,7 +1799,7 @@ namespace build2
 
       // Should we compare the timestamp to this target's?
       //
-      if (!e && (!ef || ef (pt, i)))
+      if (!e && (p.adhoc || !ef || ef (pt, i)))
       {
         // If this is an mtime-based target, then compare timestamps.
         //
@@ -1823,11 +1822,13 @@ namespace build2
         }
       }
 
-      if (adhoc_member (pts[i]))
-        continue;
-
-      if (rt == nullptr && pt.is_a (*tt))
-        rt = &pt;
+      if (p.adhoc)
+        p.target = nullptr; // Blank out.
+      else
+      {
+        if (rt == nullptr && pt.is_a (*tt))
+          rt = &pt;
+      }
     }
 
     assert (rt != nullptr);
