@@ -49,7 +49,7 @@ namespace build2
 
     struct unit
     {
-      unit_type               type;
+      unit_type               type = unit_type::non_modular;
       build2::cc::module_info module_info;
     };
 
