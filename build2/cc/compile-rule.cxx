@@ -3845,6 +3845,10 @@ namespace build2
 
       const path* sp; // Source path.
 
+      // @@ MODHDR: If we are reprocessing, then will need module mapper for
+      //            include translation. Hairy... Can't we add support for
+      //            include translation in file mapper?
+      //
       bool reprocess (cast_false<bool> (t[c_reprocess]));
 
       bool ps; // True if extracting from psrc.
