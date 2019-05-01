@@ -126,8 +126,7 @@ namespace build2
                     optional<prefix_map>&, srcout_map&) const;
 
       optional<bool>
-      inject_header (action, file&,
-                     const file&, bool, timestamp, bool = true) const;
+      inject_header (action, file&, const file&, bool, timestamp) const;
 
       pair<auto_rmfile, bool>
       extract_headers (action, const scope&, file&, linfo,

@@ -1629,10 +1629,9 @@ namespace build2
     //
     struct compile_rule::module_mapper_state
     {
-      const char* expected = nullptr; // Expected next command.
-      const void* data     = nullptr; // Auxiliary data cache.
-      size_t      headers  = 0;       // Number of header units imported.
-      size_t      skip;               // Number of depdb entries to skip.
+      size_t headers  = 0; // Number of header units imported.
+      size_t skip;         // Number of depdb entries to skip.
+      string data;         // Auxiliary data.
 
       explicit
       module_mapper_state (size_t skip_count): skip (skip_count) {}
@@ -1675,15 +1674,7 @@ namespace build2
       }
 
       if (rq.empty ()) // EOF
-      {
-        if (st.expected != nullptr)
-        {
-          l4 ([&]{trace << "expected command " << st.expected;});
-          bad_error = true;
-        }
-
         return;
-      }
 
       // @@ MODHDR: Should we print the pid we are talking to? It gets hard to
       //            follow once things get nested.
@@ -1713,19 +1704,10 @@ namespace build2
       string rs;
       for (;;) // Breakout loop.
       {
-        bool expected (false);
-        if (const char* e = st.expected)
-        {
-          st.expected = nullptr;
-
-          if (!(expected = command (e, false)))
-          {
-            rs = string ("ERROR expected command '") + e +
-              "' instead of '" + rq + "'";
-            bad_error = true;
-            break;
-          }
-        }
+        // Each command is reponsible for handling its auxiliary data while we
+        // just clear it.
+        //
+        string data (move (st.data));
 
         if (command ("HELLO"))
         {
@@ -1737,7 +1719,12 @@ namespace build2
           //
           rs = "HELLO 0 build2 .";
         }
-
+        //
+        // Turns out it's easiest to handle IMPORT together with INCLUDE since
+        // it can also trigger a re-search, etc. In a sense, IMPORT is all of
+        // the INCLUDE logic (skipping translation) plus the BMI dependency
+        // synthesis.
+        //
         else if (command ("INCLUDE") || command ("IMPORT"))
         {
           // INCLUDE [<"]<name>[>"] <path>
@@ -1746,19 +1733,67 @@ namespace build2
           // <path> is the resolved path or empty if the header is not found.
           // It can be relative if it is derived from a relative path (either
           // via -I or includer).
-
-          // Turns out it's easiest to handle IMPORT together with INCLUDE
-          // since it can also trigger a re-search, etc. In a sense, IMPORT is
-          // all of the INCLUDE logic (except translation) plus the BMI rule
-          // synthesis.
+          //
+          // In case of re-search or include translation we may have to split
+          // handling the same include or import across multiple commands.
+          // Here are the scenarios in question:
+          //
+          // INCLUDE --> SEARCH -?-> INCLUDE
+          // IMPORT  --> SEARCH -?-> IMPORT
+          // INCLUDE --> IMPORT -?-> IMPORT
+          //
+          // The problem is we may not necessarily get the "followup" command
+          // (the question marks above). We may not get the followup after
+          // SEARCH because, for example, the newly found header has already
+          // been included/imported using a different style/path. Similarly,
+          // the IMPORT response may not be followed up with the IMPORT
+          // command because this header has already been imported, for
+          // example, using an import declaration. Throw into this #pragma
+          // once, include guards, and how exactly the compiler deals with
+          // them and things become truly unpredictable and hard to reason
+          // about. As a result, for each command we have to keep the build
+          // state consistent, specifically, without any "dangling" matched
+          // targets (which would lead to skew dependency counts).
+          //
+          // To keep things simple we are going to always add a target that
+          // we matched to our prerequisite_targets. This includes the header
+          // target when building the BMI: while not ideal, this should be
+          // harmless provided we don't take its state/mtime into account.
+          //
+          // One thing we do want to handle specially is the "maybe-followup"
+          // case discussed above. It is hard to distinguish from an unrelated
+          // INCLUDE/IMPORT (we could have saved <name> and maybe correlated
+          // based on that). But if we don't, then we will keep matching and
+          // adding each target twice. What we can do, however, is check
+          // whether this target is already in prerequisite_targets and skip
+          // it if that's the case, which is a valid thing to do whether it is
+          // a followup or an unrelated command. In fact, for a followup, we
+          // only need to check the last element in prerequisite_targets.
+          //
+          // This approach strikes a reasonable balance between keeping things
+          // simple and handling normal cases without too much overhead. Note
+          // that we may still end up matching and adding the same targets
+          // multiple times for pathological cases, like when the same header
+          // is included using a different style/path, etc. We could, however,
+          // take care of this by searching the entire prerequisite_targets,
+          // which is always an option (and which would probably be required
+          // if the compiler were to send the INCLUDE command before checking
+          // for #pragma once or include guards, which GCC does not do).
+          //
+          // One thing that we cannot do without distinguishing followup and
+          // unrelated commands is verify the remapped header found by the
+          // compiler resolves to the expected target. So we will also do the
+          // correlation via <name>.
           //
           bool im (cmd[1] == 'M');
 
-          path f;
+          path f;    // <path> or <name> if doesn't exist
+          string n;  // [<"]<name>[>"]
           bool exists;
           if (im)       // @@ MODHDR TODO: GCC IMPORT command improvements
           {
             exists = true;
+            n = rq;
             f = path (move (rq));
           }
           else
@@ -1766,6 +1801,8 @@ namespace build2
             size_t p (rq.find (rq[0] == '<' ? '>' : '"', 1));
             if (p == string::npos || rq[p + 1] != ' ')
               break; // Malformed command.
+
+            n.assign (rq, 0, p + 1);
 
             exists = (p + 2 != rq.size ()); // [>"] and space.
 
@@ -1797,22 +1834,21 @@ namespace build2
           //
           bool skip (st.skip != 0);
 
-          // Resolve header path to target.
+          // The first part is the same for both INCLUDE and IMPORT: resolve
+          // the header path to target, update it, and trigger re-search if
+          // necessary.
           //
           const file* ht (nullptr);
+          auto& pts (t.prerequisite_targets[a]);
 
-          // If this command was expected, then it means we are called after
-          // a re-search or translation.
+          // If this is a followup command (or indistinguishable from one),
+          // then as a sanity check verify the header found by the compiler
+          // resolves to the expected target.
           //
-          if (expected)
+          if (data == n)
           {
-            assert (st.data != nullptr);
+            assert (!skip); // We shouldn't be re-searching while skipping.
 
-            // As a sanity check, verify the header found by the compiler
-            // resolves to the expected target. It's a bit of extra work but
-            // seeing that we are unlikely to have lots of generated headers,
-            // this is probably worth it.
-            //
             if (exists)
             {
               pair<const file*, bool> r (
@@ -1824,9 +1860,9 @@ namespace build2
                 ht = r.first;
             }
 
-            if (ht != st.data)
+            if (ht != pts.back ())
             {
-              ht = static_cast<const file*> (st.data);
+              ht = static_cast<const file*> (pts.back ().target);
               rs = "ERROR expected header '" + ht->path ().string () +
                 "' to be found instead";
               bad_error = true; // We expect an error from the compiler.
@@ -1837,9 +1873,7 @@ namespace build2
           }
           else
           {
-            // First see if we need to re-search this header. In this case we
-            // may be called again to see if we want to translate it (or we
-            // may not if the newly found header has already been included).
+            // Enter, update, and see if we need to re-search this header.
             //
             bool updated (false), remapped;
             try
@@ -1864,27 +1898,23 @@ namespace build2
 
               // Note that we explicitly update even for IMPORT (instead of,
               // say, letting the BMI rule do it implicitly) since we may need
-              // to cause a re-search (see below). We, however, don't want to
-              // add this header as our direct prerequisite in this case
-              // (which would be harmless but unnecessary).
-              //
-              // @@ Shouldn't we also do it in case of include translation?
-              //
-              // @@ MODHDR: this did not pan out (dependency_count). Can't we
-              //            somehow "transfer" out count to BMI rule? Is it
-              //            worth the complexity though? See also the cache
-              //            case below. We just don't match in
-              //            make_header_sidebuild(), assume already matched?
+              // to cause a re-search (see below).
               //
               if (!skip)
               {
-                optional<bool> ir (inject_header (a, t,
-                                                  *ht, false /* cache */,
-                                                  timestamp_unknown,
-                                                  true /*!im*/ /* add */));
-                assert (ir); // Not from cache.
-                updated = *ir;
+                if (pts.empty () || pts.back () != ht)
+                {
+                  optional<bool> ir (inject_header (a, t,
+                                                    *ht, false /* cache */,
+                                                    timestamp_unknown));
+                  assert (ir); // Not from cache.
+                  updated = *ir;
+                }
+                else
+                  assert (exists);
               }
+              else
+                assert (exists && !remapped); // Maybe this should be error.
             }
             catch (const failed&)
             {
@@ -1904,7 +1934,7 @@ namespace build2
               break;
             }
 
-            if (!im) // Same reasoning as for the direct prerequisite above.
+            if (!im) // Indirect prerequisite (see above).
               update = updated || update;
 
             // A mere update is not enough to cause a re-search. It either had
@@ -1912,20 +1942,16 @@ namespace build2
             //
             if ((updated && !exists) || remapped)
             {
-              //@@ MODHDR: we may not get what we are expecting. Maybe save
-              //           the header name to correlate?
-
               rs = "SEARCH";
-              st.expected = im ? "IMPORT" : "INCLUDE";
-              st.data = ht;
+              st.data = move (n); // Followup correlation.
               break;
             }
-
-            assert (exists); // A bit iffy with the skip logic.
 
             // Fall through.
           }
 
+          // Now handle INCLUDE and IMPORT differences.
+          //
           const string& hp (ht->path ().string ());
 
           if (im)
@@ -1975,12 +2001,8 @@ namespace build2
 
               if (i != hdr_units->end () && *i == hp)
               {
-                // Note that we may not get (and thus cannot expect) the
-                // IMPORT command since the compiler might have already
-                // imported this header unit, for example, via the import
-                // declaration rather then include translation.
-                //
-                // @@ MODHDR: maybe we can do "maybe-expect" similar to above?
+                // Doesn't seem there is much use in trying to correlate the
+                // followup in this case; what else can the compiler import?
                 //
                 rs = "IMPORT";
                 break;
@@ -2328,7 +2350,7 @@ namespace build2
     //
     optional<bool> compile_rule::
     inject_header (action a, file& t,
-                   const file& pt, bool cache, timestamp mt, bool add) const
+                   const file& pt, bool cache, timestamp mt) const
     {
       tracer trace (x, "compile_rule::inject_header");
 
@@ -2348,8 +2370,7 @@ namespace build2
 
       // Add to our prerequisite target list.
       //
-      if (add)
-        t.prerequisite_targets[a].push_back (&pt);
+      t.prerequisite_targets[a].push_back (&pt);
 
       return r;
     }
