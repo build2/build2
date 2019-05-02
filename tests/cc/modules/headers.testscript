@@ -24,7 +24,7 @@ cat <<EOI >=driver.cxx;
   #ifndef CORE_OUT
   #  error macro export
   #endif
-  int main () {return f () - 1 /* CORE_OUT */;}
+  int main () {return f () - CORE_OUT;}
   EOI
 $* test clean config.cxx.header_units="$~/core.hxx" &$~/../build/cc/*** <<EOI
   exe{test}: cxx{driver}
