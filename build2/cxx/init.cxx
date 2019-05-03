@@ -293,11 +293,15 @@ namespace build2
             }
           case compiler_type::gcc:
             {
-              // Enable starting with GCC 9.0.0 (currently the c++-modules
-              // branch).
+              // We now use extended/experimental module mapper support which
+              // is currently only available in our c++-modules-ex branch.
+              // But let's allow forcing it to plain c++-modules in case
+              // things got merged, etc.
               //
-              if (mj >= 9 &&
-                  ci.version.build.find ("c++-modules") != string::npos)
+              if (mj >= 10 &&
+                  ci.version.build.find (l
+                                         ? "c++-modules"
+                                         : "c++-modules-ex") != string::npos)
               {
                 // Currently defines __cpp_modules=201810 which is said to
                 // correspond to p1103 (merged modules).
@@ -315,6 +319,9 @@ namespace build2
               // from above so may need to update things there as well.
               //
               // Also see Clang modules support hack in cc::compile.
+              //
+              // @@ Clang 9 enables modules by default in C++2a. We should
+              //    probably reflect this in the modules value.
               //
               if (mj >= 6)
               {
