@@ -1654,6 +1654,13 @@ namespace build2
       // time.
       //
       string rq;
+#if 1
+      if (!eof (getline (is, rq)))
+      {
+        if (rq.empty ())
+          rq = "<empty>"; // Not to confuse with EOF.
+      }
+#else
       for (char buf[4096]; !is.eof (); )
       {
         streamsize n (is.readsome (buf, sizeof (buf) - 1));
@@ -1672,6 +1679,7 @@ namespace build2
         else
           rq += buf;
       }
+#endif
 
       if (rq.empty ()) // EOF
         return;
@@ -3316,6 +3324,47 @@ namespace build2
                   const char* w (nullptr);
                   try
                   {
+                    // For now we don't need to do both so let's use a simpler
+                    // blocking implementation. Note that the module mapper
+                    // also needs to be adjusted when switching to the
+                    // non-blocking version.
+                    //
+#if 1
+                    assert (mod_mapper != sense_diag);
+
+                    if (mod_mapper)
+                    {
+                      w = "module mapper request";
+
+                      // Note: the order is important (see the non-blocking
+                      // verison for details).
+                      //
+                      ifdstream is (move (pr.in_ofd),
+                                    fdstream_mode::skip,
+                                    ifdstream::badbit);
+                      ofdstream os (move (pr.out_fd));
+
+                      do
+                      {
+                        gcc_module_mapper (mm_state,
+                                           a, bs, t, li,
+                                           is, os,
+                                           dd, update, bad_error,
+                                           pfx_map, so_map);
+                      } while (!is.eof ());
+
+                      os.close ();
+                      is.close ();
+                    }
+
+                    if (sense_diag)
+                    {
+                      w = "diagnostics";
+                      ifdstream is (move (pr.in_efd), fdstream_mode::skip);
+                      puse = puse && (is.peek () == ifdstream::traits_type::eof ());
+                      is.close ();
+                    }
+#else
                     fdselect_set fds;
                     auto add = [&fds] (const auto_fd& afd) -> fdselect_state*
                     {
@@ -3410,6 +3459,7 @@ namespace build2
                         }
                       }
                     }
+#endif
                   }
                   catch (const io_error& e)
                   {
