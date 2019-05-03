@@ -399,9 +399,9 @@ namespace build2
         //
         // A header can be specified either as an absolute and normalized path
         // or as a <>-style include name. The latter kind is automatically
-        // translated to the absolute form based on the include search paths
-        // extracted from the compiler. Note also that all entries must be
-        // specified before loading the cxx module.
+        // translated to the absolute form based on the compiler's system
+        // header search paths (as opposed to -I). Note also that all entries
+        // must be specified before loading the cxx module.
         //
         &v.insert<strings> ("config.cxx.importable_headers", true),
 

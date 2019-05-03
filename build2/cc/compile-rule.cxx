@@ -2005,7 +2005,13 @@ namespace build2
             //
             if (const strings* ih = import_hdr)
             {
-              auto i (lower_bound (ih->begin (), ih->end (), hp));
+              auto i (lower_bound (ih->begin (),
+                                   ih->end (),
+                                   hp,
+                                   [] (const string& x, const string& y)
+                                   {
+                                     return path::traits::compare (x, y) < 0;
+                                   }));
 
               if (i != ih->end () && *i == hp)
               {

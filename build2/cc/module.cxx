@@ -290,8 +290,8 @@ namespace build2
       //
       tstd = translate_std (ci, rs, cast_null<string> (rs[x_std]));
 
-      // Extract system library search paths from the compiler and determine
-      // additional system include search paths.
+      // Extract system header/library search paths from the compiler and
+      // determine if we need any additional search paths.
       //
       dir_paths lib_dirs;
       dir_paths inc_dirs;
@@ -506,17 +506,53 @@ namespace build2
       // Process, sort, and cache (in this->import_hdr) importable headers.
       // Keep the cache NULL if unused or empty.
       //
-      // @@ MODHDR TODO: translate <> to absolute paths.
       // @@ MODHDR TODO: support exclusions entries (e.g., -<stdio.h>)?
       //
       if (modules && x_importable_headers != nullptr)
       {
-        strings* v (cast_null<strings> (rs.assign (x_importable_headers)));
+        strings* ih (cast_null<strings> (rs.assign (x_importable_headers)));
 
-        if (v != nullptr && !v->empty ())
+        if (ih != nullptr && !ih->empty ())
         {
-          sort (v->begin (), v->end ());
-          import_hdr = v;
+          // Translate <>-style header names to absolute paths using the
+          // compiler's include search paths.
+          //
+          for (string& h: *ih)
+          {
+            if (h.empty () || h.front () != '<' || h.back () != '>')
+              continue;
+
+            h.pop_back ();
+            h.erase (0, 1);
+
+            path f; // Reuse the buffer.
+            bool r (false);
+            for (const dir_path& d: sys_inc_dirs)
+            {
+              if ((r = file_exists ((f = d, f /= h),
+                                    true /* follow_symlinks */,
+                                    true /* ignore_errors */)))
+              {
+                h = move (f.normalize ()).string ();
+                break;
+              }
+            }
+
+            // What should we do if not found? While we can fail, this could
+            // be too drastic if, for example, the header is "optional" and
+            // may or may not be present/used. So for now let's restore the
+            // original form to aid debugging (it can't possibly match any
+            // absolute path).
+            //
+            if (!r)
+            {
+              h.insert (0, 1, '<');
+              h.push_back ('>');
+            }
+          }
+
+          sort (ih->begin (), ih->end ());
+          import_hdr = ih;
         }
       }
 
