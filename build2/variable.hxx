@@ -339,6 +339,9 @@ namespace build2
     template <typename T> value& operator= (T);
     template <typename T> value& operator+= (T);
 
+    template <typename T> value& operator= (T* v) {
+      return v != nullptr ? *this = *v : *this = nullptr;}
+
     template <typename T> value& operator+= (T* v) {
       return v != nullptr ? *this += *v : *this;}
 

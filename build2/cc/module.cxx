@@ -286,9 +286,24 @@ namespace build2
       const compiler_info& ci (*ci_);
       const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
-      // Translate x_std value (if any) to the compiler option(s) (if any).
+      // config.x.std overrides x.std
       //
-      tstd = translate_std (ci, rs, cast_null<string> (rs[x_std]));
+      {
+        lookup l (config::omitted (rs, config_x_std).first);
+
+        const string* v;
+        if (l.defined ())
+        {
+          v = cast_null<string> (l);
+          rs.assign (x_std) = v;
+        }
+        else
+          v = cast_null<string> (rs[x_std]);
+
+        // Translate x_std value (if any) to the compiler option(s) (if any).
+        //
+        tstd = translate_std (ci, rs, v);
+      }
 
       // Extract system header/library search paths from the compiler and
       // determine if we need any additional search paths.

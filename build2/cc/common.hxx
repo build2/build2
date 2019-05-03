@@ -43,6 +43,7 @@ namespace build2
       const variable& config_x_id;      // <type>[-<variant>]
       const variable& config_x_version;
       const variable& config_x_target;
+      const variable& config_x_std;
       const variable& config_x_poptions;
       const variable& config_x_coptions;
       const variable& config_x_loptions;
@@ -53,6 +54,7 @@ namespace build2
       const variable& x_sys_lib_dirs; // System library search directories.
       const variable& x_sys_inc_dirs; // System header search directories.
 
+      const variable& x_std;
       const variable& x_poptions;
       const variable& x_coptions;
       const variable& x_loptions;
@@ -86,8 +88,6 @@ namespace build2
 
       const variable& x_preprocessed; // x.preprocessed
       const variable* x_symexport;    // x.features.symexport
-
-      const variable& x_std;
 
       const variable& x_id;
       const variable& x_id_type;

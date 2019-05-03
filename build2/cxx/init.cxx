@@ -389,6 +389,7 @@ namespace build2
         v.insert<string>  ("config.cxx.id",       true),
         v.insert<string>  ("config.cxx.version",  true),
         v.insert<string>  ("config.cxx.target",   true),
+        v.insert<string>  ("config.cxx.std",      true),
         v.insert<strings> ("config.cxx.poptions", true),
         v.insert<strings> ("config.cxx.coptions", true),
         v.insert<strings> ("config.cxx.loptions", true),
@@ -409,6 +410,7 @@ namespace build2
         v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
         v.insert<dir_paths>    ("cxx.sys_inc_dirs"),
 
+        v.insert<string>   ("cxx.std", variable_visibility::project),
         v.insert<strings>  ("cxx.poptions"),
         v.insert<strings>  ("cxx.coptions"),
         v.insert<strings>  ("cxx.loptions"),
@@ -455,8 +457,6 @@ namespace build2
         v.insert<string>   ("cxx.preprocessed"),
 
         nullptr, // cxx.features.symexport (set in init() below).
-
-        v.insert<string>   ("cxx.std", variable_visibility::project),
 
         v.insert<string>   ("cxx.id"),
         v.insert<string>   ("cxx.id.type"),
