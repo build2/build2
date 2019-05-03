@@ -394,16 +394,16 @@ namespace build2
         v.insert<strings> ("config.cxx.loptions", true),
         v.insert<strings> ("config.cxx.libs",     true),
 
-        // List of modular headers. Inclusion of such headers is translated to
-        // the corresponding header unit imports.
+        // List of importable headers. Inclusion of such headers is translated
+        // to the corresponding header unit imports.
         //
         // A header can be specified either as an absolute and normalized path
         // or as a <>-style include name. The latter kind is automatically
         // translated to the absolute form based on the include search paths
         // extracted from the compiler. Note also that all entries must be
-        // specified before loading the module.
+        // specified before loading the cxx module.
         //
-        &v.insert<strings> ("config.cxx.header_units", true),
+        &v.insert<strings> ("config.cxx.importable_headers", true),
 
         v.insert<process_path> ("cxx.path"),
         v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
@@ -413,7 +413,7 @@ namespace build2
         v.insert<strings>  ("cxx.coptions"),
         v.insert<strings>  ("cxx.loptions"),
         v.insert<strings>  ("cxx.libs"),
-        &v.insert<strings> ("cxx.header_units"),
+        &v.insert<strings> ("cxx.importable_headers"),
 
         v["cc.poptions"],
         v["cc.coptions"],

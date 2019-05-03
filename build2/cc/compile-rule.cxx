@@ -877,8 +877,8 @@ namespace build2
           if (ut == unit_type::module_iface)
             cs.append (&md.symexport, sizeof (md.symexport));
 
-          if (hdr_units != nullptr)
-            hash_options (cs,  *hdr_units);
+          if (import_hdr != nullptr)
+            hash_options (cs,  *import_hdr);
 
           if (md.pp != preprocessed::all)
           {
@@ -2003,11 +2003,11 @@ namespace build2
           {
             // See if we need to translate this include to import.
             //
-            if (hdr_units != nullptr)
+            if (const strings* ih = import_hdr)
             {
-              auto i (lower_bound (hdr_units->begin (), hdr_units->end (), hp));
+              auto i (lower_bound (ih->begin (), ih->end (), hp));
 
-              if (i != hdr_units->end () && *i == hp)
+              if (i != ih->end () && *i == hp)
               {
                 // Doesn't seem there is much use in trying to correlate the
                 // followup in this case; what else can the compiler import?

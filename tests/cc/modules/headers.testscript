@@ -26,6 +26,6 @@ cat <<EOI >=driver.cxx;
   #endif
   int main () {return f () - CORE_OUT;}
   EOI
-$* test clean config.cxx.header_units="$~/core.hxx" &$~/../build/cc/*** <<EOI
+$* test clean config.cxx.importable_headers="$~/core.hxx" &$~/../build/cc/*** <<EOI
   exe{test}: cxx{driver}
   EOI

@@ -21,7 +21,12 @@ namespace build2
     //
     // Note that our terminology doesn't exactly align with the (current)
     // standard where a header unit is not a module (that is, you either
-    // import a module unit or a header unit).
+    // import a "module [interface translation unit]" or a "[synthesized]
+    // header [translation] unit"). On the other hand, lots of the underlying
+    // mechanics suggest that a header unit is module-like; they end up having
+    // BMIs (which stand for "binary module interface"), etc. In a sense, a
+    // header unit is an "interface unit" for (a part of) the global module
+    // (maybe a partition).
     //
     enum class unit_type
     {

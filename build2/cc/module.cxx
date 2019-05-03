@@ -463,20 +463,20 @@ namespace build2
       rs.assign (x_libs) += cast_null<strings> (
         config::optional (rs, config_x_libs));
 
-      // config.x.header_units
+      // config.x.importable_header
       //
       // It's still fuzzy whether specifying (or maybe tweaking) this list in
       // the configuration will be a common thing to do so for now we use
       // omitted. It's also probably too early to think whether we should have
       // the cc.* version and what the semantics should be.
       //
-      if (x_header_units != nullptr)
+      if (x_importable_headers != nullptr)
       {
-        lookup l (config::omitted (rs, *config_x_header_units).first);
+        lookup l (config::omitted (rs, *config_x_importable_headers).first);
 
         // @@ MODHDR: if(modules) ?
         //
-        rs.assign (x_header_units) += cast_null<strings> (l);
+        rs.assign (x_importable_headers) += cast_null<strings> (l);
       }
 
       // Load cc.core.config.
@@ -503,20 +503,20 @@ namespace build2
       if (!cast_false<bool> (rs["cc.core.loaded"]))
         load_module (rs, rs, "cc.core", loc);
 
-      // Process, sort, and cache (in this->hdr_units) the header units list.
+      // Process, sort, and cache (in this->import_hdr) importable headers.
       // Keep the cache NULL if unused or empty.
       //
       // @@ MODHDR TODO: translate <> to absolute paths.
       // @@ MODHDR TODO: support exclusions entries (e.g., -<stdio.h>)?
       //
-      if (modules && x_header_units != nullptr)
+      if (modules && x_importable_headers != nullptr)
       {
-        strings* v (cast_null<strings> (rs.assign (x_header_units)));
+        strings* v (cast_null<strings> (rs.assign (x_importable_headers)));
 
         if (v != nullptr && !v->empty ())
         {
           sort (v->begin (), v->end ());
-          hdr_units = v;
+          import_hdr = v;
         }
       }
 
