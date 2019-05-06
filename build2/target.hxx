@@ -154,7 +154,7 @@ namespace build2
 
     // Target group to which this target belongs, if any. Note that we assume
     // that the group and all its members are in the same scope (for example,
-    // in variable lookup). We also don't support nested groups (with a small
+    // in variable lookup). We also don't support nested groups (with an
     // exception for ad hoc groups; see below).
     //
     // The semantics of the interaction between the group and its members and
@@ -163,24 +163,24 @@ namespace build2
     // out of member types that have no idea they are part of this group
     // (e.g., cli.cxx{}).
     //
-    // Normally, however, there are two kinds of groups: "alternatives" and
-    // "combination". In an alternatives group, normally one of the members is
-    // selected when the group is mentioned as a prerequisite with, perhaps,
-    // an exception for special rules, like aliases, where it makes more sense
-    // to treat the group as a whole. In this case we say that the rule
+    // Normally, however, there are two kinds of groups: "all" and "choice".
+    // In a choice-group, normally one of the members is selected when the
+    // group is mentioned as a prerequisite with, perhaps, an exception for
+    // special rules, like aliases, where it makes more sense to treat such
+    // group prerequisites as a whole. In this case we say that the rule
     // "semantically recognizes" the group and picks some of its members.
     //
-    // Updating an alternatives group as a whole can mean updating some subset
-    // of its members (e.g., lib{}). Or the group may not support this at all
-    // (e.g., obj{}).
+    // Updating a choice-group as a whole can mean updating some subset of its
+    // members (e.g., lib{}). Or the group may not support this at all (e.g.,
+    // obj{}).
     //
-    // In a combination group, when a group is updated, normally all members
-    // are updates (and usually with a single command), though there could be
-    // some members that are omitted, depending on the configuration (e.g., an
-    // inline file not/being generated). When a combination group is mentioned
-    // as a prerequisite, the rule is usually interested in the individual
-    // members rather than the whole group. For example, a C++ compile rule
-    // would like to "see" the ?xx{} members when it gets a cli.cxx{} group.
+    // In an all-group, when a group is updated, normally all its members are
+    // updates (and usually with a single command), though there could be some
+    // members that are omitted, depending on the configuration (e.g., an
+    // inline file not/being generated). When an all-group is mentioned as a
+    // prerequisite, the rule is usually interested in the individual members
+    // rather than the whole group. For example, a C++ compile rule would like
+    // to "see" the ?xx{} members when it gets a cli.cxx{} group.
     //
     // Which brings us to the group iteration mode. The target type contains a
     // member called see_through that indicates whether the default iteration
@@ -188,10 +188,10 @@ namespace build2
     // members or the group itself. For the iteration support itself, see the
     // *_prerequisite_members() machinery below.
     //
-    // In a combination group we usually want the state (and timestamp; see
-    // mtime()) for members to come from the group. This is achieved with the
-    // special target_state::group state. You would normally also use the
-    // group_recipe for group members.
+    // In an all-group we usually want the state (and timestamp; see mtime())
+    // for members to come from the group. This is achieved with the special
+    // target_state::group state. You would normally also use the group_recipe
+    // for group members.
     //
     // Note that the group-member link-up can happen anywhere between the
     // member creation and rule matching so reading the group before the
@@ -199,9 +199,9 @@ namespace build2
     //
     const target* group = nullptr;
 
-    // What has been described above is a "normal" group. That is, there is
-    // a dedicated target type that explicitly serves as a group and there
-    // is an explicit mechanism for discovering the group's members.
+    // What has been described above is a "explicit" group. That is, there is
+    // a dedicated target type that explicitly serves as a group and there is
+    // an explicit mechanism for discovering the group's members.
     //
     // However, sometimes, we may want to create a group on the fly out of a
     // normal target type. For example, we have the libs{} target type. But
@@ -233,11 +233,16 @@ namespace build2
     //
     // - Members don't have prerequisites.
     //
-    // - Ad hoc group cannot have sub groups (of any kind) though an ad hoc
-    //   group can be a sub group of a normal group.
+    // - Ad hoc group cannot have sub-groups (of any kind) though an ad hoc
+    //   group can be a sub-group of an explicit group.
     //
-    // - Member variable lookup skips the ad hoc group (since the group is
-    //   the first member, this is normally what we want).
+    // - Member variable lookup skips the ad hoc group (since the group is the
+    //   first member, this is normally what we want).
+    //
+    // Note that ad hoc groups can be part of explicit groups. In a sense, we
+    // have a two-level grouping: an explicit group with its members each of
+    // which can be an ad hoc group. For example, lib{} contains libs{} which
+    // may have an import stub as its ad hoc member.
     //
     // Use add_adhoc_member(), find_adhoc_member() from algorithms to manage
     // ad hoc members.
