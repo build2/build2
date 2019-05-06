@@ -93,7 +93,7 @@ namespace build2
     static pair<unit_type, module_info>
     to_module_info (const string& s)
     {
-      unit_type ut;
+      unit_type ut (unit_type::non_modular);
       module_info mi;
 
       for (size_t b (0), e (0), n (s.size ()), m; e < n; )
