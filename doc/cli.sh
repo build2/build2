@@ -62,6 +62,17 @@ done
 # Manuals.
 #
 
+function xhtml_to_ps () # <from> <to> [<html2ps-options>]
+{
+  local from="$1"
+  shift
+  local to="$1"
+  shift
+
+  sed -e 's/├/|/g' -e 's/│/|/g' -e 's/─/-/g' -e 's/└/`/g' "$from" | \
+  html2ps "${@}" -o "$to"
+}
+
 function compile_doc () # <file> <prefix> <suffix>
 {
   cli -I .. \
@@ -81,10 +92,10 @@ function compile_doc () # <file> <prefix> <suffix>
 
   local n="$2$(basename -s .cli $1)$3"
 
-  html2ps -f doc.html2ps:a4.html2ps -o "$n-a4.ps" "$n.xhtml"
+  xhtml_to_ps "$n.xhtml" "$n-a4.ps" -f doc.html2ps:a4.html2ps
   ps2pdf14 -sPAPERSIZE=a4 -dOptimize=true -dEmbedAllFonts=true "$n-a4.ps" "$n-a4.pdf"
 
-  html2ps -f doc.html2ps:letter.html2ps -o "$n-letter.ps" "$n.xhtml"
+  xhtml_to_ps "$n.xhtml" "$n-letter.ps" -f doc.html2ps:letter.html2ps
   ps2pdf14 -sPAPERSIZE=letter -dOptimize=true -dEmbedAllFonts=true "$n-letter.ps" "$n-letter.pdf"
 }
 
