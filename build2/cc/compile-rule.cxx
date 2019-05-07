@@ -74,16 +74,16 @@ namespace build2
         s += (ut == unit_type::module_impl ? '+' : '!');
       }
 
-      for (const module_import& mi: mi.imports)
+      for (const module_import& i: mi.imports)
       {
         if (!s.empty ())
           s += ' ';
 
-        if (mi.type == unit_type::module_header) s += '"';
-        s += mi.name;
-        if (mi.type == unit_type::module_header) s += '"';
+        if (i.type == unit_type::module_header) s += '"';
+        s += i.name;
+        if (i.type == unit_type::module_header) s += '"';
 
-        if (mi.exported)
+        if (i.exported)
           s += '*';
       }
 

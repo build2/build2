@@ -21,7 +21,7 @@ namespace build2
       lexer l (is, name);
       l_ = &l;
 
-      unit u {unit_type::non_modular, {}};
+      unit u;
       u_ = &u;
 
       // If the source has errors then we want the compiler to issues the
