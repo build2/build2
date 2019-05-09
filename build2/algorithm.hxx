@@ -184,6 +184,8 @@ namespace build2
   // existing member of this target type is the same. Return the locked member
   // target.
   //
+  // @@ Maybe the same type and name?
+  //
   target_lock
   add_adhoc_member (action,
                     target&,

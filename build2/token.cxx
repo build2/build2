@@ -36,6 +36,9 @@ namespace build2
     case token_type::lsbrace:        os << q << '['  << q; break;
     case token_type::rsbrace:        os << q << ']'  << q; break;
 
+    case token_type::labrace:        os << q << '<'  << q; break;
+    case token_type::rabrace:        os << q << '>'  << q; break;
+
     case token_type::assign:         os << q << '='  << q; break;
     case token_type::prepend:        os << q << "=+" << q; break;
     case token_type::append:         os << q << "+=" << q; break;

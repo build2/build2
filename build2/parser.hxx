@@ -78,10 +78,28 @@ namespace build2
     void
     parse_variable_block (token&, token_type&, const target_type*, string);
 
+    // Ad hoc target names inside < ... >.
+    //
+    struct adhoc_names_loc
+    {
+      names ns;
+      location loc;
+    };
+
+    using adhoc_names = small_vector<adhoc_names_loc, 1>;
+
     void
+    enter_adhoc_members (adhoc_names_loc&&, bool);
+
+    small_vector<reference_wrapper<target>, 1>
+    enter_targets (names&&, const location&, adhoc_names&&, size_t);
+
+    bool
     parse_dependency (token&, token_type&,
                       names&&, const location&,
-                      names&&, const location&);
+                      adhoc_names&&,
+                      names&&, const location&,
+                      bool = false);
 
     void
     parse_assert (token&, token_type&);
@@ -189,11 +207,11 @@ namespace build2
     };
 
     // Push a new entry into the attributes_ stack. If the next token is '['
-    // parse the attribute sequence until ']' setting the 'has' flag and
-    // storing the result on the stack. Then get the next token and, if
-    // standalone is false, verify it is not newline/eos (i.e., there is
-    // something after it). Return the indication of whether there are
-    // any attributes and their location.
+    // parse the attribute sequence until ']' storing the result in the new
+    // stack entry and setting the 'has' flag (unless the attribute list is
+    // empty). Then get the next token and, if standalone is false, verify
+    // it is not newline/eos (i.e., there is something after it). Return the
+    // indication of whether there are any attributes and their location.
     //
     // Note that during pre-parsing nothing is pushed into the stack and
     // the returned attributes object indicates there are no attributes.
@@ -257,6 +275,14 @@ namespace build2
                    nullopt, nullptr, nullptr);
       return ns;
     }
+
+    // Return true if this token starts a name. Or, to put it another way,
+    // calling parse_names() on this token won't fail with the "expected name
+    // instead of <this-token>" error. Only consider '(' if the second
+    // argument is true.
+    //
+    bool
+    start_names (token_type&, bool lparen = true);
 
     // As above but return the result as a value, which can be typed and NULL.
     //
@@ -421,6 +447,14 @@ namespace build2
 
     token_type
     next (token&, token_type&);
+
+    // If the current token is newline, then get the next token. Otherwise,
+    // fail unless the current token is eos (i.e., optional newline at the end
+    // of stream). If the after argument is not \0, use it in diagnostics as
+    // the token after which the newline was expectd.
+    //
+    token_type
+    next_after_newline (token&, token_type&, char after = '\0');
 
     // Be careful with peeking and switching the lexer mode. See keyword()
     // for more information.

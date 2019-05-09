@@ -43,6 +43,9 @@ namespace build2
       lsbrace,         // [
       rsbrace,         // ]
 
+      labrace,         // <
+      rabrace,         // >
+
       assign,          // =
       prepend,         // =+
       append,          // +=

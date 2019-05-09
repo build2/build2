@@ -380,7 +380,7 @@ namespace build2
       // (which are not executed). Plus, group action means real recipe is in
       // the group so this also feels right conceptually.
       //
-      // We also avoid increment this count twice for the same target if we
+      // We also avoid incrementing this count twice for the same target if we
       // have both the inner and outer operations. In our model the outer
       // operation is either noop or it must delegate to the inner. While it's
       // possible the inner is noop while the outer is not, it is not very

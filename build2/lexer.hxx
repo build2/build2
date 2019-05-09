@@ -23,7 +23,7 @@ namespace build2
   // restrict certain character (e.g., '/') from appearing in the name. The
   // attribute mode is like value except it doesn't treat '{' and '}' as
   // special (so we cannot have name groups in attributes). The eval mode is
-  // used in the evaluation context. Quoted are internal modes and should not
+  // used in the evaluation context. Quoted modes are internal and should not
   // be set explicitly.
   //
   // Note that the normal, value, and eval modes split words separated by the
@@ -124,9 +124,9 @@ namespace build2
       lexer_mode mode;
 
       char sep_pair;
-      bool sep_space;   // Are whitespaces separators (see skip_spaces())?
-      bool sep_newline; // Is newline special (see skip_spaces())?
-      bool quotes;    // Recognize quoted fragments.
+      bool sep_space;    // Are whitespaces separators (see skip_spaces())?
+      bool sep_newline;  // Is newline special (see skip_spaces())?
+      bool quotes;       // Recognize quoted fragments.
 
       const char* escapes; // Effective escape sequences to recognize.
 

@@ -39,8 +39,8 @@ namespace build2
     {
     case lexer_mode::normal:
       {
-        s1 = ":=+ $(){}[]#\t\n";
-        s2 = "  =           ";
+        s1 = ":<>=+ $(){}[]#\t\n";
+        s2 = "    =           ";
         break;
       }
     case lexer_mode::value:
@@ -205,10 +205,25 @@ namespace build2
       }
     }
 
+    // The following characters are special in the normal mode.
+    //
+    if (m == lexer_mode::normal)
+    {
+      // NOTE: remember to update mode() if adding new special characters.
+      //
+      switch (c)
+      {
+      case '<': return make_token (type::labrace);
+      case '>': return make_token (type::rabrace);
+      }
+    }
+
     // The following characters are special in the buildspec mode.
     //
     if (m == lexer_mode::buildspec)
     {
+      // NOTE: remember to update mode() if adding new special characters.
+      //
       switch (c)
       {
       case ',': return make_token (type::comma);

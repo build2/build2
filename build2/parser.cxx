@@ -116,18 +116,31 @@ namespace build2
                   tracer& tr)
         : p_ (&p), t_ (p.target_)
     {
-      // Find or insert.
-      //
-      auto r (process_target (p, n, o, loc));
-      p.target_ = &targets.insert (*r.first,        // target type
-                                   move (n.dir),
-                                   move (o.dir),
-                                   move (n.value),
-                                   move (r.second), // extension
-                                   implied,
-                                   tr).first;
+      p.target_ = &insert_target (p, move (n), move (o), implied, loc, tr);
     }
 
+    // Find or insert.
+    //
+    static target&
+    insert_target (parser& p,
+                   name&& n,  // If n.pair, then o is out dir.
+                   name&& o,
+                   bool implied,
+                   const location& loc,
+                   tracer& tr)
+    {
+      auto r (process_target (p, n, o, loc));
+      return targets.insert (*r.first,        // target type
+                             move (n.dir),
+                             move (o.dir),
+                             move (n.value),
+                             move (r.second), // extension
+                             implied,
+                             tr).first;
+    }
+
+    // Only find.
+    //
     static const target*
     find_target (parser& p,
                  name& n,  // If n.pair, then o is out dir.
@@ -161,7 +174,7 @@ namespace build2
         assert (n.pair == '@');
 
         if (!o.directory ())
-          p.fail (loc) << "expected directory after @";
+          p.fail (loc) << "expected directory after '@'";
       }
 
       dir_path& d (n.dir);
@@ -309,6 +322,14 @@ namespace build2
     return make_pair (move (lhs), move (t));
   }
 
+  // Test if a string is a wildcard pattern.
+  //
+  static inline bool
+  pattern (const string& s)
+  {
+    return s.find_first_of ("*?") != string::npos;
+  };
+
   bool parser::
   parse_clause (token& t, type& tt, bool one)
   {
@@ -317,7 +338,7 @@ namespace build2
     // clause() should always stop at a token that is at the beginning of
     // the line (except for eof). That is, if something is called to parse
     // a line, it should parse it until newline (or fail). This is important
-    // for if-else blocks, directory scopes, etc., that assume the } token
+    // for if-else blocks, directory scopes, etc., that assume the '}' token
     // they see is on the new line.
     //
     bool parsed (false);
@@ -329,13 +350,9 @@ namespace build2
       assert (attributes_.empty ());
       auto at (attributes_push (t, tt));
 
-      // We always start with one or more names.
+      // We should always start with one or more names.
       //
-      if (tt != type::word    &&
-          tt != type::lcbrace && // Untyped name group: '{foo ...'
-          tt != type::dollar  && // Variable expansion: '$foo ...'
-          tt != type::lparen  && // Eval context: '(foo) ...'
-          tt != type::colon)     // Empty name: ': ...'
+      if (!start_names (tt))
       {
         // Something else. Let our caller handle that.
         //
@@ -457,12 +474,49 @@ namespace build2
         continue;
       }
 
-      // Check if a string is a wildcard pattern.
+      // Handle ad hoc target group specification.
       //
-      auto pattern = [] (const string& s)
+      // We keep an "optional" (empty) vector of names parallel to ns.
+      //
+      adhoc_names ans;
+      if (tt == type::labrace)
       {
-        return s.find_first_of ("*?") != string::npos;
-      };
+        if (ns.empty ())
+          fail (t) << "expected target before '<'";
+
+        while (tt == type::labrace)
+        {
+          ans.resize (ns.size ()); // Catch up with the target names vector.
+
+          // Parse ad hoc target names inside < >.
+          //
+          next (t, tt);
+
+          auto at (attributes_push (t, tt));
+
+          if (at.first)
+            fail (at.second) << "attributes before ad hoc target";
+          else
+            attributes_pop ();
+
+          ans.back ().loc = get_location (t);
+          parse_names (t, tt, ans.back ().ns, pattern_mode::ignore);
+
+          if (tt != type::rabrace)
+            fail (t) << "expected '>' instead of " << t;
+
+          // Parse the next chunk of target names after >, if any.
+          //
+          next (t, tt);
+          if (start_names (tt))
+            parse_names (t, tt, ns, pattern_mode::ignore);
+        }
+
+        if (tt != type::colon)
+          fail (t) << "expected ':' instead of " << t;
+
+        ans.resize (ns.size ()); // Final chunk.
+      }
 
       // If we have a colon, then this is target-related.
       //
@@ -472,28 +526,33 @@ namespace build2
         // means empty list.
         //
         if (ns.empty ())
-          fail (t) << "expected target before :";
+          fail (t) << "expected target before ':'";
+
+        if (at.first)
+          fail (at.second) << "attributes before target";
+        else
+          attributes_pop ();
 
         // Call the specified parsing function (either variable or block) for
-        // each target. We handle multiple targets by replaying the tokens.
+        // each target. We handle multiple targets by replaying the tokens
         // since the value/block may contain variable expansions that would be
         // sensitive to the target context in which they are evaluated. The
         // function signature is:
         //
         // void (token& t, type& tt, const target_type* type, string pat)
         //
-        auto for_each = [this, &trace, &pattern,
+        auto for_each = [this, &trace,
                          &t, &tt,
-                         &ns, &nloc] (auto&& f)
+                         &ns, &nloc, &ans] (auto&& f)
         {
           // Note: watch out for an out-qualified single target (two names).
           //
           replay_guard rg (*this,
                            ns.size () > 2 || (ns.size () == 2 && !ns[0].pair));
 
-          for (auto i (ns.begin ()), e (ns.end ()); i != e; )
+          for (size_t i (0), e (ns.size ()); i != e; )
           {
-            name& n (*i);
+            name& n (ns[i]);
 
             if (n.qualified ())
               fail (nloc) << "project name in target " << n;
@@ -504,8 +563,10 @@ namespace build2
             if (pattern (n.value))
             {
               if (n.pair)
-                fail (nloc) << "out-qualified target type/pattern-specific "
-                            << "variable";
+                fail (nloc) << "out-qualified target type/pattern";
+
+              if (!ans.empty () && !ans[i].ns.empty ())
+                fail (ans[i].loc) << "ad hoc member in target type/pattern";
 
               // If we have the directory, then it is the scope.
               //
@@ -532,13 +593,22 @@ namespace build2
             }
             else
             {
-              name o (n.pair ? move (*++i) : name ());
+              name o (n.pair ? move (ns[++i]) : name ());
               enter_target tg (*this,
                                move (n),
                                move (o),
                                true /* implied */,
                                nloc,
                                trace);
+
+              // Enter ad hoc members.
+              //
+              if (!ans.empty ())
+              {
+                // Note: index after the pair increment.
+                //
+                enter_adhoc_members (move (ans[i]), true /* implied */);
+              }
 
               f (t, tt, nullptr, string ());
             }
@@ -548,24 +618,16 @@ namespace build2
           }
         };
 
-        next (t, tt);
-        if (tt == type::newline)
+        if (next (t, tt) == type::newline)
         {
           // See if this is a target block.
           //
-          if (peek () == type::lcbrace)
+          // Note that we cannot just let parse_dependency() handle this case
+          // because we can have (a mixture of) target type/patterns.
+          //
+          if (next (t, tt) == type::lcbrace && peek () == type::newline)
           {
-            next (t, tt);
-
-            // Should be on its own line.
-            //
-            if (next (t, tt) != type::newline)
-              fail (t) << "expected newline after {";
-
-            if (at.first)
-              fail (at.second) << "attributes before target block";
-            else
-              attributes_pop ();
+            next (t, tt); // Newline.
 
             // Parse the block for each target.
             //
@@ -577,114 +639,92 @@ namespace build2
                         parse_variable_block (t, tt, type, move (pat));
 
                         if (tt != type::rcbrace)
-                          fail (t) << "expected } instead of " << t;
+                          fail (t) << "expected '}' instead of " << t;
                       });
 
-            // Should be on its own line.
+            next (t, tt);                    // Presumably newline after '}'.
+            next_after_newline (t, tt, '}'); // Should be on its own line.
+          }
+          else
+          {
+            // If not followed by a block, then it's a target without any
+            // prerequisites. We, however, cannot just fall through to the
+            // parse_dependency() call because we have already seen the next
+            // token.
             //
-            if (next (t, tt) == type::newline)
-              next (t, tt);
-            else if (tt != type::eos)
-              fail (t) << "expected newline after }";
-
-            continue;
+            // Note also that we treat this as an explicit dependency
+            // declaration (i.e., not implied).
+            //
+            enter_targets (move (ns), nloc, move (ans), 0);
           }
 
-          // If this is not a block, then it is a target without any
-          // prerequisites. Fall through.
+          continue;
         }
 
         // Target-specific variable assignment or dependency declaration,
         // including a dependency chain and/or prerequisite-specific variable
         // assignment.
         //
-        if (at.first)
-          fail (at.second) << "attributes before target";
-        else
-          attributes_pop ();
-
         auto at (attributes_push (t, tt));
 
-        if (tt == type::word    ||
-            tt == type::lcbrace ||
-            tt == type::dollar  ||
-            tt == type::lparen  ||
-            tt == type::newline ||
-            tt == type::eos)
-        {
-          // @@ PAT: currently we pattern-expand target-specific vars.
-          //
-          const location ploc (get_location (t));
-          names pns (tt != type::newline && tt != type::eos
-                     ? parse_names (t, tt, pattern_mode::expand)
-                     : names ());
-
-          // Target-specific variable assignment.
-          //
-          if (tt == type::assign || tt == type::prepend || tt == type::append)
-          {
-            type akind (tt);
-            const location aloc (get_location (t));
-
-            const variable& var (parse_variable_name (move (pns), ploc));
-            apply_variable_attributes (var);
-
-            if (var.visibility > variable_visibility::target)
-            {
-              fail (nloc) << "variable " << var << " has " << var.visibility
-                          << " visibility but is assigned on a target";
-            }
-
-            // Parse the assignment for each target.
-            //
-            for_each ([this, &var, akind, &aloc] (token& t, type& tt,
-                                                  const target_type* type,
-                                                  string pat)
-                      {
-                        if (type == nullptr)
-                          parse_variable (t, tt, var, akind);
-                        else
-                          parse_type_pattern_variable (t, tt,
-                                                       *type, move (pat),
-                                                       var, akind, aloc);
-                      });
-          }
-          // Dependency declaration potentially followed by a chain and/or
-          // a prerequisite-specific variable assignment.
-          //
-          else
-          {
-            if (at.first)
-              fail (at.second) << "attributes before prerequisites";
-            else
-              attributes_pop ();
-
-            // Make sure none of our targets are patterns (maybe we will allow
-            // quoting later).
-            //
-            for (const name& n: ns)
-            {
-              if (pattern (n.value))
-                fail (nloc) << "pattern in target " << n;
-            }
-
-            parse_dependency (t, tt, move (ns), nloc, move (pns), ploc);
-          }
-
-          if (tt == type::newline)
-            next (t, tt);
-          else if (tt != type::eos)
-            fail (t) << "expected newline instead of " << t;
-
-          continue;
-        }
-        else
+        if (!start_names (tt))
           fail (t) << "unexpected " << t;
 
-        if (tt == type::eos)
-          continue;
+        // @@ PAT: currently we pattern-expand target-specific vars.
+        //
+        const location ploc (get_location (t));
+        names pns (parse_names (t, tt, pattern_mode::expand));
 
-        fail (t) << "expected newline instead of " << t;
+        // Target-specific variable assignment.
+        //
+        if (tt == type::assign || tt == type::prepend || tt == type::append)
+        {
+          type akind (tt);
+          const location aloc (get_location (t));
+
+          const variable& var (parse_variable_name (move (pns), ploc));
+          apply_variable_attributes (var);
+
+          if (var.visibility > variable_visibility::target)
+          {
+            fail (nloc) << "variable " << var << " has " << var.visibility
+                        << " visibility but is assigned on a target";
+          }
+
+          // Parse the assignment for each target.
+          //
+          for_each ([this, &var, akind, &aloc] (token& t, type& tt,
+                                                const target_type* type,
+                                                string pat)
+                    {
+                      if (type == nullptr)
+                        parse_variable (t, tt, var, akind);
+                      else
+                        parse_type_pattern_variable (t, tt,
+                                                     *type, move (pat),
+                                                     var, akind, aloc);
+                    });
+
+          next_after_newline (t, tt);
+        }
+        // Dependency declaration potentially followed by a chain and/or a
+        // prerequisite-specific variable assignment/block.
+        //
+        else
+        {
+          if (at.first)
+            fail (at.second) << "attributes before prerequisites";
+          else
+            attributes_pop ();
+
+          bool r (parse_dependency (t, tt,
+                                    move (ns), nloc,
+                                    move (ans),
+                                    move (pns), ploc));
+          assert (r); // Block must have been claimed.
+        }
+
+        continue;
       }
 
       // Variable assignment.
@@ -765,11 +805,7 @@ namespace build2
             parse_variable (t, tt, var, tt);
           }
 
-          if (tt == type::newline)
-            next (t, tt);
-          else if (tt != type::eos)
-            fail (t) << "expected newline instead of " << t;
-
+          next_after_newline (t, tt);
           continue;
         }
 
@@ -778,59 +814,50 @@ namespace build2
 
       // See if this is a directory scope.
       //
-      if (tt == type::newline && peek () == type::lcbrace)
+      // Note: must be last since we are going to get the next token.
+      //
+      if (ns.size () == 1 && ns[0].directory () && tt == type::newline)
       {
-        if (ns.size () != 1)
-          fail (nloc) << "multiple scope directories";
+        token ot (t);
 
-        name& n (ns[0]);
-
-        if (!n.directory ())
-          fail (nloc) << "expected scope directory";
-
-        dir_path& d (n.dir);
-
-        // Make sure not a pattern (see also the target and directory cases
-        // above).
-        //
-        if (pattern (d.string ()))
-          fail (nloc) << "pattern in directory " << d.representation ();
-
-        next (t, tt);
-
-        // Should be on its own line.
-        //
-        if (next (t, tt) != type::newline)
-          fail (t) << "expected newline after {";
-
-        next (t, tt);
-
-        if (at.first)
-          fail (at.second) << "attributes before scope directory";
-        else
-          attributes_pop ();
-
-        // Can contain anything that a top level can.
-        //
+        if (next (t, tt) == type::lcbrace && peek () == type::newline)
         {
-          enter_scope sg (*this, move (d));
-          parse_clause (t, tt);
+          dir_path&& d (move (ns[0].dir));
+
+          // Make sure not a pattern (see also the target and directory cases
+          // above).
+          //
+          if (pattern (d.string ()))
+            fail (nloc) << "pattern in directory " << d.representation ();
+
+          next (t, tt); // Newline.
+          next (t, tt); // First token inside the block.
+
+          if (at.first)
+            fail (at.second) << "attributes before scope directory";
+          else
+            attributes_pop ();
+
+          // Can contain anything that a top level can.
+          //
+          {
+            enter_scope sg (*this, move (d));
+            parse_clause (t, tt);
+          }
+
+          if (tt != type::rcbrace)
+            fail (t) << "expected '}' instead of " << t;
+
+          next (t, tt);                    // Presumably newline after '}'.
+          next_after_newline (t, tt, '}'); // Should be on its own line.
+          continue;
         }
 
-        if (tt != type::rcbrace)
-          fail (t) << "expected } instead of " << t;
-
-        // Should be on its own line.
-        //
-        if (next (t, tt) == type::newline)
-          next (t, tt);
-        else if (tt != type::eos)
-          fail (t) << "expected newline after }";
-
-        continue;
+        t = ot;
+        // Fall through to fail.
       }
 
-      fail (t) << "unexpected " << t;
+      fail (t) << "unexpected " << t << " after " << ns;
     }
 
     return parsed;
@@ -891,39 +918,157 @@ namespace build2
   }
 
   void parser::
-  parse_dependency (token& t, token_type& tt,
-                    names&& tns, const location& tloc, // Target names.
-                    names&& pns, const location& ploc) // Prereq names.
+  enter_adhoc_members (adhoc_names_loc&& ans, bool implied)
   {
-    // Parse a dependency chain and/or a prerequisite-specific variable
-    // assignment.
-    //
-    // enter: colon (anything else is not handled)
-    // leave: newline
-    //
-    tracer trace ("parser::parse_dependency", &path_);
+    tracer trace ("parser::enter_adhoc_members", &path_);
 
-    // First enter all the targets (normally we will have just one).
+    names& ns (ans.ns);
+    const location& loc (ans.loc);
+
+    for (size_t i (0); i != ns.size (); ++i)
+    {
+      name&& n (move (ns[i]));
+      name&& o (n.pair ? move (ns[++i]) : name ());
+
+      if (n.qualified ())
+        fail (loc) << "project name in target " << n;
+
+      target& at (
+        enter_target::insert_target (*this,
+                                     move (n), move (o),
+                                     implied,
+                                     loc, trace));
+
+      if (target_ == &at)
+        fail (loc) << "ad hoc group member " << at << " is primary target";
+
+      // Add as an ad hoc member at the end of the chain skipping duplicates.
+      //
+      {
+        const_ptr<target>* mp (&target_->member);
+        for (; *mp != nullptr; mp = &(*mp)->member)
+        {
+          if (*mp == &at)
+          {
+            mp = nullptr;
+            break;
+          }
+        }
+
+        if (mp != nullptr)
+        {
+          *mp = &at;
+          at.group = target_;
+        }
+        else
+          continue; // Duplicate.
+      }
+
+      if (file* ft = at.is_a<file> ())
+        ft->derive_path ();
+
+      // Pre-match this target. Feels fuzzy/hacky.
+      //
+      // See match_recipe() and set_recipe() that it calls for the
+      // approximate semantics we want to achieve.
+      //
+      // @@ Can such a target be used as a prerequisite? Feels like
+      //    will require a "permanenly applied" task_count value? Maybe
+      //    special "adhoc" value?
+      //
+      {
+        auto& i (at.state.data[0]); // inner opstate
+        auto& o (at.state.data[1]); // outer opstate
+
+        i.rule   = o.rule   = nullptr;
+        i.recipe = o.recipe = group_recipe;
+        i.state  = o.state  = target_state::group;
+      }
+    }
+  }
+
+  small_vector<reference_wrapper<target>, 1> parser::
+  enter_targets (names&& tns, const location& tloc, // Target names.
+                 adhoc_names&& ans,                 // Ad hoc target names.
+                 size_t prereq_size)
+  {
+    // Enter all the targets (normally we will have just one) and their ad hoc
+    // groups.
     //
+    tracer trace ("parser::enter_targets", &path_);
+
     small_vector<reference_wrapper<target>, 1> tgs;
 
-    for (auto i (tns.begin ()), e (tns.end ()); i != e; ++i)
+    for (size_t i (0); i != tns.size (); ++i)
     {
-      name& n (*i);
+      name&& n (move (tns[i]));
+      name&& o (n.pair ? move (tns[++i]) : name ());
 
       if (n.qualified ())
         fail (tloc) << "project name in target " << n;
 
-      name o (n.pair ? move (*++i) : name ());
-      enter_target tg (*this, move (n), move (o), false, tloc, trace);
+      // Make sure none of our targets are patterns (maybe we will allow
+      // quoting later).
+      //
+      if (pattern (n.value))
+        fail (tloc) << "pattern in target " << n;
+
+      enter_target tg (*this,
+                       move (n), move (o),
+                       false /* implied */,
+                       tloc, trace);
+
+      // Enter ad hoc members.
+      //
+      if (!ans.empty ())
+      {
+        // Note: index after the pair increment.
+        //
+        enter_adhoc_members (move (ans[i]), false /* implied */);
+      }
 
       if (default_target_ == nullptr)
         default_target_ = target_;
 
       target_->prerequisites_state_.store (2, memory_order_relaxed);
-      target_->prerequisites_.reserve (pns.size ());
+      target_->prerequisites_.reserve (prereq_size);
       tgs.push_back (*target_);
     }
+
+    return tgs;
+  }
+
+  bool parser::
+  parse_dependency (token& t, token_type& tt,
+                    names&& tns, const location& tloc, // Target names.
+                    adhoc_names&& ans,                 // Ad hoc target names.
+                    names&& pns, const location& ploc, // Prereq names.
+                    bool chain)
+  {
+    // Parse a dependency chain and/or a target/prerequisite-specific variable
+    // assignment/block. Return true if the following block (if any) has been
+    // "claimed" (the block "belongs" to targets/prerequisites before the last
+    // colon).
+    //
+    // enter: colon (anything else is not handled)
+    // leave: - first token on the next line           if returning true
+    //        - newline (presumably, must be verified) if returning false
+    //
+    // Note that top-level call (with chain == false) is expected to always
+    // return true.
+    //
+    // This dual-return "complication" is necessary to handle non-block cases
+    // like this:
+    //
+    // foo: bar
+    // {hxx ixx}: install = true
+    //
+    tracer trace ("parser::parse_dependency", &path_);
+
+    // First enter all the targets.
+    //
+    small_vector<reference_wrapper<target>, 1> tgs (
+      enter_targets (move (tns), tloc, move (ans), pns.size ()));
 
     // Now enter each prerequisite into each target.
     //
@@ -974,31 +1119,32 @@ namespace build2
       }
     }
 
-    // Do we have a dependency chain and/or prerequisite-specific variable
-    // assignment?
+    // Call the specified parsing function (either variable or block) for each
+    // target in tgs (for_each_t) or for the last pns.size() prerequisites of
+    // each target (for_each_p).
     //
-    if (tt != type::colon)
-      return;
-
-    // What should we do if there are no prerequisites (for example, because
-    // of an empty wildcard result)? We can fail or we can ignore. In most
-    // cases, however, this is probably an error (for example, forgetting to
-    // checkout a git submodule) so let's not confuse the user and fail (one
-    // can always handle the optional prerequisites case with a variable and
-    // an if).
-    //
-    if (pns.empty ())
-      fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
-                  << "specific variable assignment";
-
-    // Call the specified parsing function (either variable or block) for the
-    // last pns.size() prerequisites of each target. We handle multiple
-    // targets and/or prerequisites by replaying the tokens (see the target-
-    // specific case above for details). The function signature is:
+    // We handle multiple targets and/or prerequisites by replaying the tokens
+    // (see the target-specific case for details). The function signature is:
     //
     // void (token& t, type& tt)
     //
-    auto for_each = [this, &t, &tt, &tgs, &pns] (auto&& f)
+    auto for_each_t = [this, &t, &tt, &tgs] (auto&& f)
+    {
+      replay_guard rg (*this, tgs.size () > 1);
+
+      for (auto ti (tgs.begin ()), te (tgs.end ()); ti != te; )
+      {
+        target& tg (*ti);
+        enter_target tgg (*this, tg);
+
+        f (t, tt);
+
+        if (++ti != te)
+          rg.play (); // Replay.
+      }
+    };
+
+    auto for_each_p = [this, &t, &tt, &tgs, &pns] (auto&& f)
     {
       replay_guard rg (*this, tgs.size () > 1 || pns.size () > 1);
 
@@ -1023,40 +1169,54 @@ namespace build2
       }
     };
 
+    // Do we have a dependency chain and/or prerequisite-specific variable
+    // assignment? If not, check for the target-specific variable block unless
+    // this is a chained call (in which case the block, if any, "belongs" to
+    // prerequisites).
+    //
+    if (tt != type::colon)
+    {
+      if (chain)
+        return false;
+
+      next_after_newline (t, tt); // Must be a newline then.
+
+      if (tt == type::lcbrace && peek () == type::newline)
+      {
+        next (t, tt); // Newline.
+
+        // Parse the block for each target.
+        //
+        for_each_t ([this] (token& t, token_type& tt)
+                    {
+                      next (t, tt); // First token inside the block.
+
+                      parse_variable_block (t, tt, nullptr, string ());
+
+                      if (tt != type::rcbrace)
+                        fail (t) << "expected '}' instead of " << t;
+                    });
+
+        next (t, tt);                    // Presumably newline after '}'.
+        next_after_newline (t, tt, '}'); // Should be on its own line.
+      }
+
+      return true; // Claimed or isn't any.
+    }
+
+    // What should we do if there are no prerequisites (for example, because
+    // of an empty wildcard result)? We can fail or we can ignore. In most
+    // cases, however, this is probably an error (for example, forgetting to
+    // checkout a git submodule) so let's not confuse the user and fail (one
+    // can always handle the optional prerequisites case with a variable and
+    // an if).
+    //
+    if (pns.empty ())
+      fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
+                  << "specific variable assignment";
+
     next (t, tt);
     auto at (attributes_push (t, tt));
-
-    // See if this is a prerequisite block.
-    //
-    if (tt == type::newline && peek () == type::lcbrace)
-    {
-      next (t, tt);
-
-      // Should be on its own line.
-      //
-      if (next (t, tt) != type::newline)
-        fail (t) << "expected newline after {";
-
-      if (at.first)
-        fail (at.second) << "attributes before prerequisite block";
-      else
-        attributes_pop ();
-
-      // Parse the block for each prerequisites of each target.
-      //
-      for_each ([this] (token& t, token_type& tt)
-                {
-                  next (t, tt); // First token of first line in the block.
-
-                  parse_variable_block (t, tt, nullptr, string ());
-
-                  if (tt != type::rcbrace)
-                    fail (t) << "expected } instead of " << t;
-                });
-
-      next (t, tt); // Presumably newline after '}'.
-      return;
-    }
 
     // @@ PAT: currently we pattern-expand prerequisite-specific vars.
     //
@@ -1076,10 +1236,22 @@ namespace build2
 
       // Parse the assignment for each prerequisites of each target.
       //
-      for_each ([this, &var, at] (token& t, token_type& tt)
+      for_each_p ([this, &var, at] (token& t, token_type& tt)
                 {
                   parse_variable (t, tt, var, at);
                 });
+
+      // Pretend that we have claimed the block to cause an error if there is
+      // one. Failed that, the following would result in a valid (target-
+      // specific) block:
+      //
+      // foo: bar: x = y
+      // {
+      //   ...
+      // }
+      //
+      next_after_newline (t, tt);
+      return true;
     }
     //
     // Dependency chain.
@@ -1097,7 +1269,46 @@ namespace build2
       // that the dependency chain is equivalent to specifying each dependency
       // separately.
       //
-      parse_dependency (t, tt, move (pns), ploc, move (ns), loc);
+      // Also note that supporting ad hoc target group specification in chains
+      // will be complicated. For example, what if prerequisites that have ad
+      // hoc targets don't end up being chained? Do we just silently drop
+      // them? Also, these are prerequsites first that happened to be reused
+      // as target names so perhaps it is the right thing not to support,
+      // conceptually.
+      //
+      if (parse_dependency (t, tt,
+                            names (pns), ploc,           // Note: can't move.
+                            {} /* ad hoc target name */,
+                            move (ns), loc,
+                            true /* chain */))
+        return true;
+
+      // Claim the block (if any) for these prerequisites if it hasn't been
+      // claimed by the inner ones.
+      //
+      next_after_newline (t, tt); // Must be a newline.
+
+      if (tt == type::lcbrace && peek () == type::newline)
+      {
+        next (t, tt); // Newline.
+
+        // Parse the block for each prerequisites of each target.
+        //
+        for_each_p ([this] (token& t, token_type& tt)
+                    {
+                      next (t, tt); // First token inside the block.
+
+                      parse_variable_block (t, tt, nullptr, string ());
+
+                      if (tt != type::rcbrace)
+                        fail (t) << "expected '}' instead of " << t;
+                    });
+
+        next (t, tt);                    // Presumably newline after '}'.
+        next_after_newline (t, tt, '}'); // Should be on its own line.
+      }
+
+      return true; // Claimed or isn't any.
     }
   }
 
@@ -1199,10 +1410,7 @@ namespace build2
       }
     }
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1251,7 +1459,7 @@ namespace build2
         // This shouldn't happen but let's make sure.
         //
         if (root_->root_extra == nullptr)
-          fail (l) << "build file naming scheme is not yet known";
+          fail (l) << "buildfile naming scheme is not yet known";
 
         p /= root_->root_extra->buildfile_file;
       }
@@ -1332,10 +1540,7 @@ namespace build2
       root_ = ors;
     }
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1428,10 +1633,7 @@ namespace build2
     if (bad)
       fail (l) << "error reading " << args[0] << " output";
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1591,10 +1793,7 @@ namespace build2
       }
     }
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1640,10 +1839,7 @@ namespace build2
     if (export_value_.empty ())
       fail (l) << "empty value in export";
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1717,10 +1913,7 @@ namespace build2
       }
     }
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1762,10 +1955,7 @@ namespace build2
       fail (t) << "expected name instead of " << t << " in target type "
                << "definition";
 
-    if (tt == type::newline)
-      next (t, tt);
-    else if (tt != type::eos)
-      fail (t) << "expected newline instead of " << t;
+    next_after_newline (t, tt);
   }
 
   void parser::
@@ -1850,15 +2040,11 @@ namespace build2
           skip_block (t, tt);
 
         if (tt != type::rcbrace)
-          fail (t) << "expected } instead of " << t << " at the end of " << k
+          fail (t) << "expected '}' instead of " << t << " at the end of " << k
                    << "-block";
 
-        next (t, tt);
-
-        if (tt == type::newline)
-          next (t, tt);
-        else if (tt != type::eos)
-          fail (t) << "expected newline after }";
+        next (t, tt);                    // Presumably newline after '}'.
+        next_after_newline (t, tt, '}'); // Should be on its own line.
       }
       else
       {
@@ -1973,14 +2159,11 @@ namespace build2
       sg.stop ();
 
       if (tt != type::rcbrace)
-        fail (t) << "expected } instead of " << t << " at the end of for-block";
+        fail (t) << "expected '}' instead of " << t << " at the end of "
+                 << "for-block";
 
-      next (t, tt);
-
-      if (tt == type::newline)
-        next (t, tt);
-      else if (tt != type::eos)
-        fail (t) << "expected newline after }";
+      next (t, tt);                    // Presumably newline after '}'.
+      next_after_newline (t, tt, '}'); // Should be on its own line.
     }
     else
     {
@@ -2956,7 +3139,8 @@ namespace build2
     mode (lexer_mode::attribute, '=');
     next (t, tt);
 
-    if (tt != type::rsbrace)
+    has = (tt != type::rsbrace);
+    if (has)
     {
       names ns (
         parse_names (
@@ -3007,7 +3191,7 @@ namespace build2
     if (!standalone && (tt == type::newline || tt == type::eos))
       fail (t) << "standalone attributes";
 
-    return make_pair (true, l);
+    return make_pair (has, l);
   }
 
   // Splice names from the name view into the destination name list while
@@ -3631,6 +3815,16 @@ namespace build2
     return ns.size () - start;
   }
 
+  bool parser::
+  start_names (type& tt, bool lp)
+  {
+    return (tt == type::word           ||
+            tt == type::lcbrace        ||  // Untyped name group: '{foo ...'.
+            tt == type::dollar         ||  // Variable expansion: '$foo ...'.
+            (tt == type::lparen && lp) ||  // Eval context: '(foo) ...'.
+            tt == type::pair_separator);   // Empty pair LHS: '@foo ...'.
+  }
+
   // Slashe(s) plus '%'. Note that here we assume '/' is there since that's
   // in our buildfile "syntax".
   //
@@ -3842,12 +4036,7 @@ namespace build2
         const token& t (peeked ());
         type tt (t.type);
 
-        return ((chunk && t.separated) ||
-                (tt != type::word    &&
-                 tt != type::dollar  &&
-                 tt != type::lparen  &&
-                 tt != type::lcbrace &&
-                 tt != type::pair_separator));
+        return ((chunk && t.separated) || !start_names (tt));
       };
 
       // Return true if the next token (which should be peeked at) won't be
@@ -4857,11 +5046,7 @@ namespace build2
       // We always start with one or more names. Eval context (lparen) only
       // allowed if quoted.
       //
-      if (tt != type::word    &&
-          tt != type::lcbrace &&      // Untyped name group: '{foo ...'
-          tt != type::dollar  &&      // Variable expansion: '$foo ...'
-          !(tt == type::lparen && mode () == lexer_mode::double_quoted) &&
-          tt != type::pair_separator) // Empty pair LHS: '@foo ...'
+      if (!start_names (tt, mode () == lexer_mode::double_quoted))
       {
         if (first)
           fail (t) << "expected operation or target instead of " << t;
@@ -5267,6 +5452,22 @@ namespace build2
 
     t = move (r.token);
     tt = t.type;
+    return tt;
+  }
+
+  inline type parser::
+  next_after_newline (token& t, type& tt, char e)
+  {
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+    {
+      if (e == '\0')
+        fail (t) << "expected newline instead of " << t;
+      else
+        fail (t) << "expected newline after '" << e << "'";
+    }
+
     return tt;
   }
 
