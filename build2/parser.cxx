@@ -350,9 +350,10 @@ namespace build2
       assert (attributes_.empty ());
       auto at (attributes_push (t, tt));
 
-      // We should always start with one or more names.
+      // We should always start with one or more names, potentially
+      // <>-grouped.
       //
-      if (!start_names (tt))
+      if (!(start_names (tt) || tt == type::labrace))
       {
         // Something else. Let our caller handle that.
         //
@@ -459,36 +460,36 @@ namespace build2
       }
 
       location nloc (get_location (t));
-      names ns (parse_names (t, tt, pattern_mode::ignore));
+      names ns;
 
-      // Allow things like function calls that don't result in anything.
-      //
-      if (tt == type::newline && ns.empty ())
+      if (tt != type::labrace)
       {
-        if (at.first)
-          fail (at.second) << "standalone attributes";
-        else
-          attributes_pop ();
+        ns = parse_names (t, tt, pattern_mode::ignore);
 
-        next (t, tt);
-        continue;
+        // Allow things like function calls that don't result in anything.
+        //
+        if (tt == type::newline && ns.empty ())
+        {
+          if (at.first)
+            fail (at.second) << "standalone attributes";
+          else
+            attributes_pop ();
+
+          next (t, tt);
+          continue;
+        }
       }
 
-      // Handle ad hoc target group specification.
+      // Handle ad hoc target group specification (<...>).
       //
       // We keep an "optional" (empty) vector of names parallel to ns.
       //
       adhoc_names ans;
       if (tt == type::labrace)
       {
-        if (ns.empty ())
-          fail (t) << "expected target before '<'";
-
         while (tt == type::labrace)
         {
-          ans.resize (ns.size ()); // Catch up with the target names vector.
-
-          // Parse ad hoc target names inside < >.
+          // Parse target names inside < >.
           //
           next (t, tt);
 
@@ -499,8 +500,43 @@ namespace build2
           else
             attributes_pop ();
 
-          ans.back ().loc = get_location (t);
-          parse_names (t, tt, ans.back ().ns, pattern_mode::ignore);
+          // Allow empty case (<>).
+          //
+          if (tt != type::rabrace)
+          {
+            location aloc (get_location (t));
+
+            // The first name (or a pair) is the primary target which we need
+            // to keep in ns. The rest, if any, are ad hoc members that we
+            // should move to ans.
+            //
+            size_t m (ns.size ());
+            parse_names (t, tt, ns, pattern_mode::ignore);
+            size_t n (ns.size ());
+
+            // Another empty case (<$empty>).
+            //
+            if (m != n)
+            {
+              m = n - m - (ns[m].pair ? 2 : 1); // Number of names to move.
+
+              // Allow degenerate case with just the primary target.
+              //
+              if (m != 0)
+              {
+                n -= m; // Number of names in ns we should end up with.
+
+                ans.resize (n); // Catch up with the names vector.
+                adhoc_names_loc& a (ans.back ());
+
+                a.loc = move (aloc);
+                a.ns.insert (a.ns.end (),
+                             make_move_iterator (ns.begin () + n),
+                             make_move_iterator (ns.end ()));
+                ns.resize (n);
+              }
+            }
+          }
 
           if (tt != type::rabrace)
             fail (t) << "expected '>' instead of " << t;
@@ -512,10 +548,14 @@ namespace build2
             parse_names (t, tt, ns, pattern_mode::ignore);
         }
 
+        if (!ans.empty ())
+          ans.resize (ns.size ()); // Catch up with the final chunk.
+
         if (tt != type::colon)
           fail (t) << "expected ':' instead of " << t;
 
-        ans.resize (ns.size ()); // Final chunk.
+        if (ns.empty ())
+          fail (t) << "expected target before ':'";
       }
 
       // If we have a colon, then this is target-related.
