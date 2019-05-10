@@ -1487,7 +1487,7 @@ namespace build2
     // requirement: if we are delegating to the group, we need to find a
     // recipe for it, just like we would for a prerequisite.
     //
-    // Note that below we are going to treat the group state to postponed.
+    // Note that we are also going to treat the group state as postponed.
     // This is not a mistake: until we execute the recipe, we want to keep
     // returning postponed. And once the recipe is executed, it will reset the
     // state to group (see group_action()). To put it another way, the

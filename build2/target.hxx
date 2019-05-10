@@ -619,7 +619,7 @@ namespace build2
     // matched.
     //
     bool
-    group_state (action a) const;
+    group_state (action) const;
 
   public:
     // Targets to which prerequisites resolve for this action. Note that

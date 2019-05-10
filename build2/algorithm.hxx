@@ -266,7 +266,8 @@ namespace build2
                size_t start_count, atomic_count& task_count,
                bool fail = true);
 
-  // Match by specifying the recipe directly. The target must be locked.
+  // Match by specifying the recipe directly and without incrementing the
+  // dependency counts. The target must be locked.
   //
   void
   match_recipe (target_lock&, recipe);

@@ -74,7 +74,7 @@ namespace build2
       // that X could be C (as in language). We handle this by always checking
       // for X first.
       //
-      // Note also that we treat bmi{} as obj{}.
+      // Note also that we treat bmi{} as obj{}. @@ MODHDR hbmi{}?
       //
       bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
 
@@ -576,6 +576,8 @@ namespace build2
             continue;
           }
 
+          // @@ MODHDR: hbmix{} has no objx{}
+          //
           binless = binless && !(pt->is_a<objx> () || pt->is_a<bmix> ());
 
           m = 3;
@@ -1260,7 +1262,7 @@ namespace build2
 
               if (modules)
               {
-                if (pt->is_a<bmix> ())
+                if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
                   pt = pt->member;
               }
 
@@ -2053,7 +2055,7 @@ namespace build2
           //
           if (modules)
           {
-            if (pt->is_a<bmix> ())
+            if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
               pt = pt->member;
           }
 
@@ -2360,7 +2362,7 @@ namespace build2
 
         if (modules)
         {
-          if (pt->is_a<bmix> ())
+          if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
             pt = pt->member;
         }
 

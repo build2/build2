@@ -98,7 +98,7 @@ namespace build2
   {
     // We go an extra step and short-circuit to the target state even if the
     // raw state is not group provided the recipe is group_recipe and the
-    // state is unknown (see mtime() for some ideas on why we do it).
+    // state is unknown (see mtime() for a discussion on why we do it).
     //
     const opstate& s (state[a]);
 

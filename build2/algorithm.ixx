@@ -376,9 +376,8 @@ namespace build2
       // This gets tricky when we start considering direct execution, etc. So
       // here seems like the best place to do it.
       //
-      // We also ignore the group recipe since it is used for ad hoc groups
-      // (which are not executed). Plus, group action means real recipe is in
-      // the group so this also feels right conceptually.
+      // We also ignore the group recipe since group action means real recipe
+      // is in the group and so this feels right conceptually.
       //
       // We also avoid incrementing this count twice for the same target if we
       // have both the inner and outer operations. In our model the outer
