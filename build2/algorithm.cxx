@@ -1330,10 +1330,11 @@ namespace build2
         // we will also copy .pdb).
         //
         // Note that we want to avoid group or tt/patter-spec lookup. And
-        // since this is an ad hoc member (which means it was added by the
-        // rule), we assume that the value, if any, will be set as a rule-
-        // specific variable (since setting it as a target-specific wouldn't
-        // be MT-safe).
+        // since this is an ad hoc member (which means it was either declared
+        // in the buildfile or added by the rule), we assume that the value,
+        // if any, will be set as a rule-specific variable (since setting it
+        // as a target-specific wouldn't be MT-safe). @@ Don't think this
+        // applies to declared ad hoc members.
         //
         lookup l (mt->state[a].vars[var_backlink]);
 

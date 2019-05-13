@@ -657,11 +657,11 @@ namespace build2
               {
                 if (l.owns_lock ())
                 {
-                  s->member = i;
+                  s->member = i; // We are first.
                   l.unlock ();
                 }
                 else
-                  assert (s->member == i);
+                  assert (find_adhoc_member<libi> (*s) == i);
 
                 i->mtime (mt);
                 i->path (move (f));

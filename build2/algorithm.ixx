@@ -7,14 +7,6 @@
 
 namespace build2
 {
-  inline const target*
-  find_adhoc_member (const target& t, const target_type& tt)
-  {
-    const target* m (t.member);
-    for (; m != nullptr && !m->is_a (tt); m = m->member) ;
-    return m;
-  }
-
   inline const target&
   search (const target& t, const prerequisite& p)
   {
@@ -241,17 +233,33 @@ namespace build2
   }
 
   inline target_lock
-  add_adhoc_member (action a, target& t, const target_type& tt, const char* s)
+  add_adhoc_member (action a, target& t, const target_type& tt, const char* e)
   {
     string n (t.name);
 
-    if (s != nullptr)
+    if (e != nullptr)
     {
       n += '.';
-      n += s;
+      n += e;
     }
 
     return add_adhoc_member (a, t, tt, t.dir, t.out, n);
+  }
+
+  inline target*
+  find_adhoc_member (target& g, const target_type& tt)
+  {
+    target* m (g.member);
+    for (; m != nullptr && !m->is_a (tt); m = m->member) ;
+    return m;
+  }
+
+  inline const target*
+  find_adhoc_member (const target& g, const target_type& tt)
+  {
+    const target* m (g.member);
+    for (; m != nullptr && !m->is_a (tt); m = m->member) ;
+    return m;
   }
 
   const rule_match*

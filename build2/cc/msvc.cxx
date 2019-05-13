@@ -8,6 +8,7 @@
 #include <build2/target.hxx>
 #include <build2/context.hxx>
 #include <build2/variable.hxx>
+#include <build2/algorithm.hxx>
 #include <build2/filesystem.hxx>
 #include <build2/diagnostics.hxx>
 
@@ -177,7 +178,7 @@ namespace build2
           //
           path i (
             lt == otype::s
-            ? t.member->as<file> ().path ().leaf ()
+            ? find_adhoc_member<libi> (t)->path ().leaf ()
             : t.path ().leaf ().base () + ".lib");
 
           if (l.find (i.string ())                  != string::npos &&
@@ -467,11 +468,11 @@ namespace build2
           {
             if (l.owns_lock ())
             {
-              s->member = i;
+              s->member = i; // We are first.
               l.unlock ();
             }
             else
-              assert (s->member == i);
+              assert (find_adhoc_member<libi> (*s) == i);
 
             // Presumably there is a DLL somewhere, we just don't know where.
             //

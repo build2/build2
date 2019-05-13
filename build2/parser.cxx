@@ -985,6 +985,8 @@ namespace build2
       // Add as an ad hoc member at the end of the chain skipping duplicates.
       //
       {
+        // @@ ADHOC: call add_adhoc_member()?
+        //
         const_ptr<target>* mp (&target_->member);
         for (; *mp != nullptr; mp = &(*mp)->member)
         {
@@ -1004,26 +1006,11 @@ namespace build2
           continue; // Duplicate.
       }
 
+      // @@ ADHOC: What if it's something like .pdb where the group derives a
+      //           custom extension... Hm...
+      //
       if (file* ft = at.is_a<file> ())
         ft->derive_path ();
-
-      // Pre-match this target. Feels fuzzy/hacky.
-      //
-      // See match_recipe() and set_recipe() that it calls for the
-      // approximate semantics we want to achieve.
-      //
-      // @@ Can such a target be used as a prerequisite? Feels like
-      //    will require a "permanenly applied" task_count value? Maybe
-      //    special "adhoc" value?
-      //
-      {
-        auto& i (at.state.data[0]); // inner opstate
-        auto& o (at.state.data[1]); // outer opstate
-
-        i.rule   = o.rule   = nullptr;
-        i.recipe = o.recipe = group_recipe;
-        i.state  = o.state  = target_state::group;
-      }
     }
   }
 

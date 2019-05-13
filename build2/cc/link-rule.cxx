@@ -291,7 +291,7 @@ namespace build2
         lk = b;
         append_ext (lk);
 
-        libi& li (ls.member->as<libi> ()); // Note: libi is locked.
+        libi& li (*find_adhoc_member<libi> (ls)); // Note: libi is locked.
         lk = li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib");
       }
       else if (!v.empty ())
@@ -404,7 +404,7 @@ namespace build2
       // invocation. So for libraries we ignore them later, on pass 3.
       //
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
-      compile_target_types tt (compile_types (ot));
+      compile_target_types tts (compile_types (ot));
 
       auto skip = [&a, &rs] (const target* pt) -> bool
       {
@@ -457,8 +457,8 @@ namespace build2
           bool group (!p.prerequisite.belongs (t)); // Group's prerequisite.
 
           const target_type& rtt (mod
-                                  ? (group ? bmi::static_type : tt.bmi)
-                                  : (group ? obj::static_type : tt.obj));
+                                  ? (group ? bmi::static_type : tts.bmi)
+                                  : (group ? obj::static_type : tts.obj));
 
           const prerequisite_key& cp (p.key ()); // Source key.
 
@@ -537,8 +537,8 @@ namespace build2
           // If this is the obj{} or bmi{} target group, then pick the
           // appropriate member.
           //
-          if      (p.is_a<obj> ()) pt = &search (t, tt.obj, p.key ());
-          else if (p.is_a<bmi> ()) pt = &search (t, tt.bmi, p.key ());
+          if      (p.is_a<obj> ()) pt = &search (t, tts.obj, p.key ());
+          else if (p.is_a<bmi> ()) pt = &search (t, tts.bmi, p.key ());
           //
           // Windows module definition (.def). For other platforms (and for
           // static libraries) treat it as an ordinary prerequisite.
@@ -717,9 +717,6 @@ namespace build2
                   libi = add_adhoc_member<bin::libi> (a, t);
 
                 md.libs_data = derive_libs_paths (t, p, s);
-
-                if (libi)
-                  match_recipe (libi, group_recipe); // Set recipe and unlock.
               }
 
               break;
@@ -734,8 +731,6 @@ namespace build2
             if (find_option ("/DEBUG", t, c_loptions, true) ||
                 find_option ("/DEBUG", t, x_loptions, true))
             {
-              // Note: add after the import library if any.
-              //
               target_lock pdb (
                 add_adhoc_member (a, t, *bs.find_target_type ("pdb")));
 
@@ -743,8 +738,6 @@ namespace build2
               // we can have both foo.exe and foo.dll in the same directory.
               //
               pdb.target->as<file> ().derive_path (t.path (), "pdb");
-
-              match_recipe (pdb, group_recipe); // Set recipe and unlock.
             }
           }
 
@@ -767,14 +760,12 @@ namespace build2
             // Note that here we always use the lib name prefix, even on
             // Windows with VC. The reason is the user needs a consistent name
             // across platforms by which they can refer to the library. This
-            // is also the reason why we use the static/shared suffixes rather
-            // that a./.lib/.so/.dylib/.dll.
+            // is also the reason why we use the .static/.shared second-level
+            // extensions rather that a./.lib/.so/.dylib/.dll.
             //
             pc.target->as<file> ().derive_path (nullptr,
                                                 (p == nullptr ? "lib" : p),
                                                 s);
-
-            match_recipe (pc, group_recipe); // Set recipe and unlock.
           }
 
           // Add the Windows rpath emulating assembly directory as fsdir{}.
@@ -816,7 +807,6 @@ namespace build2
 #ifdef _WIN32
             dir.target->state[a].assign (var_backlink) = "copy";
 #endif
-            match_recipe (dir, group_recipe); // Set recipe and unlock.
           }
         }
       }
@@ -864,12 +854,12 @@ namespace build2
           //
           pt =
             group
-            ? &search (t, (mod ? tt.bmi : tt.obj), rt.dir, rt.out, rt.name)
+            ? &search (t, (mod ? tts.bmi : tts.obj), rt.dir, rt.out, rt.name)
             : &rt;
 
           const target_type& rtt (mod
-                                  ? (group ? bmi::static_type : tt.bmi)
-                                  : (group ? obj::static_type : tt.obj));
+                                  ? (group ? bmi::static_type : tts.bmi)
+                                  : (group ? obj::static_type : tts.obj));
 
           // If this obj*{} already has prerequisites, then verify they are
           // "compatible" with what we are doing here. Otherwise, synthesize
@@ -919,7 +909,7 @@ namespace build2
               //
               if (p.is_a<libx> () ||
                   p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> () ||
-                  p.is_a<bmi> ()  || p.is_a (tt.bmi))
+                  p.is_a<bmi> ()  || p.is_a (tts.bmi))
               {
                 ps.push_back (p.as_prerequisite ());
               }
@@ -1148,8 +1138,8 @@ namespace build2
               bool group (!p.prerequisite.belongs (t));
 
               const target_type& rtt (mod
-                                      ? (group ? bmi::static_type : tt.bmi)
-                                      : (group ? obj::static_type : tt.obj));
+                                      ? (group ? bmi::static_type : tts.bmi)
+                                      : (group ? obj::static_type : tts.obj));
 
               fail << "synthesized dependency for prerequisite " << p << " "
                    << "would be incompatible with existing target " << *pt <<
@@ -1189,11 +1179,12 @@ namespace build2
     {
       struct data
       {
-        strings&    args;
-        const file& l;
-        action      a;
-        linfo       li;
-      } d {args, l, a, li};
+        strings&             args;
+        const file&          l;
+        action               a;
+        linfo                li;
+        compile_target_types tts;
+      } d {args, l, a, li, compile_types (li.type)};
 
       auto imp = [] (const file&, bool la)
       {
@@ -1263,7 +1254,7 @@ namespace build2
               if (modules)
               {
                 if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
-                  pt = pt->member;
+                  pt = find_adhoc_member (*pt, d.tts.obj);
               }
 
               // We could have dependency diamonds with utility libraries.
@@ -1288,13 +1279,14 @@ namespace build2
               return;
 
             // On Windows a shared library is a DLL with the import library as
-            // a first ad hoc group member. MinGW though can link directly to
-            // DLLs (see search_library() for details).
+            // an ad hoc group member. MinGW though can link directly to DLLs
+            // (see search_library() for details).
             //
-            if (l->member != nullptr &&
-                l->is_a<libs> ()     &&
-                tclass == "windows")
-              l = &l->member->as<file> ();
+            if (tclass == "windows" && l->is_a<libs> ())
+            {
+              if (const libi* li = find_adhoc_member<libi> (*l))
+                l = li;
+            }
 
             string p (relative (l->path ()).string ());
 
@@ -1413,14 +1405,15 @@ namespace build2
           //
           d.update = d.update || l->newer (d.mt);
 
-          // On Windows a shared library is a DLL with the import library as a
-          // first ad hoc group member. MinGW though can link directly to DLLs
+          // On Windows a shared library is a DLL with the import library as
+          // an ad hoc group member. MinGW though can link directly to DLLs
           // (see search_library() for details).
           //
-          if (l->member != nullptr &&
-              l->is_a<libs> ()     &&
-              tclass == "windows")
-            l = &l->member->as<file> ();
+          if (tclass == "windows" && l->is_a<libs> ())
+          {
+            if (const libi* li = find_adhoc_member<libi> (*l))
+              l = li;
+          }
 
           d.cs.append (f);
           hash_path (d.cs, l->path (), d.out_root);
@@ -1630,6 +1623,7 @@ namespace build2
       ltype lt (link_type (t));
       otype ot (lt.type);
       linfo li (link_info (bs, ot));
+      compile_target_types tts (compile_types (ot));
 
       bool binless (md.binless);
       assert (ot != otype::e || !binless); // Sanity check.
@@ -2056,7 +2050,7 @@ namespace build2
           if (modules)
           {
             if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
-              pt = pt->member;
+              pt = find_adhoc_member (*pt, tts.obj);
           }
 
           const file* f;
@@ -2262,26 +2256,30 @@ namespace build2
 
           if (ot == otype::s)
           {
-            // On Windows libs{} is the DLL and its first ad hoc group member
-            // is the import library.
+            // On Windows libs{} is the DLL and an ad hoc group member is the
+            // import library.
             //
             // This will also create the .exp export file. Its name will be
             // derived from the import library by changing the extension.
             // Lucky for us -- there is no option to name it.
             //
-            auto& imp (t.member->as<file> ());
-            out2 = "/IMPLIB:" + relative (imp.path ()).string ();
+            const file& imp (*find_adhoc_member<libi> (t));
+
+            out2 = "/IMPLIB:";
+            out2 += relative (imp.path ()).string ();
             args.push_back (out2.c_str ());
           }
 
-          // If we have /DEBUG then name the .pdb file. It is either the first
-          // (exe) or the second (dll) ad hoc group member.
+          // If we have /DEBUG then name the .pdb file. It is an ad hoc group
+          // member.
           //
           if (find_option ("/DEBUG", args, true))
           {
-            auto& pdb (
-              (ot == otype::e ? t.member : t.member->member)->as<file> ());
-            out1 = "/PDB:" + relative (pdb.path ()).string ();
+            const file& pdb (
+              *find_adhoc_member<file> (t, *bs.find_target_type ("pdb")));
+
+            out1 = "/PDB:";
+            out1 += relative (pdb.path ()).string ();
             args.push_back (out1.c_str ());
           }
 
@@ -2315,10 +2313,10 @@ namespace build2
 
                 if (tsys == "mingw32")
                 {
-                  // On Windows libs{} is the DLL and its first ad hoc group
-                  // member is the import library.
+                  // On Windows libs{} is the DLL and an ad hoc group member
+                  // is the import library.
                   //
-                  auto& imp (t.member->as<file> ());
+                  const file& imp (*find_adhoc_member<libi> (t));
                   out = "-Wl,--out-implib=" + relative (imp.path ()).string ();
                   args.push_back (out.c_str ());
                 }
@@ -2363,7 +2361,7 @@ namespace build2
         if (modules)
         {
           if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
-            pt = pt->member;
+            pt = find_adhoc_member (*pt, tts.obj);
         }
 
         const file* f;
@@ -2805,6 +2803,8 @@ namespace build2
             //
             // Note that .exp is based on the .lib, not .dll name. And with
             // versioning their bases may not be the same.
+            //
+            // @@ ADHOC: member order.
             //
             if (tsys != "mingw32")
               return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});

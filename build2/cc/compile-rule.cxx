@@ -679,7 +679,6 @@ namespace build2
           //
           target_lock obj (add_adhoc_member (a, t, tts.obj, e.c_str ()));
           obj.target->as<file> ().derive_path (o);
-          match_recipe (obj, group_recipe); // Set recipe and unlock.
         }
       }
 
@@ -5408,6 +5407,7 @@ namespace build2
 
       otype ot (compile_type (t, ut));
       linfo li (link_info (bs, ot));
+      compile_target_types tts (compile_types (ot));
 
       environment env;
       cstrings args {cpath.recall_string ()};
@@ -5419,7 +5419,7 @@ namespace build2
       path relo (ut == unit_type::module_header
                  ? path ()
                  : relative (ut == unit_type::module_iface
-                             ? t.member->is_a<file> ()->path ()
+                             ? find_adhoc_member<file> (t, tts.obj)->path ()
                              : tp));
 
       // Build the command line.

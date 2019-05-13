@@ -170,7 +170,7 @@ namespace build2
   const target_lock*
   dependency_cycle (action, const target&);
 
-  // If the target is already applied (for this action ) or executed, then no
+  // If the target is already applied (for this action) or executed, then no
   // lock is acquired. Otherwise, the target must not yet be matched for this
   // action.
   //
@@ -184,8 +184,6 @@ namespace build2
   // existing member of this target type is the same. Return the locked member
   // target.
   //
-  // @@ Maybe the same type and name?
-  //
   target_lock
   add_adhoc_member (action,
                     target&,
@@ -194,33 +192,57 @@ namespace build2
                     const dir_path& out,
                     const string& name);
 
-  // If the suffix is specified, it is added (as an extension) to the member's
-  // target name.
+  // If the extension is specified then it is added to the member's target
+  // name.
   //
   target_lock
   add_adhoc_member (action,
                     target&,
                     const target_type&,
-                    const char* suffix = nullptr);
+                    const char* ext = nullptr);
 
   template <typename T>
   inline target_lock
-  add_adhoc_member (action a, target& t, const char* s = nullptr)
+  add_adhoc_member (action a, target& g, const char* e = nullptr)
   {
-    return add_adhoc_member (a, t, T::static_type, s);
+    return add_adhoc_member (a, g, T::static_type, e);
   }
 
   // Find an ad hoc member of the specified target type returning NULL if not
   // found.
   //
+  target*
+  find_adhoc_member (target&, const target_type&);
+
   const target*
   find_adhoc_member (const target&, const target_type&);
 
   template <typename T>
-  inline const T*
-  find_adhoc_member (const target& t)
+  inline T*
+  find_adhoc_member (target& g, const target_type& tt)
   {
-    return static_cast<const T*> (find_adhoc_member (t, T::static_type));
+    return static_cast<T*> (find_adhoc_member (g, tt));
+  }
+
+  template <typename T>
+  inline const T*
+  find_adhoc_member (const target& g, const target_type& tt)
+  {
+    return static_cast<const T*> (find_adhoc_member (g, tt));
+  }
+
+  template <typename T>
+  inline const T*
+  find_adhoc_member (const target& g)
+  {
+    return find_adhoc_member<T> (g, T::static_type);
+  }
+
+  template <typename T>
+  inline T*
+  find_adhoc_member (target& g)
+  {
+    return find_adhoc_member<T> (g, T::static_type);
   }
 
   // Match and apply a rule to the action/target with ambiguity detection.

@@ -292,8 +292,8 @@ namespace build2
   group () const
   {
     return
-      k_ != nullptr ? k_->member != nullptr                  : /* ad hoc */
-      g_.count != 0 ? g_.members != nullptr && j_ < g_.count : /* normal */
+      k_ != nullptr ? k_->member != nullptr                  : /* ad hoc   */
+      g_.count != 0 ? g_.members != nullptr && j_ < g_.count : /* explicit */
       false;
   }
 
