@@ -714,7 +714,10 @@ namespace build2
                 // the DLL and we add libi{} import library as its member.
                 //
                 if (tclass == "windows")
+                {
                   libi = add_adhoc_member<bin::libi> (a, t);
+                  e = "dll";
+                }
 
                 md.libs_data = derive_libs_paths (t, p, s);
               }
@@ -731,11 +734,15 @@ namespace build2
             if (find_option ("/DEBUG", t, c_loptions, true) ||
                 find_option ("/DEBUG", t, x_loptions, true))
             {
+              // We call the target foo.{exe,dll}.pdb rather than just foo.pdb
+              // because we can have both foo.exe and foo.dll in the same
+              // directory.
+              //
               target_lock pdb (
-                add_adhoc_member (a, t, *bs.find_target_type ("pdb")));
+                add_adhoc_member (a, t, *bs.find_target_type ("pdb"), e));
 
-              // We call it foo.{exe,dll}.pdb rather than just foo.pdb because
-              // we can have both foo.exe and foo.dll in the same directory.
+              // Note that the path is derived from the exe/dll path (so it
+              // will include the version in case of a dll).
               //
               pdb.target->as<file> ().derive_path (t.path (), "pdb");
             }
