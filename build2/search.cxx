@@ -228,9 +228,13 @@ namespace build2
     //
     // @@ OUT: same story as in search_existing_target() re out.
     //
-    auto r (
-      targets.insert (
-        *tk.type, move (d), *tk.out, *tk.name, tk.ext, true, trace));
+    auto r (targets.insert (*tk.type,
+                            move (d),
+                            *tk.out,
+                            *tk.name,
+                            tk.ext,
+                            true /* implied */,
+                            trace));
 
     const target& t (r.first);
     l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t

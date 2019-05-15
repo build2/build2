@@ -206,33 +206,34 @@ namespace build2
     sched.resume (task_count);
   }
 
-  target_lock
-  add_adhoc_member (action a,
-                    target& t,
+  target&
+  add_adhoc_member (target& t,
                     const target_type& tt,
                     const dir_path& dir,
                     const dir_path& out,
-                    const string& n)
+                    string n)
   {
+    tracer trace ("add_adhoc_member");
+
     const_ptr<target>* mp (&t.member);
     for (; *mp != nullptr && !(*mp)->is_a (tt); mp = &(*mp)->member) ;
 
-    const target& m (*mp != nullptr // Might already be there.
-                     ? **mp
-                     : search (t, tt, dir, out, n));
-
-    target_lock l (lock (a, m));
-    assert (l.target != nullptr); // Someone messing with ad hoc members?
-
+    target& m (*mp != nullptr // Might already be there.
+               ? **mp
+               : targets.insert (tt,
+                                 dir,
+                                 out,
+                                 move (n),
+                                 nullopt /* ext     */,
+                                 true    /* implied */,
+                                 trace).first);
     if (*mp == nullptr)
     {
-      *mp = l.target;
-      l.target->group = &t;
+      *mp = &m;
+      m.group = &t;
     }
-    else
-      assert ((*mp)->dir == dir && (*mp)->name == n); // Basic sanity check.
 
-    return l;
+    return m;
   };
 
   // Return the matching rule or NULL if no match and try_match is true.
@@ -522,21 +523,61 @@ namespace build2
                  ? optional<scheduler::work_queue> (scheduler::work_none)
                  : nullopt));
 
-    if (l.target == nullptr)
-    {
-      // Already applied, executed, or busy.
-      //
-      if (l.offset >= target::offset_busy)
-        return make_pair (true, target_state::busy);
-
-      // Fall through.
-    }
-    else
+    if (l.target != nullptr)
     {
       assert (l.offset < target::offset_applied); // Shouldn't lock otherwise.
 
       if (try_match && l.offset == target::offset_tried)
         return make_pair (false, target_state::unknown);
+
+      // Handle matching ad hoc group member.
+      //
+      if (ct.adhoc_member ())
+      {
+        const target& g (*ct.group);
+
+        // It feels natural to "convert" this call to the one for the group,
+        // including the try_match and async parts. However, that async part
+        // is tricky: we will be called again to finish the match (the else-
+        // block below) where we need to perform the equivalent conversion.
+        // Semantically, we want to achieve the following:
+        //
+        // match (a, g);                    |  match_async (a, g);
+        //                                  |  match (a, g);
+        // match_recipe (l, group_recipe);  |  match_recipe (l, group_recipe);
+        //
+        // We also have to "unstack" this lock to avoid racing with stack
+        // modifications by the asynchronous match (see below). Since an ad
+        // hoc member doesn't have any prerequisites of its own (and thus
+        // cannot depend on the group), skipping this link during the cycle
+        // detection feels harmless (note that the other way around is
+        // possible and still works).
+        //
+        l.unstack ();
+
+
+#if 0   // The same story as with the lock stack. I think the only way to
+        // make this work is to somehow pass the member down to match_impl().
+        auto df = make_diag_frame (
+          [a, &ct](const diag_record& dr)
+          {
+            if (verb != 0)
+              dr << info << "while matching rule group to " << diag_do (a, ct);
+          });
+#endif
+
+        auto r (match (a, g, start_count, task_count, try_match));
+
+        if (r.first)
+        {
+          match_inc_dependens (a, g);
+          match_recipe (l, group_recipe);
+        }
+        else
+          l.offset = target::offset_tried;
+
+        return r; // Group state.
+      }
 
       if (task_count == nullptr)
         return match_impl (l, false /* step */, try_match);
@@ -578,6 +619,20 @@ namespace build2
         return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.
+    }
+    else
+    {
+      // Already applied, executed, or busy.
+      //
+      if (l.offset >= target::offset_busy)
+        return make_pair (true, target_state::busy);
+
+      // Handle matching ad hoc group member (the finish part; see above).
+      //
+      if (ct.adhoc_member ())
+        return match (a, *ct.group, 0, nullptr);
+
+      // Fall through.
     }
 
     return ct.try_matched_state (a, false);

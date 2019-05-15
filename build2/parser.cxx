@@ -973,6 +973,24 @@ namespace build2
       if (n.qualified ())
         fail (loc) << "project name in target " << n;
 
+      // We derive the path unless the target name ends with the '...' escape
+      // which here we treat as the "let the rule derive the path" indicator
+      // (see target::split_name() for details). This will only be useful for
+      // referring to ad hoc members that are managed by the group's matching
+      // rule. Note also that omitting '...' for such a member could be used
+      // to override the file name, provided the rule checks if the path has
+      // already been derived before doing it itself.
+      //
+      bool escaped;
+      {
+        const string& v (n.value);
+        size_t p (v.size ());
+
+        escaped = (p > 3 &&
+                   v[--p] == '.' && v[--p] == '.' && v[--p] == '.' &&
+                   v[--p] != '.');
+      }
+
       target& at (
         enter_target::insert_target (*this,
                                      move (n), move (o),
@@ -985,8 +1003,6 @@ namespace build2
       // Add as an ad hoc member at the end of the chain skipping duplicates.
       //
       {
-        // @@ ADHOC: call add_adhoc_member()?
-        //
         const_ptr<target>* mp (&target_->member);
         for (; *mp != nullptr; mp = &(*mp)->member)
         {
@@ -1002,15 +1018,13 @@ namespace build2
           *mp = &at;
           at.group = target_;
         }
-        else
-          continue; // Duplicate.
       }
 
-      // @@ ADHOC: What if it's something like .pdb where the group derives a
-      //           custom extension... Hm...
-      //
-      if (file* ft = at.is_a<file> ())
-        ft->derive_path ();
+      if (!escaped)
+      {
+        if (file* ft = at.is_a<file> ())
+          ft->derive_path ();
+      }
     }
   }
 

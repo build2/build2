@@ -155,6 +155,9 @@ namespace build2
     const target_lock* stack; // Tip of the stack.
     const target_lock* prev;
 
+    void
+    unstack ();
+
     struct stack_guard
     {
       explicit stack_guard (const target_lock* s): s_ (stack) {stack = s;}
@@ -175,37 +178,49 @@ namespace build2
   // action.
   //
   // @@ MT fuzzy: what if it is already in the desired state, why assert?
-  //    Currently we only use it with match_recipe().
+  //    Currently we only use it with match_recipe() and if it is matched
+  //    but not applied, then it's not clear why we are overriding that
+  //    match.
   //
   target_lock
   lock (action, const target&);
 
   // Add an ad hoc member to the end of the chain assuming that an already
-  // existing member of this target type is the same. Return the locked member
-  // target.
+  // existing member of this target type is the same. Return the newly added
+  // or already existing target. The member directories (dir and out) are
+  // expected to be absolute and normalized.
   //
-  target_lock
-  add_adhoc_member (action,
-                    target&,
+  // Note that here and in find_adhoc_member() below we use target type (as
+  // opposed to, say, type and name) as the member's identity. This fits our
+  // current needs where every (rule-managed) ad hoc member has a unique
+  // target type and allows us to support things like overriding the ad hoc
+  // member name by the user.
+  //
+  target&
+  add_adhoc_member (target&,
                     const target_type&,
                     const dir_path& dir,
                     const dir_path& out,
-                    const string& name);
+                    string name);
 
   // If the extension is specified then it is added to the member's target
   // name.
   //
-  target_lock
-  add_adhoc_member (action,
-                    target&,
-                    const target_type&,
-                    const char* ext = nullptr);
+  target&
+  add_adhoc_member (target&, const target_type&, const char* ext = nullptr);
 
   template <typename T>
-  inline target_lock
-  add_adhoc_member (action a, target& g, const char* e = nullptr)
+  inline T&
+  add_adhoc_member (target& g, const target_type& tt, const char* e = nullptr)
   {
-    return add_adhoc_member (a, g, T::static_type, e);
+    return static_cast<T&> (add_adhoc_member (g, tt, e));
+  }
+
+  template <typename T>
+  inline T&
+  add_adhoc_member (target& g, const char* e = nullptr)
+  {
+    return add_adhoc_member<T> (g, T::static_type, e);
   }
 
   // Find an ad hoc member of the specified target type returning NULL if not

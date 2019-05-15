@@ -135,14 +135,29 @@ namespace build2
   }
 
   inline void target_lock::
+  unstack ()
+  {
+    if (target != nullptr && prev != this)
+    {
+      assert (stack == this);
+      stack = prev;
+      prev = this;
+    }
+  }
+
+  inline void target_lock::
   unlock ()
   {
     if (target != nullptr)
     {
       unlock_impl (action, *target, offset);
 
-      assert (stack == this);
-      stack = prev;
+      if (prev != this)
+      {
+        assert (stack == this);
+        stack = prev;
+      }
+
       target = nullptr;
     }
   }
@@ -154,8 +169,12 @@ namespace build2
 
     if (target != nullptr)
     {
-      assert (stack == this);
-      stack = prev;
+      if (prev != this)
+      {
+        assert (stack == this);
+        stack = prev;
+      }
+
       target = nullptr;
     }
 
@@ -174,9 +193,14 @@ namespace build2
   {
     if (target != nullptr)
     {
-      assert (stack == &x);
-      prev = x.prev;
-      stack = this;
+      if (x.prev != &x)
+      {
+        assert (stack == &x);
+        prev = x.prev;
+        stack = this;
+      }
+      else
+        prev = this;
 
       x.target = nullptr;
     }
@@ -195,9 +219,14 @@ namespace build2
 
       if (target != nullptr)
       {
-        assert (stack == &x);
-        prev = x.prev;
-        stack = this;
+        if (x.prev != &x)
+        {
+          assert (stack == &x);
+          prev = x.prev;
+          stack = this;
+        }
+        else
+          prev = this;
 
         x.target = nullptr;
       }
@@ -232,8 +261,8 @@ namespace build2
     return r;
   }
 
-  inline target_lock
-  add_adhoc_member (action a, target& t, const target_type& tt, const char* e)
+  inline target&
+  add_adhoc_member (target& t, const target_type& tt, const char* e)
   {
     string n (t.name);
 
@@ -243,7 +272,7 @@ namespace build2
       n += e;
     }
 
-    return add_adhoc_member (a, t, tt, t.dir, t.out, n);
+    return add_adhoc_member (t, tt, t.dir, t.out, move (n));
   }
 
   inline target*
@@ -271,6 +300,13 @@ namespace build2
   pair<bool, target_state>
   match (action, const target&, size_t, atomic_count*, bool try_match = false);
 
+  inline void
+  match_inc_dependens (action a, const target& t)
+  {
+    dependency_count.fetch_add (1, memory_order_relaxed);
+    t[a].dependents.fetch_add (1, memory_order_release);
+  }
+
   inline target_state
   match (action a, const target& t, bool fail)
   {
@@ -279,10 +315,7 @@ namespace build2
     target_state r (match (a, t, 0, nullptr).second);
 
     if (r != target_state::failed)
-    {
-      dependency_count.fetch_add (1, memory_order_relaxed);
-      t[a].dependents.fetch_add (1, memory_order_release);
-    }
+      match_inc_dependens (a, t);
     else if (fail)
       throw failed ();
 
@@ -300,10 +333,7 @@ namespace build2
     if (r.first)
     {
       if (r.second != target_state::failed)
-      {
-        dependency_count.fetch_add (1, memory_order_relaxed);
-        t[a].dependents.fetch_add (1, memory_order_release);
-      }
+        match_inc_dependens (a, t);
       else if (fail)
         throw failed ();
     }
@@ -333,7 +363,9 @@ namespace build2
       }
     case unmatch::safe:
       {
-        // Safe if unchanged or someone else is also a dependent.
+        // Safe if unchanged or someone else is also a dependent (note that
+        // we never decrement this count during match so that someone else
+        // cannot change their mind).
         //
         if (s == target_state::unchanged                   ||
             t[a].dependents.load (memory_order_consume) != 0)
@@ -343,9 +375,7 @@ namespace build2
       }
     }
 
-    dependency_count.fetch_add (1, memory_order_relaxed);
-    t[a].dependents.fetch_add (1, memory_order_release);
-
+    match_inc_dependens (a, t);
     return false;
   }
 

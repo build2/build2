@@ -291,8 +291,12 @@ namespace build2
         lk = b;
         append_ext (lk);
 
-        libi& li (*find_adhoc_member<libi> (ls)); // Note: libi is locked.
-        lk = li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib");
+        libi& li (*find_adhoc_member<libi> (ls));
+        const path& pi (li.path ());
+
+        lk = pi.empty ()
+          ? li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib")
+          : pi;
       }
       else if (!v.empty ())
       {
@@ -600,8 +604,6 @@ namespace build2
       // to not derive the path for the library target itself inside.
       //
       {
-        target_lock libi; // Have to hold until after PDB member addition.
-
         const char* e (nullptr); // Extension.
         const char* p (nullptr); // Prefix.
         const char* s (nullptr); // Suffix.
@@ -715,8 +717,8 @@ namespace build2
                 //
                 if (tclass == "windows")
                 {
-                  libi = add_adhoc_member<bin::libi> (a, t);
                   e = "dll";
+                  add_adhoc_member<libi> (t);
                 }
 
                 md.libs_data = derive_libs_paths (t, p, s);
@@ -734,17 +736,19 @@ namespace build2
             if (find_option ("/DEBUG", t, c_loptions, true) ||
                 find_option ("/DEBUG", t, x_loptions, true))
             {
+              const target_type& tt (*bs.find_target_type ("pdb"));
+
               // We call the target foo.{exe,dll}.pdb rather than just foo.pdb
               // because we can have both foo.exe and foo.dll in the same
               // directory.
               //
-              target_lock pdb (
-                add_adhoc_member (a, t, *bs.find_target_type ("pdb"), e));
+              file& pdb (add_adhoc_member<file> (t, tt, e));
 
               // Note that the path is derived from the exe/dll path (so it
               // will include the version in case of a dll).
               //
-              pdb.target->as<file> ().derive_path (t.path (), "pdb");
+              if (pdb.path ().empty ())
+                pdb.derive_path (t.path (), "pdb");
             }
           }
 
@@ -759,20 +763,19 @@ namespace build2
           //
           if (ot != otype::e)
           {
-            target_lock pc (
-              add_adhoc_member (
-                a, t,
-                ot == otype::a ? pca::static_type : pcs::static_type));
+            file& pc (add_adhoc_member<file> (t,
+                                              (ot == otype::a
+                                               ? pca::static_type
+                                               : pcs::static_type)));
 
             // Note that here we always use the lib name prefix, even on
             // Windows with VC. The reason is the user needs a consistent name
             // across platforms by which they can refer to the library. This
-            // is also the reason why we use the .static/.shared second-level
-            // extensions rather that a./.lib/.so/.dylib/.dll.
+            // is also the reason why we use the .static and .shared second-
+            // level extensions rather that a./.lib and .so/.dylib/.dll.
             //
-            pc.target->as<file> ().derive_path (nullptr,
-                                                (p == nullptr ? "lib" : p),
-                                                s);
+            if (pc.path ().empty ())
+              pc.derive_path (nullptr, (p == nullptr ? "lib" : p), s);
           }
 
           // Add the Windows rpath emulating assembly directory as fsdir{}.
@@ -791,14 +794,14 @@ namespace build2
             // exists (windows_rpath_assembly() does take care to clean it up
             // if not used).
             //
-            target_lock dir (
-              add_adhoc_member (
-                a,
-                t,
-                fsdir::static_type,
-                path_cast<dir_path> (t.path () + ".dlls"),
-                t.out,
-                string ()));
+#ifdef _WIN32
+            target& dir =
+#endif
+              add_adhoc_member (t,
+                                fsdir::static_type,
+                                path_cast<dir_path> (t.path () + ".dlls"),
+                                t.out,
+                                string () /* name */);
 
             // By default our backlinking logic will try to symlink the
             // directory and it can even be done on Windows using junctions.
@@ -812,7 +815,7 @@ namespace build2
             // Windows.
             //
 #ifdef _WIN32
-            dir.target->state[a].assign (var_backlink) = "copy";
+            dir.state[a].assign (var_backlink) = "copy";
 #endif
           }
         }

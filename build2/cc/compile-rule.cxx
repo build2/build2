@@ -677,8 +677,10 @@ namespace build2
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
           // collide. So we add the module extension to the target name.
           //
-          target_lock obj (add_adhoc_member (a, t, tts.obj, e.c_str ()));
-          obj.target->as<file> ().derive_path (o);
+          file& obj (add_adhoc_member<file> (t, tts.obj, e.c_str ()));
+
+          if (obj.path ().empty ())
+            obj.derive_path (o);
         }
       }
 
