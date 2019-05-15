@@ -5880,18 +5880,17 @@ namespace build2
     {
       const file& t (xt.as<file> ());
 
-      using ct = compiler_type;
+      clean_extras extras;
 
       switch (ctype)
       {
-      case ct::gcc:   return clean_extra (a, t, {".d", x_pext, ".t"});
-      case ct::clang: return clean_extra (a, t, {".d", x_pext});
-      case ct::msvc:  return clean_extra (a, t, {".d", x_pext, ".idb", ".pdb"});
-      case ct::icc:   return clean_extra (a, t, {".d"});
+      case compiler_type::gcc:   extras = {".d", x_pext, ".t"};          break;
+      case compiler_type::clang: extras = {".d", x_pext};                break;
+      case compiler_type::msvc:  extras = {".d", x_pext, ".idb", ".pdb"};break;
+      case compiler_type::icc:   extras = {".d"};                        break;
       }
 
-      assert (false);
-      return target_state::unchanged;
+      return perform_clean_extra (a, t, extras);
     }
   }
 }

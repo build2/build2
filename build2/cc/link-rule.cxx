@@ -2780,65 +2780,77 @@ namespace build2
     perform_clean (action a, const target& xt) const
     {
       const file& t (xt.as<file> ());
+
       ltype lt (link_type (t));
+      const match_data& md (t.data<match_data> ());
 
-      //@@ TODO add .t to clean if _WIN32 (currently that would be just too
-      //   messy).
+      clean_extras extras;
+      clean_adhoc_extras adhoc_extras;
 
-      if (lt.executable ())
-      {
-        if (tclass == "windows")
-        {
-          if (tsys == "mingw32")
-            return clean_extra (
-              a, t, {".d", ".dlls/", ".manifest.o", ".manifest"});
-          else
-            // Assuming it's VC or alike. Clean up .ilk in case the user
-            // enabled incremental linking (note that .ilk replaces .exe).
-            //
-            return clean_extra (
-              a, t, {".d", ".dlls/", ".manifest", "-.ilk"});
-        }
-        // For other platforms it's the defaults.
-      }
+      if (md.binless)
+        ; // Clean prerequsites/members.
       else
       {
-        const match_data& md (t.data<match_data> ());
-
-        if (md.binless)
-          return clean_extra (a, t, {nullptr}); // Clean prerequsites/members.
-
-        if (lt.shared_library ())
+        if (tclass != "windows")
         {
-          if (tclass == "windows")
-          {
-            // Assuming it's VC or alike. Clean up .exp and .ilk.
-            //
-            // Note that .exp is based on the .lib, not .dll name. And with
-            // versioning their bases may not be the same.
-            //
-            // @@ ADHOC: member order.
-            //
-            if (tsys != "mingw32")
-              return clean_extra (a, t, {{".d", "-.ilk"}, {"-.exp"}});
-          }
-          else
+          if (lt.shared_library ())
           {
             // Here we can have a bunch of symlinks that we need to remove. If
             // the paths are empty, then they will be ignored.
             //
             const libs_paths& paths (md.libs_data);
 
-            return clean_extra (a, t, {".d",
-                  paths.link.string ().c_str (),
-                  paths.soname.string ().c_str (),
-                  paths.interm.string ().c_str ()});
+            extras = {".d",
+                      paths.link.string ().c_str (),
+                      paths.soname.string ().c_str (),
+                      paths.interm.string ().c_str ()};
           }
+
+          // For executable and static library it's the default.
         }
-        // For static library it's the defaults.
+        else if (tsys == "mingw32")
+        {
+          if (lt.executable ())
+          {
+            extras = {".d", ".dlls/", ".manifest.o", ".manifest"};
+          }
+
+          // For shared and static library it's the default.
+        }
+        else
+        {
+          // Assuming MSVC or alike.
+          //
+          if (lt.executable ())
+          {
+            // Clean up .ilk in case the user enabled incremental linking
+            // (notice that the .ilk extension replaces .exe).
+            //
+            extras = {".d", ".dlls/", ".manifest", "-.ilk"};
+          }
+          else if (lt.shared_library ())
+          {
+            // Clean up .ilk and .exp.
+            //
+            // Note that .exp is based on the .lib, not .dll name. And with
+            // versioning their bases may not be the same.
+            //
+            extras = {".d", "-.ilk"};
+            adhoc_extras.push_back ({libi::static_type, {"-.exp"}});
+          }
+
+          // For static library it's the default.
+        }
+
+        if (extras.empty ())
+          extras = {".d"}; // Default.
+
+#ifdef _WIN32
+        extras.push_back (".t"); // Options file.
+#endif
       }
 
-      return clean_extra (a, t, {".d"});
+      return perform_clean_extra (a, t, extras, adhoc_extras);
     }
   }
 }

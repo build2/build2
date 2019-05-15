@@ -190,11 +190,13 @@ namespace build2
   // or already existing target. The member directories (dir and out) are
   // expected to be absolute and normalized.
   //
-  // Note that here and in find_adhoc_member() below we use target type (as
-  // opposed to, say, type and name) as the member's identity. This fits our
-  // current needs where every (rule-managed) ad hoc member has a unique
-  // target type and allows us to support things like overriding the ad hoc
-  // member name by the user.
+  // Note that here and in find_adhoc_member() below (as well as in
+  // perform_clean_extra()) we use target type (as opposed to, say, type and
+  // name) as the member's identity. This fits our current needs where every
+  // (rule-managed) ad hoc member has a unique target type and we have no need
+  // for multiple members of the same type. This also allows us to support
+  // things like changing the ad hoc member name by declaring it in a
+  // buildfile.
   //
   target&
   add_adhoc_member (target&,
@@ -691,30 +693,44 @@ namespace build2
   // paths or "path derivation directives". The directive string can be NULL,
   // or empty in which case it is ignored. If the last character in a
   // directive is '/', then the resulting path is treated as a directory
-  // rather than a file.  The directive can start with zero or more '-'
+  // rather than a file. The directive can start with zero or more '-'
   // characters which indicate the number of extensions that should be
   // stripped before the new extension (if any) is added (so if you want to
   // strip the extension, specify just "-"). For example:
   //
-  // clean_extra (a, t, {".d", ".dlls/", "-.dll"});
+  // perform_clean_extra (a, t, {".d", ".dlls/", "-.dll"});
   //
   // The extra files/directories are removed first in the specified order
   // followed by the ad hoc group member, then target itself, and, finally,
   // the prerequisites in the reverse order.
   //
-  // You can also clean extra files derived from ad hoc group members.
+  // You can also clean extra files derived from ad hoc group members that are
+  // "indexed" using using their target types (see add/find_adhoc_member() for
+  // details).
   //
-  // Note that if the target path is empty then it is assumed "unreal" and
-  // is not cleaned (but its prerequisites/members still are).
+  // Note that if the target path is empty then it is assumed "unreal" and is
+  // not cleaned (but its prerequisites/members still are).
   //
+  using clean_extras = small_vector<const char*, 8>;
+
+  struct clean_adhoc_extra
+  {
+    const target_type& type;
+    clean_extras       extras;
+  };
+
+  using clean_adhoc_extras = small_vector<clean_adhoc_extra, 2>;
+
   target_state
-  clean_extra (action, const file&,
-               initializer_list<initializer_list<const char*>> extra);
+  perform_clean_extra (action, const file&,
+                       const clean_extras&,
+                       const clean_adhoc_extras& = {});
 
   inline target_state
-  clean_extra (action a, const file& f, initializer_list<const char*> extra)
+  perform_clean_extra (action a, const file& f,
+                       initializer_list<const char*> e)
   {
-    return clean_extra (a, f, {extra});
+    return perform_clean_extra (a, f, clean_extras (e));
   }
 
   // Update/clean a backlink issuing appropriate diagnostics at appropriate

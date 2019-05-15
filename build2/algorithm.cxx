@@ -1925,9 +1925,9 @@ namespace build2
   }
 
   target_state
-  clean_extra (action a,
-               const file& ft,
-               initializer_list<initializer_list<const char*>> extra)
+  perform_clean_extra (action a, const file& ft,
+                       const clean_extras& extras,
+                       const clean_adhoc_extras& adhoc_extras)
   {
     // Clean the extras first and don't print the commands at verbosity level
     // below 3. Note the first extra file/directory that actually got removed
@@ -1941,7 +1941,7 @@ namespace build2
 
     auto clean_extra = [&er, &ed, &ep] (const file& f,
                                         const path* fp,
-                                        initializer_list<const char*> es)
+                                        const clean_extras& es)
     {
       for (const char* e: es)
       {
@@ -2016,14 +2016,8 @@ namespace build2
 
     const path& fp (ft.path ());
 
-    auto ei (extra.begin ()), ee (extra.end ());
-    if (ei != ee)
-    {
-      if (!fp.empty ())
-        clean_extra (ft, nullptr, *ei);
-
-      ++ei;
-    }
+    if (!fp.empty () && !extras.empty ())
+      clean_extra (ft, nullptr, extras);
 
     target_state tr (target_state::unchanged);
 
@@ -2046,8 +2040,18 @@ namespace build2
       if (mf == nullptr || mp->empty ())
         continue;
 
-      if (ei != ee)
-        clean_extra (*mf, mp, *ei++);
+      if (!adhoc_extras.empty ())
+      {
+        auto i (find_if (adhoc_extras.begin (),
+                         adhoc_extras.end (),
+                         [mf] (const clean_adhoc_extra& e)
+                         {
+                           return mf->is_a (e.type);
+                         }));
+
+        if (i != adhoc_extras.end ())
+          clean_extra (*mf, mp, i->extras);
+      }
 
       if (!clean)
         continue;
@@ -2117,7 +2121,7 @@ namespace build2
   {
     const file& f (t.as<file> ());
     assert (!f.path ().empty ());
-    return clean_extra (a, f, {nullptr});
+    return perform_clean_extra (a, f, {});
   }
 
   target_state
@@ -2125,7 +2129,7 @@ namespace build2
   {
     const file& f (t.as<file> ());
     assert (!f.path ().empty ());
-    return clean_extra (a, f, {".d"});
+    return perform_clean_extra (a, f, {".d"});
   }
 
   target_state
@@ -2133,7 +2137,7 @@ namespace build2
   {
     const mtime_target& g (xg.as<mtime_target> ());
 
-    // Similar logic to clean_extra() above.
+    // Similar logic to perform_clean_extra() above.
     //
     target_state r (target_state::unchanged);
 
@@ -2158,7 +2162,7 @@ namespace build2
   target_state
   perform_clean_group_depdb (action a, const target& g)
   {
-    // The same twisted target state merging logic as in clean_extra().
+    // The same twisted target state merging logic as in perform_clean_extra().
     //
     target_state er (target_state::unchanged);
     path ep;
