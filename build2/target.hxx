@@ -1456,9 +1456,10 @@ namespace build2
     using target::target;
 
     // Modification time is an "atomic cash". That is, it can be set at any
-    // time and we assume everything will be ok regardless of the order in
-    // which racing updates happen because we do not modify the external state
-    // (which is the source of timestemps) while updating the internal.
+    // time (including on a const instance) and we assume everything will be
+    // ok regardless of the order in which racing updates happen because we do
+    // not modify the external state (which is the source of timestemps) while
+    // updating the internal.
     //
     // The modification time is reserved for the inner operation thus there is
     // no action argument.
@@ -1536,8 +1537,9 @@ namespace build2
     typedef build2::path path_type;
 
     // Target path is an "atomic consistent cash". That is, it can be set at
-    // any time but any subsequent updates must set the same path. Or, in
-    // other words, once the path is set, it never changes.
+    // any time (including on a const instance) but any subsequent updates
+    // must set the same path. Or, in other words, once the path is set, it
+    // never changes.
     //
     // An empty path may signify special unknown/undetermined/unreal location
     // (for example, a binless library or an installed import library -- we
