@@ -216,20 +216,24 @@ namespace build2
     // proper targets.
     //
     // So to support this requirement we have "ad hoc" groups. The idea is
-    // that any target can be turned (by the rule that matched it) into an ad
-    // hoc group by chaining several targets. Ad hoc groups have a more
-    // restricted semantics compared to the normal groups. In particular:
+    // that any target can be turned either by a user's declaration in a
+    // buildfile or by the rule that matches it into an ad hoc group by
+    // chaining several targets together.
+    //
+    // Ad hoc groups have a more restricted semantics compared to the normal
+    // groups. In particular:
     //
     // - The ad hoc group itself is in a sense its first/primary target.
     //
-    // - Group member's recipes should be set to group_recipe by the group's
-    //   rule.
+    // - Group member's recipes, if set, should be group_recipe. Normally, a
+    //   rule-managed member isn't matched by the rule since all that's
+    //   usually needed is to derive its path.
     //
-    // - Members are discovered lazily, they are only known after the group's
-    //   rule's apply() call.
+    // - Unless declared, members are discovered lazily, they are only known
+    //   after the group's rule's apply() call.
     //
-    // - Members cannot be used as prerequisites but can be used as targets
-    // - (e.g., to set variables, etc).
+    // - Only declared members can be used as prerequisites but all can be
+    //   used as targets (e.g., to set variables, etc).
     //
     // - Members don't have prerequisites.
     //
