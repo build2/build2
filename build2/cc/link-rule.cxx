@@ -2033,6 +2033,9 @@ namespace build2
         for (size_t i (0); i != sargs.size (); ++i)
           cs.append (sargs[i]);
 
+        // @@ Note that we don't hash output options so if one of the ad hoc
+        //    members that we manage gets renamed, we will miss a rebuild.
+
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "options mismatch forcing update of " << t;});
       }
