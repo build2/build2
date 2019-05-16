@@ -2330,7 +2330,9 @@ from out. Here is a fragment from the \c{libhello} source directory
 
 \
 hxx{version}: in{version} $src_root/manifest
-hxx{version}: dist = true
+{
+  dist = true
+}
 \
 
 Our library provides the \c{version.hxx} header that the users can include to
@@ -2565,7 +2567,6 @@ lib{hello}: {hxx ixx txx cxx}{** -version} hxx{version} \
 # in src (so that clean results in a state identical to distributed).
 #
 hxx{version}: in{version} $src_root/manifest
-hxx{version}:
 {
   dist  = true
   clean = ($src_root != $out_root)
@@ -3182,6 +3183,30 @@ exe{test}: file{test.roundtrip}:  # prerequisite-specific
 {
   test.stdin  = true
   test.stdout = true
+}
+\
+
+Variable assignment blocks can be combined with dependency declarations, for
+example:
+
+\
+h{config}: in{config}
+{
+  in.symbol = '@'
+  in.substitution = lax
+
+  SYSTEM_NAME = $c.target.system
+  SYSTEM_PROCESSOR = $c.target.cpu
+}
+\
+
+In case of a dependency chain, the block applies to the set of prerequisites
+(note: \i{not targets}) before last \c{:}. For example:
+
+\
+./: exe{test}: libue{test}: cxx{test}
+{
+  bin.whole = false  # Applies to the libue{test} prerequisite.
 }
 \
 
@@ -4686,7 +4711,9 @@ template as well as something along these lines to our \c{buildfile}:
 lib{hello}: ... hxx{version}
 
 hxx{version}: in{version} $src_root/file{manifest}
-hxx{version}: dist = true
+{
+  dist = true
+}
 \
 
 The header rule is a line-based preprocessor that substitutes fragments
@@ -6492,7 +6519,6 @@ const char data[] = \"@data@\";
 # buildfile
 
 cxx{data}: in{data}
-cxx{data}:
 {
   in.symbol = '@'
   data = 'Hello, World!'
@@ -6523,7 +6549,6 @@ substitutions as is. For example:
 # buildfile
 
 h{config}: in{config} # config.h.in
-h{config}:
 {
   in.symbol = '@'
   in.substitution = lax
