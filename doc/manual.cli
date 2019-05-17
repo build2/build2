@@ -717,19 +717,19 @@ Name Patterns} for details.
 Let's take a look at a slightly more realistic root \c{buildfile}:
 
 \
-./: {*/ -build/} doc{README LICENSE} manifest
+./: {*/ -build/} doc{README.md LICENSE} manifest
 \
 
-Here we have the customary \c{README} and \c{LICENSE} files as well as the
+Here we have the customary \c{README.md} and \c{LICENSE} files as well as the
 package \c{manifest}. Listing them as prerequisites achieves two things: they
 will be installed if/when our project is installed and, as mentioned earlier,
 they will be included into the project distribution.
 
-The \c{README} and \c{LICENSE} files use the \c{doc{\}} target type. We could
-have used the generic \c{file{\}} but using the more precise \c{doc{\}} makes
-sure that they are installed into the appropriate documentation directory. The
-\c{manifest} file doesn't need an explicit target type since it has a fixed
-name (\c{manifest{manifest\}} is valid but redundant).
+The \c{README.md} and \c{LICENSE} files use the \c{doc{\}} target type. We
+could have used the generic \c{file{\}} but using the more precise \c{doc{\}}
+makes sure that they are installed into the appropriate documentation
+directory. The \c{manifest} file doesn't need an explicit target type since it
+has a fixed name (\c{manifest{manifest\}} is valid but redundant).
 
 Standard project infrastructure in place, where should we put our source code?
 While we could have everything in the root directory of our project, just like
@@ -744,7 +744,8 @@ hello/
 │   ├── hello.cxx
 │   └── buildfile
 ├── buildfile
-└── manifest
+├── manifest
+└── README.md
 \
 
 \N|There are several reasons for this layout: It implements the canonical
@@ -847,7 +848,8 @@ libhello/
 ├── tests/
 │   └──  ...
 ├── buildfile
-└── manifest
+├── manifest
+└── README.md
 \
 
 The overall layout (\c{build/}, \c{libhello/} source directory) as well as the
