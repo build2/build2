@@ -41,6 +41,9 @@ namespace build2
       // Extract the version from the manifest file. As well as summary and
       // url while at it.
       //
+      // Also, as a sanity check, verify the package name matches the build
+      // system project name.
+      //
       string sum;
       string url;
 
@@ -63,6 +66,21 @@ namespace build2
 
           for (nv = p.next (); !nv.empty (); nv = p.next ())
           {
+            if (nv.name == "name")
+            {
+              auto& pn (cast<project_name> (rs.vars[var_project]));
+
+              if (nv.value != pn.string ())
+              {
+                path bf (rs.src_path () / rs.root_extra->bootstrap_file);
+                location ml (&f, nv.value_line, nv.value_column);
+                location bl (&bf);
+
+                fail (ml) << "package name " << nv.value << " does not match "
+                          << "build system project name " << pn <<
+                  info (bl) << "build system project name specified here";
+              }
+            }
             if (nv.name == "summary")
               sum = move (nv.value);
             else if (nv.name == "url")

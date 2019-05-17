@@ -283,6 +283,7 @@ namespace build2
       const dir_path& root_dir;       // build[2]/root/
       const dir_path& bootstrap_dir;  // build[2]/bootstrap/
 
+      const path&     bootstrap_file; // build[2]/bootstrap.build[2]
       const path&     root_file;      // build[2]/root.build[2]
       const path&     export_file;    // build[2]/export.build[2]
       const path&     src_root_file;  // build[2]/bootstrap/src-root.build[2]

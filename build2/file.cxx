@@ -452,6 +452,7 @@ namespace build2
         a ? alt_buildignore_file : std_buildignore_file,
         a ? alt_root_dir         : std_root_dir,
         a ? alt_bootstrap_dir    : std_bootstrap_dir,
+        a ? alt_bootstrap_file   : std_bootstrap_file,
         a ? alt_root_file        : std_root_file,
         a ? alt_export_file      : std_export_file,
         a ? alt_src_root_file    : std_src_root_file,
