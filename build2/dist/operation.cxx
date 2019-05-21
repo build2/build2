@@ -581,6 +581,7 @@ namespace build2
                              nullptr))
         {
           args = {"tar",
+                  "--format", "ustar",
                   "-cf", "-",
                   pkg.c_str (),
                   nullptr};
@@ -604,11 +605,13 @@ namespace build2
         }
         else if (e == "tar")
           args = {"tar",
+                  "--format", "ustar",
                   "-cf", ap.string ().c_str (),
                   pkg.c_str (),
                   nullptr};
         else
           args = {"tar",
+                  "--format", "ustar",
                   "-a",
                   "-cf", ap.string ().c_str (),
                   pkg.c_str (),
