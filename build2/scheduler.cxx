@@ -138,7 +138,7 @@ namespace build2
         waiting_--;
         active_++;
 
-        // Shutting things down cleanly is tricky: we could have handles it in
+        // Shutting things down cleanly is tricky: we could have handled it in
         // the scheduler (e.g., by setting a flag and then waking everyone up,
         // similar to shutdown). But there could also be "external waiters"
         // that have called deactivate() -- we have no way to wake those up.
