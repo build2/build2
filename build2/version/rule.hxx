@@ -20,7 +20,7 @@ namespace build2
     class in_rule: public in::rule
     {
     public:
-      in_rule (): rule ("version.in 1", "version.in") {}
+      in_rule (): rule ("version.in 2", "version.in") {}
 
       virtual bool
       match (action, target&, const string&) const override;

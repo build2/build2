@@ -4451,7 +4451,7 @@ For example:
 \
 
 The \i{major}, \i{minor}, and \i{patch} should be numeric values between \c{0}
-and \c{999} and all three cannot be zero at the same time. For initial
+and \c{99999} and all three cannot be zero at the same time. For initial
 development it is recommended to use \c{0} for \i{major}, start with version
 \c{0.1.0}, and change to \c{1.0.0} once things stabilize.
 
@@ -4574,30 +4574,30 @@ decimal value comparable as integers (for example, in preprocessor
 directives). The integer representation has the following form:
 
 \
-AAABBBCCCDDDE
+AAAAABBBBBCCCCCDDDE
 
-AAA - major
-BBB - minor
-CCC - patch
-DDD - alpha / beta (DDD + 500)
-E   - final (0) / snapshot (1)
+AAAAA - major
+BBBBB - minor
+CCCCC - patch
+DDD   - alpha / beta (DDD + 500)
+E     - final (0) / snapshot (1)
 \
 
 If the \i{DDDE} value is not zero, then it signifies a pre-release. In this
-case one is subtracted from the \i{AAABBBCCC} value. An alpha number is stored
-in \i{DDD} as is while beta \- incremented by \c{500}. If \i{E} is \c{1}, then
-this is a snapshot after \i{DDD}.
+case one is subtracted from the \i{AAAAABBBBBCCCCC} value. An alpha number is
+stored in \i{DDD} as is while beta \- incremented by \c{500}. If \i{E} is
+\c{1}, then this is a snapshot after \i{DDD}.
 
 For example:
 
 \
-             AAABBBCCCDDDE
-0.1.0        0000010000000
-0.1.2        0000010010000
-1.2.3        0010020030000
-2.2.0-a.1    0020019990010
-3.0.0-b.2    0029999995020
-2.2.0-a.1.z  0020019990011
+             AAAAABBBBBCCCCCDDDE
+0.1.0        0000000001000000000
+0.1.2        0000000001000020000
+1.2.3        0000100002000030000
+2.2.0-a.1    0000200001999990010
+3.0.0-b.2    0000299999999995020
+2.2.0-a.1.z  0000200001999990011
 \
 
 A project that uses standard versioning can rely on the \c{build2} \c{version}
@@ -4615,7 +4615,7 @@ as the following build system variables (which can be used in the buildfiles):
 [string] version                     # +2-1.2.3-b.4.1234567.deadbeef+3
 
 [string] version.project             # 1.2.3-b.4.1234567.deadbeef
-[uint64] version.project_number      # 0010020025041
+[uint64] version.project_number      # 0000100002000025041
 [string] version.project_id          # 1.2.3-b.4.deadbeef
 
 [bool]   version.stub                # false (true for 0[+<revision>])
@@ -4739,7 +4739,7 @@ If our \c{libhello} is at version \c{1.2.3}, then the generated
 \
 #ifndef LIBHELLO_VERSION
 
-#define LIBHELLO_VERSION     10020030000ULL
+#define LIBHELLO_VERSION     100002000030000ULL
 #define LIBHELLO_VERSION_STR \"1.2.3\"
 
 #endif
@@ -4794,13 +4794,13 @@ After the substitution our \c{version.hxx} header will look like this:
 \
 #ifndef LIBHELLO_VERSION
 
-#define LIBHELLO_VERSION     10020030000ULL
+#define LIBHELLO_VERSION     100002000030000ULL
 #define LIBHELLO_VERSION_STR \"1.2.3\"
 
 #include <libprint/version.hxx>
 
 #ifdef LIBPRINT_VERSION
-#  if !(LIBPRINT_VERSION >= 20030040000ULL)
+#  if !(LIBPRINT_VERSION >= 200003000040000ULL)
 #    error incompatible libprint version, libprint >= 2.3.4 is required
 #  endif
 #endif

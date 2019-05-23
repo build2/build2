@@ -26,11 +26,11 @@
 // "Fake" version values used during bootstrap.
 //
 #ifdef BUILD2_BOOTSTRAP
-#  define BUILD2_VERSION      9999999990000ULL
-#  define BUILD2_VERSION_STR  "999.999.999"
-#  define BUILD2_VERSION_ID   "999.999.999"
-#  define LIBBUTL_VERSION_STR "999.999.999"
-#  define LIBBUTL_VERSION_ID  "999.999.999"
+#  define BUILD2_VERSION      9999999999999990000ULL
+#  define BUILD2_VERSION_STR  "99999.99999.99999"
+#  define BUILD2_VERSION_ID   "99999.99999.99999"
+#  define LIBBUTL_VERSION_STR "99999.99999.99999"
+#  define LIBBUTL_VERSION_ID  "99999.99999.99999"
 #else
 #  include <build2/version.hxx>
 #endif
