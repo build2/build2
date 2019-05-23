@@ -774,6 +774,8 @@ namespace build2
         const path& ip (it.path ());
         assert (!ip.empty ()); // Should have been assigned by update.
 
+        cat = process (process_exit (0)); // Successfully exited.
+
         if (!dry_run)
         {
           try
