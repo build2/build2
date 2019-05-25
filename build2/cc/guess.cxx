@@ -1585,8 +1585,9 @@ namespace build2
           // it 14.2 (which is the version of the "toolset") in our target
           // triplet.
           //
-          // year   ver   cl     crt/dll
+          // year   ver   cl     crt/dll   toolset
           //
+          // 2019   16.1  19.21  14.2/140  14.21
           // 2019   16.0  19.20  14.2/140
           // 2017   15.9  19.16  14.1/140
           // 2017   15.8  19.15  14.1/140
@@ -1602,6 +1603,8 @@ namespace build2
           // 2008    9    15.00   9.0/90
           // 2005    8    14.00   8.0/80
           // 2003  7.1    13.10   7.1/71
+          //
+          // _MSC_VER is the numeric cl version, e.g., 1921 for 19.21.
           //
           /**/ if (v.major == 19 && v.minor >= 20) t += "14.2";
           else if (v.major == 19 && v.minor >= 10) t += "14.1";
