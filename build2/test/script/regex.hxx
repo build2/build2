@@ -619,8 +619,8 @@ namespace std
   // is_unsigned so we have to get deeper into the implementation details.
   //
 #if defined(_MSC_VER) && _MSC_VER >= 1921
-  template <class _Ty>
-  struct _Sign_base<_Ty, false>
+  template <>
+  struct _Sign_base<build2::test::script::regex::line_char, false>
   {
     static constexpr bool _Signed   = false;
     static constexpr bool _Unsigned = true;
