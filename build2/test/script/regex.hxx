@@ -615,11 +615,23 @@ namespace std
   // msvcrt assumes regex_traits<line_char>::_Uelem to be present (see above)
   // and statically asserts it is unsigned.
   //
+  // And starting from VC 16.1, is_unsigned_v is not implemented in terms of
+  // is_unsigned so we have to get deeper into the implementation details.
+  //
+#if defined(_MSC_VER) && _MSC_VER >= 1921
+  template <class _Ty>
+  struct _Sign_base<_Ty, false>
+  {
+    static constexpr bool _Signed   = false;
+    static constexpr bool _Unsigned = true;
+  };
+#else
   template <>
   struct is_unsigned<build2::test::script::regex::line_char>
   {
     static const bool value = true;
   };
+#endif
 
   // When used with libc++ the linker complains that it can't find
   // __match_any_but_newline<line_char>::__exec() function. The problem is
