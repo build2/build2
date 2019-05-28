@@ -51,7 +51,14 @@ if ($cxx.target == $build.host)
 }
 
 if ($cxx.target.class != "windows")
+{
+  # Make sure backtrace includes function names.
+  #
+  if ($cxx.target.class == 'linux')
+    cxx.loptions += -rdynamic
+
   cxx.libs += -lpthread
+}
 else
 {
   # Adjust stack size (affects all threads).

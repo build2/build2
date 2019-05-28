@@ -588,6 +588,12 @@ namespace build2
     // inherit the main thread's stack size (since the first helper is always
     // created by the main thread).
     //
+    // Note also the interaction with our backtrace functionality: in order to
+    // get the complete stack trace we let unhandled exceptions escape the
+    // thread function expecting the runtime to still call std::terminate. In
+    // particular, having a noexcept function anywhere on the exception's path
+    // causes the stack trace to be truncated, at least on Linux.
+    //
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
 
 #ifndef BUILD2_DEFAULT_STACK_SIZE

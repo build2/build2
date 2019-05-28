@@ -13,12 +13,14 @@
 #endif
 
 #include <sstream>
-#include <cstring>     // strcmp(), strchr()
+#include <cstring>   // strcmp(), strchr()
 #include <typeinfo>
-#include <iostream>    // cout
+#include <iostream>  // cout
+#include <exception> // set_terminate(), terminate_handler
 
 #include <libbutl/pager.mxx>
-#include <libbutl/fdstream.mxx> // stderr_fd(), fdterm()
+#include <libbutl/fdstream.mxx>  // stderr_fd(), fdterm()
+#include <libbutl/backtrace.mxx> // backtrace()
 
 #include <build2/types.hxx>
 #include <build2/utility.hxx>
@@ -131,9 +133,25 @@ namespace build2
   }
 }
 
+// Print backtrace if terminating due to an unhandled exception. Note that
+// custom_terminate is non-static and not a lambda to reduce the noise.
+//
+static terminate_handler default_terminate;
+
+void
+custom_terminate ()
+{
+  *diag_stream << backtrace ();
+
+  if (default_terminate != nullptr)
+    default_terminate ();
+}
+
 int build2::
 main (int argc, char* argv[])
 {
+  default_terminate = set_terminate (custom_terminate);
+
   tracer trace ("main");
 
   int r (0);
