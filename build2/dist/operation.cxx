@@ -568,14 +568,25 @@ namespace build2
 
       if (e == "zip")
       {
+        // On Windows we use libarchive's bsdtar (zip is an MSYS executabales).
+        //
+#ifdef _WIN32
+        args = {"bsdtar",
+                "-a", // -a with the .zip extension seems to be the only way.
+                "-cf", ap.string ().c_str (),
+                pkg.c_str (),
+                nullptr};
+#else
         args = {"zip",
                 "-rq", ap.string ().c_str (),
                 pkg.c_str (),
                 nullptr};
+#endif
       }
       else
       {
-        // On Windows we default to libarchive's bsdtar with auto-compression.
+        // On Windows we use libarchive's bsdtar with auto-compression (tar
+        // itself and quite a few compressors are MSYS executables).
         //
 #ifdef _WIN32
         const char* tar = "bsdtar";
