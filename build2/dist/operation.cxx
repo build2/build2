@@ -575,12 +575,19 @@ namespace build2
       }
       else
       {
+        // On Windows we default to libarchive's bsdtar with auto-compression.
+        //
+#ifdef _WIN32
+        const char* tar = "bsdtar";
+#else
+        const char* tar = "tar";
+
         if (const char* c = (e == "tar.gz"  ? "gzip"  :
                              e == "tar.xz"  ? "xz"    :
                              e == "tar.bz2" ? "bzip2" :
                              nullptr))
         {
-          args = {"tar",
+          args = {tar,
                   "--format", "ustar",
                   "-cf", "-",
                   pkg.c_str (),
@@ -603,14 +610,16 @@ namespace build2
             fail << "unable to open " << ap << ": " << e;
           }
         }
-        else if (e == "tar")
-          args = {"tar",
+        else
+#endif
+        if (e == "tar")
+          args = {tar,
                   "--format", "ustar",
                   "-cf", ap.string ().c_str (),
                   pkg.c_str (),
                   nullptr};
         else
-          args = {"tar",
+          args = {tar,
                   "--format", "ustar",
                   "-a",
                   "-cf", ap.string ().c_str (),
