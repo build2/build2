@@ -641,6 +641,18 @@ namespace build2
       new (&v.data_) project_name (move (x));
   }
 
+  inline name value_traits<project_name>::
+  reverse (const project_name& x)
+  {
+    // Make work for the special unnamed subproject representation (see
+    // find_subprojects() in file.cxx for details).
+    //
+    const string& s (x.string ());
+    return name (s.empty () || path::traits_type::is_separator (s.back ())
+                 ? empty_string
+                 : s);
+  }
+
   // vector<T> value
   //
   template <typename T>

@@ -916,7 +916,7 @@ namespace build2
 
     static project_name convert (name&&, name*);
     static void assign (value&, project_name&&);
-    static name reverse (const project_name& x) {return name (x.string ());}
+    static name reverse (const project_name&);
     static int compare (const project_name& x, const project_name& y) {
       return x.compare (y);}
     static bool empty (const project_name& x) {return x.empty ();}
