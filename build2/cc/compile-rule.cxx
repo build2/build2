@@ -4005,6 +4005,8 @@ namespace build2
               {
                 if (ctype == compiler_type::gcc)
                 {
+                  // Note that only these two *plus* -x do the trick.
+                  //
                   args.push_back ("-fpreprocessed");
                   args.push_back ("-fdirectives-only");
                 }
