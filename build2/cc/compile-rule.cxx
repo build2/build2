@@ -1549,7 +1549,7 @@ namespace build2
           if (p > 1 && p + 1 < l.size () && // 2 chars before, 1 after.
               l[p - 2] == ' '            &&
               alpha (l[p - 1])           &&
-              path::traits::is_separator (l[p + 1]))
+              path::traits_type::is_separator (l[p + 1]))
             p = l.rfind (':', p - 2);
         }
 
@@ -2006,13 +2006,14 @@ namespace build2
             //
             if (const strings* ih = import_hdr)
             {
-              auto i (lower_bound (ih->begin (),
-                                   ih->end (),
-                                   hp,
-                                   [] (const string& x, const string& y)
-                                   {
-                                     return path::traits::compare (x, y) < 0;
-                                   }));
+              auto i (
+                lower_bound (ih->begin (),
+                             ih->end (),
+                             hp,
+                             [] (const string& x, const string& y)
+                             {
+                               return path::traits_type::compare (x, y) < 0;
+                             }));
 
               if (i != ih->end () && *i == hp)
               {
@@ -2745,8 +2746,8 @@ namespace build2
                 // -I$src/out_*). We just need to add a trailing directory
                 // separator if it's not already there.
                 //
-                if (!dir_path::traits::is_separator (ds.back ()))
-                  ds += dir_path::traits::directory_separator;
+                if (!dir_path::traits_type::is_separator (ds.back ()))
+                  ds += dir_path::traits_type::directory_separator;
 
                 dir_path d (move (ds), dir_path::exact); // Move the buffer in.
 
@@ -4383,7 +4384,7 @@ namespace build2
           //  FOObar
           //
           bool fs (fc == '_' || fc == '-' || fc == '.' ||
-                   path::traits::is_separator (fc));
+                   path::traits_type::is_separator (fc));
           bool ms (mc == '_' || mc == '.');
 
           if (fs && ms)

@@ -364,7 +364,7 @@ namespace build2
             const string& s (cast<string> (l));
 
             if (s.empty () ||
-                (!path::traits::is_separator (s.back ()) &&
+                (!path::traits_type::is_separator (s.back ()) &&
                  s.find ('*') == string::npos))
             {
               fail << "missing '*' in binutils pattern '" << s << "'";
@@ -605,7 +605,9 @@ namespace build2
         // This can be either a pattern or a fallback search directory.
         //
         const string* pat (cast_null<string> (rs["bin.pattern"]));
-        bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
+
+        bool fb (pat != nullptr &&
+                 path::traits_type::is_separator (pat->back ()));
 
         // Don't save the default value to config.build so that if the user
         // changes, say, the C++ compiler (which hinted the pattern), then
@@ -763,7 +765,9 @@ namespace build2
         // This can be either a pattern or a fallback search directory.
         //
         const string* pat (cast_null<string> (rs["bin.pattern"]));
-        bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
+
+        bool fb (pat != nullptr &&
+                 path::traits_type::is_separator (pat->back ()));
 
         auto p (
           config::required (
@@ -874,7 +878,9 @@ namespace build2
         // This can be either a pattern or a fallback search directory.
         //
         const string* pat (cast_null<string> (rs["bin.pattern"]));
-        bool fb (pat != nullptr && path::traits::is_separator (pat->back ()));
+
+        bool fb (pat != nullptr &&
+                 path::traits_type::is_separator (pat->back ()));
 
         auto p (
           config::required (

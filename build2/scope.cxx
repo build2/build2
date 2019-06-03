@@ -681,7 +681,7 @@ namespace build2
       //
       // See also parser::expand_name_pattern() if changing anything here.
       //
-      size_t p (path::traits::rfind_separator (v));
+      size_t p (path::traits_type::rfind_separator (v));
 
       if (p != string::npos)
       {

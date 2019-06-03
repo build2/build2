@@ -785,7 +785,7 @@ main (int argc, char* argv[])
               // We cannot assume it is a valid filesystem name so we
               // will have to do the splitting manually.
               //
-              path::size_type i (path::traits::rfind_separator (v));
+              path::size_type i (path::traits_type::rfind_separator (v));
 
               if (i != string::npos)
                 out_base = dir_path (v, i != 0 ? i : 1); // Special case: "/".

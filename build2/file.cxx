@@ -64,7 +64,7 @@ namespace build2
       // See find_subprojects() for details.
       //
       const project_name& n (
-        path::traits::is_separator (i->first.string ().back ())
+        path::traits_type::is_separator (i->first.string ().back ())
         ? empty_project_name
         : i->first);
 

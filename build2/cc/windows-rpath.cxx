@@ -92,7 +92,7 @@ namespace build2
           //
           //    Though this can happen on MinGW with direct DLL link...
           //
-          size_t p (path::traits::find_extension (f));
+          size_t p (path::traits_type::find_extension (f));
 
           if (p == string::npos || casecmp (f.c_str () + p + 1, "dll") != 0)
             return;
@@ -170,7 +170,7 @@ namespace build2
         }
         else
         {
-          size_t p (path::traits::find_extension (f));
+          size_t p (path::traits_type::find_extension (f));
 
           if (p != string::npos && casecmp (f.c_str () + p + 1, "dll") == 0)
           {

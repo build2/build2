@@ -1317,7 +1317,7 @@ namespace build2
           auto strip_lib = [&n] ()
           {
             if (n.size () > 3 &&
-                path::traits::compare (n.c_str (), 3, "lib", 3) == 0)
+                path::traits_type::compare (n.c_str (), 3, "lib", 3) == 0)
               n.erase (0, 3);
           };
 
@@ -1328,7 +1328,7 @@ namespace build2
             //
             n = t->path ().leaf ().base ().base ().string ();
 
-            if (path::traits::compare (n.c_str (), n.size (),
+            if (path::traits_type::compare (n.c_str (), n.size (),
                                        l.name.c_str (), l.name.size ()) != 0)
               strip_lib ();
           }

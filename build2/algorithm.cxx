@@ -1952,7 +1952,7 @@ namespace build2
         path p;
         bool d;
 
-        if (path::traits::absolute (e))
+        if (path::traits_type::absolute (e))
         {
           p = path (e);
           d = p.to_directory ();

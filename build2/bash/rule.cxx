@@ -138,7 +138,7 @@ namespace build2
                b != nullptr;
                b = (e != nullptr ? e + 1 : e))
           {
-            e = strchr (b, path::traits::path_separator);
+            e = strchr (b, path::traits_type::path_separator);
 
             // Empty path (i.e., a double colon or a colon at the beginning or
             // end of PATH) means search in the current dirrectory. We aren't
@@ -270,7 +270,7 @@ namespace build2
             const string& ps (pp.string ());
             const string& is (ip.string ());
 
-            if (path::traits::compare (
+            if (path::traits_type::compare (
                   ps.c_str () + ps.size () - n, n,
                   is.c_str (),                  is.size ()) == 0)
             {

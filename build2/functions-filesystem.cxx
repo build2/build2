@@ -203,7 +203,7 @@ namespace build2
       {
         return a.size () == 1 &&
         (a[0].directory () ||
-         a[0].value.find_first_of (path::traits::directory_separators) !=
+         a[0].value.find_first_of (path::traits_type::directory_separators) !=
          string::npos);
       };
 

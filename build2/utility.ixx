@@ -15,7 +15,7 @@ namespace build2
     if (!prefix.empty () && p.sub (prefix))
     {
       s += prefix.size (); // Does not include trailing slash except for root.
-      if (path::traits::is_separator (*s))
+      if (path::traits_type::is_separator (*s))
         ++s;
     }
 

@@ -27,7 +27,7 @@ namespace build2
   inline name
   to_name (string s)
   {
-    if (!s.empty () && path::traits::is_separator (s.back ()))
+    if (!s.empty () && path::traits_type::is_separator (s.back ()))
     {
       dir_path d (move (s), dir_path::exact);
 

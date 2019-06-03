@@ -179,8 +179,8 @@ namespace build2
 
           if (pn > dn &&
               p.compare (0, dn, ds) == 0 &&
-              (path::traits::is_separator (ds[dn - 1]) ||
-               path::traits::is_separator (p[dn])))
+              (path::traits_type::is_separator (ds[dn - 1]) ||
+               path::traits_type::is_separator (p[dn])))
             return true;
         }
 
@@ -277,7 +277,7 @@ namespace build2
         //
         auto sys_simple = [&sysd, &sys, &find_sysd] (const string& p) -> bool
         {
-          bool s (!path::traits::absolute (p));
+          bool s (!path::traits_type::absolute (p));
 
           if (!s)
           {

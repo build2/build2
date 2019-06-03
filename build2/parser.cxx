@@ -1491,7 +1491,7 @@ namespace build2
         a = true;
       else
       {
-        a = path::traits::is_separator (n.value.back ());
+        a = path::traits_type::is_separator (n.value.back ());
         p /= path (move (n.value));
       }
 
@@ -3391,7 +3391,7 @@ namespace build2
     {
       // Use path comparison (which may be slash/case-insensitive).
       //
-      return path::traits::compare (
+      return path::traits_type::compare (
         v, dir ? n.dir.representation () : n.value) == 0;
     };
 
@@ -3475,7 +3475,7 @@ namespace build2
         // have a sufficiently setup project root).
         //
         const string& s (m.string ());
-        if ((p[0] != '.' && s[path::traits::find_leaf (s)] == '.') ||
+        if ((p[0] != '.' && s[path::traits_type::find_leaf (s)] == '.') ||
             (root_ != nullptr              &&
              root_->root_extra != nullptr  &&
              m.to_directory ()             &&
@@ -3589,11 +3589,11 @@ namespace build2
         if (tt != nullptr && tt->pattern != nullptr)
         {
           a = tt->pattern (*tt, *scope_, v, e, l, false);
-          d = path::traits::is_separator (v.back ());
+          d = path::traits_type::is_separator (v.back ());
         }
         else
         {
-          d = path::traits::is_separator (v.back ());
+          d = path::traits_type::is_separator (v.back ());
 
           if (!d)
             e = target::split_name (v, l);
@@ -3870,7 +3870,7 @@ namespace build2
   // in our buildfile "syntax".
   //
   const string parser::name_separators (
-    string (path::traits::directory_separators) + '%');
+    string (path::traits_type::directory_separators) + '%');
 
   auto parser::
   parse_names (token& t, type& tt,

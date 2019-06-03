@@ -453,7 +453,7 @@ namespace build2
           d /= p.directory ();
 
           const string& s (p.string ());
-          size_t i (path::traits::find_leaf (s));
+          size_t i (path::traits_type::find_leaf (s));
 
           if (i == string::npos)
             fail << "invalid extension '" << s << "' in " << what;

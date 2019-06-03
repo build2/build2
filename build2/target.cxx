@@ -233,7 +233,7 @@ namespace build2
     size_t p;
     if (v.back () != '.')
     {
-      if ((p = path::traits::find_extension (v)) != string::npos)
+      if ((p = path::traits_type::find_extension (v)) != string::npos)
         r = string (v.c_str () + p + 1);
     }
     else
@@ -285,7 +285,7 @@ namespace build2
     }
     else if (de)
     {
-      if (path::traits::find_extension (v) != string::npos)
+      if (path::traits_type::find_extension (v) != string::npos)
         v += "...";
     }
   }
@@ -966,7 +966,7 @@ namespace build2
   {
     // Add/strip trailing directory separator unless already there.
     //
-    bool d (path::traits::is_separator (v.back ()));
+    bool d (path::traits_type::is_separator (v.back ()));
 
     if (r)
     {
@@ -975,7 +975,7 @@ namespace build2
     }
     else if (!d)
     {
-      v += path::traits::directory_separator;
+      v += path::traits_type::directory_separator;
       return true;
     }
 

@@ -25,7 +25,7 @@ namespace build2
   static value
   concat_path_string (path l, string sr)
   {
-    if (path::traits::is_separator (sr[0])) // '\0' if empty.
+    if (path::traits_type::is_separator (sr[0])) // '\0' if empty.
     {
       sr.erase (0, 1);
       path pr (move (sr));
@@ -49,7 +49,7 @@ namespace build2
   static value
   concat_dir_path_string (dir_path l, string sr)
   {
-    if (path::traits::is_separator (sr[0])) // '\0' if empty.
+    if (path::traits_type::is_separator (sr[0])) // '\0' if empty.
       sr.erase (0, 1);
 
     path pr (move (sr));

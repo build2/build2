@@ -1528,7 +1528,7 @@ namespace build2
           // better than checking for a platform-specific extension (maybe
           // we should cache it somewhere).
           //
-          size_t p (path::traits::find_extension (f));
+          size_t p (path::traits_type::find_extension (f));
 
           if (p == string::npos)
             return;
@@ -1553,7 +1553,7 @@ namespace build2
         //
         string o (d.link ? "-Wl,-rpath-link," : "-Wl,-rpath,");
 
-        size_t p (path::traits::rfind_separator (f));
+        size_t p (path::traits_type::rfind_separator (f));
         assert (p != string::npos);
 
         o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.

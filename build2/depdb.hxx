@@ -228,7 +228,8 @@ namespace build2
     expect (const path_type& v)
     {
       string* l (read ());
-      if (l == nullptr || path_type::traits::compare (*l, v.string ()) != 0)
+      if (l == nullptr ||
+          path_type::traits_type::compare (*l, v.string ()) != 0)
       {
         write (v);
         return l;

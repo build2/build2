@@ -363,7 +363,7 @@ namespace build2
     // separator.
     //
     if (d.empty ())
-      os << ind << dir_path::traits::directory_separator;
+      os << ind << dir_path::traits_type::directory_separator;
     else
     {
       const dir_path& rd (rel ? relative (d) : d);

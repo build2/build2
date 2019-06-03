@@ -606,7 +606,7 @@ namespace build2
       if (t.type == token_type::word)
       {
         string& v (t.value);
-        size_t p (path::traits::rfind_separator (v));
+        size_t p (path::traits_type::rfind_separator (v));
 
         if (p != string::npos && p != 0) // If first then visibility.
         {
@@ -631,7 +631,7 @@ namespace build2
             // If double separator (visibility marker), then keep the first in
             // name.
             //
-            if (p != 0 && path::traits::is_separator (v[p - 1]))
+            if (p != 0 && path::traits_type::is_separator (v[p - 1]))
               --p;
 
             dir = dir_path (t.value, 0, p + 1); // Include the separator.
@@ -673,7 +673,7 @@ namespace build2
       //
       char c (t.value[0]);
 
-      if (path::traits::is_separator (c))
+      if (path::traits_type::is_separator (c))
         c = '/'; // Normalize.
 
       string n (t.value, c == '!' || c == '%' || c == '/' ? 1 : 0);

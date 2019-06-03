@@ -219,7 +219,7 @@ namespace build2
       // Analyze the last path component only.
       //
       const string& s (xc.string ());
-      size_t s_p (path::traits::find_leaf (s));
+      size_t s_p (path::traits_type::find_leaf (s));
       size_t s_n (s.size ());
 
       // Name separator characters (e.g., '-' in 'g++-4.8').
@@ -1810,7 +1810,7 @@ namespace build2
       {
         if (pre.second != 0 &&
             pre.second != string::npos &&
-            !path::traits::is_separator (xc.string ()[pre.second - 1]))
+            !path::traits_type::is_separator (xc.string ()[pre.second - 1]))
         {
           r.bin_pattern.assign (xc.string (), 0, pre.second);
           r.bin_pattern += '*'; // '-' or similar is already there.

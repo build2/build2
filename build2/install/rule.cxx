@@ -789,7 +789,7 @@ namespace build2
 
       if (!name.empty ())
       {
-        reld += path::traits::directory_separator;
+        reld += path::traits_type::directory_separator;
         reld += name.string ();
       }
 
