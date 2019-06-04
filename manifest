@@ -3,7 +3,8 @@ name: build2
 version: 0.11.0-a.0.z
 summary: build2 build system
 license: MIT
-tags: c++, build, system
+topics: build system, build toolchain
+keywords: native cross-platform
 description-file: README
 changes-file: NEWS
 url: https://build2.org
