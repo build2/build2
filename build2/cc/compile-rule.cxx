@@ -2992,7 +2992,7 @@ namespace build2
                   }
 
                   args.push_back ("-MF");
-                  args.push_back (r != nullptr ? r->string ().c_str () : "");
+                  args.push_back (r != nullptr ? r->string ().c_str () : "-");
 
                   sense_diag = (ctype == compiler_type::gcc);
                   gen = args_gen = false;
