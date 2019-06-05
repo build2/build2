@@ -2806,12 +2806,12 @@ namespace build2
           if (reprocess)
             args.push_back ("-D__build2_preprocess");
 
+          append_options (args, t, c_poptions);
+          append_options (args, t, x_poptions);
+
           // Add *.export.poptions from prerequisite libraries.
           //
           append_lib_options (bs, args, a, t, li);
-
-          append_options (args, t, c_poptions);
-          append_options (args, t, x_poptions);
 
           // Populate the src-out with the -I$out_base -I$src_base pairs.
           //
@@ -4053,10 +4053,10 @@ namespace build2
           if (reprocess)
             args.push_back ("-D__build2_preprocess");
 
-          append_lib_options (t.base_scope (), args, a, t, li);
-
           append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
+
+          append_lib_options (t.base_scope (), args, a, t, li);
 
           assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
           append_option_values (
