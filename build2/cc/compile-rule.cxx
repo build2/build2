@@ -1232,11 +1232,9 @@ namespace build2
 
         // This is like prerequisite search.
         //
-        if (optional<string> de = tt.default_extension (tk, s, nullptr, true))
-          if (*de == e)
-            return true;
+        optional<string> de (tt.default_extension (tk, s, nullptr, true));
 
-        return false;
+        return de && *de == e;
       };
 
       small_vector<const target_type*, 2> r;
