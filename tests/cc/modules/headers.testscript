@@ -9,15 +9,36 @@
 
 +$headers || exit
 
-: include-translation
-:
-cat <<EOI >=core.hxx;
+# Common source files that are symlinked in the test directories if used.
+#
++cat <<EOI >=core.hxx
   #ifdef CORE_IN
   #  error macro isolation
   #endif
   #define CORE_OUT 1
   inline int f () {return 1;}
   EOI
+
+: import
+:
+#ln -s ../core.hxx ./; @@ why isn't working?
+cp ../core.hxx ./;
+cat <<EOI >=driver.cxx;
+  #define CORE_IN 1
+  import "core.hxx";
+  #ifndef CORE_OUT
+  #  error macro export
+  #endif
+  int main () {return f () - CORE_OUT;}
+  EOI
+$* test clean <<EOI
+  exe{test}: cxx{driver}
+  EOI
+
+: include-translation
+:
+#ln -s ../core.hxx ./; @@ why isn't working?
+cp ../core.hxx ./;
 cat <<EOI >=driver.cxx;
   #define CORE_IN 1
   #include "core.hxx"
@@ -26,6 +47,12 @@ cat <<EOI >=driver.cxx;
   #endif
   int main () {return f () - CORE_OUT;}
   EOI
-$* test clean config.cxx.importable_headers="$~/core.hxx" &$~/../build/cc/*** <<EOI
+$* test clean config.cxx.importable_headers="$~/core.hxx" <<EOI
   exe{test}: cxx{driver}
   EOI
+
+# Clean module sidebuilds.
+#
+-$* clean <<EOI
+./:
+EOI

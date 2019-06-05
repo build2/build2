@@ -1736,12 +1736,15 @@ namespace build2
         //
         else if (command ("INCLUDE") || command ("IMPORT"))
         {
-          // INCLUDE [<"]<name>[>"] <path>
-          // IMPORT [<"]<name>[>"] <path>
+          // INCLUDE [<"']<name>[>"'] <path>
+          // IMPORT [<"']<name>[>"'] <path>
+          // IMPORT '<path>'
           //
           // <path> is the resolved path or empty if the header is not found.
           // It can be relative if it is derived from a relative path (either
-          // via -I or includer).
+          // via -I or includer). If <name> is single-quoted, then it cannot
+          // be re-searched (e.g., implicitly included stdc-predef.h) and in
+          // this case <path> is never empty.
           //
           // In case of re-search or include translation we may have to split
           // handling the same include or import across multiple commands.
@@ -1794,43 +1797,59 @@ namespace build2
           // compiler resolves to the expected target. So we will also do the
           // correlation via <name>.
           //
-          bool im (cmd[1] == 'M');
+          bool imp (cmd[1] == 'M');
 
-          path f;    // <path> or <name> if doesn't exist
-          string n;  // [<"]<name>[>"]
-          bool exists;
-          if (im)       // @@ MODHDR TODO: GCC IMPORT command improvements
+          path f;          // <path> or <name> if doesn't exist
+          string n;        // [<"']<name>[>"']
+          bool exists;     // <path> is not empty
+          bool searchable; // <name> is not single-quoted
           {
-            exists = true;
-            n = rq;
-            f = path (move (rq));
-          }
-          else
-          {
-            size_t p (rq.find (rq[0] == '<' ? '>' : '"', 1));
-            if (p == string::npos || rq[p + 1] != ' ')
+            char q (rq[0]);                // Opening quote.
+            q = (q ==  '<' ?  '>' :
+                 q ==  '"' ?  '"' :
+                 q == '\'' ? '\'' : '\0'); // Closing quote.
+
+            size_t s (rq.size ()), qp; // Quote position.
+            if (q == '\0' || (qp = rq.find (q, 1)) == string::npos)
               break; // Malformed command.
 
-            n.assign (rq, 0, p + 1);
+            n.assign (rq, 0, qp + 1);
 
-            exists = (p + 2 != rq.size ()); // [>"] and space.
-
-            if (exists)
+            size_t p (qp + 1);
+            if (imp && q == '\'' && p == s) // IMPORT '<path>'
             {
-              rq.erase (0, p + 2); // <path>
-              f = path (move (rq));
-
-              // Complete the relative path not to confuse with non-existent.
-              //
-              if (!f.absolute ())
-                f.complete ();
+              exists = true;
+              // Leave f empty and fall through.
             }
             else
             {
-              rq.erase (p);
-              rq.erase (0, 1); // <name>
+              if (p != s && rq[p++] != ' ') // Skip following space, if any.
+                break;
+
+              exists = (p != s);
+
+              if (exists)
+              {
+                rq.erase (0, p);
+                f = path (move (rq));
+                assert (!f.empty ());
+              }
+              //else // Leave f empty and fall through.
+            }
+
+            if (f.empty ())
+            {
+              rq.erase (0, 1);   // Opening quote.
+              rq.erase (qp - 1); // Closing quote and trailing space, if any.
               f = path (move (rq));
             }
+
+            // Complete relative paths not to confuse with non-existent.
+            //
+            if (exists && !f.absolute ())
+              f.complete ();
+
+            searchable = (q != '\'');
           }
 
           // The skip_count logic: in a nutshell (and similar to the non-
@@ -1895,6 +1914,13 @@ namespace build2
               ht = er.first;
               remapped = er.second;
 
+              if (remapped && !searchable)
+              {
+                rs = "ERROR remapping non-re-searchable header " + n;
+                bad_error = true;
+                break;
+              }
+
               // If we couldn't enter this header as a target (as opposed to
               // not finding a rule to update it), then our diagnostics won't
               // really add anything to the compiler's.
@@ -1923,7 +1949,7 @@ namespace build2
                   assert (exists);
               }
               else
-                assert (exists && !remapped); // Maybe this should be error.
+                assert (exists && !remapped); // Maybe this should be an error.
             }
             catch (const failed&)
             {
@@ -1935,7 +1961,7 @@ namespace build2
               // ours after the compiler's but that isn't easy).
               //
               rs = !exists
-                ? string ("TEXT")
+                ? string ("INCLUDE")
                 : ("ERROR unable to update header '" +
                    (ht != nullptr ? ht->path () : f).string () + "'");
 
@@ -1943,7 +1969,7 @@ namespace build2
               break;
             }
 
-            if (!im) // Indirect prerequisite (see above).
+            if (!imp) // Indirect prerequisite (see above).
               update = updated || update;
 
             // A mere update is not enough to cause a re-search. It either had
@@ -1963,7 +1989,7 @@ namespace build2
           //
           const string& hp (ht->path ().string ());
 
-          if (im)
+          if (imp)
           {
             try
             {
@@ -1986,12 +2012,12 @@ namespace build2
               if (!skip)
               {
                 st.headers++;
-                dd.expect ("@ " + hp + ' ' + bp);
+                dd.expect ("@ '" + hp + "' " + bp);
               }
               else
                 st.skip--;
 
-              rs = "OK " + bp;
+              rs = "IMPORT " + bp;
             }
             catch (const failed&)
             {
@@ -2019,6 +2045,11 @@ namespace build2
               {
                 // Doesn't seem there is much use in trying to correlate the
                 // followup in this case; what else can the compiler import?
+                // Plus, the followup IMPORT will use a different quoting for
+                // <name>.
+                //
+                // @@ MODHDR TODO: why not reduce this to as-if IMPORT with
+                // immediate BMI?
                 //
                 rs = "IMPORT";
                 break;
@@ -2030,7 +2061,7 @@ namespace build2
             else
               st.skip--;
 
-            rs = "TEXT";
+            rs = "INCLUDE";
           }
         }
 
@@ -3224,21 +3255,21 @@ namespace build2
                 : make_pair (auto_rmfile (), false);
             }
 
-            // This can be a header or a header unit (mapping).
+            // This can be a header or a header unit (mapping). The latter
+            // is single-quoted.
             //
             // If this header (unit) came from the depdb, make sure it is no
             // older than the target (if it has changed since the target was
             // updated, then the cached data is stale).
             //
-            //
             if ((*l)[0] == '@')
             {
-              size_t p (l->find (' ', 2));
+              size_t p (l->find ('\'', 3));
 
               if (p != string::npos)
               {
-                path h (*l, 2, p - 2);
-                path b (move (l->erase (0, p + 1)));
+                path h (*l, 3, p - 3);
+                path b (move (l->erase (0, p + 2)));
 
                 restart = add_unit (move (h), move (b), mt);
               }
@@ -4237,10 +4268,12 @@ namespace build2
           //
           if (dd.writing () || !dd.skip ())
           {
-            auto write = [&dd] (const string& name, const path& file)
+            auto write = [&dd] (const string& name, const path& file, bool q)
             {
               dd.write ("@ ", false);
+              if (q) dd.write ('\'', false);
               dd.write (name, false);
+              if (q) dd.write ('\'', false);
               dd.write (' ', false);
               dd.write (file);
             };
@@ -4249,7 +4282,7 @@ namespace build2
             //
             if (ut == unit_type::module_iface ||
                 ut == unit_type::module_header)
-              write (mi.name, t.path ());
+              write (mi.name, t.path (), ut == unit_type::module_header);
 
             if (size_t start = md.modules.start)
             {
@@ -4265,7 +4298,9 @@ namespace build2
                   // Save a variable lookup by getting the module name from
                   // the import list (see search_modules()).
                   //
-                  write (is[i - start].name, m->as<file> ().path ());
+                  // Note: all real modules (not header units).
+                  //
+                  write (is[i - start].name, m->as<file> ().path (), false);
                 }
               }
             }
