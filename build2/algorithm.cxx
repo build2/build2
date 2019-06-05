@@ -378,7 +378,7 @@ namespace build2
       dr << fail << "no rule to " << diag_do (a, t);
 
       if (verb < 4)
-        dr << info << "re-run with --verbose 4 for more information";
+        dr << info << "re-run with --verbose=4 for more information";
     }
 
     return nullptr;

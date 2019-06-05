@@ -327,7 +327,7 @@ namespace build2
       {
         if (!optional)
           fail (l) << "cli module could not be configured" <<
-            info << "re-run with -V option for more information";
+            info << "re-run with -V for more information";
 
         return false;
       }

@@ -1392,6 +1392,26 @@ namespace build2
             }
           };
 
+#if 1
+          // Enter all outer prefixes, including prefixless.
+          //
+          // The prefixless part is fuzzy but seems to be doing the right
+          // thing ignoring/overriding-wise, at least in cases where one of
+          // the competing -I paths is a subdirectory of another. But the
+          // proper solution will be to keep all the prefixless entries (by
+          // changing prefix_map to a multimap) since for them we have an
+          // extra checks (target must be explicitly spelled out in a
+          // buildfile).
+          //
+          for (size_t prio (0);; ++prio)
+          {
+            bool e (p.empty ());
+            enter ((e ? move (p) : p), (e ? move (d) : d), prio);
+            if (e)
+              break;
+            p = p.directory ();
+          }
+#else
           size_t prio (0);
           for (bool e (false); !e; ++prio)
           {
@@ -1400,6 +1420,7 @@ namespace build2
             enter ((e ? move (p) : p), (e ? move (d) : d), prio);
             p = move (n);
           }
+#endif
         }
       }
     }
@@ -2302,6 +2323,8 @@ namespace build2
             {
               const dir_path& pd (i->second.directory);
 
+              l4 ([&]{trace << "prefix '" << d << "' mapped to " << pd;});
+
               // If this is a prefixless mapping, then only use it if we can
               // resolve it to an existing target (i.e., it is explicitly
               // spelled out in a buildfile).
@@ -2315,8 +2338,14 @@ namespace build2
                 f = pd / f;
                 l4 ([&]{trace << "mapped as auto-generated " << f;});
               }
+              else
+                l4 ([&]{trace << "no explicit target in " << pd;});
             }
+            else
+              l4 ([&]{trace << "no prefix map entry for '" << d << "'";});
           }
+          else
+            l4 ([&]{trace << "prefix map is empty";});
         }
       }
       else
@@ -3150,7 +3179,14 @@ namespace build2
                                       move (hp), cache,
                                       pfx_map, so_map).first);
         if (ht == nullptr)
-          fail << "header '" << hp << "' not found and cannot be generated";
+        {
+          diag_record dr;
+          dr << fail << "header '" << hp
+             << "' not found and cannot be generated";
+
+          if (verb < 4)
+            dr << info << "re-run with --verbose=4 for more information";
+        }
 
         if (optional<bool> u = inject_header (a, t, *ht, cache, mt))
         {
