@@ -268,10 +268,13 @@ The description lines precede the test command. They start with a colon
 : ...
 \
 
+
+
 The recommended format for \c{<id>} is \c{<keyword>-<keyword>...} with at
 least two keywords. The id is used in diagnostics, to name the test working
-directory, as well as to run individual tests. The recommended style for
-\c{<summary>} is that of the \c{git(1)} commit summary. The detailed
+directory, as well as to run individual tests. It can only contain
+alphanumeric characters as well as underscores and minuses. The recommended
+style for \c{<summary>} is that of the \c{git(1)} commit summary. The detailed
 description is free-form. Here are some examples (\c{#} starts a comment):
 
 \
