@@ -1139,8 +1139,20 @@ namespace build2
               // Otherwise, see if it is the id. Failed that we assume it is
               // the summary until we see the next line.
               //
-              (l.find_first_of (" \t", i) >= j ? r.id : r.summary).
+              (l.find_first_of (" \t.", i) >= j ? r.id : r.summary).
                 assign (l, i, n);
+
+              // If this is an id then validate it.
+              //
+              if (!r.id.empty ())
+              {
+                for (char c: r.id)
+                {
+                  if (!(alnum (c) || c == '_' || c == '-' || c == '+'))
+                    fail (loc) << "illegal character '" << c
+                               << "' in test id '" << r.id << "'";
+                }
+              }
             }
           }
           else if (ln == 2)
