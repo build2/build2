@@ -2030,6 +2030,11 @@ namespace build2
 
               if (!skip)
               {
+                // @@ MODHDR: we write normalized path while the compiler will
+                //            look for the original. In particular, this means
+                //            that paths with `..` won't work. Maybe write
+                //            original for mapping and normalized for our use?
+                //
                 st.headers++;
                 dd.expect ("@ '" + hp + "' " + bp);
               }
