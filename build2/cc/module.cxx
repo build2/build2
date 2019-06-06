@@ -578,24 +578,32 @@ namespace build2
       {
         using namespace install;
 
-        auto& t (rs.target_types);
+        auto& tts (rs.target_types);
 
-        t.insert (x_src);
+        tts.insert (x_src);
 
-        // Note: module (x_mod) is in x_hdr.
-
-        for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
+        auto insert_hdr = [&rs, &tts, install_loaded] (const target_type& tt)
         {
-          t.insert (**ht);
+          tts.insert (tt);
 
           // Install headers into install.include.
           //
           if (install_loaded)
-            install_path (rs, **ht, dir_path ("include"));
-        }
+            install_path (rs, tt, dir_path ("include"));
+        };
 
-        t.insert<pca> ();
-        t.insert<pcs> ();
+        // Note: module (x_mod) is in x_hdr.
+        //
+        for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
+          insert_hdr (**ht);
+
+        // Also register the C header for C-derived languages.
+        //
+        if (*x_hdr != &h::static_type)
+          insert_hdr (h::static_type);
+
+        tts.insert<pca> ();
+        tts.insert<pcs> ();
 
         if (install_loaded)
           install_path<pc> (rs, dir_path ("pkgconfig"));

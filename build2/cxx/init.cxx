@@ -526,7 +526,6 @@ namespace build2
     static const target_type* const hdr[] =
     {
       &hxx::static_type,
-      &h::static_type,
       &ixx::static_type,
       &txx::static_type,
       &mxx::static_type,

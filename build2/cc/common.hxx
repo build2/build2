@@ -13,7 +13,8 @@
 #include <build2/bin/target.hxx>
 
 #include <build2/cc/types.hxx>
-#include <build2/cc/guess.hxx> // compiler_id
+#include <build2/cc/guess.hxx>  // compiler_id
+#include <build2/cc/target.hxx> // h{}
 
 namespace build2
 {
@@ -151,21 +152,21 @@ namespace build2
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
 
-      // Array of target types that are considered headers. Keep them in the
-      // most likely to appear order with the "real header" first and
-      // terminated with NULL.
+      // Array of target types that are considered the X-language headers
+      // (excluding h{} except for C). Keep them in the most likely to appear
+      // order with the "real header" first and terminated with NULL.
       //
       const target_type* const* x_hdr;
 
       template <typename T>
       bool
-      x_header (const T& t) const
+      x_header (const T& t, bool c_hdr = true) const
       {
         for (const target_type* const* ht (x_hdr); *ht != nullptr; ++ht)
           if (t.is_a (**ht))
             return true;
 
-        return false;
+        return c_hdr && t.is_a (h::static_type);
       }
 
       // Array of target types that can be #include'd. Used to reverse-lookup

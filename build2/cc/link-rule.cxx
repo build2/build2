@@ -87,12 +87,14 @@ namespace build2
 
         if (p.is_a (x_src)                        ||
             (x_mod != nullptr && p.is_a (*x_mod)) ||
-            (lt.library ()    && x_header (p))) // Header-only library.
+            // Header-only X library (or library with C source and X header).
+            (lt.library ()    && x_header (p, false /* c_hdr */)))
         {
           seen_x = seen_x || true;
         }
         else if (p.is_a<c> ()                  ||
-                 (lt.library () && p.is_a<h> ())) // Header-only library.
+                 // Header-only C library.
+                 (lt.library () && p.is_a<h> ()))
         {
           seen_c = seen_c || true;
         }
@@ -132,7 +134,7 @@ namespace build2
         // then we shouldn't try to handle that (it may need to be compiled,
         // etc). But we assume everyone can handle a C header.
         //
-        else if (p.is_a<cc> () && !(x_header (p) || p.is_a<h> ()))
+        else if (p.is_a<cc> () && !(x_header (p, true /* c_hdr */)))
         {
           l4 ([&]{trace << "non-" << x_lang << " prerequisite " << p
                         << " for target " << t;});
