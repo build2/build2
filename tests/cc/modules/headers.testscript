@@ -21,8 +21,7 @@
 
 : import
 :
-#ln -s ../core.hxx ./; @@ why isn't working?
-cp ../core.hxx ./;
+ln -s ../core.hxx ./;
 cat <<EOI >=driver.cxx;
   #define CORE_IN 1
   import "core.hxx";
@@ -37,8 +36,7 @@ $* test clean <<EOI
 
 : include-translation
 :
-#ln -s ../core.hxx ./; @@ why isn't working?
-cp ../core.hxx ./;
+ln -s ../core.hxx ./;
 cat <<EOI >=driver.cxx;
   #define CORE_IN 1
   #include "core.hxx"

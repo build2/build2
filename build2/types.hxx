@@ -225,9 +225,10 @@ namespace build2
   //
   using butl::path;
   using butl::dir_path;
+  using butl::path_cast;
   using butl::basic_path;
   using butl::invalid_path;
-  using butl::path_cast;
+  using butl::path_abnormality;
 
   using butl::path_map;
   using butl::dir_path_map;

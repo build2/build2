@@ -2349,29 +2349,79 @@ namespace build2
       else
       {
         // We used to just normalize the path but that could result in an
-        // invalid path (e.g., on CentOS 7 with Clang 3.4) because of the
-        // symlinks. So now we realize (i.e., realpath(3)) it instead. Unless
-        // it comes from the depdb, in which case we've already done that.
-        // This is also where we handle src-out remap (again, not needed if
-        // cached).
+        // invalid path (e.g., for some system/compiler headers on CentOS 7
+        // with Clang 3.4) because of the symlinks (if a directory component
+        // is a symlink, then any following `..` are resolved relative to the
+        // target; see path::normalize() for background).
+        //
+        // Initially, to fix this, we realized (i.e., realpath(3)) it instead.
+        // But that turned out also not to be quite right since now we have
+        // all the symlinks resolved: conceptually it feels correct to keep
+        // the original header names since that's how the user chose to
+        // arrange things and practically this is how the compilers see/report
+        // them (e.g., the GCC module mapper).
+        //
+        // So now we have a pretty elaborate scheme where we try to use the
+        // normalized path if possible and fallback to realized. Normalized
+        // paths will work for situations where `..` does not cross symlink
+        // boundaries, which is the sane case. And for the insane case we only
+        // really care about out-of-project files (i.e., system/compiler
+        // headers). In other words, if you have the insane case inside your
+        // project, then you are on your own.
+        //
+        // All of this is unless the path comes from the depdb, in which case
+        // we've already done that. This is also where we handle src-out remap
+        // (again, not needed if cached).
         //
         if (!cache)
         {
-          // While we can reasonably expect this path to exit, things do go
-          // south from time to time (like compiling under wine with file
-          // wlantypes.h included as WlanTypes.h).
+          // Interestingly, on most paltforms and with most compilers (Clang
+          // on Linux being a notable exception) most system/compiler headers
+          // are already normalized.
           //
-          try
+          path_abnormality a (f.abnormalities ());
+          if (a != path_abnormality::none)
           {
-            f.realize ();
-          }
-          catch (const invalid_path&)
-          {
-            fail << "invalid header path '" << f << "'";
-          }
-          catch (const system_error& e)
-          {
-            fail << "invalid header path '" << f << "': " << e;
+            // While we can reasonably expect this path to exit, things do go
+            // south from time to time (like compiling under wine with file
+            // wlantypes.h included as WlanTypes.h).
+            //
+            try
+            {
+              // If we have any parent components, then we have to verify the
+              // normalized path matches realized.
+              //
+              path r;
+              if ((a & path_abnormality::parent) == path_abnormality::parent)
+              {
+                r = f;
+                r.realize ();
+              }
+
+              try
+              {
+                f.normalize ();
+
+                // Note that we might still need to resolve symlinks in the
+                // normalized path.
+                //
+                if (!r.empty () && f != r && path (f).realize () != r)
+                  f = move (r);
+              }
+              catch (const invalid_path&)
+              {
+                assert (!r.empty ()); // Shouldn't have failed if no `..`.
+                f = move (r);         // Fallback to realize.
+              }
+            }
+            catch (const invalid_path&)
+            {
+              fail << "invalid header path '" << f.string () << "'";
+            }
+            catch (const system_error& e)
+            {
+              fail << "invalid header path '" << f.string () << "': " << e;
+            }
           }
 
           if (!so_map.empty ())
