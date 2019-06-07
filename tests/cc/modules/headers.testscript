@@ -19,10 +19,42 @@
   inline int f () {return 1;}
   EOI
 
-: import
++cat <<EOI >=base.mxx
+  #define CORE_IN 1
+
+  #ifdef BASE_INCLUDE
+    // Cannot include (even if translated) in module purview.
+    //
+    module;
+    #include "core.hxx"
+    export module foo.base;
+  #else
+    export module foo.base;
+    #ifdef BASE_RE_EXPORT
+      export import "core.hxx";
+    #else
+      import "core.hxx";
+    #endif
+  #endif
+
+  #ifndef CORE_OUT
+  #  error macro export
+  #endif
+
+  export inline int g () {return f () - 1 /*CORE_OUT*/;} //@@ MODGCC
+  EOI
+
++cat <<EOI >=core.hxx.in
+  #ifdef CORE_IN
+  #  error macro isolation
+  #endif
+  inline int f () {return 0;}
+  EOI
+
+: basics
 :
 ln -s ../core.hxx ./;
-cat <<EOI >=driver.cxx;
+cat <<EOI >=driver-imp.cxx;
   #define CORE_IN 1
   import "core.hxx";
   #ifndef CORE_OUT
@@ -30,14 +62,7 @@ cat <<EOI >=driver.cxx;
   #endif
   int main () {return f () - CORE_OUT;}
   EOI
-$* test clean <<EOI
-  exe{test}: cxx{driver}
-  EOI
-
-: include-translation
-:
-ln -s ../core.hxx ./;
-cat <<EOI >=driver.cxx;
+cat <<EOI >=driver-inc.cxx;
   #define CORE_IN 1
   #include "core.hxx"
   #ifndef CORE_OUT
@@ -46,8 +71,100 @@ cat <<EOI >=driver.cxx;
   int main () {return f () - CORE_OUT;}
   EOI
 $* test clean config.cxx.importable_headers="$~/core.hxx" <<EOI
-  exe{test}: cxx{driver}
+  ./: exe{test-imp}: cxx{driver-imp} hxx{core}
+  ./: exe{test-inc}: cxx{driver-inc} hxx{core}
   EOI
+
+: module
+:
+{
+  +cat <<EOI >=driver.cxx
+    #define CORE_IN 1
+    import foo.base;
+    #ifdef CORE_OUT
+    #  error macro export
+    #endif
+    EOI
+
+  : import
+  :
+  ln -s ../../core.hxx ../../base.mxx ./;
+  cat ../driver.cxx - <<EOI >=driver.cxx;
+    int main () {return g ();}
+    EOI
+  $* test clean <<EOI
+    exe{test}: cxx{driver} hxx{core} mxx{base}
+    EOI
+
+  #\
+  #@@ MODGCC
+  : include
+  :
+  ln -s ../../core.hxx ../../base.mxx ./;
+  cat ../driver.cxx - <<EOI >=driver.cxx;
+    int main () {return g ();}
+    EOI
+  $* test clean config.cxx.poptions=-DBASE_INCLUDE \
+     config.cxx.importable_headers="$~/core.hxx" <<EOI
+    exe{test}: cxx{driver} hxx{core} mxx{base}
+    EOI
+  #\
+
+  : re-export
+  :
+  ln -s ../../core.hxx ../../base.mxx ./;
+  cat ../driver.cxx - <<EOI >=driver.cxx;
+    int main () {return g () + (f () - 1);}
+    EOI
+  $* test clean config.cxx.poptions=-DBASE_RE_EXPORT <<EOI
+    exe{test}: cxx{driver} hxx{core} mxx{base}
+    EOI
+}
+
+: generated
+:
+ln -s ../core.hxx.in ./;
+cat <<EOI >=driver-imp.cxx;
+  import <generated/core.hxx>;
+  int main () {return f ();}
+  EOI
+cat <<EOI >=driver-inc.cxx;
+  #define CORE_IN 1
+  #include <generated/core.hxx>
+  int main () {return f ();}
+  EOI
+$* test clean config.cxx.importable_headers="$~/core.hxx" <<EOI
+  ./: exe{test-imp}: cxx{driver-imp} hxx{core}
+  ./: exe{test-inc}: cxx{driver-inc} hxx{core}
+  hxx{core}: in{core}
+  EOI
+
+: remapped
+:
+ln -s ../core.hxx.in ./;
+cat <<EOI >=core.hxx;
+  #error poison
+  EOI
+cat <<EOI >=driver-imp.cxx;
+  import <remapped/core.hxx>;
+  int main () {return f ();}
+  EOI
+cat <<EOI >=driver-inc.cxx;
+  #define CORE_IN 1
+  #include <remapped/core.hxx>
+  int main () {return f ();}
+  EOI
+# Remapping can only be tested with an out of source build. Note that we
+# need a private out because of module sidebuilds.
+#
+out = ../../headers-remapped-out;
+$* 'test:' ./@$out/remapped/ \
+   config.cxx.importable_headers=$out/remapped/core.hxx <<EOI;
+  ./: exe{test-imp}: cxx{driver-imp} hxx{core}
+  ./: exe{test-inc}: cxx{driver-inc} hxx{core}
+  hxx{core}: in{core}
+  EOI
+rm -r -f $out
 
 # Clean module sidebuilds.
 #

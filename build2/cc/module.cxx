@@ -530,40 +530,55 @@ namespace build2
         if (ih != nullptr && !ih->empty ())
         {
           // Translate <>-style header names to absolute paths using the
-          // compiler's include search paths.
+          // compiler's include search paths. Otherwise complete and normalize
+          // since when searching in this list we always use the absolute and
+          // normalized header target path.
           //
           for (string& h: *ih)
           {
-            if (h.empty () || h.front () != '<' || h.back () != '>')
+            if (h.empty ())
               continue;
 
-            h.pop_back ();
-            h.erase (0, 1);
-
-            path f; // Reuse the buffer.
-            bool r (false);
-            for (const dir_path& d: sys_inc_dirs)
+            path f;
+            if (h.front () == '<' && h.back () == '>')
             {
-              if ((r = file_exists ((f = d, f /= h),
-                                    true /* follow_symlinks */,
-                                    true /* ignore_errors */)))
+              h.pop_back ();
+              h.erase (0, 1);
+
+              for (const dir_path& d: sys_inc_dirs)
               {
-                h = move (f.normalize ()).string ();
-                break;
+                if (file_exists ((f = d, f /= h),
+                                 true /* follow_symlinks */,
+                                 true /* ignore_errors */))
+                  goto found;
               }
-            }
 
-            // What should we do if not found? While we can fail, this could
-            // be too drastic if, for example, the header is "optional" and
-            // may or may not be present/used. So for now let's restore the
-            // original form to aid debugging (it can't possibly match any
-            // absolute path).
-            //
-            if (!r)
-            {
+              // What should we do if not found? While we can fail, this could
+              // be too drastic if, for example, the header is "optional" and
+              // may or may not be present/used. So for now let's restore the
+              // original form to aid debugging (it can't possibly match any
+              // absolute path).
+              //
               h.insert (0, 1, '<');
               h.push_back ('>');
+              continue;
+
+            found:
+              ; // Fall through.
             }
+            else
+            {
+              f = path (move (h));
+
+              if (f.relative ())
+                f.complete ();
+            }
+
+            // @@ MODHDR: should we use the more elaborate but robust
+            //            normalize/realize scheme so the we get the same
+            //            path? Feels right.
+            f.normalize ();
+            h = move (f).string ();
           }
 
           sort (ih->begin (), ih->end ());

@@ -12,12 +12,12 @@ using test
 EOI
 
 +cat <<EOI >=build/root.build
-cxx.std = experimental
-
-cxx.features.symexport = true
+using in
 
 # Force modules.
 #
+cxx.std = experimental
+cxx.features.symexport = true
 cxx.features.modules = true
 
 using cxx
@@ -31,6 +31,8 @@ if ($cxx.id == 'msvc' && $cxx.version.major == 19 && $cxx.version.minor < 12)
 hxx{*}: extension = hxx
 mxx{*}: extension = mxx
 cxx{*}: extension = cxx
+
+cxx.poptions =+ "-I$out_root" "-I$src_root"
 
 if ($cxx.target.class == 'windows')
   bmis{*}: cxx.poptions += '-DLIBFOO_EXPORT=__declspec(dllexport)'
