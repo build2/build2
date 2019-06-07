@@ -276,6 +276,10 @@ namespace build2
     static const dir_path usr_inc     ("/usr/include");
     static const dir_path usr_loc_lib ("/usr/local/lib");
     static const dir_path usr_loc_inc ("/usr/local/include");
+#  ifdef __APPLE__
+    static const dir_path a_usr_inc (
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include");
+#  endif
 #endif
 
     void config_module::
@@ -350,6 +354,47 @@ namespace build2
         bool ui  (find (is.begin (), is.end (), usr_inc)     != is.end ());
         bool uli (find (is.begin (), is.end (), usr_loc_inc) != is.end ());
 
+#ifdef __APPLE__
+        // On Mac OS starting from 10.14 there is no longer /usr/include.
+        // Instead we get the following:
+        //
+        // Homebrew GCC 9:
+        //
+        // /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
+        //
+        // Apple Clang 10.0.1:
+        //
+        // /Library/Developer/CommandLineTools/usr/include
+        // /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/include
+        //
+        // What exactly all this means is anyone's guess, of course. So for
+        // now we will assume that anything that is or resolves (like that
+        // MacOSX10.14.sdk symlink) to:
+        //
+        // /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
+        //
+        // Is Apple's /usr/include.
+        //
+        if (!ui && !uli)
+        {
+          for (const dir_path& d: inc_dirs)
+          {
+            // Both Clang and GCC skip non-existent paths but let's handle
+            // (and ignore) directories that cause any errors, for good
+            // measure.
+            //
+            try
+            {
+              if (d == a_usr_inc || dir_path (d).realize () == a_usr_inc)
+              {
+                ui = true;
+                break;
+              }
+            }
+            catch (...) {}
+          }
+        }
+#endif
         if (ui || uli)
         {
           bool ull (find (ls.begin (), ls.end (), usr_loc_lib) != ls.end ());
