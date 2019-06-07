@@ -1784,10 +1784,12 @@ namespace build2
           // them and things become truly unpredictable and hard to reason
           // about. As a result, for each command we have to keep the build
           // state consistent, specifically, without any "dangling" matched
-          // targets (which would lead to skew dependency counts).
+          // targets (which would lead to skew dependency counts). Note: the
+          // include translation is no longer a problem since we respond with
+          // an immediate BMI.
           //
-          // To keep things simple we are going to always add a target that
-          // we matched to our prerequisite_targets. This includes the header
+          // To keep things simple we are going to always add a target that we
+          // matched to our prerequisite_targets. This includes the header
           // target when building the BMI: while not ideal, this should be
           // harmless provided we don't take its state/mtime into account.
           //
@@ -2008,6 +2010,23 @@ namespace build2
           //
           const string& hp (ht->path ().string ());
 
+          // Reduce include translation to the import case.
+          //
+          if (!imp && import_hdr != nullptr)
+          {
+            const strings& ih (*import_hdr);
+
+            auto i (lower_bound (ih.begin (),
+                                 ih.end (),
+                                 hp,
+                                 [] (const string& x, const string& y)
+                                 {
+                                   return path::traits_type::compare (x, y) < 0;
+                                 }));
+
+            imp = (i != ih.end () && *i == hp);
+          }
+
           if (imp)
           {
             try
@@ -2052,34 +2071,6 @@ namespace build2
           }
           else
           {
-            // See if we need to translate this include to import.
-            //
-            if (const strings* ih = import_hdr)
-            {
-              auto i (
-                lower_bound (ih->begin (),
-                             ih->end (),
-                             hp,
-                             [] (const string& x, const string& y)
-                             {
-                               return path::traits_type::compare (x, y) < 0;
-                             }));
-
-              if (i != ih->end () && *i == hp)
-              {
-                // Doesn't seem there is much use in trying to correlate the
-                // followup in this case; what else can the compiler import?
-                // Plus, the followup IMPORT will use a different quoting for
-                // <name>.
-                //
-                // @@ MODHDR TODO: why not reduce this to as-if IMPORT with
-                // immediate BMI?
-                //
-                rs = "IMPORT";
-                break;
-              }
-            }
-
             if (!skip)
               dd.expect (hp);
             else
