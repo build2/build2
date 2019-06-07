@@ -1705,7 +1705,9 @@ namespace build2
         return;
 
       // @@ MODHDR: Should we print the pid we are talking to? It gets hard to
-      //            follow once things get nested.
+      //            follow once things get nested. But if all our diag will
+      //            include some kind of id (chain, thread?), then this will
+      //            not be strictly necessary.
       //
       if (verb >= 3)
         text << "  > " << rq;
@@ -5213,7 +5215,8 @@ namespace build2
       string mf;
       {
         // @@ MODHDR: Can we assume the path is actualized since the header
-        //            target came from enter_header()?
+        //            target came from enter_header()? No, not anymore: it
+        //            is now normally just normalized.
         //
         const path& hp (ht.path ());
         mf = hp.leaf ().make_base ().string ();
