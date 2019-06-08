@@ -2,9 +2,9 @@ Version 0.11.0
 
  * Initial work on header unit importation and include translation support.
 
-   In particular, for GCC, the module mapper approach is now used to handle
-   header unit importation, include translation, and headers dependency
-   extraction, all with support for auto-generated headers.
+   In particular, for GCC, the (experimental) module mapper approach is now
+   used to handle header unit importation, include translation, and headers
+   dependency extraction, all with support for auto-generated headers.
 
  * Generalized target/prerequisite variable blocks.
 
@@ -44,10 +44,11 @@ Version 0.11.0
 
    In certain cases we may need to instruct the underlying tool (compiler,
    linker, etc) to produce additional outputs. For example, we may want to
-   request the compiler to produce an assembler listing and a linker to
-   produce a map file. While we can pass the required options, the resulting
-   files will not be part of the build state. Specifically, they will not be
-   cleaned and we cannot use them as prerequisites of other targets.
+   request the compiler to produce an assembler listing or the linker to
+   produce a map file. While we could already pass the required options, the
+   resulting files will not be part of the build state. Specifically, they
+   will not be cleaned up and we cannot use them as prerequisites of other
+   targets.
 
    Ad hoc target groups allow us to specify that updating a target produces
    additional outputs, called ad hoc group members. For example:
@@ -74,7 +75,7 @@ Version 0.11.0
 
    $ b create: exp-conf/,cc config.cxx=g++ config.cxx.std=experimental
 
- * New --dry-run|-n option instructs build rules to print command without
+ * New --dry-run|-n option instructs build rules to print commands without
    actually executing them.
 
    Note that commands that are required to create an accurate build state will
@@ -99,7 +100,7 @@ Version 0.11.0
    The new config.bin.rpath_link and config.bin.rpath_link.auto have the same
    semantics as config.bin.rpath* but for rpath-link.
 
- * Enable MSVC strict mode (/permissive-) for experimental standard starting
+ * Enable MSVC strict mode (/permissive-) for 'experimental' standard starting
    from version 15.5.
 
 Version 0.10.0
