@@ -6503,9 +6503,9 @@ taking into account the target it is a prerequisite of. In other words, the
 following dependency declarations produce the same result:
 
 \
-hxx{config}: in{config}
-hxx{config}: in{config.hxx}
-hxx{config}: in{config.hxx.in}
+hxx{config}:     in{config}
+hxx{config.hxx}: in{config}
+hxx{config.hxx}: in{config.hxx.in}
 \
 
 By default the \c{in} rule uses \c{$} as the substitution symbol. This can be
