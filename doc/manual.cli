@@ -550,7 +550,7 @@ $ cat hello/manifest
 : 1
 name: hello
 version: 0.1.0
-summary: hello executable
+summary: hello C++ executable
 \
 
 The \c{config} module provides support for persistent configurations. While
