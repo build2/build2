@@ -90,7 +90,8 @@ Version 0.11.0
   * Ability to disable automatic rpath, support for custom rpath-link.
 
     Specifically, the new config.bin.rpath.auto variable can be used to
-    disable automatic addition of prerequisite library rpaths, for example:
+    disable the automatic addition of prerequisite library rpaths, for
+    example:
 
     $ b config.bin.rpath.auto=false
 
