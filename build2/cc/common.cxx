@@ -971,7 +971,7 @@ namespace build2
 
       // Extract user-supplied search paths (i.e., -L, /LIBPATH).
       //
-      auto extract = [&r, this] (const value& val)
+      auto extract = [&r, this] (const value& val, const variable& what)
       {
         const auto& v (cast<strings> (val));
 
@@ -981,31 +981,39 @@ namespace build2
 
           dir_path d;
 
-          if (cclass == compiler_class::msvc)
+          try
           {
-            // /LIBPATH:<dir> (case-insensitive).
-            //
-            if ((o[0] == '/' || o[0] == '-') &&
-                casecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
-              d = dir_path (o, 9, string::npos);
-            else
-              continue;
-          }
-          else
-          {
-            // -L can either be in the "-L<dir>" or "-L <dir>" form.
-            //
-            if (o == "-L")
+            if (cclass == compiler_class::msvc)
             {
-              if (++i == e)
-                break; // Let the compiler complain.
-
-              d = dir_path (*i);
+              // /LIBPATH:<dir> (case-insensitive).
+              //
+              if ((o[0] == '/' || o[0] == '-') &&
+                  casecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
+                d = dir_path (o, 9, string::npos);
+              else
+                continue;
             }
-            else if (o.compare (0, 2, "-L") == 0)
-              d = dir_path (o, 2, string::npos);
             else
-              continue;
+            {
+              // -L can either be in the "-L<dir>" or "-L <dir>" form.
+              //
+              if (o == "-L")
+              {
+                if (++i == e)
+                  break; // Let the compiler complain.
+
+                d = dir_path (*i);
+              }
+              else if (o.compare (0, 2, "-L") == 0)
+                d = dir_path (o, 2, string::npos);
+              else
+                continue;
+            }
+          }
+          catch (const invalid_path& e)
+          {
+            fail << "invalid path '" << e.path << "' in option '" << o
+                 << "' in variable " << what;
           }
 
           // Ignore relative paths. Or maybe we should warn?
@@ -1015,8 +1023,8 @@ namespace build2
         }
       };
 
-      if (auto l = bs[c_loptions]) extract (*l);
-      if (auto l = bs[x_loptions]) extract (*l);
+      if (auto l = bs[c_loptions]) extract (*l, c_loptions);
+      if (auto l = bs[x_loptions]) extract (*l, x_loptions);
 
       return r;
     }
