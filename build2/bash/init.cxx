@@ -34,7 +34,7 @@ namespace build2
           const variable_map&)
     {
       tracer trace ("bash::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Load in.base (in.* varibales, in{} target type).
       //

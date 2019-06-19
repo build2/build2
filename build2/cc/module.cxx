@@ -423,7 +423,7 @@ namespace build2
         diag_record dr (text);
 
         {
-          dr << x << ' ' << project (rs) << '@' << rs.out_path () << '\n'
+          dr << x << ' ' << project (rs) << '@' << rs << '\n'
              << "  " << left << setw (11) << x << ci.path << '\n'
              << "  id         " << ci.id << '\n'
              << "  version    " << ci.version.string << '\n'

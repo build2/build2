@@ -1247,7 +1247,7 @@ namespace build2
   {
     tracer trace ("import");
 
-    l5 ([&]{trace << target << " from " << ibase.out_path ();});
+    l5 ([&]{trace << target << " from " << ibase;});
 
     // If there is no project specified for this target, then our run will be
     // short and sweet: we simply return it as empty-project-qualified and
@@ -1368,7 +1368,7 @@ namespace build2
       //
       for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
       {
-        l5 ([&]{trace << "looking in " << r->out_path ();});
+        l5 ([&]{trace << "looking in " << *r;});
 
         // First check the amalgamation itself.
         //

@@ -87,7 +87,7 @@ namespace build2
                   *v == "17") && cver < 17))   // Since VS2012/11.0.
             {
               fail << "C" << *v << " is not supported by " << ci.signature <<
-                info << "required by " << project (rs) << '@' << rs.out_path ();
+                info << "required by " << project (rs) << '@' << rs;
             }
           }
           break;
@@ -132,7 +132,7 @@ namespace build2
                 const variable_map& hints)
     {
       tracer trace ("c::guess_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //
@@ -257,7 +257,7 @@ namespace build2
                  const variable_map& hints)
     {
       tracer trace ("c::config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //
@@ -297,7 +297,7 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("c::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //

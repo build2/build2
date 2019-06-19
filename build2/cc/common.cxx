@@ -971,7 +971,7 @@ namespace build2
 
       // Extract user-supplied search paths (i.e., -L, /LIBPATH).
       //
-      auto extract = [&r, this] (const value& val, const variable& what)
+      auto extract = [&bs, &r, this] (const value& val, const variable& var)
       {
         const auto& v (cast<strings> (val));
 
@@ -1012,8 +1012,10 @@ namespace build2
           }
           catch (const invalid_path& e)
           {
-            fail << "invalid path '" << e.path << "' in option '" << o
-                 << "' in variable " << what;
+            fail << "invalid directory '" << e.path << "'"
+                 << " in option '" << o << "'"
+                 << " in variable " << var
+                 << " for scope " << bs;
           }
 
           // Ignore relative paths. Or maybe we should warn?

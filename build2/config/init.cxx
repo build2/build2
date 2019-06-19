@@ -27,7 +27,7 @@ namespace build2
     {
       tracer trace ("config::boot");
 
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       const string& mname (current_mname);
       const string& oname (current_oname);

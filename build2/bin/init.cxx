@@ -47,7 +47,7 @@ namespace build2
                const variable_map&)
     {
       tracer trace ("bin::vars_init");
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       assert (first);
 
@@ -139,7 +139,7 @@ namespace build2
                  const variable_map& hints)
     {
       tracer trace ("bin::config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //
@@ -382,7 +382,7 @@ namespace build2
         {
           diag_record dr (text);
 
-          dr << "bin " << project (rs) << '@' << rs.out_path () << '\n'
+          dr << "bin " << project (rs) << '@' << rs << '\n'
              << "  target     " << cast<target_triplet> (rs["bin.target"]);
 
           if (auto l = rs["bin.pattern"])
@@ -404,7 +404,7 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("bin::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Load bin.config.
       //
@@ -558,7 +558,7 @@ namespace build2
                     const variable_map& hints)
     {
       tracer trace ("bin::ar_config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure bin.config is loaded.
       //
@@ -643,7 +643,7 @@ namespace build2
           diag_record dr (text);
 
           {
-            dr << "bin.ar " << project (rs) << '@' << rs.out_path () << '\n'
+            dr << "bin.ar " << project (rs) << '@' << rs << '\n'
                << "  ar         " << ari.ar_path << '\n'
                << "  id         " << ari.ar_id << '\n'
                << "  version    " << ari.ar_version.string () << '\n'
@@ -711,7 +711,7 @@ namespace build2
              const variable_map& hints)
     {
       tracer trace ("bin::ar_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure the bin core and ar.config are loaded.
       //
@@ -734,7 +734,7 @@ namespace build2
                     const variable_map& hints)
     {
       tracer trace ("bin::ld_config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure bin.config is loaded.
       //
@@ -785,7 +785,7 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.ld " << project (rs) << '@' << rs.out_path () << '\n'
+          text << "bin.ld " << project (rs) << '@' << rs << '\n'
                << "  ld         " << ldi.path << '\n'
                << "  id         " << ldi.id << '\n'
                << "  signature  " << ldi.signature << '\n'
@@ -811,7 +811,7 @@ namespace build2
              const variable_map& hints)
     {
       tracer trace ("bin::ld_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure the bin core and ld.config are loaded.
       //
@@ -847,7 +847,7 @@ namespace build2
                     const variable_map& hints)
     {
       tracer trace ("bin::rc_config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure bin.config is loaded.
       //
@@ -898,7 +898,7 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.rc " << project (rs) << '@' << rs.out_path () << '\n'
+          text << "bin.rc " << project (rs) << '@' << rs << '\n'
                << "  rc         " << rci.path << '\n'
                << "  id         " << rci.id << '\n'
                << "  signature  " << rci.signature << '\n'
@@ -924,7 +924,7 @@ namespace build2
              const variable_map& hints)
     {
       tracer trace ("bin::rc_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure the bin core and rc.config are loaded.
       //

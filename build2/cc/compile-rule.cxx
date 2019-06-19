@@ -1293,16 +1293,18 @@ namespace build2
           }
           catch (const invalid_path& e)
           {
-            fail << "invalid -I directory " << e.path
-                 << " in variable " << var.name
+            fail << "invalid directory '" << e.path << "'"
+                 << " in option '" << o << "'"
+                 << " in variable " << var
                  << " for target " << t;
           }
 
           l6 ([&]{trace << "-I " << d;});
 
           if (d.relative ())
-            fail << "relative -I directory " << d
-                 << " in variable " << var.name
+            fail << "relative directory " << d
+                 << " in option '" << o << "'"
+                 << " in variable " << var
                  << " for target " << t;
 
           // If the directory is not normalized, we can complain or normalize

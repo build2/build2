@@ -129,7 +129,7 @@ namespace build2
 
             if (!sup)
               fail << "C++" << *v << " is not supported by " << ci.signature <<
-                info << "required by " << project (rs) << '@' << rs.out_path ();
+                info << "required by " << project (rs) << '@' << rs;
 
             if (mj > 19 || (mj == 19 && mi >= 11)) // 15.3
             {
@@ -357,7 +357,7 @@ namespace build2
                 const variable_map& hints)
     {
       tracer trace ("cxx::guess_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //
@@ -506,7 +506,7 @@ namespace build2
                  const variable_map& hints)
     {
       tracer trace ("cxx::config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //
@@ -554,7 +554,7 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("cxx::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // We only support root loading (which means there can only be one).
       //

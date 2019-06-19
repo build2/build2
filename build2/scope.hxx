@@ -361,6 +361,12 @@ namespace build2
                               // NULL means no strong amalgamtion.
   };
 
+  inline ostream&
+  operator<< (ostream& os, const scope& s)
+  {
+    return os << s.out_path ().string (); // Always absolute.
+  }
+
   // Temporary scope. The idea is to be able to create a temporary scope in
   // order not to change the variables in the current scope.  Such a scope is
   // not entered in to the scope map. As a result it can only be used as a

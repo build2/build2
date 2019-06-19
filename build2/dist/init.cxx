@@ -28,7 +28,7 @@ namespace build2
     {
       tracer trace ("dist::boot");
 
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       // Register the meta-operation.
       //

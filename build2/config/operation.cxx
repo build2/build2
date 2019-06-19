@@ -225,7 +225,7 @@ namespace build2
                 dr << warn (loc) << "saving previously inherited variable "
                    << var;
 
-                dr << info (loc) << "because project " << r->out_path ()
+                dr << info (loc) << "because project " << *r
                    << " no longer uses it in its configuration";
 
                 if (verb >= 2)

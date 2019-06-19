@@ -27,7 +27,7 @@ namespace build2
     {
       tracer trace ("test::boot");
 
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       // Register our operations.
       //

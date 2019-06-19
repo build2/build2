@@ -35,7 +35,7 @@ namespace build2
                  const variable_map& hints)
     {
       tracer trace ("cli::config_init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       assert (hints.empty ()); // We don't known any hints.
 
@@ -263,7 +263,7 @@ namespace build2
         if (verb >= (nv ? 2 : 3))
         {
           diag_record dr (text);
-          dr << "cli " << project (rs) << '@' << rs.out_path () << '\n';
+          dr << "cli " << project (rs) << '@' << rs << '\n';
 
           if (conf)
             dr << "  cli        " << pp << '\n'
@@ -306,7 +306,7 @@ namespace build2
           const variable_map& hints)
     {
       tracer trace ("cli::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Make sure the cxx module has been loaded since we need its targets
       // types (?xx{}). Note that we don't try to load it ourselves because of

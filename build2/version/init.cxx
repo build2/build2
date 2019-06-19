@@ -36,7 +36,7 @@ namespace build2
     boot (scope& rs, const location& l, unique_ptr<module_base>& mod)
     {
       tracer trace ("version::boot");
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       // Extract the version from the manifest file. As well as summary and
       // url while at it.

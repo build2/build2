@@ -132,7 +132,7 @@ namespace build2
     boot (scope& rs, const location&, unique_ptr<module_base>&)
     {
       tracer trace ("install::boot");
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       // Register install function family if this is the first instance of the
       // install modules.

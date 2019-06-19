@@ -5389,7 +5389,7 @@ namespace build2
       l5 ([&]
           {
             if (root_ != nullptr)
-              trace << "switching to root scope " << root_->out_path ();
+              trace << "switching to root scope " << *root_;
             else
               trace << "switching to out of project scope";
           });

@@ -30,7 +30,7 @@ namespace build2
                const variable_map&)
     {
       tracer trace ("in::base_init");
-      l5 ([&]{trace << "for " << rs.out_path ();});
+      l5 ([&]{trace << "for " << rs;});
 
       assert (first);
 
@@ -81,7 +81,7 @@ namespace build2
           const variable_map&)
     {
       tracer trace ("in::init");
-      l5 ([&]{trace << "for " << bs.out_path ();});
+      l5 ([&]{trace << "for " << bs;});
 
       // Load in.base.
       //
