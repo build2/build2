@@ -387,7 +387,7 @@ namespace build2
 
   class options
   {
-    "\h|OPTIONS|"
+    "\h#options|OPTIONS|"
 
     bool -v
     {
