@@ -570,14 +570,19 @@ namespace build2
       {
         // On Windows we use libarchive's bsdtar (zip is an MSYS executabales).
         //
+        // While not explicitly stated, the compression-level option works
+        // for zip archives.
+        //
 #ifdef _WIN32
         args = {"bsdtar",
                 "-a", // -a with the .zip extension seems to be the only way.
+                "--options=compression-level=9",
                 "-cf", ap.string ().c_str (),
                 pkg.c_str (),
                 nullptr};
 #else
         args = {"zip",
+                "-9",
                 "-rq", ap.string ().c_str (),
                 pkg.c_str (),
                 nullptr};
@@ -588,15 +593,31 @@ namespace build2
         // On Windows we use libarchive's bsdtar with auto-compression (tar
         // itself and quite a few compressors are MSYS executables).
         //
+        const char* l (nullptr); // Compression level (option).
+
 #ifdef _WIN32
         const char* tar = "bsdtar";
+
+        if (e == "tar.gz")
+          l = "--options=compression-level=9";
 #else
         const char* tar = "tar";
 
-        if (const char* c = (e == "tar.gz"  ? "gzip"  :
-                             e == "tar.xz"  ? "xz"    :
-                             e == "tar.bz2" ? "bzip2" :
-                             nullptr))
+        // For gzip it's a good idea to use -9 by default. For bzip2, -9 is
+        // the default. And for xz, -9 is not recommended as the default due
+        // memory requirements.
+        //
+        // Note also that the compression level can be altered via the GZIP
+        // (GZIP_OPT also seems to work), BZIP2, and XZ_OPT environment
+        // variables, respectively.
+        //
+        const char* c (nullptr);
+
+        if      (e == "tar.gz")  { c = "gzip";  l = "-9"; }
+        else if (e == "tar.xz")  { c = "xz";              }
+        else if (e == "tar.bz2") { c = "bzip2";           }
+
+        if (c != nullptr)
         {
           args = {tar,
                   "--format", "ustar",
@@ -606,6 +627,8 @@ namespace build2
 
           i = args.size ();
           args.push_back (c);
+          if (l != nullptr)
+            args.push_back (l);
           args.push_back (nullptr);
           args.push_back (nullptr); // Pipe end.
 
@@ -630,12 +653,19 @@ namespace build2
                   pkg.c_str (),
                   nullptr};
         else
+        {
           args = {tar,
                   "--format", "ustar",
-                  "-a",
-                  "-cf", ap.string ().c_str (),
-                  pkg.c_str (),
-                  nullptr};
+                  "-a"};
+
+          if (l != nullptr)
+            args.push_back (l);
+
+          args.push_back ("-cf");
+          args.push_back (ap.string ().c_str ());
+          args.push_back (pkg.c_str ());
+          args.push_back (nullptr);
+        }
       }
 
       process_path app; // Archiver path.
