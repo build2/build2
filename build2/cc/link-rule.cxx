@@ -1870,7 +1870,15 @@ namespace build2
       {
         if (tsys == "win32-msvc")
         {
-          // No options for lib.exe.
+          // lib.exe has /LIBPATH but it's not clear/documented what it's used
+          // for. Perhaps for link-time code generation (/LTCG)? If that's the
+          // case, then we may need to pass *.loptions.
+          //
+          args.push_back ("/NOLOGO");
+
+          // Add /MACHINE.
+          //
+          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
         }
         else
         {
@@ -1914,6 +1922,9 @@ namespace build2
 
           args.push_back (arg1.c_str ());
         }
+
+        append_options (args, t, c_aoptions);
+        append_options (args, t, x_aoptions);
       }
       else
       {
@@ -2172,16 +2183,6 @@ namespace build2
 
         if (tsys == "win32-msvc")
         {
-          // lib.exe has /LIBPATH but it's not clear/documented what it's used
-          // for. Perhaps for link-time code generation (/LTCG)? If that's the
-          // case, then we may need to pass *.loptions.
-          //
-          args.push_back ("/NOLOGO");
-
-          // Add /MACHINE.
-          //
-          args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
-
           out = "/OUT:" + relt.string ();
           args.push_back (out.c_str ());
         }

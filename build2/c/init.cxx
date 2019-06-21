@@ -168,6 +168,7 @@ namespace build2
         v.insert<strings> ("config.c.poptions", true),
         v.insert<strings> ("config.c.coptions", true),
         v.insert<strings> ("config.c.loptions", true),
+        v.insert<strings> ("config.c.aoptions", true),
         v.insert<strings> ("config.c.libs",     true),
         nullptr          /* config.c.importable_headers */,
 
@@ -176,15 +177,19 @@ namespace build2
         v.insert<dir_paths>    ("c.sys_inc_dirs"),
 
         v.insert<string>       ("c.std", variable_visibility::project),
+
         v.insert<strings>      ("c.poptions"),
         v.insert<strings>      ("c.coptions"),
         v.insert<strings>      ("c.loptions"),
+        v.insert<strings>      ("c.aoptions"),
         v.insert<strings>      ("c.libs"),
-        nullptr               /* c.importable_headers */,
+
+        nullptr                /* c.importable_headers */,
 
         v["cc.poptions"],
         v["cc.coptions"],
         v["cc.loptions"],
+        v["cc.aoptions"],
         v["cc.libs"],
 
         v.insert<strings>      ("c.export.poptions"),

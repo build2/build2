@@ -85,11 +85,13 @@ namespace build2
       v.insert<strings> ("config.cc.poptions", true);
       v.insert<strings> ("config.cc.coptions", true);
       v.insert<strings> ("config.cc.loptions", true);
+      v.insert<strings> ("config.cc.aoptions", true);
       v.insert<strings> ("config.cc.libs",     true);
 
       v.insert<strings> ("cc.poptions");
       v.insert<strings> ("cc.coptions");
       v.insert<strings> ("cc.loptions");
+      v.insert<strings> ("cc.aoptions");
       v.insert<strings> ("cc.libs");
 
       v.insert<strings>      ("cc.export.poptions");
@@ -258,6 +260,9 @@ namespace build2
 
       rs.assign ("cc.loptions") += cast_null<strings> (
         config::optional (rs, "config.cc.loptions"));
+
+      rs.assign ("cc.aoptions") += cast_null<strings> (
+        config::optional (rs, "config.cc.aoptions"));
 
       rs.assign ("cc.libs") += cast_null<strings> (
         config::optional (rs, "config.cc.libs"));

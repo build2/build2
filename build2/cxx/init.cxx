@@ -393,6 +393,7 @@ namespace build2
         v.insert<strings> ("config.cxx.poptions", true),
         v.insert<strings> ("config.cxx.coptions", true),
         v.insert<strings> ("config.cxx.loptions", true),
+        v.insert<strings> ("config.cxx.aoptions", true),
         v.insert<strings> ("config.cxx.libs",     true),
 
         // List of importable headers. Inclusion of such headers is translated
@@ -411,15 +412,19 @@ namespace build2
         v.insert<dir_paths>    ("cxx.sys_inc_dirs"),
 
         v.insert<string>   ("cxx.std", variable_visibility::project),
+
         v.insert<strings>  ("cxx.poptions"),
         v.insert<strings>  ("cxx.coptions"),
         v.insert<strings>  ("cxx.loptions"),
+        v.insert<strings>  ("cxx.aoptions"),
         v.insert<strings>  ("cxx.libs"),
+
         &v.insert<strings> ("cxx.importable_headers"),
 
         v["cc.poptions"],
         v["cc.coptions"],
         v["cc.loptions"],
+        v["cc.aoptions"],
         v["cc.libs"],
 
         v.insert<strings>      ("cxx.export.poptions"),

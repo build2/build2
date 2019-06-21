@@ -1349,9 +1349,19 @@ int main ()
 \
 
 \N|Besides \c{poptions}, there are also \c{coptions} (compile options),
-\c{loptions} (link options) and \c{libs} (extra libraries to link). If you are
-familiar with \c{make}, these are roughly equivalent to \c{CPPFLAGS},
-\c{CFLAGS}/\c{CXXFLAGS}, \c{LDFLAGS}, and \c{LIBS}.
+\c{loptions} (link options), \c{aoptions} (archive options) and \c{libs}
+(extra libraries to link). If you are familiar with \c{make}, these are
+roughly equivalent to \c{CPPFLAGS}, \c{CFLAGS}/\c{CXXFLAGS}, \c{LDFLAGS},
+\c{ARFLAGS}, and \c{LIBS}, respectively. Here they are again in the tabular
+form:
+
+\
+*.poptions   preprocess        CPPFLAGS
+*.coptions   compile           CFLAGS/CXXFLAGS
+*.loptions   link              LDFLAGS
+*.aoptions   archive           ARFLAGS
+*.libs       extra libraries   LIBS
+\
 
 More specifically, there are three sets of these variables: \c{cc.*} (stands
 for \i{C-common}) which applies to all C-like languages as well as \c{c.*} and
@@ -1663,6 +1673,7 @@ config.cxx = clang++
 config.cxx.poptions = [null]
 config.cxx.coptions = -g
 config.cxx.loptions = [null]
+config.cxx.aoptions = [null]
 config.cxx.libs = [null]
 ...
 \
@@ -1681,6 +1692,7 @@ config.cxx = g++
 config.cxx.poptions = [null]
 config.cxx.coptions = -g
 config.cxx.loptions = [null]
+config.cxx.aoptions = [null]
 config.cxx.libs = [null]
 ...
 \
@@ -2975,6 +2987,7 @@ config.cxx = clang++
 config.cxx.poptions = [null]
 config.cxx.coptions = -g
 config.cxx.loptions = [null]
+config.cxx.aoptions = [null]
 config.cxx.libs = [null]
 
 ...

@@ -48,6 +48,7 @@ namespace build2
       const variable& config_x_poptions;
       const variable& config_x_coptions;
       const variable& config_x_loptions;
+      const variable& config_x_aoptions;
       const variable& config_x_libs;
       const variable* config_x_importable_headers;
 
@@ -59,12 +60,14 @@ namespace build2
       const variable& x_poptions;
       const variable& x_coptions;
       const variable& x_loptions;
+      const variable& x_aoptions;
       const variable& x_libs;
       const variable* x_importable_headers;
 
       const variable& c_poptions; // cc.*
       const variable& c_coptions;
       const variable& c_loptions;
+      const variable& c_aoptions;
       const variable& c_libs;
 
       const variable& x_export_poptions;

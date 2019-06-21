@@ -520,6 +520,9 @@ namespace build2
       rs.assign (x_loptions) += cast_null<strings> (
         config::optional (rs, config_x_loptions));
 
+      rs.assign (x_aoptions) += cast_null<strings> (
+        config::optional (rs, config_x_aoptions));
+
       rs.assign (x_libs) += cast_null<strings> (
         config::optional (rs, config_x_libs));
 
