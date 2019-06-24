@@ -69,7 +69,7 @@ function xhtml_to_ps () # <from> <to> [<html2ps-options>]
   local to="$1"
   shift
 
-  sed -e 's/├/|/g' -e 's/│/|/g' -e 's/─/-/g' -e 's/└/`/g' "$from" | \
+  sed -e 's/├/|/g' -e 's/│/|/g' -e 's/─/-/g' -e 's/└/\xb7/g' "$from" | \
   html2ps "${@}" -o "$to"
 }
 
