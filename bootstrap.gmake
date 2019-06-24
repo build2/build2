@@ -129,40 +129,46 @@ endif
 #
 # Note: list nested subdirectories first (used in clean).
 #
-sub_dirs := \
-config      \
-dist        \
-bin         \
-c           \
-cc          \
-cxx         \
-test/script \
-test        \
-version     \
-install     \
+build2_sub := \
+config        \
+dist          \
+bin           \
+c             \
+cc            \
+cxx           \
+test/script   \
+test          \
+version       \
+install       \
 in
 
-build2_src  := $(wildcard $(src_root)/build2/*.cxx)
-build2_src  += $(foreach d,$(sub_dirs),$(wildcard $(src_root)/build2/$d/*.cxx))
-libbutl_src := $(wildcard $(libbutl)/libbutl/*.cxx)
+build2_src    := $(wildcard $(src_root)/build2/*.cxx)
+build2_src    += $(foreach d,$(build2_sub),$(wildcard $(src_root)/build2/$d/*.cxx))
+libbuild2_src := $(wildcard $(src_root)/libbuild2/*.cxx)
+libbutl_src   := $(wildcard $(libbutl)/libbutl/*.cxx)
 
 # Filter out *.test.cxx sources.
 #
-build2_src  := $(filter-out %.test.cxx,$(build2_src))
-libbutl_src := $(filter-out %.test.cxx,$(libbutl_src))
+build2_src    := $(filter-out %.test.cxx,$(build2_src))
+libbuild2_src := $(filter-out %.test.cxx,$(libbuild2_src))
+libbutl_src   := $(filter-out %.test.cxx,$(libbutl_src))
 
 # Note that we use the .b.o object file extension to avoid clashing with the
 # build2 builds.
 #
-build2_obj  := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(build2_src))
-libbutl_obj := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.b.o,$(libbutl_src))
+build2_obj    := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(build2_src))
+libbuild2_obj := $(patsubst $(src_root)/%.cxx,$(out_root)/%.b.o,$(libbuild2_src))
+libbutl_obj   := $(patsubst $(libbutl)/libbutl/%.cxx,$(libbutl_out)/%.b.o,$(libbutl_src))
 
 # Build.
 #
-$(out_root)/build2/b-boot$(exe): $(build2_obj) $(libbutl_obj)
+$(out_root)/build2/b-boot$(exe): $(build2_obj) $(libbuild2_obj) $(libbutl_obj)
 	$(CXX) -std=c++1y $(CXXFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 $(out_root)/build2/%.b.o: $(src_root)/build2/%.cxx | $$(dir $$@).
+	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
+
+$(out_root)/libbuild2/%.b.o: $(src_root)/libbuild2/%.cxx | $$(dir $$@).
 	$(CXX) -I$(libbutl) -I$(src_root) -DBUILD2_BOOTSTRAP -DBUILD2_HOST_TRIPLET=\"$(chost)\" $(CPPFLAGS) -std=c++1y $(CXXFLAGS) -o $@ -c $<
 
 $(libbutl_out)/%.b.o: $(libbutl)/libbutl/%.cxx | $$(dir $$@).
@@ -181,10 +187,11 @@ all: $(out_root)/build2/b-boot$(exe)
 
 cleano:
 	rm -f $(build2_obj)
+	rm -f $(libbuild2_obj)
 	rm -f $(libbutl_obj)
 
 clean: cleano
 	rm -f $(out_root)/build2/b-boot$(exe)
 ifeq ($(in_tree),false)
-	rm -fd $(foreach d,$(sub_dirs),$(out_root)/build2/$d) $(out_root)/build2 $(libbutl_out)
+	rm -fd $(foreach d,$(build2_sub),$(out_root)/build2/$d) $(out_root)/build2 $(out_root)/libbuild2 $(libbutl_out)
 endif

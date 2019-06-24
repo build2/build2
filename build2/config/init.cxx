@@ -4,12 +4,12 @@
 
 #include <build2/config/init.hxx>
 
-#include <build2/file.hxx>
-#include <build2/rule.hxx>
-#include <build2/scope.hxx>
-#include <build2/context.hxx>
-#include <build2/filesystem.hxx>  // exists()
-#include <build2/diagnostics.hxx>
+#include <libbuild2/file.hxx>
+#include <libbuild2/rule.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/filesystem.hxx>  // exists()
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/config/module.hxx>
 #include <build2/config/utility.hxx>

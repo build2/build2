@@ -4,7 +4,7 @@
 
 #include <build2/cli/target.hxx>
 
-#include <build2/context.hxx>
+#include <libbuild2/context.hxx>
 
 using namespace std;
 using namespace butl;

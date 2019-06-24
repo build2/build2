@@ -4,7 +4,7 @@
 
 #include <build2/bin/guess.hxx>
 
-#include <build2/diagnostics.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 using namespace std;
 

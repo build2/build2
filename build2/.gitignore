@@ -1,11 +1,11 @@
 b
 b-boot
-*.test
+
 #*-options
 #*-options.?xx
-config.hxx
-version.hxx
 
-# Testscript output directory (can be symlink).
+# Unit test executables and Testscript output directories
+# (can be symlinks).
 #
+*.test
 test-*.test

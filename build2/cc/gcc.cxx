@@ -2,12 +2,12 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/scope.hxx>
-#include <build2/target.hxx>
-#include <build2/context.hxx>
-#include <build2/variable.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/filesystem.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/bin/target.hxx>
 

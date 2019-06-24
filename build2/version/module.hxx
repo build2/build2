@@ -7,10 +7,10 @@
 
 #include <map>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/module.hxx>
+#include <libbuild2/module.hxx>
 
 namespace build2
 {

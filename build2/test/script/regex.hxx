@@ -12,8 +12,8 @@
 #include <type_traits>   // make_unsigned, enable_if, is_*
 #include <unordered_set>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
 namespace build2
 {

@@ -10,9 +10,9 @@
 #include <libbutl/regex.mxx>
 #include <libbutl/fdstream.mxx> // fdopen_mode, fdnull(), fddup()
 
-#include <build2/variable.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/filesystem.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/test/common.hxx>
 

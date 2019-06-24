@@ -358,6 +358,18 @@ if ($cxx.target.class != 'windows')
       EOE
     }
 
+    # @@ Temporary disable the test as it may fail if the package is fetched
+    #    from the git repository location. Note that the used `ls -l` command
+    #    displays the filesystem entry modification time with the minute
+    #    resolution and the build2 dist meta-operation doesn't preserve the
+    #    directory modification time. That's why the test command may
+    #    unexpectedly succeed.
+    #
+    #    One way to fix it is to instruct ls to show time with at least the
+    #    second resolution. There is no portable way for that across different
+    #    OSes but all of them seems to provide some option to achieve that.
+    #
+#\
     : dir
     :
     {
@@ -372,5 +384,6 @@ if ($cxx.target.class != 'windows')
       %.+
       EOE
     }
+#\
   }
 }

@@ -5,11 +5,11 @@
 #ifndef BUILD2_TEST_SCRIPT_PARSER_HXX
 #define BUILD2_TEST_SCRIPT_PARSER_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/parser.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/parser.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/test/script/token.hxx>
 #include <build2/test/script/script.hxx>

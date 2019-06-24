@@ -5,14 +5,13 @@
 import libs  = libbutl%lib{butl}
 import libs += libpkgconf%lib{pkgconf}
 
+include ../libbuild2/
+
 ./: exe{b}: {hxx ixx txx cxx}{+b} libue{b}
 
-libue{b}: {hxx ixx txx cxx}{** -b -b-options -config -version -**.test...} \
-          {hxx ixx cxx}{b-options} {hxx}{config version}                   \
-          $libs
-
-hxx{config}: in{config}
-hxx{version}: in{version} $src_root/manifest
+libue{b}: {hxx ixx txx cxx}{** -b -b-options -**.test...} \
+          {hxx ixx cxx}{b-options}                        \
+          ../libbuild2/lib{build2} $libs
 
 # Unit tests.
 #
@@ -36,7 +35,7 @@ for t: cxx{**.test...}
 #
 # Pass our compiler target to be used as build2 host.
 #
-obj{b context}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
+obj{b}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
 # Pass native C and C++ compiler paths (not forgetting to escape backslashes
 # on Windows). These are used as defaults for BUILD2_DEFAULT_*.

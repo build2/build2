@@ -7,10 +7,10 @@
 
 #include <set>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/rule.hxx>
+#include <libbuild2/rule.hxx>
 
 #include <build2/cc/types.hxx>
 #include <build2/cc/common.hxx>

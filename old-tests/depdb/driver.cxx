@@ -6,10 +6,10 @@
 
 #include <libbutl/filesystem.mxx>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/depdb.hxx>
+#include <libbuild2/depdb.hxx>
 
 using namespace std;
 using namespace build2;

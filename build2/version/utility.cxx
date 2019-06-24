@@ -7,7 +7,7 @@
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
 
-#include <build2/diagnostics.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 using namespace butl;
 

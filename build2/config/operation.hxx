@@ -5,10 +5,10 @@
 #ifndef BUILD2_CONFIG_OPERATION_HXX
 #define BUILD2_CONFIG_OPERATION_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/operation.hxx>
+#include <libbuild2/operation.hxx>
 
 namespace build2
 {

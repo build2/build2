@@ -6,10 +6,10 @@
 
 #include <cstring> // strlen(), strchr()
 
-#include <build2/scope.hxx>
-#include <build2/target.hxx>
-#include <build2/algorithm.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/algorithm.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/in/target.hxx>
 

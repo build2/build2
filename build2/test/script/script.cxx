@@ -6,8 +6,8 @@
 
 #include <sstream>
 
-#include <build2/target.hxx>
-#include <build2/algorithm.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/algorithm.hxx>
 
 using namespace std;
 

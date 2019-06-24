@@ -9,14 +9,14 @@
 
 #include <libbutl/filesystem.mxx> // path_match()
 
-#include <build2/file.hxx>
-#include <build2/dump.hxx>
-#include <build2/scope.hxx>
-#include <build2/target.hxx>
-#include <build2/context.hxx>
-#include <build2/algorithm.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/file.hxx>
+#include <libbuild2/dump.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/algorithm.hxx>
+#include <libbuild2/filesystem.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/dist/module.hxx>
 

@@ -22,27 +22,30 @@
 #include <libbutl/fdstream.mxx>  // stderr_fd(), fdterm()
 #include <libbutl/backtrace.mxx> // backtrace()
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/dump.hxx>
-#include <build2/file.hxx>
-#include <build2/rule.hxx>
-#include <build2/spec.hxx>
-#include <build2/scope.hxx>
-#include <build2/module.hxx>
-#include <build2/target.hxx>
-#include <build2/context.hxx>
-#include <build2/variable.hxx>
-#include <build2/algorithm.hxx>
-#include <build2/operation.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
-#include <build2/prerequisite.hxx>
+#include <libbuild2/dump.hxx>
+#include <libbuild2/file.hxx>
+#include <libbuild2/rule.hxx>
+#include <libbuild2/spec.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/module.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx>
+#include <libbuild2/operation.hxx>
+#include <libbuild2/filesystem.hxx>
+#include <libbuild2/diagnostics.hxx>
+#include <libbuild2/prerequisite.hxx>
 
-#include <build2/parser.hxx>
+#include <libbuild2/parser.hxx>
 
 #include <build2/b-options.hxx>
+
+#include <build2/config/utility.hxx>   // config::save_variable()
+#include <build2/config/operation.hxx> // config::preprocess_create()
 
 using namespace butl;
 using namespace std;
@@ -365,7 +368,7 @@ main (int argc, char* argv[])
     //
     if (ops.version ())
     {
-      cout << "build2 " << BUILD2_VERSION_ID << endl
+      cout << "build2 " << LIBBUILD2_VERSION_ID << endl
            << "libbutl " << LIBBUTL_VERSION_ID << endl
            << "host " << BUILD2_HOST_TRIPLET << endl
            << "Copyright (c) 2014-2019 Code Synthesis Ltd" << endl
@@ -437,6 +440,10 @@ main (int argc, char* argv[])
       auto& bm (builtin_modules);
 
       bm["config"]  = mf {&config::boot, &config::init};
+
+      config_save_variable = &config::save_variable;
+      config_preprocess_create = &config::preprocess_create;
+
       bm["dist"]    = mf {&dist::boot, &dist::init};
       bm["test"]    = mf {&test::boot, &test::init};
       bm["install"] = mf {&install::boot, &install::init};

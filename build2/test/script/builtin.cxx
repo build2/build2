@@ -15,7 +15,7 @@
 #include <libbutl/fdstream.mxx>   // fdopen_mode, fdstream_mode
 #include <libbutl/filesystem.mxx>
 
-#include <build2/context.hxx> // sched
+#include <libbuild2/context.hxx> // sched
 
 #include <build2/test/script/script.hxx>
 

@@ -5,8 +5,8 @@
 #ifndef BUILD2_CC_GUESS_HXX
 #define BUILD2_CC_GUESS_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
 #include <build2/cc/types.hxx>
 

@@ -8,10 +8,10 @@
 #include <libbutl/sha256.mxx>
 #include <libbutl/char-scanner.mxx>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/diagnostics.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 namespace build2
 {

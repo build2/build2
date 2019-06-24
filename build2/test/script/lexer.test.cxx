@@ -5,8 +5,8 @@
 #include <cassert>
 #include <iostream>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
 #include <build2/test/script/token.hxx>
 #include <build2/test/script/lexer.hxx>

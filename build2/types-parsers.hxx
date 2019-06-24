@@ -8,7 +8,7 @@
 #ifndef BUILD2_TYPES_PARSERS_HXX
 #define BUILD2_TYPES_PARSERS_HXX
 
-#include <build2/types.hxx>
+#include <libbuild2/types.hxx>
 
 namespace build2
 {

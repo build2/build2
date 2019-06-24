@@ -5,13 +5,13 @@
 #ifndef BUILD2_INSTALL_RULE_HXX
 #define BUILD2_INSTALL_RULE_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/rule.hxx>
-#include <build2/action.hxx>
-#include <build2/target.hxx>
-#include <build2/filesystem.hxx>
+#include <libbuild2/rule.hxx>
+#include <libbuild2/action.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/filesystem.hxx>
 
 namespace build2
 {

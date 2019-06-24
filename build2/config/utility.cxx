@@ -4,10 +4,10 @@
 
 #include <build2/config/utility.hxx>
 
-#include <build2/file.hxx>
-#include <build2/context.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/file.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/filesystem.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/config/module.hxx>
 

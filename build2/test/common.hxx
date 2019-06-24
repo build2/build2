@@ -5,10 +5,10 @@
 #ifndef BUILD2_TEST_COMMON_HXX
 #define BUILD2_TEST_COMMON_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/target.hxx>
+#include <libbuild2/target.hxx>
 
 namespace build2
 {

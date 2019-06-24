@@ -6,7 +6,7 @@
 
 #include <sstream>
 
-#include <build2/context.hxx> // sched, keep_going
+#include <libbuild2/context.hxx> // sched, keep_going
 
 #include <build2/test/script/lexer.hxx>
 #include <build2/test/script/runner.hxx>
@@ -3013,7 +3013,9 @@ namespace build2
                 // If the scope was executed synchronously, check the status
                 // and bail out if we weren't asked to keep going.
                 //
-                const diag_frame* df (diag_frame::stack); // UBSan workaround.
+                // UBSan workaround.
+                //
+                const diag_frame* df (diag_frame::stack ());
                 if (!sched.async (task_count,
                                   [] (const diag_frame* ds,
                                       scope& s,

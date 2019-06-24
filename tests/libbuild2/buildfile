@@ -1,0 +1,12 @@
+# file      : tests/libbuild2/buildfile
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+import libs = build2%lib{build2}
+
+exe{driver}: {hxx cxx}{*} $libs testscript
+
+# Setup the test driver. Note that by default we test the build2 driver (see
+# build/root.build for details).
+#
+testscript@./: test = exe{driver}

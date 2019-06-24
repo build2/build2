@@ -4,9 +4,9 @@
 
 #include <build2/c/init.hxx>
 
-#include <build2/scope.hxx>
-#include <build2/context.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/cc/guess.hxx>
 #include <build2/cc/module.hxx>

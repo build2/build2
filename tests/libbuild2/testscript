@@ -1,0 +1,7 @@
+# file      : tests/libbuild2/testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: basic
+:
+$*

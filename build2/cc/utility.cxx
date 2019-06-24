@@ -4,9 +4,9 @@
 
 #include <build2/cc/utility.hxx>
 
-#include <build2/file.hxx>
-#include <build2/variable.hxx>
-#include <build2/algorithm.hxx> // search()
+#include <libbuild2/file.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx> // search()
 
 #include <build2/bin/rule.hxx>
 #include <build2/bin/target.hxx>

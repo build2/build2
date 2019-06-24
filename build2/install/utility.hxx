@@ -5,11 +5,11 @@
 #ifndef BUILD2_INSTALL_UTILITY_HXX
 #define BUILD2_INSTALL_UTILITY_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/scope.hxx>
-#include <build2/target.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
 
 namespace build2
 {

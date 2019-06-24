@@ -9,11 +9,11 @@
 
 #include <libbutl/prefix-map.mxx>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/module.hxx>
-#include <build2/variable.hxx>
+#include <libbuild2/module.hxx>
+#include <libbuild2/variable.hxx>
 
 namespace build2
 {

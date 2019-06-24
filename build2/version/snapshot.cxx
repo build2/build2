@@ -4,7 +4,7 @@
 
 #include <build2/version/snapshot.hxx>
 
-#include <build2/filesystem.hxx>
+#include <libbuild2/filesystem.hxx>
 
 using namespace std;
 

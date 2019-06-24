@@ -5,10 +5,10 @@
 #ifndef BUILD2_TEST_SCRIPT_LEXER_HXX
 #define BUILD2_TEST_SCRIPT_LEXER_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/lexer.hxx>
+#include <libbuild2/lexer.hxx>
 
 #include <build2/test/script/token.hxx>
 

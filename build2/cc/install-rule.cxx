@@ -4,7 +4,7 @@
 
 #include <build2/cc/install-rule.hxx>
 
-#include <build2/algorithm.hxx>
+#include <libbuild2/algorithm.hxx>
 
 #include <build2/bin/target.hxx>
 

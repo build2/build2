@@ -1,0 +1,85 @@
+# file      : libbuild2/buildfile
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+import int_libs = libbutl%lib{butl}
+
+./: lib{build2}: libul{build2}: {hxx ixx txx cxx}{** -config      \
+                                                     -version     \
+                                                     -**.test...} \
+                                {hxx}{config version}             \
+                                $int_libs
+
+# Include the generated config and version headers into the distribution (so
+# that we don't pick up installed ones) and don't remove them when cleaning in
+# src (so that clean results in a state identical to distributed).
+#
+hxx{config}: in{config}
+hxx{version}: in{version} $src_root/manifest
+
+hxx{config version}:
+{
+  dist  = true
+  clean = ($src_root != $out_root)
+}
+
+# Unit tests.
+#
+exe{*.test}:
+{
+  test = true
+  install = false
+}
+
+for t: cxx{**.test...}
+{
+  d = $directory($t)
+  n = $name($t)...
+  b = $path.base($name($t))
+
+  ./: $d/exe{$n}: $t $d/{hxx ixx txx}{+$n} $d/testscript{+$n +$b+*.test...}
+  $d/exe{$n}: libul{build2}: bin.whole = false
+}
+
+# Build options.
+#
+obja{*}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
+objs{*}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
+
+# Pass our compiler target to be used as libbuild2 host.
+#
+obj{context}:  cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
+obja{context}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
+objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
+
+if ($cxx.target.class != "windows")
+  cxx.libs += -lpthread
+
+# Export options.
+#
+lib{build2}:
+{
+  cxx.export.poptions = "-I$out_root" "-I$src_root"
+  cxx.export.libs = $int_libs
+}
+
+liba{build2}: cxx.export.poptions += -DLIBBUILD2_STATIC
+libs{build2}: cxx.export.poptions += -DLIBBUILD2_SHARED
+
+# For pre-releases use the complete version to make sure they cannot be used
+# in place of another pre-release or the final version. See the version module
+# for details on the version.* variable values.
+#
+if $version.pre_release
+  lib{build2}: bin.lib.version = @"-$version.project_id"
+else
+  lib{build2}: bin.lib.version = @"-$version.major.$version.minor"
+
+# Install into the libbuild2/ subdirectory of, say, /usr/include/
+# recreating subdirectories.
+#
+{hxx ixx txx}{*}:
+{
+  install         = include/libbuild2/
+  install.subdirs = true
+}

@@ -6,10 +6,10 @@
 
 #include <libbutl/manifest-parser.mxx>
 
-#include <build2/scope.hxx>
-#include <build2/context.hxx>
-#include <build2/variable.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/config/utility.hxx>
 

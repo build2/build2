@@ -5,8 +5,8 @@
 #ifndef BUILD2_BASH_UTILITY_HXX
 #define BUILD2_BASH_UTILITY_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
 namespace build2
 {

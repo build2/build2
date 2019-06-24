@@ -7,7 +7,7 @@
 #include <map>
 #include <cstring>  // strlen(), strchr()
 
-#include <build2/diagnostics.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 using namespace std;
 

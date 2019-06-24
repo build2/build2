@@ -24,7 +24,7 @@ cxx.poptions =+ "-I$out_root" "-I$src_root"
 # While we don't have any C sources to compile, we need to get the C compiler
 # path to use as native/default.
 #
-using c
+using c.config
 
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.

@@ -2,8 +2,8 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/scope.hxx>
-#include <build2/context.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/context.hxx>
 
 namespace build2
 {

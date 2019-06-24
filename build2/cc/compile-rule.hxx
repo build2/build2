@@ -5,11 +5,11 @@
 #ifndef BUILD2_CC_COMPILE_RULE_HXX
 #define BUILD2_CC_COMPILE_RULE_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/rule.hxx>
-#include <build2/filesystem.hxx> // auto_rmfile
+#include <libbuild2/rule.hxx>
+#include <libbuild2/filesystem.hxx> // auto_rmfile
 
 #include <build2/cc/types.hxx>
 #include <build2/cc/common.hxx>

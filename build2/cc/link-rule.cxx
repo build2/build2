@@ -10,13 +10,13 @@
 
 #include <libbutl/filesystem.mxx> // file_exists()
 
-#include <build2/depdb.hxx>
-#include <build2/scope.hxx>
-#include <build2/context.hxx>
-#include <build2/variable.hxx>
-#include <build2/algorithm.hxx>
-#include <build2/filesystem.hxx>
-#include <build2/diagnostics.hxx>
+#include <libbuild2/depdb.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/context.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx>
+#include <libbuild2/filesystem.hxx>
+#include <libbuild2/diagnostics.hxx>
 
 #include <build2/bin/target.hxx>
 

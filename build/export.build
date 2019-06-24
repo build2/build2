@@ -7,4 +7,7 @@ $out_root/
   include build2/
 }
 
-export $out_root/build2/exe{b}
+if ($import.target == exe{b})
+  export $out_root/build2/exe{b}
+elif ($import.target == lib{build2})
+  export $out_root/libbuild2/lib{build2}

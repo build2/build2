@@ -5,12 +5,12 @@
 #include <cassert>
 #include <iostream>
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/target.hxx>
-#include <build2/context.hxx>   // reset()
-#include <build2/scheduler.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>   // reset()
+#include <libbuild2/scheduler.hxx>
 
 #include <build2/test/target.hxx>
 

@@ -130,6 +130,7 @@ src="$src build2/version/*.cxx"
 src="$src build2/install/*.cxx"
 src="$src build2/in/*.cxx"
 src="$src build2/bash/*.cxx"
+src="$src libbuild2/*.cxx"
 src="$src $libbutl/libbutl/*.cxx"
 
 # Filter out *.test.cxx sources.

@@ -365,7 +365,7 @@ namespace build2
 
 #include <set>
 
-#include <build2/types.hxx>
+#include <libbuild2/types.hxx>
 
 namespace build2
 {

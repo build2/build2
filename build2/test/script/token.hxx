@@ -5,10 +5,10 @@
 #ifndef BUILD2_TEST_SCRIPT_TOKEN_HXX
 #define BUILD2_TEST_SCRIPT_TOKEN_HXX
 
-#include <build2/types.hxx>
-#include <build2/utility.hxx>
+#include <libbuild2/types.hxx>
+#include <libbuild2/utility.hxx>
 
-#include <build2/token.hxx>
+#include <libbuild2/token.hxx>
 
 namespace build2
 {
