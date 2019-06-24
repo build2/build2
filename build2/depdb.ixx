@@ -23,11 +23,7 @@ namespace build2
   inline bool depdb::
   mtime_check ()
   {
-    // Note: options were validated in main().
-    //
-    return (ops.   mtime_check () ? true  :
-            ops.no_mtime_check () ? false :
-            BUILD2_MTIME_CHECK);
+    return mtime_check_option ? *mtime_check_option : BUILD2_MTIME_CHECK;
   }
 
   inline void depdb::

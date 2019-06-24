@@ -151,7 +151,10 @@ namespace build2
       {
         tracer trace ("main");
 
-        init (argv[0], 1);  // Fake build system driver, default verbosity.
+        // Fake build system driver, default verbosity.
+        //
+        init_diag (1);
+        init (argv[0]);
         sched.startup (1);  // Serial execution.
         reset (strings ()); // No command line variables.
 

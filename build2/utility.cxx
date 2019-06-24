@@ -69,12 +69,15 @@ namespace build2
   //
   // <build2/utility.hxx>
   //
-
-  options ops;
   process_path argv0;
-  bool stderr_term;
 
   const standard_version build_version (BUILD2_VERSION_STR);
+
+  bool dry_run_option;
+  optional<bool> mtime_check_option;
+
+  optional<path> config_sub;
+  optional<path> config_guess;
 
   void
   check_build_version (const standard_version_constraint& c, const location& l)
@@ -483,23 +486,20 @@ namespace build2
   }
 
   void
-  init (const char* a0, uint16_t v)
+  init (const char* a0,
+        bool kg, bool dr, optional<bool> mc,
+        optional<path> cs, optional<path> cg)
   {
     // Build system driver process path.
     //
     argv0 = process::path_search (a0, true);
 
-    // Diagnostics verbosity.
-    //
-    verb = v;
+    keep_going = kg;
+    dry_run_option = dr;
+    mtime_check_option = mc;
 
-    // Initialize time conversion data that is used by localtime_r().
-    //
-#ifndef _WIN32
-    tzset ();
-#else
-    _tzset ();
-#endif
+    config_sub = move (cs);
+    config_guess = move (cg);
 
     // Figure out work and home directories.
     //

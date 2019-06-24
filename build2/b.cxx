@@ -67,6 +67,8 @@ using namespace std;
 
 namespace build2
 {
+  static options ops;
+
   int
   main (int argc, char* argv[]);
 
@@ -180,13 +182,13 @@ main (int argc, char* argv[])
   }
 #endif
 
-// A data race happens in the libstdc++ (as of GCC 7.2) implementation of the
-// ctype<char>::narrow() function (bug #77704). The issue is easily triggered
-// by the testscript runner that indirectly (via regex) uses ctype<char> facet
-// of the global locale (and can potentially be triggered by other locale-
-// aware code). We work around this by pre-initializing the global locale
-// facet internal cache.
-//
+  // A data race happens in the libstdc++ (as of GCC 7.2) implementation of
+  // the ctype<char>::narrow() function (bug #77704). The issue is easily
+  // triggered by the testscript runner that indirectly (via regex) uses
+  // ctype<char> facet of the global locale (and can potentially be triggered
+  // by other locale- aware code). We work around this by pre-initializing the
+  // global locale facet internal cache.
+  //
 #ifdef __GLIBCXX__
   {
     const ctype<char>& ct (use_facet<ctype<char>> (locale ()));
@@ -196,26 +198,24 @@ main (int argc, char* argv[])
   }
 #endif
 
-  try
-  {
-    // On POSIX ignore SIGPIPE which is signaled to a pipe-writing process if
-    // the pipe reading end is closed. Note that by default this signal
-    // terminates a process. Also note that there is no way to disable this
-    // behavior on a file descriptor basis or for the write() function call.
-    //
-    // On Windows disable displaying error reporting dialog box for the current
-    // and child processes unless we run serially. This way we avoid multiple
-    // dialog boxes to potentially pop up.
-    //
+  // On POSIX ignore SIGPIPE which is signaled to a pipe-writing process if
+  // the pipe reading end is closed. Note that by default this signal
+  // terminates a process. Also note that there is no way to disable this
+  // behavior on a file descriptor basis or for the write() function call.
+  //
 #ifndef _WIN32
-    if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
-      fail << "unable to ignore broken pipe (SIGPIPE) signal: "
-           << system_error (errno, generic_category ()); // Sanitize.
+  if (signal (SIGPIPE, SIG_IGN) == SIG_ERR)
+    fail << "unable to ignore broken pipe (SIGPIPE) signal: "
+         << system_error (errno, generic_category ()); // Sanitize.
 #endif
 
-    // Parse the command line. We want to be able to specify options, vars,
-    // and buildspecs in any order (it is really handy to just add -v at the
-    // end of the command line).
+  // Parse the command line.
+  //
+  try
+  {
+    // We want to be able to specify options, vars, and buildspecs in any
+    // order (it is really handy to just add -v at the end of the command
+    // line).
     //
     strings cmd_vars;
     string args;
@@ -336,29 +336,32 @@ main (int argc, char* argv[])
         else
           args += ')';
       }
+
+      // Validate options.
+      //
+      if (ops.progress () && ops.no_progress ())
+        fail << "both --progress and --no-progress specified";
+
+      if (ops.mtime_check () && ops.no_mtime_check ())
+        fail << "both --mtime-check and --no-mtime-check specified";
     }
     catch (const cl::exception& e)
     {
       fail << e;
     }
 
-    // Validate options.
+    // Initialize the diagnostics state.
     //
-    if (ops.progress () && ops.no_progress ())
-      fail << "both --progress and --no-progress specified";
+    init_diag ((ops.verbose_specified ()
+                ? ops.verbose ()
+                : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () ? 0 : 1),
+               (ops.progress ()    ? optional<bool> (true)  :
+                ops.no_progress () ? optional<bool> (false) : nullopt),
+               ops.no_line (),
+               ops.no_column (),
+               fdterm (stderr_fd ()));
 
-    if (ops.mtime_check () && ops.no_mtime_check ())
-      fail << "both --mtime-check and --no-mtime-check specified";
-
-    // Global initializations.
-    //
-    stderr_term = fdterm (stderr_fd ());
-    init (argv[0],
-          ops.verbose_specified ()
-          ? ops.verbose ()
-          : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () ? 0 : 1);
-
-    // Version.
+    // Handle --version.
     //
     if (ops.version ())
     {
@@ -370,7 +373,7 @@ main (int argc, char* argv[])
       return 0;
     }
 
-    // Help.
+    // Handle --help.
     //
     if (ops.help ())
     {
@@ -396,8 +399,33 @@ main (int argc, char* argv[])
       }
     }
 
+    // Initialize time conversion data that is used by localtime_r().
+    //
+#ifndef _WIN32
+    tzset ();
+#else
+    _tzset ();
+#endif
+
+    // Initialize the global state.
+    //
+    init (argv[0],
+          !ops.serial_stop (), ops.dry_run (),
+          (ops.mtime_check ()    ? optional<bool> (true)  :
+           ops.no_mtime_check () ? optional<bool> (false) : nullopt),
+          (ops.config_sub_specified ()
+           ? optional<path> (ops.config_sub ())
+           : nullopt),
+          (ops.config_guess_specified ()
+           ? optional<path> (ops.config_guess ())
+           : nullopt));
+
 #ifdef _WIN32
-    if (!ops.serial_stop ())
+    // On Windows disable displaying error reporting dialog box for the
+    // current and child processes unless we are in the stop mode. Failed that
+    // we may have multiple dialog boxes popping up.
+    //
+    if (keep_going)
       SetErrorMode (SetErrorMode (0) | // Returns the current mode.
                     SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
@@ -449,8 +477,6 @@ main (int argc, char* argv[])
       bm["bash"] = mf {nullptr, &bash::init};
 #endif
     }
-
-    keep_going = !ops.serial_stop ();
 
     // Start up the scheduler and allocate lock shards.
     //

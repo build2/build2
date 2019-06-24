@@ -296,10 +296,10 @@ namespace build2
           // Did the user ask us to use config.sub? If this is a hinted value,
           // then we assume it has already been passed through config.sub.
           //
-          if (!hint && ops.config_sub_specified ())
+          if (!hint && config_sub)
           {
             s = run<string> (3,
-                             ops.config_sub (),
+                             *config_sub,
                              s.c_str (),
                              [] (string& l, bool) {return move (l);});
             l5 ([&]{trace << "config.sub target: '" << s << "'";});

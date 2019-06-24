@@ -155,8 +155,9 @@ namespace build2
   inline bool
   show_progress (uint16_t max_verb)
   {
-    return ops.progress () ||
-      (stderr_term && verb >= 1 && verb <= max_verb && !ops.no_progress ());
+    return diag_progress_option
+      ? *diag_progress_option
+      : stderr_term && verb >= 1 && verb <= max_verb;
   }
 
   // Diagnostic facility, base infrastructure.

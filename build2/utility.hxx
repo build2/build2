@@ -21,7 +21,6 @@
 #include <unordered_set>
 
 #include <build2/types.hxx>
-#include <build2/b-options.hxx>
 
 // "Fake" version values used during bootstrap.
 //
@@ -82,11 +81,45 @@ namespace build2
 
   using butl::eof;
 
+  // Diagnostics state (verbosity level, etc; see diagnostics.hxx).
+  //
+  // Note on naming of values (here and in the global state below) that come
+  // from the command line options: if a value is not meant to be used
+  // directly, then it has the _option suffix and a function or another
+  // variable as its public interface.
+
+  // Initialize the diagnostics state. Should be called once early in main().
+  // Default values are for unit tests.
+  //
+  void
+  init_diag (uint16_t verbosity,
+             optional<bool> progress = nullopt,
+             bool no_lines = false,
+             bool no_columns = false,
+             bool stderr_term = false);
+
+  extern uint16_t verb;
+  const  uint16_t verb_never = 7;
+
+  extern optional<bool> diag_progress_option; // --[no-]progress
+
+  extern bool diag_no_line;   // --no-line
+  extern bool diag_no_column; // --no-column
+
   extern bool stderr_term; // True if stderr is a terminal.
 
-  // Command line options.
+  // Global state (verbosity, home/work directories, etc).
+
+  // Initialize the global state. Should be called once early in main().
+  // Default values are for unit tests.
   //
-  extern options ops;
+  void
+  init (const char* argv0,
+        bool keep_going = false,
+        bool dry_run = false,
+        optional<bool> mtime_check = nullopt,
+        optional<path> config_sub = nullopt,
+        optional<path> config_guess = nullopt);
 
   // Build system driver process path (argv0.initial is argv[0]).
   //
@@ -95,6 +128,12 @@ namespace build2
   // Build system driver version and check.
   //
   extern const standard_version build_version;
+
+  extern bool dry_run_option;               // --dry-run
+  extern optional<bool> mtime_check_option; // --[no-]mtime-check
+
+  extern optional<path> config_sub;   // --config-sub
+  extern optional<path> config_guess; // --config-guess
 
   class location;
 
@@ -135,11 +174,6 @@ namespace build2
   //
   string
   diag_relative (const path&, bool current = true);
-
-  // Diagnostics forward declarations (see diagnostics.hxx).
-  //
-  extern uint16_t verb;
-  const  uint16_t verb_never = 7;
 
   // Basic process utilities.
   //
@@ -621,12 +655,6 @@ namespace build2
   //
   string
   apply_pattern (const char* stem, const string* pattern);
-
-  // Initialize build2 global state (verbosity, home/work directories, etc).
-  // Should be called early in main() once.
-  //
-  void
-  init (const char* argv0, uint16_t verbosity);
 }
 
 #include <build2/utility.ixx>

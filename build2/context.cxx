@@ -494,12 +494,11 @@ namespace build2
     {
       // Did the user ask us to use config.guess?
       //
-      string orig (
-        ops.config_guess_specified ()
-        ? run<string> (3,
-                       ops.config_guess (),
-                       [](string& l, bool) {return move (l);})
-        : BUILD2_HOST_TRIPLET);
+      string orig (config_guess
+                   ? run<string> (3,
+                                  *config_guess,
+                                  [](string& l, bool) {return move (l);})
+                   : BUILD2_HOST_TRIPLET);
 
       l5 ([&]{trace << "original host: '" << orig << "'";});
 

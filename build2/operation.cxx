@@ -271,7 +271,7 @@ namespace build2
 
     // Set the dry-run flag.
     //
-    dry_run = ops.dry_run ();
+    dry_run = dry_run_option;
 
     // Setup progress reporting if requested.
     //

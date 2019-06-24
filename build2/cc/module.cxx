@@ -138,10 +138,10 @@ namespace build2
       {
         string ct;
 
-        if (ops.config_sub_specified ())
+        if (config_sub)
         {
           ct = run<string> (3,
-                            ops.config_sub (),
+                            *config_sub,
                             ci.target.c_str (),
                             [] (string& l, bool) {return move (l);});
           l5 ([&]{trace << "config.sub target: '" << ct << "'";});

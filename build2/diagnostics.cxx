@@ -12,6 +12,28 @@ using namespace std;
 
 namespace build2
 {
+  // Diagnostics state (verbosity level, progress, etc). Keep disabled until
+  // set from options.
+  //
+  uint16_t verb = 0;
+
+  optional<bool> diag_progress_option;
+
+  bool diag_no_line = false;
+  bool diag_no_column = false;
+
+  bool stderr_term = false;
+
+  void
+  init_diag (uint16_t v, optional<bool> p, bool nl, bool nc, bool st)
+  {
+    verb = v;
+    diag_progress_option = p;
+    diag_no_line = nl;
+    diag_no_column = nc;
+    stderr_term = st;
+  }
+
   // Stream verbosity.
   //
   const int stream_verb_index = ostream::xalloc ();
@@ -28,10 +50,6 @@ namespace build2
   {
     r << butl::process_args {args, n};
   }
-
-  // Diagnostics verbosity level.
-  //
-  uint16_t verb = 0; // Keep disabled until set from options.
 
   // Diagnostics stack.
   //
@@ -69,13 +87,13 @@ namespace build2
     {
       r << *loc_.file << ':';
 
-      if (!ops.no_line ())
+      if (!diag_no_line)
       {
         if (loc_.line != 0)
         {
           r << loc_.line << ':';
 
-          if (!ops.no_column ())
+          if (!diag_no_column)
           {
             if (loc_.column != 0)
               r << loc_.column << ':';

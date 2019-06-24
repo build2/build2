@@ -36,7 +36,10 @@ namespace build2
   int
   main (int, char* argv[])
   {
-    init (argv[0], 1);  // Fake build system driver, default verbosity.
+    // Fake build system driver, default verbosity.
+    //
+    init_diag (1);
+    init (argv[0]);
     reset (strings ()); // No command line variables.
 
     function_family f ("dummy");
