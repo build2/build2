@@ -131,6 +131,14 @@ namespace build2
       return prerequisite_key {proj, {&type, &dir, &out, &name, ext}, &scope};
     }
 
+    // As above but remap the target type to the specified.
+    //
+    prerequisite_key
+    key (const target_type_type& tt) const
+    {
+      return prerequisite_key {proj, {&tt, &dir, &out, &name, ext}, &scope};
+    }
+
     // Return true if this prerequisite instance (physically) belongs to the
     // target's prerequisite list. Note that this test only works if you use
     // references to the container elements and the container hasn't been

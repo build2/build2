@@ -384,7 +384,7 @@ namespace build2
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, a, li);
+            pt = link_member (*l, a, li);
 
           bool la;
           if (!((la = pt->is_a<liba> ())  ||
@@ -435,7 +435,7 @@ namespace build2
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, a, li);
+            pt = link_member (*l, a, li);
 
           bool la;
           if (!((la = pt->is_a<liba> ())  ||
@@ -489,7 +489,7 @@ namespace build2
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, a, li);
+            pt = link_member (*l, a, li);
 
           bool la;
           if (!((la = pt->is_a<liba> ())  ||
@@ -741,7 +741,7 @@ namespace build2
             pt = &p.search (t);
 
             if (const libx* l = pt->is_a<libx> ())
-              pt = &link_member (*l, a, li);
+              pt = link_member (*l, a, li);
           }
           else
             continue;
@@ -4713,7 +4713,7 @@ namespace build2
           const target* lt (nullptr);
 
           if (const libx* l = pt->is_a<libx> ())
-            lt = &link_member (*l, a, li);
+            lt = link_member (*l, a, li);
           else if (pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ())
             lt = pt;
 

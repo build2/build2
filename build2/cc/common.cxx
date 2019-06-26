@@ -485,7 +485,7 @@ namespace build2
       // If this is lib{}/libu*{}, pick appropriate member.
       //
       if (const libx* l = xt->is_a<libx> ())
-        xt = &link_member (*l, a, li); // Pick lib*{e,a,s}{}.
+        xt = link_member (*l, a, li); // Pick lib*{e,a,s}{}.
 
       return xt->as<file> ();
     }

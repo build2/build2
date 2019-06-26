@@ -43,15 +43,13 @@ namespace build2
                      "insufficient space");
     }
 
-    bool link_rule::
-    match (action a, target& t, const string& hint) const
+    link_rule::match_result link_rule::
+    match (action a, target& t, ltype lt, bool linkup) const
     {
-      tracer trace (x, "link_rule::match");
+      // NOTE: the target may be a group (see utility library logic below).
 
-      // NOTE: may be called multiple times and for both inner and outer
-      //       operations (see install rules).
+      match_result r;
 
-      ltype lt (link_type (t));
       otype ot (lt.type);
 
       // If this is a library, link-up to our group (this is the target group
@@ -60,12 +58,14 @@ namespace build2
       // If we are called for the outer operation (see install rules), then
       // use resolve_group() to delegate to inner.
       //
-      if (lt.library ())
+      if (linkup)
       {
         if (a.outer ())
           resolve_group (a, t);
         else if (t.group == nullptr)
           t.group = &search (t,
+                             // @@ Why are we picking libu{} over libul{}?
+                             //
                              lt.utility ? libu::static_type : lib::static_type,
                              t.dir, t.out, t.name);
       }
@@ -76,8 +76,6 @@ namespace build2
       //
       // Note also that we treat bmi{} as obj{}. @@ MODHDR hbmi{}?
       //
-      bool seen_x (false), seen_c (false), seen_obj (false), seen_lib (false);
-
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         // If excluded or ad hoc, then don't factor it into our tests.
@@ -90,59 +88,150 @@ namespace build2
             // Header-only X library (or library with C source and X header).
             (lt.library ()    && x_header (p, false /* c_hdr */)))
         {
-          seen_x = seen_x || true;
+          r.seen_x = r.seen_x || true;
         }
         else if (p.is_a<c> ()                  ||
                  // Header-only C library.
                  (lt.library () && p.is_a<h> ()))
         {
-          seen_c = seen_c || true;
+          r.seen_c = r.seen_c || true;
         }
         else if (p.is_a<obj> () || p.is_a<bmi> ())
         {
-          seen_obj = seen_obj || true;
+          r.seen_obj = r.seen_obj || true;
         }
         else if (p.is_a<obje> () || p.is_a<bmie> ())
         {
+          // We can make these "no-match" if/when there is a valid use case.
+          //
           if (ot != otype::e)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
-          seen_obj = seen_obj || true;
+          r.seen_obj = r.seen_obj || true;
         }
         else if (p.is_a<obja> () || p.is_a<bmia> ())
         {
           if (ot != otype::a)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
-          seen_obj = seen_obj || true;
+          r.seen_obj = r.seen_obj || true;
         }
         else if (p.is_a<objs> () || p.is_a<bmis> ())
         {
           if (ot != otype::s)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
-          seen_obj = seen_obj || true;
+          r.seen_obj = r.seen_obj || true;
         }
-        else if (p.is_a<libx> ()  ||
-                 p.is_a<liba> ()  ||
-                 p.is_a<libs> ()  ||
+        else if (p.is_a<libu> ()  ||
+                 p.is_a<libul> () ||
                  p.is_a<libux> ())
         {
-          seen_lib = seen_lib || true;
+          // For a unility library we look at its prerequisites, recursively.
+          // Since these checks are not exactly light-weight, only do them if
+          // we haven't already seen any X prerequisites.
+          //
+          if (!r.seen_x)
+          {
+            // This is a bit iffy: in our model a rule can only search a
+            // target's prerequisites if it matches. But we don't yet know
+            // whether we match. However, it seems correct to assume that any
+            // rule-specific search will always resolve to an existing target
+            // if there is one. So perhaps it's time to relax this restriction
+            // a little?
+            //
+            const target* pt (p.search_existing ());
+
+            // It's possible we have no group but have a member so try that.
+            //
+            if (pt == nullptr && p.is_a<libx> ())
+            {
+              // We know this prerequisite member is a prerequisite since
+              // otherwise the above search would have returned the member
+              // target.
+              //
+              const target_type& tt (ot == otype::a ? libua::static_type :
+                                     ot == otype::s ? libus::static_type :
+                                     libue::static_type);
+
+              pt = search_existing (p.prerequisite.key (tt));
+            }
+
+            if (pt != nullptr)
+            {
+              // If this is a group then try to pick (again, if exists) a
+              // suitable member. If it doesn't exist, then we will only be
+              // considering the group's prerequisites.
+              //
+              if (const libx* gt = pt->is_a<libx> ())
+              {
+                linfo li {ot, lorder::a /* unused */};
+                if (const target* pm = link_member (*gt, a, li, true))
+                  pt = pm;
+              }
+
+              //@@ TMP: const_cast: try to make target in match() const.
+
+              bool group (pt->is_a<libx> ());
+              match_result lr (match (a,
+                                      const_cast<target&> (*pt),
+                                      (group
+                                       ? ltype {ot , true /* utility */}
+                                       : link_type (*pt)),
+                                      !group /* linkup */));
+
+              // Do we need to propagate any other seen_* values? Hm, that
+              // would in fact match with the "see-through" semantics of
+              // utility libraries we have in other places.
+              //
+              r.seen_x = lr.seen_x;
+            }
+            else
+              r.seen_lib = r.seen_lib || true; // Consider as just a library.
+          }
         }
-        // If this is some other c-common header/source (say C++ in a C rule),
-        // then we shouldn't try to handle that (it may need to be compiled,
-        // etc). But we assume everyone can handle a C header.
+        else if (p.is_a<lib> ()  ||
+                 p.is_a<liba> () ||
+                 p.is_a<libs> ())
+        {
+          r.seen_lib = r.seen_lib || true;
+        }
+        // Some other c-common header/source (say C++ in a C rule) other than
+        // a C header (we assume everyone can hanle that).
         //
         else if (p.is_a<cc> () && !(x_header (p, true /* c_hdr */)))
         {
-          l4 ([&]{trace << "non-" << x_lang << " prerequisite " << p
-                        << " for target " << t;});
-          return false;
+          r.seen_cc = true;
+          break;
         }
       }
 
-      if (!(seen_x || seen_c || seen_obj || seen_lib))
+      return r;
+    }
+
+    bool link_rule::
+    match (action a, target& t, const string& hint) const
+    {
+      // NOTE: may be called multiple times and for both inner and outer
+      //       operations (see the install rules).
+
+      tracer trace (x, "link_rule::match");
+
+      ltype lt (link_type (t));
+      match_result r (match (a, t, lt, lt.library ()));
+
+      // If this is some other c-common header/source (say C++ in a C rule),
+      // then we shouldn't try to handle that (it may need to be compiled,
+      // etc).
+      //
+      if (r.seen_cc)
+      {
+        l4 ([&]{trace << "non-" << x_lang << " prerequisite "
+                      << "for target " << t;});
+        return false;
+      }
+
+      if (!(r.seen_x || r.seen_c || r.seen_obj || r.seen_lib))
       {
         l4 ([&]{trace << "no " << x_lang << ", C, or obj/lib prerequisite "
                       << "for target " << t;});
@@ -152,7 +241,7 @@ namespace build2
       // We will only chain a C source if there is also an X source or we were
       // explicitly told to.
       //
-      if (seen_c && !seen_x && hint < x)
+      if (r.seen_c && !r.seen_x && hint < x)
       {
         l4 ([&]{trace << "C prerequisite without " << x_lang << " or hint "
                       << "for target " << t;});
@@ -333,7 +422,7 @@ namespace build2
         if ((ul = pt->is_a<libul> ()) ||
             (ul = pt->is_a<libu>  ()))
         {
-          pf = &link_member (*ul, a, li).as<file> ();
+          pf = &link_member (*ul, a, li)->as<file> ();
         }
         else if ((pf = pt->is_a<libue> ()) ||
                  (pf = pt->is_a<libus> ()) ||
@@ -536,7 +625,7 @@ namespace build2
           // member.
           //
           if (const libx* l = pt->is_a<libx> ())
-            pt = &link_member (*l, a, li);
+            pt = link_member (*l, a, li);
         }
         else
         {

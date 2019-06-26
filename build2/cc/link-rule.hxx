@@ -24,6 +24,18 @@ namespace build2
     public:
       link_rule (data&&);
 
+      struct match_result
+      {
+        bool seen_x   = false;
+        bool seen_c   = false;
+        bool seen_cc  = false;
+        bool seen_obj = false;
+        bool seen_lib = false;
+      };
+
+      match_result
+      match (action, target&, ltype, bool) const;
+
       virtual bool
       match (action, target&, const string&) const override;
 

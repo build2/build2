@@ -43,8 +43,8 @@ namespace build2
         : v.size () > 1 && v[1] == "shared" ? lorder::a_s : lorder::a;
     }
 
-    const target&
-    link_member (const bin::libx& x, action a, linfo li)
+    const target*
+    link_member (const bin::libx& x, action a, linfo li, bool exist)
     {
       bool ul;
 
@@ -72,12 +72,14 @@ namespace build2
 
         // Called by the compile rule during execute.
         //
-        return phase == run_phase::match
-          ? search (x, tt, x.dir, x.out, x.name)
-          : *search_existing (tt, x.dir, x.out, x.name);
+        return phase == run_phase::match && !exist
+          ? &search (x, tt, x.dir, x.out, x.name)
+          : search_existing (tt, x.dir, x.out, x.name);
       }
       else
       {
+        assert (!exist);
+
         const lib& l (x.as<lib> ());
 
         // Make sure group members are resolved.
@@ -107,7 +109,7 @@ namespace build2
           }
         }
 
-        return *(ls ? static_cast<const target*> (l.s) : l.a);
+        return ls ? static_cast<const target*> (l.s) : l.a;
       }
     }
   }
