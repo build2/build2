@@ -34,7 +34,7 @@ namespace build2
       };
 
       match_result
-      match (action, target&, ltype, bool) const;
+      match (action, const target&, const target*, otype, bool) const;
 
       virtual bool
       match (action, target&, const string&) const override;

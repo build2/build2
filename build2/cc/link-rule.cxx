@@ -44,31 +44,15 @@ namespace build2
     }
 
     link_rule::match_result link_rule::
-    match (action a, target& t, ltype lt, bool linkup) const
+    match (action a,
+           const target& t,
+           const target* g,
+           otype ot,
+           bool library) const
     {
       // NOTE: the target may be a group (see utility library logic below).
 
       match_result r;
-
-      otype ot (lt.type);
-
-      // If this is a library, link-up to our group (this is the target group
-      // protocol which means this can be done whether we match or not).
-      //
-      // If we are called for the outer operation (see install rules), then
-      // use resolve_group() to delegate to inner.
-      //
-      if (linkup)
-      {
-        if (a.outer ())
-          resolve_group (a, t);
-        else if (t.group == nullptr)
-          t.group = &search (t,
-                             // @@ Why are we picking libu{} over libul{}?
-                             //
-                             lt.utility ? libu::static_type : lib::static_type,
-                             t.dir, t.out, t.name);
-      }
 
       // Scan prerequisites and see if we can work with what we've got. Note
       // that X could be C (as in language). We handle this by always checking
@@ -76,7 +60,8 @@ namespace build2
       //
       // Note also that we treat bmi{} as obj{}. @@ MODHDR hbmi{}?
       //
-      for (prerequisite_member p: group_prerequisite_members (a, t))
+      for (prerequisite_member p:
+             prerequisite_members (a, t, group_prerequisites (t, g)))
       {
         // If excluded or ad hoc, then don't factor it into our tests.
         //
@@ -86,13 +71,13 @@ namespace build2
         if (p.is_a (x_src)                        ||
             (x_mod != nullptr && p.is_a (*x_mod)) ||
             // Header-only X library (or library with C source and X header).
-            (lt.library ()    && x_header (p, false /* c_hdr */)))
+            (library          && x_header (p, false /* c_hdr */)))
         {
           r.seen_x = r.seen_x || true;
         }
-        else if (p.is_a<c> ()                  ||
+        else if (p.is_a<c> ()            ||
                  // Header-only C library.
-                 (lt.library () && p.is_a<h> ()))
+                 (library && p.is_a<h> ()))
         {
           r.seen_c = r.seen_c || true;
         }
@@ -138,53 +123,78 @@ namespace build2
             // whether we match. However, it seems correct to assume that any
             // rule-specific search will always resolve to an existing target
             // if there is one. So perhaps it's time to relax this restriction
-            // a little?
+            // a little? Note that this fits particularly well with what we
+            // doing here since if there is no existing target, then there can
+            // be no prerequisites.
             //
+            // Note, however, that we cannot linkup a prerequisite target
+            // member to its group since we are not matching this target. As
+            // result we have to do all the steps except for setting t.group
+            // and pass both member and group (we also cannot query t.group
+            // since it's racy).
+            //
+            const target* pg (nullptr);
             const target* pt (p.search_existing ());
 
-            // It's possible we have no group but have a member so try that.
-            //
-            if (pt == nullptr && p.is_a<libx> ())
+            if (p.is_a<libx> ())
             {
-              // We know this prerequisite member is a prerequisite since
-              // otherwise the above search would have returned the member
-              // target.
-              //
-              const target_type& tt (ot == otype::a ? libua::static_type :
-                                     ot == otype::s ? libus::static_type :
-                                     libue::static_type);
+              if (pt != nullptr)
+              {
+                // If this is a group then try to pick (again, if exists) a
+                // suitable member. If it doesn't exist, then we will only be
+                // considering the group's prerequisites.
+                //
+                if (const target* pm =
+                    link_member (pt->as<libx> (),
+                                 a,
+                                 linfo {ot, lorder::a /* unused */},
+                                 true /* existing */))
+                {
+                  pg = pt;
+                  pt = pm;
+                }
+              }
+              else
+              {
+                // It's possible we have no group but have a member so try
+                // that.
+                //
+                const target_type& tt (ot == otype::a ? libua::static_type :
+                                       ot == otype::s ? libus::static_type :
+                                       libue::static_type);
 
-              pt = search_existing (p.prerequisite.key (tt));
+                // We know this prerequisite member is a prerequisite since
+                // otherwise the above search would have returned the member
+                // target.
+                //
+                pt = search_existing (p.prerequisite.key (tt));
+              }
+            }
+            else
+            {
+              // See if we also/instead have a group.
+              //
+              // @@ Why are we picking libu{} over libul{} (and below)?
+              //
+              pg = search_existing (p.prerequisite.key (libu::static_type));
+
+              if (pt == nullptr)
+                swap (pt, pg);
             }
 
             if (pt != nullptr)
             {
-              // If this is a group then try to pick (again, if exists) a
-              // suitable member. If it doesn't exist, then we will only be
-              // considering the group's prerequisites.
+              // If we are matching a target, use the original output type
+              // since that would be the member that we pick.
               //
-              if (const libx* gt = pt->is_a<libx> ())
-              {
-                linfo li {ot, lorder::a /* unused */};
-                if (const target* pm = link_member (*gt, a, li, true))
-                  pt = pm;
-              }
-
-              //@@ TMP: const_cast: try to make target in match() const.
-
-              bool group (pt->is_a<libx> ());
-              match_result lr (match (a,
-                                      const_cast<target&> (*pt),
-                                      (group
-                                       ? ltype {ot , true /* utility */}
-                                       : link_type (*pt)),
-                                      !group /* linkup */));
+              otype pot (pt->is_a<libx> () ? ot : link_type (*pt).type);
+              match_result pr (match (a, *pt, pg, pot, true /* lib */));
 
               // Do we need to propagate any other seen_* values? Hm, that
               // would in fact match with the "see-through" semantics of
               // utility libraries we have in other places.
               //
-              r.seen_x = lr.seen_x;
+              r.seen_x = pr.seen_x;
             }
             else
               r.seen_lib = r.seen_lib || true; // Consider as just a library.
@@ -218,7 +228,26 @@ namespace build2
       tracer trace (x, "link_rule::match");
 
       ltype lt (link_type (t));
-      match_result r (match (a, t, lt, lt.library ()));
+
+      // If this is a library, link-up to our group (this is the target group
+      // protocol which means this can be done whether we match or not).
+      //
+      // If we are called for the outer operation (see install rules), then
+      // use resolve_group() to delegate to inner.
+      //
+      if (lt.library ())
+      {
+        if (a.outer ())
+          resolve_group (a, t);
+        else if (t.group == nullptr)
+          t.group = &search (t,
+                             // @@ Why are we picking libu{} over libul{} (and above)?
+                             //
+                             lt.utility ? libu::static_type : lib::static_type,
+                             t.dir, t.out, t.name);
+      }
+
+      match_result r (match (a, t, t.group, lt.type, lt.library ()));
 
       // If this is some other c-common header/source (say C++ in a C rule),
       // then we shouldn't try to handle that (it may need to be compiled,

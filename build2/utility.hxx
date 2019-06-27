@@ -8,7 +8,7 @@
 #include <tuple>      // make_tuple()
 #include <memory>     // make_shared()
 #include <string>     // to_string()
-#include <utility>    // move(), forward(), declval(), make_pair()
+#include <utility>    // move(), forward(), declval(), make_pair(), swap()
 #include <cassert>    // assert()
 #include <iterator>   // make_move_iterator()
 #include <algorithm>  // *
@@ -37,6 +37,7 @@
 namespace build2
 {
   using std::move;
+  using std::swap;
   using std::forward;
   using std::declval;
 
