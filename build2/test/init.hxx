@@ -25,6 +25,9 @@ namespace build2
           bool,
           bool,
           const variable_map&);
+
+    extern "C" module_functions
+    build2_test_load ();
   }
 }
 

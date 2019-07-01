@@ -56,12 +56,18 @@ namespace build2
     module_init_function* init;
   };
 
-  // The register() function will be written in C++ and will be called from
-  // C++ but we need to suppress name mangling to be able to use dlsym() and
-  // equivalent.
+  // The build2_<modname>_load() function will be written in C++ and will be
+  // called from C++ but we need to suppress name mangling to be able to use
+  // dlsym() or equivalent.
+  //
+  // Note that the load() function is guaranteed to be called during serial
+  // execution (either from main() or during the load phase).
+  //
+  // @@ I wonder if returning a "C++ struct" (it contains pointer to functions
+  //    with signatures containing C++ type) is kosher.
   //
   extern "C"
-  using module_register_function = module_functions ();
+  using module_load_function = module_functions ();
 
   // Loaded modules state.
   //

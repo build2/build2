@@ -445,7 +445,7 @@ main (int argc, char* argv[])
       config_preprocess_create = &config::preprocess_create;
 
       bm["dist"]    = mf {&dist::boot, &dist::init};
-      bm["test"]    = mf {&test::boot, &test::init};
+      bm["test"]    = test::build2_test_load ();
       bm["install"] = mf {&install::boot, &install::init};
       bm["version"] = mf {&version::boot, &version::init};
 

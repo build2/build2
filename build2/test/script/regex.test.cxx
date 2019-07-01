@@ -19,6 +19,8 @@ main ()
   using cf = char_flags;
   using cr = char_regex;
 
+  init (); // Initializes the testscript regex global state.
+
   // Test line_char.
   //
   {
@@ -183,7 +185,6 @@ main ()
     using ct = ctype<lc>;
 
     line_char_locale l;
-    assert (has_facet<ct> (l));
 
     // It is better not to create q facet on stack as it is
     // reference-countable.

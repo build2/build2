@@ -344,6 +344,13 @@ namespace build2
           //
           line_char_locale ();
         };
+
+        // Initialize the testscript regex global state. Should be called once
+        // prior to creating objects of types from this namespace. Note: not
+        // thread-safe.
+        //
+        void
+        init ();
       }
     }
   }

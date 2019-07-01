@@ -15,6 +15,8 @@
 #include <build2/test/target.hxx>
 #include <build2/test/operation.hxx>
 
+#include <build2/test/script/regex.hxx> // script::regex::init()
+
 using namespace std;
 using namespace butl;
 
@@ -216,6 +218,14 @@ namespace build2
       }
 
       return true;
+    }
+
+    module_functions
+    build2_test_load ()
+    {
+      script::regex::init ();
+
+      return module_functions {&boot, &init};
     }
   }
 }

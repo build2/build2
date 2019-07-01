@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <locale>
+
 #include <build2/test/script/regex.hxx>
 
 using namespace std;
@@ -163,11 +165,40 @@ namespace build2
 
         // line_char_locale
         //
+
+        // An exemplar locale with the std::ctype<line_char> facet.  It is
+        // used for the subsequent line char locale objects creation (see
+        // below) which normally ends up with a shallow copy of a reference-
+        // counted object.
+        //
+        // Note that creating the line char locales from the exemplar is not
+        // merely an optimization: there is a data race in the libstdc++ (at
+        // least as of GCC 9.1) implementation of the locale(const locale&,
+        // Facet*) constructor (bug #91057).
+        //
+        // Also note that we install the facet in init() rather than during
+        // the object creation to avoid a race with the std::locale-related
+        // global variables initialization.
+        //
+        static locale line_char_locale_exemplar;
+
+        void
+        init ()
+        {
+          line_char_locale_exemplar =
+            locale (locale (),
+                    new std::ctype<line_char> ()); // Hidden by ctype bitmask.
+        }
+
         line_char_locale::
         line_char_locale ()
-            : locale (locale (),
-                      new std::ctype<line_char> ()) // Hidden by ctype bitmask.
+            : locale (line_char_locale_exemplar)
         {
+          // Make sure init() has been called.
+          //
+          // Note: has_facet() is hidden by a private function in libc++.
+          //
+          assert (std::has_facet<std::ctype<line_char>> (*this));
         }
 
         // char_regex
