@@ -1341,7 +1341,11 @@ main (int argc, char* argv[])
             trace << "  src_root:     " << src_root;
             trace << "  forwarded:    " << (forwarded ? "true" : "false");
             if (auto l = rs.vars[var_amalgamation])
+            {
               trace << "  amalgamation: " << cast<dir_path> (l);
+              trace << "  strong scope: " << *rs.strong_scope ();
+              trace << "  weak scope:   " << *rs.weak_scope ();
+            }
           }
 
           // Enter project-wide (as opposed to global) variable overrides.

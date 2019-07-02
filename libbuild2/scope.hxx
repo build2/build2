@@ -367,7 +367,7 @@ namespace build2
   inline ostream&
   operator<< (ostream& os, const scope& s)
   {
-    return os << s.out_path ().string (); // Always absolute.
+    return os << s.out_path ().representation (); // Always absolute.
   }
 
   // Temporary scope. The idea is to be able to create a temporary scope in

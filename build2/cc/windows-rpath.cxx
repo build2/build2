@@ -293,7 +293,7 @@ namespace build2
       // Symlink or copy the DLLs.
       //
       {
-        const scope& as (*t.root_scope ().weak_scope ()); // Amalgamation.
+        const scope& as (t.weak_scope ()); // Amalgamation.
 
         auto link = [&as, &ad] (const path& f, const path& l)
         {
