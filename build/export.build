@@ -2,12 +2,21 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-$out_root/
-{
-  include build2/
-}
-
 if ($import.target == exe{b})
+{
+  $out_root/
+  {
+    include build2/
+  }
+
   export $out_root/build2/exe{b}
+}
 elif ($import.target == lib{build2})
+{
+  $out_root/
+  {
+    include libbuild2/
+  }
+
   export $out_root/libbuild2/lib{build2}
+}
