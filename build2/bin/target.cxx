@@ -215,33 +215,11 @@ namespace build2
       false
     };
 
-    // libu*{} member factory.
-    //
-    template <typename M>
-    static target*
-    libux_factory (const target_type&, dir_path dir, dir_path out, string n)
-    {
-      const target* g (targets.find<libu> (dir, out, n));
-
-      if (const target* g2 = targets.find<libul> (dir, out, n))
-      {
-        if (g != 0)
-          fail << "both " << *g << " and " << *g2 << " targets declared";
-
-        g = g2;
-      }
-
-      M* m (new M (move (dir), move (out), move (n)));
-      m->group = g;
-
-      return m;
-    }
-
     const target_type libue::static_type
     {
       "libue",
       &libux::static_type,
-      &libux_factory<libue>,
+      &target_factory<libue>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
       &target_pattern_var<var_extension, nullptr>,
@@ -254,7 +232,7 @@ namespace build2
     {
       "libua",
       &libux::static_type,
-      &libux_factory<libua>,
+      &m_factory<libua, libul>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
       &target_pattern_var<var_extension, nullptr>,
@@ -267,7 +245,7 @@ namespace build2
     {
       "libus",
       &libux::static_type,
-      &libux_factory<libus>,
+      &m_factory<libus, libul>,
       nullptr, /* fixed_extension */
       &target_extension_var<var_extension, nullptr>,
       &target_pattern_var<var_extension, nullptr>,
@@ -375,11 +353,12 @@ namespace build2
       false
     };
 
+#if 0
     const target_type libu::static_type
     {
       "libu",
       &libx::static_type,
-      &g_factory<libu, libue, libua, libus>,
+      &target_factory<libu>,
       nullptr,
       nullptr,
       nullptr,
@@ -387,6 +366,7 @@ namespace build2
       &target_search,
       false
     };
+#endif
 
     // What extensions should we use? At the outset, this is platform-
     // dependent. And if we consider cross-compilation, is it build or

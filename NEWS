@@ -12,6 +12,18 @@ Version 0.12.0
     LIBBUILD2_ATOMIC_NON_LOCK_FREE
 
 
+  * The libu{} target group has been removed.
+
+    The semantics provided by libu{} is rarely required and as result was not
+    yet documented. However, if you are using it, the new way to achieve the
+    same result is to use both libue{} and libul{} explicitly, for example:
+
+    exe{foo}: libue{foo}
+    lib{foo}: libul{foo}
+
+    {libue libul}{foo}: cxx{*}
+
+
 Version 0.11.0
 
   * Initial work on header unit importation and include translation support.

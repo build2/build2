@@ -81,6 +81,7 @@ namespace build2
       bool library ()        const {return type != otype::e ||  utility;}
       bool static_library () const {return type == otype::a ||  utility;}
       bool shared_library () const {return type == otype::s && !utility;}
+      bool member_library () const {return type != otype::e;}
     };
 
     // Compile target types.

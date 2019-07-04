@@ -108,9 +108,7 @@ namespace build2
 
           r.seen_obj = r.seen_obj || true;
         }
-        else if (p.is_a<libu> ()  ||
-                 p.is_a<libul> () ||
-                 p.is_a<libux> ())
+        else if (p.is_a<libul> () || p.is_a<libux> ())
         {
           // For a unility library we look at its prerequisites, recursively.
           // Since these checks are not exactly light-weight, only do them if
@@ -136,7 +134,7 @@ namespace build2
             const target* pg (nullptr);
             const target* pt (p.search_existing ());
 
-            if (p.is_a<libx> ())
+            if (p.is_a<libul> ())
             {
               if (pt != nullptr)
               {
@@ -145,7 +143,7 @@ namespace build2
                 // considering the group's prerequisites.
                 //
                 if (const target* pm =
-                    link_member (pt->as<libx> (),
+                    link_member (pt->as<libul> (),
                                  a,
                                  linfo {ot, lorder::a /* unused */},
                                  true /* existing */))
@@ -170,13 +168,11 @@ namespace build2
                 pt = search_existing (p.prerequisite.key (tt));
               }
             }
-            else
+            else if (!p.is_a<libue> ())
             {
               // See if we also/instead have a group.
               //
-              // @@ Why are we picking libu{} over libul{} (and below)?
-              //
-              pg = search_existing (p.prerequisite.key (libu::static_type));
+              pg = search_existing (p.prerequisite.key (libul::static_type));
 
               if (pt == nullptr)
                 swap (pt, pg);
@@ -187,7 +183,7 @@ namespace build2
               // If we are matching a target, use the original output type
               // since that would be the member that we pick.
               //
-              otype pot (pt->is_a<libx> () ? ot : link_type (*pt).type);
+              otype pot (pt->is_a<libul> () ? ot : link_type (*pt).type);
               match_result pr (match (a, *pt, pg, pot, true /* lib */));
 
               // Do we need to propagate any other seen_* values? Hm, that
@@ -229,21 +225,20 @@ namespace build2
 
       ltype lt (link_type (t));
 
-      // If this is a library, link-up to our group (this is the target group
-      // protocol which means this can be done whether we match or not).
+      // If this is a group member library, link-up to our group (this is the
+      // target group protocol which means this can be done whether we match
+      // or not).
       //
       // If we are called for the outer operation (see install rules), then
       // use resolve_group() to delegate to inner.
       //
-      if (lt.library ())
+      if (lt.member_library ())
       {
         if (a.outer ())
           resolve_group (a, t);
         else if (t.group == nullptr)
           t.group = &search (t,
-                             // @@ Why are we picking libu{} over libul{} (and above)?
-                             //
-                             lt.utility ? libu::static_type : lib::static_type,
+                             lt.utility ? libul::static_type : lib::static_type,
                              t.dir, t.out, t.name);
       }
 
@@ -447,9 +442,7 @@ namespace build2
 
         // If this is the libu*{} group, then pick the appropriate member.
         //
-        const libx* ul;
-        if ((ul = pt->is_a<libul> ()) ||
-            (ul = pt->is_a<libu>  ()))
+        if (const libul* ul = pt->is_a<libul> ())
         {
           pf = &link_member (*ul, a, li)->as<file> ();
         }

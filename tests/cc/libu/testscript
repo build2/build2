@@ -53,8 +53,11 @@ EOI
 ln -s ../foo.hxx ../foo.cxx ../bar.cxx ../driver.cxx ./;
 $* test clean <<EOI
   cc.poptions += "-I$src_base"
-  exe{foo}: cxx{driver} libu{foo}
-  libu{foo}: cxx{foo bar}
+
+  ./: exe{foo}: cxx{driver} libue{foo}
+  ./: lib{foo}: libul{foo}
+
+  {libue libul}{foo}: cxx{foo bar}
   EOI
 
 : members
@@ -65,12 +68,9 @@ ln -s ../foo.hxx ../foo.cxx ../bar.cxx ../driver.cxx ./;
 $* test clean <<EOI
   cc.poptions += "-I$src_base"
 
-  # {exe liba libs}{foo}
-  ./: {exe}{foo}
+  ./: exe{foo}:  cxx{driver} libue{foo}
+  ./: liba{foo}: libua{foo}
+  ./: libs{foo}: libus{foo}
 
-  exe{foo}:  cxx{driver} libue{foo}
-  liba{foo}: libua{foo}
-  libs{foo}: libus{foo}
-
-  libu{foo}: cxx{foo bar}
+  libue{foo} libul{foo}: cxx{foo bar}
   EOI

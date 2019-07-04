@@ -191,7 +191,7 @@ namespace build2
     };
 
 
-    // Common base for lib{} and libul{}/libu{} groups.
+    // Common base for lib{} and libul{} groups.
     //
     // We use mtime_target as a base for the "trust me it exists" functionality
     // which we use, for example, to have installed lib{} prerequisites that
@@ -206,20 +206,27 @@ namespace build2
       static const target_type static_type;
     };
 
-    // The libul{}/libu{} target groups (utility library).
+    // The libue{} target, libul{} group and libua{} and libus{} members
+    // (utility library).
     //
-    // All the members are static libraries that differ based on the kind of
-    // object files they contains. Note that the group is more like obj{}
-    // rather than lib{} in that one does not build the group directly rather
-    // picking a suitable member.
+    // Utility libraries are static libraries that differ based on the kind of
+    // object files they contains. Note that the libul{} group is more like
+    // obj{} rather than lib{} in that one does not build the group directly
+    // rather picking a suitable member.
     //
     // libul{} is a "library utility library" in that the choice of members is
     // libua{} or libus{}, even when linking an executable (normally a unit
     // test).
     //
-    // libu{} is a general utility library with all three types of members. It
-    // would normally be used when you want to build both a library from
-    // libua{}/libus{} and an executable from libue{}.
+    // Note that there is no "general utility library" with all three types of
+    // members (that would cause member uplink ambiguity). If you need to
+    // build both a library from libua{}/libus{} and an executable from
+    // libue{} then you will need to arrange this explicitly, for example:
+    //
+    // exe{foo}: libue{foo}
+    // lib{foo}: libul{foo}
+    //
+    // {libue libul}{foo}: cxx{*}
     //
     class libux: public file // Common base of all libuX{} static libraries.
     {
@@ -270,6 +277,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
+#if 0
     class libu: public libx
     {
     public:
@@ -279,6 +287,7 @@ namespace build2
       static const target_type static_type;
       virtual const target_type& dynamic_type () const {return static_type;}
     };
+#endif
 
     // The lib{} target group.
     //

@@ -58,7 +58,7 @@ namespace build2
     }
 
     // Given the link order return the library member to link. That is, liba{}
-    // or libs{} for lib{} and libue{}, libua{} or libus{} for libu*{}.
+    // or libs{} for lib{} and libua{} or libus{} for libul{}.
     //
     // If existing is true, then only return the member target if it exists
     // (currently only used and supported for utility libraries).

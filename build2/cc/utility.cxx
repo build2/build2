@@ -46,17 +46,15 @@ namespace build2
     const target*
     link_member (const bin::libx& x, action a, linfo li, bool exist)
     {
-      bool ul;
-
-      if ((ul = x.is_a<libul> ()) || x.is_a<libu> ())
+      if (x.is_a<libul> ())
       {
-        // If this is a libul{} and we are linking an executable, then the
-        // member choice should be dictated by the members of lib{} this
-        // libul{} is "primarily" for. If both are being built, then it seems
-        // natural to prefer static over shared since it could be faster (but
-        // I am sure someone will probably want this configurable).
+        // For libul{} that is linked to an executable the member choice
+        // should be dictated by the members of lib{} this libul{} is
+        // "primarily" for. If both are being built, then it seems natural to
+        // prefer static over shared since it could be faster (but I am sure
+        // someone will probably want this configurable).
         //
-        if (ul && li.type == otype::e)
+        if (li.type == otype::e)
         {
           // Utility libraries are project-local which means the primarily
           // target should be in the same project as us.
@@ -66,9 +64,9 @@ namespace build2
             : otype::s;
         }
 
-        const target_type& tt (li.type == otype::a ? libua::static_type :
-                               li.type == otype::s ? libus::static_type :
-                               libue::static_type);
+        const target_type& tt (li.type == otype::a
+                               ? libua::static_type
+                               : libus::static_type);
 
         // Called by the compile rule during execute.
         //
