@@ -8,7 +8,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <build2/install/rule.hxx>
+#include <libbuild2/install/rule.hxx>
 
 #include <build2/cc/types.hxx>
 #include <build2/cc/common.hxx>

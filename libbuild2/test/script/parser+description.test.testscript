@@ -1,0 +1,486 @@
+# file      : libbuild2/test/script/parser+description.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: id
+:
+{
+  : lead
+  :
+  $* <<EOI >>EOO
+  : foo
+  cmd
+  EOI
+  : id:foo
+  cmd
+  EOO
+
+  : trail
+  :
+  $* <<EOI >>EOO
+  cmd : foo
+  EOI
+  : id:foo
+  cmd
+  EOO
+
+  : dup
+  : Id uniqueness
+  :
+  {
+    : test
+    :
+    {
+      : test
+      :
+      $* <<EOI 2>>EOE != 0
+      : foo
+      cmd
+      : foo
+      cmd
+      EOI
+      testscript:3:1: error: duplicate id foo
+        testscript:1:1: info: previously used here
+      EOE
+
+      : group
+      :
+      $* <<EOI 2>>EOE != 0
+      : foo
+      cmd
+      : foo
+      {
+        cmd
+        cmd
+      }
+      EOI
+      testscript:3:1: error: duplicate id foo
+        testscript:1:1: info: previously used here
+      EOE
+
+      : derived
+      :
+      $* <<EOI 2>>EOE != 0
+      : 3
+      cmd
+      cmd
+      EOI
+      testscript:3:1: error: duplicate id 3
+        testscript:1:1: info: previously used here
+      EOE
+    }
+
+    : group
+    :
+    {
+      : test
+      :
+      $* <<EOI 2>>EOE != 0
+      : foo
+      {
+        cmd
+        cmd
+      }
+      : foo
+      cmd
+      EOI
+      testscript:6:1: error: duplicate id foo
+        testscript:1:1: info: previously used here
+      EOE
+
+      : group
+      :
+      $* <<EOI 2>>EOE != 0
+      : foo
+      {
+        cmd
+        cmd
+      }
+      : foo
+      {
+        cmd
+        cmd
+      }
+      EOI
+      testscript:6:1: error: duplicate id foo
+        testscript:1:1: info: previously used here
+      EOE
+
+      : derived
+      :
+      $* <<EOI 2>>EOE != 0
+      : 3
+      cmd
+      {
+        cmd
+        cmd
+      }
+      EOI
+      testscript:3:1: error: duplicate id 3
+        testscript:1:1: info: previously used here
+      EOE
+    }
+  }
+}
+
+: summary
+{
+  : lead
+  :
+  $* <<EOI >>EOO
+  : foo bar
+  cmd
+  EOI
+  : sm:foo bar
+  cmd
+  EOO
+
+  : trail
+  :
+  $* <<EOI >>EOO
+  cmd: foo bar
+  EOI
+  : sm:foo bar
+  cmd
+  EOO
+
+  : id
+  :
+  $* <<EOI >>EOO
+  : foo-bar
+  : foo bar
+  cmd
+  EOI
+  : id:foo-bar
+  : sm:foo bar
+  cmd
+  EOO
+}
+
+: details
+{
+  : id
+  :
+  $* <<EOI >>EOO
+  : foo-bar
+  :
+  : foo bar
+  : bar baz
+  cmd
+  EOI
+  : id:foo-bar
+  :
+  : foo bar
+  : bar baz
+  cmd
+  EOO
+
+  : summary
+  :
+  {
+    : only
+    :
+    $* <<EOI >>EOO
+    : foo bar
+    :
+    : foo bar
+    : bar baz
+    cmd
+    EOI
+    : sm:foo bar
+    :
+    : foo bar
+    : bar baz
+    cmd
+    EOO
+
+    : assumed
+    :
+    $* <<EOI >>EOO
+    : foo bar
+    : bar baz
+    cmd
+    EOI
+    : foo bar
+    : bar baz
+    cmd
+    EOO
+
+    : id
+    :
+    $* <<EOI >>EOO
+    : foo-bar
+    : foo bar
+    :
+    : foo bar
+    : bar baz
+    cmd
+    EOI
+    : id:foo-bar
+    : sm:foo bar
+    :
+    : foo bar
+    : bar baz
+    cmd
+    EOO
+
+    : id-assumed
+    :
+    $* <<EOI >>EOO
+    : foo-bar
+    : bar baz
+    : baz fox
+    cmd
+    EOI
+    : foo-bar
+    : bar baz
+    : baz fox
+    cmd
+    EOO
+  }
+}
+
+: legal
+:
+: Legal places for description.
+:
+{
+  : var
+  :
+  $* <<EOI >>EOO
+  : foo bar
+  x = y;
+  cmd $x
+  EOI
+  : sm:foo bar
+  cmd y
+  EOO
+}
+
+: illegal
+:
+: Illegal places for description.
+:
+{
+  : eof
+  :
+  $* <": foo" 2>>EOE != 0
+  testscript:2:1: error: description before <end of file>
+  EOE
+
+  : rcbrace
+  :
+  $* <<EOI 2>>EOE != 0
+  {
+    cmd
+    : foo
+  }
+  EOI
+  testscript:4:1: error: description before '}'
+  EOE
+
+  : setup
+  :
+  $* <<EOI 2>>EOE != 0
+  : foo
+  +cmd
+  EOI
+  testscript:2:1: error: description before setup command
+  EOE
+
+  : tdown
+  :
+  $* <<EOI 2>>EOE != 0
+  : foo
+  -cmd
+  EOI
+  testscript:2:1: error: description before teardown command
+  EOE
+
+  : var
+  :
+  $* <<EOI 2>>EOE != 0
+  : foo
+  x = y
+  EOI
+  testscript:2:1: error: description before setup/teardown variable
+  EOE
+
+  : var-if
+  :
+  $* <<EOI 2>>EOE != 0
+  : foo
+  if true
+    x = y
+  end
+  EOI
+  testscript:2:1: error: description before/after setup/teardown variable-if
+  EOE
+
+  : var-if-after
+  :
+  $* <<EOI 2>>EOE != 0
+  if true
+    x = y
+  end : foo
+  EOI
+  testscript:1:1: error: description before/after setup/teardown variable-if
+  EOE
+
+  : test
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd1;
+  : foo
+  cmd2
+  EOI
+  testscript:2:1: error: description inside test
+  EOE
+}
+
+: test-scope
+:
+: Interaction with test scope merging.
+:
+{
+  : both
+  :
+  : No merge since both have description.
+  :
+  $* -s -i <<EOI >>EOO
+  : foo
+  {
+    : bar
+    cmd
+  }
+  EOI
+  {
+    : id:foo
+    { # foo
+      : id:bar
+      { # foo/bar
+        cmd
+      }
+    }
+  }
+  EOO
+
+  : test
+  :
+  : No merge since test has description.
+  :
+  $* -s -i <<EOI >>EOO
+  {
+    : foo-bar
+    : foo bar
+    cmd
+  }
+  EOI
+  {
+    { # 1
+      : id:foo-bar
+      : sm:foo bar
+      { # 1/foo-bar
+        cmd
+      }
+    }
+  }
+  EOO
+
+  : group
+  :
+  $* -s -i <<EOI >>EOO
+  : foo-bar
+  : foo bar
+  {
+    cmd
+  }
+  EOI
+  {
+    : id:foo-bar
+    : sm:foo bar
+    { # foo-bar
+      cmd
+    }
+  }
+  EOO
+}
+
+: blanks
+:
+$* <<EOI >>EOO
+:
+:
+: foo bar
+: bar baz
+:
+: baz fox
+:
+:
+cmd
+EOI
+: foo bar
+: bar baz
+:
+: baz fox
+cmd
+EOO
+
+: strip
+:
+$* <<EOI >>EOO
+:         foo-bar
+:         bar baz
+:
+:           baz fox
+: fox biz
+:biz buz
+:
+cmd
+EOI
+: id:foo-bar
+: sm:bar baz
+:
+:   baz fox
+:  fox biz
+: biz buz
+cmd
+EOO
+
+: trail-compound
+:
+$* <<EOI >>EOO
+cmd1;
+cmd2: foo
+EOI
+: id:foo
+cmd1
+cmd2
+EOO
+
+: empty
+:
+$* <<EOI 2>>EOE != 0
+:
+:
+cmd
+EOI
+testscript:1:1: error: empty description
+EOE
+
+: trail-empty
+:
+$* <<EOI 2>>EOE != 0
+cmd:
+EOI
+testscript:1:4: error: empty description
+EOE
+
+: both
+:
+$* <<EOI 2>>EOE != 0
+: foo
+cmd : bar
+EOI
+testscript:2:1: error: both leading and trailing descriptions
+EOE

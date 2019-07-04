@@ -14,8 +14,8 @@
 
 #include <build2/cc/target.hxx> // pc*
 
-#include <build2/config/utility.hxx>
-#include <build2/install/utility.hxx>
+#include <libbuild2/config/utility.hxx>
+#include <libbuild2/install/utility.hxx>
 
 #include <build2/cc/guess.hxx>
 

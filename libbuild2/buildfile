@@ -4,6 +4,10 @@
 
 import int_libs = libbutl%lib{butl}
 
+# The config, test, install, and dist are "core modules" that come bundled
+# with libbuild2. Note that the core can still function without them or with
+# their alternative implementations.
+#
 ./: lib{build2}: libul{build2}: {hxx ixx txx cxx}{** -config      \
                                                      -version     \
                                                      -**.test...} \

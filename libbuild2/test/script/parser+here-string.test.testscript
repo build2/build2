@@ -1,0 +1,19 @@
+# file      : libbuild2/test/script/parser+here-string.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+: empty
+:
+$* <<EOI >>EOO
+cmd <""
+EOI
+cmd <''
+EOO
+
+: empty-nn
+:
+$* <<EOI >>EOO
+cmd <:""
+EOI
+cmd <:''
+EOO

@@ -42,19 +42,17 @@
 
 #include <libbuild2/parser.hxx>
 
-#include <build2/b-options.hxx>
+#include <libbuild2/dist/init.hxx>
+#include <libbuild2/test/init.hxx>
+#include <libbuild2/config/init.hxx>
+#include <libbuild2/install/init.hxx>
 
-#include <build2/config/utility.hxx>   // config::save_variable()
-#include <build2/config/operation.hxx> // config::preprocess_create()
+#include <build2/b-options.hxx>
 
 using namespace butl;
 using namespace std;
 
-#include <build2/config/init.hxx>
 #include <build2/version/init.hxx>
-#include <build2/test/init.hxx>
-#include <build2/dist/init.hxx>
-#include <build2/install/init.hxx>
 
 #include <build2/in/init.hxx>
 
@@ -439,14 +437,11 @@ main (int argc, char* argv[])
       using mf = module_functions;
       auto& bm (builtin_modules);
 
-      bm["config"]  = mf {&config::boot, &config::init};
-
-      config_save_variable = &config::save_variable;
-      config_preprocess_create = &config::preprocess_create;
-
-      bm["dist"]    = mf {&dist::boot, &dist::init};
+      bm["config"]  = config::build2_config_load ();
+      bm["dist"]    = dist::build2_dist_load ();
       bm["test"]    = test::build2_test_load ();
-      bm["install"] = mf {&install::boot, &install::init};
+      bm["install"] = install::build2_install_load ();
+
       bm["version"] = mf {&version::boot, &version::init};
 
       bm["in.base"]  = mf {nullptr, &in::base_init};

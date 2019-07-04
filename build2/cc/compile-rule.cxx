@@ -16,8 +16,9 @@
 #include <libbuild2/filesystem.hxx>  // mtime()
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/config/utility.hxx> // create_project()
+
 #include <build2/bin/target.hxx>
-#include <build2/config/utility.hxx> // create_project()
 
 #include <build2/cc/parser.hxx>
 #include <build2/cc/target.hxx>  // h

@@ -11,9 +11,9 @@
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/config/utility.hxx>
+#include <libbuild2/config/utility.hxx>
 
-#include <build2/dist/module.hxx>
+#include <libbuild2/dist/module.hxx>
 
 #include <build2/version/rule.hxx>
 #include <build2/version/module.hxx>

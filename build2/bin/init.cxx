@@ -10,12 +10,12 @@
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/config/utility.hxx>
+#include <libbuild2/config/utility.hxx>
 
-#include <build2/test/module.hxx>
+#include <libbuild2/test/module.hxx>
 
-#include <build2/install/rule.hxx>
-#include <build2/install/utility.hxx>
+#include <libbuild2/install/rule.hxx>
+#include <libbuild2/install/utility.hxx>
 
 #include <build2/bin/rule.hxx>
 #include <build2/bin/guess.hxx>

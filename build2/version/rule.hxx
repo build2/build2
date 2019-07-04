@@ -8,8 +8,9 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/install/rule.hxx>
+
 #include <build2/in/rule.hxx>
-#include <build2/install/rule.hxx>
 
 namespace build2
 {

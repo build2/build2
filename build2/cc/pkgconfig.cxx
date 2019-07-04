@@ -17,7 +17,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/install/utility.hxx>
+#include <libbuild2/install/utility.hxx>
 
 #include <build2/bin/target.hxx>
 

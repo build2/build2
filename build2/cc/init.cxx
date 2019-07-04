@@ -10,7 +10,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/config/utility.hxx>
+#include <libbuild2/config/utility.hxx>
 
 #include <build2/cc/target.hxx>
 #include <build2/cc/utility.hxx>

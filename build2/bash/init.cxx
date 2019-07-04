@@ -9,7 +9,7 @@
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/install/utility.hxx>
+#include <libbuild2/install/utility.hxx>
 
 #include <build2/bash/rule.hxx>
 #include <build2/bash/target.hxx>
