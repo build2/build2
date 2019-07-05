@@ -1169,7 +1169,8 @@ namespace build2
               }
             }
             else
-              cpfile (p, l, cpflags::overwrite_content);
+              cpfile (p, l, (cpflags::overwrite_content |
+                             cpflags::copy_timestamps));
 
             break;
           }
