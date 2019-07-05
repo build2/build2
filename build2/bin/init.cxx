@@ -439,9 +439,6 @@ namespace build2
         t.insert<hbmia> ();
         t.insert<hbmis> ();
 
-#if 0
-        t.insert<libu>  ();
-#endif
         t.insert<libul> ();
         t.insert<libue> ();
         t.insert<libua> ();

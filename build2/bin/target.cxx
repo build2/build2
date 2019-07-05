@@ -353,21 +353,6 @@ namespace build2
       false
     };
 
-#if 0
-    const target_type libu::static_type
-    {
-      "libu",
-      &libx::static_type,
-      &target_factory<libu>,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      &target_search,
-      false
-    };
-#endif
-
     // What extensions should we use? At the outset, this is platform-
     // dependent. And if we consider cross-compilation, is it build or
     // host-dependent? Feels like it should be host-dependent so that

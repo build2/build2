@@ -277,18 +277,6 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-#if 0
-    class libu: public libx
-    {
-    public:
-      using libx::libx;
-
-    public:
-      static const target_type static_type;
-      virtual const target_type& dynamic_type () const {return static_type;}
-    };
-#endif
-
     // The lib{} target group.
     //
     class liba: public file
