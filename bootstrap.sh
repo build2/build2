@@ -117,20 +117,22 @@ if test -z "$libbutl"; then
 fi
 
 src="build2/*.cxx"
-src="$src build2/config/*.cxx"
-src="$src build2/dist/*.cxx"
 src="$src build2/bin/*.cxx"
 src="$src build2/c/*.cxx"
 src="$src build2/cc/*.cxx"
 src="$src build2/cxx/*.cxx"
 src="$src build2/cli/*.cxx"
-src="$src build2/test/*.cxx"
-src="$src build2/test/script/*.cxx"
 src="$src build2/version/*.cxx"
-src="$src build2/install/*.cxx"
 src="$src build2/in/*.cxx"
 src="$src build2/bash/*.cxx"
+
 src="$src libbuild2/*.cxx"
+src="$src libbuild2/config/*.cxx"
+src="$src libbuild2/dist/*.cxx"
+src="$src libbuild2/test/*.cxx"
+src="$src libbuild2/test/script/*.cxx"
+src="$src libbuild2/install/*.cxx"
+
 src="$src $libbutl/libbutl/*.cxx"
 
 # Filter out *.test.cxx sources.

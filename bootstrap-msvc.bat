@@ -92,18 +92,20 @@ if "_%libbutl%_" == "__" (
 rem All the source directories.
 rem
 set "src=build2"
-set "src=%src% build2\config"
-set "src=%src% build2\dist"
 set "src=%src% build2\bin"
 set "src=%src% build2\c"
 set "src=%src% build2\cc"
 set "src=%src% build2\cxx"
-set "src=%src% build2\test"
-set "src=%src% build2\test\script"
 set "src=%src% build2\version"
-set "src=%src% build2\install"
 set "src=%src% build2\in"
+
 set "src=%src% libbuild2"
+set "src=%src% libbuild2\config"
+set "src=%src% libbuild2\dist"
+set "src=%src% libbuild2\test"
+set "src=%src% libbuild2\test\script"
+set "src=%src% libbuild2\install"
+
 set "src=%src% %libbutl%\libbutl"
 
 rem Get the compile options.
