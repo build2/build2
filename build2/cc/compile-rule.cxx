@@ -988,7 +988,7 @@ namespace build2
         {
           // Note: trace is used in a test.
           //
-          l5 ([&]{trace << "extracting headers from " << t;});
+          l5 ([&]{trace << "extracting headers from " << src;});
           psrc = extract_headers (a, bs, t, li, src, md, dd, u, mt);
         }
 
