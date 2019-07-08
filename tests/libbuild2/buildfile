@@ -2,7 +2,8 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs = build2%lib{build2}
+import libs  = build2%lib{build2}
+import libs += build2%lib{build2-in}
 
 exe{driver}: {hxx cxx}{*} $libs testscript
 

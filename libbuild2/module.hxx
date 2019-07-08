@@ -50,24 +50,31 @@ namespace build2
           bool optional,              // Loaded with using? (optional module).
           const variable_map& hints); // Configuration hints (see below).
 
+  // If the boot function is not NULL, then such a module is said to require
+  // bootstrapping and must be loaded in bootstrap.build.
+  //
   struct module_functions
   {
-    module_boot_function* boot;
-    module_init_function* init;
+    const char*           name = nullptr; // Module/submodule name.
+    module_boot_function* boot = nullptr;
+    module_init_function* init = nullptr;
   };
 
-  // The build2_<modname>_load() function will be written in C++ and will be
+  // The build2_<name>_load() function will be written in C++ and will be
   // called from C++ but we need to suppress name mangling to be able to use
-  // dlsym() or equivalent.
+  // dlsym() or equivalent, thus extern "C".
   //
-  // Note that the load() function is guaranteed to be called during serial
+  // The <name> part in the function name is the main module name without
+  // submodule components (for example, `c` in `c.config`) and the load
+  // function is expected to return boot/init functions for all its submodules
+  // (if any) as well as for the module itself as an array of module_functions
+  // terminated with an all-NULL entry.
+  //
+  // Note that the load function is guaranteed to be called during serial
   // execution (either from main() or during the load phase).
   //
-  // @@ I wonder if returning a "C++ struct" (it contains pointer to functions
-  //    with signatures containing C++ type) is kosher.
-  //
   extern "C"
-  using module_load_function = module_functions ();
+  using module_load_function = const module_functions* ();
 
   // Loaded modules state.
   //
@@ -118,6 +125,9 @@ namespace build2
                const variable_map& config_hints = variable_map ());
 
   // Builtin modules.
+  //
+  // @@ Maybe this should be renamed to loaded modules?
+  // @@ We can also change it to std::map<const char*, const module_functions*>
   //
   using available_module_map = std::map<string, module_functions>;
   LIBBUILD2_SYMEXPORT extern available_module_map builtin_modules;

@@ -6,12 +6,19 @@ import libs  = libbutl%lib{butl}
 import libs += libpkgconf%lib{pkgconf}
 
 include ../libbuild2/
+libs += ../libbuild2/lib{build2}
+
+for m: in
+{
+  include ../libbuild2/in/
+  libs += ../libbuild2/$m/lib{build2-$m}
+}
 
 ./: exe{b}: {hxx ixx txx cxx}{+b} libue{b}
 
 libue{b}: {hxx ixx txx cxx}{** -b -b-options -**.test...} \
           {hxx ixx cxx}{b-options}                        \
-          ../libbuild2/lib{build2} $libs
+          $libs
 
 # Unit tests.
 #

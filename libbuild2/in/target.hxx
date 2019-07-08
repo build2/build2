@@ -1,14 +1,16 @@
-// file      : build2/in/target.hxx -*- C++ -*-
+// file      : libbuild2/in/target.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_IN_TARGET_HXX
-#define BUILD2_IN_TARGET_HXX
+#ifndef LIBBUILD2_IN_TARGET_HXX
+#define LIBBUILD2_IN_TARGET_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target.hxx>
+
+#include <libbuild2/in/export.hxx>
 
 namespace build2
 {
@@ -31,7 +33,7 @@ namespace build2
     // the target-dependent search comes in: we take into account the target
     // we are a prerequisite of.
     //
-    class in: public file
+    class LIBBUILD2_IN_SYMEXPORT in: public file
     {
     public:
       using file::file;
@@ -43,4 +45,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_IN_TARGET_HXX
+#endif // LIBBUILD2_IN_TARGET_HXX

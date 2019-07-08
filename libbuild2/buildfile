@@ -2,17 +2,21 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
+./: lib{build2} in/
+
 import int_libs = libbutl%lib{butl}
 
-# The config, test, install, and dist are "core modules" that come bundled
-# with libbuild2. Note that the core can still function without them or with
-# their alternative implementations.
+lib{build2}: libul{build2}: {hxx ixx txx cxx}{* -config -version -*.test...} \
+                            {hxx}{config version}
+
+# These are "core modules" that come bundled with libbuild2 (see also unit
+# tests loop below). Note that the build system core can still function
+# without them or with their alternative implementations.
 #
-./: lib{build2}: libul{build2}: {hxx ixx txx cxx}{** -config      \
-                                                     -version     \
-                                                     -**.test...} \
-                                {hxx}{config version}             \
-                                $int_libs
+for m: config dist install test
+  libul{build2}: $m/{hxx ixx txx cxx}{** -**.test...}
+
+libul{build2}: $int_libs
 
 # Include the generated config and version headers into the distribution (so
 # that we don't pick up installed ones) and don't remove them when cleaning in
@@ -35,7 +39,11 @@ exe{*.test}:
   install = false
 }
 
-for t: cxx{**.test...}
+for t:         cxx{ *.test...} \
+        config/cxx{**.test...} \
+          dist/cxx{**.test...} \
+       install/cxx{**.test...} \
+          test/cxx{**.test...}
 {
   d = $directory($t)
   n = $name($t)...

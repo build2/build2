@@ -11,12 +11,20 @@ if ($import.target == exe{b})
 
   export $out_root/build2/exe{b}
 }
-elif ($import.target == lib{build2})
+else
 {
   $out_root/
   {
     include libbuild2/
   }
 
-  export $out_root/libbuild2/lib{build2}
+  d = [dir_path] $out_root/libbuild2/
+  if ($import.target != lib{build2})
+  {
+    # Assume one of the modules.
+    #
+    d += $regex.replace($name($import.target), '^build2-(.+)', '\1')
+  }
+
+  export $d/$import.target
 }

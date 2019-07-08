@@ -1,14 +1,16 @@
-// file      : build2/in/rule.hxx -*- C++ -*-
+// file      : libbuild2/in/rule.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_IN_RULE_HXX
-#define BUILD2_IN_RULE_HXX
+#ifndef LIBBUILD2_IN_RULE_HXX
+#define LIBBUILD2_IN_RULE_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
+
+#include <libbuild2/in/export.hxx>
 
 namespace build2
 {
@@ -22,7 +24,7 @@ namespace build2
     // Note also that currently this rule ignores the dry-run mode (see
     // perform_update() for the rationale).
     //
-    class rule: public build2::rule
+    class LIBBUILD2_IN_SYMEXPORT rule: public build2::rule
     {
     public:
       // The rule id is used to form the rule name/version entry in depdb. The
@@ -85,4 +87,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_IN_RULE_HXX
+#endif // LIBBUILD2_IN_RULE_HXX

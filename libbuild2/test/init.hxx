@@ -28,7 +28,7 @@ namespace build2
           bool,
           const variable_map&);
 
-    extern "C" LIBBUILD2_SYMEXPORT module_functions
+    extern "C" LIBBUILD2_SYMEXPORT const module_functions*
     build2_test_load ();
   }
 }

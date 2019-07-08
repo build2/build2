@@ -8,6 +8,8 @@
 #include <libbuild2/context.hxx>   // sched, reset()
 #include <libbuild2/scheduler.hxx>
 
+#include <libbuild2/in/init.hxx>
+
 using namespace build2;
 
 int
@@ -17,6 +19,9 @@ main (int, char* argv[])
   //
   init_diag (1);
   init (argv[0]);
+
+  in::build2_in_load ();
+
   sched.startup (1);  // Serial execution.
   reset (strings ()); // No command line variables.
 

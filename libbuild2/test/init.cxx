@@ -220,12 +220,18 @@ namespace build2
       return true;
     }
 
-    module_functions
+    static const module_functions mod_functions[] =
+    {
+      {"test",  &boot,   &init},
+      {nullptr, nullptr, nullptr}
+    };
+
+    const module_functions*
     build2_test_load ()
     {
       script::regex::init ();
 
-      return module_functions {&boot, &init};
+      return mod_functions;
     }
   }
 }

@@ -10,7 +10,7 @@
 
 #include <libbuild2/install/rule.hxx>
 
-#include <build2/in/rule.hxx>
+#include <libbuild2/in/rule.hxx>
 
 namespace build2
 {

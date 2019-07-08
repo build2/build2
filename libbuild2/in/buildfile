@@ -1,0 +1,62 @@
+# file      : libbuild2/in/buildfile
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+import int_libs = libbutl%lib{butl}
+
+include ../
+int_libs += ../lib{build2}
+
+./: lib{build2-in}: libul{build2-in}: {hxx ixx txx cxx}{** -**.test...} \
+  $int_libs
+
+# Unit tests.
+#
+exe{*.test}:
+{
+  test = true
+  install = false
+}
+
+for t: cxx{**.test...}
+{
+  d = $directory($t)
+  n = $name($t)...
+
+  ./: $d/exe{$n}: $t $d/{hxx ixx txx}{+$n} $d/testscript{+$n}
+  $d/exe{$n}: libul{build2-in}: bin.whole = false
+}
+
+# Build options.
+#
+obja{*}: cxx.poptions += -DLIBBUILD2_IN_STATIC_BUILD
+objs{*}: cxx.poptions += -DLIBBUILD2_IN_SHARED_BUILD
+
+# Export options.
+#
+lib{build2-in}:
+{
+  cxx.export.poptions = "-I$out_root" "-I$src_root"
+  cxx.export.libs = $int_libs
+}
+
+liba{build2-in}: cxx.export.poptions += -DLIBBUILD2_IN_STATIC
+libs{build2-in}: cxx.export.poptions += -DLIBBUILD2_IN_SHARED
+
+# For pre-releases use the complete version to make sure they cannot be used
+# in place of another pre-release or the final version. See the version module
+# for details on the version.* variable values.
+#
+if $version.pre_release
+  lib{build2-in}: bin.lib.version = @"-$version.project_id"
+else
+  lib{build2-in}: bin.lib.version = @"-$version.major.$version.minor"
+
+# Install into the libbuild2/in/ subdirectory of, say, /usr/include/
+# recreating subdirectories.
+#
+{hxx ixx txx}{*}:
+{
+  install         = include/libbuild2/in/
+  install.subdirs = true
+}

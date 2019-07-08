@@ -1,16 +1,16 @@
-// file      : build2/in/init.cxx -*- C++ -*-
+// file      : libbuild2/in/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/in/init.hxx>
+#include <libbuild2/in/init.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/in/rule.hxx>
-#include <build2/in/target.hxx>
+#include <libbuild2/in/rule.hxx>
+#include <libbuild2/in/target.hxx>
 
 using namespace std;
 
@@ -105,6 +105,22 @@ namespace build2
       }
 
       return true;
+    }
+
+    static const module_functions mod_functions[] =
+    {
+      // NOTE: don't forget to also update the documentation in init.hxx if
+      //       changing anything here.
+
+      {"in.base", nullptr, base_init},
+      {"in",      nullptr, init},
+      {nullptr,   nullptr, nullptr}
+    };
+
+    const module_functions*
+    build2_in_load ()
+    {
+      return mod_functions;
     }
   }
 }

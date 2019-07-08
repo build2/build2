@@ -11,7 +11,7 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/in/target.hxx>
+#include <libbuild2/in/target.hxx>
 
 #include <build2/bash/target.hxx>
 #include <build2/bash/utility.hxx>

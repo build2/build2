@@ -1,8 +1,8 @@
-// file      : build2/in/rule.cxx -*- C++ -*-
+// file      : libbuild2/in/rule.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/in/rule.hxx>
+#include <libbuild2/in/rule.hxx>
 
 #include <cstdlib> // strtoull()
 
@@ -14,7 +14,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/in/target.hxx>
+#include <libbuild2/in/target.hxx>
 
 using namespace std;
 using namespace butl;

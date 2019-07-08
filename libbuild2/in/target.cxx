@@ -1,8 +1,8 @@
-// file      : build2/in/target.cxx -*- C++ -*-
+// file      : libbuild2/in/target.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/in/target.hxx>
+#include <libbuild2/in/target.hxx>
 
 using namespace std;
 

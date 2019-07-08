@@ -8,7 +8,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/in/target.hxx>
+#include <libbuild2/in/target.hxx>
 
 #include <build2/version/module.hxx>
 #include <build2/version/utility.hxx>

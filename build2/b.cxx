@@ -42,19 +42,17 @@
 
 #include <libbuild2/parser.hxx>
 
+#include <build2/b-options.hxx>
+
+// Build system modules.
+//
 #include <libbuild2/dist/init.hxx>
 #include <libbuild2/test/init.hxx>
 #include <libbuild2/config/init.hxx>
 #include <libbuild2/install/init.hxx>
 
-#include <build2/b-options.hxx>
-
-using namespace butl;
-using namespace std;
-
+#include <libbuild2/in/init.hxx>
 #include <build2/version/init.hxx>
-
-#include <build2/in/init.hxx>
 
 #include <build2/bin/init.hxx>
 #include <build2/c/init.hxx>
@@ -65,6 +63,9 @@ using namespace std;
 #  include <build2/cli/init.hxx>
 #  include <build2/bash/init.hxx>
 #endif
+
+using namespace butl;
+using namespace std;
 
 namespace build2
 {
@@ -437,46 +438,51 @@ main (int argc, char* argv[])
       using mf = module_functions;
       auto& bm (builtin_modules);
 
-      bm["config"]  = config::build2_config_load ();
-      bm["dist"]    = dist::build2_dist_load ();
-      bm["test"]    = test::build2_test_load ();
-      bm["install"] = install::build2_install_load ();
+      auto reg = [] (module_load_function* lf)
+      {
+        for (const module_functions* i (lf ()); i->name != nullptr; ++i)
+          builtin_modules[i->name] = *i;
+      };
 
-      bm["version"] = mf {&version::boot, &version::init};
+      reg (&config::build2_config_load);
+      reg (&dist::build2_dist_load);
+      reg (&test::build2_test_load);
+      reg (&install::build2_install_load);
 
-      bm["in.base"]  = mf {nullptr, &in::base_init};
-      bm["in"]       = mf {nullptr, &in::init};
+      bm["version"] = mf {"version", &version::boot, &version::init};
 
-      bm["bin.vars"] = mf {nullptr, &bin::vars_init};
-      bm["bin.config"] = mf {nullptr, &bin::config_init};
-      bm["bin"] = mf {nullptr, &bin::init};
-      bm["bin.ar.config"] = mf {nullptr, &bin::ar_config_init};
-      bm["bin.ar"] = mf {nullptr, &bin::ar_init};
-      bm["bin.ld.config"] = mf {nullptr, &bin::ld_config_init};
-      bm["bin.ld"] = mf {nullptr, &bin::ld_init};
-      bm["bin.rc.config"] = mf {nullptr, &bin::rc_config_init};
-      bm["bin.rc"] = mf {nullptr, &bin::rc_init};
+      reg (&in::build2_in_load);
 
-      bm["cc.core.vars"] = mf {nullptr, &cc::core_vars_init};
-      bm["cc.core.guess"] = mf {nullptr, &cc::core_guess_init};
-      bm["cc.core.config"] = mf {nullptr, &cc::core_config_init};
-      bm["cc.core"] = mf {nullptr, &cc::core_init};
-      bm["cc.config"] = mf {nullptr, &cc::config_init};
-      bm["cc"] = mf {nullptr, &cc::init};
+      bm["bin.vars"] = mf {"bin.vars", nullptr, &bin::vars_init};
+      bm["bin.config"] = mf {"bin.config", nullptr, &bin::config_init};
+      bm["bin"] = mf {"bin", nullptr, &bin::init};
+      bm["bin.ar.config"] = mf {"bin.ar.config", nullptr, &bin::ar_config_init};
+      bm["bin.ar"] = mf {"bin.ar", nullptr, &bin::ar_init};
+      bm["bin.ld.config"] = mf {"bin.ld.config", nullptr, &bin::ld_config_init};
+      bm["bin.ld"] = mf {"bin.ld", nullptr, &bin::ld_init};
+      bm["bin.rc.config"] = mf {"bin.rc.config", nullptr, &bin::rc_config_init};
+      bm["bin.rc"] = mf {"bin.rc", nullptr, &bin::rc_init};
 
-      bm["c.guess"] = mf {nullptr, &c::guess_init};
-      bm["c.config"] = mf {nullptr, &c::config_init};
-      bm["c"] = mf {nullptr, &c::init};
+      bm["cc.core.vars"] = mf {"cc.core.vars", nullptr, &cc::core_vars_init};
+      bm["cc.core.guess"] = mf {"cc.core.guess", nullptr, &cc::core_guess_init};
+      bm["cc.core.config"] = mf {"cc.core.config", nullptr, &cc::core_config_init};
+      bm["cc.core"] = mf {"cc.core", nullptr, &cc::core_init};
+      bm["cc.config"] = mf {"cc.config", nullptr, &cc::config_init};
+      bm["cc"] = mf {"cc", nullptr, &cc::init};
 
-      bm["cxx.guess"] = mf {nullptr, &cxx::guess_init};
-      bm["cxx.config"] = mf {nullptr, &cxx::config_init};
-      bm["cxx"] = mf {nullptr, &cxx::init};
+      bm["c.guess"] = mf {"c.guess", nullptr, &c::guess_init};
+      bm["c.config"] = mf {"c.config", nullptr, &c::config_init};
+      bm["c"] = mf {"c", nullptr, &c::init};
+
+      bm["cxx.guess"] = mf {"cxx.guess", nullptr, &cxx::guess_init};
+      bm["cxx.config"] = mf {"cxx.config", nullptr, &cxx::config_init};
+      bm["cxx"] = mf {"cxx", nullptr, &cxx::init};
 
 #ifndef BUILD2_BOOTSTRAP
-      bm["cli.config"] = mf {nullptr, &cli::config_init};
-      bm["cli"] = mf {nullptr, &cli::init};
+      bm["cli.config"] = mf {"cli.config", nullptr, &cli::config_init};
+      bm["cli"] = mf {"cli", nullptr, &cli::init};
 
-      bm["bash"] = mf {nullptr, &bash::init};
+      bm["bash"] = mf {"bash", nullptr, &bash::init};
 #endif
     }
 

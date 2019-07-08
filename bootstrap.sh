@@ -123,7 +123,6 @@ src="$src build2/cc/*.cxx"
 src="$src build2/cxx/*.cxx"
 src="$src build2/cli/*.cxx"
 src="$src build2/version/*.cxx"
-src="$src build2/in/*.cxx"
 src="$src build2/bash/*.cxx"
 
 src="$src libbuild2/*.cxx"
@@ -132,6 +131,7 @@ src="$src libbuild2/dist/*.cxx"
 src="$src libbuild2/test/*.cxx"
 src="$src libbuild2/test/script/*.cxx"
 src="$src libbuild2/install/*.cxx"
+src="$src libbuild2/in/*.cxx"
 
 src="$src $libbutl/libbutl/*.cxx"
 

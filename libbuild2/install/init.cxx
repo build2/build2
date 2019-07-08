@@ -300,10 +300,16 @@ namespace build2
       return true;
     }
 
-    module_functions
+    static const module_functions mod_functions[] =
+    {
+      {"install", &boot,   &init},
+      {nullptr,   nullptr, nullptr}
+    };
+
+    const module_functions*
     build2_install_load ()
     {
-      return module_functions {&boot, &init};
+      return mod_functions;
     }
   }
 }

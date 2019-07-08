@@ -145,15 +145,21 @@ namespace build2
       return true;
     }
 
-    module_functions
+    static const module_functions mod_functions[] =
+    {
+      {"config", &boot,   &init},
+      {nullptr,  nullptr, nullptr}
+    };
+
+    const module_functions*
     build2_config_load ()
     {
       // Initialize the config entry points in the build system core.
       //
-      config_save_variable = &config::save_variable;
-      config_preprocess_create = &config::preprocess_create;
+      config_save_variable = &save_variable;
+      config_preprocess_create = &preprocess_create;
 
-      return module_functions {&boot, &init};
+      return mod_functions;
     }
   }
 }
