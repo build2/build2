@@ -1367,7 +1367,7 @@ namespace build2
               else if (v.priority <= prio)
               {
                 if (verb >= 4)
-                  trace << "ignoring dependency prefix " << p << '\n'
+                  trace << "ignoring mapping for prefix '" << p << "'\n"
                         << "  existing mapping to " << v.directory
                         << " priority " << v.priority << '\n'
                         << "  another mapping to  " << d
@@ -1376,7 +1376,7 @@ namespace build2
               else
               {
                 if (verb >= 4)
-                  trace << "overriding dependency prefix " << p << '\n'
+                  trace << "overriding mapping for prefix '" << p << "'\n"
                         << "  existing mapping to " << v.directory
                         << " priority " << v.priority << '\n'
                         << "  new mapping to      " << d
@@ -1388,7 +1388,8 @@ namespace build2
             }
             else
             {
-              l6 ([&]{trace << p << " -> " << d << " priority " << prio;});
+              l6 ([&]{trace << "'" << p << "' -> " << d << " priority "
+                            << prio;});
               m.emplace (move (p), prefix_value {move (d), prio});
             }
           };
@@ -1401,7 +1402,7 @@ namespace build2
           // the competing -I paths is a subdirectory of another. But the
           // proper solution will be to keep all the prefixless entries (by
           // changing prefix_map to a multimap) since for them we have an
-          // extra checks (target must be explicitly spelled out in a
+          // extra check (target must be explicitly spelled out in a
           // buildfile).
           //
           for (size_t prio (0);; ++prio)
