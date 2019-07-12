@@ -3704,8 +3704,6 @@ namespace build2
                        const string* tp,
                        bool cross)
   {
-    assert (!pre_parse_);
-
     if (pp)
       pmode = pattern_mode::ignore;
 
@@ -3761,6 +3759,11 @@ namespace build2
       //
       if (pat_tt)
       {
+        // In the pre-parse mode the parse_names() result can never be a
+        // pattern.
+        //
+        assert (!pre_parse_);
+
         // Move the pattern names our of the result.
         //
         names ps;
@@ -3802,6 +3805,11 @@ namespace build2
         continue;
       }
 
+      // In the pre-parse mode we fall back to the above "cross with empty
+      // LHS" case.
+      //
+      assert (!pre_parse_);
+
       //@@ This can be a nested replay (which we don't support), for example,
       //   via target-specific var assignment. Add support for nested (2-level
       //   replay)? Why not use replay_guard for storage? Alternatively, don't
@@ -3833,6 +3841,12 @@ namespace build2
           rg.play (); // Replay.
       }
     }
+
+    // We don't modify the resulting names during pre-parsing and so can bail
+    // out now.
+    //
+    if (pre_parse_)
+      return 0;
 
     // Splice the names into the result. Note that we have already handled
     // project/dir/type qualification but may still have a pair. Fast-path
@@ -4224,6 +4238,9 @@ namespace build2
       {
         tt = peek ();
 
+        // Skip it in the pre-parse mode (any {...} that may follow will be
+        // handled as an untyped group below).
+        //
         if (pre_parse_)
           continue;
 
@@ -4917,6 +4934,9 @@ namespace build2
                        (tp != nullptr ? *tp : string ()),
                        string ());
     }
+
+    if (pre_parse_)
+      assert (!vnull && vtype == nullptr && !rpat);
 
     return parse_names_result {!vnull, vtype, rpat};
   }

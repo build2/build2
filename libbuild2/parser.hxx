@@ -333,6 +333,9 @@ namespace build2
     // it is the result of a sole, unquoted variable expansion, function call,
     // or context evaluation.
     //
+    // In the pre-parse mode no names are appended and the result is always
+    // {true, nullptr, nullopt}.
+    //
     struct parse_names_result
     {
       bool not_null;
