@@ -1352,7 +1352,7 @@ int main ()
 \c{loptions} (link options), \c{aoptions} (archive options) and \c{libs}
 (extra libraries to link). If you are familiar with \c{make}, these are
 roughly equivalent to \c{CPPFLAGS}, \c{CFLAGS}/\c{CXXFLAGS}, \c{LDFLAGS},
-\c{ARFLAGS}, and \c{LIBS}, respectively. Here they are again in the tabular
+\c{ARFLAGS}, and \c{LDLIBS}, respectively. Here they are again in the tabular
 form:
 
 \
