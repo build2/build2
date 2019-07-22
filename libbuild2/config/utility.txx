@@ -28,7 +28,7 @@ namespace build2
       lookup l (org.first);
 
       // The interaction with command line overrides can get tricky. For
-      // example, the override to defaul value could make (non-recursive)
+      // example, the override to default value could make (non-recursive)
       // command line override in the outer scope no longer apply. So what we
       // are going to do is first ignore overrides and perform the normal
       // logic on the original. Then we apply the overrides on the result.

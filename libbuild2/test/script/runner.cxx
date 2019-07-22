@@ -19,6 +19,7 @@
 #include <libbuild2/test/script/regex.hxx>
 #include <libbuild2/test/script/parser.hxx>
 #include <libbuild2/test/script/builtin.hxx>
+#include <libbuild2/test/script/builtin-options.hxx>
 
 using namespace std;
 using namespace butl;
@@ -1010,45 +1011,23 @@ namespace build2
           //
           ifdstream cin  (move (in), ifdstream::badbit);
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool exact (false);
-          bool newline (false);
-          bool whitespace (false);
+          cli::vector_scanner scan (args);
+          set_options ops (scan);
 
-          for (; i != e; ++i)
-          {
-            const string& o (*i);
+          if (ops.whitespace () && ops.newline ())
+            fail (ll) << "both -n|--newline and -w|--whitespace specified";
 
-            if (o == "-e" || o == "--exact")
-              exact = true;
-            else if (o == "-n" || o == "--newline")
-              newline = true;
-            else if (o == "-w" || o == "--whitespace")
-              whitespace = true;
-            else
-            {
-              if (*i == "--")
-                ++i;
-
-              break;
-            }
-          }
-
-          // Process arguments.
-          //
-          if (i == e)
+          if (!scan.more ())
             fail (ll) << "missing variable name";
 
-          const string& a (*i++); // Either attributes or variable name.
-          const string* ats (i == e ? nullptr : &a);
-          const string& vname (i == e ? a : *i++);
+          string a (scan.next ()); // Either attributes or variable name.
+          const string* ats (!scan.more () ? nullptr : &a);
+          const string& vname (!scan.more () ? a : scan.next ());
 
-          if (i != e)
-            fail (ll) << "unexpected argument '" << *i << "'";
+          if (scan.more ())
+            fail (ll) << "unexpected argument '" << scan.next () << "'";
 
           if (ats != nullptr && ats->empty ())
             fail (ll) << "empty variable attributes";
@@ -1069,7 +1048,7 @@ namespace build2
             // target or as a part of msvcrt junk production (see above).
             //
             string s;
-            if (whitespace)
+            if (ops.whitespace ())
               cin >> s;
             else
             {
@@ -1088,9 +1067,9 @@ namespace build2
             //
             if (cin.fail ())
             {
-              if (exact)
+              if (ops.exact ())
               {
-                if (whitespace || newline)
+                if (ops.whitespace () || ops.newline ())
                   ns.emplace_back (move (s)); // Reuse empty string.
                 else if (ns.empty ())
                   ns.emplace_back ("\n");
@@ -1101,7 +1080,7 @@ namespace build2
               break;
             }
 
-            if (whitespace || newline || ns.empty ())
+            if (ops.whitespace () || ops.newline () || ns.empty ())
               ns.emplace_back (move (s));
             else
             {
@@ -1154,6 +1133,10 @@ namespace build2
           }
         }
         catch (const io_error& e)
+        {
+          fail (ll) << "set: " << e;
+        }
+        catch (const cli::exception& e)
         {
           fail (ll) << "set: " << e;
         }

@@ -41,6 +41,12 @@ $c <<EOI && $b
 }
 EOI
 
+: unknown-option
+:
+$c <<EOI && $b
+touch -u 2>"touch: unknown option '-u'" == 1
+EOI
+
 : no-args
 :
 : Test passing no arguments.
@@ -77,7 +83,7 @@ EOI
   : no-value
   :
   $c <<EOI && $b
-  touch --after 2>'touch: missing --after option value' != 0
+  touch --after 2>"touch: missing value for option '--after'" != 0
   EOI
 
   : not-exists

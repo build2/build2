@@ -2311,7 +2311,11 @@ if the \i{dst-dir/src-name} filesystem entry already exists.
 
 \dl|
 
-\li|\n\c{-p}
+\li|\n\c{-R|-r|--recursive}
+
+  Copy directories recursively.|
+
+\li|\n\c{-p|--preserve}
 
   Copy permissions as well as modification and access times.||
 
@@ -2323,17 +2327,26 @@ registered for cleanup.
 \h#builtins-diff|\c{diff}|
 
 \
-diff [-u] [-U <num>] <file1> <file2>
+diff [-u|-U <num>] <file1> <file2>
 \
 
 Compare the contents of \i{file1} and \i{file2}.
 
 The \c{diff} utility is not a builtin. Instead, the test platform is expected
 to provide a (reasonably) POSIX-compatible implementation. It should at least
-supports the \c{-u} (unified output format) and \c{-U} (unified output format
-with \i{num} lines of context) options and recognize the \c{-} file name as
+supports the \c{-u} and \c{-U} options and recognize the \c{-} file name as
 an instruction to read from \c{stdin}. On Windows, GNU \c{diff} can be assumed
 (provided as part of the \c{build2} toolchain).
+
+\dl|
+
+\li|\n\c{-u}
+
+  Produce output in the unified format.|
+
+\li|\n\c{-U <num>}
+
+  Produce output in the unified output format with \i{num} lines of context.||
 
 
 \h#builtins-echo|\c{echo}|
@@ -2408,6 +2421,13 @@ creation is not supported. If hard link creation is not supported either,
 then \c{ln} falls back to copying the content, recursively in case of a
 directory target.
 
+\dl|
+
+\li|\n\c{-s|--symbolic}
+
+  Create symbolic links. Note that creation of hard links is currently not
+  supported, so this option is always required.||
+
 Unless the \c{--no-cleanup} option is specified, created filesystem entries
 that are inside the script working directory are automatically registered for
 cleanup.
@@ -2424,7 +2444,7 @@ directories must exist and the directory itself must not exist.
 
 \dl|
 
-\li|\n\c{-p}
+\li|\n\c{-p|--parents}
 
   Create missing leading directories and ignore directories that already
   exist.||
@@ -2462,7 +2482,7 @@ Where \i{src-name} is the last path component in \i{src-path}.
 
 \dl|
 
-\li|\n\c{-f}
+\li|\n\c{-f|--force}
 
   Do not fail if a source path is outside the script working directory.||
 
@@ -2495,11 +2515,11 @@ is specified.
 
 \dl|
 
-\li|\n\c{-r}
+\li|\n\c{-r|--recursive}
 
   Remove directories and their contents recursively.|
 
-\li|\n\c{-f}
+\li|\n\c{-f|--force}
 
   Do not fail if no path is specified, the path does not exist, or is outside
   the script working directory.||
@@ -2522,7 +2542,7 @@ working directory unless the \c{-f} option is specified.
 
 \dl|
 
-\li|\n\c{-f}
+\li|\n\c{-f|--force}
 
   Do not fail if no directory is specified, the directory does not exist, or
   is outside the script working directory.||
@@ -2546,16 +2566,16 @@ is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
 
 \dl|
 
-\li|\n\c{-n}
+\li|\n\c{-n|--quiet}
 
   Suppress automatic printing of the pattern space at the end of the script
   execution.|
 
-\li|\n\c{-i}
+\li|\n\c{-i|--in-place}
 
   Edit \i{file} in place.|
 
-\li|\n\c{-e <script>}\n
+\li|\n\c{-e|--expression <script>}\n
 
   Editing commands to be executed (required).||
 
@@ -2611,7 +2631,7 @@ are supported.
 \h#builtins-set|\c{set}|
 
 \
-set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
+set [-e] [-n|-w] [<attr>] <var>
 \
 
 Set variable from the \c{stdin} input.
@@ -2628,22 +2648,21 @@ echo 'bar' | set foo && echo $foo  # foo
 echo $foo                          # bar
 \
 
-Unless the \c{-e|--exact} option is specified, a single final newline is
-ignored in the input.
+Unless the \c{-e} option is specified, a single final newline is ignored in
+the input.
 
-If the \c{-n|--newline} option is specified, then the input is split into a
-list of elements at newlines, including a final blank element in case of
-\c{-e|--exact}. Multiple consecutive newlines are not collapsed.
+If the \c{-n} option is specified, then the input is split into a list of
+elements at newlines, including a final blank element in case of \c{-e}.
+Multiple consecutive newlines are not collapsed.
 
-If the \c{-w|--whitespace} option is specified, then the input is split into a
-list of elements at whitespaces, including a final blank element in case of
-\c{-e|--exact}. In this mode if \c{-e|--exact} is not specified, then all (and
-not just newline) trailing whitespaces are ignored. Multiple consecutive
-whitespaces (including newlines) are collapsed.
+If the \c{-w} option is specified, then the input is split into a list of
+elements at whitespaces, including a final blank element in case of \c{-e}. In
+this mode if \c{-e} is not specified, then all (and not just newline) trailing
+whitespaces are ignored. Multiple consecutive whitespaces (including newlines)
+are collapsed.
 
-If neither \c{-n|--newline} nor \c{-w|--whitespace} is specified, then the
-entire input is used as a single element, including a final newline in case
-of \c{-e|--exact}.
+If neither \c{-n} nor \c{-w} is specified, then the entire input is used as a
+single element, including a final newline in case of \c{-e}.
 
 If the \i{attr} argument is specified, then it must contain a list of value
 attributes enclosed in \c{[]}, for example:
@@ -2659,6 +2678,20 @@ for example:
 foo = FOO
 set [null] $foo <-
 \
+
+\dl|
+
+\li|\n\c{-e|--exact}
+
+  Do not ignore the final newline.|
+
+\li|\n\c{-n|--newline}
+
+  Split the input into a list of elements at newlines.|
+
+\li|\n\c{-w|--whitespace}
+
+  Split the input into a list of elements at whitespaces.||
 
 
 \h#builtins-sleep|\c{sleep}|
@@ -2683,11 +2716,11 @@ Test the specified \i{path} according to one of the following options. Succeed
 
 \dl|
 
-\li|\n\c{-f}
+\li|\n\c{-f|--file}
 
   Path exists and is to a regular file.|
 
-\li|\n\c{-d}
+\li|\n\c{-d|--directory}
 
   Path exists and is to a directory.||
 

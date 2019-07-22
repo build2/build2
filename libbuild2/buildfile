@@ -14,7 +14,9 @@ lib{build2}: libul{build2}: {hxx ixx txx cxx}{* -config -version -*.test...} \
 # without them or with their alternative implementations.
 #
 for m: config dist install test
-  libul{build2}: $m/{hxx ixx txx cxx}{** -**.test...}
+  libul{build2}: $m/{hxx ixx txx cxx}{** -**-options -**.test...}
+
+libul{build2}: test/script/{hxx ixx cxx}{builtin-options}
 
 libul{build2}: $int_libs
 
@@ -86,6 +88,42 @@ if $version.pre_release
   lib{build2}: bin.lib.version = @"-$version.project_id"
 else
   lib{build2}: bin.lib.version = @"-$version.major.$version.minor"
+
+# Generated options parser.
+#
+test/script/
+{
+  if $cli.configured
+  {
+    cli.cxx{builtin-options}: cli{builtin}
+
+    cli.options += -I $src_root --include-with-brackets \
+--include-prefix libbuild2/test/script --guard-prefix LIBBUILD2_TEST_SCRIPT \
+--cli-namespace build2::test::script::cli --generate-vector-scanner \
+--generate-specifier --suppress-usage
+
+    cli.cxx{*}:
+    {
+      # Include the generated cli files into the distribution and don't remove
+      # them when cleaning in src (so that clean results in a state identical
+      # to distributed). But don't install their headers since they are only
+      # used internally in the testscript implementation.
+      #
+      dist  = true
+      clean = ($src_root != $out_root)
+      install = false
+
+      # We keep the generated code in the repository so copy it back to src in
+      # case of a forwarded configuration.
+      #
+      backlink = overwrite
+    }
+  }
+  else
+    # No install for the pre-generated case.
+    #
+    hxx{builtin-options}@./ ixx{builtin-options}@./: install = false
+}
 
 # Install into the libbuild2/ subdirectory of, say, /usr/include/
 # recreating subdirectories.

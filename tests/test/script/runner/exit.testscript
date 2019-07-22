@@ -96,7 +96,7 @@ empty_id = ''
     : Note that we also test that cleanups are executed.
     :
     $c <<EOI && $b >>EOO
-    touch -f a;
+    touch a;
     echo foo >| && exit && echo bar >|;
     echo baz >|
     echo box >|

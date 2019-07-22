@@ -42,30 +42,44 @@
   EOI
 }
 
-: no-args
+: options
 :
-: Test passing no arguments.
-:
-$c <'test 2>"test: missing path" == 2' && $b
+{
+  : unknown
+  :
+  $c <<EOI && $b
+  test -u 2>"test: unknown option '-u'" == 2
+  EOI
 
-: invalid-option
-:
-: Test passing invalid option.
-:
-$c <'test -c a 2>"test: invalid option" == 2' && $b
+  : none
+  :
+  $c <<EOI && $b
+  test 2>"test: either -f|--file or -d|--directory must be specified" == 2
+  EOI
 
-: unexpected-arg
-:
-: Test passing extra argument.
-:
-$c <<EOI && $b
-test -f a b 2>"test: unexpected argument 'b'" == 2
-EOI
+  : both-file-dir
+  :
+  $c <<EOI && $b
+  test -f -d 2>"test: both -f|--file and -d|--directory specified" == 2
+  EOI
+}
 
-: empty-path
+: args
 :
-: Test testing an empty path.
-:
-$c <<EOI && $b
-test -d '' 2>"test: invalid path ''" == 2
-EOI
+{
+  : none
+  :
+  $c <'test -f 2>"test: missing path" == 2' && $b
+
+  : unexpected
+  :
+  $c <<EOI && $b
+  test -f a b 2>"test: unexpected argument 'b'" == 2
+  EOI
+
+  : empty-path
+  :
+  $c <<EOI && $b
+  test -d '' 2>"test: invalid path ''" == 2
+  EOI
+}

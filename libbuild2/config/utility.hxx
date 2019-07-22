@@ -23,7 +23,7 @@ namespace build2
     // Set, if necessary, a required config.* variable.
     //
     // If override is true and the variable doesn't come from this root scope
-    // or from the command line (i.e., it is inherited from the amalgamtion),
+    // or from the command line (i.e., it is inherited from the amalgamation),
     // then its value is "overridden" to the default value on this root scope.
     // See save_variable() for more information on save_flags.
     //

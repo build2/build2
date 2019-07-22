@@ -40,6 +40,24 @@
   EOE
 }
 
+: options
+:
+{
+  : unknown
+  :
+  $c <'set -u' && $b 2>>EOE != 0
+  testscript:1:1: error: set: unknown option '-u'
+    info: test id: 1
+  EOE
+
+  : both-newline-whitespace
+  :
+  $c <'set -nw' && $b 2>>EOE != 0
+  testscript:1:1: error: both -n|--newline and -w|--whitespace specified
+    info: test id: 1
+  EOE
+}
+
 : arguments
 :
 {

@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+rmdir -u 2>"rmdir: unknown option '-u'" == 1
+EOI
+
 : no-args
 :
 {

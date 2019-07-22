@@ -4,12 +4,18 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+ln -u 2>"ln: unknown option '-u'" == 1
+EOI
+
 : args
 :
 {
   : -s-option
   :
-  $c <'ln 2>"ln: missing -s option" == 1' && $b
+  $c <'ln 2>"ln: missing -s|--symbolic option" == 1' && $b
 
   : none
   :

@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+mkdir -u 2>"mkdir: unknown option '-u'" == 1
+EOI
+
 : dirs
 :
 $c <<EOI && $b
@@ -28,7 +34,7 @@ $c <'mkdir -p a a a/b a/b' && $b
 :
 $c <<EOI && $b
 mkdir -p -- -p;
-touch -p/a
+touch -- -p/a
 EOI
 
 : no-args

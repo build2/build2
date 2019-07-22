@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+cp -u 2>"cp: unknown option '-u'" == 1
+EOI
+
 : args
 :
 {

@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+mv -u 2>"mv: unknown option '-u'" == 1
+EOI
+
 : args
 :
 {

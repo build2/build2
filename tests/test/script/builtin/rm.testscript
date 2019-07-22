@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+rm -u 2>"rm: unknown option '-u'" == 1
+EOI
+
 : no-args
 :
 {

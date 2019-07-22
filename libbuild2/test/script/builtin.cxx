@@ -18,6 +18,7 @@
 #include <libbuild2/context.hxx> // sched
 
 #include <libbuild2/test/script/script.hxx>
+#include <libbuild2/test/script/builtin-options.hxx>
 
 // Strictly speaking a builtin which reads/writes from/to standard streams
 // must be asynchronous so that the caller can communicate with it through
@@ -169,6 +170,13 @@ namespace build2
           ifdstream cin  (move (in),  fdstream_mode::binary);
           ofdstream cout (move (out), fdstream_mode::binary);
 
+          // Parse arguments.
+          //
+          cli::vector_scanner scan (args);
+          cat_options ops (scan); // Makes sure no options passed.
+
+          // Print files.
+          //
           // Copy input stream to STDOUT.
           //
           auto copy = [&cout] (istream& is)
@@ -188,14 +196,16 @@ namespace build2
           {
             // Print STDIN.
             //
-            if (args.empty ())
+            if (!scan.more ())
               copy (cin);
 
             // Print files.
             //
-            for (auto i (args.begin ()); i != args.end (); ++i)
+            while (scan.more ())
             {
-              if (*i == "-")
+              string f (scan.next ());
+
+              if (f == "-")
               {
                 if (!cin.eof ())
                 {
@@ -206,7 +216,7 @@ namespace build2
                 continue;
               }
 
-              p = parse_path (*i, sp.wd_path);
+              p = parse_path (move (f), sp.wd_path);
 
               ifdstream is (p, ifdstream::binary);
               copy (is);
@@ -243,6 +253,10 @@ namespace build2
         catch (const failed&)
         {
           // Diagnostics has already been issued.
+        }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
         }
 
         cerr.close ();
@@ -281,7 +295,7 @@ namespace build2
           cpfile (from, to, f);
 
           if (!exists && cleanup)
-            sp.clean ({cleanup_type::always, to}, true);
+            sp.clean ({cleanup_type::always, to}, true /* implicit */);
         }
         catch (const system_error& e)
         {
@@ -308,7 +322,7 @@ namespace build2
             throw_generic_error (EEXIST);
 
           if (cleanup)
-            sp.clean ({cleanup_type::always, to}, true);
+            sp.clean ({cleanup_type::always, to}, true /* implicit */);
 
           for (const auto& de: dir_iterator (from,
                                              false /* ignore_dangling */))
@@ -343,10 +357,10 @@ namespace build2
         }
       }
 
-      // cp [-p] [--no-cleanup]        <src-file>     <dst-file>
-      // cp [-p] [--no-cleanup] -R|-r  <src-dir>      <dst-dir>
-      // cp [-p] [--no-cleanup]        <src-file>...  <dst-dir>/
-      // cp [-p] [--no-cleanup] -R|-r  <src-path>...  <dst-dir>/
+      // cp [-p|--preserve] [--no-cleanup]                   <src-file>    <dst-file>
+      // cp [-p|--preserve] [--no-cleanup] -R|-r|--recursive <src-dir>     <dst-dir>
+      // cp [-p|--preserve] [--no-cleanup]                   <src-file>... <dst-dir>/
+      // cp [-p|--preserve] [--no-cleanup] -R|-r|--recursive <src-path>... <dst-dir>/
       //
       // Note: can be executed synchronously.
       //
@@ -369,48 +383,36 @@ namespace build2
           in.close ();
           out.close ();
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool recursive (false);
-          bool attrs (false);
-          bool cleanup (true);
-          for (; i != e; ++i)
-          {
-            const string& o (*i);
-
-            if (o == "-R" || o == "-r")
-              recursive = true;
-            else if (o == "-p")
-              attrs = true;
-            else if (o == "--no-cleanup")
-              cleanup = false;
-            else
-            {
-              if (o == "--")
-                ++i;
-
-              break;
-            }
-          }
+          cli::vector_scanner scan (args);
+          cp_options ops (scan);
 
           // Copy files or directories.
           //
-          if (i == e)
+          if (!scan.more ())
             error () << "missing arguments";
+
+          // Note that the arguments semantics depends on the last argument,
+          // so we read out and cache them.
+          //
+          small_vector<string, 2> args;
+          while (scan.more ())
+            args.push_back (scan.next ());
 
           const dir_path& wd (sp.wd_path);
 
+          auto i (args.begin ());
           auto j (args.rbegin ());
-          path dst (parse_path (*j++, wd));
-          e = j.base ();
+          path dst (parse_path (move (*j++), wd));
+          auto e (j.base ());
 
           if (i == e)
             error () << "missing source path";
 
           auto fail = [&error] () {return error (true);};
+
+          bool cleanup (!ops.no_cleanup ());
 
           // If destination is not a directory path (no trailing separator)
           // then make a copy of the filesystem entry at the specified path
@@ -419,7 +421,7 @@ namespace build2
           //
           if (!dst.to_directory ())
           {
-            path src (parse_path (*i++, wd));
+            path src (parse_path (move (*i++), wd));
 
             // If there are multiple sources but no trailing separator for the
             // destination, then, most likelly, it is missing.
@@ -428,14 +430,14 @@ namespace build2
               error () << "multiple source paths without trailing separator "
                        << "for destination directory";
 
-            if (!recursive)
+            if (!ops.recursive ())
               // Synopsis 1: make a file copy at the specified path.
               //
               cpfile (sp,
                       src,
                       dst,
                       true /* overwrite */,
-                      attrs,
+                      ops.preserve (),
                       cleanup,
                       fail);
             else
@@ -443,7 +445,7 @@ namespace build2
               //
               cpdir (sp,
                      path_cast<dir_path> (src), path_cast<dir_path> (dst),
-                     attrs,
+                     ops.preserve (),
                      cleanup,
                      fail);
           }
@@ -451,9 +453,9 @@ namespace build2
           {
             for (; i != e; ++i)
             {
-              path src (parse_path (*i, wd));
+              path src (parse_path (move (*i), wd));
 
-              if (recursive && dir_exists (src))
+              if (ops.recursive () && dir_exists (src))
                 // Synopsis 4: copy a filesystem entry into the specified
                 // directory. Note that we handle only source directories here.
                 // Source files are handled below.
@@ -461,7 +463,7 @@ namespace build2
                 cpdir (sp,
                        path_cast<dir_path> (src),
                        path_cast<dir_path> (dst / src.leaf ()),
-                       attrs,
+                       ops.preserve (),
                        cleanup,
                        fail);
               else
@@ -472,7 +474,7 @@ namespace build2
                         src,
                         dst / src.leaf (),
                         true /* overwrite */,
-                        attrs,
+                        ops.preserve (),
                         cleanup,
                         fail);
             }
@@ -493,6 +495,10 @@ namespace build2
         catch (const failed&)
         {
           // Diagnostics has already been issued.
+        }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
         }
 
         cerr.close ();
@@ -617,7 +623,7 @@ namespace build2
           mksymlink (target, link, dir);
 
           if (cleanup)
-            sp.clean ({cleanup_type::always, link}, true);
+            sp.clean ({cleanup_type::always, link}, true /* implicit */);
         }
         catch (const system_error& e)
         {
@@ -636,7 +642,7 @@ namespace build2
             mkhardlink (target, link, dir);
 
             if (cleanup)
-              sp.clean ({cleanup_type::always, link}, true);
+              sp.clean ({cleanup_type::always, link}, true /* implicit */);
           }
           catch (const system_error& e)
           {
@@ -666,8 +672,8 @@ namespace build2
         }
       }
 
-      // ln [--no-cleanup] -s <target-path>    <link-path>
-      // ln [--no-cleanup] -s <target-path>... <link-dir>/
+      // ln [--no-cleanup] -s|--symbolic <target-path>    <link-path>
+      // ln [--no-cleanup] -s|--symbolic <target-path>... <link-dir>/
       //
       // Note: can be executed synchronously.
       //
@@ -690,49 +696,39 @@ namespace build2
           in.close ();
           out.close ();
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool cleanup (true);
-          bool symlink (false);
+          cli::vector_scanner scan (args);
+          ln_options ops (scan);
 
-          for (; i != e; ++i)
-          {
-            const string& o (*i);
-
-            if (o == "--no-cleanup")
-              cleanup = false;
-            else if (o == "-s")
-              symlink = true;
-            else
-            {
-              if (o == "--")
-                ++i;
-
-              break;
-            }
-          }
-
-          if (!symlink)
-            error () << "missing -s option";
+          if (!ops.symbolic ())
+            error () << "missing -s|--symbolic option";
 
           // Create file or directory symlinks.
           //
-          if (i == e)
+          if (!scan.more ())
             error () << "missing arguments";
+
+          // Note that the arguments semantics depends on the last argument,
+          // so we read out and cache them.
+          //
+          small_vector<string, 2> args;
+          while (scan.more ())
+            args.push_back (scan.next ());
 
           const dir_path& wd (sp.wd_path);
 
+          auto i (args.begin ());
           auto j (args.rbegin ());
-          path link (parse_path (*j++, wd));
-          e = j.base ();
+          path link (parse_path (move (*j++), wd));
+          auto e (j.base ());
 
           if (i == e)
             error () << "missing target path";
 
           auto fail = [&error] () {return error (true);};
+
+          bool cleanup (!ops.no_cleanup ());
 
           // If link is not a directory path (no trailing separator), then
           // create a symlink to the target path at the specified link path
@@ -741,7 +737,7 @@ namespace build2
           //
           if (!link.to_directory ())
           {
-            path target (parse_path (*i++, wd));
+            path target (parse_path (move (*i++), wd));
 
             // If there are multiple targets but no trailing separator for the
             // link, then, most likelly, it is missing.
@@ -757,7 +753,7 @@ namespace build2
           {
             for (; i != e; ++i)
             {
-              path target (parse_path (*i, wd));
+              path target (parse_path (move (*i), wd));
 
               // Synopsis 2: create a target path symlink in the specified
               // directory.
@@ -781,6 +777,10 @@ namespace build2
         catch (const failed&)
         {
           // Diagnostics has already been issued.
+        }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
         }
 
         cerr.close ();
@@ -806,11 +806,11 @@ namespace build2
           try_mkdir (p); // Returns success or throws.
 
           if (cleanup)
-            sp.clean ({cleanup_type::always, p}, true);
+            sp.clean ({cleanup_type::always, p}, true /* implicit */);
         }
       }
 
-      // mkdir [--no-cleanup] [-p] <dir>...
+      // mkdir [--no-cleanup] [-p|--parents] <dir>...
       //
       // Note that POSIX doesn't specify if after a directory creation failure
       // the command should proceed with the rest of the arguments. The current
@@ -837,47 +837,31 @@ namespace build2
           in.close ();
           out.close ();
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool parent (false);
-          bool cleanup (true);
-          for (; i != e; ++i)
-          {
-            const string& o (*i);
-
-            if (o == "-p")
-              parent = true;
-            else if (o == "--no-cleanup")
-              cleanup = false;
-            else
-            {
-              if (*i == "--")
-                ++i;
-
-              break;
-            }
-          }
+          cli::vector_scanner scan (args);
+          mkdir_options ops (scan);
 
           // Create directories.
           //
-          if (i == e)
+          if (!scan.more ())
             error () << "missing directory";
 
-          for (; i != e; ++i)
+          bool cleanup (!ops.no_cleanup ());
+
+          while (scan.more ())
           {
-            dir_path p (path_cast<dir_path> (parse_path (*i, sp.wd_path)));
+            dir_path p (path_cast<dir_path> (parse_path (scan.next (),
+                                                         sp.wd_path)));
 
             try
             {
-              if (parent)
+              if (ops.parents ())
                 mkdir_p (sp, p, cleanup);
               else if (try_mkdir (p) == mkdir_status::success)
               {
                 if (cleanup)
-                  sp.clean ({cleanup_type::always, p}, true);
+                  sp.clean ({cleanup_type::always, p}, true /* implicit */);
               }
               else //                == mkdir_status::already_exists
                 throw_generic_error (EEXIST);
@@ -904,6 +888,10 @@ namespace build2
         {
           // Diagnostics has already been issued.
         }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
+        }
 
         cerr.close ();
         return r;
@@ -913,8 +901,8 @@ namespace build2
         return 1;
       }
 
-      // mv [--no-cleanup] [-f] <src-path>    <dst-path>
-      // mv [--no-cleanup] [-f] <src-path>... <dst-dir>/
+      // mv [--no-cleanup] [-f|--force] <src-path>    <dst-path>
+      // mv [--no-cleanup] [-f|--force] <src-path>... <dst-dir>/
       //
       // Note: can be executed synchronously.
       //
@@ -937,50 +925,38 @@ namespace build2
           in.close ();
           out.close ();
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool no_cleanup (false);
-          bool force (false);
-          for (; i != e; ++i)
-          {
-            const string& o (*i);
-
-            if (o == "--no-cleanup")
-              no_cleanup = true;
-            else if (*i == "-f")
-              force = true;
-            else
-            {
-              if (o == "--")
-                ++i;
-
-              break;
-            }
-          }
+          cli::vector_scanner scan (args);
+          mv_options ops (scan);
 
           // Move filesystem entries.
           //
-          if (i == e)
+          if (!scan.more ())
             error () << "missing arguments";
+
+          // Note that the arguments semantics depends on the last argument,
+          // so we read out and cache them.
+          //
+          small_vector<string, 2> args;
+          while (scan.more ())
+            args.push_back (scan.next ());
 
           const dir_path& wd (sp.wd_path);
 
+          auto i (args.begin ());
           auto j (args.rbegin ());
-          path dst (parse_path (*j++, wd));
-          e = j.base ();
+          path dst (parse_path (move (*j++), wd));
+          auto e (j.base ());
 
           if (i == e)
             error () << "missing source path";
 
-          auto mv = [no_cleanup, force, &wd, &sp, &error] (const path& from,
-                                                           const path& to)
+          auto mv = [ops, &wd, &sp, &error] (const path& from, const path& to)
           {
             const dir_path& rwd (sp.root->wd_path);
 
-            if (!from.sub (rwd) && !force)
+            if (!from.sub (rwd) && !ops.force ())
               error () << "'" << from << "' is out of working directory '"
                        << rwd << "'";
 
@@ -1016,7 +992,7 @@ namespace build2
               // Unless suppressed, adjust the cleanups that are sub-paths of
               // the source path.
               //
-              if (!no_cleanup)
+              if (!ops.no_cleanup ())
               {
                 // "Move" the matching cleanup if the destination path doesn't
                 // exist and is a sub-path of the working directory. Otherwise
@@ -1086,7 +1062,7 @@ namespace build2
           //
           if (!dst.to_directory ())
           {
-            path src (parse_path (*i++, wd));
+            path src (parse_path (move (*i++), wd));
 
             // If there are multiple sources but no trailing separator for the
             // destination, then, most likelly, it is missing.
@@ -1105,7 +1081,7 @@ namespace build2
             //
             for (; i != e; ++i)
             {
-              path src (parse_path (*i, wd));
+              path src (parse_path (move (*i), wd));
               mv (src, dst / src.leaf ());
             }
           }
@@ -1126,6 +1102,10 @@ namespace build2
         {
           // Diagnostics has already been issued.
         }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
+        }
 
         cerr.close ();
         return r;
@@ -1135,7 +1115,7 @@ namespace build2
         return 1;
       }
 
-      // rm [-r] [-f] <path>...
+      // rm [-r|--recursive] [-f|--force] <path>...
       //
       // The implementation deviates from POSIX in a number of ways. It doesn't
       // interact with a user and fails immediatelly if unable to process an
@@ -1165,41 +1145,24 @@ namespace build2
           in.close ();
           out.close ();
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool dir (false);
-          bool force (false);
-          for (; i != e; ++i)
-          {
-            if (*i == "-r")
-              dir = true;
-            else if (*i == "-f")
-              force = true;
-            else
-            {
-              if (*i == "--")
-                ++i;
-
-              break;
-            }
-          }
+          cli::vector_scanner scan (args);
+          rm_options ops (scan);
 
           // Remove entries.
           //
-          if (i == e && !force)
+          if (!scan.more () && !ops.force ())
             error () << "missing file";
 
           const dir_path& wd  (sp.wd_path);
           const dir_path& rwd (sp.root->wd_path);
 
-          for (; i != e; ++i)
+          while (scan.more ())
           {
-            path p (parse_path (*i, wd));
+            path p (parse_path (scan.next (), wd));
 
-            if (!p.sub (rwd) && !force)
+            if (!p.sub (rwd) && !ops.force ())
               error () << "'" << p << "' is out of working directory '" << rwd
                        << "'";
 
@@ -1209,7 +1172,7 @@ namespace build2
 
               if (dir_exists (d))
               {
-                if (!dir)
+                if (!ops.recursive ())
                   error () << "'" << p << "' is a directory";
 
                 if (wd.sub (d))
@@ -1221,7 +1184,8 @@ namespace build2
                 //
                 try_rmdir_r (d);
               }
-              else if (try_rmfile (p) == rmfile_status::not_exist && !force)
+              else if (try_rmfile (p) == rmfile_status::not_exist &&
+                       !ops.force ())
                 throw_generic_error (ENOENT);
             }
             catch (const system_error& e)
@@ -1246,6 +1210,10 @@ namespace build2
         {
           // Diagnostics has already been issued.
         }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
+        }
 
         cerr.close ();
         return r;
@@ -1255,7 +1223,7 @@ namespace build2
         return 1;
       }
 
-      // rmdir [-f] <path>...
+      // rmdir [-f|--force] <path>...
       //
       // Note: can be executed synchronously.
       //
@@ -1278,42 +1246,28 @@ namespace build2
           in.close ();
           out.close ();
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool force (false);
-          for (; i != e; ++i)
-          {
-            if (*i == "-f")
-              force = true;
-            else
-            {
-              if (*i == "--")
-                ++i;
-
-              break;
-            }
-          }
+          cli::vector_scanner scan (args);
+          rmdir_options ops (scan);
 
           // Remove directories.
           //
-          if (i == e && !force)
+          if (!scan.more () && !ops.force ())
             error () << "missing directory";
 
           const dir_path& wd  (sp.wd_path);
           const dir_path& rwd (sp.root->wd_path);
 
-          for (; i != e; ++i)
+          while (scan.more ())
           {
-            dir_path p (path_cast<dir_path> (parse_path (*i, wd)));
+            dir_path p (path_cast<dir_path> (parse_path (scan.next (), wd)));
 
             if (wd.sub (p))
               error () << "'" << p << "' contains test working directory '"
                        << wd << "'";
 
-            if (!p.sub (rwd) && !force)
+            if (!p.sub (rwd) && !ops.force ())
               error () << "'" << p << "' is out of working directory '"
                        << rwd << "'";
 
@@ -1323,7 +1277,7 @@ namespace build2
 
               if (s == rmdir_status::not_empty)
                 throw_generic_error (ENOTEMPTY);
-              else if (s == rmdir_status::not_exist && !force)
+              else if (s == rmdir_status::not_exist && !ops.force ())
                 throw_generic_error (ENOENT);
             }
             catch (const system_error& e)
@@ -1348,6 +1302,10 @@ namespace build2
         {
           // Diagnostics has already been issued.
         }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
+        }
 
         cerr.close ();
         return r;
@@ -1357,7 +1315,7 @@ namespace build2
         return 1;
       }
 
-      // sed [-n] [-i] -e <script> [<file>]
+      // sed [-n|--quiet] [-i|--in-place] -e|--expression <script> [<file>]
       //
       // Note: must be executed asynchronously.
       //
@@ -1388,132 +1346,108 @@ namespace build2
           ifdstream cin  (move (in), ifdstream::badbit);
           ofdstream cout (move (out));
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
+          // Parse arguments.
           //
-          bool auto_prn (true);
-          bool in_place (false);
+          cli::vector_scanner scan (args);
+          sed_options ops (scan);
 
-          struct substitute
+          if (ops.expression ().empty ())
+            error () << "missing script";
+
+          // Only a single script is supported.
+          //
+          if (ops.expression ().size () != 1)
+            error () << "multiple scripts";
+
+          struct
           {
             string regex;
             string replacement;
             bool icase  = false;
             bool global = false;
             bool print  = false;
-          };
-          optional<substitute> subst;
+          } subst;
 
-          for (; i != e; ++i)
           {
-            const string& o (*i);
+            const string& v (ops.expression ()[0]);
+            if (v.empty ())
+              error () << "empty script";
 
-            if (o == "-n")
-              auto_prn = false;
-            else if (o == "-i")
-              in_place = true;
-            else if (o == "-e")
+            if (v[0] != 's')
+              error () << "only 's' command supported";
+
+            // Parse the substitute command.
+            //
+            if (v.size () < 2)
+              error () << "no delimiter for 's' command";
+
+            char delim (v[1]);
+            if (delim == '\\' || delim == '\n')
+              error () << "invalid delimiter for 's' command";
+
+            size_t p (v.find (delim, 2));
+            if (p == string::npos)
+              error () << "unterminated 's' command regex";
+
+            subst.regex.assign (v, 2, p - 2);
+
+            // Empty regex matches nothing, so not of much use.
+            //
+            if (subst.regex.empty ())
+              error () << "empty regex in 's' command";
+
+            size_t b (p + 1);
+            p = v.find (delim, b);
+            if (p == string::npos)
+              error () << "unterminated 's' command replacement";
+
+            subst.replacement.assign (v, b, p - b);
+
+            // Parse the substitute command flags.
+            //
+            char c;
+            for (++p; (c = v[p]) != '\0'; ++p)
             {
-              // Only a single script is supported.
-              //
-              if (subst)
-                error () << "multiple scripts";
-
-              // If option has no value then bail out and report.
-              //
-              if (++i == e)
-                break;
-
-              const string& v (*i);
-              if (v.empty ())
-                error () << "empty script";
-
-              if (v[0] != 's')
-                error () << "only 's' command supported";
-
-              // Parse the substitute command.
-              //
-              if (v.size () < 2)
-                error () << "no delimiter for 's' command";
-
-              char delim (v[1]);
-              if (delim == '\\' || delim == '\n')
-                error () << "invalid delimiter for 's' command";
-
-              size_t p (v.find (delim, 2));
-              if (p == string::npos)
-                error () << "unterminated 's' command regex";
-
-              subst = substitute ();
-              subst->regex.assign (v, 2, p - 2);
-
-              // Empty regex matches nothing, so not of much use.
-              //
-              if (subst->regex.empty ())
-                error () << "empty regex in 's' command";
-
-              size_t b (p + 1);
-              p = v.find (delim, b);
-              if (p == string::npos)
-                error () << "unterminated 's' command replacement";
-
-              subst->replacement.assign (v, b, p - b);
-
-              // Parse the substitute command flags.
-              //
-              char c;
-              for (++p; (c = v[p]) != '\0'; ++p)
+              switch (c)
               {
-                switch (c)
+              case 'i': subst.icase  = true; break;
+              case 'g': subst.global = true; break;
+              case 'p': subst.print  = true; break;
+              default:
                 {
-                case 'i': subst->icase  = true; break;
-                case 'g': subst->global = true; break;
-                case 'p': subst->print  = true; break;
-                default:
-                  {
-                    error () << "invalid 's' command flag '" << c << "'";
-                  }
+                  error () << "invalid 's' command flag '" << c << "'";
                 }
               }
             }
-            else
-            {
-              if (o == "--")
-                ++i;
-
-              break;
-            }
           }
-
-          if (!subst)
-            error () << "missing script";
 
           // Path of a file to edit. An empty path represents stdin.
           //
           path p;
-          if (i != e)
+          if (scan.more ())
           {
-            if (*i != "-")
-              p = parse_path (*i, sp.wd_path);
+            string f (scan.next ());
 
-            ++i;
+            if (f != "-")
+              p = parse_path (move (f), sp.wd_path);
           }
 
-          if (i != e)
-            error () << "unexpected argument '" << *i << "'";
+          if (scan.more ())
+            error () << "unexpected argument '" << scan.next () << "'";
 
+          // Edit file.
+          //
           // If we edit file in place make sure that the file path is specified
           // and obtain a temporary file path. We will be writing to the
           // temporary file (rather than to stdout) and will move it to the
           // original file path afterwards.
           //
           path tp;
-          if (in_place)
+          if (ops.in_place ())
           {
             if (p.empty ())
-              error () << "-i option specified while reading from stdin";
+              error () << "-i|--in-place option specified while reading from "
+                       << "stdin";
 
             try
             {
@@ -1543,8 +1477,8 @@ namespace build2
 
           // Note that ECMAScript is implied if no grammar flag is specified.
           //
-          regex re (subst->regex,
-                    subst->icase ? regex::icase : regex::ECMAScript);
+          regex re (subst.regex,
+                    subst.icase ? regex::icase : regex::ECMAScript);
 
           // Edit a file or STDIN.
           //
@@ -1566,22 +1500,22 @@ namespace build2
               auto r (regex_replace_search (
                         s,
                         re,
-                        subst->replacement,
-                        subst->global
+                        subst.replacement,
+                        subst.global
                         ? regex_constants::format_default
                         : regex_constants::format_first_only));
 
               // Add newline regardless whether the source line is newline-
               // terminated or not (in accordance with POSIX).
               //
-              if (auto_prn || (r.second && subst->print))
+              if (!ops.quiet () || (r.second && subst.print))
                 cout << r.first << '\n';
             }
 
             cin.close ();
             cout.close ();
 
-            if (in_place)
+            if (ops.in_place ())
             {
               mvfile (
                 tp, p,
@@ -1629,6 +1563,10 @@ namespace build2
         {
           // Diagnostics has already been issued.
         }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
+        }
 
         cerr.close ();
         return r;
@@ -1661,17 +1599,19 @@ namespace build2
           in.close ();
           out.close ();
 
-          if (args.empty ())
-            error () << "missing time interval";
+          // Parse arguments.
+          //
+          cli::vector_scanner scan (args);
+          sleep_options ops (scan); // Makes sure no options passed.
 
-          if (args.size () > 1)
-            error () << "unexpected argument '" << args[1] << "'";
+          if (!scan.more ())
+            error () << "missing time interval";
 
           uint64_t n;
 
           for (;;) // Breakout loop.
           {
-            const string& a (args[0]);
+            string a (scan.next ());
 
             // Note: strtoull() allows these.
             //
@@ -1687,6 +1627,11 @@ namespace build2
             error () << "invalid time interval '" << a << "'";
           }
 
+          if (scan.more ())
+            error () << "unexpected argument '" << scan.next () << "'";
+
+          // Sleep.
+          //
           // If/when required we could probably support the precise sleep mode
           // (e.g., via an option).
           //
@@ -1704,6 +1649,10 @@ namespace build2
         {
           // Diagnostics has already been issued.
         }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
+        }
 
         cerr.close ();
         return r;
@@ -1713,7 +1662,7 @@ namespace build2
         return 1;
       }
 
-      // test -f|-d <path>
+      // test (-f|--file)|(-d|--directory) <path>
       //
       // Note: can be executed synchronously.
       //
@@ -1736,22 +1685,28 @@ namespace build2
           in.close ();
           out.close ();
 
-          if (args.size () < 2)
+          // Parse arguments.
+          //
+          cli::vector_scanner scan (args);
+          test_options ops (scan); // Makes sure no options passed.
+
+          if (!ops.file () && !ops.directory ())
+            error () << "either -f|--file or -d|--directory must be specified";
+
+          if (ops.file () && ops.directory ())
+            error () << "both -f|--file and -d|--directory specified";
+
+          if (!scan.more ())
             error () << "missing path";
 
-          bool file (args[0] == "-f");
+          path p (parse_path (scan.next (), sp.wd_path));
 
-          if (!file && args[0] != "-d")
-            error () << "invalid option";
-
-          if (args.size () > 2)
-            error () << "unexpected argument '" << args[2] << "'";
-
-          path p (parse_path (args[1], sp.wd_path));
+          if (scan.more ())
+            error () << "unexpected argument '" << scan.next () << "'";
 
           try
           {
-            r = (file ? file_exists (p) : dir_exists (p)) ? 0 : 1;
+            r = (ops.file () ? file_exists (p) : dir_exists (p)) ? 0 : 1;
           }
           catch (const system_error& e)
           {
@@ -1771,6 +1726,10 @@ namespace build2
         catch (const failed&)
         {
           // Diagnostics has already been issued.
+        }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
         }
 
         cerr.close ();
@@ -1811,6 +1770,11 @@ namespace build2
           in.close ();
           out.close ();
 
+          // Parse arguments.
+          //
+          cli::vector_scanner scan (args);
+          touch_options ops (scan);
+
           auto mtime = [&error] (const path& p) -> timestamp
           {
             try
@@ -1831,51 +1795,26 @@ namespace build2
             return timestamp ();
           };
 
-          auto i (args.begin ());
-          auto e (args.end ());
-
-          // Process options.
-          //
-          bool cleanup (true);
           optional<timestamp> after;
-          for (; i != e; ++i)
-          {
-            const string& o (*i);
+          if (ops.after_specified ())
+            after = mtime (parse_path (ops.after (), sp.wd_path));
 
-            if (o == "--no-cleanup")
-              cleanup = false;
-            else if (o == "--after")
-            {
-              if (++i == e)
-                error () << "missing --after option value";
-
-              after = mtime (parse_path (*i, sp.wd_path));
-            }
-            else
-            {
-              if (o == "--")
-                ++i;
-
-              break;
-            }
-          }
-
-          if (i == e)
+          if (!scan.more ())
             error () << "missing file";
 
           // Create files.
           //
-          for (; i != e; ++i)
+          while (scan.more ())
           {
-            path p (parse_path (*i, sp.wd_path));
+            path p (parse_path (scan.next (), sp.wd_path));
 
             try
             {
               // Note that we don't register (implicit) cleanup for an
               // existing path.
               //
-              if (touch_file (p) && cleanup)
-                sp.clean ({cleanup_type::always, p}, true);
+              if (touch_file (p) && !ops.no_cleanup ())
+                sp.clean ({cleanup_type::always, p}, true /* implicit */);
 
               if (after)
               {
@@ -1904,6 +1843,10 @@ namespace build2
         catch (const failed&)
         {
           // Diagnostics has already been issued.
+        }
+        catch (const cli::exception& e)
+        {
+          error (false) << e;
         }
 
         cerr.close ();

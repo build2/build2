@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+sleep -u 2>"sleep: unknown option '-u'" == 1
+EOI
+
 : success
 :
 $c <'sleep 1' && $b

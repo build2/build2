@@ -4,6 +4,12 @@
 
 .include ../common.testscript
 
+: unknown-option
+:
+$c <<EOI && $b
+sed -u 2>"sed: unknown option '-u'" == 1
+EOI
+
 : arg
 :
 {
@@ -31,7 +37,7 @@
     $c <'sed -e' && $b 2>>/EOE != 0
     testscript:1:1: error: sed exit code 1 != 0
       info: stderr: test/1/stderr
-    sed: missing script
+    sed: missing value for option '-e'
       info: test id: 1
     EOE
 
@@ -321,7 +327,7 @@
   $c <"sed -i -e 's/a/b/'" && $b 2>>/EOE != 0
   testscript:1:1: error: sed exit code 1 != 0
     info: stderr: test/1/stderr
-  sed: -i option specified while reading from stdin
+  sed: -i|--in-place option specified while reading from stdin
     info: test id: 1
   EOE
 
