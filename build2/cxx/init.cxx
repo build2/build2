@@ -303,6 +303,10 @@ namespace build2
                                          ? "c++-modules"
                                          : "c++-modules-ex") != string::npos)
               {
+                // @@ TMP: currently there are some issues in the c++2a mode.
+                //
+                r.back () = "-std=c++17";
+
                 // Currently defines __cpp_modules=201810 which is said to
                 // correspond to p1103 (merged modules).
                 //
