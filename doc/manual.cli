@@ -1352,15 +1352,15 @@ int main ()
 \c{loptions} (link options), \c{aoptions} (archive options) and \c{libs}
 (extra libraries to link). If you are familiar with \c{make}, these are
 roughly equivalent to \c{CPPFLAGS}, \c{CFLAGS}/\c{CXXFLAGS}, \c{LDFLAGS},
-\c{ARFLAGS}, and \c{LIBS}, respectively. Here they are again in the tabular
-form:
+\c{ARFLAGS}, and \c{LIBS}/\c{LDLIBS}, respectively. Here they are again in the
+tabular form:
 
 \
 *.poptions   preprocess        CPPFLAGS
 *.coptions   compile           CFLAGS/CXXFLAGS
 *.loptions   link              LDFLAGS
 *.aoptions   archive           ARFLAGS
-*.libs       extra libraries   LIBS
+*.libs       extra libraries   LIBS/LDLIBS
 \
 
 More specifically, there are three sets of these variables: \c{cc.*} (stands
