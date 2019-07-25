@@ -3796,6 +3796,7 @@ namespace build2
       //
       if (ln.size () == 0)
       {
+        next (t, tt); // Get what's after '{'.
         parse (nullopt, nullptr, nullptr);
         r.clear ();
         continue;
