@@ -55,9 +55,9 @@ namespace build2
   //
   struct module_functions
   {
-    const char*           name = nullptr; // Module/submodule name.
-    module_boot_function* boot = nullptr;
-    module_init_function* init = nullptr;
+    const char*           name; // Module/submodule name.
+    module_boot_function* boot;
+    module_init_function* init;
   };
 
   // The build2_<name>_load() function will be written in C++ and will be
