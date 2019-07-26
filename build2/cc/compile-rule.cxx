@@ -637,27 +637,16 @@ namespace build2
         {
         case compiler_type::gcc:
           {
-            // For some reason GCC uses a different extension for header unit
-            // BMIs.
-            //
-            e += (ut == unit_type::module_iface  ? "gcm"  :
-                  ut == unit_type::module_header ? "gchm" :
-                  o);
+            e += (ut != unit_type::non_modular ? "gcm" : o);
             break;
           }
         case compiler_type::clang:
           {
-            // Clang seems to be using the same extension for both header and
-            // module BMIs.
-            //
             e += (ut != unit_type::non_modular ? "pcm" : o);
             break;
           }
         case compiler_type::msvc:
           {
-            // MSVC doesn't have header unit support yet so for now we assume
-            // it will be the same.
-            //
             e += (ut != unit_type::non_modular ? "ifc" : o);
             break;
           }
