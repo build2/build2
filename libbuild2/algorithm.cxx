@@ -20,6 +20,37 @@ using namespace butl;
 namespace build2
 {
   const target&
+  search (const target& t, const prerequisite& p)
+  {
+    assert (phase == run_phase::match);
+
+    const target* r (p.target.load (memory_order_consume));
+
+    if (r == nullptr)
+      r = &search_custom (p, search (t, p.key ()));
+
+    return *r;
+  }
+
+  const target*
+  search_existing (const prerequisite& p)
+  {
+    assert (phase == run_phase::match || phase == run_phase::execute);
+
+    const target* r (p.target.load (memory_order_consume));
+
+    if (r == nullptr)
+    {
+      r = search_existing (p.key ());
+
+      if (r != nullptr)
+        search_custom (p, *r);
+    }
+
+    return r;
+  }
+
+  const target&
   search (const target& t, const prerequisite_key& pk)
   {
     assert (phase == run_phase::match);
@@ -637,7 +668,7 @@ namespace build2
     return ct.try_matched_state (a, false);
   }
 
-  group_view
+  static group_view
   resolve_members_impl (action a, const target& g, target_lock l)
   {
     // Note that we will be unlocked if the target is already applied.
@@ -704,6 +735,41 @@ namespace build2
         r = g.group_members (a);
         break;
       }
+    }
+
+    return r;
+  }
+
+  group_view
+  resolve_members (action a, const target& g)
+  {
+    group_view r;
+
+    if (a.outer ())
+      a = a.inner_action ();
+
+    // We can be called during execute though everything should have been
+    // already resolved.
+    //
+    switch (phase)
+    {
+    case run_phase::match:
+      {
+        // Grab a target lock to make sure the group state is synchronized.
+        //
+        target_lock l (lock_impl (a, g, scheduler::work_none));
+        r = g.group_members (a);
+
+        // If the group members are alrealy known or there is nothing else
+        // we can do, then unlock and return.
+        //
+        if (r.members == nullptr && l.offset != target::offset_executed)
+          r = resolve_members_impl (a, g, move (l));
+
+        break;
+      }
+    case run_phase::execute: r = g.group_members (a); break;
+    case run_phase::load:    assert (false);
     }
 
     return r;

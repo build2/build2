@@ -5,7 +5,8 @@
 #ifndef LIBBUILD2_TYPES_HXX
 #define LIBBUILD2_TYPES_HXX
 
-// Include unprocessed file during bootstrap. See config.hxx.in for details.
+// Include unprocessed file during bootstrap. See <libbuild2/config.hxx.in>
+// for details.
 //
 #ifdef BUILD2_BOOTSTRAP
 #  include <libbuild2/config.hxx.in>

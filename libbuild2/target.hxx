@@ -36,8 +36,11 @@ namespace build2
 
   // From <libbuild2/algorithm.hxx>.
   //
-  const target& search (const target&, const prerequisite&);
-  const target* search_existing (const prerequisite&);
+  LIBBUILD2_SYMEXPORT const target&
+  search (const target&, const prerequisite&);
+
+  LIBBUILD2_SYMEXPORT const target*
+  search_existing (const prerequisite&);
 
   // Recipe.
   //
@@ -278,7 +281,7 @@ namespace build2
 
   public:
     // Normally you should not call this function directly and rather use
-    // resolve_members() from algorithm.hxx.
+    // resolve_members() from <libbuild2/algorithm.hxx>.
     //
     virtual group_view
     group_members (action) const;
@@ -469,7 +472,7 @@ namespace build2
     static size_t count_executed () {return offset_executed + count_base ();}
     static size_t count_busy     () {return offset_busy     + count_base ();}
 
-    // Inner/outer operation state. See operation.hxx for details.
+    // Inner/outer operation state. See <libbuild2/operation.hxx> for details.
     //
     class LIBBUILD2_SYMEXPORT opstate
     {
@@ -480,7 +483,7 @@ namespace build2
       // operation. It is incremented during match and then decremented during
       // execution, before running the recipe. As a result, the recipe can
       // detect the last chance (i.e., last dependent) to execute the command
-      // (see also the first/last execution modes in <operation.hxx>).
+      // (see also the first/last execution modes in <libbuild2/operation.hxx>).
       //
       mutable atomic_count dependents {0};
 

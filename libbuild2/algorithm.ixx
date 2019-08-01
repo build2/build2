@@ -10,37 +10,6 @@
 namespace build2
 {
   inline const target&
-  search (const target& t, const prerequisite& p)
-  {
-    assert (phase == run_phase::match);
-
-    const target* r (p.target.load (memory_order_consume));
-
-    if (r == nullptr)
-      r = &search_custom (p, search (t, p.key ()));
-
-    return *r;
-  }
-
-  inline const target*
-  search_existing (const prerequisite& p)
-  {
-    assert (phase == run_phase::match || phase == run_phase::execute);
-
-    const target* r (p.target.load (memory_order_consume));
-
-    if (r == nullptr)
-    {
-      r = search_existing (p.key ());
-
-      if (r != nullptr)
-        search_custom (p, *r);
-    }
-
-    return r;
-  }
-
-  inline const target&
   search_custom (const prerequisite& p, const target& t)
   {
     assert (phase == run_phase::match || phase == run_phase::execute);
@@ -467,44 +436,6 @@ namespace build2
   {
     assert (a.outer ());
     return match (a.inner_action (), t, um);
-  }
-
-  LIBBUILD2_SYMEXPORT group_view
-  resolve_members_impl (action, const target&, target_lock);
-
-  inline group_view
-  resolve_members (action a, const target& g)
-  {
-    group_view r;
-
-    if (a.outer ())
-      a = a.inner_action ();
-
-    // We can be called during execute though everything should have been
-    // already resolved.
-    //
-    switch (phase)
-    {
-    case run_phase::match:
-      {
-        // Grab a target lock to make sure the group state is synchronized.
-        //
-        target_lock l (lock_impl (a, g, scheduler::work_none));
-        r = g.group_members (a);
-
-        // If the group members are alrealy known or there is nothing else
-        // we can do, then unlock and return.
-        //
-        if (r.members == nullptr && l.offset != target::offset_executed)
-          r = resolve_members_impl (a, g, move (l));
-
-        break;
-      }
-    case run_phase::execute: r = g.group_members (a); break;
-    case run_phase::load:    assert (false);
-    }
-
-    return r;
   }
 
   LIBBUILD2_SYMEXPORT void

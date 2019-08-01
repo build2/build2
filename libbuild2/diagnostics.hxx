@@ -62,7 +62,7 @@ namespace build2
   // While uint8 is more than enough, use uint16 for the ease of printing.
   //
 
-  // Forward-declarated in utility.hxx.
+  // Forward-declarated in <libbuild2/utility.hxx>.
   //
   // extern uint16_t verb;
   // const  uint16_t verb_never = 7;

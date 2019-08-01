@@ -327,7 +327,7 @@ namespace build2
   // the same as true.
   //
   // To query this value in rule implementations use the include() helpers
-  // from prerequisites.hxx.
+  // from <libbuild2/prerequisites.hxx>.
   //
   // [string] prereq visibility
   //

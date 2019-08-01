@@ -306,8 +306,8 @@ namespace build2
 
   // prerequisite_members
   //
-  group_view
-  resolve_members (action, const target&); // algorithm.hxx
+  LIBBUILD2_SYMEXPORT group_view
+  resolve_members (action, const target&); // <libbuild2/algorithm.hxx>
 
   template <typename T>
   inline auto prerequisite_members_range<T>::iterator::

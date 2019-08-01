@@ -23,12 +23,12 @@ namespace build2
   // prerequisite-type-specific search function. If that doesn't yeld
   // anything, it creates a new target.
   //
-  const target&
+  LIBBUILD2_SYMEXPORT const target&
   search (const target&, const prerequisite&);
 
   // As above but only search for an already existing target.
   //
-  const target*
+  LIBBUILD2_SYMEXPORT const target*
   search_existing (const prerequisite&);
 
   // As above but cache a target searched in a custom way.
@@ -411,7 +411,7 @@ namespace build2
   // don't do this, then the group resolution will be racy since we will use
   // two different task_count instances for synchronization).
   //
-  group_view
+  LIBBUILD2_SYMEXPORT group_view
   resolve_members (action, const target&);
 
   // Unless already known, match the target in order to resolve its group.

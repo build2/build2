@@ -84,7 +84,7 @@ namespace build2
 
   using butl::eof;
 
-  // Diagnostics state (verbosity level, etc; see diagnostics.hxx).
+  // Diagnostics state (verbosity level, etc; see <libbuild2/diagnostics.hxx>).
   //
   // Note on naming of values (here and in the global state below) that come
   // from the command line options: if a value is not meant to be used
