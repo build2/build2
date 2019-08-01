@@ -1,8 +1,8 @@
-// file      : build2/bash/init.cxx -*- C++ -*-
+// file      : libbuild2/bash/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bash/init.hxx>
+#include <libbuild2/bash/init.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/context.hxx>
@@ -11,9 +11,9 @@
 
 #include <libbuild2/install/utility.hxx>
 
-#include <build2/bash/rule.hxx>
-#include <build2/bash/target.hxx>
-#include <build2/bash/utility.hxx>
+#include <libbuild2/bash/rule.hxx>
+#include <libbuild2/bash/target.hxx>
+#include <libbuild2/bash/utility.hxx>
 
 using namespace std;
 
@@ -84,6 +84,21 @@ namespace build2
       }
 
       return true;
+    }
+
+    static const module_functions mod_functions[] =
+    {
+      // NOTE: don't forget to also update the documentation in init.hxx if
+      //       changing anything here.
+
+      {"bash",  nullptr, init},
+      {nullptr, nullptr, nullptr}
+    };
+
+    const module_functions*
+    build2_bash_load ()
+    {
+      return mod_functions;
     }
   }
 }

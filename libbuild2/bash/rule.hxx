@@ -1,9 +1,9 @@
-// file      : build2/bash/rule.hxx -*- C++ -*-
+// file      : libbuild2/bash/rule.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_BASH_RULE_HXX
-#define BUILD2_BASH_RULE_HXX
+#ifndef LIBBUILD2_BASH_RULE_HXX
+#define LIBBUILD2_BASH_RULE_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -11,6 +11,8 @@
 #include <libbuild2/install/rule.hxx>
 
 #include <libbuild2/in/rule.hxx>
+
+#include <libbuild2/bash/export.hxx>
 
 namespace build2
 {
@@ -25,7 +27,7 @@ namespace build2
     // however, is still able to override both of these choices with the
     // corresponding in.* variables (e.g., to use '`' and strict mode).
     //
-    class in_rule: public in::rule
+    class LIBBUILD2_BASH_SYMEXPORT in_rule: public in::rule
     {
     public:
       in_rule (): rule ("bash.in 1", "bash.in", '@', false /* strict */) {}
@@ -66,7 +68,7 @@ namespace build2
     //
     // 2. Custom filtering of prerequisites.
     //
-    class install_rule: public install::file_rule
+    class LIBBUILD2_BASH_SYMEXPORT install_rule: public install::file_rule
     {
     public:
       install_rule (const in_rule& in): in_ (in) {}
@@ -80,10 +82,10 @@ namespace build2
       virtual const target*
       filter (action, const target&, const prerequisite&) const override;
 
-    private:
+    protected:
       const in_rule& in_;
     };
   }
 }
 
-#endif // BUILD2_BASH_RULE_HXX
+#endif // LIBBUILD2_BASH_RULE_HXX

@@ -9,6 +9,7 @@
 #include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/in/init.hxx>
+#include <libbuild2/bash/init.hxx>
 #include <libbuild2/version/init.hxx>
 
 using namespace build2;
@@ -21,8 +22,9 @@ main (int, char* argv[])
   init_diag (1);
   init (argv[0]);
 
-  version::build2_version_load ();
+  bash::build2_bash_load ();
   in::build2_in_load ();
+  version::build2_version_load ();
 
   sched.startup (1);  // Serial execution.
   reset (strings ()); // No command line variables.

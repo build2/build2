@@ -1,8 +1,8 @@
-// file      : build2/bash/target.cxx -*- C++ -*-
+// file      : libbuild2/bash/target.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bash/target.hxx>
+#include <libbuild2/bash/target.hxx>
 
 #include <libbuild2/context.hxx>
 

@@ -2,9 +2,10 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs  = build2%lib{build2}
-import libs += build2%lib{build2-in}
-import libs += build2%lib{build2-version}
+import libs = build2%lib{build2}
+
+for m: bash in version
+  import libs += build2%lib{build2-$m}
 
 exe{driver}: {hxx cxx}{*} $libs testscript
 

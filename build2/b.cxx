@@ -54,15 +54,16 @@
 #include <libbuild2/in/init.hxx>
 #include <libbuild2/version/init.hxx>
 
+#ifndef BUILD2_BOOTSTRAP
+#  include <libbuild2/bash/init.hxx>
+
+#  include <build2/cli/init.hxx>
+#endif
+
 #include <build2/bin/init.hxx>
 #include <build2/c/init.hxx>
 #include <build2/cc/init.hxx>
 #include <build2/cxx/init.hxx>
-
-#ifndef BUILD2_BOOTSTRAP
-#  include <build2/cli/init.hxx>
-#  include <build2/bash/init.hxx>
-#endif
 
 using namespace butl;
 using namespace std;
@@ -481,7 +482,7 @@ main (int argc, char* argv[])
       bm["cli.config"] = mf {"cli.config", nullptr, &cli::config_init};
       bm["cli"] = mf {"cli", nullptr, &cli::init};
 
-      bm["bash"] = mf {"bash", nullptr, &bash::init};
+      reg (&bash::build2_bash_load);
 #endif
     }
 

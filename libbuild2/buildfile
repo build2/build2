@@ -2,7 +2,7 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-./: lib{build2} version/ in/
+./: lib{build2} bash/ in/ version/
 
 import int_libs = libbutl%lib{butl}
 

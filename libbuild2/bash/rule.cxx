@@ -1,8 +1,8 @@
-// file      : build2/bash/rule.cxx -*- C++ -*-
+// file      : libbuild2/bash/rule.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bash/rule.hxx>
+#include <libbuild2/bash/rule.hxx>
 
 #include <cstring> // strlen(), strchr()
 
@@ -13,8 +13,8 @@
 
 #include <libbuild2/in/target.hxx>
 
-#include <build2/bash/target.hxx>
-#include <build2/bash/utility.hxx>
+#include <libbuild2/bash/target.hxx>
+#include <libbuild2/bash/utility.hxx>
 
 using namespace std;
 using namespace butl;

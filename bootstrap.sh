@@ -121,8 +121,6 @@ src="$src build2/bin/*.cxx"
 src="$src build2/c/*.cxx"
 src="$src build2/cc/*.cxx"
 src="$src build2/cxx/*.cxx"
-src="$src build2/cli/*.cxx"
-src="$src build2/bash/*.cxx"
 
 src="$src libbuild2/*.cxx"
 src="$src libbuild2/config/*.cxx"
