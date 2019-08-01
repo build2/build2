@@ -133,8 +133,7 @@ build2_sub := \
 bin           \
 c             \
 cc            \
-cxx           \
-version
+cxx
 
 libbuild2_sub := \
 config           \
@@ -142,6 +141,7 @@ dist             \
 test/script      \
 test             \
 install          \
+version          \
 in
 
 build2_src    := $(wildcard $(src_root)/build2/*.cxx)

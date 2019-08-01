@@ -1,4 +1,4 @@
-// file      : build2/version/snapshot-git.cxx -*- C++ -*-
+// file      : libbuild2/version/snapshot-git.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -6,7 +6,7 @@
 
 #include <libbutl/sha1.mxx>
 
-#include <build2/version/snapshot.hxx>
+#include <libbuild2/version/snapshot.hxx>
 
 using namespace std;
 using namespace butl;

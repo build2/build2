@@ -36,7 +36,7 @@ namespace build2
       tracer trace ("bash::init");
       l5 ([&]{trace << "for " << bs;});
 
-      // Load in.base (in.* varibales, in{} target type).
+      // Load in.base (in.* variables, in{} target type).
       //
       if (!cast_false<bool> (rs["in.base.loaded"]))
         load_module (rs, rs, "in.base", l);

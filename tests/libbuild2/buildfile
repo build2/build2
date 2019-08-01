@@ -4,6 +4,7 @@
 
 import libs  = build2%lib{build2}
 import libs += build2%lib{build2-in}
+import libs += build2%lib{build2-version}
 
 exe{driver}: {hxx cxx}{*} $libs testscript
 

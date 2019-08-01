@@ -1,8 +1,8 @@
-// file      : build2/version/init.cxx -*- C++ -*-
+// file      : libbuild2/version/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/version/init.hxx>
+#include <libbuild2/version/init.hxx>
 
 #include <libbutl/manifest-parser.mxx>
 
@@ -15,10 +15,10 @@
 
 #include <libbuild2/dist/module.hxx>
 
-#include <build2/version/rule.hxx>
-#include <build2/version/module.hxx>
-#include <build2/version/utility.hxx>
-#include <build2/version/snapshot.hxx>
+#include <libbuild2/version/rule.hxx>
+#include <libbuild2/version/module.hxx>
+#include <libbuild2/version/utility.hxx>
+#include <libbuild2/version/snapshot.hxx>
 
 using namespace std;
 using namespace butl;
@@ -295,7 +295,7 @@ namespace build2
       if (!first)
         fail (l) << "multiple version module initializations";
 
-      // Load in.base (in.* varibales, in{} target type).
+      // Load in.base (in.* variables, in{} target type).
       //
       if (!cast_false<bool> (rs["in.base.loaded"]))
         load_module (rs, rs, "in.base", l);
@@ -387,6 +387,21 @@ namespace build2
       {
         fail << "unable to overwrite " << f << ": " << e;
       }
+    }
+
+    static const module_functions mod_functions[] =
+    {
+      // NOTE: don't forget to also update the documentation in init.hxx if
+      //       changing anything here.
+
+      {"version", boot,    init},
+      {nullptr,   nullptr, nullptr}
+    };
+
+    const module_functions*
+    build2_version_load ()
+    {
+      return mod_functions;
     }
   }
 }

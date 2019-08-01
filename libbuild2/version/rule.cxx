@@ -1,8 +1,8 @@
-// file      : build2/version/rule.cxx -*- C++ -*-
+// file      : libbuild2/version/rule.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/version/rule.hxx>
+#include <libbuild2/version/rule.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -10,8 +10,8 @@
 
 #include <libbuild2/in/target.hxx>
 
-#include <build2/version/module.hxx>
-#include <build2/version/utility.hxx>
+#include <libbuild2/version/module.hxx>
+#include <libbuild2/version/utility.hxx>
 
 using namespace std;
 using namespace butl;

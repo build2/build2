@@ -52,7 +52,7 @@
 #include <libbuild2/install/init.hxx>
 
 #include <libbuild2/in/init.hxx>
-#include <build2/version/init.hxx>
+#include <libbuild2/version/init.hxx>
 
 #include <build2/bin/init.hxx>
 #include <build2/c/init.hxx>
@@ -449,8 +449,7 @@ main (int argc, char* argv[])
       reg (&test::build2_test_load);
       reg (&install::build2_install_load);
 
-      bm["version"] = mf {"version", &version::boot, &version::init};
-
+      reg (&version::build2_version_load);
       reg (&in::build2_in_load);
 
       bm["bin.vars"] = mf {"bin.vars", nullptr, &bin::vars_init};

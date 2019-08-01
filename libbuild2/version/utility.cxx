@@ -1,8 +1,8 @@
-// file      : build2/version/utility.cxx -*- C++ -*-
+// file      : libbuild2/version/utility.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/version/utility.hxx>
+#include <libbuild2/version/utility.hxx>
 
 #include <libbutl/manifest-parser.mxx>
 #include <libbutl/manifest-serializer.mxx>
