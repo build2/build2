@@ -106,7 +106,7 @@
     : trailing-ws
     :
     $c <<EOI && $b
-    set -e -w baz <' foo   bar ';
+    set --exact --whitespace baz <' foo   bar ';
     echo $baz >'foo bar '
     EOI
 
@@ -116,7 +116,7 @@
     : ':' modifier.
     :
     $c <<EOI && $b
-    set -e -w baz <:' foo bar';
+    set --exact --whitespace baz <:' foo bar';
     echo $baz >'foo bar'
     EOI
   }
@@ -144,7 +144,7 @@
     : trailing-newline
     :
     $c <<EOI && $b
-    set -e -n baz <<EOF;
+    set --exact --newline baz <<EOF;
 
     foo
 
@@ -157,7 +157,7 @@
     : no-trailing-newline
     :
     $c <<EOI && $b
-    set -e -n baz <<:EOF;
+    set --exact --newline baz <<:EOF;
 
     foo
 

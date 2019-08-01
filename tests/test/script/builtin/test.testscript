@@ -60,7 +60,7 @@
   : both-file-dir
   :
   $c <<EOI && $b
-  test -f -d 2>"test: both -f|--file and -d|--directory specified" == 2
+  test -fd 2>"test: both -f|--file and -d|--directory specified" == 2
   EOI
 }
 

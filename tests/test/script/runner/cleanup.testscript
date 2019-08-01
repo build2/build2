@@ -100,7 +100,7 @@ b += --no-column
   :
   $c <<EOI && $b
   mkdir ../../a;
-  rm -r -f ../../a
+  rm -rf ../../a
   EOI
 
   : not-exists

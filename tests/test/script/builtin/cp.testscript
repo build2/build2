@@ -340,7 +340,7 @@ if ($cxx.target.class != 'windows')
       ls -l $src_base | sed -n -e '$ds' | \
       set t;
 
-      cp -p -r $src_base/cp-dir ./;
+      cp -pr $src_base/cp-dir ./;
       ls -l | sed -n -e '$ds' >"\$t"
       EOI
     }

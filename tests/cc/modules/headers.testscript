@@ -164,7 +164,7 @@ $* 'test:' ./@$out/remapped/ \
   ./: exe{test-inc}: cxx{driver-inc} hxx{core}
   hxx{core}: in{core}
   EOI
-rm -r -f $out
+rm -rf $out
 
 # Clean module sidebuilds.
 #
