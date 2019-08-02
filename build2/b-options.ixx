@@ -196,6 +196,22 @@ namespace build2
     }
 
     inline argv_file_scanner::
+    argv_file_scanner (const std::string& file,
+                       const std::string& option)
+    : argv_scanner (0, zero_argc_, 0),
+      option_ (option),
+      options_ (&option_info_),
+      options_count_ (1),
+      i_ (1),
+      skip_ (false)
+    {
+      option_info_.option = option_.c_str ();
+      option_info_.search_func = 0;
+
+      load (file);
+    }
+
+    inline argv_file_scanner::
     argv_file_scanner (int& argc,
                        char** argv,
                        const option_info* options,
@@ -222,6 +238,19 @@ namespace build2
       i_ (1),
       skip_ (false)
     {
+    }
+
+    inline argv_file_scanner::
+    argv_file_scanner (const std::string& file,
+                       const option_info* options,
+                       std::size_t options_count)
+    : argv_scanner (0, zero_argc_, 0),
+      options_ (options),
+      options_count_ (options_count),
+      i_ (1),
+      skip_ (false)
+    {
+      load (file);
     }
   }
 }

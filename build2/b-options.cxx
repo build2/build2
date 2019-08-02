@@ -216,6 +216,8 @@ namespace build2
 
     // argv_file_scanner
     //
+    int argv_file_scanner::zero_argc_ = 0;
+
     bool argv_file_scanner::
     more ()
     {
@@ -462,7 +464,6 @@ namespace build2
         using namespace std;
 
         const char* o (s.next ());
-
         if (s.more ())
         {
           string v (s.next ());

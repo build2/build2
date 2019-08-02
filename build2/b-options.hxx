@@ -298,6 +298,9 @@ namespace build2
                          const std::string& option,
                          bool erase = false);
 
+      argv_file_scanner (const std::string& file,
+                         const std::string& option);
+
       struct option_info
       {
         // If search_func is not NULL, it is called, with the arg
@@ -321,6 +324,10 @@ namespace build2
                          const option_info* options,
                          std::size_t options_count,
                          bool erase = false);
+
+      argv_file_scanner (const std::string& file,
+                         const option_info* options = 0,
+                         std::size_t options_count = 0);
 
       virtual bool
       more ();
@@ -356,6 +363,8 @@ namespace build2
       std::size_t i_;
 
       bool skip_;
+
+      static int zero_argc_;
     };
 
     template <typename X>

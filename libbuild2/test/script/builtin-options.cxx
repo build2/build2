@@ -221,7 +221,6 @@ namespace build2
             using namespace std;
 
             const char* o (s.next ());
-
             if (s.more ())
             {
               string v (s.next ());
