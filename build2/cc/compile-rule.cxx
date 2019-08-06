@@ -4463,15 +4463,72 @@ namespace build2
       // with the highest score is used. And we use the (length + 1) for a
       // match against an actual module name.
       //
+      // Actually, the scoring system is a bit more elaborate than that.
+      // Consider module name core.window and two files, window.mxx and
+      // abstract-window.mxx: which one is likely to define this module?
+      // Clearly the first, but in the above-described scheme they will get
+      // the same score. More generally, consider these "obvious" (to the
+      // human) situations:
+      //
+      //   window.mxx          vs  abstract-window.mxx
+      //   details/window.mxx  vs  abstract-window.mxx
+      //   gtk-window.mxx      vs  gtk-abstract-window.mxx
+      //
+      // To handle such cases we are going to combine the above primary score
+      // with the following secondary scores (in that order):
+      //
+      // a) Strength of separation between matched and unmatched parts:
+      //
+      //    '\0' > directory separator > other separator > unseparated
+      //
+      //    Here '\0' signifies nothing to separate (unmatched part is empty).
+      //
+      // b) Shortness of the unmatched part.
+      //
       // For std.* modules we only accept non-fuzzy matches (think std.core vs
       // some core.mxx). And if such a module is unresolved, then we assume it
       // is pre-built and will be found by some other means (e.g., VC's
       // IFCPATH).
       //
+      auto match_max = [] (const string& m) -> size_t
+      {
+        // The primary and sub-scores are packed in the following decimal
+        // representation:
+        //
+        // PPPPABBBB
+        //
+        // We use decimal instead of binary packing to make it easier to
+        // separate fields in the trace messages, during debugging, etc.
+        //
+        return m.size () * 100000 + 99999; // Maximum match score.
+      };
+
       auto match = [] (const string& f, const string& m) -> size_t
       {
-        size_t fi (f.size ());
-        size_t mi (m.size ());
+        auto file_sep = [] (char c) -> char
+        {
+          // Return the character (translating directory seperator to '/') if
+          // it is a separator and '\0' otherwise (so can be used as bool).
+          //
+          return (c == '_' || c == '-' || c == '.'    ? c   :
+                  path::traits_type::is_separator (c) ? '/' : '\0');
+        };
+
+        auto case_sep = [] (char c1, char c2)
+        {
+          return (alpha (c1) &&
+                  alpha (c2) &&
+                  (ucase (c1) == c1) != (ucase (c2) == c2));
+        };
+
+        size_t fn (f.size ()), fi (fn);
+        size_t mn (m.size ()), mi (mn);
+
+        // True if the previous character was counted as a real (that is,
+        // non-case changing) separator.
+        //
+        bool fsep (false);
+        bool msep (false);
 
         // Scan backwards for as long as we match. Keep track of the previous
         // character for case change detection.
@@ -4484,7 +4541,10 @@ namespace build2
           mc = m[mi - 1];
 
           if (casecmp (fc, mc) == 0)
+          {
+            fsep = msep = false;
             continue;
+          }
 
           // We consider all separators equal and character case change being
           // a separators. Some examples of the latter:
@@ -4493,32 +4553,29 @@ namespace build2
           //  fooBAR
           //  FOObar
           //
-          bool fs (fc == '_' || fc == '-' || fc == '.' ||
-                   path::traits_type::is_separator (fc));
+          bool fs (file_sep (fc));
           bool ms (mc == '_' || mc == '.');
 
           if (fs && ms)
+          {
+            fsep = msep = true;
             continue;
+          }
 
           // Only if one is a real separator do we consider case change.
           //
           if (fs || ms)
           {
-            auto cc = [] (char c1, char c2) -> bool
-            {
-              return (alpha (c1) &&
-                      alpha (c2) &&
-                      (ucase (c1) == c1) != (ucase (c2) == c2));
-            };
-
             bool fa (false), ma (false);
-            if ((fs || (fa = cc (fp, fc))) && (ms || (ma = cc (mp, mc))))
+            if ((fs || (fa = case_sep (fp, fc))) &&
+                (ms || (ma = case_sep (mp, mc))))
             {
               // Stay on this character if imaginary punctuation (note: cannot
               // be both true).
               //
-              if (fa) ++fi;
-              if (ma) ++mi;
+              if (fa) {++fi; msep = true;}
+              if (ma) {++mi; fsep = true;}
+
               continue;
             }
           }
@@ -4526,11 +4583,32 @@ namespace build2
           break; // No match.
         }
 
-        // Return the number of characters matched in the module name and not
+        // "Uncount" real separators.
+        //
+        if (fsep) fi++;
+        if (msep) mi++;
+
+        // Use the number of characters matched in the module name and not
         // in the file (this may not be the same because of the imaginary
         // separators).
         //
-        return m.size () - mi;
+        size_t ps (mn - mi);
+
+        // The strength of separation sub-score.
+        //
+        // Check for case change between the last character that matched and
+        // the first character that did not.
+        //
+        size_t as (0);
+        if      (fi == 0)                                 as = 9;
+        else if (char c = file_sep (f[fi - 1]))           as = c == '/' ? 8 : 7;
+        else if (fi != fn && case_sep (f[fi], f[fi - 1])) as = 7;
+
+        // The length of the unmatched part sub-score.
+        //
+        size_t bs (9999 - fi);
+
+        return ps * 100000 + as * 10000 + bs;
       };
 
       auto& pts (t.prerequisite_targets[a]);
@@ -4627,7 +4705,7 @@ namespace build2
       //
       bool done (false);
 
-      auto check_fuzzy = [&trace, &imports, &pts, &match, start, n]
+      auto check_fuzzy = [&trace, &imports, &pts, &match, &match_max, start, n]
         (const target* pt, const string& name)
       {
         for (size_t i (0); i != n; ++i)
@@ -4637,9 +4715,7 @@ namespace build2
           if (std_module (m.name)) // No fuzzy std.* matches.
             continue;
 
-          size_t n (m.name.size ());
-
-          if (m.score > n) // Resolved to module name.
+          if (m.score > match_max (m.name)) // Resolved to module name.
             continue;
 
           size_t s (match (name, m.name));
@@ -4657,7 +4733,7 @@ namespace build2
       // If resolved, return the "slot" in pts (we don't want to create a
       // side build until we know we match; see below for details).
       //
-      auto check_exact = [&trace, &imports, &pts, start, n, &done]
+      auto check_exact = [&trace, &imports, &pts, &match_max, start, n, &done]
         (const string& name) -> const target**
       {
         const target** r (nullptr);
@@ -4667,14 +4743,14 @@ namespace build2
         {
           module_import& m (imports[i]);
 
-          size_t n (m.name.size ());
+          size_t ms (match_max (m.name));
 
-          if (m.score > n) // Resolved to module name (no effect on done).
+          if (m.score > ms) // Resolved to module name (no effect on done).
             continue;
 
           if (r == nullptr)
           {
-            size_t s (name == m.name ? n + 1 : 0);
+            size_t s (name == m.name ? ms + 1 : 0);
 
             l5 ([&]{trace << name << " ~ " << m.name << ": " << s;});
 
@@ -4902,7 +4978,7 @@ namespace build2
         //
         const string& in (m.name);
 
-        if (m.score <= in.size ())
+        if (m.score <= match_max (in))
         {
           const string& mn (cast<string> (bt->state[a].vars[c_module_name]));
 

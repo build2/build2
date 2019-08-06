@@ -85,6 +85,10 @@ $* test clean <<EOI
     export module bar.core;
     EOI
 
+  +cat <<EOI >=ext-core.mxx
+    export module foo.ext_core;
+    EOI
+
   : separator
   :
   : Test separator equivalence.
@@ -120,6 +124,49 @@ $* test clean <<EOI
     exe{test}: cxx{driver core} mxx{core baz}
     mxx{baz}@./: cxx.module_name = foo.core
     EOO
+
+  : secondary-entire
+  :
+  : Secondary score: core.mxx vs ext-core.mxx (entire file name consumed).
+  :
+  ln -s ../ext-core.mxx ../../core.mxx ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{ext-core core}'
+
+  : secondary-dir-separator
+  :
+  : Secondary score: sub/core.mxx vs ext-core.mxx (stronger separator).
+  :
+  mkdir sub;
+  ln -s ../../core.mxx ../../core.cxx sub/;
+  ln -s ../ext-core.mxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver} mxx{ext-core} sub/{mxx cxx}{core}'
+
+  : secondary-real-separator
+  :
+  : Secondary score: sub-core.mxx vs extcore.mxx (real separator).
+  :
+  ln -s ../ext-core.mxx extcore.mxx;
+  ln -s ../../core.mxx sub-core.mxx;
+  ln -s ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{extcore sub-core}'
+
+  : secondary-case-separator
+  :
+  : Secondary score: SubCore.mxx vs extcore.mxx (case separator).
+  :
+  ln -s ../ext-core.mxx extcore.mxx;
+  ln -s ../../core.mxx SubCore.mxx;
+  ln -s ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{extcore SubCore}'
+
+  : secondary-unmatched
+  :
+  : Secondary score: gtk-core.mxx vs gtk-ext-core.mxx (unmatched-length).
+  :
+  ln -s ../ext-core.mxx gtk-ext-core.mxx;
+  ln -s ../../core.mxx gtk-core.mxx;
+  ln -s ../../core.cxx ../../driver.cxx ./;
+  $* test clean <'exe{test}: cxx{driver core} mxx{gtk-ext-core gtk-core}'
 }
 
 : unresolved
