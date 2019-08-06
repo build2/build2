@@ -106,7 +106,7 @@ namespace build2
 
     active_--;
     waiting_++;
-    progress_++;
+    progress_.fetch_add (1, memory_order_relaxed);
 
     if (waiting_ > stat_max_waiters_)
       stat_max_waiters_ = waiting_;
@@ -122,60 +122,16 @@ namespace build2
     {
       activate_helper (l);
     }
-    // @@ TODO: Redo as a separate "monitoring" thread.
-    //
-    // This still doesn't work for the phase lock case where we call
-    // deactivate and then go wait on a condition variable: we are doing
-    // deadlock detection while holding the lock that prevents other
-    // threads from making progress!
-    //
-#if 0
     else if (active_ == 0)
     {
-      // We may have a deadlock which can happen because of dependency cycles.
+      // Note that we tried to handle this directly in this thread but that
+      // wouldn't work for the phase lock case where we cal; deactivate and
+      // then go wait on a condition variable: we would be doing deadlock
+      // detection while holding the lock that prevents other threads from
+      // making progress! So it has to be a separate monitoring thread.
       //
-      // Relying on the active_ count alone is not precise enough, however:
-      // some threads might be transitioning between the active/waiting/ready
-      // states. Carefully accounting for this is not trivial, to say the
-      // least (especially in the face of spurious wakeups). So we are going
-      // to do a "fuzzy" deadlock detection by measuring "progress". The idea
-      // is that those transitions should be pretty short-lived and so if we
-      // wait for a couple of hundreds context switches, then we should be
-      // able to distinguish a real deadlock from the transition case.
-      //
-      size_t p (progress_);
-
-      for (size_t i (0); i != 100; ++i)
-      {
-        l.unlock ();
-        this_thread::yield () is not enough.
-        l.lock ();
-
-        if (p != progress_)
-          break;
-      }
-
-      if (p == progress_)
-      {
-        // Reactivate and fail.
-        //
-        waiting_--;
-        active_++;
-
-        // Shutting things down cleanly is tricky: we could have handled it in
-        // the scheduler (e.g., by setting a flag and then waking everyone up,
-        // similar to shutdown). But there could also be "external waiters"
-        // that have called deactivate() -- we have no way to wake those up.
-        // So for now we are going to abort (the nice thing about abort is if
-        // this is not a dependency cycle, then we have a core to examine).
-        //
-        error << "deadlock detected, can be caused by a dependency cycle" <<
-          info << "re-run with -s to diagnose dependency cycles";
-
-        std::terminate ();
-      }
+      dead_condv_.notify_one ();
     }
-#endif
   }
 
   void scheduler::
@@ -194,14 +150,14 @@ namespace build2
     //
     waiting_--;
     ready_++;
-    progress_++;
+    progress_.fetch_add (1, memory_order_relaxed);
 
     while (!shutdown_ && active_ >= max_active_)
       ready_condv_.wait (l);
 
     ready_--;
     active_++;
-    progress_++;
+    progress_.fetch_add (1, memory_order_relaxed);
 
     if (shutdown_)
       throw_generic_error (ECANCELED);
@@ -419,17 +375,23 @@ namespace build2
     stat_max_waiters_     = 0;
     stat_wait_collisions_ = 0;
 
-    progress_ = 0;
+    progress_.store (0, memory_order_relaxed);
 
     for (size_t i (0); i != wait_queue_size_; ++i)
       wait_queue_[i].shutdown = false;
 
     shutdown_ = false;
+
+    if (max_active_ != 1)
+      dead_thread_ = thread (deadlock_monitor, this);
   }
 
   void scheduler::
   tune (size_t max_active)
   {
+    // Note that if we tune a parallel scheduler to run serially, we will
+    // still have the deadlock monitoring thread running.
+
     if (max_active == 0)
       max_active = orig_max_active_;
 
@@ -501,6 +463,15 @@ namespace build2
 
         this_thread::yield ();
         l.lock ();
+      }
+
+      // Wait for the deadlock monitor (the only remaining thread).
+      //
+      if (orig_max_active_ != 1) // See tune() for why not max_active_.
+      {
+        l.unlock ();
+        dead_condv_.notify_one ();
+        dead_thread_.join ();
       }
 
       // Free the memory.
@@ -783,10 +754,13 @@ namespace build2
 
         s.active_--;
 
-        // While executing the tasks a thread might have become ready.
+        // While executing the tasks a thread might have become ready
+        // (equivalent logic to deactivate()).
         //
         if (s.ready_ != 0)
           s.ready_condv_.notify_one ();
+        else if (s.active_ == 0)
+          s.dead_condv_.notify_one ();
       }
 
       // Become idle and wait for a notification.
@@ -816,5 +790,67 @@ namespace build2
 
     queue (tq);
     return *tq;
+  }
+
+  void* scheduler::
+  deadlock_monitor (void* d)
+  {
+    scheduler& s (*static_cast<scheduler*> (d));
+
+    lock l (s.mutex_);
+    while (!s.shutdown_)
+    {
+      s.dead_condv_.wait (l);
+
+      while (s.active_ == 0 && !s.shutdown_)
+      {
+        // We may have a deadlock which can happen because of dependency
+        // cycles.
+        //
+        // Relying on the active_ count alone is not precise enough, however:
+        // some threads might be transitioning between active/waiting/ready
+        // states. Carefully accounting for this is not trivial, to say the
+        // least (especially in the face of spurious wakeups). So we are going
+        // to do a "fuzzy" deadlock detection by measuring "progress". The
+        // idea is that those transitions should be pretty short-lived and so
+        // if we wait for a few thousand context switches, then we should be
+        // able to distinguish a real deadlock from the transition case.
+        //
+        size_t op (s.progress_.load (memory_order_relaxed)), np (op);
+
+        l.unlock ();
+        for (size_t i (0); op == np && i != 10000; ++i)
+        {
+          // We don't really need consume, but let's keep it to slow things
+          // down in case yield() is a noop.
+          //
+          this_thread::yield ();
+          np = s.progress_.load (memory_order_consume);
+        }
+        l.lock ();
+
+        // Re-check active count for good measure (maybe spinning too fast).
+        //
+        if (np == op && s.active_ == 0 && !s.shutdown_)
+        {
+          // Shutting things down cleanly is tricky: we could have handled it
+          // in the scheduler (e.g., by setting a flag and then waking
+          // everyone up, similar to shutdown). But there could also be
+          // "external waiters" that have called deactivate() -- we have no
+          // way to wake those up. So for now we are going to abort (the nice
+          // thing about abort is if this is not a dependency cycle, then we
+          // have a core to examine).
+          //
+          error << "detected deadlock that could be caused by a dependency "
+                << "cycle" <<
+            info << "re-run with -s to diagnose dependency cycles" <<
+            info << "if not a dependency cycle, please report";
+
+          std::terminate ();
+        }
+      }
+    }
+
+    return nullptr;
   }
 }

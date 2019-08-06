@@ -440,7 +440,18 @@ namespace build2
     // We increment it for each active->waiting->ready->active transition
     // and it is used for deadlock detection (see deactivate()).
     //
-    size_t progress_;
+    // Note that it still serves our purpose even if the value wraps around
+    // (e.g., on a 32-bit platform).
+    //
+    atomic_count progress_;
+
+    // Deadlock detection.
+    //
+    std::thread             dead_thread_;
+    std::condition_variable dead_condv_;
+
+    static void*
+    deadlock_monitor (void*);
 
     // Wait queue.
     //
