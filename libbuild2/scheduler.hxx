@@ -132,15 +132,19 @@ namespace build2
     resume (const atomic_count& task_count);
 
     // An active thread that is about to wait for potentially significant time
-    // on something other than task_count (e.g., mutex, condition variable)
-    // should deactivate itself with the scheduler and then reactivate once
-    // done waiting.
+    // on something other than task_count (e.g., mutex, condition variable,
+    // timer, etc) should deactivate itself with the scheduler and then
+    // reactivate once done waiting.
+    //
+    // The external flag indicates whether the wait is for an event external
+    // to the scheduler, that is, triggered by something other than one of the
+    // threads managed by the scheduler.
     //
     void
-    deactivate ();
+    deactivate (bool external);
 
     void
-    activate (bool collision = false);
+    activate (bool external, bool = false);
 
     // Sleep for the specified duration, deactivating the thread before going
     // to sleep and re-activating it after waking up (which means this
@@ -413,14 +417,19 @@ namespace build2
 
     size_t helpers_     = 0; // Number of helper threads created so far.
 
-    // Every thread that we manage must be accounted for in one of these
-    // counters. And their sum should equal (init_active + helpers).
+    // Every thread that we manage (except for the special deadlock monitor)
+    // must be accounted for in one of these counters. And their sum should
+    // equal (init_active + helpers).
     //
     size_t active_   = 0;  // Active master threads executing a task.
     size_t idle_     = 0;  // Idle helper threads waiting for a task.
     size_t waiting_  = 0;  // Suspended master threads waiting for their tasks.
     size_t ready_    = 0;  // Ready master thread waiting to become active.
     size_t starting_ = 0;  // Helper threads starting up.
+
+    // Number of waiting threads that are waiting for an external event.
+    //
+    size_t external_ = 0;
 
     // Original values (as specified during startup) that can be altered via
     // tuning.

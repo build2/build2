@@ -62,11 +62,11 @@ namespace build2
       }
       else if (phase != p)
       {
-        sched.deactivate ();
+        sched.deactivate (false /* external */);
         for (; phase != p; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
-        sched.activate ();
+        sched.activate (false /* external */);
       }
       else
         r = !fail_;
@@ -175,11 +175,11 @@ namespace build2
       }
       else // phase != n
       {
-        sched.deactivate ();
+        sched.deactivate (false /* external */);
         for (; phase != n; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
-        sched.activate ();
+        sched.activate (false /* external */);
       }
     }
 

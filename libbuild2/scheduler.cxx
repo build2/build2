@@ -97,7 +97,7 @@ namespace build2
   }
 
   void scheduler::
-  deactivate ()
+  deactivate (bool external)
   {
     if (max_active_ == 1) // Serial execution.
       return;
@@ -106,6 +106,8 @@ namespace build2
 
     active_--;
     waiting_++;
+    if (external)
+      external_++;
     progress_.fetch_add (1, memory_order_relaxed);
 
     if (waiting_ > stat_max_waiters_)
@@ -122,7 +124,7 @@ namespace build2
     {
       activate_helper (l);
     }
-    else if (active_ == 0)
+    else if (active_ == 0 && external_ == 0)
     {
       // Note that we tried to handle this directly in this thread but that
       // wouldn't work for the phase lock case where we cal; deactivate and
@@ -135,7 +137,7 @@ namespace build2
   }
 
   void scheduler::
-  activate (bool collision)
+  activate (bool external, bool collision)
   {
     if (max_active_ == 1) // Serial execution.
       return;
@@ -148,6 +150,8 @@ namespace build2
     // If we have spare active threads, then become active. Otherwise it
     // enters the ready queue.
     //
+    if (external)
+      external_--;
     waiting_--;
     ready_++;
     progress_.fetch_add (1, memory_order_relaxed);
@@ -166,7 +170,7 @@ namespace build2
   void scheduler::
   sleep (const duration& d)
   {
-    deactivate ();
+    deactivate (true /* external */);
 
     // MINGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
     //
@@ -178,7 +182,7 @@ namespace build2
     Sleep (static_cast<DWORD> (duration_cast<milliseconds> (d).count ()));
 #endif
 
-    activate ();
+    activate (true /* external */);
   }
 
   size_t scheduler::
@@ -190,7 +194,7 @@ namespace build2
 
     // This thread is no longer active.
     //
-    deactivate ();
+    deactivate (false /* external */);
 
     // Note that the task count is checked while holding the lock. We also
     // have to notify while holding the lock (see resume()). The aim here
@@ -227,7 +231,7 @@ namespace build2
 
     // This thread is no longer waiting.
     //
-    activate (collision);
+    activate (false /* external */, collision);
 
     return tc;
   }
@@ -464,6 +468,8 @@ namespace build2
         this_thread::yield ();
         l.lock ();
       }
+
+      assert (external_ == 0);
 
       // Wait for the deadlock monitor (the only remaining thread).
       //
@@ -759,7 +765,7 @@ namespace build2
         //
         if (s.ready_ != 0)
           s.ready_condv_.notify_one ();
-        else if (s.active_ == 0)
+        else if (s.active_ == 0 && s.external_ == 0)
           s.dead_condv_.notify_one ();
       }
 
@@ -802,7 +808,7 @@ namespace build2
     {
       s.dead_condv_.wait (l);
 
-      while (s.active_ == 0 && !s.shutdown_)
+      while (s.active_ == 0 && s.external_ == 0 && !s.shutdown_)
       {
         // We may have a deadlock which can happen because of dependency
         // cycles.
@@ -829,9 +835,10 @@ namespace build2
         }
         l.lock ();
 
-        // Re-check active count for good measure (maybe spinning too fast).
+        // Re-check active/external counts for good measure (maybe we are
+        // spinning too fast).
         //
-        if (np == op && s.active_ == 0 && !s.shutdown_)
+        if (np == op && s.active_ == 0 && s.external_ == 0 && !s.shutdown_)
         {
           // Shutting things down cleanly is tricky: we could have handled it
           // in the scheduler (e.g., by setting a flag and then waking
