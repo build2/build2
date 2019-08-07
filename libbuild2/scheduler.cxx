@@ -171,18 +171,21 @@ namespace build2
   sleep (const duration& d)
   {
     deactivate (true /* external */);
+    active_sleep (d);
+    activate (true /* external */);
+  }
 
-    // MINGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
+  void scheduler::
+  active_sleep (const duration& d)
+  {
+    // MinGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
     //
 #ifndef _WIN32
     this_thread::sleep_for (d);
 #else
     using namespace chrono;
-
     Sleep (static_cast<DWORD> (duration_cast<milliseconds> (d).count ()));
 #endif
-
-    activate (true /* external */);
   }
 
   size_t scheduler::
@@ -801,6 +804,8 @@ namespace build2
   void* scheduler::
   deadlock_monitor (void* d)
   {
+    using namespace chrono;
+
     scheduler& s (*static_cast<scheduler*> (d));
 
     lock l (s.mutex_);
@@ -825,17 +830,22 @@ namespace build2
         size_t op (s.progress_.load (memory_order_relaxed)), np (op);
 
         l.unlock ();
-        for (size_t i (0); op == np && i != 10000; ++i)
+        for (size_t i (0), n (10000), m (9900); op == np && i != n; ++i)
         {
-          // We don't really need consume, but let's keep it to slow things
-          // down in case yield() is a noop.
+          // On the last few iterations sleep a bit instead of yielding (in
+          // case yield() is a noop; we use the consume order for the same
+          // reason).
           //
-          this_thread::yield ();
+          if (i < m)
+            this_thread::yield ();
+          else
+            active_sleep (1ms);
+
           np = s.progress_.load (memory_order_consume);
         }
         l.lock ();
 
-        // Re-check active/external counts for good measure (maybe we are
+        // Re-check active/external counts for good measure (in case we were
         // spinning too fast).
         //
         if (np == op && s.active_ == 0 && s.external_ == 0 && !s.shutdown_)

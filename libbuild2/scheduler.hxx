@@ -153,6 +153,13 @@ namespace build2
     void
     sleep (const duration&);
 
+    // Sleep without deactivating the thread. Essentially a portable
+    // std::this_thread::sleep_for() implementation but only with the
+    // milliseconds precision on some platforms.
+    //
+    static void
+    active_sleep (const duration&);
+
     // Startup and shutdown.
     //
   public:
