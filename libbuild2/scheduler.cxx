@@ -120,10 +120,9 @@ namespace build2
     {
       ready_condv_.notify_one ();
     }
-    else if (queued_task_count_.load (std::memory_order_consume) != 0)
-    {
-      activate_helper (l);
-    }
+    else if (queued_task_count_.load (std::memory_order_consume) != 0 &&
+             activate_helper (l))
+      ;
     else if (active_ == 0 && external_ == 0)
     {
       // Note that we tried to handle this directly in this thread but that
@@ -521,29 +520,33 @@ namespace build2
     return monitor_guard (this);
   }
 
-  void scheduler::
+  bool scheduler::
   activate_helper (lock& l)
   {
-    if (!shutdown_)
+    if (shutdown_)
+      return false;
+
+    if (idle_ != 0)
     {
-      if (idle_ != 0)
-      {
-        idle_condv_.notify_one ();
-      }
-      //
-      // Ignore the max_threads value if we have queued tasks but no active
-      // threads. This means everyone is waiting for something to happen but
-      // nobody is doing anything (e.g., working the queues). This, for
-      // example, can happen if a thread waits for a task that is in its queue
-      // but is below the mark.
-      //
-      else if (init_active_ + helpers_ < max_threads_ ||
-               (active_ == 0 &&
-                queued_task_count_.load (memory_order_consume) != 0))
-      {
-        create_helper (l);
-      }
+      idle_condv_.notify_one ();
     }
+    //
+    // Ignore the max_threads value if we have queued tasks but no active
+    // threads. This means everyone is waiting for something to happen but
+    // nobody is doing anything (e.g., working the queues). This, for
+    // example, can happen if a thread waits for a task that is in its queue
+    // but is below the mark.
+    //
+    else if (init_active_ + helpers_ < max_threads_ ||
+             (active_ == 0 &&
+              queued_task_count_.load (memory_order_consume) != 0))
+    {
+      create_helper (l);
+    }
+    else
+      return false;
+
+    return true;
   }
 
   void scheduler::

@@ -350,7 +350,7 @@ namespace build2
     wait_idle ();
 
   private:
-    void
+    bool
     activate_helper (lock&);
 
     void
