@@ -16,7 +16,7 @@
 #include <cstring>   // strcmp(), strchr()
 #include <typeinfo>
 #include <iostream>  // cout
-#include <exception> // set_terminate(), terminate_handler
+#include <exception> // terminate(), set_terminate(), terminate_handler
 
 #include <libbutl/pager.mxx>
 #include <libbutl/fdstream.mxx>  // stderr_fd(), fdterm()
@@ -150,6 +150,15 @@ custom_terminate ()
 
   if (default_terminate != nullptr)
     default_terminate ();
+}
+
+static void
+terminate (bool trace)
+{
+  if (!trace)
+    set_terminate (default_terminate);
+
+  std::terminate ();
 }
 
 int build2::
@@ -412,7 +421,8 @@ main (int argc, char* argv[])
 
     // Initialize the global state.
     //
-    init (argv[0],
+    init (&::terminate,
+          argv[0],
           !ops.serial_stop (), ops.dry_run (),
           (ops.mtime_check ()    ? optional<bool> (true)  :
            ops.no_mtime_check () ? optional<bool> (false) : nullopt),

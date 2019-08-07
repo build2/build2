@@ -69,6 +69,8 @@ namespace build2
   //
   // <libbuild2/utility.hxx>
   //
+  void (*terminate) (bool);
+
   process_path argv0;
 
   const standard_version build_version (LIBBUILD2_VERSION_STR);
@@ -486,12 +488,13 @@ namespace build2
   }
 
   void
-  init (const char* a0,
+  init (void (*t) (bool),
+        const char* a0,
         bool kg, bool dr, optional<bool> mc,
         optional<path> cs, optional<path> cg)
   {
-    // Build system driver process path.
-    //
+    terminate = t;
+
     argv0 = process::path_search (a0, true);
 
     keep_going = kg;

@@ -119,12 +119,18 @@ namespace build2
   // Default values are for unit tests.
   //
   LIBBUILD2_SYMEXPORT void
-  init (const char* argv0,
+  init (void (*terminate) (bool),
+        const char* argv0,
         bool keep_going = false,
         bool dry_run = false,
         optional<bool> mtime_check = nullopt,
         optional<path> config_sub = nullopt,
         optional<path> config_guess = nullopt);
+
+  // Terminate function. If trace is false, then printing of the stack trace,
+  // if any, should be omitted.
+  //
+  LIBBUILD2_SYMEXPORT extern void (*terminate) (bool trace);
 
   // Build system driver process path (argv0.initial is argv[0]).
   //

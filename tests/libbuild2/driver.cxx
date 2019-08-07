@@ -20,7 +20,7 @@ main (int, char* argv[])
   // Fake build system driver, default verbosity.
   //
   init_diag (1);
-  init (argv[0]);
+  init (nullptr, argv[0]);
 
   bash::build2_bash_load ();
   in::build2_in_load ();

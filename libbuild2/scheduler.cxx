@@ -20,7 +20,6 @@
 #endif
 
 #include <cerrno>
-#include <exception> // std::terminate()
 
 #include <libbuild2/diagnostics.hxx>
 
@@ -861,12 +860,12 @@ namespace build2
           // thing about abort is if this is not a dependency cycle, then we
           // have a core to examine).
           //
-          error << "detected deadlock that could be caused by a dependency "
-                << "cycle" <<
+          error << "deadlock detected, aborting" <<
+            info << "deadlocks are normally caused by dependency cycles" <<
             info << "re-run with -s to diagnose dependency cycles" <<
-            info << "if not a dependency cycle, please report";
+            info << "if not a dependency cycle, please report as a bug";
 
-          std::terminate ();
+          terminate (false /* trace */);
         }
       }
     }

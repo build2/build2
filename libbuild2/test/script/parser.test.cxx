@@ -154,7 +154,7 @@ namespace build2
         // Fake build system driver, default verbosity.
         //
         init_diag (1);
-        init (argv[0]);
+        init (nullptr, argv[0]);
         sched.startup (1);  // Serial execution.
         reset (strings ()); // No command line variables.
 
