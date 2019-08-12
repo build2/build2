@@ -218,7 +218,7 @@ namespace build2
 
               p = parse_path (move (f), sp.wd_path);
 
-              ifdstream is (p, ifdstream::binary);
+              ifdstream is (p, fdopen_mode::binary);
               copy (is);
               is.close ();
             }
