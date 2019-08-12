@@ -270,7 +270,7 @@ namespace build2
       try
       {
         what = "open"; whom = &ip;
-        ifdstream ifs (ip, fdopen_mode::in, ifdstream::badbit);
+        ifdstream ifs (ip, ifdstream::badbit);
 
         // See fdopen() for details (umask, etc).
         //

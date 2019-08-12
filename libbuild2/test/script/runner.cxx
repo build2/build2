@@ -85,7 +85,7 @@ namespace build2
         {
           try
           {
-            ifdstream is (p, ifdstream::in, ifdstream::badbit);
+            ifdstream is (p, ifdstream::badbit);
 
             if (is.peek () != ifdstream::traits_type::eof ())
             {
@@ -628,7 +628,7 @@ namespace build2
             // Also note that we strip the trailing CR characters (otherwise
             // can mismatch when cross-test).
             //
-            ifdstream is (op, ifdstream::in, ifdstream::badbit);
+            ifdstream is (op, ifdstream::badbit);
             is.peek (); // Sets eofbit for an empty stream.
 
             while (!is.eof ())
