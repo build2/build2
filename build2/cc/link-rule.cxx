@@ -276,13 +276,15 @@ namespace build2
     }
 
     auto link_rule::
-    derive_libs_paths (file& ls, const char* pfx, const char* sfx) const
-      -> libs_paths
+    derive_libs_paths (file& ls,
+                       const char* pfx,
+                       const char* sfx) const -> libs_paths
     {
-      const char* ext (nullptr);
-
       bool win (tclass == "windows");
 
+      // Get default prefix and extension.
+      //
+      const char* ext (nullptr);
       if (win)
       {
         if (tsys == "mingw32")
@@ -392,26 +394,25 @@ namespace build2
 
       append_ext (cp);
 
-      // On Windows the real path is to libs{} and the link path is to the
-      // import library.
+      // On Windows the real path is to libs{} and the link path is empty.
+      // Note that we still need to derive the import library path.
       //
       if (win)
       {
-        // Usually on Windows the import library is called the same as the DLL
-        // but with the .lib extension. Which means it clashes with the static
-        // library. Instead of decorating the static library name with ugly
-        // suffixes (as is customary), let's use the MinGW approach (one must
-        // admit it's quite elegant) and call it .dll.lib.
+        // Usually on Windows with MSVC the import library is called the same
+        // as the DLL but with the .lib extension. Which means it clashes with
+        // the static library. Instead of decorating the static library name
+        // with ugly suffixes (as is customary), let's use the MinGW approach
+        // (one must admit it's quite elegant) and call it .dll.lib.
         //
-        lk = b;
-        append_ext (lk);
-
         libi& li (*find_adhoc_member<libi> (ls));
-        const path& pi (li.path ());
 
-        lk = pi.empty ()
-          ? li.derive_path (move (lk), tsys == "mingw32" ? "a" : "lib")
-          : pi;
+        if (li.path ().empty ())
+        {
+          path ip (b);
+          append_ext (ip);
+          li.derive_path (move (ip), tsys == "mingw32" ? "a" : "lib");
+        }
       }
       else if (!v.empty ())
       {
@@ -2833,7 +2834,9 @@ namespace build2
 
           try
           {
-            if (file_exists (l, false /* follow_symlinks */)) // The -f part.
+            // The -f part.
+            //
+            if (file_exists (l, false /* follow_symlinks */))
               try_rmfile (l);
 
             mksymlink (f, l);

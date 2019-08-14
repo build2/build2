@@ -60,8 +60,8 @@ namespace build2
         // one. Except for intermediate, for which empty indicates that it is
         // not used.
         //
-        // The libs{} path is always the real path. On Windows the link path
-        // is the import library.
+        // The libs{} path is always the real path. On Windows what we link
+        // to is the import library and the link path is empty.
         //
         path        link;   // What we link: libfoo.so
         path        soname; // SONAME:       libfoo-1.so, libfoo.so.1
