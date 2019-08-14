@@ -295,7 +295,7 @@ namespace build2
       {
         const scope& as (t.weak_scope ()); // Amalgamation.
 
-        auto link = [&as, &ad] (const path& f, const path& l)
+        auto link = [&as] (const path& f, const path& l)
         {
           auto print = [&f, &l] (const char* cmd)
           {
