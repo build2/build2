@@ -2573,7 +2573,7 @@ namespace build2
             return true;
           };
 
-          // Doesn't follow symlinks.
+          // Note: doesn't follow symlinks.
           //
           path_search (p, rm, dir_path () /* start */, path_match_flags::none);
         }
@@ -2810,17 +2810,18 @@ namespace build2
           run (rl, args);
       }
 
+      // For Windows generate (or clean up) rpath-emulating assembly.
+      //
       if (tclass == "windows")
       {
-        // For Windows generate (or clean up) rpath-emulating assembly.
-        //
         if (lt.executable ())
           windows_rpath_assembly (t, bs, a, li,
                                   cast<string> (rs[x_target_cpu]),
                                   rpath_timestamp,
                                   scratch);
       }
-      else if (lt.shared_library ())
+
+      if (lt.shared_library ())
       {
         // For shared libraries we may need to create a bunch of symlinks.
         //
@@ -2864,7 +2865,8 @@ namespace build2
         // Apple ar (from cctools) for some reason truncates fractional
         // seconds when running on APFS (HFS has a second resolution so it's
         // not an issue there). This can lead to object files being newer than
-        // the archive, which is naturally bad news. Filed as bug 49604334.
+        // the archive, which is naturally bad news. Filed as bug 49604334,
+        // reportedly fixed in Xcode 11 beta 5.
         //
         // Note that this block is not inside #ifdef __APPLE__ because we
         // could be cross-compiling, theoretically. We also make sure we use
@@ -2909,22 +2911,7 @@ namespace build2
       else
       {
         if (tclass != "windows")
-        {
-          if (lt.shared_library ())
-          {
-            // Here we can have a bunch of symlinks that we need to remove. If
-            // the paths are empty, then they will be ignored.
-            //
-            const libs_paths& paths (md.libs_data);
-
-            extras = {".d",
-                      paths.link.string ().c_str (),
-                      paths.soname.string ().c_str (),
-                      paths.interm.string ().c_str ()};
-          }
-
-          // For executable and static library it's the default.
-        }
+          ; // Everything is the default.
         else if (tsys == "mingw32")
         {
           if (lt.executable ())
@@ -2965,6 +2952,23 @@ namespace build2
 #ifdef _WIN32
         extras.push_back (".t"); // Options file.
 #endif
+        // For shared libraries we may have a bunch of symlinks that we need
+        // to remove.
+        //
+        if (lt.shared_library ())
+        {
+          const libs_paths& lp (md.libs_data);
+
+          auto add = [&extras] (const path& p)
+          {
+            if (!p.empty ())
+              extras.push_back (p.string ().c_str ());
+          };
+
+          add (lp.link);
+          add (lp.soname);
+          add (lp.interm);
+        }
       }
 
       return perform_clean_extra (a, t, extras, adhoc_extras);

@@ -180,8 +180,7 @@ namespace build2
         static_assert (sizeof (link_rule::libs_paths) <= target::data_size,
                        "insufficient space");
 
-        file* f;
-        if ((f = t.is_a<libs> ()) != nullptr && tclass != "windows")
+        if (file* f = t.is_a<libs> ())
         {
           if (!f->path ().empty ()) // Not binless.
           {
@@ -203,7 +202,7 @@ namespace build2
     {
       bool r (false);
 
-      if (t.is_a<libs> () && tclass != "windows")
+      if (t.is_a<libs> ())
       {
         // Here we may have a bunch of symlinks that we need to install.
         //
@@ -235,7 +234,7 @@ namespace build2
     {
       bool r (false);
 
-      if (t.is_a<libs> () && tclass != "windows")
+      if (t.is_a<libs> ())
       {
         // Here we may have a bunch of symlinks that we need to uninstall.
         //
