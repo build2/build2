@@ -306,68 +306,36 @@ namespace build2
           // First we try to create a symlink. If that fails (e.g., "Windows
           // happens"), then we resort to hard links. If that doesn't work
           // out either (e.g., not on the same filesystem), then we fall back
-          // to copies. So things are going to get a bit nested.
+          // to copies.
+          //
+          // For the symlink use a relative target path if both paths are part
+          // of the same amalgamation. This way if the amalgamation is moved
+          // as a whole, the links will remain valid.
           //
           try
           {
-            // For the symlink use a relative target path if both paths are
-            // part of the same amalgamation. This way if the amalgamation is
-            // moved as a whole, the links will remain valid.
-            //
-            if (!dry_run)
+            switch (mkanylink (f, l,
+                               true                   /* copy */,
+                               f.sub (as.out_path ()) /* relative */))
             {
-              if (f.sub (as.out_path ()))
-                mksymlink (f.relative (ad), l);
-              else
-                mksymlink (f, l);
+            case entry_type::regular: print ("cp");    break;
+            case entry_type::symlink: print ("ln -s"); break;
+            case entry_type::other:   print ("ln");    break;
+            default:                  assert (false);
             }
-
-            print ("ln -s");
           }
-          catch (const system_error& e)
+          catch (const pair<entry_type, system_error>& e)
           {
-            // Note: can never end up here on dry-run.
-
-            // Note that we are not guaranteed (here and below) that the
-            // system_error exception is of the generic category.
-            //
-            int c (e.code ().value ());
-            if (!(e.code ().category () == generic_category () &&
-                  (c == ENOSYS || // Not implemented.
-                   c == EPERM)))  // Not supported by the filesystem(s).
+            const char* w (nullptr);
+            switch (e.first)
             {
-              print ("ln -s");
-              fail << "unable to create symlink " << l << ": " << e;
+            case entry_type::regular: print ("cp");    w = "copy";     break;
+            case entry_type::symlink: print ("ln -s"); w = "symlink";  break;
+            case entry_type::other:   print ("ln");    w = "hardlink"; break;
+            default:                  assert (false);
             }
 
-            try
-            {
-              mkhardlink (f, l);
-              print ("ln");
-            }
-            catch (const system_error& e)
-            {
-              c = e.code ().value ();
-              if (!(e.code ().category () == generic_category () &&
-                  (c == ENOSYS || // Not implemented.
-                   c == EPERM  || // Not supported by the filesystem(s).
-                   c == EXDEV)))  // On different filesystems.
-              {
-                print ("ln");
-                fail << "unable to create hardlink " << l << ": " << e;
-              }
-
-              try
-              {
-                cpfile (f, l);
-                print ("cp");
-              }
-              catch (const system_error& e)
-              {
-                print ("cp");
-                fail << "unable to create copy " << l << ": " << e;
-              }
-            }
+            fail << "unable to make " << w << ' ' << l << ": " << e.second;
           }
         };
 

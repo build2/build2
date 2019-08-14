@@ -1192,22 +1192,31 @@ namespace build2
 
     try
     {
-      // Normally will be there.
-      //
-      if (!dry_run)
-        try_rmbacklink (l, m);
-
-      // Skip (ad hoc) targets that don't exist.
-      //
-      if (!(d ? dir_exists (p) : file_exists (p)))
-        return;
-
-      for (; !dry_run; ) // Retry/fallback loop.
       try
       {
+        // Normally will be there.
+        //
+        if (!dry_run)
+          try_rmbacklink (l, m);
+
+        // Skip (ad hoc) targets that don't exist.
+        //
+        if (!(d ? dir_exists (p) : file_exists (p)))
+          return;
+
         switch (m)
         {
         case mode::link:
+          if (!d)
+          {
+            mkanylink (p, l, false /* copy */);
+            break;
+          }
+          // Directory hardlinks are not widely supported so for them we will
+          // only try the symlink.
+          //
+          // Fall through.
+
         case mode::symbolic:  mksymlink  (p, l, d);  break;
         case mode::hard:      mkhardlink (p, l, d);  break;
         case mode::copy:
@@ -1225,8 +1234,8 @@ namespace build2
 
               try_mkdir (to);
 
-              for (const auto& de: dir_iterator (fr,
-                                                 false /* ignore_dangling */))
+              for (const auto& de:
+                     dir_iterator (fr, false /* ignore_dangling */))
               {
                 path f (fr / de.path ());
                 path t (to / de.path ());
@@ -1241,45 +1250,37 @@ namespace build2
             break;
           }
         }
-
-        break; // Success.
       }
-      catch (const system_error& e)
+      catch (system_error& e)
       {
-        // If symlinks not supported, try a hardlink.
+        // Translate to mkanylink()-like failure.
         //
-        if (m == mode::link)
+        entry_type t (entry_type::unknown);
+        switch (m)
         {
-          // Note that we are not guaranteed that the system_error exception
-          // is of the generic category.
-          //
-          int c (e.code ().value ());
-          if (e.code ().category () == generic_category () &&
-              (c == ENOSYS || // Not implemented.
-               c == EPERM))   // Not supported by the filesystem(s).
-          {
-            m = mode::hard;
-            continue;
-          }
+        case mode::link:
+        case mode::symbolic:  t = entry_type::symlink;  break;
+        case mode::hard:      t = entry_type::other;    break;
+        case mode::copy:
+        case mode::overwrite: t = entry_type::regular;  break;
         }
 
-        throw;
+        throw pair<entry_type, system_error> (t, move (e));
       }
     }
-    catch (const system_error& e)
+    catch (const pair<entry_type, system_error>& e)
     {
       const char* w (nullptr);
-      switch (m)
+      switch (e.first)
       {
-      case mode::link:
-      case mode::symbolic:  w = "symbolic link"; break;
-      case mode::hard:      w = "hard link";     break;
-      case mode::copy:
-      case mode::overwrite: w = "copy";          break;
+      case entry_type::regular: w = "copy";     break;
+      case entry_type::symlink: w = "symlink";  break;
+      case entry_type::other:   w = "hardlink"; break;
+      default:                  assert (false);
       }
 
       print ();
-      fail << "unable to make " << w << ' ' << l << ": " << e;
+      fail << "unable to make " << w << ' ' << l << ": " << e.second;
     }
 
     print ();

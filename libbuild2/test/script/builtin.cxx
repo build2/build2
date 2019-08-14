@@ -618,6 +618,8 @@ namespace build2
         // either (e.g., not on the same filesystem), then we fall back to
         // copies. So things are going to get a bit nested.
         //
+        // Note: similar to mkanylink() but with support for directories.
+        //
         try
         {
           mksymlink (target, link, dir);
