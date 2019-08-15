@@ -155,8 +155,8 @@ namespace build2
 
       // Installation/uninstallation "commands".
       //
-      // If verbose is false, then only print the command at verbosity level 2
-      // or higher. Note that these functions respect the dry_run flag.
+      // The verbosity argument specified the level to start printing the
+      // command at. Note that these functions respect the dry_run flag.
 
       // Install a symlink: base/link -> target.
       //
@@ -165,7 +165,7 @@ namespace build2
                  const install_dir& base,
                  const path& target,
                  const path& link,
-                 bool verbose);
+                 uint16_t verbosity = 1);
 
       // Uninstall a file or symlink:
       //
@@ -180,7 +180,7 @@ namespace build2
                    const install_dir& base,
                    const file* target,
                    const path& name,
-                   bool verbose);
+                   uint16_t verbosity = 1);
 
       target_state
       perform_install (action, const target&) const;

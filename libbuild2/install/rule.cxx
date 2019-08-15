@@ -826,7 +826,7 @@ namespace build2
                const install_dir& base,
                const path& target,
                const path& link,
-               bool verbose)
+               uint16_t verbosity)
     {
       path rell (relative (chroot_path (rs, base.dir)));
       rell /= link;
@@ -850,44 +850,43 @@ namespace build2
 
       process_path pp (run_search (args[0]));
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb && verbose)
-        text << "install " << rell << " -> " << target;
+      if (verb >= verbosity)
+      {
+        if (verb >= 2)
+          print_process (args);
+        else if (verb)
+          text << "install " << rell << " -> " << target;
+      }
 
       if (!dry_run)
         run (pp, args);
 #else
-      if (verb >= 2)
-        text << "ln -sf " << target.string () << ' ' << rell.string ();
-      else if (verb && verbose)
-        text << "install " << rell << " -> " << target;
+      // The -f part.
+      //
+      // We use uninstall_f() since reliably removing stuff on Windows is no
+      // easy feat (see uninstall_f() for details).
+      //
+      uninstall_f (rs, base, nullptr /* target */, link, 3 /* verbosity */);
+
+      if (verb >= verbosity)
+      {
+        if (verb >= 2)
+          text << "ln -sf " << target.string () << ' ' << rell.string ();
+        else if (verb)
+          text << "install " << rell << " -> " << target;
+      }
 
       if (!dry_run)
       try
       {
-        try
-        {
-          // The -f part.
-          //
-          if (file_exists (rell, false /* follow_symlinks */))
-            try_rmfile (rell);
-
-          // We have to go the roundabout way by adding directory to the
-          // target and then asking for a relative symlink because it may be a
-          // hardlink in which case the target path will be interpreted from
-          // CWD.
-          //
-          mkanylink (rell.directory () / target,
-                     rell,
-                     true /* copy */,
-                     true /* relative */);
-        }
-        catch (system_error& e)
-        {
-          throw pair<entry_type, system_error> (entry_type::symlink,
-                                                move (e));
-        }
+        // We have to go the roundabout way by adding directory to the target
+        // and then asking for a relative symlink because it may be a hardlink
+        // in which case the target path will be interpreted from CWD.
+        //
+        mkanylink (rell.directory () / target,
+                   rell,
+                   true /* copy */,
+                   true /* relative */);
       }
       catch (const pair<entry_type, system_error>& e)
       {
@@ -1010,7 +1009,7 @@ namespace build2
     uninstall_d (const scope& rs,
                  const install_dir& base,
                  const dir_path& d,
-                 bool verbose)
+                 uint16_t verbosity = 1)
     {
       // See install_d() for the rationale.
       //
@@ -1051,10 +1050,13 @@ namespace build2
 #ifndef _WIN32
         if (base.sudo == nullptr)
         {
-          if (verb >= 2)
-            text << "rmdir " << reld;
-          else if (verb && verbose)
-            text << "uninstall " << reld;
+          if (verb >= verbosity)
+          {
+            if (verb >= 2)
+              text << "rmdir " << reld;
+            else if (verb)
+              text << "uninstall " << reld;
+          }
 
           try
           {
@@ -1078,10 +1080,13 @@ namespace build2
 
           process_path pp (run_search (args[0]));
 
-          if (verb >= 2)
-            print_process (args);
-          else if (verb && verbose)
-            text << "uninstall " << reld;
+          if (verb >= verbosity)
+          {
+            if (verb >= 2)
+              print_process (args);
+            else if (verb)
+              text << "uninstall " << reld;
+          }
 
           run (pp, args);
         }
@@ -1095,7 +1100,7 @@ namespace build2
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          r = uninstall_d (rs, base, pd, verbose) || r;
+          r = uninstall_d (rs, base, pd, verbosity) || r;
       }
 
       return r;
@@ -1106,7 +1111,7 @@ namespace build2
                  const install_dir& base,
                  const file* t,
                  const path& name,
-                 bool verbose)
+                 uint16_t verbosity)
     {
       assert (t != nullptr || !name.empty ());
       path f (chroot_path (rs, base.dir) /
@@ -1127,7 +1132,7 @@ namespace build2
 
       path relf (relative (f));
 
-      if (verb == 1 && verbose)
+      if (verb >= verbosity && verb == 1)
       {
         if (t != nullptr)
           text << "uninstall " << *t;
@@ -1141,7 +1146,7 @@ namespace build2
 #ifndef _WIN32
       if (base.sudo == nullptr)
       {
-        if (verb >= 2)
+        if (verb >= verbosity && verb >= 2)
           text << "rm " << relf;
 
         if (!dry_run)
@@ -1170,7 +1175,7 @@ namespace build2
 
         process_path pp (run_search (args[0]));
 
-        if (verb >= 2)
+        if (verb >= verbosity && verb >= 2)
           print_process (args);
 
         if (!dry_run)
@@ -1194,7 +1199,7 @@ namespace build2
 
       auto uninstall_target = [&rs, this] (const file& t,
                                            const path& p,
-                                           bool verbose) -> target_state
+                                           uint16_t verbosity) -> target_state
       {
         bool n (!p.to_directory ());
         dir_path d (n ? p.directory () : path_cast<dir_path> (p));
@@ -1222,7 +1227,7 @@ namespace build2
                         ? target_state::changed
                         : target_state::unchanged);
 
-        if (uninstall_f (rs, id, &t, n ? p.leaf () : path (), verbose))
+        if (uninstall_f (rs, id, &t, n ? p.leaf () : path (), verbosity))
           r |= target_state::changed;
 
         // Clean up empty leading directories (in reverse).
@@ -1232,7 +1237,7 @@ namespace build2
         //
         for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
         {
-          if (install::uninstall_d (rs, ++j != e ? *j : *i, i->dir, verbose))
+          if (install::uninstall_d (rs, ++j != e ? *j : *i, i->dir, verbosity))
             r |= target_state::changed;
         }
 
@@ -1245,7 +1250,7 @@ namespace build2
       target_state r (target_state::unchanged);
 
       if (!tp.empty ())
-        r |= uninstall_target (t, cast<path> (t["install"]), true);
+        r |= uninstall_target (t, cast<path> (t["install"]), 1);
 
       // Then installable ad hoc group members, if any. To be anally precise
       // we would have to do it in reverse, but that's not easy (it's a
@@ -1254,9 +1259,10 @@ namespace build2
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
         if (const path* p = lookup_install<path> (*m, "install"))
-          r |= uninstall_target (m->as<file> (),
-                                 *p,
-                                 tp.empty () || r != target_state::changed);
+          r |= uninstall_target (
+            m->as<file> (),
+            *p,
+            tp.empty () || r != target_state::changed ? 1 : 2);
       }
 
       // Finally handle installable prerequisites.

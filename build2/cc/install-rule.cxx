@@ -211,7 +211,7 @@ namespace build2
 
         auto ln = [&rs, &id] (const path& f, const path& l)
         {
-          install_l (rs, id, f.leaf (), l.leaf (), false);
+          install_l (rs, id, f.leaf (), l.leaf (), 2 /* verbosity */);
           return true;
         };
 
@@ -245,7 +245,7 @@ namespace build2
 
         auto rm = [&rs, &id] (const path& l)
         {
-          return uninstall_f (rs, id, nullptr, l.leaf (), false);
+          return uninstall_f (rs, id, nullptr, l.leaf (), 2 /* verbosity */);
         };
 
         const path& lk (lp.link);
