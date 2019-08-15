@@ -117,7 +117,7 @@ namespace build2
 
         bool binless; // Binary-less library.
 
-        libs_paths libs_data;
+        link_rule::libs_paths libs_paths;
       };
 
       // Library handling.

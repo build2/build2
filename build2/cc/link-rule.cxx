@@ -846,7 +846,7 @@ namespace build2
                   add_adhoc_member<libi> (t);
                 }
 
-                md.libs_data = derive_libs_paths (t, p, s);
+                md.libs_paths = derive_libs_paths (t, p, s);
               }
 
               break;
@@ -2098,7 +2098,7 @@ namespace build2
           //
           if (lt.shared_library ())
           {
-            const libs_paths& paths (md.libs_data);
+            const libs_paths& paths (md.libs_paths);
             const string& leaf (paths.effect_soname ().leaf ().string ());
 
             if (tclass == "macos")
@@ -2544,7 +2544,7 @@ namespace build2
       //
       if (lt.shared_library ())
       {
-        const libs_paths& paths (md.libs_data);
+        const libs_paths& paths (md.libs_paths);
         const path& p (paths.clean);
 
         if (!p.empty ())
@@ -2874,7 +2874,7 @@ namespace build2
           }
         };
 
-        const libs_paths& paths (md.libs_data);
+        const libs_paths& paths (md.libs_paths);
 
         const path& lk (paths.link);
         const path& ld (paths.load);
@@ -2985,7 +2985,7 @@ namespace build2
         //
         if (lt.shared_library ())
         {
-          const libs_paths& lp (md.libs_data);
+          const libs_paths& lp (md.libs_paths);
 
           auto add = [&extras] (const path& p)
           {
