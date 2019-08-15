@@ -873,7 +873,15 @@ namespace build2
           if (file_exists (target, false /* follow_symlinks */))
             try_rmfile (target);
 
-          mkanylink (target, rell, true /* copy */);
+          // We have to go the roundabout way by adding directory to the
+          // target and then asking for a relative symlink because it may be a
+          // hardlink in which case the target path will be interpreted from
+          // CWD.
+          //
+          mkanylink (rell.directory () / target,
+                     rell,
+                     true /* copy */,
+                     true /* relative */);
         }
         catch (system_error& e)
         {

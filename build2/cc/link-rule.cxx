@@ -2855,7 +2855,7 @@ namespace build2
               if (file_exists (l, false /* follow_symlinks */))
                 try_rmfile (l);
 
-              mkanylink (f, l, true /* copy */);
+              mkanylink (f, l, true /* copy */, true /* relative */);
             }
             catch (system_error& e)
             {
@@ -2883,10 +2883,10 @@ namespace build2
 
         const path* f (paths.real);
 
-        if (!in.empty ()) {ln (f->leaf (), in); f = &in;}
-        if (!so.empty ()) {ln (f->leaf (), so); f = &so;}
-        if (!ld.empty ()) {ln (f->leaf (), ld); f = &ld;}
-        if (!lk.empty ()) {ln (f->leaf (), lk);}
+        if (!in.empty ()) {ln (*f, in); f = &in;}
+        if (!so.empty ()) {ln (*f, so); f = &so;}
+        if (!ld.empty ()) {ln (*f, ld); f = &ld;}
+        if (!lk.empty ()) {ln (*f, lk);}
       }
       else if (lt.static_library ())
       {
