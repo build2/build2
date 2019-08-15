@@ -413,6 +413,10 @@ namespace build2
           append_ext (ip);
           li.derive_path (move (ip), tsys == "mingw32" ? "a" : "lib");
         }
+
+        //@@ TMP
+        lk = b;
+        append_ext (lk);
       }
       else if (!v.empty ())
       {
@@ -2823,7 +2827,8 @@ namespace build2
 
       if (lt.shared_library ())
       {
-        // For shared libraries we may need to create a bunch of symlinks.
+        // For shared libraries we may need to create a bunch of symlinks (or
+        // fallback to hardlinks/copies on Windows).
         //
         auto ln = [] (const path& f, const path& l)
         {
@@ -2835,16 +2840,29 @@ namespace build2
 
           try
           {
-            // The -f part.
-            //
-            if (file_exists (l, false /* follow_symlinks */))
-              try_rmfile (l);
+            try
+            {
+              // The -f part.
+              //
+              if (file_exists (l, false /* follow_symlinks */))
+                try_rmfile (l);
 
-            mksymlink (f, l);
+              mkanylink (f, l, true /* copy */);
+            }
+            catch (system_error& e)
+            {
+              throw pair<entry_type, system_error> (entry_type::symlink,
+                                                    move (e));
+            }
           }
-          catch (const system_error& e)
+          catch (const pair<entry_type, system_error>& e)
           {
-            fail << "unable to create symlink " << l << ": " << e;
+            const char* w (e.first == entry_type::regular ? "copy"     :
+                           e.first == entry_type::symlink ? "symlink"  :
+                           e.first == entry_type::other   ? "hardlink" :
+                           nullptr);
+
+            fail << "unable to make " << w << ' ' << l << ": " << e.second;
           }
         };
 

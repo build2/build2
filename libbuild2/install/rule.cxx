@@ -834,8 +834,10 @@ namespace build2
       // We can create a symlink directly without calling ln. This, however,
       // won't work if we have sudo. Also, we would have to deal with existing
       // destinations (ln's -f takes care of that). So we are just going to
-      // always use ln.
+      // always (sudo or not) use ln unless we are on Windows, where we will
+      // use mkanylink().
       //
+#ifndef _WIN32
       const char* args_a[] = {
         base.sudo != nullptr ? base.sudo->c_str () : nullptr,
         "ln",
@@ -855,6 +857,40 @@ namespace build2
 
       if (!dry_run)
         run (pp, args);
+#else
+      if (verb >= 2)
+        text << "ln -sf " << target.string () << ' ' << rell.string ();
+      else if (verb && verbose)
+        text << "install " << rell << " -> " << target;
+
+      if (!dry_run)
+      try
+      {
+        try
+        {
+          // The -f part.
+          //
+          if (file_exists (target, false /* follow_symlinks */))
+            try_rmfile (target);
+
+          mkanylink (target, rell, true /* copy */);
+        }
+        catch (system_error& e)
+        {
+          throw pair<entry_type, system_error> (entry_type::symlink,
+                                                move (e));
+        }
+      }
+      catch (const pair<entry_type, system_error>& e)
+      {
+        const char* w (e.first == entry_type::regular ? "copy"     :
+                       e.first == entry_type::symlink ? "symlink"  :
+                       e.first == entry_type::other   ? "hardlink" :
+                       nullptr);
+
+        fail << "unable to make " << w << ' ' << target << ": " << e.second;
+      }
+#endif
     }
 
     target_state file_rule::
@@ -1001,7 +1037,8 @@ namespace build2
         // have sudo. So we are going to do it both ways.
         //
         // While there is no sudo on Windows, deleting things that are being
-        // used can get complicated. So we will always use rm/rmdir there.
+        // used can get complicated. So we will always use rm/rmdir from
+        // MSYS2/Cygwin which go above and beyond to accomplish the mission.
         //
 #ifndef _WIN32
         if (base.sudo == nullptr)
@@ -1090,7 +1127,8 @@ namespace build2
           text << "uninstall " << relf;
       }
 
-      // The same story as with uninstall -d.
+      // The same story as with uninstall -d (on Windows rm is also from
+      // MSYS2/Cygwin).
       //
 #ifndef _WIN32
       if (base.sudo == nullptr)

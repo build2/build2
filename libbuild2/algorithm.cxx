@@ -1270,15 +1270,9 @@ namespace build2
     }
     catch (const pair<entry_type, system_error>& e)
     {
-      const char* w (nullptr);
-      switch (e.first)
-      {
-      case entry_type::regular: w = "copy";     break;
-      case entry_type::symlink: w = "symlink";  break;
-      case entry_type::other:   w = "hardlink"; break;
-      default:                  assert (false);
-      }
-
+      const char* w (e.first == entry_type::regular ? "copy"     :
+                     e.first == entry_type::symlink ? "symlink"  :
+                     e.first == entry_type::other   ? "hardlink" : nullptr);
       print ();
       fail << "unable to make " << w << ' ' << l << ": " << e.second;
     }
