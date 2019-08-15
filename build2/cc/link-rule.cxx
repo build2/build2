@@ -365,7 +365,7 @@ namespace build2
 
       // Now determine the paths.
       //
-      path lk, so, in;
+      path lk, ld, so, in;
 
       // We start with the basic path.
       //
@@ -418,12 +418,25 @@ namespace build2
         append_ext (lk);
       }
 
+      // See if we need the load name.
+      //
+      if (const string* s = cast_null<string> (ls["bin.lib.load_suffix"]))
+      {
+        if (!s->empty ())
+        {
+          b += *s;
+          ld = b;
+          append_ext (ld);
+        }
+      }
+
       if (!v.empty ())
         b += v;
 
       const path& re (ls.derive_path (move (b)));
 
-      return libs_paths {move (lk), move (so), move (in), &re, move (cp)};
+      return libs_paths {
+        move (lk), move (ld), move (so), move (in), &re, move (cp)};
     }
 
     // Look for binary-full utility library recursively until we hit a
@@ -2553,10 +2566,11 @@ namespace build2
                 return s.empty () || m.string ().compare (0, s.size (), s) != 0;
               };
 
-              if (test (*paths.real)  &&
-                  test (paths.interm) &&
-                  test (paths.soname) &&
-                  test (paths.link))
+              if (test (*paths.real)   &&
+                  test ( paths.interm) &&
+                  test ( paths.soname) &&
+                  test ( paths.load)   &&
+                  test ( paths.link))
               {
                 try_rmfile (m);
                 try_rmfile (m + ".d");
@@ -2863,6 +2877,7 @@ namespace build2
         const libs_paths& paths (md.libs_data);
 
         const path& lk (paths.link);
+        const path& ld (paths.load);
         const path& so (paths.soname);
         const path& in (paths.interm);
 
@@ -2870,6 +2885,7 @@ namespace build2
 
         if (!in.empty ()) {ln (f->leaf (), in); f = &in;}
         if (!so.empty ()) {ln (f->leaf (), so); f = &so;}
+        if (!ld.empty ()) {ln (f->leaf (), ld); f = &ld;}
         if (!lk.empty ()) {ln (f->leaf (), lk);}
       }
       else if (lt.static_library ())
@@ -2978,6 +2994,7 @@ namespace build2
           };
 
           add (lp.link);
+          add (lp.load);
           add (lp.soname);
           add (lp.interm);
         }

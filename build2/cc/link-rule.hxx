@@ -57,13 +57,18 @@ namespace build2
       struct libs_paths
       {
         // If any (except real) is empty, then it is the same as the next
-        // one. Except for intermediate, for which empty indicates that it is
-        // not used.
+        // one. Except for load and intermediate, for which empty indicates
+        // that it is not used.
+        //
+        // Note that the paths must form a "hierarchy" with subsequent paths
+        // adding extra information as suffixes. This is relied upon by the
+        // clean pattern (see below).
         //
         // The libs{} path is always the real path. On Windows what we link
         // to is the import library and the link path is empty.
         //
         path        link;   // What we link: libfoo.so
+        path        load;   // What we load (with dlopen() or similar)
         path        soname; // SONAME:       libfoo-1.so, libfoo.so.1
         path        interm; // Intermediate: libfoo.so.1.2
         const path* real;   // Real:         libfoo.so.1.2.3

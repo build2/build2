@@ -118,10 +118,13 @@ namespace build2
       //
       vp.insert<bool>      ("bin.whole", false, variable_visibility::target);
 
-      vp.insert<string>    ("bin.lib.prefix");
-      vp.insert<string>    ("bin.lib.suffix");
       vp.insert<string>    ("bin.exe.prefix");
       vp.insert<string>    ("bin.exe.suffix");
+      vp.insert<string>    ("bin.lib.prefix");
+      vp.insert<string>    ("bin.lib.suffix");
+
+      vp.insert<string>    ("bin.lib.load_suffix",
+                            variable_visibility::project);
 
       vp.insert<map<string, string>> ("bin.lib.version",
                                       variable_visibility::project);

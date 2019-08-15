@@ -216,6 +216,7 @@ namespace build2
         };
 
         const path& lk (lp.link);
+        const path& ld (lp.load);
         const path& so (lp.soname);
         const path& in (lp.interm);
 
@@ -223,6 +224,7 @@ namespace build2
 
         if (!in.empty ()) {r = ln (*f, in) || r; f = &in;}
         if (!so.empty ()) {r = ln (*f, so) || r; f = &so;}
+        if (!ld.empty ()) {r = ln (*f, ld) || r; f = &ld;}
         if (!lk.empty ()) {r = ln (*f, lk) || r;         }
       }
 
@@ -247,10 +249,12 @@ namespace build2
         };
 
         const path& lk (lp.link);
+        const path& ld (lp.load);
         const path& so (lp.soname);
         const path& in (lp.interm);
 
         if (!lk.empty ()) r = rm (lk) || r;
+        if (!ld.empty ()) r = rm (ld) || r;
         if (!so.empty ()) r = rm (so) || r;
         if (!in.empty ()) r = rm (in) || r;
       }
