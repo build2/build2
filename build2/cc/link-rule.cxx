@@ -370,28 +370,22 @@ namespace build2
       // We start with the basic path.
       //
       path b (ls.dir);
-      path cp; // Clean pattern.
+
+      if (pfx != nullptr && pfx[0] != '\0')
       {
-        if (pfx == nullptr || pfx[0] == '\0')
-        {
-          b /= ls.name;
-        }
-        else
-        {
-          b /= pfx;
-          b += ls.name;
-        }
-
-        cp = b;
-        cp += "?*"; // Don't match empty (like the libfoo.so symlink).
-
-        if (sfx != nullptr)
-        {
-          b += sfx;
-          cp += sfx;
-        }
+        b /= pfx;
+        b += ls.name;
       }
+      else
+        b /= ls.name;
 
+      if (sfx != nullptr && sfx[0] != '\0')
+        b += sfx;
+
+      // Clean pattern.
+      //
+      path cp (b);
+      cp += "?*"; // Don't match empty (like the libfoo.so symlink).
       append_ext (cp);
 
       // On Windows the real path is to libs{} and the link path is empty.
