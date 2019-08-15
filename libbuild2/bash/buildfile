@@ -50,10 +50,15 @@ libs{build2-bash}: cxx.export.poptions += -DLIBBUILD2_BASH_SHARED
 # in place of another pre-release or the final version. See the version module
 # for details on the version.* variable values.
 #
-if $version.pre_release
-  lib{build2-bash}: bin.lib.version = @"-$version.project_id"
-else
-  lib{build2-bash}: bin.lib.version = @"-$version.major.$version.minor"
+# And seeing that this is a build system module, we also embed the same
+# version as the build system core version.
+#
+ver = ($version.pre_release    \
+       ? "$version.project_id" \
+       : "$version.major.$version.minor")
+
+lib{build2-bash}: bin.lib.version = @"-$ver"
+libs{build2-bash}: bin.lib.load_suffix = "-$ver"
 
 # Install into the libbuild2/bash/ subdirectory of, say, /usr/include/
 # recreating subdirectories.
