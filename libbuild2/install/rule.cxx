@@ -870,8 +870,8 @@ namespace build2
         {
           // The -f part.
           //
-          if (file_exists (target, false /* follow_symlinks */))
-            try_rmfile (target);
+          if (file_exists (rell, false /* follow_symlinks */))
+            try_rmfile (rell);
 
           // We have to go the roundabout way by adding directory to the
           // target and then asking for a relative symlink because it may be a
@@ -896,7 +896,7 @@ namespace build2
                        e.first == entry_type::other   ? "hardlink" :
                        nullptr);
 
-        fail << "unable to make " << w << ' ' << target << ": " << e.second;
+        fail << "unable to make " << w << ' ' << rell << ": " << e.second;
       }
 #endif
     }
