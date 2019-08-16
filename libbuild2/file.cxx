@@ -1570,10 +1570,8 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      fail (loc) << "unable to read buildfile " << es << ": " << e;
+      fail (loc) << "unable to read buildfile " << es << ": " << e << endf;
     }
-
-    return names (); // Never reached.
   }
 
   const target*

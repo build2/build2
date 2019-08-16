@@ -1812,9 +1812,9 @@ namespace build2
       if (n.pair)
         fail (l) << "unexpected pair in import";
 
-      // build2::import() will check the name, if required.
+      // import() will check the name, if required.
       //
-      names r (build2::import (*scope_, move (n), l));
+      names r (import (*scope_, move (n), l));
 
       if (val != nullptr)
       {
@@ -1850,7 +1850,7 @@ namespace build2
       fail (t) << "export outside export stub";
 
     // The rest is a value. Parse it as a variable value to get expansion,
-    // attributes, etc. build2::import() will check the names, if required.
+    // attributes, etc. Note that import() will check the names, if required.
     //
     location l (get_location (t));
     value rhs (parse_variable_value (t, tt));

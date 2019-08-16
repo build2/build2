@@ -203,25 +203,22 @@ namespace build2
   LIBBUILD2_SYMEXPORT pair<value, bool>
   extract_variable (const path&, const variable&);
 
-  // Import has two phases: the first is triggered by the import
-  // directive in the buildfile. It will try to find and load the
-  // project. Failed that, it will return the project-qualified
-  // name of the target which will be used to create a project-
-  // qualified prerequisite. This gives the rule that will be
-  // searching this prerequisite a chance to do some target-type
-  // specific search. For example, a C++ link rule can search
-  // for lib{} prerequisites in the C++ compiler default library
-  // search paths (so that we end up with functionality identical
-  // to -lfoo). If, however, the rule didn't do any of that (or
-  // failed to find anything usable), it calls the standard
-  // prerequisite search() function which sees this is a project-
-  // qualified prerequisite and goes straight to the second phase
-  // of import. Here, currently, we simply fail but in the future
-  // this will be the place where we can call custom "last resort"
-  // import hooks. For example, we can hook a package manager that
-  // will say, "Hey, I see you are trying to import foo and I see
-  // there is a package foo available in repository bar. Wanna
-  // download and use it?"
+  // Import has two phases: the first is triggered by the import directive in
+  // the buildfile. It will try to find and load the project. Failed that, it
+  // will return the project-qualified name of the target which will be used
+  // to create a project-qualified prerequisite. This gives the rule that will
+  // be searching this prerequisite a chance to do some target-type specific
+  // search. For example, a C++ link rule can search for lib{} prerequisites
+  // in the C++ compiler default library search paths (so that we end up with
+  // functionality identical to -lfoo). If, however, the rule didn't do any of
+  // that (or failed to find anything usable), it calls the standard
+  // prerequisite search() function which sees this is a project-qualified
+  // prerequisite and goes straight to the second phase of import. Here,
+  // currently, we simply fail but in the future this will be the place where
+  // we can call custom "last resort" import hooks. For example, we can hook a
+  // package manager that will say, "Hey, dude, I see you are trying to import
+  // foo and I see there is a package foo available in repository bar. Wanna,
+  // like, download and use it or something?"
   //
   LIBBUILD2_SYMEXPORT names
   import (scope& base, name, const location&);
