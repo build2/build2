@@ -479,7 +479,7 @@ namespace build2
 
       file& t (xt.as<file> ());
 
-      // Note that for-install is signalled by install_rule and therefore
+      // Note that for_install is signalled by install_rule and therefore
       // can only be relied upon during execute.
       //
       match_data& md (t.data (match_data ()));
@@ -881,7 +881,7 @@ namespace build2
           //
           // Note that we do it regardless of whether we are installing or not
           // for two reasons. Firstly, it is not easy to detect this situation
-          // here since the for-install hasn't yet been communicated by
+          // here since the for_install hasn't yet been communicated by
           // install_rule. Secondly, always having this member takes care of
           // cleanup automagically. The actual generation happens in
           // perform_update() below.
