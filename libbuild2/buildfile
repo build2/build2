@@ -97,7 +97,7 @@ test/script/
   {
     cli.cxx{builtin-options}: cli{builtin}
 
-    cli.options += -I $src_root --include-with-brackets \
+    cli.options += --std c++11 -I $src_root --include-with-brackets \
 --include-prefix libbuild2/test/script --guard-prefix LIBBUILD2_TEST_SCRIPT \
 --cli-namespace build2::test::script::cli --generate-vector-scanner \
 --generate-specifier --suppress-usage
