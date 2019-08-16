@@ -276,7 +276,7 @@ namespace build2
     }
 
     auto link_rule::
-    derive_libs_paths (file& ls,
+    derive_libs_paths (file& t,
                        const char* pfx,
                        const char* sfx) const -> libs_paths
     {
@@ -308,7 +308,7 @@ namespace build2
 
       // First sort out which extension we are using.
       //
-      const string& e (ls.derive_extension (ext));
+      const string& e (t.derive_extension (ext));
 
       auto append_ext = [&e] (path& p)
       {
@@ -319,11 +319,15 @@ namespace build2
         }
       };
 
+      // See if we have the load suffix.
+      //
+      const string& ls (cast_empty<string> (t["bin.lib.load_suffix"]));
+
       // Figure out the version.
       //
-      string v;
+      string ver;
       using verion_map = map<string, string>;
-      if (const verion_map* m = cast_null<verion_map> (ls["bin.lib.version"]))
+      if (const verion_map* m = cast_null<verion_map> (t["bin.lib.version"]))
       {
         // First look for the target system.
         //
@@ -360,7 +364,7 @@ namespace build2
             info << "considere adding " << tsys << "@<ver> or " << tclass
                << "@<ver>";
 
-        v = i->second;
+        ver = i->second;
       }
 
       // Now determine the paths.
@@ -369,15 +373,15 @@ namespace build2
 
       // We start with the basic path.
       //
-      path b (ls.dir);
+      path b (t.dir);
 
       if (pfx != nullptr && pfx[0] != '\0')
       {
         b /= pfx;
-        b += ls.name;
+        b += t.name;
       }
       else
-        b /= ls.name;
+        b /= t.name;
 
       if (sfx != nullptr && sfx[0] != '\0')
         b += sfx;
@@ -399,41 +403,43 @@ namespace build2
         // with ugly suffixes (as is customary), let's use the MinGW approach
         // (one must admit it's quite elegant) and call it .dll.lib.
         //
-        libi& li (*find_adhoc_member<libi> (ls));
+        libi& i (*find_adhoc_member<libi> (t));
 
-        if (li.path ().empty ())
+        if (i.path ().empty ())
         {
           path ip (b);
           append_ext (ip);
-          li.derive_path (move (ip), tsys == "mingw32" ? "a" : "lib");
+          i.derive_path (move (ip), tsys == "mingw32" ? "a" : "lib");
         }
-
-        //@@ TMP
-        lk = b;
-        append_ext (lk);
       }
-      else if (!v.empty ())
-      {
-        lk = b;
-        append_ext (lk);
-      }
-
-      // See if we need the load name.
+      // We will only need the link name if the following name differs.
       //
-      if (const string* s = cast_null<string> (ls["bin.lib.load_suffix"]))
+      //@@ TMP
+      /*else*/ if (!ver.empty () || !ls.empty ())
       {
-        if (!s->empty ())
+        lk = b;
+        append_ext (lk);
+      }
+
+      // See if we have the load suffix.
+      //
+      if (!ls.empty ())
+      {
+        b += ls;
+
+        // We will only need the load name if the following name differs.
+        //
+        if (!ver.empty ())
         {
-          b += *s;
           ld = b;
           append_ext (ld);
         }
       }
 
-      if (!v.empty ())
-        b += v;
+      if (!ver.empty ())
+        b += ver;
 
-      const path& re (ls.derive_path (move (b)));
+      const path& re (t.derive_path (move (b)));
 
       return libs_paths {
         move (lk), move (ld), move (so), move (in), &re, move (cp)};
