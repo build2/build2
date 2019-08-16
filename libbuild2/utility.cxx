@@ -143,7 +143,6 @@ namespace build2
         else if (rb.sub (home))
           return "~/" + rb.leaf (home).representation ();
       }
-
 #endif
 
       return move (rb).representation ();
@@ -515,6 +514,13 @@ namespace build2
       fail << "invalid current working directory: " << e;
     }
 
-    home = dir_path::home_directory ();
+    try
+    {
+      home = dir_path::home_directory ();
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to obtain home directory: " << e;
+    }
   }
 }

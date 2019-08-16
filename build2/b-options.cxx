@@ -476,6 +476,12 @@ namespace build2
 
         xs = true;
       }
+
+      static void
+      merge (X& b, const X& a)
+      {
+        b = a;
+      }
     };
 
     template <>
@@ -486,6 +492,12 @@ namespace build2
       {
         s.next ();
         x = true;
+      }
+
+      static void
+      merge (bool& b, const bool&)
+      {
+        b = true;
       }
     };
 
@@ -504,6 +516,12 @@ namespace build2
 
         xs = true;
       }
+
+      static void
+      merge (std::string& b, const std::string& a)
+      {
+        b = a;
+      }
     };
 
     template <typename X>
@@ -518,6 +536,12 @@ namespace build2
         c.push_back (x);
         xs = true;
       }
+
+      static void
+      merge (std::vector<X>& b, const std::vector<X>& a)
+      {
+        b.insert (b.end (), a.begin (), a.end ());
+      }
     };
 
     template <typename X>
@@ -531,6 +555,12 @@ namespace build2
         parser<X>::parse (x, dummy, s);
         c.insert (x);
         xs = true;
+      }
+
+      static void
+      merge (std::set<X>& b, const std::set<X>& a)
+      {
+        b.insert (a.begin (), a.end ());
       }
     };
 
@@ -579,6 +609,15 @@ namespace build2
           throw missing_value (o);
 
         xs = true;
+      }
+
+      static void
+      merge (std::map<K, V>& b, const std::map<K, V>& a)
+      {
+        for (typename std::map<K, V>::const_iterator i (a.begin ()); 
+             i != a.end (); 
+             ++i)
+          b[i->first] = i->second;
       }
     };
 
@@ -644,6 +683,7 @@ namespace build2
     pager_specified_ (false),
     pager_option_ (),
     pager_option_specified_ (false),
+    no_default_options_ (),
     help_ (),
     version_ ()
   {
@@ -710,6 +750,191 @@ namespace build2
   {
     bool r = _parse (s, opt, arg);
     return r;
+  }
+
+  void options::
+  merge (const options& a)
+  {
+    CLI_POTENTIALLY_UNUSED (a);
+
+    if (a.v_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->v_, a.v_);
+    }
+
+    if (a.V_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->V_, a.V_);
+    }
+
+    if (a.quiet_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->quiet_, a.quiet_);
+    }
+
+    if (a.verbose_specified_)
+    {
+      ::build2::cl::parser< uint16_t>::merge (
+        this->verbose_, a.verbose_);
+      this->verbose_specified_ = true;
+    }
+
+    if (a.stat_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->stat_, a.stat_);
+    }
+
+    if (a.dump_specified_)
+    {
+      ::build2::cl::parser< std::set<string>>::merge (
+        this->dump_, a.dump_);
+      this->dump_specified_ = true;
+    }
+
+    if (a.progress_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->progress_, a.progress_);
+    }
+
+    if (a.no_progress_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->no_progress_, a.no_progress_);
+    }
+
+    if (a.jobs_specified_)
+    {
+      ::build2::cl::parser< size_t>::merge (
+        this->jobs_, a.jobs_);
+      this->jobs_specified_ = true;
+    }
+
+    if (a.max_jobs_specified_)
+    {
+      ::build2::cl::parser< size_t>::merge (
+        this->max_jobs_, a.max_jobs_);
+      this->max_jobs_specified_ = true;
+    }
+
+    if (a.queue_depth_specified_)
+    {
+      ::build2::cl::parser< size_t>::merge (
+        this->queue_depth_, a.queue_depth_);
+      this->queue_depth_specified_ = true;
+    }
+
+    if (a.max_stack_specified_)
+    {
+      ::build2::cl::parser< size_t>::merge (
+        this->max_stack_, a.max_stack_);
+      this->max_stack_specified_ = true;
+    }
+
+    if (a.serial_stop_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->serial_stop_, a.serial_stop_);
+    }
+
+    if (a.dry_run_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->dry_run_, a.dry_run_);
+    }
+
+    if (a.match_only_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->match_only_, a.match_only_);
+    }
+
+    if (a.structured_result_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->structured_result_, a.structured_result_);
+    }
+
+    if (a.mtime_check_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->mtime_check_, a.mtime_check_);
+    }
+
+    if (a.no_mtime_check_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->no_mtime_check_, a.no_mtime_check_);
+    }
+
+    if (a.no_column_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->no_column_, a.no_column_);
+    }
+
+    if (a.no_line_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->no_line_, a.no_line_);
+    }
+
+    if (a.buildfile_specified_)
+    {
+      ::build2::cl::parser< path>::merge (
+        this->buildfile_, a.buildfile_);
+      this->buildfile_specified_ = true;
+    }
+
+    if (a.config_guess_specified_)
+    {
+      ::build2::cl::parser< path>::merge (
+        this->config_guess_, a.config_guess_);
+      this->config_guess_specified_ = true;
+    }
+
+    if (a.config_sub_specified_)
+    {
+      ::build2::cl::parser< path>::merge (
+        this->config_sub_, a.config_sub_);
+      this->config_sub_specified_ = true;
+    }
+
+    if (a.pager_specified_)
+    {
+      ::build2::cl::parser< string>::merge (
+        this->pager_, a.pager_);
+      this->pager_specified_ = true;
+    }
+
+    if (a.pager_option_specified_)
+    {
+      ::build2::cl::parser< strings>::merge (
+        this->pager_option_, a.pager_option_);
+      this->pager_option_specified_ = true;
+    }
+
+    if (a.no_default_options_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->no_default_options_, a.no_default_options_);
+    }
+
+    if (a.help_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->help_, a.help_);
+    }
+
+    if (a.version_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->version_, a.version_);
+    }
   }
 
   ::build2::cl::usage_para options::
@@ -899,6 +1124,9 @@ namespace build2
        << "                     this option to specify multiple pager options." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--no-default-options\033[0m Don't load default options files." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--help\033[0m               Print usage information and exit." << ::std::endl;
 
     os << std::endl
@@ -995,6 +1223,8 @@ namespace build2
       _cli_options_map_["--pager-option"] = 
       &::build2::cl::thunk< options, strings, &options::pager_option_,
         &options::pager_option_specified_ >;
+      _cli_options_map_["--no-default-options"] = 
+      &::build2::cl::thunk< options, bool, &options::no_default_options_ >;
       _cli_options_map_["--help"] = 
       &::build2::cl::thunk< options, bool, &options::help_ >;
       _cli_options_map_["--version"] = 

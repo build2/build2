@@ -422,6 +422,12 @@ namespace build2
            ::build2::cl::unknown_mode option = ::build2::cl::unknown_mode::fail,
            ::build2::cl::unknown_mode argument = ::build2::cl::unknown_mode::stop);
 
+    // Merge options from the specified instance appending/overriding
+    // them as if they appeared after options in this instance.
+    //
+    void
+    merge (const options&);
+
     // Option accessors.
     //
     const bool&
@@ -533,6 +539,9 @@ namespace build2
     pager_option_specified () const;
 
     const bool&
+    no_default_options () const;
+
+    const bool&
     help () const;
 
     const bool&
@@ -593,6 +602,7 @@ namespace build2
     bool pager_specified_;
     strings pager_option_;
     bool pager_option_specified_;
+    bool no_default_options_;
     bool help_;
     bool version_;
   };

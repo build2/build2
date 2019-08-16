@@ -622,6 +622,11 @@ namespace build2
        specify multiple pager options."
     }
 
+    bool --no-default-options
+    {
+      "Don't load default options files."
+    }
+
     bool --help {"Print usage information and exit."}
     bool --version {"Print version and exit."}
   };

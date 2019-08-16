@@ -477,6 +477,12 @@ namespace build2
   }
 
   inline const bool& options::
+  no_default_options () const
+  {
+    return this->no_default_options_;
+  }
+
+  inline const bool& options::
   help () const
   {
     return this->help_;

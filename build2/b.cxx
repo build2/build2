@@ -19,8 +19,9 @@
 #include <exception> // terminate(), set_terminate(), terminate_handler
 
 #include <libbutl/pager.mxx>
-#include <libbutl/fdstream.mxx>  // stderr_fd(), fdterm()
-#include <libbutl/backtrace.mxx> // backtrace()
+#include <libbutl/fdstream.mxx>        // stderr_fd(), fdterm()
+#include <libbutl/backtrace.mxx>       // backtrace()
+#include <libbutl/default-options.mxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -225,6 +226,18 @@ main (int argc, char* argv[])
   //
   try
   {
+    // Note that the diagnostics verbosity level can only be calculated after
+    // default options are loaded and merged (see below). Thus, to trace the
+    // default options files search, we refer to the verbosity level specified
+    // on the command line.
+    //
+    auto verbosity = [] ()
+    {
+      return ops.verbose_specified ()
+             ? ops.verbose ()
+             : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () ? 0 : 1;
+    };
+
     // We want to be able to specify options, vars, and buildspecs in any
     // order (it is really handy to just add -v at the end of the command
     // line).
@@ -349,6 +362,36 @@ main (int argc, char* argv[])
           args += ')';
       }
 
+      // Handle default options files.
+      //
+      if (!ops.no_default_options ()) // Command line option.
+      try
+      {
+        ops = merge_default_options (
+          load_default_options<options,
+                               cl::argv_file_scanner,
+                               cl::unknown_mode> (
+            nullopt /* sys_dir */,
+            path::home_directory (), // The home variable is not assigned yet.
+            default_options_files {{path ("b.options")},
+                                   nullopt /* start_dir */},
+            [&trace, &verbosity] (const path& f, bool remote)
+            {
+              if (verbosity () >= 3)
+                trace << "loading " << (remote ? "remote " : "local ") << f;
+            }),
+          ops);
+      }
+      catch (const pair<path, system_error>& e)
+      {
+        fail << "unable to load default options files: " << e.first << ": "
+             << e.second;
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to obtain home directory: " << e;
+      }
+
       // Validate options.
       //
       if (ops.progress () && ops.no_progress ())
@@ -364,9 +407,7 @@ main (int argc, char* argv[])
 
     // Initialize the diagnostics state.
     //
-    init_diag ((ops.verbose_specified ()
-                ? ops.verbose ()
-                : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () ? 0 : 1),
+    init_diag (verbosity (),
                (ops.progress ()    ? optional<bool> (true)  :
                 ops.no_progress () ? optional<bool> (false) : nullopt),
                ops.no_line (),

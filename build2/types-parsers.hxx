@@ -24,6 +24,9 @@ namespace build2
     {
       static void
       parse (path&, bool&, scanner&);
+
+      static void
+      merge (path& b, const path& a) {b = a;}
     };
 
     template <>
@@ -31,6 +34,9 @@ namespace build2
     {
       static void
       parse (dir_path&, bool&, scanner&);
+
+      static void
+      merge (dir_path& b, const dir_path& a) {b = a;}
     };
   }
 }

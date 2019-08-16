@@ -90,7 +90,7 @@ if $cli.configured
 --include-prefix build2 --guard-prefix BUILD2 \
 --cxx-prologue "#include <build2/types-parsers.hxx>" \
 --cli-namespace build2::cl --generate-file-scanner --keep-separator \
---generate-parse --generate-specifier
+--generate-parse --generate-merge --generate-specifier
 
   # Usage options.
   #
