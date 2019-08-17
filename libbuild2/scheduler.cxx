@@ -832,16 +832,16 @@ namespace build2
         size_t op (s.progress_.load (memory_order_relaxed)), np (op);
 
         l.unlock ();
-        for (size_t i (0), n (10000), m (9900); op == np && i != n; ++i)
+        for (size_t i (0), n (10000), m (9990); op == np && i != n; ++i)
         {
           // On the last few iterations sleep a bit instead of yielding (in
           // case yield() is a noop; we use the consume order for the same
           // reason).
           //
-          if (i < m)
+          if (i <= m)
             this_thread::yield ();
           else
-            active_sleep (1ms);
+            active_sleep ((i - m) * 10ms);
 
           np = s.progress_.load (memory_order_consume);
         }
