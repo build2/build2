@@ -414,8 +414,7 @@ namespace build2
       }
       // We will only need the link name if the following name differs.
       //
-      //@@ TMP
-      /*else*/ if (!ver.empty () || !ls.empty ())
+      else if (!ver.empty () || !ls.empty ())
       {
         lk = b;
         append_ext (lk);
