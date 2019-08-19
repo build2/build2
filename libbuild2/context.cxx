@@ -28,11 +28,11 @@ namespace build2
   scheduler sched;
 
   run_phase phase;
-  phase_mutex phase_mutex::instance;
+  run_phase_mutex phase_mutex;
 
   size_t load_generation;
 
-  bool phase_mutex::
+  bool run_phase_mutex::
   lock (run_phase p)
   {
     bool r;
@@ -83,7 +83,7 @@ namespace build2
     return r;
   }
 
-  void phase_mutex::
+  void run_phase_mutex::
   unlock (run_phase p)
   {
     // In case of load, release the exclusive access mutex.
@@ -126,7 +126,7 @@ namespace build2
     }
   }
 
-  bool phase_mutex::
+  bool run_phase_mutex::
   relock (run_phase o, run_phase n)
   {
     // Pretty much a fused unlock/lock implementation except that we always
@@ -223,9 +223,9 @@ namespace build2
       assert (l->p == p);
     else
     {
-      if (!phase_mutex::instance.lock (p))
+      if (!phase_mutex.lock (p))
       {
-        phase_mutex::instance.unlock (p);
+        phase_mutex.unlock (p);
         throw failed ();
       }
 
@@ -241,7 +241,7 @@ namespace build2
     if (phase_lock_instance == this)
     {
       phase_lock_instance = nullptr;
-      phase_mutex::instance.unlock (p);
+      phase_mutex.unlock (p);
 
       //text << this_thread::get_id () << " phase release " << p;
     }
@@ -256,7 +256,7 @@ namespace build2
     if (u)
     {
       phase_lock_instance = nullptr;
-      phase_mutex::instance.unlock (l->p);
+      phase_mutex.unlock (l->p);
 
       //text << this_thread::get_id () << " phase unlock  " << l->p;
     }
@@ -267,7 +267,7 @@ namespace build2
   {
     if (l != nullptr)
     {
-      bool r (phase_mutex::instance.lock (l->p));
+      bool r (phase_mutex.lock (l->p));
       phase_lock_instance = l;
 
       // Fail unless we are already failing. Note that we keep the phase
@@ -286,9 +286,9 @@ namespace build2
   phase_switch (run_phase n)
       : o (phase), n (n)
   {
-    if (!phase_mutex::instance.relock (o, n))
+    if (!phase_mutex.relock (o, n))
     {
-      phase_mutex::instance.relock (n, o);
+      phase_mutex.relock (n, o);
       throw failed ();
     }
 
@@ -309,11 +309,11 @@ namespace build2
     //
     if (n == run_phase::load && uncaught_exception ())
     {
-      mlock l (phase_mutex::instance.m_);
-      phase_mutex::instance.fail_ = true;
+      mlock l (phase_mutex.m_);
+      phase_mutex.fail_ = true;
     }
 
-    bool r (phase_mutex::instance.relock (n, o));
+    bool r (phase_mutex.relock (n, o));
     phase_lock_instance->p = o;
 
     // Similar logic to ~phase_unlock().
@@ -323,30 +323,6 @@ namespace build2
 
     //text << this_thread::get_id () << " phase restore " << n << " " << o;
   }
-
-  const variable* var_src_root;
-  const variable* var_out_root;
-  const variable* var_src_base;
-  const variable* var_out_base;
-  const variable* var_forwarded;
-
-  const variable* var_project;
-  const variable* var_amalgamation;
-  const variable* var_subprojects;
-  const variable* var_version;
-
-  const variable* var_project_url;
-  const variable* var_project_summary;
-
-  const variable* var_import_target;
-
-  const variable* var_clean;
-  const variable* var_backlink;
-  const variable* var_include;
-
-  const char var_extension[10] = "extension";
-
-  const variable* var_build_meta_operation;
 
   string current_mname;
   string current_oname;
@@ -365,21 +341,15 @@ namespace build2
   bool keep_going = false;
   bool dry_run = false;
 
-  void (*config_save_variable) (scope&, const variable&, uint64_t);
-
-  const string& (*config_preprocess_create) (const variable_overrides&,
-                                             values&,
-                                             vector_view<opspec>&,
-                                             bool,
-                                             const location&);
-
   variable_overrides
   reset (const strings& cmd_vars)
   {
     tracer trace ("reset");
 
-    // @@ Need to unload modules when we dynamically load them.
-    //
+    // @@ Do we want to unload dynamically loaded modules? Note that this will
+    //    be purely an optimization since a module could be linked-in (i.e., a
+    //    module cannot expect to be unloaded/re-initialized for each meta-
+    //    operation).
 
     l6 ([&]{trace << "resetting build state";});
 
@@ -840,6 +810,38 @@ namespace build2
 
     return vos;
   }
+
+  void (*config_save_variable) (scope&, const variable&, uint64_t);
+
+  const string& (*config_preprocess_create) (const variable_overrides&,
+                                             values&,
+                                             vector_view<opspec>&,
+                                             bool,
+                                             const location&);
+
+  const variable* var_src_root;
+  const variable* var_out_root;
+  const variable* var_src_base;
+  const variable* var_out_base;
+  const variable* var_forwarded;
+
+  const variable* var_project;
+  const variable* var_amalgamation;
+  const variable* var_subprojects;
+  const variable* var_version;
+
+  const variable* var_project_url;
+  const variable* var_project_summary;
+
+  const variable* var_import_target;
+
+  const variable* var_clean;
+  const variable* var_backlink;
+  const variable* var_include;
+
+  const char var_extension[10] = "extension";
+
+  const variable* var_build_meta_operation;
 
   dir_path
   src_out (const dir_path& out, const scope& r)

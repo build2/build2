@@ -57,4 +57,36 @@ namespace build2
     sched.wait (start_count, *task_count);
     task_count = nullptr;
   }
+
+  inline void
+  set_current_mif (const meta_operation_info& mif)
+  {
+    if (current_mname != mif.name)
+    {
+      current_mname = mif.name;
+      global_scope->rw ().assign (var_build_meta_operation) = mif.name;
+    }
+
+    current_mif = &mif;
+    current_on = 0; // Reset.
+  }
+
+  inline void
+  set_current_oif (const operation_info& inner_oif,
+                   const operation_info* outer_oif,
+                   bool diag_noise)
+  {
+    current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
+    current_inner_oif = &inner_oif;
+    current_outer_oif = outer_oif;
+    current_on++;
+    current_mode = inner_oif.mode;
+    current_diag_noise = diag_noise;
+
+    // Reset counters (serial execution).
+    //
+    dependency_count.store (0, memory_order_relaxed);
+    target_count.store (0, memory_order_relaxed);
+    skip_count.store (0, memory_order_relaxed);
+  }
 }

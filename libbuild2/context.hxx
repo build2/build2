@@ -80,7 +80,7 @@ namespace build2
   // false. Note that in this case we still switch to the desired phase. See
   // the phase_{lock,switch,unlock} implementations for details.
   //
-  class LIBBUILD2_SYMEXPORT phase_mutex
+  class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
   public:
     // Acquire a phase lock potentially blocking (unless already in the
@@ -101,20 +101,18 @@ namespace build2
     bool
     relock (run_phase unlock, run_phase lock);
 
-  private:
-    friend struct phase_lock;
-    friend struct phase_unlock;
-    friend struct phase_switch;
-
-    phase_mutex ()
+  public:
+    run_phase_mutex ()
         : fail_ (false), lc_ (0), mc_ (0), ec_ (0)
     {
       phase = run_phase::load;
     }
 
-    static phase_mutex instance;
-
   private:
+    friend struct phase_lock;
+    friend struct phase_unlock;
+    friend struct phase_switch;
+
     // We have a counter for each phase which represents the number of threads
     // in or waiting for this phase.
     //
@@ -139,6 +137,8 @@ namespace build2
 
     mutex lm_;
   };
+
+  extern run_phase_mutex phase_mutex;
 
   // Grab a new phase lock releasing it on destruction. The lock can be
   // "owning" or "referencing" (recursive).
@@ -260,8 +260,118 @@ namespace build2
     bool phase;
   };
 
+  // Current action (meta/operation).
+  //
+  // The names unlike info are available during boot but may not yet be
+  // lifted. The name is always for an outer operation (or meta operation
+  // that hasn't been recognized as such yet).
+  //
+  LIBBUILD2_SYMEXPORT extern string current_mname;
+  LIBBUILD2_SYMEXPORT extern string current_oname;
+
+  LIBBUILD2_SYMEXPORT extern const meta_operation_info* current_mif;
+  LIBBUILD2_SYMEXPORT extern const operation_info* current_inner_oif;
+  LIBBUILD2_SYMEXPORT extern const operation_info* current_outer_oif;
+
+  // Current operation number (1-based) in the meta-operation batch.
+  //
+  LIBBUILD2_SYMEXPORT extern size_t current_on;
+
+  LIBBUILD2_SYMEXPORT extern execution_mode current_mode;
+
+  // Some diagnostics (for example output directory creation/removal by the
+  // fsdir rule) is just noise at verbosity level 1 unless it is the only
+  // thing that is printed. So we can only suppress it in certain situations
+  // (e.g., dist) where we know we have already printed something.
+  //
+  LIBBUILD2_SYMEXPORT extern bool current_diag_noise;
+
+  // Total number of dependency relationships and targets with non-noop
+  // recipe in the current action.
+  //
+  // Together with target::dependents the dependency count is incremented
+  // during the rule search & match phase and is decremented during execution
+  // with the expectation of it reaching 0. Used as a sanity check.
+  //
+  // The target count is incremented after a non-noop recipe is matched and
+  // decremented after such recipe has been executed. If such a recipe has
+  // skipped executing the operation, then it should increment the skip count.
+  // These two counters are used for progress monitoring and diagnostics.
+  //
+  LIBBUILD2_SYMEXPORT extern atomic_count dependency_count;
+  LIBBUILD2_SYMEXPORT extern atomic_count target_count;
+  LIBBUILD2_SYMEXPORT extern atomic_count skip_count;
+
+  void
+  set_current_mif (const meta_operation_info&);
+
+  void
+  set_current_oif (const operation_info& inner,
+                   const operation_info* outer = nullptr,
+                   bool diag_noise = true);
+
+  // Keep going flag.
+  //
+  // Note that setting it to false is not of much help unless we are running
+  // serially. In parallel we queue most of the things up before we see any
+  // failures.
+  //
+  LIBBUILD2_SYMEXPORT extern bool keep_going;
+
+  // Dry run flag (see --dry-run|-n).
+  //
+  // This flag is set only for the final execute phase (as opposed to those
+  // that interrupt match) by the perform meta operation's execute() callback.
+  //
+  // Note that for this mode to function properly we have to use fake mtimes.
+  // Specifically, a rule that pretends to update a target must set its mtime
+  // to system_clock::now() and everyone else must use this cached value. In
+  // other words, there should be no mtime re-query from the filesystem. The
+  // same is required for "logical clean" (i.e., dry-run 'clean update' in
+  // order to see all the command lines).
+  //
+  // At first, it may seem like we should also "dry-run" changes to depdb. But
+  // that would be both problematic (some rules update it in apply() during
+  // the match phase) and wasteful (why discard information). Also, depdb may
+  // serve as an input to some commands (for example, to provide C++ module
+  // mapping) which means that without updating it the commands we print might
+  // not be runnable (think of the compilation database).
+  //
+  // One thing we need to be careful about if we are updating depdb is to not
+  // render the target up-to-date. But in this case the depdb file will be
+  // older than the target which in our model is treated as an interrupted
+  // update (see depdb for details).
+  //
+  // Note also that sometimes it makes sense to do a bit more than absolutely
+  // necessary or to discard information in order to keep the rule logic sane.
+  // And some rules may choose to ignore this flag altogether. In this case,
+  // however, the rule should be careful not to rely on functions (notably
+  // from filesystem) that respect this flag in order not to end up with a
+  // job half done.
+  //
+  LIBBUILD2_SYMEXPORT extern bool dry_run;
+
+  // Reset the build state. In particular, this removes all the targets,
+  // scopes, and variables.
+  //
+  LIBBUILD2_SYMEXPORT variable_overrides
+  reset (const strings& cmd_vars);
+
+  // Config module entry points.
+  //
+  LIBBUILD2_SYMEXPORT extern void (*config_save_variable) (
+    scope&, const variable&, uint64_t flags);
+
+  LIBBUILD2_SYMEXPORT extern const string& (*config_preprocess_create) (
+    const variable_overrides&,
+    values&,
+    vector_view<opspec>&,
+    bool lifted,
+    const location&);
+
   // Cached variables.
   //
+
   // Note: consider printing in info meta-operation if adding anything here.
   //
   LIBBUILD2_SYMEXPORT extern const variable* var_src_root;
@@ -341,138 +451,8 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern const variable* var_build_meta_operation;
 
-  // Current action (meta/operation).
+  // Utility.
   //
-  // The names unlike info are available during boot but may not yet be
-  // lifted. The name is always for an outer operation (or meta operation
-  // that hasn't been recognized as such yet).
-  //
-  LIBBUILD2_SYMEXPORT extern string current_mname;
-  LIBBUILD2_SYMEXPORT extern string current_oname;
-
-  LIBBUILD2_SYMEXPORT extern const meta_operation_info* current_mif;
-  LIBBUILD2_SYMEXPORT extern const operation_info* current_inner_oif;
-  LIBBUILD2_SYMEXPORT extern const operation_info* current_outer_oif;
-
-  // Current operation number (1-based) in the meta-operation batch.
-  //
-  LIBBUILD2_SYMEXPORT extern size_t current_on;
-
-  LIBBUILD2_SYMEXPORT extern execution_mode current_mode;
-
-  // Some diagnostics (for example output directory creation/removal by the
-  // fsdir rule) is just noise at verbosity level 1 unless it is the only
-  // thing that is printed. So we can only suppress it in certain situations
-  // (e.g., dist) where we know we have already printed something.
-  //
-  LIBBUILD2_SYMEXPORT extern bool current_diag_noise;
-
-  // Total number of dependency relationships and targets with non-noop
-  // recipe in the current action.
-  //
-  // Together with target::dependents the dependency count is incremented
-  // during the rule search & match phase and is decremented during execution
-  // with the expectation of it reaching 0. Used as a sanity check.
-  //
-  // The target count is incremented after a non-noop recipe is matched and
-  // decremented after such recipe has been executed. If such a recipe has
-  // skipped executing the operation, then it should increment the skip count.
-  // These two counters are used for progress monitoring and diagnostics.
-  //
-  LIBBUILD2_SYMEXPORT extern atomic_count dependency_count;
-  LIBBUILD2_SYMEXPORT extern atomic_count target_count;
-  LIBBUILD2_SYMEXPORT extern atomic_count skip_count;
-
-  inline void
-  set_current_mif (const meta_operation_info& mif)
-  {
-    if (current_mname != mif.name)
-    {
-      current_mname = mif.name;
-      global_scope->rw ().assign (var_build_meta_operation) = mif.name;
-    }
-
-    current_mif = &mif;
-    current_on = 0; // Reset.
-  }
-
-  inline void
-  set_current_oif (const operation_info& inner_oif,
-                   const operation_info* outer_oif = nullptr,
-                   bool diag_noise = true)
-  {
-    current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
-    current_inner_oif = &inner_oif;
-    current_outer_oif = outer_oif;
-    current_on++;
-    current_mode = inner_oif.mode;
-    current_diag_noise = diag_noise;
-
-    // Reset counters (serial execution).
-    //
-    dependency_count.store (0, memory_order_relaxed);
-    target_count.store (0, memory_order_relaxed);
-    skip_count.store (0, memory_order_relaxed);
-  }
-
-  // Keep going flag.
-  //
-  // Note that setting it to false is not of much help unless we are running
-  // serially. In parallel we queue most of the things up before we see any
-  // failures.
-  //
-  LIBBUILD2_SYMEXPORT extern bool keep_going;
-
-  // Dry run flag (see --dry-run|-n).
-  //
-  // This flag is set only for the final execute phase (as opposed to those
-  // that interrupt match) by the perform meta operation's execute() callback.
-  //
-  // Note that for this mode to function properly we have to use fake mtimes.
-  // Specifically, a rule that pretends to update a target must set its mtime
-  // to system_clock::now() and everyone else must use this cached value. In
-  // other words, there should be no mtime re-query from the filesystem. The
-  // same is required for "logical clean" (i.e., dry-run 'clean update' in
-  // order to see all the command lines).
-  //
-  // At first, it may seem like we should also "dry-run" changes to depdb. But
-  // that would be both problematic (some rules update it in apply() during
-  // the match phase) and wasteful (why discard information). Also, depdb may
-  // serve as an input to some commands (for example, to provide C++ module
-  // mapping) which means that without updating it the commands we print might
-  // not be runnable (think of the compilation database).
-  //
-  // One thing we need to be careful about if we are updating depdb is to not
-  // render the target up-to-date. But in this case the depdb file will be
-  // older than the target which in our model is treated as an interrupted
-  // update (see depdb for details).
-  //
-  // Note also that sometimes it makes sense to do a bit more than absolutely
-  // necessary or to discard information in order to keep the rule logic sane.
-  // And some rules may choose to ignore this flag altogether. In this case,
-  // however, the rule should be careful not to rely on functions (notably
-  // from filesystem) that respect this flag in order not to end up with a
-  // job half done.
-  //
-  LIBBUILD2_SYMEXPORT extern bool dry_run;
-
-  // Config module entry points.
-  //
-  LIBBUILD2_SYMEXPORT extern void (*config_save_variable) (
-    scope&, const variable&, uint64_t flags);
-
-  LIBBUILD2_SYMEXPORT extern const string& (*config_preprocess_create) (
-    const variable_overrides&,
-    values&,
-    vector_view<opspec>&,
-    bool lifted,
-    const location&);
-
-  // Reset the build state. In particular, this removes all the targets,
-  // scopes, and variables.
-  //
-  LIBBUILD2_SYMEXPORT variable_overrides
-  reset (const strings& cmd_vars);
 
   // Return the project name or empty string if unnamed.
   //
