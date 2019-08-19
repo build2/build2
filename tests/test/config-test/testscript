@@ -5,7 +5,7 @@
 # Setup a realistic test project that we will then exercise.
 #
 
-test.options   = --serial-stop --quiet
+test.options   = --no-default-options --serial-stop --quiet
 test.arguments = 'test(../proj/@./)' # Test out-of-src (for parallel).
 test.cleanups  = &?**/               # Cleanup out directory structure.
 

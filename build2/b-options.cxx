@@ -683,6 +683,8 @@ namespace build2
     pager_specified_ (false),
     pager_option_ (),
     pager_option_specified_ (false),
+    default_options_ (),
+    default_options_specified_ (false),
     no_default_options_ (),
     help_ (),
     version_ ()
@@ -918,6 +920,13 @@ namespace build2
       this->pager_option_specified_ = true;
     }
 
+    if (a.default_options_specified_)
+    {
+      ::build2::cl::parser< dir_path>::merge (
+        this->default_options_, a.default_options_);
+      this->default_options_specified_ = true;
+    }
+
     if (a.no_default_options_)
     {
       ::build2::cl::parser< bool>::merge (
@@ -948,189 +957,193 @@ namespace build2
     os << "\033[1mOPTIONS\033[0m" << ::std::endl;
 
     os << std::endl
-       << "\033[1m-v\033[0m                   Print actual commands being executed. This is equivalent" << ::std::endl
-       << "                     to \033[1m--verbose 2\033[0m." << ::std::endl;
+       << "\033[1m-v\033[0m                    Print actual commands being executed. This is equivalent" << ::std::endl
+       << "                      to \033[1m--verbose 2\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m-V\033[0m                   Print all underlying commands being executed. This is" << ::std::endl
-       << "                     equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
+       << "\033[1m-V\033[0m                    Print all underlying commands being executed. This is" << ::std::endl
+       << "                      equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--quiet\033[0m|\033[1m-q\033[0m           Run quietly, only printing error messages. This is" << ::std::endl
-       << "                     equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
+       << "\033[1m--quiet\033[0m|\033[1m-q\033[0m            Run quietly, only printing error messages. This is" << ::std::endl
+       << "                      equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--verbose\033[0m \033[4mlevel\033[0m      Set the diagnostics verbosity to \033[4mlevel\033[0m between 0 and 6." << ::std::endl
-       << "                     Level 0 disables any non-error messages while level 6" << ::std::endl
-       << "                     produces lots of information, with level 1 being the" << ::std::endl
-       << "                     default. The following additional types of diagnostics are" << ::std::endl
-       << "                     produced at each level:" << ::std::endl
+       << "\033[1m--verbose\033[0m \033[4mlevel\033[0m       Set the diagnostics verbosity to \033[4mlevel\033[0m between 0 and 6." << ::std::endl
+       << "                      Level 0 disables any non-error messages while level 6" << ::std::endl
+       << "                      produces lots of information, with level 1 being the" << ::std::endl
+       << "                      default. The following additional types of diagnostics" << ::std::endl
+       << "                      are produced at each level:" << ::std::endl
        << ::std::endl
-       << "                     1. High-level information messages." << ::std::endl
-       << "                     2. Essential underlying commands being executed." << ::std::endl
-       << "                     3. All underlying commands being executed." << ::std::endl
-       << "                     4. Information that could be helpful to the user." << ::std::endl
-       << "                     5. Information that could be helpful to the developer." << ::std::endl
-       << "                     6. Even more detailed information." << ::std::endl;
+       << "                      1. High-level information messages." << ::std::endl
+       << "                      2. Essential underlying commands being executed." << ::std::endl
+       << "                      3. All underlying commands being executed." << ::std::endl
+       << "                      4. Information that could be helpful to the user." << ::std::endl
+       << "                      5. Information that could be helpful to the developer." << ::std::endl
+       << "                      6. Even more detailed information." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--stat\033[0m               Display build statistics." << ::std::endl;
+       << "\033[1m--stat\033[0m                Display build statistics." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--dump\033[0m \033[4mphase\033[0m         Dump the build system state after the specified phase." << ::std::endl
-       << "                     Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m) and" << ::std::endl
-       << "                     \033[1mmatch\033[0m (after matching rules to targets). Repeat this" << ::std::endl
-       << "                     option to dump the state after multiple phases." << ::std::endl;
+       << "\033[1m--dump\033[0m \033[4mphase\033[0m          Dump the build system state after the specified phase." << ::std::endl
+       << "                      Valid \033[4mphase\033[0m values are \033[1mload\033[0m (after loading \033[1mbuildfiles\033[0m)" << ::std::endl
+       << "                      and \033[1mmatch\033[0m (after matching rules to targets). Repeat this" << ::std::endl
+       << "                      option to dump the state after multiple phases." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--progress\033[0m           Display build progress. If printing to a terminal the" << ::std::endl
-       << "                     progress is displayed by default for low verbosity levels." << ::std::endl
-       << "                     Use \033[1m--no-progress\033[0m to suppress." << ::std::endl;
+       << "\033[1m--progress\033[0m            Display build progress. If printing to a terminal the" << ::std::endl
+       << "                      progress is displayed by default for low verbosity" << ::std::endl
+       << "                      levels. Use \033[1m--no-progress\033[0m to suppress." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-progress\033[0m        Don't display build progress." << ::std::endl;
+       << "\033[1m--no-progress\033[0m         Don't display build progress." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m        Number of active jobs to perform in parallel. This" << ::std::endl
-       << "                     includes both the number of active threads inside the" << ::std::endl
-       << "                     build system as well as the number of external commands" << ::std::endl
-       << "                     (compilers, linkers, etc) started but not yet finished. If" << ::std::endl
-       << "                     this option is not specified or specified with the \033[1m0\033[0m" << ::std::endl
-       << "                     value, then the number of available hardware threads is" << ::std::endl
-       << "                     used." << ::std::endl;
+       << "\033[1m--jobs\033[0m|\033[1m-j\033[0m \033[4mnum\033[0m         Number of active jobs to perform in parallel. This" << ::std::endl
+       << "                      includes both the number of active threads inside the" << ::std::endl
+       << "                      build system as well as the number of external commands" << ::std::endl
+       << "                      (compilers, linkers, etc) started but not yet finished." << ::std::endl
+       << "                      If this option is not specified or specified with the \033[1m0\033[0m" << ::std::endl
+       << "                      value, then the number of available hardware threads is" << ::std::endl
+       << "                      used." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m    Maximum number of jobs (threads) to create. The default is" << ::std::endl
-       << "                     8x the number of active jobs (\033[1m--jobs|j\033[0m) on 32-bit" << ::std::endl
-       << "                     architectures and 32x on 64-bit. See the build system" << ::std::endl
-       << "                     scheduler implementation for details." << ::std::endl;
+       << "\033[1m--max-jobs\033[0m|\033[1m-J\033[0m \033[4mnum\033[0m     Maximum number of jobs (threads) to create. The default" << ::std::endl
+       << "                      is 8x the number of active jobs (\033[1m--jobs|j\033[0m) on 32-bit" << ::std::endl
+       << "                      architectures and 32x on 64-bit. See the build system" << ::std::endl
+       << "                      scheduler implementation for details." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--queue-depth\033[0m|\033[1m-Q\033[0m \033[4mnum\033[0m The queue depth as a multiplier over the number of active" << ::std::endl
-       << "                     jobs. Normally we want a deeper queue if the jobs take" << ::std::endl
-       << "                     long (for example, compilation) and shorter if they are" << ::std::endl
-       << "                     quick (for example, simple tests). The default is 4. See" << ::std::endl
-       << "                     the build system scheduler implementation for details." << ::std::endl;
+       << "\033[1m--queue-depth\033[0m|\033[1m-Q\033[0m \033[4mnum\033[0m  The queue depth as a multiplier over the number of active" << ::std::endl
+       << "                      jobs. Normally we want a deeper queue if the jobs take" << ::std::endl
+       << "                      long (for example, compilation) and shorter if they are" << ::std::endl
+       << "                      quick (for example, simple tests). The default is 4. See" << ::std::endl
+       << "                      the build system scheduler implementation for details." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--max-stack\033[0m \033[4mnum\033[0m      The maximum stack size in KBytes to allow for newly" << ::std::endl
-       << "                     created threads. For \033[4mpthreads\033[0m-based systems the driver" << ::std::endl
-       << "                     queries the stack size of the main thread and uses the" << ::std::endl
-       << "                     same size for creating additional threads. This allows" << ::std::endl
-       << "                     adjusting the stack size using familiar mechanisms, such" << ::std::endl
-       << "                     as \033[1mulimit\033[0m. Sometimes, however, the stack size of the main" << ::std::endl
-       << "                     thread is excessively large. As a result, the driver" << ::std::endl
-       << "                     checks if it is greater than a predefined limit (64MB on" << ::std::endl
-       << "                     64-bit systems and 32MB on 32-bit ones) and caps it to a" << ::std::endl
-       << "                     more sensible value (8MB) if that's the case. This option" << ::std::endl
-       << "                     allows you to override this check with the special zero" << ::std::endl
-       << "                     value indicating that the main thread stack size should be" << ::std::endl
-       << "                     used as is." << ::std::endl;
+       << "\033[1m--max-stack\033[0m \033[4mnum\033[0m       The maximum stack size in KBytes to allow for newly" << ::std::endl
+       << "                      created threads. For \033[4mpthreads\033[0m-based systems the driver" << ::std::endl
+       << "                      queries the stack size of the main thread and uses the" << ::std::endl
+       << "                      same size for creating additional threads. This allows" << ::std::endl
+       << "                      adjusting the stack size using familiar mechanisms, such" << ::std::endl
+       << "                      as \033[1mulimit\033[0m. Sometimes, however, the stack size of the main" << ::std::endl
+       << "                      thread is excessively large. As a result, the driver" << ::std::endl
+       << "                      checks if it is greater than a predefined limit (64MB on" << ::std::endl
+       << "                      64-bit systems and 32MB on 32-bit ones) and caps it to a" << ::std::endl
+       << "                      more sensible value (8MB) if that's the case. This option" << ::std::endl
+       << "                      allows you to override this check with the special zero" << ::std::endl
+       << "                      value indicating that the main thread stack size should" << ::std::endl
+       << "                      be used as is." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m     Run serially and stop at the first error. This mode is" << ::std::endl
-       << "                     useful to investigate build failures that are caused by" << ::std::endl
-       << "                     build system errors rather than compilation errors. Note" << ::std::endl
-       << "                     that if you don't want to keep going but still want" << ::std::endl
-       << "                     parallel execution, add \033[1m--jobs|-j\033[0m (for example \033[1m-j 0\033[0m for" << ::std::endl
-       << "                     default concurrency)." << ::std::endl;
+       << "\033[1m--serial-stop\033[0m|\033[1m-s\033[0m      Run serially and stop at the first error. This mode is" << ::std::endl
+       << "                      useful to investigate build failures that are caused by" << ::std::endl
+       << "                      build system errors rather than compilation errors. Note" << ::std::endl
+       << "                      that if you don't want to keep going but still want" << ::std::endl
+       << "                      parallel execution, add \033[1m--jobs|-j\033[0m (for example \033[1m-j 0\033[0m for" << ::std::endl
+       << "                      default concurrency)." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--dry-run\033[0m|\033[1m-n\033[0m         Print commands without actually executing them. Note that" << ::std::endl
-       << "                     commands that are required to create an accurate build" << ::std::endl
-       << "                     state will still be executed and the extracted auxiliary" << ::std::endl
-       << "                     dependency information saved. In other words, this is not" << ::std::endl
-       << "                     the \033[4m\"don't touch the filesystem\"\033[0m mode but rather \033[4m\"do" << ::std::endl
-       << "                     minimum amount of work to show what needs to be done\"\033[0m." << ::std::endl
-       << "                     Note also that only the \033[1mperform\033[0m meta-operation supports" << ::std::endl
-       << "                     this mode." << ::std::endl;
+       << "\033[1m--dry-run\033[0m|\033[1m-n\033[0m          Print commands without actually executing them. Note that" << ::std::endl
+       << "                      commands that are required to create an accurate build" << ::std::endl
+       << "                      state will still be executed and the extracted auxiliary" << ::std::endl
+       << "                      dependency information saved. In other words, this is not" << ::std::endl
+       << "                      the \033[4m\"don't touch the filesystem\"\033[0m mode but rather \033[4m\"do" << ::std::endl
+       << "                      minimum amount of work to show what needs to be done\"\033[0m." << ::std::endl
+       << "                      Note also that only the \033[1mperform\033[0m meta-operation supports" << ::std::endl
+       << "                      this mode." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--match-only\033[0m         Match the rules but do not execute the operation. This" << ::std::endl
-       << "                     mode is primarily useful for profiling." << ::std::endl;
+       << "\033[1m--match-only\033[0m          Match the rules but do not execute the operation. This" << ::std::endl
+       << "                      mode is primarily useful for profiling." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--structured-result\033[0m  Write the result of execution in a structured form. In" << ::std::endl
-       << "                     this mode, instead of printing to \033[1mSTDERR\033[0m diagnostics" << ::std::endl
-       << "                     messages about the outcome of executing actions on" << ::std::endl
-       << "                     targets, the driver writes to \033[1mSTDOUT\033[0m a structured result" << ::std::endl
-       << "                     description one line per the buildspec action/target pair." << ::std::endl
-       << "                     Each line has the following format:" << ::std::endl
+       << "\033[1m--structured-result\033[0m   Write the result of execution in a structured form. In" << ::std::endl
+       << "                      this mode, instead of printing to \033[1mSTDERR\033[0m diagnostics" << ::std::endl
+       << "                      messages about the outcome of executing actions on" << ::std::endl
+       << "                      targets, the driver writes to \033[1mSTDOUT\033[0m a structured result" << ::std::endl
+       << "                      description one line per the buildspec action/target" << ::std::endl
+       << "                      pair. Each line has the following format:" << ::std::endl
        << ::std::endl
-       << "                     \033[4mstate\033[0m \033[4mmeta-operation\033[0m \033[4moperation\033[0m \033[4mtarget\033[0m\033[0m" << ::std::endl
+       << "                      \033[4mstate\033[0m \033[4mmeta-operation\033[0m \033[4moperation\033[0m \033[4mtarget\033[0m\033[0m" << ::std::endl
        << ::std::endl
-       << "                     Where \033[4mstate\033[0m can be one of \033[1munchanged\033[0m, \033[1mchanged\033[0m, or \033[1mfailed\033[0m." << ::std::endl
-       << "                     If the action is a pre or post operation, then the outer" << ::std::endl
-       << "                     operation is specified in parenthesis. For example:" << ::std::endl
+       << "                      Where \033[4mstate\033[0m can be one of \033[1munchanged\033[0m, \033[1mchanged\033[0m, or \033[1mfailed\033[0m." << ::std::endl
+       << "                      If the action is a pre or post operation, then the outer" << ::std::endl
+       << "                      operation is specified in parenthesis. For example:" << ::std::endl
        << ::std::endl
-       << "                     unchanged perform update(test) /tmp/dir{hello/}" << ::std::endl
-       << "                     changed perform test /tmp/dir{hello/}" << ::std::endl
+       << "                      unchanged perform update(test) /tmp/dir{hello/}" << ::std::endl
+       << "                      changed perform test /tmp/dir{hello/}" << ::std::endl
        << ::std::endl
-       << "                     Note that only the \033[1mperform\033[0m meta-operation supports the" << ::std::endl
-       << "                     structured result output." << ::std::endl;
+       << "                      Note that only the \033[1mperform\033[0m meta-operation supports the" << ::std::endl
+       << "                      structured result output." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--mtime-check\033[0m        Perform file modification time sanity checks. These checks" << ::std::endl
-       << "                     can be helpful in diagnosing spurious rebuilds and are" << ::std::endl
-       << "                     enabled by default for the staged version of the build" << ::std::endl
-       << "                     system. Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
+       << "\033[1m--mtime-check\033[0m         Perform file modification time sanity checks. These" << ::std::endl
+       << "                      checks can be helpful in diagnosing spurious rebuilds and" << ::std::endl
+       << "                      are enabled by default for the staged version of the" << ::std::endl
+       << "                      build system. Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-mtime-check\033[0m     Don't perform file modification time sanity checks." << ::std::endl;
+       << "\033[1m--no-mtime-check\033[0m      Don't perform file modification time sanity checks." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-column\033[0m          Don't print column numbers in diagnostics." << ::std::endl;
+       << "\033[1m--no-column\033[0m           Don't print column numbers in diagnostics." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-line\033[0m            Don't print line and column numbers in diagnostics." << ::std::endl;
+       << "\033[1m--no-line\033[0m             Don't print line and column numbers in diagnostics." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--buildfile\033[0m \033[4mpath\033[0m     The alternative file to read build information from. The" << ::std::endl
-       << "                     default is \033[1mbuildfile\033[0m or \033[1mbuild2file\033[0m, depending on the" << ::std::endl
-       << "                     project's build file/directory naming scheme. If \033[4mpath\033[0m is" << ::std::endl
-       << "                     '\033[1m-\033[0m', then read from \033[1mSTDIN\033[0m. Note that this option only" << ::std::endl
-       << "                     affects the files read as part of the buildspec" << ::std::endl
-       << "                     processing. Specifically, it has no effect on the \033[1msource\033[0m" << ::std::endl
-       << "                     and \033[1minclude\033[0m directives. As a result, this option is" << ::std::endl
-       << "                     primarily intended for testing rather than changing the" << ::std::endl
-       << "                     build file names in real projects." << ::std::endl;
+       << "\033[1m--buildfile\033[0m \033[4mpath\033[0m      The alternative file to read build information from. The" << ::std::endl
+       << "                      default is \033[1mbuildfile\033[0m or \033[1mbuild2file\033[0m, depending on the" << ::std::endl
+       << "                      project's build file/directory naming scheme. If \033[4mpath\033[0m is" << ::std::endl
+       << "                      '\033[1m-\033[0m', then read from \033[1mSTDIN\033[0m. Note that this option only" << ::std::endl
+       << "                      affects the files read as part of the buildspec" << ::std::endl
+       << "                      processing. Specifically, it has no effect on the \033[1msource\033[0m" << ::std::endl
+       << "                      and \033[1minclude\033[0m directives. As a result, this option is" << ::std::endl
+       << "                      primarily intended for testing rather than changing the" << ::std::endl
+       << "                      build file names in real projects." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--config-guess\033[0m \033[4mpath\033[0m  The path to the \033[1mconfig.guess(1)\033[0m script that should be used" << ::std::endl
-       << "                     to guess the host machine triplet. If this option is not" << ::std::endl
-       << "                     specified, then \033[1mb\033[0m will fall back on to using the target it" << ::std::endl
-       << "                     was built for as host." << ::std::endl;
+       << "\033[1m--config-guess\033[0m \033[4mpath\033[0m   The path to the \033[1mconfig.guess(1)\033[0m script that should be" << ::std::endl
+       << "                      used to guess the host machine triplet. If this option is" << ::std::endl
+       << "                      not specified, then \033[1mb\033[0m will fall back on to using the" << ::std::endl
+       << "                      target it was built for as host." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--config-sub\033[0m \033[4mpath\033[0m    The path to the \033[1mconfig.sub(1)\033[0m script that should be used" << ::std::endl
-       << "                     to canonicalize machine triplets. If this option is not" << ::std::endl
-       << "                     specified, then \033[1mb\033[0m will use its built-in canonicalization" << ::std::endl
-       << "                     support which should be sufficient for commonly-used" << ::std::endl
-       << "                     platforms." << ::std::endl;
+       << "\033[1m--config-sub\033[0m \033[4mpath\033[0m     The path to the \033[1mconfig.sub(1)\033[0m script that should be used" << ::std::endl
+       << "                      to canonicalize machine triplets. If this option is not" << ::std::endl
+       << "                      specified, then \033[1mb\033[0m will use its built-in canonicalization" << ::std::endl
+       << "                      support which should be sufficient for commonly-used" << ::std::endl
+       << "                      platforms." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--pager\033[0m \033[4mpath\033[0m         The pager program to be used to show long text. Commonly" << ::std::endl
-       << "                     used pager programs are \033[1mless\033[0m and \033[1mmore\033[0m. You can also" << ::std::endl
-       << "                     specify additional options that should be passed to the" << ::std::endl
-       << "                     pager program with \033[1m--pager-option\033[0m. If an empty string is" << ::std::endl
-       << "                     specified as the pager program, then no pager will be" << ::std::endl
-       << "                     used. If the pager program is not explicitly specified," << ::std::endl
-       << "                     then \033[1mb\033[0m will try to use \033[1mless\033[0m. If it is not available, then" << ::std::endl
-       << "                     no pager will be used." << ::std::endl;
+       << "\033[1m--pager\033[0m \033[4mpath\033[0m          The pager program to be used to show long text. Commonly" << ::std::endl
+       << "                      used pager programs are \033[1mless\033[0m and \033[1mmore\033[0m. You can also" << ::std::endl
+       << "                      specify additional options that should be passed to the" << ::std::endl
+       << "                      pager program with \033[1m--pager-option\033[0m. If an empty string is" << ::std::endl
+       << "                      specified as the pager program, then no pager will be" << ::std::endl
+       << "                      used. If the pager program is not explicitly specified," << ::std::endl
+       << "                      then \033[1mb\033[0m will try to use \033[1mless\033[0m. If it is not available, then" << ::std::endl
+       << "                      no pager will be used." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--pager-option\033[0m \033[4mopt\033[0m   Additional option to be passed to the pager program. See" << ::std::endl
-       << "                     \033[1m--pager\033[0m for more information on the pager program. Repeat" << ::std::endl
-       << "                     this option to specify multiple pager options." << ::std::endl;
+       << "\033[1m--pager-option\033[0m \033[4mopt\033[0m    Additional option to be passed to the pager program. See" << ::std::endl
+       << "                      \033[1m--pager\033[0m for more information on the pager program. Repeat" << ::std::endl
+       << "                      this option to specify multiple pager options." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-default-options\033[0m Don't load default options files." << ::std::endl;
+       << "\033[1m--default-options\033[0m \033[4mdir\033[0m The directory to load additional default options files" << ::std::endl
+       << "                      from." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--help\033[0m               Print usage information and exit." << ::std::endl;
+       << "\033[1m--no-default-options\033[0m  Don't load default options files." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--version\033[0m            Print version and exit." << ::std::endl;
+       << "\033[1m--help\033[0m                Print usage information and exit." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--version\033[0m             Print version and exit." << ::std::endl;
 
     p = ::build2::cl::usage_para::option;
 
@@ -1223,6 +1236,9 @@ namespace build2
       _cli_options_map_["--pager-option"] = 
       &::build2::cl::thunk< options, strings, &options::pager_option_,
         &options::pager_option_specified_ >;
+      _cli_options_map_["--default-options"] = 
+      &::build2::cl::thunk< options, dir_path, &options::default_options_,
+        &options::default_options_specified_ >;
       _cli_options_map_["--no-default-options"] = 
       &::build2::cl::thunk< options, bool, &options::no_default_options_ >;
       _cli_options_map_["--help"] = 

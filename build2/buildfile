@@ -95,7 +95,7 @@ if $cli.configured
   # Usage options.
   #
   cli.options += --suppress-undocumented --long-usage --ansi-color \
---page-usage 'build2::print_$name$_' --option-length 20
+--page-usage 'build2::print_$name$_' --option-length 21
 
   cli.cxx{*}:
   {

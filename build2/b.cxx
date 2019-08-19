@@ -367,18 +367,29 @@ main (int argc, char* argv[])
       if (!ops.no_default_options ()) // Command line option.
       try
       {
+        optional<dir_path> extra;
+        if (ops.default_options_specified ())
+          extra = ops.default_options ();
+
         ops = merge_default_options (
           load_default_options<options,
                                cl::argv_file_scanner,
                                cl::unknown_mode> (
             nullopt /* sys_dir */,
             path::home_directory (), // The home variable is not assigned yet.
+            extra,
             default_options_files {{path ("b.options")},
-                                   nullopt /* start_dir */},
-            [&trace, &verbosity] (const path& f, bool remote)
+                                   nullopt /* start */},
+            [&trace, &verbosity] (const path& f, bool r, bool o)
             {
               if (verbosity () >= 3)
-                trace << "loading " << (remote ? "remote " : "local ") << f;
+              {
+                if (o)
+                  trace << "treating " << f << " as "
+                        << (r ? "remote" : "local");
+                else
+                  trace << "loading " << (r ? "remote " : "local ") << f;
+              }
             }),
           ops);
       }

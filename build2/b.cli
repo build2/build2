@@ -622,6 +622,12 @@ namespace build2
        specify multiple pager options."
     }
 
+    dir_path --default-options
+    {
+      "<dir>",
+      "The directory to load additional default options files from."
+    }
+
     bool --no-default-options
     {
       "Don't load default options files."

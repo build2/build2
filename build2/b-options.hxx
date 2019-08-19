@@ -538,6 +538,12 @@ namespace build2
     bool
     pager_option_specified () const;
 
+    const dir_path&
+    default_options () const;
+
+    bool
+    default_options_specified () const;
+
     const bool&
     no_default_options () const;
 
@@ -602,6 +608,8 @@ namespace build2
     bool pager_specified_;
     strings pager_option_;
     bool pager_option_specified_;
+    dir_path default_options_;
+    bool default_options_specified_;
     bool no_default_options_;
     bool help_;
     bool version_;

@@ -476,6 +476,18 @@ namespace build2
     return this->pager_option_specified_;
   }
 
+  inline const dir_path& options::
+  default_options () const
+  {
+    return this->default_options_;
+  }
+
+  inline bool options::
+  default_options_specified () const
+  {
+    return this->default_options_specified_;
+  }
+
   inline const bool& options::
   no_default_options () const
   {
