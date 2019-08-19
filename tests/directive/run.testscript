@@ -8,32 +8,30 @@ crosstest = false
 
 .include ../common.testscript
 
-run = "run '$0' --no-default-options noop"
-
 : no-output
 :
 cat <'assert true' >=buildfile;
-$* <"$run"
+$* <"run '$0' noop"
 
 : output
 :
 cat <'print foo=bar' >=buildfile;
 $* <<"EOI" >'bar'
-$run
+run '$0' noop
 print \$foo
 EOI
 
 : bad-exit
 :
 cat <'assert false' >=buildfile;
-$* <"$run" 2>>EOE != 0
+$* <"run '$0' noop" 2>>EOE != 0
 buildfile:1:1: error: assertion failed
 EOE
 
 : bad-output
 :
 cat <'print run' >=buildfile;
-$* <"$run" 2>>"EOE" != 0
+$* <"run '$0' noop" 2>>"EOE" != 0
 <stdout>:1:4: error: expected executable name after run
   <stdin>:1:5: info: while parsing $0 output
 EOE

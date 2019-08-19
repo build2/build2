@@ -32,7 +32,7 @@ project = test
 amalgamation =
 EOI
 
-test.options += --no-default-options --serial-stop --quiet
+test.options += --serial-stop --quiet
 
 if ($null($buildfile) || !$buildfile)
   test.options += --buildfile -
