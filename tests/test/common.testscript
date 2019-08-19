@@ -20,7 +20,7 @@ if ($null($test.options))
   test.options = --buildfile -
 end
 
-test.options += --serial-stop --quiet
+test.options += --no-default-options --serial-stop --quiet
 
 # By default perform test.
 #

@@ -375,10 +375,11 @@ main (int argc, char* argv[])
             path::home_directory (), // The home variable is not assigned yet.
             default_options_files {{path ("b.options")},
                                    nullopt /* start_dir */},
-            [&trace, &verbosity] (const path& f, bool remote)
+            [&trace, &verbosity] (const path& f, bool remote, bool overwrite)
             {
               if (verbosity () >= 3)
-                trace << "loading " << (remote ? "remote " : "local ") << f;
+                trace << (overwrite ? "overwriting " : "loading ")
+                      << (remote ? "remote " : "local ") << f;
             }),
           ops);
       }
