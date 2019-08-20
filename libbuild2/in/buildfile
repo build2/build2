@@ -47,8 +47,10 @@ libs{build2-in}: cxx.export.poptions += -DLIBBUILD2_IN_SHARED
 # in place of another pre-release or the final version. See the version module
 # for details on the version.* variable values.
 #
-# And seeing that this is a build system module, we also embed the same
-# version as the build system core version.
+# And because this is a build system module, we also embed the same value as
+# the interface version (note that we cannot use build.version.interface for
+# bundled modules because we could be built with a different version of the
+# build system).
 #
 ver = ($version.pre_release    \
        ? "$version.project_id" \

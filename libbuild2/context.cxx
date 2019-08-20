@@ -432,6 +432,9 @@ namespace build2
         gs.assign (variable_pool::instance.insert<T> (var)) = move (val);
       };
 
+      // Note: here we assume epoch will always be 1 and therefore omit the
+      //       project_ prefix in a few places.
+      //
       set ("build.version", v.string_project ());
 
       set ("build.version.number", v.version);
@@ -454,6 +457,14 @@ namespace build2
       set ("build.version.snapshot_sn",     v.snapshot_sn); // uint64
       set ("build.version.snapshot_id",     v.snapshot_id); // string
       set ("build.version.snapshot_string", v.string_snapshot ());
+
+      // Build system interface version. In particular, it is embedded into
+      // build system modules as load_suffix.
+      //
+      set ("build.version.interface",
+           v.pre_release ()
+           ? v.string_project_id ()
+           : to_string (v.major ()) + '.' + to_string (v.minor ()));
 
       // Allow detection (for example, in tests) whether this is a staged
       // toolchain.
