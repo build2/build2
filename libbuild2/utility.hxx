@@ -71,9 +71,12 @@ namespace build2
 
   using butl::trim;
   using butl::next_word;
+  using butl::sanitize_identifier;
 
   using butl::make_guard;
   using butl::make_exception_guard;
+
+  using butl::function_cast;
 
   using butl::getenv;
   using butl::setenv;
@@ -136,9 +139,10 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern process_path argv0;
 
-  // Build system driver version and check.
+  // Build system core version and interface version.
   //
   LIBBUILD2_SYMEXPORT extern const standard_version build_version;
+  LIBBUILD2_SYMEXPORT extern const string build_version_interface;
 
   LIBBUILD2_SYMEXPORT extern bool dry_run_option; // --dry-run
 

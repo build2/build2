@@ -17,6 +17,12 @@
 
 namespace build2
 {
+  // A few high-level notes on the terminology: From the user's perspective,
+  // the module is "loaded" (with the `using` directive). From the
+  // implementation's perspectives, the module library is "loaded" and the
+  // module is "bootstrapped" (or "booted" for short) and then "initialized"
+  // (or "inited").
+
   class scope;
   class location;
 
@@ -76,7 +82,7 @@ namespace build2
   extern "C"
   using module_load_function = const module_functions* ();
 
-  // Loaded modules state.
+  // Module state.
   //
   struct module_state
   {
@@ -87,7 +93,7 @@ namespace build2
     const location loc; // Boot location.
   };
 
-  struct loaded_module_map: std::map<string, module_state>
+  struct module_map: std::map<string, module_state>
   {
     template <typename T>
     T*
@@ -100,15 +106,15 @@ namespace build2
     }
   };
 
-  // Load and boot the specified module.
+  // Boot the specified module loading its library if necessary.
   //
   LIBBUILD2_SYMEXPORT void
   boot_module (scope& root, const string& name, const location&);
 
-  // Load (if not already loaded) and initialize the specified module. Used
-  // by the parser but also by some modules to load prerequisite modules.
-  // Return true if the module was both successfully loaded and configured
-  // (false can only be returned if optional).
+  // Init the specified module loading its library if necessary. Used by the
+  // parser but also by some modules to init prerequisite modules. Return true
+  // if the module was both successfully loaded and configured (false can only
+  // be returned if optional is true).
   //
   // The config_hints variable map can be used to pass configuration hints
   // from one module to another. For example, the cxx modude may pass the
@@ -117,20 +123,37 @@ namespace build2
   // its tools).
   //
   LIBBUILD2_SYMEXPORT bool
-  load_module (scope& root,
+  init_module (scope& root,
                scope& base,
                const string& name,
                const location&,
                bool optional = false,
                const variable_map& config_hints = variable_map ());
 
-  // Builtin modules.
+  // An alias to use from other modules (we could also distinguish between
+  // boot and init).
   //
-  // @@ Maybe this should be renamed to loaded modules?
-  // @@ We can also change it to std::map<const char*, const module_functions*>
+  // @@ TODO: maybe incorporate the .loaded variable check we have all over
+  //          (it's not clear if init_module() already has this semantics)?
   //
-  using available_module_map = std::map<string, module_functions>;
-  LIBBUILD2_SYMEXPORT extern available_module_map builtin_modules;
+  inline bool
+  load_module (scope& root,
+               scope& base,
+               const string& name,
+               const location& loc,
+               bool optional = false,
+               const variable_map& config_hints = variable_map ())
+  {
+    return init_module (root, base, name, loc, optional, config_hints);
+  }
+
+  // Loaded modules (as in libraries).
+  //
+  // A NULL entry for the main module indicates that a module library was not
+  // found.
+  //
+  using loaded_module_map = std::map<string, const module_functions*>;
+  LIBBUILD2_SYMEXPORT extern loaded_module_map loaded_modules;
 }
 
 #endif // LIBBUILD2_MODULE_HXX

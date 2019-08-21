@@ -163,7 +163,7 @@ namespace build2
   LIBBUILD2_SYMEXPORT bool
   bootstrapped (scope& root);
 
-  // Execute pre/post-bootstrap hooks. Similar to bootstrap_out/sr(), should
+  // Execute pre/post-bootstrap hooks. Similar to bootstrap_out/src(), should
   // only be called once per project bootstrap.
   //
   LIBBUILD2_SYMEXPORT void

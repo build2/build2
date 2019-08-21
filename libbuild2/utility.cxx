@@ -74,6 +74,11 @@ namespace build2
   process_path argv0;
 
   const standard_version build_version (LIBBUILD2_VERSION_STR);
+  const string build_version_interface (
+    build_version.pre_release ()
+    ? build_version.string_project_id ()
+    : (to_string (build_version.major ()) + '.' +
+       to_string (build_version.minor ())));
 
   bool dry_run_option;
   optional<bool> mtime_check_option;

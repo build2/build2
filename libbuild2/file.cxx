@@ -1170,7 +1170,7 @@ namespace build2
     if (scope* rs = root.parent_scope ()->root_scope ())
       load_root (*rs);
 
-    // Finish off loading bootstrapped modules.
+    // Finish off initializing bootstrapped modules.
     //
     for (auto& p: root.root_extra->modules)
     {

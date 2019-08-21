@@ -298,7 +298,7 @@ namespace build2
 
       // Modules.
       //
-      loaded_module_map modules;
+      module_map modules;
 
       // Variable override cache (see above).
       //

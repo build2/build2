@@ -484,56 +484,59 @@ main (int argc, char* argv[])
                     SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
 
-    // Register builtin modules.
+    // Load builtin modules.
     //
     {
-      using mf = module_functions;
-      auto& bm (builtin_modules);
-
-      auto reg = [] (module_load_function* lf)
+      auto load = [] (module_load_function* lf)
       {
         for (const module_functions* i (lf ()); i->name != nullptr; ++i)
-          builtin_modules[i->name] = *i;
+          loaded_modules[i->name] = i;
       };
 
-      reg (&config::build2_config_load);
-      reg (&dist::build2_dist_load);
-      reg (&test::build2_test_load);
-      reg (&install::build2_install_load);
+      // @@ TMP
+      //
+#define TMP_LOAD(N, S, I)                                 \
+        static const module_functions N {S, nullptr, &I};  \
+        loaded_modules[S] = &N
 
-      reg (&version::build2_version_load);
-      reg (&in::build2_in_load);
+      load (&config::build2_config_load);
+      load (&dist::build2_dist_load);
+      load (&test::build2_test_load);
+      load (&install::build2_install_load);
 
-      bm["bin.vars"] = mf {"bin.vars", nullptr, &bin::vars_init};
-      bm["bin.config"] = mf {"bin.config", nullptr, &bin::config_init};
-      bm["bin"] = mf {"bin", nullptr, &bin::init};
-      bm["bin.ar.config"] = mf {"bin.ar.config", nullptr, &bin::ar_config_init};
-      bm["bin.ar"] = mf {"bin.ar", nullptr, &bin::ar_init};
-      bm["bin.ld.config"] = mf {"bin.ld.config", nullptr, &bin::ld_config_init};
-      bm["bin.ld"] = mf {"bin.ld", nullptr, &bin::ld_init};
-      bm["bin.rc.config"] = mf {"bin.rc.config", nullptr, &bin::rc_config_init};
-      bm["bin.rc"] = mf {"bin.rc", nullptr, &bin::rc_init};
+      load (&version::build2_version_load);
+      load (&in::build2_in_load);
 
-      bm["cc.core.vars"] = mf {"cc.core.vars", nullptr, &cc::core_vars_init};
-      bm["cc.core.guess"] = mf {"cc.core.guess", nullptr, &cc::core_guess_init};
-      bm["cc.core.config"] = mf {"cc.core.config", nullptr, &cc::core_config_init};
-      bm["cc.core"] = mf {"cc.core", nullptr, &cc::core_init};
-      bm["cc.config"] = mf {"cc.config", nullptr, &cc::config_init};
-      bm["cc"] = mf {"cc", nullptr, &cc::init};
+      TMP_LOAD (bin_vars, "bin.vars", bin::vars_init);
+      TMP_LOAD (bin_config, "bin.config", bin::config_init);
+      TMP_LOAD (bin, "bin", bin::init);
+      TMP_LOAD (bin_ar_config, "bin.ar.config", bin::ar_config_init);
+      TMP_LOAD (bin_ar, "bin.ar", bin::ar_init);
+      TMP_LOAD (bin_ld_config, "bin.ld.config", bin::ld_config_init);
+      TMP_LOAD (bin_ld, "bin.ld", bin::ld_init);
+      TMP_LOAD (bin_rc_config, "bin.rc.config", bin::rc_config_init);
+      TMP_LOAD (bin_rc, "bin.rc", bin::rc_init);
 
-      bm["c.guess"] = mf {"c.guess", nullptr, &c::guess_init};
-      bm["c.config"] = mf {"c.config", nullptr, &c::config_init};
-      bm["c"] = mf {"c", nullptr, &c::init};
+      TMP_LOAD (cc_core_vars, "cc.core.vars", cc::core_vars_init);
+      TMP_LOAD (cc_core_guess, "cc.core.guess", cc::core_guess_init);
+      TMP_LOAD (cc_core_config, "cc.core.config", cc::core_config_init);
+      TMP_LOAD (cc_core, "cc.core", cc::core_init);
+      TMP_LOAD (cc_config, "cc.config", cc::config_init);
+      TMP_LOAD (cc, "cc", cc::init);
 
-      bm["cxx.guess"] = mf {"cxx.guess", nullptr, &cxx::guess_init};
-      bm["cxx.config"] = mf {"cxx.config", nullptr, &cxx::config_init};
-      bm["cxx"] = mf {"cxx", nullptr, &cxx::init};
+      TMP_LOAD (c_guess, "c.guess", c::guess_init);
+      TMP_LOAD (c_config, "c.config", c::config_init);
+      TMP_LOAD (c, "c", c::init);
+
+      TMP_LOAD (cxx_guess, "cxx.guess", cxx::guess_init);
+      TMP_LOAD (cxx_config, "cxx.config", cxx::config_init);
+      TMP_LOAD (cxx, "cxx", cxx::init);
 
 #ifndef BUILD2_BOOTSTRAP
-      bm["cli.config"] = mf {"cli.config", nullptr, &cli::config_init};
-      bm["cli"] = mf {"cli", nullptr, &cli::init};
+      TMP_LOAD (cli_config, "cli.config", cli::config_init);
+      TMP_LOAD (cli, "cli", cli::init);
 
-      reg (&bash::build2_bash_load);
+      load (&bash::build2_bash_load);
 #endif
     }
 

@@ -429,10 +429,10 @@ namespace build2
 #endif
   };
 
-  // Cast data/thunk.
+  // Cast data/thunk for functions.
   //
   template <typename R, typename... A>
-  struct function_cast
+  struct function_cast_func
   {
     // A pointer to a standard layout struct is a pointer to its first data
     // member, which in our case is the cast thunk.
@@ -468,7 +468,7 @@ namespace build2
   // argument.
   //
   template <typename R, typename... A>
-  struct function_cast<R, const scope*, A...>
+  struct function_cast_func<R, const scope*, A...>
   {
     struct data
     {
@@ -500,7 +500,7 @@ namespace build2
   // Specialization for void return type. In this case we return NULL value.
   //
   template <typename... A>
-  struct function_cast<void, A...>
+  struct function_cast_func<void, A...>
   {
     struct data
     {
@@ -528,7 +528,7 @@ namespace build2
   };
 
   template <typename... A>
-  struct function_cast<void, const scope*, A...>
+  struct function_cast_func<void, const scope*, A...>
   {
     struct data
     {
@@ -753,7 +753,7 @@ namespace build2
     operator= (R (*impl) (A...)) &&
     {
       using args = function_args<A...>;
-      using cast = function_cast<R, A...>;
+      using cast = function_cast_func<R, A...>;
 
       insert (move (name),
               function_overload (
@@ -770,7 +770,7 @@ namespace build2
     operator= (R (*impl) (const scope*, A...)) &&
     {
       using args = function_args<A...>;
-      using cast = function_cast<R, const scope*, A...>;
+      using cast = function_cast_func<R, const scope*, A...>;
 
       insert (move (name),
               function_overload (

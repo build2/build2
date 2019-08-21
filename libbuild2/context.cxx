@@ -461,10 +461,7 @@ namespace build2
       // Build system interface version. In particular, it is embedded into
       // build system modules as load_suffix.
       //
-      set ("build.version.interface",
-           v.pre_release ()
-           ? v.string_project_id ()
-           : to_string (v.major ()) + '.' + to_string (v.minor ()));
+      set ("build.version.interface", build_version_interface);
 
       // Allow detection (for example, in tests) whether this is a staged
       // toolchain.
