@@ -4,6 +4,7 @@
 
 #include <libbuild2/rule.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/export.hxx>
 

@@ -8,7 +8,6 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/scope.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/operation.hxx>
 #include <libbuild2/scheduler.hxx>
@@ -17,7 +16,9 @@
 
 namespace build2
 {
-  // Main (and only) scheduler. Started up and shut down in main().
+  class scope;
+
+  // Main scheduler. Started up and shut down in main().
   //
   LIBBUILD2_SYMEXPORT extern scheduler sched;
 
@@ -302,10 +303,10 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern atomic_count target_count;
   LIBBUILD2_SYMEXPORT extern atomic_count skip_count;
 
-  void
+  LIBBUILD2_SYMEXPORT void
   set_current_mif (const meta_operation_info&);
 
-  void
+  LIBBUILD2_SYMEXPORT void
   set_current_oif (const operation_info& inner,
                    const operation_info* outer = nullptr,
                    bool diag_noise = true);
@@ -450,101 +451,6 @@ namespace build2
   // .meta_operation
   //
   LIBBUILD2_SYMEXPORT extern const variable* var_build_meta_operation;
-
-  // Utility.
-  //
-
-  // Return the project name or empty string if unnamed.
-  //
-  inline const project_name&
-  project (const scope& root)
-  {
-    auto l (root[var_project]);
-    return l ? cast<project_name> (l) : empty_project_name;
-  }
-
-  // Return the src/out directory corresponding to the given out/src. The
-  // passed directory should be a sub-directory of out/src_root.
-  //
-  LIBBUILD2_SYMEXPORT dir_path
-  src_out (const dir_path& out, const scope& root);
-
-  LIBBUILD2_SYMEXPORT dir_path
-  src_out (const dir_path& out,
-           const dir_path& out_root, const dir_path& src_root);
-
-  LIBBUILD2_SYMEXPORT dir_path
-  out_src (const dir_path& src, const scope& root);
-
-  LIBBUILD2_SYMEXPORT dir_path
-  out_src (const dir_path& src,
-           const dir_path& out_root, const dir_path& src_root);
-
-  // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
-  // and "updating exe{foo} is configured". Use like this:
-  //
-  // info << "while " << diag_doing (a, t);
-  //
-  class target;
-
-  struct diag_phrase
-  {
-    const action& a;
-    const target& t;
-    void (*f) (ostream&, const action&, const target&);
-  };
-
-  inline ostream&
-  operator<< (ostream& os, const diag_phrase& p)
-  {
-    p.f (os, p.a, p.t);
-    return os;
-  }
-
-  LIBBUILD2_SYMEXPORT string
-  diag_do (const action&);
-
-  LIBBUILD2_SYMEXPORT void
-  diag_do (ostream&, const action&, const target&);
-
-  inline diag_phrase
-  diag_do (const action& a, const target& t)
-  {
-    return diag_phrase {a, t, &diag_do};
-  }
-
-  LIBBUILD2_SYMEXPORT string
-  diag_doing (const action&);
-
-  LIBBUILD2_SYMEXPORT void
-  diag_doing (ostream&, const action&, const target&);
-
-  inline diag_phrase
-  diag_doing (const action& a, const target& t)
-  {
-    return diag_phrase {a, t, &diag_doing};
-  }
-
-  LIBBUILD2_SYMEXPORT string
-  diag_did (const action&);
-
-  LIBBUILD2_SYMEXPORT void
-  diag_did (ostream&, const action&, const target&);
-
-  inline diag_phrase
-  diag_did (const action& a, const target& t)
-  {
-    return diag_phrase {a, t, &diag_did};
-  }
-
-  LIBBUILD2_SYMEXPORT void
-  diag_done (ostream&, const action&, const target&);
-
-  inline diag_phrase
-  diag_done (const action& a, const target& t)
-  {
-    return diag_phrase {a, t, &diag_done};
-  }
 }
 
 #include <libbuild2/context.ixx>

@@ -6,7 +6,6 @@
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
-#include <libbuild2/context.hxx>
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 

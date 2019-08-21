@@ -7,6 +7,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/scope.hxx>
 #include <libbuild2/parser.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/function.hxx>

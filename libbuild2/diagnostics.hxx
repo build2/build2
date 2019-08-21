@@ -431,6 +431,74 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT extern const fail_mark fail;
   LIBBUILD2_SYMEXPORT extern const fail_end  endf;
+
+  // Action phrases, e.g., "configure update exe{foo}", "updating exe{foo}",
+  // and "updating exe{foo} is configured". Use like this:
+  //
+  // info << "while " << diag_doing (a, t);
+  //
+  class scope;
+  class target;
+  struct action;
+
+  struct diag_phrase
+  {
+    const action& a;
+    const target& t;
+    void (*f) (ostream&, const action&, const target&);
+  };
+
+  inline ostream&
+  operator<< (ostream& os, const diag_phrase& p)
+  {
+    p.f (os, p.a, p.t);
+    return os;
+  }
+
+  LIBBUILD2_SYMEXPORT string
+  diag_do (const action&);
+
+  LIBBUILD2_SYMEXPORT void
+  diag_do (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_do (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_do};
+  }
+
+  LIBBUILD2_SYMEXPORT string
+  diag_doing (const action&);
+
+  LIBBUILD2_SYMEXPORT void
+  diag_doing (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_doing (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_doing};
+  }
+
+  LIBBUILD2_SYMEXPORT string
+  diag_did (const action&);
+
+  LIBBUILD2_SYMEXPORT void
+  diag_did (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_did (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_did};
+  }
+
+  LIBBUILD2_SYMEXPORT void
+  diag_done (ostream&, const action&, const target&);
+
+  inline diag_phrase
+  diag_done (const action& a, const target& t)
+  {
+    return diag_phrase {a, t, &diag_done};
+  }
 }
 
 #endif // LIBBUILD2_DIAGNOSTICS_HXX

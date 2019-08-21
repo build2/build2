@@ -5,7 +5,6 @@
 #include <build2/c/init.hxx>
 
 #include <libbuild2/scope.hxx>
-#include <libbuild2/context.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <build2/cc/guess.hxx>

@@ -6,7 +6,6 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
-#include <libbuild2/context.hxx>
 #include <libbuild2/filesystem.hxx>   // mtime()
 #include <libbuild2/prerequisite.hxx>
 #include <libbuild2/diagnostics.hxx>

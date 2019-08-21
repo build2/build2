@@ -3,7 +3,7 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <libbuild2/scope.hxx>
-#include <libbuild2/context.hxx>
+#include <libbuild2/context.hxx> // current_mif
 
 namespace build2
 {

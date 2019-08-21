@@ -5,7 +5,6 @@
 #include <libbuild2/in/init.hxx>
 
 #include <libbuild2/scope.hxx>
-#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 

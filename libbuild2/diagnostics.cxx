@@ -8,6 +8,11 @@
 
 #include <libbutl/process-io.mxx>
 
+#include <libbuild2/scope.hxx>
+#include <libbuild2/action.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>
+
 using namespace std;
 
 namespace build2
@@ -135,4 +140,157 @@ namespace build2
   const basic_mark text  (nullptr, nullptr, nullptr); // No type/data/frame.
   const fail_mark  fail  ("error");
   const fail_end   endf;
+
+    // diag_do(), etc.
+  //
+  string
+  diag_do (const action&)
+  {
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
+
+    string r;
+
+    // perform(update(x))   -> "update x"
+    // configure(update(x)) -> "configure updating x"
+    //
+    if (m.name_do.empty ())
+      r = io.name_do;
+    else
+    {
+      r = m.name_do;
+
+      if (io.name_doing[0] != '\0')
+      {
+        r += ' ';
+        r += io.name_doing;
+      }
+    }
+
+    if (oo != nullptr)
+    {
+      r += " (for ";
+      r += oo->name;
+      r += ')';
+    }
+
+    return r;
+  }
+
+  void
+  diag_do (ostream& os, const action& a, const target& t)
+  {
+    os << diag_do (a) << ' ' << t;
+  }
+
+  string
+  diag_doing (const action&)
+  {
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
+
+    string r;
+
+    // perform(update(x))   -> "updating x"
+    // configure(update(x)) -> "configuring updating x"
+    //
+    if (!m.name_doing.empty ())
+      r = m.name_doing;
+
+    if (io.name_doing[0] != '\0')
+    {
+      if (!r.empty ()) r += ' ';
+      r += io.name_doing;
+    }
+
+    if (oo != nullptr)
+    {
+      r += " (for ";
+      r += oo->name;
+      r += ')';
+    }
+
+    return r;
+  }
+
+  void
+  diag_doing (ostream& os, const action& a, const target& t)
+  {
+    os << diag_doing (a) << ' ' << t;
+  }
+
+  string
+  diag_did (const action&)
+  {
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
+
+    string r;
+
+    // perform(update(x))   -> "updated x"
+    // configure(update(x)) -> "configured updating x"
+    //
+    if (!m.name_did.empty ())
+    {
+      r = m.name_did;
+
+      if (io.name_doing[0] != '\0')
+      {
+        r += ' ';
+        r += io.name_doing;
+      }
+    }
+    else
+      r += io.name_did;
+
+    if (oo != nullptr)
+    {
+      r += " (for ";
+      r += oo->name;
+      r += ')';
+    }
+
+    return r;
+  }
+
+  void
+  diag_did (ostream& os, const action& a, const target& t)
+  {
+    os << diag_did (a) << ' ' << t;
+  }
+
+  void
+  diag_done (ostream& os, const action&, const target& t)
+  {
+    const meta_operation_info& m (*current_mif);
+    const operation_info& io (*current_inner_oif);
+    const operation_info* oo (current_outer_oif);
+
+    // perform(update(x))   -> "x is up to date"
+    // configure(update(x)) -> "updating x is configured"
+    //
+    if (m.name_done.empty ())
+    {
+      os << t;
+
+      if (io.name_done[0] != '\0')
+        os << ' ' << io.name_done;
+
+      if (oo != nullptr)
+        os << " (for " << oo->name << ')';
+    }
+    else
+    {
+      if (io.name_doing[0] != '\0')
+        os << io.name_doing << ' ';
+
+      if (oo != nullptr)
+        os << "(for " << oo->name << ") ";
+
+      os << t << ' ' << m.name_done;
+    }
+  }
 }

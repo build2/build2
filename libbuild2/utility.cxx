@@ -10,6 +10,7 @@
 #include <iostream> // cerr
 
 #include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 

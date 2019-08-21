@@ -51,4 +51,41 @@ namespace build2
 
     return false;
   }
+
+  inline dir_path
+  src_out (const dir_path& out, const scope& r)
+  {
+    assert (r.root ());
+    return src_out (out, r.out_path (), r.src_path ());
+  }
+
+  inline dir_path
+  out_src (const dir_path& src, const scope& r)
+  {
+    assert (r.root ());
+    return out_src (src, r.out_path (), r.src_path ());
+  }
+
+  inline dir_path
+  src_out (const dir_path& o,
+           const dir_path& out_root, const dir_path& src_root)
+  {
+    assert (o.sub (out_root));
+    return src_root / o.leaf (out_root);
+  }
+
+  inline dir_path
+  out_src (const dir_path& s,
+           const dir_path& out_root, const dir_path& src_root)
+  {
+    assert (s.sub (src_root));
+    return out_root / s.leaf (src_root);
+  }
+
+  inline const project_name&
+  project (const scope& root)
+  {
+    auto l (root[var_project]);
+    return l ? cast<project_name> (l) : empty_project_name;
+  }
 }

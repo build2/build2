@@ -6,7 +6,6 @@
 
 #include <libbuild2/file.hxx>        // import()
 #include <libbuild2/scope.hxx>
-#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>

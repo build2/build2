@@ -4,7 +4,6 @@
 
 #include <libbuild2/spec.hxx>
 
-#include <libbuild2/context.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 using namespace std;

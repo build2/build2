@@ -8,7 +8,6 @@
 
 #include <libbutl/filesystem.mxx> // path_match()
 
-#include <libbuild2/context.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 using namespace std;

@@ -12,12 +12,13 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/module.hxx>
+#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/rule-map.hxx>
+#include <libbuild2/operation.hxx>
 #include <libbuild2/target-key.hxx>
 #include <libbuild2/target-type.hxx>
 #include <libbuild2/target-state.hxx>
-#include <libbuild2/rule-map.hxx>
-#include <libbuild2/operation.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -369,6 +370,28 @@ namespace build2
   {
     return os << s.out_path ().representation (); // Always absolute.
   }
+
+  // Return the src/out directory corresponding to the given out/src. The
+  // passed directory should be a sub-directory of out/src_root.
+  //
+  dir_path
+  src_out (const dir_path& out, const scope& root);
+
+  dir_path
+  src_out (const dir_path& out,
+           const dir_path& out_root, const dir_path& src_root);
+
+  dir_path
+  out_src (const dir_path& src, const scope& root);
+
+  dir_path
+  out_src (const dir_path& src,
+           const dir_path& out_root, const dir_path& src_root);
+
+  // Return the project name or empty string if unnamed.
+  //
+  const project_name&
+  project (const scope& root);
 
   // Temporary scope. The idea is to be able to create a temporary scope in
   // order not to change the variables in the current scope.  Such a scope is

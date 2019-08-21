@@ -7,7 +7,6 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx>
-#include <libbuild2/context.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 using namespace std;

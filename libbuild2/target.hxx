@@ -16,6 +16,7 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/action.hxx>
+#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/target-key.hxx>
 #include <libbuild2/target-type.hxx>
@@ -27,12 +28,7 @@
 namespace build2
 {
   class rule;
-  class scope;
   class target;
-
-  // From <libbuild2/context.hxx>.
-  //
-  LIBBUILD2_SYMEXPORT extern size_t current_on;
 
   // From <libbuild2/algorithm.hxx>.
   //

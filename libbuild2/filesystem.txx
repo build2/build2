@@ -4,7 +4,7 @@
 
 #include <type_traits> // is_base_of
 
-#include <libbuild2/context.hxx>
+#include <libbuild2/context.hxx> // dry_run
 #include <libbuild2/diagnostics.hxx>
 
 namespace build2
