@@ -24,9 +24,9 @@ namespace build2
   }
 
   void
-  builtin_functions ()
+  builtin_functions (function_map& m)
   {
-    function_family f ("builtin");
+    function_family f (m, "builtin");
 
     f["type"] = [](value* v) {return v->type != nullptr ? v->type->name : "";};
 

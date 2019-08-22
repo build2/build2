@@ -44,7 +44,8 @@ namespace build2
     // Return the archive file path.
     //
     static path
-    archive (const dir_path& root,
+    archive (context& ctx,
+             const dir_path& root,
              const string& pkg,
              const dir_path& dir,
              const string& ext);
@@ -54,7 +55,8 @@ namespace build2
     // Return the checksum file path.
     //
     static path
-    checksum (const path& arc, const dir_path& dir, const string& ext);
+    checksum (context&,
+              const path& arc, const dir_path& dir, const string& ext);
 
     static operation_id
     dist_operation_pre (const values&, operation_id o)
@@ -78,6 +80,8 @@ namespace build2
 
       if (rs == nullptr)
         fail << "out of project target " << t;
+
+      context& ctx (rs->ctx);
 
       const dir_path& out_root (rs->out_path ());
       const dir_path& src_root (rs->src_path ());
@@ -167,7 +171,7 @@ namespace build2
             if (operation_id pid = oif->pre (params, dist_id, loc))
             {
               const operation_info* poif (ops[pid]);
-              set_current_oif (*poif, oif, false /* diag_noise */);
+              ctx.current_operation (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -175,7 +179,7 @@ namespace build2
             }
           }
 
-          set_current_oif (*oif, nullptr, false /* diag_noise */);
+          ctx.current_operation (*oif, nullptr, false /* diag_noise */);
           action a (dist_id, oif->id);
           match (params, a, ts,
                  1     /* diag (failures only) */,
@@ -186,7 +190,7 @@ namespace build2
             if (operation_id pid = oif->post (params, dist_id))
             {
               const operation_info* poif (ops[pid]);
-              set_current_oif (*poif, oif, false /* diag_noise */);
+              ctx.current_operation (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -213,7 +217,7 @@ namespace build2
                         ? out_src (d, rs)
                         : dir_path ());
 
-          targets.insert<buildfile> (
+          rs.ctx.targets.insert<buildfile> (
             move (d),
             move (out),
             p.leaf ().base ().string (),
@@ -226,13 +230,13 @@ namespace build2
 
       // The same for subprojects that have been loaded.
       //
-      if (auto l = rs->vars[var_subprojects])
+      if (auto l = rs->vars[ctx.var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find (out_nroot));
 
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
@@ -251,9 +255,9 @@ namespace build2
       // distribute") since it will be useless (too fast).
       //
       action_targets files;
-      const variable& dist_var (var_pool["dist"]);
+      const variable& dist_var (ctx.var_pool["dist"]);
 
-      for (const auto& pt: targets)
+      for (const auto& pt: ctx.targets)
       {
         file* ft (pt->is_a<file> ());
 
@@ -304,14 +308,14 @@ namespace build2
         //
         // Note also that we don't do any structured result printing.
         //
-        size_t on (current_on);
-        set_current_mif (mo_perform);
-        current_on = on + 1;
+        size_t on (ctx.current_on);
+        ctx.current_meta_operation (mo_perform);
+        ctx.current_on = on + 1;
 
         if (mo_perform.operation_pre != nullptr)
           mo_perform.operation_pre (params, update_id);
 
-        set_current_oif (op_update, nullptr, false /* diag_noise */);
+        ctx.current_operation (op_update, nullptr, false /* diag_noise */);
 
         action a (perform_id, update_id);
 
@@ -334,7 +338,7 @@ namespace build2
 
       // Clean up the target directory.
       //
-      if (build2::rmdir_r (td, true, 2) == rmdir_status::not_empty)
+      if (rmdir_r (ctx, td, true, 2) == rmdir_status::not_empty)
         fail << "unable to clean target directory " << td;
 
       auto_rmdir rm_td (td); // Clean it up if things go bad.
@@ -367,14 +371,14 @@ namespace build2
         const scope* srs (rs);
         const module::callbacks* cbs (&mod.callbacks_);
 
-        if (auto l = rs->vars[var_subprojects])
+        if (auto l = rs->vars[ctx.var_subprojects])
         {
           for (auto p: cast<subprojects> (l))
           {
             const dir_path& pd (p.second);
             if (dl.sub (pd))
             {
-              srs = &scopes.find (out_root / pd);
+              srs = &ctx.scopes.find (out_root / pd);
 
               if (auto* m = srs->lookup_module<module> (module::name))
                 cbs = &m->callbacks_;
@@ -467,14 +471,14 @@ namespace build2
         for (const path& p: cast<paths> (as))
         {
           auto ap (split (p, dist_root, "dist.archives"));
-          path a (archive (dist_root, dist_package, ap.first, ap.second));
+          path a (archive (ctx, dist_root, dist_package, ap.first, ap.second));
 
           if (cs)
           {
             for (const path& p: cast<paths> (cs))
             {
               auto cp (split (p, ap.first, "dist.checksums"));
-              checksum (a, cp.first, cp.second);
+              checksum (ctx, a, cp.first, cp.second);
             }
           }
         }
@@ -541,7 +545,8 @@ namespace build2
     }
 
     static path
-    archive (const dir_path& root,
+    archive (context& ctx,
+             const dir_path& root,
              const string& pkg,
              const dir_path& dir,
              const string& e)
@@ -552,7 +557,7 @@ namespace build2
       //
       path ap (dir / an);
       if (exists (ap, false))
-        rmfile (ap);
+        rmfile (ctx, ap);
 
       // Use zip for .zip archives. Also recognize and handle a few well-known
       // tar.xx cases (in case tar doesn't support -a or has other issues like
@@ -713,7 +718,8 @@ namespace build2
     }
 
     static path
-    checksum (const path& ap, const dir_path& dir, const string& e)
+    checksum (context& ctx,
+              const path& ap, const dir_path& dir, const string& e)
     {
       path     an (ap.leaf ());
       dir_path ad (ap.directory ());
@@ -724,7 +730,7 @@ namespace build2
       //
       path cp (dir / cn);
       if (exists (cp, false))
-        rmfile (cp);
+        rmfile (ctx, cp);
 
       auto_rmfile c_rm; // Note: must come first.
       auto_fd c_fd;

@@ -764,7 +764,7 @@ namespace build2
   {
     // We assume typification is not modification so no version increment.
     //
-    if (phase == run_phase::load)
+    if (ctx->phase == run_phase::load)
     {
       if (v.type != var.type)
         build2::typify (const_cast<value_data&> (v), *var.type, &var);

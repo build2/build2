@@ -364,7 +364,7 @@ namespace build2
         build2::test::script::script s (t, ts, wd);
 
         {
-          parser p;
+          parser p (t.ctx);
           p.pre_parse (s);
 
           default_runner r (c);
@@ -384,6 +384,8 @@ namespace build2
     target_state rule::
     perform_script (action a, const target& t, size_t pass_n) const
     {
+      context& ctx (t.ctx);
+
       // First pass through.
       //
       if (pass_n != 0)
@@ -433,10 +435,10 @@ namespace build2
       const path& buildignore_file (rs.root_extra->buildignore_file);
 
       dir_path bl;
-      if (cast_false<bool> (rs.vars[var_forwarded]))
+      if (cast_false<bool> (rs.vars[ctx.var_forwarded]))
       {
         bl = bs.src_path () / wd.leaf (bs.out_path ());
-        clean_backlink (bl, verb_never);
+        clean_backlink (ctx, bl, verb_never);
       }
 
       // If this is a (potentially) multi-testscript test, then create (and
@@ -477,7 +479,7 @@ namespace build2
         // Remove the directory itself not to confuse the runner which tries
         // to detect when tests stomp on each others feet.
         //
-        build2::rmdir_r (wd, true, 2);
+        rmdir_r (ctx, wd, true, 2);
       }
 
       // Delay actually creating the directory in case all the tests are
@@ -489,8 +491,8 @@ namespace build2
       //
       wait_guard wg;
 
-      if (!dry_run)
-        wg = wait_guard (target::count_busy (), t[a].task_count);
+      if (!ctx.dry_run)
+        wg = wait_guard (ctx, ctx.count_busy (), t[a].task_count);
 
       // Result vector.
       //
@@ -514,11 +516,11 @@ namespace build2
           // don't clean the existing one), we are going to ignore it for
           // dry-run.
           //
-          if (!dry_run)
+          if (!ctx.dry_run)
           {
             if (mk)
             {
-              mkdir_buildignore (wd, buildignore_file, 2);
+              mkdir_buildignore (ctx, wd, buildignore_file, 2);
               mk = false;
             }
           }
@@ -532,40 +534,42 @@ namespace build2
               dr << ' ' << t;
           }
 
-          res.push_back (dry_run ? scope_state::passed : scope_state::unknown);
+          res.push_back (ctx.dry_run
+                         ? scope_state::passed
+                         : scope_state::unknown);
 
-          if (!dry_run)
+          if (!ctx.dry_run)
           {
             scope_state& r (res.back ());
 
-            if (!sched.async (target::count_busy (),
-                              t[a].task_count,
-                              [this] (const diag_frame* ds,
-                                      scope_state& r,
-                                      const target& t,
-                                      const testscript& ts,
-                                      const dir_path& wd)
-                              {
-                                diag_frame::stack_guard dsg (ds);
-                                r = perform_script_impl (t, ts, wd, *this);
-                              },
-                              diag_frame::stack (),
-                              ref (r),
-                              cref (t),
-                              cref (ts),
-                              cref (wd)))
+            if (!ctx.sched.async (ctx.count_busy (),
+                                  t[a].task_count,
+                                  [this] (const diag_frame* ds,
+                                          scope_state& r,
+                                          const target& t,
+                                          const testscript& ts,
+                                          const dir_path& wd)
+                                  {
+                                    diag_frame::stack_guard dsg (ds);
+                                    r = perform_script_impl (t, ts, wd, *this);
+                                  },
+                                  diag_frame::stack (),
+                                  ref (r),
+                                  cref (t),
+                                  cref (ts),
+                                  cref (wd)))
             {
               // Executed synchronously. If failed and we were not asked to
               // keep going, bail out.
               //
-              if (r == scope_state::failed && !keep_going)
+              if (r == scope_state::failed && !ctx.keep_going)
                 break;
             }
           }
         }
       }
 
-      if (!dry_run)
+      if (!ctx.dry_run)
         wg.wait ();
 
       // Re-examine.
@@ -586,7 +590,7 @@ namespace build2
 
       // Cleanup.
       //
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         if (!bad && !one && !mk && after == output_after::clean)
         {
@@ -594,7 +598,7 @@ namespace build2
             fail << "working directory " << wd << " is not empty at the "
                  << "end of the test";
 
-          rmdir_buildignore (wd, buildignore_file, 2);
+          rmdir_buildignore (ctx, wd, buildignore_file, 2);
         }
       }
 
@@ -603,8 +607,10 @@ namespace build2
       // If we dry-run then presumably all tests passed and we shouldn't
       // have anything left unless we are keeping the output.
       //
-      if (!bl.empty () && (dry_run ? after == output_after::keep : exists (wd)))
-        update_backlink (wd, bl, true /* changed */);
+      if (!bl.empty () && (ctx.dry_run
+                           ? after == output_after::keep
+                           : exists (wd)))
+        update_backlink (ctx, wd, bl, true /* changed */);
 
       if (bad)
         throw failed ();
@@ -677,6 +683,8 @@ namespace build2
     target_state rule::
     perform_test (action a, const target& tt, size_t pass_n) const
     {
+      context& ctx (tt.ctx);
+
       // First pass through.
       //
       if (pass_n != 0)
@@ -777,7 +785,7 @@ namespace build2
 
         cat = process (process_exit (0)); // Successfully exited.
 
-        if (!dry_run)
+        if (!ctx.dry_run)
         {
           try
           {
@@ -798,7 +806,7 @@ namespace build2
 
       // If dry-run, the target may not exist.
       //
-      process_path pp (!dry_run
+      process_path pp (!ctx.dry_run
                        ? run_search     (p, true /* init */)
                        : try_run_search (p, true));
       args.push_back (pp.empty () ? p.string ().c_str () : pp.recall_string ());
@@ -863,7 +871,7 @@ namespace build2
       else if (verb)
         text << "test " << tt;
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         diag_record dr;
         if (!run_test (tt,

@@ -191,9 +191,9 @@ namespace build2
   }
 
   void
-  process_functions ()
+  process_functions (function_map& m)
   {
-    function_family f ("process");
+    function_family f (m, "process");
 
     // $process.run(<prog>[ <args>...])
     //

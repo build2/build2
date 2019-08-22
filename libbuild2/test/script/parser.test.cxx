@@ -9,7 +9,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target.hxx>
-#include <libbuild2/context.hxx>   // reset()
+#include <libbuild2/context.hxx>
 #include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/test/target.hxx>
@@ -155,8 +155,8 @@ namespace build2
         //
         init_diag (1);
         init (nullptr, argv[0]);
-        sched.startup (1);  // Serial execution.
-        reset (strings ()); // No command line variables.
+        scheduler sched (1); // Serial execution.
+        context ctx (sched);
 
         bool scope (false);
         bool id (false);
@@ -195,32 +195,32 @@ namespace build2
           // really care.
           //
           file& tt (
-            targets.insert<file> (work,
-                                  dir_path (),
-                                  "driver",
-                                  string (),
-                                  trace));
+            ctx.targets.insert<file> (work,
+                                      dir_path (),
+                                      "driver",
+                                      string (),
+                                      trace));
 
           value& v (
             tt.assign (
-              var_pool.rw ().insert<target_triplet> (
+              ctx.var_pool.rw ().insert<target_triplet> (
                 "test.target", variable_visibility::project)));
 
-          v = cast<target_triplet> ((*global_scope)["build.host"]);
+          v = cast<target_triplet> (ctx.global_scope["build.host"]);
 
           testscript& st (
-            targets.insert<testscript> (work,
-                                        dir_path (),
-                                        name.leaf ().base ().string (),
-                                        name.leaf ().extension (),
-                                        trace));
+            ctx.targets.insert<testscript> (work,
+                                            dir_path (),
+                                            name.leaf ().base ().string (),
+                                            name.leaf ().extension (),
+                                            trace));
 
           tt.path (path ("driver"));
           st.path (name);
 
           // Parse and run.
           //
-          parser p;
+          parser p (ctx);
           script s (tt, st, dir_path (work) /= "test-driver");
           p.pre_parse (cin, s);
 

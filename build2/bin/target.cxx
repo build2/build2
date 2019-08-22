@@ -88,11 +88,12 @@ namespace build2
     //
     template <typename M, typename G>
     static target*
-    m_factory (const target_type&, dir_path dir, dir_path out, string n)
+    m_factory (context& ctx,
+               const target_type&, dir_path dir, dir_path out, string n)
     {
-      const G* g (targets.find<G> (dir, out, n));
+      const G* g (ctx.targets.find<G> (dir, out, n));
 
-      M* m (new M (move (dir), move (out), move (n)));
+      M* m (new M (ctx, move (dir), move (out), move (n)));
       m->group = g;
 
       return m;
@@ -104,8 +105,8 @@ namespace build2
       &objx::static_type,
       &m_factory<obje, obj>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -117,8 +118,8 @@ namespace build2
       &bmix::static_type,
       &m_factory<bmie, bmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -130,8 +131,8 @@ namespace build2
       &hbmix::static_type,
       &m_factory<hbmie, hbmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -143,8 +144,8 @@ namespace build2
       &objx::static_type,
       &m_factory<obja, obj>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -156,8 +157,8 @@ namespace build2
       &bmix::static_type,
       &m_factory<bmia, bmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -169,8 +170,8 @@ namespace build2
       &hbmix::static_type,
       &m_factory<hbmia, hbmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -182,8 +183,8 @@ namespace build2
       &objx::static_type,
       &m_factory<objs, obj>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -195,8 +196,8 @@ namespace build2
       &bmix::static_type,
       &m_factory<bmis, bmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -208,8 +209,8 @@ namespace build2
       &hbmix::static_type,
       &m_factory<hbmis, hbmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -221,8 +222,8 @@ namespace build2
       &libux::static_type,
       &target_factory<libue>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -234,8 +235,8 @@ namespace build2
       &libux::static_type,
       &m_factory<libua, libul>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -247,8 +248,8 @@ namespace build2
       &libux::static_type,
       &m_factory<libus, libul>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -258,21 +259,22 @@ namespace build2
     //
     template <typename G, typename E, typename A, typename S>
     static target*
-    g_factory (const target_type&, dir_path dir, dir_path out, string n)
+    g_factory (context& ctx,
+               const target_type&, dir_path dir, dir_path out, string n)
     {
       // Casts are MT-aware (during serial load).
       //
-      E* e (phase == run_phase::load
-            ? const_cast<E*> (targets.find<E> (dir, out, n))
+      E* e (ctx.phase == run_phase::load
+            ? const_cast<E*> (ctx.targets.find<E> (dir, out, n))
             : nullptr);
-      A* a (phase == run_phase::load
-            ? const_cast<A*> (targets.find<A> (dir, out, n))
+      A* a (ctx.phase == run_phase::load
+            ? const_cast<A*> (ctx.targets.find<A> (dir, out, n))
             : nullptr);
-      S* s (phase == run_phase::load
-            ? const_cast<S*> (targets.find<S> (dir, out, n))
+      S* s (ctx.phase == run_phase::load
+            ? const_cast<S*> (ctx.targets.find<S> (dir, out, n))
             : nullptr);
 
-      G* g (new G (move (dir), move (out), move (n)));
+      G* g (new G (ctx, move (dir), move (out), move (n)));
 
       if (e != nullptr) e->group = g;
       if (a != nullptr) a->group = g;
@@ -323,16 +325,17 @@ namespace build2
     // The same as g_factory() but without E.
     //
     static target*
-    libul_factory (const target_type&, dir_path dir, dir_path out, string n)
+    libul_factory (context& ctx,
+                   const target_type&, dir_path dir, dir_path out, string n)
     {
-      libua* a (phase == run_phase::load
-                ? const_cast<libua*> (targets.find<libua> (dir, out, n))
+      libua* a (ctx.phase == run_phase::load
+                ? const_cast<libua*> (ctx.targets.find<libua> (dir, out, n))
                 : nullptr);
-      libus* s (phase == run_phase::load
-                ? const_cast<libus*> (targets.find<libus> (dir, out, n))
+      libus* s (ctx.phase == run_phase::load
+                ? const_cast<libus*> (ctx.targets.find<libus> (dir, out, n))
                 : nullptr);
 
-      libul* g (new libul (move (dir), move (out), move (n)));
+      libul* g (new libul (ctx, move (dir), move (out), move (n)));
 
       if (a != nullptr) a->group = g;
       if (s != nullptr) s->group = g;
@@ -369,8 +372,8 @@ namespace build2
       &file::static_type,
       &m_factory<liba, lib>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
       false
@@ -382,8 +385,8 @@ namespace build2
       &file::static_type,
       &m_factory<libs, lib>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
       false
@@ -403,18 +406,19 @@ namespace build2
     }
 
     static target*
-    lib_factory (const target_type&, dir_path dir, dir_path out, string n)
+    lib_factory (context& ctx,
+                 const target_type&, dir_path dir, dir_path out, string n)
     {
       // Casts are MT-aware (during serial load).
       //
-      liba* a (phase == run_phase::load
-               ? const_cast<liba*> (targets.find<liba> (dir, out, n))
+      liba* a (ctx.phase == run_phase::load
+               ? const_cast<liba*> (ctx.targets.find<liba> (dir, out, n))
                : nullptr);
-      libs* s (phase == run_phase::load
-               ? const_cast<libs*> (targets.find<libs> (dir, out, n))
+      libs* s (ctx.phase == run_phase::load
+               ? const_cast<libs*> (ctx.targets.find<libs> (dir, out, n))
                : nullptr);
 
-      lib* l (new lib (move (dir), move (out), move (n)));
+      lib* l (new lib (ctx, move (dir), move (out), move (n)));
 
       if (a != nullptr) a->group = l;
       if (s != nullptr) s->group = l;
@@ -443,8 +447,8 @@ namespace build2
       &file::static_type,
       &target_factory<libi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
       false

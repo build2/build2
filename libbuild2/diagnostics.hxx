@@ -439,6 +439,7 @@ namespace build2
   //
   class scope;
   class target;
+  class context;
   struct action;
 
   struct diag_phrase
@@ -456,7 +457,7 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT string
-  diag_do (const action&);
+  diag_do (context&, const action&);
 
   LIBBUILD2_SYMEXPORT void
   diag_do (ostream&, const action&, const target&);
@@ -468,7 +469,7 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT string
-  diag_doing (const action&);
+  diag_doing (context&, const action&);
 
   LIBBUILD2_SYMEXPORT void
   diag_doing (ostream&, const action&, const target&);
@@ -480,7 +481,7 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT string
-  diag_did (const action&);
+  diag_did (context&, const action&);
 
   LIBBUILD2_SYMEXPORT void
   diag_did (ostream&, const action&, const target&);

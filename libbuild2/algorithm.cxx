@@ -22,7 +22,7 @@ namespace build2
   const target&
   search (const target& t, const prerequisite& p)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     const target* r (p.target.load (memory_order_consume));
 
@@ -35,13 +35,15 @@ namespace build2
   const target*
   search_existing (const prerequisite& p)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    context& ctx (p.scope.ctx);
+
+    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
 
     const target* r (p.target.load (memory_order_consume));
 
     if (r == nullptr)
     {
-      r = search_existing (p.key ());
+      r = search_existing (ctx, p.key ());
 
       if (r != nullptr)
         search_custom (p, *r);
@@ -53,32 +55,34 @@ namespace build2
   const target&
   search (const target& t, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     // If this is a project-qualified prerequisite, then this is import's
     // business.
     //
     if (pk.proj)
-      return import (pk);
+      return import (t.ctx, pk);
 
     if (const target* pt = pk.tk.type->search (t, pk))
       return *pt;
 
-    return create_new_target (pk);
+    return create_new_target (t.ctx, pk);
   }
 
   const target*
-  search_existing (const prerequisite_key& pk)
+  search_existing (context& ctx, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
 
-    return pk.proj ? import_existing (pk) : search_existing_target (pk);
+    return pk.proj
+      ? import_existing (ctx, pk)
+      : search_existing_target (ctx, pk);
   }
 
   const target&
   search (const target& t, name n, const scope& s)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     auto rp (s.find_target_type (n, location ()));
     const target_type* tt (rp.first);
@@ -106,7 +110,8 @@ namespace build2
   const target*
   search_existing (const name& cn, const scope& s, const dir_path& out)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (s.ctx.phase == run_phase::match ||
+            s.ctx.phase == run_phase::execute);
 
     name n (cn);
     auto rp (s.find_target_type (n, location ()));
@@ -130,7 +135,9 @@ namespace build2
     prerequisite_key pk {
       n.proj, {tt, &n.dir, q ? &empty_dir_path : &out, &n.value, ext}, &s};
 
-    return q ? import_existing (pk) : search_existing_target (pk);
+    return q
+      ? import_existing (s.ctx, pk)
+      : search_existing_target (s.ctx, pk);
   }
 
   // target_lock
@@ -162,12 +169,14 @@ namespace build2
   target_lock
   lock_impl (action a, const target& ct, optional<scheduler::work_queue> wq)
   {
-    assert (phase == run_phase::match);
+    context& ctx (ct.ctx);
+
+    assert (ctx.phase == run_phase::match);
 
     // Most likely the target's state is (count_touched - 1), that is, 0 or
     // previously executed, so let's start with that.
     //
-    size_t b (target::count_base ());
+    size_t b (ctx.count_base ());
     size_t e (b + target::offset_touched - 1);
 
     size_t appl (b + target::offset_applied);
@@ -202,8 +211,8 @@ namespace build2
         // to switch the phase to load. Which would result in a deadlock
         // unless we release the phase.
         //
-        phase_unlock ul;
-        e = sched.wait (busy - 1, task_count, *wq);
+        phase_unlock ul (ct.ctx);
+        e = ctx.sched.wait (busy - 1, task_count, *wq);
       }
 
       // We don't lock already applied or executed targets.
@@ -241,15 +250,17 @@ namespace build2
   void
   unlock_impl (action a, target& t, size_t offset)
   {
-    assert (phase == run_phase::match);
+    context& ctx (t.ctx);
+
+    assert (ctx.phase == run_phase::match);
 
     atomic_count& task_count (t[a].task_count);
 
     // Set the task count and wake up any threads that might be waiting for
     // this target.
     //
-    task_count.store (offset + target::count_base (), memory_order_release);
-    sched.resume (task_count);
+    task_count.store (offset + ctx.count_base (), memory_order_release);
+    ctx.sched.resume (task_count);
   }
 
   target&
@@ -266,13 +277,13 @@ namespace build2
 
     target& m (*mp != nullptr // Might already be there.
                ? **mp
-               : targets.insert (tt,
-                                 dir,
-                                 out,
-                                 move (n),
-                                 nullopt /* ext     */,
-                                 true    /* implied */,
-                                 trace).first);
+               : t.ctx.targets.insert (tt,
+                                       dir,
+                                       out,
+                                       move (n),
+                                       nullopt /* ext     */,
+                                       true    /* implied */,
+                                       trace).first);
     if (*mp == nullptr)
     {
       *mp = &m;
@@ -303,7 +314,7 @@ namespace build2
       //
       for (const scope* s (&bs);
            s != nullptr;
-           s = s->root () ? global_scope : s->parent_scope ())
+           s = s->root () ? &s->global_scope () : s->parent_scope ())
       {
         const operation_rule_map* om (s->rules[mo]);
 
@@ -625,32 +636,33 @@ namespace build2
       // Also pass our diagnostics and lock stacks (this is safe since we
       // expect the caller to wait for completion before unwinding its stack).
       //
-      if (sched.async (start_count,
-                       *task_count,
-                       [a, try_match] (const diag_frame* ds,
-                                       const target_lock* ls,
-                                       target& t, size_t offset)
-                       {
-                         // Switch to caller's diag and lock stacks.
-                         //
-                         diag_frame::stack_guard dsg (ds);
-                         target_lock::stack_guard lsg (ls);
+      if (ct.ctx.sched.async (
+            start_count,
+            *task_count,
+            [a, try_match] (const diag_frame* ds,
+                            const target_lock* ls,
+                            target& t, size_t offset)
+            {
+              // Switch to caller's diag and lock stacks.
+              //
+              diag_frame::stack_guard dsg (ds);
+              target_lock::stack_guard lsg (ls);
 
-                         try
-                         {
-                           phase_lock pl (run_phase::match); // Can throw.
-                           {
-                             target_lock l {a, &t, offset}; // Reassemble.
-                             match_impl (l, false /* step */, try_match);
-                             // Unlock within the match phase.
-                           }
-                         }
-                         catch (const failed&) {} // Phase lock failure.
-                       },
-                       diag_frame::stack (),
-                       target_lock::stack (),
-                       ref (*ld.target),
-                       ld.offset))
+              try
+              {
+                phase_lock pl (t.ctx, run_phase::match); // Throws.
+                {
+                  target_lock l {a, &t, offset}; // Reassemble.
+                  match_impl (l, false /* step */, try_match);
+                  // Unlock within the match phase.
+                }
+              }
+              catch (const failed&) {} // Phase lock failure.
+            },
+            diag_frame::stack (),
+            target_lock::stack (),
+            ref (*ld.target),
+            ld.offset))
         return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.
@@ -728,7 +740,7 @@ namespace build2
         // to execute it now.
         //
         {
-          phase_switch ps (run_phase::execute);
+          phase_switch ps (g.ctx, run_phase::execute);
           execute_direct (a, g);
         }
 
@@ -751,7 +763,7 @@ namespace build2
     // We can be called during execute though everything should have been
     // already resolved.
     //
-    switch (phase)
+    switch (g.ctx.phase)
     {
     case run_phase::match:
       {
@@ -793,7 +805,7 @@ namespace build2
     // Start asynchronous matching of prerequisites. Wait with unlocked phase
     // to allow phase switching.
     //
-    wait_guard wg (target::count_busy (), t[a].task_count, true);
+    wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
 
     size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
@@ -812,7 +824,7 @@ namespace build2
       if (pt.target == nullptr || (s != nullptr && !pt.target->in (*s)))
         continue;
 
-      match_async (a, *pt.target, target::count_busy (), t[a].task_count);
+      match_async (a, *pt.target, t.ctx.count_busy (), t[a].task_count);
       pts.push_back (move (pt));
     }
 
@@ -850,7 +862,7 @@ namespace build2
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
     //
-    wait_guard wg (target::count_busy (), t[a].task_count, true);
+    wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -859,7 +871,7 @@ namespace build2
       if (m == nullptr || marked (m))
         continue;
 
-      match_async (a, *m, target::count_busy (), t[a].task_count);
+      match_async (a, *m, t.ctx.count_busy (), t[a].task_count);
     }
 
     wg.wait ();
@@ -897,7 +909,7 @@ namespace build2
     //
     const dir_path& d (parent && t.name.empty () ? t.dir.directory () : t.dir);
 
-    const scope& bs (scopes.find (d));
+    const scope& bs (t.ctx.scopes.find (d));
     const scope* rs (bs.root_scope ());
 
     // If root scope is NULL, then this can mean that we are out of any
@@ -973,7 +985,7 @@ namespace build2
 
       if (op_t != nullptr)
       {
-        op_s = &scopes.find (t.dir);
+        op_s = &t.ctx.scopes.find (t.dir);
 
         if (op_s->out_path () == t.dir && !op_s->operation_callbacks.empty ())
         {
@@ -1088,11 +1100,12 @@ namespace build2
     if (!exists (d))
       mkdir_p (d, 2 /* verbosity */);
 
-    update_backlink (p, l, m);
+    update_backlink (f.ctx, p, l, m);
   }
 
   void
-  update_backlink (const path& p, const path& l, bool changed, backlink_mode m)
+  update_backlink (context& ctx,
+                   const path& p, const path& l, bool changed, backlink_mode m)
   {
     // As above but with a slightly different diagnostics.
 
@@ -1126,7 +1139,7 @@ namespace build2
     if (!exists (d))
       mkdir_p (d, 2 /* verbosity */);
 
-    update_backlink (p, l, m);
+    update_backlink (ctx, p, l, m);
   }
 
   static inline void
@@ -1165,7 +1178,8 @@ namespace build2
   }
 
   void
-  update_backlink (const path& p, const path& l, backlink_mode om)
+  update_backlink (context& ctx,
+                   const path& p, const path& l, backlink_mode om)
   {
     using mode = backlink_mode;
 
@@ -1196,7 +1210,7 @@ namespace build2
       {
         // Normally will be there.
         //
-        if (!dry_run)
+        if (!ctx.dry_run)
           try_rmbacklink (l, m);
 
         // Skip (ad hoc) targets that don't exist.
@@ -1240,7 +1254,7 @@ namespace build2
                 path f (fr / de.path ());
                 path t (to / de.path ());
 
-                update_backlink (f, t, mode::link);
+                update_backlink (ctx, f, t, mode::link);
               }
             }
             else
@@ -1281,7 +1295,8 @@ namespace build2
   }
 
   void
-  clean_backlink (const path& l, uint16_t v /*verbosity*/, backlink_mode m)
+  clean_backlink (context& ctx,
+                  const path& l, uint16_t v /*verbosity*/, backlink_mode m)
   {
     // Like try_rmbacklink() but with diagnostics and error handling.
 
@@ -1293,9 +1308,9 @@ namespace build2
       {
       case mode::link:
       case mode::symbolic:
-      case mode::hard:      rmsymlink (l, true /* directory */, v);     break;
-      case mode::copy:      rmdir_r (path_cast<dir_path> (l), true, v); break;
-      case mode::overwrite:                                             break;
+      case mode::hard:  rmsymlink (ctx, l, true /* directory */, v);     break;
+      case mode::copy:  rmdir_r (ctx, path_cast<dir_path> (l), true, v); break;
+      case mode::overwrite:                                              break;
       }
     }
     else
@@ -1307,8 +1322,8 @@ namespace build2
       case mode::link:
       case mode::symbolic:
       case mode::hard:
-      case mode::copy:      rmfile (l, v); break;
-      case mode::overwrite:                break;
+      case mode::copy:      rmfile (ctx, l, v); break;
+      case mode::overwrite:                     break;
       }
     }
   }
@@ -1370,6 +1385,8 @@ namespace build2
   static optional<backlink_mode>
   backlink_test (action a, target& t)
   {
+    context& ctx (t.ctx);
+
     // Note: the order of these checks is from the least to most expensive.
 
     // Only for plain update/clean.
@@ -1391,17 +1408,17 @@ namespace build2
 
     // Only for forwarded configurations.
     //
-    if (!cast_false<bool> (rs->vars[var_forwarded]))
+    if (!cast_false<bool> (rs->vars[ctx.var_forwarded]))
       return nullopt;
 
-    lookup l (t.state[a][var_backlink]);
+    lookup l (t.state[a][ctx.var_backlink]);
 
     // If not found, check for some defaults in the global scope (this does
     // not happen automatically since target type/pattern-specific lookup
     // stops at the project boundary).
     //
     if (!l.defined ())
-      l = global_scope->find (*var_backlink, t.key ());
+      l = ctx.global_scope.find (*ctx.var_backlink, t.key ());
 
     return l ? backlink_test (t, l) : nullopt;
   }
@@ -1452,7 +1469,7 @@ namespace build2
         // as a target-specific wouldn't be MT-safe). @@ Don't think this
         // applies to declared ad hoc members.
         //
-        lookup l (mt->state[a].vars[var_backlink]);
+        lookup l (mt->state[a].vars[t.ctx.var_backlink]);
 
         optional<mode> bm (l ? backlink_test (*mt, l) : m);
 
@@ -1488,7 +1505,7 @@ namespace build2
                          ts == target_state::changed,
                          bl.mode);
       else
-        update_backlink (bl.target, bl.path, bl.mode);
+        update_backlink (t.ctx, bl.target, bl.path, bl.mode);
     }
 
     // Cancel removal.
@@ -1508,16 +1525,18 @@ namespace build2
       //
       backlink& bl (*i);
       bl.cancel ();
-      clean_backlink (bl.path, i == b ? 2 : 3 /* verbosity */, bl.mode);
+      clean_backlink (t.ctx, bl.path, i == b ? 2 : 3 /* verbosity */, bl.mode);
     }
   }
 
   static target_state
   execute_impl (action a, target& t)
   {
+    context& ctx (t.ctx);
+
     target::opstate& s (t[a]);
 
-    assert (s.task_count.load (memory_order_consume) == target::count_busy ()
+    assert (s.task_count.load (memory_order_consume) == t.ctx.count_busy ()
             && s.state == target_state::unknown);
 
     target_state ts;
@@ -1562,7 +1581,7 @@ namespace build2
     {
       recipe_function** f (s.recipe.target<recipe_function*> ());
       if (f == nullptr || *f != &group_action)
-        target_count.fetch_sub (1, memory_order_relaxed);
+        ctx.target_count.fetch_sub (1, memory_order_relaxed);
     }
 
     // Decrement the task count (to count_executed) and wake up any threads
@@ -1571,8 +1590,8 @@ namespace build2
     size_t tc (s.task_count.fetch_sub (
                  target::offset_busy - target::offset_executed,
                  memory_order_release));
-    assert (tc == target::count_busy ());
-    sched.resume (s.task_count);
+    assert (tc == ctx.count_busy ());
+    ctx.sched.resume (s.task_count);
 
     return ts;
   }
@@ -1586,9 +1605,11 @@ namespace build2
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 
+    context& ctx (t.ctx);
+
     // Update dependency counts and make sure they are not skew.
     //
-    size_t gd (dependency_count.fetch_sub (1, memory_order_relaxed));
+    size_t gd (ctx.dependency_count.fetch_sub (1, memory_order_relaxed));
     size_t td (s.dependents.fetch_sub (1, memory_order_release));
     assert (td != 0 && gd != 0);
     td--;
@@ -1614,15 +1635,15 @@ namespace build2
     // thread. For other threads the state will still be unknown (until they
     // try to execute it).
     //
-    if (current_mode == execution_mode::last && td != 0)
+    if (ctx.current_mode == execution_mode::last && td != 0)
       return target_state::postponed;
 
     // Try to atomically change applied to busy.
     //
-    size_t tc (target::count_applied ());
+    size_t tc (ctx.count_applied ());
 
-    size_t exec (target::count_executed ());
-    size_t busy (target::count_busy ());
+    size_t exec (ctx.count_executed ());
+    size_t busy (ctx.count_busy ());
 
     if (s.task_count.compare_exchange_strong (
           tc,
@@ -1640,7 +1661,7 @@ namespace build2
           execute_recipe (a, t, nullptr /* recipe */);
 
         s.task_count.store (exec, memory_order_release);
-        sched.resume (s.task_count);
+        ctx.sched.resume (s.task_count);
       }
       else
       {
@@ -1650,15 +1671,15 @@ namespace build2
         // Pass our diagnostics stack (this is safe since we expect the
         // caller to wait for completion before unwinding its diag stack).
         //
-        if (sched.async (start_count,
-                         *task_count,
-                         [a] (const diag_frame* ds, target& t)
-                         {
-                           diag_frame::stack_guard dsg (ds);
-                           execute_impl (a, t);
-                         },
-                         diag_frame::stack (),
-                         ref (t)))
+        if (ctx.sched.async (start_count,
+                             *task_count,
+                             [a] (const diag_frame* ds, target& t)
+                             {
+                               diag_frame::stack_guard dsg (ds);
+                               execute_impl (a, t);
+                             },
+                             diag_frame::stack (),
+                             ref (t)))
           return target_state::unknown; // Queued.
 
         // Executed synchronously, fall through.
@@ -1678,15 +1699,17 @@ namespace build2
   target_state
   execute_direct (action a, const target& ct)
   {
+    context& ctx (ct.ctx);
+
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 
     // Similar logic to match() above except we execute synchronously.
     //
-    size_t tc (target::count_applied ());
+    size_t tc (ctx.count_applied ());
 
-    size_t exec (target::count_executed ());
-    size_t busy (target::count_busy ());
+    size_t exec (ctx.count_executed ());
+    size_t busy (ctx.count_busy ());
 
     if (s.task_count.compare_exchange_strong (
           tc,
@@ -1708,15 +1731,17 @@ namespace build2
         }
 
         s.task_count.store (exec, memory_order_release);
-        sched.resume (s.task_count);
+        ctx.sched.resume (s.task_count);
       }
     }
     else
     {
         // If the target is busy, wait for it.
         //
-        if (tc >= busy) sched.wait (exec, s.task_count, scheduler::work_none);
-        else            assert (tc == exec);
+        if (tc >= busy)
+          ctx.sched.wait (exec, s.task_count, scheduler::work_none);
+        else
+          assert (tc == exec);
     }
 
     return t.executed_state (a);
@@ -1736,14 +1761,17 @@ namespace build2
 
   template <typename T>
   target_state
-  straight_execute_members (action a, atomic_count& tc,
+  straight_execute_members (context& ctx, action a, atomic_count& tc,
                             T ts[], size_t n, size_t p)
   {
     target_state r (target_state::unchanged);
 
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
     // Start asynchronous execution of prerequisites.
     //
-    wait_guard wg (target::count_busy (), tc);
+    wait_guard wg (ctx, busy, tc);
 
     n += p;
     for (size_t i (p); i != n; ++i)
@@ -1753,7 +1781,7 @@ namespace build2
       if (mt == nullptr) // Skipped.
         continue;
 
-      target_state s (execute_async (a, *mt, target::count_busy (), tc));
+      target_state s (execute_async (a, *mt, busy, tc));
 
       if (s == target_state::postponed)
       {
@@ -1778,8 +1806,8 @@ namespace build2
       // If the target is still busy, wait for its completion.
       //
       const auto& tc (mt[a].task_count);
-      if (tc.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (target::count_executed (), tc, scheduler::work_none);
+      if (tc.load (memory_order_acquire) >= busy)
+        ctx.sched.wait (exec, tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -1791,14 +1819,17 @@ namespace build2
 
   template <typename T>
   target_state
-  reverse_execute_members (action a, atomic_count& tc,
+  reverse_execute_members (context& ctx, action a, atomic_count& tc,
                            T ts[], size_t n, size_t p)
   {
     // Pretty much as straight_execute_members() but in reverse order.
     //
     target_state r (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), tc);
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
+    wait_guard wg (ctx, busy, tc);
 
     n = p - n;
     for (size_t i (p); i != n; )
@@ -1808,7 +1839,7 @@ namespace build2
       if (mt == nullptr)
         continue;
 
-      target_state s (execute_async (a, *mt, target::count_busy (), tc));
+      target_state s (execute_async (a, *mt, busy, tc));
 
       if (s == target_state::postponed)
       {
@@ -1827,8 +1858,8 @@ namespace build2
       const target& mt (*ts[i]);
 
       const auto& tc (mt[a].task_count);
-      if (tc.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (target::count_executed (), tc, scheduler::work_none);
+      if (tc.load (memory_order_acquire) >= busy)
+        ctx.sched.wait (exec, tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -1842,19 +1873,19 @@ namespace build2
   //
   template LIBBUILD2_SYMEXPORT target_state
   straight_execute_members<const target*> (
-    action, atomic_count&, const target*[], size_t, size_t);
+    context&, action, atomic_count&, const target*[], size_t, size_t);
 
   template LIBBUILD2_SYMEXPORT target_state
   reverse_execute_members<const target*> (
-    action, atomic_count&, const target*[], size_t, size_t);
+    context&, action, atomic_count&, const target*[], size_t, size_t);
 
   template LIBBUILD2_SYMEXPORT target_state
   straight_execute_members<prerequisite_target> (
-    action, atomic_count&, prerequisite_target[], size_t, size_t);
+    context&, action, atomic_count&, prerequisite_target[], size_t, size_t);
 
   template LIBBUILD2_SYMEXPORT target_state
   reverse_execute_members<prerequisite_target> (
-    action, atomic_count&, prerequisite_target[], size_t, size_t);
+    context&, action, atomic_count&, prerequisite_target[], size_t, size_t);
 
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,
@@ -1862,7 +1893,12 @@ namespace build2
                          const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    assert (current_mode == execution_mode::first);
+    context& ctx (t.ctx);
+
+    assert (ctx.current_mode == execution_mode::first);
+
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
 
     auto& pts (t.prerequisite_targets[a]);
 
@@ -1873,7 +1909,7 @@ namespace build2
     //
     target_state rs (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), t[a].task_count);
+    wait_guard wg (ctx, busy, t[a].task_count);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -1882,9 +1918,7 @@ namespace build2
       if (pt == nullptr) // Skipped.
         continue;
 
-      target_state s (
-        execute_async (
-          a, *pt, target::count_busy (), t[a].task_count));
+      target_state s (execute_async (a, *pt, busy, t[a].task_count));
 
       if (s == target_state::postponed)
       {
@@ -1908,8 +1942,8 @@ namespace build2
       const target& pt (*p.target);
 
       const auto& tc (pt[a].task_count);
-      if (tc.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (target::count_executed (), tc, scheduler::work_none);
+      if (tc.load (memory_order_acquire) >= busy)
+        ctx.sched.wait (exec, tc, scheduler::work_none);
 
       target_state s (pt.executed_state (a));
       rs |= s;
@@ -1966,6 +2000,8 @@ namespace build2
   target_state
   group_action (action a, const target& t)
   {
+    context& ctx (t.ctx);
+
     // If the group is busy, we wait, similar to prerequisites.
     //
     const target& g (*t.group);
@@ -1973,9 +2009,9 @@ namespace build2
     target_state gs (execute (a, g));
 
     if (gs == target_state::busy)
-      sched.wait (target::count_executed (),
-                  g[a].task_count,
-                  scheduler::work_none);
+      ctx.sched.wait (ctx.count_executed (),
+                      g[a].task_count,
+                      scheduler::work_none);
 
     // Return target_state::group to signal to execute() that this target's
     // state comes from the group (which, BTW, can be failed).
@@ -2016,9 +2052,11 @@ namespace build2
     bool ed (false);
     path ep;
 
-    auto clean_extra = [&er, &ed, &ep] (const file& f,
-                                        const path* fp,
-                                        const clean_extras& es)
+    context& ctx (ft.ctx);
+
+    auto clean_extra = [&er, &ed, &ep, &ctx] (const file& f,
+                                              const path* fp,
+                                              const clean_extras& es)
     {
       for (const char* e: es)
       {
@@ -2058,7 +2096,7 @@ namespace build2
         {
           dir_path dp (path_cast<dir_path> (p));
 
-          switch (build2::rmdir_r (dp, true, 3))
+          switch (rmdir_r (ctx, dp, true, 3))
           {
           case rmdir_status::success:
             {
@@ -2077,7 +2115,7 @@ namespace build2
         }
         else
         {
-          if (rmfile (p, 3))
+          if (rmfile (ctx, p, 3))
             r = target_state::changed;
         }
 
@@ -2105,7 +2143,7 @@ namespace build2
     // depdb so for now we treat them as "to remove" but in the future we may
     // need to have two lists.
     //
-    bool clean (cast_true<bool> (ft[var_clean]));
+    bool clean (cast_true<bool> (ft[ctx.var_clean]));
 
     // Now clean the ad hoc group file members, if any.
     //
@@ -2143,7 +2181,7 @@ namespace build2
       }
       else
       {
-        target_state r (rmfile (*mp, 3)
+        target_state r (rmfile (ctx, *mp, 3)
                         ? target_state::changed
                         : target_state::unchanged);
 
@@ -2180,7 +2218,7 @@ namespace build2
     //
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > (current_diag_noise ? 0 : 1) && verb < 3)
+      if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
       {
         if (ed)
           text << "rm -r " << path_cast<dir_path> (ep);
@@ -2218,7 +2256,7 @@ namespace build2
     //
     target_state r (target_state::unchanged);
 
-    if (cast_true<bool> (g[var_clean]))
+    if (cast_true<bool> (g[g.ctx.var_clean]))
     {
       for (group_view gv (g.group_members (a)); gv.count != 0; --gv.count)
       {
@@ -2239,6 +2277,8 @@ namespace build2
   target_state
   perform_clean_group_depdb (action a, const target& g)
   {
+    context& ctx (g.ctx);
+
     // The same twisted target state merging logic as in perform_clean_extra().
     //
     target_state er (target_state::unchanged);
@@ -2249,7 +2289,7 @@ namespace build2
     {
       ep = gv.members[0]->as<file> ().path () + ".d";
 
-      if (rmfile (ep, 3))
+      if (rmfile (ctx, ep, 3))
         er = target_state::changed;
     }
 
@@ -2257,7 +2297,7 @@ namespace build2
 
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > (current_diag_noise ? 0 : 1) && verb < 3)
+      if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
         text << "rm " << ep;
     }
 

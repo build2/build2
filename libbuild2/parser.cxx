@@ -129,13 +129,13 @@ namespace build2
                    tracer& tr)
     {
       auto r (process_target (p, n, o, loc));
-      return targets.insert (*r.first,        // target type
-                             move (n.dir),
-                             move (o.dir),
-                             move (n.value),
-                             move (r.second), // extension
-                             implied,
-                             tr).first;
+      return p.ctx.targets.insert (*r.first,        // target type
+                                   move (n.dir),
+                                   move (o.dir),
+                                   move (n.value),
+                                   move (r.second), // extension
+                                   implied,
+                                   tr).first;
     }
 
     // Only find.
@@ -148,12 +148,12 @@ namespace build2
                  tracer& tr)
     {
       auto r (process_target (p, n, o, loc));
-      return targets.find (*r.first, // target type
-                           n.dir,
-                           o.dir,
-                           n.value,
-                           r.second, // extension
-                           tr);
+      return p.ctx.targets.find (*r.first, // target type
+                                 n.dir,
+                                 o.dir,
+                                 n.value,
+                                 r.second, // extension
+                                 tr);
     }
 
     static pair<const target_type*, optional<string>>
@@ -1750,7 +1750,7 @@ namespace build2
       // Is this the 'foo=...' case?
       //
       size_t p (t.value.find ('='));
-      auto& vp (var_pool.rw (*scope_));
+      auto& vp (ctx.var_pool.rw (*scope_));
 
       if (p != string::npos)
         var = &vp.insert (split (p), true /* overridable */);
@@ -2452,7 +2452,7 @@ namespace build2
       //@@ TODO: append namespace if any.
     }
 
-    return var_pool.rw (*scope_).insert (move (n), true /* overridable */);
+    return ctx.var_pool.rw (*scope_).insert (move (n), true /* overridable */);
   }
 
   void parser::
@@ -2649,7 +2649,7 @@ namespace build2
       if (var.type == nullptr)
       {
         const bool o (true); // Allow overrides.
-        var_pool.update (const_cast<variable&> (var), type, nullptr, &o);
+        ctx.var_pool.update (const_cast<variable&> (var), type, nullptr, &o);
       }
       else if (var.type != type)
         fail (l) << "changing variable " << var << " type from "
@@ -3967,7 +3967,7 @@ namespace build2
                     info << "use quoting to force untyped concatenation";
               }));
 
-          p = functions.try_call (
+          p = ctx.functions.try_call (
             scope_, "builtin.concat", vector_view<value> (a), loc);
         }
 
@@ -4636,7 +4636,7 @@ namespace build2
 
             // Note that we "move" args to call().
             //
-            result_data = functions.call (scope_, name, args, loc);
+            result_data = ctx.functions.call (scope_, name, args, loc);
             what = "function call";
           }
           else
@@ -4744,7 +4744,7 @@ namespace build2
                       info (loc) << "while converting " << t << " to string";
                   }));
 
-              p = functions.try_call (
+              p = ctx.functions.try_call (
                 scope_, "string", vector_view<value> (&result_data, 1), loc);
             }
 
@@ -5053,7 +5053,7 @@ namespace build2
     //
     lexer l (is, *path_, 1 /* line */, "\'\"\\$(");
     lexer_ = &l;
-    scope_ = root_ = scope::global_;
+    scope_ = root_ = &ctx.global_scope.rw ();
     pbase_ = &work; // Use current working directory.
     target_ = nullptr;
     prerequisite_ = nullptr;
@@ -5342,7 +5342,7 @@ namespace build2
 
     // Lookup.
     //
-    const auto& var (var_pool.rw (*scope_).insert (move (name), true));
+    const auto& var (ctx.var_pool.rw (*scope_).insert (move (name), true));
 
     if (p != nullptr)
     {
@@ -5435,12 +5435,12 @@ namespace build2
 
     target* ct (
       const_cast<target*> (                // Ok (serial execution).
-        targets.find (dir::static_type,    // Explicit current dir target.
-                      scope_->out_path (),
-                      dir_path (),         // Out tree target.
-                      string (),
-                      nullopt,
-                      trace)));
+        ctx.targets.find (dir::static_type,    // Explicit current dir target.
+                          scope_->out_path (),
+                          dir_path (),         // Out tree target.
+                          string (),
+                          nullopt,
+                          trace)));
 
     if (ct == nullptr)
     {
@@ -5449,13 +5449,13 @@ namespace build2
       // While this target is not explicitly mentioned in the buildfile, we
       // say that we behave as if it were. Thus not implied.
       //
-      ct = &targets.insert (dir::static_type,
-                            scope_->out_path (),
-                            dir_path (),
-                            string (),
-                            nullopt,
-                            false,
-                            trace).first;
+      ct = &ctx.targets.insert (dir::static_type,
+                                scope_->out_path (),
+                                dir_path (),
+                                string (),
+                                nullopt,
+                                false,
+                                trace).first;
       // Fall through.
     }
     else if (ct->implied)
@@ -5487,7 +5487,7 @@ namespace build2
       out = out_src (d, *root_);
     }
 
-    targets.insert<buildfile> (
+    ctx.targets.insert<buildfile> (
       move (d),
       move (out),
       p.leaf ().base ().string (),

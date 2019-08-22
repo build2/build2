@@ -20,8 +20,8 @@ namespace build2
       &file::static_type,
       &target_factory<bash>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, bash_ext_def>,
-      &target_pattern_var<var_extension, bash_ext_def>,
+      &target_extension_var<bash_ext_def>,
+      &target_pattern_var<bash_ext_def>,
       nullptr,
       &file_search,
       false

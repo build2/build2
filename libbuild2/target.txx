@@ -90,12 +90,11 @@ namespace build2
   target_extension_var_impl (const target_type& tt,
                              const string& tn,
                              const scope& s,
-                             const char* var,
                              const char* def)
   {
     // Include target type/pattern-specific variables.
     //
-    if (auto l = s.find (var_pool[var], tt, tn))
+    if (auto l = s.find (*s.ctx.var_extension, tt, tn))
     {
       // Help the user here and strip leading '.' from the extension.
       //
@@ -106,17 +105,17 @@ namespace build2
     return def != nullptr ? optional<string> (def) : nullopt;
   }
 
-  template <const char* var, const char* def>
+  template <const char* def>
   optional<string>
   target_extension_var (const target_key& tk,
                         const scope& s,
                         const char*,
                         bool)
   {
-    return target_extension_var_impl (*tk.type, *tk.name, s, var, def);
+    return target_extension_var_impl (*tk.type, *tk.name, s, def);
   }
 
-  template <const char* var, const char* def>
+  template <const char* def>
   bool
   target_pattern_var (const target_type& tt,
                       const scope& s,
@@ -144,7 +143,7 @@ namespace build2
         // Use empty name as a target since we only want target type/pattern-
         // specific variables that match any target ('*' but not '*.txt').
         //
-        if ((e = target_extension_var_impl (tt, string (), s, var, def)))
+        if ((e = target_extension_var_impl (tt, string (), s, def)))
           return true;
       }
     }
@@ -172,13 +171,13 @@ namespace build2
     // We behave as if this target was explicitly mentioned in the (implied)
     // buildfile. Thus not implied.
     //
-    target& t (targets.insert (dir::static_type,
-                               bs.out_path (),
-                               dir_path (),
-                               string (),
-                               nullopt,
-                               false,
-                               trace).first);
+    target& t (bs.ctx.targets.insert (dir::static_type,
+                                      bs.out_path (),
+                                      dir_path (),
+                                      string (),
+                                      nullopt,
+                                      false,
+                                      trace).first);
     t.prerequisites (move (ps));
     return &t;
   }

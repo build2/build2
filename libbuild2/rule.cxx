@@ -192,7 +192,7 @@ namespace build2
     {
       if (verb >= 2)
         text << "mkdir " << d;
-      else if (verb && current_diag_noise)
+      else if (verb && t.ctx.current_diag_noise)
         text << "mkdir " << t;
     };
 
@@ -279,7 +279,7 @@ namespace build2
     // (or is current working directory). In this case rmdir() will issue a
     // warning when appropriate.
     //
-    target_state ts (rmdir (t.dir, t, current_diag_noise ? 1 : 2)
+    target_state ts (rmdir (t.dir, t, t.ctx.current_diag_noise ? 1 : 2)
                      ? target_state::changed
                      : target_state::unchanged);
 

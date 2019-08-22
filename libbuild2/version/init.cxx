@@ -37,6 +37,8 @@ namespace build2
       tracer trace ("version::boot");
       l5 ([&]{trace << "for " << rs;});
 
+      context& ctx (rs.ctx);
+
       // Extract the version from the manifest file. As well as summary and
       // url while at it.
       //
@@ -67,7 +69,7 @@ namespace build2
           {
             if (nv.name == "name")
             {
-              auto& pn (cast<project_name> (rs.vars[var_project]));
+              auto& pn (cast<project_name> (rs.vars[ctx.var_project]));
 
               if (nv.value != pn.string ())
               {
@@ -219,7 +221,7 @@ namespace build2
 
       // Set all the version.* variables.
       //
-      auto& vp (var_pool.rw (rs));
+      auto& vp (ctx.var_pool.rw (rs));
 
       auto set = [&vp, &rs] (const char* var, auto val)
       {
@@ -228,8 +230,8 @@ namespace build2
         rs.assign (v) = move (val);
       };
 
-      if (!sum.empty ()) rs.assign (var_project_summary) = move (sum);
-      if (!url.empty ()) rs.assign (var_project_url)     = move (url);
+      if (!sum.empty ()) rs.assign (ctx.var_project_summary) = move (sum);
+      if (!url.empty ()) rs.assign (ctx.var_project_url)     = move (url);
 
       set ("version", v.string ());  // Project version (var_version).
 
@@ -268,7 +270,7 @@ namespace build2
 
       // Create the module.
       //
-      mod.reset (new module (cast<project_name> (rs.vars[var_project]),
+      mod.reset (new module (cast<project_name> (rs.vars[ctx.var_project]),
                              move (v),
                              committed,
                              rewritten,
@@ -293,6 +295,8 @@ namespace build2
 
       if (!first)
         fail (l) << "multiple version module initializations";
+
+      context& ctx (rs.ctx);
 
       // Load in.base (in.* variables, in{} target type).
       //
@@ -320,7 +324,7 @@ namespace build2
 
         if (!val)
         {
-          string p (cast<project_name> (rs.vars[var_project]).string ());
+          string p (cast<project_name> (rs.vars[ctx.var_project]).string ());
           p += '-';
           p += v.string ();
           val = move (p);
@@ -370,7 +374,8 @@ namespace build2
       //
       try
       {
-        auto_rmfile t (fixup_manifest (f,
+        auto_rmfile t (fixup_manifest (rs.ctx,
+                                       f,
                                        path::temp_path ("manifest"),
                                        m.version));
 

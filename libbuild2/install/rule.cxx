@@ -698,6 +698,8 @@ namespace build2
                const dir_path& d,
                bool verbose = true)
     {
+      context& ctx (rs.ctx);
+
       // Here is the problem: if this is a dry-run, then we will keep showing
       // the same directory creation commands over and over again (because we
       // don't actually create them). There are two alternative ways to solve
@@ -708,7 +710,7 @@ namespace build2
       // with uninstall since the directories won't be empty (because we don't
       // actually uninstall any files).
       //
-      if (dry_run)
+      if (ctx.dry_run)
         return;
 
       dir_path chd (chroot_path (rs, d));
@@ -741,7 +743,7 @@ namespace build2
       cstrings args;
 
       string reld (
-        cast<string> ((*global_scope)["build.host.class"]) == "windows"
+        cast<string> (ctx.global_scope["build.host.class"]) == "windows"
         ? msys_path (chd)
         : relative (chd).string ());
 
@@ -780,12 +782,14 @@ namespace build2
                const path& f,
                bool verbose)
     {
+      context& ctx (rs.ctx);
+
       path relf (relative (f));
 
       dir_path chd (chroot_path (rs, base.dir));
 
       string reld (
-        cast<string> ((*global_scope)["build.host.class"]) == "windows"
+        cast<string> (ctx.global_scope["build.host.class"]) == "windows"
         ? msys_path (chd)
         : relative (chd).string ());
 
@@ -818,7 +822,7 @@ namespace build2
       else if (verb && verbose)
         text << "install " << t;
 
-      if (!dry_run)
+      if (!ctx.dry_run)
         run (pp, args);
     }
 
@@ -829,6 +833,8 @@ namespace build2
                const path& link,
                uint16_t verbosity)
     {
+      context& ctx (rs.ctx);
+
       path rell (relative (chroot_path (rs, base.dir)));
       rell /= link;
 
@@ -859,7 +865,7 @@ namespace build2
           text << "install " << rell << " -> " << target;
       }
 
-      if (!dry_run)
+      if (!ctx.dry_run)
         run (pp, args);
 #else
       // The -f part.
@@ -877,7 +883,7 @@ namespace build2
           text << "install " << rell << " -> " << target;
       }
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       try
       {
         // We have to go the roundabout way by adding directory to the target
@@ -1014,7 +1020,7 @@ namespace build2
     {
       // See install_d() for the rationale.
       //
-      if (dry_run)
+      if (rs.ctx.dry_run)
         return false;
 
       dir_path chd (chroot_path (rs, d));
@@ -1150,7 +1156,7 @@ namespace build2
         if (verb >= verbosity && verb >= 2)
           text << "rm " << relf;
 
-        if (!dry_run)
+        if (!rs.ctx.dry_run)
         {
           try
           {
@@ -1179,7 +1185,7 @@ namespace build2
         if (verb >= verbosity && verb >= 2)
           print_process (args);
 
-        if (!dry_run)
+        if (!rs.ctx.dry_run)
           run (pp, args);
       }
 

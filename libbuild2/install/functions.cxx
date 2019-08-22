@@ -14,9 +14,9 @@ namespace build2
   namespace install
   {
     void
-    functions ()
+    functions (function_map& m)
     {
-      function_family f ("install");
+      function_family f (m, "install");
 
       // Resolve potentially relative install.* value to an absolute directory
       // based on (other) install.* values visible from the calling scope.

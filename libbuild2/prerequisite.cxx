@@ -64,7 +64,7 @@ namespace build2
         ext (to_ext (t.ext ())),
         scope (t.base_scope ()),
         target (&t),
-        vars (false /* global */)
+        vars (t.ctx, false /* global */)
   {
   }
 
@@ -91,30 +91,5 @@ namespace build2
       r = *l; // Copy value (and type) from the target/outer scope.
 
     return r;
-  }
-
-  // include()
-  //
-  include_type
-  include_impl (action a,
-                const target& t,
-                const string& v,
-                const prerequisite& p,
-                const target* m)
-  {
-    include_type r (false);
-
-    if      (v == "false") r = include_type::excluded;
-    else if (v == "adhoc") r = include_type::adhoc;
-    else if (v == "true")  r = include_type::normal;
-    else
-      fail << "invalid " << var_include->name << " variable value "
-           << "'" << v << "' specified for prerequisite " << p;
-
-    // Call the meta-operation override, if any (currently used by dist).
-    //
-    return current_mif->include == nullptr
-      ? r
-      : current_mif->include (a, t, prerequisite_member {p, m}, r);
   }
 }

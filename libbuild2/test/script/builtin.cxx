@@ -956,7 +956,7 @@ namespace build2
 
           auto mv = [ops, &wd, &sp, &error] (const path& from, const path& to)
           {
-            const dir_path& rwd (sp.root->wd_path);
+            const dir_path& rwd (sp.root.wd_path);
 
             if (!from.sub (rwd) && !ops.force ())
               error () << "'" << from << "' is out of working directory '"
@@ -1158,7 +1158,7 @@ namespace build2
             error () << "missing file";
 
           const dir_path& wd  (sp.wd_path);
-          const dir_path& rwd (sp.root->wd_path);
+          const dir_path& rwd (sp.root.wd_path);
 
           while (scan.more ())
           {
@@ -1259,7 +1259,7 @@ namespace build2
             error () << "missing directory";
 
           const dir_path& wd  (sp.wd_path);
-          const dir_path& rwd (sp.root->wd_path);
+          const dir_path& rwd (sp.root.wd_path);
 
           while (scan.more ())
           {
@@ -1583,7 +1583,7 @@ namespace build2
       // Note: can be executed synchronously.
       //
       static uint8_t
-      sleep (scope&,
+      sleep (scope& s,
              const strings& args,
              auto_fd in, auto_fd out, auto_fd err) noexcept
       try
@@ -1637,7 +1637,7 @@ namespace build2
           // If/when required we could probably support the precise sleep mode
           // (e.g., via an option).
           //
-          sched.sleep (chrono::seconds (n));
+          s.root.test_target.ctx.sched.sleep (chrono::seconds (n));
 
           r = 0;
         }

@@ -16,6 +16,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/context.hxx>
 #include <libbuild2/target-type.hxx>
 
 #include <libbuild2/export.hxx>
@@ -1018,7 +1019,7 @@ namespace build2
 
   // Variable pool.
   //
-  // The global version is protected by the phase mutex.
+  // The global (as in, context-wide) version is protected by the phase mutex.
   //
   class variable_pool
   {
@@ -1161,23 +1162,26 @@ namespace build2
     void
     clear () {map_.clear ();}
 
-    variable_pool (): variable_pool (false) {}
+    variable_pool (): variable_pool (nullptr) {}
 
-    // RW access.
+    // RW access (only for the global pool).
     //
     variable_pool&
     rw () const
     {
-      assert (phase == run_phase::load);
+      assert (global_->phase == run_phase::load);
       return const_cast<variable_pool&> (*this);
     }
 
     variable_pool&
     rw (scope&) const {return const_cast<variable_pool&> (*this);}
 
-  private:
-    LIBBUILD2_SYMEXPORT static variable_pool instance;
+    // Entities that can access bypassing the lock proof.
+    //
+    friend class parser;
+    friend class scope;
 
+  private:
     LIBBUILD2_SYMEXPORT variable&
     insert (string name,
             const value_type*,
@@ -1190,17 +1194,6 @@ namespace build2
             const value_type*,
             const variable_visibility* = nullptr,
             const bool* = nullptr) const;
-
-    // Entities that can access bypassing the lock proof.
-    //
-    friend class parser;
-    friend class scope;
-    friend LIBBUILD2_SYMEXPORT variable_overrides reset (const strings&);
-
-  public:
-    // For var_pool initialization.
-    //
-    LIBBUILD2_SYMEXPORT static const variable_pool& cinstance;
 
     // Variable map.
     //
@@ -1258,16 +1251,16 @@ namespace build2
   private:
     std::multiset<pattern> patterns_;
 
-    // Global pool flag.
+    // Global pool flag/context.
     //
   private:
+    friend class context;
+
     explicit
-    variable_pool (bool global): global_ (global) {}
+    variable_pool (context* global): global_ (global) {}
 
-    bool global_;
+    context* global_;
   };
-
-  LIBBUILD2_SYMEXPORT extern const variable_pool& var_pool;
 }
 
 // variable_map
@@ -1361,7 +1354,9 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      const variable* var (var_pool.find (name));
+      const variable* var (ctx != nullptr
+                           ? ctx->var_pool.find (name)
+                           : nullptr);
       return var != nullptr ? operator[] (*var) : lookup ();
     }
 
@@ -1402,7 +1397,7 @@ namespace build2
     // Note that the variable is expected to have already been registered.
     //
     value&
-    assign (const string& name) {return insert (var_pool[name]).first;}
+    assign (const string& name) {return insert (ctx->var_pool[name]).first;}
 
     // As above but also return an indication of whether the new value (which
     // will be NULL) was actually inserted. Similar to find(), if typed is
@@ -1436,10 +1431,17 @@ namespace build2
     // (e.g., scopes, etc).
     //
     explicit
-    variable_map (bool global = false): global_ (global) {}
+    variable_map (context& c, bool global = false)
+      : ctx (&c), global_ (global) {}
 
     void
     clear () {m_.clear ();}
+
+    // Implementation details.
+    //
+  public:
+    explicit
+    variable_map (context* c): ctx (c) {}
 
   private:
     friend class variable_type_map;
@@ -1448,9 +1450,12 @@ namespace build2
     typify (const value_data&, const variable&) const;
 
   private:
-    bool global_;
+    context* ctx;
     map_type m_;
+    bool global_;
   };
+
+  LIBBUILD2_SYMEXPORT extern const variable_map empty_variable_map;
 
   // Value caching. Used for overrides as well as target type/pattern-specific
   // append/prepend.
@@ -1519,6 +1524,18 @@ namespace build2
     map_type m_;
   };
 
+  // Variable override cache. Only on project roots (in scope::root_extra)
+  // plus a global one (in context) for the global scope.
+  //
+  // The key is the variable plus the innermost (scope-wise) variable map to
+  // which this override applies. See scope::find_override() for details.
+  //
+  // Note: since it can be modified on any lookup (including during the
+  // execute phase), the cache is protected by a mutex shard.
+  //
+  class variable_override_cache:
+    public variable_cache<pair<const variable*, const variable_map*>> {};
+
   // Target type/pattern-specific variables.
   //
   class variable_pattern_map
@@ -1528,13 +1545,13 @@ namespace build2
     using const_iterator = map_type::const_iterator;
     using const_reverse_iterator = map_type::const_reverse_iterator;
 
-    explicit
-    variable_pattern_map (bool global): global_ (global) {}
+    variable_pattern_map (context& c, bool global)
+        : ctx (c), global_ (global) {}
 
     variable_map&
     operator[] (const string& v)
     {
-      return map_.emplace (v, variable_map (global_)).first->second;
+      return map_.emplace (v, variable_map (ctx, global_)).first->second;
     }
 
     const_iterator         begin ()  const {return map_.begin ();}
@@ -1544,8 +1561,10 @@ namespace build2
     bool                   empty ()  const {return map_.empty ();}
 
   private:
-    bool global_;
+    context& ctx;
     map_type map_;
+    bool global_;
+
   };
 
   class LIBBUILD2_SYMEXPORT variable_type_map
@@ -1555,13 +1574,13 @@ namespace build2
                               variable_pattern_map>;
     using const_iterator = map_type::const_iterator;
 
-    explicit
-    variable_type_map (bool global): global_ (global) {}
+    variable_type_map (context& c, bool global): ctx (c), global_ (global) {}
 
     variable_pattern_map&
     operator[] (const target_type& t)
     {
-      return map_.emplace (t, variable_pattern_map (global_)).first->second;
+      return map_.emplace (
+        t, variable_pattern_map (ctx, global_)).first->second;
     }
 
     const_iterator begin () const {return map_.begin ();}
@@ -1585,8 +1604,9 @@ namespace build2
     cache;
 
   private:
-    bool global_;
+    context& ctx;
     map_type map_;
+    bool global_;
   };
 }
 

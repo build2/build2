@@ -26,27 +26,29 @@ namespace build2
     static target_state
     clean_module_sidebuilds (action, const scope& rs, const dir&)
     {
+      context& ctx (rs.ctx);
+
       const dir_path& out_root (rs.out_path ());
 
       dir_path d (out_root / rs.root_extra->build_dir / modules_sidebuild_dir);
 
       if (exists (d))
       {
-        if (build2::rmdir_r (d))
+        if (rmdir_r (ctx, d))
         {
           // Clean up cc/ if it became empty.
           //
           d = out_root / rs.root_extra->build_dir / module_dir;
           if (empty (d))
           {
-            rmdir (d);
+            rmdir (ctx, d);
 
             // And build/ if it also became empty (e.g., in case of a build
             // with a transient configuration).
             //
             d = out_root / rs.root_extra->build_dir;
             if (empty (d))
-              rmdir (d);
+              rmdir (ctx, d);
           }
 
           return target_state::changed;
@@ -77,7 +79,7 @@ namespace build2
 
       // Enter variables. Note: some overridable, some not.
       //
-      auto& v (var_pool.rw (rs));
+      auto& v (rs.ctx.var_pool.rw (rs));
 
       auto v_t (variable_visibility::target);
 
@@ -276,7 +278,8 @@ namespace build2
         // Prepare configuration hints. They are only used on the first load
         // of bin.config so we only populate them on our first load.
         //
-        variable_map h;
+        variable_map h (rs.ctx);
+
         if (first)
         {
           // Note that all these variables have already been registered.

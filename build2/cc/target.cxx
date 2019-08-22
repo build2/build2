@@ -33,8 +33,8 @@ namespace build2
       &cc::static_type,
       &target_factory<h>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, h_ext_def>,
-      &target_pattern_var<var_extension, h_ext_def>,
+      &target_extension_var<h_ext_def>,
+      &target_pattern_var<h_ext_def>,
       nullptr,
       &file_search,
       false
@@ -48,8 +48,8 @@ namespace build2
       &cc::static_type,
       &target_factory<c>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, c_ext_def>,
-      &target_pattern_var<var_extension, c_ext_def>,
+      &target_extension_var<c_ext_def>,
+      &target_pattern_var<c_ext_def>,
       nullptr,
       &file_search,
       false

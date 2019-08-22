@@ -83,9 +83,9 @@ namespace build2
   }
 
   inline const project_name&
-  project (const scope& root)
+  project (const scope& rs)
   {
-    auto l (root[var_project]);
+    auto l (rs[rs.ctx.var_project]);
     return l ? cast<project_name> (l) : empty_project_name;
   }
 }

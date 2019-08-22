@@ -299,7 +299,7 @@ namespace build2
           else
           {
             eop = path (op + ".orig");
-            save (eop, transform (rd.str, false, rd.modifiers, *sp.root), ll);
+            save (eop, transform (rd.str, false, rd.modifiers, sp.root), ll);
             sp.clean_special (eop);
           }
 
@@ -312,7 +312,7 @@ namespace build2
 
           // Ignore Windows newline fluff if that's what we are running on.
           //
-          if (test_target (*sp.root).class_ == "windows")
+          if (test_target (sp.root).class_ == "windows")
             args.push_back ("--strip-trailing-cr");
 
           args.push_back (eop.string ().c_str ());
@@ -451,14 +451,14 @@ namespace build2
             if (l.regex)                  // Regex (possibly empty),
             {
               r += rl.intro;
-              r += transform (l.value, true, rd.modifiers, *sp.root);
+              r += transform (l.value, true, rd.modifiers, sp.root);
               r += rl.intro;
               r += l.flags;
             }
             else if (!l.special.empty ()) // Special literal.
               r += rl.intro;
             else                          // Textual literal.
-              r += transform (l.value, false, rd.modifiers, *sp.root);
+              r += transform (l.value, false, rd.modifiers, sp.root);
 
             r += l.special;
             return r;
@@ -534,7 +534,7 @@ namespace build2
               {
                 try
                 {
-                  string s (transform (l.value, true, rd.modifiers, *sp.root));
+                  string s (transform (l.value, true, rd.modifiers, sp.root));
 
                   c = line_char (
                     char_regex (s, gf | parse_flags (l.flags)), pool);
@@ -571,7 +571,7 @@ namespace build2
               // Append literal line char.
               //
               rls += line_char (
-                transform (l.value, false, rd.modifiers, *sp.root), pool);
+                transform (l.value, false, rd.modifiers, sp.root), pool);
             }
 
             for (char c: l.special)
@@ -693,12 +693,14 @@ namespace build2
       bool default_runner::
       test (scope& s) const
       {
-        return common_.test (s.root->test_target, s.id_path);
+        return common_.test (s.root.test_target, s.id_path);
       }
 
       void default_runner::
       enter (scope& sp, const location&)
       {
+        context& ctx (sp.root.target_scope.ctx);
+
         auto df = make_diag_frame (
           [&sp](const diag_record& dr)
           {
@@ -723,8 +725,9 @@ namespace build2
         fs_status<mkdir_status> r (
           sp.parent == nullptr
           ? mkdir_buildignore (
+            ctx,
             sp.wd_path,
-            sp.root->target_scope.root_scope ()->root_extra->buildignore_file,
+            sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
             2)
           : mkdir (sp.wd_path, 2));
 
@@ -744,6 +747,8 @@ namespace build2
       void default_runner::
       leave (scope& sp, const location& ll)
       {
+        context& ctx (sp.root.target_scope.ctx);
+
         auto df = make_diag_frame (
           [&sp](const diag_record& dr)
           {
@@ -766,7 +771,7 @@ namespace build2
           {
             // Remove the file if exists. Fail otherwise.
             //
-            if (rmfile (p, 3) == rmfile_status::not_exist)
+            if (rmfile (ctx, p, 3) == rmfile_status::not_exist)
               fail (ll) << "registered for cleanup special file " << p
                         << " does not exist";
           }
@@ -800,9 +805,8 @@ namespace build2
             {
               bool removed (false);
 
-              auto rm = [&cp, recursive, &removed, &sp, &ll] (path&& pe,
-                                                              const string&,
-                                                              bool interm)
+              auto rm = [&cp, recursive, &removed, &sp, &ll, &ctx]
+                (path&& pe, const string&, bool interm)
               {
                 if (!interm)
                 {
@@ -819,7 +823,7 @@ namespace build2
 
                     if (!recursive)
                     {
-                      rmdir_status r (rmdir (d, 3));
+                      rmdir_status r (rmdir (ctx, d, 3));
 
                       if (r != rmdir_status::not_empty)
                         return true;
@@ -839,9 +843,7 @@ namespace build2
                       // Cast to uint16_t to avoid ambiguity with
                       // libbutl::rmdir_r().
                       //
-                      rmdir_status r (rmdir_r (d,
-                                               d != sp.wd_path,
-                                               static_cast<uint16_t> (3)));
+                      rmdir_status r (rmdir_r (ctx, d, d != sp.wd_path, 3));
 
                       if (r != rmdir_status::not_empty)
                         return true;
@@ -854,7 +856,7 @@ namespace build2
                     }
                   }
                   else
-                    rmfile (pe, 3);
+                    rmfile (ctx, pe, 3);
                 }
 
                 return true;
@@ -921,13 +923,14 @@ namespace build2
               //
               rmdir_status r (
                 recursive
-                ? rmdir_r (d, !wd, static_cast <uint16_t> (v))
+                ? rmdir_r (ctx, d, !wd, static_cast <uint16_t> (v))
                 : (wd && sp.parent == nullptr
                    ? rmdir_buildignore (
+                       ctx,
                        d,
-                       sp.root->target_scope.root_scope ()->root_extra->buildignore_file,
+                       sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
                        v)
-                   : rmdir (d, v)));
+                   : rmdir (ctx, d, v)));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -948,7 +951,7 @@ namespace build2
             // Remove the file if exists. Fail otherwise. Removal of
             // non-existing file is not an error for 'maybe' cleanup type.
             //
-            if (rmfile (p, 3) == rmfile_status::not_exist &&
+            if (rmfile (ctx, p, 3) == rmfile_status::not_exist &&
                 t == cleanup_type::always)
               fail (ll) << "registered for cleanup file " << p
                         << " does not exist";
@@ -1097,8 +1100,8 @@ namespace build2
           // locking as the variable pool is an associative container
           // (underneath) and we are only adding new variables into it.
           //
-          ulock ul (sp.root->var_pool_mutex);
-          const variable& var (sp.root->var_pool.insert (move (vname)));
+          ulock ul (sp.root.var_pool_mutex);
+          const variable& var (sp.root.var_pool.insert (move (vname)));
           ul.unlock ();
 
           value& lhs (sp.assign (var));
@@ -1123,7 +1126,7 @@ namespace build2
                 dr << info (ll) << "while parsing attributes '" << *ats << "'";
               });
 
-            parser p;
+            parser p (sp.root.test_target.ctx);
             p.apply_value_attributes (&var,
                                       lhs,
                                       value (move (ns)),
@@ -1175,7 +1178,7 @@ namespace build2
           const string& ls (np.leaf ().string ());
           bool wc (ls == "*" || ls == "**" || ls == "***");
           const path& cp (wc ? np.directory () : np);
-          const dir_path& wd (sp.root->wd_path);
+          const dir_path& wd (sp.root.wd_path);
 
           if (!cp.sub (wd))
             fail (ll) << (wc
@@ -1360,7 +1363,7 @@ namespace build2
               isp = std_path ("stdin");
 
               save (
-                isp, transform (in.str, false, in.modifiers, *sp.root), ll);
+                isp, transform (in.str, false, in.modifiers, sp.root), ll);
 
               sp.clean_special (isp);
 

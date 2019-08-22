@@ -8,7 +8,11 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/variable.hxx>
+// NOTE: this file is included by pretty much every other build state header
+//       (scope, target, variable, etc) so including any of them here is most
+//       likely a non-starter.
+//
+#include <libbuild2/action.hxx>
 #include <libbuild2/operation.hxx>
 #include <libbuild2/scheduler.hxx>
 
@@ -16,71 +20,25 @@
 
 namespace build2
 {
+  class context;
+
   class scope;
+  class scope_map;
+  class target_set;
 
-  // Main scheduler. Started up and shut down in main().
-  //
-  LIBBUILD2_SYMEXPORT extern scheduler sched;
+  class value;
+  using values = small_vector<value, 1>;
 
-  // In order to perform each operation the build system goes through the
-  // following phases:
-  //
-  // load     - load the buildfiles
-  // match    - search prerequisites and match rules
-  // execute  - execute the matched rule
-  //
-  // The build system starts with a "serial load" phase and then continues
-  // with parallel match and execute. Match, however, can be interrupted
-  // both with load and execute.
-  //
-  // Match can be interrupted with "exclusive load" in order to load
-  // additional buildfiles. Similarly, it can be interrupted with (parallel)
-  // execute in order to build targetd required to complete the match (for
-  // example, generated source code or source code generators themselves).
-  //
-  // Such interruptions are performed by phase change that is protected by
-  // phase_mutex (which is also used to synchronize the state changes between
-  // phases).
-  //
-  // Serial load can perform arbitrary changes to the build state. Exclusive
-  // load, however, can only perform "island appends". That is, it can create
-  // new "nodes" (variables, scopes, etc) but not (semantically) change
-  // already existing nodes or invalidate any references to such (the idea
-  // here is that one should be able to load additional buildfiles as long as
-  // they don't interfere with the existing build state). The "islands" are
-  // identified by the load_generation number (0 for the initial/serial
-  // load). It is incremented in case of a phase switch and can be stored in
-  // various "nodes" to verify modifications are only done "within the
-  // islands".
-  //
-  LIBBUILD2_SYMEXPORT extern run_phase phase;
-  LIBBUILD2_SYMEXPORT extern size_t load_generation;
+  struct variable;
+  class variable_pool;
+  struct variable_override;
+  using variable_overrides = vector<variable_override>;
+  class variable_override_cache;
 
-  // A "tri-mutex" that keeps all the threads in one of the three phases. When
-  // a thread wants to switch a phase, it has to wait for all the other
-  // threads to do the same (or release their phase locks). The load phase is
-  // exclusive.
-  //
-  // The interleaving match and execute is interesting: during match we read
-  // the "external state" (e.g., filesystem entries, modifications times, etc)
-  // and capture it in the "internal state" (our dependency graph). During
-  // execute we are modifying the external state with controlled modifications
-  // of the internal state to reflect the changes (e.g., update mtimes). If
-  // you think about it, it's pretty clear that we cannot safely perform both
-  // of these actions simultaneously. A good example would be running a code
-  // generator and header dependency extraction simultaneously: the extraction
-  // process may pick up headers as they are being generated. As a result, we
-  // either have everyone treat the external state as read-only or write-only.
-  //
-  // There is also one more complication: if we are returning from a load
-  // phase that has failed, then the build state could be seriously messed up
-  // (things like scopes not being setup completely, etc). And once we release
-  // the lock, other threads that are waiting will start relying on this
-  // messed up state. So a load phase can mark the phase_mutex as failed in
-  // which case all currently blocked and future lock()/relock() calls return
-  // false. Note that in this case we still switch to the desired phase. See
-  // the phase_{lock,switch,unlock} implementations for details.
-  //
+  class function_map;
+
+  struct opspec;
+
   class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
   public:
@@ -102,12 +60,11 @@ namespace build2
     bool
     relock (run_phase unlock, run_phase lock);
 
-  public:
-    run_phase_mutex ()
-        : fail_ (false), lc_ (0), mc_ (0), ec_ (0)
-    {
-      phase = run_phase::load;
-    }
+  private:
+    friend class context;
+
+    run_phase_mutex (context& c)
+      : ctx_ (c), fail_ (false), lc_ (0), mc_ (0), ec_ (0) {}
 
   private:
     friend struct phase_lock;
@@ -124,6 +81,8 @@ namespace build2
     // When the mutex is unlocked (all three counters become zero, the phase
     // is always changed to load (this is also the initial state).
     //
+    context& ctx_;
+
     mutex m_;
 
     bool fail_;
@@ -139,7 +98,311 @@ namespace build2
     mutex lm_;
   };
 
-  extern run_phase_mutex phase_mutex;
+  // @@ CTX: document (backlinks, non-overlap etc). RW story.
+  //
+  class LIBBUILD2_SYMEXPORT context
+  {
+    struct data;
+    unique_ptr<data> data_;
+
+  public:
+    scheduler& sched;
+
+    // Dry run flag (see --dry-run|-n).
+    //
+    // This flag is set (based on dry_run_option) only for the final execute
+    // phase (as opposed to those that interrupt match) by the perform meta
+    // operation's execute() callback.
+    //
+    // Note that for this mode to function properly we have to use fake
+    // mtimes. Specifically, a rule that pretends to update a target must set
+    // its mtime to system_clock::now() and everyone else must use this cached
+    // value. In other words, there should be no mtime re-query from the
+    // filesystem. The same is required for "logical clean" (i.e., dry-run
+    // 'clean update' in order to see all the command lines).
+    //
+    // At first, it may seem like we should also "dry-run" changes to depdb.
+    // But that would be both problematic (some rules update it in apply()
+    // during the match phase) and wasteful (why discard information). Also,
+    // depdb may serve as an input to some commands (for example, to provide
+    // C++ module mapping) which means that without updating it the commands
+    // we print might not be runnable (think of the compilation database).
+    //
+    // One thing we need to be careful about if we are updating depdb is to
+    // not render the target up-to-date. But in this case the depdb file will
+    // be older than the target which in our model is treated as an
+    // interrupted update (see depdb for details).
+    //
+    // Note also that sometimes it makes sense to do a bit more than
+    // absolutely necessary or to discard information in order to keep the
+    // rule logic sane.  And some rules may choose to ignore this flag
+    // altogether. In this case, however, the rule should be careful not to
+    // rely on functions (notably from filesystem) that respect this flag in
+    // order not to end up with a job half done.
+    //
+    bool dry_run = false;
+    bool dry_run_option;
+
+    // Keep going flag.
+    //
+    // Note that setting it to false is not of much help unless we are running
+    // serially: in parallel we queue most of the things up before we see any
+    // failures.
+    //
+    bool keep_going;
+
+    // In order to perform each operation the build system goes through the
+    // following phases:
+    //
+    // load     - load the buildfiles
+    // match    - search prerequisites and match rules
+    // execute  - execute the matched rule
+    //
+    // The build system starts with a "serial load" phase and then continues
+    // with parallel match and execute. Match, however, can be interrupted
+    // both with load and execute.
+    //
+    // Match can be interrupted with "exclusive load" in order to load
+    // additional buildfiles. Similarly, it can be interrupted with (parallel)
+    // execute in order to build targetd required to complete the match (for
+    // example, generated source code or source code generators themselves).
+    //
+    // Such interruptions are performed by phase change that is protected by
+    // phase_mutex (which is also used to synchronize the state changes
+    // between phases).
+    //
+    // Serial load can perform arbitrary changes to the build state. Exclusive
+    // load, however, can only perform "island appends". That is, it can
+    // create new "nodes" (variables, scopes, etc) but not (semantically)
+    // change already existing nodes or invalidate any references to such (the
+    // idea here is that one should be able to load additional buildfiles as
+    // long as they don't interfere with the existing build state). The
+    // "islands" are identified by the load_generation number (0 for the
+    // initial/serial load). It is incremented in case of a phase switch and
+    // can be stored in various "nodes" to verify modifications are only done
+    // "within the islands".
+    //
+    run_phase phase = run_phase::load;
+    size_t load_generation = 0;
+
+    // A "tri-mutex" that keeps all the threads in one of the three phases.
+    // When a thread wants to switch a phase, it has to wait for all the other
+    // threads to do the same (or release their phase locks). The load phase
+    // is exclusive.
+    //
+    // The interleaving match and execute is interesting: during match we read
+    // the "external state" (e.g., filesystem entries, modifications times,
+    // etc) and capture it in the "internal state" (our dependency graph).
+    // During execute we are modifying the external state with controlled
+    // modifications of the internal state to reflect the changes (e.g.,
+    // update mtimes). If you think about it, it's pretty clear that we cannot
+    // safely perform both of these actions simultaneously. A good example
+    // would be running a code generator and header dependency extraction
+    // simultaneously: the extraction process may pick up headers as they are
+    // being generated. As a result, we either have everyone treat the
+    // external state as read-only or write-only.
+    //
+    // There is also one more complication: if we are returning from a load
+    // phase that has failed, then the build state could be seriously messed
+    // up (things like scopes not being setup completely, etc). And once we
+    // release the lock, other threads that are waiting will start relying on
+    // this messed up state. So a load phase can mark the phase_mutex as
+    // failed in which case all currently blocked and future lock()/relock()
+    // calls return false. Note that in this case we still switch to the
+    // desired phase. See the phase_{lock,switch,unlock} implementations for
+    // details.
+    //
+    run_phase_mutex phase_mutex;
+
+    // Current action (meta/operation).
+    //
+    // The names unlike info are available during boot but may not yet be
+    // lifted. The name is always for an outer operation (or meta operation
+    // that hasn't been recognized as such yet).
+    //
+    string current_mname;
+    string current_oname;
+
+    const meta_operation_info* current_mif;
+    const operation_info* current_inner_oif;
+    const operation_info* current_outer_oif;
+
+    // Current operation number (1-based) in the meta-operation batch.
+    //
+    size_t current_on;
+
+    // Note: we canote use the corresponding target::offeset_* values.
+    //
+    size_t count_base     () const {return 5 * (current_on - 1);}
+
+    size_t count_touched  () const {return 1 + count_base ();}
+    size_t count_tried    () const {return 2 + count_base ();}
+    size_t count_matched  () const {return 3 + count_base ();}
+    size_t count_applied  () const {return 4 + count_base ();}
+    size_t count_executed () const {return 5 + count_base ();}
+    size_t count_busy     () const {return 6 + count_base ();}
+
+    // Execution mode.
+    //
+    execution_mode current_mode;
+
+    // Some diagnostics (for example output directory creation/removal by the
+    // fsdir rule) is just noise at verbosity level 1 unless it is the only
+    // thing that is printed. So we can only suppress it in certain situations
+    // (e.g., dist) where we know we have already printed something.
+    //
+    bool current_diag_noise;
+
+    // Total number of dependency relationships and targets with non-noop
+    // recipe in the current action.
+    //
+    // Together with target::dependents the dependency count is incremented
+    // during the rule search & match phase and is decremented during
+    // execution with the expectation of it reaching 0. Used as a sanity
+    // check.
+    //
+    // The target count is incremented after a non-noop recipe is matched and
+    // decremented after such recipe has been executed. If such a recipe has
+    // skipped executing the operation, then it should increment the skip
+    // count. These two counters are used for progress monitoring and
+    // diagnostics.
+    //
+    atomic_count dependency_count;
+    atomic_count target_count;
+    atomic_count skip_count;
+
+    // Build state (scopes, targets, variables, etc).
+    //
+    const scope_map& scopes;
+    const scope& global_scope;
+
+    target_set& targets;
+
+    const variable_pool& var_pool;
+    const variable_overrides& var_overrides; // Project and relative scope.
+    variable_override_cache& global_override_cache;
+
+    function_map& functions;
+
+    // Cached variables.
+    //
+
+    // Note: consider printing in info meta-operation if adding anything here.
+    //
+    const variable* var_src_root;
+    const variable* var_out_root;
+    const variable* var_src_base;
+    const variable* var_out_base;
+    const variable* var_forwarded;
+
+    const variable* var_project;
+    const variable* var_amalgamation;
+    const variable* var_subprojects;
+    const variable* var_version;
+
+    // project.url
+    //
+    const variable* var_project_url;
+
+    // project.summary
+    //
+    const variable* var_project_summary;
+
+    // import.target
+    //
+    const variable* var_import_target;
+
+    // [string] target visibility
+    //
+    const variable* var_extension;
+
+    // [bool] target visibility
+    //
+    const variable* var_clean;
+
+    // Forwarded configuration backlink mode. Valid values are:
+    //
+    // false     - no link.
+    // true      - make a link using appropriate mechanism.
+    // symbolic  - make a symbolic link.
+    // hard      - make a hard link.
+    // copy      - make a copy.
+    // overwrite - copy over but don't remove on clean (committed gen code).
+    //
+    // Note that it can be set by a matching rule as a rule-specific variable.
+    //
+    // [string] target visibility
+    //
+    const variable* var_backlink;
+
+    // Prerequisite inclusion/exclusion. Valid values are:
+    //
+    // false  - exclude.
+    // true   - include.
+    // adhoc  - include but treat as an ad hoc input.
+    //
+    // If a rule uses prerequisites as inputs (as opposed to just matching
+    // them with the "pass-through" semantics), then the adhoc value signals
+    // that a prerequisite is an ad hoc input. A rule should match and execute
+    // such a prerequisite (whether its target type is recognized as suitable
+    // input or not) and assume that the rest will be handled by the user
+    // (e.g., it will be passed via a command line argument or some such).
+    // Note that this mechanism can be used to both treat unknown prerequisite
+    // types as inputs (for example, linker scripts) as well as prevent
+    // treatment of known prerequisite types as such while still matching and
+    // executing them (for example, plugin libraries).
+    //
+    // A rule with the "pass-through" semantics should treat the adhoc value
+    // the same as true.
+    //
+    // To query this value in rule implementations use the include() helpers
+    // from <libbuild2/prerequisites.hxx>.
+    //
+    // [string] prereq visibility
+    //
+    const variable* var_include;
+
+    // The build.* namespace.
+    //
+    // .meta_operation
+    //
+    const variable* var_build_meta_operation;
+
+    // Known meta-operation and operation tables.
+    //
+    build2::meta_operation_table meta_operation_table;
+    build2::operation_table operation_table;
+
+    // The old/new src_root remapping for subprojects.
+    //
+    dir_path old_src_root;
+    dir_path new_src_root;
+
+  public:
+    explicit
+    context (scheduler&,
+             const strings& cmd_vars = {},
+             bool dry_run = false,
+             bool keep_going = true);
+
+    // Set current meta-operation and operation.
+    //
+    void
+    current_meta_operation (const meta_operation_info&);
+
+    void
+    current_operation (const operation_info& inner,
+                       const operation_info* outer = nullptr,
+                       bool diag_noise = true);
+
+    context (context&&) = delete;
+    context& operator= (context&&) = delete;
+
+    context (const context&) = delete;
+    context& operator= (const context&) = delete;
+
+    ~context ();
+  };
 
   // Grab a new phase lock releasing it on destruction. The lock can be
   // "owning" or "referencing" (recursive).
@@ -195,7 +458,7 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_lock
   {
-    explicit phase_lock (run_phase);
+    explicit phase_lock (context&, run_phase);
     ~phase_lock ();
 
     phase_lock (phase_lock&&) = delete;
@@ -204,7 +467,9 @@ namespace build2
     phase_lock& operator= (phase_lock&&) = delete;
     phase_lock& operator= (const phase_lock&) = delete;
 
-    run_phase p;
+    context& ctx;
+    phase_lock* prev; // From another context.
+    run_phase phase;
   };
 
   // Assuming we have a lock on the current phase, temporarily release it
@@ -212,7 +477,7 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_unlock
   {
-    phase_unlock (bool unlock = true);
+    phase_unlock (context&, bool unlock = true);
     ~phase_unlock () noexcept (false);
 
     phase_lock* l;
@@ -223,10 +488,10 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_switch
   {
-    explicit phase_switch (run_phase);
+    explicit phase_switch (context&, run_phase);
     ~phase_switch () noexcept (false);
 
-    run_phase o, n;
+    run_phase old_phase, new_phase;
   };
 
   // Wait for a task count optionally and temporarily unlocking the phase.
@@ -237,11 +502,12 @@ namespace build2
 
     wait_guard (); // Empty.
 
-    explicit
-    wait_guard (atomic_count& task_count,
+    wait_guard (context&,
+                atomic_count& task_count,
                 bool phase = false);
 
-    wait_guard (size_t start_count,
+    wait_guard (context&,
+                size_t start_count,
                 atomic_count& task_count,
                 bool phase = false);
 
@@ -256,107 +522,11 @@ namespace build2
     wait_guard (const wait_guard&) = delete;
     wait_guard& operator= (const wait_guard&) = delete;
 
+    context* ctx;
     size_t start_count;
     atomic_count* task_count;
     bool phase;
   };
-
-  // Current action (meta/operation).
-  //
-  // The names unlike info are available during boot but may not yet be
-  // lifted. The name is always for an outer operation (or meta operation
-  // that hasn't been recognized as such yet).
-  //
-  LIBBUILD2_SYMEXPORT extern string current_mname;
-  LIBBUILD2_SYMEXPORT extern string current_oname;
-
-  LIBBUILD2_SYMEXPORT extern const meta_operation_info* current_mif;
-  LIBBUILD2_SYMEXPORT extern const operation_info* current_inner_oif;
-  LIBBUILD2_SYMEXPORT extern const operation_info* current_outer_oif;
-
-  // Current operation number (1-based) in the meta-operation batch.
-  //
-  LIBBUILD2_SYMEXPORT extern size_t current_on;
-
-  LIBBUILD2_SYMEXPORT extern execution_mode current_mode;
-
-  // Some diagnostics (for example output directory creation/removal by the
-  // fsdir rule) is just noise at verbosity level 1 unless it is the only
-  // thing that is printed. So we can only suppress it in certain situations
-  // (e.g., dist) where we know we have already printed something.
-  //
-  LIBBUILD2_SYMEXPORT extern bool current_diag_noise;
-
-  // Total number of dependency relationships and targets with non-noop
-  // recipe in the current action.
-  //
-  // Together with target::dependents the dependency count is incremented
-  // during the rule search & match phase and is decremented during execution
-  // with the expectation of it reaching 0. Used as a sanity check.
-  //
-  // The target count is incremented after a non-noop recipe is matched and
-  // decremented after such recipe has been executed. If such a recipe has
-  // skipped executing the operation, then it should increment the skip count.
-  // These two counters are used for progress monitoring and diagnostics.
-  //
-  LIBBUILD2_SYMEXPORT extern atomic_count dependency_count;
-  LIBBUILD2_SYMEXPORT extern atomic_count target_count;
-  LIBBUILD2_SYMEXPORT extern atomic_count skip_count;
-
-  LIBBUILD2_SYMEXPORT void
-  set_current_mif (const meta_operation_info&);
-
-  LIBBUILD2_SYMEXPORT void
-  set_current_oif (const operation_info& inner,
-                   const operation_info* outer = nullptr,
-                   bool diag_noise = true);
-
-  // Keep going flag.
-  //
-  // Note that setting it to false is not of much help unless we are running
-  // serially. In parallel we queue most of the things up before we see any
-  // failures.
-  //
-  LIBBUILD2_SYMEXPORT extern bool keep_going;
-
-  // Dry run flag (see --dry-run|-n).
-  //
-  // This flag is set only for the final execute phase (as opposed to those
-  // that interrupt match) by the perform meta operation's execute() callback.
-  //
-  // Note that for this mode to function properly we have to use fake mtimes.
-  // Specifically, a rule that pretends to update a target must set its mtime
-  // to system_clock::now() and everyone else must use this cached value. In
-  // other words, there should be no mtime re-query from the filesystem. The
-  // same is required for "logical clean" (i.e., dry-run 'clean update' in
-  // order to see all the command lines).
-  //
-  // At first, it may seem like we should also "dry-run" changes to depdb. But
-  // that would be both problematic (some rules update it in apply() during
-  // the match phase) and wasteful (why discard information). Also, depdb may
-  // serve as an input to some commands (for example, to provide C++ module
-  // mapping) which means that without updating it the commands we print might
-  // not be runnable (think of the compilation database).
-  //
-  // One thing we need to be careful about if we are updating depdb is to not
-  // render the target up-to-date. But in this case the depdb file will be
-  // older than the target which in our model is treated as an interrupted
-  // update (see depdb for details).
-  //
-  // Note also that sometimes it makes sense to do a bit more than absolutely
-  // necessary or to discard information in order to keep the rule logic sane.
-  // And some rules may choose to ignore this flag altogether. In this case,
-  // however, the rule should be careful not to rely on functions (notably
-  // from filesystem) that respect this flag in order not to end up with a
-  // job half done.
-  //
-  LIBBUILD2_SYMEXPORT extern bool dry_run;
-
-  // Reset the build state. In particular, this removes all the targets,
-  // scopes, and variables.
-  //
-  LIBBUILD2_SYMEXPORT variable_overrides
-  reset (const strings& cmd_vars);
 
   // Config module entry points.
   //
@@ -364,93 +534,11 @@ namespace build2
     scope&, const variable&, uint64_t flags);
 
   LIBBUILD2_SYMEXPORT extern const string& (*config_preprocess_create) (
-    const variable_overrides&,
+    context&,
     values&,
     vector_view<opspec>&,
     bool lifted,
     const location&);
-
-  // Cached variables.
-  //
-
-  // Note: consider printing in info meta-operation if adding anything here.
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_src_root;
-  LIBBUILD2_SYMEXPORT extern const variable* var_out_root;
-  LIBBUILD2_SYMEXPORT extern const variable* var_src_base;
-  LIBBUILD2_SYMEXPORT extern const variable* var_out_base;
-  LIBBUILD2_SYMEXPORT extern const variable* var_forwarded;
-
-  LIBBUILD2_SYMEXPORT extern const variable* var_project;
-  LIBBUILD2_SYMEXPORT extern const variable* var_amalgamation;
-  LIBBUILD2_SYMEXPORT extern const variable* var_subprojects;
-  LIBBUILD2_SYMEXPORT extern const variable* var_version;
-
-  // project.url
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_project_url;
-
-  // project.summary
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_project_summary;
-
-  // import.target
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_import_target;
-
-  // [bool] target visibility
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_clean;
-
-  // Forwarded configuration backlink mode. Valid values are:
-  //
-  // false     - no link.
-  // true      - make a link using appropriate mechanism.
-  // symbolic  - make a symbolic link.
-  // hard      - make a hard link.
-  // copy      - make a copy.
-  // overwrite - copy over but don't remove on clean (committed gen code).
-  //
-  // Note that it can be set by a matching rule as a rule-specific variable.
-  //
-  // [string] target visibility
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_backlink;
-
-  // Prerequisite inclusion/exclusion. Valid values are:
-  //
-  // false  - exclude.
-  // true   - include.
-  // adhoc  - include but treat as an ad hoc input.
-  //
-  // If a rule uses prerequisites as inputs (as opposed to just matching them
-  // with the "pass-through" semantics), then the adhoc value signals that a
-  // prerequisite is an ad hoc input. A rule should match and execute such a
-  // prerequisite (whether its target type is recognized as suitable input or
-  // not) and assume that the rest will be handled by the user (e.g., it will
-  // be passed via a command line argument or some such). Note that this
-  // mechanism can be used to both treat unknown prerequisite types as inputs
-  // (for example, linker scripts) as well as prevent treatment of known
-  // prerequisite types as such while still matching and executing them (for
-  // example, plugin libraries).
-  //
-  // A rule with the "pass-through" semantics should treat the adhoc value
-  // the same as true.
-  //
-  // To query this value in rule implementations use the include() helpers
-  // from <libbuild2/prerequisites.hxx>.
-  //
-  // [string] prereq visibility
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_include;
-
-  LIBBUILD2_SYMEXPORT extern const char var_extension[10]; // "extension"
-
-  // The build.* namespace.
-  //
-  // .meta_operation
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_build_meta_operation;
 }
 
 #include <libbuild2/context.ixx>

@@ -17,11 +17,14 @@ namespace build2
   namespace version
   {
     auto_rmfile
-    fixup_manifest (const path& in, path out, const standard_version& v)
+    fixup_manifest (context& ctx,
+                    const path& in,
+                    path out,
+                    const standard_version& v)
     {
-      auto_rmfile r (move (out), !dry_run /* active */);
+      auto_rmfile r (move (out), !ctx.dry_run /* active */);
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         try
         {

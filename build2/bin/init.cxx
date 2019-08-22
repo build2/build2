@@ -56,7 +56,7 @@ namespace build2
       // Target is a string and not target_triplet because it can be
       // specified by the user.
       //
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       vp.insert<string>    ("config.bin.target",   true);
       vp.insert<string>    ("config.bin.pattern",  true);
@@ -266,7 +266,7 @@ namespace build2
         // config.bin.target
         //
         {
-          const variable& var (var_pool["config.bin.target"]);
+          const variable& var (rs.ctx.var_pool["config.bin.target"]);
 
           // We first see if the value was specified via the configuration
           // mechanism.
@@ -343,7 +343,7 @@ namespace build2
         // config.bin.pattern
         //
         {
-          const variable& var (var_pool["config.bin.pattern"]);
+          const variable& var (rs.ctx.var_pool["config.bin.pattern"]);
 
           // We first see if the value was specified via the configuration
           // mechanism.
@@ -568,7 +568,7 @@ namespace build2
       //
       if (first)
       {
-        auto& v (var_pool.rw (rs));
+        auto& v (rs.ctx.var_pool.rw (rs));
 
         v.insert<process_path> ("bin.ar.path");
         v.insert<process_path> ("bin.ranlib.path");
@@ -744,7 +744,7 @@ namespace build2
       //
       if (first)
       {
-        auto& v (var_pool.rw (rs));
+        auto& v (rs.ctx.var_pool.rw (rs));
 
         v.insert<process_path> ("bin.ld.path");
         v.insert<path>         ("config.bin.ld", true);
@@ -857,7 +857,7 @@ namespace build2
       //
       if (first)
       {
-        auto& v (var_pool.rw (rs));
+        auto& v (rs.ctx.var_pool.rw (rs));
 
         v.insert<process_path> ("bin.rc.path");
         v.insert<path>         ("config.bin.rc", true);

@@ -58,7 +58,7 @@ namespace build2
               uint64_t save_flags = 0)
     {
       return required (
-        root, var_pool[name], default_value, override, save_flags);
+        root, root.ctx.var_pool[name], default_value, override, save_flags);
     }
 
     inline pair<lookup, bool>
@@ -86,7 +86,7 @@ namespace build2
     inline pair<lookup, bool>
     omitted (scope& root, const string& name)
     {
-      return omitted (root, var_pool[name]);
+      return omitted (root, root.ctx.var_pool[name]);
     }
 
     // Set, if necessary, an optional config.* variable. In particular, an
@@ -105,7 +105,7 @@ namespace build2
     inline lookup
     optional (scope& root, const string& name)
     {
-      return optional (root, var_pool[name]);
+      return optional (root, root.ctx.var_pool[name]);
     }
 
     // Check whether there are any variables specified from the config

@@ -6,6 +6,8 @@
 
 #include <libbuild2/filesystem.hxx> // mtime()
 
+#include <libbuild2/export.hxx>
+
 namespace build2
 {
   // target
@@ -13,7 +15,7 @@ namespace build2
   inline const string* target::
   ext () const
   {
-    slock l (targets.mutex_);
+    slock l (ctx.targets.mutex_);
     return *ext_ ? &**ext_ : nullptr;
   }
 
@@ -88,21 +90,22 @@ namespace build2
   inline pair<bool, target_state> target::
   matched_state_impl (action a) const
   {
-    assert (phase == run_phase::match);
+    assert (ctx.phase == run_phase::match);
 
     // Note that the "tried" state is "final".
     //
     const opstate& s (state[a]);
-    size_t o (s.task_count.load (memory_order_relaxed) - // Synchronized.
-              target::count_base ());
 
-    if (o == target::offset_tried)
+    // Note: already synchronized.
+    size_t o (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+
+    if (o == offset_tried)
       return make_pair (false, target_state::unknown);
     else
     {
       // Normally applied but can also be already executed.
       //
-      assert (o == target::offset_applied || o == target::offset_executed);
+      assert (o == offset_applied || o == offset_executed);
       return make_pair (true, (group_state (a) ? group->state[a] : s).state);
     }
   }
@@ -110,7 +113,7 @@ namespace build2
   inline target_state target::
   executed_state_impl (action a) const
   {
-    assert (phase == run_phase::execute);
+    assert (ctx.phase == run_phase::execute);
     return (group_state (a) ? group->state : state)[a].state;
   }
 
@@ -209,6 +212,32 @@ namespace build2
     }
 
     return m;
+  }
+
+  // include()
+  //
+  LIBBUILD2_SYMEXPORT include_type
+  include_impl (action,
+                const target&,
+                const string&,
+                const prerequisite&,
+                const target*);
+
+  inline include_type
+  include (action a, const target& t, const prerequisite& p, const target* m)
+  {
+    // Most of the time this variable will not be specified, so let's optimize
+    // for that.
+    //
+    if (p.vars.empty ())
+      return true;
+
+    const string* v (cast_null<string> (p.vars[t.ctx.var_include]));
+
+    if (v == nullptr)
+      return true;
+
+    return include_impl (a, t, *v, p, m);
   }
 
   // group_prerequisites
@@ -422,7 +451,7 @@ namespace build2
   inline timestamp mtime_target::
   load_mtime (const path& p) const
   {
-    assert (phase == run_phase::execute &&
+    assert (ctx.phase == run_phase::execute &&
             !group_state (action () /* inner */));
 
     duration::rep r (mtime_.load (memory_order_consume));
@@ -440,7 +469,7 @@ namespace build2
   inline bool mtime_target::
   newer (timestamp mt) const
   {
-    assert (phase == run_phase::execute);
+    assert (ctx.phase == run_phase::execute);
 
     timestamp mp (mtime ());
 

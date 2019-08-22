@@ -81,7 +81,6 @@ namespace build2
     : (to_string (build_version.major ()) + '.' +
        to_string (build_version.minor ())));
 
-  bool dry_run_option;
   optional<bool> mtime_check_option;
 
   optional<path> config_sub;
@@ -495,15 +494,14 @@ namespace build2
   void
   init (void (*t) (bool),
         const char* a0,
-        bool kg, bool dr, optional<bool> mc,
-        optional<path> cs, optional<path> cg)
+        optional<bool> mc,
+        optional<path> cs,
+        optional<path> cg)
   {
     terminate = t;
 
     argv0 = process::path_search (a0, true);
 
-    keep_going = kg;
-    dry_run_option = dr;
     mtime_check_option = mc;
 
     config_sub = move (cs);

@@ -16,13 +16,14 @@ namespace build2
 {
   class scope;
   class target;
+  class context;
 
   // Dump the build state to diag_stream. If action is specified, then assume
   // rules have been matched for this action and dump action-specific
   // information (like rule-specific variables).
   //
   LIBBUILD2_SYMEXPORT void
-  dump (optional<action> = nullopt);
+  dump (const context&, optional<action> = nullopt);
 
   LIBBUILD2_SYMEXPORT void
   dump (const scope&, const char* ind = "");

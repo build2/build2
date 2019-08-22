@@ -13,19 +13,19 @@ namespace build2
   }
 
   LIBBUILD2_SYMEXPORT const target*
-  import (const prerequisite_key&, bool existing);
+  import (context&, const prerequisite_key&, bool existing);
 
   inline const target&
-  import (const prerequisite_key& pk)
+  import (context& ctx, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match);
-    return *import (pk, false);
+    assert (ctx.phase == run_phase::match);
+    return *import (ctx, pk, false);
   }
 
   inline const target*
-  import_existing (const prerequisite_key& pk)
+  import_existing (context& ctx, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
-    return import (pk, true);
+    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
+    return import (ctx, pk, true);
   }
 }

@@ -10,9 +10,9 @@ using namespace std;
 namespace build2
 {
   void
-  string_functions ()
+  string_functions (function_map& m)
   {
-    function_family f ("string");
+    function_family f (m, "string");
 
     f["string"] = [](string s)  {return s;};
 
@@ -23,7 +23,7 @@ namespace build2
 
     // String-specific overloads from builtins.
     //
-    function_family b ("builtin");
+    function_family b (m, "builtin");
 
     b[".concat"] = [](string l, string r) {l += r; return l;};
 

@@ -29,6 +29,10 @@ namespace build2
   class LIBBUILD2_SYMEXPORT scope
   {
   public:
+    // Context this scope belongs to.
+    //
+    context& ctx;
+
     // Absolute and normalized.
     //
     const dir_path& out_path () const {return *out_path_;}
@@ -71,6 +75,11 @@ namespace build2
     scope*       weak_scope ();
     const scope* weak_scope () const;
 
+    // Global scope.
+    //
+    scope&       global_scope () {return const_cast<scope&> (ctx.global_scope);}
+    const scope& global_scope () const {return ctx.global_scope;}
+
     // Return true if the specified root scope is a sub-scope of this root
     // scope. Note that both scopes must be root.
     //
@@ -102,7 +111,7 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      const variable* var (var_pool.find (name));
+      const variable* var (ctx.var_pool.find (name));
       return var != nullptr ? operator[] (*var) : lookup ();
     }
 
@@ -159,7 +168,7 @@ namespace build2
     value&
     assign (string name)
     {
-      return assign (variable_pool::instance.insert (move (name)));
+      return assign (ctx.var_pool.rw (*this).insert (move (name)));
     }
 
     // Assign a typed non-overridable variable with normal visibility.
@@ -168,7 +177,7 @@ namespace build2
     value&
     assign (string name)
     {
-      return vars.assign (variable_pool::instance.insert<T> (move (name)));
+      return vars.assign (ctx.var_pool.rw (*this).insert<T> (move (name)));
     }
 
     // Return a value suitable for appending. If the variable does not
@@ -183,20 +192,6 @@ namespace build2
     // Target type/pattern-specific variables.
     //
     variable_type_map target_vars;
-
-    // Variable override caches. Only on project roots (in root_extra) plus a
-    // global one for the global scope.
-    //
-    // The key is the variable plus the innermost (scope-wise) variable map to
-    // which this override applies. See find_override() for details.
-    //
-    // Note: since it can be modified on any lookup (including during the
-    // execute phase), the cache is protected by its own mutex shard.
-    //
-    using variable_override_cache = variable_cache<pair<const variable*,
-                                                        const variable_map*>>;
-
-    static variable_override_cache global_override_cache;
 
     // Set of buildfiles already loaded for this scope. The included
     // buildfiles are checked against the project's root scope while
@@ -301,7 +296,7 @@ namespace build2
       //
       module_map modules;
 
-      // Variable override cache (see above).
+      // Variable override cache.
       //
       mutable variable_override_cache override_cache;
     };
@@ -333,17 +328,9 @@ namespace build2
     scope&
     rw () const
     {
-      assert (phase == run_phase::load);
+      assert (ctx.phase == run_phase::load);
       return const_cast<scope&> (*this);
     }
-
-    // RW access to global scope (RO via global global_scope below).
-    //
-    scope&
-    global () {return *global_;}
-
-  public:
-    static scope* global_; // Normally not accessed directly.
 
   private:
     friend class parser;
@@ -356,8 +343,8 @@ namespace build2
     friend LIBBUILD2_SYMEXPORT scope& create_bootstrap_inner (scope&,
                                                               const dir_path&);
 
-    explicit
-    scope (bool global): vars (global), target_vars (global) {}
+    scope (context& c, bool global)
+      : ctx (c), vars (c, global), target_vars (c, global) {}
 
     scope* parent_;
     scope* root_;
@@ -405,7 +392,7 @@ namespace build2
   {
   public:
     temp_scope (scope& p)
-        : scope (false) // Not global.
+        : scope (p.ctx, false /* global */)
     {
       out_path_ = p.out_path_;
       src_path_ = p.src_path_;
@@ -461,7 +448,7 @@ namespace build2
     scope_map&
     rw () const
     {
-      assert (phase == run_phase::load);
+      assert (ctx.phase == run_phase::load);
       return const_cast<scope_map&> (*this);
     }
 
@@ -469,24 +456,21 @@ namespace build2
     rw (scope&) const {return const_cast<scope_map&> (*this);}
 
   private:
-    LIBBUILD2_SYMEXPORT static scope_map instance;
+    friend class context;
+
+    explicit
+    scope_map (context& c): ctx (c) {}
 
     // Entities that can access bypassing the lock proof.
     //
     friend int main (int, char*[]);
-    friend LIBBUILD2_SYMEXPORT variable_overrides reset (const strings&);
 
     LIBBUILD2_SYMEXPORT scope&
     find (const dir_path&);
 
-  public:
-    // For var_pool initialization.
-    //
-    LIBBUILD2_SYMEXPORT static const scope_map& cinstance;
+  private:
+    context& ctx;
   };
-
-  LIBBUILD2_SYMEXPORT extern const scope_map& scopes;
-  LIBBUILD2_SYMEXPORT extern const scope* global_scope;
 }
 
 #include <libbuild2/scope.ixx>

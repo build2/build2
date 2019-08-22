@@ -16,7 +16,7 @@ using namespace butl;
 namespace build2
 {
   const target*
-  search_existing_target (const prerequisite_key& pk)
+  search_existing_target (context& ctx, const prerequisite_key& pk)
   {
     tracer trace ("search_existing_target");
 
@@ -69,7 +69,8 @@ namespace build2
         o.clear ();
     }
 
-    const target* t (targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
+    const target* t (
+      ctx.targets.find (*tk.type, d, o, *tk.name, tk.ext, trace));
 
     if (t != nullptr)
       l5 ([&]{trace << "existing target " << *t
@@ -79,7 +80,7 @@ namespace build2
   }
 
   const target*
-  search_existing_file (const prerequisite_key& cpk)
+  search_existing_file (context& ctx, const prerequisite_key& cpk)
   {
     tracer trace ("search_existing_file");
 
@@ -184,7 +185,7 @@ namespace build2
     // Find or insert. Note that we are using our updated extension.
     //
     auto r (
-      targets.insert (
+      ctx.targets.insert (
         *tk.type, move (d), move (out), *tk.name, ext, true, trace));
 
     // Has to be a file_target.
@@ -201,7 +202,7 @@ namespace build2
   }
 
   const target&
-  create_new_target (const prerequisite_key& pk)
+  create_new_target (context& ctx, const prerequisite_key& pk)
   {
     tracer trace ("create_new_target");
 
@@ -227,13 +228,13 @@ namespace build2
     //
     // @@ OUT: same story as in search_existing_target() re out.
     //
-    auto r (targets.insert (*tk.type,
-                            move (d),
-                            *tk.out,
-                            *tk.name,
-                            tk.ext,
-                            true /* implied */,
-                            trace));
+    auto r (ctx.targets.insert (*tk.type,
+                                move (d),
+                                *tk.out,
+                                *tk.name,
+                                tk.ext,
+                                true /* implied */,
+                                trace));
 
     const target& t (r.first);
     l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t

@@ -33,9 +33,9 @@ namespace build2
   }
 
   void
-  name_functions ()
+  name_functions (function_map& m)
   {
-    function_family f ("name");
+    function_family f (m, "name");
 
     // These functions treat a name as a target/prerequisite name.
     //
@@ -97,7 +97,7 @@ namespace build2
 
     // Name-specific overloads from builtins.
     //
-    function_family b ("builtin");
+    function_family b (m, "builtin");
 
     b[".concat"] = [](dir_path d, name n)
     {

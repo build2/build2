@@ -146,20 +146,17 @@ namespace build2
     return make_pair (dir_path (), false);
   }
 
-  dir_path old_src_root;
-  dir_path new_src_root;
-
   // Remap the src_root variable value if it is inside old_src_root.
   //
   static inline void
-  remap_src_root (value& v)
+  remap_src_root (context& ctx, value& v)
   {
-    if (!old_src_root.empty ())
+    if (!ctx.old_src_root.empty ())
     {
       dir_path& d (cast<dir_path> (v));
 
-      if (d.sub (old_src_root))
-        d = new_src_root / d.leaf (old_src_root);
+      if (d.sub (ctx.old_src_root))
+        d = ctx.new_src_root / d.leaf (ctx.old_src_root);
     }
   }
 
@@ -183,7 +180,7 @@ namespace build2
 
       l5 ([&]{trace << "sourcing " << bf;});
 
-      parser p (boot);
+      parser p (root.ctx, boot);
       p.parse_buildfile (is, bf, root, base);
     }
     catch (const io_error& e)
@@ -263,10 +260,12 @@ namespace build2
   }
 
   scope_map::iterator
-  create_root (scope& l, const dir_path& out_root, const dir_path& src_root)
+  create_root (scope& s, const dir_path& out_root, const dir_path& src_root)
   {
-    auto i (scopes.rw (l).insert (out_root, true /* root */));
+    auto i (s.ctx.scopes.rw (s).insert (out_root, true /* root */));
     scope& rs (i->second);
+
+    context& ctx (rs.ctx);
 
     // Set out_path. Note that src_path is set in setup_root() below.
     //
@@ -279,7 +278,7 @@ namespace build2
     // If this is already a root scope, verify that things are consistent.
     //
     {
-      value& v (rs.assign (var_out_root));
+      value& v (rs.assign (ctx.var_out_root));
 
       if (!v)
         v = out_root;
@@ -295,7 +294,7 @@ namespace build2
 
     if (!src_root.empty ())
     {
-      value& v (rs.assign (var_src_root));
+      value& v (rs.assign (ctx.var_src_root));
 
       if (!v)
         v = src_root;
@@ -315,9 +314,11 @@ namespace build2
   void
   setup_root (scope& s, bool forwarded)
   {
+    context& ctx (s.ctx);
+
     // The caller must have made sure src_root is set on this scope.
     //
-    value& v (s.assign (var_src_root));
+    value& v (s.assign (ctx.var_src_root));
     assert (v);
     const dir_path& d (cast<dir_path> (v));
 
@@ -326,7 +327,7 @@ namespace build2
     else
       assert (s.src_path_ == &d);
 
-    s.assign (var_forwarded) = forwarded;
+    s.assign (ctx.var_forwarded) = forwarded;
   }
 
   scope&
@@ -335,17 +336,18 @@ namespace build2
               const dir_path& src_base)
   {
     scope& s (i->second);
+    context& ctx (s.ctx);
 
     // Set src/out_base variables.
     //
-    value& ov (s.assign (var_out_base));
+    value& ov (s.assign (ctx.var_out_base));
 
     if (!ov)
       ov = out_base;
     else
       assert (cast<dir_path> (ov) == out_base);
 
-    value& sv (s.assign (var_src_base));
+    value& sv (s.assign (ctx.var_src_base));
 
     if (!sv)
       sv = src_base;
@@ -373,7 +375,7 @@ namespace build2
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
-    auto i (scopes.rw (root).insert (p));
+    auto i (root.ctx.scopes.rw (root).insert (p));
     scope& base (i->second);
     scope* rs (base.root_scope ());
 
@@ -410,7 +412,7 @@ namespace build2
   }
 
   dir_path
-  bootstrap_fwd (const dir_path& src_root, optional<bool>& altn)
+  bootstrap_fwd (context& ctx, const dir_path& src_root, optional<bool>& altn)
   {
     path f (exists (src_root, std_out_root_file, alt_out_root_file, altn));
 
@@ -420,7 +422,7 @@ namespace build2
     // We cannot just source the buildfile since there is no scope to do
     // this on yet.
     //
-    auto p (extract_variable (f, *var_out_root));
+    auto p (extract_variable (ctx, f, *ctx.var_out_root));
 
     if (!p.second)
       fail << "variable out_root expected as first line in " << f;
@@ -495,7 +497,7 @@ namespace build2
   }
 
   pair<value, bool>
-  extract_variable (const path& bf, const variable& var)
+  extract_variable (context& ctx, const path& bf, const variable& var)
   {
     try
     {
@@ -513,8 +515,8 @@ namespace build2
         return make_pair (value (), false);
       }
 
-      parser p;
-      temp_scope tmp (global_scope->rw ());
+      parser p (ctx);
+      temp_scope tmp (ctx.global_scope.rw ());
       p.parse_variable (lex, tmp, var, tt);
 
       value* v (tmp.vars.find_to_modify (var).first);
@@ -533,7 +535,8 @@ namespace build2
   // Extract the project name from bootstrap.build.
   //
   static project_name
-  find_project_name (const dir_path& out_root,
+  find_project_name (context& ctx,
+                     const dir_path& out_root,
                      const dir_path& fallback_src_root,
                      optional<bool> out_src, // True if out_root is src_root.
                      optional<bool>& altn)
@@ -544,7 +547,7 @@ namespace build2
     // in which case we will have src_root and maybe even the name.
     //
     const dir_path* src_root (nullptr);
-    const scope& s (scopes.find (out_root));
+    const scope& s (ctx.scopes.find (out_root));
 
     if (s.root_scope () == &s && s.out_path () == out_root)
     {
@@ -556,7 +559,7 @@ namespace build2
           assert (*altn == s.root_extra->altn);
       }
 
-      if (lookup l = s.vars[var_project])
+      if (lookup l = s.vars[ctx.var_project])
         return cast<project_name> (l);
 
       src_root = s.src_path_;
@@ -588,13 +591,13 @@ namespace build2
         }
         else
         {
-          auto p (extract_variable (f, *var_src_root));
+          auto p (extract_variable (ctx, f, *ctx.var_src_root));
 
           if (!p.second)
             fail << "variable src_root expected as first line in " << f;
 
           src_root_v = move (p.first);
-          remap_src_root (src_root_v); // Remap if inside old_src_root.
+          remap_src_root (ctx, src_root_v); // Remap if inside old_src_root.
           src_root = &cast<dir_path> (src_root_v);
 
           l5 ([&]{trace << "extracted src_root " << *src_root
@@ -610,10 +613,10 @@ namespace build2
       if (f.empty ())
         fail << "no build/bootstrap.build in " << *src_root;
 
-      auto p (extract_variable (f, *var_project));
+      auto p (extract_variable (ctx, f, *ctx.var_project));
 
       if (!p.second)
-        fail << "variable " << var_project->name << " expected "
+        fail << "variable " << ctx.var_project->name << " expected "
              << "as a first line in " << f;
 
       name = cast<project_name> (move (p.first));
@@ -628,7 +631,8 @@ namespace build2
   // is a subproject, then enter it into the map, handling the duplicates.
   //
   static void
-  find_subprojects (subprojects& sps,
+  find_subprojects (context& ctx,
+                    subprojects& sps,
                     const dir_path& d,
                     const dir_path& root,
                     bool out)
@@ -668,7 +672,8 @@ namespace build2
         // Load its name. Note that here we don't use fallback src_root
         // since this function is used to scan both out_root and src_root.
         //
-        project_name name (find_project_name (sd, dir_path (), src, altn));
+        project_name name (
+          find_project_name (ctx, sd, dir_path (), src, altn));
 
         // If the name is empty, then is is an unnamed project. While the
         // 'project' variable stays empty, here we come up with a surrogate
@@ -707,26 +712,28 @@ namespace build2
   }
 
   bool
-  bootstrap_src (scope& root, optional<bool>& altn)
+  bootstrap_src (scope& rs, optional<bool>& altn)
   {
     tracer trace ("bootstrap_src");
 
+    context& ctx (rs.ctx);
+
     bool r (false);
 
-    const dir_path& out_root (root.out_path ());
-    const dir_path& src_root (root.src_path ());
+    const dir_path& out_root (rs.out_path ());
+    const dir_path& src_root (rs.src_path ());
 
     {
       path f (exists (src_root, std_bootstrap_file, alt_bootstrap_file, altn));
 
-      if (root.root_extra == nullptr)
+      if (rs.root_extra == nullptr)
       {
         // If nothing so far has indicated the naming, assume standard.
         //
         if (!altn)
           altn = false;
 
-        setup_root_extra (root, altn);
+        setup_root_extra (rs, altn);
       }
 
       if (!f.empty ())
@@ -736,8 +743,8 @@ namespace build2
         // process hard to reason about. But we may try to bootstrap the same
         // root scope multiple time.
         //
-        if (root.buildfiles.insert (f).second)
-          source (root, root, f, true);
+        if (rs.buildfiles.insert (f).second)
+          source (rs, rs, f, true);
         else
           l5 ([&]{trace << "skipping already sourced " << f;});
 
@@ -757,15 +764,15 @@ namespace build2
     // Note: the amalgamation variable value is always a relative directory.
     //
     {
-      auto rp (root.vars.insert (*var_amalgamation)); // Set NULL by default.
+      auto rp (rs.vars.insert (*ctx.var_amalgamation)); // Set NULL by default.
       value& v (rp.first);
 
       if (v && v.empty ()) // Convert empty to NULL.
         v = nullptr;
 
-      if (scope* aroot = root.parent_scope ()->root_scope ())
+      if (scope* ars = rs.parent_scope ()->root_scope ())
       {
-        const dir_path& ad (aroot->out_path ());
+        const dir_path& ad (ars->out_path ());
         dir_path rd (ad.relative (out_root));
 
         // If we already have the amalgamation variable set, verify
@@ -829,7 +836,7 @@ namespace build2
     // NULL value indicates that we found no subprojects.
     //
     {
-      auto rp (root.vars.insert (*var_subprojects)); // Set NULL by default.
+      auto rp (rs.vars.insert (*ctx.var_subprojects)); // Set NULL by default.
       value& v (rp.first);
 
       if (rp.second)
@@ -846,13 +853,13 @@ namespace build2
         if (exists (out_root))
         {
           l5 ([&]{trace << "looking for subprojects in " << out_root;});
-          find_subprojects (sps, out_root, out_root, true);
+          find_subprojects (rs.ctx, sps, out_root, out_root, true);
         }
 
         if (out_root != src_root)
         {
           l5 ([&]{trace << "looking for subprojects in " << src_root;});
-          find_subprojects (sps, src_root, src_root, false);
+          find_subprojects (rs.ctx, sps, src_root, src_root, false);
         }
 
         if (!sps.empty ()) // Keep it NULL if no subprojects.
@@ -923,7 +930,8 @@ namespace build2
               // Pass fallback src_root since this is a subproject that was
               // specified by the user so it is most likely in our src.
               //
-              n = find_project_name (out_root / d,
+              n = find_project_name (rs.ctx,
+                                     out_root / d,
                                      src_root / d,
                                      nullopt /* out_src */,
                                      altn);
@@ -983,13 +991,13 @@ namespace build2
   }
 
   bool
-  bootstrapped (scope& root)
+  bootstrapped (scope& rs)
   {
     // Use the subprojects variable set by bootstrap_src() as an indicator.
     // It should either be NULL or typed (so we assume that the user will
     // never set it to NULL).
     //
-    auto l (root.vars[var_subprojects]);
+    auto l (rs.vars[rs.ctx.var_subprojects]);
     return l.defined () && (l->null || l->type != nullptr);
   }
 
@@ -1002,6 +1010,8 @@ namespace build2
              const dir_path& src_root,
              optional<bool>& altn)
   {
+    context& ctx (orig.ctx);
+
     // The conditions are:
     //
     // 1. Origin is itself forwarded.
@@ -1010,15 +1020,17 @@ namespace build2
     //
     // 3. Inner/outer out-root.build exists in src_root and refers out_root.
     //
-    return (out_root != src_root                        &&
-            cast_false<bool> (orig.vars[var_forwarded]) &&
-            bootstrap_fwd (src_root, altn) == out_root);
+    return (out_root != src_root                            &&
+            cast_false<bool> (orig.vars[ctx.var_forwarded]) &&
+            bootstrap_fwd (ctx, src_root, altn) == out_root);
   }
 
   void
   create_bootstrap_outer (scope& root)
   {
-    auto l (root.vars[var_amalgamation]);
+    context& ctx (root.ctx);
+
+    auto l (root.vars[ctx.var_amalgamation]);
 
     if (!l)
       return;
@@ -1046,7 +1058,7 @@ namespace build2
     {
       bootstrap_out (rs, altn); // #3 happens here (or it can be #1).
 
-      value& v (rs.assign (var_src_root));
+      value& v (rs.assign (ctx.var_src_root));
 
       if (!v)
       {
@@ -1060,7 +1072,7 @@ namespace build2
         }
       }
       else
-        remap_src_root (v); // Remap if inside old_src_root.
+        remap_src_root (ctx, v); // Remap if inside old_src_root.
 
       setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
       bootstrap_pre (rs, altn);
@@ -1072,7 +1084,7 @@ namespace build2
       altn = rs.root_extra->altn;
 
       if (forwarded (root, rs.out_path (), rs.src_path (), altn))
-        rs.assign (var_forwarded) = true; // Only upgrade (see main()).
+        rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
     }
 
     create_bootstrap_outer (rs);
@@ -1089,9 +1101,11 @@ namespace build2
   scope&
   create_bootstrap_inner (scope& root, const dir_path& out_base)
   {
+    context& ctx (root.ctx);
+
     scope* r (&root);
 
-    if (auto l = root.vars[var_subprojects])
+    if (auto l = root.vars[ctx.var_subprojects])
     {
       for (const auto& p: cast<subprojects> (l))
       {
@@ -1109,7 +1123,7 @@ namespace build2
         {
           bootstrap_out (rs, altn);
 
-          value& v (rs.assign (var_src_root));
+          value& v (rs.assign (ctx.var_src_root));
 
           if (!v)
           {
@@ -1118,7 +1132,7 @@ namespace build2
               : (root.src_path () / p.second);
           }
           else
-            remap_src_root (v); // Remap if inside old_src_root.
+            remap_src_root (ctx, v); // Remap if inside old_src_root.
 
           setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
           bootstrap_pre (rs, altn);
@@ -1129,7 +1143,7 @@ namespace build2
         {
           altn = rs.root_extra->altn;
           if (forwarded (root, rs.out_path (), rs.src_path (), altn))
-            rs.assign (var_forwarded) = true; // Only upgrade (see main()).
+            rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
         }
 
         // Check if we strongly amalgamated this inner root scope.
@@ -1205,7 +1219,7 @@ namespace build2
   }
 
   scope&
-  load_project (scope& lock,
+  load_project (scope& s,
                 const dir_path& out_root,
                 const dir_path& src_root,
                 bool forwarded,
@@ -1213,7 +1227,9 @@ namespace build2
   {
     assert (!forwarded || out_root != src_root);
 
-    auto i (create_root (lock, out_root, src_root));
+    context& ctx (s.ctx);
+
+    auto i (create_root (s, out_root, src_root));
     scope& rs (i->second);
 
     if (!bootstrapped (rs))
@@ -1228,7 +1244,7 @@ namespace build2
     else
     {
       if (forwarded)
-        rs.assign (var_forwarded) = true; // Only upgrade (see main()).
+        rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
     }
 
     if (load)
@@ -1257,6 +1273,8 @@ namespace build2
       return names {move (target)};
     }
 
+    context& ctx (ibase.ctx);
+
     // Otherwise, get the project name and convert the target to unqualified.
     //
     project_name proj (move (*target.proj));
@@ -1273,7 +1291,7 @@ namespace build2
     // over anything that we may discover. In particular, we will prefer it
     // over any bundled subprojects.
     //
-    auto& vp (var_pool.rw (iroot));
+    auto& vp (ibase.ctx.var_pool.rw (iroot));
 
     for (;;) // Break-out loop.
     {
@@ -1375,13 +1393,14 @@ namespace build2
 
         // First check the amalgamation itself.
         //
-        if (r != &iroot && cast<project_name> (r->vars[var_project]) == proj)
+        if (r != &iroot &&
+            cast<project_name> (r->vars[ctx.var_project]) == proj)
         {
           out_root = r->out_path ();
           break;
         }
 
-        if (auto l = r->vars[var_subprojects])
+        if (auto l = r->vars[ctx.var_subprojects])
         {
           const auto& m (cast<subprojects> (l));
           auto i (m.find (proj));
@@ -1394,7 +1413,7 @@ namespace build2
           }
         }
 
-        if (!r->vars[var_amalgamation])
+        if (!r->vars[ctx.var_amalgamation])
           break;
       }
 
@@ -1429,7 +1448,7 @@ namespace build2
     if (is_src_root (out_root, altn))
     {
       src_root = move (out_root);
-      out_root = bootstrap_fwd (src_root, altn);
+      out_root = bootstrap_fwd (ctx, src_root, altn);
       fwd = (src_root != out_root);
     }
 
@@ -1447,7 +1466,7 @@ namespace build2
 
         // Check that the bootstrap process set src_root.
         //
-        auto l (root->vars[*var_src_root]);
+        auto l (root->vars[*ctx.var_src_root]);
         if (l)
         {
           // Note that unlike main() here we fail hard. The idea is that if
@@ -1482,7 +1501,7 @@ namespace build2
           src_root = root->src_path ();
 
         if (top ? fwd : forwarded (*proot, out_root, src_root, altn))
-          root->assign (var_forwarded) = true; // Only upgrade (see main()).
+          root->assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
       }
 
       if (top)
@@ -1495,10 +1514,10 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (cast<project_name> (root->vars[var_project]) == proj)
+      if (cast<project_name> (root->vars[ctx.var_project]) == proj)
         break;
 
-      if (auto l = root->vars[var_subprojects])
+      if (auto l = root->vars[ctx.var_subprojects])
       {
         const auto& m (cast<subprojects> (l));
         auto i (m.find (proj));
@@ -1527,13 +1546,13 @@ namespace build2
 
     // "Pass" the imported project's roots to the stub.
     //
-    ts.assign (var_out_root) = move (out_root);
-    ts.assign (var_src_root) = move (src_root);
+    ts.assign (ctx.var_out_root) = move (out_root);
+    ts.assign (ctx.var_src_root) = move (src_root);
 
     // Also pass the target being imported in the import.target variable.
     //
     {
-      value& v (ts.assign (var_import_target));
+      value& v (ts.assign (ctx.var_import_target));
 
       if (!target.empty ()) // Otherwise leave NULL.
         v = target; // Can't move (need for diagnostics below).
@@ -1556,7 +1575,7 @@ namespace build2
       // there is a use-case for the export stub to return a qualified
       // name?
       //
-      parser p;
+      parser p (ctx);
       names v (p.parse_export_stub (ifs, es, iroot, ts));
 
       // If there were no export directive executed in an export stub, assume
@@ -1575,7 +1594,7 @@ namespace build2
   }
 
   const target*
-  import (const prerequisite_key& pk, bool existing)
+  import (context& ctx, const prerequisite_key& pk, bool existing)
   {
     tracer trace ("import");
 
@@ -1610,18 +1629,18 @@ namespace build2
 
         const exe* t (
           !existing
-          ? &targets.insert<exe> (tt,
-                                  p.directory (),
-                                  dir_path (),    // No out (out of project).
-                                  p.leaf ().base ().string (),
-                                  p.extension (), // Always specified.
-                                  trace)
-          : targets.find<exe> (tt,
-                               p.directory (),
-                               dir_path (),
-                               p.leaf ().base ().string (),
-                               p.extension (),
-                               trace));
+          ? &ctx.targets.insert<exe> (tt,
+                                      p.directory (),
+                                      dir_path (),    // No out (not in project).
+                                      p.leaf ().base ().string (),
+                                      p.extension (), // Always specified.
+                                      trace)
+          : ctx.targets.find<exe> (tt,
+                                   p.directory (),
+                                   dir_path (),
+                                   p.leaf ().base ().string (),
+                                   p.extension (),
+                                   trace));
 
         if (t != nullptr)
         {

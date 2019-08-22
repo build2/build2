@@ -16,6 +16,7 @@
 namespace build2
 {
   class scope;
+  class context;
   class prerequisite;
   class prerequisite_key;
 
@@ -42,7 +43,7 @@ namespace build2
   search (const target&, const prerequisite_key&);
 
   LIBBUILD2_SYMEXPORT const target*
-  search_existing (const prerequisite_key&);
+  search_existing (context&, const prerequisite_key&);
 
   // Uniform search interface for prerequisite/prerequisite_member.
   //
@@ -61,7 +62,7 @@ namespace build2
   //
   const target&
   search (const target&,
-          const target_type& type,
+          const target_type&,
           const dir_path& dir,
           const dir_path& out,
           const string& name,
@@ -70,7 +71,8 @@ namespace build2
           const optional<project_name>& proj = nullopt);
 
   const target*
-  search_existing (const target_type& type,
+  search_existing (context&,
+                   const target_type&,
                    const dir_path& dir,
                    const dir_path& out,
                    const string& name,
@@ -611,18 +613,20 @@ namespace build2
   //
   template <typename T>
   target_state
-  straight_execute_members (action, atomic_count&, T[], size_t, size_t);
+  straight_execute_members (context&, action, atomic_count&,
+                            T[], size_t, size_t);
 
   template <typename T>
   target_state
-  reverse_execute_members (action, atomic_count&, T[], size_t, size_t);
+  reverse_execute_members (context&, action, atomic_count&,
+                           T[], size_t, size_t);
 
   template <typename T>
   inline target_state
   straight_execute_members (action a, const target& t,
                             T ts[], size_t c, size_t s)
   {
-    return straight_execute_members (a, t[a].task_count, ts, c, s);
+    return straight_execute_members (t.ctx, a, t[a].task_count, ts, c, s);
   }
 
   template <typename T>
@@ -630,7 +634,7 @@ namespace build2
   reverse_execute_members (action a, const target& t,
                            T ts[], size_t c, size_t s)
   {
-    return reverse_execute_members (a, t[a].task_count, ts, c, s);
+    return reverse_execute_members (t.ctx, a, t[a].task_count, ts, c, s);
   }
 
   // Call straight or reverse depending on the current mode.
@@ -757,18 +761,21 @@ namespace build2
                    backlink_mode = backlink_mode::link);
 
   LIBBUILD2_SYMEXPORT void
-  update_backlink (const path& target,
+  update_backlink (context&,
+                   const path& target,
                    const path& link,
                    bool changed,
                    backlink_mode = backlink_mode::link);
 
   LIBBUILD2_SYMEXPORT void
-  update_backlink (const path& target,
+  update_backlink (context&,
+                   const path& target,
                    const path& link,
                    backlink_mode = backlink_mode::link);
 
   LIBBUILD2_SYMEXPORT void
-  clean_backlink (const path& link,
+  clean_backlink (context&,
+                  const path& link,
                   uint16_t verbosity,
                   backlink_mode = backlink_mode::link);
 }

@@ -62,7 +62,8 @@ namespace build2
       //
       auto enter = [&rs] (const char* v) -> const variable&
       {
-        return var_pool.rw (rs).insert<bool> (v, variable_visibility::project);
+        return rs.ctx.var_pool.rw (rs).insert<bool> (
+          v, variable_visibility::project);
       };
 
       // NOTE: see also module sidebuild subproject if changing anything about
@@ -370,7 +371,7 @@ namespace build2
 
       // Enter all the variables and initialize the module data.
       //
-      auto& v (var_pool.rw (rs));
+      auto& v (rs.ctx.var_pool.rw (rs));
 
       cc::config_data d {
         cc::lang::cxx,
@@ -572,7 +573,7 @@ namespace build2
 
       config_module& cm (*rs.lookup_module<config_module> ("cxx.guess"));
 
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       bool modules (cast<bool> (rs["cxx.features.modules"]));
 

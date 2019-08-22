@@ -87,7 +87,7 @@ namespace build2
       bool impl (proc_impl && proc_impl (l, la));
       bool cc (false), same (false);
 
-      auto& vp (var_pool);
+      auto& vp (top_bs.ctx.var_pool);
       lookup c_e_libs;
       lookup x_e_libs;
 
@@ -221,7 +221,7 @@ namespace build2
         : &cast<dir_paths> (
           bs.root_scope ()->vars[same
                                  ? x_sys_lib_dirs
-                                 : var_pool[*t + ".sys_lib_dirs"]]);
+                                 : bs.ctx.var_pool[*t + ".sys_lib_dirs"]]);
       };
 
       auto find_linfo = [top_li, t, cc, &bs, &l, &li] ()
@@ -474,7 +474,7 @@ namespace build2
         if (xt == nullptr)
         {
           if (n.qualified ())
-            xt = import_existing (pk);
+            xt = import_existing (s.ctx, pk);
         }
 
         if (xt == nullptr)
@@ -494,20 +494,21 @@ namespace build2
     //
     template <typename T>
     ulock common::
-    insert_library (T*& r,
+    insert_library (context& ctx,
+                    T*& r,
                     const string& name,
                     const dir_path& d,
                     optional<string> ext,
                     bool exist,
                     tracer& trace)
     {
-      auto p (targets.insert_locked (T::static_type,
-                                     d,
-                                     dir_path (),
-                                     name,
-                                     move (ext),
-                                     true, // Implied.
-                                     trace));
+      auto p (ctx.targets.insert_locked (T::static_type,
+                                         d,
+                                         dir_path (),
+                                         name,
+                                         move (ext),
+                                         true, // Implied.
+                                         trace));
 
       assert (!exist || !p.second.owns_lock ());
       r = &p.first.template as<T> ();
@@ -626,6 +627,8 @@ namespace build2
                     &name, ext,
                     &p, &f, exist, &trace, this] (const dir_path& d) -> bool
       {
+        context& ctx (p.scope->ctx);
+
         timestamp mt;
 
         // libs
@@ -648,9 +651,10 @@ namespace build2
             if (tclass == "windows")
             {
               libi* i (nullptr);
-              insert_library (i, name, d, se, exist, trace);
+              insert_library (ctx, i, name, d, se, exist, trace);
 
-              ulock l (insert_library (s, name, d, nullopt, exist, trace));
+              ulock l (
+                insert_library (ctx, s, name, d, nullopt, exist, trace));
 
               if (!exist)
               {
@@ -677,7 +681,7 @@ namespace build2
             }
             else
             {
-              insert_library (s, name, d, se, exist, trace);
+              insert_library (ctx, s, name, d, se, exist, trace);
 
               s->mtime (mt);
               s->path (move (f));
@@ -697,7 +701,7 @@ namespace build2
 
             if (mt != timestamp_nonexistent)
             {
-              insert_library (s, name, d, se, exist, trace);
+              insert_library (ctx, s, name, d, se, exist, trace);
 
               s->mtime (mt);
               s->path (move (f));
@@ -722,7 +726,7 @@ namespace build2
             // Note that this target is outside any project which we treat
             // as out trees.
             //
-            insert_library (a, name, d, ae, exist, trace);
+            insert_library (ctx, a, name, d, ae, exist, trace);
             a->mtime (mt);
             a->path (move (f));
           }
@@ -760,14 +764,14 @@ namespace build2
 
             if (na && !r.first.empty ())
             {
-              insert_library (a, name, d, nullopt, exist, trace);
+              insert_library (ctx, a, name, d, nullopt, exist, trace);
               a->mtime (timestamp_unreal);
               a->path (empty_path);
             }
 
             if (ns && !r.second.empty ())
             {
-              insert_library (s, name, d, nullopt, exist, trace);
+              insert_library (ctx, s, name, d, nullopt, exist, trace);
               s->mtime (timestamp_unreal);
               s->path (empty_path);
             }
@@ -821,7 +825,8 @@ namespace build2
       // Enter (or find) the lib{} target group.
       //
       lib* lt;
-      insert_library (lt, name, *pd, l ? p.tk.ext : nullopt, exist, trace);
+      insert_library (
+        p.scope->ctx, lt, name, *pd, l ? p.tk.ext : nullopt, exist, trace);
 
       // Result.
       //

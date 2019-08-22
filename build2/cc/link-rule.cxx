@@ -165,14 +165,15 @@ namespace build2
                 // otherwise the above search would have returned the member
                 // target.
                 //
-                pt = search_existing (p.prerequisite.key (tt));
+                pt = search_existing (t.ctx, p.prerequisite.key (tt));
               }
             }
             else if (!p.is_a<libue> ())
             {
               // See if we also/instead have a group.
               //
-              pg = search_existing (p.prerequisite.key (libul::static_type));
+              pg = search_existing (t.ctx,
+                                    p.prerequisite.key (libul::static_type));
 
               if (pt == nullptr)
                 swap (pt, pg);
@@ -483,6 +484,7 @@ namespace build2
       tracer trace (x, "link_rule::apply");
 
       file& t (xt.as<file> ());
+      context& ctx (t.ctx);
 
       // Note that for_install is signalled by install_rule and therefore
       // can only be relied upon during execute.
@@ -697,7 +699,7 @@ namespace build2
               // Note that ad hoc inputs have to be explicitly marked with the
               // include=adhoc prerequisite-specific variable.
               //
-              if (current_outer_oif != nullptr)
+              if (ctx.current_outer_oif != nullptr)
                 continue;
             }
 
@@ -945,7 +947,7 @@ namespace build2
             // Windows.
             //
 #ifdef _WIN32
-            dir.state[a].assign (var_backlink) = "copy";
+            dir.state[a].assign (ctx.var_backlink) = "copy";
 #endif
           }
         }
@@ -1163,7 +1165,7 @@ namespace build2
           bool u;
           if ((u = pt->is_a<libux> ()) || pt->is_a<liba> ())
           {
-            const variable& var (var_pool["bin.whole"]); // @@ Cache.
+            const variable& var (ctx.var_pool["bin.whole"]); // @@ Cache.
 
             // See the bin module for the lookup semantics discussion. Note
             // that the variable is not overridable so we omit find_override()
@@ -1197,7 +1199,7 @@ namespace build2
 
       // Wait with unlocked phase to allow phase switching.
       //
-      wait_guard wg (target::count_busy (), t[a].task_count, true);
+      wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
       i = start;
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -1229,7 +1231,7 @@ namespace build2
           }
         }
 
-        match_async (a, *pt, target::count_busy (), t[a].task_count);
+        match_async (a, *pt, ctx.count_busy (), t[a].task_count);
         mark (pt, m);
       }
 
@@ -1473,7 +1475,7 @@ namespace build2
             ? (exp ? c_export_loptions : c_loptions)
             : (t == x
                ? (exp ? x_export_loptions : x_loptions)
-               : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+               : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
           append_options (d.args, *g, var);
         }
@@ -1575,7 +1577,7 @@ namespace build2
             ? (exp ? c_export_loptions : c_loptions)
             : (t == x
                ? (exp ? x_export_loptions : x_loptions)
-               : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+               : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
           hash_options (d.cs, *g, var);
         }
@@ -1747,6 +1749,8 @@ namespace build2
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
 
+      context& ctx (t.ctx);
+
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
@@ -1866,7 +1870,7 @@ namespace build2
             if (verb >= 3)
               print_process (args);
 
-            if (!dry_run)
+            if (!ctx.dry_run)
             {
               auto_rmfile rm (of);
 
@@ -1966,7 +1970,7 @@ namespace build2
         const string& cs (
           cast<string> (
             rs[tsys == "win32-msvc"
-               ? var_pool["bin.ld.checksum"]
+               ? ctx.var_pool["bin.ld.checksum"]
                : x_checksum]));
 
         if (dd.expect (cs) != nullptr)
@@ -2726,7 +2730,7 @@ namespace build2
       //
       auto_rmfile rm;
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         rm = auto_rmfile (relt);
 
@@ -2823,7 +2827,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        if (!dry_run)
+        if (!ctx.dry_run)
           run (rl, args);
       }
 
@@ -2843,12 +2847,12 @@ namespace build2
         // For shared libraries we may need to create a bunch of symlinks (or
         // fallback to hardlinks/copies on Windows).
         //
-        auto ln = [] (const path& f, const path& l)
+        auto ln = [&ctx] (const path& f, const path& l)
         {
           if (verb >= 3)
             text << "ln -sf " << f << ' ' << l;
 
-          if (dry_run)
+          if (ctx.dry_run)
             return;
 
           try
@@ -2908,12 +2912,12 @@ namespace build2
         //
         if (tsys == "darwin" && cast<string> (rs["bin.ar.id"]) == "generic")
         {
-          if (!dry_run)
-            touch (tp, false /* create */, verb_never);
+          if (!ctx.dry_run)
+            touch (ctx, tp, false /* create */, verb_never);
         }
       }
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         rm.cancel ();
         dd.check_mtime (tp);

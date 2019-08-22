@@ -2866,7 +2866,7 @@ namespace build2
       {
         try
         {
-          parser p;
+          parser p (scr.test_target.ctx);
           p.execute (s, scr, r);
         }
         catch (const failed&)
@@ -2896,7 +2896,7 @@ namespace build2
           if (exec_scope)
           {
             atomic_count task_count (0);
-            wait_guard wg (task_count);
+            wait_guard wg (g->root.test_target.ctx, task_count);
 
             // Start asynchronous execution of inner scopes keeping track of
             // how many we have handled.
@@ -3016,24 +3016,24 @@ namespace build2
                 // UBSan workaround.
                 //
                 const diag_frame* df (diag_frame::stack ());
-                if (!sched.async (task_count,
-                                  [] (const diag_frame* ds,
-                                      scope& s,
-                                      script& scr,
-                                      runner& r)
-                                  {
-                                    diag_frame::stack_guard dsg (ds);
-                                    execute_impl (s, scr, r);
-                                  },
-                                  df,
-                                  ref (*chain),
-                                  ref (*script_),
-                                  ref (*runner_)))
+                if (!ctx.sched.async (task_count,
+                                      [] (const diag_frame* ds,
+                                          scope& s,
+                                          script& scr,
+                                          runner& r)
+                                      {
+                                        diag_frame::stack_guard dsg (ds);
+                                        execute_impl (s, scr, r);
+                                      },
+                                      df,
+                                      ref (*chain),
+                                      ref (*script_),
+                                      ref (*runner_)))
                 {
                   // Bail out if the scope has failed and we weren't instructed
                   // to keep going.
                   //
-                  if (chain->state == scope_state::failed && !keep_going)
+                  if (chain->state == scope_state::failed && !ctx.keep_going)
                     throw failed ();
                 }
               }

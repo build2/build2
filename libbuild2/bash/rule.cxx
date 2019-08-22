@@ -157,13 +157,13 @@ namespace build2
 
                 if (mt != timestamp_nonexistent)
                 {
-                  auto rp (targets.insert_locked (bash::static_type,
-                                                  ap.directory (),
-                                                  dir_path () /* out */,
-                                                  p.name,
-                                                  ext,
-                                                  true /* implied */,
-                                                  trace));
+                  auto rp (t.ctx.targets.insert_locked (bash::static_type,
+                                                        ap.directory (),
+                                                        dir_path () /* out */,
+                                                        p.name,
+                                                        ext,
+                                                        true /* implied */,
+                                                        trace));
 
                   bash& pt (rp.first.as<bash> ());
 
@@ -281,7 +281,7 @@ namespace build2
               continue;
           }
 
-          if (const scope* rs = scopes.find (b->dir).root_scope ())
+          if (const scope* rs = t.ctx.scopes.find (b->dir).root_scope ())
           {
             const dir_path& d (pp.sub (rs->src_path ())
                                ? rs->src_path ()

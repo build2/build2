@@ -145,7 +145,7 @@ namespace build2
 
       // Enter all the variables and initialize the module data.
       //
-      auto& v (var_pool.rw (rs));
+      auto& v (rs.ctx.var_pool.rw (rs));
 
       cc::config_data d {
         cc::lang::c,

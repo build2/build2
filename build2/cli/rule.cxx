@@ -112,7 +112,7 @@ namespace build2
 
         // Check if there is a corresponding cli.cxx{} group.
         //
-        const cli_cxx* g (targets.find<cli_cxx> (t.dir, t.out, t.name));
+        const cli_cxx* g (t.ctx.targets.find<cli_cxx> (t.dir, t.out, t.name));
 
         // If not or if it has no prerequisites (happens when we use it to
         // set cli.options) and this target has a cli{} prerequisite, then
@@ -124,7 +124,7 @@ namespace build2
                 prerequisite_members (a, t)))
           {
             if (g == nullptr)
-              g = &targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
+              g = &t.ctx.targets.insert<cli_cxx> (t.dir, t.out, t.name, trace);
 
             g->prerequisites (prerequisites {p->as_prerequisite ()});
           }
@@ -322,7 +322,7 @@ namespace build2
       else if (verb)
         text << "cli " << s;
 
-      if (!dry_run)
+      if (!t.ctx.dry_run)
       {
         run (cli, args);
         dd.check_mtime (tp);

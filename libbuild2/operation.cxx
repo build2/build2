@@ -10,6 +10,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/variable.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/diagnostics.hxx>
 
@@ -81,7 +82,7 @@ namespace build2
     // Create the base scope. Note that its existence doesn't mean it was
     // already setup as a base scope; it can be the same as root.
     //
-    auto i (scopes.rw (root).insert (out_base));
+    auto i (root.ctx.scopes.rw (root).insert (out_base));
     scope& base (setup_base (i, out_base, src_base));
 
     // Load the buildfile unless it is implied.
@@ -101,9 +102,10 @@ namespace build2
   {
     tracer trace ("search");
 
-    phase_lock pl (run_phase::match);
+    context& ctx (bs.ctx);
+    phase_lock pl (ctx, run_phase::match);
 
-    const target* t (targets.find (tk, trace));
+    const target* t (ctx.targets.find (tk, trace));
 
     // Only do the implied buildfile if we haven't loaded one. Failed that we
     // may try go this route even though we've concluded the implied buildfile
@@ -131,8 +133,13 @@ namespace build2
   {
     tracer trace ("match");
 
+    if (ts.empty ())
+      return;
+
+    context& ctx (ts[0].as_target ().ctx);
+
     {
-      phase_lock l (run_phase::match);
+      phase_lock l (ctx, run_phase::match);
 
       // Setup progress reporting if requested.
       //
@@ -143,10 +150,10 @@ namespace build2
       {
         size_t incr (stderr_term ? 1 : 10); // Scale depending on output type.
 
-        what = " targets to " + diag_do (a);
+        what = " targets to " + diag_do (ctx, a);
 
-        mg = sched.monitor (
-          target_count,
+        mg = ctx.sched.monitor (
+          ctx.target_count,
           incr,
           [incr, &what] (size_t c) -> size_t
           {
@@ -165,7 +172,7 @@ namespace build2
       size_t i (0), n (ts.size ());
       {
         atomic_count task_count (0);
-        wait_guard wg (task_count, true);
+        wait_guard wg (ctx, task_count, true);
 
         for (; i != n; ++i)
         {
@@ -177,7 +184,7 @@ namespace build2
           // Bail out if the target has failed and we weren't instructed to
           // keep going.
           //
-          if (s == target_state::failed && !keep_going)
+          if (s == target_state::failed && !ctx.keep_going)
           {
             ++i;
             break;
@@ -245,7 +252,7 @@ namespace build2
 
     // Phase restored to load.
     //
-    assert (phase == run_phase::load);
+    assert (ctx.phase == run_phase::load);
   }
 
   void
@@ -254,25 +261,30 @@ namespace build2
   {
     tracer trace ("execute");
 
+    if (ts.empty ())
+      return;
+
+    context& ctx (ts[0].as_target ().ctx);
+
     // Reverse the order of targets if the execution mode is 'last'.
     //
-    if (current_mode == execution_mode::last)
+    if (ctx.current_mode == execution_mode::last)
       reverse (ts.begin (), ts.end ());
 
     // Tune the scheduler.
     //
-    switch (current_inner_oif->concurrency)
+    switch (ctx.current_inner_oif->concurrency)
     {
-    case 0: sched.tune (1); break;          // Run serially.
-    case 1:                 break;          // Run as is.
-    default:                assert (false); // Not yet supported.
+    case 0: ctx.sched.tune (1); break;          // Run serially.
+    case 1:                     break;          // Run as is.
+    default:                    assert (false); // Not yet supported.
     }
 
-    phase_lock pl (run_phase::execute); // Never switched.
+    phase_lock pl (ctx, run_phase::execute); // Never switched.
 
     // Set the dry-run flag.
     //
-    dry_run = dry_run_option;
+    ctx.dry_run = ctx.dry_run_option;
 
     // Setup progress reporting if requested.
     //
@@ -281,20 +293,20 @@ namespace build2
 
     if (prog && show_progress (1 /* max_verb */))
     {
-      size_t init (target_count.load (memory_order_relaxed));
+      size_t init (ctx.target_count.load (memory_order_relaxed));
       size_t incr (init > 100 ? init / 100 : 1); // 1%.
 
       if (init != incr)
       {
-        what = "% of targets " + diag_did (a);
+        what = "% of targets " + diag_did (ctx, a);
 
-        mg = sched.monitor (
-          target_count,
+        mg = ctx.sched.monitor (
+          ctx.target_count,
           init - incr,
-          [init, incr, &what] (size_t c) -> size_t
+          [init, incr, &what, &ctx] (size_t c) -> size_t
           {
             size_t p ((init - c) * 100 / init);
-            size_t s (skip_count.load (memory_order_relaxed));
+            size_t s (ctx.skip_count.load (memory_order_relaxed));
 
             diag_progress_lock pl;
             diag_progress  = ' ';
@@ -318,7 +330,7 @@ namespace build2
     //
     {
       atomic_count task_count (0);
-      wait_guard wg (task_count);
+      wait_guard wg (ctx, task_count);
 
       for (const action_target& at: ts)
       {
@@ -331,7 +343,7 @@ namespace build2
         // Bail out if the target has failed and we weren't instructed to keep
         // going.
         //
-        if (s == target_state::failed && !keep_going)
+        if (s == target_state::failed && !ctx.keep_going)
           break;
       }
 
@@ -341,11 +353,11 @@ namespace build2
     // We are now running serially.
     //
 
-    sched.tune (0); // Restore original scheduler settings.
+    ctx.sched.tune (0); // Restore original scheduler settings.
 
     // Clear the dry-run flag.
     //
-    dry_run = false;
+    ctx.dry_run = false;
 
     // Clear the progress if present.
     //
@@ -361,9 +373,9 @@ namespace build2
     //
     if (verb != 0)
     {
-      if (size_t s = skip_count.load (memory_order_relaxed))
+      if (size_t s = ctx.skip_count.load (memory_order_relaxed))
       {
-        text << "skipped " << diag_doing (a) << ' ' << s << " targets";
+        text << "skipped " << diag_doing (ctx, a) << ' ' << s << " targets";
       }
     }
 
@@ -422,8 +434,8 @@ namespace build2
     // We should have executed every target that we matched, provided we
     // haven't failed (in which case we could have bailed out early).
     //
-    assert (target_count.load (memory_order_relaxed) == 0);
-    assert (dependency_count.load (memory_order_relaxed) == 0);
+    assert (ctx.target_count.load (memory_order_relaxed) == 0);
+    assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
   }
 
   const meta_operation_info mo_perform {
@@ -471,7 +483,7 @@ namespace build2
     if (rs.out_path () != out_base || rs.src_path () != src_base)
       fail (l) << "meta-operation info target must be project root directory";
 
-    setup_base (scopes.rw (rs).insert (out_base), out_base, src_base);
+    setup_base (rs.ctx.scopes.rw (rs).insert (out_base), out_base, src_base);
   }
 
   void
@@ -506,6 +518,8 @@ namespace build2
 
       const scope& rs (*static_cast<const scope*> (ts[i].target));
 
+      context& ctx (rs.ctx);
+
       // Print [meta_]operation names. Due to the way our aliasing works, we
       // have to go through the [meta_]operation_table.
       //
@@ -525,16 +539,16 @@ namespace build2
       // This could be a simple project that doesn't set project name.
       //
       cout
-        << "project: "      << cast_empty<project_name> (rs[var_project]) << endl
-        << "version: "      << cast_empty<string> (rs[var_version]) << endl
-        << "summary: "      << cast_empty<string> (rs[var_project_summary]) << endl
-        << "url: "          << cast_empty<string> (rs[var_project_url]) << endl
-        << "src_root: "     << cast<dir_path> (rs[var_src_root]) << endl
-        << "out_root: "     << cast<dir_path> (rs[var_out_root]) << endl
-        << "amalgamation: " << cast_empty<dir_path> (rs[var_amalgamation]) << endl
-        << "subprojects: "  << cast_empty<subprojects> (rs[var_subprojects]) << endl
-        << "operations:";      print_ops (rs.root_extra->operations, operation_table); cout << endl
-        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, meta_operation_table); cout << endl;
+        << "project: "      << cast_empty<project_name> (rs[ctx.var_project]) << endl
+        << "version: "      << cast_empty<string> (rs[ctx.var_version]) << endl
+        << "summary: "      << cast_empty<string> (rs[ctx.var_project_summary]) << endl
+        << "url: "          << cast_empty<string> (rs[ctx.var_project_url]) << endl
+        << "src_root: "     << cast<dir_path> (rs[ctx.var_src_root]) << endl
+        << "out_root: "     << cast<dir_path> (rs[ctx.var_out_root]) << endl
+        << "amalgamation: " << cast_empty<dir_path> (rs[ctx.var_amalgamation]) << endl
+        << "subprojects: "  << cast_empty<subprojects> (rs[ctx.var_subprojects]) << endl
+        << "operations:";      print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
+        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl;
     }
   }
 
@@ -610,9 +624,4 @@ namespace build2
     nullptr,
     nullptr
   };
-
-  // Tables.
-  //
-  string_table<meta_operation_id, meta_operation_data> meta_operation_table;
-  string_table<operation_id> operation_table;
 }

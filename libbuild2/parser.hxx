@@ -22,6 +22,7 @@ namespace build2
 {
   class scope;
   class target;
+  class context;
   class prerequisite;
 
   class LIBBUILD2_SYMEXPORT parser
@@ -31,7 +32,8 @@ namespace build2
     // should only be bootstrapped.
     //
     explicit
-    parser (bool boot = false): fail ("error", &path_), boot_ (boot) {}
+    parser (context& c, bool boot = false)
+      : fail ("error", &path_), ctx (c), boot_ (boot) {}
 
     // Issue diagnostics and throw failed in case of an error.
     //
@@ -645,6 +647,8 @@ namespace build2
     const fail_mark fail;
 
   protected:
+    context& ctx;
+
     bool pre_parse_ = false;
     bool boot_;
 

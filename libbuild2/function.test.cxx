@@ -10,6 +10,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/parser.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/scheduler.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -41,9 +42,12 @@ namespace build2
     //
     init_diag (1);
     init (nullptr, argv[0]);
-    reset (strings ()); // No command line variables.
+    scheduler sched (1);  // Serial execution.
+    context ctx (sched);
 
-    function_family f ("dummy");
+    auto& functions (ctx.functions);
+
+    function_family f (functions, "dummy");
 
     f["fail"]     = []()        {fail << "failed" << endf;};
     f["fail_arg"] = [](names a) {return convert<uint64_t> (move (a[0]));};
@@ -114,9 +118,9 @@ namespace build2
 
     try
     {
-      scope& s (*scope::global_);
+      scope& s (ctx.global_scope.rw ());
 
-      parser p;
+      parser p (ctx);
       p.parse_buildfile (cin, path ("buildfile"), s, s);
     }
     catch (const failed&)

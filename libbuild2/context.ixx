@@ -8,19 +8,19 @@ namespace build2
   //
   inline wait_guard::
   wait_guard ()
-      : start_count (0), task_count (nullptr), phase (false)
+      : ctx (nullptr), start_count (0), task_count (nullptr), phase (false)
   {
   }
 
   inline wait_guard::
-  wait_guard (atomic_count& tc, bool p)
-      : wait_guard (0, tc, p)
+  wait_guard (context& c, atomic_count& tc, bool p)
+      : wait_guard (c, 0, tc, p)
   {
   }
 
   inline wait_guard::
-  wait_guard (size_t sc, atomic_count& tc, bool p)
-      : start_count (sc), task_count (&tc), phase (p)
+  wait_guard (context& c, size_t sc, atomic_count& tc, bool p)
+      : ctx (&c), start_count (sc), task_count (&tc), phase (p)
   {
   }
 
@@ -33,7 +33,10 @@ namespace build2
 
   inline wait_guard::
   wait_guard (wait_guard&& x)
-      : start_count (x.start_count), task_count (x.task_count), phase (x.phase)
+      : ctx (x.ctx),
+        start_count (x.start_count),
+        task_count (x.task_count),
+        phase (x.phase)
   {
     x.task_count = nullptr;
   }
@@ -44,6 +47,7 @@ namespace build2
     if (&x != this)
     {
       assert (task_count == nullptr);
+      ctx = x.ctx;
       start_count = x.start_count; task_count = x.task_count; phase = x.phase;
       x.task_count = nullptr;
     }
@@ -53,8 +57,8 @@ namespace build2
   inline void wait_guard::
   wait ()
   {
-    phase_unlock u (phase);
-    sched.wait (start_count, *task_count);
+    phase_unlock u (*ctx, phase);
+    ctx->sched.wait (start_count, *task_count);
     task_count = nullptr;
   }
 }

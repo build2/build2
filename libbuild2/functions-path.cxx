@@ -96,9 +96,9 @@ namespace build2
   }
 
   void
-  path_functions ()
+  path_functions (function_map& m)
   {
-    function_family f ("path", &path_thunk);
+    function_family f (m, "path", &path_thunk);
 
     // string
     //
@@ -343,7 +343,7 @@ namespace build2
 
     // Path-specific overloads from builtins.
     //
-    function_family b ("builtin", &path_thunk);
+    function_family b (m, "builtin", &path_thunk);
 
     b[".concat"] = &concat_path_string;
     b[".concat"] = &concat_dir_path_string;

@@ -38,6 +38,23 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target*
   search_existing (const prerequisite&);
 
+  // Prerequisite inclusion/exclusion (see include() function below).
+  //
+  class include_type
+  {
+  public:
+    enum value {excluded, adhoc, normal};
+
+    include_type (value v): v_ (v) {}
+    include_type (bool  v): v_ (v ? normal : excluded) {}
+
+    operator         value () const {return v_;}
+    explicit operator bool () const {return v_ != excluded;}
+
+  private:
+    value v_;
+  };
+
   // Recipe.
   //
   // The returned target state is normally changed or unchanged. If there is
@@ -123,9 +140,11 @@ namespace build2
   //
   class LIBBUILD2_SYMEXPORT target
   {
-    optional<string>* ext_; // Reference to value in target_key.
-
   public:
+    // Context this scope belongs to.
+    //
+    context& ctx;
+
     // For targets that are in the src tree of a project we also keep the
     // corresponding out directory. As a result we may end up with multiple
     // targets for the same file if we are building multiple configurations of
@@ -140,9 +159,10 @@ namespace build2
     // when src == out). We also treat out of project targets as being in the
     // out tree.
     //
-    const dir_path   dir;  // Absolute and normalized.
-    const dir_path   out;  // Empty or absolute and normalized.
-    const string     name;
+    const dir_path    dir;  // Absolute and normalized.
+    const dir_path    out;  // Empty or absolute and normalized.
+    const string      name;
+    optional<string>* ext_; // Reference to value in target_key.
 
     const string* ext () const; // Return NULL if not specified.
     const string& ext (string);
@@ -392,7 +412,7 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      const variable* var (var_pool.find (name));
+      const variable* var (ctx.var_pool.find (name));
       return var != nullptr ? operator[] (*var) : lookup ();
     }
 
@@ -452,21 +472,15 @@ namespace build2
     // the target is synchronized, then we can access and modify (second case)
     // its state etc.
     //
+    // NOTE: see also the corresponding count_*() fuctions in context (must be
+    //       kept in sync).
+    //
     static const size_t offset_touched  = 1; // Target has been locked.
     static const size_t offset_tried    = 2; // Rule match has been tried.
     static const size_t offset_matched  = 3; // Rule has been matched.
     static const size_t offset_applied  = 4; // Rule has been applied.
     static const size_t offset_executed = 5; // Recipe has been executed.
     static const size_t offset_busy     = 6; // Match/execute in progress.
-
-    static size_t count_base     () {return 5 * (current_on - 1);}
-
-    static size_t count_touched  () {return offset_touched  + count_base ();}
-    static size_t count_tried    () {return offset_tried    + count_base ();}
-    static size_t count_matched  () {return offset_matched  + count_base ();}
-    static size_t count_applied  () {return offset_applied  + count_base ();}
-    static size_t count_executed () {return offset_executed + count_base ();}
-    static size_t count_busy     () {return offset_busy     + count_base ();}
 
     // Inner/outer operation state. See <libbuild2/operation.hxx> for details.
     //
@@ -530,7 +544,7 @@ namespace build2
       lookup
       operator[] (const string& name) const
       {
-        const variable* var (var_pool.find (name));
+        const variable* var (target_->ctx.var_pool.find (name));
         return var != nullptr ? operator[] (*var) : lookup ();
       }
 
@@ -563,7 +577,8 @@ namespace build2
       assign (const variable* var) {return vars.assign (var);} // For cached.
 
     public:
-      opstate (): vars (false /* global */) {}
+      explicit
+      opstate (context& c): vars (c, false /* global */) {}
 
     private:
       friend class target_set;
@@ -756,9 +771,11 @@ namespace build2
     // Targets should be created via the targets set below.
     //
   public:
-    target (dir_path d, dir_path o, string n)
-        : dir (move (d)), out (move (o)), name (move (n)),
-          vars (false /* global */) {}
+    target (context& c, dir_path d, dir_path o, string n)
+        : ctx (c),
+          dir (move (d)), out (move (o)), name (move (n)),
+          vars (c, false /* global */),
+          state (c) {}
 
     target (target&&) = delete;
     target& operator= (target&&) = delete;
@@ -797,6 +814,21 @@ namespace build2
 
   uint8_t
   unmark (const target*&);
+
+  // Helper for dealing with the prerequisite inclusion/exclusion (the
+  // 'include' buildfile variable, see var_include in context.hxx).
+  //
+  // Note that the include(prerequisite_member) overload is also provided.
+  //
+  // @@ Maybe this filtering should be incorporated into *_prerequisites() and
+  // *_prerequisite_members() logic? Could make normal > adhoc > excluded and
+  // then pass the "threshold".
+  //
+  include_type
+  include (action,
+           const target&,
+           const prerequisite&,
+           const target* = nullptr);
 
   // A "range" that presents the prerequisites of a group and one of
   // its members as one continuous sequence, or, in other words, as
@@ -1377,12 +1409,16 @@ namespace build2
 
   private:
     friend class target; // Access to mutex.
+    friend class context;
+
+    explicit
+    target_set (context& c): ctx (c) {}
+
+    context& ctx;
 
     mutable shared_mutex mutex_;
     map_type map_;
   };
-
-  LIBBUILD2_SYMEXPORT extern target_set targets;
 
   // Modification time-based target.
   //
@@ -1752,9 +1788,10 @@ namespace build2
   //
   template <typename T>
   target*
-  target_factory (const target_type&, dir_path d, dir_path o, string n)
+  target_factory (context& c,
+                  const target_type&, dir_path d, dir_path o, string n)
   {
-    return new T (move (d), move (o), move (n));
+    return new T (c, move (d), move (o), move (n));
   }
 
   // Return fixed target extension unless one was specified.
@@ -1769,14 +1806,14 @@ namespace build2
                       string&, optional<string>&, const location&,
                       bool);
 
-  // Get the extension from the variable or use the default if none set. If
-  // the default is NULL, then return NULL.
+  // Get the extension from the `extension` variable or use the default if
+  // none set. If the default is NULL, then return NULL.
   //
-  template <const char* var, const char* def>
+  template <const char* def>
   optional<string>
   target_extension_var (const target_key&, const scope&, const char*, bool);
 
-  template <const char* var, const char* def>
+  template <const char* def>
   bool
   target_pattern_var (const target_type&, const scope&,
                       string&, optional<string>&, const location&,

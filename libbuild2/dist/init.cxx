@@ -37,7 +37,7 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build (which is customary for, e.g., dist.package).
       //
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       // Note: some overridable, some not.
       //

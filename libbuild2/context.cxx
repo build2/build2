@@ -10,6 +10,8 @@
 #include <libbuild2/rule.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/variable.hxx>
+#include <libbuild2/function.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbutl/ft/exception.hxx> // uncaught_exceptions
@@ -25,379 +27,57 @@ using namespace butl;
 
 namespace build2
 {
-  scheduler sched;
-
-  run_phase phase;
-  run_phase_mutex phase_mutex;
-
-  size_t load_generation;
-
-  bool run_phase_mutex::
-  lock (run_phase p)
+  // Create global scope. Note that the empty path is a prefix for any other
+  // path. See the comment in <libbutl/prefix-map.mxx> for details.
+  //
+  static inline scope&
+  create_global_scope (scope_map& m)
   {
-    bool r;
-
-    {
-      mlock l (m_);
-      bool u (lc_ == 0 && mc_ == 0 && ec_ == 0); // Unlocked.
-
-      // Increment the counter.
-      //
-      condition_variable* v (nullptr);
-      switch (p)
-      {
-      case run_phase::load:    lc_++; v = &lv_; break;
-      case run_phase::match:   mc_++; v = &mv_; break;
-      case run_phase::execute: ec_++; v = &ev_; break;
-      }
-
-      // If unlocked, switch directly to the new phase. Otherwise wait for the
-      // phase switch. Note that in the unlocked case we don't need to notify
-      // since there is nobody waiting (all counters are zero).
-      //
-      if (u)
-      {
-        phase = p;
-        r = !fail_;
-      }
-      else if (phase != p)
-      {
-        sched.deactivate (false /* external */);
-        for (; phase != p; v->wait (l)) ;
-        r = !fail_;
-        l.unlock (); // Important: activate() can block.
-        sched.activate (false /* external */);
-      }
-      else
-        r = !fail_;
-    }
-
-    // In case of load, acquire the exclusive access mutex.
-    //
-    if (p == run_phase::load)
-    {
-      lm_.lock ();
-      r = !fail_; // Re-query.
-    }
-
+    auto i (m.insert (dir_path ()));
+    scope& r (i->second);
+    r.out_path_ = &i->first;
     return r;
-  }
+  };
 
-  void run_phase_mutex::
-  unlock (run_phase p)
+  struct context::data
   {
-    // In case of load, release the exclusive access mutex.
+    scope_map scopes;
+    target_set targets;
+    variable_pool var_pool;
+    variable_overrides var_overrides;
+    variable_override_cache global_override_cache;
+    function_map functions;
+
+    data (context& c): scopes (c), targets (c), var_pool (&c /* global */) {}
+  };
+
+  context::
+  context (scheduler& s, const strings& cmd_vars, bool dr, bool kg)
+      : data_ (new data (*this)),
+        sched (s),
+        dry_run_option (dr),
+        keep_going (kg),
+        phase_mutex (*this),
+        scopes (data_->scopes),
+        global_scope (create_global_scope (data_->scopes)),
+        targets (data_->targets),
+        var_pool (data_->var_pool),
+        var_overrides (data_->var_overrides),
+        global_override_cache (data_->global_override_cache),
+        functions (data_->functions)
+  {
+    tracer trace ("context");
+
+    l6 ([&]{trace << "initializing build state";});
+
+    scope_map& sm (data_->scopes);
+    variable_pool& vp (data_->var_pool);
+
+    register_builtin_functions (functions);
+
+    // Initialize the meta/operation tables. Note that the order should match
+    // the id constants in <libbuild2/operation.hxx>.
     //
-    if (p == run_phase::load)
-      lm_.unlock ();
-
-    {
-      mlock l (m_);
-
-      // Decrement the counter and see if this phase has become unlocked.
-      //
-      bool u (false);
-      switch (p)
-      {
-      case run_phase::load:    u = (--lc_ == 0); break;
-      case run_phase::match:   u = (--mc_ == 0); break;
-      case run_phase::execute: u = (--ec_ == 0); break;
-      }
-
-      // If the phase is unlocked, pick a new phase and notify the waiters.
-      // Note that we notify all load waiters so that they can all serialize
-      // behind the second-level mutex.
-      //
-      if (u)
-      {
-        condition_variable* v;
-
-        if      (lc_ != 0) {phase = run_phase::load;    v = &lv_;}
-        else if (mc_ != 0) {phase = run_phase::match;   v = &mv_;}
-        else if (ec_ != 0) {phase = run_phase::execute; v = &ev_;}
-        else               {phase = run_phase::load;    v = nullptr;}
-
-        if (v != nullptr)
-        {
-          l.unlock ();
-          v->notify_all ();
-        }
-      }
-    }
-  }
-
-  bool run_phase_mutex::
-  relock (run_phase o, run_phase n)
-  {
-    // Pretty much a fused unlock/lock implementation except that we always
-    // switch into the new phase.
-    //
-    assert (o != n);
-
-    bool r;
-
-    if (o == run_phase::load)
-      lm_.unlock ();
-
-    {
-      mlock l (m_);
-      bool u (false);
-
-      switch (o)
-      {
-      case run_phase::load:    u = (--lc_ == 0); break;
-      case run_phase::match:   u = (--mc_ == 0); break;
-      case run_phase::execute: u = (--ec_ == 0); break;
-      }
-
-      // Set if will be waiting or notifying others.
-      //
-      condition_variable* v (nullptr);
-      switch (n)
-      {
-      case run_phase::load:    v = lc_++ != 0 || !u ? &lv_ : nullptr; break;
-      case run_phase::match:   v = mc_++ != 0 || !u ? &mv_ : nullptr; break;
-      case run_phase::execute: v = ec_++ != 0 || !u ? &ev_ : nullptr; break;
-      }
-
-      if (u)
-      {
-        phase = n;
-        r = !fail_;
-
-        // Notify others that could be waiting for this phase.
-        //
-        if (v != nullptr)
-        {
-          l.unlock ();
-          v->notify_all ();
-        }
-      }
-      else // phase != n
-      {
-        sched.deactivate (false /* external */);
-        for (; phase != n; v->wait (l)) ;
-        r = !fail_;
-        l.unlock (); // Important: activate() can block.
-        sched.activate (false /* external */);
-      }
-    }
-
-    if (n == run_phase::load)
-    {
-      lm_.lock ();
-      r = !fail_; // Re-query.
-    }
-
-    return r;
-  }
-
-  // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
-  // available.
-  //
-  static inline bool
-  uncaught_exception ()
-  {
-#ifdef __cpp_lib_uncaught_exceptions
-    return std::uncaught_exceptions () != 0;
-#else
-    return std::uncaught_exception ();
-#endif
-  }
-
-  // phase_lock
-  //
-  static
-#ifdef __cpp_thread_local
-  thread_local
-#else
-  __thread
-#endif
-  phase_lock* phase_lock_instance;
-
-  phase_lock::
-  phase_lock (run_phase p)
-      : p (p)
-  {
-    if (phase_lock* l = phase_lock_instance)
-      assert (l->p == p);
-    else
-    {
-      if (!phase_mutex.lock (p))
-      {
-        phase_mutex.unlock (p);
-        throw failed ();
-      }
-
-      phase_lock_instance = this;
-
-      //text << this_thread::get_id () << " phase acquire " << p;
-    }
-  }
-
-  phase_lock::
-  ~phase_lock ()
-  {
-    if (phase_lock_instance == this)
-    {
-      phase_lock_instance = nullptr;
-      phase_mutex.unlock (p);
-
-      //text << this_thread::get_id () << " phase release " << p;
-    }
-  }
-
-  // phase_unlock
-  //
-  phase_unlock::
-  phase_unlock (bool u)
-      : l (u ? phase_lock_instance : nullptr)
-  {
-    if (u)
-    {
-      phase_lock_instance = nullptr;
-      phase_mutex.unlock (l->p);
-
-      //text << this_thread::get_id () << " phase unlock  " << l->p;
-    }
-  }
-
-  phase_unlock::
-  ~phase_unlock () noexcept (false)
-  {
-    if (l != nullptr)
-    {
-      bool r (phase_mutex.lock (l->p));
-      phase_lock_instance = l;
-
-      // Fail unless we are already failing. Note that we keep the phase
-      // locked since there will be phase_lock down the stack to unlock it.
-      //
-      if (!r && !uncaught_exception ())
-        throw failed ();
-
-      //text << this_thread::get_id () << " phase lock    " << l->p;
-    }
-  }
-
-  // phase_switch
-  //
-  phase_switch::
-  phase_switch (run_phase n)
-      : o (phase), n (n)
-  {
-    if (!phase_mutex.relock (o, n))
-    {
-      phase_mutex.relock (n, o);
-      throw failed ();
-    }
-
-    phase_lock_instance->p = n;
-
-    if (n == run_phase::load) // Note: load lock is exclusive.
-      load_generation++;
-
-    //text << this_thread::get_id () << " phase switch  " << o << " " << n;
-  }
-
-  phase_switch::
-  ~phase_switch () noexcept (false)
-  {
-    // If we are coming off a failed load phase, mark the phase_mutex as
-    // failed to terminate all other threads since the build state may no
-    // longer be valid.
-    //
-    if (n == run_phase::load && uncaught_exception ())
-    {
-      mlock l (phase_mutex.m_);
-      phase_mutex.fail_ = true;
-    }
-
-    bool r (phase_mutex.relock (n, o));
-    phase_lock_instance->p = o;
-
-    // Similar logic to ~phase_unlock().
-    //
-    if (!r && !uncaught_exception ())
-      throw failed ();
-
-    //text << this_thread::get_id () << " phase restore " << n << " " << o;
-  }
-
-  string current_mname;
-  string current_oname;
-
-  const meta_operation_info* current_mif;
-  const operation_info* current_inner_oif;
-  const operation_info* current_outer_oif;
-  size_t current_on;
-  execution_mode current_mode;
-  bool current_diag_noise;
-
-  atomic_count dependency_count;
-  atomic_count target_count;
-  atomic_count skip_count;
-
-  bool keep_going = false;
-  bool dry_run = false;
-
-  void
-  set_current_mif (const meta_operation_info& mif)
-  {
-    if (current_mname != mif.name)
-    {
-      current_mname = mif.name;
-      global_scope->rw ().assign (var_build_meta_operation) = mif.name;
-    }
-
-    current_mif = &mif;
-    current_on = 0; // Reset.
-  }
-
-  void
-  set_current_oif (const operation_info& inner_oif,
-                   const operation_info* outer_oif,
-                   bool diag_noise)
-  {
-    current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
-    current_inner_oif = &inner_oif;
-    current_outer_oif = outer_oif;
-    current_on++;
-    current_mode = inner_oif.mode;
-    current_diag_noise = diag_noise;
-
-    // Reset counters (serial execution).
-    //
-    dependency_count.store (0, memory_order_relaxed);
-    target_count.store (0, memory_order_relaxed);
-    skip_count.store (0, memory_order_relaxed);
-  }
-
-  variable_overrides
-  reset (const strings& cmd_vars)
-  {
-    tracer trace ("reset");
-
-    // @@ Do we want to unload dynamically loaded modules? Note that this will
-    //    be purely an optimization since a module could be linked-in (i.e., a
-    //    module cannot expect to be unloaded/re-initialized for each meta-
-    //    operation).
-
-    l6 ([&]{trace << "resetting build state";});
-
-    auto& vp (variable_pool::instance);
-    auto& sm (scope_map::instance);
-
-    variable_overrides vos;
-
-    targets.clear ();
-    sm.clear ();
-    vp.clear ();
-
-    // Reset meta/operation tables. Note that the order should match the id
-    // constants in <libbuild2/operation.hxx>.
-    //
-    meta_operation_table.clear ();
     meta_operation_table.insert ("noop");
     meta_operation_table.insert ("perform");
     meta_operation_table.insert ("configure");
@@ -420,23 +100,10 @@ namespace build2
     operation_table.insert ("uninstall");
     operation_table.insert ("update-for-install");
 
-    // Create global scope. Note that the empty path is a prefix for any other
-    // path. See the comment in <libbutl/prefix-map.mxx> for details.
-    //
-    auto make_global_scope = [] () -> scope&
-    {
-      auto i (scope_map::instance.insert (dir_path ()));
-      scope& r (i->second);
-      r.out_path_ = &i->first;
-      global_scope = scope::global_ = &r;
-      return r;
-    };
-
-    scope& gs (make_global_scope ());
-
     // Setup the global scope before parsing any variable overrides since they
     // may reference these things.
     //
+    scope& gs (global_scope.rw ());
 
     gs.assign<dir_path> ("build.work") = work;
     gs.assign<dir_path> ("build.home") = home;
@@ -458,10 +125,10 @@ namespace build2
     {
       const standard_version& v (build_version);
 
-      auto set = [&gs] (const char* var, auto val)
+      auto set = [&gs, &vp] (const char* var, auto val)
       {
         using T = decltype (val);
-        gs.assign (variable_pool::instance.insert<T> (var)) = move (val);
+        gs.assign (vp.insert<T> (var)) = move (val);
       };
 
       // Note: here we assume epoch will always be 1 and therefore omit the
@@ -509,7 +176,7 @@ namespace build2
     // were built with. While it is not as precise (for example, a binary
     // built for i686 might be running on x86_64), it is good enough of an
     // approximation/fallback since most of the time we are interested in just
-    // the target class (e.g., linux, windows, macosx).
+    // the target class (e.g., linux, windows, macos).
     //
     {
       // Did the user ask us to use config.guess?
@@ -739,7 +406,7 @@ namespace build2
       // things simple. Pass original variable for diagnostics. Use current
       // working directory as pattern base.
       //
-      parser p;
+      parser p (*this);
       pair<value, token> r (p.parse_variable_value (l, gs, &work, var));
 
       if (r.second.type != token_type::eos)
@@ -752,8 +419,7 @@ namespace build2
         fail << "typed override of variable " << n;
 
       // Global and absolute scope overrides we can enter directly. Project
-      // and relative scope ones will be entered by the caller for each
-      // amalgamation/project.
+      // and relative scope ones will be entered later for each project.
       //
       if (c == '!' || (dir && dir->absolute ()))
       {
@@ -766,7 +432,7 @@ namespace build2
         v = move (r.first);
       }
       else
-        vos.push_back (
+        data_->var_overrides.push_back (
           variable_override {var, *o, move (dir), move (r.first)});
     }
 
@@ -784,7 +450,7 @@ namespace build2
     vp.insert_pattern<path> (
       "config.import.**", true, variable_visibility::normal, true);
 
-    // module.cxx:load_module().
+    // module.cxx:boot/init_module().
     //
     {
       auto v_p (variable_visibility::project);
@@ -819,11 +485,10 @@ namespace build2
 
       var_import_target = &vp.insert<name> ("import.target");
 
-      var_clean    = &vp.insert<bool>   ("clean",    v_t);
-      var_backlink = &vp.insert<string> ("backlink", v_t);
-      var_include  = &vp.insert<string> ("include",  v_q);
-
-      vp.insert<string> (var_extension, v_t);
+      var_extension = &vp.insert<string> ("extension", v_t);
+      var_clean     = &vp.insert<bool>   ("clean",    v_t);
+      var_backlink  = &vp.insert<string> ("backlink", v_t);
+      var_include   = &vp.insert<string> ("include",  v_q);
 
       // Backlink executables and (generated) documentation by default.
       //
@@ -847,39 +512,356 @@ namespace build2
       r.insert<mtime_target> (perform_update_id, "file", file_rule::instance);
       r.insert<mtime_target> (perform_clean_id, "file", file_rule::instance);
     }
+  }
 
-    return vos;
+  context::
+  ~context ()
+  {
+    // Cannot be inline since context::data is undefined.
+  }
+
+  void context::
+  current_meta_operation (const meta_operation_info& mif)
+  {
+    if (current_mname != mif.name)
+    {
+      current_mname = mif.name;
+      global_scope.rw ().assign (var_build_meta_operation) = mif.name;
+    }
+
+    current_mif = &mif;
+    current_on = 0; // Reset.
+  }
+
+  void context::
+  current_operation (const operation_info& inner_oif,
+                     const operation_info* outer_oif,
+                     bool diag_noise)
+  {
+    current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
+    current_inner_oif = &inner_oif;
+    current_outer_oif = outer_oif;
+    current_on++;
+    current_mode = inner_oif.mode;
+    current_diag_noise = diag_noise;
+
+    // Reset counters (serial execution).
+    //
+    dependency_count.store (0, memory_order_relaxed);
+    target_count.store (0, memory_order_relaxed);
+    skip_count.store (0, memory_order_relaxed);
+  }
+
+  bool run_phase_mutex::
+  lock (run_phase p)
+  {
+    bool r;
+
+    {
+      mlock l (m_);
+      bool u (lc_ == 0 && mc_ == 0 && ec_ == 0); // Unlocked.
+
+      // Increment the counter.
+      //
+      condition_variable* v (nullptr);
+      switch (p)
+      {
+      case run_phase::load:    lc_++; v = &lv_; break;
+      case run_phase::match:   mc_++; v = &mv_; break;
+      case run_phase::execute: ec_++; v = &ev_; break;
+      }
+
+      // If unlocked, switch directly to the new phase. Otherwise wait for the
+      // phase switch. Note that in the unlocked case we don't need to notify
+      // since there is nobody waiting (all counters are zero).
+      //
+      if (u)
+      {
+        ctx_.phase = p;
+        r = !fail_;
+      }
+      else if (ctx_.phase != p)
+      {
+        ctx_.sched.deactivate (false /* external */);
+        for (; ctx_.phase != p; v->wait (l)) ;
+        r = !fail_;
+        l.unlock (); // Important: activate() can block.
+        ctx_.sched.activate (false /* external */);
+      }
+      else
+        r = !fail_;
+    }
+
+    // In case of load, acquire the exclusive access mutex.
+    //
+    if (p == run_phase::load)
+    {
+      lm_.lock ();
+      r = !fail_; // Re-query.
+    }
+
+    return r;
+  }
+
+  void run_phase_mutex::
+  unlock (run_phase p)
+  {
+    // In case of load, release the exclusive access mutex.
+    //
+    if (p == run_phase::load)
+      lm_.unlock ();
+
+    {
+      mlock l (m_);
+
+      // Decrement the counter and see if this phase has become unlocked.
+      //
+      bool u (false);
+      switch (p)
+      {
+      case run_phase::load:    u = (--lc_ == 0); break;
+      case run_phase::match:   u = (--mc_ == 0); break;
+      case run_phase::execute: u = (--ec_ == 0); break;
+      }
+
+      // If the phase is unlocked, pick a new phase and notify the waiters.
+      // Note that we notify all load waiters so that they can all serialize
+      // behind the second-level mutex.
+      //
+      if (u)
+      {
+        condition_variable* v;
+
+        if      (lc_ != 0) {ctx_.phase = run_phase::load;    v = &lv_;}
+        else if (mc_ != 0) {ctx_.phase = run_phase::match;   v = &mv_;}
+        else if (ec_ != 0) {ctx_.phase = run_phase::execute; v = &ev_;}
+        else               {ctx_.phase = run_phase::load;    v = nullptr;}
+
+        if (v != nullptr)
+        {
+          l.unlock ();
+          v->notify_all ();
+        }
+      }
+    }
+  }
+
+  bool run_phase_mutex::
+  relock (run_phase o, run_phase n)
+  {
+    // Pretty much a fused unlock/lock implementation except that we always
+    // switch into the new phase.
+    //
+    assert (o != n);
+
+    bool r;
+
+    if (o == run_phase::load)
+      lm_.unlock ();
+
+    {
+      mlock l (m_);
+      bool u (false);
+
+      switch (o)
+      {
+      case run_phase::load:    u = (--lc_ == 0); break;
+      case run_phase::match:   u = (--mc_ == 0); break;
+      case run_phase::execute: u = (--ec_ == 0); break;
+      }
+
+      // Set if will be waiting or notifying others.
+      //
+      condition_variable* v (nullptr);
+      switch (n)
+      {
+      case run_phase::load:    v = lc_++ != 0 || !u ? &lv_ : nullptr; break;
+      case run_phase::match:   v = mc_++ != 0 || !u ? &mv_ : nullptr; break;
+      case run_phase::execute: v = ec_++ != 0 || !u ? &ev_ : nullptr; break;
+      }
+
+      if (u)
+      {
+        ctx_.phase = n;
+        r = !fail_;
+
+        // Notify others that could be waiting for this phase.
+        //
+        if (v != nullptr)
+        {
+          l.unlock ();
+          v->notify_all ();
+        }
+      }
+      else // phase != n
+      {
+        ctx_.sched.deactivate (false /* external */);
+        for (; ctx_.phase != n; v->wait (l)) ;
+        r = !fail_;
+        l.unlock (); // Important: activate() can block.
+        ctx_.sched.activate (false /* external */);
+      }
+    }
+
+    if (n == run_phase::load)
+    {
+      lm_.lock ();
+      r = !fail_; // Re-query.
+    }
+
+    return r;
+  }
+
+  // C++17 deprecated uncaught_exception() so use uncaught_exceptions() if
+  // available.
+  //
+  static inline bool
+  uncaught_exception ()
+  {
+#ifdef __cpp_lib_uncaught_exceptions
+    return std::uncaught_exceptions () != 0;
+#else
+    return std::uncaught_exception ();
+#endif
+  }
+
+  // phase_lock
+  //
+  static
+#ifdef __cpp_thread_local
+  thread_local
+#else
+  __thread
+#endif
+  phase_lock* phase_lock_instance;
+
+  phase_lock::
+  phase_lock (context& c, run_phase p)
+      : ctx (c), phase (p)
+  {
+    phase_lock* pl (phase_lock_instance);
+
+    // This is tricky: we might be switching to another context.
+    //
+    if (pl != nullptr && &pl->ctx == &ctx)
+      assert (pl->phase == phase);
+    else
+    {
+      if (!ctx.phase_mutex.lock (phase))
+      {
+        ctx.phase_mutex.unlock (phase);
+        throw failed ();
+      }
+
+      prev = pl;
+      phase_lock_instance = this;
+
+      //text << this_thread::get_id () << " phase acquire " << phase;
+    }
+  }
+
+  phase_lock::
+  ~phase_lock ()
+  {
+    if (phase_lock_instance == this)
+    {
+      phase_lock_instance = prev;
+      ctx.phase_mutex.unlock (phase);
+
+      //text << this_thread::get_id () << " phase release " << p;
+    }
+  }
+
+  // phase_unlock
+  //
+  phase_unlock::
+  phase_unlock (context& ctx, bool u)
+      : l (u ? phase_lock_instance : nullptr)
+  {
+    if (u)
+    {
+      assert (&l->ctx == &ctx);
+
+      phase_lock_instance = nullptr; // Note: not l->prev.
+      ctx.phase_mutex.unlock (l->phase);
+
+      //text << this_thread::get_id () << " phase unlock  " << l->p;
+    }
+  }
+
+  phase_unlock::
+  ~phase_unlock () noexcept (false)
+  {
+    if (l != nullptr)
+    {
+      bool r (l->ctx.phase_mutex.lock (l->phase));
+      phase_lock_instance = l;
+
+      // Fail unless we are already failing. Note that we keep the phase
+      // locked since there will be phase_lock down the stack to unlock it.
+      //
+      if (!r && !uncaught_exception ())
+        throw failed ();
+
+      //text << this_thread::get_id () << " phase lock    " << l->p;
+    }
+  }
+
+  // phase_switch
+  //
+  phase_switch::
+  phase_switch (context& ctx, run_phase n)
+      : old_phase (ctx.phase), new_phase (n)
+  {
+    phase_lock* pl (phase_lock_instance);
+    assert (&pl->ctx == &ctx);
+
+    if (!ctx.phase_mutex.relock (old_phase, new_phase))
+    {
+      ctx.phase_mutex.relock (new_phase, old_phase);
+      throw failed ();
+    }
+
+    pl->phase = new_phase;
+
+    if (new_phase == run_phase::load) // Note: load lock is exclusive.
+      ctx.load_generation++;
+
+    //text << this_thread::get_id () << " phase switch  " << o << " " << n;
+  }
+
+  phase_switch::
+  ~phase_switch () noexcept (false)
+  {
+    phase_lock* pl (phase_lock_instance);
+    run_phase_mutex& pm (pl->ctx.phase_mutex);
+
+    // If we are coming off a failed load phase, mark the phase_mutex as
+    // failed to terminate all other threads since the build state may no
+    // longer be valid.
+    //
+    if (new_phase == run_phase::load && uncaught_exception ())
+    {
+      mlock l (pm.m_);
+      pm.fail_ = true;
+    }
+
+    bool r (pm.relock (new_phase, old_phase));
+    pl->phase = old_phase;
+
+    // Similar logic to ~phase_unlock().
+    //
+    if (!r && !uncaught_exception ())
+      throw failed ();
+
+    //text << this_thread::get_id () << " phase restore " << n << " " << o;
   }
 
   void (*config_save_variable) (scope&, const variable&, uint64_t);
 
-  const string& (*config_preprocess_create) (const variable_overrides&,
+  const string& (*config_preprocess_create) (context&,
                                              values&,
                                              vector_view<opspec>&,
                                              bool,
                                              const location&);
-
-  const variable* var_src_root;
-  const variable* var_out_root;
-  const variable* var_src_base;
-  const variable* var_out_base;
-  const variable* var_forwarded;
-
-  const variable* var_project;
-  const variable* var_amalgamation;
-  const variable* var_subprojects;
-  const variable* var_version;
-
-  const variable* var_project_url;
-  const variable* var_project_summary;
-
-  const variable* var_import_target;
-
-  const variable* var_clean;
-  const variable* var_backlink;
-  const variable* var_include;
-
-  const char var_extension[10] = "extension";
-
-  const variable* var_build_meta_operation;
 }

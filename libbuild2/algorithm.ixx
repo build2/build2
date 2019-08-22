@@ -13,7 +13,8 @@ namespace build2
   inline const target&
   search_custom (const prerequisite& p, const target& t)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (t.ctx.phase == run_phase::match ||
+            t.ctx.phase == run_phase::execute);
 
     const target* e (nullptr);
     if (!p.target.compare_exchange_strong (
@@ -57,7 +58,8 @@ namespace build2
   }
 
   inline const target*
-  search_existing (const target_type& type,
+  search_existing (context& ctx,
+                   const target_type& type,
                    const dir_path& dir,
                    const dir_path& out,
                    const string& name,
@@ -66,6 +68,7 @@ namespace build2
                    const optional<project_name>& proj)
   {
     return search_existing (
+      ctx,
       prerequisite_key {
         proj,
         {
@@ -272,14 +275,14 @@ namespace build2
   inline void
   match_inc_dependens (action a, const target& t)
   {
-    dependency_count.fetch_add (1, memory_order_relaxed);
+    t.ctx.dependency_count.fetch_add (1, memory_order_relaxed);
     t[a].dependents.fetch_add (1, memory_order_release);
   }
 
   inline target_state
   match (action a, const target& t, bool fail)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     target_state r (match (a, t, 0, nullptr).second);
 
@@ -294,7 +297,7 @@ namespace build2
   inline pair<bool, target_state>
   try_match (action a, const target& t, bool fail)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     pair<bool, target_state> r (
       match (a, t, 0, nullptr, true /* try_match */));
@@ -313,7 +316,7 @@ namespace build2
   inline bool
   match (action a, const target& t, unmatch um)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     target_state s (match (a, t, 0, nullptr).second);
 
@@ -353,10 +356,12 @@ namespace build2
                size_t sc, atomic_count& tc,
                bool fail)
   {
-    assert (phase == run_phase::match);
+    context& ctx (t.ctx);
+
+    assert (ctx.phase == run_phase::match);
     target_state r (match (a, t, sc, &tc).second);
 
-    if (fail && !keep_going && r == target_state::failed)
+    if (fail && !ctx.keep_going && r == target_state::failed)
       throw failed ();
 
     return r;
@@ -365,7 +370,8 @@ namespace build2
   inline void
   set_recipe (target_lock& l, recipe&& r)
   {
-    target::opstate& s ((*l.target)[l.action]);
+    target& t (*l.target);
+    target::opstate& s (t[l.action]);
 
     s.recipe = move (r);
 
@@ -396,7 +402,7 @@ namespace build2
       if (l.action.inner ())
       {
         if (f == nullptr || *f != &group_action)
-          target_count.fetch_add (1, memory_order_relaxed);
+          t.ctx.target_count.fetch_add (1, memory_order_relaxed);
       }
     }
   }
@@ -404,7 +410,7 @@ namespace build2
   inline void
   match_recipe (target_lock& l, recipe r)
   {
-    assert (phase == run_phase::match && l.target != nullptr);
+    assert (l.target != nullptr && l.target->ctx.phase == run_phase::match);
 
     (*l.target)[l.action].rule = nullptr; // No rule.
     set_recipe (l, move (r));
@@ -414,7 +420,7 @@ namespace build2
   inline recipe
   match_delegate (action a, target& t, const rule& dr, bool try_match)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     // Note: we don't touch any of the t[a] state since that was/will be set
     // for the delegating rule.
@@ -448,7 +454,7 @@ namespace build2
     if (a.outer ())
       a = a.inner_action ();
 
-    switch (phase)
+    switch (t.ctx.phase)
     {
     case run_phase::match:
       {
@@ -541,9 +547,9 @@ namespace build2
   execute_wait (action a, const target& t)
   {
     if (execute (a, t) == target_state::busy)
-      sched.wait (target::count_executed (),
-                  t[a].task_count,
-                  scheduler::work_none);
+      t.ctx.sched.wait (t.ctx.count_executed (),
+                        t[a].task_count,
+                        scheduler::work_none);
 
     return t.executed_state (a);
   }
@@ -555,7 +561,7 @@ namespace build2
   {
     target_state r (execute (a, t, sc, &tc));
 
-    if (fail && !keep_going && r == target_state::failed)
+    if (fail && !t.ctx.keep_going && r == target_state::failed)
       throw failed ();
 
     return r;
@@ -598,7 +604,7 @@ namespace build2
   inline target_state
   execute_prerequisites (action a, const target& t, size_t c)
   {
-    return current_mode == execution_mode::first
+    return t.ctx.current_mode == execution_mode::first
       ? straight_execute_prerequisites (a, t, c)
       : reverse_execute_prerequisites (a, t, c);
   }
@@ -609,7 +615,8 @@ namespace build2
   {
     assert (a.outer ());
     auto& p (t.prerequisite_targets[a]);
-    return straight_execute_members (a.inner_action (),
+    return straight_execute_members (t.ctx,
+                                     a.inner_action (),
                                      t[a].task_count,
                                      p.data (),
                                      c == 0 ? p.size () - s : c,
@@ -621,7 +628,8 @@ namespace build2
   {
     assert (a.outer ());
     auto& p (t.prerequisite_targets[a]);
-    return reverse_execute_members (a.inner_action (),
+    return reverse_execute_members (t.ctx,
+                                    a.inner_action (),
                                     t[a].task_count,
                                     p.data (),
                                     c == 0 ? p.size () : c,
@@ -631,7 +639,7 @@ namespace build2
   inline target_state
   execute_prerequisites_inner (action a, const target& t, size_t c)
   {
-    return current_mode == execution_mode::first
+    return t.ctx.current_mode == execution_mode::first
       ? straight_execute_prerequisites_inner (a, t, c)
       : reverse_execute_prerequisites_inner (a, t, c);
   }
@@ -689,7 +697,7 @@ namespace build2
   inline target_state
   execute_members (action a, const target& t, const target* ts[], size_t n)
   {
-    return current_mode == execution_mode::first
+    return t.ctx.current_mode == execution_mode::first
       ? straight_execute_members (a, t, ts, n, 0)
       : reverse_execute_members (a, t, ts, n, n);
   }

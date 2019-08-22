@@ -6,6 +6,7 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
@@ -275,7 +276,7 @@ namespace build2
 
     if (size_t c = t[inner].task_count.load (memory_order_relaxed))
     {
-      if (c == target::count_applied () || c == target::count_executed ())
+      if (c == t.ctx.count_applied () || c == t.ctx.count_executed ())
       {
         bool f (false);
         for (const target* pt: t.prerequisite_targets[inner])
@@ -400,7 +401,8 @@ namespace build2
 
     // Nested scopes of which we are an immediate parent.
     //
-    for (auto e (scopes.end ()); i != e && i->second.parent_scope () == &p;)
+    for (auto e (p.ctx.scopes.end ());
+         i != e && i->second.parent_scope () == &p; )
     {
       if (vb)
       {
@@ -421,7 +423,7 @@ namespace build2
     // Since targets can occupy multiple lines, we separate them with a
     // blank line.
     //
-    for (const auto& pt: targets)
+    for (const auto& pt: p.ctx.targets)
     {
       const target& t (*pt);
 
@@ -447,10 +449,10 @@ namespace build2
   }
 
   void
-  dump (optional<action> a)
+  dump (const context& c, optional<action> a)
   {
-    auto i (scopes.cbegin ());
-    assert (&i->second == global_scope);
+    auto i (c.scopes.cbegin ());
+    assert (&i->second == &c.global_scope);
 
     // We don't lock diag_stream here as dump() is supposed to be called from
     // the main thread prior/after to any other threads being spawned.
@@ -464,7 +466,7 @@ namespace build2
   void
   dump (const scope& s, const char* cind)
   {
-    const scope_map_base& m (scopes); // Iterator interface.
+    const scope_map_base& m (s.ctx.scopes); // Iterator interface.
     auto i (m.find (s.out_path ()));
     assert (i != m.end () && &i->second == &s);
 

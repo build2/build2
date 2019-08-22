@@ -36,7 +36,7 @@ namespace build2
       // Enter variables.
       //
       {
-        auto& vp (var_pool.rw (rs));
+        auto& vp (rs.ctx.var_pool.rw (rs));
 
         // Alternative variable substitution symbol with '$' being the
         // default.

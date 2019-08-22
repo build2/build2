@@ -365,7 +365,9 @@ namespace build2
         const variable& var (
           com
           ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+          : (t == x
+             ? x_export_poptions
+             : l.ctx.var_pool[t + ".export.poptions"]));
 
         append_options (args, l, var);
       };
@@ -418,7 +420,9 @@ namespace build2
         const variable& var (
           com
           ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+          : (t == x
+             ? x_export_poptions
+             : l.ctx.var_pool[t + ".export.poptions"]));
 
         hash_options (cs, l, var);
       };
@@ -472,7 +476,9 @@ namespace build2
         const variable& var (
           com
           ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+          : (t == x
+             ? x_export_poptions
+             : l.ctx.var_pool[t + ".export.poptions"]));
 
         append_prefixes (m, l, var);
       };
@@ -553,7 +559,7 @@ namespace build2
         // @@ MT perf: so we are going to switch the phase and execute for
         //    any generated header.
         //
-        phase_switch ps (run_phase::execute);
+        phase_switch ps (t.ctx, run_phase::execute);
         target_state ns (execute_direct (a, t));
 
         if (ns != os && ns != target_state::unchanged)
@@ -576,6 +582,8 @@ namespace build2
       file& t (xt.as<file> ()); // Either obj*{} or bmi*{}.
 
       match_data& md (t.data<match_data> ());
+
+      context& ctx (t.ctx);
 
       // Note: until refined below, non-BMI-generating translation unit is
       // assumed non-modular.
@@ -692,7 +700,7 @@ namespace build2
       // Start asynchronous matching of prerequisites. Wait with unlocked
       // phase to allow phase switching.
       //
-      wait_guard wg (target::count_busy (), t[a].task_count, true);
+      wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
       size_t start (pts.size ()); // Index of the first to be added.
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -754,7 +762,7 @@ namespace build2
             continue;
         }
 
-        match_async (a, *pt, target::count_busy (), t[a].task_count);
+        match_async (a, *pt, ctx.count_busy (), t[a].task_count);
         pts.push_back (prerequisite_target (pt, pi));
       }
 
@@ -1142,7 +1150,7 @@ namespace build2
         // to keep re-validating the file on every subsequent dry-run as well
         // on the real run).
         //
-        if (u && dd.reading () && !dry_run)
+        if (u && dd.reading () && !ctx.dry_run)
           dd.touch = true;
 
         dd.close ();
@@ -2161,7 +2169,7 @@ namespace build2
         //
         small_vector<const target_type*, 2> tts;
 
-        const scope& bs (scopes.find (d));
+        const scope& bs (t.ctx.scopes.find (d));
         if (const scope* rs = bs.root_scope ())
         {
           tts = map_extension (bs, n, e);
@@ -2201,7 +2209,7 @@ namespace build2
           // absolute path with a spelled-out extension to multiple targets.
           //
           for (const target_type* tt: tts)
-            if ((r = targets.find (*tt, d, out, n, e, trace)) != nullptr)
+            if ((r = t.ctx.targets.find (*tt, d, out, n, e, trace)) != nullptr)
               break;
 
           // Note: we can't do this because of the in-source builds where
@@ -2887,7 +2895,7 @@ namespace build2
                     // See if this path is inside a project with an out-of-
                     // tree build and is in the out directory tree.
                     //
-                    const scope& bs (scopes.find (d));
+                    const scope& bs (t.ctx.scopes.find (d));
                     if (bs.root_scope () != nullptr)
                     {
                       const dir_path& bp (bs.out_path ());
@@ -5101,18 +5109,18 @@ namespace build2
                    modules_sidebuild_dir /=
                    x);
 
-      const scope* ps (&scopes.find (pd));
+      const scope* ps (&rs.ctx.scopes.find (pd));
 
       if (ps->out_path () != pd)
       {
         // Switch the phase to load then create and load the subproject.
         //
-        phase_switch phs (run_phase::load);
+        phase_switch phs (rs.ctx, run_phase::load);
 
         // Re-test again now that we are in exclusive phase (another thread
         // could have already created and loaded the subproject).
         //
-        ps = &scopes.find (pd);
+        ps = &rs.ctx.scopes.find (pd);
 
         if (ps->out_path () != pd)
         {
@@ -5200,7 +5208,7 @@ namespace build2
       // exists then we assume all this is already done (otherwise why would
       // someone have created such a target).
       //
-      if (const file* bt = targets.find<file> (
+      if (const file* bt = bs.ctx.targets.find<file> (
             tt,
             pd,
             dir_path (), // Always in the out tree.
@@ -5237,13 +5245,14 @@ namespace build2
         }
       }
 
-      auto p (targets.insert_locked (tt,
-                                     move (pd),
-                                     dir_path (), // Always in the out tree.
-                                     move (mf),
-                                     nullopt,     // Use default extension.
-                                     true,        // Implied.
-                                     trace));
+      auto p (bs.ctx.targets.insert_locked (
+                tt,
+                move (pd),
+                dir_path (), // Always in the out tree.
+                move (mf),
+                nullopt,     // Use default extension.
+                true,        // Implied.
+                trace));
       file& bt (static_cast<file&> (p.first));
 
       // Note that this is racy and someone might have created this target
@@ -5295,7 +5304,7 @@ namespace build2
 
       const target_type& tt (compile_types (li.type).hbmi);
 
-      if (const file* bt = targets.find<file> (
+      if (const file* bt = bs.ctx.targets.find<file> (
             tt,
             pd,
             dir_path (), // Always in the out tree.
@@ -5307,13 +5316,14 @@ namespace build2
       prerequisites ps;
       ps.push_back (prerequisite (ht));
 
-      auto p (targets.insert_locked (tt,
-                                     move (pd),
-                                     dir_path (), // Always in the out tree.
-                                     move (mf),
-                                     nullopt,     // Use default extension.
-                                     true,        // Implied.
-                                     trace));
+      auto p (bs.ctx.targets.insert_locked (
+                tt,
+                move (pd),
+                dir_path (), // Always in the out tree.
+                move (mf),
+                nullopt,     // Use default extension.
+                true,        // Implied.
+                trace));
       file& bt (static_cast<file&> (p.first));
 
       // Note that this is racy and someone might have created this target
@@ -5550,6 +5560,8 @@ namespace build2
       match_data md (move (t.data<match_data> ()));
       unit_type ut (md.type);
 
+      context& ctx (t.ctx);
+
       // While all our prerequisites are already up-to-date, we still have to
       // execute them to keep the dependency counts straight. Actually, no, we
       // may also have to update the modules.
@@ -5575,9 +5587,9 @@ namespace build2
       {
         if (md.touch)
         {
-          touch (tp, false, 2);
+          touch (ctx, tp, false, 2);
           t.mtime (system_clock::now ());
-          skip_count.fetch_add (1, memory_order_relaxed);
+          ctx.skip_count.fetch_add (1, memory_order_relaxed);
         }
         // Note: else mtime should be cached.
 
@@ -5592,7 +5604,7 @@ namespace build2
                        ? system_clock::now ()
                        : timestamp_unknown);
 
-      touch (md.dd, false, verb_never);
+      touch (ctx, md.dd, false, verb_never);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -5941,7 +5953,7 @@ namespace build2
       // translation unit (i.e., one of the imported module's has BMIs
       // changed).
       //
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         try
         {
@@ -6020,7 +6032,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        if (!dry_run)
+        if (!ctx.dry_run)
         {
           // Remove the target file if this fails. If we don't do that, we
           // will end up with a broken build that is up-to-date.
@@ -6053,7 +6065,7 @@ namespace build2
 
       timestamp now (system_clock::now ());
 
-      if (!dry_run)
+      if (!ctx.dry_run)
         depdb::check_mtime (start, md.dd, tp, now);
 
       // Should we go to the filesystem and get the new mtime? We know the
