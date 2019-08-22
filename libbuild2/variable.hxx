@@ -1455,7 +1455,7 @@ namespace build2
     bool global_;
   };
 
-  extern const variable_map empty_variable_map;
+  LIBBUILD2_SYMEXPORT extern const variable_map empty_variable_map;
 
   // Value caching. Used for overrides as well as target type/pattern-specific
   // append/prepend.

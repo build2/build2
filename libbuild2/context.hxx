@@ -23,7 +23,7 @@ namespace build2
   class scope_map;
   class target_set;
 
-  class variable;
+  struct variable;
   class variable_pool;
   struct variable_override;
   using variable_overrides = vector<variable_override>;
