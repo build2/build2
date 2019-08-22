@@ -910,15 +910,8 @@ namespace build2
             //
             string d ("-DLIB");
 
-            auto upcase_sanitize = [] (char c)
-            {
-              return (c == '-' || c == '+' || c == '.') ? '_' : ucase (c);
-            };
-
-            transform (t.name.begin (),
-                       t.name.end (),
-                       back_inserter (d),
-                       upcase_sanitize);
+            d += sanitize_identifier (
+              ucase (const_cast<const string&> (t.name)));
 
             d += '_';
             d += suffix;
