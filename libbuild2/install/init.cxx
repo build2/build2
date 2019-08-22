@@ -62,7 +62,7 @@ namespace build2
           vn += name;
         }
         vn += var;
-        const variable& vr (var_pool.rw (r).insert<CT> (move (vn), true));
+        const variable& vr (r.ctx.var_pool.rw (r).insert<CT> (move (vn), true));
 
         l = dv != nullptr
           ? config::required (r, vr, *dv, override).first
@@ -79,7 +79,7 @@ namespace build2
       vn = "install.";
       vn += name;
       vn += var;
-      const variable& vr (var_pool.rw (r).insert<T> (move (vn)));
+      const variable& vr (r.ctx.var_pool.rw (r).insert<T> (move (vn)));
 
       value& v (r.assign (vr));
 
@@ -122,7 +122,8 @@ namespace build2
       // This one doesn't have config.* value (only set in a buildfile).
       //
       if (!global)
-        var_pool.rw (r).insert<bool> (string ("install.") + n + ".subdirs");
+        r.ctx.var_pool.rw (r).insert<bool> (
+          string ("install.") + n + ".subdirs");
     }
 
     void
@@ -192,7 +193,7 @@ namespace build2
 
       // Enter module variables.
       //
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       // Note that the set_dir() calls below enter some more.
       //

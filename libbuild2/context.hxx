@@ -8,8 +8,11 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/variable.hxx>
-#include <libbuild2/operation.hxx>
+// NOTE: this file is included by pretty much every other "data model" header
+//       (scope, target, variable, etc) so including any of them here is
+//       probably a non-starter.
+//
+#include <libbuild2/action.hxx>
 #include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/export.hxx>
@@ -17,10 +20,65 @@
 namespace build2
 {
   class scope;
+  class scope_map;
+  class target_set;
+
+  class variable;
+  class variable_pool;
+  struct variable_override;
+  using variable_overrides = vector<variable_override>;
+  class value;
+  using values = small_vector<value, 1>;
+
+  struct meta_operation_info;
+  struct operation_info;
+
+  struct opspec;
 
   // Main scheduler. Started up and shut down in main().
   //
+  // @@ CTX: move to main().
+  //
   LIBBUILD2_SYMEXPORT extern scheduler sched;
+
+  // @@ CTX: document (backlinks, non-overlap etc). RW story.
+  //
+  class LIBBUILD2_SYMEXPORT context
+  {
+    struct data;
+    unique_ptr<data> data_;
+
+  public:
+    scheduler& sched;
+
+    const scope_map& scopes;
+    const scope& global_scope;
+
+    target_set& targets;
+
+    const variable_pool& var_pool;
+    const variable_overrides& var_overrides; // Project and relative scope.
+
+  public:
+    explicit
+    context (scheduler&, const strings& cmd_vars = {});
+
+    void
+    current_mif (const meta_operation_info&);
+
+    void
+    current_oif (const operation_info& inner,
+                 const operation_info* outer = nullptr,
+                 bool diag_noise = true);
+
+    context (context&&) = delete;
+    context& operator= (context&&) = delete;
+
+    context (const context&) = delete;
+    context& operator= (const context&) = delete;
+
+    ~context ();
+  };
 
   // In order to perform each operation the build system goes through the
   // following phases:
@@ -303,14 +361,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern atomic_count target_count;
   LIBBUILD2_SYMEXPORT extern atomic_count skip_count;
 
-  LIBBUILD2_SYMEXPORT void
-  set_current_mif (const meta_operation_info&);
-
-  LIBBUILD2_SYMEXPORT void
-  set_current_oif (const operation_info& inner,
-                   const operation_info* outer = nullptr,
-                   bool diag_noise = true);
-
   // Keep going flag.
   //
   // Note that setting it to false is not of much help unless we are running
@@ -352,19 +402,13 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern bool dry_run;
 
-  // Reset the build state. In particular, this removes all the targets,
-  // scopes, and variables.
-  //
-  LIBBUILD2_SYMEXPORT variable_overrides
-  reset (const strings& cmd_vars);
-
   // Config module entry points.
   //
   LIBBUILD2_SYMEXPORT extern void (*config_save_variable) (
     scope&, const variable&, uint64_t flags);
 
   LIBBUILD2_SYMEXPORT extern const string& (*config_preprocess_create) (
-    const variable_overrides&,
+    context&,
     values&,
     vector_view<opspec>&,
     bool lifted,

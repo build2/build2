@@ -299,7 +299,7 @@ namespace build2
           else
           {
             eop = path (op + ".orig");
-            save (eop, transform (rd.str, false, rd.modifiers, *sp.root), ll);
+            save (eop, transform (rd.str, false, rd.modifiers, sp.root), ll);
             sp.clean_special (eop);
           }
 
@@ -312,7 +312,7 @@ namespace build2
 
           // Ignore Windows newline fluff if that's what we are running on.
           //
-          if (test_target (*sp.root).class_ == "windows")
+          if (test_target (sp.root).class_ == "windows")
             args.push_back ("--strip-trailing-cr");
 
           args.push_back (eop.string ().c_str ());
@@ -451,14 +451,14 @@ namespace build2
             if (l.regex)                  // Regex (possibly empty),
             {
               r += rl.intro;
-              r += transform (l.value, true, rd.modifiers, *sp.root);
+              r += transform (l.value, true, rd.modifiers, sp.root);
               r += rl.intro;
               r += l.flags;
             }
             else if (!l.special.empty ()) // Special literal.
               r += rl.intro;
             else                          // Textual literal.
-              r += transform (l.value, false, rd.modifiers, *sp.root);
+              r += transform (l.value, false, rd.modifiers, sp.root);
 
             r += l.special;
             return r;
@@ -534,7 +534,7 @@ namespace build2
               {
                 try
                 {
-                  string s (transform (l.value, true, rd.modifiers, *sp.root));
+                  string s (transform (l.value, true, rd.modifiers, sp.root));
 
                   c = line_char (
                     char_regex (s, gf | parse_flags (l.flags)), pool);
@@ -571,7 +571,7 @@ namespace build2
               // Append literal line char.
               //
               rls += line_char (
-                transform (l.value, false, rd.modifiers, *sp.root), pool);
+                transform (l.value, false, rd.modifiers, sp.root), pool);
             }
 
             for (char c: l.special)
@@ -693,7 +693,7 @@ namespace build2
       bool default_runner::
       test (scope& s) const
       {
-        return common_.test (s.root->test_target, s.id_path);
+        return common_.test (s.root.test_target, s.id_path);
       }
 
       void default_runner::
@@ -724,7 +724,7 @@ namespace build2
           sp.parent == nullptr
           ? mkdir_buildignore (
             sp.wd_path,
-            sp.root->target_scope.root_scope ()->root_extra->buildignore_file,
+            sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
             2)
           : mkdir (sp.wd_path, 2));
 
@@ -925,7 +925,7 @@ namespace build2
                 : (wd && sp.parent == nullptr
                    ? rmdir_buildignore (
                        d,
-                       sp.root->target_scope.root_scope ()->root_extra->buildignore_file,
+                       sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
                        v)
                    : rmdir (d, v)));
 
@@ -1097,8 +1097,8 @@ namespace build2
           // locking as the variable pool is an associative container
           // (underneath) and we are only adding new variables into it.
           //
-          ulock ul (sp.root->var_pool_mutex);
-          const variable& var (sp.root->var_pool.insert (move (vname)));
+          ulock ul (sp.root.var_pool_mutex);
+          const variable& var (sp.root.var_pool.insert (move (vname)));
           ul.unlock ();
 
           value& lhs (sp.assign (var));
@@ -1123,7 +1123,7 @@ namespace build2
                 dr << info (ll) << "while parsing attributes '" << *ats << "'";
               });
 
-            parser p;
+            parser p (sp.root.test_target.ctx);
             p.apply_value_attributes (&var,
                                       lhs,
                                       value (move (ns)),
@@ -1175,7 +1175,7 @@ namespace build2
           const string& ls (np.leaf ().string ());
           bool wc (ls == "*" || ls == "**" || ls == "***");
           const path& cp (wc ? np.directory () : np);
-          const dir_path& wd (sp.root->wd_path);
+          const dir_path& wd (sp.root.wd_path);
 
           if (!cp.sub (wd))
             fail (ll) << (wc
@@ -1360,7 +1360,7 @@ namespace build2
               isp = std_path ("stdin");
 
               save (
-                isp, transform (in.str, false, in.modifiers, *sp.root), ll);
+                isp, transform (in.str, false, in.modifiers, sp.root), ll);
 
               sp.clean_special (isp);
 

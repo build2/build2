@@ -16,6 +16,7 @@ namespace build2
 {
   class scope;
   class target;
+  class context;
   class target_key;
   class prerequisite_key;
 
@@ -62,10 +63,15 @@ namespace build2
     const char* name;
     const target_type* base;
 
-    target* (*factory) (const target_type&, dir_path, dir_path, string);
+    target* (*factory) (context&,
+                        const target_type&,
+                        dir_path,
+                        dir_path,
+                        string);
 
     const char*      (*fixed_extension)   (const target_key&,
                                            const scope* root);
+
     optional<string> (*default_extension) (const target_key&,
                                            const scope& base,
                                            const char*,

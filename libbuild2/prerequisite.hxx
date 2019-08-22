@@ -8,6 +8,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/scope.hxx>
 #include <libbuild2/action.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/target-key.hxx>
@@ -17,7 +18,6 @@
 
 namespace build2
 {
-  class scope;
   class target;
 
   // Light-weight (by being shallow-pointing) prerequisite key, similar
@@ -31,7 +31,7 @@ namespace build2
   class prerequisite_key
   {
   public:
-    typedef build2::scope scope_type;
+    using scope_type = build2::scope;
 
     const optional<project_name>& proj;
     target_key tk;                // The .dir and .out members can be relative.
@@ -117,7 +117,7 @@ namespace build2
           name (move (n)),
           ext (move (e)),
           scope (s),
-          vars (false /* global */) {}
+          vars (s.ctx, false /* global */) {}
 
     // Make a prerequisite from a target.
     //

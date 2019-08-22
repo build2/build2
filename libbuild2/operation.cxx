@@ -81,7 +81,7 @@ namespace build2
     // Create the base scope. Note that its existence doesn't mean it was
     // already setup as a base scope; it can be the same as root.
     //
-    auto i (scopes.rw (root).insert (out_base));
+    auto i (root.ctx.scopes.rw (root).insert (out_base));
     scope& base (setup_base (i, out_base, src_base));
 
     // Load the buildfile unless it is implied.
@@ -103,7 +103,7 @@ namespace build2
 
     phase_lock pl (run_phase::match);
 
-    const target* t (targets.find (tk, trace));
+    const target* t (bs.ctx.targets.find (tk, trace));
 
     // Only do the implied buildfile if we haven't loaded one. Failed that we
     // may try go this route even though we've concluded the implied buildfile
@@ -471,7 +471,7 @@ namespace build2
     if (rs.out_path () != out_base || rs.src_path () != src_base)
       fail (l) << "meta-operation info target must be project root directory";
 
-    setup_base (scopes.rw (rs).insert (out_base), out_base, src_base);
+    setup_base (rs.ctx.scopes.rw (rs).insert (out_base), out_base, src_base);
   }
 
   void

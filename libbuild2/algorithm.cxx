@@ -41,7 +41,7 @@ namespace build2
 
     if (r == nullptr)
     {
-      r = search_existing (p.key ());
+      r = search_existing (p.scope.ctx, p.key ());
 
       if (r != nullptr)
         search_custom (p, *r);
@@ -59,20 +59,22 @@ namespace build2
     // business.
     //
     if (pk.proj)
-      return import (pk);
+      return import (t.ctx, pk);
 
     if (const target* pt = pk.tk.type->search (t, pk))
       return *pt;
 
-    return create_new_target (pk);
+    return create_new_target (t.ctx, pk);
   }
 
   const target*
-  search_existing (const prerequisite_key& pk)
+  search_existing (context& ctx, const prerequisite_key& pk)
   {
     assert (phase == run_phase::match || phase == run_phase::execute);
 
-    return pk.proj ? import_existing (pk) : search_existing_target (pk);
+    return pk.proj
+      ? import_existing (ctx, pk)
+      : search_existing_target (ctx, pk);
   }
 
   const target&
@@ -130,7 +132,9 @@ namespace build2
     prerequisite_key pk {
       n.proj, {tt, &n.dir, q ? &empty_dir_path : &out, &n.value, ext}, &s};
 
-    return q ? import_existing (pk) : search_existing_target (pk);
+    return q
+      ? import_existing (s.ctx, pk)
+      : search_existing_target (s.ctx, pk);
   }
 
   // target_lock
@@ -266,13 +270,13 @@ namespace build2
 
     target& m (*mp != nullptr // Might already be there.
                ? **mp
-               : targets.insert (tt,
-                                 dir,
-                                 out,
-                                 move (n),
-                                 nullopt /* ext     */,
-                                 true    /* implied */,
-                                 trace).first);
+               : t.ctx.targets.insert (tt,
+                                       dir,
+                                       out,
+                                       move (n),
+                                       nullopt /* ext     */,
+                                       true    /* implied */,
+                                       trace).first);
     if (*mp == nullptr)
     {
       *mp = &m;
@@ -303,7 +307,7 @@ namespace build2
       //
       for (const scope* s (&bs);
            s != nullptr;
-           s = s->root () ? global_scope : s->parent_scope ())
+           s = s->root () ? &s->global_scope () : s->parent_scope ())
       {
         const operation_rule_map* om (s->rules[mo]);
 
@@ -897,7 +901,7 @@ namespace build2
     //
     const dir_path& d (parent && t.name.empty () ? t.dir.directory () : t.dir);
 
-    const scope& bs (scopes.find (d));
+    const scope& bs (t.ctx.scopes.find (d));
     const scope* rs (bs.root_scope ());
 
     // If root scope is NULL, then this can mean that we are out of any
@@ -973,7 +977,7 @@ namespace build2
 
       if (op_t != nullptr)
       {
-        op_s = &scopes.find (t.dir);
+        op_s = &t.ctx.scopes.find (t.dir);
 
         if (op_s->out_path () == t.dir && !op_s->operation_callbacks.empty ())
         {
@@ -1401,7 +1405,7 @@ namespace build2
     // stops at the project boundary).
     //
     if (!l.defined ())
-      l = global_scope->find (*var_backlink, t.key ());
+      l = t.ctx.global_scope.find (*var_backlink, t.key ());
 
     return l ? backlink_test (t, l) : nullopt;
   }

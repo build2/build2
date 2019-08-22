@@ -5,7 +5,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/context.hxx>   // sched, reset()
+#include <libbuild2/context.hxx>
 #include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/in/init.hxx>
@@ -26,8 +26,8 @@ main (int, char* argv[])
   in::build2_in_load ();
   version::build2_version_load ();
 
-  sched.startup (1);  // Serial execution.
-  reset (strings ()); // No command line variables.
+  sched.startup (1);   // Serial execution.
+  context ctx (sched);
 
   return 0;
 }

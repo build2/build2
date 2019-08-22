@@ -13,7 +13,7 @@ namespace build2
   inline const string* target::
   ext () const
   {
-    slock l (targets.mutex_);
+    slock l (ctx.targets.mutex_);
     return *ext_ ? &**ext_ : nullptr;
   }
 

@@ -364,7 +364,7 @@ namespace build2
         build2::test::script::script s (t, ts, wd);
 
         {
-          parser p;
+          parser p (t.ctx);
           p.pre_parse (s);
 
           default_runner r (c);

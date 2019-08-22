@@ -64,7 +64,7 @@ namespace build2
         ext (to_ext (t.ext ())),
         scope (t.base_scope ()),
         target (&t),
-        vars (false /* global */)
+        vars (t.ctx, false /* global */)
   {
   }
 

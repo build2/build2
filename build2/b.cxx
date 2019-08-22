@@ -590,6 +590,8 @@ main (int argc, char* argv[])
                     ? optional<size_t> (ops.max_stack () * 1024)
                     : nullopt));
 
+    // @@ CTX: should these be per-context?
+    //
     variable_cache_mutex_shard_size = sched.shard_size ();
     variable_cache_mutex_shard.reset (
       new shared_mutex[variable_cache_mutex_shard_size]);
@@ -606,10 +608,11 @@ main (int argc, char* argv[])
       trace << "jobs: " << jobs;
     }
 
-    // Set the build state before parsing the buildspec since it relies on
-    // global scope being setup.
+    // Set the build context before parsing the buildspec since it relies on
+    // the global scope being setup. We reset it for every meta-operation (see
+    // below).
     //
-    variable_overrides var_ovs (reset (cmd_vars));
+    unique_ptr<context> ctx (new context (sched, cmd_vars));
 
     // Parse the buildspec.
     //
@@ -619,7 +622,7 @@ main (int argc, char* argv[])
       istringstream is (args);
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
-      parser p;
+      parser p (*ctx);
       bspec = p.parse_buildspec (is, path ("<buildspec>"));
     }
     catch (const io_error&)
@@ -745,13 +748,14 @@ main (int argc, char* argv[])
       else
         opspecs.assign (lifted, 1);
 
-      // Reset the build state for each meta-operation since there is no
+      // Reset the build context for each meta-operation since there is no
       // guarantee their assumptions (e.g., in the load callback) are
       // compatible.
       //
       if (dirty)
       {
-        var_ovs = reset (cmd_vars);
+        ctx = nullptr;
+        ctx.reset (new context (sched, cmd_vars));
         dirty = false;
       }
 
@@ -778,15 +782,16 @@ main (int argc, char* argv[])
           // Can modify params, opspec, change meta-operation name.
           //
           if (auto f = meta_operation_table[m].process)
-            mname = current_mname =
-              f (var_ovs, mparams, opspecs, lifted != nullptr, l);
+            mname = current_mname = f (
+              *ctx, mparams, opspecs, lifted != nullptr, l);
         }
       }
 
       // Expose early so can be used during bootstrap (with the same
       // limitations as for pre-processing).
       //
-      global_scope->rw ().assign (var_build_meta_operation) = mname;
+      scope& gs (ctx->global_scope.rw ());
+      gs.assign (var_build_meta_operation) = mname;
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
@@ -978,7 +983,7 @@ main (int argc, char* argv[])
               // Handle a forwarded configuration. Note that if we've changed
               // out_root then we also have to remap out_base.
               //
-              out_root = bootstrap_fwd (src_root, altn);
+              out_root = bootstrap_fwd (*ctx, src_root, altn);
               if (src_root != out_root)
               {
                 out_base = out_root / out_base.leaf (src_root);
@@ -1023,8 +1028,7 @@ main (int argc, char* argv[])
           // use to the bootstrap files (other than src-root.build, which,
           // BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (
-            create_root (*scope::global_, out_root, src_root)->second);
+          scope& rs (create_root (gs, out_root, src_root)->second);
 
           bool bstrapped (bootstrapped (rs));
 
@@ -1238,7 +1242,7 @@ main (int argc, char* argv[])
                 fail (l) << "unexpected parameters for meta-operation "
                          << mif->name;
 
-              set_current_mif (*mif);
+              ctx->current_mif (*mif);
               dirty = true;
             }
 
@@ -1427,9 +1431,9 @@ main (int argc, char* argv[])
           // So we split it into two passes.
           //
           {
-            auto& sm (scope_map::instance);
+            auto& sm (ctx->scopes.rw ());
 
-            for (const variable_override& o: var_ovs)
+            for (const variable_override& o: ctx->var_overrides)
             {
               if (o.ovr.visibility != variable_visibility::normal)
                 continue;
@@ -1450,7 +1454,7 @@ main (int argc, char* argv[])
               v = o.val;
             }
 
-            for (const variable_override& o: var_ovs)
+            for (const variable_override& o: ctx->var_overrides)
             {
               // Ours is either project (%foo) or scope (/foo).
               //
@@ -1504,7 +1508,7 @@ main (int argc, char* argv[])
           // building before we know how to for all the targets in this
           // operation batch.
           //
-          const scope& bs (scopes.find (ts.out_base));
+          const scope& bs (ctx->scopes.find (ts.out_base));
 
           // Find the target type and extract the extension.
           //
@@ -1546,7 +1550,7 @@ main (int argc, char* argv[])
         } // target
 
         if (dump_load)
-          dump ();
+          dump (*ctx);
 
         // Finally, match the rules and perform the operation.
         //
@@ -1558,7 +1562,7 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (mparams, pre_oid); // Cannot be translated.
 
-          set_current_oif (*pre_oif, oif);
+          ctx->current_oif (*pre_oif, oif);
 
           action a (mid, pre_oid, oid);
 
@@ -1570,7 +1574,7 @@ main (int argc, char* argv[])
               mif->match (mparams, a, tgs, diag, true /* progress */);
 
             if (dump_match)
-              dump (a);
+              dump (*ctx, a);
 
             if (mif->execute != nullptr && !ops.match_only ())
               mif->execute (mparams, a, tgs, diag, true /* progress */);
@@ -1585,7 +1589,7 @@ main (int argc, char* argv[])
           tgs.reset ();
         }
 
-        set_current_oif (*oif, outer_oif);
+        ctx->current_oif (*oif, outer_oif);
 
         action a (mid, oid, oif->outer_id);
 
@@ -1597,7 +1601,7 @@ main (int argc, char* argv[])
             mif->match (mparams, a, tgs, diag, true /* progress */);
 
           if (dump_match)
-            dump (a);
+            dump (*ctx, a);
 
           if (mif->execute != nullptr && !ops.match_only ())
             mif->execute (mparams, a, tgs, diag, true /* progress */);
@@ -1613,7 +1617,7 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (mparams, post_oid); // Cannot be translated.
 
-          set_current_oif (*post_oif, oif);
+          ctx->current_oif (*post_oif, oif);
 
           action a (mid, post_oid, oid);
 
@@ -1625,7 +1629,7 @@ main (int argc, char* argv[])
               mif->match (mparams, a, tgs, diag, true /* progress */);
 
             if (dump_match)
-              dump (a);
+              dump (*ctx, a);
 
             if (mif->execute != nullptr && !ops.match_only ())
               mif->execute (mparams, a, tgs, diag, true /* progress */);

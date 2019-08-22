@@ -57,7 +57,8 @@ namespace build2
   }
 
   inline const target*
-  search_existing (const target_type& type,
+  search_existing (context& ctx,
+                   const target_type& type,
                    const dir_path& dir,
                    const dir_path& out,
                    const string& name,
@@ -66,6 +67,7 @@ namespace build2
                    const optional<project_name>& proj)
   {
     return search_existing (
+      ctx,
       prerequisite_key {
         proj,
         {

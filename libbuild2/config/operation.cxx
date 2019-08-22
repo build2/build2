@@ -28,12 +28,12 @@ namespace build2
     // configure
     //
     static void
-    save_src_root (const scope& root)
+    save_src_root (const scope& rs)
     {
-      const dir_path& out_root (root.out_path ());
-      const dir_path& src_root (root.src_path ());
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
-      path f (out_root / root.root_extra->src_root_file);
+      path f (out_root / rs.root_extra->src_root_file);
 
       if (verb >= 2)
         text << "cat >" << f;
@@ -57,12 +57,12 @@ namespace build2
     }
 
     static void
-    save_out_root (const scope& root)
+    save_out_root (const scope& rs)
     {
-      const dir_path& out_root (root.out_path ());
-      const dir_path& src_root (root.src_path ());
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
-      path f (src_root / root.root_extra->out_root_file);
+      path f (src_root / rs.root_extra->out_root_file);
 
       if (verb)
         text << (verb >= 2 ? "cat >" : "save ") << f;
@@ -88,14 +88,14 @@ namespace build2
     using project_set = set<const scope*>; // Use pointers to get comparison.
 
     static void
-    save_config (const scope& root, const project_set& projects)
+    save_config (const scope& rs, const project_set& projects)
     {
-      path f (config_file (root));
+      path f (config_file (rs));
 
       if (verb)
         text << (verb >= 2 ? "cat >" : "save ") << f;
 
-      const module& mod (*root.lookup_module<const module> (module::name));
+      const module& mod (*rs.lookup_module<const module> (module::name));
 
       try
       {
@@ -107,7 +107,7 @@ namespace build2
 
         ofs << "config.version = " << module::version << endl;
 
-        if (auto l = root.vars[var_amalgamation])
+        if (auto l = rs.vars[var_amalgamation])
         {
           const dir_path& d (cast<dir_path> (l));
 
@@ -130,10 +130,10 @@ namespace build2
           {
             const variable& var (sv.var);
 
-            pair<lookup, size_t> org (root.find_original (var));
+            pair<lookup, size_t> org (rs.find_original (var));
             pair<lookup, size_t> ovr (var.overrides == nullptr
                                       ? org
-                                      : root.find_override (var, org));
+                                      : rs.find_override (var, org));
             const lookup& l (ovr.first);
 
             // We definitely write values that are set on our root scope or
@@ -144,7 +144,7 @@ namespace build2
             if (!l.defined ())
               continue;
 
-            if (!(l.belongs (root) || l.belongs (*global_scope)))
+            if (!(l.belongs (rs) || l.belongs (rs.ctx.global_scope)))
             {
               // This is presumably an inherited value. But it could also be
               // some left-over garbage. For example, an amalgamation could
@@ -162,7 +162,7 @@ namespace build2
               // root.
               //
               bool found (false);
-              const scope* r (&root);
+              const scope* r (&rs);
               while ((r = r->parent_scope ()->root_scope ()) != nullptr)
               {
                 if (l.belongs (*r))
@@ -307,14 +307,14 @@ namespace build2
     }
 
     static void
-    configure_project (action a, const scope& root, project_set& projects)
+    configure_project (action a, const scope& rs, project_set& projects)
     {
       tracer trace ("configure_project");
 
-      const dir_path& out_root (root.out_path ());
-      const dir_path& src_root (root.src_path ());
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
-      if (!projects.insert (&root).second)
+      if (!projects.insert (&rs).second)
       {
         l5 ([&]{trace << "skipping already configured " << out_root;});
         return;
@@ -324,8 +324,8 @@ namespace build2
       //
       if (out_root != src_root)
       {
-        mkdir_p (out_root / root.root_extra->build_dir);
-        mkdir (out_root / root.root_extra->bootstrap_dir, 2);
+        mkdir_p (out_root / rs.root_extra->build_dir);
+        mkdir (out_root / rs.root_extra->bootstrap_dir, 2);
       }
 
       // We distinguish between a complete configure and operation-
@@ -338,11 +338,11 @@ namespace build2
         // Save src-root.build unless out_root is the same as src.
         //
         if (out_root != src_root)
-          save_src_root (root);
+          save_src_root (rs);
 
         // Save config.build.
         //
-        save_config (root, projects);
+        save_config (rs, projects);
       }
       else
       {
@@ -350,54 +350,54 @@ namespace build2
 
       // Configure subprojects that have been loaded.
       //
-      if (auto l = root.vars[var_subprojects])
+      if (auto l = rs.vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nroot (scopes.find (out_nroot));
+          const scope& nrs (rs.ctx.scopes.find (out_nroot));
 
           // @@ Strictly speaking we need to check whether the config
           // module was loaded for this subproject.
           //
-          if (nroot.out_path () != out_nroot) // This subproject not loaded.
+          if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
 
-          configure_project (a, nroot, projects);
+          configure_project (a, nrs, projects);
         }
       }
     }
 
     static void
-    configure_forward (const scope& root, project_set& projects)
+    configure_forward (const scope& rs, project_set& projects)
     {
       tracer trace ("configure_forward");
 
-      const dir_path& out_root (root.out_path ());
-      const dir_path& src_root (root.src_path ());
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
-      if (!projects.insert (&root).second)
+      if (!projects.insert (&rs).second)
       {
         l5 ([&]{trace << "skipping already configured " << src_root;});
         return;
       }
 
-      mkdir (src_root / root.root_extra->bootstrap_dir, 2); // Make sure exists.
-      save_out_root (root);
+      mkdir (src_root / rs.root_extra->bootstrap_dir, 2); // Make sure exists.
+      save_out_root (rs);
 
       // Configure subprojects. Since we don't load buildfiles if configuring
       // a forward, we do it for all known subprojects.
       //
-      if (auto l = root.vars[var_subprojects])
+      if (auto l = rs.vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           dir_path out_nroot (out_root / p.second);
-          const scope& nroot (scopes.find (out_nroot));
-          assert (nroot.out_path () == out_nroot);
+          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          assert (nrs.out_path () == out_nroot);
 
-          configure_forward (nroot, projects);
+          configure_forward (nrs, projects);
         }
       }
     }
@@ -451,7 +451,7 @@ namespace build2
 
     static void
     configure_load (const values& params,
-                    scope& root,
+                    scope& rs,
                     const path& buildfile,
                     const dir_path& out_base,
                     const dir_path& src_base,
@@ -463,19 +463,19 @@ namespace build2
         // forwarding but in order to configure subprojects we have to
         // bootstrap them (similar to disfigure).
         //
-        create_bootstrap_inner (root);
+        create_bootstrap_inner (rs);
 
-        if (root.out_path () == root.src_path ())
-          fail (l) << "forwarding to source directory " << root.src_path ();
+        if (rs.out_path () == rs.src_path ())
+          fail (l) << "forwarding to source directory " << rs.src_path ();
       }
       else
-        load (params, root, buildfile, out_base, src_base, l); // Normal load.
+        load (params, rs, buildfile, out_base, src_base, l); // Normal load.
     }
 
     static void
     configure_search (const values& params,
-                      const scope& root,
-                      const scope& base,
+                      const scope& rs,
+                      const scope& bs,
                       const path& bf,
                       const target_key& tk,
                       const location& l,
@@ -486,10 +486,10 @@ namespace build2
         // For forwarding we only collect the projects (again, similar to
         // disfigure).
         //
-        ts.push_back (&root);
+        ts.push_back (&rs);
       }
       else
-        search (params, root, base, bf, tk, l, ts); // Normal search.
+        search (params, rs, bs, bf, tk, l, ts); // Normal search.
     }
 
     static void
@@ -515,8 +515,8 @@ namespace build2
         {
           // Forward configuration.
           //
-          const scope& root (*static_cast<const scope*> (at.target));
-          configure_forward (root, projects);
+          const scope& rs (*static_cast<const scope*> (at.target));
+          configure_forward (rs, projects);
           continue;
         }
 
@@ -552,7 +552,7 @@ namespace build2
             if (oif->id != id)
               continue;
 
-            set_current_oif (*oif);
+            rs->ctx.current_oif (*oif);
 
             phase_lock pl (run_phase::match);
             match (action (configure_id, id), t);
@@ -586,14 +586,14 @@ namespace build2
     //
 
     static bool
-    disfigure_project (action a, const scope& root, project_set& projects)
+    disfigure_project (action a, const scope& rs, project_set& projects)
     {
       tracer trace ("disfigure_project");
 
-      const dir_path& out_root (root.out_path ());
-      const dir_path& src_root (root.src_path ());
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
-      if (!projects.insert (&root).second)
+      if (!projects.insert (&rs).second)
       {
         l5 ([&]{trace << "skipping already disfigured " << out_root;});
         return false;
@@ -604,16 +604,16 @@ namespace build2
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
       //
-      if (auto l = root.vars[var_subprojects])
+      if (auto l = rs.vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nroot (scopes.find (out_nroot));
-          assert (nroot.out_path () == out_nroot); // See disfigure_load().
+          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          assert (nrs.out_path () == out_nroot); // See disfigure_load().
 
-          r = disfigure_project (a, nroot, projects) || r;
+          r = disfigure_project (a, nrs, projects) || r;
 
           // We use mkdir_p() to create the out_root of a subproject
           // which means there could be empty parent directories left
@@ -643,19 +643,19 @@ namespace build2
       {
         l5 ([&]{trace << "completely disfiguring " << out_root;});
 
-        r = rmfile (config_file (root)) || r;
+        r = rmfile (config_file (rs)) || r;
 
         if (out_root != src_root)
         {
-          r = rmfile (out_root / root.root_extra->src_root_file, 2) || r;
+          r = rmfile (out_root / rs.root_extra->src_root_file, 2) || r;
 
           // Clean up the directories.
           //
           // Note: try to remove the root/ hooks directory if it is empty.
           //
-          r = rmdir (out_root / root.root_extra->root_dir,      2) || r;
-          r = rmdir (out_root / root.root_extra->bootstrap_dir, 2) || r;
-          r = rmdir (out_root / root.root_extra->build_dir,     2) || r;
+          r = rmdir (out_root / rs.root_extra->root_dir,      2) || r;
+          r = rmdir (out_root / rs.root_extra->bootstrap_dir, 2) || r;
+          r = rmdir (out_root / rs.root_extra->build_dir,     2) || r;
 
           switch (rmdir (out_root))
           {
@@ -687,16 +687,16 @@ namespace build2
     }
 
     static bool
-    disfigure_forward (const scope& root, project_set& projects)
+    disfigure_forward (const scope& rs, project_set& projects)
     {
       // Pretty similar logic to disfigure_project().
       //
       tracer trace ("disfigure_forward");
 
-      const dir_path& out_root (root.out_path ());
-      const dir_path& src_root (root.src_path ());
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
-      if (!projects.insert (&root).second)
+      if (!projects.insert (&rs).second)
       {
         l5 ([&]{trace << "skipping already disfigured " << src_root;});
         return false;
@@ -704,23 +704,23 @@ namespace build2
 
       bool r (false);
 
-      if (auto l = root.vars[var_subprojects])
+      if (auto l = rs.vars[var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           dir_path out_nroot (out_root / p.second);
-          const scope& nroot (scopes.find (out_nroot));
-          assert (nroot.out_path () == out_nroot);
+          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          assert (nrs.out_path () == out_nroot);
 
-          r = disfigure_forward (nroot, projects) || r;
+          r = disfigure_forward (nrs, projects) || r;
         }
       }
 
       // Remove the out-root.build file and try to remove the bootstrap/
       // directory if it is empty.
       //
-      r = rmfile (src_root / root.root_extra->out_root_file)    || r;
-      r = rmdir  (src_root / root.root_extra->bootstrap_dir, 2) || r;
+      r = rmfile (src_root / rs.root_extra->out_root_file)    || r;
+      r = rmdir  (src_root / rs.root_extra->bootstrap_dir, 2) || r;
 
       return r;
     }
@@ -757,14 +757,14 @@ namespace build2
 
     static void
     disfigure_search (const values&,
-                      const scope& root,
+                      const scope& rs,
                       const scope&,
                       const path&,
                       const target_key&,
                       const location&,
                       action_targets& ts)
     {
-      ts.push_back (&root);
+      ts.push_back (&rs);
     }
 
     static void
@@ -790,23 +790,23 @@ namespace build2
       //
       for (const action_target& at: ts)
       {
-        const scope& root (*static_cast<const scope*> (at.target));
+        const scope& rs (*static_cast<const scope*> (at.target));
 
         if (!(fwd
-              ? disfigure_forward (   root, projects)
-              : disfigure_project (a, root, projects)))
+              ? disfigure_forward (   rs, projects)
+              : disfigure_project (a, rs, projects)))
         {
           // Create a dir{$out_root/} target to signify the project's root in
           // diagnostics. Not very clean but seems harmless.
           //
           target& t (
-            targets.insert (dir::static_type,
-                            fwd ? root.src_path () : root.out_path (),
-                            dir_path (), // Out tree.
-                            "",
-                            nullopt,
-                            true,       // Implied.
-                            trace).first);
+            rs.ctx.targets.insert (dir::static_type,
+                                   fwd ? rs.src_path () : rs.out_path (),
+                                   dir_path (), // Out tree.
+                                   "",
+                                   nullopt,
+                                   true,       // Implied.
+                                   trace).first);
 
           if (verb != 0 && diag >= 2)
             info << diag_done (a, t);
@@ -836,7 +836,7 @@ namespace build2
     // create
     //
     static void
-    save_config (const dir_path& d, const variable_overrides& var_ovs)
+    save_config (context& ctx, const dir_path& d)
     {
       // Since there aren't any sub-projects yet, any config.import.* values
       // that the user may want to specify won't be saved in config.build. So
@@ -846,13 +846,13 @@ namespace build2
       // going to do is bootstrap the newly created project, similar to the
       // way main() does it.
       //
-      scope& gs (*scope::global_);
+      scope& gs (ctx.global_scope.rw ());
       scope& rs (load_project (gs, d, d, false /* fwd */, false /* load */));
       module& m (*rs.lookup_module<module> (module::name));
 
       // Save all the global config.import.* variables.
       //
-      variable_pool& vp (var_pool.rw (rs));
+      variable_pool& vp (ctx.var_pool.rw (rs));
       for (auto p (gs.vars.find_namespace (vp.insert ("config.import")));
            p.first != p.second;
            ++p.first)
@@ -869,7 +869,7 @@ namespace build2
       // Now project-specific. For now we just save all of them and let
       // save_config() above weed out the ones that don't apply.
       //
-      for (const variable_override& vo: var_ovs)
+      for (const variable_override& vo: ctx.var_overrides)
       {
         const variable& var (vo.var);
 
@@ -879,7 +879,7 @@ namespace build2
     }
 
     const string&
-    preprocess_create (const variable_overrides& var_ovs,
+    preprocess_create (context& ctx,
                        values& params,
                        vector_view<opspec>& spec,
                        bool lifted,
@@ -986,7 +986,7 @@ namespace build2
                           true,        /* buildfile */
                           "the create meta-operation");
 
-          save_config (d, var_ovs);
+          save_config (ctx, d);
         }
       }
 

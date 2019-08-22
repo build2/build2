@@ -365,6 +365,7 @@ namespace build2
     {
       // Pretty similar logic to search_library().
       //
+      assert (p.scope != nullptr);
 
       const optional<string>& ext (p.tk.ext);
       const string& name (*p.tk.name);
@@ -403,7 +404,7 @@ namespace build2
         // Enter the target.
         //
         T* t;
-        common::insert_library (t, name, d, e, exist, trace);
+        common::insert_library (p.scope->ctx, t, name, d, e, exist, trace);
 
         t->mtime (mt);
         t->path (move (f));
@@ -453,6 +454,8 @@ namespace build2
     {
       tracer trace (x, "msvc_search_shared");
 
+      assert (pk.scope != nullptr);
+
       libs* s (nullptr);
 
       auto search = [&s, &ld, &d, &pk, exist, &trace] (
@@ -461,7 +464,9 @@ namespace build2
         if (libi* i = msvc_search_library<libi> (
               ld, d, pk, otype::s, pf, sf, exist, trace))
         {
-          ulock l (insert_library (s, *pk.tk.name, d, nullopt, exist, trace));
+          ulock l (
+            insert_library (
+              pk.scope->ctx, s, *pk.tk.name, d, nullopt, exist, trace));
 
           if (!exist)
           {

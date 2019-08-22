@@ -282,7 +282,7 @@ namespace build2
                     module_state {true, false, mf.init, nullptr, loc}).first;
     i->second.first = mf.boot (rs, loc, i->second.module);
 
-    rs.assign (var_pool.rw (rs).insert (mod + ".booted")) = true;
+    rs.assign (rs.ctx.var_pool.rw (rs).insert (mod + ".booted")) = true;
   }
 
   bool
@@ -333,7 +333,7 @@ namespace build2
     // buildfile-visible (where we use the term "load a module"; see the note
     // on terminology above)
     //
-    auto& vp (var_pool.rw (rs));
+    auto& vp (rs.ctx.var_pool.rw (rs));
     value& lv (bs.assign (vp.insert (mod + ".loaded")));
     value& cv (bs.assign (vp.insert (mod + ".configured")));
 

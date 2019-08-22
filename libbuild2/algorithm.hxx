@@ -16,6 +16,7 @@
 namespace build2
 {
   class scope;
+  class context;
   class prerequisite;
   class prerequisite_key;
 
@@ -42,7 +43,7 @@ namespace build2
   search (const target&, const prerequisite_key&);
 
   LIBBUILD2_SYMEXPORT const target*
-  search_existing (const prerequisite_key&);
+  search_existing (context&, const prerequisite_key&);
 
   // Uniform search interface for prerequisite/prerequisite_member.
   //
@@ -61,7 +62,7 @@ namespace build2
   //
   const target&
   search (const target&,
-          const target_type& type,
+          const target_type&,
           const dir_path& dir,
           const dir_path& out,
           const string& name,
@@ -70,7 +71,8 @@ namespace build2
           const optional<project_name>& proj = nullopt);
 
   const target*
-  search_existing (const target_type& type,
+  search_existing (context&,
+                   const target_type&,
                    const dir_path& dir,
                    const dir_path& out,
                    const string& name,

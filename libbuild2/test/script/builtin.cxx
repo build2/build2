@@ -956,7 +956,7 @@ namespace build2
 
           auto mv = [ops, &wd, &sp, &error] (const path& from, const path& to)
           {
-            const dir_path& rwd (sp.root->wd_path);
+            const dir_path& rwd (sp.root.wd_path);
 
             if (!from.sub (rwd) && !ops.force ())
               error () << "'" << from << "' is out of working directory '"
@@ -1158,7 +1158,7 @@ namespace build2
             error () << "missing file";
 
           const dir_path& wd  (sp.wd_path);
-          const dir_path& rwd (sp.root->wd_path);
+          const dir_path& rwd (sp.root.wd_path);
 
           while (scan.more ())
           {
@@ -1259,7 +1259,7 @@ namespace build2
             error () << "missing directory";
 
           const dir_path& wd  (sp.wd_path);
-          const dir_path& rwd (sp.root->wd_path);
+          const dir_path& rwd (sp.root.wd_path);
 
           while (scan.more ())
           {

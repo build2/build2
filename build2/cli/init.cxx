@@ -43,7 +43,7 @@ namespace build2
       //
       if (first)
       {
-        auto& v (var_pool.rw (rs));
+        auto& v (rs.ctx.var_pool.rw (rs));
 
         // Note: some overridable, some not.
         //

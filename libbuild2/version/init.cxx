@@ -219,7 +219,7 @@ namespace build2
 
       // Set all the version.* variables.
       //
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       auto set = [&vp, &rs] (const char* var, auto val)
       {

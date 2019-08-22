@@ -16,6 +16,8 @@
 
 namespace build2
 {
+  class context;
+
   namespace test
   {
     namespace script
@@ -28,6 +30,8 @@ namespace build2
         // Pre-parse. Issue diagnostics and throw failed in case of an error.
         //
       public:
+        parser (context& c): build2::parser (c) {}
+
         void
         pre_parse (script&);
 

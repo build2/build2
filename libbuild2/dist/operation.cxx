@@ -79,6 +79,8 @@ namespace build2
       if (rs == nullptr)
         fail << "out of project target " << t;
 
+      context& ctx (rs->ctx);
+
       const dir_path& out_root (rs->out_path ());
       const dir_path& src_root (rs->src_path ());
 
@@ -167,7 +169,7 @@ namespace build2
             if (operation_id pid = oif->pre (params, dist_id, loc))
             {
               const operation_info* poif (ops[pid]);
-              set_current_oif (*poif, oif, false /* diag_noise */);
+              ctx.current_oif (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -175,7 +177,7 @@ namespace build2
             }
           }
 
-          set_current_oif (*oif, nullptr, false /* diag_noise */);
+          ctx.current_oif (*oif, nullptr, false /* diag_noise */);
           action a (dist_id, oif->id);
           match (params, a, ts,
                  1     /* diag (failures only) */,
@@ -186,7 +188,7 @@ namespace build2
             if (operation_id pid = oif->post (params, dist_id))
             {
               const operation_info* poif (ops[pid]);
-              set_current_oif (*poif, oif, false /* diag_noise */);
+              ctx.current_oif (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -213,7 +215,7 @@ namespace build2
                         ? out_src (d, rs)
                         : dir_path ());
 
-          targets.insert<buildfile> (
+          rs.ctx.targets.insert<buildfile> (
             move (d),
             move (out),
             p.leaf ().base ().string (),
@@ -232,7 +234,7 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find (out_nroot));
 
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
@@ -251,9 +253,9 @@ namespace build2
       // distribute") since it will be useless (too fast).
       //
       action_targets files;
-      const variable& dist_var (var_pool["dist"]);
+      const variable& dist_var (ctx.var_pool["dist"]);
 
-      for (const auto& pt: targets)
+      for (const auto& pt: ctx.targets)
       {
         file* ft (pt->is_a<file> ());
 
@@ -305,13 +307,13 @@ namespace build2
         // Note also that we don't do any structured result printing.
         //
         size_t on (current_on);
-        set_current_mif (mo_perform);
+        ctx.current_mif (mo_perform);
         current_on = on + 1;
 
         if (mo_perform.operation_pre != nullptr)
           mo_perform.operation_pre (params, update_id);
 
-        set_current_oif (op_update, nullptr, false /* diag_noise */);
+        ctx.current_oif (op_update, nullptr, false /* diag_noise */);
 
         action a (perform_id, update_id);
 
@@ -374,7 +376,7 @@ namespace build2
             const dir_path& pd (p.second);
             if (dl.sub (pd))
             {
-              srs = &scopes.find (out_root / pd);
+              srs = &ctx.scopes.find (out_root / pd);
 
               if (auto* m = srs->lookup_module<module> (module::name))
                 cbs = &m->callbacks_;

@@ -53,7 +53,7 @@ namespace build2
     else
     {
       // Note that for performance reasons here we use the specified extension
-      // without calling fixed_extension().
+      // without calling fixed_extension() to verify it matches.
       //
       const char* xe (x.ext
                       ? x.ext->c_str ()

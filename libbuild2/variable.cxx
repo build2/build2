@@ -1380,12 +1380,10 @@ namespace build2
     }
   }
 
-  variable_pool variable_pool::instance (true);
-  const variable_pool& variable_pool::cinstance = variable_pool::instance;
-  const variable_pool& var_pool = variable_pool::cinstance;
-
   // variable_map
   //
+  const variable_map empty_variable_map (nullptr /* context */);
+
   auto variable_map::
   find (const variable& var, bool typed) const ->
     pair<const value_data*, const variable&>

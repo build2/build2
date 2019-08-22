@@ -128,7 +128,7 @@ namespace build2
                const string& name,
                const location&,
                bool optional = false,
-               const variable_map& config_hints = variable_map ());
+               const variable_map& config_hints = empty_variable_map);
 
   // An alias to use from other modules (we could also distinguish between
   // boot and init).
@@ -142,7 +142,7 @@ namespace build2
                const string& name,
                const location& loc,
                bool optional = false,
-               const variable_map& config_hints = variable_map ())
+               const variable_map& config_hints = empty_variable_map)
   {
     return init_module (root, base, name, loc, optional, config_hints);
   }

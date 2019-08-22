@@ -2866,7 +2866,7 @@ namespace build2
       {
         try
         {
-          parser p;
+          parser p (scr.test_target.ctx);
           p.execute (s, scr, r);
         }
         catch (const failed&)

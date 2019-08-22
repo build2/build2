@@ -95,7 +95,7 @@ namespace build2
   {
     // Include target type/pattern-specific variables.
     //
-    if (auto l = s.find (var_pool[var], tt, tn))
+    if (auto l = s.find (s.ctx.var_pool[var], tt, tn))
     {
       // Help the user here and strip leading '.' from the extension.
       //
@@ -172,13 +172,13 @@ namespace build2
     // We behave as if this target was explicitly mentioned in the (implied)
     // buildfile. Thus not implied.
     //
-    target& t (targets.insert (dir::static_type,
-                               bs.out_path (),
-                               dir_path (),
-                               string (),
-                               nullopt,
-                               false,
-                               trace).first);
+    target& t (bs.ctx.targets.insert (dir::static_type,
+                                      bs.out_path (),
+                                      dir_path (),
+                                      string (),
+                                      nullopt,
+                                      false,
+                                      trace).first);
     t.prerequisites (move (ps));
     return &t;
   }

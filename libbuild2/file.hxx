@@ -91,8 +91,8 @@ namespace build2
   source_once (scope& root, scope& base, const path&, scope& once);
 
   // Create project's root scope. Only set the src_root variable if the passed
-  // src_root value is not empty. The scope argument is only used as proof of
-  // lock.
+  // src_root value is not empty. The scope argument is only used for context
+  // and as a proof of lock.
   //
   LIBBUILD2_SYMEXPORT scope_map::iterator
   create_root (scope&, const dir_path& out_root, const dir_path& src_root);
@@ -140,7 +140,7 @@ namespace build2
   // argument semantics.
   //
   LIBBUILD2_SYMEXPORT dir_path
-  bootstrap_fwd (const dir_path& src_root, optional<bool>& altn);
+  bootstrap_fwd (context&, const dir_path& src_root, optional<bool>& altn);
 
   // Bootstrap the project's root scope, the out part.
   //
@@ -201,7 +201,7 @@ namespace build2
   // an indication of whether the variable was found.
   //
   LIBBUILD2_SYMEXPORT pair<value, bool>
-  extract_variable (const path&, const variable&);
+  extract_variable (context&, const path&, const variable&);
 
   // Import has two phases: the first is triggered by the import directive in
   // the buildfile. It will try to find and load the project. Failed that, it
@@ -224,7 +224,7 @@ namespace build2
   import (scope& base, name, const location&);
 
   const target&
-  import (const prerequisite_key&);
+  import (context&, const prerequisite_key&);
 
   // As above but only imports as an already existing target. Unlike the above
   // version, this one can be called during the execute phase.
@@ -232,7 +232,7 @@ namespace build2
   // Note: similar to search_existing().
   //
   const target*
-  import_existing (const prerequisite_key&);
+  import_existing (context&, const prerequisite_key&);
 }
 
 #include <libbuild2/file.ixx>

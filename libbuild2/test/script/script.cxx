@@ -418,12 +418,12 @@ namespace build2
       // scope
       //
       scope::
-      scope (const string& id, scope* p, script* r)
+      scope (const string& id, scope* p, script& r)
           : parent (p),
             root (r),
-            vars (false /* global */),
-            id_path (cast<path> (assign (root->id_var) = path ())),
-            wd_path (cast<dir_path> (assign (root->wd_var) = dir_path ()))
+            vars (r.test_target.ctx, false /* global */),
+            id_path (cast<path> (assign (root.id_var) = path ())),
+            wd_path (cast<dir_path> (assign (root.wd_var) = dir_path ()))
 
       {
         // Construct the id_path as a string to ensure POSIX form. In fact,
@@ -455,7 +455,7 @@ namespace build2
         assert (!implicit || c.type == cleanup_type::always);
 
         const path& p (c.path);
-        if (!p.sub (root->wd_path))
+        if (!p.sub (root.wd_path))
         {
           if (implicit)
             return;
@@ -481,8 +481,11 @@ namespace build2
       // script_base
       //
       script_base::
-      script_base ()
-          : // Enter the test.* variables with the same variable types as in
+      script_base (const target& tt, const testscript& st)
+          : test_target (tt),
+            target_scope (tt.base_scope ()),
+            script_target (st),
+            // Enter the test.* variables with the same variable types as in
             // buildfiles except for test: while in buildfiles it can be a
             // target name, in testscripts it should be resolved to a path.
             //
@@ -515,10 +518,8 @@ namespace build2
       script (const target& tt,
               const testscript& st,
               const dir_path& rwd)
-          : group (st.name == "testscript" ? string () : st.name, this),
-            test_target (tt),
-            target_scope (tt.base_scope ()),
-            script_target (st)
+          : script_base (tt, st),
+            group (st.name == "testscript" ? string () : st.name, *this)
       {
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
         // for root is just the id which is empty if st is 'testscript').
@@ -634,12 +635,11 @@ namespace build2
         // in parallel). Plus, if there is no such variable, then we cannot
         // possibly find any value.
         //
-        const variable* pvar (build2::var_pool.find (n));
+        const variable* pvar (root.test_target.ctx.var_pool.find (n));
 
         if (pvar == nullptr)
           return lookup ();
 
-        const script& s (static_cast<const script&> (*root));
         const variable& var (*pvar);
 
         // First check the target we are testing.
@@ -649,12 +649,12 @@ namespace build2
           // value. In this case, presumably the override also affects the
           // script target and we will pick it up there. A bit fuzzy.
           //
-          auto p (s.test_target.find_original (var, target_only));
+          auto p (root.test_target.find_original (var, target_only));
 
           if (p.first)
           {
             if (var.overrides != nullptr)
-              p = s.target_scope.find_override (var, move (p), true);
+              p = root.target_scope.find_override (var, move (p), true);
 
             return p.first;
           }
@@ -665,7 +665,7 @@ namespace build2
         // in different scopes which brings the question of which scopes we
         // should search.
         //
-        return s.script_target[var];
+        return root.script_target[var];
       }
 
       value& scope::
@@ -696,30 +696,30 @@ namespace build2
           s.insert (s.end (), v.begin (), v.end ());
         };
 
-        if (lookup l = find (root->test_var))
+        if (lookup l = find (root.test_var))
           s.push_back (cast<path> (l).representation ());
 
-        if (lookup l = find (root->options_var))
+        if (lookup l = find (root.options_var))
           append (cast<strings> (l));
 
-        if (lookup l = find (root->arguments_var))
+        if (lookup l = find (root.arguments_var))
           append (cast<strings> (l));
 
         // Keep redirects/cleanups out of $N.
         //
         size_t n (s.size ());
 
-        if (lookup l = find (root->redirects_var))
+        if (lookup l = find (root.redirects_var))
           append (cast<strings> (l));
 
-        if (lookup l = find (root->cleanups_var))
+        if (lookup l = find (root.cleanups_var))
           append (cast<strings> (l));
 
         // Set the $N values if present.
         //
         for (size_t i (0); i <= 9; ++i)
         {
-          value& v (assign (*root->cmdN_var[i]));
+          value& v (assign (*root.cmdN_var[i]));
 
           if (i < n)
           {
@@ -734,7 +734,7 @@ namespace build2
 
         // Set $*.
         //
-        assign (root->cmd_var) = move (s);
+        assign (root.cmd_var) = move (s);
       }
     }
   }

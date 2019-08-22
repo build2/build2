@@ -343,7 +343,7 @@ namespace build2
       {
       public:
         scope* const parent; // NULL for the root (script) scope.
-        script* const root;  // Self for the root (script) scope.
+        script&      root;   // Self for the root (script) scope.
 
         // The chain of if-else scope alternatives. See also if_cond_ below.
         //
@@ -424,7 +424,7 @@ namespace build2
         ~scope () = default;
 
       protected:
-        scope (const string& id, scope* parent, script* root);
+        scope (const string& id, scope* parent, script& root);
 
         // Pre-parse data.
         //
@@ -452,7 +452,7 @@ namespace build2
         group (const string& id, group& p): scope (id, &p, p.root) {}
 
       protected:
-        group (const string& id, script* r): scope (id, nullptr, r) {}
+        group (const string& id, script& r): scope (id, nullptr, r) {}
 
         // Pre-parse data.
         //
@@ -505,7 +505,13 @@ namespace build2
       class script_base // Make sure certain things are initialized early.
       {
       protected:
-        script_base ();
+        script_base (const target& test_target,
+                     const testscript& script_target);
+
+      public:
+        const target&        test_target;   // Target we are testing.
+        const build2::scope& target_scope;  // Base scope of test target.
+        const testscript&    script_target; // Target of the testscript file.
 
       public:
         variable_pool var_pool;
@@ -534,11 +540,6 @@ namespace build2
         script (const script&) = delete;
         script& operator= (script&&) = delete;
         script& operator= (const script&) = delete;
-
-      public:
-        const target&        test_target;   // Target we are testing.
-        const build2::scope& target_scope;  // Base scope of test target.
-        const testscript&    script_target; // Target of the testscript file.
 
         // Pre-parse data.
         //

@@ -165,14 +165,15 @@ namespace build2
                 // otherwise the above search would have returned the member
                 // target.
                 //
-                pt = search_existing (p.prerequisite.key (tt));
+                pt = search_existing (t.ctx, p.prerequisite.key (tt));
               }
             }
             else if (!p.is_a<libue> ())
             {
               // See if we also/instead have a group.
               //
-              pg = search_existing (p.prerequisite.key (libul::static_type));
+              pg = search_existing (t.ctx,
+                                    p.prerequisite.key (libul::static_type));
 
               if (pt == nullptr)
                 swap (pt, pg);
@@ -1163,7 +1164,7 @@ namespace build2
           bool u;
           if ((u = pt->is_a<libux> ()) || pt->is_a<liba> ())
           {
-            const variable& var (var_pool["bin.whole"]); // @@ Cache.
+            const variable& var (t.ctx.var_pool["bin.whole"]); // @@ Cache.
 
             // See the bin module for the lookup semantics discussion. Note
             // that the variable is not overridable so we omit find_override()
@@ -1473,7 +1474,7 @@ namespace build2
             ? (exp ? c_export_loptions : c_loptions)
             : (t == x
                ? (exp ? x_export_loptions : x_loptions)
-               : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+               : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
           append_options (d.args, *g, var);
         }
@@ -1575,7 +1576,7 @@ namespace build2
             ? (exp ? c_export_loptions : c_loptions)
             : (t == x
                ? (exp ? x_export_loptions : x_loptions)
-               : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
+               : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
           hash_options (d.cs, *g, var);
         }
@@ -1966,7 +1967,7 @@ namespace build2
         const string& cs (
           cast<string> (
             rs[tsys == "win32-msvc"
-               ? var_pool["bin.ld.checksum"]
+               ? t.ctx.var_pool["bin.ld.checksum"]
                : x_checksum]));
 
         if (dd.expect (cs) != nullptr)

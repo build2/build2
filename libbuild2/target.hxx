@@ -123,9 +123,11 @@ namespace build2
   //
   class LIBBUILD2_SYMEXPORT target
   {
-    optional<string>* ext_; // Reference to value in target_key.
-
   public:
+    // Context this scope belongs to.
+    //
+    context& ctx;
+
     // For targets that are in the src tree of a project we also keep the
     // corresponding out directory. As a result we may end up with multiple
     // targets for the same file if we are building multiple configurations of
@@ -140,9 +142,10 @@ namespace build2
     // when src == out). We also treat out of project targets as being in the
     // out tree.
     //
-    const dir_path   dir;  // Absolute and normalized.
-    const dir_path   out;  // Empty or absolute and normalized.
-    const string     name;
+    const dir_path    dir;  // Absolute and normalized.
+    const dir_path    out;  // Empty or absolute and normalized.
+    const string      name;
+    optional<string>* ext_; // Reference to value in target_key.
 
     const string* ext () const; // Return NULL if not specified.
     const string& ext (string);
@@ -392,7 +395,7 @@ namespace build2
     lookup
     operator[] (const string& name) const
     {
-      const variable* var (var_pool.find (name));
+      const variable* var (ctx.var_pool.find (name));
       return var != nullptr ? operator[] (*var) : lookup ();
     }
 
@@ -530,7 +533,7 @@ namespace build2
       lookup
       operator[] (const string& name) const
       {
-        const variable* var (var_pool.find (name));
+        const variable* var (target_->ctx.var_pool.find (name));
         return var != nullptr ? operator[] (*var) : lookup ();
       }
 
@@ -563,7 +566,8 @@ namespace build2
       assign (const variable* var) {return vars.assign (var);} // For cached.
 
     public:
-      opstate (): vars (false /* global */) {}
+      explicit
+      opstate (context& c): vars (c, false /* global */) {}
 
     private:
       friend class target_set;
@@ -756,9 +760,11 @@ namespace build2
     // Targets should be created via the targets set below.
     //
   public:
-    target (dir_path d, dir_path o, string n)
-        : dir (move (d)), out (move (o)), name (move (n)),
-          vars (false /* global */) {}
+    target (context& c, dir_path d, dir_path o, string n)
+        : ctx (c),
+          dir (move (d)), out (move (o)), name (move (n)),
+          vars (c, false /* global */),
+          state {opstate (c), opstate (c)} {}
 
     target (target&&) = delete;
     target& operator= (target&&) = delete;
@@ -1377,12 +1383,16 @@ namespace build2
 
   private:
     friend class target; // Access to mutex.
+    friend class context;
+
+    explicit
+    target_set (context& c): ctx (c) {}
+
+    context& ctx;
 
     mutable shared_mutex mutex_;
     map_type map_;
   };
-
-  LIBBUILD2_SYMEXPORT extern target_set targets;
 
   // Modification time-based target.
   //
@@ -1752,9 +1762,10 @@ namespace build2
   //
   template <typename T>
   target*
-  target_factory (const target_type&, dir_path d, dir_path o, string n)
+  target_factory (context& c,
+                  const target_type&, dir_path d, dir_path o, string n)
   {
-    return new T (move (d), move (o), move (n));
+    return new T (c, move (d), move (o), move (n));
   }
 
   // Return fixed target extension unless one was specified.

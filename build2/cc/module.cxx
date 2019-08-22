@@ -41,9 +41,13 @@ namespace build2
 
       config::save_module (rs, x, 250);
 
-      const variable& config_c_poptions (var_pool["config.cc.poptions"]);
-      const variable& config_c_coptions (var_pool["config.cc.coptions"]);
-      const variable& config_c_loptions (var_pool["config.cc.loptions"]);
+      auto& vp (rs.ctx.var_pool.rw (rs));
+
+      // Must already exist.
+      //
+      const variable& config_c_poptions (vp["config.cc.poptions"]);
+      const variable& config_c_coptions (vp["config.cc.coptions"]);
+      const variable& config_c_loptions (vp["config.cc.loptions"]);
 
       // config.x
       //
@@ -63,8 +67,6 @@ namespace build2
         //
         if (!cc_loaded)
         {
-          auto& vp (var_pool.rw (rs));
-
           for (const char* const* pm (x_hinters); *pm != nullptr; ++pm)
           {
             string m (*pm);
@@ -201,7 +203,7 @@ namespace build2
       {
         // Prepare configuration hints.
         //
-        variable_map h;
+        variable_map h (rs.ctx);
 
         // Note that all these variables have already been registered.
         //
@@ -545,7 +547,7 @@ namespace build2
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))
       {
-        variable_map h;
+        variable_map h (rs.ctx);
 
         if (!ci.bin_pattern.empty ())
           h.assign ("config.bin.pattern") = ci.bin_pattern;

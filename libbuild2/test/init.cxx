@@ -39,7 +39,7 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
       //
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       common_data d {
 
@@ -109,7 +109,7 @@ namespace build2
         value& v (rs.assign (d.test_target));
 
         if (!v || v.empty ())
-          v = cast<target_triplet> ((*global_scope)["build.host"]);
+          v = cast<target_triplet> (rs.ctx.global_scope["build.host"]);
       }
 
       mod.reset (new module (move (d)));

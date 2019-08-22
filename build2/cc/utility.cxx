@@ -72,7 +72,7 @@ namespace build2
         //
         return phase == run_phase::match && !exist
           ? &search (x, tt, x.dir, x.out, x.name)
-          : search_existing (tt, x.dir, x.out, x.name);
+          : search_existing (x.ctx, tt, x.dir, x.out, x.name);
       }
       else
       {

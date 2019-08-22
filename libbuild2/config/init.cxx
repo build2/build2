@@ -80,7 +80,7 @@ namespace build2
 
       assert (config_hints.empty ()); // We don't known any hints.
 
-      auto& vp (var_pool.rw (rs));
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       // Load config.build if one exists (we don't need to worry about
       // disfigure since we will never be init'ed).
@@ -103,7 +103,7 @@ namespace build2
           {
             // Assume missing version is 0.
             //
-            auto p (extract_variable (f, c_v));
+            auto p (extract_variable (rs.ctx, f, c_v));
             uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
 
             if (v != module::version)
@@ -126,7 +126,7 @@ namespace build2
       // global scope similar to builtin rules.
       //
       {
-        auto& r (rs.global ().rules);
+        auto& r (rs.global_scope ().rules);
         r.insert<mtime_target> (
           configure_id, 0, "config.file", file_rule::instance);
       }

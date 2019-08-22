@@ -18,7 +18,7 @@ namespace build2
     extern const meta_operation_info mo_disfigure;
 
     const string&
-    preprocess_create (const variable_overrides&,
+    preprocess_create (context&,
                        values&,
                        vector_view<opspec>&,
                        bool,

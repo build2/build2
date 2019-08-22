@@ -67,7 +67,7 @@ namespace build2
   const string& target::
   ext (string v)
   {
-    ulock l (targets.mutex_);
+    ulock l (ctx.targets.mutex_);
 
     // Once the extension is set, it is immutable. However, it is possible
     // that someone has already "branded" this target with a different
@@ -102,7 +102,7 @@ namespace build2
     // If this target is from the src tree, use its out directory to find
     // the scope.
     //
-    return scopes.find (out_dir ());
+    return ctx.scopes.find (out_dir ());
   }
 
   const scope& target::
@@ -292,8 +292,6 @@ namespace build2
 
   // target_set
   //
-  target_set targets;
-
   const target* target_set::
   find (const target_key& k, tracer& trace) const
   {
@@ -374,7 +372,7 @@ namespace build2
         ? string (tt.fixed_extension (tk, nullptr /* root scope */))
         : move (tk.ext));
 
-      t = tt.factory (tt, move (dir), move (out), move (name));
+      t = tt.factory (ctx, tt, move (dir), move (out), move (name));
 
       // Re-lock for exclusive access. In the meantime, someone could have
       // inserted this target so emplace() below could return false, in which
@@ -658,25 +656,25 @@ namespace build2
   //
 
   const target*
-  target_search (const target&, const prerequisite_key& pk)
+  target_search (const target& t, const prerequisite_key& pk)
   {
     // The default behavior is to look for an existing target in the
     // prerequisite's directory scope.
     //
-    return search_existing_target (pk);
+    return search_existing_target (t.ctx, pk);
   }
 
   const target*
-  file_search (const target&, const prerequisite_key& pk)
+  file_search (const target& t, const prerequisite_key& pk)
   {
     // First see if there is an existing target.
     //
-    if (const target* t = search_existing_target (pk))
-      return t;
+    if (const target* e = search_existing_target (t.ctx, pk))
+      return e;
 
     // Then look for an existing file in the src tree.
     //
-    return search_existing_file (pk);
+    return search_existing_file (t.ctx, pk);
   }
 
   void
@@ -753,17 +751,17 @@ namespace build2
   };
 
   static const target*
-  alias_search (const target&, const prerequisite_key& pk)
+  alias_search (const target& t, const prerequisite_key& pk)
   {
     // For an alias we don't want to silently create a target since it will do
     // nothing and it most likely not what the user intended.
     //
-    const target* t (search_existing_target (pk));
+    const target* e (search_existing_target (t.ctx, pk));
 
-    if (t == nullptr || t->implied)
+    if (e == nullptr || e->implied)
       fail << "no explicit target for " << pk;
 
-    return t;
+    return e;
   }
 
   const target_type alias::static_type
@@ -847,16 +845,16 @@ namespace build2
   }
 
   static const target*
-  dir_search (const target&, const prerequisite_key& pk)
+  dir_search (const target& t, const prerequisite_key& pk)
   {
     tracer trace ("dir_search");
 
     // The first step is like in search_alias(): looks for an existing target.
     //
-    const target* t (search_existing_target (pk));
+    const target* e (search_existing_target (t.ctx, pk));
 
-    if (t != nullptr && !t->implied)
-      return t;
+    if (e != nullptr && !e->implied)
+      return e;
 
     // If not found (or is implied), then try to load the corresponding
     // buildfile (which would normally define this target). Failed that, see
@@ -905,10 +903,10 @@ namespace build2
         // have loaded the buildfile. So re-test now that we are in exclusive
         // phase.
         //
-        if (t == nullptr)
-          t = search_existing_target (pk);
+        if (e == nullptr)
+          e = search_existing_target (t.ctx, pk);
 
-        if (t != nullptr && !t->implied)
+        if (e != nullptr && !e->implied)
           retest = true;
         else
         {
@@ -933,8 +931,8 @@ namespace build2
             }
             else if (exists (src_base))
             {
-              t = dir::search_implied (base, pk, trace);
-              retest = (t != nullptr);
+              e = dir::search_implied (base, pk, trace);
+              retest = (e != nullptr);
             }
           }
         }
@@ -945,11 +943,11 @@ namespace build2
       //
       if (retest)
       {
-        if (t == nullptr)
-          t = search_existing_target (pk);
+        if (e == nullptr)
+          e = search_existing_target (t.ctx, pk);
 
-        if (t != nullptr && !t->implied)
-          return t;
+        if (e != nullptr && !e->implied)
+          return e;
       }
     }
 
@@ -1100,7 +1098,10 @@ namespace build2
       // Note: we are guaranteed the scope is never NULL for prerequisites
       // (where out/dir could be relative and none of this will work).
       //
+      // @@ CTX TODO
+#if 0
       root = scopes.find (tk.out->empty () ? *tk.dir : *tk.out).root_scope ();
+#endif
 
       if (root == nullptr || root->root_extra == nullptr)
         fail << "unable to determine extension for buildfile target " << tk;

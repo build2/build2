@@ -41,7 +41,8 @@ namespace build2
     //
     init_diag (1);
     init (nullptr, argv[0]);
-    reset (strings ()); // No command line variables.
+    sched.startup (1);  // Serial execution.
+    context ctx (sched);
 
     function_family f ("dummy");
 
@@ -114,9 +115,9 @@ namespace build2
 
     try
     {
-      scope& s (*scope::global_);
+      scope& s (ctx.global_scope.rw ());
 
-      parser p;
+      parser p (ctx);
       p.parse_buildfile (cin, path ("buildfile"), s, s);
     }
     catch (const failed&)

@@ -8,6 +8,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 
 #include <build2/bin/target.hxx>
@@ -278,7 +279,8 @@ namespace build2
 
       template <typename T>
       static ulock
-      insert_library (T*&,
+      insert_library (context&,
+                      T*&,
                       const string&,
                       const dir_path&,
                       optional<string>,

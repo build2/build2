@@ -77,7 +77,7 @@ namespace build2
 
       // Enter variables. Note: some overridable, some not.
       //
-      auto& v (var_pool.rw (rs));
+      auto& v (rs.ctx.var_pool.rw (rs));
 
       auto v_t (variable_visibility::target);
 
@@ -276,7 +276,8 @@ namespace build2
         // Prepare configuration hints. They are only used on the first load
         // of bin.config so we only populate them on our first load.
         //
-        variable_map h;
+        variable_map h (rs.ctx);
+
         if (first)
         {
           // Note that all these variables have already been registered.

@@ -354,7 +354,7 @@ namespace build2
     // global scope.
     //
     if (inner_proj == nullptr)
-      inner_proj = global_scope;
+      inner_proj = &ctx.global_scope;
 
     // Now find our "stem", that is, the value to which we will be appending
     // suffixes and prepending prefixes. This is either the original or the
@@ -430,7 +430,7 @@ namespace build2
     // Check the cache.
     //
     variable_override_cache& cache (
-      inner_proj == global_scope
+      inner_proj == &ctx.global_scope
       ? global_override_cache
       : inner_proj->root_extra->override_cache);
 
@@ -595,7 +595,7 @@ namespace build2
     //
     for (const scope* s (this);
          s != nullptr;
-         s = s->root () ? global_scope : s->parent_scope ())
+         s = s->root () ? &s->global_scope () : s->parent_scope ())
     {
       if (s->target_types.empty ())
         continue;
@@ -619,7 +619,9 @@ namespace build2
   {
     // Pretty much the same logic as in find_target_type() above.
     //
-    for (; s != nullptr; s = s->root () ? global_scope : s->parent_scope ())
+    for (;
+         s != nullptr;
+         s = s->root () ? &s->global_scope () : s->parent_scope ())
     {
       if (s->target_types.empty ())
         continue;
@@ -730,7 +732,7 @@ namespace build2
     // factor it back into the name (this way we won't assert when printing
     // diagnostics; see to_stream(target_key) for details).
     //
-    if (ext                             &&
+    if (ext                              &&
         tt->fixed_extension   == nullptr &&
         tt->default_extension == nullptr)
     {
@@ -743,7 +745,8 @@ namespace build2
   }
 
   static target*
-  derived_tt_factory (const target_type& t, dir_path d, dir_path o, string n)
+  derived_tt_factory (context& c,
+                      const target_type& t, dir_path d, dir_path o, string n)
   {
     // Pass our type to the base factory so that it can detect that it is
     // being called to construct a derived target. This can be used, for
@@ -756,7 +759,7 @@ namespace build2
     const target_type* bt (t.base);
     for (; bt->factory == &derived_tt_factory; bt = bt->base) ;
 
-    target* r (bt->factory (t, move (d), move (o), move (n)));
+    target* r (bt->factory (c, t, move (d), move (o), move (n)));
     r->derived_type = &t;
     return r;
   }
@@ -818,23 +821,18 @@ namespace build2
     return target_types.insert (name, move (dt));
   }
 
-  scope* scope::global_;
+  //@@ CTX ??? sounds like should be in context!
   scope::variable_override_cache scope::global_override_cache;
 
   // scope_map
   //
-  scope_map scope_map::instance;
-  const scope_map& scope_map::cinstance = scope_map::instance;
-  const scope_map& scopes = scope_map::cinstance;
-
-  const scope* global_scope;
 
   auto scope_map::
   insert (const dir_path& k, bool root) -> iterator
   {
     scope_map_base& m (*this);
 
-    auto er (m.emplace (k, scope (true))); // Global.
+    auto er (m.emplace (k, scope (ctx, true /* global */)));
     scope& s (er.first->second);
 
     // If this is a new scope, update the parent chain.

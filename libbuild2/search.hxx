@@ -13,12 +13,14 @@
 namespace build2
 {
   class target;
+  class context;
   class prerequisite_key;
 
-  // Search for an existing target in this prerequisite's scope.
+  // Search for an existing target in this prerequisite's scope. Scope can be
+  // NULL if directories are absolute.
   //
   LIBBUILD2_SYMEXPORT const target*
-  search_existing_target (const prerequisite_key&);
+  search_existing_target (context&, const prerequisite_key&);
 
   // Search for an existing file. If the prerequisite directory is relative,
   // then look in the scope's src directory. Otherwise, if the absolute
@@ -30,12 +32,12 @@ namespace build2
   // contains the search paths. But there wasn't any need for this yet.
   //
   LIBBUILD2_SYMEXPORT const target*
-  search_existing_file (const prerequisite_key&);
+  search_existing_file (context&, const prerequisite_key&);
 
   // Create a new target in this prerequisite's scope.
   //
   LIBBUILD2_SYMEXPORT const target&
-  create_new_target (const prerequisite_key&);
+  create_new_target (context&, const prerequisite_key&);
 }
 
 #endif // LIBBUILD2_SEARCH_HXX

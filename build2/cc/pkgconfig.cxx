@@ -1027,7 +1027,7 @@ namespace build2
 
       // Parse modules and add them to the prerequisites.
       //
-      auto parse_modules = [&trace, &next, this]
+      auto parse_modules = [&trace, &next, &s, this]
         (const pkgconf& pc, prerequisites& ps)
       {
         string mstr (pc.variable ("cxx_modules"));
@@ -1057,7 +1057,7 @@ namespace build2
           // For now there are only C++ modules.
           //
           auto tl (
-            targets.insert_locked (
+            s.ctx.targets.insert_locked (
               *x_mod,
               mp.directory (),
               dir_path (),

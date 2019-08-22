@@ -45,7 +45,8 @@ namespace build2
     }
 
     static target*
-    cli_cxx_factory (const target_type&, dir_path d, dir_path o, string n)
+    cli_cxx_factory (context& ctx,
+                     const target_type&, dir_path d, dir_path o, string n)
     {
       tracer trace ("cli::cli_cxx_factory");
 
@@ -55,11 +56,11 @@ namespace build2
       //
       // Also required for the src-out remapping logic.
       //
-      targets.insert<cxx::hxx> (d, o, n, trace);
-      targets.insert<cxx::cxx> (d, o, n, trace);
-      targets.insert<cxx::ixx> (d, o, n, trace);
+      ctx.targets.insert<cxx::hxx> (d, o, n, trace);
+      ctx.targets.insert<cxx::cxx> (d, o, n, trace);
+      ctx.targets.insert<cxx::ixx> (d, o, n, trace);
 
-      return new cli_cxx (move (d), move (o), move (n));
+      return new cli_cxx (ctx, move (d), move (o), move (n));
     }
 
     const target_type cli_cxx::static_type

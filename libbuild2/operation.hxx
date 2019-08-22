@@ -12,7 +12,6 @@
 
 #include <libbuild2/action.hxx>
 #include <libbuild2/variable.hxx>
-#include <libbuild2/prerequisite.hxx>
 #include <libbuild2/target-state.hxx>
 
 #include <libbuild2/export.hxx>
@@ -21,8 +20,10 @@ namespace build2
 {
   class location;
   class scope;
-  class target_key;
   class target;
+  class target_key;
+  class context;
+  class include_type;
   struct prerequisite_member;
 
   struct opspec;
@@ -275,7 +276,7 @@ namespace build2
     // If lifted is true then the operation name in opspec is bogus (has
     // been lifted) and the default/empty name should be assumed instead.
     //
-    using process_func = const string& (const variable_overrides&,
+    using process_func = const string& (context&,
                                         values&,
                                         vector_view<opspec>&,
                                         bool lifted,

@@ -365,7 +365,9 @@ namespace build2
         const variable& var (
           com
           ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+          : (t == x
+             ? x_export_poptions
+             : l.ctx.var_pool[t + ".export.poptions"]));
 
         append_options (args, l, var);
       };
@@ -418,7 +420,9 @@ namespace build2
         const variable& var (
           com
           ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+          : (t == x
+             ? x_export_poptions
+             : l.ctx.var_pool[t + ".export.poptions"]));
 
         hash_options (cs, l, var);
       };
@@ -472,7 +476,9 @@ namespace build2
         const variable& var (
           com
           ? c_export_poptions
-          : (t == x ? x_export_poptions : var_pool[t + ".export.poptions"]));
+          : (t == x
+             ? x_export_poptions
+             : l.ctx.var_pool[t + ".export.poptions"]));
 
         append_prefixes (m, l, var);
       };
@@ -2161,7 +2167,7 @@ namespace build2
         //
         small_vector<const target_type*, 2> tts;
 
-        const scope& bs (scopes.find (d));
+        const scope& bs (t.ctx.scopes.find (d));
         if (const scope* rs = bs.root_scope ())
         {
           tts = map_extension (bs, n, e);
@@ -2201,7 +2207,7 @@ namespace build2
           // absolute path with a spelled-out extension to multiple targets.
           //
           for (const target_type* tt: tts)
-            if ((r = targets.find (*tt, d, out, n, e, trace)) != nullptr)
+            if ((r = t.ctx.targets.find (*tt, d, out, n, e, trace)) != nullptr)
               break;
 
           // Note: we can't do this because of the in-source builds where
@@ -2887,7 +2893,7 @@ namespace build2
                     // See if this path is inside a project with an out-of-
                     // tree build and is in the out directory tree.
                     //
-                    const scope& bs (scopes.find (d));
+                    const scope& bs (t.ctx.scopes.find (d));
                     if (bs.root_scope () != nullptr)
                     {
                       const dir_path& bp (bs.out_path ());
@@ -5101,7 +5107,7 @@ namespace build2
                    modules_sidebuild_dir /=
                    x);
 
-      const scope* ps (&scopes.find (pd));
+      const scope* ps (&rs.ctx.scopes.find (pd));
 
       if (ps->out_path () != pd)
       {
@@ -5112,7 +5118,7 @@ namespace build2
         // Re-test again now that we are in exclusive phase (another thread
         // could have already created and loaded the subproject).
         //
-        ps = &scopes.find (pd);
+        ps = &rs.ctx.scopes.find (pd);
 
         if (ps->out_path () != pd)
         {
@@ -5200,7 +5206,7 @@ namespace build2
       // exists then we assume all this is already done (otherwise why would
       // someone have created such a target).
       //
-      if (const file* bt = targets.find<file> (
+      if (const file* bt = bs.ctx.targets.find<file> (
             tt,
             pd,
             dir_path (), // Always in the out tree.
@@ -5237,13 +5243,14 @@ namespace build2
         }
       }
 
-      auto p (targets.insert_locked (tt,
-                                     move (pd),
-                                     dir_path (), // Always in the out tree.
-                                     move (mf),
-                                     nullopt,     // Use default extension.
-                                     true,        // Implied.
-                                     trace));
+      auto p (bs.ctx.targets.insert_locked (
+                tt,
+                move (pd),
+                dir_path (), // Always in the out tree.
+                move (mf),
+                nullopt,     // Use default extension.
+                true,        // Implied.
+                trace));
       file& bt (static_cast<file&> (p.first));
 
       // Note that this is racy and someone might have created this target
@@ -5295,7 +5302,7 @@ namespace build2
 
       const target_type& tt (compile_types (li.type).hbmi);
 
-      if (const file* bt = targets.find<file> (
+      if (const file* bt = bs.ctx.targets.find<file> (
             tt,
             pd,
             dir_path (), // Always in the out tree.
@@ -5307,13 +5314,14 @@ namespace build2
       prerequisites ps;
       ps.push_back (prerequisite (ht));
 
-      auto p (targets.insert_locked (tt,
-                                     move (pd),
-                                     dir_path (), // Always in the out tree.
-                                     move (mf),
-                                     nullopt,     // Use default extension.
-                                     true,        // Implied.
-                                     trace));
+      auto p (bs.ctx.targets.insert_locked (
+                tt,
+                move (pd),
+                dir_path (), // Always in the out tree.
+                move (mf),
+                nullopt,     // Use default extension.
+                true,        // Implied.
+                trace));
       file& bt (static_cast<file&> (p.first));
 
       // Note that this is racy and someone might have created this target
