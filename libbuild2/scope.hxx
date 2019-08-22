@@ -342,7 +342,7 @@ namespace build2
     scope&
     rw () const
     {
-      assert (phase == run_phase::load);
+      assert (ctx.phase == run_phase::load);
       return const_cast<scope&> (*this);
     }
 
@@ -462,7 +462,7 @@ namespace build2
     scope_map&
     rw () const
     {
-      assert (phase == run_phase::load);
+      assert (ctx.phase == run_phase::load);
       return const_cast<scope_map&> (*this);
     }
 

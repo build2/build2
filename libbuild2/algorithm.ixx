@@ -13,7 +13,8 @@ namespace build2
   inline const target&
   search_custom (const prerequisite& p, const target& t)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (t.ctx.phase == run_phase::match ||
+            t.ctx.phase == run_phase::execute);
 
     const target* e (nullptr);
     if (!p.target.compare_exchange_strong (
@@ -281,7 +282,7 @@ namespace build2
   inline target_state
   match (action a, const target& t, bool fail)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     target_state r (match (a, t, 0, nullptr).second);
 
@@ -296,7 +297,7 @@ namespace build2
   inline pair<bool, target_state>
   try_match (action a, const target& t, bool fail)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     pair<bool, target_state> r (
       match (a, t, 0, nullptr, true /* try_match */));
@@ -315,7 +316,7 @@ namespace build2
   inline bool
   match (action a, const target& t, unmatch um)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     target_state s (match (a, t, 0, nullptr).second);
 
@@ -355,7 +356,7 @@ namespace build2
                size_t sc, atomic_count& tc,
                bool fail)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
     target_state r (match (a, t, sc, &tc).second);
 
     if (fail && !keep_going && r == target_state::failed)
@@ -406,7 +407,7 @@ namespace build2
   inline void
   match_recipe (target_lock& l, recipe r)
   {
-    assert (phase == run_phase::match && l.target != nullptr);
+    assert (l.target != nullptr && l.target->ctx.phase == run_phase::match);
 
     (*l.target)[l.action].rule = nullptr; // No rule.
     set_recipe (l, move (r));
@@ -416,7 +417,7 @@ namespace build2
   inline recipe
   match_delegate (action a, target& t, const rule& dr, bool try_match)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     // Note: we don't touch any of the t[a] state since that was/will be set
     // for the delegating rule.
@@ -450,7 +451,7 @@ namespace build2
     if (a.outer ())
       a = a.inner_action ();
 
-    switch (phase)
+    switch (t.ctx.phase)
     {
     case run_phase::match:
       {
@@ -611,7 +612,8 @@ namespace build2
   {
     assert (a.outer ());
     auto& p (t.prerequisite_targets[a]);
-    return straight_execute_members (a.inner_action (),
+    return straight_execute_members (t.ctx,
+                                     a.inner_action (),
                                      t[a].task_count,
                                      p.data (),
                                      c == 0 ? p.size () - s : c,
@@ -623,7 +625,8 @@ namespace build2
   {
     assert (a.outer ());
     auto& p (t.prerequisite_targets[a]);
-    return reverse_execute_members (a.inner_action (),
+    return reverse_execute_members (t.ctx,
+                                    a.inner_action (),
                                     t[a].task_count,
                                     p.data (),
                                     c == 0 ? p.size () : c,

@@ -554,7 +554,7 @@ namespace build2
 
             rs->ctx.current_oif (*oif);
 
-            phase_lock pl (run_phase::match);
+            phase_lock pl (t.ctx, run_phase::match);
             match (action (configure_id, id), t);
           }
         }

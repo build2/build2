@@ -41,79 +41,6 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern scheduler sched;
 
-  // @@ CTX: document (backlinks, non-overlap etc). RW story.
-  //
-  class LIBBUILD2_SYMEXPORT context
-  {
-    struct data;
-    unique_ptr<data> data_;
-
-  public:
-    scheduler& sched;
-
-    const scope_map& scopes;
-    const scope& global_scope;
-
-    target_set& targets;
-
-    const variable_pool& var_pool;
-    const variable_overrides& var_overrides; // Project and relative scope.
-
-  public:
-    explicit
-    context (scheduler&, const strings& cmd_vars = {});
-
-    void
-    current_mif (const meta_operation_info&);
-
-    void
-    current_oif (const operation_info& inner,
-                 const operation_info* outer = nullptr,
-                 bool diag_noise = true);
-
-    context (context&&) = delete;
-    context& operator= (context&&) = delete;
-
-    context (const context&) = delete;
-    context& operator= (const context&) = delete;
-
-    ~context ();
-  };
-
-  // In order to perform each operation the build system goes through the
-  // following phases:
-  //
-  // load     - load the buildfiles
-  // match    - search prerequisites and match rules
-  // execute  - execute the matched rule
-  //
-  // The build system starts with a "serial load" phase and then continues
-  // with parallel match and execute. Match, however, can be interrupted
-  // both with load and execute.
-  //
-  // Match can be interrupted with "exclusive load" in order to load
-  // additional buildfiles. Similarly, it can be interrupted with (parallel)
-  // execute in order to build targetd required to complete the match (for
-  // example, generated source code or source code generators themselves).
-  //
-  // Such interruptions are performed by phase change that is protected by
-  // phase_mutex (which is also used to synchronize the state changes between
-  // phases).
-  //
-  // Serial load can perform arbitrary changes to the build state. Exclusive
-  // load, however, can only perform "island appends". That is, it can create
-  // new "nodes" (variables, scopes, etc) but not (semantically) change
-  // already existing nodes or invalidate any references to such (the idea
-  // here is that one should be able to load additional buildfiles as long as
-  // they don't interfere with the existing build state). The "islands" are
-  // identified by the load_generation number (0 for the initial/serial
-  // load). It is incremented in case of a phase switch and can be stored in
-  // various "nodes" to verify modifications are only done "within the
-  // islands".
-  //
-  LIBBUILD2_SYMEXPORT extern run_phase phase;
-  LIBBUILD2_SYMEXPORT extern size_t load_generation;
-
   // A "tri-mutex" that keeps all the threads in one of the three phases. When
   // a thread wants to switch a phase, it has to wait for all the other
   // threads to do the same (or release their phase locks). The load phase is
@@ -160,12 +87,11 @@ namespace build2
     bool
     relock (run_phase unlock, run_phase lock);
 
-  public:
-    run_phase_mutex ()
-        : fail_ (false), lc_ (0), mc_ (0), ec_ (0)
-    {
-      phase = run_phase::load;
-    }
+  private:
+    friend class context;
+
+    run_phase_mutex (run_phase& p)
+      : phase_ (p), fail_ (false), lc_ (0), mc_ (0), ec_ (0) {}
 
   private:
     friend struct phase_lock;
@@ -182,6 +108,8 @@ namespace build2
     // When the mutex is unlocked (all three counters become zero, the phase
     // is always changed to load (this is also the initial state).
     //
+    run_phase& phase_;
+
     mutex m_;
 
     bool fail_;
@@ -197,7 +125,81 @@ namespace build2
     mutex lm_;
   };
 
-  extern run_phase_mutex phase_mutex;
+  // @@ CTX: document (backlinks, non-overlap etc). RW story.
+  //
+  class LIBBUILD2_SYMEXPORT context
+  {
+    struct data;
+    unique_ptr<data> data_;
+
+  public:
+    scheduler& sched;
+
+    // In order to perform each operation the build system goes through the
+    // following phases:
+    //
+    // load     - load the buildfiles
+    // match    - search prerequisites and match rules
+    // execute  - execute the matched rule
+    //
+    // The build system starts with a "serial load" phase and then continues
+    // with parallel match and execute. Match, however, can be interrupted
+    // both with load and execute.
+    //
+    // Match can be interrupted with "exclusive load" in order to load
+    // additional buildfiles. Similarly, it can be interrupted with (parallel)
+    // execute in order to build targetd required to complete the match (for
+    // example, generated source code or source code generators themselves).
+    //
+    // Such interruptions are performed by phase change that is protected by
+    // phase_mutex (which is also used to synchronize the state changes
+    // between phases).
+    //
+    // Serial load can perform arbitrary changes to the build state. Exclusive
+    // load, however, can only perform "island appends". That is, it can
+    // create new "nodes" (variables, scopes, etc) but not (semantically)
+    // change already existing nodes or invalidate any references to such (the
+    // idea here is that one should be able to load additional buildfiles as
+    // long as they don't interfere with the existing build state). The
+    // "islands" are identified by the load_generation number (0 for the
+    // initial/serial load). It is incremented in case of a phase switch and
+    // can be stored in various "nodes" to verify modifications are only done
+    // "within the islands".
+    //
+    run_phase phase = run_phase::load;
+    run_phase_mutex phase_mutex;
+    size_t load_generation = 0;
+
+    // Scopes, targets, and variables.
+    //
+    const scope_map& scopes;
+    const scope& global_scope;
+
+    target_set& targets;
+
+    const variable_pool& var_pool;
+    const variable_overrides& var_overrides; // Project and relative scope.
+
+  public:
+    explicit
+    context (scheduler&, const strings& cmd_vars = {});
+
+    void
+    current_mif (const meta_operation_info&);
+
+    void
+    current_oif (const operation_info& inner,
+                 const operation_info* outer = nullptr,
+                 bool diag_noise = true);
+
+    context (context&&) = delete;
+    context& operator= (context&&) = delete;
+
+    context (const context&) = delete;
+    context& operator= (const context&) = delete;
+
+    ~context ();
+  };
 
   // Grab a new phase lock releasing it on destruction. The lock can be
   // "owning" or "referencing" (recursive).
@@ -253,7 +255,7 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_lock
   {
-    explicit phase_lock (run_phase);
+    explicit phase_lock (context&, run_phase);
     ~phase_lock ();
 
     phase_lock (phase_lock&&) = delete;
@@ -262,7 +264,9 @@ namespace build2
     phase_lock& operator= (phase_lock&&) = delete;
     phase_lock& operator= (const phase_lock&) = delete;
 
-    run_phase p;
+    context& ctx;
+    phase_lock* prev; // From another context.
+    run_phase phase;
   };
 
   // Assuming we have a lock on the current phase, temporarily release it
@@ -270,7 +274,7 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_unlock
   {
-    phase_unlock (bool unlock = true);
+    phase_unlock (context&, bool unlock = true);
     ~phase_unlock () noexcept (false);
 
     phase_lock* l;
@@ -281,10 +285,10 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_switch
   {
-    explicit phase_switch (run_phase);
+    explicit phase_switch (context&, run_phase);
     ~phase_switch () noexcept (false);
 
-    run_phase o, n;
+    run_phase old_phase, new_phase;
   };
 
   // Wait for a task count optionally and temporarily unlocking the phase.
@@ -295,11 +299,12 @@ namespace build2
 
     wait_guard (); // Empty.
 
-    explicit
-    wait_guard (atomic_count& task_count,
+    wait_guard (context&,
+                atomic_count& task_count,
                 bool phase = false);
 
-    wait_guard (size_t start_count,
+    wait_guard (context&,
+                size_t start_count,
                 atomic_count& task_count,
                 bool phase = false);
 
@@ -314,6 +319,7 @@ namespace build2
     wait_guard (const wait_guard&) = delete;
     wait_guard& operator= (const wait_guard&) = delete;
 
+    context* ctx;
     size_t start_count;
     atomic_count* task_count;
     bool phase;

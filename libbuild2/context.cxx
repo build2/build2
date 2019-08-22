@@ -46,13 +46,14 @@ namespace build2
     variable_pool var_pool;
     variable_overrides var_overrides;
 
-    data (context& c): scopes (c), targets (c), var_pool (true /* global */) {}
+    data (context& c): scopes (c), targets (c), var_pool (&c /* global */) {}
   };
 
   context::
   context (scheduler& s, const strings& cmd_vars)
       : data_ (new data (*this)),
         sched (s),
+        phase_mutex (phase),
         scopes (data_->scopes),
         global_scope (create_global_scope (data_->scopes)),
         targets (data_->targets),
@@ -546,11 +547,6 @@ namespace build2
 
   scheduler sched;
 
-  run_phase phase;
-  run_phase_mutex phase_mutex;
-
-  size_t load_generation;
-
   bool run_phase_mutex::
   lock (run_phase p)
   {
@@ -576,13 +572,13 @@ namespace build2
       //
       if (u)
       {
-        phase = p;
+        phase_ = p;
         r = !fail_;
       }
-      else if (phase != p)
+      else if (phase_ != p)
       {
         sched.deactivate (false /* external */);
-        for (; phase != p; v->wait (l)) ;
+        for (; phase_ != p; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
         sched.activate (false /* external */);
@@ -631,10 +627,10 @@ namespace build2
       {
         condition_variable* v;
 
-        if      (lc_ != 0) {phase = run_phase::load;    v = &lv_;}
-        else if (mc_ != 0) {phase = run_phase::match;   v = &mv_;}
-        else if (ec_ != 0) {phase = run_phase::execute; v = &ev_;}
-        else               {phase = run_phase::load;    v = nullptr;}
+        if      (lc_ != 0) {phase_ = run_phase::load;    v = &lv_;}
+        else if (mc_ != 0) {phase_ = run_phase::match;   v = &mv_;}
+        else if (ec_ != 0) {phase_ = run_phase::execute; v = &ev_;}
+        else               {phase_ = run_phase::load;    v = nullptr;}
 
         if (v != nullptr)
         {
@@ -681,7 +677,7 @@ namespace build2
 
       if (u)
       {
-        phase = n;
+        phase_ = n;
         r = !fail_;
 
         // Notify others that could be waiting for this phase.
@@ -695,7 +691,7 @@ namespace build2
       else // phase != n
       {
         sched.deactivate (false /* external */);
-        for (; phase != n; v->wait (l)) ;
+        for (; phase_ != n; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
         sched.activate (false /* external */);
@@ -735,22 +731,25 @@ namespace build2
   phase_lock* phase_lock_instance;
 
   phase_lock::
-  phase_lock (run_phase p)
-      : p (p)
+  phase_lock (context& c, run_phase p)
+      : ctx (c), phase (p)
   {
-    if (phase_lock* l = phase_lock_instance)
-      assert (l->p == p);
+    phase_lock* pl (phase_lock_instance);
+
+    if (pl != nullptr && &pl->ctx == &ctx)
+      assert (pl->phase == phase);
     else
     {
-      if (!phase_mutex.lock (p))
+      if (!ctx.phase_mutex.lock (phase))
       {
-        phase_mutex.unlock (p);
+        ctx.phase_mutex.unlock (phase);
         throw failed ();
       }
 
+      prev = pl;
       phase_lock_instance = this;
 
-      //text << this_thread::get_id () << " phase acquire " << p;
+      //text << this_thread::get_id () << " phase acquire " << phase;
     }
   }
 
@@ -759,8 +758,8 @@ namespace build2
   {
     if (phase_lock_instance == this)
     {
-      phase_lock_instance = nullptr;
-      phase_mutex.unlock (p);
+      phase_lock_instance = prev;
+      ctx.phase_mutex.unlock (phase);
 
       //text << this_thread::get_id () << " phase release " << p;
     }
@@ -769,13 +768,15 @@ namespace build2
   // phase_unlock
   //
   phase_unlock::
-  phase_unlock (bool u)
+  phase_unlock (context& ctx, bool u)
       : l (u ? phase_lock_instance : nullptr)
   {
     if (u)
     {
-      phase_lock_instance = nullptr;
-      phase_mutex.unlock (l->p);
+      assert (&l->ctx == &ctx);
+
+      phase_lock_instance = nullptr; // Note: not l->prev.
+      ctx.phase_mutex.unlock (l->phase);
 
       //text << this_thread::get_id () << " phase unlock  " << l->p;
     }
@@ -786,7 +787,7 @@ namespace build2
   {
     if (l != nullptr)
     {
-      bool r (phase_mutex.lock (l->p));
+      bool r (l->ctx.phase_mutex.lock (l->phase));
       phase_lock_instance = l;
 
       // Fail unless we are already failing. Note that we keep the phase
@@ -802,19 +803,22 @@ namespace build2
   // phase_switch
   //
   phase_switch::
-  phase_switch (run_phase n)
-      : o (phase), n (n)
+  phase_switch (context& ctx, run_phase n)
+      : old_phase (ctx.phase), new_phase (n)
   {
-    if (!phase_mutex.relock (o, n))
+    phase_lock* pl (phase_lock_instance);
+    assert (&pl->ctx == &ctx);
+
+    if (!ctx.phase_mutex.relock (old_phase, new_phase))
     {
-      phase_mutex.relock (n, o);
+      ctx.phase_mutex.relock (new_phase, old_phase);
       throw failed ();
     }
 
-    phase_lock_instance->p = n;
+    pl->phase = new_phase;
 
-    if (n == run_phase::load) // Note: load lock is exclusive.
-      load_generation++;
+    if (new_phase == run_phase::load) // Note: load lock is exclusive.
+      ctx.load_generation++;
 
     //text << this_thread::get_id () << " phase switch  " << o << " " << n;
   }
@@ -822,18 +826,21 @@ namespace build2
   phase_switch::
   ~phase_switch () noexcept (false)
   {
+    phase_lock* pl (phase_lock_instance);
+    run_phase_mutex& pm (pl->ctx.phase_mutex);
+
     // If we are coming off a failed load phase, mark the phase_mutex as
     // failed to terminate all other threads since the build state may no
     // longer be valid.
     //
-    if (n == run_phase::load && uncaught_exception ())
+    if (new_phase == run_phase::load && uncaught_exception ())
     {
-      mlock l (phase_mutex.m_);
-      phase_mutex.fail_ = true;
+      mlock l (pm.m_);
+      pm.fail_ = true;
     }
 
-    bool r (phase_mutex.relock (n, o));
-    phase_lock_instance->p = o;
+    bool r (pm.relock (new_phase, old_phase));
+    pl->phase = old_phase;
 
     // Similar logic to ~phase_unlock().
     //

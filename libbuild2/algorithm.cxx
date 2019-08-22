@@ -22,7 +22,7 @@ namespace build2
   const target&
   search (const target& t, const prerequisite& p)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     const target* r (p.target.load (memory_order_consume));
 
@@ -35,13 +35,15 @@ namespace build2
   const target*
   search_existing (const prerequisite& p)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    context& ctx (p.scope.ctx);
+
+    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
 
     const target* r (p.target.load (memory_order_consume));
 
     if (r == nullptr)
     {
-      r = search_existing (p.scope.ctx, p.key ());
+      r = search_existing (ctx, p.key ());
 
       if (r != nullptr)
         search_custom (p, *r);
@@ -53,7 +55,7 @@ namespace build2
   const target&
   search (const target& t, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     // If this is a project-qualified prerequisite, then this is import's
     // business.
@@ -70,7 +72,7 @@ namespace build2
   const target*
   search_existing (context& ctx, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
 
     return pk.proj
       ? import_existing (ctx, pk)
@@ -80,7 +82,7 @@ namespace build2
   const target&
   search (const target& t, name n, const scope& s)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     auto rp (s.find_target_type (n, location ()));
     const target_type* tt (rp.first);
@@ -108,7 +110,8 @@ namespace build2
   const target*
   search_existing (const name& cn, const scope& s, const dir_path& out)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (s.ctx.phase == run_phase::match ||
+            s.ctx.phase == run_phase::execute);
 
     name n (cn);
     auto rp (s.find_target_type (n, location ()));
@@ -166,7 +169,7 @@ namespace build2
   target_lock
   lock_impl (action a, const target& ct, optional<scheduler::work_queue> wq)
   {
-    assert (phase == run_phase::match);
+    assert (ct.ctx.phase == run_phase::match);
 
     // Most likely the target's state is (count_touched - 1), that is, 0 or
     // previously executed, so let's start with that.
@@ -206,7 +209,7 @@ namespace build2
         // to switch the phase to load. Which would result in a deadlock
         // unless we release the phase.
         //
-        phase_unlock ul;
+        phase_unlock ul (ct.ctx);
         e = sched.wait (busy - 1, task_count, *wq);
       }
 
@@ -245,7 +248,7 @@ namespace build2
   void
   unlock_impl (action a, target& t, size_t offset)
   {
-    assert (phase == run_phase::match);
+    assert (t.ctx.phase == run_phase::match);
 
     atomic_count& task_count (t[a].task_count);
 
@@ -642,7 +645,7 @@ namespace build2
 
                          try
                          {
-                           phase_lock pl (run_phase::match); // Can throw.
+                           phase_lock pl (t.ctx, run_phase::match); // Throws.
                            {
                              target_lock l {a, &t, offset}; // Reassemble.
                              match_impl (l, false /* step */, try_match);
@@ -732,7 +735,7 @@ namespace build2
         // to execute it now.
         //
         {
-          phase_switch ps (run_phase::execute);
+          phase_switch ps (g.ctx, run_phase::execute);
           execute_direct (a, g);
         }
 
@@ -755,7 +758,7 @@ namespace build2
     // We can be called during execute though everything should have been
     // already resolved.
     //
-    switch (phase)
+    switch (g.ctx.phase)
     {
     case run_phase::match:
       {
@@ -797,7 +800,7 @@ namespace build2
     // Start asynchronous matching of prerequisites. Wait with unlocked phase
     // to allow phase switching.
     //
-    wait_guard wg (target::count_busy (), t[a].task_count, true);
+    wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
 
     size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
@@ -854,7 +857,7 @@ namespace build2
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
     //
-    wait_guard wg (target::count_busy (), t[a].task_count, true);
+    wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -1740,14 +1743,14 @@ namespace build2
 
   template <typename T>
   target_state
-  straight_execute_members (action a, atomic_count& tc,
+  straight_execute_members (context& ctx, action a, atomic_count& tc,
                             T ts[], size_t n, size_t p)
   {
     target_state r (target_state::unchanged);
 
     // Start asynchronous execution of prerequisites.
     //
-    wait_guard wg (target::count_busy (), tc);
+    wait_guard wg (ctx, target::count_busy (), tc);
 
     n += p;
     for (size_t i (p); i != n; ++i)
@@ -1795,14 +1798,14 @@ namespace build2
 
   template <typename T>
   target_state
-  reverse_execute_members (action a, atomic_count& tc,
+  reverse_execute_members (context& ctx, action a, atomic_count& tc,
                            T ts[], size_t n, size_t p)
   {
     // Pretty much as straight_execute_members() but in reverse order.
     //
     target_state r (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), tc);
+    wait_guard wg (ctx, target::count_busy (), tc);
 
     n = p - n;
     for (size_t i (p); i != n; )
@@ -1846,19 +1849,19 @@ namespace build2
   //
   template LIBBUILD2_SYMEXPORT target_state
   straight_execute_members<const target*> (
-    action, atomic_count&, const target*[], size_t, size_t);
+    context&, action, atomic_count&, const target*[], size_t, size_t);
 
   template LIBBUILD2_SYMEXPORT target_state
   reverse_execute_members<const target*> (
-    action, atomic_count&, const target*[], size_t, size_t);
+    context&, action, atomic_count&, const target*[], size_t, size_t);
 
   template LIBBUILD2_SYMEXPORT target_state
   straight_execute_members<prerequisite_target> (
-    action, atomic_count&, prerequisite_target[], size_t, size_t);
+    context&, action, atomic_count&, prerequisite_target[], size_t, size_t);
 
   template LIBBUILD2_SYMEXPORT target_state
   reverse_execute_members<prerequisite_target> (
-    action, atomic_count&, prerequisite_target[], size_t, size_t);
+    context&, action, atomic_count&, prerequisite_target[], size_t, size_t);
 
   pair<optional<target_state>, const target*>
   execute_prerequisites (const target_type* tt,
@@ -1877,7 +1880,7 @@ namespace build2
     //
     target_state rs (target_state::unchanged);
 
-    wait_guard wg (target::count_busy (), t[a].task_count);
+    wait_guard wg (t.ctx, target::count_busy (), t[a].task_count);
 
     for (size_t i (0); i != n; ++i)
     {

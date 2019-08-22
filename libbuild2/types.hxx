@@ -334,7 +334,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, run_phase); // utility.cxx
 
-  LIBBUILD2_SYMEXPORT extern run_phase phase;
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in

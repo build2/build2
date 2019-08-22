@@ -1243,7 +1243,7 @@ namespace build2
           const bool* o,
           bool pat)
   {
-    assert (!global_ || phase == run_phase::load);
+    assert (!global_ || global_->phase == run_phase::load);
 
     // Apply pattern.
     //
@@ -1318,7 +1318,7 @@ namespace build2
                   bool retro,
                   bool match)
   {
-    assert (!global_ || phase == run_phase::load);
+    assert (!global_ || global_->phase == run_phase::load);
 
     size_t pn (p.size ());
 
@@ -1432,7 +1432,7 @@ namespace build2
   pair<reference_wrapper<value>, bool> variable_map::
   insert (const variable& var, bool typed)
   {
-    assert (!global_ || phase == run_phase::load);
+    assert (!global_ || ctx->phase == run_phase::load);
 
     auto p (m_.emplace (var, value_data (typed ? var.type : nullptr)));
     value_data& r (p.first->second);

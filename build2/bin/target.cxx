@@ -264,13 +264,13 @@ namespace build2
     {
       // Casts are MT-aware (during serial load).
       //
-      E* e (phase == run_phase::load
+      E* e (ctx.phase == run_phase::load
             ? const_cast<E*> (ctx.targets.find<E> (dir, out, n))
             : nullptr);
-      A* a (phase == run_phase::load
+      A* a (ctx.phase == run_phase::load
             ? const_cast<A*> (ctx.targets.find<A> (dir, out, n))
             : nullptr);
-      S* s (phase == run_phase::load
+      S* s (ctx.phase == run_phase::load
             ? const_cast<S*> (ctx.targets.find<S> (dir, out, n))
             : nullptr);
 
@@ -328,10 +328,10 @@ namespace build2
     libul_factory (context& ctx,
                    const target_type&, dir_path dir, dir_path out, string n)
     {
-      libua* a (phase == run_phase::load
+      libua* a (ctx.phase == run_phase::load
                 ? const_cast<libua*> (ctx.targets.find<libua> (dir, out, n))
                 : nullptr);
-      libus* s (phase == run_phase::load
+      libus* s (ctx.phase == run_phase::load
                 ? const_cast<libus*> (ctx.targets.find<libus> (dir, out, n))
                 : nullptr);
 
@@ -411,10 +411,10 @@ namespace build2
     {
       // Casts are MT-aware (during serial load).
       //
-      liba* a (phase == run_phase::load
+      liba* a (ctx.phase == run_phase::load
                ? const_cast<liba*> (ctx.targets.find<liba> (dir, out, n))
                : nullptr);
-      libs* s (phase == run_phase::load
+      libs* s (ctx.phase == run_phase::load
                ? const_cast<libs*> (ctx.targets.find<libs> (dir, out, n))
                : nullptr);
 

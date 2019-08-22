@@ -1162,14 +1162,14 @@ namespace build2
     void
     clear () {map_.clear ();}
 
-    variable_pool (): variable_pool (false) {}
+    variable_pool (): variable_pool (nullptr) {}
 
-    // RW access.
+    // RW access (only for the global pool).
     //
     variable_pool&
     rw () const
     {
-      assert (phase == run_phase::load);
+      assert (global_->phase == run_phase::load);
       return const_cast<variable_pool&> (*this);
     }
 
@@ -1251,15 +1251,15 @@ namespace build2
   private:
     std::multiset<pattern> patterns_;
 
-    // Global pool flag.
+    // Global pool flag/context.
     //
   private:
     friend class context;
 
     explicit
-    variable_pool (bool global): global_ (global) {}
+    variable_pool (context* global): global_ (global) {}
 
-    bool global_;
+    context* global_;
   };
 }
 

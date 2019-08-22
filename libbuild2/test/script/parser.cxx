@@ -2896,7 +2896,7 @@ namespace build2
           if (exec_scope)
           {
             atomic_count task_count (0);
-            wait_guard wg (task_count);
+            wait_guard wg (g->root.test_target.ctx, task_count);
 
             // Start asynchronous execution of inner scopes keeping track of
             // how many we have handled.

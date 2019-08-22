@@ -365,7 +365,7 @@ namespace build2
       // We sometimes call insert() even if we expect to find an existing
       // target in order to keep the same code (see cc/search_library()).
       //
-      assert (phase != run_phase::execute);
+      assert (ctx.phase != run_phase::execute);
 
       optional<string> e (
         tt.fixed_extension != nullptr
@@ -430,7 +430,7 @@ namespace build2
     {
       // The implied flag can only be cleared during the load phase.
       //
-      assert (phase == run_phase::load);
+      assert (ctx.phase == run_phase::load);
 
       // Clear the implied flag.
       //
@@ -536,7 +536,7 @@ namespace build2
     //
     const mtime_target* t (this);
 
-    switch (phase)
+    switch (ctx.phase)
     {
     case run_phase::load: break;
     case run_phase::match:
@@ -893,11 +893,11 @@ namespace build2
       //
       bool retest (false);
 
-      assert (phase == run_phase::match);
+      assert (t.ctx.phase == run_phase::match);
       {
         // Switch the phase to load.
         //
-        phase_switch ps (run_phase::load);
+        phase_switch ps (t.ctx, run_phase::load);
 
         // This is subtle: while we were fussing around another thread may
         // have loaded the buildfile. So re-test now that we are in exclusive
@@ -937,7 +937,7 @@ namespace build2
           }
         }
       }
-      assert (phase == run_phase::match);
+      assert (t.ctx.phase == run_phase::match);
 
       // If we loaded/implied the buildfile, examine the target again.
       //

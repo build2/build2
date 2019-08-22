@@ -490,7 +490,7 @@ namespace build2
       wait_guard wg;
 
       if (!dry_run)
-        wg = wait_guard (target::count_busy (), t[a].task_count);
+        wg = wait_guard (t.ctx, target::count_busy (), t[a].task_count);
 
       // Result vector.
       //

@@ -559,7 +559,7 @@ namespace build2
         // @@ MT perf: so we are going to switch the phase and execute for
         //    any generated header.
         //
-        phase_switch ps (run_phase::execute);
+        phase_switch ps (t.ctx, run_phase::execute);
         target_state ns (execute_direct (a, t));
 
         if (ns != os && ns != target_state::unchanged)
@@ -698,7 +698,7 @@ namespace build2
       // Start asynchronous matching of prerequisites. Wait with unlocked
       // phase to allow phase switching.
       //
-      wait_guard wg (target::count_busy (), t[a].task_count, true);
+      wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
 
       size_t start (pts.size ()); // Index of the first to be added.
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -5113,7 +5113,7 @@ namespace build2
       {
         // Switch the phase to load then create and load the subproject.
         //
-        phase_switch phs (run_phase::load);
+        phase_switch phs (rs.ctx, run_phase::load);
 
         // Re-test again now that we are in exclusive phase (another thread
         // could have already created and loaded the subproject).

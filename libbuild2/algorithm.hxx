@@ -613,18 +613,20 @@ namespace build2
   //
   template <typename T>
   target_state
-  straight_execute_members (action, atomic_count&, T[], size_t, size_t);
+  straight_execute_members (context&, action, atomic_count&,
+                            T[], size_t, size_t);
 
   template <typename T>
   target_state
-  reverse_execute_members (action, atomic_count&, T[], size_t, size_t);
+  reverse_execute_members (context&, action, atomic_count&,
+                           T[], size_t, size_t);
 
   template <typename T>
   inline target_state
   straight_execute_members (action a, const target& t,
                             T ts[], size_t c, size_t s)
   {
-    return straight_execute_members (a, t[a].task_count, ts, c, s);
+    return straight_execute_members (t.ctx, a, t[a].task_count, ts, c, s);
   }
 
   template <typename T>
@@ -632,7 +634,7 @@ namespace build2
   reverse_execute_members (action a, const target& t,
                            T ts[], size_t c, size_t s)
   {
-    return reverse_execute_members (a, t[a].task_count, ts, c, s);
+    return reverse_execute_members (t.ctx, a, t[a].task_count, ts, c, s);
   }
 
   // Call straight or reverse depending on the current mode.

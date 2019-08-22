@@ -18,14 +18,14 @@ namespace build2
   inline const target&
   import (context& ctx, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match);
+    assert (ctx.phase == run_phase::match);
     return *import (ctx, pk, false);
   }
 
   inline const target*
   import_existing (context& ctx, const prerequisite_key& pk)
   {
-    assert (phase == run_phase::match || phase == run_phase::execute);
+    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
     return import (ctx, pk, true);
   }
 }

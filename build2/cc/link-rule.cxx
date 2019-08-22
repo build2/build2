@@ -1198,7 +1198,7 @@ namespace build2
 
       // Wait with unlocked phase to allow phase switching.
       //
-      wait_guard wg (target::count_busy (), t[a].task_count, true);
+      wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
 
       i = start;
       for (prerequisite_member p: group_prerequisite_members (a, t))

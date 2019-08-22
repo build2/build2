@@ -88,7 +88,7 @@ namespace build2
   inline pair<bool, target_state> target::
   matched_state_impl (action a) const
   {
-    assert (phase == run_phase::match);
+    assert (ctx.phase == run_phase::match);
 
     // Note that the "tried" state is "final".
     //
@@ -110,7 +110,7 @@ namespace build2
   inline target_state target::
   executed_state_impl (action a) const
   {
-    assert (phase == run_phase::execute);
+    assert (ctx.phase == run_phase::execute);
     return (group_state (a) ? group->state : state)[a].state;
   }
 
@@ -422,7 +422,7 @@ namespace build2
   inline timestamp mtime_target::
   load_mtime (const path& p) const
   {
-    assert (phase == run_phase::execute &&
+    assert (ctx.phase == run_phase::execute &&
             !group_state (action () /* inner */));
 
     duration::rep r (mtime_.load (memory_order_consume));
@@ -440,7 +440,7 @@ namespace build2
   inline bool mtime_target::
   newer (timestamp mt) const
   {
-    assert (phase == run_phase::execute);
+    assert (ctx.phase == run_phase::execute);
 
     timestamp mp (mtime ());
 

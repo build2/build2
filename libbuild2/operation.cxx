@@ -101,9 +101,10 @@ namespace build2
   {
     tracer trace ("search");
 
-    phase_lock pl (run_phase::match);
+    context& ctx (bs.ctx);
+    phase_lock pl (ctx, run_phase::match);
 
-    const target* t (bs.ctx.targets.find (tk, trace));
+    const target* t (ctx.targets.find (tk, trace));
 
     // Only do the implied buildfile if we haven't loaded one. Failed that we
     // may try go this route even though we've concluded the implied buildfile
@@ -131,8 +132,13 @@ namespace build2
   {
     tracer trace ("match");
 
+    if (ts.empty ())
+      return;
+
+    context& ctx (ts[0].as_target ().ctx);
+
     {
-      phase_lock l (run_phase::match);
+      phase_lock l (ctx, run_phase::match);
 
       // Setup progress reporting if requested.
       //
@@ -165,7 +171,7 @@ namespace build2
       size_t i (0), n (ts.size ());
       {
         atomic_count task_count (0);
-        wait_guard wg (task_count, true);
+        wait_guard wg (ctx, task_count, true);
 
         for (; i != n; ++i)
         {
@@ -245,7 +251,7 @@ namespace build2
 
     // Phase restored to load.
     //
-    assert (phase == run_phase::load);
+    assert (ctx.phase == run_phase::load);
   }
 
   void
@@ -253,6 +259,11 @@ namespace build2
            uint16_t diag, bool prog)
   {
     tracer trace ("execute");
+
+    if (ts.empty ())
+      return;
+
+    context& ctx (ts[0].as_target ().ctx);
 
     // Reverse the order of targets if the execution mode is 'last'.
     //
@@ -268,7 +279,7 @@ namespace build2
     default:                assert (false); // Not yet supported.
     }
 
-    phase_lock pl (run_phase::execute); // Never switched.
+    phase_lock pl (ctx, run_phase::execute); // Never switched.
 
     // Set the dry-run flag.
     //
@@ -318,7 +329,7 @@ namespace build2
     //
     {
       atomic_count task_count (0);
-      wait_guard wg (task_count);
+      wait_guard wg (ctx, task_count);
 
       for (const action_target& at: ts)
       {

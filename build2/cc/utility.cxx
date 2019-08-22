@@ -70,7 +70,7 @@ namespace build2
 
         // Called by the compile rule during execute.
         //
-        return phase == run_phase::match && !exist
+        return x.ctx.phase == run_phase::match && !exist
           ? &search (x, tt, x.dir, x.out, x.name)
           : search_existing (x.ctx, tt, x.dir, x.out, x.name);
       }
