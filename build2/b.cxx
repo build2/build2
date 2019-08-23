@@ -225,6 +225,8 @@ main (int argc, char* argv[])
          << system_error (errno, generic_category ()); // Sanitize.
 #endif
 
+  scheduler sched;
+
   // Parse the command line.
   //
   try
@@ -584,13 +586,13 @@ main (int argc, char* argv[])
         fail << "invalid --max-jobs|-J value";
     }
 
-    sched.startup (jobs,
-                   1,
-                   max_jobs,
-                   jobs * ops.queue_depth (),
-                   (ops.max_stack_specified ()
-                    ? optional<size_t> (ops.max_stack () * 1024)
-                    : nullopt));
+     sched.startup (jobs,
+                    1,
+                    max_jobs,
+                    jobs * ops.queue_depth (),
+                    (ops.max_stack_specified ()
+                     ? optional<size_t> (ops.max_stack () * 1024)
+                     : nullopt));
 
     // @@ CTX: should these be per-context?
     //
@@ -615,7 +617,7 @@ main (int argc, char* argv[])
     // below).
     //
     unique_ptr<context> ctx;
-    auto new_context = [&ctx, &cmd_vars]
+    auto new_context = [&ctx, &sched, &cmd_vars]
     {
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,

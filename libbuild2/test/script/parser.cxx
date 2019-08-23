@@ -3016,19 +3016,19 @@ namespace build2
                 // UBSan workaround.
                 //
                 const diag_frame* df (diag_frame::stack ());
-                if (!sched.async (task_count,
-                                  [] (const diag_frame* ds,
-                                      scope& s,
-                                      script& scr,
-                                      runner& r)
-                                  {
-                                    diag_frame::stack_guard dsg (ds);
-                                    execute_impl (s, scr, r);
-                                  },
-                                  df,
-                                  ref (*chain),
-                                  ref (*script_),
-                                  ref (*runner_)))
+                if (!ctx.sched.async (task_count,
+                                      [] (const diag_frame* ds,
+                                          scope& s,
+                                          script& scr,
+                                          runner& r)
+                                      {
+                                        diag_frame::stack_guard dsg (ds);
+                                        execute_impl (s, scr, r);
+                                      },
+                                      df,
+                                      ref (*chain),
+                                      ref (*script_),
+                                      ref (*runner_)))
                 {
                   // Bail out if the scope has failed and we weren't instructed
                   // to keep going.

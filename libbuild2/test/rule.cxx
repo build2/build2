@@ -542,22 +542,22 @@ namespace build2
           {
             scope_state& r (res.back ());
 
-            if (!sched.async (ctx.count_busy (),
-                              t[a].task_count,
-                              [this] (const diag_frame* ds,
-                                      scope_state& r,
-                                      const target& t,
-                                      const testscript& ts,
-                                      const dir_path& wd)
-                              {
-                                diag_frame::stack_guard dsg (ds);
-                                r = perform_script_impl (t, ts, wd, *this);
-                              },
-                              diag_frame::stack (),
-                              ref (r),
-                              cref (t),
-                              cref (ts),
-                              cref (wd)))
+            if (!ctx.sched.async (ctx.count_busy (),
+                                  t[a].task_count,
+                                  [this] (const diag_frame* ds,
+                                          scope_state& r,
+                                          const target& t,
+                                          const testscript& ts,
+                                          const dir_path& wd)
+                                  {
+                                    diag_frame::stack_guard dsg (ds);
+                                    r = perform_script_impl (t, ts, wd, *this);
+                                  },
+                                  diag_frame::stack (),
+                                  ref (r),
+                                  cref (t),
+                                  cref (ts),
+                                  cref (wd)))
             {
               // Executed synchronously. If failed and we were not asked to
               // keep going, bail out.

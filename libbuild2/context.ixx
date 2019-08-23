@@ -58,7 +58,7 @@ namespace build2
   wait ()
   {
     phase_unlock u (*ctx, phase);
-    sched.wait (start_count, *task_count);
+    ctx->sched.wait (start_count, *task_count);
     task_count = nullptr;
   }
 }

@@ -55,7 +55,7 @@ namespace build2
         sched (s),
         dry_run_option (dr),
         keep_going (kg),
-        phase_mutex (phase),
+        phase_mutex (*this),
         scopes (data_->scopes),
         global_scope (create_global_scope (data_->scopes)),
         targets (data_->targets),
@@ -546,8 +546,6 @@ namespace build2
     skip_count.store (0, memory_order_relaxed);
   }
 
-  scheduler sched;
-
   bool run_phase_mutex::
   lock (run_phase p)
   {
@@ -573,16 +571,16 @@ namespace build2
       //
       if (u)
       {
-        phase_ = p;
+        ctx_.phase = p;
         r = !fail_;
       }
-      else if (phase_ != p)
+      else if (ctx_.phase != p)
       {
-        sched.deactivate (false /* external */);
-        for (; phase_ != p; v->wait (l)) ;
+        ctx_.sched.deactivate (false /* external */);
+        for (; ctx_.phase != p; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
-        sched.activate (false /* external */);
+        ctx_.sched.activate (false /* external */);
       }
       else
         r = !fail_;
@@ -628,10 +626,10 @@ namespace build2
       {
         condition_variable* v;
 
-        if      (lc_ != 0) {phase_ = run_phase::load;    v = &lv_;}
-        else if (mc_ != 0) {phase_ = run_phase::match;   v = &mv_;}
-        else if (ec_ != 0) {phase_ = run_phase::execute; v = &ev_;}
-        else               {phase_ = run_phase::load;    v = nullptr;}
+        if      (lc_ != 0) {ctx_.phase = run_phase::load;    v = &lv_;}
+        else if (mc_ != 0) {ctx_.phase = run_phase::match;   v = &mv_;}
+        else if (ec_ != 0) {ctx_.phase = run_phase::execute; v = &ev_;}
+        else               {ctx_.phase = run_phase::load;    v = nullptr;}
 
         if (v != nullptr)
         {
@@ -678,7 +676,7 @@ namespace build2
 
       if (u)
       {
-        phase_ = n;
+        ctx_.phase = n;
         r = !fail_;
 
         // Notify others that could be waiting for this phase.
@@ -691,11 +689,11 @@ namespace build2
       }
       else // phase != n
       {
-        sched.deactivate (false /* external */);
-        for (; phase_ != n; v->wait (l)) ;
+        ctx_.sched.deactivate (false /* external */);
+        for (; ctx_.phase != n; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
-        sched.activate (false /* external */);
+        ctx_.sched.activate (false /* external */);
       }
     }
 

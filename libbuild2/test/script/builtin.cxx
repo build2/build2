@@ -1583,7 +1583,7 @@ namespace build2
       // Note: can be executed synchronously.
       //
       static uint8_t
-      sleep (scope&,
+      sleep (scope& s,
              const strings& args,
              auto_fd in, auto_fd out, auto_fd err) noexcept
       try
@@ -1637,7 +1637,7 @@ namespace build2
           // If/when required we could probably support the precise sleep mode
           // (e.g., via an option).
           //
-          sched.sleep (chrono::seconds (n));
+          s.root.test_target.ctx.sched.sleep (chrono::seconds (n));
 
           r = 0;
         }

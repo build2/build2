@@ -169,12 +169,14 @@ namespace build2
   target_lock
   lock_impl (action a, const target& ct, optional<scheduler::work_queue> wq)
   {
-    assert (ct.ctx.phase == run_phase::match);
+    context& ctx (ct.ctx);
+
+    assert (ctx.phase == run_phase::match);
 
     // Most likely the target's state is (count_touched - 1), that is, 0 or
     // previously executed, so let's start with that.
     //
-    size_t b (ct.ctx.count_base ());
+    size_t b (ctx.count_base ());
     size_t e (b + target::offset_touched - 1);
 
     size_t appl (b + target::offset_applied);
@@ -210,7 +212,7 @@ namespace build2
         // unless we release the phase.
         //
         phase_unlock ul (ct.ctx);
-        e = sched.wait (busy - 1, task_count, *wq);
+        e = ctx.sched.wait (busy - 1, task_count, *wq);
       }
 
       // We don't lock already applied or executed targets.
@@ -248,15 +250,17 @@ namespace build2
   void
   unlock_impl (action a, target& t, size_t offset)
   {
-    assert (t.ctx.phase == run_phase::match);
+    context& ctx (t.ctx);
+
+    assert (ctx.phase == run_phase::match);
 
     atomic_count& task_count (t[a].task_count);
 
     // Set the task count and wake up any threads that might be waiting for
     // this target.
     //
-    task_count.store (offset + t.ctx.count_base (), memory_order_release);
-    sched.resume (task_count);
+    task_count.store (offset + ctx.count_base (), memory_order_release);
+    ctx.sched.resume (task_count);
   }
 
   target&
@@ -632,32 +636,33 @@ namespace build2
       // Also pass our diagnostics and lock stacks (this is safe since we
       // expect the caller to wait for completion before unwinding its stack).
       //
-      if (sched.async (start_count,
-                       *task_count,
-                       [a, try_match] (const diag_frame* ds,
-                                       const target_lock* ls,
-                                       target& t, size_t offset)
-                       {
-                         // Switch to caller's diag and lock stacks.
-                         //
-                         diag_frame::stack_guard dsg (ds);
-                         target_lock::stack_guard lsg (ls);
+      if (ct.ctx.sched.async (
+            start_count,
+            *task_count,
+            [a, try_match] (const diag_frame* ds,
+                            const target_lock* ls,
+                            target& t, size_t offset)
+            {
+              // Switch to caller's diag and lock stacks.
+              //
+              diag_frame::stack_guard dsg (ds);
+              target_lock::stack_guard lsg (ls);
 
-                         try
-                         {
-                           phase_lock pl (t.ctx, run_phase::match); // Throws.
-                           {
-                             target_lock l {a, &t, offset}; // Reassemble.
-                             match_impl (l, false /* step */, try_match);
-                             // Unlock within the match phase.
-                           }
-                         }
-                         catch (const failed&) {} // Phase lock failure.
-                       },
-                       diag_frame::stack (),
-                       target_lock::stack (),
-                       ref (*ld.target),
-                       ld.offset))
+              try
+              {
+                phase_lock pl (t.ctx, run_phase::match); // Throws.
+                {
+                  target_lock l {a, &t, offset}; // Reassemble.
+                  match_impl (l, false /* step */, try_match);
+                  // Unlock within the match phase.
+                }
+              }
+              catch (const failed&) {} // Phase lock failure.
+            },
+            diag_frame::stack (),
+            target_lock::stack (),
+            ref (*ld.target),
+            ld.offset))
         return make_pair (true, target_state::postponed); // Queued.
 
       // Matched synchronously, fall through.
@@ -1527,6 +1532,8 @@ namespace build2
   static target_state
   execute_impl (action a, target& t)
   {
+    context& ctx (t.ctx);
+
     target::opstate& s (t[a]);
 
     assert (s.task_count.load (memory_order_consume) == t.ctx.count_busy ()
@@ -1574,7 +1581,7 @@ namespace build2
     {
       recipe_function** f (s.recipe.target<recipe_function*> ());
       if (f == nullptr || *f != &group_action)
-        t.ctx.target_count.fetch_sub (1, memory_order_relaxed);
+        ctx.target_count.fetch_sub (1, memory_order_relaxed);
     }
 
     // Decrement the task count (to count_executed) and wake up any threads
@@ -1583,8 +1590,8 @@ namespace build2
     size_t tc (s.task_count.fetch_sub (
                  target::offset_busy - target::offset_executed,
                  memory_order_release));
-    assert (tc == t.ctx.count_busy ());
-    sched.resume (s.task_count);
+    assert (tc == ctx.count_busy ());
+    ctx.sched.resume (s.task_count);
 
     return ts;
   }
@@ -1654,7 +1661,7 @@ namespace build2
           execute_recipe (a, t, nullptr /* recipe */);
 
         s.task_count.store (exec, memory_order_release);
-        sched.resume (s.task_count);
+        ctx.sched.resume (s.task_count);
       }
       else
       {
@@ -1664,15 +1671,15 @@ namespace build2
         // Pass our diagnostics stack (this is safe since we expect the
         // caller to wait for completion before unwinding its diag stack).
         //
-        if (sched.async (start_count,
-                         *task_count,
-                         [a] (const diag_frame* ds, target& t)
-                         {
-                           diag_frame::stack_guard dsg (ds);
-                           execute_impl (a, t);
-                         },
-                         diag_frame::stack (),
-                         ref (t)))
+        if (ctx.sched.async (start_count,
+                             *task_count,
+                             [a] (const diag_frame* ds, target& t)
+                             {
+                               diag_frame::stack_guard dsg (ds);
+                               execute_impl (a, t);
+                             },
+                             diag_frame::stack (),
+                             ref (t)))
           return target_state::unknown; // Queued.
 
         // Executed synchronously, fall through.
@@ -1692,15 +1699,17 @@ namespace build2
   target_state
   execute_direct (action a, const target& ct)
   {
+    context& ctx (ct.ctx);
+
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 
     // Similar logic to match() above except we execute synchronously.
     //
-    size_t tc (t.ctx.count_applied ());
+    size_t tc (ctx.count_applied ());
 
-    size_t exec (t.ctx.count_executed ());
-    size_t busy (t.ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+    size_t busy (ctx.count_busy ());
 
     if (s.task_count.compare_exchange_strong (
           tc,
@@ -1722,15 +1731,17 @@ namespace build2
         }
 
         s.task_count.store (exec, memory_order_release);
-        sched.resume (s.task_count);
+        ctx.sched.resume (s.task_count);
       }
     }
     else
     {
         // If the target is busy, wait for it.
         //
-        if (tc >= busy) sched.wait (exec, s.task_count, scheduler::work_none);
-        else            assert (tc == exec);
+        if (tc >= busy)
+          ctx.sched.wait (exec, s.task_count, scheduler::work_none);
+        else
+          assert (tc == exec);
     }
 
     return t.executed_state (a);
@@ -1796,7 +1807,7 @@ namespace build2
       //
       const auto& tc (mt[a].task_count);
       if (tc.load (memory_order_acquire) >= busy)
-        sched.wait (exec, tc, scheduler::work_none);
+        ctx.sched.wait (exec, tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -1848,7 +1859,7 @@ namespace build2
 
       const auto& tc (mt[a].task_count);
       if (tc.load (memory_order_acquire) >= busy)
-        sched.wait (exec, tc, scheduler::work_none);
+        ctx.sched.wait (exec, tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -1932,7 +1943,7 @@ namespace build2
 
       const auto& tc (pt[a].task_count);
       if (tc.load (memory_order_acquire) >= busy)
-        sched.wait (exec, tc, scheduler::work_none);
+        ctx.sched.wait (exec, tc, scheduler::work_none);
 
       target_state s (pt.executed_state (a));
       rs |= s;
@@ -1989,6 +2000,8 @@ namespace build2
   target_state
   group_action (action a, const target& t)
   {
+    context& ctx (t.ctx);
+
     // If the group is busy, we wait, similar to prerequisites.
     //
     const target& g (*t.group);
@@ -1996,9 +2009,9 @@ namespace build2
     target_state gs (execute (a, g));
 
     if (gs == target_state::busy)
-      sched.wait (t.ctx.count_executed (),
-                  g[a].task_count,
-                  scheduler::work_none);
+      ctx.sched.wait (ctx.count_executed (),
+                      g[a].task_count,
+                      scheduler::work_none);
 
     // Return target_state::group to signal to execute() that this target's
     // state comes from the group (which, BTW, can be failed).

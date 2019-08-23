@@ -151,7 +151,7 @@ namespace build2
 
         what = " targets to " + diag_do (ctx, a);
 
-        mg = sched.monitor (
+        mg = ctx.sched.monitor (
           ctx.target_count,
           incr,
           [incr, &what] (size_t c) -> size_t
@@ -274,9 +274,9 @@ namespace build2
     //
     switch (ctx.current_inner_oif->concurrency)
     {
-    case 0: sched.tune (1); break;          // Run serially.
-    case 1:                 break;          // Run as is.
-    default:                assert (false); // Not yet supported.
+    case 0: ctx.sched.tune (1); break;          // Run serially.
+    case 1:                     break;          // Run as is.
+    default:                    assert (false); // Not yet supported.
     }
 
     phase_lock pl (ctx, run_phase::execute); // Never switched.
@@ -299,7 +299,7 @@ namespace build2
       {
         what = "% of targets " + diag_did (ctx, a);
 
-        mg = sched.monitor (
+        mg = ctx.sched.monitor (
           ctx.target_count,
           init - incr,
           [init, incr, &what, &ctx] (size_t c) -> size_t
@@ -352,7 +352,7 @@ namespace build2
     // We are now running serially.
     //
 
-    sched.tune (0); // Restore original scheduler settings.
+    ctx.sched.tune (0); // Restore original scheduler settings.
 
     // Clear the dry-run flag.
     //

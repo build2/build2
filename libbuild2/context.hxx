@@ -19,6 +19,8 @@
 
 namespace build2
 {
+  class context;
+
   class scope;
   class scope_map;
   class target_set;
@@ -34,12 +36,6 @@ namespace build2
   struct operation_info;
 
   struct opspec;
-
-  // Main scheduler. Started up and shut down in main().
-  //
-  // @@ CTX: move to main().
-  //
-  LIBBUILD2_SYMEXPORT extern scheduler sched;
 
   class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
@@ -65,8 +61,8 @@ namespace build2
   private:
     friend class context;
 
-    run_phase_mutex (run_phase& p)
-      : phase_ (p), fail_ (false), lc_ (0), mc_ (0), ec_ (0) {}
+    run_phase_mutex (context& c)
+      : ctx_ (c), fail_ (false), lc_ (0), mc_ (0), ec_ (0) {}
 
   private:
     friend struct phase_lock;
@@ -83,7 +79,7 @@ namespace build2
     // When the mutex is unlocked (all three counters become zero, the phase
     // is always changed to load (this is also the initial state).
     //
-    run_phase& phase_;
+    context& ctx_;
 
     mutex m_;
 

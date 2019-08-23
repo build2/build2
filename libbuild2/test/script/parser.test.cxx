@@ -155,7 +155,7 @@ namespace build2
         //
         init_diag (1);
         init (nullptr, argv[0]);
-        sched.startup (1);  // Serial execution.
+        scheduler sched (1); // Serial execution.
         context ctx (sched);
 
         bool scope (false);

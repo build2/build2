@@ -547,9 +547,9 @@ namespace build2
   execute_wait (action a, const target& t)
   {
     if (execute (a, t) == target_state::busy)
-      sched.wait (t.ctx.count_executed (),
-                  t[a].task_count,
-                  scheduler::work_none);
+      t.ctx.sched.wait (t.ctx.count_executed (),
+                        t[a].task_count,
+                        scheduler::work_none);
 
     return t.executed_state (a);
   }

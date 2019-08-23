@@ -10,6 +10,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/parser.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/scheduler.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -41,7 +42,7 @@ namespace build2
     //
     init_diag (1);
     init (nullptr, argv[0]);
-    sched.startup (1);  // Serial execution.
+    scheduler sched (1);  // Serial execution.
     context ctx (sched);
 
     function_family f ("dummy");

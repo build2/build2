@@ -26,7 +26,7 @@ main (int, char* argv[])
   in::build2_in_load ();
   version::build2_version_load ();
 
-  sched.startup (1);   // Serial execution.
+  scheduler sched (1); // Serial execution.
   context ctx (sched);
 
   return 0;
