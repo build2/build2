@@ -947,7 +947,7 @@ namespace build2
             // Windows.
             //
 #ifdef _WIN32
-            dir.state[a].assign (var_backlink) = "copy";
+            dir.state[a].assign (ctx.var_backlink) = "copy";
 #endif
           }
         }
