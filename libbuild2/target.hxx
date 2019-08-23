@@ -38,6 +38,23 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target*
   search_existing (const prerequisite&);
 
+  // Prerequisite inclusion/exclusion (see include() function below).
+  //
+  class include_type
+  {
+  public:
+    enum value {excluded, adhoc, normal};
+
+    include_type (value v): v_ (v) {}
+    include_type (bool  v): v_ (v ? normal : excluded) {}
+
+    operator         value () const {return v_;}
+    explicit operator bool () const {return v_ != excluded;}
+
+  private:
+    value v_;
+  };
+
   // Recipe.
   //
   // The returned target state is normally changed or unchanged. If there is
@@ -797,6 +814,21 @@ namespace build2
 
   uint8_t
   unmark (const target*&);
+
+  // Helper for dealing with the prerequisite inclusion/exclusion (the
+  // 'include' buildfile variable, see var_include in context.hxx).
+  //
+  // Note that the include(prerequisite_member) overload is also provided.
+  //
+  // @@ Maybe this filtering should be incorporated into *_prerequisites() and
+  // *_prerequisite_members() logic? Could make normal > adhoc > excluded and
+  // then pass the "threshold".
+  //
+  include_type
+  include (action,
+           const target&,
+           const prerequisite&,
+           const target* = nullptr);
 
   // A "range" that presents the prerequisites of a group and one of
   // its members as one continuous sequence, or, in other words, as

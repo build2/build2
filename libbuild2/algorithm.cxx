@@ -1377,6 +1377,8 @@ namespace build2
   static optional<backlink_mode>
   backlink_test (action a, target& t)
   {
+    context& ctx (t.ctx);
+
     // Note: the order of these checks is from the least to most expensive.
 
     // Only for plain update/clean.
@@ -1398,17 +1400,17 @@ namespace build2
 
     // Only for forwarded configurations.
     //
-    if (!cast_false<bool> (rs->vars[var_forwarded]))
+    if (!cast_false<bool> (rs->vars[ctx.var_forwarded]))
       return nullopt;
 
-    lookup l (t.state[a][var_backlink]);
+    lookup l (t.state[a][ctx.var_backlink]);
 
     // If not found, check for some defaults in the global scope (this does
     // not happen automatically since target type/pattern-specific lookup
     // stops at the project boundary).
     //
     if (!l.defined ())
-      l = t.ctx.global_scope.find (*var_backlink, t.key ());
+      l = ctx.global_scope.find (*ctx.var_backlink, t.key ());
 
     return l ? backlink_test (t, l) : nullopt;
   }
@@ -1459,7 +1461,7 @@ namespace build2
         // as a target-specific wouldn't be MT-safe). @@ Don't think this
         // applies to declared ad hoc members.
         //
-        lookup l (mt->state[a].vars[var_backlink]);
+        lookup l (mt->state[a].vars[t.ctx.var_backlink]);
 
         optional<mode> bm (l ? backlink_test (*mt, l) : m);
 
@@ -2034,6 +2036,8 @@ namespace build2
     bool ed (false);
     path ep;
 
+    context& ctx (ft.ctx);
+
     auto clean_extra = [&er, &ed, &ep] (const file& f,
                                         const path* fp,
                                         const clean_extras& es)
@@ -2123,7 +2127,7 @@ namespace build2
     // depdb so for now we treat them as "to remove" but in the future we may
     // need to have two lists.
     //
-    bool clean (cast_true<bool> (ft[var_clean]));
+    bool clean (cast_true<bool> (ft[ctx.var_clean]));
 
     // Now clean the ad hoc group file members, if any.
     //
@@ -2198,7 +2202,7 @@ namespace build2
     //
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > (ft.ctx.current_diag_noise ? 0 : 1) && verb < 3)
+      if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
       {
         if (ed)
           text << "rm -r " << path_cast<dir_path> (ep);
@@ -2236,7 +2240,7 @@ namespace build2
     //
     target_state r (target_state::unchanged);
 
-    if (cast_true<bool> (g[var_clean]))
+    if (cast_true<bool> (g[g.ctx.var_clean]))
     {
       for (group_view gv (g.group_members (a)); gv.count != 0; --gv.count)
       {

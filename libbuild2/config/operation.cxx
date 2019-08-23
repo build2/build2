@@ -90,6 +90,8 @@ namespace build2
     static void
     save_config (const scope& rs, const project_set& projects)
     {
+      context& ctx (rs.ctx);
+
       path f (config_file (rs));
 
       if (verb)
@@ -107,7 +109,7 @@ namespace build2
 
         ofs << "config.version = " << module::version << endl;
 
-        if (auto l = rs.vars[var_amalgamation])
+        if (auto l = rs.vars[ctx.var_amalgamation])
         {
           const dir_path& d (cast<dir_path> (l));
 
@@ -144,7 +146,7 @@ namespace build2
             if (!l.defined ())
               continue;
 
-            if (!(l.belongs (rs) || l.belongs (rs.ctx.global_scope)))
+            if (!(l.belongs (rs) || l.belongs (ctx.global_scope)))
             {
               // This is presumably an inherited value. But it could also be
               // some left-over garbage. For example, an amalgamation could
@@ -311,6 +313,8 @@ namespace build2
     {
       tracer trace ("configure_project");
 
+      context& ctx (rs.ctx);
+
       const dir_path& out_root (rs.out_path ());
       const dir_path& src_root (rs.src_path ());
 
@@ -350,13 +354,13 @@ namespace build2
 
       // Configure subprojects that have been loaded.
       //
-      if (auto l = rs.vars[var_subprojects])
+      if (auto l = rs.vars[ctx.var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find (out_nroot));
 
           // @@ Strictly speaking we need to check whether the config
           // module was loaded for this subproject.
@@ -374,6 +378,8 @@ namespace build2
     {
       tracer trace ("configure_forward");
 
+      context& ctx (rs.ctx);
+
       const dir_path& out_root (rs.out_path ());
       const dir_path& src_root (rs.src_path ());
 
@@ -389,12 +395,12 @@ namespace build2
       // Configure subprojects. Since we don't load buildfiles if configuring
       // a forward, we do it for all known subprojects.
       //
-      if (auto l = rs.vars[var_subprojects])
+      if (auto l = rs.vars[ctx.var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           dir_path out_nroot (out_root / p.second);
-          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find (out_nroot));
           assert (nrs.out_path () == out_nroot);
 
           configure_forward (nrs, projects);
@@ -592,6 +598,8 @@ namespace build2
     {
       tracer trace ("disfigure_project");
 
+      context& ctx (rs.ctx);
+
       const dir_path& out_root (rs.out_path ());
       const dir_path& src_root (rs.src_path ());
 
@@ -606,13 +614,13 @@ namespace build2
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
       //
-      if (auto l = rs.vars[var_subprojects])
+      if (auto l = rs.vars[ctx.var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find (out_nroot));
           assert (nrs.out_path () == out_nroot); // See disfigure_load().
 
           r = disfigure_project (a, nrs, projects) || r;
@@ -695,6 +703,8 @@ namespace build2
       //
       tracer trace ("disfigure_forward");
 
+      context& ctx (rs.ctx);
+
       const dir_path& out_root (rs.out_path ());
       const dir_path& src_root (rs.src_path ());
 
@@ -706,12 +716,12 @@ namespace build2
 
       bool r (false);
 
-      if (auto l = rs.vars[var_subprojects])
+      if (auto l = rs.vars[ctx.var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
           dir_path out_nroot (out_root / p.second);
-          const scope& nrs (rs.ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find (out_nroot));
           assert (nrs.out_path () == out_nroot);
 
           r = disfigure_forward (nrs, projects) || r;

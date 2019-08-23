@@ -517,6 +517,8 @@ namespace build2
 
       const scope& rs (*static_cast<const scope*> (ts[i].target));
 
+      context& ctx (rs.ctx);
+
       // Print [meta_]operation names. Due to the way our aliasing works, we
       // have to go through the [meta_]operation_table.
       //
@@ -536,14 +538,14 @@ namespace build2
       // This could be a simple project that doesn't set project name.
       //
       cout
-        << "project: "      << cast_empty<project_name> (rs[var_project]) << endl
-        << "version: "      << cast_empty<string> (rs[var_version]) << endl
-        << "summary: "      << cast_empty<string> (rs[var_project_summary]) << endl
-        << "url: "          << cast_empty<string> (rs[var_project_url]) << endl
-        << "src_root: "     << cast<dir_path> (rs[var_src_root]) << endl
-        << "out_root: "     << cast<dir_path> (rs[var_out_root]) << endl
-        << "amalgamation: " << cast_empty<dir_path> (rs[var_amalgamation]) << endl
-        << "subprojects: "  << cast_empty<subprojects> (rs[var_subprojects]) << endl
+        << "project: "      << cast_empty<project_name> (rs[ctx.var_project]) << endl
+        << "version: "      << cast_empty<string> (rs[ctx.var_version]) << endl
+        << "summary: "      << cast_empty<string> (rs[ctx.var_project_summary]) << endl
+        << "url: "          << cast_empty<string> (rs[ctx.var_project_url]) << endl
+        << "src_root: "     << cast<dir_path> (rs[ctx.var_src_root]) << endl
+        << "out_root: "     << cast<dir_path> (rs[ctx.var_out_root]) << endl
+        << "amalgamation: " << cast_empty<dir_path> (rs[ctx.var_amalgamation]) << endl
+        << "subprojects: "  << cast_empty<subprojects> (rs[ctx.var_subprojects]) << endl
         << "operations:";      print_ops (rs.root_extra->operations, operation_table); cout << endl
         << "meta-operations:"; print_ops (rs.root_extra->meta_operations, meta_operation_table); cout << endl;
     }

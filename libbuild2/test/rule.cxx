@@ -384,6 +384,8 @@ namespace build2
     target_state rule::
     perform_script (action a, const target& t, size_t pass_n) const
     {
+      context& ctx (t.ctx);
+
       // First pass through.
       //
       if (pass_n != 0)
@@ -433,7 +435,7 @@ namespace build2
       const path& buildignore_file (rs.root_extra->buildignore_file);
 
       dir_path bl;
-      if (cast_false<bool> (rs.vars[var_forwarded]))
+      if (cast_false<bool> (rs.vars[ctx.var_forwarded]))
       {
         bl = bs.src_path () / wd.leaf (bs.out_path ());
         clean_backlink (bl, verb_never);
@@ -490,7 +492,7 @@ namespace build2
       wait_guard wg;
 
       if (!dry_run)
-        wg = wait_guard (t.ctx, t.ctx.count_busy (), t[a].task_count);
+        wg = wait_guard (ctx, ctx.count_busy (), t[a].task_count);
 
       // Result vector.
       //
@@ -538,7 +540,7 @@ namespace build2
           {
             scope_state& r (res.back ());
 
-            if (!sched.async (t.ctx.count_busy (),
+            if (!sched.async (ctx.count_busy (),
                               t[a].task_count,
                               [this] (const diag_frame* ds,
                                       scope_state& r,

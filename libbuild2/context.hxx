@@ -240,6 +240,90 @@ namespace build2
     const variable_pool& var_pool;
     const variable_overrides& var_overrides; // Project and relative scope.
 
+    // Cached variables.
+    //
+
+    // Note: consider printing in info meta-operation if adding anything here.
+    //
+    const variable* var_src_root;
+    const variable* var_out_root;
+    const variable* var_src_base;
+    const variable* var_out_base;
+    const variable* var_forwarded;
+
+    const variable* var_project;
+    const variable* var_amalgamation;
+    const variable* var_subprojects;
+    const variable* var_version;
+
+    // project.url
+    //
+    const variable* var_project_url;
+
+    // project.summary
+    //
+    const variable* var_project_summary;
+
+    // import.target
+    //
+    const variable* var_import_target;
+
+    // [string] target visibility
+    //
+    const variable* var_extension;
+
+    // [bool] target visibility
+    //
+    const variable* var_clean;
+
+    // Forwarded configuration backlink mode. Valid values are:
+    //
+    // false     - no link.
+    // true      - make a link using appropriate mechanism.
+    // symbolic  - make a symbolic link.
+    // hard      - make a hard link.
+    // copy      - make a copy.
+    // overwrite - copy over but don't remove on clean (committed gen code).
+    //
+    // Note that it can be set by a matching rule as a rule-specific variable.
+    //
+    // [string] target visibility
+    //
+    const variable* var_backlink;
+
+    // Prerequisite inclusion/exclusion. Valid values are:
+    //
+    // false  - exclude.
+    // true   - include.
+    // adhoc  - include but treat as an ad hoc input.
+    //
+    // If a rule uses prerequisites as inputs (as opposed to just matching
+    // them with the "pass-through" semantics), then the adhoc value signals
+    // that a prerequisite is an ad hoc input. A rule should match and execute
+    // such a prerequisite (whether its target type is recognized as suitable
+    // input or not) and assume that the rest will be handled by the user
+    // (e.g., it will be passed via a command line argument or some such).
+    // Note that this mechanism can be used to both treat unknown prerequisite
+    // types as inputs (for example, linker scripts) as well as prevent
+    // treatment of known prerequisite types as such while still matching and
+    // executing them (for example, plugin libraries).
+    //
+    // A rule with the "pass-through" semantics should treat the adhoc value
+    // the same as true.
+    //
+    // To query this value in rule implementations use the include() helpers
+    // from <libbuild2/prerequisites.hxx>.
+    //
+    // [string] prereq visibility
+    //
+    const variable* var_include;
+
+    // The build.* namespace.
+    //
+    // .meta_operation
+    //
+    const variable* var_build_meta_operation;
+
   public:
     explicit
     context (scheduler&, const strings& cmd_vars = {});
@@ -442,87 +526,8 @@ namespace build2
     bool lifted,
     const location&);
 
-  // Cached variables.
-  //
-
-  // Note: consider printing in info meta-operation if adding anything here.
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_src_root;
-  LIBBUILD2_SYMEXPORT extern const variable* var_out_root;
-  LIBBUILD2_SYMEXPORT extern const variable* var_src_base;
-  LIBBUILD2_SYMEXPORT extern const variable* var_out_base;
-  LIBBUILD2_SYMEXPORT extern const variable* var_forwarded;
-
-  LIBBUILD2_SYMEXPORT extern const variable* var_project;
-  LIBBUILD2_SYMEXPORT extern const variable* var_amalgamation;
-  LIBBUILD2_SYMEXPORT extern const variable* var_subprojects;
-  LIBBUILD2_SYMEXPORT extern const variable* var_version;
-
-  // project.url
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_project_url;
-
-  // project.summary
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_project_summary;
-
-  // import.target
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_import_target;
-
-  // [bool] target visibility
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_clean;
-
-  // Forwarded configuration backlink mode. Valid values are:
-  //
-  // false     - no link.
-  // true      - make a link using appropriate mechanism.
-  // symbolic  - make a symbolic link.
-  // hard      - make a hard link.
-  // copy      - make a copy.
-  // overwrite - copy over but don't remove on clean (committed gen code).
-  //
-  // Note that it can be set by a matching rule as a rule-specific variable.
-  //
-  // [string] target visibility
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_backlink;
-
-  // Prerequisite inclusion/exclusion. Valid values are:
-  //
-  // false  - exclude.
-  // true   - include.
-  // adhoc  - include but treat as an ad hoc input.
-  //
-  // If a rule uses prerequisites as inputs (as opposed to just matching them
-  // with the "pass-through" semantics), then the adhoc value signals that a
-  // prerequisite is an ad hoc input. A rule should match and execute such a
-  // prerequisite (whether its target type is recognized as suitable input or
-  // not) and assume that the rest will be handled by the user (e.g., it will
-  // be passed via a command line argument or some such). Note that this
-  // mechanism can be used to both treat unknown prerequisite types as inputs
-  // (for example, linker scripts) as well as prevent treatment of known
-  // prerequisite types as such while still matching and executing them (for
-  // example, plugin libraries).
-  //
-  // A rule with the "pass-through" semantics should treat the adhoc value
-  // the same as true.
-  //
-  // To query this value in rule implementations use the include() helpers
-  // from <libbuild2/prerequisites.hxx>.
-  //
-  // [string] prereq visibility
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_include;
-
+  //@@ CTX TMP
   LIBBUILD2_SYMEXPORT extern const char var_extension[10]; // "extension"
-
-  // The build.* namespace.
-  //
-  // .meta_operation
-  //
-  LIBBUILD2_SYMEXPORT extern const variable* var_build_meta_operation;
 }
 
 #include <libbuild2/context.ixx>

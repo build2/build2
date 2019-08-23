@@ -228,7 +228,7 @@ namespace build2
 
       // The same for subprojects that have been loaded.
       //
-      if (auto l = rs->vars[var_subprojects])
+      if (auto l = rs->vars[ctx.var_subprojects])
       {
         for (auto p: cast<subprojects> (l))
         {
@@ -369,7 +369,7 @@ namespace build2
         const scope* srs (rs);
         const module::callbacks* cbs (&mod.callbacks_);
 
-        if (auto l = rs->vars[var_subprojects])
+        if (auto l = rs->vars[ctx.var_subprojects])
         {
           for (auto p: cast<subprojects> (l))
           {

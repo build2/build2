@@ -92,30 +92,4 @@ namespace build2
 
     return r;
   }
-
-  // include()
-  //
-  include_type
-  include_impl (action a,
-                const target& t,
-                const string& v,
-                const prerequisite& p,
-                const target* m)
-  {
-    include_type r (false);
-
-    if      (v == "false") r = include_type::excluded;
-    else if (v == "adhoc") r = include_type::adhoc;
-    else if (v == "true")  r = include_type::normal;
-    else
-      fail << "invalid " << var_include->name << " variable value "
-           << "'" << v << "' specified for prerequisite " << p;
-
-    // Call the meta-operation override, if any (currently used by dist).
-    //
-    if (auto f = t.ctx.current_mif->include)
-      r = f (a, t, prerequisite_member {p, m}, r);
-
-    return r;
-  }
 }

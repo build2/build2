@@ -477,11 +477,10 @@ namespace build2
 
       var_import_target = &vp.insert<name> ("import.target");
 
-      var_clean    = &vp.insert<bool>   ("clean",    v_t);
-      var_backlink = &vp.insert<string> ("backlink", v_t);
-      var_include  = &vp.insert<string> ("include",  v_q);
-
-      vp.insert<string> (var_extension, v_t);
+      var_extension = &vp.insert<string> ("extension", v_t);
+      var_clean     = &vp.insert<bool>   ("clean",    v_t);
+      var_backlink  = &vp.insert<string> ("backlink", v_t);
+      var_include   = &vp.insert<string> ("include",  v_q);
 
       // Backlink executables and (generated) documentation by default.
       //
@@ -863,27 +862,5 @@ namespace build2
                                              bool,
                                              const location&);
 
-  const variable* var_src_root;
-  const variable* var_out_root;
-  const variable* var_src_base;
-  const variable* var_out_base;
-  const variable* var_forwarded;
-
-  const variable* var_project;
-  const variable* var_amalgamation;
-  const variable* var_subprojects;
-  const variable* var_version;
-
-  const variable* var_project_url;
-  const variable* var_project_summary;
-
-  const variable* var_import_target;
-
-  const variable* var_clean;
-  const variable* var_backlink;
-  const variable* var_include;
-
   const char var_extension[10] = "extension";
-
-  const variable* var_build_meta_operation;
 }

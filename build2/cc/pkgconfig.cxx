@@ -1228,6 +1228,8 @@ namespace build2
     {
       tracer trace (x, "pkgconfig_save");
 
+      context& ctx (l.ctx);
+
       const scope& bs (l.base_scope ());
       const scope& rs (*bs.root_scope ());
 
@@ -1256,9 +1258,12 @@ namespace build2
         ofdstream os (p);
 
         {
-          const project_name& n (cast<project_name> (rs.vars[var_project]));
+          const project_name& n (project (rs));
 
-          lookup vl (rs.vars[var_version]);
+          if (n.empty ())
+            fail << "no project name in " <<  rs;
+
+          lookup vl (rs.vars[ctx.var_version]);
           if (!vl)
             fail << "no version variable in project " << n <<
               info << "while generating " << p;
@@ -1271,12 +1276,12 @@ namespace build2
           // This one is required so make something up if unspecified.
           //
           os << "Description: ";
-          if (const string* s = cast_null<string> (rs[var_project_summary]))
+          if (const string* s = cast_null<string> (rs[ctx.var_project_summary]))
             os << *s << endl;
           else
             os << n << ' ' << v << endl;
 
-          if (const string* u = cast_null<string> (rs[var_project_url]))
+          if (const string* u = cast_null<string> (rs[ctx.var_project_url]))
             os << "URL: " << *u << endl;
         }
 

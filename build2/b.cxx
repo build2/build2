@@ -794,7 +794,7 @@ main (int argc, char* argv[])
       // limitations as for pre-processing).
       //
       scope& gs (ctx->global_scope.rw ());
-      gs.assign (var_build_meta_operation) = mname;
+      gs.assign (ctx->var_build_meta_operation) = mname;
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
@@ -1041,7 +1041,7 @@ main (int argc, char* argv[])
 
             // See if the bootstrap process set/changed src_root.
             //
-            value& v (rs.assign (var_src_root));
+            value& v (rs.assign (ctx->var_src_root));
 
             if (v)
             {
@@ -1103,7 +1103,7 @@ main (int argc, char* argv[])
             // command line and import).
             //
             if (forwarded)
-              rs.assign (var_forwarded) = true;
+              rs.assign (ctx->var_forwarded) = true;
 
             // Sync local variable that are used below with actual values.
             //
@@ -1140,7 +1140,7 @@ main (int argc, char* argv[])
           // Note that the subprojects variable has already been processed
           // and converted to a map by the bootstrap_src() call above.
           //
-          if (auto l = rs.vars[var_subprojects])
+          if (auto l = rs.vars[ctx->var_subprojects])
           {
             for (const auto& p: cast<subprojects> (l))
             {
@@ -1413,7 +1413,7 @@ main (int argc, char* argv[])
             trace << "  out_root:     " << out_root;
             trace << "  src_root:     " << src_root;
             trace << "  forwarded:    " << (forwarded ? "true" : "false");
-            if (auto l = rs.vars[var_amalgamation])
+            if (auto l = rs.vars[ctx->var_amalgamation])
             {
               trace << "  amalgamation: " << cast<dir_path> (l);
               trace << "  strong scope: " << *rs.strong_scope ();

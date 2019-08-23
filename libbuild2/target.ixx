@@ -6,6 +6,8 @@
 
 #include <libbuild2/filesystem.hxx> // mtime()
 
+#include <libbuild2/export.hxx>
+
 namespace build2
 {
   // target
@@ -210,6 +212,32 @@ namespace build2
     }
 
     return m;
+  }
+
+  // include()
+  //
+  LIBBUILD2_SYMEXPORT include_type
+  include_impl (action,
+                const target&,
+                const string&,
+                const prerequisite&,
+                const target*);
+
+  inline include_type
+  include (action a, const target& t, const prerequisite& p, const target* m)
+  {
+    // Most of the time this variable will not be specified, so let's optimize
+    // for that.
+    //
+    if (p.vars.empty ())
+      return true;
+
+    const string* v (cast_null<string> (p.vars[t.ctx.var_include]));
+
+    if (v == nullptr)
+      return true;
+
+    return include_impl (a, t, *v, p, m);
   }
 
   // group_prerequisites
