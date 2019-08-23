@@ -13,6 +13,7 @@
 //       likely a non-starter.
 //
 #include <libbuild2/action.hxx>
+#include <libbuild2/operation.hxx>
 #include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/export.hxx>
@@ -31,9 +32,6 @@ namespace build2
   using variable_overrides = vector<variable_override>;
   class value;
   using values = small_vector<value, 1>;
-
-  struct meta_operation_info;
-  struct operation_info;
 
   struct opspec;
 
@@ -362,6 +360,11 @@ namespace build2
     // .meta_operation
     //
     const variable* var_build_meta_operation;
+
+    // Known meta-operation and operation tables.
+    //
+    build2::meta_operation_table meta_operation_table;
+    build2::operation_table operation_table;
 
     // The old/new src_root remapping for subprojects.
     //

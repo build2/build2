@@ -790,11 +790,11 @@ main (int argc, char* argv[])
 
       if (!mname.empty ())
       {
-        if (meta_operation_id m = meta_operation_table.find (mname))
+        if (meta_operation_id m = ctx->meta_operation_table.find (mname))
         {
           // Can modify params, opspec, change meta-operation name.
           //
-          if (auto f = meta_operation_table[m].process)
+          if (auto f = ctx->meta_operation_table[m].process)
             mname = ctx->current_mname = f (
               *ctx, mparams, opspecs, lifted != nullptr, l);
         }
@@ -835,9 +835,11 @@ main (int argc, char* argv[])
 
         // Return true if this operation is lifted.
         //
-        auto lift = [&oname, &mname, &os, &mit, &lifted, &skip, &l, &trace] ()
+        auto lift = [&ctx,
+                     &oname, &mname,
+                     &os, &mit, &lifted, &skip, &l, &trace] ()
         {
-          meta_operation_id m (meta_operation_table.find (oname));
+          meta_operation_id m (ctx->meta_operation_table.find (oname));
 
           if (m != 0)
           {
@@ -1165,8 +1167,8 @@ main (int argc, char* argv[])
           // all be known. We store the combined action id in uint8_t;
           // see <operation> for details.
           //
-          assert (operation_table.size () <= 128);
-          assert (meta_operation_table.size () <= 128);
+          assert (ctx->operation_table.size () <= 128);
+          assert (ctx->meta_operation_table.size () <= 128);
 
           // Since we now know all the names of meta-operations and
           // operations, "lift" names that we assumed (from buildspec syntax)
@@ -1183,7 +1185,7 @@ main (int argc, char* argv[])
 
             if (!mname.empty ())
             {
-              m = meta_operation_table.find (mname);
+              m = ctx->meta_operation_table.find (mname);
 
               if (m == 0)
                 fail (l) << "unknown meta-operation " << mname;
@@ -1191,7 +1193,7 @@ main (int argc, char* argv[])
 
             if (!oname.empty ())
             {
-              o = operation_table.find (oname);
+              o = ctx->operation_table.find (oname);
 
               if (o == 0)
                 fail (l) << "unknown operation " << oname;
@@ -1214,7 +1216,7 @@ main (int argc, char* argv[])
 
               if (mif == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
-                         << "operation " << meta_operation_table[m].name;
+                         << "operation " << ctx->meta_operation_table[m].name;
             }
             //
             // Otherwise, check that all the targets in a meta-operation
@@ -1227,7 +1229,7 @@ main (int argc, char* argv[])
 
               if (mi == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
-                         << "operation " << meta_operation_table[mid].name;
+                         << "operation " << ctx->meta_operation_table[mid].name;
 
               if (mi != mif)
                 fail (l) << "different implementations of meta-operation "
@@ -1264,16 +1266,16 @@ main (int argc, char* argv[])
             //
             if (oid == 0)
             {
-              auto lookup =
-                [&rs, &l, &tn] (operation_id o) -> const operation_info*
-                {
-                  const operation_info* r (rs.root_extra->operations[o]);
+              auto lookup = [&ctx, &rs, &l, &tn] (operation_id o) ->
+                const operation_info*
+              {
+                const operation_info* r (rs.root_extra->operations[o]);
 
-                  if (r == nullptr)
-                    fail (l) << "target " << tn << " does not support "
-                             << "operation " << operation_table[o];
-                  return r;
-                };
+                if (r == nullptr)
+                  fail (l) << "target " << tn << " does not support "
+                           << "operation " << ctx->operation_table[o];
+                return r;
+              };
 
               if (o == 0)
                 o = default_id;
@@ -1341,19 +1343,19 @@ main (int argc, char* argv[])
             //
             else
             {
-              auto check =
-                [&rs, &l, &tn] (operation_id o, const operation_info* i)
-                {
-                  const operation_info* r (rs.root_extra->operations[o]);
+              auto check = [&ctx, &rs, &l, &tn] (operation_id o,
+                                                 const operation_info* i)
+              {
+                const operation_info* r (rs.root_extra->operations[o]);
 
-                  if (r == nullptr)
-                    fail (l) << "target " << tn << " does not support "
-                             << "operation " << operation_table[o];
+                if (r == nullptr)
+                  fail (l) << "target " << tn << " does not support "
+                           << "operation " << ctx->operation_table[o];
 
-                  if (r != i)
-                    fail (l) << "different implementations of operation "
-                             << i->name << " in the same operation batch";
-                };
+                if (r != i)
+                  fail (l) << "different implementations of operation "
+                           << i->name << " in the same operation batch";
+              };
 
               check (orig_oid, oif);
 

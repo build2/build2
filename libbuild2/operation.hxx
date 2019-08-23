@@ -11,7 +11,6 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/action.hxx>
-#include <libbuild2/variable.hxx>
 #include <libbuild2/target-state.hxx>
 
 #include <libbuild2/export.hxx>
@@ -25,6 +24,9 @@ namespace build2
   class context;
   class include_type;
   struct prerequisite_member;
+
+  class value;
+  using values = small_vector<value, 1>;
 
   struct opspec;
 
@@ -296,11 +298,10 @@ namespace build2
     return os << d.name;
   }
 
-  LIBBUILD2_SYMEXPORT extern butl::string_table<meta_operation_id,
-                                                meta_operation_data>
-  meta_operation_table;
+  using meta_operation_table = butl::string_table<meta_operation_id,
+                                                  meta_operation_data>;
 
-  LIBBUILD2_SYMEXPORT extern butl::string_table<operation_id> operation_table;
+  using operation_table = butl::string_table<operation_id>;
 
   // These are "sparse" in the sense that we may have "holes" that
   // are represented as NULL pointers. Also, lookup out of bounds

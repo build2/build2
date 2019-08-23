@@ -4,6 +4,8 @@
 
 #include <libbuild2/install/operation.hxx>
 
+#include <libbuild2/variable.hxx>
+
 using namespace std;
 using namespace butl;
 

@@ -11,7 +11,6 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx>
-#include <libbuild2/operation.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbutl/ft/exception.hxx> // uncaught_exceptions

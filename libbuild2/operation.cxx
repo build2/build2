@@ -10,6 +10,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/variable.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/diagnostics.hxx>
 
@@ -546,8 +547,8 @@ namespace build2
         << "out_root: "     << cast<dir_path> (rs[ctx.var_out_root]) << endl
         << "amalgamation: " << cast_empty<dir_path> (rs[ctx.var_amalgamation]) << endl
         << "subprojects: "  << cast_empty<subprojects> (rs[ctx.var_subprojects]) << endl
-        << "operations:";      print_ops (rs.root_extra->operations, operation_table); cout << endl
-        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, meta_operation_table); cout << endl;
+        << "operations:";      print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
+        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl;
     }
   }
 
@@ -623,9 +624,4 @@ namespace build2
     nullptr,
     nullptr
   };
-
-  // Tables.
-  //
-  string_table<meta_operation_id, meta_operation_data> meta_operation_table;
-  string_table<operation_id> operation_table;
 }
