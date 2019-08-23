@@ -124,7 +124,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   init (void (*terminate) (bool),
         const char* argv0,
-        bool keep_going = false,
         bool dry_run = false,
         optional<bool> mtime_check = nullopt,
         optional<path> config_sub = nullopt,

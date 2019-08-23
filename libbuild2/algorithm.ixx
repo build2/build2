@@ -356,10 +356,12 @@ namespace build2
                size_t sc, atomic_count& tc,
                bool fail)
   {
-    assert (t.ctx.phase == run_phase::match);
+    context& ctx (t.ctx);
+
+    assert (ctx.phase == run_phase::match);
     target_state r (match (a, t, sc, &tc).second);
 
-    if (fail && !keep_going && r == target_state::failed)
+    if (fail && !ctx.keep_going && r == target_state::failed)
       throw failed ();
 
     return r;
@@ -559,7 +561,7 @@ namespace build2
   {
     target_state r (execute (a, t, sc, &tc));
 
-    if (fail && !keep_going && r == target_state::failed)
+    if (fail && !t.ctx.keep_going && r == target_state::failed)
       throw failed ();
 
     return r;

@@ -560,7 +560,7 @@ namespace build2
               // Executed synchronously. If failed and we were not asked to
               // keep going, bail out.
               //
-              if (r == scope_state::failed && !keep_going)
+              if (r == scope_state::failed && !ctx.keep_going)
                 break;
             }
           }

@@ -110,6 +110,14 @@ namespace build2
   public:
     scheduler& sched;
 
+    // Keep going flag.
+    //
+    // Note that setting it to false is not of much help unless we are running
+    // serially: in parallel we queue most of the things up before we see any
+    // failures.
+    //
+    bool keep_going;
+
     // In order to perform each operation the build system goes through the
     // following phases:
     //
@@ -326,7 +334,9 @@ namespace build2
 
   public:
     explicit
-    context (scheduler&, const strings& cmd_vars = {});
+    context (scheduler&,
+             const strings& cmd_vars = {},
+             bool keep_going = true);
 
     // Set current meta-operation and operation.
     //
@@ -470,16 +480,6 @@ namespace build2
     atomic_count* task_count;
     bool phase;
   };
-
-
-
-  // Keep going flag.
-  //
-  // Note that setting it to false is not of much help unless we are running
-  // serially. In parallel we queue most of the things up before we see any
-  // failures.
-  //
-  LIBBUILD2_SYMEXPORT extern bool keep_going;
 
   // Dry run flag (see --dry-run|-n).
   //

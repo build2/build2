@@ -478,7 +478,7 @@ main (int argc, char* argv[])
     //
     init (&::terminate,
           argv[0],
-          !ops.serial_stop (), ops.dry_run (),
+          ops.dry_run (),
           (ops.mtime_check ()    ? optional<bool> (true)  :
            ops.no_mtime_check () ? optional<bool> (false) : nullopt),
           (ops.config_sub_specified ()
@@ -493,7 +493,7 @@ main (int argc, char* argv[])
     // current and child processes unless we are in the stop mode. Failed that
     // we may have multiple dialog boxes popping up.
     //
-    if (keep_going)
+    if (!ops.serial_stop ())
       SetErrorMode (SetErrorMode (0) | // Returns the current mode.
                     SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
@@ -615,7 +615,16 @@ main (int argc, char* argv[])
     // the global scope being setup. We reset it for every meta-operation (see
     // below).
     //
-    unique_ptr<context> ctx (new context (sched, cmd_vars));
+    unique_ptr<context> ctx;
+    auto new_context = [&ctx, &cmd_vars]
+    {
+      ctx = nullptr; // Free first.
+      ctx.reset (new context (sched,
+                              cmd_vars,
+                              !ops.serial_stop () /* keep_going */));
+    };
+
+    new_context ();
 
     // Parse the buildspec.
     //
@@ -757,8 +766,7 @@ main (int argc, char* argv[])
       //
       if (dirty)
       {
-        ctx = nullptr;
-        ctx.reset (new context (sched, cmd_vars));
+        new_context ();
         dirty = false;
       }
 

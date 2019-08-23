@@ -495,14 +495,15 @@ namespace build2
   void
   init (void (*t) (bool),
         const char* a0,
-        bool kg, bool dr, optional<bool> mc,
-        optional<path> cs, optional<path> cg)
+        bool dr,
+        optional<bool> mc,
+        optional<path> cs,
+        optional<path> cg)
   {
     terminate = t;
 
     argv0 = process::path_search (a0, true);
 
-    keep_going = kg;
     dry_run_option = dr;
     mtime_check_option = mc;
 

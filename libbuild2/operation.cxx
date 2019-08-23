@@ -183,7 +183,7 @@ namespace build2
           // Bail out if the target has failed and we weren't instructed to
           // keep going.
           //
-          if (s == target_state::failed && !keep_going)
+          if (s == target_state::failed && !ctx.keep_going)
           {
             ++i;
             break;
@@ -342,7 +342,7 @@ namespace build2
         // Bail out if the target has failed and we weren't instructed to keep
         // going.
         //
-        if (s == target_state::failed && !keep_going)
+        if (s == target_state::failed && !ctx.keep_going)
           break;
       }
 

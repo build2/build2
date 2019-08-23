@@ -3033,7 +3033,7 @@ namespace build2
                   // Bail out if the scope has failed and we weren't instructed
                   // to keep going.
                   //
-                  if (chain->state == scope_state::failed && !keep_going)
+                  if (chain->state == scope_state::failed && !ctx.keep_going)
                     throw failed ();
                 }
               }
