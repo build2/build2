@@ -43,7 +43,7 @@ ifeq ($(OS),Windows_NT)
   chost := i686-w64-mingw32
   override LIBS += -limagehlp
 else
-  override LIBS += -lpthread -ldl
+  override LIBS += -lpthread
 endif
 
 # Remove all the built-in rules, enable second expansion, etc.

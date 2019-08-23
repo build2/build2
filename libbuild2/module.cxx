@@ -4,10 +4,12 @@
 
 #include <libbuild2/module.hxx>
 
-#ifndef _WIN32
-#  include <dlfcn.h>
-#else
-#  include <libbutl/win32-utility.hxx>
+#ifndef BUILD2_BOOTSTRAP
+#  ifndef _WIN32
+#    include <dlfcn.h>
+#  else
+#    include <libbutl/win32-utility.hxx>
+#  endif
 #endif
 
 #include <libbuild2/file.hxx>  // import()
@@ -76,6 +78,15 @@ namespace build2
                  << "supported";
     }
 
+    module_load_function* r (nullptr);
+
+    // No dynamic loading of build system modules during bootstrap.
+    //
+#ifdef BUILD2_BOOTSTRAP
+    if (!opt)
+      fail (loc) << "unknown build system module " << mod <<
+        info << "running bootstrap build system";
+#else
     path lib;
 
 #if 0
@@ -133,8 +144,6 @@ namespace build2
     // Note that we don't unload our modules since it's not clear what would
     // the benefit be.
     //
-    module_load_function* r (nullptr);
-
 #ifndef _WIN32
     // Use RTLD_NOW instead of RTLD_LAZY to both speed things up (we are going
     // to use this module now) and to detect any symbol mismatches.
@@ -166,6 +175,8 @@ namespace build2
       fail (loc) << "unable to load build system module " << mod
                  << " (" << lib << "): " << win32::last_error_msg ();
 #endif
+
+#endif // BUILD2_BOOTSTRAP
 
     return r;
   }
