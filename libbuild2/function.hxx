@@ -216,7 +216,8 @@ namespace build2
     map_type map_;
   };
 
-  LIBBUILD2_SYMEXPORT extern function_map functions;
+  LIBBUILD2_SYMEXPORT void
+  register_builtin_functions (function_map&);
 
   class LIBBUILD2_SYMEXPORT function_family
   {
@@ -237,9 +238,10 @@ namespace build2
     // containing a leading dot is a shortcut notation for a qualified-only
     // name.
     //
-    explicit
-    function_family (string qual, function_impl* thunk = &default_thunk)
-        : qual_ (qual), thunk_ (thunk) {}
+    function_family (function_map& map,
+                     string qual,
+                     function_impl* thunk = &default_thunk)
+      : map_ (map), qual_ (move (qual)), thunk_ (thunk) {}
 
     struct entry;
 
@@ -247,13 +249,14 @@ namespace build2
     operator[] (string name) const;
 
     static bool
-    defined (string qual)
+    defined (function_map& map, string qual)
     {
       qual += '.';
-      return functions.defined (qual);
+      return map.defined (qual);
     }
 
   private:
+    function_map& map_;
     const string qual_;
     function_impl* thunk_;
   };
@@ -744,6 +747,7 @@ namespace build2
 
   struct LIBBUILD2_SYMEXPORT function_family::entry
   {
+    function_map& map_;
     string name;
     const string& qual;
     function_impl* thunk;
@@ -898,7 +902,7 @@ namespace build2
   inline auto function_family::
   operator[] (string name) const -> entry
   {
-    return entry {move (name), qual_, thunk_};
+    return entry {map_, move (name), qual_, thunk_};
   }
 }
 

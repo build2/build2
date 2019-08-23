@@ -11,6 +11,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/function.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbutl/ft/exception.hxx> // uncaught_exceptions
@@ -44,6 +45,7 @@ namespace build2
     target_set targets;
     variable_pool var_pool;
     variable_overrides var_overrides;
+    function_map functions;
 
     data (context& c): scopes (c), targets (c), var_pool (&c /* global */) {}
   };
@@ -59,7 +61,8 @@ namespace build2
         global_scope (create_global_scope (data_->scopes)),
         targets (data_->targets),
         var_pool (data_->var_pool),
-        var_overrides (data_->var_overrides)
+        var_overrides (data_->var_overrides),
+        functions (data_->functions)
   {
     tracer trace ("context");
 
@@ -67,6 +70,8 @@ namespace build2
 
     scope_map& sm (data_->scopes);
     variable_pool& vp (data_->var_pool);
+
+    register_builtin_functions (functions);
 
     // Initialize the meta/operation tables. Note that the order should match
     // the id constants in <libbuild2/operation.hxx>.

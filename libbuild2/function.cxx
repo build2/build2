@@ -275,7 +275,7 @@ namespace build2
         {
           size_t n (name.size ());
 
-          for (auto i (functions.begin ()); i != functions.end (); ++i)
+          for (auto i (begin ()); i != end (); ++i)
           {
             const string& q (i->first);
             const function_overload& f (i->second);
@@ -352,12 +352,12 @@ namespace build2
       n.insert (0, qual);
     }
 
-    auto i (qn.empty () ? functions.end () : functions.insert (move (qn), f));
-    auto j (functions.insert (move (n), move (f)));
+    auto i (qn.empty () ? map_.end () : map_.insert (move (qn), f));
+    auto j (map_.insert (move (n), move (f)));
 
     // If we have both, then set alternative names.
     //
-    if (i != functions.end ())
+    if (i != map_.end ())
     {
       i->second.alt_name = j->first.c_str ();
       j->second.alt_name = i->first.c_str ();
@@ -366,35 +366,30 @@ namespace build2
 
   // Static-initialize the function map and populate with builtin functions.
   //
-  function_map functions;
 
-  void builtin_functions ();        // functions-builtin.cxx
-  void filesystem_functions ();     // functions-filesystem.cxx
-  void name_functions ();           // functions-name.cxx
-  void path_functions ();           // functions-path.cxx
-  void process_functions ();        // functions-process.cxx
-  void process_path_functions ();   // functions-process-path.cxx
-  void regex_functions ();          // functions-regex.cxx
-  void string_functions ();         // functions-string.cxx
-  void target_triplet_functions (); // functions-target-triplet.cxx
-  void project_name_functions ();   // functions-target-triplet.cxx
+  void builtin_functions (function_map&);        // functions-builtin.cxx
+  void filesystem_functions (function_map&);     // functions-filesystem.cxx
+  void name_functions (function_map&);           // functions-name.cxx
+  void path_functions (function_map&);           // functions-path.cxx
+  void process_functions (function_map&);        // functions-process.cxx
+  void process_path_functions (function_map&);   // functions-process-path.cxx
+  void regex_functions (function_map&);          // functions-regex.cxx
+  void string_functions (function_map&);         // functions-string.cxx
+  void target_triplet_functions (function_map&); // functions-target-triplet.cxx
+  void project_name_functions (function_map&);   // functions-target-triplet.cxx
 
-  struct functions_init
+  void
+  register_builtin_functions (function_map& m)
   {
-    functions_init ()
-    {
-      builtin_functions ();
-      filesystem_functions ();
-      name_functions ();
-      path_functions ();
-      process_functions ();
-      process_path_functions ();
-      regex_functions ();
-      string_functions ();
-      target_triplet_functions ();
-      project_name_functions ();
-    }
-  };
-
-  static const functions_init init_;
+    builtin_functions (m);
+    filesystem_functions (m);
+    name_functions (m);
+    path_functions (m);
+    process_functions (m);
+    process_path_functions (m);
+    regex_functions (m);
+    string_functions (m);
+    target_triplet_functions (m);
+    project_name_functions (m);
+  }
 }

@@ -45,7 +45,9 @@ namespace build2
     scheduler sched (1);  // Serial execution.
     context ctx (sched);
 
-    function_family f ("dummy");
+    auto& functions (ctx.functions);
+
+    function_family f (functions, "dummy");
 
     f["fail"]     = []()        {fail << "failed" << endf;};
     f["fail_arg"] = [](names a) {return convert<uint64_t> (move (a[0]));};

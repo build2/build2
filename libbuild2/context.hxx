@@ -33,6 +33,8 @@ namespace build2
   class value;
   using values = small_vector<value, 1>;
 
+  class function_map;
+
   struct opspec;
 
   class LIBBUILD2_SYMEXPORT run_phase_mutex
@@ -276,6 +278,8 @@ namespace build2
 
     const variable_pool& var_pool;
     const variable_overrides& var_overrides; // Project and relative scope.
+
+    function_map& functions;
 
     // Cached variables.
     //

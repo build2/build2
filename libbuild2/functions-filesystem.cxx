@@ -121,9 +121,9 @@ namespace build2
   }
 
   void
-  filesystem_functions ()
+  filesystem_functions (function_map& m)
   {
-    function_family f ("filesystem");
+    function_family f (m, "filesystem");
 
     // path_search
     //

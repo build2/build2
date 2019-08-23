@@ -10,9 +10,9 @@ using namespace std;
 namespace build2
 {
   void
-  process_path_functions ()
+  process_path_functions (function_map& m)
   {
-    function_family f ("process_path");
+    function_family f (m, "process_path");
 
     // As discussed in value_traits<process_path>, we always have recall.
     //

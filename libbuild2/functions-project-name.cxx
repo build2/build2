@@ -10,9 +10,9 @@ using namespace std;
 namespace build2
 {
   void
-  project_name_functions ()
+  project_name_functions (function_map& m)
   {
-    function_family f ("project_name");
+    function_family f (m, "project_name");
 
     f["string"]    = [](project_name p) {return move (p).string ();};
 
@@ -31,7 +31,7 @@ namespace build2
 
     // Project name-specific overloads from builtins.
     //
-    function_family b ("builtin");
+    function_family b (m, "builtin");
 
     b[".concat"] = [](project_name n, string s)
     {

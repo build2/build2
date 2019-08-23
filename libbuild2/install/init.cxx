@@ -127,7 +127,7 @@ namespace build2
     }
 
     void
-    functions (); // functions.cxx
+    functions (function_map&); // functions.cxx
 
     bool
     boot (scope& rs, const location&, unique_ptr<module_base>&)
@@ -135,11 +135,13 @@ namespace build2
       tracer trace ("install::boot");
       l5 ([&]{trace << "for " << rs;});
 
+      context& ctx (rs.ctx);
+
       // Register install function family if this is the first instance of the
       // install modules.
       //
-      if (!function_family::defined ("install"))
-        functions ();
+      if (!function_family::defined (ctx.functions, "install"))
+        functions (ctx.functions);
 
       // Register our operations.
       //

@@ -339,9 +339,9 @@ namespace build2
   }
 
   void
-  regex_functions ()
+  regex_functions (function_map& m)
   {
-    function_family f ("regex");
+    function_family f (m, "regex");
 
     // $regex.match(<val>, <pat> [, <flags>])
     //

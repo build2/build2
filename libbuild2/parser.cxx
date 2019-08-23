@@ -3967,7 +3967,7 @@ namespace build2
                     info << "use quoting to force untyped concatenation";
               }));
 
-          p = functions.try_call (
+          p = ctx.functions.try_call (
             scope_, "builtin.concat", vector_view<value> (a), loc);
         }
 
@@ -4636,7 +4636,7 @@ namespace build2
 
             // Note that we "move" args to call().
             //
-            result_data = functions.call (scope_, name, args, loc);
+            result_data = ctx.functions.call (scope_, name, args, loc);
             what = "function call";
           }
           else
@@ -4744,7 +4744,7 @@ namespace build2
                       info (loc) << "while converting " << t << " to string";
                   }));
 
-              p = functions.try_call (
+              p = ctx.functions.try_call (
                 scope_, "string", vector_view<value> (&result_data, 1), loc);
             }
 
