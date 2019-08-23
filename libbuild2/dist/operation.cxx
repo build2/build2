@@ -169,7 +169,7 @@ namespace build2
             if (operation_id pid = oif->pre (params, dist_id, loc))
             {
               const operation_info* poif (ops[pid]);
-              ctx.current_oif (*poif, oif, false /* diag_noise */);
+              ctx.current_operation (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -177,7 +177,7 @@ namespace build2
             }
           }
 
-          ctx.current_oif (*oif, nullptr, false /* diag_noise */);
+          ctx.current_operation (*oif, nullptr, false /* diag_noise */);
           action a (dist_id, oif->id);
           match (params, a, ts,
                  1     /* diag (failures only) */,
@@ -188,7 +188,7 @@ namespace build2
             if (operation_id pid = oif->post (params, dist_id))
             {
               const operation_info* poif (ops[pid]);
-              ctx.current_oif (*poif, oif, false /* diag_noise */);
+              ctx.current_operation (*poif, oif, false /* diag_noise */);
               action a (dist_id, poif->id, oif->id);
               match (params, a, ts,
                      1     /* diag (failures only) */,
@@ -306,14 +306,14 @@ namespace build2
         //
         // Note also that we don't do any structured result printing.
         //
-        size_t on (current_on);
-        ctx.current_mif (mo_perform);
-        current_on = on + 1;
+        size_t on (ctx.current_on);
+        ctx.current_meta_operation (mo_perform);
+        ctx.current_on = on + 1;
 
         if (mo_perform.operation_pre != nullptr)
           mo_perform.operation_pre (params, update_id);
 
-        ctx.current_oif (op_update, nullptr, false /* diag_noise */);
+        ctx.current_operation (op_update, nullptr, false /* diag_noise */);
 
         action a (perform_id, update_id);
 

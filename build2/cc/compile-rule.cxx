@@ -698,7 +698,7 @@ namespace build2
       // Start asynchronous matching of prerequisites. Wait with unlocked
       // phase to allow phase switching.
       //
-      wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
+      wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
 
       size_t start (pts.size ()); // Index of the first to be added.
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -760,7 +760,7 @@ namespace build2
             continue;
         }
 
-        match_async (a, *pt, target::count_busy (), t[a].task_count);
+        match_async (a, *pt, t.ctx.count_busy (), t[a].task_count);
         pts.push_back (prerequisite_target (pt, pi));
       }
 
@@ -5585,7 +5585,7 @@ namespace build2
         {
           touch (tp, false, 2);
           t.mtime (system_clock::now ());
-          skip_count.fetch_add (1, memory_order_relaxed);
+          t.ctx.skip_count.fetch_add (1, memory_order_relaxed);
         }
         // Note: else mtime should be cached.
 

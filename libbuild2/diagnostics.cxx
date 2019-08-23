@@ -141,14 +141,14 @@ namespace build2
   const fail_mark  fail  ("error");
   const fail_end   endf;
 
-    // diag_do(), etc.
+  // diag_do(), etc.
   //
   string
-  diag_do (const action&)
+  diag_do (context& ctx, const action&)
   {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
+    const meta_operation_info& m (*ctx.current_mif);
+    const operation_info& io (*ctx.current_inner_oif);
+    const operation_info* oo (ctx.current_outer_oif);
 
     string r;
 
@@ -181,15 +181,15 @@ namespace build2
   void
   diag_do (ostream& os, const action& a, const target& t)
   {
-    os << diag_do (a) << ' ' << t;
+    os << diag_do (t.ctx, a) << ' ' << t;
   }
 
   string
-  diag_doing (const action&)
+  diag_doing (context& ctx, const action&)
   {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
+    const meta_operation_info& m (*ctx.current_mif);
+    const operation_info& io (*ctx.current_inner_oif);
+    const operation_info* oo (ctx.current_outer_oif);
 
     string r;
 
@@ -218,15 +218,15 @@ namespace build2
   void
   diag_doing (ostream& os, const action& a, const target& t)
   {
-    os << diag_doing (a) << ' ' << t;
+    os << diag_doing (t.ctx, a) << ' ' << t;
   }
 
   string
-  diag_did (const action&)
+  diag_did (context& ctx, const action&)
   {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
+    const meta_operation_info& m (*ctx.current_mif);
+    const operation_info& io (*ctx.current_inner_oif);
+    const operation_info* oo (ctx.current_outer_oif);
 
     string r;
 
@@ -259,15 +259,15 @@ namespace build2
   void
   diag_did (ostream& os, const action& a, const target& t)
   {
-    os << diag_did (a) << ' ' << t;
+    os << diag_did (t.ctx, a) << ' ' << t;
   }
 
   void
   diag_done (ostream& os, const action&, const target& t)
   {
-    const meta_operation_info& m (*current_mif);
-    const operation_info& io (*current_inner_oif);
-    const operation_info* oo (current_outer_oif);
+    const meta_operation_info& m (*t.ctx.current_mif);
+    const operation_info& io (*t.ctx.current_inner_oif);
+    const operation_info* oo (t.ctx.current_outer_oif);
 
     // perform(update(x))   -> "x is up to date"
     // configure(update(x)) -> "updating x is configured"

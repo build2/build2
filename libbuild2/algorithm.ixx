@@ -275,7 +275,7 @@ namespace build2
   inline void
   match_inc_dependens (action a, const target& t)
   {
-    dependency_count.fetch_add (1, memory_order_relaxed);
+    t.ctx.dependency_count.fetch_add (1, memory_order_relaxed);
     t[a].dependents.fetch_add (1, memory_order_release);
   }
 
@@ -368,7 +368,8 @@ namespace build2
   inline void
   set_recipe (target_lock& l, recipe&& r)
   {
-    target::opstate& s ((*l.target)[l.action]);
+    target& t (*l.target);
+    target::opstate& s (t[l.action]);
 
     s.recipe = move (r);
 
@@ -399,7 +400,7 @@ namespace build2
       if (l.action.inner ())
       {
         if (f == nullptr || *f != &group_action)
-          target_count.fetch_add (1, memory_order_relaxed);
+          t.ctx.target_count.fetch_add (1, memory_order_relaxed);
       }
     }
   }
@@ -544,7 +545,7 @@ namespace build2
   execute_wait (action a, const target& t)
   {
     if (execute (a, t) == target_state::busy)
-      sched.wait (target::count_executed (),
+      sched.wait (t.ctx.count_executed (),
                   t[a].task_count,
                   scheduler::work_none);
 
@@ -601,7 +602,7 @@ namespace build2
   inline target_state
   execute_prerequisites (action a, const target& t, size_t c)
   {
-    return current_mode == execution_mode::first
+    return t.ctx.current_mode == execution_mode::first
       ? straight_execute_prerequisites (a, t, c)
       : reverse_execute_prerequisites (a, t, c);
   }
@@ -636,7 +637,7 @@ namespace build2
   inline target_state
   execute_prerequisites_inner (action a, const target& t, size_t c)
   {
-    return current_mode == execution_mode::first
+    return t.ctx.current_mode == execution_mode::first
       ? straight_execute_prerequisites_inner (a, t, c)
       : reverse_execute_prerequisites_inner (a, t, c);
   }
@@ -694,7 +695,7 @@ namespace build2
   inline target_state
   execute_members (action a, const target& t, const target* ts[], size_t n)
   {
-    return current_mode == execution_mode::first
+    return t.ctx.current_mode == execution_mode::first
       ? straight_execute_members (a, t, ts, n, 0)
       : reverse_execute_members (a, t, ts, n, n);
   }

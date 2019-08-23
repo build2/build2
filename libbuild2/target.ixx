@@ -93,16 +93,17 @@ namespace build2
     // Note that the "tried" state is "final".
     //
     const opstate& s (state[a]);
-    size_t o (s.task_count.load (memory_order_relaxed) - // Synchronized.
-              target::count_base ());
 
-    if (o == target::offset_tried)
+    // Note: already synchronized.
+    size_t o (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+
+    if (o == offset_tried)
       return make_pair (false, target_state::unknown);
     else
     {
       // Normally applied but can also be already executed.
       //
-      assert (o == target::offset_applied || o == target::offset_executed);
+      assert (o == offset_applied || o == offset_executed);
       return make_pair (true, (group_state (a) ? group->state[a] : s).state);
     }
   }

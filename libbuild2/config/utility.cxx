@@ -46,7 +46,7 @@ namespace build2
         }
       }
 
-      if (l.defined () && current_mif->id == configure_id)
+      if (l.defined () && r.ctx.current_mif->id == configure_id)
         save_variable (r, var);
 
       return pair<lookup, bool> (l, n);
@@ -55,7 +55,7 @@ namespace build2
     lookup
     optional (scope& r, const variable& var)
     {
-      if (current_mif->id == configure_id)
+      if (r.ctx.current_mif->id == configure_id)
         save_variable (r, var);
 
       auto l (r[var]);
@@ -103,7 +103,7 @@ namespace build2
       const variable& var (
         rs.ctx.var_pool.rw (rs).insert ("config." + n + ".configured"));
 
-      if (current_mif->id == configure_id)
+      if (rs.ctx.current_mif->id == configure_id)
         save_variable (rs, var);
 
       auto l (rs[var]); // Include inherited values.
@@ -118,7 +118,7 @@ namespace build2
       const variable& var (
         rs.ctx.var_pool.rw (rs).insert ("config." + n + ".configured"));
 
-      if (current_mif->id == configure_id)
+      if (rs.ctx.current_mif->id == configure_id)
         save_variable (rs, var);
 
       value& x (rs.assign (var));
@@ -135,7 +135,7 @@ namespace build2
     void
     save_variable (scope& r, const variable& var, uint64_t flags)
     {
-      if (current_mif->id != configure_id)
+      if (r.ctx.current_mif->id != configure_id)
         return;
 
       // The project might not be using the config module. But then how
@@ -148,7 +148,7 @@ namespace build2
     void
     save_module (scope& r, const char* name, int prio)
     {
-      if (current_mif->id != configure_id)
+      if (r.ctx.current_mif->id != configure_id)
         return;
 
       if (module* m = r.lookup_module<module> (module::name))

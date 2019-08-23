@@ -113,8 +113,9 @@ namespace build2
 
     // Call the meta-operation override, if any (currently used by dist).
     //
-    return current_mif->include == nullptr
-      ? r
-      : current_mif->include (a, t, prerequisite_member {p, m}, r);
+    if (auto f = t.ctx.current_mif->include)
+      r = f (a, t, prerequisite_member {p, m}, r);
+
+    return r;
   }
 }

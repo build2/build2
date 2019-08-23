@@ -544,10 +544,11 @@ namespace build2
         // Similar logic to matched_state_impl().
         //
         const opstate& s (state[action () /* inner */]);
-        size_t o (s.task_count.load (memory_order_relaxed) - // Synchronized.
-                  target::count_base ());
 
-        if (o != target::offset_applied && o != target::offset_executed)
+        // Note: already synchronized.
+        size_t o (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+
+        if (o != offset_applied && o != offset_executed)
           break;
       }
       // Fall through.

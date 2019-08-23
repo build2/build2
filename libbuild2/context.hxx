@@ -8,9 +8,9 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-// NOTE: this file is included by pretty much every other "data model" header
-//       (scope, target, variable, etc) so including any of them here is
-//       probably a non-starter.
+// NOTE: this file is included by pretty much every other build state header
+//       (scope, target, variable, etc) so including any of them here is most
+//       likely a non-starter.
 //
 #include <libbuild2/action.hxx>
 #include <libbuild2/scheduler.hxx>
@@ -41,31 +41,6 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern scheduler sched;
 
-  // A "tri-mutex" that keeps all the threads in one of the three phases. When
-  // a thread wants to switch a phase, it has to wait for all the other
-  // threads to do the same (or release their phase locks). The load phase is
-  // exclusive.
-  //
-  // The interleaving match and execute is interesting: during match we read
-  // the "external state" (e.g., filesystem entries, modifications times, etc)
-  // and capture it in the "internal state" (our dependency graph). During
-  // execute we are modifying the external state with controlled modifications
-  // of the internal state to reflect the changes (e.g., update mtimes). If
-  // you think about it, it's pretty clear that we cannot safely perform both
-  // of these actions simultaneously. A good example would be running a code
-  // generator and header dependency extraction simultaneously: the extraction
-  // process may pick up headers as they are being generated. As a result, we
-  // either have everyone treat the external state as read-only or write-only.
-  //
-  // There is also one more complication: if we are returning from a load
-  // phase that has failed, then the build state could be seriously messed up
-  // (things like scopes not being setup completely, etc). And once we release
-  // the lock, other threads that are waiting will start relying on this
-  // messed up state. So a load phase can mark the phase_mutex as failed in
-  // which case all currently blocked and future lock()/relock() calls return
-  // false. Note that in this case we still switch to the desired phase. See
-  // the phase_{lock,switch,unlock} implementations for details.
-  //
   class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
   public:
@@ -167,10 +142,95 @@ namespace build2
     // "within the islands".
     //
     run_phase phase = run_phase::load;
-    run_phase_mutex phase_mutex;
     size_t load_generation = 0;
 
-    // Scopes, targets, and variables.
+    // A "tri-mutex" that keeps all the threads in one of the three phases.
+    // When a thread wants to switch a phase, it has to wait for all the other
+    // threads to do the same (or release their phase locks). The load phase
+    // is exclusive.
+    //
+    // The interleaving match and execute is interesting: during match we read
+    // the "external state" (e.g., filesystem entries, modifications times,
+    // etc) and capture it in the "internal state" (our dependency graph).
+    // During execute we are modifying the external state with controlled
+    // modifications of the internal state to reflect the changes (e.g.,
+    // update mtimes). If you think about it, it's pretty clear that we cannot
+    // safely perform both of these actions simultaneously. A good example
+    // would be running a code generator and header dependency extraction
+    // simultaneously: the extraction process may pick up headers as they are
+    // being generated. As a result, we either have everyone treat the
+    // external state as read-only or write-only.
+    //
+    // There is also one more complication: if we are returning from a load
+    // phase that has failed, then the build state could be seriously messed
+    // up (things like scopes not being setup completely, etc). And once we
+    // release the lock, other threads that are waiting will start relying on
+    // this messed up state. So a load phase can mark the phase_mutex as
+    // failed in which case all currently blocked and future lock()/relock()
+    // calls return false. Note that in this case we still switch to the
+    // desired phase. See the phase_{lock,switch,unlock} implementations for
+    // details.
+    //
+    run_phase_mutex phase_mutex;
+
+    // Current action (meta/operation).
+    //
+    // The names unlike info are available during boot but may not yet be
+    // lifted. The name is always for an outer operation (or meta operation
+    // that hasn't been recognized as such yet).
+    //
+    string current_mname;
+    string current_oname;
+
+    const meta_operation_info* current_mif;
+    const operation_info* current_inner_oif;
+    const operation_info* current_outer_oif;
+
+    // Current operation number (1-based) in the meta-operation batch.
+    //
+    size_t current_on;
+
+    // Note: we canote use the corresponding target::offeset_* values.
+    //
+    size_t count_base     () const {return 5 * (current_on - 1);}
+
+    size_t count_touched  () const {return 1 + count_base ();}
+    size_t count_tried    () const {return 2 + count_base ();}
+    size_t count_matched  () const {return 3 + count_base ();}
+    size_t count_applied  () const {return 4 + count_base ();}
+    size_t count_executed () const {return 5 + count_base ();}
+    size_t count_busy     () const {return 6 + count_base ();}
+
+    // Execution mode.
+    //
+    execution_mode current_mode;
+
+    // Some diagnostics (for example output directory creation/removal by the
+    // fsdir rule) is just noise at verbosity level 1 unless it is the only
+    // thing that is printed. So we can only suppress it in certain situations
+    // (e.g., dist) where we know we have already printed something.
+    //
+    bool current_diag_noise;
+
+    // Total number of dependency relationships and targets with non-noop
+    // recipe in the current action.
+    //
+    // Together with target::dependents the dependency count is incremented
+    // during the rule search & match phase and is decremented during
+    // execution with the expectation of it reaching 0. Used as a sanity
+    // check.
+    //
+    // The target count is incremented after a non-noop recipe is matched and
+    // decremented after such recipe has been executed. If such a recipe has
+    // skipped executing the operation, then it should increment the skip
+    // count. These two counters are used for progress monitoring and
+    // diagnostics.
+    //
+    atomic_count dependency_count;
+    atomic_count target_count;
+    atomic_count skip_count;
+
+    // Build state (scopes, targets, variables, etc).
     //
     const scope_map& scopes;
     const scope& global_scope;
@@ -184,13 +244,15 @@ namespace build2
     explicit
     context (scheduler&, const strings& cmd_vars = {});
 
+    // Set current meta-operation and operation.
+    //
     void
-    current_mif (const meta_operation_info&);
+    current_meta_operation (const meta_operation_info&);
 
     void
-    current_oif (const operation_info& inner,
-                 const operation_info* outer = nullptr,
-                 bool diag_noise = true);
+    current_operation (const operation_info& inner,
+                       const operation_info* outer = nullptr,
+                       bool diag_noise = true);
 
     context (context&&) = delete;
     context& operator= (context&&) = delete;
@@ -325,47 +387,7 @@ namespace build2
     bool phase;
   };
 
-  // Current action (meta/operation).
-  //
-  // The names unlike info are available during boot but may not yet be
-  // lifted. The name is always for an outer operation (or meta operation
-  // that hasn't been recognized as such yet).
-  //
-  LIBBUILD2_SYMEXPORT extern string current_mname;
-  LIBBUILD2_SYMEXPORT extern string current_oname;
 
-  LIBBUILD2_SYMEXPORT extern const meta_operation_info* current_mif;
-  LIBBUILD2_SYMEXPORT extern const operation_info* current_inner_oif;
-  LIBBUILD2_SYMEXPORT extern const operation_info* current_outer_oif;
-
-  // Current operation number (1-based) in the meta-operation batch.
-  //
-  LIBBUILD2_SYMEXPORT extern size_t current_on;
-
-  LIBBUILD2_SYMEXPORT extern execution_mode current_mode;
-
-  // Some diagnostics (for example output directory creation/removal by the
-  // fsdir rule) is just noise at verbosity level 1 unless it is the only
-  // thing that is printed. So we can only suppress it in certain situations
-  // (e.g., dist) where we know we have already printed something.
-  //
-  LIBBUILD2_SYMEXPORT extern bool current_diag_noise;
-
-  // Total number of dependency relationships and targets with non-noop
-  // recipe in the current action.
-  //
-  // Together with target::dependents the dependency count is incremented
-  // during the rule search & match phase and is decremented during execution
-  // with the expectation of it reaching 0. Used as a sanity check.
-  //
-  // The target count is incremented after a non-noop recipe is matched and
-  // decremented after such recipe has been executed. If such a recipe has
-  // skipped executing the operation, then it should increment the skip count.
-  // These two counters are used for progress monitoring and diagnostics.
-  //
-  LIBBUILD2_SYMEXPORT extern atomic_count dependency_count;
-  LIBBUILD2_SYMEXPORT extern atomic_count target_count;
-  LIBBUILD2_SYMEXPORT extern atomic_count skip_count;
 
   // Keep going flag.
   //

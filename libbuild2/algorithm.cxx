@@ -174,7 +174,7 @@ namespace build2
     // Most likely the target's state is (count_touched - 1), that is, 0 or
     // previously executed, so let's start with that.
     //
-    size_t b (target::count_base ());
+    size_t b (ct.ctx.count_base ());
     size_t e (b + target::offset_touched - 1);
 
     size_t appl (b + target::offset_applied);
@@ -255,7 +255,7 @@ namespace build2
     // Set the task count and wake up any threads that might be waiting for
     // this target.
     //
-    task_count.store (offset + target::count_base (), memory_order_release);
+    task_count.store (offset + t.ctx.count_base (), memory_order_release);
     sched.resume (task_count);
   }
 
@@ -800,7 +800,7 @@ namespace build2
     // Start asynchronous matching of prerequisites. Wait with unlocked phase
     // to allow phase switching.
     //
-    wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
+    wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
 
     size_t i (pts.size ()); // Index of the first to be added.
     for (auto&& p: forward<R> (r))
@@ -819,7 +819,7 @@ namespace build2
       if (pt.target == nullptr || (s != nullptr && !pt.target->in (*s)))
         continue;
 
-      match_async (a, *pt.target, target::count_busy (), t[a].task_count);
+      match_async (a, *pt.target, t.ctx.count_busy (), t[a].task_count);
       pts.push_back (move (pt));
     }
 
@@ -857,7 +857,7 @@ namespace build2
     // Pretty much identical to match_prerequisite_range() except we don't
     // search.
     //
-    wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
+    wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -866,7 +866,7 @@ namespace build2
       if (m == nullptr || marked (m))
         continue;
 
-      match_async (a, *m, target::count_busy (), t[a].task_count);
+      match_async (a, *m, t.ctx.count_busy (), t[a].task_count);
     }
 
     wg.wait ();
@@ -1524,7 +1524,7 @@ namespace build2
   {
     target::opstate& s (t[a]);
 
-    assert (s.task_count.load (memory_order_consume) == target::count_busy ()
+    assert (s.task_count.load (memory_order_consume) == t.ctx.count_busy ()
             && s.state == target_state::unknown);
 
     target_state ts;
@@ -1569,7 +1569,7 @@ namespace build2
     {
       recipe_function** f (s.recipe.target<recipe_function*> ());
       if (f == nullptr || *f != &group_action)
-        target_count.fetch_sub (1, memory_order_relaxed);
+        t.ctx.target_count.fetch_sub (1, memory_order_relaxed);
     }
 
     // Decrement the task count (to count_executed) and wake up any threads
@@ -1578,7 +1578,7 @@ namespace build2
     size_t tc (s.task_count.fetch_sub (
                  target::offset_busy - target::offset_executed,
                  memory_order_release));
-    assert (tc == target::count_busy ());
+    assert (tc == t.ctx.count_busy ());
     sched.resume (s.task_count);
 
     return ts;
@@ -1593,9 +1593,11 @@ namespace build2
     target& t (const_cast<target&> (ct)); // MT-aware.
     target::opstate& s (t[a]);
 
+    context& ctx (t.ctx);
+
     // Update dependency counts and make sure they are not skew.
     //
-    size_t gd (dependency_count.fetch_sub (1, memory_order_relaxed));
+    size_t gd (ctx.dependency_count.fetch_sub (1, memory_order_relaxed));
     size_t td (s.dependents.fetch_sub (1, memory_order_release));
     assert (td != 0 && gd != 0);
     td--;
@@ -1621,15 +1623,15 @@ namespace build2
     // thread. For other threads the state will still be unknown (until they
     // try to execute it).
     //
-    if (current_mode == execution_mode::last && td != 0)
+    if (ctx.current_mode == execution_mode::last && td != 0)
       return target_state::postponed;
 
     // Try to atomically change applied to busy.
     //
-    size_t tc (target::count_applied ());
+    size_t tc (ctx.count_applied ());
 
-    size_t exec (target::count_executed ());
-    size_t busy (target::count_busy ());
+    size_t exec (ctx.count_executed ());
+    size_t busy (ctx.count_busy ());
 
     if (s.task_count.compare_exchange_strong (
           tc,
@@ -1690,10 +1692,10 @@ namespace build2
 
     // Similar logic to match() above except we execute synchronously.
     //
-    size_t tc (target::count_applied ());
+    size_t tc (t.ctx.count_applied ());
 
-    size_t exec (target::count_executed ());
-    size_t busy (target::count_busy ());
+    size_t exec (t.ctx.count_executed ());
+    size_t busy (t.ctx.count_busy ());
 
     if (s.task_count.compare_exchange_strong (
           tc,
@@ -1748,9 +1750,12 @@ namespace build2
   {
     target_state r (target_state::unchanged);
 
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
     // Start asynchronous execution of prerequisites.
     //
-    wait_guard wg (ctx, target::count_busy (), tc);
+    wait_guard wg (ctx, busy, tc);
 
     n += p;
     for (size_t i (p); i != n; ++i)
@@ -1760,7 +1765,7 @@ namespace build2
       if (mt == nullptr) // Skipped.
         continue;
 
-      target_state s (execute_async (a, *mt, target::count_busy (), tc));
+      target_state s (execute_async (a, *mt, busy, tc));
 
       if (s == target_state::postponed)
       {
@@ -1785,8 +1790,8 @@ namespace build2
       // If the target is still busy, wait for its completion.
       //
       const auto& tc (mt[a].task_count);
-      if (tc.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (target::count_executed (), tc, scheduler::work_none);
+      if (tc.load (memory_order_acquire) >= busy)
+        sched.wait (exec, tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -1805,7 +1810,10 @@ namespace build2
     //
     target_state r (target_state::unchanged);
 
-    wait_guard wg (ctx, target::count_busy (), tc);
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
+    wait_guard wg (ctx, busy, tc);
 
     n = p - n;
     for (size_t i (p); i != n; )
@@ -1815,7 +1823,7 @@ namespace build2
       if (mt == nullptr)
         continue;
 
-      target_state s (execute_async (a, *mt, target::count_busy (), tc));
+      target_state s (execute_async (a, *mt, busy, tc));
 
       if (s == target_state::postponed)
       {
@@ -1834,8 +1842,8 @@ namespace build2
       const target& mt (*ts[i]);
 
       const auto& tc (mt[a].task_count);
-      if (tc.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (target::count_executed (), tc, scheduler::work_none);
+      if (tc.load (memory_order_acquire) >= busy)
+        sched.wait (exec, tc, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -1869,7 +1877,12 @@ namespace build2
                          const timestamp& mt, const execute_filter& ef,
                          size_t n)
   {
-    assert (current_mode == execution_mode::first);
+    context& ctx (t.ctx);
+
+    assert (ctx.current_mode == execution_mode::first);
+
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
 
     auto& pts (t.prerequisite_targets[a]);
 
@@ -1880,7 +1893,7 @@ namespace build2
     //
     target_state rs (target_state::unchanged);
 
-    wait_guard wg (t.ctx, target::count_busy (), t[a].task_count);
+    wait_guard wg (ctx, busy, t[a].task_count);
 
     for (size_t i (0); i != n; ++i)
     {
@@ -1889,9 +1902,7 @@ namespace build2
       if (pt == nullptr) // Skipped.
         continue;
 
-      target_state s (
-        execute_async (
-          a, *pt, target::count_busy (), t[a].task_count));
+      target_state s (execute_async (a, *pt, busy, t[a].task_count));
 
       if (s == target_state::postponed)
       {
@@ -1915,8 +1926,8 @@ namespace build2
       const target& pt (*p.target);
 
       const auto& tc (pt[a].task_count);
-      if (tc.load (memory_order_acquire) >= target::count_busy ())
-        sched.wait (target::count_executed (), tc, scheduler::work_none);
+      if (tc.load (memory_order_acquire) >= busy)
+        sched.wait (exec, tc, scheduler::work_none);
 
       target_state s (pt.executed_state (a));
       rs |= s;
@@ -1980,7 +1991,7 @@ namespace build2
     target_state gs (execute (a, g));
 
     if (gs == target_state::busy)
-      sched.wait (target::count_executed (),
+      sched.wait (t.ctx.count_executed (),
                   g[a].task_count,
                   scheduler::work_none);
 
@@ -2187,7 +2198,7 @@ namespace build2
     //
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > (current_diag_noise ? 0 : 1) && verb < 3)
+      if (verb > (ft.ctx.current_diag_noise ? 0 : 1) && verb < 3)
       {
         if (ed)
           text << "rm -r " << path_cast<dir_path> (ep);
@@ -2264,7 +2275,7 @@ namespace build2
 
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > (current_diag_noise ? 0 : 1) && verb < 3)
+      if (verb > (g.ctx.current_diag_noise ? 0 : 1) && verb < 3)
         text << "rm " << ep;
     }
 

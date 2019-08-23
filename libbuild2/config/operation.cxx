@@ -539,6 +539,8 @@ namespace build2
         if (rs == nullptr)
           fail << "out of project target " << t;
 
+        context& ctx (t.ctx);
+
         const operations& ops (rs->root_extra->operations);
 
         for (operation_id id (default_id + 1); // Skip default_id.
@@ -552,9 +554,9 @@ namespace build2
             if (oif->id != id)
               continue;
 
-            rs->ctx.current_oif (*oif);
+            ctx.current_operation (*oif);
 
-            phase_lock pl (t.ctx, run_phase::match);
+            phase_lock pl (ctx, run_phase::match);
             match (action (configure_id, id), t);
           }
         }
@@ -916,7 +918,7 @@ namespace build2
         fail (l) << "invalid module name: " << e.what ();
       }
 
-      current_oname = empty_string; // Make sure valid.
+      ctx.current_oname = empty_string; // Make sure valid.
 
       // Now handle each target in each operation spec.
       //

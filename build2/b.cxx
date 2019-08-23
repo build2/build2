@@ -107,12 +107,15 @@ namespace build2
 
       if (ops.structured_result ())
       {
-        cout << at.state
-             << ' ' << current_mif->name
-             << ' ' << current_inner_oif->name;
+        const target& t (at.as_target ());
+        context& ctx (t.ctx);
 
-        if (current_outer_oif != nullptr)
-          cout << '(' << current_outer_oif->name << ')';
+        cout << at.state
+             << ' ' << ctx.current_mif->name
+             << ' ' << ctx.current_inner_oif->name;
+
+        if (ctx.current_outer_oif != nullptr)
+          cout << '(' << ctx.current_outer_oif->name << ')';
 
         // There are two ways one may wish to identify the target of the
         // operation: as something specific but inherently non-portable (say,
@@ -131,7 +134,7 @@ namespace build2
         stream_verbosity sv (stream_verb (cout));
         stream_verb (cout, stream_verbosity (1, 0));
 
-        cout << ' ' << at.as_target () << endl;
+        cout << ' ' << t << endl;
 
         stream_verb (cout, sv);
       }
@@ -773,7 +776,7 @@ main (int argc, char* argv[])
       values& mparams (lifted == nullptr ? mit->params : lifted->params);
       string  mname   (lifted == nullptr ? mit->name   : lifted->name);
 
-      current_mname = mname; // Set early.
+      ctx->current_mname = mname; // Set early.
 
       if (!mname.empty ())
       {
@@ -782,7 +785,7 @@ main (int argc, char* argv[])
           // Can modify params, opspec, change meta-operation name.
           //
           if (auto f = meta_operation_table[m].process)
-            mname = current_mname = f (
+            mname = ctx->current_mname = f (
               *ctx, mparams, opspecs, lifted != nullptr, l);
         }
       }
@@ -802,7 +805,7 @@ main (int argc, char* argv[])
         const values& oparams (lifted == nullptr ? os.params : values ());
         const string& oname   (lifted == nullptr ? os.name   : empty_string);
 
-        current_oname = oname; // Set early.
+        ctx->current_oname = oname; // Set early.
 
         if (lifted != nullptr)
           lifted = nullptr; // Clear for the next iteration.
@@ -1242,7 +1245,7 @@ main (int argc, char* argv[])
                 fail (l) << "unexpected parameters for meta-operation "
                          << mif->name;
 
-              ctx->current_mif (*mif);
+              ctx->current_meta_operation (*mif);
               dirty = true;
             }
 
@@ -1562,7 +1565,7 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (mparams, pre_oid); // Cannot be translated.
 
-          ctx->current_oif (*pre_oif, oif);
+          ctx->current_operation (*pre_oif, oif);
 
           action a (mid, pre_oid, oid);
 
@@ -1589,7 +1592,7 @@ main (int argc, char* argv[])
           tgs.reset ();
         }
 
-        ctx->current_oif (*oif, outer_oif);
+        ctx->current_operation (*oif, outer_oif);
 
         action a (mid, oid, oif->outer_id);
 
@@ -1617,7 +1620,7 @@ main (int argc, char* argv[])
           if (mif->operation_pre != nullptr)
             mif->operation_pre (mparams, post_oid); // Cannot be translated.
 
-          ctx->current_oif (*post_oif, oif);
+          ctx->current_operation (*post_oif, oif);
 
           action a (mid, post_oid, oid);
 

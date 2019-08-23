@@ -455,21 +455,15 @@ namespace build2
     // the target is synchronized, then we can access and modify (second case)
     // its state etc.
     //
+    // NOTE: see also the corresponding count_*() fuctions in context (must be
+    //       kept in sync).
+    //
     static const size_t offset_touched  = 1; // Target has been locked.
     static const size_t offset_tried    = 2; // Rule match has been tried.
     static const size_t offset_matched  = 3; // Rule has been matched.
     static const size_t offset_applied  = 4; // Rule has been applied.
     static const size_t offset_executed = 5; // Recipe has been executed.
     static const size_t offset_busy     = 6; // Match/execute in progress.
-
-    static size_t count_base     () {return 5 * (current_on - 1);}
-
-    static size_t count_touched  () {return offset_touched  + count_base ();}
-    static size_t count_tried    () {return offset_tried    + count_base ();}
-    static size_t count_matched  () {return offset_matched  + count_base ();}
-    static size_t count_applied  () {return offset_applied  + count_base ();}
-    static size_t count_executed () {return offset_executed + count_base ();}
-    static size_t count_busy     () {return offset_busy     + count_base ();}
 
     // Inner/outer operation state. See <libbuild2/operation.hxx> for details.
     //

@@ -514,7 +514,7 @@ namespace build2
   }
 
   void context::
-  current_mif (const meta_operation_info& mif)
+  current_meta_operation (const meta_operation_info& mif)
   {
     if (current_mname != mif.name)
     {
@@ -522,14 +522,14 @@ namespace build2
       global_scope.rw ().assign (var_build_meta_operation) = mif.name;
     }
 
-    build2::current_mif = &mif;
+    current_mif = &mif;
     current_on = 0; // Reset.
   }
 
   void context::
-  current_oif (const operation_info& inner_oif,
-               const operation_info* outer_oif,
-               bool diag_noise)
+  current_operation (const operation_info& inner_oif,
+                     const operation_info* outer_oif,
+                     bool diag_noise)
   {
     current_oname = (outer_oif == nullptr ? inner_oif : *outer_oif).name;
     current_inner_oif = &inner_oif;
@@ -736,6 +736,8 @@ namespace build2
   {
     phase_lock* pl (phase_lock_instance);
 
+    // This is tricky: we might be switching to another context.
+    //
     if (pl != nullptr && &pl->ctx == &ctx)
       assert (pl->phase == phase);
     else
@@ -849,20 +851,6 @@ namespace build2
 
     //text << this_thread::get_id () << " phase restore " << n << " " << o;
   }
-
-  string current_mname;
-  string current_oname;
-
-  const meta_operation_info* current_mif;
-  const operation_info* current_inner_oif;
-  const operation_info* current_outer_oif;
-  size_t current_on;
-  execution_mode current_mode;
-  bool current_diag_noise;
-
-  atomic_count dependency_count;
-  atomic_count target_count;
-  atomic_count skip_count;
 
   bool keep_going = false;
   bool dry_run = false;

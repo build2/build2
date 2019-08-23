@@ -490,7 +490,7 @@ namespace build2
       wait_guard wg;
 
       if (!dry_run)
-        wg = wait_guard (t.ctx, target::count_busy (), t[a].task_count);
+        wg = wait_guard (t.ctx, t.ctx.count_busy (), t[a].task_count);
 
       // Result vector.
       //
@@ -538,7 +538,7 @@ namespace build2
           {
             scope_state& r (res.back ());
 
-            if (!sched.async (target::count_busy (),
+            if (!sched.async (t.ctx.count_busy (),
                               t[a].task_count,
                               [this] (const diag_frame* ds,
                                       scope_state& r,

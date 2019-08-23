@@ -484,6 +484,7 @@ namespace build2
       tracer trace (x, "link_rule::apply");
 
       file& t (xt.as<file> ());
+      context& ctx (t.ctx);
 
       // Note that for_install is signalled by install_rule and therefore
       // can only be relied upon during execute.
@@ -698,7 +699,7 @@ namespace build2
               // Note that ad hoc inputs have to be explicitly marked with the
               // include=adhoc prerequisite-specific variable.
               //
-              if (current_outer_oif != nullptr)
+              if (ctx.current_outer_oif != nullptr)
                 continue;
             }
 
@@ -1164,7 +1165,7 @@ namespace build2
           bool u;
           if ((u = pt->is_a<libux> ()) || pt->is_a<liba> ())
           {
-            const variable& var (t.ctx.var_pool["bin.whole"]); // @@ Cache.
+            const variable& var (ctx.var_pool["bin.whole"]); // @@ Cache.
 
             // See the bin module for the lookup semantics discussion. Note
             // that the variable is not overridable so we omit find_override()
@@ -1198,7 +1199,7 @@ namespace build2
 
       // Wait with unlocked phase to allow phase switching.
       //
-      wait_guard wg (t.ctx, target::count_busy (), t[a].task_count, true);
+      wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
       i = start;
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -1230,7 +1231,7 @@ namespace build2
           }
         }
 
-        match_async (a, *pt, target::count_busy (), t[a].task_count);
+        match_async (a, *pt, ctx.count_busy (), t[a].task_count);
         mark (pt, m);
       }
 

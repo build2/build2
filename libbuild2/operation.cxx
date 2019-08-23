@@ -149,10 +149,10 @@ namespace build2
       {
         size_t incr (stderr_term ? 1 : 10); // Scale depending on output type.
 
-        what = " targets to " + diag_do (a);
+        what = " targets to " + diag_do (ctx, a);
 
         mg = sched.monitor (
-          target_count,
+          ctx.target_count,
           incr,
           [incr, &what] (size_t c) -> size_t
           {
@@ -267,12 +267,12 @@ namespace build2
 
     // Reverse the order of targets if the execution mode is 'last'.
     //
-    if (current_mode == execution_mode::last)
+    if (ctx.current_mode == execution_mode::last)
       reverse (ts.begin (), ts.end ());
 
     // Tune the scheduler.
     //
-    switch (current_inner_oif->concurrency)
+    switch (ctx.current_inner_oif->concurrency)
     {
     case 0: sched.tune (1); break;          // Run serially.
     case 1:                 break;          // Run as is.
@@ -292,20 +292,20 @@ namespace build2
 
     if (prog && show_progress (1 /* max_verb */))
     {
-      size_t init (target_count.load (memory_order_relaxed));
+      size_t init (ctx.target_count.load (memory_order_relaxed));
       size_t incr (init > 100 ? init / 100 : 1); // 1%.
 
       if (init != incr)
       {
-        what = "% of targets " + diag_did (a);
+        what = "% of targets " + diag_did (ctx, a);
 
         mg = sched.monitor (
-          target_count,
+          ctx.target_count,
           init - incr,
-          [init, incr, &what] (size_t c) -> size_t
+          [init, incr, &what, &ctx] (size_t c) -> size_t
           {
             size_t p ((init - c) * 100 / init);
-            size_t s (skip_count.load (memory_order_relaxed));
+            size_t s (ctx.skip_count.load (memory_order_relaxed));
 
             diag_progress_lock pl;
             diag_progress  = ' ';
@@ -372,9 +372,9 @@ namespace build2
     //
     if (verb != 0)
     {
-      if (size_t s = skip_count.load (memory_order_relaxed))
+      if (size_t s = ctx.skip_count.load (memory_order_relaxed))
       {
-        text << "skipped " << diag_doing (a) << ' ' << s << " targets";
+        text << "skipped " << diag_doing (ctx, a) << ' ' << s << " targets";
       }
     }
 
@@ -433,8 +433,8 @@ namespace build2
     // We should have executed every target that we matched, provided we
     // haven't failed (in which case we could have bailed out early).
     //
-    assert (target_count.load (memory_order_relaxed) == 0);
-    assert (dependency_count.load (memory_order_relaxed) == 0);
+    assert (ctx.target_count.load (memory_order_relaxed) == 0);
+    assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
   }
 
   const meta_operation_info mo_perform {

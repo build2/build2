@@ -276,7 +276,7 @@ namespace build2
 
     if (size_t c = t[inner].task_count.load (memory_order_relaxed))
     {
-      if (c == target::count_applied () || c == target::count_executed ())
+      if (c == t.ctx.count_applied () || c == t.ctx.count_executed ())
       {
         bool f (false);
         for (const target* pt: t.prerequisite_targets[inner])
