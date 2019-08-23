@@ -363,6 +363,11 @@ namespace build2
     //
     const variable* var_build_meta_operation;
 
+    // The old/new src_root remapping for subprojects.
+    //
+    dir_path old_src_root;
+    dir_path new_src_root;
+
   public:
     explicit
     context (scheduler&,

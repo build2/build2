@@ -146,20 +146,17 @@ namespace build2
     return make_pair (dir_path (), false);
   }
 
-  dir_path old_src_root;
-  dir_path new_src_root;
-
   // Remap the src_root variable value if it is inside old_src_root.
   //
   static inline void
-  remap_src_root (value& v)
+  remap_src_root (context& ctx, value& v)
   {
-    if (!old_src_root.empty ())
+    if (!ctx.old_src_root.empty ())
     {
       dir_path& d (cast<dir_path> (v));
 
-      if (d.sub (old_src_root))
-        d = new_src_root / d.leaf (old_src_root);
+      if (d.sub (ctx.old_src_root))
+        d = ctx.new_src_root / d.leaf (ctx.old_src_root);
     }
   }
 
@@ -600,7 +597,7 @@ namespace build2
             fail << "variable src_root expected as first line in " << f;
 
           src_root_v = move (p.first);
-          remap_src_root (src_root_v); // Remap if inside old_src_root.
+          remap_src_root (ctx, src_root_v); // Remap if inside old_src_root.
           src_root = &cast<dir_path> (src_root_v);
 
           l5 ([&]{trace << "extracted src_root " << *src_root
@@ -1075,7 +1072,7 @@ namespace build2
         }
       }
       else
-        remap_src_root (v); // Remap if inside old_src_root.
+        remap_src_root (ctx, v); // Remap if inside old_src_root.
 
       setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
       bootstrap_pre (rs, altn);
@@ -1135,7 +1132,7 @@ namespace build2
               : (root.src_path () / p.second);
           }
           else
-            remap_src_root (v); // Remap if inside old_src_root.
+            remap_src_root (ctx, v); // Remap if inside old_src_root.
 
           setup_root (rs, forwarded (root, out_root, v.as<dir_path> (), altn));
           bootstrap_pre (rs, altn);

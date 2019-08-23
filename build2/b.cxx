@@ -1079,8 +1079,8 @@ main (int argc, char* argv[])
                        << (forwarded ? "forwarded " : "specified ")
                        << src_root;
 
-                new_src_root = src_root;
-                old_src_root = move (p);
+                ctx->new_src_root = src_root;
+                ctx->old_src_root = move (p);
                 p = src_root;
               }
             }

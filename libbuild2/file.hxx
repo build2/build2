@@ -69,11 +69,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT pair<dir_path, bool>
   find_out_root (const dir_path&, optional<bool>& altn);
 
-  // The old/new src_root paths. See main() (where they are set) for details.
-  //
-  LIBBUILD2_SYMEXPORT extern dir_path old_src_root;
-  LIBBUILD2_SYMEXPORT extern dir_path new_src_root;
-
   // If buildfile is '-', then read from STDIN.
   //
   LIBBUILD2_SYMEXPORT void

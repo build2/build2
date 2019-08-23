@@ -165,6 +165,9 @@ namespace build2
   // state dump). If it is empty, then relative() below returns the original
   // path.
   //
+  // @@ CTX: this could be an issue if changed concurrently from several
+  //         contexts.
+  //
   LIBBUILD2_SYMEXPORT extern const dir_path* relative_base;
 
   // If possible and beneficial, translate an absolute, normalized path into
