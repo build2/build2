@@ -116,10 +116,18 @@ namespace build2
   template <typename T>
   struct action_state
   {
-    T data[2]; // [0] -- inner, [1] -- outer.
+    T inner;
+    T outer;
 
-    T&       operator[] (action a)       {return data[a.inner () ? 0 : 1];}
-    const T& operator[] (action a) const {return data[a.inner () ? 0 : 1];}
+    T&       operator[] (action a)       {return a.inner () ? inner : outer;}
+    const T& operator[] (action a) const {return a.inner () ? inner : outer;}
+
+    action_state () = default;
+
+    template <typename... A>
+    explicit
+    action_state (A&&... a)
+        : inner (forward<A> (a)...), outer (forward<A> (a)...) {}
   };
 
   // Id constants for build-in and pre-defined meta/operations.

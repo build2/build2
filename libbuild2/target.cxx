@@ -418,8 +418,8 @@ namespace build2
       {
         t->ext_ = &i->first.ext;
         t->implied = implied;
-        t->state.data[0].target_ = t;
-        t->state.data[1].target_ = t;
+        t->state.inner.target_ = t;
+        t->state.outer.target_ = t;
         return pair<target&, ulock> (*t, move (ul));
       }
 

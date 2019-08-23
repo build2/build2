@@ -775,7 +775,7 @@ namespace build2
         : ctx (c),
           dir (move (d)), out (move (o)), name (move (n)),
           vars (c, false /* global */),
-          state {opstate (c), opstate (c)} {}
+          state (c) {}
 
     target (target&&) = delete;
     target& operator= (target&&) = delete;
