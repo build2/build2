@@ -1749,6 +1749,8 @@ namespace build2
       const file& t (xt.as<file> ());
       const path& tp (t.path ());
 
+      context& ctx (t.ctx);
+
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
@@ -1868,7 +1870,7 @@ namespace build2
             if (verb >= 3)
               print_process (args);
 
-            if (!dry_run)
+            if (!ctx.dry_run)
             {
               auto_rmfile rm (of);
 
@@ -1968,7 +1970,7 @@ namespace build2
         const string& cs (
           cast<string> (
             rs[tsys == "win32-msvc"
-               ? t.ctx.var_pool["bin.ld.checksum"]
+               ? ctx.var_pool["bin.ld.checksum"]
                : x_checksum]));
 
         if (dd.expect (cs) != nullptr)
@@ -2728,7 +2730,7 @@ namespace build2
       //
       auto_rmfile rm;
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         rm = auto_rmfile (relt);
 
@@ -2825,7 +2827,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        if (!dry_run)
+        if (!ctx.dry_run)
           run (rl, args);
       }
 
@@ -2845,12 +2847,12 @@ namespace build2
         // For shared libraries we may need to create a bunch of symlinks (or
         // fallback to hardlinks/copies on Windows).
         //
-        auto ln = [] (const path& f, const path& l)
+        auto ln = [&ctx] (const path& f, const path& l)
         {
           if (verb >= 3)
             text << "ln -sf " << f << ' ' << l;
 
-          if (dry_run)
+          if (ctx.dry_run)
             return;
 
           try
@@ -2910,12 +2912,12 @@ namespace build2
         //
         if (tsys == "darwin" && cast<string> (rs["bin.ar.id"]) == "generic")
         {
-          if (!dry_run)
-            touch (tp, false /* create */, verb_never);
+          if (!ctx.dry_run)
+            touch (ctx, tp, false /* create */, verb_never);
         }
       }
 
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         rm.cancel ();
         dd.check_mtime (tp);

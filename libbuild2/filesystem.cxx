@@ -13,12 +13,12 @@ using namespace butl;
 namespace build2
 {
   void
-  touch (const path& p, bool create, uint16_t v)
+  touch (context& ctx, const path& p, bool create, uint16_t v)
   {
     if (verb >= v)
       text << "touch " << p;
 
-    if (dry_run)
+    if (ctx.dry_run)
       return;
 
     try
@@ -104,7 +104,7 @@ namespace build2
   }
 
   fs_status<rmfile_status>
-  rmsymlink (const path& p, bool d, uint16_t v)
+  rmsymlink (context& ctx, const path& p, bool d, uint16_t v)
   {
     auto print = [&p, v] ()
     {
@@ -116,7 +116,7 @@ namespace build2
 
     try
     {
-      rs = dry_run
+      rs = ctx.dry_run
         ? (butl::entry_exists (p)
            ? rmfile_status::success
            : rmfile_status::not_exist)
@@ -135,7 +135,7 @@ namespace build2
   }
 
   fs_status<butl::rmdir_status>
-  rmdir_r (const dir_path& d, bool dir, uint16_t v)
+  rmdir_r (context& ctx, const dir_path& d, bool dir, uint16_t v)
   {
     using namespace butl;
 
@@ -148,7 +148,7 @@ namespace build2
     if (verb >= v)
       text << "rmdir -r " << d;
 
-    if (!dry_run)
+    if (!ctx.dry_run)
     {
       try
       {
@@ -216,7 +216,10 @@ namespace build2
   }
 
   fs_status<mkdir_status>
-  mkdir_buildignore (const dir_path& d, const path& n, uint16_t verbosity)
+  mkdir_buildignore (context& ctx,
+                     const dir_path& d,
+                     const path& n,
+                     uint16_t verbosity)
   {
     fs_status<mkdir_status> r (mkdir (d, verbosity));
 
@@ -225,7 +228,7 @@ namespace build2
     //
     path p (d / n);
     if (r || !exists (p))
-      touch (p, true /* create */, verbosity);
+      touch (ctx, p, true /* create */, verbosity);
 
     return r;
   }
@@ -253,7 +256,10 @@ namespace build2
   }
 
   fs_status<rmdir_status>
-  rmdir_buildignore (const dir_path& d, const path& n, uint16_t verbosity)
+  rmdir_buildignore (context& ctx,
+                     const dir_path& d,
+                     const path& n,
+                     uint16_t verbosity)
   {
     // We should remove the .buildignore file only if the subsequent rmdir()
     // will succeed. In other words if the directory stays after the function
@@ -263,12 +269,12 @@ namespace build2
     //
     path p (d / n);
     if (exists (p) && empty_buildignore (d, n) && !work.sub (d))
-      rmfile (p, verbosity);
+      rmfile (ctx, p, verbosity);
 
     // Note that in case of a system error the directory is likely to stay with
     // the .buildignore file already removed. Trying to restore it feels like
     // an overkill here.
     //
-    return rmdir (d, verbosity);
+    return rmdir (ctx, d, verbosity);
   }
 }

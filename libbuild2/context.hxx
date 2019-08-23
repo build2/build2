@@ -110,6 +110,41 @@ namespace build2
   public:
     scheduler& sched;
 
+    // Dry run flag (see --dry-run|-n).
+    //
+    // This flag is set (based on dry_run_option) only for the final execute
+    // phase (as opposed to those that interrupt match) by the perform meta
+    // operation's execute() callback.
+    //
+    // Note that for this mode to function properly we have to use fake
+    // mtimes. Specifically, a rule that pretends to update a target must set
+    // its mtime to system_clock::now() and everyone else must use this cached
+    // value. In other words, there should be no mtime re-query from the
+    // filesystem. The same is required for "logical clean" (i.e., dry-run
+    // 'clean update' in order to see all the command lines).
+    //
+    // At first, it may seem like we should also "dry-run" changes to depdb.
+    // But that would be both problematic (some rules update it in apply()
+    // during the match phase) and wasteful (why discard information). Also,
+    // depdb may serve as an input to some commands (for example, to provide
+    // C++ module mapping) which means that without updating it the commands
+    // we print might not be runnable (think of the compilation database).
+    //
+    // One thing we need to be careful about if we are updating depdb is to
+    // not render the target up-to-date. But in this case the depdb file will
+    // be older than the target which in our model is treated as an
+    // interrupted update (see depdb for details).
+    //
+    // Note also that sometimes it makes sense to do a bit more than
+    // absolutely necessary or to discard information in order to keep the
+    // rule logic sane.  And some rules may choose to ignore this flag
+    // altogether. In this case, however, the rule should be careful not to
+    // rely on functions (notably from filesystem) that respect this flag in
+    // order not to end up with a job half done.
+    //
+    bool dry_run = false;
+    bool dry_run_option;
+
     // Keep going flag.
     //
     // Note that setting it to false is not of much help unless we are running
@@ -336,6 +371,7 @@ namespace build2
     explicit
     context (scheduler&,
              const strings& cmd_vars = {},
+             bool dry_run = false,
              bool keep_going = true);
 
     // Set current meta-operation and operation.
@@ -480,39 +516,6 @@ namespace build2
     atomic_count* task_count;
     bool phase;
   };
-
-  // Dry run flag (see --dry-run|-n).
-  //
-  // This flag is set only for the final execute phase (as opposed to those
-  // that interrupt match) by the perform meta operation's execute() callback.
-  //
-  // Note that for this mode to function properly we have to use fake mtimes.
-  // Specifically, a rule that pretends to update a target must set its mtime
-  // to system_clock::now() and everyone else must use this cached value. In
-  // other words, there should be no mtime re-query from the filesystem. The
-  // same is required for "logical clean" (i.e., dry-run 'clean update' in
-  // order to see all the command lines).
-  //
-  // At first, it may seem like we should also "dry-run" changes to depdb. But
-  // that would be both problematic (some rules update it in apply() during
-  // the match phase) and wasteful (why discard information). Also, depdb may
-  // serve as an input to some commands (for example, to provide C++ module
-  // mapping) which means that without updating it the commands we print might
-  // not be runnable (think of the compilation database).
-  //
-  // One thing we need to be careful about if we are updating depdb is to not
-  // render the target up-to-date. But in this case the depdb file will be
-  // older than the target which in our model is treated as an interrupted
-  // update (see depdb for details).
-  //
-  // Note also that sometimes it makes sense to do a bit more than absolutely
-  // necessary or to discard information in order to keep the rule logic sane.
-  // And some rules may choose to ignore this flag altogether. In this case,
-  // however, the rule should be careful not to rely on functions (notably
-  // from filesystem) that respect this flag in order not to end up with a
-  // job half done.
-  //
-  LIBBUILD2_SYMEXPORT extern bool dry_run;
 
   // Config module entry points.
   //

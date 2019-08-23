@@ -10,6 +10,8 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/context.hxx>
+
 #include <libbuild2/export.hxx>
 
 // Higher-level filesystem utilities built on top of <libbutl/filesystem.mxx>.
@@ -43,7 +45,7 @@ namespace build2
   // create it and fail otherwise.
   //
   LIBBUILD2_SYMEXPORT void
-  touch (const path&, bool create, uint16_t verbosity = 1);
+  touch (context&, const path&, bool create, uint16_t verbosity = 1);
 
   // Return the modification time for an existing regular file and
   // timestamp_nonexistent otherwise. Print the diagnostics and fail on system
@@ -88,22 +90,19 @@ namespace build2
   fs_status<rmfile_status>
   rmfile (const path&, const T& target, uint16_t verbosity = 1);
 
-  inline fs_status<rmfile_status>
-  rmfile (const path& f, int verbosity = 1) // Literal overload (int).
-  {
-    return rmfile (f, f, static_cast<uint16_t> (verbosity));
-  }
+  fs_status<rmfile_status>
+  rmfile (context&, const path&, uint16_t verbosity = 1);
 
-  inline fs_status<rmfile_status>
-  rmfile (const path& f, uint16_t verbosity) // Overload (verb_never).
-  {
-    return rmfile (f, f, verbosity);
-  }
+  fs_status<rmfile_status>
+  rmfile (const path&, int = 1) = delete;
+
+  fs_status<rmfile_status>
+  rmfile (const path&, uint16_t) = delete;
 
   // Similar to rmfile() but for symlinks.
   //
   LIBBUILD2_SYMEXPORT fs_status<rmfile_status>
-  rmsymlink (const path&, bool dir, uint16_t verbosity);
+  rmsymlink (context&, const path&, bool dir, uint16_t verbosity);
 
   // Similar to rmfile() but for directories (note: not -r).
   //
@@ -113,27 +112,26 @@ namespace build2
   fs_status<rmdir_status>
   rmdir (const dir_path&, const T& target, uint16_t verbosity = 1);
 
-  inline fs_status<rmdir_status>
-  rmdir (const dir_path& d, int verbosity = 1) // Literal overload (int).
-  {
-    return rmdir (d, d, static_cast<uint16_t> (verbosity));
-  }
+  fs_status<rmdir_status>
+  rmdir (context&, const dir_path&, uint16_t verbosity = 1);
 
-  inline fs_status<rmdir_status>
-  rmdir (const dir_path& d, uint16_t verbosity) // Overload (verb_never).
-  {
-    return rmdir (d, d, verbosity);
-  }
+  fs_status<rmdir_status>
+  rmdir (const dir_path&, int = 1) = delete;
+
+  fs_status<rmdir_status>
+  rmdir (const dir_path&, uint16_t) = delete;
 
   // Remove the directory recursively (unless dry-run) and print the standard
   // diagnostics starting from the specified verbosity level. Note that this
   // function returns not_empty if we try to remove a working directory. If
   // the dir argument is false, then the directory itself is not removed.
   //
-  // @@ Collides (via ADL) with butl::rmdir_r(), which sucks.
-  //
   LIBBUILD2_SYMEXPORT fs_status<rmdir_status>
-  rmdir_r (const dir_path&, bool dir = true, uint16_t verbosity = 1);
+  rmdir_r (context& ctx,
+           const dir_path&, bool dir = true, uint16_t verbosity = 1);
+
+  fs_status<rmdir_status>
+  rmdir_r (const dir_path&, bool = true, uint16_t = 1) = delete;
 
   // Check for a file, directory or filesystem entry existence. Print the
   // diagnostics and fail on system error, unless ignore_error is true.
@@ -163,7 +161,8 @@ namespace build2
   // Create a directory containing an empty .buildignore file.
   //
   LIBBUILD2_SYMEXPORT fs_status<mkdir_status>
-  mkdir_buildignore (const dir_path&, const path&, uint16_t verbosity = 1);
+  mkdir_buildignore (context&,
+                     const dir_path&, const path&, uint16_t verbosity = 1);
 
   // Return true if the directory is empty or only contains the .buildignore
   // file. Fail if the directory doesn't exist.
@@ -174,9 +173,11 @@ namespace build2
   // Remove a directory if it is empty or only contains the .buildignore file.
   //
   LIBBUILD2_SYMEXPORT fs_status<rmdir_status>
-  rmdir_buildignore (const dir_path&, const path&, uint16_t verbosity = 1);
+  rmdir_buildignore (context&,
+                     const dir_path&, const path&, uint16_t verbosity = 1);
 }
 
+#include <libbuild2/filesystem.ixx>
 #include <libbuild2/filesystem.txx>
 
 #endif // LIBBUILD2_FILESYSTEM_HXX

@@ -44,7 +44,8 @@ namespace build2
     // Return the archive file path.
     //
     static path
-    archive (const dir_path& root,
+    archive (context& ctx,
+             const dir_path& root,
              const string& pkg,
              const dir_path& dir,
              const string& ext);
@@ -54,7 +55,8 @@ namespace build2
     // Return the checksum file path.
     //
     static path
-    checksum (const path& arc, const dir_path& dir, const string& ext);
+    checksum (context&,
+              const path& arc, const dir_path& dir, const string& ext);
 
     static operation_id
     dist_operation_pre (const values&, operation_id o)
@@ -336,7 +338,7 @@ namespace build2
 
       // Clean up the target directory.
       //
-      if (build2::rmdir_r (td, true, 2) == rmdir_status::not_empty)
+      if (rmdir_r (ctx, td, true, 2) == rmdir_status::not_empty)
         fail << "unable to clean target directory " << td;
 
       auto_rmdir rm_td (td); // Clean it up if things go bad.
@@ -469,14 +471,14 @@ namespace build2
         for (const path& p: cast<paths> (as))
         {
           auto ap (split (p, dist_root, "dist.archives"));
-          path a (archive (dist_root, dist_package, ap.first, ap.second));
+          path a (archive (ctx, dist_root, dist_package, ap.first, ap.second));
 
           if (cs)
           {
             for (const path& p: cast<paths> (cs))
             {
               auto cp (split (p, ap.first, "dist.checksums"));
-              checksum (a, cp.first, cp.second);
+              checksum (ctx, a, cp.first, cp.second);
             }
           }
         }
@@ -543,7 +545,8 @@ namespace build2
     }
 
     static path
-    archive (const dir_path& root,
+    archive (context& ctx,
+             const dir_path& root,
              const string& pkg,
              const dir_path& dir,
              const string& e)
@@ -554,7 +557,7 @@ namespace build2
       //
       path ap (dir / an);
       if (exists (ap, false))
-        rmfile (ap);
+        rmfile (ctx, ap);
 
       // Use zip for .zip archives. Also recognize and handle a few well-known
       // tar.xx cases (in case tar doesn't support -a or has other issues like
@@ -715,7 +718,8 @@ namespace build2
     }
 
     static path
-    checksum (const path& ap, const dir_path& dir, const string& e)
+    checksum (context& ctx,
+              const path& ap, const dir_path& dir, const string& e)
     {
       path     an (ap.leaf ());
       dir_path ad (ap.directory ());
@@ -726,7 +730,7 @@ namespace build2
       //
       path cp (dir / cn);
       if (exists (cp, false))
-        rmfile (cp);
+        rmfile (ctx, cp);
 
       auto_rmfile c_rm; // Note: must come first.
       auto_fd c_fd;

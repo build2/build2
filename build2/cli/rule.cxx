@@ -322,7 +322,7 @@ namespace build2
       else if (verb)
         text << "cli " << s;
 
-      if (!dry_run)
+      if (!t.ctx.dry_run)
       {
         run (cli, args);
         dd.check_mtime (tp);

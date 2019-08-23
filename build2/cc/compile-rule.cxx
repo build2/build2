@@ -583,6 +583,8 @@ namespace build2
 
       match_data& md (t.data<match_data> ());
 
+      context& ctx (t.ctx);
+
       // Note: until refined below, non-BMI-generating translation unit is
       // assumed non-modular.
       //
@@ -698,7 +700,7 @@ namespace build2
       // Start asynchronous matching of prerequisites. Wait with unlocked
       // phase to allow phase switching.
       //
-      wait_guard wg (t.ctx, t.ctx.count_busy (), t[a].task_count, true);
+      wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
       size_t start (pts.size ()); // Index of the first to be added.
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -760,7 +762,7 @@ namespace build2
             continue;
         }
 
-        match_async (a, *pt, t.ctx.count_busy (), t[a].task_count);
+        match_async (a, *pt, ctx.count_busy (), t[a].task_count);
         pts.push_back (prerequisite_target (pt, pi));
       }
 
@@ -1148,7 +1150,7 @@ namespace build2
         // to keep re-validating the file on every subsequent dry-run as well
         // on the real run).
         //
-        if (u && dd.reading () && !dry_run)
+        if (u && dd.reading () && !ctx.dry_run)
           dd.touch = true;
 
         dd.close ();
@@ -5558,6 +5560,8 @@ namespace build2
       match_data md (move (t.data<match_data> ()));
       unit_type ut (md.type);
 
+      context& ctx (t.ctx);
+
       // While all our prerequisites are already up-to-date, we still have to
       // execute them to keep the dependency counts straight. Actually, no, we
       // may also have to update the modules.
@@ -5583,9 +5587,9 @@ namespace build2
       {
         if (md.touch)
         {
-          touch (tp, false, 2);
+          touch (ctx, tp, false, 2);
           t.mtime (system_clock::now ());
-          t.ctx.skip_count.fetch_add (1, memory_order_relaxed);
+          ctx.skip_count.fetch_add (1, memory_order_relaxed);
         }
         // Note: else mtime should be cached.
 
@@ -5600,7 +5604,7 @@ namespace build2
                        ? system_clock::now ()
                        : timestamp_unknown);
 
-      touch (md.dd, false, verb_never);
+      touch (ctx, md.dd, false, verb_never);
 
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
@@ -5949,7 +5953,7 @@ namespace build2
       // translation unit (i.e., one of the imported module's has BMIs
       // changed).
       //
-      if (!dry_run)
+      if (!ctx.dry_run)
       {
         try
         {
@@ -6028,7 +6032,7 @@ namespace build2
         if (verb >= 2)
           print_process (args);
 
-        if (!dry_run)
+        if (!ctx.dry_run)
         {
           // Remove the target file if this fails. If we don't do that, we
           // will end up with a broken build that is up-to-date.
@@ -6061,7 +6065,7 @@ namespace build2
 
       timestamp now (system_clock::now ());
 
-      if (!dry_run)
+      if (!ctx.dry_run)
         depdb::check_mtime (start, md.dd, tp, now);
 
       // Should we go to the filesystem and get the new mtime? We know the

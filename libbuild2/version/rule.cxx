@@ -328,7 +328,8 @@ namespace build2
       // the out tree. Somehow the latter feels more appropriate (even though
       // if we crash in between, we won't clean it up).
       //
-      return fixup_manifest (p, rs.out_path () / "manifest.t", m.version);
+      return fixup_manifest (
+        t.ctx, p, rs.out_path () / "manifest.t", m.version);
     }
   }
 }

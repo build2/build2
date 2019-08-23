@@ -50,9 +50,10 @@ namespace build2
   };
 
   context::
-  context (scheduler& s, const strings& cmd_vars, bool kg)
+  context (scheduler& s, const strings& cmd_vars, bool dr, bool kg)
       : data_ (new data (*this)),
         sched (s),
+        dry_run_option (dr),
         keep_going (kg),
         phase_mutex (phase),
         scopes (data_->scopes),
@@ -851,8 +852,6 @@ namespace build2
 
     //text << this_thread::get_id () << " phase restore " << n << " " << o;
   }
-
-  bool dry_run = false;
 
   void (*config_save_variable) (scope&, const variable&, uint64_t);
 

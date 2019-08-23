@@ -1095,11 +1095,12 @@ namespace build2
     if (!exists (d))
       mkdir_p (d, 2 /* verbosity */);
 
-    update_backlink (p, l, m);
+    update_backlink (f.ctx, p, l, m);
   }
 
   void
-  update_backlink (const path& p, const path& l, bool changed, backlink_mode m)
+  update_backlink (context& ctx,
+                   const path& p, const path& l, bool changed, backlink_mode m)
   {
     // As above but with a slightly different diagnostics.
 
@@ -1133,7 +1134,7 @@ namespace build2
     if (!exists (d))
       mkdir_p (d, 2 /* verbosity */);
 
-    update_backlink (p, l, m);
+    update_backlink (ctx, p, l, m);
   }
 
   static inline void
@@ -1172,7 +1173,8 @@ namespace build2
   }
 
   void
-  update_backlink (const path& p, const path& l, backlink_mode om)
+  update_backlink (context& ctx,
+                   const path& p, const path& l, backlink_mode om)
   {
     using mode = backlink_mode;
 
@@ -1203,7 +1205,7 @@ namespace build2
       {
         // Normally will be there.
         //
-        if (!dry_run)
+        if (!ctx.dry_run)
           try_rmbacklink (l, m);
 
         // Skip (ad hoc) targets that don't exist.
@@ -1247,7 +1249,7 @@ namespace build2
                 path f (fr / de.path ());
                 path t (to / de.path ());
 
-                update_backlink (f, t, mode::link);
+                update_backlink (ctx, f, t, mode::link);
               }
             }
             else
@@ -1288,7 +1290,8 @@ namespace build2
   }
 
   void
-  clean_backlink (const path& l, uint16_t v /*verbosity*/, backlink_mode m)
+  clean_backlink (context& ctx,
+                  const path& l, uint16_t v /*verbosity*/, backlink_mode m)
   {
     // Like try_rmbacklink() but with diagnostics and error handling.
 
@@ -1300,9 +1303,9 @@ namespace build2
       {
       case mode::link:
       case mode::symbolic:
-      case mode::hard:      rmsymlink (l, true /* directory */, v);     break;
-      case mode::copy:      rmdir_r (path_cast<dir_path> (l), true, v); break;
-      case mode::overwrite:                                             break;
+      case mode::hard:  rmsymlink (ctx, l, true /* directory */, v);     break;
+      case mode::copy:  rmdir_r (ctx, path_cast<dir_path> (l), true, v); break;
+      case mode::overwrite:                                              break;
       }
     }
     else
@@ -1314,8 +1317,8 @@ namespace build2
       case mode::link:
       case mode::symbolic:
       case mode::hard:
-      case mode::copy:      rmfile (l, v); break;
-      case mode::overwrite:                break;
+      case mode::copy:      rmfile (ctx, l, v); break;
+      case mode::overwrite:                     break;
       }
     }
   }
@@ -1497,7 +1500,7 @@ namespace build2
                          ts == target_state::changed,
                          bl.mode);
       else
-        update_backlink (bl.target, bl.path, bl.mode);
+        update_backlink (t.ctx, bl.target, bl.path, bl.mode);
     }
 
     // Cancel removal.
@@ -1517,7 +1520,7 @@ namespace build2
       //
       backlink& bl (*i);
       bl.cancel ();
-      clean_backlink (bl.path, i == b ? 2 : 3 /* verbosity */, bl.mode);
+      clean_backlink (t.ctx, bl.path, i == b ? 2 : 3 /* verbosity */, bl.mode);
     }
   }
 
@@ -2038,9 +2041,9 @@ namespace build2
 
     context& ctx (ft.ctx);
 
-    auto clean_extra = [&er, &ed, &ep] (const file& f,
-                                        const path* fp,
-                                        const clean_extras& es)
+    auto clean_extra = [&er, &ed, &ep, &ctx] (const file& f,
+                                              const path* fp,
+                                              const clean_extras& es)
     {
       for (const char* e: es)
       {
@@ -2080,7 +2083,7 @@ namespace build2
         {
           dir_path dp (path_cast<dir_path> (p));
 
-          switch (build2::rmdir_r (dp, true, 3))
+          switch (rmdir_r (ctx, dp, true, 3))
           {
           case rmdir_status::success:
             {
@@ -2099,7 +2102,7 @@ namespace build2
         }
         else
         {
-          if (rmfile (p, 3))
+          if (rmfile (ctx, p, 3))
             r = target_state::changed;
         }
 
@@ -2165,7 +2168,7 @@ namespace build2
       }
       else
       {
-        target_state r (rmfile (*mp, 3)
+        target_state r (rmfile (ctx, *mp, 3)
                         ? target_state::changed
                         : target_state::unchanged);
 
@@ -2261,6 +2264,8 @@ namespace build2
   target_state
   perform_clean_group_depdb (action a, const target& g)
   {
+    context& ctx (g.ctx);
+
     // The same twisted target state merging logic as in perform_clean_extra().
     //
     target_state er (target_state::unchanged);
@@ -2271,7 +2276,7 @@ namespace build2
     {
       ep = gv.members[0]->as<file> ().path () + ".d";
 
-      if (rmfile (ep, 3))
+      if (rmfile (ctx, ep, 3))
         er = target_state::changed;
     }
 
@@ -2279,7 +2284,7 @@ namespace build2
 
     if (tr != target_state::changed && er == target_state::changed)
     {
-      if (verb > (g.ctx.current_diag_noise ? 0 : 1) && verb < 3)
+      if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
         text << "rm " << ep;
     }
 

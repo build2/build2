@@ -699,6 +699,8 @@ namespace build2
       void default_runner::
       enter (scope& sp, const location&)
       {
+        context& ctx (sp.root.target_scope.ctx);
+
         auto df = make_diag_frame (
           [&sp](const diag_record& dr)
           {
@@ -723,6 +725,7 @@ namespace build2
         fs_status<mkdir_status> r (
           sp.parent == nullptr
           ? mkdir_buildignore (
+            ctx,
             sp.wd_path,
             sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
             2)
@@ -744,6 +747,8 @@ namespace build2
       void default_runner::
       leave (scope& sp, const location& ll)
       {
+        context& ctx (sp.root.target_scope.ctx);
+
         auto df = make_diag_frame (
           [&sp](const diag_record& dr)
           {
@@ -766,7 +771,7 @@ namespace build2
           {
             // Remove the file if exists. Fail otherwise.
             //
-            if (rmfile (p, 3) == rmfile_status::not_exist)
+            if (rmfile (ctx, p, 3) == rmfile_status::not_exist)
               fail (ll) << "registered for cleanup special file " << p
                         << " does not exist";
           }
@@ -800,9 +805,8 @@ namespace build2
             {
               bool removed (false);
 
-              auto rm = [&cp, recursive, &removed, &sp, &ll] (path&& pe,
-                                                              const string&,
-                                                              bool interm)
+              auto rm = [&cp, recursive, &removed, &sp, &ll, &ctx]
+                (path&& pe, const string&, bool interm)
               {
                 if (!interm)
                 {
@@ -819,7 +823,7 @@ namespace build2
 
                     if (!recursive)
                     {
-                      rmdir_status r (rmdir (d, 3));
+                      rmdir_status r (rmdir (ctx, d, 3));
 
                       if (r != rmdir_status::not_empty)
                         return true;
@@ -839,9 +843,7 @@ namespace build2
                       // Cast to uint16_t to avoid ambiguity with
                       // libbutl::rmdir_r().
                       //
-                      rmdir_status r (rmdir_r (d,
-                                               d != sp.wd_path,
-                                               static_cast<uint16_t> (3)));
+                      rmdir_status r (rmdir_r (ctx, d, d != sp.wd_path, 3));
 
                       if (r != rmdir_status::not_empty)
                         return true;
@@ -854,7 +856,7 @@ namespace build2
                     }
                   }
                   else
-                    rmfile (pe, 3);
+                    rmfile (ctx, pe, 3);
                 }
 
                 return true;
@@ -921,13 +923,14 @@ namespace build2
               //
               rmdir_status r (
                 recursive
-                ? rmdir_r (d, !wd, static_cast <uint16_t> (v))
+                ? rmdir_r (ctx, d, !wd, static_cast <uint16_t> (v))
                 : (wd && sp.parent == nullptr
                    ? rmdir_buildignore (
+                       ctx,
                        d,
                        sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
                        v)
-                   : rmdir (d, v)));
+                   : rmdir (ctx, d, v)));
 
               if (r == rmdir_status::success ||
                   (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -948,7 +951,7 @@ namespace build2
             // Remove the file if exists. Fail otherwise. Removal of
             // non-existing file is not an error for 'maybe' cleanup type.
             //
-            if (rmfile (p, 3) == rmfile_status::not_exist &&
+            if (rmfile (ctx, p, 3) == rmfile_status::not_exist &&
                 t == cleanup_type::always)
               fail (ll) << "registered for cleanup file " << p
                         << " does not exist";

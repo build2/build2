@@ -478,7 +478,6 @@ main (int argc, char* argv[])
     //
     init (&::terminate,
           argv[0],
-          ops.dry_run (),
           (ops.mtime_check ()    ? optional<bool> (true)  :
            ops.no_mtime_check () ? optional<bool> (false) : nullopt),
           (ops.config_sub_specified ()
@@ -621,6 +620,7 @@ main (int argc, char* argv[])
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,
                               cmd_vars,
+                              ops.dry_run (),
                               !ops.serial_stop () /* keep_going */));
     };
 

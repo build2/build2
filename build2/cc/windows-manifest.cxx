@@ -119,7 +119,7 @@ namespace build2
       if (verb >= 3)
         text << "cat >" << mf;
 
-      if (!dry_run)
+      if (!t.ctx.dry_run)
       {
         auto_rmfile rm (mf);
 

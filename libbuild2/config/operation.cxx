@@ -635,7 +635,7 @@ namespace build2
                  !d.empty ();
                  d = d.directory ())
             {
-              rmdir_status s (rmdir (out_root / d, 2));
+              rmdir_status s (rmdir (ctx, out_root / d, 2));
 
               if (s == rmdir_status::not_empty)
                 break; // No use trying do remove parent ones.
@@ -653,21 +653,21 @@ namespace build2
       {
         l5 ([&]{trace << "completely disfiguring " << out_root;});
 
-        r = rmfile (config_file (rs)) || r;
+        r = rmfile (ctx, config_file (rs)) || r;
 
         if (out_root != src_root)
         {
-          r = rmfile (out_root / rs.root_extra->src_root_file, 2) || r;
+          r = rmfile (ctx, out_root / rs.root_extra->src_root_file, 2) || r;
 
           // Clean up the directories.
           //
           // Note: try to remove the root/ hooks directory if it is empty.
           //
-          r = rmdir (out_root / rs.root_extra->root_dir,      2) || r;
-          r = rmdir (out_root / rs.root_extra->bootstrap_dir, 2) || r;
-          r = rmdir (out_root / rs.root_extra->build_dir,     2) || r;
+          r = rmdir (ctx, out_root / rs.root_extra->root_dir,      2) || r;
+          r = rmdir (ctx, out_root / rs.root_extra->bootstrap_dir, 2) || r;
+          r = rmdir (ctx, out_root / rs.root_extra->build_dir,     2) || r;
 
-          switch (rmdir (out_root))
+          switch (rmdir (ctx, out_root))
           {
           case rmdir_status::not_empty:
             {
@@ -731,8 +731,8 @@ namespace build2
       // Remove the out-root.build file and try to remove the bootstrap/
       // directory if it is empty.
       //
-      r = rmfile (src_root / rs.root_extra->out_root_file)    || r;
-      r = rmdir  (src_root / rs.root_extra->bootstrap_dir, 2) || r;
+      r = rmfile (ctx, src_root / rs.root_extra->out_root_file)    || r;
+      r = rmdir  (ctx, src_root / rs.root_extra->bootstrap_dir, 2) || r;
 
       return r;
     }

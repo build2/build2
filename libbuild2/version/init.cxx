@@ -374,7 +374,8 @@ namespace build2
       //
       try
       {
-        auto_rmfile t (fixup_manifest (f,
+        auto_rmfile t (fixup_manifest (rs.ctx,
+                                       f,
                                        path::temp_path ("manifest"),
                                        m.version));
 

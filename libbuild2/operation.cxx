@@ -283,7 +283,7 @@ namespace build2
 
     // Set the dry-run flag.
     //
-    dry_run = dry_run_option;
+    ctx.dry_run = ctx.dry_run_option;
 
     // Setup progress reporting if requested.
     //
@@ -356,7 +356,7 @@ namespace build2
 
     // Clear the dry-run flag.
     //
-    dry_run = false;
+    ctx.dry_run = false;
 
     // Clear the progress if present.
     //

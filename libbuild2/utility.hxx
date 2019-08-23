@@ -124,7 +124,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   init (void (*terminate) (bool),
         const char* argv0,
-        bool dry_run = false,
         optional<bool> mtime_check = nullopt,
         optional<path> config_sub = nullopt,
         optional<path> config_guess = nullopt);
@@ -142,8 +141,6 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT extern const standard_version build_version;
   LIBBUILD2_SYMEXPORT extern const string build_version_interface;
-
-  LIBBUILD2_SYMEXPORT extern bool dry_run_option; // --dry-run
 
   // --[no-]mtime-check
   //

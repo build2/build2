@@ -8,6 +8,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/context.hxx>
 #include <libbuild2/filesystem.hxx>
 
 namespace build2
@@ -18,7 +19,10 @@ namespace build2
     // not preserve comments. Probably acceptable for snapshots.
     //
     auto_rmfile
-    fixup_manifest (const path& in, path out, const standard_version&);
+    fixup_manifest (context&,
+                    const path& in,
+                    path out,
+                    const standard_version&);
   }
 }
 

@@ -281,7 +281,7 @@ namespace build2
       // simpler.
       //
       {
-        rmdir_status s (build2::rmdir_r (ad, empty, 3));
+        rmdir_status s (rmdir_r (t.ctx, ad, empty, 3));
 
         if (empty)
           return;
@@ -362,7 +362,7 @@ namespace build2
       if (verb >= 3)
         text << "cat >" << am;
 
-      if (dry_run)
+      if (t.ctx.dry_run)
         return;
 
       auto_rmfile rm (am);

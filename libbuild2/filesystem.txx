@@ -4,14 +4,13 @@
 
 #include <type_traits> // is_base_of
 
-#include <libbuild2/context.hxx> // dry_run
 #include <libbuild2/diagnostics.hxx>
 
 namespace build2
 {
   template <typename T>
   fs_status<butl::rmfile_status>
-  rmfile (const path& f, const T& t, uint16_t v)
+  rmfile (context& ctx, const path& f, const T& t, uint16_t v)
   {
     using namespace butl;
 
@@ -34,7 +33,7 @@ namespace build2
 
     try
     {
-      rs = dry_run
+      rs = ctx.dry_run
         ? file_exists (f) ? rmfile_status::success : rmfile_status::not_exist
         : try_rmfile (f);
     }
@@ -52,7 +51,7 @@ namespace build2
 
   template <typename T>
   fs_status<butl::rmdir_status>
-  rmdir (const dir_path& d, const T& t, uint16_t v)
+  rmdir (context& ctx, const dir_path& d, const T& t, uint16_t v)
   {
     using namespace butl;
 
@@ -75,7 +74,7 @@ namespace build2
     rmdir_status rs;
     try
     {
-      rs = dry_run
+      rs = ctx.dry_run
         ? dir_exists (d) ? rmdir_status::success : rmdir_status::not_exist
         : !(w = work.sub (d)) ? try_rmdir (d) : rmdir_status::not_empty;
     }

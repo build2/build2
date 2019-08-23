@@ -1248,7 +1248,7 @@ namespace build2
       if (verb >= 2)
         text << "cat >" << p;
 
-      if (dry_run)
+      if (ctx.dry_run)
         return;
 
       auto_rmfile arm (p);
