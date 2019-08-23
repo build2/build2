@@ -1806,14 +1806,14 @@ namespace build2
                       string&, optional<string>&, const location&,
                       bool);
 
-  // Get the extension from the variable or use the default if none set. If
-  // the default is NULL, then return NULL.
+  // Get the extension from the `extension` variable or use the default if
+  // none set. If the default is NULL, then return NULL.
   //
-  template <const char* var, const char* def>
+  template <const char* def>
   optional<string>
   target_extension_var (const target_key&, const scope&, const char*, bool);
 
-  template <const char* var, const char* def>
+  template <const char* def>
   bool
   target_pattern_var (const target_type&, const scope&,
                       string&, optional<string>&, const location&,

@@ -525,9 +525,6 @@ namespace build2
     vector_view<opspec>&,
     bool lifted,
     const location&);
-
-  //@@ CTX TMP
-  LIBBUILD2_SYMEXPORT extern const char var_extension[10]; // "extension"
 }
 
 #include <libbuild2/context.ixx>

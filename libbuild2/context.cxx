@@ -861,6 +861,4 @@ namespace build2
                                              vector_view<opspec>&,
                                              bool,
                                              const location&);
-
-  const char var_extension[10] = "extension";
 }

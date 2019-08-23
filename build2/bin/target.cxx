@@ -105,8 +105,8 @@ namespace build2
       &objx::static_type,
       &m_factory<obje, obj>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -118,8 +118,8 @@ namespace build2
       &bmix::static_type,
       &m_factory<bmie, bmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -131,8 +131,8 @@ namespace build2
       &hbmix::static_type,
       &m_factory<hbmie, hbmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -144,8 +144,8 @@ namespace build2
       &objx::static_type,
       &m_factory<obja, obj>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -157,8 +157,8 @@ namespace build2
       &bmix::static_type,
       &m_factory<bmia, bmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -170,8 +170,8 @@ namespace build2
       &hbmix::static_type,
       &m_factory<hbmia, hbmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -183,8 +183,8 @@ namespace build2
       &objx::static_type,
       &m_factory<objs, obj>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -196,8 +196,8 @@ namespace build2
       &bmix::static_type,
       &m_factory<bmis, bmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -209,8 +209,8 @@ namespace build2
       &hbmix::static_type,
       &m_factory<hbmis, hbmi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -222,8 +222,8 @@ namespace build2
       &libux::static_type,
       &target_factory<libue>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -235,8 +235,8 @@ namespace build2
       &libux::static_type,
       &m_factory<libua, libul>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -248,8 +248,8 @@ namespace build2
       &libux::static_type,
       &m_factory<libus, libul>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &target_search, // Note: not _file(); don't look for an existing file.
       false
@@ -372,8 +372,8 @@ namespace build2
       &file::static_type,
       &m_factory<liba, lib>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
       false
@@ -385,8 +385,8 @@ namespace build2
       &file::static_type,
       &m_factory<libs, lib>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
       false
@@ -447,8 +447,8 @@ namespace build2
       &file::static_type,
       &target_factory<libi>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, nullptr>,
-      &target_pattern_var<var_extension, nullptr>,
+      &target_extension_var<nullptr>,
+      &target_pattern_var<nullptr>,
       nullptr,
       &file_search,
       false

@@ -19,8 +19,8 @@ namespace build2
       &cc::static_type,
       &target_factory<hxx>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, hxx_ext_def>,
-      &target_pattern_var<var_extension, hxx_ext_def>,
+      &target_extension_var<hxx_ext_def>,
+      &target_pattern_var<hxx_ext_def>,
       nullptr,
       &file_search,
       false
@@ -33,8 +33,8 @@ namespace build2
       &cc::static_type,
       &target_factory<ixx>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, ixx_ext_def>,
-      &target_pattern_var<var_extension, ixx_ext_def>,
+      &target_extension_var<ixx_ext_def>,
+      &target_pattern_var<ixx_ext_def>,
       nullptr,
       &file_search,
       false
@@ -47,8 +47,8 @@ namespace build2
       &cc::static_type,
       &target_factory<txx>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, txx_ext_def>,
-      &target_pattern_var<var_extension, txx_ext_def>,
+      &target_extension_var<txx_ext_def>,
+      &target_pattern_var<txx_ext_def>,
       nullptr,
       &file_search,
       false
@@ -61,8 +61,8 @@ namespace build2
       &cc::static_type,
       &target_factory<cxx>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, cxx_ext_def>,
-      &target_pattern_var<var_extension, cxx_ext_def>,
+      &target_extension_var<cxx_ext_def>,
+      &target_pattern_var<cxx_ext_def>,
       nullptr,
       &file_search,
       false
@@ -75,8 +75,8 @@ namespace build2
       &cc::static_type,
       &target_factory<mxx>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, mxx_ext_def>,
-      &target_pattern_var<var_extension, mxx_ext_def>,
+      &target_extension_var<mxx_ext_def>,
+      &target_pattern_var<mxx_ext_def>,
       nullptr,
       &file_search,
       false

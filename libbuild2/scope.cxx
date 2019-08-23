@@ -801,12 +801,12 @@ namespace build2
     //
     dt->default_extension =
       ext && dt->fixed_extension == nullptr
-      ? &target_extension_var<var_extension, nullptr>
+      ? &target_extension_var<nullptr>
       : nullptr;
 
     dt->pattern =
       dt->fixed_extension != nullptr ? nullptr /*&target_pattern_fix<???>*/ :
-      dt->default_extension != nullptr ? &target_pattern_var<var_extension, nullptr> :
+      dt->default_extension != nullptr ? &target_pattern_var<nullptr> :
       nullptr;
 
     // There is actually a difference between "fixed fixed" (like man1{}) and

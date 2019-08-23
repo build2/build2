@@ -23,8 +23,8 @@ namespace build2
       &file::static_type,
       &target_factory<cli>,
       nullptr, /* fixed_extension */
-      &target_extension_var<var_extension, cli_ext_def>,
-      &target_pattern_var<var_extension, cli_ext_def>,
+      &target_extension_var<cli_ext_def>,
+      &target_pattern_var<cli_ext_def>,
       nullptr,
       &file_search,
       false
