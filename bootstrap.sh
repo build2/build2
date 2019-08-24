@@ -118,7 +118,6 @@ fi
 
 src="build2/*.cxx"
 src="$src build2/c/*.cxx"
-src="$src build2/cc/*.cxx"
 src="$src build2/cxx/*.cxx"
 
 src="$src libbuild2/*.cxx"
@@ -128,6 +127,7 @@ src="$src libbuild2/test/*.cxx"
 src="$src libbuild2/test/script/*.cxx"
 src="$src libbuild2/install/*.cxx"
 src="$src libbuild2/bin/*.cxx"
+src="$src libbuild2/cc/*.cxx"
 src="$src libbuild2/version/*.cxx"
 src="$src libbuild2/in/*.cxx"
 

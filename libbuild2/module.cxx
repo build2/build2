@@ -39,6 +39,7 @@ namespace build2
   static const char* bundled_modules[] = {
     "bash",
     "bin",
+    "cc",
     "in",
     "version"
   };

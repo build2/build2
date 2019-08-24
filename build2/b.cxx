@@ -54,6 +54,7 @@
 
 #include <libbuild2/in/init.hxx>
 #include <libbuild2/bin/init.hxx>
+#include <libbuild2/cc/init.hxx>
 #include <libbuild2/version/init.hxx>
 
 #ifndef BUILD2_BOOTSTRAP
@@ -63,7 +64,6 @@
 #endif
 
 #include <build2/c/init.hxx>
-#include <build2/cc/init.hxx>
 #include <build2/cxx/init.hxx>
 
 using namespace butl;
@@ -520,15 +520,9 @@ main (int argc, char* argv[])
       load (&install::build2_install_load);
 
       load (&bin::build2_bin_load);
+      load (&cc::build2_cc_load);
       load (&version::build2_version_load);
       load (&in::build2_in_load);
-
-      TMP_LOAD (cc_core_vars, "cc.core.vars", cc::core_vars_init);
-      TMP_LOAD (cc_core_guess, "cc.core.guess", cc::core_guess_init);
-      TMP_LOAD (cc_core_config, "cc.core.config", cc::core_config_init);
-      TMP_LOAD (cc_core, "cc.core", cc::core_init);
-      TMP_LOAD (cc_config, "cc.config", cc::config_init);
-      TMP_LOAD (cc, "cc", cc::init);
 
       TMP_LOAD (c_guess, "c.guess", c::guess_init);
       TMP_LOAD (c_config, "c.config", c::config_init);

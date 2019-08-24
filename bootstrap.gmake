@@ -131,7 +131,6 @@ endif
 #
 build2_sub := \
 c             \
-cc            \
 cxx
 
 libbuild2_sub := \
@@ -141,6 +140,7 @@ test/script      \
 test             \
 install          \
 bin              \
+cc               \
 version          \
 in
 

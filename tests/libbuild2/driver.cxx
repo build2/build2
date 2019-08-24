@@ -10,6 +10,7 @@
 
 #include <libbuild2/in/init.hxx>
 #include <libbuild2/bin/init.hxx>
+#include <libbuild2/cc/init.hxx>
 #include <libbuild2/bash/init.hxx>
 #include <libbuild2/version/init.hxx>
 
@@ -23,10 +24,11 @@ main (int, char* argv[])
   init_diag (1);
   init (nullptr, argv[0]);
 
-  bash::build2_bash_load ();
   bin::build2_bin_load ();
-  in::build2_in_load ();
+  cc::build2_cc_load ();
   version::build2_version_load ();
+  in::build2_in_load ();
+  bash::build2_bash_load ();
 
   scheduler sched (1); // Serial execution.
   context ctx (sched);

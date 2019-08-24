@@ -1,0 +1,147 @@
+# file      : libbuild2/cc/parser+module.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test C++ module constructs.
+#
+
+# NOTE: currently header unit imports don't produce anything.
+#
+
+: import
+:
+$* <<EOI >>EOI
+import foo;
+import foo.bar;
+import foo.bar.baz;
+EOI
+
+: import-header
+:
+$* <<EOI
+import "foo.h";
+import <sys/foo.h>;
+__import "/usr/include/stdio.h";
+EOI
+
+: module-implementation
+:
+$* <<EOI >>EOI
+module foo;
+EOI
+
+: module-interface
+:
+$* <<EOI >>EOI
+export module foo;
+EOI
+
+: export-imported
+:
+$* <<EOI >>EOO
+export import foo;
+export import "foo.h";
+export import <sys/foo.h>;
+EOI
+export import foo;
+EOO
+
+: non-module
+:
+$* <<EOI
+#pragma import module foo;
+#pragma export module foo;
+#pragma module foo;
+export namespace bar {int fox ();}
+EOI
+
+: attribute
+:
+$* <<EOI >>EOO
+import foo [[export({import})]];
+import "foo.h" [[export({import})]];
+module bar [[module({module})]];
+EOI
+import foo;
+module bar;
+EOO
+
+: import-duplicate
+:
+$* <<EOI >>EOO
+import foo;
+import bar.baz;
+import foo;
+import bar . baz;
+EOI
+import foo;
+import bar.baz;
+EOO
+
+: brace-missing
+:
+$* <<EOI 2>>EOE != 0
+export
+{
+  class foo
+  {
+  //};
+  module foo;
+}
+EOI
+stdin:8:1: error: {}-imbalance detected
+EOE
+
+: brace-stray
+:
+$* <<EOI 2>>EOE != 0
+export
+{
+  class foo
+  {
+  };}
+}
+module foo;
+EOI
+stdin:6:1: error: {}-imbalance detected
+EOE
+
+: import-missing-name
+:
+$* <<EOI 2>>EOE != 0
+import ;
+EOI
+stdin:1:8: error: module or header name expected instead of ';'
+EOE
+
+: module-missing-name
+:
+$* <<EOI 2>>EOE != 0
+module ;
+EOI
+stdin:1:1: error: module declaration expected after leading module marker
+EOE
+
+: import-missing-semi
+:
+$* <<EOI 2>>EOE != 0
+import foo
+EOI
+stdin:2:1: error: ';' expected instead of <end of file>
+EOE
+
+: module-missing-semi
+:
+$* <<EOI 2>>EOE != 0
+export module foo
+EOI
+stdin:2:1: error: ';' expected instead of <end of file>
+EOE
+
+: import-missing-header
+:
+$* <<EOI 2>>EOE != 0
+import <foo.h;
+EOI
+stdin:2:1: error: closing '>' expected after header name
+EOE

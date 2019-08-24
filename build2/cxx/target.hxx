@@ -9,7 +9,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target.hxx>
-#include <build2/cc/target.hxx>
+#include <libbuild2/cc/target.hxx>
 
 namespace build2
 {

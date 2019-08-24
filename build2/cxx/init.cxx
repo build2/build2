@@ -7,8 +7,8 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/cc/guess.hxx>
-#include <build2/cc/module.hxx>
+#include <libbuild2/cc/guess.hxx>
+#include <libbuild2/cc/module.hxx>
 
 #include <build2/cxx/target.hxx>
 

@@ -2,13 +2,12 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import libs  = libbutl%lib{butl}
-import libs += libpkgconf%lib{pkgconf}
+import libs = libbutl%lib{butl}
 
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
 
-for m: bash bin in version
+for m: bash bin cc in version
 {
   include ../libbuild2/$m/
   libs += ../libbuild2/$m/lib{build2-$m}

@@ -1,0 +1,65 @@
+# file      : libbuild2/cc/lexer+string-literal.test.testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test string literals (except raw).
+#
+
+: normal
+:
+$* <<EOI >>EOO
+"aa"
+"'"
+"a""b"
+EOI
+<string literal>
+<string literal>
+<string literal>
+<string literal>
+EOO
+
+: prefix
+:
+$* <<EOI >>EOO
+L"ab"
+U"ab"
+u"ab"
+u8"ab"
+EOI
+<string literal>
+<string literal>
+<string literal>
+<string literal>
+EOO
+
+: suffix
+:
+$* <<EOI >>EOO
+"ab"x
+"ab"_X123
+EOI
+<string literal>
+<string literal>
+EOO
+
+: escape
+:
+$* <<EOI >>EOO
+"\"\""
+"\\\\"
+"\\\"\\"
+"\n\t"
+U"a\U0001f34c"
+EOI
+<string literal>
+<string literal>
+<string literal>
+<string literal>
+<string literal>
+EOO
+
+: unterminated
+:
+$* <'"ab' 2>>EOE != 0
+stdin:1:1: error: unterminated string literal
+EOE

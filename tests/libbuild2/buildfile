@@ -4,7 +4,7 @@
 
 import libs = build2%lib{build2}
 
-for m: bash bin in version
+for m: bash bin cc in version
   import libs += build2%lib{build2-$m}
 
 exe{driver}: {hxx cxx}{*} $libs testscript
