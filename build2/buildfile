@@ -7,7 +7,7 @@ import libs = libbutl%lib{butl}
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
 
-for m: bash bin cc in version
+for m: bash bin c cc in version
 {
   include ../libbuild2/$m/
   libs += ../libbuild2/$m/lib{build2-$m}
@@ -48,9 +48,6 @@ obj{b}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 #
 if ($cxx.target == $build.host)
 {
-  c/obj{init}: cxx.poptions += \
-    -DBUILD2_NATIVE_C=\"$regex.replace($recall($c.path), '\\', '\\\\')\"
-
   cxx/obj{init}: cxx.poptions += \
     -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
 }

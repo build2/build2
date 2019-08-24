@@ -130,7 +130,6 @@ endif
 # Note: list nested subdirectories first (used in clean).
 #
 build2_sub := \
-c             \
 cxx
 
 libbuild2_sub := \
@@ -140,6 +139,7 @@ test/script      \
 test             \
 install          \
 bin              \
+c                \
 cc               \
 version          \
 in

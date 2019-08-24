@@ -1,0 +1,90 @@
+# file      : libbuild2/c/buildfile
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+import int_libs = libbutl%lib{butl}
+
+include ../
+int_libs += ../lib{build2}
+
+include ../cc/
+int_libs += ../cc/lib{build2-cc}
+
+./: lib{build2-c}: libul{build2-c}: {hxx ixx txx cxx}{** -**.test...} \
+  $int_libs
+
+# Unit tests.
+#
+exe{*.test}:
+{
+  test = true
+  install = false
+}
+
+for t: cxx{**.test...}
+{
+  d = $directory($t)
+  n = $name($t)...
+
+  ./: $d/exe{$n}: $t $d/{hxx ixx txx}{+$n} $d/testscript{+$n}
+  $d/exe{$n}: libul{build2-c}: bin.whole = false
+}
+
+# Build options.
+#
+obja{*}: cxx.poptions += -DLIBBUILD2_C_STATIC_BUILD
+objs{*}: cxx.poptions += -DLIBBUILD2_C_SHARED_BUILD
+
+# Note that we used to compare complete target triplets but that proved too
+# strict (see libbuild2/buildfile for details).
+#
+cross = ($cxx.target.cpu != $build.host.cpu || \
+         $cxx.target.system != $build.host.system)
+
+# Pass native C compiler path (not forgetting to escape backslashes on
+# Windows). It is used as defaults for BUILD2_DEFAULT_C.
+#
+if! $cross
+{
+  obj{init}: cxx.poptions += \
+    -DBUILD2_NATIVE_C=\"$regex.replace($recall($c.path), '\\', '\\\\')\"
+
+  obja{init}: cxx.poptions += -DLIBBUILD2_C_STATIC_BUILD
+  objs{init}: cxx.poptions += -DLIBBUILD2_C_SHARED_BUILD
+}
+
+# Export options.
+#
+lib{build2-c}:
+{
+  cxx.export.poptions = "-I$out_root" "-I$src_root"
+  cxx.export.libs = $int_libs
+}
+
+liba{build2-c}: cxx.export.poptions += -DLIBBUILD2_C_STATIC
+libs{build2-c}: cxx.export.poptions += -DLIBBUILD2_C_SHARED
+
+# For pre-releases use the complete version to make sure they cannot be used
+# in place of another pre-release or the final version. See the version module
+# for details on the version.* variable values.
+#
+# And because this is a build system module, we also embed the same value as
+# the interface version (note that we cannot use build.version.interface for
+# bundled modules because we could be built with a different version of the
+# build system).
+#
+ver = ($version.pre_release    \
+       ? "$version.project_id" \
+       : "$version.major.$version.minor")
+
+lib{build2-c}: bin.lib.version = @"-$ver"
+libs{build2-c}: bin.lib.load_suffix = "-$ver"
+
+# Install into the libbuild2/c/ subdirectory of, say, /usr/include/
+# recreating subdirectories.
+#
+{hxx ixx txx}{*}:
+{
+  install         = include/libbuild2/c/
+  install.subdirs = true
+}
