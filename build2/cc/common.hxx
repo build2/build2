@@ -11,7 +11,7 @@
 #include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 
-#include <build2/bin/target.hxx>
+#include <libbuild2/bin/target.hxx>
 
 #include <build2/cc/types.hxx>
 #include <build2/cc/guess.hxx>  // compiler_id

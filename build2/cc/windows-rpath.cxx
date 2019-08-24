@@ -11,7 +11,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/bin/target.hxx>
+#include <libbuild2/bin/target.hxx>
 
 #include <build2/cc/link-rule.hxx>
 

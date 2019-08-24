@@ -8,7 +8,7 @@ import libs += libpkgconf%lib{pkgconf}
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
 
-for m: bash in version
+for m: bash bin in version
 {
   include ../libbuild2/$m/
   libs += ../libbuild2/$m/lib{build2-$m}

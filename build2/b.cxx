@@ -53,6 +53,7 @@
 #include <libbuild2/install/init.hxx>
 
 #include <libbuild2/in/init.hxx>
+#include <libbuild2/bin/init.hxx>
 #include <libbuild2/version/init.hxx>
 
 #ifndef BUILD2_BOOTSTRAP
@@ -61,7 +62,6 @@
 #  include <build2/cli/init.hxx>
 #endif
 
-#include <build2/bin/init.hxx>
 #include <build2/c/init.hxx>
 #include <build2/cc/init.hxx>
 #include <build2/cxx/init.hxx>
@@ -519,18 +519,9 @@ main (int argc, char* argv[])
       load (&test::build2_test_load);
       load (&install::build2_install_load);
 
+      load (&bin::build2_bin_load);
       load (&version::build2_version_load);
       load (&in::build2_in_load);
-
-      TMP_LOAD (bin_vars, "bin.vars", bin::vars_init);
-      TMP_LOAD (bin_config, "bin.config", bin::config_init);
-      TMP_LOAD (bin, "bin", bin::init);
-      TMP_LOAD (bin_ar_config, "bin.ar.config", bin::ar_config_init);
-      TMP_LOAD (bin_ar, "bin.ar", bin::ar_init);
-      TMP_LOAD (bin_ld_config, "bin.ld.config", bin::ld_config_init);
-      TMP_LOAD (bin_ld, "bin.ld", bin::ld_init);
-      TMP_LOAD (bin_rc_config, "bin.rc.config", bin::rc_config_init);
-      TMP_LOAD (bin_rc, "bin.rc", bin::rc_init);
 
       TMP_LOAD (cc_core_vars, "cc.core.vars", cc::core_vars_init);
       TMP_LOAD (cc_core_guess, "cc.core.guess", cc::core_guess_init);

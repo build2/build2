@@ -1,3 +1,7 @@
+// file      : libbuild2/export.hxx -*- C++ -*-
+// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
 #pragma once
 
 // Normally we don't export class templates (but do complete specializations),

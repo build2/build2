@@ -9,7 +9,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
 
-#include <build2/bin/target.hxx>
+#include <libbuild2/bin/target.hxx>
 
 #include <build2/cc/target.hxx> // pc*
 

@@ -1,9 +1,9 @@
-// file      : build2/bin/guess.hxx -*- C++ -*-
+// file      : libbuild2/bin/guess.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_BIN_GUESS_HXX
-#define BUILD2_BIN_GUESS_HXX
+#ifndef LIBBUILD2_BIN_GUESS_HXX
+#define LIBBUILD2_BIN_GUESS_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -105,4 +105,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_BIN_GUESS_HXX
+#endif // LIBBUILD2_BIN_GUESS_HXX

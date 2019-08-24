@@ -1,14 +1,16 @@
-// file      : build2/bin/rule.hxx -*- C++ -*-
+// file      : libbuild2/bin/rule.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_BIN_RULE_HXX
-#define BUILD2_BIN_RULE_HXX
+#ifndef LIBBUILD2_BIN_RULE_HXX
+#define LIBBUILD2_BIN_RULE_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
+
+#include <libbuild2/bin/export.hxx>
 
 namespace build2
 {
@@ -31,7 +33,7 @@ namespace build2
 
     // Pass-through to group members rule, similar to alias.
     //
-    class lib_rule: public rule
+    class LIBBUILD2_BIN_SYMEXPORT lib_rule: public rule
     {
     public:
       lib_rule () {}
@@ -60,4 +62,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_BIN_RULE_HXX
+#endif // LIBBUILD2_BIN_RULE_HXX

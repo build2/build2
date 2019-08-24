@@ -9,6 +9,7 @@
 #include <libbuild2/scheduler.hxx>
 
 #include <libbuild2/in/init.hxx>
+#include <libbuild2/bin/init.hxx>
 #include <libbuild2/bash/init.hxx>
 #include <libbuild2/version/init.hxx>
 
@@ -23,6 +24,7 @@ main (int, char* argv[])
   init (nullptr, argv[0]);
 
   bash::build2_bash_load ();
+  bin::build2_bin_load ();
   in::build2_in_load ();
   version::build2_version_load ();
 

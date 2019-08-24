@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bin/init.hxx>
+#include <libbuild2/bin/init.hxx>
 
 #include <map>
 
@@ -17,9 +17,9 @@
 #include <libbuild2/install/rule.hxx>
 #include <libbuild2/install/utility.hxx>
 
-#include <build2/bin/rule.hxx>
-#include <build2/bin/guess.hxx>
-#include <build2/bin/target.hxx>
+#include <libbuild2/bin/rule.hxx>
+#include <libbuild2/bin/guess.hxx>
+#include <libbuild2/bin/target.hxx>
 
 using namespace std;
 using namespace butl;
@@ -935,6 +935,29 @@ namespace build2
         load_module (rs, bs, "bin.rc.config", loc, false, hints);
 
       return true;
+    }
+
+    static const module_functions mod_functions[] =
+    {
+      // NOTE: don't forget to also update the documentation in init.hxx if
+      //       changing anything here.
+
+      {"bin.vars",      nullptr, vars_init},
+      {"bin.config",    nullptr, config_init},
+      {"bin",           nullptr, init},
+      {"bin.ar.config", nullptr, ar_config_init},
+      {"bin.ar",        nullptr, ar_init},
+      {"bin.ld.config", nullptr, ld_config_init},
+      {"bin.ld",        nullptr, ld_init},
+      {"bin.rc.config", nullptr, rc_config_init},
+      {"bin.rc",        nullptr, rc_init},
+      {nullptr,         nullptr, nullptr}
+    };
+
+    const module_functions*
+    build2_bin_load ()
+    {
+      return mod_functions;
     }
   }
 }

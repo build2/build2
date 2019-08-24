@@ -6,7 +6,7 @@
 
 #include <libbuild2/algorithm.hxx>
 
-#include <build2/bin/target.hxx>
+#include <libbuild2/bin/target.hxx>
 
 #include <build2/cc/utility.hxx>
 #include <build2/cc/link-rule.hxx> // match()

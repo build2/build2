@@ -5,7 +5,7 @@
 # NOTE: remember to update bundled_modules in libbuild2/modules.cxx if adding
 #       a new module.
 #
-./: lib{build2} bash/ in/ version/
+./: lib{build2} bash/ bin/ in/ version/
 
 import int_libs = libbutl%lib{butl}
 

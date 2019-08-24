@@ -8,8 +8,8 @@
 #include <libbuild2/variable.hxx>
 #include <libbuild2/algorithm.hxx> // search()
 
-#include <build2/bin/rule.hxx>
-#include <build2/bin/target.hxx>
+#include <libbuild2/bin/rule.hxx>
+#include <libbuild2/bin/target.hxx>
 
 using namespace std;
 

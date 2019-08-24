@@ -1,14 +1,16 @@
-// file      : build2/bin/target.hxx -*- C++ -*-
+// file      : libbuild2/bin/target.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_BIN_TARGET_HXX
-#define BUILD2_BIN_TARGET_HXX
+#ifndef LIBBUILD2_BIN_TARGET_HXX
+#define LIBBUILD2_BIN_TARGET_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target.hxx>
+
+#include <libbuild2/bin/export.hxx>
 
 namespace build2
 {
@@ -16,7 +18,9 @@ namespace build2
   {
     // The obj{} target group.
     //
-    class objx: public file // Common base of all objX{} object files.
+    // Common base of all objX{} object files.
+    //
+    class LIBBUILD2_BIN_SYMEXPORT objx: public file
     {
     public:
       using file::file;
@@ -25,7 +29,7 @@ namespace build2
       static const target_type static_type;
     };
 
-    class obje: public objx
+    class LIBBUILD2_BIN_SYMEXPORT obje: public objx
     {
     public:
       using objx::objx;
@@ -35,7 +39,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class obja: public objx
+    class LIBBUILD2_BIN_SYMEXPORT obja: public objx
     {
     public:
       using objx::objx;
@@ -45,7 +49,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class objs: public objx
+    class LIBBUILD2_BIN_SYMEXPORT objs: public objx
     {
     public:
       using objx::objx;
@@ -55,7 +59,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class obj: public target
+    class LIBBUILD2_BIN_SYMEXPORT obj: public target
     {
     public:
       using target::target;
@@ -92,7 +96,9 @@ namespace build2
     // header and module BMIs, you should check for headers first. Note also
     // that in case of a header unit there may be no obj*{}.
     //
-    class bmix: public file // Common base of all bmiX{} interface files.
+    // Common base of all bmiX{} interface files.
+    //
+    class LIBBUILD2_BIN_SYMEXPORT bmix: public file
     {
     public:
       using file::file;
@@ -101,7 +107,9 @@ namespace build2
       static const target_type static_type;
     };
 
-    class hbmix: public bmix // Common base of all hbmiX{} interface files.
+    // Common base of all hbmiX{} interface files.
+    //
+    class LIBBUILD2_BIN_SYMEXPORT hbmix: public bmix
     {
     public:
       using bmix::bmix;
@@ -110,7 +118,7 @@ namespace build2
       static const target_type static_type;
     };
 
-    class bmie: public bmix
+    class LIBBUILD2_BIN_SYMEXPORT bmie: public bmix
     {
     public:
       using bmix::bmix;
@@ -120,7 +128,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class hbmie: public hbmix
+    class LIBBUILD2_BIN_SYMEXPORT hbmie: public hbmix
     {
     public:
       using hbmix::hbmix;
@@ -130,7 +138,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class bmia: public bmix
+    class LIBBUILD2_BIN_SYMEXPORT bmia: public bmix
     {
     public:
       using bmix::bmix;
@@ -140,7 +148,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class hbmia: public hbmix
+    class LIBBUILD2_BIN_SYMEXPORT hbmia: public hbmix
     {
     public:
       using hbmix::hbmix;
@@ -150,7 +158,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class bmis: public bmix
+    class LIBBUILD2_BIN_SYMEXPORT bmis: public bmix
     {
     public:
       using bmix::bmix;
@@ -160,7 +168,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class hbmis: public hbmix
+    class LIBBUILD2_BIN_SYMEXPORT hbmis: public hbmix
     {
     public:
       using hbmix::hbmix;
@@ -170,7 +178,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class bmi: public target
+    class LIBBUILD2_BIN_SYMEXPORT bmi: public target
     {
     public:
       using target::target;
@@ -180,7 +188,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class hbmi: public target
+    class LIBBUILD2_BIN_SYMEXPORT hbmi: public target
     {
     public:
       using target::target;
@@ -197,7 +205,7 @@ namespace build2
     // which we use, for example, to have installed lib{} prerequisites that
     // are matched by the fallback file rule.
     //
-    class libx: public mtime_target
+    class LIBBUILD2_BIN_SYMEXPORT libx: public mtime_target
     {
     public:
       using mtime_target::mtime_target;
@@ -228,7 +236,9 @@ namespace build2
     //
     // {libue libul}{foo}: cxx{*}
     //
-    class libux: public file // Common base of all libuX{} static libraries.
+    // Common base of all libuX{} static libraries.
+    //
+    class LIBBUILD2_BIN_SYMEXPORT libux: public file
     {
     public:
       using file::file;
@@ -237,7 +247,7 @@ namespace build2
       static const target_type static_type;
     };
 
-    class libue: public libux
+    class LIBBUILD2_BIN_SYMEXPORT libue: public libux
     {
     public:
       using libux::libux;
@@ -247,7 +257,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class libua: public libux
+    class LIBBUILD2_BIN_SYMEXPORT libua: public libux
     {
     public:
       using libux::libux;
@@ -257,7 +267,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class libus: public libux
+    class LIBBUILD2_BIN_SYMEXPORT libus: public libux
     {
     public:
       using libux::libux;
@@ -267,7 +277,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class libul: public libx
+    class LIBBUILD2_BIN_SYMEXPORT libul: public libx
     {
     public:
       using libx::libx;
@@ -279,7 +289,7 @@ namespace build2
 
     // The lib{} target group.
     //
-    class liba: public file
+    class LIBBUILD2_BIN_SYMEXPORT liba: public file
     {
     public:
       using file::file;
@@ -289,7 +299,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class libs: public file
+    class LIBBUILD2_BIN_SYMEXPORT libs: public file
     {
     public:
       using file::file;
@@ -309,7 +319,7 @@ namespace build2
       const libs* s = nullptr;
     };
 
-    class lib: public libx, public lib_members
+    class LIBBUILD2_BIN_SYMEXPORT lib: public libx, public lib_members
     {
     public:
       using libx::libx;
@@ -326,7 +336,7 @@ namespace build2
 
     // Windows import library.
     //
-    class libi: public file
+    class LIBBUILD2_BIN_SYMEXPORT libi: public file
     {
     public:
       using file::file;
@@ -338,7 +348,7 @@ namespace build2
 
     // Windows module definition (.def).
     //
-    class def: public file
+    class LIBBUILD2_BIN_SYMEXPORT def: public file
     {
     public:
       using file::file;
@@ -350,4 +360,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_BIN_TARGET_HXX
+#endif // LIBBUILD2_BIN_TARGET_HXX

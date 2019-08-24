@@ -1,4 +1,4 @@
-// file      : libbuild2/in/export.hxx -*- C++ -*-
+// file      : libbuild2/bin/export.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
@@ -12,21 +12,21 @@
 // used before their inline definition. The workaround is to reorder code. In
 // the end it's all trial and error.
 
-#if defined(LIBBUILD2_IN_STATIC)         // Using static.
-#  define LIBBUILD2_IN_SYMEXPORT
-#elif defined(LIBBUILD2_IN_STATIC_BUILD) // Building static.
-#  define LIBBUILD2_IN_SYMEXPORT
-#elif defined(LIBBUILD2_IN_SHARED)       // Using shared.
+#if defined(LIBBUILD2_BIN_STATIC)         // Using static.
+#  define LIBBUILD2_BIN_SYMEXPORT
+#elif defined(LIBBUILD2_BIN_STATIC_BUILD) // Building static.
+#  define LIBBUILD2_BIN_SYMEXPORT
+#elif defined(LIBBUILD2_BIN_SHARED)       // Using shared.
 #  ifdef _WIN32
-#    define LIBBUILD2_IN_SYMEXPORT __declspec(dllimport)
+#    define LIBBUILD2_BIN_SYMEXPORT __declspec(dllimport)
 #  else
-#    define LIBBUILD2_IN_SYMEXPORT
+#    define LIBBUILD2_BIN_SYMEXPORT
 #  endif
-#elif defined(LIBBUILD2_IN_SHARED_BUILD) // Building shared.
+#elif defined(LIBBUILD2_BIN_SHARED_BUILD) // Building shared.
 #  ifdef _WIN32
-#    define LIBBUILD2_IN_SYMEXPORT __declspec(dllexport)
+#    define LIBBUILD2_BIN_SYMEXPORT __declspec(dllexport)
 #  else
-#    define LIBBUILD2_IN_SYMEXPORT
+#    define LIBBUILD2_BIN_SYMEXPORT
 #  endif
 #else
 // If none of the above macros are defined, then we assume we are being used
@@ -34,5 +34,5 @@
 // type. Note that this fallback works for both static and shared but in case
 // of shared will be sub-optimal compared to having dllimport.
 //
-#  define LIBBUILD2_IN_SYMEXPORT         // Using static or shared.
+#  define LIBBUILD2_BIN_SYMEXPORT         // Using static or shared.
 #endif

@@ -1,8 +1,8 @@
-// file      : build2/bin/guess.cxx -*- C++ -*-
+// file      : libbuild2/bin/guess.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/bin/guess.hxx>
+#include <libbuild2/bin/guess.hxx>
 
 #include <libbuild2/diagnostics.hxx>
 
