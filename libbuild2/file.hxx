@@ -215,8 +215,19 @@ namespace build2
   // foo and I see there is a package foo available in repository bar. Wanna,
   // like, download and use it or something?"
   //
+  // Note also that we return names rather than a single name: while normally
+  // it will be a single target name, it can be an out-qualified pair (if
+  // someone wants to return a source target) but it can also be a non-target
+  // since we don't restrict what users can import/export.
+  //
   LIBBUILD2_SYMEXPORT names
   import (scope& base, name, const location&);
+
+  LIBBUILD2_SYMEXPORT pair<name, dir_path>
+  import_search (scope& base, name, const location&, bool subproj = true);
+
+  LIBBUILD2_SYMEXPORT pair<names, const scope&>
+  import_load (context&, pair<name, dir_path>, const location&);
 
   const target&
   import (context&, const prerequisite_key&);

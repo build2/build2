@@ -1256,12 +1256,10 @@ namespace build2
     return rs;
   }
 
-  names
-  import (scope& ibase, name target, const location& loc)
+  pair<name, dir_path>
+  import_search (scope& ibase, name target, const location& loc, bool subp)
   {
-    tracer trace ("import");
-
-    l5 ([&]{trace << target << " from " << ibase;});
+    tracer trace ("import_search");
 
     // If there is no project specified for this target, then our run will be
     // short and sweet: we simply return it as empty-project-qualified and
@@ -1270,7 +1268,7 @@ namespace build2
     if (target.unqualified ())
     {
       target.proj = project_name ();
-      return names {move (target)};
+      return make_pair (move (target), dir_path ());
     }
 
     context& ctx (ibase.ctx);
@@ -1282,7 +1280,7 @@ namespace build2
 
     scope& iroot (*ibase.root_scope ());
 
-    // Figure out this project's out_root.
+    // Figure out the imported project's out_root.
     //
     dir_path out_root;
 
@@ -1322,7 +1320,7 @@ namespace build2
           {
             target.proj = move (proj);
             l5 ([&]{trace << "skipping " << target;});
-            return names {move (target)};
+            return make_pair (move (target), dir_path ());
           }
 
           break;
@@ -1380,55 +1378,68 @@ namespace build2
           target.dir = p.directory ();
           target.value = p.leaf ().string ();
 
-          return names {move (target)};
+          return make_pair (move (target), dir_path ());
         }
       }
 
       // Otherwise search subprojects, starting with our root and then trying
       // outer roots for as long as we are inside an amalgamation.
       //
-      for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
+      if (subp)
       {
-        l5 ([&]{trace << "looking in " << *r;});
-
-        // First check the amalgamation itself.
-        //
-        if (r != &iroot &&
-            cast<project_name> (r->vars[ctx.var_project]) == proj)
+        for (scope* r (&iroot);; r = r->parent_scope ()->root_scope ())
         {
-          out_root = r->out_path ();
-          break;
-        }
+          l5 ([&]{trace << "looking in " << *r;});
 
-        if (auto l = r->vars[ctx.var_subprojects])
-        {
-          const auto& m (cast<subprojects> (l));
-          auto i (m.find (proj));
-
-          if (i != m.end ())
+          // First check the amalgamation itself.
+          //
+          if (r != &iroot &&
+              cast<project_name> (r->vars[ctx.var_project]) == proj)
           {
-            const dir_path& d ((*i).second);
-            out_root = r->out_path () / d;
+            out_root = r->out_path ();
             break;
           }
+
+          if (auto l = r->vars[ctx.var_subprojects])
+          {
+            const auto& m (cast<subprojects> (l));
+            auto i (m.find (proj));
+
+            if (i != m.end ())
+            {
+              const dir_path& d ((*i).second);
+              out_root = r->out_path () / d;
+              break;
+            }
+          }
+
+          if (!r->vars[ctx.var_amalgamation])
+            break;
         }
 
-        if (!r->vars[ctx.var_amalgamation])
-          break;
+        break;
       }
-
-      break;
     }
 
-    // If we couldn't find the project, convert it back into qualified target
-    // and return to let someone else (e.g., a rule) take a stab at it.
+    // Add the qualification back to the target (import_load() will remove it
+    // again).
     //
-    if (out_root.empty ())
-    {
-      target.proj = move (proj);
-      l5 ([&]{trace << "postponing " << target;});
-      return names {move (target)};
-    }
+    target.proj = move (proj);
+
+    return make_pair (move (target), move (out_root));
+  }
+
+  pair<names, const scope&>
+  import_load (context& ctx, pair<name, dir_path> x, const location& loc)
+  {
+    tracer trace ("import_load");
+
+    name target (move (x.first));
+    dir_path out_root (move (x.second));
+
+    assert (target.proj);
+    project_name proj (move (*target.proj));
+    target.proj = nullopt;
 
     // Bootstrap the imported root scope. This is pretty similar to what we do
     // in main() except that here we don't try to guess src_root.
@@ -1452,11 +1463,13 @@ namespace build2
       fwd = (src_root != out_root);
     }
 
+    scope& gs (ctx.global_scope.rw ());
+
     for (const scope* proot (nullptr); ; proot = root)
     {
       bool top (proot == nullptr);
 
-      root = &create_root (iroot, out_root, src_root)->second;
+      root = &create_root (gs, out_root, src_root)->second;
 
       bool bstrapped (bootstrapped (*root));
 
@@ -1539,10 +1552,9 @@ namespace build2
     //
     load_root (*root);
 
-    // Create a temporary scope so that the export stub does not mess
-    // up any of our variables.
+    // Use a temporary scope so that the export stub doesn't mess anything up.
     //
-    temp_scope ts (ibase);
+    temp_scope ts (gs);
 
     // "Pass" the imported project's roots to the stub.
     //
@@ -1576,7 +1588,7 @@ namespace build2
       // name?
       //
       parser p (ctx);
-      names v (p.parse_export_stub (ifs, es, iroot, ts));
+      names v (p.parse_export_stub (ifs, es, gs, ts));
 
       // If there were no export directive executed in an export stub, assume
       // the target is not exported.
@@ -1585,12 +1597,33 @@ namespace build2
         fail (loc) << "target " << target << " is not exported by project "
                    << proj;
 
-      return v;
+      return pair<names, const scope&> (move (v), *root);
     }
     catch (const io_error& e)
     {
       fail (loc) << "unable to read buildfile " << es << ": " << e << endf;
     }
+  }
+
+  names
+  import (scope& base, name target, const location& loc)
+  {
+    tracer trace ("import");
+
+    l5 ([&]{trace << target << " from " << base;});
+
+    pair<name, dir_path> r (import_search (base, move (target), loc));
+
+    // If we couldn't find the project, return to let someone else (e.g., a
+    // rule) take a stab at it.
+    //
+    if (r.second.empty ())
+    {
+      l5 ([&]{trace << "postponing " << r.first;});
+      return names {move (r.first)};
+    }
+
+    return import_load (base.ctx, move (r), loc).first;
   }
 
   const target*
