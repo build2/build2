@@ -785,7 +785,7 @@ namespace build2
       }
     }
 
-    fail (loc) << "invalid target name: " << ns;
+    fail (loc) << "invalid target name: " << ns << endf;
   }
 
   static target*
