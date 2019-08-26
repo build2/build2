@@ -97,6 +97,10 @@ namespace build2
         vp.insert<target_triplet> ("test.target", variable_visibility::project)
       };
 
+      // This one is used by other modules/rules.
+      //
+      vp.insert<bool> ("for_test", variable_visibility::prereq);
+
       // These are only used in testscript.
       //
       vp.insert<strings> ("test.redirects", variable_visibility::project);

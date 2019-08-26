@@ -1299,6 +1299,7 @@ namespace build2
       }
 
       md.binless = binless;
+      md.start = start;
 
       switch (a)
       {
@@ -1799,6 +1800,30 @@ namespace build2
         //
         scratch = update = true;
         ts = target_state::changed;
+      }
+
+      // Check for the for_install variable on each prerequisite and blank out
+      // those that don't match. Note that we have to do it after updating
+      // prerequisites to keep the dependency counts straight.
+      //
+      if (const variable* var_fi = ctx.var_pool.find ("for_install"))
+      {
+        // Parallel prerequisites/prerequisite_targets loop.
+        //
+        size_t i (md.start);
+        for (prerequisite_member p: group_prerequisite_members (a, t))
+        {
+          const target*& pt (t.prerequisite_targets[a][i++]);
+
+          if (pt == nullptr)
+            continue;
+
+          if (lookup l = p.prerequisite.vars[var_fi])
+          {
+            if (cast<bool> (l) != for_install)
+              pt = nullptr;
+          }
+        }
       }
 
       // (Re)generate pkg-config's .pc file. While the target itself might be

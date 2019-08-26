@@ -209,6 +209,7 @@ namespace build2
         // the trailing directory separator.
         //
         vp.insert<path>   ("install",         variable_visibility::target);
+        vp.insert<bool>   ("for_install",     variable_visibility::prereq);
         vp.insert<string> ("install.mode",    variable_visibility::project);
         vp.insert<bool>   ("install.subdirs", variable_visibility::project);
       }

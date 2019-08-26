@@ -116,6 +116,7 @@ namespace build2
         optional<bool> for_install;
 
         bool binless; // Binary-less library.
+        size_t start; // Parallel prerequisites/prerequisite_targets start.
 
         link_rule::libs_paths libs_paths;
       };
