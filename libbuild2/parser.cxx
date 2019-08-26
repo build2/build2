@@ -1937,7 +1937,8 @@ namespace build2
         fail (t) << "unknown target type " << bn;
 
       if (!root_->derive_target_type (move (dn), *bt).second)
-        fail (dnl) << "target type " << dn << " already define in this scope";
+        fail (dnl) << "target type " << dn << " already defined in this "
+                   << "scope";
 
       next (t, tt); // Get newline.
     }
