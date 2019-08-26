@@ -1938,7 +1938,7 @@ namespace build2
 
       if (!root_->derive_target_type (move (dn), *bt).second)
         fail (dnl) << "target type " << dn << " already defined in this "
-                   << "scope";
+                   << "project";
 
       next (t, tt); // Get newline.
     }
