@@ -92,7 +92,6 @@ if "_%libbutl%_" == "__" (
 rem All the source directories.
 rem
 set "src=build2"
-set "src=%src% build2\cxx"
 
 set "src=%src% libbuild2"
 set "src=%src% libbuild2\config"
@@ -103,6 +102,7 @@ set "src=%src% libbuild2\install"
 set "src=%src% libbuild2\bin"
 set "src=%src% libbuild2\c"
 set "src=%src% libbuild2\cc"
+set "src=%src% libbuild2\cxx"
 set "src=%src% libbuild2\version"
 set "src=%src% libbuild2\in"
 

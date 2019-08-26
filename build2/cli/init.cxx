@@ -11,7 +11,7 @@
 
 #include <libbuild2/config/utility.hxx>
 
-#include <build2/cxx/target.hxx>
+#include <libbuild2/cxx/target.hxx>
 
 #include <build2/cli/target.hxx>
 #include <build2/cli/rule.hxx>

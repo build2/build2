@@ -41,6 +41,7 @@ namespace build2
     "bin",
     "c",
     "cc",
+    "cxx",
     "in",
     "version"
   };

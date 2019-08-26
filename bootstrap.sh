@@ -117,7 +117,6 @@ if test -z "$libbutl"; then
 fi
 
 src="build2/*.cxx"
-src="$src build2/cxx/*.cxx"
 
 src="$src libbuild2/*.cxx"
 src="$src libbuild2/config/*.cxx"
@@ -128,6 +127,7 @@ src="$src libbuild2/install/*.cxx"
 src="$src libbuild2/bin/*.cxx"
 src="$src libbuild2/c/*.cxx"
 src="$src libbuild2/cc/*.cxx"
+src="$src libbuild2/cxx/*.cxx"
 src="$src libbuild2/version/*.cxx"
 src="$src libbuild2/in/*.cxx"
 

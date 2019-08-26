@@ -2,10 +2,10 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-# NOTE: remember to update bundled_modules in libbuild2/modules.cxx if adding
-#       a new module.
+# NOTE: remember to update bundled_modules in libbuild2/module.cxx if adding a
+#       new module.
 #
-./: lib{build2} bash/ bin/ c/ cc/ in/ version/
+./: lib{build2} bash/ bin/ c/ cc/ cxx/ in/ version/
 
 import int_libs = libbutl%lib{butl}
 
@@ -88,7 +88,7 @@ cross = ($cxx.target.cpu != $build.host.cpu || \
 
 if! $cross
   obj{context}: cxx.poptions += \
-    "-DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\""
+    -DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\"
 
 obja{context}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD

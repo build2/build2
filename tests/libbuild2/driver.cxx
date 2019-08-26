@@ -12,6 +12,7 @@
 #include <libbuild2/bin/init.hxx>
 #include <libbuild2/c/init.hxx>
 #include <libbuild2/cc/init.hxx>
+#include <libbuild2/cxx/init.hxx>
 #include <libbuild2/bash/init.hxx>
 #include <libbuild2/version/init.hxx>
 
@@ -28,6 +29,7 @@ main (int, char* argv[])
   bin::build2_bin_load ();
   cc::build2_cc_load ();
   c::build2_c_load ();
+  cxx::build2_cxx_load ();
   version::build2_version_load ();
   in::build2_in_load ();
   bash::build2_bash_load ();

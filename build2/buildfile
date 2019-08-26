@@ -7,7 +7,7 @@ import libs = libbutl%lib{butl}
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
 
-for m: bash bin c cc in version
+for m: bash bin c cc cxx in version
 {
   include ../libbuild2/$m/
   libs += ../libbuild2/$m/lib{build2-$m}
@@ -42,15 +42,6 @@ for t: cxx{**.test...}
 # Pass our compiler target to be used as build2 host.
 #
 obj{b}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
-
-# Pass native C and C++ compiler paths (not forgetting to escape backslashes
-# on Windows). These are used as defaults for BUILD2_DEFAULT_*.
-#
-if ($cxx.target == $build.host)
-{
-  cxx/obj{init}: cxx.poptions += \
-    -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
-}
 
 if ($cxx.target.class != 'windows')
 {

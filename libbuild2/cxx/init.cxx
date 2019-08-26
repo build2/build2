@@ -1,8 +1,8 @@
-// file      : build2/cxx/init.cxx -*- C++ -*-
+// file      : libbuild2/cxx/init.cxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <build2/cxx/init.hxx>
+#include <libbuild2/cxx/init.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
@@ -10,7 +10,7 @@
 #include <libbuild2/cc/guess.hxx>
 #include <libbuild2/cc/module.hxx>
 
-#include <build2/cxx/target.hxx>
+#include <libbuild2/cxx/target.hxx>
 
 #ifndef BUILD2_DEFAULT_CXX
 #  ifdef BUILD2_NATIVE_CXX
@@ -624,6 +624,23 @@ namespace build2
       mod.reset (m = new module (move (d)));
       m->init (rs, loc, hints);
       return true;
+    }
+
+    static const module_functions mod_functions[] =
+    {
+      // NOTE: don't forget to also update the documentation in init.hxx if
+      //       changing anything here.
+
+      {"cxx.guess",  nullptr, guess_init},
+      {"cxx.config", nullptr, config_init},
+      {"cxx",        nullptr, init},
+      {nullptr,      nullptr, nullptr}
+    };
+
+    const module_functions*
+    build2_cxx_load ()
+    {
+      return mod_functions;
     }
   }
 }

@@ -1,15 +1,17 @@
-// file      : build2/cxx/target.hxx -*- C++ -*-
+// file      : libbuild2/cxx/target.hxx -*- C++ -*-
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef BUILD2_CXX_TARGET_HXX
-#define BUILD2_CXX_TARGET_HXX
+#ifndef LIBBUILD2_CXX_TARGET_HXX
+#define LIBBUILD2_CXX_TARGET_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target.hxx>
 #include <libbuild2/cc/target.hxx>
+
+#include <libbuild2/cxx/export.hxx>
 
 namespace build2
 {
@@ -18,7 +20,7 @@ namespace build2
     using cc::h;
     using cc::c;
 
-    class hxx: public cc::cc
+    class LIBBUILD2_CXX_SYMEXPORT hxx: public cc::cc
     {
     public:
       using cc::cc;
@@ -28,7 +30,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class ixx: public cc::cc
+    class LIBBUILD2_CXX_SYMEXPORT ixx: public cc::cc
     {
     public:
       using cc::cc;
@@ -38,7 +40,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class txx: public cc::cc
+    class LIBBUILD2_CXX_SYMEXPORT txx: public cc::cc
     {
     public:
       using cc::cc;
@@ -48,7 +50,7 @@ namespace build2
       virtual const target_type& dynamic_type () const {return static_type;}
     };
 
-    class cxx: public cc::cc
+    class LIBBUILD2_CXX_SYMEXPORT cxx: public cc::cc
     {
     public:
       using cc::cc;
@@ -63,7 +65,7 @@ namespace build2
     // support dual use (modules/headers) it could actually be #include'd
     // (and even in both cases e.g., by different codebases).
     //
-    class mxx: public cc::cc
+    class LIBBUILD2_CXX_SYMEXPORT mxx: public cc::cc
     {
     public:
       using cc::cc;
@@ -75,4 +77,4 @@ namespace build2
   }
 }
 
-#endif // BUILD2_CXX_TARGET_HXX
+#endif // LIBBUILD2_CXX_TARGET_HXX
