@@ -117,6 +117,8 @@ namespace build2
     // If this is one of the bundled modules, the project name is build2,
     // otherwise -- libbuild2-<mod>.
     //
+    project_name proj (bundled ? "build2" : "libbuild2-" + mod);
+
     // The target we are looking for is <prj>%libs{build2-<mod>}.
     //
     // We only search in subprojects if this is a nested module update
@@ -124,14 +126,10 @@ namespace build2
     // configuration).
     //
     pair<name, dir_path> ir (
-      import_search (
-        bs,
-        name (project_name (bundled ? "build2" : "libbuild2-" + mod),
-              dir_path (),
-              "libs",
-              "build2-" + mod),
-        loc,
-        nested /* subprojects */));
+      import_search (bs,
+                     name (proj, dir_path (), "libs", "build2-" + mod),
+                     loc,
+                     nested /* subprojects */));
 
     if (!ir.second.empty ())
     {
@@ -203,7 +201,6 @@ namespace build2
       else
       {
         const scope& rs (lr.second);
-        target_key tk (rs.find_target_key (lr.first, loc));
 
         action_targets tgs;
         action a (perform_id, update_id);
@@ -217,21 +214,21 @@ namespace build2
                             rs,      /* root scope */
                             rs,      /* base scope */
                             path (), /* buildfile */
-                            tk,
+                            rs.find_target_key (lr.first, loc),
                             loc,
                             tgs);
 
-        mo_perform.match   ({},   /* parameters */
+        mo_perform.match   ({},      /* parameters */
                             a,
                             tgs,
-                            1,    /* diag (failures only) */
-                            false /* progress */);
+                            1,       /* diag (failures only) */
+                            false    /* progress */);
 
-        mo_perform.execute ({},   /* parameters */
+        mo_perform.execute ({},      /* parameters */
                             a,
                             tgs,
-                            1,    /* diag (failures only) */
-                            false /* progress */);
+                            1,       /* diag (failures only) */
+                            false    /* progress */);
 
         assert (tgs.size () == 1);
         const target& l (tgs[0].as_target ());
@@ -274,6 +271,8 @@ namespace build2
     // Note that we don't unload our modules since it's not clear what would
     // the benefit be.
     //
+    diag_record dr;
+
 #ifndef _WIN32
     // Use RTLD_NOW instead of RTLD_LAZY to both speed things up (we are going
     // to use this module now) and to detect any symbol mismatches.
@@ -289,8 +288,8 @@ namespace build2
                    << mod << " (" << lib << "): " << dlerror ();
     }
     else if (!opt)
-      fail (loc) << "unable to load build system module " << mod
-                 << " (" << lib << "): " << dlerror ();
+      dr << fail (loc) << "unable to load build system module " << mod
+         << " (" << lib << "): " << dlerror ();
 #else
     if (HMODULE h = LoadLibrary (lib.string ().c_str ()))
     {
@@ -302,9 +301,15 @@ namespace build2
                    << mod << " (" << lib << "): " << win32::last_error_msg ();
     }
     else if (!opt)
-      fail (loc) << "unable to load build system module " << mod
-                 << " (" << lib << "): " << win32::last_error_msg ();
+      dr << fail (loc) << "unable to load build system module " << mod
+         << " (" << lib << "): " << win32::last_error_msg ();
 #endif
+
+    // Add a suggestion similar to import phase 2.
+    //
+    if (!dr.empty ())
+      dr << info << "use config.import." << proj.variable () << " command "
+         << "line variable to specify its project out_root" << endf;
 
 #endif // BUILD2_BOOTSTRAP
 
