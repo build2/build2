@@ -248,6 +248,27 @@ namespace build2
     pair<const target_type*, optional<string>>
     find_target_type (name&, const location&) const;
 
+    // As above but process the potentially out-qualified target name further
+    // by completing (relative to this scope) and normalizing the directories
+    // and also issuing appropriate diagnostics if the target type is unknown.
+    // If the first argument has the pair flag true, then the second should be
+    // the out directory.
+    //
+    pair<const target_type&, optional<string>>
+    find_target_type (name&, name&, const location&) const;
+
+    // As above, but return the result as a target key (with its members
+    // shallow-pointing to processed parts in the two names).
+    //
+    target_key
+    find_target_key (name&, name&, const location&) const;
+
+    // As above, but the names are passed as a vector. Issue appropriate
+    // diagnostics if the wrong number of names is passed.
+    //
+    target_key
+    find_target_key (names&, const location&) const;
+
     // Dynamically derive a new target type from an existing one. Return the
     // reference to the target type and an indicator of whether it was
     // actually created.

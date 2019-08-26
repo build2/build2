@@ -52,6 +52,13 @@ namespace build2
     return false;
   }
 
+  inline target_key scope::
+  find_target_key (name& n, name& o, const location& loc) const
+  {
+    auto p (find_target_type (n, o, loc));
+    return target_key {&p.first, &n.dir, &o.dir, &n.value, move (p.second)};
+  }
+
   inline dir_path
   src_out (const dir_path& out, const scope& r)
   {

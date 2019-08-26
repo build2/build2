@@ -128,8 +128,8 @@ namespace build2
                    const location& loc,
                    tracer& tr)
     {
-      auto r (process_target (p, n, o, loc));
-      return p.ctx.targets.insert (*r.first,        // target type
+      auto r (p.scope_->find_target_type (n, o, loc));
+      return p.ctx.targets.insert (r.first,         // target type
                                    move (n.dir),
                                    move (o.dir),
                                    move (n.value),
@@ -147,59 +147,13 @@ namespace build2
                  const location& loc,
                  tracer& tr)
     {
-      auto r (process_target (p, n, o, loc));
-      return p.ctx.targets.find (*r.first, // target type
+      auto r (p.scope_->find_target_type (n, o, loc));
+      return p.ctx.targets.find (r.first,  // target type
                                  n.dir,
                                  o.dir,
                                  n.value,
                                  r.second, // extension
                                  tr);
-    }
-
-    static pair<const target_type*, optional<string>>
-    process_target (parser& p,
-                    name& n,  // If n.pair, then o is out dir.
-                    name& o,
-                    const location& loc)
-    {
-      auto r (p.scope_->find_target_type (n, loc));
-
-      if (r.first == nullptr)
-        p.fail (loc) << "unknown target type " << n.type;
-
-      bool src (n.pair); // If out-qualified, then it is from src.
-      if (src)
-      {
-        assert (n.pair == '@');
-
-        if (!o.directory ())
-          p.fail (loc) << "expected directory after '@'";
-      }
-
-      dir_path& d (n.dir);
-
-      const dir_path& sd (p.scope_->src_path ());
-      const dir_path& od (p.scope_->out_path ());
-
-      if (d.empty ())
-        d = src ? sd : od; // Already dormalized.
-      else
-      {
-        if (d.relative ())
-          d = (src ? sd : od) / d;
-
-        d.normalize ();
-      }
-
-      dir_path out;
-      if (src && sd != od) // If in-source build, then out must be empty.
-      {
-        out = o.dir.relative () ? od / o.dir : move (o.dir);
-        out.normalize ();
-      }
-      o.dir = move (out); // Result.
-
-      return r;
     }
 
     ~enter_target ()

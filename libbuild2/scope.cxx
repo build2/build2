@@ -729,6 +729,65 @@ namespace build2
     return make_pair (tt, move (ext));
   }
 
+  pair<const target_type&, optional<string>> scope::
+  find_target_type (name& n, name& o, const location& loc) const
+  {
+    auto r (find_target_type (n, loc));
+
+    if (r.first == nullptr)
+      fail (loc) << "unknown target type " << n.type;
+
+    bool src (n.pair); // If out-qualified, then it is from src.
+    if (src)
+    {
+      assert (n.pair == '@');
+
+      if (!o.directory ())
+        fail (loc) << "expected directory after '@'";
+    }
+
+    dir_path& d (n.dir);
+
+    const dir_path& sd (src_path ());
+    const dir_path& od (out_path ());
+
+    if (d.empty ())
+      d = src ? sd : od; // Already dormalized.
+    else
+    {
+      if (d.relative ())
+        d = (src ? sd : od) / d;
+
+      d.normalize ();
+    }
+
+    dir_path out;
+    if (src && sd != od) // If in-source build, then out must be empty.
+    {
+      out = o.dir.relative () ? od / o.dir : move (o.dir);
+      out.normalize ();
+    }
+    o.dir = move (out); // Result.
+
+    return pair<const target_type&, optional<string>> (
+      *r.first, move (r.second));
+  }
+
+  target_key scope::
+  find_target_key (names& ns, const location& loc) const
+  {
+    if (size_t n = ns.size ())
+    {
+      if (n == (ns[0].pair ? 2 : 1))
+      {
+        name dummy;
+        return find_target_key (ns[0], n == 2 ? ns[1] : dummy, loc);
+      }
+    }
+
+    fail (loc) << "invalid target name: " << ns;
+  }
+
   static target*
   derived_tt_factory (context& c,
                       const target_type& t, dir_path d, dir_path o, string n)
