@@ -101,6 +101,11 @@ namespace build2
 
   // @@ CTX: document (backlinks, non-overlap etc). RW story.
   //
+  // A context can be preempted to execute another context (we do this, for
+  // example, to update build system modules).
+  //
+  // @@ Progress could clash.
+  //
   class LIBBUILD2_SYMEXPORT context
   {
     struct data;
@@ -380,12 +385,26 @@ namespace build2
     dir_path old_src_root;
     dir_path new_src_root;
 
+    // Nested context for updating build system modules.
+    //
+    // Note that such a context itself should normally have modules_context
+    // setup to point to itself (see import_module() for details).
+    //
+    context* module_context;
+    optional<unique_ptr<context>> module_context_storage; //@@ CTX: shared_ptr
+
   public:
+    // If mod_ctx is absent, then automatic updating of build system modules
+    // is disabled. If it is NULL, then the context will be created lazily if
+    // and when necessary. Otherwise, it should be a properly setup context
+    // (including, normally, a self-reference in modules_context).
+    //
     explicit
     context (scheduler&,
-             const strings& cmd_vars = {},
              bool dry_run = false,
-             bool keep_going = true);
+             bool keep_going = true,
+             const strings& cmd_vars = {},
+             optional<unique_ptr<context>> mod_ctx = unique_ptr<context> ());
 
     // Set current meta-operation and operation.
     //

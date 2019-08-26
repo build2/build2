@@ -217,7 +217,7 @@ namespace build2
   };
 
   LIBBUILD2_SYMEXPORT void
-  register_builtin_functions (function_map&);
+  insert_builtin_functions (function_map&);
 
   class LIBBUILD2_SYMEXPORT function_family
   {

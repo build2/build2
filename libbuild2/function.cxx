@@ -379,7 +379,7 @@ namespace build2
   void project_name_functions (function_map&);   // functions-target-triplet.cxx
 
   void
-  register_builtin_functions (function_map& m)
+  insert_builtin_functions (function_map& m)
   {
     builtin_functions (m);
     filesystem_functions (m);

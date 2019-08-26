@@ -19,7 +19,7 @@ else
   }
 
   d = [dir_path] $out_root/libbuild2/
-  if ($import.target != lib{build2})
+  if ($name($import.target) != 'build2')
   {
     # Assume one of the modules.
     #

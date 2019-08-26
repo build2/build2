@@ -54,7 +54,11 @@ namespace build2
   };
 
   context::
-  context (scheduler& s, const strings& cmd_vars, bool dr, bool kg)
+  context (scheduler& s,
+           bool dr,
+           bool kg,
+           const strings& cmd_vars,
+           optional<unique_ptr<context>> mc)
       : data_ (new data (*this)),
         sched (s),
         dry_run_option (dr),
@@ -67,7 +71,9 @@ namespace build2
         functions (data_->functions),
         global_scope (create_global_scope (data_->scopes)),
         global_target_types (data_->global_target_types),
-        global_override_cache (data_->global_override_cache)
+        global_override_cache (data_->global_override_cache),
+        module_context (mc ? mc->get () : nullptr),
+        module_context_storage (move (mc))
   {
     tracer trace ("context");
 
@@ -76,7 +82,7 @@ namespace build2
     scope_map& sm (data_->scopes);
     variable_pool& vp (data_->var_pool);
 
-    register_builtin_functions (functions);
+    insert_builtin_functions (functions);
 
     // Initialize the meta/operation tables. Note that the order should match
     // the id constants in <libbuild2/operation.hxx>.

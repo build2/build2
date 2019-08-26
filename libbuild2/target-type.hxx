@@ -101,6 +101,9 @@ namespace build2
     }
 
     bool
+    is_a (const char*) const; // Defined in target.cxx
+
+    bool
     is_a_base (const target_type&) const; // Defined in target.cxx
   };
 

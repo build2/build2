@@ -4,6 +4,8 @@
 
 #include <libbuild2/target.hxx>
 
+#include <cstring> // strcmp()
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/search.hxx>
@@ -18,6 +20,19 @@ namespace build2
 {
   // target_type
   //
+  bool target_type::
+  is_a (const char* n) const
+  {
+    if (strcmp (name, n) == 0)
+      return true;
+
+    for (const target_type* b (base); b != nullptr; b = b->base)
+      if (strcmp (b->name, n) == 0)
+        return true;
+
+    return false;
+  }
+
   bool target_type::
   is_a_base (const target_type& tt) const
   {

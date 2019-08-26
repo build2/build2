@@ -621,9 +621,9 @@ main (int argc, char* argv[])
     {
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,
-                              cmd_vars,
                               ops.dry_run (),
-                              !ops.serial_stop () /* keep_going */));
+                              !ops.serial_stop () /* keep_going */,
+                              cmd_vars));
     };
 
     new_context ();

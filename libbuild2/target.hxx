@@ -730,6 +730,10 @@ namespace build2
     const T*
     is_a () const {return dynamic_cast<const T*> (this);}
 
+    const target*
+    is_a (const char* n) const {
+      return type ().is_a (n) ? this : nullptr;}
+
     // Unchecked cast.
     //
     template <typename T>

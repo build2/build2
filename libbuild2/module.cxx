@@ -12,9 +12,11 @@
 #  endif
 #endif
 
-#include <libbuild2/file.hxx>  // import()
+#include <libbuild2/file.hxx>  // import_*()
 #include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/operation.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 // Core modules bundled with libbuild2.
@@ -50,7 +52,7 @@ namespace build2
   }
 
   static module_load_function*
-  import_module (scope& /*bs*/,
+  import_module (scope& bs,
                  const string& mod,
                  const location& loc,
                  bool boot,
@@ -87,38 +89,164 @@ namespace build2
       fail (loc) << "unknown build system module " << mod <<
         info << "running bootstrap build system";
 #else
-    path lib;
+    context& ctx (bs.ctx);
 
-#if 0
     // See if we can import a target for this module.
     //
-    // Check if one of the bundled modules, if so, the project name is
-    // build2, otherwise -- libbuild2-<mod>.
-    //
-    // The target we are looking for is <prj>%lib{build2-<mod>}.
-    //
-    name tgt (
-      import (bs,
-              name (bundled ? "build2" : "libbuild2-" + mod,
-                    dir_path (),
-                    "lib",
-                    "build2-" + mod),
-              loc));
+    path lib;
 
-    if (!tgt.qualified ())
+    // If this is a top-level module update, then we use the nested context.
+    // If, however, this is a nested module update (i.e., a module required
+    // while updating a module), then we reuse the same module context.
+    //
+    // If you are wondering why don't we always use the top-level context, the
+    // reason is that it might be running a different meta/operation (say,
+    // configure or clean); with the nested context we always know it is
+    // perform update.
+    //
+    // And the reason for not simply creating a nested context for each nested
+    // module update is due to the no-overlap requirement of contexts: while
+    // we can naturally expect the top-level project(s) and the modules they
+    // require to be in separate configurations that don't shared anything,
+    // the same does not hold for build system modules. In fact, it would be
+    // natural to have a single build configuration for all of them and they
+    // could plausibly share some common libraries.
+    //
+    bool nested (ctx.module_context == &ctx);
+
+    // If this is one of the bundled modules, the project name is build2,
+    // otherwise -- libbuild2-<mod>.
+    //
+    // The target we are looking for is <prj>%libs{build2-<mod>}.
+    //
+    // We only search in subprojects if this is a nested module update
+    // (remember, if it's top-level, then it must be in an isolated
+    // configuration).
+    //
+    pair<name, dir_path> ir (
+      import_search (
+        bs,
+        name (project_name (bundled ? "build2" : "libbuild2-" + mod),
+              dir_path (),
+              "libs",
+              "build2-" + mod),
+        loc,
+        nested /* subprojects */));
+
+    if (!ir.second.empty ())
     {
-      // Switch the phase and update the target. This will also give us the
-      // shared library path.
+      // We found the module as a target in a project. Now we need to update
+      // the target (which will also give us the shared library path).
+
+      // Create the build context if necessary.
       //
-      // @@ TODO
+      if (ctx.module_context == nullptr)
+      {
+        if (!ctx.module_context_storage)
+          fail (loc) << "unable to update build system module " << mod <<
+            info << "updating of build system modules is disabled";
+
+        assert (*ctx.module_context_storage == nullptr);
+
+        // Since we are using the same scheduler, it makes sense to reuse
+        // the same mutex shards. Also disable nested module context for
+        // good measure.
+        //
+        ctx.module_context_storage->reset (
+          new context (ctx.sched,
+                       false,           /* dry_run */
+                       ctx.keep_going,
+                       {},              /* cmd_vars */
+                       nullopt));       /* module_context */
+
+        // We use the same context for building any nested modules that
+        // might be required while building modules.
+        //
+        ctx.module_context = ctx.module_context_storage->get ();
+        ctx.module_context->module_context = ctx.module_context;
+
+        // Setup the context to perform update. In a sense we have a long-
+        // running perform meta-operation batch (indefinite, in fact, since we
+        // never call the meta-operation's *_post() callbacks) in which we
+        // periodically execute the update operation.
+        //
+        if (mo_perform.meta_operation_pre != nullptr)
+          mo_perform.meta_operation_pre ({} /* parameters */, loc);
+
+        ctx.module_context->current_meta_operation (mo_perform);
+
+        if (mo_perform.operation_pre != nullptr)
+          mo_perform.operation_pre ({} /* parameters */, update_id);
+
+        ctx.module_context->current_operation (op_update);
+      }
+
+      // "Switch" to the module context.
       //
+      context& ctx (*bs.ctx.module_context);
+
+      // Load the imported project in the module context.
+      //
+      pair<names, const scope&> lr (import_load (ctx, move (ir), loc));
+
+      // When happens next depends on whether this is a top-level or nested
+      // module update.
+      //
+      if (nested)
+      {
+        // This could be initial or exclusive load.
+        //
+        // @@ TODO
+        //
+        fail (loc) << "nested build system module updates not yet supported";
+      }
+      else
+      {
+        const scope& rs (lr.second);
+        target_key tk (rs.find_target_key (lr.first, loc));
+
+        action_targets tgs;
+        action a (perform_id, update_id);
+
+        // Note that for now we suppress progress since it would clash with
+        // the progress of what we are already doing (maybe in the future we
+        // can do save/restore but then we would need some sort of diagnostics
+        // that we have switched to another task).
+        //
+        mo_perform.search  ({},      /* parameters */
+                            rs,      /* root scope */
+                            rs,      /* base scope */
+                            path (), /* buildfile */
+                            tk,
+                            loc,
+                            tgs);
+
+        mo_perform.match   ({},   /* parameters */
+                            a,
+                            tgs,
+                            1,    /* diag (failures only) */
+                            false /* progress */);
+
+        mo_perform.execute ({},   /* parameters */
+                            a,
+                            tgs,
+                            1,    /* diag (failures only) */
+                            false /* progress */);
+
+        assert (tgs.size () == 1);
+        const target& l (tgs[0].as_target ());
+
+        if (!l.is_a ("libs"))
+          fail (loc) << "wrong export from build system module " << mod;
+
+        lib = l.as<file> ().path ();
+      }
     }
     else
-#endif
     {
-      // No luck. Form the shared library name (incorporating build system
-      // core version) and try using system-default search (installed, rpath,
-      // etc).
+      // No module project found. Form the shared library name (incorporating
+      // build system core version) and try using system-default search
+      // (installed, rpath, etc).
 
       // @@ This is unfortunate: it would have been nice to do something
       //    similar to what we've done for exe{}. While libs{} is in the bin
@@ -139,6 +267,8 @@ namespace build2
       lib = path (pfx + mod + '-' + build_version_interface + sfx);
     }
 
+    // The build2_<mod>_load() symbol name.
+    //
     string sym (sanitize_identifier ("build2_" + mod + "_load"));
 
     // Note that we don't unload our modules since it's not clear what would

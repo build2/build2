@@ -403,7 +403,7 @@ namespace build2
 
   // Unless already known, match, and, if necessary, execute the group in
   // order to resolve its members list. Note that even after that the member's
-  // list might still not be available (e.g., if some wildcard/ fallback rule
+  // list might still not be available (e.g., if some wildcard/fallback rule
   // matched).
   //
   // If the action is for an outer operation, then it is changed to inner
