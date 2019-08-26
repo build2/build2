@@ -129,7 +129,7 @@ namespace build2
     //
     var_import_build2 = &vp.insert<abs_dir_path> ("import.build2");
 
-#ifndef BUILD2_BOOTSTRAP
+#ifdef BUILD2_IMPORT_PATH
     if (!build_installed)
       gs.assign (var_import_build2) = abs_dir_path (BUILD2_IMPORT_PATH);
 #endif

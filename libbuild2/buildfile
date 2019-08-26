@@ -73,13 +73,14 @@ obja{*}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
 # Pass our compiler target to be used as build2 host and our out_root to
-# be used as the build system import path.
+# be used as the build system import path (not forgetting to escape
+# backslashes on Windows).
 #
-obj{context}:
-{
-  cxx.poptions += "-DBUILD2_HOST_TRIPLET=\"$cxx.target\""
-  cxx.poptions += "-DBUILD2_IMPORT_PATH=\"$out_root\""
-}
+obj{context}: cxx.poptions += "-DBUILD2_HOST_TRIPLET=\"$cxx.target\""
+
+if ($cxx.target == $build.host)
+  obj{context}: cxx.poptions += \
+    "-DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\""
 
 obja{context}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
