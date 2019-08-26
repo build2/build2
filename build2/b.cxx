@@ -609,6 +609,7 @@ main (int argc, char* argv[])
       trace << "work: " << work;
       trace << "home: " << home;
       trace << "path: " << (p ? *p : "<NULL>");
+      trace << "type: " << (build_installed ? "installed" : "development");
       trace << "jobs: " << jobs;
     }
 

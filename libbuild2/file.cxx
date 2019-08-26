@@ -1296,6 +1296,13 @@ namespace build2
     {
       string n ("config.import." + proj.variable ());
 
+      auto skip = [&target, &proj, &trace] ()
+      {
+        target.proj = move (proj);
+        l5 ([&]{trace << "skipping " << target;});
+        return make_pair (move (target), dir_path ());
+      };
+
       // config.import.<proj>
       //
       {
@@ -1318,11 +1325,7 @@ namespace build2
           // to use system-installed).
           //
           if (out_root.empty ())
-          {
-            target.proj = move (proj);
-            l5 ([&]{trace << "skipping " << target;});
-            return make_pair (move (target), dir_path ());
-          }
+            return skip ();
 
           break;
         }
@@ -1380,6 +1383,26 @@ namespace build2
           target.value = p.leaf ().string ();
 
           return make_pair (move (target), dir_path ());
+        }
+      }
+
+      // import.build2
+      //
+      if (proj == "build2")
+      {
+        // Note that this variable can be set to NULL to disable relying on
+        // the built-in path. We use this in our tests to make sure we are
+        // importing and testing the build system being built and not the one
+        // doing the building.
+        //
+        if (auto l = iroot[ctx.var_import_build2])
+        {
+          out_root = cast<dir_path> (l);
+
+          if (out_root.empty ())
+            return skip ();
+
+          break;
         }
       }
 

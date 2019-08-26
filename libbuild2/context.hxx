@@ -315,8 +315,9 @@ namespace build2
     //
     const variable* var_project_summary;
 
-    // import.target
+    // import.*
     //
+    const variable* var_import_build2;
     const variable* var_import_target;
 
     // [string] target visibility

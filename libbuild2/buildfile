@@ -9,8 +9,14 @@
 
 import int_libs = libbutl%lib{butl}
 
-lib{build2}: libul{build2}: {hxx ixx txx cxx}{* -config -version -*.test...} \
-                            {hxx}{config version}
+lib{build2}: libul{build2}:                                            \
+  {hxx ixx txx cxx}{* -utility-installed -config -version -*.test...} \
+  {hxx}{config version}
+
+# Note that this won't work on libul{} since it's never installed.
+#
+lib{build2}: cxx{utility-installed}: for_install = true
+liba{build2}: bin.whole = true # See utility-installed.cxx.
 
 # These are "core modules" that come bundled with libbuild2 (see also unit
 # tests loop below). Note that the build system core can still function
@@ -66,9 +72,15 @@ for t:         cxx{ *.test...} \
 obja{*}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
-# Pass our compiler target to be used as libbuild2 host.
+# Pass our compiler target to be used as build2 host and our out_root to
+# be used as the build system import path.
 #
-obj{context}:  cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
+obj{context}:
+{
+  cxx.poptions += "-DBUILD2_HOST_TRIPLET=\"$cxx.target\""
+  cxx.poptions += "-DBUILD2_IMPORT_PATH=\"$out_root\""
+}
+
 obja{context}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 

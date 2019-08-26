@@ -1821,7 +1821,10 @@ namespace build2
           if (lookup l = p.prerequisite.vars[var_fi])
           {
             if (cast<bool> (l) != for_install)
+            {
+              l5 ([&]{trace << "excluding " << *pt << " due to for_install";});
               pt = nullptr;
+            }
           }
         }
       }

@@ -142,6 +142,12 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern const standard_version build_version;
   LIBBUILD2_SYMEXPORT extern const string build_version_interface;
 
+  // Whether running installed build.
+  //
+  // Note: only available after static initialization.
+  //
+  LIBBUILD2_SYMEXPORT extern bool build_installed;
+
   // --[no-]mtime-check
   //
   LIBBUILD2_SYMEXPORT extern optional<bool> mtime_check_option;

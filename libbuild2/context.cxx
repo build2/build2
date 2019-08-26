@@ -124,6 +124,16 @@ namespace build2
                     path (argv0.recall_string ()),
                     path (argv0.effect));
 
+    // Build system import path for modules. We only set it for the
+    // development build.
+    //
+    var_import_build2 = &vp.insert<abs_dir_path> ("import.build2");
+
+#ifndef BUILD2_BOOTSTRAP
+    if (!build_installed)
+      gs.assign (var_import_build2) = abs_dir_path (BUILD2_IMPORT_PATH);
+#endif
+
     // Build system verbosity level.
     //
     gs.assign<uint64_t> ("build.verbosity") = verb;
