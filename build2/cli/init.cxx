@@ -301,7 +301,7 @@ namespace build2
           scope& bs,
           const location& l,
           unique_ptr<module_base>&,
-          bool,
+          bool first,
           bool optional,
           const variable_map& hints)
     {
@@ -334,11 +334,10 @@ namespace build2
 
       // Register target types.
       //
+      if (first)
       {
-        auto& t (bs.target_types);
-
-        t.insert<cli> ();
-        t.insert<cli_cxx> ();
+        rs.insert_target_type<cli> ();
+        rs.insert_target_type<cli_cxx> ();
       }
 
       // Register our rules.

@@ -65,7 +65,7 @@ namespace build2
 
       // Register target types.
       //
-      rs.target_types.insert<in> ();
+      rs.insert_target_type<in> ();
 
       return true;
     }

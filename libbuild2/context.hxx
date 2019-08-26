@@ -25,6 +25,7 @@ namespace build2
   class scope;
   class scope_map;
   class target_set;
+  class target_type_map;
 
   class value;
   using values = small_vector<value, 1>;
@@ -274,15 +275,16 @@ namespace build2
     // Build state (scopes, targets, variables, etc).
     //
     const scope_map& scopes;
-    const scope& global_scope;
-
     target_set& targets;
-
     const variable_pool& var_pool;
     const variable_overrides& var_overrides; // Project and relative scope.
-    variable_override_cache& global_override_cache;
-
     function_map& functions;
+
+    // Global scope.
+    //
+    const scope& global_scope;
+    const target_type_map& global_target_types;
+    variable_override_cache& global_override_cache;
 
     // Cached variables.
     //

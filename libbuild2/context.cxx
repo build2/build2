@@ -45,8 +45,10 @@ namespace build2
     target_set targets;
     variable_pool var_pool;
     variable_overrides var_overrides;
-    variable_override_cache global_override_cache;
     function_map functions;
+
+    target_type_map global_target_types;
+    variable_override_cache global_override_cache;
 
     data (context& c): scopes (c), targets (c), var_pool (&c /* global */) {}
   };
@@ -59,12 +61,13 @@ namespace build2
         keep_going (kg),
         phase_mutex (*this),
         scopes (data_->scopes),
-        global_scope (create_global_scope (data_->scopes)),
         targets (data_->targets),
         var_pool (data_->var_pool),
         var_overrides (data_->var_overrides),
-        global_override_cache (data_->global_override_cache),
-        functions (data_->functions)
+        functions (data_->functions),
+        global_scope (create_global_scope (data_->scopes)),
+        global_target_types (data_->global_target_types),
+        global_override_cache (data_->global_override_cache)
   {
     tracer trace ("context");
 
@@ -217,7 +220,7 @@ namespace build2
     // Register builtin target types.
     //
     {
-      target_type_map& t (gs.target_types);
+      target_type_map& t (data_->global_target_types);
 
       t.insert<file>  ();
       t.insert<alias> ();

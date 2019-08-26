@@ -202,11 +202,42 @@ namespace build2
 
     // Target types.
     //
+    // Note that target types are project-wide (even if the module that
+    // registers them is loaded in a base scope). The thinking here is that
+    // having target types only visible in certain scopes of a project just
+    // complicates and confuses things (e.g., you cannot refer to a target
+    // whose buildfile you just included). On the other hand, it feels highly
+    // unlikely that a target type will somehow need to be different for
+    // different parts of the project (unlike, say, a rule).
+    //
+    // The target types are also project-local. This means one has to use
+    // import to refer to targets across projects, even in own subprojects
+    // (because we stop searching at project boundaries).
+    //
+    // See also context::global_target_types.
+    //
   public:
-    target_type_map target_types;
+    const target_type&
+    insert_target_type (const target_type& tt)
+    {
+      return root_extra->target_types.insert (tt);
+    }
+
+    template <typename T>
+    const target_type&
+    insert_target_type ()
+    {
+      return root_extra->target_types.insert<T> ();
+    }
+
+    void
+    insert_target_type_file (const string& n, const target_type& tt)
+    {
+      root_extra->target_types.insert_file (n, tt);
+    }
 
     const target_type*
-    find_target_type (const string&, const scope** = nullptr) const;
+    find_target_type (const string&) const;
 
     // Given a target name, figure out its type, taking into account
     // extensions, special names (e.g., '.' and '..'), or anything else that
@@ -267,7 +298,7 @@ namespace build2
     // Extra root scope-only data.
     //
   public:
-    struct root_data
+    struct root_extra_type
     {
       bool altn; // True if using alternative build file/directory naming.
 
@@ -292,16 +323,20 @@ namespace build2
       build2::meta_operations meta_operations;
       build2::operations operations;
 
-      // Modules.
+      // Modules loaded by this project.
       //
       module_map modules;
 
       // Variable override cache.
       //
       mutable variable_override_cache override_cache;
+
+      // Target types.
+      //
+      target_type_map target_types;
     };
 
-    unique_ptr<root_data> root_extra;
+    unique_ptr<root_extra_type> root_extra;
 
     void
     insert_operation (operation_id id, const operation_info& in)
@@ -381,7 +416,7 @@ namespace build2
   project (const scope& root);
 
   // Temporary scope. The idea is to be able to create a temporary scope in
-  // order not to change the variables in the current scope.  Such a scope is
+  // order not to change the variables in the current scope. Such a scope is
   // not entered in to the scope map. As a result it can only be used as a
   // temporary set of variables. In particular, defining targets directly in
   // such a scope will surely end up badly. Defining any nested scopes will be

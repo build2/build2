@@ -589,48 +589,33 @@ namespace build2
   }
 
   const target_type* scope::
-  find_target_type (const string& tt, const scope** rs) const
+  find_target_type (const string& tt) const
   {
-    // Search scopes outwards, stopping at the project root.
+    // Search the project's root scope then the global scope.
     //
-    for (const scope* s (this);
-         s != nullptr;
-         s = s->root () ? &s->global_scope () : s->parent_scope ())
+    if (const scope* rs = root_scope ())
     {
-      if (s->target_types.empty ())
-        continue;
-
-      if (const target_type* r = s->target_types.find (tt))
-      {
-        if (rs != nullptr)
-          *rs = s;
-
+      if (const target_type* r = rs->root_extra->target_types.find (tt))
         return r;
-      }
     }
 
-    return nullptr;
+    return ctx.global_target_types.find (tt);
   }
 
   // Find target type from file name.
   //
   static const target_type*
-  find_file_target_type (const scope* s, const string& n)
+  find_target_type_file (const scope& s, const string& n)
   {
     // Pretty much the same logic as in find_target_type() above.
     //
-    for (;
-         s != nullptr;
-         s = s->root () ? &s->global_scope () : s->parent_scope ())
+    if (const scope* rs = s.root_scope ())
     {
-      if (s->target_types.empty ())
-        continue;
-
-      if (const target_type* r = s->target_types.find_file (n))
+      if (const target_type* r = rs->root_extra->target_types.find_file (n))
         return r;
     }
 
-    return nullptr;
+    return s.ctx.global_target_types.find_file (n);
   }
 
   pair<const target_type*, optional<string>> scope::
@@ -720,7 +705,7 @@ namespace build2
       // We only consider files without extension for file name mapping.
       //
       if (!ext)
-        tt = find_file_target_type (this, v);
+        tt = find_target_type_file (*this, v);
 
       //@@ TODO: derive type from extension.
 
@@ -767,6 +752,8 @@ namespace build2
   pair<reference_wrapper<const target_type>, bool> scope::
   derive_target_type (const string& name, const target_type& base)
   {
+    assert (root_scope () == this);
+
     // Base target type uses extensions.
     //
     bool ext (base.fixed_extension   != nullptr ||
@@ -818,7 +805,7 @@ namespace build2
       ? &target_print_0_ext_verb  // Fixed extension, no use printing.
       : nullptr;                  // Normal.
 
-    return target_types.insert (name, move (dt));
+    return root_extra->target_types.insert (name, move (dt));
   }
 
   // scope_map

@@ -402,7 +402,7 @@ namespace build2
           scope& bs,
           const location& loc,
           unique_ptr<module_base>&,
-          bool,
+          bool first,
           bool,
           const variable_map& hints)
     {
@@ -421,41 +421,41 @@ namespace build2
       // Register target types and configure their default "installability".
       //
       bool install_loaded (cast_false<bool> (rs["install.loaded"]));
-
       {
         using namespace install;
 
-        auto& t (bs.target_types);
+        if (first)
+        {
+          rs.insert_target_type<obj>  ();
+          rs.insert_target_type<obje> ();
+          rs.insert_target_type<obja> ();
+          rs.insert_target_type<objs> ();
 
-        t.insert<obj>  ();
-        t.insert<obje> ();
-        t.insert<obja> ();
-        t.insert<objs> ();
+          rs.insert_target_type<bmi>  ();
+          rs.insert_target_type<bmie> ();
+          rs.insert_target_type<bmia> ();
+          rs.insert_target_type<bmis> ();
 
-        t.insert<bmi>  ();
-        t.insert<bmie> ();
-        t.insert<bmia> ();
-        t.insert<bmis> ();
+          rs.insert_target_type<hbmi>  ();
+          rs.insert_target_type<hbmie> ();
+          rs.insert_target_type<hbmia> ();
+          rs.insert_target_type<hbmis> ();
 
-        t.insert<hbmi>  ();
-        t.insert<hbmie> ();
-        t.insert<hbmia> ();
-        t.insert<hbmis> ();
+          rs.insert_target_type<libul> ();
+          rs.insert_target_type<libue> ();
+          rs.insert_target_type<libua> ();
+          rs.insert_target_type<libus> ();
 
-        t.insert<libul> ();
-        t.insert<libue> ();
-        t.insert<libua> ();
-        t.insert<libus> ();
+          rs.insert_target_type<lib>  ();
+          rs.insert_target_type<liba> ();
+          rs.insert_target_type<libs> ();
 
-        t.insert<lib>  ();
-        t.insert<liba> ();
-        t.insert<libs> ();
-
-        // Register the def{} target type. Note that we do it here since it is
-        // input and can be specified unconditionally (i.e., not only when
-        // building for Windows).
-        //
-        t.insert<def> ();
+          // Register the def{} target type. Note that we do it here since it
+          // is input and can be specified unconditionally (i.e., not only
+          // when building for Windows).
+          //
+          rs.insert_target_type<def> ();
+        }
 
         // Note: libu*{} members are not installable.
         //
@@ -494,7 +494,8 @@ namespace build2
         {
           // Import library.
           //
-          t.insert<libi> ();
+          if (first)
+            rs.insert_target_type<libi> ();
 
           if (install_loaded)
           {

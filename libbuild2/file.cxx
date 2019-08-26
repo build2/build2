@@ -443,8 +443,8 @@ namespace build2
     assert (altn && root.root_extra == nullptr);
     bool a (*altn);
 
-    root.root_extra = unique_ptr<scope::root_data> (
-      new scope::root_data {
+    root.root_extra.reset (
+      new scope::root_extra_type {
         a,
         a ? alt_build_ext        : std_build_ext,
         a ? alt_build_dir        : std_build_dir,
@@ -460,7 +460,8 @@ namespace build2
         {}, /* meta_operations */
         {}, /* operations */
         {}, /* modules */
-        {}  /* override_cache */});
+        {}, /* override_cache */
+        {}} /* target_types */);
 
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in

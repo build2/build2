@@ -28,7 +28,7 @@ namespace build2
           scope& bs,
           const location& l,
           unique_ptr<module_base>&,
-          bool,
+          bool first,
           bool,
           const variable_map&)
     {
@@ -44,7 +44,8 @@ namespace build2
 
       // Register target types and configure default installability.
       //
-      bs.target_types.insert<bash> ();
+      if (first)
+        rs.insert_target_type<bash> ();
 
       if (install_loaded)
       {

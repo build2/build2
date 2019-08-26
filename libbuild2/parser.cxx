@@ -1982,7 +1982,7 @@ namespace build2
       if (bt == nullptr)
         fail (t) << "unknown target type " << bn;
 
-      if (!scope_->derive_target_type (move (dn), *bt).second)
+      if (!root_->derive_target_type (move (dn), *bt).second)
         fail (dnl) << "target type " << dn << " already define in this scope";
 
       next (t, tt); // Get newline.

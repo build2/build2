@@ -642,13 +642,11 @@ namespace build2
       {
         using namespace install;
 
-        auto& tts (rs.target_types);
+        rs.insert_target_type (x_src);
 
-        tts.insert (x_src);
-
-        auto insert_hdr = [&rs, &tts, install_loaded] (const target_type& tt)
+        auto insert_hdr = [&rs, install_loaded] (const target_type& tt)
         {
-          tts.insert (tt);
+          rs.insert_target_type (tt);
 
           // Install headers into install.include.
           //
@@ -666,8 +664,8 @@ namespace build2
         if (*x_hdr != &h::static_type)
           insert_hdr (h::static_type);
 
-        tts.insert<pca> ();
-        tts.insert<pcs> ();
+        rs.insert_target_type<pca> ();
+        rs.insert_target_type<pcs> ();
 
         if (install_loaded)
           install_path<pc> (rs, dir_path ("pkgconfig"));
