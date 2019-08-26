@@ -781,7 +781,14 @@ namespace build2
       if (n == (ns[0].pair ? 2 : 1))
       {
         name dummy;
-        return find_target_key (ns[0], n == 2 ? ns[1] : dummy, loc);
+        target_key r (find_target_key (ns[0], n == 1 ? dummy : ns[1], loc));
+
+        return target_key {
+          r.type,
+          r.dir,
+          n == 1 ? &empty_dir_path : r.out,
+          r.name,
+          move (r.ext)};
       }
     }
 
