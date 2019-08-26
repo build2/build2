@@ -1417,9 +1417,9 @@ namespace build2
           if (!r->vars[ctx.var_amalgamation])
             break;
         }
-
-        break;
       }
+
+      break;
     }
 
     // Add the qualification back to the target (import_load() will remove it
