@@ -49,6 +49,7 @@ namespace build2
 
     target_type_map global_target_types;
     variable_override_cache global_override_cache;
+    strings global_var_overrides;
 
     data (context& c): scopes (c), targets (c), var_pool (&c /* global */) {}
   };
@@ -72,6 +73,7 @@ namespace build2
         global_scope (create_global_scope (data_->scopes)),
         global_target_types (data_->global_target_types),
         global_override_cache (data_->global_override_cache),
+        global_var_overrides (data_->global_var_overrides),
         module_context (mc ? *mc : nullptr),
         module_context_storage (mc
                                 ? optional<unique_ptr<context>> (nullptr)
@@ -455,6 +457,11 @@ namespace build2
       else
         data_->var_overrides.push_back (
           variable_override {var, *o, move (dir), move (r.first)});
+
+      // Save global overrides for nested contexts.
+      //
+      if (c == '!')
+        data_->global_var_overrides.push_back (s);
     }
 
     // Enter builtin variables and patterns.

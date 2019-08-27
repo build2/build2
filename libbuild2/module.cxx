@@ -146,16 +146,16 @@ namespace build2
 
         assert (*ctx.module_context_storage == nullptr);
 
-        // Since we are using the same scheduler, it makes sense to reuse
-        // the same mutex shards. Also disable nested module context for
-        // good measure.
+        // Since we are using the same scheduler, it makes sense to reuse the
+        // same mutex shards. Also disable nested module context for good
+        // measure.
         //
         ctx.module_context_storage->reset (
           new context (ctx.sched,
-                       false,           /* dry_run */
+                       false,                    /* dry_run */
                        ctx.keep_going,
-                       {},              /* cmd_vars */
-                       nullopt));       /* module_context */
+                       ctx.global_var_overrides, /* cmd_vars */
+                       nullopt));                /* module_context */
 
         // We use the same context for building any nested modules that
         // might be required while building modules.

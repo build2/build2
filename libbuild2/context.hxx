@@ -290,6 +290,7 @@ namespace build2
     const scope& global_scope;
     const target_type_map& global_target_types;
     variable_override_cache& global_override_cache;
+    const strings& global_var_overrides;
 
     // Cached variables.
     //
