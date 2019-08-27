@@ -56,12 +56,19 @@ if ($cxx.target == $build.host)
     -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
 }
 
-if ($cxx.target.class != "windows")
+if ($cxx.target.class != 'windows')
 {
-  # Make sure backtrace includes function names.
-  #
   if ($cxx.target.class == 'linux')
+  {
+    # Make sure backtrace includes function names.
+    #
     cxx.loptions += -rdynamic
+
+    # Make sure we use RPATH and not RUNPATH since the latter messes up
+    # dlopen().
+    #
+    cxx.loptions += -Wl,--disable-new-dtags
+  }
 
   cxx.libs += -lpthread
 }

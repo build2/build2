@@ -94,8 +94,16 @@ if! $cross
 obja{context}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
-if ($cxx.target.class != "windows")
+if ($cxx.target.class != 'windows')
 {
+  if ($cxx.target.class == 'linux')
+  {
+    # Make sure we use RPATH and not RUNPATH since the latter messes up
+    # dlopen().
+    #
+    cxx.loptions += -Wl,--disable-new-dtags
+  }
+
   cxx.libs += -lpthread
 
   if ($cxx.target.class != "bsd")
