@@ -14,23 +14,15 @@ namespace build2
 {
   namespace cli
   {
-    bool
-    config_init (scope&,
-                 scope&,
-                 const location&,
-                 unique_ptr<module_base>&,
-                 bool,
-                 bool,
-                 const variable_map&);
-
-    bool
-    init (scope&,
-          scope&,
-          const location&,
-          unique_ptr<module_base>&,
-          bool,
-          bool,
-          const variable_map&);
+    // Module `cli` does not require bootstrapping.
+    //
+    // Submodules:
+    //
+    // `cli.config` -- registers variables.
+    // `cli`        -- loads cli.config and registers target types and rules.
+    //
+    extern "C" const module_functions*
+    build2_cli_load ();
   }
 }
 

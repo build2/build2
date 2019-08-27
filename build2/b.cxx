@@ -507,12 +507,6 @@ main (int argc, char* argv[])
           loaded_modules[i->name] = i;
       };
 
-      // @@ TMP
-      //
-#define TMP_LOAD(N, S, I)                                 \
-        static const module_functions N {S, nullptr, &I};  \
-        loaded_modules[S] = &N
-
       load (&config::build2_config_load);
       load (&dist::build2_dist_load);
       load (&test::build2_test_load);
@@ -526,9 +520,7 @@ main (int argc, char* argv[])
       load (&in::build2_in_load);
 
 #ifndef BUILD2_BOOTSTRAP
-      TMP_LOAD (cli_config, "cli.config", cli::config_init);
-      TMP_LOAD (cli, "cli", cli::init);
-
+      load (&cli::build2_cli_load);
       load (&bash::build2_bash_load);
 #endif
     }

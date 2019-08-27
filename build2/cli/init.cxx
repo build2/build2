@@ -368,5 +368,21 @@ namespace build2
 
       return true;
     }
+
+    static const module_functions mod_functions[] =
+    {
+      // NOTE: don't forget to also update the documentation in init.hxx if
+      //       changing anything here.
+
+      {"cli.config", nullptr, config_init},
+      {"cli",        nullptr, init},
+      {nullptr,      nullptr, nullptr}
+    };
+
+    const module_functions*
+    build2_cli_load ()
+    {
+      return mod_functions;
+    }
   }
 }
