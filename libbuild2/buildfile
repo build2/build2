@@ -72,13 +72,20 @@ for t:         cxx{ *.test...} \
 obja{*}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
-# Pass our compiler target to be used as build2 host and our out_root to
-# be used as the build system import path (not forgetting to escape
-# backslashes on Windows).
+# Pass our compiler target to be used as build2 host and our out_root to be
+# used as the build system import path (unless cross-compiling and not
+# forgetting to escape backslashes on Windows).
 #
 obj{context}: cxx.poptions += "-DBUILD2_HOST_TRIPLET=\"$cxx.target\""
 
-if ($cxx.target == $build.host)
+# Note that we used to compare complete target triplets but that proved too
+# strict. For example, we may be running on x86_64-apple-darwin17.7.0 while
+# the compiler is targeting x86_64-apple-darwin17.3.0.
+#
+cross = ($cxx.target.cpu != $build.host.cpu || \
+         $cxx.target.system != $build.host.system)
+
+if! $cross
   obj{context}: cxx.poptions += \
     "-DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\""
 
