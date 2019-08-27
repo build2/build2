@@ -58,7 +58,7 @@ namespace build2
            bool dr,
            bool kg,
            const strings& cmd_vars,
-           optional<unique_ptr<context>> mc)
+           optional<context*> mc)
       : data_ (new data (*this)),
         sched (s),
         dry_run_option (dr),
@@ -72,8 +72,10 @@ namespace build2
         global_scope (create_global_scope (data_->scopes)),
         global_target_types (data_->global_target_types),
         global_override_cache (data_->global_override_cache),
-        module_context (mc ? mc->get () : nullptr),
-        module_context_storage (move (mc))
+        module_context (mc ? *mc : nullptr),
+        module_context_storage (mc
+                                ? optional<unique_ptr<context>> (nullptr)
+                                : nullopt)
   {
     tracer trace ("context");
 

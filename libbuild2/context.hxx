@@ -392,20 +392,20 @@ namespace build2
     // setup to point to itself (see import_module() for details).
     //
     context* module_context;
-    optional<unique_ptr<context>> module_context_storage; //@@ CTX: shared_ptr
+    optional<unique_ptr<context>> module_context_storage;
 
   public:
-    // If mod_ctx is absent, then automatic updating of build system modules
-    // is disabled. If it is NULL, then the context will be created lazily if
-    // and when necessary. Otherwise, it should be a properly setup context
-    // (including, normally, a self-reference in modules_context).
+    // If module_context is absent, then automatic updating of build system
+    // modules is disabled. If it is NULL, then the context will be created
+    // lazily if and when necessary. Otherwise, it should be a properly setup
+    // context (including, normally, a self-reference in modules_context).
     //
     explicit
     context (scheduler&,
              bool dry_run = false,
              bool keep_going = true,
              const strings& cmd_vars = {},
-             optional<unique_ptr<context>> mod_ctx = unique_ptr<context> ());
+             optional<context*> module_context = nullptr);
 
     // Set current meta-operation and operation.
     //
