@@ -9,14 +9,16 @@
 
 import int_libs = libbutl%lib{butl}
 
-lib{build2}: libul{build2}:                                            \
-  {hxx ixx txx cxx}{* -utility-installed -config -version -*.test...} \
-  {hxx}{config version}
-
 # Note that this won't work on libul{} since it's never installed.
 #
 lib{build2}: cxx{utility-installed}: for_install = true
 liba{build2}: bin.whole = true # See utility-installed.cxx.
+
+# Keep dependency on libul{build2} after cxx{utility-installed}.
+#
+lib{build2}: libul{build2}:                                            \
+  {hxx ixx txx cxx}{* -utility-installed -config -version -*.test...} \
+  {hxx}{config version}
 
 # These are "core modules" that come bundled with libbuild2 (see also unit
 # tests loop below). Note that the build system core can still function
