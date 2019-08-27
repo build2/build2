@@ -12,7 +12,9 @@ import int_libs = libbutl%lib{butl}
 # Note that this won't work on libul{} since it's never installed.
 #
 lib{build2}: cxx{utility-installed}: for_install = true
-liba{build2}: bin.whole = true # See utility-installed.cxx.
+
+# @@ TMP
+#liba{build2}: bin.whole = true # See utility-installed.cxx.
 
 # Keep dependency on libul{build2} after cxx{utility-installed}.
 #
@@ -96,14 +98,6 @@ objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
 if ($cxx.target.class != 'windows')
 {
-  if ($cxx.target.class == 'linux')
-  {
-    # Make sure we use RPATH and not RUNPATH since the latter messes up
-    # dlopen().
-    #
-    cxx.loptions += -Wl,--disable-new-dtags
-  }
-
   cxx.libs += -lpthread
 
   if ($cxx.target.class != "bsd")
