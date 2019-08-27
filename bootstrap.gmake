@@ -39,8 +39,8 @@ chost :=
 
 ifeq ($(OS),Windows_NT)
   exe   := .exe
-  host  := i686-w64-mingw32
-  chost := i686-w64-mingw32
+  host  := x86_64-w64-mingw32
+  chost := x86_64-w64-mingw32
   override LIBS += -limagehlp
 else
   override LIBS += -lpthread
