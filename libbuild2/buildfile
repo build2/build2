@@ -77,7 +77,7 @@ objs{*}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 # used as the build system import path (unless cross-compiling and not
 # forgetting to escape backslashes on Windows).
 #
-obj{context}: cxx.poptions += "-DBUILD2_HOST_TRIPLET=\"$cxx.target\""
+{obja objs}{context}: cxx.poptions += "-DBUILD2_HOST_TRIPLET=\"$cxx.target\""
 
 # Note that we used to compare complete target triplets but that proved too
 # strict. For example, we may be running on x86_64-apple-darwin17.7.0 while
@@ -87,11 +87,8 @@ cross = ($cxx.target.cpu != $build.host.cpu || \
          $cxx.target.system != $build.host.system)
 
 if! $cross
-  obj{context}: cxx.poptions += \
+  {obja objs}{context}: cxx.poptions += \
     -DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\"
-
-obja{context}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
-objs{context}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
 if ($cxx.target.class != 'windows')
 {

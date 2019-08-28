@@ -45,13 +45,8 @@ cross = ($cxx.target.cpu != $build.host.cpu || \
 # Windows). It is used as defaults for BUILD2_DEFAULT_CXX.
 #
 if! $cross
-{
-  obj{init}: cxx.poptions += \
+  {obja objs}{init}: cxx.poptions += \
     -DBUILD2_NATIVE_CXX=\"$regex.replace($recall($cxx.path), '\\', '\\\\')\"
-
-  obja{init}: cxx.poptions += -DLIBBUILD2_CXX_STATIC_BUILD
-  objs{init}: cxx.poptions += -DLIBBUILD2_CXX_SHARED_BUILD
-}
 
 # Export options.
 #
