@@ -2,17 +2,16 @@
 # copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
-import int_libs = libbutl%lib{butl}
-import imp_libs = libpkgconf%lib{pkgconf}
-
 include ../
-int_libs += ../lib{build2}
+imp_libs = ../lib{build2} # Implied interface dependency.
+
+import imp_libs += libpkgconf%lib{pkgconf}
 
 include ../bin/
-int_libs += ../bin/lib{build2-bin}
+int_libs = ../bin/lib{build2-bin}
 
 ./: lib{build2-cc}: libul{build2-cc}: {hxx ixx txx cxx}{** -**.test...} \
-  $imp_libs $int_libs
+  $int_libs $imp_libs
 
 # Unit tests.
 #

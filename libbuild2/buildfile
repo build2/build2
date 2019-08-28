@@ -7,6 +7,13 @@
 #
 ./: lib{build2} bash/ bin/ c/ cc/ cxx/ in/ version/
 
+# A module should treat lib{build2} as an "implied interface dependency"
+# meaning that it can link it as an implementation dependency and assume that
+# whomever imports and links this module will also import and link lib{build2}
+# explicitly. A module should also assume that lib{butl} will always be an
+# interface dependency of lib{build2} and therefore need not be explicitly
+# imported or linked.
+#
 import int_libs = libbutl%lib{butl}
 
 lib{build2}: libul{build2}:                                            \
