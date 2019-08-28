@@ -13,29 +13,7 @@ for m: bash bin c cc cxx in version
   libs += ../libbuild2/$m/lib{build2-$m}
 }
 
-./: exe{b}: {hxx ixx txx cxx}{+b} libue{b}
-
-libue{b}: {hxx ixx txx cxx}{** -b -b-options -**.test...} \
-          {hxx ixx cxx}{b-options}                        \
-          $libs
-
-# Unit tests.
-#
-exe{*.test}:
-{
-  test = true
-  install = false
-}
-
-for t: cxx{**.test...}
-{
-  d = $directory($t)
-  n = $name($t)...
-  b = $path.base($name($t))
-
-  ./: $d/exe{$n}: $t $d/{hxx ixx txx}{+$n} $d/testscript{+$n +$b+*.test...}
-  $d/exe{$n}: libue{b}: bin.whole = false
-}
+exe{b}: {hxx ixx txx cxx}{** -b-options} {hxx ixx cxx}{b-options} $libs
 
 # Build options.
 #
@@ -56,8 +34,6 @@ if ($cxx.target.class != 'windows')
     #
     cxx.loptions += -Wl,--disable-new-dtags
   }
-
-  cxx.libs += -lpthread
 }
 else
 {
@@ -68,10 +44,9 @@ else
   else
     stack_size = 4194304 # 4M
 
-  if ($cxx.class == 'msvc')
-    cxx.loptions += "/STACK:$stack_size"
-  else
-    cxx.loptions += "-Wl,--stack,$stack_size"
+  cxx.loptions += ($cxx.class == 'msvc'   \
+                   ? "/STACK:$stack_size" \
+                   : "-Wl,--stack,$stack_size")
 }
 
 # Generated options parser.

@@ -70,6 +70,10 @@ for t:         cxx{ *.test...} \
 
 # Build options.
 #
+# NOTE: this scope happens to be outer to the bundled modules which means they
+#       will inherit any scope-wide options. So we should normally only set
+#       them on targets.
+#
 obja{*}: cxx.poptions += -DLIBBUILD2_STATIC_BUILD
 objs{*}: cxx.poptions += -DLIBBUILD2_SHARED_BUILD
 
@@ -92,10 +96,10 @@ if! $cross
 
 if ($cxx.target.class != 'windows')
 {
-  cxx.libs += -lpthread
+  libul{build2}: cxx.libs += -lpthread
 
   if ($cxx.target.class != "bsd")
-    cxx.libs += -ldl
+    libul{build2}: cxx.libs += -ldl
 }
 
 # Export options.
