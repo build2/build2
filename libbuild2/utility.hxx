@@ -144,8 +144,6 @@ namespace build2
 
   // Whether running installed build.
   //
-  // Note: only available after static initialization.
-  //
   LIBBUILD2_SYMEXPORT extern bool build_installed;
 
   // --[no-]mtime-check

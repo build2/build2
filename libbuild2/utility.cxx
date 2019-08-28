@@ -81,8 +81,6 @@ namespace build2
     : (to_string (build_version.major ()) + '.' +
        to_string (build_version.minor ())));
 
-  bool build_installed;
-
   optional<bool> mtime_check_option;
 
   optional<path> config_sub;

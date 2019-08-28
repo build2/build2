@@ -10,15 +10,7 @@
 
 namespace build2
 {
-  struct build_installed_init
-  {
-    build_installed_init ()
-    {
-      build_installed = true;
-    }
-  };
-
-  static build_installed_init init_;
+  bool build_installed = true;
 }
 
 #endif

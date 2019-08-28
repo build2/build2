@@ -133,10 +133,12 @@ namespace build2
     //
     var_import_build2 = &vp.insert<abs_dir_path> ("import.build2");
 
-#ifdef BUILD2_IMPORT_PATH
     if (!build_installed)
+    {
+#ifdef BUILD2_IMPORT_PATH
       gs.assign (var_import_build2) = abs_dir_path (BUILD2_IMPORT_PATH);
 #endif
+    }
 
     // Build system verbosity level.
     //
