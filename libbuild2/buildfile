@@ -117,6 +117,12 @@ lib{build2}:
   cxx.export.libs = $int_libs
 }
 
+# While we don't call any pthread_*() functions in our API, this appears to be
+# needed for some std::thread implementations (like libstdc++).
+#
+if ($cxx.target.class != 'windows')
+  lib{build2}: cxx.export.libs += -lpthread
+
 liba{build2}: cxx.export.poptions += -DLIBBUILD2_STATIC
 libs{build2}: cxx.export.poptions += -DLIBBUILD2_SHARED
 
