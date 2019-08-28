@@ -20,7 +20,8 @@ namespace build2
     //
     // Submodules:
     //
-    // `in.base`  -- only variables and target types.
+    // `in.base` -- registers variables and target types.
+    // `in`      -- loads in.base and registers rules.
     //
     extern "C" LIBBUILD2_IN_SYMEXPORT const module_functions*
     build2_in_load ();

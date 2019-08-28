@@ -18,7 +18,7 @@ namespace build2
   {
     // Module `bash` does not require bootstrapping.
     //
-    // No submodules.
+    // `bash` -- registers variables, target types, and rules.
     //
     extern "C" LIBBUILD2_BASH_SYMEXPORT const module_functions*
     build2_bash_load ();

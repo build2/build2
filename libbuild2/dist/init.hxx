@@ -28,6 +28,11 @@ namespace build2
           bool,
           const variable_map&);
 
+    // Module `dist` requires bootstrapping.
+    //
+    // `dist` -- registers the dist meta-operation, registers/sets variables,
+    //           and registers rules.
+    //
     extern "C" LIBBUILD2_SYMEXPORT const module_functions*
     build2_dist_load ();
   }

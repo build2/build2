@@ -28,6 +28,11 @@ namespace build2
           bool,
           const variable_map&);
 
+    // Module `test` requires bootstrapping.
+    //
+    // `test` -- registers the test and update-for-test operations, registers/
+    //           sets variables, and registers target types and rules.
+    //
     extern "C" LIBBUILD2_SYMEXPORT const module_functions*
     build2_test_load ();
   }

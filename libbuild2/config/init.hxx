@@ -28,6 +28,11 @@ namespace build2
           bool,
           const variable_map&);
 
+    // Module `config` requires bootstrapping.
+    //
+    // `config` -- registers the configure and disfigure meta-operations,
+    //             registers variables, and sources the config.build file.
+    //
     extern "C" LIBBUILD2_SYMEXPORT const module_functions*
     build2_config_load ();
   }

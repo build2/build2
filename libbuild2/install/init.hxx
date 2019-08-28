@@ -28,6 +28,12 @@ namespace build2
           bool,
           const variable_map&);
 
+    // Module `install` requires bootstrapping.
+    //
+    // `install` -- registers the install, uninstall, and update-for-install
+    //              operations, registers/sets variables, and registers
+    //              functions and rules.
+    //
     extern "C" LIBBUILD2_SYMEXPORT const module_functions*
     build2_install_load ();
   }

@@ -18,7 +18,7 @@ namespace build2
   {
     // Module `version` requires bootstrapping.
     //
-    // No submodules.
+    // `version` -- registers variables, target types, and rules.
     //
     extern "C" LIBBUILD2_VERSION_SYMEXPORT const module_functions*
     build2_version_load ();
