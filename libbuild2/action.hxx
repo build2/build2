@@ -124,10 +124,18 @@ namespace build2
 
     action_state () = default;
 
+  // Miscompiled by VC14.
+  //
+#if !defined(_MSC_VER) || _MSC_VER > 1900
     template <typename... A>
     explicit
     action_state (A&&... a)
         : inner (forward<A> (a)...), outer (forward<A> (a)...) {}
+#else
+    template <typename A>
+    explicit
+    action_state (A& a): inner (a), outer (a) {}
+#endif
   };
 
   // Id constants for build-in and pre-defined meta/operations.
