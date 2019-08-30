@@ -10,7 +10,7 @@
 
 namespace build2
 {
-  bool build_installed = true;
+  const bool build_installed = true;
 }
 
 #endif

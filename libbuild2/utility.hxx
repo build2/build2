@@ -144,7 +144,7 @@ namespace build2
 
   // Whether running installed build.
   //
-  LIBBUILD2_SYMEXPORT extern bool build_installed;
+  LIBBUILD2_SYMEXPORT extern const bool build_installed;
 
   // --[no-]mtime-check
   //
@@ -169,8 +169,7 @@ namespace build2
   // state dump). If it is empty, then relative() below returns the original
   // path.
   //
-  // @@ CTX: this could be an issue if changed concurrently from several
-  //         contexts.
+  // Note: watch out for concurrent changes from multiple build contexts.
   //
   LIBBUILD2_SYMEXPORT extern const dir_path* relative_base;
 

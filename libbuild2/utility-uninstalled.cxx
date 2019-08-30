@@ -6,5 +6,5 @@
 
 namespace build2
 {
-  bool build_installed = false;
+  const bool build_installed = false;
 }
