@@ -142,6 +142,10 @@ namespace build2
 
   // target_lock
   //
+  // Note that the stack may contain locks for targets from multiple nested
+  // contexts. This should be harmless (deadlock detection-wise) since
+  // contexts are assumed non-overlapping.
+  //
   static
 #ifdef __cpp_thread_local
   thread_local

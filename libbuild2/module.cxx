@@ -209,30 +209,42 @@ namespace build2
         action_targets tgs;
         action a (perform_id, update_id);
 
-        // Note that for now we suppress progress since it would clash with
-        // the progress of what we are already doing (maybe in the future we
-        // can do save/restore but then we would need some sort of diagnostics
-        // that we have switched to another task).
-        //
-        mo_perform.search  ({},      /* parameters */
-                            rs,      /* root scope */
-                            rs,      /* base scope */
-                            path (), /* buildfile */
-                            rs.find_target_key (lr.first, loc),
-                            loc,
-                            tgs);
+        {
+          // Cutoff the existing diagnostics stack and push our own entry.
+          //
+          diag_frame::stack_guard diag_cutoff (nullptr);
 
-        mo_perform.match   ({},      /* parameters */
-                            a,
-                            tgs,
-                            1,       /* diag (failures only) */
-                            false    /* progress */);
+          auto df = make_diag_frame (
+            [&loc, &mod](const diag_record& dr)
+            {
+              dr << info (loc) << "while loading build system module " << mod;
+            });
 
-        mo_perform.execute ({},      /* parameters */
-                            a,
-                            tgs,
-                            1,       /* diag (failures only) */
-                            false    /* progress */);
+          // Note that for now we suppress progress since it would clash with
+          // the progress of what we are already doing (maybe in the future we
+          // can do save/restore but then we would need some sort of
+          // diagnostics that we have switched to another task).
+          //
+          mo_perform.search  ({},      /* parameters */
+                              rs,      /* root scope */
+                              rs,      /* base scope */
+                              path (), /* buildfile */
+                              rs.find_target_key (lr.first, loc),
+                              loc,
+                              tgs);
+
+          mo_perform.match   ({},      /* parameters */
+                              a,
+                              tgs,
+                              1,       /* diag (failures only) */
+                              false    /* progress */);
+
+          mo_perform.execute ({},      /* parameters */
+                              a,
+                              tgs,
+                              1,       /* diag (failures only) */
+                              false    /* progress */);
+        }
 
         assert (tgs.size () == 1);
         const target& l (tgs[0].as_target ());

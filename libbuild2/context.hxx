@@ -102,9 +102,18 @@ namespace build2
   // @@ CTX: document (backlinks, non-overlap etc). RW story.
   //
   // A context can be preempted to execute another context (we do this, for
-  // example, to update build system modules).
+  // example, to update build system modules). When switching to such a nested
+  // context you may want to cutoff the diagnostics stack (and maybe insert
+  // your own entry), for example:
   //
-  // @@ Progress could clash.
+  //   diag_frame::stack_guard diag_cutoff (nullptr);
+  //
+  // As well as suppress progress which would otherwise clash (maybe in the
+  // future we can do save/restore but then we would need some indication that
+  // we have switched to another task).
+  //
+  // Note also that any given thread should not participate in multiple
+  // schedulers at the same time (see scheduler::join/leave() for details).
   //
   class LIBBUILD2_SYMEXPORT context
   {
