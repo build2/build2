@@ -327,6 +327,7 @@ namespace build2
       // Figure out the version.
       //
       string ver;
+      bool verp (true); // Platform-specific.
       using verion_map = map<string, string>;
       if (const verion_map* m = cast_null<verion_map> (t["bin.lib.version"]))
       {
@@ -346,16 +347,13 @@ namespace build2
         if (i == m->end ())
           i = m->find ("*");
 
-        // At this stage the only platform-specific version we support is the
-        // "no version" override.
-        //
-        if (i != m->end () && !i->second.empty ())
-          fail << i->first << "-specific bin.lib.version not yet supported";
-
         // Finally look for the platform-independent version.
         //
         if (i == m->end ())
+        {
+          verp = false;
           i = m->find ("");
+        }
 
         // If we didn't find anything, fail. If the bin.lib.version was
         // specified, then it should explicitly handle all the targets.
@@ -389,9 +387,30 @@ namespace build2
 
       // Clean pattern.
       //
+      // Note that it's quite loose and we do additional filtering at the
+      // match site.
+      //
+      // Note that it is used to "catch" not only old versions but also old
+      // load suffixes.
+      //
+      // @@ Won't we have an issue if we have, say, libfoo and libfoo-io
+      //    in the same directory?
+      //
       path cp (b);
-      cp += "?*"; // Don't match empty (like the libfoo.so symlink).
+      cp += "?*"; // For libfoo-1.2.so (don't match empty).
       append_ext (cp);
+#if 0
+      // @@ This is too loose, it matches all kinds of unexpected stuff:
+      //    utility libraries (libfoo.so.u.a), object files (foo.dll.obj).
+      //
+      //    Maybe `libfoo*.so.[0-9]*` would have done the trick? But that
+      //    won't catch old load suffixes (@@ test this, BTW). Maybe
+      //    adjust dependening on whether there is one?
+      //
+      //    Note that this will still match .d.
+      //
+      cp += '*';  // For libfoo.so.1.2.
+#endif
 
       // On Windows the real path is to libs{} and the link path is empty.
       // Note that we still need to derive the import library path.
@@ -436,13 +455,79 @@ namespace build2
         }
       }
 
-      if (!ver.empty ())
-        b += ver;
+      // Append version and derive the real name.
+      //
+      const path* re (nullptr);
+      if (ver.empty () || !verp)
+      {
+        if (!ver.empty ())
+          b += ver;
 
-      const path& re (t.derive_path (move (b)));
+        re = &t.derive_path (move (b));
+      }
+      else
+      {
+        // Parse the next version component in the X.Y.Z version form.
+        //
+        // Note that we don't bother verifying components are numeric assuming
+        // the user knows what they are doing (one can sometimes see versions
+        // with non-numeric components).
+        //
+        auto next = [&ver,
+                     b = size_t (0),
+                     e = size_t (0)] (const char* what = nullptr) mutable
+        {
+          if (size_t n = next_word (ver, b, e, '.'))
+            return string (ver, b, n);
+
+          if (what != nullptr)
+            fail << "missing " << what << " in shared library version '"
+                 << ver << "'" << endf;
+
+          return string ();
+        };
+
+        if (tclass == "linux")
+        {
+          // On Linux the shared library version has the MAJOR.MINOR[.EXTRA]
+          // form where MAJOR is incremented for backwards-incompatible ABI
+          // changes, MINOR -- for backwards-compatible, and optional EXTRA
+          // has no specific meaning and can be used as some sort of release
+          // or sequence number (e.g., if the ABI has not changed).
+          //
+          string ma (next ("major component"));
+          string mi (next ("minor component"));
+          string ex (next ());
+
+          // The SONAME is libfoo.so.MAJOR
+          //
+          so = b;
+          append_ext (so);
+          so += '.'; so += ma;
+
+          // If we have EXTRA, then make libfoo.so.MAJOR.MINOR to be the
+          // intermediate name.
+          //
+          if (!ex.empty ())
+          {
+            in = b;
+            append_ext (in);
+            in += '.'; in += ma;
+            in += '.'; in += mi;
+          }
+
+          // Add the whole version as the extra extension(s).
+          //
+          re = &t.derive_path (move (b),
+                               nullptr      /* default_ext */,
+                               ver.c_str () /* extra_ext */);
+        }
+        else
+          fail << tclass << "-specific bin.lib.version not yet supported";
+      }
 
       return libs_paths {
-        move (lk), move (ld), move (so), move (in), &re, move (cp)};
+        move (lk), move (ld), move (so), move (in), re, move (cp)};
     }
 
     // Look for binary-full utility library recursively until we hit a
@@ -2594,20 +2679,21 @@ namespace build2
           {
             if (!interm)
             {
-              // Filter out paths that have one of the current paths as a
-              // prefix.
-              //
-              auto test = [&m] (const path& p)
-              {
-                const string& s (p.string ());
-                return s.empty () || m.string ().compare (0, s.size (), s) != 0;
-              };
+              if (m.extension () == "d") // Strip .d.
+                m.make_base ();
 
-              if (test (*paths.real)   &&
-                  test ( paths.interm) &&
-                  test ( paths.soname) &&
-                  test ( paths.load)   &&
-                  test ( paths.link))
+              // Filter out paths that match one of the current paths.
+              //
+              // Yes, we are basically ad hoc-excluding things that break.
+              // Maybe we should use something more powerful for the pattern,
+              // such as regex? We could have a filesystem pattern which we
+              // then filter against a regex pattern?
+              //
+              if (m != *paths.real   &&
+                  m !=  paths.interm &&
+                  m !=  paths.soname &&
+                  m !=  paths.load   &&
+                  m !=  paths.link)
               {
                 try_rmfile (m);
                 try_rmfile (m + ".d");

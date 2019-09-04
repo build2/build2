@@ -1548,7 +1548,8 @@ namespace build2
     //
     // If name_prefix is not NULL, add it before the name part and after the
     // directory. Similarly, if name_suffix is not NULL, add it after the name
-    // part and before the extension.
+    // part and before the extension. And if extra_ext is not NULL, then add
+    // it as an extra extension (think libfoo.so.1.2.3).
     //
     // Finally, if the path was already assigned to this target, then this
     // function verifies that the two are the same.
@@ -1556,13 +1557,16 @@ namespace build2
     const path_type&
     derive_path (const char* default_ext = nullptr,
                  const char* name_prefix = nullptr,
-                 const char* name_suffix = nullptr);
+                 const char* name_suffix = nullptr,
+                 const char* extra_ext = nullptr);
 
     // This version can be used to derive the path from another target's path
     // by adding another extension.
     //
     const path_type&
-    derive_path (path_type base, const char* default_ext = nullptr);
+    derive_path (path_type base,
+                 const char* default_ext = nullptr,
+                 const char* extra_ext = nullptr);
 
     // As above but only derives (and returns) the extension (empty means no
     // extension used).

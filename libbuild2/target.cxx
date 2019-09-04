@@ -659,7 +659,7 @@ namespace build2
   }
 
   const path& path_target::
-  derive_path (const char* de, const char* np, const char* ns)
+  derive_path (const char* de, const char* np, const char* ns, const char* ee)
   {
     path_type p (dir);
 
@@ -674,11 +674,11 @@ namespace build2
     if (ns != nullptr)
       p += ns;
 
-    return derive_path (move (p), de);
+    return derive_path (move (p), de, ee);
   }
 
   const path& path_target::
-  derive_path (path_type p, const char* de)
+  derive_path (path_type p, const char* de, const char* ee)
   {
     // Derive and add the extension if any.
     //
@@ -690,6 +690,12 @@ namespace build2
         p += '.';
         p += e;
       }
+    }
+
+    if (ee != nullptr)
+    {
+      p += '.';
+      p += ee;
     }
 
     path (move (p));
