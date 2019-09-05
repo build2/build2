@@ -2679,29 +2679,40 @@ namespace build2
           {
             if (!interm)
             {
-              if (m.extension () == "d") // Strip .d.
-                m.make_base ();
-
-              // Filter out paths that match one of the current paths.
+              // Filter out paths that match one of the current paths or a
+              // prefix of the real path (the latter takes care of auxiliary
+              // things like .d, .t, etc., that are normally derived from the
+              // target name).
               //
               // Yes, we are basically ad hoc-excluding things that break.
               // Maybe we should use something more powerful for the pattern,
               // such as regex? We could have a filesystem pattern which we
               // then filter against a regex pattern?
               //
-              if (m != *paths.real   &&
-                  m !=  paths.interm &&
-                  m !=  paths.soname &&
-                  m !=  paths.load   &&
+              auto prefix = [&m] (const path& p)
+              {
+                return path::traits_type::compare (m.string (),
+                                                   p.string (),
+                                                   p.string ().size ()) == 0;
+              };
+
+              if (!prefix (*paths.real) &&
+                  m !=  paths.interm    &&
+                  m !=  paths.soname    &&
+                  m !=  paths.load      &&
                   m !=  paths.link)
               {
                 try_rmfile (m);
-                try_rmfile (m + ".d");
 
-                if (tsys == "win32-msvc")
+                if (m.extension () != "d")
                 {
-                  try_rmfile (m.base () += ".ilk");
-                  try_rmfile (m += ".pdb");
+                  try_rmfile (m + ".d");
+
+                  if (tsys == "win32-msvc")
+                  {
+                    try_rmfile (m.base () += ".ilk");
+                    try_rmfile (m += ".pdb");
+                  }
                 }
               }
             }
