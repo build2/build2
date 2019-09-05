@@ -1600,14 +1600,26 @@ namespace build2
         //
         // Plus, it seems the quote character could to be multi-byte.
         //
-        size_t p1 (l.find (':', p + 5));
-        size_t p2 (l.rfind (':'));
+        // Plus, in some internal (debug?) builds the second <translated> part
+        // may have the "No such file or directory (c:\...\p0prepro.c:1722)"
+        // form.
+
+        // Find first leading ':' that's followed by a space.
+        //
+        size_t p1 (p + 4); // 1083
+        while ((p1 = l.find (':', p1 + 1)) != string::npos && l[p1 + 1] != ' ')
+          ;
+
+        // Find first trailing ':' that's followed by a space.
+        //
+        size_t p2 (l.size ());
+        while ((p2 = l.rfind (':', p2 - 1)) != string::npos && l[p2 + 1] != ' ')
+          ;
 
         if (p1 != string::npos &&
             p2 != string::npos &&
-            (p2 - p1) > 4      && // At least ": 'x':".
-            l[p1 + 1] == ' '   &&
-            l[p2 + 1] == ' ')
+            (p2 - p1) > 4 )        // At least ": 'x':".
+
         {
           p1 += 3; // First character of the path.
           p2 -= 1; // One past last character of the path.
