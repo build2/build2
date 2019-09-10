@@ -2,16 +2,9 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-include <libbuild2/types.hxx>;
-
 // Note that options in this file are undocumented because we generate neither
 // the usage printing code nor man pages. Instead, they are documented in the
 // Testscript Language Manual's builtin descriptions.
-//
-// Also note that the string type is used for the path options because their
-// parsing depends on the testscript scope working directory (see parse_path()
-// for details) and passing this information to the CLI custom parser would
-// not be easy.
 //
 namespace build2
 {
@@ -19,84 +12,14 @@ namespace build2
   {
     namespace script
     {
-      // Common option base classes.
+      // Pseudo-builtin options.
       //
-
-      class cleanup_options = 0
-      {
-        bool --no-cleanup;
-      };
-
-      // Builtin options.
-      //
-
-      class cat_options
-      {
-        // No options so far.
-        //
-      };
-
-      class cp_options: cleanup_options
-      {
-        bool --recursive|-R|-r;
-        bool --preserve|-p;
-      };
-
-      class ln_options: cleanup_options
-      {
-        bool --symbolic|-s;
-      };
-
-      class mkdir_options: cleanup_options
-      {
-        bool --parents|-p;
-      };
-
-      class mv_options: cleanup_options
-      {
-        bool --force|-f;
-      };
-
-      class rm_options
-      {
-        bool --recursive|-r;
-        bool --force|-f;
-      };
-
-      class rmdir_options
-      {
-        bool --force|-f;
-      };
-
-      class sed_options
-      {
-        bool --quiet|-n;
-        bool --in-place|-i;
-        strings --expression|-e;
-      };
 
       class set_options
       {
         bool --exact|-e;
         bool --newline|-n;
         bool --whitespace|-w;
-      };
-
-      class sleep_options
-      {
-        // No options so far.
-        //
-      };
-
-      class test_options
-      {
-        bool --file|-f;
-        bool --directory|-d;
-      };
-
-      class touch_options: cleanup_options
-      {
-        string --after; // Path (see above).
       };
     }
   }

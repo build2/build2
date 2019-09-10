@@ -4,10 +4,10 @@
 
 #include <libbuild2/test/script/runner.hxx>
 
-#include <set>
 #include <ios> // streamsize
 
 #include <libbutl/regex.mxx>
+#include <libbutl/builtin.mxx>
 #include <libbutl/fdstream.mxx> // fdopen_mode, fdnull(), fddup()
 
 #include <libbuild2/variable.hxx>
@@ -18,7 +18,6 @@
 
 #include <libbuild2/test/script/regex.hxx>
 #include <libbuild2/test/script/parser.hxx>
-#include <libbuild2/test/script/builtin.hxx>
 #include <libbuild2/test/script/builtin-options.hxx>
 
 using namespace std;
@@ -928,7 +927,8 @@ namespace build2
                    ? rmdir_buildignore (
                        ctx,
                        d,
-                       sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
+                       sp.root.target_scope.root_scope ()->root_extra->
+                         buildignore_file,
                        v)
                    : rmdir (ctx, d, v)));
 
@@ -1145,6 +1145,21 @@ namespace build2
         }
       }
 
+      // Sorted array of builtins that support filesystem entries cleanup.
+      //
+      static const char* cleanup_builtins[] = {
+        "cp", "ln", "mkdir", "mv", "touch"};
+
+      static inline bool
+      cleanup_builtin (const string& name)
+      {
+        return binary_search (
+          cleanup_builtins,
+          cleanup_builtins +
+          sizeof (cleanup_builtins) / sizeof (*cleanup_builtins),
+          name);
+      }
+
       static bool
       run_pipe (scope& sp,
                 command_pipe::const_iterator bc,
@@ -1205,6 +1220,8 @@ namespace build2
         command_pipe::const_iterator nc (bc + 1);
         bool last (nc == ec);
 
+        const string& program (c.program.string ());
+
         // Prior to opening file descriptors for command input/output
         // redirects let's check if the command is the exit builtin. Being a
         // builtin syntactically it differs from the regular ones in a number
@@ -1217,7 +1234,7 @@ namespace build2
         // specify any redirects or exit code check sounds like a right thing
         // to do.
         //
-        if (c.program.string () == "exit")
+        if (program == "exit")
         {
           // In case the builtin is erroneously pipelined from the other
           // command, we will close stdin gracefully (reading out the stream
@@ -1240,7 +1257,7 @@ namespace build2
           if (err.type != redirect_type::none)
             fail (ll) << "exit builtin stderr cannot be redirected";
 
-          // We can't make sure that there is not exit code check. Let's, at
+          // We can't make sure that there is no exit code check. Let's, at
           // least, check that non-zero code is not expected.
           //
           if (eq != (c.exit.code == 0))
@@ -1391,7 +1408,7 @@ namespace build2
         // that. Checking that the user didn't specify any meaningless
         // redirects or exit code check sounds as a right thing to do.
         //
-        if (c.program.string () == "set")
+        if (program == "set")
         {
           if (!last)
             fail (ll) << "set builtin must be the last pipe command";
@@ -1583,7 +1600,7 @@ namespace build2
         assert (ofd.out.get () != -1 && efd.get () != -1);
 
         optional<process_exit> exit;
-        builtin_func* bf (builtins.find (c.program.string ()));
+        builtin_function* bf (builtins.find (program));
 
         bool success;
 
@@ -1605,11 +1622,226 @@ namespace build2
           if (verb >= 2)
             print_process (process_args ());
 
+          // Some of the testscript builtins (cp, mkdir, etc) extend libbutl
+          // builtins (via callbacks) registering/moving cleanups for the
+          // filesystem entries they create/move, unless explicitly requested
+          // not to do so via the --no-cleanup option.
+          //
+          // Let's "wrap up" the cleanup-related flags into the single object
+          // to rely on "small function object" optimization.
+          //
+          struct cleanup
+          {
+            // Whether the cleanups are enabled for the builtin. Can be set to
+            // false by the parse_option callback if --no-cleanup is
+            // encountered.
+            //
+            bool enabled = true;
+
+            // Whether to register cleanup for a filesystem entry being
+            // created/updated depending on its existence. Calculated by the
+            // create pre-hook and used by the subsequent post-hook.
+            //
+            bool add;
+
+            // Whether to move existing cleanups for the filesystem entry
+            // being moved, rather than to erase them. Calculated by the move
+            // pre-hook and used by the subsequent post-hook.
+            //
+            bool move;
+          };
+
+          // nullopt if the builtin doesn't support cleanups.
+          //
+          optional<cleanup> cln;
+
+          if (cleanup_builtin (program))
+            cln = cleanup ();
+
+          builtin_callbacks bcs {
+
+            // create
+            //
+            // Unless cleanups are suppressed, test that the filesystem entry
+            // doesn't exist (pre-hook) and, if that's the case, register the
+            // cleanup for the newly created filesystem entry (post-hook).
+            //
+            [&sp, &cln] (const path& p, bool pre)
+            {
+              // Cleanups must be supported by a filesystem entry-creating
+              // builtin.
+              //
+              assert (cln);
+
+              if (cln->enabled)
+              {
+                if (pre)
+                  cln->add = !butl::entry_exists (p);
+                else if (cln->add)
+                  sp.clean ({cleanup_type::always, p}, true /* implicit */);
+              }
+            },
+
+            // move
+            //
+            // Validate the source and destination paths (pre-hook) and,
+            // unless suppressed, adjust the cleanups that are sub-paths of
+            // the source path (post-hook).
+            //
+            [&sp, &cln]
+            (const path& from, const path& to, bool force, bool pre)
+            {
+              // Cleanups must be supported by a filesystem entry-moving
+              // builtin.
+              //
+              assert (cln);
+
+              if (pre)
+              {
+                const dir_path&  wd (sp.wd_path);
+                const dir_path& rwd (sp.root.wd_path);
+
+                auto fail = [] (const string& d) {throw runtime_error (d);};
+
+                if (!from.sub (rwd) && !force)
+                  fail ("'" + from.representation () +
+                        "' is out of working directory '" + rwd.string () +
+                        "'");
+
+                auto check_wd = [&wd, fail] (const path& p)
+                {
+                  if (wd.sub (path_cast<dir_path> (p)))
+                    fail ("'" + p.string () +
+                          "' contains test working directory '" +
+                          wd.string () + "'");
+                };
+
+                check_wd (from);
+                check_wd (to);
+
+                // Unless cleanups are disabled, "move" the matching cleanups
+                // if the destination path doesn't exist and it is a sub-path
+                // of the working directory and just remove them otherwise.
+                //
+                if (cln->enabled)
+                  cln->move = !butl::entry_exists (to) && to.sub (rwd);
+              }
+              else if (cln->enabled)
+              {
+                // Move or remove the matching cleanups (see above).
+                //
+                // Note that it's not enough to just change the cleanup paths.
+                // We also need to make sure that these cleanups happen before
+                // the destination directory (or any of its parents) cleanup,
+                // that is potentially registered. To achieve that we can just
+                // relocate these cleanup entries to the end of the list,
+                // preserving their mutual order. Remember that cleanups in
+                // the list are executed in the reversed order.
+                //
+                cleanups cs;
+
+                // Remove the source path sub-path cleanups from the list,
+                // adjusting/caching them if required (see above).
+                //
+                for (auto i (sp.cleanups.begin ()); i != sp.cleanups.end (); )
+                {
+                  build2::test::script::cleanup& c (*i);
+                  path& p (c.path);
+
+                  if (p.sub (from))
+                  {
+                    if (cln->move)
+                    {
+                      // Note that we need to preserve the cleanup path
+                      // trailing separator which indicates the removal
+                      // method. Also note that leaf(), in particular, does
+                      // that.
+                      //
+                      p = p != from
+                        ? to / p.leaf (path_cast<dir_path> (from))
+                        : p.to_directory ()
+                        ? path_cast<dir_path> (to)
+                        : to;
+
+                      cs.push_back (move (c));
+                    }
+
+                    i = sp.cleanups.erase (i);
+                  }
+                  else
+                    ++i;
+                }
+
+                // Re-insert the adjusted cleanups at the end of the list.
+                //
+                sp.cleanups.insert (sp.cleanups.end (),
+                                    make_move_iterator (cs.begin ()),
+                                    make_move_iterator (cs.end ()));
+
+              }
+            },
+
+            // remove
+            //
+            // Validate the filesystem entry path (pre-hook).
+            //
+            [&sp] (const path& p, bool force, bool pre)
+            {
+              if (pre)
+              {
+                const dir_path&  wd (sp.wd_path);
+                const dir_path& rwd (sp.root.wd_path);
+
+                auto fail = [] (const string& d) {throw runtime_error (d);};
+
+                if (!p.sub (rwd) && !force)
+                  fail ("'" + p.representation () +
+                        "' is out of working directory '" + rwd.string () +
+                        "'");
+
+                if (wd.sub (path_cast<dir_path> (p)))
+                  fail ("'" + p.string () +
+                        "' contains test working directory '" + wd.string () +
+                        "'");
+              }
+            },
+
+            // parse_option
+            //
+            [&cln] (const strings& args, size_t i)
+            {
+              // Parse --no-cleanup, if it is supported by the builtin.
+              //
+              if (cln && args[i] == "--no-cleanup")
+              {
+                cln->enabled = false;
+                return 1;
+              }
+
+              return 0;
+            },
+
+            // sleep
+            //
+            // Deactivate the thread before going to sleep.
+            //
+            [&sp] (const duration& d)
+            {
+              // If/when required we could probably support the precise sleep
+              // mode (e.g., via an option).
+              //
+              sp.root.test_target.ctx.sched.sleep (d);
+            }
+          };
+
           try
           {
             uint8_t r; // Storage.
-            builtin b (
-              bf (sp, r, c.arguments, move (ifd), move (ofd.out), move (efd)));
+            builtin b (bf (r,
+                           c.arguments,
+                           move (ifd), move (ofd.out), move (efd),
+                           sp.wd_path,
+                           bcs));
 
             success = run_pipe (sp,
                                 nc,

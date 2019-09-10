@@ -4,102 +4,21 @@
 
 .include ../common.testscript
 
-: unknown-option
-:
-$c <<EOI && $b
-rm -u 2>"rm: unknown option '-u'" == 1
-EOI
-
-: no-args
-:
-{
-  : fail
-  :
-  : Removing with no arguments fails.
-  :
-  $c <'rm 2>"rm: missing file" == 1' && $b
-
-  : force
-  :
-  : Removing with no arguments succeeds with -f option.
-  :
-  $c <'rm -f' && $b
-}
-
-: file
-:
-{
-  : exists
-  :
-  : Removing existing file succeeds.
-  :
-  $c <<EOI && $b
-  touch a &!a;
-  rm a
-  EOI
-
-  : not-exists
-  :
-  {
-    : fail
-    :
-    : Removing non-existing file fails.
-    :
-    $c <<EOI && $b
-    rm a 2>>/~%EOE% == 1
-    %rm: unable to remove '.+/file/not-exists/fail/test/1/a': .+%
-    EOE
-    EOI
-
-    : force
-    :
-    : Removing non-existing file succeeds with -f option.
-    :
-    $c <'rm -f a' && $b
-  }
-}
-
 : dir
 :
 {
-  : default
-  :
-  : Removing directory fails by default.
-  :
-  $c <<EOI && $b
-  mkdir a;
-  rm a 2>"rm: '$normalize([path] $~/a)' is a directory" == 1
-  EOI
-
-  : recursive
-  :
-  : Removing directory succeeds with -r option.
-  :
-  $c <<EOI && $b
-  mkdir -p a/b &!a &!a/b;
-  rm -r a
-  EOI
-
   : scope
   :
   : Removing scope directory fails.
   :
   $c <<EOI && $b
-  rm -r ./ 2>"rm: '([string] $~)' contains test working directory '$~'" == 1
-  EOI
+    rm -r ./ 2>"rm: '$~' contains test working directory '$~'" == 1
+    EOI
 }
 
 : path
 :
 {
-  : empty
-  :
-  : Removing an empty path fails.
-  :
-  $c <<EOI && $b
-  rm '' 2>"rm: invalid path ''" == 1
-  EOI
-
   : outside-scope
   :
   : Need to use a path that unlikely exists (not to remove something useful).
@@ -110,10 +29,10 @@ EOI
     : Removing path outside the testscript working directory fails.
     :
     $c <<EOI && $b
-    rm ../../a/b/c 2>>/~%EOE% == 1
-    %rm: '.+/path/outside-scope/fail/a/b/c' is out of working directory '.+/path/outside-scope/fail/test'%
-    EOE
-    EOI
+      rm ../../a/b/c 2>>/~%EOE% == 1
+      %rm: '.+/path/outside-scope/fail/a/b/c' is out of working directory '.+/path/outside-scope/fail/test'%
+      EOE
+      EOI
 
     : force
     :

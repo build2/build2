@@ -4,69 +4,38 @@
 
 .include ../common.testscript
 
-: unknown-option
+: dir
 :
-$c <<EOI && $b
-mkdir -u 2>"mkdir: unknown option '-u'" == 1
-EOI
+{
+  : cleanup
+  :
+  $c <<EOI && $b
+    mkdir a b
+    EOI
 
-: dirs
-:
-$c <<EOI && $b
-mkdir a b;
-touch a/a b/b
-EOI
+  : no-cleanup
+  :
+  : Also test that `--` is handled properly.
+  :
+  $c <<EOI && $b
+    mkdir --no-cleanup -- --no-cleanup;
+    rmdir -- --no-cleanup
+    EOI
+}
 
 : parent
 :
-$c <<EOI && $b
-mkdir -p a/b;
-touch a/a a/b/b
-EOI
+{
+  : cleanup
+  :
+  $c <<EOI && $b
+    mkdir -p a/b
+    EOI
 
-: exists
-:
-$c <'mkdir -p a a a/b a/b' && $b
-
-: double-dash
-:
-: Make sure '-p' directory is created.
-:
-$c <<EOI && $b
-mkdir -p -- -p;
-touch -- -p/a
-EOI
-
-: no-args
-:
-: Test passing no arguments.
-:
-$c <'mkdir 2>"mkdir: missing directory" == 1' && $b
-
-: empty-path
-:
-: Test creation of empty directory path.
-:
-$c <<EOI && $b
-mkdir '' 2>"mkdir: invalid path ''" == 1
-EOI
-
-: already-exists
-:
-: Test creation of an existing directory.
-:
-$c <<EOI && $b
-mkdir a a 2>>/~%EOE% == 1
-%mkdir: unable to create directory '.+/test/mkdir/already-exists/test/1/a': .+%
-EOE
-EOI
-
-: not-exists
-:
-: Test creation of a directory with non-existent parent.
-:
-$c <<EOI && $b
-mkdir a/b 2>>/~%EOE% == 1
-%mkdir: unable to create directory '.+/test/mkdir/not-exists/test/1/a/b': .+%
-EOE
-EOI
+  : no-cleanup
+  :
+  $c <<EOI && $b
+    mkdir -p --no-cleanup a/b;
+    rm -r a
+    EOI
+}

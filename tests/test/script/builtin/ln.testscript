@@ -4,119 +4,25 @@
 
 .include ../common.testscript
 
-: unknown-option
-:
-$c <<EOI && $b
-ln -u 2>"ln: unknown option '-u'" == 1
-EOI
-
-: args
-:
-{
-  : -s-option
-  :
-  $c <'ln 2>"ln: missing -s|--symbolic option" == 1' && $b
-
-  : none
-  :
-  $c <'ln -s 2>"ln: missing arguments" == 1' && $b
-
-  : no-target
-  :
-  $c <'ln -s a 2>"ln: missing target path" == 1' && $b
-
-  : no-trailing-sep
-  :
-  $c <<EOI && $b
-  ln -s a b c 2>"ln: multiple target paths with non-directory link path" == 1
-  EOI
-
-  : empty
-  :
-  {
-    : link
-    :
-    $c <<EOI && $b
-    ln -s '' 2>"ln: invalid path ''" == 1
-    EOI
-
-    : target1
-    :
-    $c <<EOI && $b
-    ln -s '' a 2>"ln: invalid path ''" == 1
-    EOI
-
-    : target2
-    :
-    $c <<EOI && $b
-    ln -s '' a b/ 2>"ln: invalid path ''" == 1
-    EOI
-  }
-}
-
 : file
 :
 : Test creating a file symlink.
 :
 {
-  : non-existing-link-path
+  : cleanup
   :
   $c <<EOI && $b
-  touch a;
-  ln -s a b && test -f b
-  EOI
+    touch a;
+    ln -s a b
+    EOI
 
-  : existing-link
+  : no-cleanup
   :
-  {
-    : file
-    :
-    $c <<EOI && $b
-    touch a b;
-    ln -s a b 2>>/~%EOE% != 0
-    %(
-    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
-    %ln: unable to copy file '.+/a' to '.+/b': .+%
-    %)
-    EOE
-    EOI
-
-    : dir
-    :
-    $c <<EOI && $b
+  $c <<EOI && $b
     touch a;
-    mkdir b;
-    ln -s a b 2>>/~%EOE% != 0
-    %(
-    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
-    %ln: unable to copy file '.+/a' to '.+/b': .+%
-    %)
-    EOE
+    ln -s --no-cleanup a b;
+    rm b
     EOI
-  }
-
-  : non-existing
-  {
-    : target
-    :
-    $c <<EOI && $b
-    ln -s a b 2>>/~%EOE% != 0
-    %ln: unable to create symlink to '.+/a': no such file or directory%
-    EOE
-    EOI
-
-    : link-dir
-    :
-    $c <<EOI && $b
-    touch a;
-    ln -s a b/c 2>>/~%EOE% != 0
-    %(
-    %ln: unable to create .+link '.+/b/c' to '.+/a': .+%|
-    %ln: unable to copy file '.+/a' to '.+/b/c': .+%
-    %)
-    EOE
-    EOI
-  }
 }
 
 : dir
@@ -124,57 +30,22 @@ EOI
 : Test creating a directory symlink.
 :
 {
-  : non-existing-link-path
+  : cleanup
   :
   $c <<EOI && $b
-  mkdir a;
-  touch a/b;
-  ln -s a c && test -f c/b
-  EOI
+    mkdir a;
+    touch a/b;
+    ln -s a c
+    EOI
 
-  : existing-link
+  : no-cleanup
   :
-  {
-    : dir
-    :
-    $c <<EOI && $b
-    mkdir a b;
-    ln -s a b 2>>/~%EOE% != 0
-    %(
-    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
-    %ln: unable to copy directory '.+/a' to '.+/b': .+%
-    %)
-    EOE
-    EOI
-
-    : file
-    :
-    $c <<EOI && $b
+  $c <<EOI && $b
     mkdir a;
-    touch b;
-    ln -s a b 2>>/~%EOE% != 0
-    %(
-    %ln: unable to create .+link '.+/b' to '.+/a': .+%|
-    %ln: unable to copy directory '.+/a' to '.+/b': .+%
-    %)
-    EOE
+    touch a/b;
+    ln -s --no-cleanup a c;
+    rm -r c
     EOI
-  }
-
-  : non-existing
-  {
-    : link-dir
-    :
-    $c <<EOI && $b
-    mkdir a;
-    ln -s a b/c 2>>/~%EOE% != 0
-    %(
-    %ln: unable to create .+link '.+/b/c' to '.+/a': .+%|
-    %ln: unable to copy directory '.+/a' to '.+/b/c': .+%
-    %)
-    EOE
-    EOI
-  }
 }
 
 : multiple-targets
@@ -182,9 +53,20 @@ EOI
 : Test creating links for multiple targets in the specified directory.
 :
 {
+  : cleanup
+  :
   $c <<EOI && $b
-  touch a;
-  mkdir b c;
-  ln -s a b c/ && test -f c/a && test -d c/b
-  EOI
+    mkdir b c;
+    touch a b/c;
+    ln -s a b c/
+    EOI
+
+  : no-cleanup
+  :
+  $c <<EOI && $b
+    mkdir b c;
+    touch a b/c;
+    ln -s --no-cleanup a b c/;
+    rm -r c/a c/b
+    EOI
 }

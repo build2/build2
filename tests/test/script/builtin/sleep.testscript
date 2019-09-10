@@ -4,34 +4,6 @@
 
 .include ../common.testscript
 
-: unknown-option
-:
-$c <<EOI && $b
-sleep -u 2>"sleep: unknown option '-u'" == 1
-EOI
-
 : success
 :
 $c <'sleep 1' && $b
-
-: no-time
-:
-: Test passing no time interval.
-:
-$c <'sleep 2>"sleep: missing time interval" != 0' && $b
-
-: invalid-time
-:
-: Test passing invalid time interval.
-:
-$c <<EOI && $b
-sleep 1a 2>"sleep: invalid time interval '1a'" != 0
-EOI
-
-: unexpected-arg
-:
-: Test passing extra argument.
-:
-$c <<EOI && $b
-sleep 1 1 2>"sleep: unexpected argument '1'" != 0
-EOI

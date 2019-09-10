@@ -4,91 +4,32 @@
 
 .include ../common.testscript
 
-: file
-:
-$c <'touch a' && $b
-
-: file-create
-:
-: Test that file is created. If it didn't then 'rm' would fail.
-:
-$c <<EOI && $b
-touch a &!a;
-rm a
-EOI
-
-: file-update
-:
-: Test that existing file touch doesn't fail.
-:
-$c <<EOI && $b
-cat <'' >=a;
-touch a
-EOI
-
-: no-cleanup
-:
-: Test that touching an existing file does not register cleanup. If it does
-: then the file would be removed while leaving the embedded scope, and so the
-: cleanup registered by the first touch would fail.
-:
-$c <<EOI && $b
-{
-  +touch a
-  {
-    touch ../a
-  }
-}
-EOI
-
-: unknown-option
-:
-$c <<EOI && $b
-touch -u 2>"touch: unknown option '-u'" == 1
-EOI
-
-: no-args
-:
-: Test passing no arguments.
-:
-$c <'touch --no-cleanup 2>"touch: missing file" != 0' && $b
-
-: empty-path
-:
-: Test touching an empty path.
-:
-$c <<EOI && $b
-touch '' 2>"touch: invalid path ''" != 0
-EOI
-
-: dir-update
-:
-: Test touching an existing directory.
-:
-$c <<EOI && $b
-mkdir a;
-touch a 2>~'%touch: cannot create/update .+: .+%' != 0
-EOI
-
-: after
+: cleanup
 :
 {
-  : success
+  : enabled
   :
-  $c <<EOI && $b
-  touch a;
-  touch --after a b
-  EOI
+  $c <'touch a' && $b
 
-  : no-value
+  : disabled
   :
   $c <<EOI && $b
-  touch --after 2>"touch: missing value for option '--after'" != 0
-  EOI
+    touch --no-cleanup a;
+    rm a
+    EOI
 
-  : not-exists
+  : existing
+  :
+  : Test that touching an existing file does not register cleanup. If it does
+  : then the file would be removed while leaving the embedded scope, and so
+  : the cleanup registered by the first touch would fail.
   :
   $c <<EOI && $b
-  touch --after a b 2>~"%touch: cannot obtain file '.+a' modification time: .+%" != 0
-  EOI
+    {
+      +touch a
+      {
+        touch ../a
+      }
+    }
+    EOI
 }
