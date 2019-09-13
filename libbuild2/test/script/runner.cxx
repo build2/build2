@@ -1865,7 +1865,9 @@ namespace build2
 
           // Resolve the relative not simple program path against the scope's
           // working directory. The simple one will be left for the process
-          // path search machinery.
+          // path search machinery. Also strip the potential leading `^`,
+          // indicating that this is an external program rather than a
+          // builtin.
           //
           path p;
 
@@ -1873,10 +1875,25 @@ namespace build2
           {
             p = path (args[0]);
 
-            if (p.relative () && !p.simple ())
+            if (p.relative ())
             {
-              p = sp.wd_path / p;
-              args[0] = p.string ().c_str ();
+              auto program = [&p, &args] (path pp)
+              {
+                p = move (pp);
+                args[0] = p.string ().c_str ();
+              };
+
+              if (p.simple ())
+              {
+                const string& s (p.string ());
+
+                // Don't end up with an empty path.
+                //
+                if (s.size () > 1 && s[0] == '^')
+                  program (path (s, 1, s.size () - 1));
+              }
+              else
+                program (sp.wd_path / p);
             }
           }
           catch (const invalid_path& e)
@@ -1888,6 +1905,8 @@ namespace build2
           {
             process_path pp (process::path_search (args[0]));
 
+            // Note: the builtin-escaping character '^' is not printed.
+            //
             if (verb >= 2)
               print_process (args);
 

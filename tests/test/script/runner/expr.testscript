@@ -522,3 +522,23 @@
     info: test id: 1
   EOE
 }
+
+: escape-builtin
+:
+if ($cxx.target.class == 'linux')
+{
+  $c <<EOI && $b
+    cat <<EOF >=f;
+      x
+
+
+      y
+      EOF
+
+    ^cat --squeeze-blank f >>EOO
+      x
+
+      y
+      EOO
+    EOI
+}

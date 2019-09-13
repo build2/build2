@@ -2232,6 +2232,13 @@ in option handling) and extensions, as described in this chapter. Note also
 that the builtins are implemented in-process with some of the simple ones
 such as \c{true/false}, \c{mkdir}, etc., being just function calls.
 
+To run a system utility instead of a builtin prefix its name with \c{^}, for
+example:
+
+\
+^cat --squeeze-blank <file>
+\
+
 
 \h#builtins-cat|\c{cat}|
 
