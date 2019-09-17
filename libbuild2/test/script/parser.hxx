@@ -122,7 +122,8 @@ namespace build2
         struct here_doc
         {
           // Redirects that share here_doc. Most of the time we will have no
-          // more than 2 (2 - for the roundtrip test cases).
+          // more than 2 (2 - for the roundtrip test cases). Doesn't refer
+          // overridden redirects and thus can be empty.
           //
           small_vector<here_redirect, 2> redirects;
 

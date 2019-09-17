@@ -1657,7 +1657,7 @@ namespace build2
         // Parse the redirect operator.
         //
         auto parse_redirect =
-          [&c, &expr, &p, &mod, this] (token& t, const location& l)
+          [&c, &expr, &p, &mod, &hd, this] (token& t, const location& l)
         {
           // Our semantics is the last redirect seen takes effect.
           //
@@ -1774,6 +1774,8 @@ namespace build2
           }
 
           redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
+          redirect_type overriden (r.type);
+
           r = redirect (rt);
 
           // Don't move as still may be used for pending here-document end
@@ -1847,6 +1849,37 @@ namespace build2
             break;
 
           case redirect_type::here_doc_ref: assert (false); break;
+          }
+
+          // If we are overriding a here-document, then remove the reference
+          // to this command redirect from the corresponding here_doc object.
+          //
+          if (!pre_parse_ &&
+              (overriden == redirect_type::here_doc_literal ||
+               overriden == redirect_type::here_doc_regex))
+          {
+            size_t e (expr.size () - 1);
+            size_t p (expr.back ().pipe.size ());
+            int    f (static_cast<int> (fd));
+
+            for (here_doc& d: hd)
+            {
+              small_vector<here_redirect, 2>& rs (d.redirects);
+
+              auto i (find_if (rs.begin (), rs.end (),
+                               [e, p, f] (const here_redirect& r)
+                               {
+                                 return r.expr == e &&
+                                        r.pipe == p &&
+                                        r.fd   == f;
+                               }));
+
+              if (i != rs.end ())
+              {
+                rs.erase (i);
+                break;
+              }
+            }
           }
         };
 
@@ -2483,9 +2516,11 @@ namespace build2
           parsed_doc v (
             parse_here_document (t, tt, h.end, h.modifiers, h.regex));
 
-          if (!pre_parse_)
+          // If all the here-document redirects are overridden, then we just
+          // drop the fragment.
+          //
+          if (!pre_parse_ && !h.redirects.empty ())
           {
-            assert (!h.redirects.empty ());
             auto i (h.redirects.cbegin ());
 
             command& c (p.first[i->expr].pipe[i->pipe]);
@@ -2493,11 +2528,17 @@ namespace build2
 
             if (v.re)
             {
+              assert (r.type == redirect_type::here_doc_regex);
+
               r.regex = move (v.regex);
               r.regex.flags = move (h.regex_flags);
             }
             else
+            {
+              assert (r.type == redirect_type::here_doc_literal);
+
               r.str = move (v.str);
+            }
 
             r.end        = move (h.end);
             r.end_line   = v.end_line;

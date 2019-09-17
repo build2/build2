@@ -167,6 +167,92 @@
       }
     }
   }
+
+  : overriding
+  :
+  {
+    : literal
+    :
+    {
+      : with
+      :
+      {
+        : string
+        :
+        $* <<EOI >>EOO
+        cmd >>EOF >bar
+        foo
+        EOF
+        EOI
+        cmd >bar
+        EOO
+
+        : regex
+        :
+        $* <<EOI >>EOO
+        cmd >>FOO >>~/BAR/
+        foo
+        FOO
+        bar
+        BAR
+        EOI
+        cmd >>~/BAR/
+        bar
+        BAR
+        EOO
+
+        : self
+        :
+        $* <<EOI >>EOO
+        cmd >>EOF >>EOF
+        foo
+        EOF
+        EOI
+        cmd >>EOF
+        foo
+        EOF
+        EOO
+
+        : different-modifiers
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd >>EOF >>/EOF
+        foo
+        EOF
+        EOI
+        testscript:1:14: error: different modifiers for shared here-document 'EOF'
+        EOE
+      }
+    }
+
+    : shared
+    :
+    {
+      : after-sharing
+      :
+      $* <<EOI >>EOO
+      cmd >>EOF 2>>EOF >bar
+      foo
+      EOF
+      EOI
+      cmd >bar 2>>EOF
+      foo
+      EOF
+      EOO
+
+      : before-sharing
+      :
+      $* <<EOI >>EOO
+      cmd >>EOF >bar 2>>EOF
+      foo
+      EOF
+      EOI
+      cmd >bar 2>>EOF
+      foo
+      EOF
+      EOO
+    }
+  }
 }
 
 : file
