@@ -876,8 +876,8 @@ namespace build2
           if (ut == unit_type::module_iface)
             cs.append (&md.symexport, sizeof (md.symexport));
 
-          if (import_hdr != nullptr)
-            hash_options (cs,  *import_hdr);
+          if (xlate_hdr != nullptr)
+            hash_options (cs,  *xlate_hdr);
 
           if (md.pp != preprocessed::all)
           {
@@ -2027,19 +2027,17 @@ namespace build2
 
           // Reduce include translation to the import case.
           //
-          if (!imp && import_hdr != nullptr)
+          if (!imp && xlate_hdr != nullptr)
           {
-            const strings& ih (*import_hdr);
+            auto i (lower_bound (
+                      xlate_hdr->begin (), xlate_hdr->end (),
+                      hp,
+                      [] (const string& x, const string& y)
+                      {
+                        return path::traits_type::compare (x, y) < 0;
+                      }));
 
-            auto i (lower_bound (ih.begin (),
-                                 ih.end (),
-                                 hp,
-                                 [] (const string& x, const string& y)
-                                 {
-                                   return path::traits_type::compare (x, y) < 0;
-                                 }));
-
-            imp = (i != ih.end () && *i == hp);
+            imp = (i != xlate_hdr->end () && *i == hp);
           }
 
           if (imp)

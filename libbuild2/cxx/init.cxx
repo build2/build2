@@ -400,16 +400,16 @@ namespace build2
         v.insert<strings> ("config.cxx.aoptions", true),
         v.insert<strings> ("config.cxx.libs",     true),
 
-        // List of importable headers. Inclusion of such headers is translated
-        // to the corresponding header unit imports.
+        // List of translatable headers. Inclusions of such headers are
+        // translated to the corresponding header unit imports.
         //
         // A header can be specified either as an absolute and normalized path
         // or as a <>-style include name. The latter kind is automatically
-        // translated to the absolute form based on the compiler's system
-        // header search paths (as opposed to -I). Note also that all entries
-        // must be specified before loading the cxx module.
+        // translated to the absolute form based on the compiler's system (as
+        // opposed to -I) header search paths. Note also that all entries must
+        // be specified before loading the cxx module.
         //
-        &v.insert<strings> ("config.cxx.importable_headers", true),
+        &v.insert<strings> ("config.cxx.translatable_headers", true),
 
         v.insert<process_path> ("cxx.path"),
         v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
@@ -423,7 +423,7 @@ namespace build2
         v.insert<strings>  ("cxx.aoptions"),
         v.insert<strings>  ("cxx.libs"),
 
-        &v.insert<strings> ("cxx.importable_headers"),
+        &v.insert<strings> ("cxx.translatable_headers"),
 
         v["cc.poptions"],
         v["cc.coptions"],

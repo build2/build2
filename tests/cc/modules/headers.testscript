@@ -70,7 +70,7 @@ cat <<EOI >=driver-inc.cxx;
   #endif
   int main () {return f () - CORE_OUT;}
   EOI
-$* test clean config.cxx.importable_headers="$~/core.hxx" <<EOI
+$* test clean config.cxx.translatable_headers="$~/core.hxx" <<EOI
   ./: exe{test-imp}: cxx{driver-imp} hxx{core}
   ./: exe{test-inc}: cxx{driver-inc} hxx{core}
   EOI
@@ -105,7 +105,7 @@ $* test clean config.cxx.importable_headers="$~/core.hxx" <<EOI
     int main () {return g ();}
     EOI
   $* test clean config.cxx.poptions=-DBASE_INCLUDE \
-     config.cxx.importable_headers="$~/core.hxx" <<EOI
+     config.cxx.translatable_headers="$~/core.hxx" <<EOI
     exe{test}: cxx{driver} hxx{core} mxx{base}
     EOI
   #\
@@ -133,7 +133,7 @@ cat <<EOI >=driver-inc.cxx;
   #include <generated/core.hxx>
   int main () {return f ();}
   EOI
-$* test clean config.cxx.importable_headers="$~/core.hxx" <<EOI
+$* test clean config.cxx.translatable_headers="$~/core.hxx" <<EOI
   ./: exe{test-imp}: cxx{driver-imp} hxx{core}
   ./: exe{test-inc}: cxx{driver-inc} hxx{core}
   hxx{core}: in{core}
@@ -159,7 +159,7 @@ cat <<EOI >=driver-inc.cxx;
 #
 out = ../../headers-remapped-out;
 $* 'test:' ./@$out/remapped/ \
-   config.cxx.importable_headers=$out/remapped/core.hxx <<EOI;
+   config.cxx.translatable_headers=$out/remapped/core.hxx <<EOI;
   ./: exe{test-imp}: cxx{driver-imp} hxx{core}
   ./: exe{test-inc}: cxx{driver-inc} hxx{core}
   hxx{core}: in{core}

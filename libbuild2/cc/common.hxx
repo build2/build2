@@ -53,7 +53,7 @@ namespace build2
       const variable& config_x_loptions;
       const variable& config_x_aoptions;
       const variable& config_x_libs;
-      const variable* config_x_importable_headers;
+      const variable* config_x_translatable_headers;
 
       const variable& x_path;         // Compiler process path.
       const variable& x_sys_lib_dirs; // System library search directories.
@@ -65,7 +65,7 @@ namespace build2
       const variable& x_loptions;
       const variable& x_aoptions;
       const variable& x_libs;
-      const variable* x_importable_headers;
+      const variable* x_translatable_headers;
 
       const variable& c_poptions; // cc.*
       const variable& c_coptions;
@@ -147,7 +147,8 @@ namespace build2
       bool modules;                 // x.features.modules
       bool symexport;               // x.features.symexport
 
-      const strings* import_hdr;    // x.importable_headers (NULL if unused/empty).
+      const strings* xlate_hdr;     // x.translatable_headers (NULL if
+                                    // unused/empty).
 
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
       const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
@@ -217,7 +218,7 @@ namespace build2
             tstd (std),
             modules (fm),
             symexport (fs),
-            import_hdr (nullptr),
+            xlate_hdr (nullptr),
             sys_lib_dirs (sld), sys_inc_dirs (sid),
             sys_lib_dirs_extra (sle), sys_inc_dirs_extra (sie),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
