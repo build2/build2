@@ -296,13 +296,17 @@ namespace build2
               // We now use extended/experimental module mapper support which
               // is currently only available in our c++-modules-ex branch.
               // But let's allow forcing it to plain c++-modules in case
-              // things got merged, etc.
+              // things got merged or the user feels adventurous.
               //
               if (mj >= 10 &&
                   ci.version.build.find (l
                                          ? "c++-modules"
                                          : "c++-modules-ex") != string::npos)
               {
+                // @@ TMP: currently there are some issues in the c++2a mode.
+                //
+                r.back () = "-std=c++17";
+
                 // Currently defines __cpp_modules=201810 which is said to
                 // correspond to p1103 (merged modules).
                 //
