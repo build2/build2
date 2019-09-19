@@ -87,7 +87,7 @@ EOI
   EOE
 
   $* <'print {dir/foo}{fox{bar}}' 2>>EOE != 0
-  <stdin>:1:20: error: nested type name fox
+  <stdin>:1:17: error: nested type name fox
   EOE
 }
 

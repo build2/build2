@@ -93,10 +93,7 @@ namespace build2
     bool rel (pattern.relative () == entry.relative () &&
               !pattern.empty () && !entry.empty ());
 
-    bool self (!pattern.empty () &&
-               (*pattern.begin ()).find ("***") != string::npos);
-
-    if (rel && !self)
+    if (rel && !path_pattern_self_matching (pattern))
       return path_match (pattern, entry);
 
     // The start directory must be specified and be absolute.

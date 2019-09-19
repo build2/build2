@@ -8,7 +8,8 @@
 
 #include <libbutl/regex.mxx>
 #include <libbutl/builtin.mxx>
-#include <libbutl/fdstream.mxx> // fdopen_mode, fdnull(), fddup()
+#include <libbutl/fdstream.mxx>   // fdopen_mode, fdnull(), fddup()
+#include <libbutl/filesystem.mxx> // path_search(), path_pattern()
 
 #include <libbuild2/variable.hxx>
 #include <libbuild2/filesystem.hxx>
@@ -800,7 +801,7 @@ namespace build2
 
             // Remove files or directories using wildcard.
             //
-            if (p.string ().find_first_of ("?*") != string::npos)
+            if (path_pattern (p))
             {
               bool removed (false);
 

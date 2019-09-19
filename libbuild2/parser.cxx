@@ -7,7 +7,7 @@
 #include <sstream>
 #include <iostream> // cout
 
-#include <libbutl/filesystem.mxx> // path_search(), path_match()
+#include <libbutl/filesystem.mxx> // path_{search,match,pattern}()
 
 #include <libbuild2/dump.hxx>
 #include <libbuild2/file.hxx>
@@ -21,6 +21,7 @@
 #include <libbuild2/prerequisite.hxx>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -274,14 +275,6 @@ namespace build2
 
     return make_pair (move (lhs), move (t));
   }
-
-  // Test if a string is a wildcard pattern.
-  //
-  static inline bool
-  pattern (const string& s)
-  {
-    return s.find_first_of ("*?") != string::npos;
-  };
 
   bool parser::
   parse_clause (token& t, type& tt, bool one)
@@ -553,7 +546,7 @@ namespace build2
             // Figure out if this is a target or a target type/pattern (yeah,
             // it can be a mixture).
             //
-            if (pattern (n.value))
+            if (path_pattern (n.value))
             {
               if (n.pair)
                 fail (nloc) << "out-qualified target type/pattern";
@@ -772,7 +765,7 @@ namespace build2
         // Make sure not a pattern (see also the target case above and scope
         // below).
         //
-        if (pattern (d.string ()))
+        if (path_pattern (d))
           fail (nloc) << "pattern in directory " << d.representation ();
 
         if (tt != type::lsbrace)
@@ -820,7 +813,7 @@ namespace build2
           // Make sure not a pattern (see also the target and directory cases
           // above).
           //
-          if (pattern (d.string ()))
+          if (path_pattern (d))
             fail (nloc) << "pattern in directory " << d.representation ();
 
           next (t, tt); // Newline.
@@ -1004,7 +997,7 @@ namespace build2
       // Make sure none of our targets are patterns (maybe we will allow
       // quoting later).
       //
-      if (pattern (n.value))
+      if (path_pattern (n.value))
         fail (tloc) << "pattern in target " << n;
 
       enter_target tg (*this,
@@ -3350,7 +3343,7 @@ namespace build2
     auto match = [&dir, sp] (const path& pattern, const name& n) -> bool
     {
       const path& p (dir ? path_cast<path> (n.dir) : path (n.value));
-      return butl::path_match (pattern, p, *sp);
+      return path_match (pattern, p, *sp);
     };
 
     // Append name/extension to result according to dir. Store an indication
@@ -3386,6 +3379,8 @@ namespace build2
         append (move (m), move (e), a);
     };
 
+    // May throw invalid_path.
+    //
     auto include_pattern =
       [&r, &append, &include_match, sp, &l, this] (string&& p,
                                                    optional<string>&& e,
@@ -3396,12 +3391,7 @@ namespace build2
       // can skip checking for duplicated. This should help quite a bit in the
       // common cases where we have a pattern plus maybe a few exclusions.
       //
-      bool unique (false);
-      if (r.empty ())
-      {
-        size_t i (p.find ("**"));
-        unique = (i == string::npos || p.find ("**", i + 2) == string::npos);
-      }
+      bool unique (r.empty () && path_pattern_recursive (path (p)) <= 1);
 
       function<void (string&&, optional<string>&&)> appf;
       if (unique)
@@ -3443,7 +3433,7 @@ namespace build2
 
       try
       {
-        butl::path_search (path (move (p)), process, *sp);
+        path_search (path (move (p)), process, *sp);
       }
       catch (const system_error& e)
       {
@@ -3465,13 +3455,11 @@ namespace build2
         r.erase (i);
     };
 
-    auto exclude_pattern = [&r, &match] (string&& p)
+    auto exclude_pattern = [&r, &match] (const path& p)
     {
-      path pattern (move (p));
-
       for (auto i (r.begin ()); i != r.end (); )
       {
-        if (match (pattern, *i))
+        if (match (p, *i))
           i = r.erase (i);
         else
           ++i;
@@ -3576,10 +3564,12 @@ namespace build2
           include_pattern (move (v), move (e), a);
         else
         {
-          if (v.find_first_of ("*?") != string::npos)
-            exclude_pattern (move (v));
+          path p (move (v));
+
+          if (path_pattern (p))
+            exclude_pattern (p);
           else
-            exclude_match (move (v));
+            exclude_match (move (p).representation ()); // Reuse the buffer.
         }
       }
       catch (const invalid_path& e)
@@ -4195,6 +4185,7 @@ namespace build2
           continue;
 
         string val (move (t.value));
+        const location loc (get_location (t));
         bool quoted (t.qtype != quote_type::unquoted);
 
         // Should we accumulate? If the buffer is not empty, then we continue
@@ -4266,11 +4257,11 @@ namespace build2
               if (quoted) // See above.
                 break;
 
-              fail (t) << "invalid project name '" << proj << "': " << e;
+              fail (loc) << "invalid project name '" << proj << "': " << e;
             }
 
             if (pp)
-              fail (t) << "nested project name " << *p1;
+              fail (loc) << "nested project name " << *p1;
 
             pp1 = &p1;
 
@@ -4311,7 +4302,7 @@ namespace build2
           }
 
           if (p != n && tp != nullptr && !pinc)
-            fail (t) << "nested type name " << val;
+            fail (loc) << "nested type name " << val;
 
           dir_path d1;
           const dir_path* dp1 (dp);
@@ -4347,7 +4338,7 @@ namespace build2
           }
           catch (const invalid_path& e)
           {
-            fail (t) << "invalid path '" << e.path << "'";
+            fail (loc) << "invalid path '" << e.path << "'";
           }
 
           count = parse_names_trailer (
@@ -4374,12 +4365,35 @@ namespace build2
         // It should either contain a wildcard character or, in a curly
         // context, start with unquoted '+'.
         //
+        // Note that in the general case we need to convert it to a path prior
+        // to testing for being a pattern (think of b[a/r] that is not a
+        // pattern). If the conversion fails then this is not a path pattern.
+        //
+        auto pattern = [&val, &loc, this] ()
+        {
+          // Let's optimize it a bit for the common cases.
+          //
+          if (val.find_first_of ("*?[") == string::npos)
+            return false;
+
+          if (path::traits_type::find_separator (val) == string::npos)
+            return path_pattern (val);
+
+          try
+          {
+            return path_pattern (path (val));
+          }
+          catch (const invalid_path& e)
+          {
+            fail (loc) << "invalid path '" << e.path << "'" << endf;
+          }
+        };
+
         if (pmode != pattern_mode::ignore   &&
             !*pp1                           && // Cannot be project-qualified.
             !quoted                         && // Cannot be quoted.
             ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
-            ((val.find_first_of ("*?") != string::npos) ||
-             (curly && val[0] == '+')))
+            (pattern () || (curly && val[0] == '+')))
         {
           // Resolve the target if there is one. If we fail, then this is not
           // a pattern.
