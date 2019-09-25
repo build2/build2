@@ -373,7 +373,7 @@ namespace build2
     // part of a value of an arbitrary type. Convert the value to string prior
     // to searching. Return the boolean value unless return_match or
     // return_subs flag is specified (see below) in which case return names
-    // (empty if no match).
+    // (empty if no match @@ Why not NULL?).
     //
     // The following flags are supported:
     //

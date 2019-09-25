@@ -142,6 +142,9 @@ namespace build2
     parse_if_else (token&, token_type&);
 
     void
+    parse_switch (token&, token_type&);
+
+    void
     parse_for (token&, token_type&);
 
     void
@@ -193,6 +196,12 @@ namespace build2
 
     value
     parse_eval_value (token&, token_type&, pattern_mode, bool = false);
+
+    // Compare two values in a type-aware manner. If one value is typed while
+    // the other is not, convert the untyped one to the other's type.
+    //
+    bool
+    compare_values (token_type, value&, value&, const location&) const;
 
     // Attributes stack. We can have nested attributes, for example:
     //

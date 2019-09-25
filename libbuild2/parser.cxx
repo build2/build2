@@ -384,9 +384,19 @@ namespace build2
                  n == "elif" ||
                  n == "elif!")
         {
-          // Valid ones are handled in if_else().
+          // Valid ones are handled in parse_if_else().
           //
           fail (t) << n << " without if";
+        }
+        else if (n == "switch")
+        {
+          f = &parser::parse_switch;
+        }
+        else if (n == "case")
+        {
+          // Valid ones are handled in parse_switch().
+          //
+          fail (t) << n << " outside switch";
         }
         else if (n == "for")
         {
@@ -2010,6 +2020,8 @@ namespace build2
       //
       // So we treat it as a block if it's followed immediately by newline.
       //
+      // Note: identical code in parse_switch().
+      //
       if (next (t, tt) == type::lcbrace && peek () == type::newline)
       {
         next (t, tt); // Get newline.
@@ -2063,6 +2075,165 @@ namespace build2
   }
 
   void parser::
+  parse_switch (token& t, type& tt)
+  {
+    // switch <value>
+    // {
+    //   case <value>
+    //     <line>
+    //
+    //   case <value>
+    //   {
+    //     <block>
+    //   }
+    //
+    //   default
+    //     ...
+    // }
+
+    // Parse and evaluate the value we are switching on. Similar to if-else,
+    // we expand patterns.
+    //
+    next (t, tt);
+    if (tt == type::newline || tt == type::eos)
+      fail (t) << "expected switch expression instead of " << t;
+
+    value v (parse_value (t, tt, pattern_mode::expand, "expression", nullptr));
+
+    if (tt != type::newline)
+      fail (t) << "expected newline instead of " << t << " after "
+               << "the switch expression";
+
+    // Next we should always have a block.
+    //
+    if (next (t, tt) != type::lcbrace)
+      fail (t) << "expected '{' instead of " << t << " after switch";
+
+    if (next (t, tt) != type::newline)
+      fail (t) << "expected newline instead of " << t << " after '{'";
+
+    // Next we have zero or more `case` lines/blocks optionally followed by the
+    // `default` lines/blocks followed by the closing `}`.
+    //
+    bool taken (false); // One of the cases/default has been taken.
+
+    next (t, tt);
+    for (bool seen_default (false); tt != type::eos; )
+    {
+      if (tt == type::rcbrace)
+        break;
+
+      string k;
+      if (tt == type::word && keyword (t))
+      {
+        k = move (t.value);
+
+        if (k == "case")
+        {
+          if (seen_default)
+            fail (t) << "case after default" <<
+              info << "default must be last in the switch block";
+
+          goto good;
+        }
+        else if (k == "default")
+        {
+          if (seen_default)
+            fail (t) << "multiple defaults";
+
+          seen_default = true;
+          goto good;
+        }
+      }
+
+      fail (t) << "expected case or default instead of " << t << endf;
+
+      good:
+
+      next (t, tt);
+
+      bool take (false); // Take this case/default?
+
+      if (seen_default)
+        take = !taken;
+      else
+      {
+        // Similar to if-else we are not going to evaluate the case conditions
+        // if we are skipping.
+        //
+        if (taken)
+          skip_line (t, tt);
+        else
+        {
+          // Parse the pattern and match it against the value. Note that here
+          // we don't expand patterns.
+          //
+          if (tt == type::newline || tt == type::eos)
+            fail (t) << "expected case pattern instead of " << t;
+
+          const location l (get_location (t));
+
+          value p (
+            parse_value (
+              t, tt, pattern_mode::ignore, "pattern", nullptr));
+
+          take = compare_values (type::equal, v, p, l);
+        }
+      }
+
+      if (tt != type::newline)
+        fail (t) << "expected newline instead of " << t << " after "
+                 << (seen_default ? "default" : "the case pattern");
+
+      // This can be a block or a single line (the same logic as in if-else).
+      //
+      if (next (t, tt) == type::lcbrace && peek () == type::newline)
+      {
+        next (t, tt); // Get newline.
+        next (t, tt);
+
+        if (take)
+        {
+          parse_clause (t, tt);
+          taken = true;
+        }
+        else
+          skip_block (t, tt);
+
+        if (tt != type::rcbrace)
+          fail (t) << "expected '}' instead of " << t << " at the end of " << k
+                   << "-block";
+
+        next (t, tt);                    // Presumably newline after '}'.
+        next_after_newline (t, tt, '}'); // Should be on its own line.
+      }
+      else
+      {
+        if (take)
+        {
+          if (!parse_clause (t, tt, true))
+            fail (t) << "expected " << k << "-line instead of " << t;
+
+          taken = true;
+        }
+        else
+        {
+          skip_line (t, tt);
+
+          if (tt == type::newline)
+            next (t, tt);
+        }
+      }
+    }
+
+    if (tt != type::rcbrace)
+      fail (t) << "expected '}' instead of " << t << " after switch-block";
+
+    next (t, tt);                    // Presumably newline after '}'.
+    next_after_newline (t, tt, '}'); // Should be on its own line.
+  }
+
+  void parser::
   parse_for (token& t, type& tt)
   {
     // for <varname>: <value>
@@ -2072,7 +2243,6 @@ namespace build2
     // {
     //   <block>
     // }
-    //
 
     // First take care of the variable name. There is no reason not to
     // support variable attributes.
@@ -2945,51 +3115,9 @@ namespace build2
       if (pre_parse_)
         continue;
 
-      // Use (potentially typed) comparison via value. If one of the values is
-      // typed while the other is not, then try to convert the untyped one to
-      // the other's type instead of complaining. This seems like a reasonable
-      // thing to do and will allow us to write:
-      //
-      // if ($build.version > 30000)
-      //
-      // Rather than having to write:
-      //
-      // if ($build.version > [uint64] 30000)
-      //
-      if (lhs.type != rhs.type)
-      {
-        // @@ Would be nice to pass location for diagnostics.
-        //
-        if (lhs.type == nullptr)
-        {
-          if (lhs)
-            typify (lhs, *rhs.type, nullptr);
-        }
-        else if (rhs.type == nullptr)
-        {
-          if (rhs)
-            typify (rhs, *lhs.type, nullptr);
-        }
-        else
-          fail (l) << "comparison between " << lhs.type->name << " and "
-                   << rhs.type->name;
-      }
-
-      bool r;
-      switch (op)
-      {
-      case type::equal:         r = lhs == rhs; break;
-      case type::not_equal:     r = lhs != rhs; break;
-      case type::less:          r = lhs <  rhs; break;
-      case type::less_equal:    r = lhs <= rhs; break;
-      case type::greater:       r = lhs >  rhs; break;
-      case type::greater_equal: r = lhs >= rhs; break;
-      default:                  r = false;      assert (false);
-      }
-
       // Store the result as a bool value.
       //
-      lhs = value (r);
+      lhs = value (compare_values (op, lhs, rhs, l));
     }
 
     return lhs;
@@ -3103,6 +3231,53 @@ namespace build2
       apply_value_attributes (nullptr, r, move (v), type::assign);
       return r;
     }
+  }
+
+  bool parser::
+  compare_values (type op, value& lhs, value& rhs, const location& loc) const
+  {
+    // Use (potentially typed) comparison via value. If one of the values is
+    // typed while the other is not, then try to convert the untyped one to
+    // the other's type instead of complaining. This seems like a reasonable
+    // thing to do and will allow us to write:
+    //
+    // if ($build.version > 30000)
+    //
+    // Rather than having to write:
+    //
+    // if ($build.version > [uint64] 30000)
+    //
+    if (lhs.type != rhs.type)
+    {
+      // @@ Would be nice to pass location for diagnostics.
+      //
+      if (lhs.type == nullptr)
+      {
+        if (lhs)
+          typify (lhs, *rhs.type, nullptr);
+      }
+      else if (rhs.type == nullptr)
+      {
+        if (rhs)
+          typify (rhs, *lhs.type, nullptr);
+      }
+      else
+        fail (loc) << "comparison between " << lhs.type->name << " and "
+                   << rhs.type->name;
+    }
+
+    bool r;
+    switch (op)
+    {
+    case type::equal:         r = lhs == rhs; break;
+    case type::not_equal:     r = lhs != rhs; break;
+    case type::less:          r = lhs <  rhs; break;
+    case type::less_equal:    r = lhs <= rhs; break;
+    case type::greater:       r = lhs >  rhs; break;
+    case type::greater_equal: r = lhs >= rhs; break;
+    default:                  r = false;      assert (false);
+    }
+    return r;
   }
 
   pair<bool, location> parser::

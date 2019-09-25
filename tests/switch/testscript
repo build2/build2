@@ -1,0 +1,134 @@
+# file      : tests/switch/testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test switch.
+
+.include ../common.testscript
+
+: basics
+:
+$* <<EOI >>EOO
+for i: 1 2 3
+{
+  switch $i
+  {
+    case 1
+      print 1
+    case 2
+    {
+      print 2
+    }
+    default
+      print default
+  }
+}
+EOI
+1
+2
+default
+EOO
+
+: empty
+:
+$* <<EOI
+switch 1
+{
+}
+EOI
+
+: default
+:
+$* <<EOI >>EOO
+switch 1
+{
+  default
+    print default
+}
+EOI
+default
+EOO
+
+: nested
+:
+$* <<EOI >>EOO
+switch 1
+{
+  case 1
+  {
+    switch 2
+    {
+      case 2
+        print 2
+      case 1
+        assert
+    }
+  }
+  case 2
+    assert
+}
+EOI
+2
+EOO
+
+: default-before-case
+:
+$* <<EOI 2>>EOE != 0
+switch 1
+{
+  default
+    x = 1
+  case 2
+    x = 2
+}
+EOI
+<stdin>:5:3: error: case after default
+  info: default must be last in the switch block
+EOE
+
+: default-multiple
+:
+$* <<EOI 2>>EOE != 0
+switch 1
+{
+  default
+    x = 1
+  default
+    x = 2
+}
+EOI
+<stdin>:5:3: error: multiple defaults
+EOE
+
+: empty-switch
+:
+$* <<EOI 2>>EOE != 0
+switch
+{
+}
+EOI
+<stdin>:1:7: error: expected switch expression instead of <newline>
+EOE
+
+: empty-case
+:
+$* <<EOI 2>>EOE != 0
+switch 1
+{
+  case
+    x = 1
+}
+EOI
+<stdin>:3:7: error: expected case pattern instead of <newline>
+EOE
+
+: junk-in-switch
+:
+$* <<EOI 2>>EOE != 0
+switch 1
+{
+  x = 0
+}
+EOI
+<stdin>:3:3: error: expected case or default instead of 'x'
+EOE
