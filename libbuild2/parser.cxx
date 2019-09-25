@@ -2077,12 +2077,12 @@ namespace build2
   void parser::
   parse_switch (token& t, type& tt)
   {
-    // switch <value>
+    // switch <value>[, <value>....]
     // {
-    //   case <value>
+    //   case <pattern>[, <pattern>...]
     //     <line>
     //
-    //   case <value>
+    //   case <pattern>[, <pattern>...]
     //   {
     //     <block>
     //   }
@@ -2091,18 +2091,28 @@ namespace build2
     //     ...
     // }
 
-    // Parse and evaluate the value we are switching on. Similar to if-else,
-    // we expand patterns.
+    // Parse and evaluate the values we are matching. Similar to if-else, we
+    // expand patterns.
     //
-    next (t, tt);
-    if (tt == type::newline || tt == type::eos)
-      fail (t) << "expected switch expression instead of " << t;
+    values vs;
+    {
+      mode (lexer_mode::values); // Recognize `,`.
 
-    value v (parse_value (t, tt, pattern_mode::expand, "expression", nullptr));
+      do
+      {
+        next (t, tt);
+        if (tt == type::newline || tt == type::eos)
+          fail (t) << "expected switch expression instead of " << t;
 
-    if (tt != type::newline)
-      fail (t) << "expected newline instead of " << t << " after "
-               << "the switch expression";
+        vs.push_back (
+          parse_value (t, tt, pattern_mode::expand, "expression", nullptr));
+      }
+      while (tt == type::comma);
+
+      if (tt != type::newline)
+        fail (t) << "expected newline instead of " << t << " after "
+                 << "the switch expression";
+    }
 
     // Next we should always have a block.
     //
@@ -2150,12 +2160,13 @@ namespace build2
 
       good:
 
-      next (t, tt);
-
       bool take (false); // Take this case/default?
 
       if (seen_default)
+      {
         take = !taken;
+        next (t, tt);
+      }
       else
       {
         // Similar to if-else we are not going to evaluate the case conditions
@@ -2165,19 +2176,37 @@ namespace build2
           skip_line (t, tt);
         else
         {
-          // Parse the pattern and match it against the value. Note that here
-          // we don't expand patterns.
+          // Parse the patterns and match them against the values. Note that
+          // here we don't expand patterns in names.
           //
-          if (tt == type::newline || tt == type::eos)
-            fail (t) << "expected case pattern instead of " << t;
+          mode (lexer_mode::values); // Recognize `,`.
 
-          const location l (get_location (t));
+          for (size_t i (0);; ++i)
+          {
+            next (t, tt);
+            if (tt == type::newline || tt == type::eos)
+              fail (t) << "expected case pattern instead of " << t;
 
-          value p (
-            parse_value (
-              t, tt, pattern_mode::ignore, "pattern", nullptr));
+            const location l (get_location (t));
 
-          take = compare_values (type::equal, v, p, l);
+            value p (
+              parse_value (
+                t, tt, pattern_mode::ignore, "pattern", nullptr));
+
+            if (i == vs.size ())
+              fail (l) << "more patterns than switch expressions";
+
+            take = compare_values (type::equal, vs[i], p, l);
+
+            if (!take)
+            {
+              skip_line (t, tt); // Skip the rest.
+              break;
+            }
+
+            if (tt != type::comma)
+              break;
+          }
         }
       }
 

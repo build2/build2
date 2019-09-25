@@ -49,6 +49,12 @@ namespace build2
         s2 = "           ";
         break;
       }
+    case lexer_mode::values:
+      {
+        s1 = " $(){}[],#\t\n";
+        s2 = "            ";
+        break;
+      }
     case lexer_mode::attribute:
       {
         s1 = " $(]#\t\n";
@@ -106,6 +112,7 @@ namespace build2
     {
     case lexer_mode::normal:
     case lexer_mode::value:
+    case lexer_mode::values:
     case lexer_mode::attribute:
     case lexer_mode::variable:
     case lexer_mode::buildspec:     break;
@@ -141,9 +148,9 @@ namespace build2
       //
     case '\n':
       {
-        // Expire value mode at the end of the line.
+        // Expire value/values modes at the end of the line.
         //
-        if (m == lexer_mode::value)
+        if (m == lexer_mode::value || m == lexer_mode::values)
           state_.pop ();
 
         sep = true; // Treat newline as always separated.
@@ -218,9 +225,9 @@ namespace build2
       }
     }
 
-    // The following characters are special in the buildspec mode.
+    // The following characters are special in the values and buildspec mode.
     //
-    if (m == lexer_mode::buildspec)
+    if (m == lexer_mode::values || m == lexer_mode::buildspec)
     {
       // NOTE: remember to update mode() if adding new special characters.
       //

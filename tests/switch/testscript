@@ -29,6 +29,32 @@ EOI
 default
 EOO
 
+: basics-multiple
+:
+$* <<EOI >>EOO
+for i: 1 2 3
+{
+  switch $i, $i
+  {
+    case 1, 1
+      print 1
+    case 1, 2
+      assert
+    case 2
+    {
+      print 2
+    }
+    default
+      print default
+  }
+}
+EOI
+1
+2
+default
+EOO
+
+
 : empty
 :
 $* <<EOI
@@ -131,4 +157,15 @@ switch 1
 }
 EOI
 <stdin>:3:3: error: expected case or default instead of 'x'
+EOE
+
+: multiple-more-patterns
+:
+$* <<EOI 2>>EOE != 0
+switch 1
+{
+  case 1, 1
+}
+EOI
+<stdin>:3:11: error: more patterns than switch expressions
 EOE

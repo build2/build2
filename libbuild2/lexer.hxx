@@ -23,18 +23,20 @@ namespace build2
   // characters (e.g., '+', '=') as special so that we can use them in the
   // variable values, e.g., 'foo = g++'. In contrast, in the variable mode, we
   // restrict certain character (e.g., '/') from appearing in the name. The
-  // attribute mode is like value except it doesn't treat '{' and '}' as
-  // special (so we cannot have name groups in attributes). The eval mode is
-  // used in the evaluation context. Quoted modes are internal and should not
-  // be set explicitly.
+  // values mode is like value but recogizes ',' as special (used in contexts
+  // where we need to list multiple values). The attribute mode is also like
+  // value except it doesn't treat '{' and '}' as special (so we cannot have
+  // name groups in attributes). The eval mode is used in the evaluation
+  // context. Quoted modes are internal and should not be set explicitly.
   //
-  // Note that the normal, value, and eval modes split words separated by the
-  // pair character (to disable pairs one can pass '\0' as a pair character).
+  // Note that the normal, value/values, and eval modes split words separated
+  // by the pair character (to disable pairs one can pass '\0' as a pair
+  // character).
   //
-  // The alternnative modes must be set manually. The value mode automatically
-  // expires after the end of the line. The attribute mode expires after the
-  // closing ']'. The variable mode expires after the word token. And the eval
-  // mode expires after the closing ')'.
+  // The alternative modes must be set manually. The value/values mode
+  // automatically expires after the end of the line. The attribute mode
+  // expires after the closing ']'. The variable mode expires after the word
+  // token. And the eval mode expires after the closing ')'.
   //
   // Note that normally it is only safe to switch mode when the current token
   // is not quoted (or, more generally, when you are not in the double-quoted
@@ -54,6 +56,7 @@ namespace build2
       normal = base_type::value_next,
       variable,
       value,
+      values,
       attribute,
       eval,
       single_quoted,
