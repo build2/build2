@@ -9,7 +9,7 @@
 : basics
 :
 $* <<EOI >>EOO
-for i: 1 2 3
+for i: 1 2 3 4
 {
   switch $i
   {
@@ -19,20 +19,24 @@ for i: 1 2 3
     {
       print 2
     }
+    case 5
+    case 3
+      print 3,5
     default
-      print default
+      print d
   }
 }
 EOI
 1
 2
-default
+3,5
+d
 EOO
 
 : basics-multiple
 :
 $* <<EOI >>EOO
-for i: 1 2 3
+for i: 1 2 3 4
 {
   switch $i, $i
   {
@@ -44,14 +48,18 @@ for i: 1 2 3
     {
       print 2
     }
+    case 3, 3
+    case 5, 5
+      print 3,5
     default
-      print default
+      print d
   }
 }
 EOI
 1
 2
-default
+3,5
+d
 EOO
 
 
@@ -69,10 +77,10 @@ $* <<EOI >>EOO
 switch 1
 {
   default
-    print default
+    print d
 }
 EOI
-default
+d
 EOO
 
 : nested
@@ -95,6 +103,23 @@ switch 1
 }
 EOI
 2
+EOO
+
+: case-default
+:
+$* <<EOI >>EOO
+for i: 1 2
+{
+  switch $i
+  {
+    case 1
+    default
+      print 1,d
+  }
+}
+EOI
+1,d
+1,d
 EOO
 
 : default-before-case

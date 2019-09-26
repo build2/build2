@@ -2087,6 +2087,11 @@ namespace build2
     //     <block>
     //   }
     //
+    //   case <pattern>[, <pattern>...]
+    //   ...
+    //   case <pattern>[, <pattern>...]
+    //     ...
+    //
     //   default
     //     ...
     // }
@@ -2109,59 +2114,61 @@ namespace build2
       }
       while (tt == type::comma);
 
-      if (tt != type::newline)
-        fail (t) << "expected newline instead of " << t << " after "
-                 << "the switch expression";
+      next_after_newline (t, tt, "switch expression");
     }
 
     // Next we should always have a block.
     //
-    if (next (t, tt) != type::lcbrace)
+    if (tt != type::lcbrace)
       fail (t) << "expected '{' instead of " << t << " after switch";
 
-    if (next (t, tt) != type::newline)
-      fail (t) << "expected newline instead of " << t << " after '{'";
+    next (t, tt);
+    next_after_newline (t, tt, '{');
 
-    // Next we have zero or more `case` lines/blocks optionally followed by the
-    // `default` lines/blocks followed by the closing `}`.
+    // Next we have zero or more `case` lines/blocks (potentially with
+    // multiple `case`s per line/block) optionally followed by the `default`
+    // lines/blocks followed by the closing `}`.
     //
     bool taken (false); // One of the cases/default has been taken.
+    bool seen_default (false);
 
-    next (t, tt);
-    for (bool seen_default (false); tt != type::eos; )
+    auto special = [&seen_default, this] (const token& t, const type& tt)
     {
-      if (tt == type::rcbrace)
-        break;
-
-      string k;
       if (tt == type::word && keyword (t))
       {
-        k = move (t.value);
-
-        if (k == "case")
+        if (t.value == "case")
         {
           if (seen_default)
             fail (t) << "case after default" <<
               info << "default must be last in the switch block";
 
-          goto good;
+          return true;
         }
-        else if (k == "default")
+        else if (t.value == "default")
         {
           if (seen_default)
             fail (t) << "multiple defaults";
 
           seen_default = true;
-          goto good;
+          return true;
         }
+        // Fall through.
       }
 
-      fail (t) << "expected case or default instead of " << t << endf;
+      return false;
+    };
 
-      good:
+    while (tt != type::eos)
+    {
+      if (tt == type::rcbrace)
+        break;
+
+      if (!special (t, tt))
+        fail (t) << "expected case or default instead of " << t;
+
+      string k (move (t.value));
 
       bool take (false); // Take this case/default?
-
       if (seen_default)
       {
         take = !taken;
@@ -2210,13 +2217,36 @@ namespace build2
         }
       }
 
-      if (tt != type::newline)
-        fail (t) << "expected newline instead of " << t << " after "
-                 << (seen_default ? "default" : "the case pattern");
+      next_after_newline (t, tt, seen_default ? "default" : "case pattern");
 
-      // This can be a block or a single line (the same logic as in if-else).
+      // This can be another `case` or `default`.
       //
-      if (next (t, tt) == type::lcbrace && peek () == type::newline)
+      if (special (t, tt))
+      {
+        // If we are still looking for a match, simply restart from the
+        // beginning as if this were the first `case` or `default`.
+        //
+        if (!take && !taken)
+        {
+          seen_default = false;
+          continue;
+        }
+
+        // Otherwise, we need to skip this and all the subsequent special
+        // lines.
+        //
+        do
+        {
+          skip_line (t, tt);
+          next_after_newline (t, tt, seen_default ? "default" : "case pattern");
+        }
+        while (special (t, tt));
+      }
+
+      // Otherwise this must be a block or a single line (the same logic as in
+      // if-else).
+      //
+      if (tt == type::lcbrace && peek () == type::newline)
       {
         next (t, tt); // Get newline.
         next (t, tt);
@@ -5147,7 +5177,7 @@ namespace build2
   }
 
   bool parser::
-  keyword (token& t)
+  keyword (const token& t)
   {
     assert (replay_ == replay::stop); // Can't be used in a replay.
     assert (t.type == type::word);
@@ -5686,16 +5716,34 @@ namespace build2
   }
 
   inline type parser::
-  next_after_newline (token& t, type& tt, char e)
+  next_after_newline (token& t, type& tt, char a)
   {
     if (tt == type::newline)
       next (t, tt);
     else if (tt != type::eos)
     {
-      if (e == '\0')
-        fail (t) << "expected newline instead of " << t;
-      else
-        fail (t) << "expected newline after '" << e << "'";
+      diag_record dr (fail (t));
+      dr << "expected newline instead of " << t;
+
+      if (a != '\0')
+        dr << " after '" << a << "'";
+    }
+
+    return tt;
+  }
+
+  inline type parser::
+  next_after_newline (token& t, type& tt, const char* a)
+  {
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+    {
+      diag_record dr (fail (t));
+      dr << "expected newline instead of " << t;
+
+      if (a != nullptr)
+        dr << " after " << a;
     }
 
     return tt;

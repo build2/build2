@@ -414,7 +414,7 @@ namespace build2
     // Return true if the name token can be considered a directive keyword.
     //
     bool
-    keyword (token&);
+    keyword (const token&);
 
     // Buildspec.
     //
@@ -471,6 +471,12 @@ namespace build2
     //
     token_type
     next_after_newline (token&, token_type&, char after = '\0');
+
+    // As above but the after argument is assumed to be a name rather than
+    // a token (printed as is rather than quoted).
+    //
+    token_type
+    next_after_newline (token&, token_type&, const char* after);
 
     // Be careful with peeking and switching the lexer mode. See keyword()
     // for more information.
