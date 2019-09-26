@@ -2092,9 +2092,13 @@ namespace build2
     //   case <pattern>[, <pattern>...]
     //     ...
     //
+    //   case <pattern>[|<pattern>]
+    //
     //   default
     //     ...
     // }
+
+    assert (!pre_parse_); // Used to skip pattern alternatives.
 
     // Parse and evaluate the values we are matching. Similar to if-else, we
     // expand patterns.
@@ -2186,7 +2190,13 @@ namespace build2
           // Parse the patterns and match them against the values. Note that
           // here we don't expand patterns in names.
           //
-          mode (lexer_mode::values); // Recognize `,`.
+          mode (lexer_mode::case_patterns); // Recognize `|` and `,`.
+
+          auto parse_pattern = [this] (token& t, type& tt)
+          {
+            return parse_value (
+              t, tt, pattern_mode::ignore, "pattern", nullptr);
+          };
 
           for (size_t i (0);; ++i)
           {
@@ -2194,16 +2204,36 @@ namespace build2
             if (tt == type::newline || tt == type::eos)
               fail (t) << "expected case pattern instead of " << t;
 
-            const location l (get_location (t));
-
-            value p (
-              parse_value (
-                t, tt, pattern_mode::ignore, "pattern", nullptr));
-
             if (i == vs.size ())
-              fail (l) << "more patterns than switch expressions";
+              fail (t) << "more patterns than switch expressions";
 
-            take = compare_values (type::equal, vs[i], p, l);
+            // Handle pattern alternatives (<pattern>|<pattern>).
+            //
+            for (;; next (t, tt))
+            {
+              const location l (get_location (t));
+              value p (parse_pattern (t, tt));
+              take = compare_values (type::equal, vs[i], p, l);
+
+              if (tt != type::bit_or)
+                break;
+
+              if (take)
+              {
+                // Use the pre-parse mechanism to skip remaining alternatives.
+                //
+                pre_parse_ = true;
+                do
+                {
+                  next (t, tt); // Skip `|`.
+                  parse_pattern (t, tt);
+                }
+                while (tt == type::bit_or);
+                pre_parse_ = false;
+
+                break;
+              }
+            }
 
             if (!take)
             {

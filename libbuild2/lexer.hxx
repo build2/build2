@@ -19,22 +19,25 @@
 
 namespace build2
 {
-  // Context-dependent lexing mode. In the value mode we don't treat certain
-  // characters (e.g., '+', '=') as special so that we can use them in the
-  // variable values, e.g., 'foo = g++'. In contrast, in the variable mode, we
-  // restrict certain character (e.g., '/') from appearing in the name. The
-  // values mode is like value but recogizes ',' as special (used in contexts
-  // where we need to list multiple values). The attribute mode is also like
-  // value except it doesn't treat '{' and '}' as special (so we cannot have
-  // name groups in attributes). The eval mode is used in the evaluation
-  // context. Quoted modes are internal and should not be set explicitly.
+  // Context-dependent lexing mode. Quoted modes are internal and should not
+  // be set explicitly. In the value mode we don't treat certain characters
+  // (e.g., '+', '=') as special so that we can use them in the variable
+  // values, e.g., 'foo = g++'. In contrast, in the variable mode, we restrict
+  // certain character (e.g., '/') from appearing in the name. The values mode
+  // is like value but recogizes ',' as special (used in contexts where we
+  // need to list multiple values). The attribute mode is also like value
+  // except it doesn't treat '{' and '}' as special (so we cannot have name
+  // groups in attributes). The eval mode is used in the evaluation context.
   //
-  // Note that the normal, value/values, and eval modes split words separated
-  // by the pair character (to disable pairs one can pass '\0' as a pair
-  // character).
+  // A number of modes are "derived" from the value/values mode by recognizing
+  // a few extra characters: case_patterns (values plus '|').
   //
-  // The alternative modes must be set manually. The value/values mode
-  // automatically expires after the end of the line. The attribute mode
+  // Note that the normal, value/values and derived, as well as eval modes
+  // split words separated by the pair character (to disable pairs one can
+  // pass '\0' as a pair character).
+  //
+  // The alternative modes must be set manually. The value/values and derived
+  // modes automatically expires after the end of the line. The attribute mode
   // expires after the closing ']'. The variable mode expires after the word
   // token. And the eval mode expires after the closing ')'.
   //
@@ -57,6 +60,7 @@ namespace build2
       variable,
       value,
       values,
+      case_patterns,
       attribute,
       eval,
       single_quoted,

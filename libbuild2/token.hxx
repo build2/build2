@@ -59,6 +59,8 @@ namespace build2
       less_equal,      // <=
       greater_equal,   // >=
 
+      bit_or,          // |
+
       log_or,          // ||
       log_and,         // &&
       log_not,         // !

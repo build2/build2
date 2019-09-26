@@ -9,7 +9,7 @@
 : basics
 :
 $* <<EOI >>EOO
-for i: 1 2 3 4
+for i: 1 2 3 4 5
 {
   switch $i
   {
@@ -19,9 +19,11 @@ for i: 1 2 3 4
     {
       print 2
     }
-    case 5
+    case 0
     case 3
-      print 3,5
+      print 0,3
+    case 0|4
+      print 0,4
     default
       print d
   }
@@ -29,14 +31,15 @@ for i: 1 2 3 4
 EOI
 1
 2
-3,5
+0,3
+0,4
 d
 EOO
 
 : basics-multiple
 :
 $* <<EOI >>EOO
-for i: 1 2 3 4
+for i: 1 2 3 4 5
 {
   switch $i, $i
   {
@@ -49,8 +52,10 @@ for i: 1 2 3 4
       print 2
     }
     case 3, 3
-    case 5, 5
-      print 3,5
+    case 0, 0
+      print 3,0
+    case 4|0, 0|4|0
+      print 4,0
     default
       print d
   }
@@ -58,10 +63,10 @@ for i: 1 2 3 4
 EOI
 1
 2
-3,5
+3,0
+4,0
 d
 EOO
-
 
 : empty
 :
