@@ -68,6 +68,83 @@ EOI
 d
 EOO
 
+: basics-matcher
+:
+$* <<EOI >>EOO
+for i: 123 abc
+{
+  switch $i: regex.match
+  {
+    case '[0-9]+'
+      print n
+    case '[a-z]+'
+      print a
+  }
+}
+EOI
+n
+a
+EOO
+
+: basics-matcher-arg
+:
+$* <<EOI >>EOO
+for i: abc ABC aBC
+{
+  switch $i: regex.match icase
+  {
+    case '[a-z]+'
+      print a
+  }
+}
+EOI
+a
+a
+a
+EOO
+
+: basics-matcher-multiple
+:
+$* <<EOI >>EOO
+for i: 123 abc
+{
+  switch $i: regex.match, $i: regex.match
+  {
+    case '[0-9]+', '[0-9]+'
+      print nn
+    case '[0-9]+', '[a-z]+'
+      print na
+    case '[a-z]+', '[0-9]+'
+      print an
+    case '[a-z]+', '[a-z]+'
+      print aa
+  }
+}
+EOI
+nn
+aa
+EOO
+
+#\
+: basics-extractor
+:
+$* <<EOI >>EOO
+for i: 123 abc
+{
+  switch $i: regex.extract
+  {
+    case '([0-9]+)'
+      print n
+    default
+      print d
+  }
+}
+EOI
+n
+d
+EOO
+#\
+
 : empty
 :
 $* <<EOI
@@ -198,4 +275,40 @@ switch 1
 }
 EOI
 <stdin>:3:11: error: more patterns than switch expressions
+EOE
+
+: matcher-missing
+:
+$* <<EOI 2>>EOE != 0
+switch 1:
+{
+  case 1
+    x = 1
+}
+EOI
+<stdin>:1:10: error: expected function name instead of <newline>
+EOE
+
+: matcher-bad-name
+:
+$* <<EOI 2>>EOE != 0
+switch 1: file{x}
+{
+  case 1
+    x = 1
+}
+EOI
+<stdin>:1:11: error: function name expected instead of file{x}
+EOE
+
+: matcher-unknown
+:
+$* <<EOI 2>>EOE != 0
+switch 1: no_such_matcher
+{
+  case 1
+    x = 1
+}
+EOI
+<stdin>:3:8: error: unmatched call to no_such_matcher(<untyped>, <untyped>)
 EOE

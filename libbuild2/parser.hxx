@@ -254,11 +254,6 @@ namespace build2
             bool enter,
             bool default_target);
 
-    // If chunk is true, then parse the smallest but complete, name-wise,
-    // chunk of input. Note that in this case you may still end up with
-    // multiple names, for example, {foo bar} or $foo. In the pre-parse mode
-    // always return empty list of names.
-    //
     // The what argument is used in diagnostics (e.g., "expected <what>
     // instead of ...".
     //
@@ -273,7 +268,21 @@ namespace build2
     names
     parse_names (token& t, token_type& tt,
                  pattern_mode pmode,
-                 bool chunk = false,
+                 const char* what = "name",
+                 const string* separators = &name_separators)
+    {
+      return parse_names (t, tt, pmode, false /* chunk */, what, separators);
+    }
+
+    // If chunk is true, then parse the smallest but complete, name-wise,
+    // chunk of input. Note that in this case you may still end up with
+    // multiple names, for example, {foo bar} or $foo. In the pre-parse mode
+    // always return empty list of names.
+    //
+    names
+    parse_names (token& t, token_type& tt,
+                 pattern_mode pmode,
+                 bool chunk,
                  const char* what = "name",
                  const string* separators = &name_separators)
     {

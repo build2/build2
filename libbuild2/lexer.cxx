@@ -55,6 +55,12 @@ namespace build2
         s2 = "            ";
         break;
       }
+    case lexer_mode::switch_expressions:
+      {
+        s1 = " $(){}[],:#\t\n";
+        s2 = "             ";
+        break;
+      }
     case lexer_mode::case_patterns:
       {
         s1 = " $(){}[],|#\t\n";
@@ -119,6 +125,7 @@ namespace build2
     case lexer_mode::normal:
     case lexer_mode::value:
     case lexer_mode::values:
+    case lexer_mode::switch_expressions:
     case lexer_mode::case_patterns:
     case lexer_mode::attribute:
     case lexer_mode::variable:
@@ -157,8 +164,9 @@ namespace build2
       {
         // Expire value/values modes at the end of the line.
         //
-        if (m == lexer_mode::value  ||
-            m == lexer_mode::values ||
+        if (m == lexer_mode::value              ||
+            m == lexer_mode::values             ||
+            m == lexer_mode::switch_expressions ||
             m == lexer_mode::case_patterns)
           state_.pop ();
 
@@ -190,6 +198,22 @@ namespace build2
       }
     }
 
+    // The following characters are special in the normal, variable, and
+    // switch_expressions modes.
+    //
+    if (m == lexer_mode::normal   ||
+        m == lexer_mode::variable ||
+        m == lexer_mode::switch_expressions)
+    {
+      switch (c)
+      {
+        // NOTE: remember to update mode(), next_eval() if adding new special
+        // characters.
+        //
+      case ':': return make_token (type::colon);
+      }
+    }
+
     // The following characters are special in the normal and variable modes.
     //
     if (m == lexer_mode::normal || m == lexer_mode::variable)
@@ -199,7 +223,6 @@ namespace build2
         // NOTE: remember to update mode(), next_eval() if adding new special
         // characters.
         //
-      case ':': return make_token (type::colon);
       case '=':
         {
           if (peek () == '+')
@@ -236,8 +259,9 @@ namespace build2
 
     // The following characters are special in the values and buildspec mode.
     //
-    if (m == lexer_mode::buildspec ||
-        m == lexer_mode::values    ||
+    if (m == lexer_mode::buildspec          ||
+        m == lexer_mode::values             ||
+        m == lexer_mode::switch_expressions ||
         m == lexer_mode::case_patterns)
     {
       // NOTE: remember to update mode() if adding new special characters.

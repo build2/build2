@@ -879,10 +879,7 @@ namespace build2
       attributes_push (t, tt);
 
       location nloc (get_location (t));
-      names ns (parse_names (t, tt,
-                             pattern_mode::ignore,
-                             false /* chunk */,
-                             "variable name"));
+      names ns (parse_names (t, tt, pattern_mode::ignore, "variable name"));
 
       if (tt != type::assign  &&
           tt != type::prepend &&
@@ -1367,11 +1364,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt,
-                             pattern_mode::expand,
-                             false,
-                             "path",
-                             nullptr)
+              ? parse_names (t, tt, pattern_mode::expand, "path", nullptr)
               : names ());
 
     for (name& n: ns)
@@ -1425,11 +1418,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt,
-                             pattern_mode::expand,
-                             false,
-                             "path",
-                             nullptr)
+              ? parse_names (t, tt, pattern_mode::expand, "path", nullptr)
               : names ());
 
     for (name& n: ns)
@@ -1556,13 +1545,10 @@ namespace build2
     strings args;
     try
     {
-      args = convert<strings> (tt != type::newline && tt != type::eos
-                               ? parse_names (t, tt,
-                                              pattern_mode::ignore,
-                                              false,
-                                              "argument",
-                                              nullptr)
-                               : names ());
+      args = convert<strings> (
+        tt != type::newline && tt != type::eos
+        ? parse_names (t, tt, pattern_mode::ignore, "argument", nullptr)
+        : names ());
     }
     catch (const invalid_argument& e)
     {
@@ -1852,11 +1838,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt,
-                             pattern_mode::ignore,
-                             false,
-                             "module",
-                             nullptr)
+              ? parse_names (t, tt, pattern_mode::ignore, "module", nullptr)
               : names ());
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
@@ -2077,22 +2059,22 @@ namespace build2
   void parser::
   parse_switch (token& t, type& tt)
   {
-    // switch <value>[, <value>....]
+    // switch <value> [: <func> [<arg>]] [, <value>...]
     // {
-    //   case <pattern>[, <pattern>...]
+    //   case <pattern> [, <pattern>...]
     //     <line>
     //
-    //   case <pattern>[, <pattern>...]
+    //   case <pattern> [, <pattern>...]
     //   {
     //     <block>
     //   }
     //
-    //   case <pattern>[, <pattern>...]
+    //   case <pattern> [, <pattern>...]
     //   ...
-    //   case <pattern>[, <pattern>...]
+    //   case <pattern> [, <pattern>...]
     //     ...
     //
-    //   case <pattern>[|<pattern>]
+    //   case <pattern> [| <pattern>... ]
     //
     //   default
     //     ...
@@ -2103,23 +2085,49 @@ namespace build2
     // Parse and evaluate the values we are matching. Similar to if-else, we
     // expand patterns.
     //
-    values vs;
+    struct expr
     {
-      mode (lexer_mode::values); // Recognize `,`.
+      build2::value    value;
+      optional<string> func;
+      names            arg;
+    };
+    small_vector<expr, 1> exprs;
 
-      do
+    mode (lexer_mode::switch_expressions); // Recognize `:` and `,`.
+
+    do
+    {
+      next (t, tt);
+      if (tt == type::newline || tt == type::eos)
+        fail (t) << "expected switch expression instead of " << t;
+
+      expr e;
+
+      e.value =
+        parse_value (t, tt, pattern_mode::expand, "expression", nullptr);
+
+      if (tt == type::colon)
       {
         next (t, tt);
-        if (tt == type::newline || tt == type::eos)
-          fail (t) << "expected switch expression instead of " << t;
+        const location l (get_location (t));
+        names ns (parse_names (t, tt, pattern_mode::ignore, "function name"));
 
-        vs.push_back (
-          parse_value (t, tt, pattern_mode::expand, "expression", nullptr));
+        if (ns.empty () || ns[0].empty ())
+          fail (l) << "function name expected after ':'";
+
+        if (!ns[0].simple ())
+          fail (l) << "function name expected instead of " << ns[0];
+
+        e.func = move (ns[0].value);
+        ns.erase (ns.begin ());
+        e.arg = move (ns);
       }
-      while (tt == type::comma);
 
-      next_after_newline (t, tt, "switch expression");
+      exprs.push_back (move (e));
     }
+    while (tt == type::comma);
+
+    next_after_newline (t, tt, "switch expression");
 
     // Next we should always have a block.
     //
@@ -2204,7 +2212,7 @@ namespace build2
             if (tt == type::newline || tt == type::eos)
               fail (t) << "expected case pattern instead of " << t;
 
-            if (i == vs.size ())
+            if (i == exprs.size ())
               fail (t) << "more patterns than switch expressions";
 
             // Handle pattern alternatives (<pattern>|<pattern>).
@@ -2213,7 +2221,37 @@ namespace build2
             {
               const location l (get_location (t));
               value p (parse_pattern (t, tt));
-              take = compare_values (type::equal, vs[i], p, l);
+              expr& e (exprs[i]); // Note: value might be modified (typified).
+
+              if (e.func)
+              {
+                // Call <func>(<value>, <pattern> [, <arg>]).
+                //
+                small_vector<value, 3> args {value (e.value), move (p)};
+
+                if (!e.arg.empty ())
+                  args.push_back (value (e.arg));
+
+                value r (ctx.functions.call (scope_, *e.func, args, l));
+
+                // We support two types of functions: matchers and extractors:
+                // a matcher returns a statically-typed bool value while an
+                // extractor returns NULL if there is no match and the
+                // extracted value otherwise.
+                //
+                if (r.type == &value_traits<bool>::value_type)
+                {
+                  if (r.null)
+                    fail (l) << "match function " << *e.func << " returned "
+                             << "null";
+
+                  take = r.as<bool> ();
+                }
+                else
+                  take = !r.null;
+              }
+              else
+                take = compare_values (type::equal, e.value, p, l);
 
               if (tt != type::bit_or)
                 break;
@@ -2515,7 +2553,6 @@ namespace build2
     names ns (tt != type::newline && tt != type::eos
               ? parse_names (t, tt,
                              pattern_mode::ignore,
-                             false,
                              "description",
                              nullptr)
               : names ());
@@ -3391,8 +3428,7 @@ namespace build2
     if (has)
     {
       names ns (
-        parse_names (
-          t, tt, pattern_mode::ignore, false, "attribute", nullptr));
+        parse_names (t, tt, pattern_mode::ignore, "attribute", nullptr));
 
       if (!pre_parse_)
       {

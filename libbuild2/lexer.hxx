@@ -30,7 +30,10 @@ namespace build2
   // groups in attributes). The eval mode is used in the evaluation context.
   //
   // A number of modes are "derived" from the value/values mode by recognizing
-  // a few extra characters: case_patterns (values plus '|').
+  // a few extra characters:
+  //
+  //   switch_expressions  values plus `:`
+  //   case_patterns       values plus '|'
   //
   // Note that the normal, value/values and derived, as well as eval modes
   // split words separated by the pair character (to disable pairs one can
@@ -61,6 +64,7 @@ namespace build2
       value,
       values,
       case_patterns,
+      switch_expressions,
       attribute,
       eval,
       single_quoted,
