@@ -61,9 +61,9 @@ namespace build2
   using butl::compare_pointer_target;
   //using butl::hash_pointer_target;
   using butl::combine_hash;
-  using butl::casecmp;
-  using butl::case_compare_string;
-  using butl::case_compare_c_string;
+  using butl::icasecmp;
+  using butl::icase_compare_string;
+  using butl::icase_compare_c_string;
   using butl::lcase;
   using butl::alpha;
   using butl::alnum;

@@ -94,7 +94,7 @@ namespace build2
           //
           size_t p (path::traits_type::find_extension (f));
 
-          if (p == string::npos || casecmp (f.c_str () + p + 1, "dll") != 0)
+          if (p == string::npos || icasecmp (f.c_str () + p + 1, "dll") != 0)
             return;
         }
 
@@ -172,7 +172,7 @@ namespace build2
         {
           size_t p (path::traits_type::find_extension (f));
 
-          if (p != string::npos && casecmp (f.c_str () + p + 1, "dll") == 0)
+          if (p != string::npos && icasecmp (f.c_str () + p + 1, "dll") == 0)
           {
             // See if we can find a corresponding .pdb.
             //

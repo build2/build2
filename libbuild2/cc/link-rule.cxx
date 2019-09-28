@@ -1762,7 +1762,7 @@ namespace build2
 
           if ((c
                ? f.compare (p, string::npos, e)
-               : casecmp (f.c_str () + p, e)) != 0)
+               : icasecmp (f.c_str () + p, e)) != 0)
             return;
         }
 

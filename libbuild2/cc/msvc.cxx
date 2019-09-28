@@ -318,10 +318,10 @@ namespace build2
               {
                 const char* e (s.c_str () + n + 1);
 
-                if (casecmp (e, "obj", 3) == 0)
+                if (icasecmp (e, "obj", 3) == 0)
                   obj = true;
 
-                if (casecmp (e, "dll", 3) == 0)
+                if (icasecmp (e, "dll", 3) == 0)
                   dll = true;
               }
             }

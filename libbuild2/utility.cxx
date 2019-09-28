@@ -360,7 +360,7 @@ namespace build2
   find_option (const char* o, const strings& strs, bool ic)
   {
     for (const string& s: strs)
-      if (ic ? casecmp (s, o) == 0 : s == o)
+      if (ic ? icasecmp (s, o) == 0 : s == o)
         return true;
 
     return false;
@@ -370,7 +370,7 @@ namespace build2
   find_option (const char* o, const cstrings& cstrs, bool ic)
   {
     for (const char* s: cstrs)
-      if (s != nullptr && (ic ? casecmp (s, o) : strcmp (s, o)) == 0)
+      if (s != nullptr && (ic ? icasecmp (s, o) : strcmp (s, o)) == 0)
         return true;
 
     return false;
@@ -387,7 +387,7 @@ namespace build2
   {
     for (const string& s: strs)
       for (const char* o: os)
-        if (ic ? casecmp (s, o) == 0 : s == o)
+        if (ic ? icasecmp (s, o) == 0 : s == o)
           return true;
 
     return false;
@@ -401,7 +401,7 @@ namespace build2
     for (const char* s: cstrs)
       if (s != nullptr)
         for (const char* o: os)
-          if ((ic ? casecmp (s, o) : strcmp (s, o)) == 0)
+          if ((ic ? icasecmp (s, o) : strcmp (s, o)) == 0)
             return true;
 
     return false;
@@ -419,7 +419,7 @@ namespace build2
     size_t n (strlen (p));
 
     for (const string& s: reverse_iterate (strs))
-      if ((ic ? casecmp (s, p, n) : s.compare (0, n, p)) == 0)
+      if ((ic ? icasecmp (s, p, n) : s.compare (0, n, p)) == 0)
         return &s;
 
     return nullptr;
@@ -431,7 +431,7 @@ namespace build2
     size_t n (strlen (p));
 
     for (const char* s: reverse_iterate (cstrs))
-      if (s != nullptr && (ic ? casecmp (s, p, n) : strncmp (s, p, n)) == 0)
+      if (s != nullptr && (ic ? icasecmp (s, p, n) : strncmp (s, p, n)) == 0)
         return s;
 
     return nullptr;
@@ -453,7 +453,7 @@ namespace build2
     for (const string& s: reverse_iterate (strs))
       for (const char* p: ps)
         if ((ic
-             ? casecmp (s, p, strlen (p))
+             ? icasecmp (s, p, strlen (p))
              : s.compare (0, strlen (p), p)) == 0)
           return &s;
 
@@ -469,7 +469,7 @@ namespace build2
       if (s != nullptr)
         for (const char* p: ps)
           if ((ic
-               ? casecmp (s, p, strlen (p))
+               ? icasecmp (s, p, strlen (p))
                : strncmp (s, p, strlen (p))) == 0)
             return s;
 

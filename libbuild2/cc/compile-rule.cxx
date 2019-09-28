@@ -4558,7 +4558,7 @@ namespace build2
           fc = f[fi - 1];
           mc = m[mi - 1];
 
-          if (casecmp (fc, mc) == 0)
+          if (icasecmp (fc, mc) == 0)
           {
             fsep = msep = false;
             continue;

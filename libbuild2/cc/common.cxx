@@ -985,7 +985,7 @@ namespace build2
               // /LIBPATH:<dir> (case-insensitive).
               //
               if ((o[0] == '/' || o[0] == '-') &&
-                  casecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
+                  icasecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
                 d = dir_path (o, 9, string::npos);
               else
                 continue;
