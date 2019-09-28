@@ -82,8 +82,8 @@ namespace build2
   // path_match() overloads (below) for details.
   //
   static bool
-  path_match (const path& pattern,
-              const path& entry,
+  path_match (const path& entry,
+              const path& pattern,
               const optional<dir_path>& start)
   {
     // If pattern and entry are both either absolute or relative and
@@ -94,7 +94,7 @@ namespace build2
               !pattern.empty () && !entry.empty ());
 
     if (rel && !path_pattern_self_matching (pattern))
-      return path_match (pattern, entry);
+      return path_match (entry, pattern);
 
     // The start directory must be specified and be absolute.
     //
@@ -114,7 +114,7 @@ namespace build2
          << info << "entry: '" << entry.representation () << "'";
     }
 
-    return path_match (pattern, entry, *start);
+    return path_match (entry, pattern, *start);
   }
 
   void
@@ -179,22 +179,22 @@ namespace build2
     //
     // Name matching.
     //
-    f["path_match"] = [](string pattern, string name)
+    f["path_match"] = [](string name, string pattern)
     {
-      return path_match (pattern, name);
+      return path_match (name, pattern);
     };
 
     // Path matching.
     //
-    f["path_match"] = [](path pat, path ent, optional<dir_path> start)
+    f["path_match"] = [](path ent, path pat, optional<dir_path> start)
     {
-      return path_match (pat, ent, start);
+      return path_match (ent, pat, start);
     };
 
     // The semantics depends on the presence of the start directory or the
     // first two argument syntactic representation.
     //
-    f["path_match"] = [](names pat, names ent, optional<names> start)
+    f["path_match"] = [](names ent, names pat, optional<names> start)
     {
       auto path_arg = [] (const names& a) -> bool
       {
@@ -205,13 +205,13 @@ namespace build2
       };
 
       return start || path_arg (pat) || path_arg (ent)
-        ? path_match (convert<path> (move (pat)),   // Match as paths.
-                      convert<path> (move (ent)),
+        ? path_match (convert<path> (move (ent)),   // Match as paths.
+                      convert<path> (move (pat)),
                       start
                       ? convert<dir_path> (move (*start))
                       : optional<dir_path> ())
-        : path_match (convert<string> (move (pat)), // Match as strings.
-                      convert<string> (move (ent)));
+        : path_match (convert<string> (move (ent)), // Match as strings.
+                      convert<string> (move (pat)));
     };
   }
 }

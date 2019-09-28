@@ -1485,7 +1485,7 @@ namespace build2
         if (pat != "*")
         {
           if (name.size () < pat.size () - 1 || // One for '*' or '?'.
-              !butl::path_match (pat, name))
+              !butl::path_match (name, pat))
             continue;
         }
 

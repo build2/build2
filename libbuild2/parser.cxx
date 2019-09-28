@@ -3691,10 +3691,10 @@ namespace build2
 
     // Compare name to pattern as paths and according to dir.
     //
-    auto match = [&dir, sp] (const path& pattern, const name& n) -> bool
+    auto match = [&dir, sp] (const name& n, const path& pattern) -> bool
     {
       const path& p (dir ? path_cast<path> (n.dir) : path (n.value));
-      return path_match (pattern, p, *sp);
+      return path_match (p, pattern, *sp);
     };
 
     // Append name/extension to result according to dir. Store an indication
@@ -3810,7 +3810,7 @@ namespace build2
     {
       for (auto i (r.begin ()); i != r.end (); )
       {
-        if (match (p, *i))
+        if (match (*i, p))
           i = r.erase (i);
         else
           ++i;

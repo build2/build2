@@ -409,7 +409,7 @@ namespace build2
               continue;
           }
 
-          if (path_match (pat.leaf ().string (), t.path ().leaf ().string ()))
+          if (path_match (t.path ().leaf ().string (), pat.leaf ().string ()))
             cb.function (r, *srs, cb.data);
         }
 

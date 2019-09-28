@@ -83,19 +83,19 @@
   {
     : string-string
     :
-    $* <'print $path_match([string] "b*", [string] "b")' >'true'
-
-    : string-untyped
-    :
-    $* <'print $path_match([string] "b*", "b")' >'true'
+    $* <'print $path_match([string] "b", [string] "b*")' >'true'
 
     : untyped-string
     :
-    $* <'print $path_match("b*", [string] "b")' >'true'
+    $* <'print $path_match("b", [string] "b*")' >'true'
 
-    : string-path
+    : string-untyped
     :
-    $* <'print $path_match([string] "b*", [path] "b")' >'true'
+    $* <'print $path_match([string] "b", "b*")' >'true'
+
+    : path-string
+    :
+    $* <'print $path_match([path] "b", [string] "b*")' >'true'
   }
 
   : path
@@ -106,23 +106,23 @@
   {
     : path-path
     :
-    $* <'print $path_match([path] "b**", [path] "a/b")' >'true'
+    $* <'print $path_match([path] "a/b", [path] "b**")' >'true'
 
     : path-path-untyped
     :
-    $* <'print $path_match([path] "b**", [path] "a/b", "$src_base")' >'true'
-
-    : path-untyped
-    :
-    $* <'print $path_match([path] "b**", "a/b")' >'true'
-
-    : path-untyped-dir
-    :
-    $* <'print $path_match([path] "b**", "a/b", $src_base)' >'true'
+    $* <'print $path_match([path] "a/b", [path] "b**", "$src_base")' >'true'
 
     : untyped-path
     :
-    $* <'print $path_match("b**", [path] "a/b")' >'true'
+    $* <'print $path_match("a/b", [path] "b**")' >'true'
+
+    : untyped-path-dir
+    :
+    $* <'print $path_match("a/b", [path] "b**", $src_base)' >'true'
+
+    : path-untyped
+    :
+    $* <'print $path_match([path] "a/b", "b**")' >'true'
   }
 
   : untyped
@@ -132,21 +132,21 @@
   {
     : converted-to-strings
     :
-    $* <'print $path_match("b**", "b")' >'true'
+    $* <'print $path_match("b", "b**")' >'true'
 
     : converted-to-paths-due-to
     {
       : pattern
       :
-      $* <'print $path_match("b**/", "a/b/")' >'true'
+      $* <'print $path_match("a/b/", "b**/")' >'true'
 
       : entry
       :
-      $* <'print $path_match("b**", "a/b")' >'true'
+      $* <'print $path_match("a/b", "b**")' >'true'
 
       : start-dir
       :
-      $* <'print $path_match("s***/", "", "$src_base")' >'true'
+      $* <'print $path_match("", "s***/", "$src_base")' >'true'
     }
   }
 }
