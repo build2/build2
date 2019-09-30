@@ -843,7 +843,7 @@ namespace build2
           }
 
           if (tt != type::rcbrace)
-            fail (t) << "expected '}' instead of " << t;
+            fail (t) << "expected name or '}' instead of " << t;
 
           next (t, tt);                    // Presumably newline after '}'.
           next_after_newline (t, tt, '}'); // Should be on its own line.
@@ -2026,8 +2026,8 @@ namespace build2
           skip_block (t, tt);
 
         if (tt != type::rcbrace)
-          fail (t) << "expected '}' instead of " << t << " at the end of " << k
-                   << "-block";
+          fail (t) << "expected name or '}' instead of " << t
+                   << " at the end of " << k << "-block";
 
         next (t, tt);                    // Presumably newline after '}'.
         next_after_newline (t, tt, '}'); // Should be on its own line.
@@ -2349,8 +2349,8 @@ namespace build2
           skip_block (t, tt);
 
         if (tt != type::rcbrace)
-          fail (t) << "expected '}' instead of " << t << " at the end of " << k
-                   << "-block";
+          fail (t) << "expected name or '}' instead of " << t
+                   << " at the end of " << k << "-block";
 
         next (t, tt);                    // Presumably newline after '}'.
         next_after_newline (t, tt, '}'); // Should be on its own line.
@@ -2517,8 +2517,12 @@ namespace build2
         next (t, tt); // {
         next (t, tt); // <newline>
       }
+
       parse_clause (t, tt);
-      assert (tt == (block ? type::rcbrace : type::eos));
+
+      if (tt != (block ? type::rcbrace : type::eos))
+        fail (t) << "expected name " << (block ? "or '}' " : "")
+                 << "instead of " << t;
 
       lexer_ = ol;
 
