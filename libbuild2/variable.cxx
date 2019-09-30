@@ -6,7 +6,7 @@
 
 #include <cstring> // memcmp()
 
-#include <libbutl/filesystem.mxx> // path_match()
+#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/diagnostics.hxx>
 

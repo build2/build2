@@ -7,7 +7,7 @@
 #include <libbutl/sha1.mxx>
 #include <libbutl/sha256.mxx>
 
-#include <libbutl/filesystem.mxx> // path_match()
+#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/dump.hxx>

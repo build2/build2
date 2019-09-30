@@ -7,7 +7,8 @@
 #include <sstream>
 #include <iostream> // cout
 
-#include <libbutl/filesystem.mxx> // path_{search,match,pattern}()
+#include <libbutl/filesystem.mxx>   // path_search
+#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/dump.hxx>
 #include <libbuild2/file.hxx>

@@ -8,8 +8,9 @@
 
 #include <libbutl/regex.mxx>
 #include <libbutl/builtin.mxx>
-#include <libbutl/fdstream.mxx>   // fdopen_mode, fdnull(), fddup()
-#include <libbutl/filesystem.mxx> // path_search(), path_pattern()
+#include <libbutl/fdstream.mxx>     // fdopen_mode, fdnull(), fddup()
+#include <libbutl/filesystem.mxx>   // path_search()
+#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/variable.hxx>
 #include <libbuild2/filesystem.hxx>

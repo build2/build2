@@ -3,6 +3,7 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <libbutl/filesystem.mxx>
+#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
