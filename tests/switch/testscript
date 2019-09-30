@@ -312,3 +312,15 @@ switch 1: no_such_matcher
 EOI
 <stdin>:3:8: error: unmatched call to no_such_matcher(<untyped>, <untyped>)
 EOE
+
+: match-extraction
+:
+$* <<EOI 2>>EOE != 0
+switch 1
+{
+  case 1: y
+    x = $y
+}
+EOI
+<stdin>:3:9: error: unexpected ':' (match extraction is not yet supported)
+EOE

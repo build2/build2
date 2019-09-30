@@ -33,7 +33,7 @@ namespace build2
   // a few extra characters:
   //
   //   switch_expressions  values plus `:`
-  //   case_patterns       values plus '|'
+  //   case_patterns       values plus '|' and ':'
   //
   // Note that the normal, value/values and derived, as well as eval modes
   // split words separated by the pair character (to disable pairs one can

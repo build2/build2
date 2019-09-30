@@ -2141,7 +2141,7 @@ namespace build2
     // multiple `case`s per line/block) optionally followed by the `default`
     // lines/blocks followed by the closing `}`.
     //
-    bool taken (false); // One of the cases/default has been taken.
+    bool taken (false); // One of the case/default has been taken.
     bool seen_default (false);
 
     auto special = [&seen_default, this] (const token& t, const type& tt)
@@ -2278,6 +2278,16 @@ namespace build2
               skip_line (t, tt); // Skip the rest.
               break;
             }
+
+            // We reserve the ':' separator for possible future match
+            // extraction support:
+            //
+            // case '...': x
+            //   info "$x"
+            //
+            if (tt == type::colon)
+              fail (t) << "unexpected ':' (match extraction is not yet "
+                       << "supported)";
 
             if (tt != type::comma)
               break;

@@ -63,8 +63,8 @@ namespace build2
       }
     case lexer_mode::case_patterns:
       {
-        s1 = " $(){}[],|#\t\n";
-        s2 = "             ";
+        s1 = " $(){}[],|:#\t\n";
+        s2 = "              ";
         break;
       }
     case lexer_mode::attribute:
@@ -201,9 +201,10 @@ namespace build2
     // The following characters are special in the normal, variable, and
     // switch_expressions modes.
     //
-    if (m == lexer_mode::normal   ||
-        m == lexer_mode::variable ||
-        m == lexer_mode::switch_expressions)
+    if (m == lexer_mode::normal             ||
+        m == lexer_mode::variable           ||
+        m == lexer_mode::switch_expressions ||
+        m == lexer_mode::case_patterns)
     {
       switch (c)
       {
