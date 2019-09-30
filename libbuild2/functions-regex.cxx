@@ -85,21 +85,23 @@ namespace build2
     if (!subs)
       return value (regex_match (s, rge)); // Return boolean value.
 
-    names r;
     match_results<string::const_iterator> m;
 
     if (regex_match (s, m, rge))
     {
       assert (!m.empty ());
 
+      names r;
       for (size_t i (1); i != m.size (); ++i)
       {
         if (m[i].matched)
           r.emplace_back (m.str (i));
       }
-    }
 
-    return value (move (r));
+      return value (move (r));
+    }
+    else
+      return value ();
   }
 
   // Determine if there is a match between the regular expression and some
@@ -143,12 +145,13 @@ namespace build2
     if (!match && !subs)
       return value (regex_search (s, rge)); // Return boolean value.
 
-    names r;
     match_results<string::const_iterator> m;
 
     if (regex_search (s, m, rge))
     {
       assert (!m.empty ());
+
+      names r;
 
       if (match)
       {
@@ -164,9 +167,11 @@ namespace build2
             r.emplace_back (m.str (i));
         }
       }
-    }
 
-    return value (move (r));
+      return value (move (r));
+    }
+    else
+      return value ();
   }
 
   static pair<regex::flag_type, regex_constants::match_flag_type>
@@ -348,14 +353,15 @@ namespace build2
     // Match a value of an arbitrary type against the regular expression.
     // Convert the value to string prior to matching. Return the boolean value
     // unless return_subs flag is specified (see below), in which case return
-    // names (empty if no match).
+    // names (NULL if no match).
     //
     // The following flags are supported:
     //
     // icase       - match ignoring case
     //
     // return_subs - return names (rather than boolean), that contain
-    //               sub-strings that match the marked sub-expressions
+    //               sub-strings that match the marked sub-expressions and
+    //               NULL if no match
     //
     f[".match"] = [](value s, string re, optional<names> flags)
     {
@@ -373,17 +379,19 @@ namespace build2
     // part of a value of an arbitrary type. Convert the value to string prior
     // to searching. Return the boolean value unless return_match or
     // return_subs flag is specified (see below) in which case return names
-    // (empty if no match @@ Why not NULL?).
+    // (NULL if no match).
     //
     // The following flags are supported:
     //
     // icase        - match ignoring case
     //
     // return_match - return names (rather than boolean), that contain a
-    //                sub-string that matches the whole regular expression
+    //                sub-string that matches the whole regular expression and
+    //                NULL if no match
     //
     // return_subs -  return names (rather than boolean), that contain
-    //                sub-strings that match the marked sub-expressions
+    //                sub-strings that match the marked sub-expressions and
+    //                NULL if no match
     //
     // If both return_match and return_subs flags are specified then the
     // sub-string that matches the whole regular expression comes first.

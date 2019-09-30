@@ -167,7 +167,7 @@
 
       : failure
       :
-      $* <<EOI >''
+      $* <<EOI >'[null]'
       print $regex.match("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
       EOI
     }
@@ -225,8 +225,8 @@
 
       : failure
       :
-      $* <<EOI >''
-      print $regex.match("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
+      $* <<EOI >'[null]'
+      print $regex.search("   bar", '([^\s]+)\s+([^\s]+)', return_subs)
       EOI
     }
 
@@ -247,7 +247,7 @@
 
       : failure
       :
-      $* <<EOI >''
+      $* <<EOI >'[null]'
       print $regex.search("   bar", '([^\s]+)\s+([^\s]+)', return_match)
       EOI
     }
