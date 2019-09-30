@@ -100,6 +100,13 @@ EOI
 3
 EOO
 
+: val-null
+:
+$* <<EOI
+for i: [null]
+  print $i
+EOI
+
 : pairs
 :
 $* <<EOI >>EOO

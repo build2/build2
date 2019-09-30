@@ -1788,33 +1788,33 @@ namespace build2
     if (ps == nullptr || ps->out_path () != scope_->out_path ())
       fail (t) << "export outside export stub";
 
-    // The rest is a value. Parse it as a variable value to get expansion,
-    // attributes, etc. Note that import() will check the names, if required.
+    // The rest is a value. Parse it similar to a value on the RHS of an
+    // assignment to get expansion. While it may seem like supporting
+    // attributes is a good idea here, there is actually little benefit in
+    // being able to type them or to return NULL.
     //
-    location l (get_location (t));
-    value rhs (parse_variable_value (t, tt));
+    mode (lexer_mode::value, '@');
+    next (t, tt);
 
-    // While it may seem like supporting attributes is a good idea here,
-    // there is actually little benefit in being able to type them or to
-    // return NULL.
-    //
-    // export_value_ = value (); // Reset to untyped NULL value.
-    // value_attributes (nullptr,
-    //                   export_value_,
-    //                   move (rhs),
-    //                   type::assign);
-    if (attributes& a = attributes_top ())
-      fail (a.loc) << "attributes in export";
+    auto at (attributes_push (t, tt));
+
+    if (at.first)
+      fail (at.second) << "attributes in export";
     else
       attributes_pop ();
 
-    if (!rhs)
+    location l (get_location (t));
+    value val (tt != type::newline && tt != type::eos
+               ? parse_value (t, tt, pattern_mode::expand)
+               : value (names ()));
+
+    if (!val)
       fail (l) << "null value in export";
 
-    if (rhs.type != nullptr)
-      untypify (rhs);
+    if (val.type != nullptr)
+      untypify (val);
 
-    export_value_ = move (rhs).as<names> ();
+    export_value_ = move (val).as<names> ();
 
     if (export_value_.empty ())
       fail (l) << "empty value in export";
@@ -2408,12 +2408,13 @@ namespace build2
                   << " visibility but is assigned in for-loop";
     }
 
-    // Now the value (list of names) to iterate over. Parse it as a variable
-    // value to get expansion, attributes, etc.
+    // Now the value (list of names) to iterate over. Parse it similar to a
+    // value on the RHS of an assignment (expansion, attributes).
     //
-    value val;
-    apply_value_attributes (
-      nullptr, val, parse_variable_value (t, tt), type::assign);
+    mode (lexer_mode::value, '@');
+    next (t, tt);
+
+    value val (parse_value_with_attributes (t, tt, pattern_mode::expand));
 
     // If this value is a vector, then save its element type so that we
     // can typify each element below.
@@ -2471,12 +2472,15 @@ namespace build2
 
     // Iterate.
     //
+    value& v (scope_->assign (var)); // Assign even if no iterations.
+
+    if (!val)
+      return;
+
     names& ns (val.as<names> ());
 
     if (ns.empty ())
       return;
-
-    value& v (scope_->assign (var));
 
     istringstream is (move (body));
 
@@ -2582,17 +2586,16 @@ namespace build2
   void parser::
   parse_print (token& t, type& tt)
   {
-    // Parse the rest as a variable value to get expansion, attributes, etc.
+    // Parse the rest similar to a value on the RHS of an assignment
+    // (expansion, attributes).
     //
-    value rhs (parse_variable_value (t, tt));
+    mode (lexer_mode::value, '@');
+    next (t, tt);
 
-    value lhs;
-    apply_value_attributes (nullptr, lhs, move (rhs), type::assign);
-
-    if (lhs)
+    if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
       names storage;
-      cout << reverse (lhs, storage) << endl;
+      cout << reverse (v, storage) << endl;
     }
     else
       cout << "[null]" << endl;
@@ -2616,17 +2619,16 @@ namespace build2
     default: assert (false);
     }
 
-    // Parse the rest as a variable value to get expansion, attributes, etc.
+    // Parse the rest similar to a value on the RHS of an assignment
+    // (expansion, attributes).
     //
-    value rhs (parse_variable_value (t, tt));
+    mode (lexer_mode::value, '@');
+    next (t, tt);
 
-    value lhs;
-    apply_value_attributes (nullptr, lhs, move (rhs), type::assign);
-
-    if (lhs)
+    if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
       names storage;
-      dr << reverse (lhs, storage);
+      dr << reverse (v, storage);
     }
 
     if (tt != type::eos)
