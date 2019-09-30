@@ -204,6 +204,14 @@ EOI
 1,d
 EOO
 
+: case-outside
+:
+$* <<EOI 2>>EOE != 0
+case 1
+EOI
+<stdin>:1:1: error: case outside switch
+EOE
+
 : default-before-case
 :
 $* <<EOI 2>>EOE != 0

@@ -392,7 +392,8 @@ namespace build2
         {
           f = &parser::parse_switch;
         }
-        else if (n == "case")
+        else if (n == "case"  ||
+                 n == "default")
         {
           // Valid ones are handled in parse_switch().
           //
