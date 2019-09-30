@@ -1966,9 +1966,16 @@ namespace build2
           if (tt == type::newline || tt == type::eos)
             fail (t) << "expected " << k << "-expression instead of " << t;
 
-          // Parse as names to get variable expansion, evaluation, etc. Note
-          // that we also expand patterns (could be used in nested contexts,
-          // etc; e.g., "if pattern expansion is empty" condition).
+          // Parse the condition similar to a value on the RHS of an
+          // assignment (expansion, attributes). While at this stage the
+          // attribute's usefulness in this context is not entirely clear, we
+          // allow it for consistency with other similar directives (switch,
+          // for) and also who knows what attributes we will have in the
+          // future (maybe there will be a way to cast 0/[null] to bool, for
+          // example).
+          //
+          // Note also that we expand patterns (they could be used in nested
+          // contexts, etc; e.g., "if pattern expansion is empty" condition).
           //
           const location l (get_location (t));
 
@@ -1978,10 +1985,10 @@ namespace build2
             //
             bool e (
               convert<bool> (
-                parse_value (t, tt,
-                             pattern_mode::expand,
-                             "expression",
-                             nullptr)));
+                parse_value_with_attributes (t, tt,
+                                             pattern_mode::expand,
+                                             "expression",
+                                             nullptr)));
 
             take = (k.back () == '!' ? !e : e);
           }
@@ -2531,9 +2538,9 @@ namespace build2
     bool neg (t.value.back () == '!');
     const location al (get_location (t));
 
-    // Parse the next chunk as names to get variable expansion, evaluation,
-    // etc. Do it in the value mode so that we don't treat ':', etc., as
-    // special.
+    // Parse the next chunk (the condition) similar to a value on the RHS of
+    // an assignment. We allow attributes (which will only apply to the
+    // condition) for the same reason as in if-else (see parse_if_else()).
     //
     mode (lexer_mode::value);
     next (t, tt);
@@ -2546,11 +2553,11 @@ namespace build2
       //
       bool e (
         convert<bool> (
-          parse_value (t, tt,
-                       pattern_mode::expand,
-                       "expression",
-                       nullptr,
-                       true)));
+          parse_value_with_attributes (t, tt,
+                                       pattern_mode::expand,
+                                       "expression",
+                                       nullptr,
+                                       true /* chunk */)));
       e = (neg ? !e : e);
 
       if (e)
@@ -3057,7 +3064,8 @@ namespace build2
   parse_value_with_attributes (token& t, token_type& tt,
                                pattern_mode pmode,
                                const char* what,
-                               const string* separators)
+                               const string* separators,
+                               bool chunk)
   {
     // Parse value attributes if any. Note that it's ok not to have anything
     // after the attributes (think [null]).
@@ -3065,7 +3073,7 @@ namespace build2
     attributes_push (t, tt, true);
 
     value rhs (tt != type::newline && tt != type::eos
-               ? parse_value (t, tt, pmode, what, separators)
+               ? parse_value (t, tt, pmode, what, separators, chunk)
                : value (names ()));
 
     if (pre_parse_)

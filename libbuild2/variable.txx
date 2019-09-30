@@ -60,14 +60,27 @@ namespace build2
   T
   convert (value&& v)
   {
-    if (v.type == nullptr)
-      return convert<T> (move (v).as<names> ());
-    else if (v.type == &value_traits<T>::value_type)
-      return move (v).as<T> ();
+    if (v)
+    {
+      if (v.type == nullptr)
+        return convert<T> (move (v).as<names> ());
+      else if (v.type == &value_traits<T>::value_type)
+        return move (v).as<T> ();
+    }
 
-    throw invalid_argument (
-      string ("invalid ") + value_traits<T>::value_type.name +
-      " value: conversion from " + v.type->name);
+    string m ("invalid ");
+    m += value_traits<T>::value_type.name;
+    m += " value: ";
+
+    if (v)
+    {
+      m += "conversion from ";
+      m += v.type->name;
+    }
+    else
+      m += "null";
+
+    throw invalid_argument (move (m));
   }
 
   template <typename T>

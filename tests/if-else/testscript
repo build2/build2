@@ -1,0 +1,18 @@
+# file      : tests/if-else/testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+# Test if-else.
+
+# @@ TODO: more test from old-tests/
+
+.include ../common.testscript
+
+: null
+:
+$* <<EOI 2>>EOE != 0
+if [null]
+  print t
+EOI
+<stdin>:1:4: error: invalid bool value: null
+EOE

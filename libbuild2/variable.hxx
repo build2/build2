@@ -621,7 +621,8 @@ namespace build2
   //template <typename T> T convert (names&&); (declaration causes ambiguity)
 
   // Convert value to T. If value is already of type T, then simply cast it.
-  // Otherwise call convert(names) above.
+  // Otherwise call convert(names) above. If value is NULL, then throw
+  // invalid_argument (with an appropriate message).
   //
   template <typename T> T convert (value&&);
 
