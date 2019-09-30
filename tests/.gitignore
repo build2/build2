@@ -1,6 +1,7 @@
 driver
 
-# The immediate test/ sub-directory shouldn't be ignored.
+# The immediate test/ sub-directory shouldn't be ignored. Note that
+# these can be symlinks (so no trailing /).
 #
-*/**/test/
-test-*/
+*/**/test
+test-*
