@@ -3121,8 +3121,8 @@ feels like. In this section we will examine the language in slightly more
 detail and with more precision.
 
 Buildfile is primarily a declarative language with support for variables, pure
-functions, repetition (\c{for}-loop), and conditional inclusion/exclusion
-(\c{if-else}).
+functions, repetition (\c{for}-loop), conditional inclusion/exclusion
+(\c{if-else}), and pattern matching (\c{switch}).
 
 Buildfile is a line-oriented language. That is, every construct ends at the
 end of the line unless escaped with line continuation (trailing \c{\\}). For
@@ -3533,7 +3533,7 @@ else
   info 'other'
 \
 
-The \c{if} and \c{elif} directive names must be followed by something that
+The \c{if} and \c{elif} directive names must be followed by an expression that
 expands to a single, literal \c{true} or \c{false}. This can be a variable
 expansion, a function call, an eval context, or a literal value. For example:
 
@@ -3600,7 +3600,174 @@ exe{hello}: cxx{hello-win32}: include = ($cxx.target.class == 'windows')
 \
 
 
-\h2#intro-fir|Repetitions (\c{for})|
+\h2#intro-switch|Pattern Matching (\c{switch})|
+
+The \c{switch} directive is similar to \c{if-else} in that it allows us to
+conditionally exclude \c{buildfile} fragments from being processed. The
+difference is in the way the conditions are structured: while in \c{if-else}
+we can do arbitrary tests, in \c{switch} we match one or more values against a
+set of patterns. For instance, this is how we can reimplement the first
+example from \l{#intro-if-else Conditionals (\c{if-else})} using \c{switch}:
+
+\
+switch $cxx.target.class, $cxx.target.system
+{
+  case 'linux'
+    info 'linux'
+
+  case 'windows', 'mingw32'
+    info 'windows-mingw'
+
+  case 'windows', 'win32-msvc'
+    info 'windows-msvc'
+
+  case 'windows'
+    info 'windows-other'
+
+  default
+    info 'other'
+}
+\
+
+Similar to \c{if-else}, the conditional fragment can be a single (separate)
+line or a block with a zero or more \c{case} lines/blocks optionally followed
+by \c{default}. A \c{case-default} block can contain nested \c{switch}
+directives (though it is often more convenient to use multiple values
+in a single \c{switch}, as shown above). For example:
+
+\
+switch $cxx.target.class
+{
+  ...
+  case 'windows'
+  {
+    switch $cxx.target.system
+    {
+      case 'mingw32'
+        info 'windows-mingw'
+
+      case 'win32-msvc'
+        info 'windows-msvc'
+
+      default
+        info 'windows-other'
+    }
+  }
+  ...
+}
+\
+
+All the \c{case} fragments are tried in the order specified with the first
+that matches evaluated and all the others ignored (that is, there is no
+explicit \c{break} nor the ability to fall through). If none of the \c{case}
+patterns matched and there is the \c{default} fragment, then it is evaluated.
+Multiple \c{case} lines can be specified for a single conditional fragment.
+For example:
+
+\
+switch $cxx.target.class, $cxx.id
+{
+  case 'windows', 'msvc'
+  case 'windows', 'clang'
+    info 'msvcrt'
+}
+\
+
+The \c{switch} directive name must be followed by one or more \i{value
+expressions} separated with a comma (\c{,}). Similarly, the \c{case} directive
+name must be followed by one or more \i{pattern expressions} separated with a
+comma (\c{,}). These expressions can be variable expansions, function calls,
+eval contexts, or literal values.
+
+If multiple values/patterns are specified, then all the \c{case} patterns must
+match in order for the corresponding fragment to be evaluated. However, if
+some trailing patterns are omitted, then they are considered as matching. For
+example:
+
+\
+switch $cxx.target.class, $cxx.target.system
+{
+  case 'windows', 'mingw32'
+    info 'windows-mingw'
+
+  case 'windows', 'win32-msvc'
+    info 'windows-msvc'
+
+  case 'windows'
+    info 'windows-other'
+}
+\
+
+Each pattern in the pattern expression can be optionally followed by one or
+more alternative patterns separated by a vertical bar (\c{|}). Only one of the
+alternatives need to match in order for the whole pattern expression to be
+considered as matching. For example:
+
+\
+switch $cxx.id
+{
+  case 'clang' | 'clang-apple'
+    ...
+}
+\
+
+Each value in the value expression can be optionally followed by a colon
+(\c{:}) and a \i{match function}. If the match function is not specified, then
+equality is used by default. For example:
+
+\
+switch $cxx.target.cpu: regex.match
+{
+  case 'i[3-6]86'
+    ...
+
+  case 'x86_64'
+    ...
+}
+\
+
+The match function name can be optionally followed by additional values that
+are passed as the third argument to the match function. This is normally used
+to specify additional match flags, for example:
+
+\
+switch $cxx.target.cpu: regex.match icase
+{
+  ...
+}
+\
+
+Other commonly used match functions are \c{regex.search()} (similar to
+\c{regex.match()} but searches for any match rather than matching the whole
+value), \c{path.match()} (match using shell wildcard patterns) and
+\c{string.icasecmp()} (match using equality but ignoring case). Additionally,
+any other function that takes the value as its first argument, the pattern as
+its second, and returns \c{bool} can be used as a match function.
+
+\N|Note that there is no special wildcard or match-anything pattern at the
+syntax level. In most common cases the desired semantics can be achieved with
+\c{default} and/or by omitting trailing patterns. If you do need it, then we
+recommend using \c{path.match()} and its \c{*} wildcard. For example:
+
+\
+switch $cxx.target.class: path.match, \
+       $cxx.target.system: path.match, \
+       $cxx.id: path.match
+{
+  case 'windows', '*', 'clang'
+    ...
+}
+\
+
+|
+
+Note also that similar to \c{if-else}, there is no notion of variable locality
+in the \c{switch} and \c{case-default} blocks and any value set inside is
+visible outside. Additionally, the same considerations about conditional
+dependency declarations apply.
+
+
+\h2#intro-for|Repetitions (\c{for})|
 
 The \c{for} directive can be used to repeat the same \c{buildfile} fragment
 multiple times, once for each element of a list. The fragment to repeat can be
@@ -3616,11 +3783,11 @@ for n: foo bar baz
 
 The \c{for} directive name must be followed by the variable name (called
 \i{loop variable}) that on each iteration will be assigned the corresponding
-element, \c{:}, and something that expands to a potentially empty list of
+element, \c{:}, and an expression that expands to a potentially empty list of
 values. This can be a variable expansion, a function call, an eval context, or
 a literal list as in the above fragment. Here is a somewhat more realistic
-example that splits a space-separated environment variable value into names and
-then generates a dependency declaration for each of them:
+example that splits a space-separated environment variable value into names
+and then generates a dependency declaration for each of them:
 
 \
 for n: $regex.split($getenv(NAMES), ' +', '')
@@ -3922,7 +4089,7 @@ Then the \c{assert} directive is a more concise way to express the same:
 assert ($cxx.target.class != 'windows') 'Windows is not supported'
 \
 
-The assert condition must be something that evaluates to \c{true} or
+The assert condition must be an expression that evaluates to \c{true} or
 \c{false}, similar to the \c{if} directive (see \l{#intro-if-else Conditions
 (\c{if-else})} for details). The description after the condition is optional
 and, similar to \c{if}, there is also the \c{assert!} variant, which fails if
