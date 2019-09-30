@@ -68,7 +68,7 @@ EOI
 d
 EOO
 
-: basics-matcher
+: matcher
 :
 $* <<EOI >>EOO
 for i: 123 abc
@@ -86,7 +86,7 @@ n
 a
 EOO
 
-: basics-matcher-arg
+: matcher-arg
 :
 $* <<EOI >>EOO
 for i: abc ABC aBC
@@ -103,7 +103,7 @@ a
 a
 EOO
 
-: basics-matcher-multiple
+: matcher-multiple
 :
 $* <<EOI >>EOO
 for i: 123 abc
@@ -126,7 +126,7 @@ aa
 EOO
 
 #\
-: basics-extractor
+: extractor
 :
 $* <<EOI >>EOO
 for i: 123 abc
@@ -144,6 +144,36 @@ n
 d
 EOO
 #\
+
+: attributes
+:
+$* <<EOI >>EOO
+switch [uint64] 1, 01
+{
+  case 01, [uint64] 1
+    print 1
+}
+EOI
+1
+EOO
+
+: null
+:
+$* <<EOI >>EOO
+for i: 0 1
+{
+  switch ($i == 0 ? [null] : $i)
+  {
+    case [null]
+      print n
+    case [uint64] 1
+      print 1
+  }
+}
+EOI
+n
+1
+EOO
 
 : empty
 :

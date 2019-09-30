@@ -2105,7 +2105,10 @@ namespace build2
       expr e;
 
       e.value =
-        parse_value (t, tt, pattern_mode::expand, "expression", nullptr);
+        parse_value_with_attributes (t, tt,
+                                     pattern_mode::expand,
+                                     "expression",
+                                     nullptr);
 
       if (tt == type::colon)
       {
@@ -2203,7 +2206,7 @@ namespace build2
 
           auto parse_pattern = [this] (token& t, type& tt)
           {
-            return parse_value (
+            return parse_value_with_attributes (
               t, tt, pattern_mode::ignore, "pattern", nullptr);
           };
 
@@ -3046,6 +3049,29 @@ namespace build2
           v.append (move (rhs).as<names> (), var);
       }
     }
+  }
+
+  value parser::
+  parse_value_with_attributes (token& t, token_type& tt,
+                               pattern_mode pmode,
+                               const char* what,
+                               const string* separators)
+  {
+    // Parse value attributes if any. Note that it's ok not to have anything
+    // after the attributes (think [null]).
+    //
+    attributes_push (t, tt, true);
+
+    value rhs (tt != type::newline && tt != type::eos
+               ? parse_value (t, tt, pmode, what, separators)
+               : value (names ()));
+
+    if (pre_parse_)
+      return rhs; // Empty.
+
+    value lhs;
+    apply_value_attributes (nullptr, lhs, move (rhs), type::assign);
+    return lhs;
   }
 
   values parser::

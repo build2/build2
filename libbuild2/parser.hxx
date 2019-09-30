@@ -336,6 +336,14 @@ namespace build2
       return v;
     }
 
+    // As above but also handle value attributes.
+    //
+    value
+    parse_value_with_attributes (token& t, token_type& tt,
+                                 pattern_mode pmode,
+                                 const char* what = "name",
+                                 const string* separators = &name_separators);
+
     // Append names and return the indication if the parsed value is not NULL
     // and whether it is typed (and whether it is a pattern if pattern_mode is
     // detect).
