@@ -3,7 +3,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <libbutl/filesystem.mxx>
-#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
@@ -77,47 +76,6 @@ namespace build2
     return r;
   }
 
-  using butl::path_match;
-
-  // Return true if a path for a filesystem entry matches the pattern. See
-  // path_match() overloads (below) for details.
-  //
-  static bool
-  path_match (const path& entry,
-              const path& pattern,
-              const optional<dir_path>& start)
-  {
-    // If pattern and entry are both either absolute or relative and
-    // non-empty, and the first pattern component is not a self-matching
-    // wildcard, then ignore the start directory.
-    //
-    bool rel (pattern.relative () == entry.relative () &&
-              !pattern.empty () && !entry.empty ());
-
-    if (rel && !path_pattern_self_matching (pattern))
-      return path_match (entry, pattern);
-
-    // The start directory must be specified and be absolute.
-    //
-    if (!start || start->relative ())
-    {
-      diag_record dr (fail);
-
-      // Print paths "as is".
-      //
-      if (!start)
-        dr << "start directory is not specified";
-      else
-        dr << "start directory path '" << start->representation ()
-           << "' is relative";
-
-      dr << info << "pattern: '" << pattern.representation () << "'"
-         << info << "entry: '" << entry.representation () << "'";
-    }
-
-    return path_match (entry, pattern, *start);
-  }
-
   void
   filesystem_functions (function_map& m)
   {
@@ -148,71 +106,6 @@ namespace build2
     {
       return path_search (convert<path>     (move (pattern)),
                           convert<dir_path> (move (start)));
-    };
-
-    // path_match
-    //
-    // Match a filesystem entry name against a name pattern (both are strings),
-    // or a filesystem entry path against a path pattern. For the latter case
-    // the start directory may also be required (see below). The semantics of
-    // the pattern and name/entry arguments is determined according to the
-    // following rules:
-    //
-    // - The arguments must be of the string or path types, or be untyped.
-    //
-    // - If one of the arguments is typed, then the other one must be of the
-    //   same type or be untyped. In the later case, an untyped argument is
-    //   converted to the type of the other argument.
-    //
-    // - If both arguments are untyped and the start directory is specified,
-    //   then the arguments are converted to the path type.
-    //
-    // - If both arguments are untyped and the start directory is not
-    //   specified, then, if one of the arguments is syntactically a path (the
-    //   value contains a directory separator), convert them to the path type,
-    //   otherwise to the string type (match as names).
-    //
-    // If pattern and entry paths are both either absolute or relative and
-    // non-empty, and the first pattern component is not a self-matching
-    // wildcard (doesn't contain ***), then the start directory is not
-    // required, and is ignored if specified. Otherwise, the start directory
-    // must be specified and be an absolute path.
-    //
-    // Name matching.
-    //
-    f["path_match"] = [](string name, string pattern)
-    {
-      return path_match (name, pattern);
-    };
-
-    // Path matching.
-    //
-    f["path_match"] = [](path ent, path pat, optional<dir_path> start)
-    {
-      return path_match (ent, pat, start);
-    };
-
-    // The semantics depends on the presence of the start directory or the
-    // first two argument syntactic representation.
-    //
-    f["path_match"] = [](names ent, names pat, optional<names> start)
-    {
-      auto path_arg = [] (const names& a) -> bool
-      {
-        return a.size () == 1 &&
-        (a[0].directory () ||
-         a[0].value.find_first_of (path::traits_type::directory_separators) !=
-         string::npos);
-      };
-
-      return start || path_arg (pat) || path_arg (ent)
-        ? path_match (convert<path> (move (ent)),   // Match as paths.
-                      convert<path> (move (pat)),
-                      start
-                      ? convert<dir_path> (move (*start))
-                      : optional<dir_path> ())
-        : path_match (convert<string> (move (ent)), // Match as strings.
-                      convert<string> (move (pat)));
     };
   }
 }

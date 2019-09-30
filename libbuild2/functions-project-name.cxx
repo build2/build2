@@ -14,7 +14,7 @@ namespace build2
   {
     function_family f (m, "project_name");
 
-    f["string"]    = [](project_name p) {return move (p).string ();};
+    f["string"] = [](project_name p) {return move (p).string ();};
 
     f["base"] = [](project_name p, optional<string> ext)
     {

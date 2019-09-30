@@ -107,3 +107,82 @@ p = ($cxx.target.class != 'windows' ? /../foo : 'c:/../foo');
 $* <"\$path.normalize\('$p')" 2>>"EOE" != 0
 error: invalid path: '$p'
 EOE
+
+: path-match
+:
+{
+  : string
+  :
+  : Test overloads for at least one of the first two arguments being of the
+  : string type.
+  :
+  {
+    : string-string
+    :
+    $* <'print $path.match([string] "b", [string] "b*")' >'true'
+
+    : untyped-string
+    :
+    $* <'print $path.match("b", [string] "b*")' >'true'
+
+    : string-untyped
+    :
+    $* <'print $path.match([string] "b", "b*")' >'true'
+
+    : path-string
+    :
+    $* <'print $match([path] "b", [string] "b*")' >'true'
+  }
+
+  : path
+  :
+  : Test overloads for at least one of the first two arguments being of the
+  : path type.
+  :
+  {
+    : path-path
+    :
+    $* <'print $match([path] "a/b", [path] "b**")' >'true'
+
+    : path-untyped-untyped
+    :
+    $* <'print $match([path] "a/b", "b**", "$src_base")' >'true'
+
+    : untyped-path
+    :
+    $* <'print $match("a/b", [path] "b**")' >'true'
+
+    : untyped-path-dir
+    :
+    $* <'print $match("a/b", [path] "b**", $src_base)' >'true'
+
+    : path-untyped
+    :
+    $* <'print $match([path] "a/b", "b**")' >'true'
+  }
+
+  : untyped
+  :
+  : Test overloads for the first two arguments being untyped.
+  :
+  {
+    : converted-to-strings
+    :
+    $* <'print $path.match("b", "b**")' >'true'
+
+    : converted-to-paths-due-to
+    {
+      : pattern
+      :
+      $* <'print $path.match("a/b/", "b**/")' >'true'
+
+      : entry
+      :
+      $* <'print $path.match("a/b", "b**")' >'true'
+
+      : start-dir
+      :
+      $* <'print $path.match("", "s***/", "$src_base")' >'true'
+    }
+  }
+}
