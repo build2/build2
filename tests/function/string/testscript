@@ -1,0 +1,27 @@
+# file      : tests/function/string/testscript
+# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.testscript
+
+: icasecmp
+:
+{
+  : equal
+  :
+  {
+    $* <'print $icasecmp([string] "a", [string] "A")' >'true' : string-string
+    $* <'print $icasecmp([string] "a", "A")'          >'true' : string-untyped
+    $* <'print $icasecmp("a", [string] "A")'          >'true' : untyped-string
+    $* <'print $string.icasecmp("a", "A")'            >'true' : untyped-untyped
+  }
+
+  : different
+  :
+  {
+    $* <'print $icasecmp([string] "a", [string] "b")' >'false' : string-string
+    $* <'print $icasecmp([string] "a", "b")'          >'false' : string-untyped
+    $* <'print $icasecmp("a", [string] "b")'          >'false' : untyped-string
+    $* <'print $string.icasecmp("a", "b")'            >'false' : untyped-untyped
+  }
+}

@@ -21,6 +21,29 @@ namespace build2
     //
     // f["string"] = [](strings v) {return v;};
 
+    // Compare ASCII strings ignoring case and returning the boolean value.
+    //
+    f["icasecmp"] = [](string x, string y)
+    {
+      return icasecmp (x, y) == 0;
+    };
+
+    f["icasecmp"] = [](string x, names y)
+    {
+      return icasecmp (x, convert<string> (move (y))) == 0;
+    };
+
+    f["icasecmp"] = [](names x, string y)
+    {
+      return icasecmp (convert<string> (move (x)), y) == 0;
+    };
+
+    f[".icasecmp"] = [](names x, names y)
+    {
+      return icasecmp (convert<string> (move (x)),
+                       convert<string> (move (y))) == 0;
+    };
+
     // String-specific overloads from builtins.
     //
     function_family b (m, "builtin");
