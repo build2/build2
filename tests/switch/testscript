@@ -125,13 +125,12 @@ nn
 aa
 EOO
 
-#\
 : extractor
 :
 $* <<EOI >>EOO
 for i: 123 abc
 {
-  switch $i: regex.extract
+  switch $i: regex.match return_subs
   {
     case '([0-9]+)'
       print n
@@ -143,7 +142,44 @@ EOI
 n
 d
 EOO
-#\
+
+: matcher-path
+:
+$* <<EOI >>EOO
+for i: 123 abc 1a3
+{
+  switch $i: path.match
+  {
+    case '[0-9][0-9][0-9]'
+      print n
+    case '[a-z][a-z][a-z]'
+      print a
+    case '*'
+      print d
+  }
+}
+EOI
+n
+a
+d
+EOO
+
+: matcher-case
+:
+$* <<EOI >>EOO
+for i: abc ABC aBC
+{
+  switch $i: string.icasecmp
+  {
+    case 'AbC'
+      print a
+  }
+}
+EOI
+a
+a
+a
+EOO
 
 : attributes
 :
