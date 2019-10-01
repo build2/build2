@@ -3698,9 +3698,9 @@ switch $cxx.target.class, $cxx.target.system
 }
 \
 
-Each pattern in the pattern expression can be optionally followed by one or
-more alternative patterns separated by a vertical bar (\c{|}). Only one of the
-alternatives need to match in order for the whole pattern expression to be
+The first pattern in the pattern expression can be optionally followed by one
+or more alternative patterns separated by a vertical bar (\c{|}). Only one of
+the alternatives need to match in order for the whole pattern expression to be
 considered as matching. For example:
 
 \
@@ -3711,7 +3711,7 @@ switch $cxx.id
 }
 \
 
-Each value in the value expression can be optionally followed by a colon
+The value in the value expression can be optionally followed by a colon
 (\c{:}) and a \i{match function}. If the match function is not specified, then
 equality is used by default. For example:
 
