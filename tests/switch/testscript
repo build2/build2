@@ -88,20 +88,28 @@ EOO
 
 : matcher-arg
 :
-$* <<EOI >>EOO
-for i: abc ABC aBC
+: Note that case-insensitive regex matching is broken in older versions of
+: libstdc++ (see GCC bug 71500 for details).
+:
+if ($cxx.id != 'gcc'       || \
+    $cxx.version.major > 7 || \
+    ($cxx.version.major == 7 && $cxx.version.minor >= 1))
 {
-  switch $i: regex.match icase
+  $* <<EOI >>EOO
+  for i: abc ABC aBC
   {
-    case '[a-z]+'
-      print a
+    switch $i: regex.match icase
+    {
+      case '[a-z]+'
+        print a
+    }
   }
+  EOI
+  a
+  a
+  a
+  EOO
 }
-EOI
-a
-a
-a
-EOO
 
 : matcher-multiple
 :
