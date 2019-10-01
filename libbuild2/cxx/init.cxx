@@ -58,7 +58,36 @@ namespace build2
       uint64_t mi (ci.version.minor);
       uint64_t p (ci.version.patch);
 
-      // Features.
+      // Besides various `c++NN` we have two special values: `latest` and
+      // `experimental`.
+      //
+      // The semantics of the `latest` value is the latest available standard
+      // that is not necessarily complete or final but is practically usable.
+      // In other words, a project that uses this value and does not rely on
+      // any unstable/bleeding edge parts of the standard (or takes care to
+      // deal with them, for example, using feature test macros), can
+      // reasonably expect to work. In particular, this is the value we use by
+      // default in projects created by bdep-new(1) as well as to build the
+      // build2 toolchain itself.
+      //
+      // The `experimental` value, as the name suggests, is the latest
+      // available standard that is not necessarily usable in real projects.
+      // By definition, `experimental` >= `latest`.
+      //
+      // In addition to the `experimental` value itself we have a number of
+      // feature flags that can be used to enable or disable certain major
+      // parts (such as modules, concepts, etc) in this mode. They are also
+      // used to signal back to the project whether a particular feature is
+      // available. A feature flag set by the user has a tri-state semantics:
+      //
+      // - false        - disabled
+      // - unspecified  - enabled if practically usable
+      // - true         - enabled even if practically unusable
+      //
+      bool latest       (v != nullptr && *v == "latest");
+      bool experimental (v != nullptr && *v == "experimental");
+
+      // Feature flags.
       //
       auto enter = [&rs] (const char* v) -> const variable&
       {
@@ -66,19 +95,11 @@ namespace build2
           v, variable_visibility::project);
       };
 
-      // NOTE: see also module sidebuild subproject if changing anything about
-      // modules here.
-
       //bool concepts (false); auto& v_c (enter ("cxx.features.concepts"));
       bool modules (false); auto& v_m (enter ("cxx.features.modules"));
 
-      // Translate "latest" and "experimental" to the compiler/version-
-      // appropriate option(s). Experimental is normally like latest with
-      // extra stuff enabled via additional flags. Otherwise translate the
-      // standard value.
-      //
-      bool experimental (                 v != nullptr && *v == "experimental");
-      bool latest       (experimental || (v != nullptr && *v == "latest"));
+      // NOTE: see also module sidebuild subproject if changing anything about
+      // modules here.
 
       string o;
 
@@ -91,6 +112,10 @@ namespace build2
           // to c++14 but can be set to c++latest. And from 15.3 it can be
           // c++17.
           //
+          bool v16_0 (         mj > 19 || (mj == 19 && mi >= 20));
+          bool v15_3 (v16_0 || (mj == 19 && mi >= 11));
+          bool v14_3 (v15_3 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))));
+
           // The question is also whether we should verify that the requested
           // standard is provided by this VC version. And if so, from which
           // version should we say VC supports 11, 14, and 17? We should
@@ -100,9 +125,21 @@ namespace build2
           //
           // For now we are not going to bother doing this for C++03.
           //
-          if (latest)
+          if (experimental)
           {
-            if (mj > 19 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))))
+            if (v14_3)
+              o = "/std:c++latest";
+          }
+          else if (latest)
+          {
+            // We used to map `latest` to `c++latest` but starting from 16.1,
+            // VC seem to have adopted the "move fast and break things" motto
+            // for this mode. So starting from 16 we only enable it in
+            // `experimental`.
+            //
+            if (v16_0)
+              o = "/std:c++17";
+            else if (v14_3)
               o = "/std:c++latest";
           }
           else if (v == nullptr)
@@ -131,12 +168,12 @@ namespace build2
               fail << "C++" << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs;
 
-            if (mj > 19 || (mj == 19 && mi >= 11)) // 15.3
+            if (v15_3)
             {
               if      (*v == "14") o = "/std:c++14";
               else if (*v == "17") o = "/std:c++17";
             }
-            else if (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))) // 14.3
+            else if (v14_3)
             {
               if      (*v == "14") o = "/std:c++14";
               else if (*v == "17") o = "/std:c++latest";
@@ -150,7 +187,7 @@ namespace build2
         }
       case compiler_class::gcc:
         {
-          if (latest)
+          if (latest || experimental)
           {
             switch (ct)
             {
@@ -247,8 +284,8 @@ namespace build2
           {
             // Starting with 15.5 (19.12) Visual Studio-created projects
             // default to the strict mode. However, this flag currently tends
-            // to trigger too many compiler bugs. So for now we leave it
-            // to the experimenters to enjoy.
+            // to trigger too many compiler bugs. So for now we leave it to
+            // the experimenters to enjoy.
             //
             if (mj > 19 || (mj == 19 && mi >= 12))
               r.push_back ("/permissive-");
@@ -259,12 +296,7 @@ namespace build2
           break;
         }
 
-        // Unless disabled by the user, try to enable C++ modules. Here we use
-        // a tri-state:
-        //
-        // - false        - disabled
-        // - unspecified  - enabled if practically usable
-        // - true         - enabled even if practically unusable
+        // Unless disabled by the user, try to enable C++ modules.
         //
         lookup l;
         if (!(l = rs[v_m]) || cast<bool> (l))
