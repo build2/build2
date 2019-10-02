@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 ./: {*/ -build/ -config/ -old-tests/}                             \
-    doc{INSTALL LICENSE NEWS README}                              \
+    doc{INSTALL LICENSE NEWS README CONTRIBUTING.md}              \
     file{INSTALL.cli bootstrap* config.guess config.sub} manifest
 
 # Don't install tests or the INSTALL file.
