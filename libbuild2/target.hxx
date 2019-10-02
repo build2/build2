@@ -1194,6 +1194,9 @@ namespace build2
       void
       switch_mode ();
 
+      group_view
+      resolve_members (const prerequisite&);
+
     private:
       const prerequisite_members_range* r_;
       base_iterator i_;

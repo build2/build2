@@ -339,6 +339,22 @@ namespace build2
   resolve_members (action, const target&); // <libbuild2/algorithm.hxx>
 
   template <typename T>
+  inline group_view prerequisite_members_range<T>::iterator::
+  resolve_members (const prerequisite& p)
+  {
+    // We want to allow iteration over members during execute provided the
+    // same iteration has been performed during match.
+    //
+    const target* pt (r_->t_.ctx.phase == run_phase::match
+                      ? &search (r_->t_, p)
+                      : search_existing (p));
+
+    assert (pt != nullptr);
+
+    return build2::resolve_members (r_->a_, *pt);
+  }
+
+  template <typename T>
   inline auto prerequisite_members_range<T>::iterator::
   operator++ () -> iterator&
   {
@@ -383,7 +399,7 @@ namespace build2
     {
       // Otherwise assume it is a normal group.
       //
-      g_ = resolve_members (r_->a_, search (r_->t_, *i_));
+      g_ = resolve_members (*i_);
 
       if (g_.members == nullptr) // Members are not know.
       {
