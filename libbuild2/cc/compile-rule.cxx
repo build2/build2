@@ -1594,17 +1594,28 @@ namespace build2
         //
         // The path is conveniently quoted with ''. Or so we thought: turns
         // out different translations (e.g., Chinese) can use different quote
-        // characters. But the overall structure seems to be stable:
+        // characters and some translations (e.g., Russian) don't use quotes
+        // at all. But the overall structure seems to be stable:
         //
-        // ...C1083: <translated>: 'd/h.hpp': <translated>
+        // ...C1083: <translated>: [']d/h.hpp[']: <translated>
         //
-        // Plus, it seems the quote character could to be multi-byte.
+        // Where `'` is some sort of a quote character which could to be
+        // multi-byte (e.g., in Chinese).
         //
         // Plus, in some internal (debug?) builds the second <translated> part
         // may have the "No such file or directory (c:\...\p0prepro.c:1722)"
-        // form.
+        // form (so it may contain `:`).
+#if 0
+        string l;
+        //l = "...: fatal error C1083: ...: 'libhello/version.hxx': ..."; //en
+        //l = "...: fatal error C1083: ...: libhello/version.hxx: ...";   //ru
+        //l = "...: fatal error C1083: ...: '\xb0libhello/version.hxx\xa1': ..."; //zh
+        //l = "...: fatal error C1083: ...: 'libhello/version.hxx': No such file or directory (c:\\...\\p0prepro.c:1722)";
+        p = l.find ("1083") + 1;
+        text << l;
+#endif
 
-        // Find first leading ':' that's followed by a space.
+        // Find first leading ':' that's followed by a space (after "C1083:").
         //
         size_t p1 (p + 4); // 1083
         while ((p1 = l.find (':', p1 + 1)) != string::npos && l[p1 + 1] != ' ')
@@ -1618,19 +1629,28 @@ namespace build2
 
         if (p1 != string::npos &&
             p2 != string::npos &&
-            (p2 - p1) > 4 )        // At least ": 'x':".
+            (p2 - p1) > 3 )        // At least ": x:".
 
         {
-          p1 += 3; // First character of the path.
-          p2 -= 1; // One past last character of the path.
+          p1 += 2; // Skip leading ": ".
 
-          // Skip any non-printable ASCII characters before/after (the mutli-
-          // byte quote case).
+          // Now p1 is the first character of the potentially quoted path
+          // while p2 -- one past the last character.
           //
-          auto printable = [] (char c) { return c >= 0x20 && c <= 0x7e; };
+          // We now skip any characters at the beginning and at the end that
+          // could be quotes: single/double quotes plus, to handle the mutli-
+          // byte case, non-printable ASCII characters (the latter is a bit
+          // iffy: a multi-byte sequence could have one of the bytes
+          // printable; in Chinese the sequences are \x27\xb0 and \xa1\x27
+          // where \x27 is `'`).
+          //
+          auto quote = [] (char c)
+          {
+            return c == '\'' || c == '"' || c < 0x20 || c > 0x7e;
+          };
 
-          for (; p1 != p2 && !printable (l[p1]);     ++p1) ;
-          for (; p2 != p1 && !printable (l[p2 - 1]); --p2) ;
+          for (; p1 != p2 && quote (l[p1]);     ++p1) ;
+          for (; p2 != p1 && quote (l[p2 - 1]); --p2) ;
 
           if (p1 != p2)
           {
