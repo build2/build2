@@ -14,16 +14,18 @@
 # Typical in-tree build:
 #
 # cd build2-X.Y.Z
-# make -f bootstrap.gmake -j 8 CXX=g++-7
+# make -f bootstrap.gmake -j 8 CXX=g++
 #
 # Typical out-of-tree build:
 #
 # mkdir build2-boot
 # cd build2-boot
-# make -f ../build2-X.Y.Z/bootstrap.gmake -j 8 CXX=g++-7
+# make -f ../build2-X.Y.Z/bootstrap.gmake -j 8 CXX=g++
 #
-# If used on Windows, then this makefile assumes you are building in the
-# MinGW environment and sets things up similar to bootstrap-mingw.bat.
+# If used on Windows, then this makefile assumes you are building either in
+# the MinGW environment or with Clang targeting MSVC and sets things up
+# similar to bootstrap-mingw.bat or bootstrap-clang.bat, respectively (so
+# refer to these batch files on the choice of options, etc).
 #
 # The following standard make variables can be used to customize the build:
 #
@@ -39,9 +41,28 @@ chost :=
 
 ifeq ($(OS),Windows_NT)
   exe   := .exe
-  host  := x86_64-w64-mingw32
-  chost := x86_64-w64-mingw32
-  override LIBS += -limagehlp
+
+  # Note that while Clang respects -m32/-m64 in its -dumpmachine output, GCC
+  # always dumps its default target.
+  #
+  target := $(shell $(CXX) $(CXXFLAGS) -dumpmachine)
+
+  ifneq ($(filter %-w64-mingw32,$(target)),)
+    host  := x86_64-w64-mingw32
+    chost := $(host)
+    override LIBS += -limagehlp
+  else ifneq ($(filter %-windows-msvc,$(target)),)
+    host  := x86_64-microsoft-win32-msvc
+    chost := $(host)
+    override CPPFLAGS += -D_MT -D_CRT_SECURE_NO_WARNINGS
+    ifeq ($(filter x86_64-%,$(target)),)
+      override CXXFLAGS += -m64
+    endif
+    override LDFLAGS += -Xlinker /ignore:4217
+    override LIBS += -lshell32 -limagehlp
+  else
+    $(error unsupported target $(target))
+  endif
 else
   override LIBS += -lpthread
 endif
