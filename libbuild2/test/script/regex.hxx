@@ -197,7 +197,8 @@ namespace build2
           syntax (char);
 
           // Provide basic_regex (such as from msvcrt) with the ability to
-          // explicitly cast line_chars to implementation-specific enums.
+          // explicitly cast line_chars to implementation-specific numeric
+          // types (enums, msvcrt's _Uelem, etc).
           //
           template <typename T>
           explicit
@@ -531,10 +532,12 @@ namespace std
     static const ctype_base::mask _Ch_upper = ctype_base::upper;
     static const ctype_base::mask _Ch_alpha = ctype_base::alpha;
 
-    // Unsigned char_type. msvcrt statically asserts the _Uelem type is
-    // unsigned, so we specialize is_unsigned<line_char> as well (see below).
+    // Unsigned numeric type. msvcrt normally casts characters to this type
+    // for comparing with some numeric values or for calculating an index in
+    // some bit array. Luckily that all relates to the character class
+    // handling that we don't support.
     //
-    using _Uelem = char_type;
+    using _Uelem = unsigned int;
 #endif
 
     regex_traits () = default; // Unnecessary but let's keep for completeness.
@@ -607,7 +610,7 @@ namespace std
   };
 
   // We assume line_char to be an unsigned type and express that with the
-  // following specializations used by basic_regex implementations.
+  // following specialization used by basic_regex implementations.
   //
   // libstdc++ defines unsigned CharT type (regex_traits template parameter)
   // to use as an index in some internal cache regardless if the cache is used
@@ -618,27 +621,6 @@ namespace std
   {
     using type = build2::test::script::regex::line_char;
   };
-
-  // msvcrt assumes regex_traits<line_char>::_Uelem to be present (see above)
-  // and statically asserts it is unsigned.
-  //
-  // And starting from VC 16.1, is_unsigned_v is not implemented in terms of
-  // is_unsigned so we have to get deeper into the implementation details.
-  //
-#if defined(_MSC_VER) && _MSC_VER >= 1921
-  template <>
-  struct _Sign_base<build2::test::script::regex::line_char, false>
-  {
-    static constexpr bool _Signed   = false;
-    static constexpr bool _Unsigned = true;
-  };
-#else
-  template <>
-  struct is_unsigned<build2::test::script::regex::line_char>
-  {
-    static const bool value = true;
-  };
-#endif
 
   // When used with libc++ the linker complains that it can't find
   // __match_any_but_newline<line_char>::__exec() function. The problem is
