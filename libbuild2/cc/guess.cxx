@@ -671,6 +671,289 @@ namespace build2
       return r;
     }
 
+    static compiler_version
+    msvc_compiler_version (string v)
+    {
+      compiler_version r;
+
+      // Split the version into components.
+      //
+      size_t b (0), e (b);
+      auto next = [&v, &b, &e] (const char* m) -> uint64_t
+      {
+        try
+        {
+          if (next_word (v, b, e, '.'))
+            return stoull (string (v, b, e - b));
+        }
+        catch (const invalid_argument&) {}
+        catch (const out_of_range&) {}
+
+        fail << "unable to extract MSVC " << m << " version from '"
+             << v << "'" << endf;
+      };
+
+      r.major = next ("major");
+      r.minor = next ("minor");
+      r.patch = next ("patch");
+
+      if (next_word (v, b, e, '.'))
+        r.build.assign (v, b, e - b);
+
+      r.string = move (v);
+
+      return r;
+    }
+
+    static string
+    msvc_runtime_version (const compiler_version& v)
+    {
+      // Mapping of compiler versions to runtime versions:
+      //
+      // Note that VC 15 has runtime version 14.1 but the DLLs are still
+      // called *140.dll (they are said to be backwards-compatible).
+      //
+      // And VC 16 seems to have the runtime version 14.1 (and not 14.2, as
+      // one might expect; DLLs are still *140.dll but there are now _1 and _2
+      // variants for, say, msvcp140.dll). We will, however, call it 14.2
+      // (which is the version of the "toolset") in our target triplet.
+      //
+      // year   ver   cl     crt/dll   toolset
+      //
+      // 2019   16.X  19.2X  14.2/140  14.2X
+      // 2017   15.9  19.16  14.1/140  14.16
+      // 2017   15.8  19.15  14.1/140
+      // 2017   15.7  19.14  14.1/140
+      // 2017   15.6  19.13  14.1/140
+      // 2017   15.5  19.12  14.1/140
+      // 2017   15.3  19.11  14.1/140
+      // 2017   15    19.10  14.1/140
+      // 2015   14    19.00  14.0/140
+      // 2013   12    18.00  12.0/120
+      // 2012   11    17.00  11.0/110
+      // 2010   10    16.00  10.0/100
+      // 2008    9    15.00   9.0/90
+      // 2005    8    14.00   8.0/80
+      // 2003  7.1    13.10   7.1/71
+      //
+      // _MSC_VER is the numeric cl version, e.g., 1921 for 19.21.
+      //
+      /**/ if (v.major == 19 && v.minor >= 20) return "14.2";
+      else if (v.major == 19 && v.minor >= 10) return "14.1";
+      else if (v.major == 19 && v.minor ==  0) return "14.0";
+      else if (v.major == 18 && v.minor ==  0) return "12.0";
+      else if (v.major == 17 && v.minor ==  0) return "11.0";
+      else if (v.major == 16 && v.minor ==  0) return "10.0";
+      else if (v.major == 15 && v.minor ==  0) return "9.0";
+      else if (v.major == 14 && v.minor ==  0) return "8.0";
+      else if (v.major == 13 && v.minor == 10) return "7.1";
+
+      fail << "unable to map MSVC compiler version '" << v.string
+           << "' to runtime version" << endf;
+    }
+
+
+    static compiler_info
+    guess_msvc (const char* xm,
+                lang xl,
+                const path& xc,
+                const string* xv,
+                const string* xt,
+                const strings*, const strings*,
+                const strings*, const strings*,
+                const strings*, const strings*,
+                guess_result&& gr)
+    {
+      // Extract the version. The signature line has the following format
+      // though language words can be translated and even rearranged (see
+      // examples above).
+      //
+      // "Microsoft (R) C/C++ Optimizing Compiler Version A.B.C[.D] for CPU"
+      //
+      // The CPU keywords (based on the above samples) appear to be:
+      //
+      // "80x86"
+      // "x86"
+      // "x64"
+      // "ARM"
+      //
+      compiler_version v;
+      {
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        // Treat the custom version as just a tail of the signature.
+        //
+        const string& s (xv == nullptr ? gr.signature : *xv);
+
+        // Some overrides for testing.
+        //
+        //string s;
+        //s = "Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.30729.01 for 80x86";
+        //s = "Compilador de optimizacion de C/C++ de Microsoft (R) version 16.00.30319.01 para x64";
+        //s = "Compilateur d'optimisation Microsoft (R) C/C++ version 19.16.27026.1 pour x64";
+
+        // Scan the string as words and look for the version.
+        //
+        size_t b (0), e (0);
+        while (next_word (s, b, e, ' ', ','))
+        {
+          // The third argument to find_first_not_of() is the length of the
+          // first argument, not the length of the interval to check. So to
+          // limit it to [b, e) we are also going to compare the result to the
+          // end of the word position (first space). In fact, we can just
+          // check if it is >= e.
+          //
+          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
+            break;
+        }
+
+        if (b == e)
+          fail << "unable to extract MSVC version from '" << s << "'";
+
+        v = msvc_compiler_version (string (s, b, e - b));
+      }
+
+
+      // Figure out the target architecture.
+      //
+      string t, ot;
+
+      if (xt == nullptr)
+      {
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".target to override";
+          });
+
+        const string& s (gr.signature);
+
+        // Scan the string as words and look for the CPU.
+        //
+        string arch;
+
+        for (size_t b (0), e (0), n;
+             (n = next_word (s, b, e, ' ', ',')) != 0; )
+        {
+          if (s.compare (b, n, "x64", 3) == 0 ||
+              s.compare (b, n, "x86", 3) == 0 ||
+              s.compare (b, n, "ARM", 3) == 0 ||
+              s.compare (b, n, "80x86", 5) == 0)
+          {
+            arch.assign (s, b, n);
+            break;
+          }
+        }
+
+        if (arch.empty ())
+          fail << "unable to extract MSVC target architecture from "
+               << "'" << s << "'";
+
+        // Now we need to map x86, x64, and ARM to the target triplets. The
+        // problem is, there aren't any established ones so we got to invent
+        // them ourselves. Based on the discussion in
+        // <libbutl/target-triplet.mxx>, we need something in the
+        // CPU-VENDOR-OS-ABI form.
+        //
+        // The CPU part is fairly straightforward with x86 mapped to 'i386'
+        // (or maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also
+        // include the version, e.g., 'amrv8').
+        //
+        // The (toolchain) VENDOR is also straightforward: 'microsoft'. Why
+        // not omit it? Two reasons: firstly, there are other compilers with
+        // the otherwise same target, for example Intel C/C++, and it could be
+        // useful to distinguish between them. Secondly, by having all four
+        // components we remove any parsing ambiguity.
+        //
+        // OS-ABI is where things are not as clear cut. The OS part shouldn't
+        // probably be just 'windows' since we have Win32 and WinCE. And
+        // WinRT.  And Universal Windows Platform (UWP). So perhaps the
+        // following values for OS: 'win32', 'wince', 'winrt', 'winup'.
+        //
+        // For 'win32' the ABI part could signal the Microsoft C/C++ runtime
+        // by calling it 'msvc'. And seeing that the runtimes are incompatible
+        // from version to version, we should probably add the 'X.Y' version
+        // at the end (so we essentially mimic the DLL name, for example,
+        // msvcr120.dll). Some suggested we also encode the runtime type
+        // (those pesky /M* options) though I am not sure: the only
+        // "redistributable" runtime is multi-threaded release DLL.
+        //
+        // The ABI part for the other OS values needs thinking. For 'winrt'
+        // and 'winup' it probably makes sense to encode the WINAPI_FAMILY
+        // macro value (perhaps also with the version). Some of its values:
+        //
+        // WINAPI_FAMILY_APP        Windows 10
+        // WINAPI_FAMILY_PC_APP     Windows 8.1
+        // WINAPI_FAMILY_PHONE_APP  Windows Phone 8.1
+        //
+        // For 'wince' we may also want to add the OS version, for example,
+        // 'wince4.2'.
+        //
+        // Putting it all together, Visual Studio 2015 will then have the
+        // following target triplets:
+        //
+        // x86  i386-microsoft-win32-msvc14.0
+        // x64  x86_64-microsoft-win32-msvc14.0
+        // ARM  arm-microsoft-winup-???
+        //
+        if (arch == "ARM")
+          fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
+        else
+        {
+          if (arch == "x64")
+            t = "x86_64-microsoft-win32-msvc";
+          else if (arch == "x86" || arch == "80x86")
+            t = "i386-microsoft-win32-msvc";
+          else
+            assert (false);
+
+          t += msvc_runtime_version (v);
+        }
+
+        ot = t;
+      }
+      else
+        ot = t = *xt;
+
+      // Derive the toolchain pattern.
+      //
+      // If the compiler name is/starts with 'cl' (e.g., cl.exe, cl-14),
+      // then replace it with '*' and use it as a pattern for lib, link,
+      // etc.
+      //
+      string cpat (pattern (xc, "cl", nullptr, ".-"));
+      string bpat (cpat); // Binutils pattern is the same as toolchain.
+
+      // Runtime and standard library.
+      //
+      string rt ("msvc");
+      string csl ("msvc");
+      string xsl;
+      switch (xl)
+      {
+      case lang::c:   xsl = csl;     break;
+      case lang::cxx: xsl = "msvcp"; break;
+      }
+
+      return compiler_info {
+        move (gr.path),
+        move (gr.id),
+        compiler_class::msvc,
+        move (v),
+        move (gr.signature),
+        "",
+        move (t),
+        move (ot),
+        move (cpat),
+        move (bpat),
+        move (rt),
+        move (csl),
+        move (xsl)};
+    }
 
     static compiler_info
     guess_gcc (const char* xm,
@@ -722,7 +1005,7 @@ namespace build2
         }
 
         if (b == e)
-          fail << "unable to extract gcc version from '" << s << "'";
+          fail << "unable to extract GCC version from '" << s << "'";
 
         v.string.assign (s, b, string::npos);
 
@@ -739,7 +1022,7 @@ namespace build2
           catch (const invalid_argument&) {}
           catch (const out_of_range&) {}
 
-          fail << "unable to extract gcc " << m << " version from '"
+          fail << "unable to extract GCC " << m << " version from '"
                << string (s, b, e - b) << "'" << endf;
         };
 
@@ -863,6 +1146,199 @@ namespace build2
         move (xsl)};
     }
 
+    struct clang_msvc_info
+    {
+      string   triple;
+      string   msvc_ver;
+      dir_path msvc_dir;
+      string   psdk_ver;
+      dir_path psdk_dir;
+    };
+
+    static clang_msvc_info
+    guess_clang_msvc (lang xl,
+                      const process_path& xp,
+                      const strings* c_co, const strings* x_co)
+    {
+      tracer trace ("cc::guess_clang_msvc");
+
+      cstrings args {xp.recall_string ()};
+      if (c_co != nullptr) append_options (args, *c_co);
+      if (x_co != nullptr) append_options (args, *x_co);
+      args.push_back ("-x");
+      switch (xl)
+      {
+      case lang::c:   args.push_back ("c");   break;
+      case lang::cxx: args.push_back ("c++"); break;
+      }
+      args.push_back ("-E");
+      args.push_back ("-");  // Read stdin.
+      args.push_back (nullptr);
+
+      // The diagnostics we are interested in goes to stderr but we also get a
+      // few lines of the preprocessed boilerplate at the end.
+      //
+      process pr (run_start (3     /* verbosity */,
+                             xp,
+                             args.data (),
+                             -2    /* stdin  (/dev/null) */,
+                             -1    /* stdout             */,
+                             false /* error  (2>&1)      */));
+
+      clang_msvc_info r;
+
+      string l;
+      try
+      {
+        // The overall structure of the output is as follows (with some
+        // fragments that we are not interested in replaced with `...`):
+        //
+        // clang version 9.0.0 (tags/RELEASE_900/final)
+        // ...
+        // ...
+        // InstalledDir: C:\Program Files\LLVM\bin
+        //  "C:\\Program Files\\LLVM\\bin\\clang++.exe" -cc1 -triple x86_64-pc-windows-msvc19.23.28105 ..."
+        // clang -cc1 version 9.0.0 based upon LLVM 9.0.0 default target x86_64-pc-windows-msvc
+        // #include "..." search starts here:
+        // #include <...> search starts here:
+        //  C:\Program Files\LLVM\lib\clang\9.0.0\include
+        //  C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Tools\MSVC\14.23.28105\include
+        //  C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt
+        //  ...
+        // End of search list.
+        // ...
+        // ...
+        //
+        // Notice also that the version in the target triple and in the
+        // ...VC\Tools\MSVC\ subdirectory are not exactly the same (and "how
+        // the same" the are guaranteed to be is anyone's guess).
+        //
+        ifdstream is (move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
+
+        for (bool in_include (false); !eof (getline (is, l)); )
+        {
+          l6 ([&]{trace << "examining line '" << l << "'";});
+
+          if (r.triple.empty ())
+          {
+            size_t b, e;
+            if ((b = l.find ("-triple "))  != string::npos &&
+                (e = l.find (' ', b += 8)) != string::npos)
+            {
+              r.triple.assign (l, b, e - b);
+
+              if ((b = r.triple.find ("-msvc")) == string::npos)
+                fail << "no MSVC version in Clang target " << r.triple;
+
+              r.msvc_ver.assign (r.triple, b += 5, string::npos);
+
+              l5 ([&]{trace << "MSVC target " << r.triple
+                            << ", version " << r.msvc_ver;});
+            }
+
+            continue;
+          }
+
+          // Note: similar logic to gcc_header_search_paths().
+          //
+          if (!in_include)
+            in_include = l.find ("#include <...>") != string::npos;
+          else
+          {
+            if (l[0] != ' ') // End of header search paths.
+              break;
+
+            try
+            {
+              dir_path d (move (trim (l)));
+
+              l6 ([&]{trace << "examining directory " << d;});
+
+              auto b (d.begin ()), e (d.end ());
+
+              if (r.msvc_dir.empty ())
+              {
+                // Look for the "Tools\MSVC\<ver>\include" component sequence.
+                //
+                auto i (find_if (b, e,
+                                 [] (const string& n)
+                                 {
+                                   return icasecmp (n, "Tools") == 0;
+                                 }));
+
+                if (i != e                                   &&
+                    (++i != e && icasecmp (*i, "MSVC") == 0) &&
+                    (++i != e                              ) &&
+                    (++i != e && icasecmp (*i, "include") == 0))
+                {
+                  r.msvc_dir = dir_path (b, i);
+
+                  l5 ([&]{trace << "MSVC directory " << r.msvc_dir;});
+                }
+              }
+
+              if (r.psdk_dir.empty ())
+              {
+                // Look for the "Windows Kits\<ver>\Include" component
+                // sequence.
+                //
+                // Note that the path structure differs between 10 and pre-10
+                // versions:
+                //
+                // ...\Windows Kits\10\Include\10.0.18362.0\...
+                // ...\Windows Kits\8.1\Include\...
+                //
+                auto i (find_if (b, e,
+                                 [] (const string& n)
+                                 {
+                                   return icasecmp (n, "Windows Kits") == 0;
+                                 })), j (i);
+
+                if (i != e                                   &&
+                    (++i != e                              ) &&
+                    (++i != e && icasecmp (*i, "Include") == 0))
+                {
+                  r.psdk_dir = dir_path (b, i);
+
+                  if (*++j == "10" && ++i != e)
+                    r.psdk_ver = *i;
+
+                  l5 ([&]{trace << "Platform SDK directory " << r.psdk_dir
+                                << ", version '" << r.psdk_ver << "'";});
+                }
+              }
+            }
+            catch (const invalid_path&)
+            {
+              // Skip this path.
+            }
+
+            if (!r.msvc_dir.empty () && !r.psdk_dir.empty ())
+              break;
+          }
+        }
+
+        is.close ();
+      }
+      catch (const io_error&)
+      {
+        // Presumably the child process failed. Let run_finish() deal with
+        // that.
+      }
+
+      if (!run_finish (args.data (), pr, false /* error */, l))
+        fail << "unable to extract MSVC information from " << xp;
+
+      if (const char* w = (r.triple.empty ()   ? "MSVC target" :
+                           r.msvc_ver.empty () ? "MSVC version" :
+                           r.msvc_dir.empty () ? "MSVC directory" :
+                           r.psdk_dir.empty () ? "Platform SDK directory":
+                           nullptr))
+        fail << "unable to extract " << w << " from " << xp;
+
+      return r;
+    }
+
     static compiler_info
     guess_clang (const char* xm,
                  lang xl,
@@ -922,7 +1398,7 @@ namespace build2
         }
 
         if (b == e)
-          fail << "unable to extract clang version from '" << s << "'";
+          fail << "unable to extract Clang version from '" << s << "'";
 
         v.string.assign (s, b, string::npos);
 
@@ -942,7 +1418,7 @@ namespace build2
           catch (const invalid_argument&) {}
           catch (const out_of_range&) {}
 
-          fail << "unable to extract clang " << m << " version from '"
+          fail << "unable to extract Clang " << m << " version from '"
                << string (s, b, e - b) << "'" << endf;
         };
 
@@ -995,16 +1471,22 @@ namespace build2
       //
       if (tt.system == "windows-msvc")
       {
-        // Keep the CPU and replace the rest.
-        //
-        // @@ Note that currently there is no straightforward way to determine
+        // Note that currently there is no straightforward way to determine
         // the VC version Clang is using. See:
         //
         // http://lists.llvm.org/pipermail/cfe-dev/2017-December/056240.html
         //
+        // So we have to sniff this information out (and a couple of other
+        // useful bits like the VC installation directory and Platform SDK).
+        //
+        clang_msvc_info mi (guess_clang_msvc (xl, xp, c_co, x_co));
+
+        // Keep the CPU and replace the rest.
+        //
         tt.vendor = "microsoft";
         tt.system = "win32-msvc";
-        tt.version = "14.1";
+        tt.version = msvc_runtime_version (
+          msvc_compiler_version (move (mi.msvc_ver)));
         t = tt.string ();
       }
 
@@ -1207,7 +1689,7 @@ namespace build2
         }
 
         if (b == e)
-          fail << "unable to extract icc version from '" << s << "'";
+          fail << "unable to extract ICC version from '" << s << "'";
 
         v.string.assign (s, b, string::npos);
 
@@ -1227,7 +1709,7 @@ namespace build2
           catch (const invalid_argument&) {}
           catch (const out_of_range&) {}
 
-          fail << "unable to extract icc " << m << " version from '"
+          fail << "unable to extract ICC " << m << " version from '"
                << string (s, b, e - b) << "'" << endf;
         };
 
@@ -1312,7 +1794,7 @@ namespace build2
         }
 
         if (arch.empty ())
-          fail << "unable to extract icc target architecture from '"
+          fail << "unable to extract ICC target architecture from '"
                << t << "'";
 
         // So we have the CPU but we still need the rest of the triplet. While
@@ -1336,7 +1818,7 @@ namespace build2
         size_t p (t.find ('-'));
 
         if (p == string::npos)
-          fail << "unable to parse icc target architecture '" << t << "'";
+          fail << "unable to parse ICC target architecture '" << t << "'";
 
         t.swap (arch);
         t.append (arch, p, string::npos);
@@ -1387,274 +1869,6 @@ namespace build2
         move (ot),
         move (pat),
         "",
-        move (rt),
-        move (csl),
-        move (xsl)};
-    }
-
-    static compiler_info
-    guess_msvc (const char* xm,
-                lang xl,
-                const path& xc,
-                const string* xv,
-                const string* xt,
-                const strings*, const strings*,
-                const strings*, const strings*,
-                const strings*, const strings*,
-                guess_result&& gr)
-    {
-      // Extract the version. The signature line has the following format
-      // though language words can be translated and even rearranged (see
-      // examples above).
-      //
-      // "Microsoft (R) C/C++ Optimizing Compiler Version A.B.C[.D] for CPU"
-      //
-      // The CPU keywords (based on the above samples) appear to be:
-      //
-      // "80x86"
-      // "x86"
-      // "x64"
-      // "ARM"
-      //
-      compiler_version v;
-      {
-        auto df = make_diag_frame (
-          [&xm](const diag_record& dr)
-          {
-            dr << info << "use config." << xm << ".version to override";
-          });
-
-        // Treat the custom version as just a tail of the signature.
-        //
-        const string& s (xv == nullptr ? gr.signature : *xv);
-
-        // Some overrides for testing.
-        //
-        //string s;
-        //s = "Microsoft (R) 32-bit C/C++ Optimizing Compiler Version 15.00.30729.01 for 80x86";
-        //s = "Compilador de optimizacion de C/C++ de Microsoft (R) version 16.00.30319.01 para x64";
-        //s = "Compilateur d'optimisation Microsoft (R) C/C++ version 19.16.27026.1 pour x64";
-
-        // Scan the string as words and look for the version.
-        //
-        size_t b (0), e (0);
-        while (next_word (s, b, e, ' ', ','))
-        {
-          // The third argument to find_first_not_of() is the length of the
-          // first argument, not the length of the interval to check. So to
-          // limit it to [b, e) we are also going to compare the result to the
-          // end of the word position (first space). In fact, we can just
-          // check if it is >= e.
-          //
-          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
-            break;
-        }
-
-        if (b == e)
-          fail << "unable to extract msvc version from '" << s << "'";
-
-        v.string.assign (s, b, e - b);
-
-        // Split the version into components.
-        //
-        size_t vb (b), ve (b);
-        auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
-        {
-          try
-          {
-            if (next_word (s, e, vb, ve, '.'))
-              return stoull (string (s, vb, ve - vb));
-          }
-          catch (const invalid_argument&) {}
-          catch (const out_of_range&) {}
-
-          fail << "unable to extract msvc " << m << " version from '"
-               << string (s, b, e - b) << "'" << endf;
-        };
-
-        v.major = next ("major");
-        v.minor = next ("minor");
-        v.patch = next ("patch");
-
-        if (next_word (s, e, vb, ve, '.'))
-          v.build.assign (s, vb, ve - vb);
-      }
-
-
-      // Figure out the target architecture.
-      //
-      string t, ot;
-
-      if (xt == nullptr)
-      {
-        auto df = make_diag_frame (
-          [&xm](const diag_record& dr)
-          {
-            dr << info << "use config." << xm << ".target to override";
-          });
-
-        const string& s (gr.signature);
-
-        // Scan the string as words and look for the CPU.
-        //
-        string arch;
-
-        for (size_t b (0), e (0), n;
-             (n = next_word (s, b, e, ' ', ',')) != 0; )
-        {
-          if (s.compare (b, n, "x64", 3) == 0 ||
-              s.compare (b, n, "x86", 3) == 0 ||
-              s.compare (b, n, "ARM", 3) == 0 ||
-              s.compare (b, n, "80x86", 5) == 0)
-          {
-            arch.assign (s, b, n);
-            break;
-          }
-        }
-
-        if (arch.empty ())
-          fail << "unable to extract msvc target architecture from "
-               << "'" << s << "'";
-
-        // Now we need to map x86, x64, and ARM to the target triplets. The
-        // problem is, there aren't any established ones so we got to invent
-        // them ourselves. Based on the discussion in
-        // <libbutl/target-triplet.mxx>, we need something in the
-        // CPU-VENDOR-OS-ABI form.
-        //
-        // The CPU part is fairly straightforward with x86 mapped to 'i386'
-        // (or maybe 'i686'), x64 to 'x86_64', and ARM to 'arm' (it could also
-        // include the version, e.g., 'amrv8').
-        //
-        // The (toolchain) VENDOR is also straightforward: 'microsoft'. Why
-        // not omit it? Two reasons: firstly, there are other compilers with
-        // the otherwise same target, for example Intel C/C++, and it could be
-        // useful to distinguish between them. Secondly, by having all four
-        // components we remove any parsing ambiguity.
-        //
-        // OS-ABI is where things are not as clear cut. The OS part shouldn't
-        // probably be just 'windows' since we have Win32 and WinCE. And
-        // WinRT.  And Universal Windows Platform (UWP). So perhaps the
-        // following values for OS: 'win32', 'wince', 'winrt', 'winup'.
-        //
-        // For 'win32' the ABI part could signal the Microsoft C/C++ runtime
-        // by calling it 'msvc'. And seeing that the runtimes are incompatible
-        // from version to version, we should probably add the 'X.Y' version
-        // at the end (so we essentially mimic the DLL name, for example,
-        // msvcr120.dll). Some suggested we also encode the runtime type
-        // (those pesky /M* options) though I am not sure: the only
-        // "redistributable" runtime is multi-threaded release DLL.
-        //
-        // The ABI part for the other OS values needs thinking. For 'winrt'
-        // and 'winup' it probably makes sense to encode the WINAPI_FAMILY
-        // macro value (perhaps also with the version). Some of its values:
-        //
-        // WINAPI_FAMILY_APP        Windows 10
-        // WINAPI_FAMILY_PC_APP     Windows 8.1
-        // WINAPI_FAMILY_PHONE_APP  Windows Phone 8.1
-        //
-        // For 'wince' we may also want to add the OS version, for example,
-        // 'wince4.2'.
-        //
-        // Putting it all together, Visual Studio 2015 will then have the
-        // following target triplets:
-        //
-        // x86  i386-microsoft-win32-msvc14.0
-        // x64  x86_64-microsoft-win32-msvc14.0
-        // ARM  arm-microsoft-winup-???
-        //
-        if (arch == "ARM")
-          fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
-        else
-        {
-          if (arch == "x64")
-            t = "x86_64-microsoft-win32-msvc";
-          else if (arch == "x86" || arch == "80x86")
-            t = "i386-microsoft-win32-msvc";
-          else
-            assert (false);
-
-          // Mapping of compiler versions to runtime versions:
-          //
-          // Note that VC 15 has runtime version 14.1 but the DLLs are still
-          // called *140.dll (they are said to be backwards-compatible).
-          //
-          // And VC 16 seems to have the runtime version 14.1 (and not 14.2,
-          // as one might expect; DLLs are still *140.dll but there are now _1
-          // and _2 variants for, say, msvcp140.dll). We will, however, call
-          // it 14.2 (which is the version of the "toolset") in our target
-          // triplet.
-          //
-          // year   ver   cl     crt/dll   toolset
-          //
-          // 2019   16.1  19.21  14.2/140  14.21
-          // 2019   16.0  19.20  14.2/140
-          // 2017   15.9  19.16  14.1/140
-          // 2017   15.8  19.15  14.1/140
-          // 2017   15.7  19.14  14.1/140
-          // 2017   15.6  19.13  14.1/140
-          // 2017   15.5  19.12  14.1/140
-          // 2017   15.3  19.11  14.1/140
-          // 2017   15    19.10  14.1/140
-          // 2015   14    19.00  14.0/140
-          // 2013   12    18.00  12.0/120
-          // 2012   11    17.00  11.0/110
-          // 2010   10    16.00  10.0/100
-          // 2008    9    15.00   9.0/90
-          // 2005    8    14.00   8.0/80
-          // 2003  7.1    13.10   7.1/71
-          //
-          // _MSC_VER is the numeric cl version, e.g., 1921 for 19.21.
-          //
-          /**/ if (v.major == 19 && v.minor >= 20) t += "14.2";
-          else if (v.major == 19 && v.minor >= 10) t += "14.1";
-          else if (v.major == 19 && v.minor ==  0) t += "14.0";
-          else if (v.major == 18 && v.minor ==  0) t += "12.0";
-          else if (v.major == 17 && v.minor ==  0) t += "11.0";
-          else if (v.major == 16 && v.minor ==  0) t += "10.0";
-          else if (v.major == 15 && v.minor ==  0) t += "9.0";
-          else if (v.major == 14 && v.minor ==  0) t += "8.0";
-          else if (v.major == 13 && v.minor == 10) t += "7.1";
-          else fail << "unable to map msvc compiler version '" << v.string
-                    << "' to runtime version";
-        }
-
-        ot = t;
-      }
-      else
-        ot = t = *xt;
-
-      // Derive the toolchain pattern.
-      //
-      // If the compiler name is/starts with 'cl' (e.g., cl.exe, cl-14),
-      // then replace it with '*' and use it as a pattern for lib, link,
-      // etc.
-      //
-      string cpat (pattern (xc, "cl", nullptr, ".-"));
-      string bpat (cpat); // Binutils pattern is the same as toolchain.
-
-      // Runtime and standard library.
-      //
-      string rt ("msvc");
-      string csl ("msvc");
-      string xsl;
-      switch (xl)
-      {
-      case lang::c:   xsl = csl;     break;
-      case lang::cxx: xsl = "msvcp"; break;
-      }
-
-      return compiler_info {
-        move (gr.path),
-        move (gr.id),
-        compiler_class::msvc,
-        move (v),
-        move (gr.signature),
-        "",
-        move (t),
-        move (ot),
-        move (cpat),
-        move (bpat),
         move (rt),
         move (csl),
         move (xsl)};

@@ -320,6 +320,7 @@ namespace build2
       {
       case compiler_class::gcc:
         {
+          //@@ CLANG-MSVC: libraries don't contain MSVC stuff.
           lib_dirs = gcc_library_search_paths (ci.path, rs);
           inc_dirs = gcc_header_search_paths (ci.path, rs);
           break;

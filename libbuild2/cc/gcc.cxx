@@ -112,7 +112,10 @@ namespace build2
                     find (r.begin (), r.end (), d.normalize ()) == r.end ())
                   r.emplace_back (move (d));
               }
-              catch (const invalid_path&) {}
+              catch (const invalid_path&)
+              {
+                // Skip this path.
+              }
             }
           }
 
