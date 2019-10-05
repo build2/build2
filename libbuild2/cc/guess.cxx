@@ -1164,6 +1164,7 @@ namespace build2
       cstrings args {xp.recall_string ()};
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
+      args.push_back ("-v");
       args.push_back ("-x");
       switch (xl)
       {
@@ -1475,8 +1476,9 @@ namespace build2
         //
         // http://lists.llvm.org/pipermail/cfe-dev/2017-December/056240.html
         //
-        // So we have to sniff this information out (and a couple of other
-        // useful bits like the VC installation directory and Platform SDK).
+        // So we have to sniff this information out from Clang's -v output
+        // (plus a couple of other useful bits like the VC installation
+        // directory and Platform SDK).
         //
         clang_msvc_info mi (guess_clang_msvc (xl, xp, c_co, x_co));
 
