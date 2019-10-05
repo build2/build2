@@ -2471,13 +2471,15 @@ namespace build2
 
           if (ctype == compiler_type::clang)
           {
-            // According to Clang's MSVC.cpp, we shall link libcmt.lib (static
-            // multi-threaded runtime) unless -nostdlib or -nostartfiles is
-            // specified.
+            // See the runtime selection code in the compile rule for details
+            // on what's going on here.
             //
             if (!find_options ({"-nostdlib", "-nostartfiles"}, t, c_coptions) &&
                 !find_options ({"-nostdlib", "-nostartfiles"}, t, x_coptions))
-              args.push_back ("/DEFAULTLIB:libcmt.lib");
+            {
+              args.push_back ("/DEFAULTLIB:msvcrt");
+              args.push_back ("/DEFAULTLIB:oldnames");
+            }
           }
 
           // If you look at the list of libraries Visual Studio links by
@@ -2496,8 +2498,8 @@ namespace build2
           // does). This way the user can override our actions with the
           // /NODEFAULTLIB option.
           //
-          args.push_back ("/DEFAULTLIB:shell32.lib");
-          args.push_back ("/DEFAULTLIB:user32.lib");
+          args.push_back ("/DEFAULTLIB:shell32");
+          args.push_back ("/DEFAULTLIB:user32");
 
           // Take care of the manifest (will be empty for the DLL).
           //

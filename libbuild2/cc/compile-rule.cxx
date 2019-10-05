@@ -3038,12 +3038,21 @@ namespace build2
             }
           case compiler_class::gcc:
             {
+              // See perform_update() for details on the choice of options.
+              //
               if (ot == otype::s)
               {
-                // On Darwin, Win32 -fPIC is the default.
-                //
                 if (tclass == "linux" || tclass == "bsd")
                   args.push_back ("-fPIC");
+              }
+
+              if (ctype == compiler_type::clang && tsys == "win32-msvc")
+              {
+                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
+                {
+                  args.push_back ("-D_MT");
+                  args.push_back ("-D_DLL");
+                }
               }
 
               // Setup the dynamic module mapper if needed.
@@ -4138,6 +4147,15 @@ namespace build2
               {
                 if (tclass == "linux" || tclass == "bsd")
                   args.push_back ("-fPIC");
+              }
+
+              if (ctype == compiler_type::clang && tsys == "win32-msvc")
+              {
+                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
+                {
+                  args.push_back ("-D_MT");
+                  args.push_back ("-D_DLL");
+                }
               }
 
               args.push_back ("-E");
@@ -5803,6 +5821,61 @@ namespace build2
           //
           if (tclass == "linux" || tclass == "bsd")
             args.push_back ("-fPIC");
+        }
+
+        if (tsys == "win32-msvc")
+        {
+          switch (ctype)
+          {
+          case compiler_type::clang:
+            {
+              // Default to the multi-threaded DLL runtime (/MD), similar to
+              // the MSVC case above.
+              //
+              // Clang's MSVC.cpp will not link the default runtime if either
+              // -nostdlib or -nostartfiles is specified. Let's do the same.
+              //
+              if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
+              {
+                args.push_back ("-D_MT");
+                args.push_back ("-D_DLL");
+
+                // All these -Xclang --dependent-lib=... add quite a bit of
+                // noise to the command line. The alternative is to use the
+                // /DEFAULTLIB option during linking. The drawback of that
+                // approach is that now we can theoretically build the object
+                // file for one runtime but try to link it with something
+                // else.
+                //
+                // For example, an installed static library was built for a
+                // non-debug runtime while a project that links it uses
+                // debug. With the --dependent-lib approach we will try to
+                // link multiple runtimes while with /DEFAULTLIB we may end up
+                // with unresolved symbols (but things might also work out
+                // fine, unless the runtimes have incompatible ABIs).
+                //
+                // Let's start with /DEFAULTLIB and see how it goes (see the
+                // link rule).
+                //
+#if 0
+                args.push_back ("-Xclang");
+                args.push_back ("--dependent-lib=msvcrt");
+
+                // This provides POSIX compatibility (map open() to _open(),
+                // etc).
+                //
+                args.push_back ("-Xclang");
+                args.push_back ("--dependent-lib=oldnames");
+#endif
+              }
+
+              break;
+            }
+          case compiler_type::gcc:
+          case compiler_type::msvc:
+          case compiler_type::icc:
+            assert (false);
+          }
         }
 
         append_headers (env, args, header_args, a, t, md, md.dd);
