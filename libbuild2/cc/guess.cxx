@@ -344,7 +344,8 @@ namespace build2
            lang,
            const path& xc,
            const optional<compiler_id>& xi,
-           compiler_type& pre)
+           compiler_type& pre,
+           sha256& cs)
     {
       tracer trace ("cc::guess");
 
@@ -474,8 +475,6 @@ namespace build2
         // One notable consequence of this is that if the locale changes
         // (e.g., via LC_ALL), then the compiler signature will most likely
         // change as well because of the translated text.
-        //
-        sha256 cs;
 
         // Suppress all the compiler errors because we may be trying an
         // unsupported option (but still consider the exit code).
@@ -491,6 +490,8 @@ namespace build2
             //
             //fail << "unable to obtain " << xc << " signature with -v";
           }
+
+          cs.reset ();
         }
         else
         {
@@ -501,8 +502,6 @@ namespace build2
               r.id.variant == "apple"  &&
               pre == type::gcc)
             pre = type::clang;
-
-          r.checksum = cs.string ();
         }
       }
 
@@ -762,7 +761,7 @@ namespace build2
                 const strings*, const strings*,
                 const strings*, const strings*,
                 const strings*, const strings*,
-                guess_result&& gr)
+                guess_result&& gr, sha256&)
     {
       // Extract the version. The signature line has the following format
       // though language words can be translated and even rearranged (see
@@ -964,7 +963,7 @@ namespace build2
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
-               guess_result&& gr)
+               guess_result&& gr, sha256&)
     {
       tracer trace ("cc::guess_gcc");
 
@@ -1348,7 +1347,7 @@ namespace build2
                  const strings* c_po, const strings* x_po,
                  const strings* c_co, const strings* x_co,
                  const strings* c_lo, const strings* x_lo,
-                 guess_result&& gr)
+                 guess_result&& gr, sha256& cs)
     {
       const process_path& xp (gr.path);
 
@@ -1485,9 +1484,21 @@ namespace build2
         //
         tt.vendor = "microsoft";
         tt.system = "win32-msvc";
-        tt.version = msvc_runtime_version (
-          msvc_compiler_version (move (mi.msvc_ver)));
+        tt.version = msvc_runtime_version (msvc_compiler_version (mi.msvc_ver));
         t = tt.string ();
+
+        // Add the MSVC information to the signature and checksum.
+        //
+        if (cs.empty ())
+          cs.append (gr.signature);
+
+        cs.append (mi.msvc_ver);
+        cs.append (mi.msvc_dir.string ());
+        cs.append (mi.psdk_ver);
+        cs.append (mi.psdk_dir.string ());
+
+        gr.signature += " MSVC version ";
+        gr.signature += mi.msvc_ver;
       }
 
       // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
@@ -1594,7 +1605,7 @@ namespace build2
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
-               guess_result&& gr)
+               guess_result&& gr, sha256&)
     {
       const process_path& xp (gr.path);
 
@@ -1934,10 +1945,11 @@ namespace build2
       // try the test just for that compiler.
       //
       guess_result gr;
+      sha256 cs;
 
       if (type != invalid_compiler_type)
       {
-        gr = guess (xm, xl, xc, xi, type);
+        gr = guess (xm, xl, xc, xi, type, cs);
 
         if (gr.empty ())
         {
@@ -1949,7 +1961,7 @@ namespace build2
       }
 
       if (gr.empty ())
-        gr = guess (xm, xl, xc, xi, type);
+        gr = guess (xm, xl, xc, xi, type, cs);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc <<
@@ -1964,36 +1976,38 @@ namespace build2
         {
           r = guess_gcc (xm, xl, xc, xv, xt,
                          c_po, x_po, c_co, x_co, c_lo, x_lo,
-                         move (gr));
+                         move (gr), cs);
           break;
         }
       case compiler_type::clang:
         {
           r = guess_clang (xm, xl, xc, xv, xt,
                            c_po, x_po, c_co, x_co, c_lo, x_lo,
-                           move (gr));
+                           move (gr), cs);
           break;
         }
       case compiler_type::msvc:
         {
           r = guess_msvc (xm, xl, xc, xv, xt,
                           c_po, x_po, c_co, x_co, c_lo, x_lo,
-                          move (gr));
+                          move (gr), cs);
           break;
         }
       case compiler_type::icc:
         {
           r = guess_icc (xm, xl, xc, xv, xt,
                          c_po, x_po, c_co, x_co, c_lo, x_lo,
-                         move (gr));
+                         move (gr), cs);
           break;
         }
       }
 
       // By default use the signature line to generate the checksum.
       //
-      if (r.checksum.empty ())
-        r.checksum = sha256 (r.signature).string ();
+      if (cs.empty ())
+        cs.append (r.signature);
+
+      r.checksum = cs.string ();
 
       // Derive binutils pattern unless this has already been done by the
       // compiler-specific code.
