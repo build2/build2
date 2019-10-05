@@ -170,7 +170,7 @@ namespace build2
       cstrings args;
       string std; // Storage.
 
-      args.push_back ("(LANG=\"en_US\";");
+      args.push_back ("LC_ALL=C ");
       args.push_back (xc.recall_string ());
       append_options (args, rs, c_coptions);
       append_options (args, rs, x_coptions);
@@ -178,7 +178,6 @@ namespace build2
       append_options (args, rs, c_loptions);
       append_options (args, rs, x_loptions);
       args.push_back ("-print-search-dirs");
-      args.push_back (")");
       args.push_back (nullptr);
 
       if (verb >= 3)
