@@ -44,8 +44,8 @@ else
   else
     stack_size = 4194304 # 4M
 
-  cxx.loptions += ($cxx.class == 'msvc'   \
-                   ? "/STACK:$stack_size" \
+  cxx.loptions += ($cxx.target.system == 'win32-msvc' \
+                   ? "/STACK:$stack_size"             \
                    : "-Wl,--stack,$stack_size")
 }
 
