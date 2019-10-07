@@ -9,11 +9,11 @@ using cxx
 hxx{*}: extension = hxx
 cxx{*}: extension = cxx
 
-if ($cxx.class == 'msvc')
-{
+if ($cxx.target.system == 'win32-msvc')
   cxx.poptions += -D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS
+
+if ($cxx.class == 'msvc')
   cxx.coptions += /wd4251 /wd4275 /wd4800
-}
 
 # Setup the build system driver that we are testing (which may not be the same
 # as our $build.path). We also need to disable importation using the built-in
