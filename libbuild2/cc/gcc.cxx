@@ -165,6 +165,21 @@ namespace build2
     dir_paths config_module::
     gcc_library_search_paths (const process_path& xc, scope& rs) const
     {
+      // The output of -print-search-dirs are a bunch of lines that start with
+      // "<name>: =" where name can be "install", "programs", or "libraries".
+      //
+      // If you have English locale, that is. If you set your LC_ALL="tr_TR",
+      // then it becomes "kurulum", "programlar", and "kitapl?klar". Also,
+      // Clang omits "install" while GCC and Intel icc print all three. The
+      // "libraries" seem to be always last, however. Also, the colon and
+      // the following space in "<name>: =" can all be translated (e.g.,
+      // in zh_CN.UTF-8).
+      //
+      // Maybe it's time we stop playing these games and start running
+      // everything with LC_ALL=C? One drawback of this approach is that the
+      // command that we print isn't exactly how we run. Maybe print it with
+      // the environment variables in front?
+      //
       dir_paths r;
 
       cstrings args;
@@ -195,19 +210,12 @@ namespace build2
         ifdstream is (
           move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
 
-        // The output of -print-search-dirs are a bunch of lines that start
-        // with "<name>: =" where name can be "install", "programs", or
-        // "libraries". If you have English locale, that is. If you set your
-        // LC_ALL="tr_TR", then it becomes "kurulum", "programlar", and
-        // "kitapl?klar". Also, Clang omits "install" while GCC and Intel icc
-        // print all three. The "libraries" seem to be alwasy last, however.
-        //
         string s;
         for (bool found (false); !found && getline (is, s); )
         {
           found = (s.compare (0, 12, "libraries: =") == 0);
 
-          size_t p (found ? 9 : s.find (": ="));
+          size_t p (found ? 9 : s.find ('='));
 
           if (p != string::npos)
             l.assign (s, p + 3, string::npos);
