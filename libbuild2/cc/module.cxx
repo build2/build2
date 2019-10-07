@@ -116,7 +116,7 @@ namespace build2
 
       // Figure out which compiler we are dealing with, its target, etc.
       //
-      ci_ = &build2::cc::guess (
+      x_info = &build2::cc::guess (
         x,
         x_lang,
         cast<path> (*p.first),
@@ -130,7 +130,7 @@ namespace build2
         cast_null<strings> (rs[config_c_loptions]),
         cast_null<strings> (rs[config_x_loptions]));
 
-      const compiler_info& ci (*ci_);
+      const compiler_info& xi (*x_info);
 
       // Split/canonicalize the target. First see if the user asked us to
       // use config.sub.
@@ -143,14 +143,14 @@ namespace build2
         {
           ct = run<string> (3,
                             *config_sub,
-                            ci.target.c_str (),
+                            xi.target.c_str (),
                             [] (string& l, bool) {return move (l);});
           l5 ([&]{trace << "config.sub target: '" << ct << "'";});
         }
 
         try
         {
-          tt = target_triplet (ct.empty () ? ci.target : ct);
+          tt = target_triplet (ct.empty () ? xi.target : ct);
           l5 ([&]{trace << "canonical target: '" << tt.string () << "'; "
                         << "class: " << tt.class_;});
         }
@@ -160,24 +160,24 @@ namespace build2
           // help us out.
           //
           fail << "unable to parse " << x_lang << " compiler target '"
-               << ci.target << "': " << e <<
+               << xi.target << "': " << e <<
             info << "consider using the --config-sub option";
         }
       }
 
       // Assign values to variables that describe the compiler.
       //
-      rs.assign (x_id) = ci.id.string ();
-      rs.assign (x_id_type) = to_string (ci.id.type);
-      rs.assign (x_id_variant) = ci.id.variant;
+      rs.assign (x_id) = xi.id.string ();
+      rs.assign (x_id_type) = to_string (xi.id.type);
+      rs.assign (x_id_variant) = xi.id.variant;
 
-      rs.assign (x_class) = to_string (ci.class_);
+      rs.assign (x_class) = to_string (xi.class_);
 
-      rs.assign (x_version) = ci.version.string;
-      rs.assign (x_version_major) = ci.version.major;
-      rs.assign (x_version_minor) = ci.version.minor;
-      rs.assign (x_version_patch) = ci.version.patch;
-      rs.assign (x_version_build) = ci.version.build;
+      rs.assign (x_version) = xi.version.string;
+      rs.assign (x_version_major) = xi.version.major;
+      rs.assign (x_version_minor) = xi.version.minor;
+      rs.assign (x_version_patch) = xi.version.patch;
+      rs.assign (x_version_build) = xi.version.build;
 
       // Also enter as x.target.{cpu,vendor,system,version,class} for
       // convenience of access.
@@ -190,10 +190,10 @@ namespace build2
 
       rs.assign (x_target) = move (tt);
 
-      rs.assign (x_pattern) = ci.pattern;
+      rs.assign (x_pattern) = xi.pattern;
 
       if (!x_stdlib.alias (c_stdlib))
-        rs.assign (x_stdlib) = ci.x_stdlib;
+        rs.assign (x_stdlib) = xi.x_stdlib;
 
       new_ = p.second;
 
@@ -211,11 +211,11 @@ namespace build2
         h.assign ("config.cc.hinter") = string (x);
         h.assign ("config.cc.target") = cast<target_triplet> (rs[x_target]);
 
-        if (!ci.pattern.empty ())
-          h.assign ("config.cc.pattern") = ci.pattern;
+        if (!xi.pattern.empty ())
+          h.assign ("config.cc.pattern") = xi.pattern;
 
-        h.assign (c_runtime) = ci.runtime;
-        h.assign (c_stdlib) = ci.c_stdlib;
+        h.assign (c_runtime) = xi.runtime;
+        h.assign (c_stdlib) = xi.c_stdlib;
 
         load_module (rs, rs, "cc.core.guess", loc, false, h);
       }
@@ -264,11 +264,11 @@ namespace build2
                "target");
 
         check (cast<string> (rs["cc.runtime"]),
-               ci.runtime,
+               xi.runtime,
                "runtime");
 
         check (cast<string> (rs["cc.stdlib"]),
-               ci.c_stdlib,
+               xi.c_stdlib,
                "c standard library");
       }
     }
@@ -288,7 +288,7 @@ namespace build2
     {
       tracer trace (x, "config_init");
 
-      const compiler_info& ci (*ci_);
+      const compiler_info& xi (*x_info);
       const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
       // config.x.std overrides x.std
@@ -307,7 +307,7 @@ namespace build2
 
         // Translate x_std value (if any) to the compiler option(s) (if any).
         //
-        tstd = translate_std (ci, rs, v);
+        tstd = translate_std (xi, rs, v);
       }
 
       // Extract system header/library search paths from the compiler and
@@ -316,19 +316,32 @@ namespace build2
       dir_paths lib_dirs;
       dir_paths inc_dirs;
 
-      switch (ci.class_)
+      if (xi.sys_lib_dirs)
+        lib_dirs = *xi.sys_lib_dirs;
+      else
       {
-      case compiler_class::gcc:
+        switch (xi.class_)
         {
-          //@@ CLANG-MSVC: libraries don't contain MSVC stuff.
-          lib_dirs = gcc_library_search_paths (ci.path, rs);
-          inc_dirs = gcc_header_search_paths (ci.path, rs);
+        case compiler_class::gcc:
+          lib_dirs = gcc_library_search_paths (xi.path, rs);
+          break;
+        case compiler_class::msvc:
+          lib_dirs = msvc_library_search_paths (xi.path, rs);
           break;
         }
-      case compiler_class::msvc:
+      }
+
+      if (xi.sys_inc_dirs)
+        inc_dirs = *xi.sys_inc_dirs;
+      else
+      {
+        switch (xi.class_)
         {
-          lib_dirs = msvc_library_search_paths (ci.path, rs);
-          inc_dirs = msvc_header_search_paths (ci.path, rs);
+        case compiler_class::gcc:
+          inc_dirs = gcc_header_search_paths (xi.path, rs);
+          break;
+        case compiler_class::msvc:
+          inc_dirs = msvc_header_search_paths (xi.path, rs);
           break;
         }
       }
@@ -426,34 +439,34 @@ namespace build2
 
         {
           dr << x << ' ' << project (rs) << '@' << rs << '\n'
-             << "  " << left << setw (11) << x << ci.path << '\n'
-             << "  id         " << ci.id << '\n'
-             << "  version    " << ci.version.string << '\n'
-             << "  major      " << ci.version.major << '\n'
-             << "  minor      " << ci.version.minor << '\n'
-             << "  patch      " << ci.version.patch << '\n';
+             << "  " << left << setw (11) << x << xi.path << '\n'
+             << "  id         " << xi.id << '\n'
+             << "  version    " << xi.version.string << '\n'
+             << "  major      " << xi.version.major << '\n'
+             << "  minor      " << xi.version.minor << '\n'
+             << "  patch      " << xi.version.patch << '\n';
         }
 
-        if (!ci.version.build.empty ())
+        if (!xi.version.build.empty ())
         {
-          dr << "  build      " << ci.version.build << '\n';
+          dr << "  build      " << xi.version.build << '\n';
         }
 
         {
           const string& ct (tt.string ()); // Canonical target.
 
-          dr << "  signature  " << ci.signature << '\n'
-             << "  checksum   " << ci.checksum << '\n'
+          dr << "  signature  " << xi.signature << '\n'
+             << "  checksum   " << xi.checksum << '\n'
              << "  target     " << ct;
 
-          if (ct != ci.original_target)
-            dr << " (" << ci.original_target << ")";
+          if (ct != xi.original_target)
+            dr << " (" << xi.original_target << ")";
 
-          dr << "\n  runtime    " << ci.runtime
-             << "\n  stdlib     " << ci.x_stdlib;
+          dr << "\n  runtime    " << xi.runtime
+             << "\n  stdlib     " << xi.x_stdlib;
 
           if (!x_stdlib.alias (c_stdlib))
-            dr << "\n  c stdlib   " << ci.c_stdlib;
+            dr << "\n  c stdlib   " << xi.c_stdlib;
         }
 
         if (!tstd.empty ())
@@ -462,9 +475,9 @@ namespace build2
           for (const string& o: tstd) dr << ' ' << o;
         }
 
-        if (!ci.pattern.empty ()) // Note: bin_pattern printed by bin
+        if (!xi.pattern.empty ()) // Note: bin_pattern printed by bin
         {
-          dr << "\n  pattern    " << ci.pattern;
+          dr << "\n  pattern    " << xi.pattern;
         }
 
         if (verb >= 3 && !inc_dirs.empty ())
@@ -490,12 +503,12 @@ namespace build2
         }
       }
 
-      rs.assign (x_path) = process_path (ci.path, false /* init */);
+      rs.assign (x_path) = process_path (xi.path, false /* init */);
       rs.assign (x_sys_lib_dirs) = move (lib_dirs);
       rs.assign (x_sys_inc_dirs) = move (inc_dirs);
 
-      rs.assign (x_signature) = ci.signature;
-      rs.assign (x_checksum) = ci.checksum;
+      rs.assign (x_signature) = xi.signature;
+      rs.assign (x_checksum) = xi.checksum;
 
       // config.x.{p,c,l}options
       // config.x.libs
@@ -550,8 +563,8 @@ namespace build2
       {
         variable_map h (rs.ctx);
 
-        if (!ci.bin_pattern.empty ())
-          h.assign ("config.bin.pattern") = ci.bin_pattern;
+        if (!xi.bin_pattern.empty ())
+          h.assign ("config.bin.pattern") = xi.bin_pattern;
 
         load_module (rs, rs, "cc.core.config", loc, false, h);
       }

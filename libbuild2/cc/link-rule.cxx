@@ -2105,11 +2105,22 @@ namespace build2
       // kind of a hybrid).
       //
       cstrings args {nullptr}; // Reserve one for config.bin.ar/config.x.
+      strings sargs;           // Argument tail with storage.
 
-      // Storage.
+      // Stored args.
       //
       string arg1, arg2;
-      strings sargs;
+      strings sargs1;
+
+      // Shallow-copy over stored args to args. Note that this must only be
+      // done once we are finished appending to stored args because of
+      // potential reallocations.
+      //
+      auto append_args = [&args] (const strings& sargs)
+      {
+        for (const string& a: sargs)
+          args.push_back (a.c_str ());
+      };
 
       if (lt.static_library ())
       {
@@ -2190,14 +2201,36 @@ namespace build2
 
         // Extra system library dirs (last).
         //
-        // @@ /LIBPATH:<path>, not /LIBPATH <path>
-        //
         assert (sys_lib_dirs_extra <= sys_lib_dirs.size ());
-        append_option_values (
-          args,
-          cclass == compiler_class::msvc ? "/LIBPATH:" : "-L",
-          sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
-          [] (const dir_path& d) {return d.string ().c_str ();});
+
+        if (tsys == "win32-msvc")
+        {
+          // If we have no LIB environment variable set, then we add all of
+          // them. But we want extras to come first.
+          //
+          auto b (sys_lib_dirs.begin ());
+          auto m (b + sys_lib_dirs_extra);
+          auto e (sys_lib_dirs.end ());
+
+          for (auto i (m); i != e; ++i)
+            sargs1.push_back ("/LIBPATH:" + i->string ());
+
+          if (!getenv ("LIB"))
+          {
+            for (auto i (b); i != m; ++i)
+              sargs1.push_back ("/LIBPATH:" + i->string ());
+          }
+
+          append_args (sargs1);
+        }
+        else
+        {
+          append_option_values (
+            args,
+            "-L",
+            sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
+            [] (const dir_path& d) {return d.string ().c_str ();});
+        }
 
         // Handle soname/rpath.
         //
@@ -2649,11 +2682,9 @@ namespace build2
       if (!manifest.empty () && tsys == "mingw32")
         sargs.push_back (relative (manifest).string ());
 
-      // Shallow-copy sargs to args. Why not do it as we go along pushing into
-      // sargs? Because of potential reallocations in sargs.
+      // Shallow-copy sargs over to args.
       //
-      for (const string& a: sargs)
-        args.push_back (a.c_str ());
+      append_args (sargs);
 
       if (!lt.static_library ())
       {

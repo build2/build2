@@ -215,6 +215,11 @@ namespace build2
       string runtime;
       string c_stdlib;
       string x_stdlib;
+
+      // System library/header search paths, if extracted at the guess stage.
+      //
+      optional<dir_paths> sys_lib_dirs;
+      optional<dir_paths> sys_inc_dirs;
     };
 
     // In a sense this is analagous to the language standard which we handle

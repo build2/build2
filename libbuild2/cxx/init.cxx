@@ -630,11 +630,11 @@ namespace build2
         "cxx.install",
         "cxx.uninstall",
 
-        cm.ci_->id.type,
-        cm.ci_->id.variant,
-        cm.ci_->class_,
-        cm.ci_->version.major,
-        cm.ci_->version.minor,
+        cm.x_info->id.type,
+        cm.x_info->id.variant,
+        cm.x_info->class_,
+        cm.x_info->version.major,
+        cm.x_info->version.minor,
         cast<process_path>   (rs[cm.x_path]),
         cast<target_triplet> (rs[cm.x_target]),
 

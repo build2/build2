@@ -28,6 +28,25 @@ namespace build2
   {
     using namespace bin;
 
+    // Translate the target triplet CPU to MSVC CPU (used in directory names,
+    // etc).
+    //
+    const char*
+    msvc_cpu (const string& cpu)
+    {
+      const char* m (cpu == "i386" || cpu == "i686"  ? "x86"   :
+                     cpu == "x86_64"                 ? "x64"   :
+                     cpu == "arm"                    ? "arm"   :
+                     cpu == "arm64"                  ? "arm64" :
+                     nullptr);
+
+      if (m == nullptr)
+        fail << "unable to translate target triplet CPU " << cpu
+             << " to MSVC CPU";
+
+      return m;
+    }
+
     // Translate the target triplet CPU to lib.exe/link.exe /MACHINE option.
     //
     const char*
@@ -40,7 +59,8 @@ namespace build2
                      nullptr);
 
       if (m == nullptr)
-        fail << "unable to translate CPU " << cpu << " to /MACHINE";
+        fail << "unable to translate target triplet CPU " << cpu
+             << " to /MACHINE";
 
       return m;
     }

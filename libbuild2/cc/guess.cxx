@@ -951,7 +951,9 @@ namespace build2
         move (bpat),
         move (rt),
         move (csl),
-        move (xsl)};
+        move (xsl),
+        nullopt,
+        nullopt};
     }
 
     static compiler_info
@@ -1142,7 +1144,9 @@ namespace build2
         "",
         move (rt),
         move (csl),
-        move (xsl)};
+        move (xsl),
+        nullopt,
+        nullopt};
     }
 
     struct clang_msvc_info
@@ -1339,6 +1343,9 @@ namespace build2
       return r;
     }
 
+    const char*
+    msvc_cpu (const string&); // msvc.cxx
+
     static compiler_info
     guess_clang (const char* xm,
                  lang xl,
@@ -1469,6 +1476,8 @@ namespace build2
       // For Clang on Windows targeting MSVC we remap the target to match
       // MSVC's.
       //
+      optional<dir_paths> sys_lib_dirs;
+
       if (tt.system == "windows-msvc")
       {
         // Note that currently there is no straightforward way to determine
@@ -1501,6 +1510,29 @@ namespace build2
 
         gr.signature += " MSVC version ";
         gr.signature += mi.msvc_ver;
+
+        // Come up with the system library search paths. Ideally we would want
+        // to extract this from Clang and -print-search-paths would have been
+        // the natural way for Clang to report it. But no luck.
+        //
+        dir_paths ds;
+        const char* cpu (msvc_cpu (tt.cpu));
+
+        ds.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
+
+        // This path structure only appeared in Platform SDK 10 (if anyone
+        // wants to use anything older, they will just have to use the MSVC
+        // command prompt).
+        //
+        if (!mi.psdk_ver.empty ())
+        {
+          dir_path d ((dir_path (mi.psdk_dir) /= "Lib") /= mi.psdk_ver);
+
+          ds.push_back ((dir_path (d) /= "ucrt") /= cpu);
+          ds.push_back ((dir_path (d) /= "um"  ) /= cpu);
+        }
+
+        sys_lib_dirs = move (ds);
       }
 
       // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
@@ -1595,7 +1627,9 @@ namespace build2
         "",
         move (rt),
         move (csl),
-        move (xsl)};
+        move (xsl),
+        move (sys_lib_dirs),
+        nullopt};
     }
 
     static compiler_info
@@ -1884,7 +1918,9 @@ namespace build2
         "",
         move (rt),
         move (csl),
-        move (xsl)};
+        move (xsl),
+        nullopt,
+        nullopt};
     }
 
     // Compiler checks can be expensive (we often need to run the compiler

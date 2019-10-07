@@ -52,10 +52,13 @@ namespace build2
       translate_std (const compiler_info&, scope&, const string*) const = 0;
 
       strings tstd;
-      size_t sys_lib_dirs_extra; // First extra path (size if none).
-      size_t sys_inc_dirs_extra; // First extra path (size if none).
 
-      const compiler_info* ci_;
+      const compiler_info* x_info;
+
+      // Temporary storage for data::sys_*_dirs_extra.
+      //
+      size_t sys_lib_dirs_extra;
+      size_t sys_inc_dirs_extra;
 
     private:
       // Defined in gcc.cxx.
