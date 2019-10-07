@@ -1168,13 +1168,13 @@ namespace build2
       cstrings args {xp.recall_string ()};
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
-      args.push_back ("-v");
       args.push_back ("-x");
       switch (xl)
       {
       case lang::c:   args.push_back ("c");   break;
       case lang::cxx: args.push_back ("c++"); break;
       }
+      args.push_back ("-v");
       args.push_back ("-E");
       args.push_back ("-");  // Read stdin.
       args.push_back (nullptr);
