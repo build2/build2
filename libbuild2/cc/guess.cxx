@@ -1476,7 +1476,8 @@ namespace build2
       // For Clang on Windows targeting MSVC we remap the target to match
       // MSVC's.
       //
-      optional<dir_paths> sys_lib_dirs;
+      optional<dir_paths> lib_dirs;
+      string bin_pat;
 
       if (tt.system == "windows-msvc")
       {
@@ -1511,28 +1512,50 @@ namespace build2
         gr.signature += " MSVC version ";
         gr.signature += mi.msvc_ver;
 
+        const char* cpu (msvc_cpu (tt.cpu));
+
         // Come up with the system library search paths. Ideally we would want
         // to extract this from Clang and -print-search-paths would have been
         // the natural way for Clang to report it. But no luck.
         //
-        dir_paths ds;
-        const char* cpu (msvc_cpu (tt.cpu));
-
-        ds.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
-
-        // This path structure only appeared in Platform SDK 10 (if anyone
-        // wants to use anything older, they will just have to use the MSVC
-        // command prompt).
-        //
-        if (!mi.psdk_ver.empty ())
         {
-          dir_path d ((dir_path (mi.psdk_dir) /= "Lib") /= mi.psdk_ver);
+          dir_paths ds;
 
-          ds.push_back ((dir_path (d) /= "ucrt") /= cpu);
-          ds.push_back ((dir_path (d) /= "um"  ) /= cpu);
+          ds.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
+
+          // This path structure only appeared in Platform SDK 10 (if anyone
+          // wants to use anything older, they will just have to use the MSVC
+          // command prompt).
+          //
+          if (!mi.psdk_ver.empty ())
+          {
+            dir_path d ((dir_path (mi.psdk_dir) /= "Lib") /= mi.psdk_ver);
+
+            ds.push_back ((dir_path (d) /= "ucrt") /= cpu);
+            ds.push_back ((dir_path (d) /= "um"  ) /= cpu);
+          }
+
+          lib_dirs = move (ds);
         }
 
-        sys_lib_dirs = move (ds);
+        // Binutils search paths.
+        //
+        // We shouldn't need them if we are running from the command prompt
+        // and omitting them in this case would also result in tidier command
+        // lines. However, reliably detecting this and making sure the result
+        // matches Clang's is complex. So let's keep it simple for now.
+        //
+        // Seeing that we only do 64-bit on Windows, let's always use 64-bit
+        // MSVC tools (link.exe, etc). In case of the Platform SDK, it's
+        // unclear what the CPU signifies (host, target, both).
+        //
+        bin_pat  = (((dir_path (mi.msvc_dir) /= "bin") /= "Hostx64") /= cpu).
+          representation ();
+
+        bin_pat += path::traits_type::path_separator;
+
+        bin_pat += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /= cpu).
+          representation ();
       }
 
       // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
@@ -1624,11 +1647,11 @@ namespace build2
         move (t),
         move (ot),
         move (pat),
-        "",
+        move (bin_pat),
         move (rt),
         move (csl),
         move (xsl),
-        move (sys_lib_dirs),
+        move (lib_dirs),
         nullopt};
     }
 
