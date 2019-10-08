@@ -945,7 +945,7 @@ namespace build2
 
         if (!lops.empty ())
         {
-          if (cclass == compiler_class::msvc)
+          if (tsys == "win32-msvc")
           {
             // Translate -L to /LIBPATH.
             //

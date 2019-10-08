@@ -970,6 +970,8 @@ namespace build2
       //
       auto extract = [&bs, &r, this] (const value& val, const variable& var)
       {
+        bool msvc (tsys == "win32-msvc");
+
         const auto& v (cast<strings> (val));
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
@@ -980,7 +982,7 @@ namespace build2
 
           try
           {
-            if (cclass == compiler_class::msvc)
+            if (msvc)
             {
               // /LIBPATH:<dir> (case-insensitive).
               //
