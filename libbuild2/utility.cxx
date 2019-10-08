@@ -186,9 +186,10 @@ namespace build2
   try_run_search (const path& f,
                   bool init,
                   const dir_path& fallback,
-                  bool path_only)
+                  bool path_only,
+                  const char* paths)
   {
-    return process::try_path_search (f, init, fallback, path_only);
+    return process::try_path_search (f, init, fallback, path_only, paths);
   }
 
   process
@@ -477,17 +478,18 @@ namespace build2
   }
 
   string
-  apply_pattern (const char* s, const string* p)
+  apply_pattern (const char* stem, const char* pat)
   {
-    if (p == nullptr || p->empty ())
-      return s;
+    if (pat == nullptr || *pat == '\0')
+      return stem;
 
-    size_t i (p->find ('*'));
-    assert (i != string::npos);
+    size_t n (string::traits_type::length (pat));
+    const char* p (string::traits_type::find (pat, n, '*'));
+    assert (p != nullptr);
 
-    string r (*p, 0, i++);
-    r.append (s);
-    r.append (*p, i, p->size () - i);
+    string r (pat, p++ - pat);
+    r.append (stem);
+    r.append (p, n - (p - pat));
     return r;
   }
 

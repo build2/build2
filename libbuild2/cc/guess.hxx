@@ -158,9 +158,9 @@ namespace build2
     //
     // The bin_pattern is the binutils program pattern that could sometimes be
     // derived for some toolchains. For example, i686-w64-mingw32-*. If the
-    // pattern could not be derived, then it could contain a fallback search
-    // directory, in which case it will end with a directory separator but
-    // will not contain '*'.
+    // pattern could not be derived, then it could alternatively contain
+    // search paths (similar to the PATH environment variable), in which case
+    // it will end with a directory separator but will not contain '*'.
     //
     struct compiler_info
     {

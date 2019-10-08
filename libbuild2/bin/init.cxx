@@ -37,6 +37,30 @@ namespace build2
     static const strings liba_lib {"static", "shared"};
     static const strings libs_lib {"shared", "static"};
 
+    struct pattern_paths
+    {
+      const char* pattern = nullptr;
+      const char* paths   = nullptr;
+    };
+
+    static inline pattern_paths
+    lookup_pattern (scope& rs)
+    {
+      pattern_paths r;
+
+      // Theoretically, we could have both the pattern and the search paths,
+      // for example, the pattern can come first followed by the paths.
+      //
+      if (const string* v = cast_null<string> (rs["bin.pattern"]))
+      {
+        (path::traits_type::is_separator (v->back ())
+         ? r.paths
+         : r.pattern) = v->c_str ();
+      }
+
+      return r;
+    }
+
     bool
     vars_init (scope& rs,
                scope&,
@@ -370,7 +394,9 @@ namespace build2
                 (!path::traits_type::is_separator (s.back ()) &&
                  s.find ('*') == string::npos))
             {
-              fail << "missing '*' in binutils pattern '" << s << "'";
+              fail << "missing '*' or trailing '"
+                   << path::traits_type::directory_separator
+                   << "' in binutils pattern '" << s << "'";
             }
 
             rs.assign<string> ("bin.pattern") = s;
@@ -602,12 +628,9 @@ namespace build2
         const string& tsys (cast<string> (rs["bin.target.system"]));
         const char* ar_d (tsys == "win32-msvc" ? "lib" : "ar");
 
-        // This can be either a pattern or a fallback search directory.
+        // This can be either a pattern or search path(s).
         //
-        const string* pat (cast_null<string> (rs["bin.pattern"]));
-
-        bool fb (pat != nullptr &&
-                 path::traits_type::is_separator (pat->back ()));
+        pattern_paths pat (lookup_pattern (rs));
 
         // Don't save the default value to config.build so that if the user
         // changes, say, the C++ compiler (which hinted the pattern), then
@@ -617,7 +640,7 @@ namespace build2
           config::required (
             rs,
             "config.bin.ar",
-            path (apply_pattern (ar_d, fb ? nullptr : pat)),
+            path (apply_pattern (ar_d, pat.pattern)),
             false,
             config::save_commented));
 
@@ -632,8 +655,7 @@ namespace build2
         const path& ar (cast<path> (ap.first));
         const path* ranlib (cast_null<path> (rp.first));
 
-        ar_info ari (
-          guess_ar (ar, ranlib, fb ? dir_path (*pat) : dir_path ()));
+        ar_info ari (guess_ar (ar, ranlib, pat.paths));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -762,23 +784,20 @@ namespace build2
         const string& tsys (cast<string> (rs["bin.target.system"]));
         const char* ld_d (tsys == "win32-msvc" ? "link" : "ld");
 
-        // This can be either a pattern or a fallback search directory.
+        // This can be either a pattern or search path(s).
         //
-        const string* pat (cast_null<string> (rs["bin.pattern"]));
-
-        bool fb (pat != nullptr &&
-                 path::traits_type::is_separator (pat->back ()));
+        pattern_paths pat (lookup_pattern (rs));
 
         auto p (
           config::required (
             rs,
             "config.bin.ld",
-            path (apply_pattern (ld_d, fb ? nullptr : pat)),
+            path (apply_pattern (ld_d, pat.pattern)),
             false,
             config::save_commented));
 
         const path& ld (cast<path> (p.first));
-        ld_info ldi (guess_ld (ld, fb ? dir_path (*pat) : dir_path ()));
+        ld_info ldi (guess_ld (ld, pat.paths));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).
@@ -875,23 +894,20 @@ namespace build2
         const string& tsys (cast<string> (rs["bin.target.system"]));
         const char* rc_d (tsys == "win32-msvc" ? "rc" : "windres");
 
-        // This can be either a pattern or a fallback search directory.
+        // This can be either a pattern or search path(s).
         //
-        const string* pat (cast_null<string> (rs["bin.pattern"]));
-
-        bool fb (pat != nullptr &&
-                 path::traits_type::is_separator (pat->back ()));
+        pattern_paths pat (lookup_pattern (rs));
 
         auto p (
           config::required (
             rs,
             "config.bin.rc",
-            path (apply_pattern (rc_d, fb ? nullptr : pat)),
+            path (apply_pattern (rc_d, pat.pattern)),
             false,
             config::save_commented));
 
         const path& rc (cast<path> (p.first));
-        rc_info rci (guess_rc (rc, fb ? dir_path (*pat) : dir_path ()));
+        rc_info rci (guess_rc (rc, pat.paths));
 
         // If this is a new value (e.g., we are configuring), then print the
         // report at verbosity level 2 and up (-v).

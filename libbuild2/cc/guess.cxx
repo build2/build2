@@ -2059,7 +2059,7 @@ namespace build2
       // still want to try the target in case we could not pre-guess (think
       // x86_64-w64-mingw32-c++).
       //
-      // BTW, for GCC we also get gcc-{ar,ranlib} (but not -ld) which add
+      // BTW, for GCC we also get gcc-{ar,ranlib} (but not gcc-ld) which add
       // support for the LTO plugin though it seems more recent GNU binutils
       // (2.25) are able to load the plugin when needed automatically. So it
       // doesn't seem we should bother trying to support this on our end (one
@@ -2068,9 +2068,8 @@ namespace build2
       // It's also normal for native (i.e., non-cross-compiler) builds of GCC
       // and Clang to not have binutils installed in the same directory and
       // instead relying on the system ones. In this case, if the compiler is
-      // specified with the absolute path, the pattern will be the fallback
-      // search directory (though it feels like it should be checked first
-      // rather than last).
+      // specified with the absolute path, the pattern will be the search
+      // path.
       //
       if (r.bin_pattern.empty ())
       {
@@ -2103,7 +2102,7 @@ namespace build2
       }
 
       // If we could not derive the pattern, then see if we can come up with a
-      // fallback search directory.
+      // search path.
       //
       if (r.bin_pattern.empty ())
       {
@@ -2152,7 +2151,7 @@ namespace build2
         }
       }
 
-      return path (apply_pattern (s, &pat));
+      return path (apply_pattern (s, pat));
     }
   }
 }

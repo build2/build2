@@ -225,7 +225,8 @@ namespace build2
   try_run_search (const path&,
                   bool init = false,
                   const dir_path& fallback = dir_path (),
-                  bool path_only = false);
+                  bool path_only = false,
+                  const char* paths = nullptr);
 
   // Wait for process termination. Issue diagnostics and throw failed in case
   // of abnormal termination. If the process has terminated normally but with
@@ -674,7 +675,19 @@ namespace build2
   // i.e., contains a single '*' character.
   //
   LIBBUILD2_SYMEXPORT string
-  apply_pattern (const char* stem, const string* pattern);
+  apply_pattern (const char* stem, const char* pattern);
+
+  inline string
+  apply_pattern (const char* s, const string* p)
+  {
+    return apply_pattern (s, p != nullptr ? p->c_str () : nullptr);
+  }
+
+  inline string
+  apply_pattern (const char* s, const string& p)
+  {
+    return apply_pattern (s, p.c_str ());
+  }
 }
 
 #include <libbuild2/utility.ixx>

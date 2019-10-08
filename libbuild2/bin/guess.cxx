@@ -37,37 +37,60 @@ namespace build2
       return v ? *v : semantic_version ();
     }
 
+    // Search for a program first in paths if not NULL and then using the
+    // standard path search semantics. Use var to suggest an override if the
+    // search fails.
+    //
+    // Only search in PATH (specifically, omitting the current executable's
+    // directory on Windows).
+    //
+    static process_path
+    search (const path& prog, const char* paths, const char* var)
+    {
+      if (paths != nullptr)
+      {
+        process_path r (
+          try_run_search (prog,
+                          true        /* init */,
+                          dir_path () /* fallback */,
+                          true        /* path_only */,
+                          paths));
+
+        if (!r.empty ())
+        {
+          // Clear the recall path since we found it in custom search paths.
+          // An alternative would have been to also do a search in PATH and if
+          // the two effective paths are the same (which means, this program
+          // is also in PATH), keep the recall. The benefit of this approach
+          // is that we will have tidier command lines without long absolute
+          // paths. The drawback is the extra complexity (we would need to
+          // normalize the paths, etc). Let's keep it simple for now.
+          //
+          r.clear_recall ();
+          return r;
+        }
+      }
+
+      auto df = make_diag_frame (
+        [var](const diag_record& dr)
+        {
+          dr << info << "use " << var << " to override";
+        });
+
+      return run_search (prog, true, dir_path (), true);
+    }
+
     ar_info
-    guess_ar (const path& ar, const path* rl, const dir_path& fallback)
+    guess_ar (const path& ar, const path* rl, const char* paths)
     {
       tracer trace ("bin::guess_ar");
 
-      process_path arp, rlp;
       guess_result arr, rlr;
 
-      {
-        auto df = make_diag_frame (
-          [](const diag_record& dr)
-          {
-            dr << info << "use config.bin.ar to override";
-          });
-
-        // Only search in PATH (specifically, omitting the current
-        // executable's directory on Windows).
-        //
-        arp = run_search (ar, true, fallback, true /* path_only */);
-      }
-
-      if (rl != nullptr)
-      {
-        auto df = make_diag_frame (
-          [](const diag_record& dr)
-          {
-            dr << info << "use config.bin.ranlib to override";
-          });
-
-        rlp = run_search (*rl, true, fallback, true /* path_only */);
-      }
+      process_path arp (search (ar, paths, "config.bin.ar"));
+      process_path rlp (rl != nullptr
+                        ? search (*rl, paths, "config.bin.ranlib")
+                        : process_path ());
 
       // Binutils, LLVM, and FreeBSD ar/ranlib all recognize the --version
       // option. While Microsoft's lib.exe doesn't support --version, it only
@@ -258,25 +281,13 @@ namespace build2
     }
 
     ld_info
-    guess_ld (const path& ld, const dir_path& fallback)
+    guess_ld (const path& ld, const char* paths)
     {
       tracer trace ("bin::guess_ld");
 
       guess_result r;
 
-      process_path pp;
-      {
-        auto df = make_diag_frame (
-          [](const diag_record& dr)
-          {
-            dr << info << "use config.bin.ld to override";
-          });
-
-        // Only search in PATH (specifically, omitting the current
-        // executable's directory on Windows).
-        //
-        pp = run_search (ld, true, fallback, true /* path_only */);
-      }
+      process_path pp (search (ld, paths, "config.bin.ld"));
 
       // Binutils ld recognizes the --version option. Microsoft's link.exe
       // doesn't support --version (nor any other way to get the version
@@ -389,25 +400,13 @@ namespace build2
     }
 
     rc_info
-    guess_rc (const path& rc, const dir_path& fallback)
+    guess_rc (const path& rc, const char* paths)
     {
       tracer trace ("bin::guess_rc");
 
       guess_result r;
 
-      process_path pp;
-      {
-        auto df = make_diag_frame (
-          [](const diag_record& dr)
-          {
-            dr << info << "use config.bin.rc to override";
-          });
-
-        // Only search in PATH (specifically, omitting the current
-        // executable's directory on Windows).
-        //
-        pp = run_search (rc, true, fallback, true /* path_only */);
-      }
+      process_path pp (search (rc, paths, "config.bin.rc"));
 
       // Binutils windres recognizes the --version option.
       //
