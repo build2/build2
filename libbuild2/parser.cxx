@@ -1568,12 +1568,13 @@ namespace build2
                [] (const string& s) {return s.c_str ();});
     cargs.push_back (nullptr);
 
-    process pr (run_start (3               /* verbosity */,
+    process pr (run_start (3            /* verbosity */,
                            cargs,
-                           0               /* stdin  */,
-                           -1              /* stdout */,
-                           true            /* error  */,
-                           empty_dir_path  /* cwd    */,
+                           0            /* stdin  */,
+                           -1           /* stdout */,
+                           true         /* error  */,
+                           dir_path ()  /* cwd    */,
+                           nullptr      /* env    */,
                            l));
     bool bad (false);
     try

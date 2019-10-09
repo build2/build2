@@ -280,18 +280,20 @@ namespace build2
   inline void
   run (const process_path& p,
        const char* args[],
-       const dir_path& cwd = dir_path ())
+       const dir_path& cwd = dir_path (),
+       const char* const* env = nullptr)
   {
-    process pr (run_start (p, args, 0 /* stdin */, 1 /* stdout */, true, cwd));
+    process pr (run_start (process_env (p, env), args, 0, 1, true, cwd));
     run_finish (args, pr);
   }
 
   inline void
   run (const process_path& p,
        cstrings& args,
-       const dir_path& cwd = dir_path ())
+       const dir_path& cwd = dir_path (),
+       const char* const* env = nullptr)
   {
-    run (p, args.data (), cwd);
+    run (p, args.data (), cwd, env);
   }
 
   // As above, but search for the process (including updating args[0]) and
@@ -304,10 +306,14 @@ namespace build2
              int out,
              bool error = true,
              const dir_path& cwd = dir_path (),
+             const char* const* env = nullptr,
              const location& l = location ())
   {
     process_path pp (run_search (args[0], l));
-    return run_start (verbosity, pp, args, in, out, error, cwd, l);
+    return run_start (verbosity,
+                      process_env (pp, env), args,
+                      in, out, error,
+                      cwd, l);
   }
 
   inline process
@@ -317,31 +323,29 @@ namespace build2
              int out,
              bool error = true,
              const dir_path& cwd = dir_path (),
+             const char* const* env = nullptr,
              const location& l = location ())
   {
-    return run_start (verbosity, args.data (), in, out, error, cwd, l);
+    return run_start (verbosity, args.data (), in, out, error, cwd, env, l);
   }
 
   inline void
   run (uint16_t verbosity,
        const char* args[],
-       const dir_path& cwd = dir_path ())
+       const dir_path& cwd = dir_path (),
+       const char* const* env = nullptr)
   {
-    process pr (run_start (verbosity,
-                           args,
-                           0 /* stdin */,
-                           1 /* stdout */,
-                           true,
-                           cwd));
+    process pr (run_start (verbosity, args, 0, 1, true, cwd, env));
     run_finish (args, pr);
   }
 
   inline void
   run (uint16_t verbosity,
        cstrings& args,
-       const dir_path& cwd = dir_path ())
+       const dir_path& cwd = dir_path (),
+       const char* const* env = nullptr)
   {
-    run (verbosity, args.data (), cwd);
+    run (verbosity, args.data (), cwd, env);
   }
 
   // Start the process as above and then call the specified function on each

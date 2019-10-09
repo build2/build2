@@ -19,6 +19,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/bin/target.hxx>
+#include <libbuild2/bin/utility.hxx>
 
 #include <libbuild2/cc/target.hxx>  // c, pc*
 #include <libbuild2/cc/utility.hxx>
@@ -37,7 +38,7 @@ namespace build2
     link_rule::
     link_rule (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".link 1")
+          rule_id (string (x) += ".link 2")
     {
       static_assert (sizeof (match_data) <= target::data_size,
                      "insufficient space");
@@ -1939,6 +1940,47 @@ namespace build2
       //
       depdb dd (tp + ".d");
 
+      // Adjust the environment.
+      //
+      using environment = small_vector<string, 1>;
+      environment env;
+      sha256 env_cs;
+
+      // If we have the search paths in the binutils pattern, prepend them to
+      // the PATH environment variable so that any dependent tools (such as
+      // mt.exe that is invoked by link.exe) are first search for in there.
+      //
+      {
+        bin::pattern_paths pat (bin::lookup_pattern (rs));
+
+        if (pat.paths != nullptr)
+        {
+          string v ("PATH=");
+          v += pat.paths;
+
+          env_cs.append (v); // Hash only what we are adding.
+
+          if (optional<string> o = getenv ("PATH"))
+          {
+            v += path::traits_type::path_separator;
+            v += *o;
+          }
+
+          env.push_back (move (v));
+        }
+      }
+
+      // Convert the environment to what's expected by the process API.
+      //
+      small_vector<const char*, environment::small_size + 1> env_ptrs;
+      if (!env.empty ())
+      {
+        for (const string& v: env)
+          env_ptrs.push_back (v.c_str ());
+
+        env_ptrs.push_back (nullptr);
+      }
+
       // If targeting Windows, take care of the manifest.
       //
       path manifest; // Manifest itself (msvc) or compiled object file.
@@ -1989,7 +2031,13 @@ namespace build2
 
               try
               {
-                process pr (rc, args, -1);
+                process pr (rc,
+                            args,
+                            -1      /* stdin  */,
+                            1       /* stdout */,
+                            2       /* stderr */,
+                            nullptr /* cwd    */,
+                            env_ptrs.empty () ? nullptr : env_ptrs.data ());
 
                 try
                 {
@@ -2089,6 +2137,11 @@ namespace build2
         if (dd.expect (cs) != nullptr)
           l4 ([&]{trace << "linker mismatch forcing update of " << t;});
       }
+
+      // Hash and compare any changes to the environment.
+      //
+      if (dd.expect (env_cs.string ()) != nullptr)
+        l4 ([&]{trace << "environment mismatch forcing update of " << t;});
 
       // Next check the target. While it might be incorporated into the linker
       // checksum, it also might not (e.g., VC link.exe).
@@ -2905,7 +2958,13 @@ namespace build2
           //
           bool filter (tsys == "win32-msvc" && !lt.static_library ());
 
-          process pr (*ld, args.data (), 0, (filter ? -1 : 2));
+          process pr (*ld,
+                      args.data (),
+                      0                  /* stdin  */,
+                      (filter ? -1 : 2)  /* stdout */,
+                      2                  /* stderr */,
+                      nullptr            /* cwd    */,
+                      env_ptrs.empty () ? nullptr : env_ptrs.data ());
 
           if (filter)
           {
@@ -2986,7 +3045,10 @@ namespace build2
           print_process (args);
 
         if (!ctx.dry_run)
-          run (rl, args);
+          run (rl,
+               args,
+               dir_path () /* cwd */,
+               env_ptrs.empty () ? nullptr : env_ptrs.data ());
       }
 
       // For Windows generate (or clean up) rpath-emulating assembly.

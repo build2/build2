@@ -20,6 +20,7 @@
 #include <libbuild2/bin/rule.hxx>
 #include <libbuild2/bin/guess.hxx>
 #include <libbuild2/bin/target.hxx>
+#include <libbuild2/bin/utility.hxx>
 
 using namespace std;
 using namespace butl;
@@ -36,30 +37,6 @@ namespace build2
     static const strings exe_lib {"shared", "static"};
     static const strings liba_lib {"static", "shared"};
     static const strings libs_lib {"shared", "static"};
-
-    struct pattern_paths
-    {
-      const char* pattern = nullptr;
-      const char* paths   = nullptr;
-    };
-
-    static inline pattern_paths
-    lookup_pattern (scope& rs)
-    {
-      pattern_paths r;
-
-      // Theoretically, we could have both the pattern and the search paths,
-      // for example, the pattern can come first followed by the paths.
-      //
-      if (const string* v = cast_null<string> (rs["bin.pattern"]))
-      {
-        (path::traits_type::is_separator (v->back ())
-         ? r.paths
-         : r.pattern) = v->c_str ();
-      }
-
-      return r;
-    }
 
     bool
     vars_init (scope& rs,
