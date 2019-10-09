@@ -395,7 +395,7 @@ namespace build2
                  s.find ('*') == string::npos))
             {
               fail << "missing '*' or trailing '"
-                   << path::traits_type::directory_separator
+                   << char (path::traits_type::directory_separator)
                    << "' in binutils pattern '" << s << "'";
             }
 
