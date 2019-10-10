@@ -351,6 +351,9 @@ namespace build2
 
       assert (!xi || xi->type == pre);
 
+      using type = compiler_type;
+      const type invalid = invalid_compiler_type;
+
       guess_result r;
 
       process_path xp;
@@ -361,17 +364,36 @@ namespace build2
             dr << info << "use config." << xm << " to override";
           });
 
+        // If we are running in the Visual Studio command prompt, add the
+        // potentially bundled Clang directory as a fallback (for some reason
+        // the Visual Studio prompts don't add it to PATH themselves).
+        //
+        dir_path fallback;
+
+#ifdef _WIN32
+        if (pre == type::clang)
+        {
+          if (optional<string> v = getenv ("VCINSTALLDIR"))
+          {
+            try
+            {
+              fallback = ((dir_path (move (*v)) /= "Tools") /= "Llvm") /= "bin";
+            }
+            catch (const invalid_path&)
+            {
+              // Ignore it.
+            }
+          }
+        }
+#endif
         // Only search in PATH (specifically, omitting the current
         // executable's directory on Windows).
         //
         xp = run_search (xc,
-                         false       /* init */,    // Note: result is cached.
-                         dir_path () /* fallback */,
-                         true        /* path_only */);
+                         false     /* init (note: result is cached) */,
+                         fallback,
+                         true      /* path_only */);
       }
-
-      using type = compiler_type;
-      const type invalid = invalid_compiler_type;
 
       // Start with -v. This will cover gcc and clang.
       //
