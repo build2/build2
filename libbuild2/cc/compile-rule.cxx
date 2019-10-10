@@ -186,6 +186,37 @@ namespace build2
                      "insufficient space");
     }
 
+    template <typename T>
+    void compile_rule::
+    append_sys_inc_options (T& args) const
+    {
+      assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
+
+      auto b (sys_inc_dirs.begin ());
+      auto m (b + sys_inc_dirs_extra);
+      auto e (sys_inc_dirs.end ());
+
+      append_option_values (
+        args, cclass == compiler_class::msvc ? "/I" : "-I",
+        m, e,
+        [] (const dir_path& d) {return d.string ().c_str ();});
+
+      // For MSVC if we have no INCLUDE environment variable set, then we
+      // add all of them. But we want extras to come first. Note also that
+      // clang-cl takes care of this itself.
+      //
+      if (ctype == compiler_type::msvc && cvariant != "clang")
+      {
+        if (!getenv ("INCLUDE"))
+        {
+          append_option_values (
+            args, "/I",
+            b, m,
+            [] (const dir_path& d) {return d.string ().c_str ();});
+        }
+      }
+    }
+
     size_t compile_rule::
     append_lang_options (cstrings& args, const match_data& md) const
     {
@@ -342,9 +373,10 @@ namespace build2
     // Append or hash library options from a pair of *.export.* variables
     // (first one is cc.export.*) recursively, prerequisite libraries first.
     //
+    template <typename T>
     void compile_rule::
     append_lib_options (const scope& bs,
-                        cstrings& args,
+                        T& args,
                         action a,
                         const target& t,
                         linfo li) const
@@ -384,59 +416,6 @@ namespace build2
 
         // Should be already searched and matched for libraries.
         //
-        if (const target* pt = p.load ())
-        {
-          if (const libx* l = pt->is_a<libx> ())
-            pt = link_member (*l, a, li);
-
-          bool la;
-          if (!((la = pt->is_a<liba> ())  ||
-                (la = pt->is_a<libux> ()) ||
-                pt->is_a<libs> ()))
-            continue;
-
-          process_libraries (a, bs, li, sys_lib_dirs,
-                             pt->as<file> (), la, 0, // Hack: lflags unused.
-                             impf, nullptr, optf);
-        }
-      }
-    }
-
-    void compile_rule::
-    hash_lib_options (const scope& bs,
-                      sha256& cs,
-                      action a,
-                      const target& t,
-                      linfo li) const
-    {
-      auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
-
-      auto opt = [&cs, this] (
-        const file& l, const string& t, bool com, bool exp)
-      {
-        if (!exp)
-          return;
-
-        const variable& var (
-          com
-          ? c_export_poptions
-          : (t == x
-             ? x_export_poptions
-             : l.ctx.var_pool[t + ".export.poptions"]));
-
-        hash_options (cs, l, var);
-      };
-
-      // The same logic as in append_lib_options().
-      //
-      const function<bool (const file&, bool)> impf (imp);
-      const function<void (const file&, const string&, bool, bool)> optf (opt);
-
-      for (prerequisite_member p: group_prerequisite_members (a, t))
-      {
-        if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
-          continue;
-
         if (const target* pt = p.load ())
         {
           if (const libx* l = pt->is_a<libx> ())
@@ -877,29 +856,25 @@ namespace build2
             cs.append (&md.symexport, sizeof (md.symexport));
 
           if (xlate_hdr != nullptr)
-            hash_options (cs,  *xlate_hdr);
+            append_options (cs,  *xlate_hdr);
 
           if (md.pp != preprocessed::all)
           {
-            hash_options (cs, t, c_poptions);
-            hash_options (cs, t, x_poptions);
+            append_options (cs, t, c_poptions);
+            append_options (cs, t, x_poptions);
 
             // Hash *.export.poptions from prerequisite libraries.
             //
-            hash_lib_options (bs, cs, a, t, li);
+            append_lib_options (bs, cs, a, t, li);
 
             // Extra system header dirs (last).
             //
-            assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-            hash_option_values (
-              cs, "-I",
-              sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
-              [] (const dir_path& d) {return d.string ();});
+            append_sys_inc_options (cs);
           }
 
-          hash_options (cs, t, c_coptions);
-          hash_options (cs, t, x_coptions);
-          hash_options (cs, tstd);
+          append_options (cs, t, c_coptions);
+          append_options (cs, t, x_coptions);
+          append_options (cs, tstd);
 
           if (ot == otype::s)
           {
@@ -2956,11 +2931,7 @@ namespace build2
 
           // Extra system header dirs (last).
           //
-          assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-          append_option_values (
-            args, "-I",
-            sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
-            [] (const dir_path& d) {return d.string ().c_str ();});
+          append_sys_inc_options (args);
 
           if (md.symexport)
             append_symexport_options (args, t);
@@ -4098,11 +4069,7 @@ namespace build2
 
           append_lib_options (t.base_scope (), args, a, t, li);
 
-          assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-          append_option_values (
-            args, "-I",
-            sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
-            [] (const dir_path& d) {return d.string ().c_str ();});
+          append_sys_inc_options (args);
 
           if (md.symexport)
             append_symexport_options (args, t);
@@ -5693,11 +5660,7 @@ namespace build2
 
         // Extra system header dirs (last).
         //
-        assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
-        append_option_values (
-          args, "-I",
-          sys_inc_dirs.begin () + sys_inc_dirs_extra, sys_inc_dirs.end (),
-          [] (const dir_path& d) {return d.string ().c_str ();});
+        append_sys_inc_options (args);
 
         if (md.symexport)
           append_symexport_options (args, t);

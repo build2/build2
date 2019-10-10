@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-// Bootstrap build is never condidered installed.
+// Bootstrap build is never considered installed.
 //
 #ifndef BUILD2_BOOTSTRAP
 

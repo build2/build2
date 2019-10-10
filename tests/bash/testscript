@@ -7,7 +7,7 @@
 : dummy
 :
 if ($test.target == $build.host && $build.host.class != 'windows')
- {
+{
   buildfile = true
   test.arguments =
 

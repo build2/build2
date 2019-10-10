@@ -38,9 +38,9 @@ namespace build2
 
   template <typename T>
   inline void
-  hash_options (sha256& csum, T& s, const variable& var)
+  append_options (sha256& csum, T& s, const variable& var)
   {
-    hash_options (csum, s[var]);
+    append_options (csum, s[var]);
   }
 
   template <typename T>
@@ -59,9 +59,9 @@ namespace build2
 
   template <typename T>
   inline void
-  hash_options (sha256& csum, T& s, const char* var)
+  append_options (sha256& csum, T& s, const char* var)
   {
-    hash_options (csum, s[var]);
+    append_options (csum, s[var]);
   }
 
   inline void
@@ -79,10 +79,10 @@ namespace build2
   }
 
   inline void
-  hash_options (sha256& csum, const strings& sv)
+  append_options (sha256& csum, const strings& sv)
   {
     if (size_t n = sv.size ())
-      hash_options (csum, sv, n);
+      append_options (csum, sv, n);
   }
 
   template <typename T>

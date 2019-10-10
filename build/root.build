@@ -13,6 +13,10 @@ ixx{*}: extension = ixx
 txx{*}: extension = txx
 cxx{*}: extension = cxx
 
+# Note that we bundle some C headers (see the LICENSE file for details).
+#
+h{*}: extension = h
+
 if ($cxx.target.system == 'win32-msvc')
   cxx.poptions += -D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS
 

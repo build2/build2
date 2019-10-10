@@ -249,7 +249,7 @@ namespace build2
         // Then the options checksum.
         //
         sha256 cs;
-        hash_options (cs, t, "cli.options");
+        append_options (cs, t, "cli.options");
 
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "options mismatch forcing update of " << t;});

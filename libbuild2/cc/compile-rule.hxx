@@ -58,19 +58,17 @@ namespace build2
       struct match_data;
       using environment = small_vector<const char*, 2>;
 
+      template <typename T>
+      void
+      append_sys_inc_options (T&) const;
+
+      template <typename T>
       void
       append_lib_options (const scope&,
-                          cstrings&,
+                          T&,
                           action,
                           const target&,
                           linfo) const;
-
-      void
-      hash_lib_options (const scope&,
-                        sha256&,
-                        action,
-                        const target&,
-                        linfo) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.

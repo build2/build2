@@ -131,10 +131,10 @@ namespace build2
                         const scope&, action, linfo) const;
 
       void
-      hash_libraries (sha256&,
-                      bool&, timestamp,
-                      const file&, bool, lflags,
-                      const scope&, action, linfo) const;
+      append_libraries (sha256&,
+                        bool&, timestamp,
+                        const file&, bool, lflags,
+                        const scope&, action, linfo) const;
 
       void
       rpath_libraries (strings&,

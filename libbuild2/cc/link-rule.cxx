@@ -1573,10 +1573,10 @@ namespace build2
     }
 
     void link_rule::
-    hash_libraries (sha256& cs,
-                    bool& update, timestamp mt,
-                    const file& l, bool la, lflags lf,
-                    const scope& bs, action a, linfo li) const
+    append_libraries (sha256& cs,
+                      bool& update, timestamp mt,
+                      const file& l, bool la, lflags lf,
+                      const scope& bs, action a, linfo li) const
     {
       struct data
       {
@@ -1666,7 +1666,7 @@ namespace build2
                ? (exp ? x_export_loptions : x_loptions)
                : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
-          hash_options (d.cs, *g, var);
+          append_options (d.cs, *g, var);
         }
       };
 
@@ -2436,7 +2436,7 @@ namespace build2
             //
             if (la || ls)
             {
-              hash_libraries (cs, update, mt, *f, la, p.data, bs, a, li);
+              append_libraries (cs, update, mt, *f, la, p.data, bs, a, li);
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
@@ -2475,8 +2475,8 @@ namespace build2
         //
         if (!lt.static_library ())
         {
-          hash_options (cs, t, c_libs);
-          hash_options (cs, t, x_libs);
+          append_options (cs, t, c_libs);
+          append_options (cs, t, x_libs);
         }
 
         if (dd.expect (cs.string ()) != nullptr)

@@ -515,11 +515,11 @@ namespace build2
 
   template <typename T>
   void
-  hash_options (sha256&, T&, const variable&);
+  append_options (sha256&, T&, const variable&);
 
   template <typename T>
   void
-  hash_options (sha256&, T&, const char*);
+  append_options (sha256&, T&, const char*);
 
   // As above but from the strings value directly.
   //
@@ -533,7 +533,7 @@ namespace build2
   append_options (strings&, const lookup&, const char* excl = nullptr);
 
   LIBBUILD2_SYMEXPORT void
-  hash_options (sha256&, const lookup&);
+  append_options (sha256&, const lookup&);
 
   void
   append_options (cstrings&, const strings&, const char* excl = nullptr);
@@ -542,7 +542,7 @@ namespace build2
   append_options (strings&, const strings&, const char* excl = nullptr);
 
   void
-  hash_options (sha256&, const strings&);
+  append_options (sha256&, const strings&);
 
   LIBBUILD2_SYMEXPORT void
   append_options (cstrings&,
@@ -555,7 +555,7 @@ namespace build2
                   const char* excl = nullptr);
 
   LIBBUILD2_SYMEXPORT void
-  hash_options (sha256&, const strings&, size_t);
+  append_options (sha256&, const strings&, size_t);
 
   // As above but append/hash option values for the specified option (e.g.,
   // -I, -L).
@@ -569,10 +569,10 @@ namespace build2
 
   template <typename I, typename F>
   void
-  hash_option_values (sha256&,
-                      const char* opt,
-                      I begin, I end,
-                      F&& get = [] (const string& s) {return s;});
+  append_option_values (sha256&,
+                        const char* opt,
+                        I begin, I end,
+                        F&& get = [] (const string& s) {return s;});
 
   // Check if a specified option is present in the variable or value. T is
   // either target or scope.

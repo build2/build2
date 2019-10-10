@@ -4,8 +4,70 @@
 
 #include <libbuild2/cc/guess.hxx>
 
+// Bootstrap build is always performed in the VC's command prompt and thus
+// doesn't require the VC search functionality.
+//
+#if defined(_WIN32) && !defined(BUILD2_BOOTSTRAP)
+#  include <libbutl/win32-utility.hxx>
+
+#  include <unknwn.h>   // IUnknown
+#  include <stdlib.h>   // _MAX_PATH
+#  include <oleauto.h>  // SysFreeString()
+#  include <guiddef.h>  // CLSID, IID
+#  include <objbase.h>  // CoInitializeEx(), CoCreateInstance(), etc.
+
+// MinGW may lack some macro definitions used in msvc-setup.h (see below), so
+// we provide them if that's the case.
+//
+#  ifndef MAXUINT
+#    define MAXUINT UINT_MAX
+#  endif
+
+// MinGW's sal.h (Microsoft's Source Code Annotation Language) may not contain
+// all the in/out annotation macros.
+//
+#  ifndef _In_z_
+#    define _In_z_
+#  endif
+
+#  ifndef _In_opt_z_
+#    define _In_opt_z_
+#  endif
+
+#  ifndef _Out_opt_
+#    define _Out_opt_
+#  endif
+
+#  ifndef _Deref_out_opt_
+#    define _Deref_out_opt_
+#  endif
+
+#  ifndef _Out_writes_to_
+#    define _Out_writes_to_(X, Y)
+#  endif
+
+#  ifndef _Deref_out_range_
+#    define _Deref_out_range_(X, Y)
+#  endif
+
+#  ifndef _Outptr_result_maybenull_
+#    define _Outptr_result_maybenull_
+#  endif
+
+#  ifndef _Reserved_
+#    define _Reserved_
+#  endif
+
+// API for enumerating Visual Studio setup instances and querying information
+// about them (see the LICENSE file for details).
+//
+#  include <libbuild2/cc/msvc-setup.h>
+
+#  include <libbuild2/filesystem.hxx>
+#endif
+
 #include <map>
-#include <cstring>  // strlen(), strchr()
+#include <cstring> // strlen(), strchr()
 
 #include <libbuild2/diagnostics.hxx>
 
@@ -352,6 +414,291 @@ namespace build2
       return pre_guess_result {invalid_compiler_type, nullopt, string::npos};
     }
 
+    // Return the latest MSVC and Platform SDK installation information if
+    // both are discovered on the system and nullopt otherwise. In particular,
+    // don't fail on the underlying COM/OS errors returning nullopt instead.
+    // This way a broken VC setup will be silently ignored.
+    //
+    // Note that Visual Studio versions prior to 15.0 are not supported.
+    //
+    struct msvc_info
+    {
+      dir_path msvc_dir; // VC directory (...\Tools\MSVC\<ver>\).
+      string   psdk_ver; // Platfor SDK directory (...\Windows Kits\<ver>\).
+      dir_path psdk_dir; // Platfor SDK version (under Include/, Lib/, etc).
+    };
+
+#if defined(_WIN32) && !defined(BUILD2_BOOTSTRAP)
+
+    // We more or less follow the logic in the Clang 'simplementation (see
+    // MSVC.cpp for details) but don't use the high level APIs (bstr_t,
+    // com_ptr_t, etc) and the VC extensions (__uuidof(), class uuid
+    // __declspecs, etc) that are poorly supported by MinGW GCC and Clang.
+    //
+    struct com_deleter
+    {
+      void operator() (IUnknown* p) const {if (p != nullptr) p->Release ();}
+    };
+
+    struct bstr_deleter
+    {
+      void operator() (BSTR p) const {if (p != nullptr) SysFreeString (p);}
+    };
+
+    // We don't use the __uuidof keyword (see above) and so define the
+    // class/interface ids manually.
+    //
+    static const CLSID msvc_setup_config_clsid {
+      0x177F0C4A, 0x1CD3, 0x4DE7,
+      {0xA3, 0x2C, 0x71, 0xDB, 0xBB, 0x9F, 0xA3, 0x6D}};
+
+    static const IID msvc_setup_config_iid {
+      0x26AAB78C, 0x4A60, 0x49D6,
+      {0xAF, 0x3B, 0x3C, 0x35, 0xBC, 0x93, 0x36, 0x5D}};
+
+    static const IID msvc_setup_helper_iid {
+      0x42B21B78, 0x6192, 0x463E,
+      {0x87, 0xBF, 0xD5, 0x77, 0x83, 0x8F, 0x1D, 0x5C}};
+
+    static optional<msvc_info>
+    find_msvc ()
+    {
+      using namespace butl;
+
+      msvc_info r;
+
+      // Try to obtain the latest MSVC directory and version.
+      //
+      {
+        // Initialize the COM library for use by the current thread.
+        //
+        if (CoInitializeEx (nullptr /* pvReserved */,
+                            COINIT_APARTMENTTHREADED) != S_OK)
+          return nullopt;
+
+        auto uninitializer (make_guard ([] () {CoUninitialize ();}));
+
+        // Obtain the VS information retrieval interface. Failed that, assume
+        // there is no VS installed.
+        //
+        unique_ptr<ISetupConfiguration2, com_deleter> sc;
+        {
+          ISetupConfiguration2* p;
+          if (CoCreateInstance (msvc_setup_config_clsid,
+                                nullptr /* pUnkOuter */,
+                                CLSCTX_ALL,
+                                msvc_setup_config_iid,
+                                reinterpret_cast<LPVOID*> (&p)) != S_OK)
+            return nullopt;
+
+          sc.reset (p);
+        }
+
+        // Obtain the VS instance enumerator interface.
+        //
+        unique_ptr<IEnumSetupInstances, com_deleter> ei;
+        {
+          IEnumSetupInstances* p;
+          if (sc->EnumAllInstances (&p) != S_OK)
+            return nullopt;
+
+          ei.reset (p);
+        }
+
+        // Obtain an interface that helps with the VS version parsing.
+        //
+        unique_ptr<ISetupHelper, com_deleter> sh;
+        {
+          ISetupHelper* p;
+          if (sc->QueryInterface (msvc_setup_helper_iid,
+                                  reinterpret_cast<LPVOID*> (&p)) != S_OK)
+            return nullopt;
+
+          sh.reset (p);
+        }
+
+        // Iterate over the VS instances and pick the latest one. Bail out
+        // if any COM interface function call fails.
+        //
+        unsigned long long vs_ver (0); // VS version numeric representation.
+        unique_ptr<ISetupInstance, com_deleter> vs;
+        HRESULT hr;
+
+        for (ISetupInstance* p;
+             (hr = ei->Next (1, &p, nullptr /* pceltFetched */)) == S_OK; )
+        {
+          unique_ptr<ISetupInstance, com_deleter> i (p);
+
+          // Note: we cannot use bstr_t due to the Clang 9.0 bug #42842.
+          //
+          BSTR iv; // For example, 16.3.29324.140.
+          if (i->GetInstallationVersion (&iv) != S_OK)
+            return nullopt;
+
+          unique_ptr<wchar_t, bstr_deleter> deleter (iv);
+
+          unsigned long long v;
+          if (sh->ParseVersion (iv, &v) != S_OK)
+            return nullopt;
+
+          if (vs == nullptr || v > vs_ver)
+          {
+            vs = move (i);
+            vs_ver = v;
+          }
+        }
+
+        // Bail out if no VS instance is found or we didn't manage to iterate
+        // through all of them successfully.
+        //
+        if (vs == nullptr || hr != S_FALSE)
+          return nullopt;
+
+        // Obtain the VC directory path.
+        //
+        {
+          BSTR p;
+          if (vs->ResolvePath (L"VC", &p) !=  S_OK)
+            return nullopt;
+
+          unique_ptr<wchar_t, bstr_deleter> deleter (p);
+
+          // Convert BSTR to the NULL-terminated character string and then to
+          // a path. Bail out if anything goes wrong.
+          //
+          try
+          {
+            int n (WideCharToMultiByte (CP_ACP,
+                                        0       /* dwFlags */,
+                                        p,
+                                        -1,     /*cchWideChar */
+                                        nullptr /* lpMultiByteStr */,
+                                        0       /* cbMultiByte */,
+                                        0       /* lpDefaultChar */,
+                                        0       /* lpUsedDefaultChar */));
+
+            if (n != 0) // Note: must include the terminating NULL character.
+            {
+              vector<char> ps (n);
+              if (WideCharToMultiByte (CP_ACP,
+                                       0,
+                                       p, -1,
+                                       ps.data (), n,
+                                       0, 0) != 0)
+                r.msvc_dir = dir_path (ps.data ());
+            }
+          }
+          catch (const invalid_path&) {}
+
+          if (r.msvc_dir.relative ()) // Also covers the empty directory case.
+            return nullopt;
+        }
+
+        // Read the VC version from the file and bail out on error.
+        //
+        string vc_ver; // For example, 14.23.28105.
+
+        path vp (
+          r.msvc_dir /
+          path ("Auxiliary\\Build\\Microsoft.VCToolsVersion.default.txt"));
+
+        try
+        {
+          ifdstream is (vp);
+          vc_ver = trim (is.read_text ());
+        }
+        catch (const io_error&) {}
+
+        // Make sure that the VC version directory exists.
+        //
+        if (!vc_ver.empty ())
+        try
+        {
+          ((r.msvc_dir /= "Tools") /= "MSVC") /= vc_ver;
+
+          if (!dir_exists (r.msvc_dir))
+            r.msvc_dir.clear ();
+        }
+        catch (const invalid_path&) {}
+        catch (const system_error&) {}
+
+        if (r.msvc_dir.empty ())
+          return nullopt;
+      }
+
+      // Try to obtain the latest Platform SDK directory and version.
+      //
+      {
+        // Read the Platform SDK directory path from the registry. Failed
+        // that, assume there is no Platform SDK installed.
+        //
+        HKEY h;
+        if (RegOpenKeyExA (
+              HKEY_LOCAL_MACHINE,
+              "SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots",
+              0 /* ulOptions */,
+              KEY_READ,
+              &h) != ERROR_SUCCESS)
+          return nullopt;
+
+        DWORD t;
+
+        // Reserve space for the terminating NULL character.
+        //
+        DWORD n (_MAX_PATH + 1);
+        char buf[_MAX_PATH + 1];
+
+        LSTATUS st (RegQueryValueExA (h,
+                                      "KitsRoot10",
+                                      nullptr,
+                                      &t,
+                                      reinterpret_cast<LPBYTE> (buf),
+                                      &n));
+
+        // Unlikely to fail, but we can't do much if that's the case.
+        //
+        RegCloseKey (h);
+
+        // Note that the value length includes the terminating NULL character
+        // and so cannot be zero.
+        //
+        if (st != ERROR_SUCCESS || t != REG_SZ || n == 0)
+          return nullopt;
+
+        try
+        {
+          r.psdk_dir = dir_path (buf);
+
+          if (r.psdk_dir.relative ()) // Also covers the empty directory case.
+            return nullopt;
+
+          // Obtain the latest Platform SDK version as the lexicographically
+          // greatest sub-directory name in the <psdk-dir>/Include directory.
+          //
+          for (const dir_entry& de:
+                 dir_iterator (r.psdk_dir / dir_path ("Include"),
+                               false /* ignore_dangling */))
+          {
+            if (de.type () == entry_type::directory)
+            {
+              const string& v (de.path ().string ());
+
+              if (v.compare (0, 3, "10.") == 0 && v > r.psdk_ver)
+                r.psdk_ver = v;
+            }
+          }
+        }
+        catch (const invalid_path&) {return nullopt;}
+        catch (const system_error&) {return nullopt;}
+
+        if (r.psdk_ver.empty ())
+          return nullopt;
+      }
+
+      return move (r);
+    }
+#endif
+
     // Guess the compiler type and variant by running it. If the pre argument
     // is not empty, then only "confirm" the pre-guess. Return empty result if
     // unable to guess.
@@ -362,6 +709,15 @@ namespace build2
       string signature;
       string checksum;
       process_path path;
+
+      // Optional additional information (for example, msvc_info).
+      //
+      static void
+      null_info_deleter (void* p) { assert (p == nullptr); }
+
+      using info_ptr = unique_ptr<void, void (*) (void*)>;
+
+      info_ptr info = {nullptr, null_info_deleter};
 
       guess_result () = default;
       guess_result (compiler_id i, string&& s)
@@ -388,9 +744,15 @@ namespace build2
       using type = compiler_type;
       const type invalid = invalid_compiler_type;
 
+      const type& pt (pre.type);
+      const optional<string>& pv (pre.variant);
+
+      using info_ptr = guess_result::info_ptr;
       guess_result r;
 
       process_path xp;
+      info_ptr search_info (nullptr, guess_result::null_info_deleter);
+      for (;;) // Breakout loop.
       {
         auto df = make_diag_frame (
           [&xm](const diag_record& dr)
@@ -398,36 +760,93 @@ namespace build2
             dr << info << "use config." << xm << " to override";
           });
 
+        dir_path fb; // Fallback search directory.
+
+#ifdef _WIN32
         // If we are running in the Visual Studio command prompt, add the
         // potentially bundled Clang directory as a fallback (for some reason
         // the Visual Studio prompts don't add it to PATH themselves).
         //
-        dir_path fallback;
-
-#ifdef _WIN32
-        if (pre.type == type::clang ||
-            (pre.type == type::msvc && pre.variant && *pre.variant == "clang"))
+        if (xc.simple () &&
+            (pt == type::clang ||
+             (pt == type::msvc && pv && *pv == "clang")))
         {
           if (optional<string> v = getenv ("VCINSTALLDIR"))
           {
             try
             {
-              fallback = ((dir_path (move (*v)) /= "Tools") /= "Llvm") /= "bin";
+              fb = ((dir_path (move (*v)) /= "Tools") /= "Llvm") /= "bin";
             }
             catch (const invalid_path&)
             {
               // Ignore it.
             }
+
+            goto search;
           }
         }
+
+        // If we pre-guessed MSVC or Clang (including clang-cl) try the search
+        // and if not found, try to locate the MSVC installation and fallback
+        // on that.
+        //
+        if (xc.simple () &&
+            (pt == type::clang ||
+             (pt == type::msvc && (!pv || *pv == "clang"))))
+        {
+          if (!(xp = try_run_search (xc, false, dir_path (), true)).empty ())
+            break;
+
+          if (optional<msvc_info> mi = find_msvc ())
+          {
+            try
+            {
+              if (pt == type::msvc && !pv)
+              {
+                // With MSVC you get a compiler binary per target (i.e., there
+                // is nothing like -m32/-m64 or /MACHINE). Targeting 64-bit
+                // seems like as good of a default as any.
+                //
+                fb = ((dir_path (mi->msvc_dir) /= "bin") /= "Hostx64") /= "x64";
+
+                search_info = info_ptr (new msvc_info (move (*mi)),
+                                        [] (void* p)
+                                        {
+                                          delete static_cast<msvc_info*> (p);
+                                        });
+              }
+              else
+              {
+                // Get to ...\VC\Tools\ from ...\VC\Tools\MSVC\<ver>\.
+                //
+                fb = (dir_path (mi->msvc_dir) /= "..") /= "..";
+                fb.normalize ();
+                (fb /= "Llvm") /= "bin";
+
+                // Note that in this case we drop msvc_info and extract it
+                // directly from Clang later.
+              }
+            }
+            catch (const invalid_path&)
+            {
+              fb.clear (); // Ignore it.
+            }
+
+            goto search;
+          }
+        }
+
+        search:
 #endif
+
         // Only search in PATH (specifically, omitting the current
         // executable's directory on Windows).
         //
         xp = run_search (xc,
-                         false     /* init (note: result is cached) */,
-                         fallback,
-                         true      /* path_only */);
+                         false /* init (note: result is cached) */,
+                         fb,
+                         true  /* path_only */);
+        break;
       }
 
       // Start with -v. This will cover gcc and clang (including clang-cl).
@@ -445,13 +864,12 @@ namespace build2
       // In fact, if someone renames icpc to g++, there will be no way for
       // us to detect this. Oh, well, their problem.
       //
-      if (r.empty () && ( pre.type == invalid     ||
-                          pre.type == type::gcc   ||
-                          pre.type == type::clang ||
-                         (pre.type == type::msvc &&
-                          pre.variant && *pre.variant == "clang")))
+      if (r.empty () && (pt == invalid     ||
+                         pt == type::gcc   ||
+                         pt == type::clang ||
+                         (pt == type::msvc && pv && *pv == "clang")))
       {
-        auto f = [&xi, &pre] (string& l, bool last) -> guess_result
+        auto f = [&xi, &pt] (string& l, bool last) -> guess_result
         {
           if (xi)
           {
@@ -525,7 +943,7 @@ namespace build2
           //
           if (l.find ("clang ") != string::npos)
           {
-            return guess_result (pre.type == type::msvc
+            return guess_result (pt == type::msvc
                                  ? compiler_id {type::msvc, "clang"}
                                  : compiler_id {type::clang, ""},
                                  move (l));
@@ -567,7 +985,7 @@ namespace build2
           //
           if (r.id.type == type::clang &&
               r.id.variant == "apple"  &&
-              pre.type == type::gcc)
+              pt == type::gcc)
           {
             pre.type = type::clang;
             pre.variant = "apple";
@@ -578,10 +996,10 @@ namespace build2
       // Next try --version to detect icc. As well as obtain signature for
       // GCC/Clang-like compilers in case -v above didn't work.
       //
-      if (r.empty () && (pre.type == invalid   ||
-                         pre.type == type::icc ||
-                         pre.type == type::gcc ||
-                         pre.type == type::clang))
+      if (r.empty () && (pt == invalid   ||
+                         pt == type::icc ||
+                         pt == type::gcc ||
+                         pt == type::clang))
       {
         auto f = [&xi] (string& l, bool) -> guess_result
         {
@@ -617,7 +1035,8 @@ namespace build2
 
       // Finally try to run it without any options to detect msvc.
       //
-      if (r.empty () && (pre.type == invalid || pre.type == type::msvc))
+      if (r.empty () && (pt == invalid ||
+                         pt == type::msvc))
       {
         auto f = [&xi] (string& l, bool) -> guess_result
         {
@@ -669,9 +1088,8 @@ namespace build2
 
       if (!r.empty ())
       {
-        if (pre.type != invalid &&
-            (pre.type != r.id.type ||
-             (pre.variant && *pre.variant != r.id.variant)))
+        if (pt != invalid &&
+            (pt != r.id.type || (pv && *pv != r.id.variant)))
         {
           l4 ([&]{trace << "compiler type guess mismatch"
                         << ", pre-guessed " << pre
@@ -685,6 +1103,9 @@ namespace build2
                         << r.signature << "'";});
 
           r.path = move (xp);
+
+          if (search_info != nullptr && r.info == nullptr)
+            r.info = move (search_info);
         }
       }
       else
@@ -823,6 +1244,82 @@ namespace build2
            << "' to runtime version" << endf;
     }
 
+    // Return the MSVC system header search paths (i.e., what the Visual
+    // Studio command prompt puts into INCLUDE).
+    //
+    // Note that currently we don't add any ATL/MFC or WinRT paths (but could
+    // do that probably first checking if they exist/empty).
+    //
+    static dir_paths
+    msvc_include (const msvc_info& mi)
+    {
+      dir_paths r;
+
+      r.push_back (dir_path (mi.msvc_dir) /= "include");
+
+      // This path structure only appeared in Platform SDK 10 (if anyone wants
+      // to use anything older, they will just have to use the MSVC command
+      // prompt).
+      //
+      if (!mi.psdk_ver.empty ())
+      {
+        dir_path d ((dir_path (mi.psdk_dir) /= "Include") /= mi.psdk_ver);
+
+        r.push_back (dir_path (d) /= "ucrt"  );
+        r.push_back (dir_path (d) /= "shared");
+        r.push_back (dir_path (d) /= "um"    );
+      }
+
+      return r;
+    }
+
+    // Return the MSVC system library search paths (i.e., what the Visual
+    // Studio command prompt puts into LIB).
+    //
+    static dir_paths
+    msvc_lib (const msvc_info& mi, const char* cpu)
+    {
+      dir_paths r;
+
+      r.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
+
+      // This path structure only appeared in Platform SDK 10 (if anyone wants
+      // to use anything older, they will just have to use the MSVC command
+      // prompt).
+      //
+      if (!mi.psdk_ver.empty ())
+      {
+        dir_path d ((dir_path (mi.psdk_dir) /= "Lib") /= mi.psdk_ver);
+
+        r.push_back ((dir_path (d) /= "ucrt") /= cpu);
+        r.push_back ((dir_path (d) /= "um"  ) /= cpu);
+      }
+
+      return r;
+    }
+
+    // Return the MSVC binutils search paths (i.e., what the Visual Studio
+    // command prompt puts into PATH).
+    //
+    static string
+    msvc_bin (const msvc_info& mi, const char* cpu)
+    {
+      string r;
+
+      // Seeing that we only do 64-bit on Windows, let's always use 64-bit
+      // MSVC tools (link.exe, etc). In case of the Platform SDK, it's unclear
+      // what the CPU signifies (host, target, both).
+      //
+      r  = (((dir_path (mi.msvc_dir) /= "bin") /= "Hostx64") /= cpu).
+        representation ();
+
+      r += path::traits_type::path_separator;
+
+      r += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /= cpu).
+        representation ();
+
+      return r;
+    }
 
     static compiler_info
     guess_msvc (const char* xm,
@@ -990,6 +1487,21 @@ namespace build2
       else
         ot = t = *xt;
 
+      // If we have the MSVC installation information, then this means we are
+      // running out of the Visual Studio command prompt and will have to
+      // supply PATH/INCLUDE/LIB equivalents ourselves.
+      //
+      optional<dir_paths> lib_dirs;
+      optional<dir_paths> inc_dirs;
+      string bpat;
+
+      if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
+      {
+        lib_dirs = msvc_lib (*mi, "x64");
+        lib_dirs = msvc_include (*mi);
+        bpat = msvc_bin (*mi, "x64");
+      }
+
       // Derive the toolchain pattern.
       //
       // If the compiler name is/starts with 'cl' (e.g., cl.exe, cl-14),
@@ -997,7 +1509,9 @@ namespace build2
       // etc.
       //
       string cpat (pattern (xc, "cl", nullptr, ".-"));
-      string bpat (cpat); // Binutils pattern is the same as toolchain.
+
+      if (bpat.empty ())
+        bpat = cpat; // Binutils pattern is the same as toolchain.
 
       // Runtime and standard library.
       //
@@ -1025,8 +1539,8 @@ namespace build2
         move (rt),
         move (csl),
         move (xsl),
-        nullopt,
-        nullopt};
+        move (lib_dirs),
+        move (inc_dirs)};
     }
 
     static compiler_info
@@ -1223,14 +1737,11 @@ namespace build2
         nullopt};
     }
 
-    struct clang_msvc_info
+    struct clang_msvc_info: msvc_info
     {
       string   triple;        // cc1 -triple value
-      string   msvc_ver;      // system version from triple
+      string   msvc_ver;      // Compiler version from triple.
       string   msvc_comp_ver; // cc1 -fms-compatibility-version value
-      dir_path msvc_dir;
-      string   psdk_ver;
-      dir_path psdk_dir;
     };
 
     static clang_msvc_info
@@ -1645,7 +2156,7 @@ namespace build2
       // MSVC's.
       //
       optional<dir_paths> lib_dirs;
-      string bin_pat;
+      string bpat;
 
       if (tt.system == "windows-msvc")
       {
@@ -1686,25 +2197,7 @@ namespace build2
         // to extract this from Clang and -print-search-paths would have been
         // the natural way for Clang to report it. But no luck.
         //
-        {
-          dir_paths ds;
-
-          ds.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
-
-          // This path structure only appeared in Platform SDK 10 (if anyone
-          // wants to use anything older, they will just have to use the MSVC
-          // command prompt).
-          //
-          if (!mi.psdk_ver.empty ())
-          {
-            dir_path d ((dir_path (mi.psdk_dir) /= "Lib") /= mi.psdk_ver);
-
-            ds.push_back ((dir_path (d) /= "ucrt") /= cpu);
-            ds.push_back ((dir_path (d) /= "um"  ) /= cpu);
-          }
-
-          lib_dirs = move (ds);
-        }
+        lib_dirs = msvc_lib (mi, cpu);
 
         // Binutils search paths.
         //
@@ -1713,17 +2206,7 @@ namespace build2
         // lines. However, reliably detecting this and making sure the result
         // matches Clang's is complex. So let's keep it simple for now.
         //
-        // Seeing that we only do 64-bit on Windows, let's always use 64-bit
-        // MSVC tools (link.exe, etc). In case of the Platform SDK, it's
-        // unclear what the CPU signifies (host, target, both).
-        //
-        bin_pat  = (((dir_path (mi.msvc_dir) /= "bin") /= "Hostx64") /= cpu).
-          representation ();
-
-        bin_pat += path::traits_type::path_separator;
-
-        bin_pat += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /= cpu).
-          representation ();
+        bpat = msvc_bin (mi, cpu);
 
         // If this is clang-cl, then use the MSVC compatibility version as its
         // primary version.
@@ -1735,20 +2218,20 @@ namespace build2
         }
       }
 
-      // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
-      // as well as cc/c++.
+      // Derive the compiler toolchain pattern. Try clang/clang++, the gcc/g++
+      // alias, as well as cc/c++.
       //
-      string pat;
+      string cpat;
 
       if (!cl)
       {
-        pat = pattern (xc, xl == lang::c ? "clang" : "clang++");
+        cpat = pattern (xc, xl == lang::c ? "clang" : "clang++");
 
-        if (pat.empty ())
-          pat = pattern (xc, xl == lang::c ? "gcc" : "g++");
+        if (cpat.empty ())
+          cpat = pattern (xc, xl == lang::c ? "gcc" : "g++");
 
-        if (pat.empty ())
-          pat = pattern (xc, xl == lang::c ? "cc" : "c++");
+        if (cpat.empty ())
+          cpat = pattern (xc, xl == lang::c ? "cc" : "c++");
       }
 
       // Runtime and standard library.
@@ -1829,8 +2312,8 @@ namespace build2
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
         move (ot),
-        move (pat),
-        move (bin_pat),
+        move (cpat),
+        move (bpat),
         move (rt),
         move (csl),
         move (xsl),
@@ -2154,12 +2637,12 @@ namespace build2
         cs.append (static_cast<size_t> (xl));
         cs.append (xc.string ());
         if (xis != nullptr) cs.append (*xis);
-        if (c_po != nullptr) hash_options (cs, *c_po);
-        if (x_po != nullptr) hash_options (cs, *x_po);
-        if (c_co != nullptr) hash_options (cs, *c_co);
-        if (x_co != nullptr) hash_options (cs, *x_co);
-        if (c_lo != nullptr) hash_options (cs, *c_lo);
-        if (x_lo != nullptr) hash_options (cs, *x_lo);
+        if (c_po != nullptr) append_options (cs, *c_po);
+        if (x_po != nullptr) append_options (cs, *x_po);
+        if (c_co != nullptr) append_options (cs, *c_co);
+        if (x_co != nullptr) append_options (cs, *x_co);
+        if (c_lo != nullptr) append_options (cs, *c_lo);
+        if (x_lo != nullptr) append_options (cs, *x_lo);
         key = cs.string ();
 
         auto i (cache.find (key));

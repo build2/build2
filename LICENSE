@@ -1,3 +1,11 @@
+libbuild2/cc/msvc-setup.h:
+
+MIT, see the file header for details. Comes from the
+Microsoft.VisualStudio.Setup.Configuration.Native NuGet package and is
+originally named as Setup.Configuration.h.
+
+The rest:
+
 Copyright (c) 2014-2019 Code Synthesis Ltd
 
 Permission is hereby granted, free of charge, to any person obtaining

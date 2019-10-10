@@ -308,10 +308,10 @@ namespace build2
   }
 
   void
-  hash_options (sha256& csum, const lookup& l)
+  append_options (sha256& csum, const lookup& l)
   {
     if (l)
-      hash_options (csum, cast<strings> (l));
+      append_options (csum, cast<strings> (l));
   }
 
   void
@@ -345,7 +345,7 @@ namespace build2
   }
 
   void
-  hash_options (sha256& csum, const strings& sv, size_t n)
+  append_options (sha256& csum, const strings& sv, size_t n)
   {
     for (size_t i (0); i != n; ++i)
       csum.append (sv[i]);
