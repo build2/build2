@@ -1544,7 +1544,7 @@ In this case the executable \c{buildfile} would look along these lines:
 \
 include ../libhello/ # Include lib{hello}.
 
-exe{hello}: {hxx cxx}{**} lib{hello}
+exe{hello}: {hxx cxx}{**} ../libhello/lib{hello}
 \
 
 Note also that \c{buildfile} inclusion should only be used for accessing
@@ -2390,7 +2390,7 @@ Then our executable \c{buildfile} could look like this:
 \
 include ../libhello/ # Include lib{hello}.
 
-exe{hello}: {hxx cxx}{**} lib{hello}
+exe{hello}: {hxx cxx}{**} ../libhello/lib{hello}
 \
 
 What if instead \c{libhello} were a separate project? The inclusion approach
@@ -3170,11 +3170,11 @@ and variable assignment. We've already used all three but let's see another
 example:
 
 \
-include ../libhello/                  # Directive.
+include ../libhello/                             # Directive.
 
-exe{hello}: {hxx cxx}{**} lib{hello}  # Dependency declaration.
+exe{hello}: {hxx cxx}{**} ../libhello/lib{hello} # Dependency declaration.
 
-cxx.poptions += -DNDEBUG              # Variable assignment (append).
+cxx.poptions += -DNDEBUG                         # Variable assignment.
 \
 
 There is also the scope opening (we've seen one in \c{export.build}) as well
