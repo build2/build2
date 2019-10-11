@@ -220,11 +220,17 @@ namespace build2
 
         v.insert<string>   ("c.class"),
 
-        v.insert<string>   ("c.version"),
-        v.insert<uint64_t> ("c.version.major"),
-        v.insert<uint64_t> ("c.version.minor"),
-        v.insert<uint64_t> ("c.version.patch"),
-        v.insert<string>   ("c.version.build"),
+        &v.insert<string>   ("c.version"),
+        &v.insert<uint64_t> ("c.version.major"),
+        &v.insert<uint64_t> ("c.version.minor"),
+        &v.insert<uint64_t> ("c.version.patch"),
+        &v.insert<string>   ("c.version.build"),
+
+        &v.insert<string>   ("c.variant_version"),
+        &v.insert<uint64_t> ("c.variant_version.major"),
+        &v.insert<uint64_t> ("c.variant_version.minor"),
+        &v.insert<uint64_t> ("c.variant_version.patch"),
+        &v.insert<string>   ("c.variant_version.build"),
 
         v.insert<string>   ("c.signature"),
         v.insert<string>   ("c.checksum"),

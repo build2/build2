@@ -173,11 +173,19 @@ namespace build2
 
       rs.assign (x_class) = to_string (xi.class_);
 
-      rs.assign (x_version) = xi.version.string;
-      rs.assign (x_version_major) = xi.version.major;
-      rs.assign (x_version_minor) = xi.version.minor;
-      rs.assign (x_version_patch) = xi.version.patch;
-      rs.assign (x_version_build) = xi.version.build;
+      auto assign_version = [&rs] (const variable** vars,
+                                   const compiler_version* v)
+      {
+        rs.assign (vars[0]) = v != nullptr ? value (v->string) : value ();
+        rs.assign (vars[1]) = v != nullptr ? value (v->major) : value ();
+        rs.assign (vars[2]) = v != nullptr ? value (v->minor) : value ();
+        rs.assign (vars[3]) = v != nullptr ? value (v->patch) : value ();
+        rs.assign (vars[4]) = v != nullptr ? value (v->build) : value ();
+      };
+
+      assign_version (&x_version, &xi.version);
+      assign_version (&x_variant_version,
+                      xi.variant_version ? &*xi.variant_version : nullptr);
 
       // Also enter as x.target.{cpu,vendor,system,version,class} for
       // convenience of access.
@@ -450,6 +458,20 @@ namespace build2
         if (!xi.version.build.empty ())
         {
           dr << "  build      " << xi.version.build << '\n';
+        }
+
+        if (xi.variant_version)
+        {
+          dr << "  variant:   " << '\n'
+             << "    version  " << xi.variant_version->string << '\n'
+             << "    major    " << xi.variant_version->major << '\n'
+             << "    minor    " << xi.variant_version->minor << '\n'
+             << "    patch    " << xi.variant_version->patch << '\n';
+        }
+
+        if (xi.variant_version && !xi.variant_version->build.empty ())
+        {
+          dr << "    build    " << xi.variant_version->build << '\n';
         }
 
         {

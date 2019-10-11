@@ -102,11 +102,21 @@ namespace build2
 
       const variable& x_class;
 
-      const variable& x_version;
-      const variable& x_version_major;
-      const variable& x_version_minor;
-      const variable& x_version_patch;
-      const variable& x_version_build;
+      // Note: must be adjacent (used as an array).
+      //
+      const variable* x_version;
+      const variable* x_version_major;
+      const variable* x_version_minor;
+      const variable* x_version_patch;
+      const variable* x_version_build;
+
+      // Note: must be adjacent (used as an array).
+      //
+      const variable* x_variant_version;
+      const variable* x_variant_version_major;
+      const variable* x_variant_version_minor;
+      const variable* x_variant_version_patch;
+      const variable* x_variant_version_build;
 
       const variable& x_signature;
       const variable& x_checksum;

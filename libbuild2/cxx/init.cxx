@@ -505,11 +505,17 @@ namespace build2
 
         v.insert<string>   ("cxx.class"),
 
-        v.insert<string>   ("cxx.version"),
-        v.insert<uint64_t> ("cxx.version.major"),
-        v.insert<uint64_t> ("cxx.version.minor"),
-        v.insert<uint64_t> ("cxx.version.patch"),
-        v.insert<string>   ("cxx.version.build"),
+        &v.insert<string>   ("cxx.version"),
+        &v.insert<uint64_t> ("cxx.version.major"),
+        &v.insert<uint64_t> ("cxx.version.minor"),
+        &v.insert<uint64_t> ("cxx.version.patch"),
+        &v.insert<string>   ("cxx.version.build"),
+
+        &v.insert<string>   ("cxx.variant_version"),
+        &v.insert<uint64_t> ("cxx.variant_version.major"),
+        &v.insert<uint64_t> ("cxx.variant_version.minor"),
+        &v.insert<uint64_t> ("cxx.variant_version.patch"),
+        &v.insert<string>   ("cxx.variant_version.build"),
 
         v.insert<string>   ("cxx.signature"),
         v.insert<string>   ("cxx.checksum"),

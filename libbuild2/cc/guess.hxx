@@ -24,6 +24,7 @@ namespace build2
     // clang        Vanilla Clang clang/clang++
     // clang-apple  Apple Clang clang/clang++ and the gcc/g++ "alias"
     // msvc         Microsoft cl.exe
+    // msvc-clang   Clang in the cl compatibility mode (clang-cl)
     // icc          Intel icc/icpc
     //
     // Note that the user can provide a custom id with one of the predefined
@@ -107,14 +108,23 @@ namespace build2
     // straightforward, PATCH may be empty and BUILD can contain pretty much
     // anything (including spaces).
     //
+    // All compilers of the same type follow the same versioning scheme
+    // (normally of their variant-less primary member):
+    //
     // gcc           A.B.C[ ...]         {A, B, C, ...}
     // clang         A.B.C[( |-)...]     {A, B, C, ...}
-    // clang-apple   A.B[.C] ...         {A, B, C, ...}
     // icc           A.B[.C.D] ...       {A, B, C, D ...}
     // msvc          A.B.C[.D]           {A, B, C, D}
     //
-    // Note that the clang-apple version is a custom Apple version and does
-    // not correspond to the vanilla clang version.
+    // A compiler variant may also have a variant version:
+    //
+    // clang-apple   A.B[.C] ...         {A, B, C, ...}
+    // msvc-clang    A.B.C[( |-)...]     {A, B, C, ...} (native Clang version)
+    //
+    // Note that the clang-apple variant version is a custom Apple version
+    // that doesn't correspond to the vanilla Clang version nor is the mapping
+    // documented by Apple. We try to map it conservatively to the best of our
+    // abilities.
     //
     struct compiler_version
     {
@@ -168,6 +178,7 @@ namespace build2
       compiler_id id;
       compiler_class class_;
       compiler_version version;
+      optional<compiler_version> variant_version;
       string signature;
       string checksum;
       string target;

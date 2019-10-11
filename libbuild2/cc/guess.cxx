@@ -205,13 +205,31 @@ namespace build2
 "  stdlib:=\"none\"                                                         \n"
 "#endif                                                                     \n";
 
-    // Pre-guess the compiler type based on the compiler executable name and
-    // also return the start of that name in the path (used to derive the
-    // toolchain pattern). Return empty string/npos if can't make a guess (for
-    // example, because the compiler name is a generic 'c++'). Note that it
-    // only guesses the type, not the variant.
+    // Pre-guess the compiler type and optionally variant based on the
+    // compiler executable name and also return the start of that name in the
+    // path (used to derive the toolchain pattern). Return invalid type and
+    // npos if can't make a guess (for example, because the compiler name is a
+    // generic 'c++').
     //
-    static pair<compiler_type, size_t>
+    struct pre_guess_result
+    {
+      compiler_type    type;
+      optional<string> variant;
+      size_t           pos;
+    };
+
+    static inline ostream&
+    operator<< (ostream& os, const pre_guess_result& r)
+    {
+      os << r.type;
+
+      if (r.variant && !r.variant->empty ())
+        os << '-' << *r.variant;
+
+      return os;
+    }
+
+    static pre_guess_result
     pre_guess (lang xl, const path& xc, const optional<compiler_id>& xi)
     {
       tracer trace ("cc::pre_guess");
@@ -242,19 +260,29 @@ namespace build2
       };
 
       using type = compiler_type;
-      using pair = std::pair<type, size_t>;
 
       // If the user specified the compiler id, then only check the stem for
       // that compiler.
       //
-      auto check = [&xi, &stem] (type t, const char* s) -> optional<pair>
+      auto check = [&xi, &stem] (type t,
+                                 const char* s,
+                                 const char* v = nullptr)
+        -> optional<pre_guess_result>
       {
-        if (!xi || xi->type == t)
+        if (!xi || (xi->type == t && (v == nullptr || xi->variant == v)))
         {
           size_t p (stem (s));
 
           if (p != string::npos)
-            return pair (t, p);
+          {
+            if (v == nullptr && xi)
+              v = xi->variant.c_str ();
+
+            return pre_guess_result {
+              t,
+              v != nullptr ? optional<string> (v) : nullopt,
+              p};
+          }
         }
 
         return nullopt;
@@ -270,15 +298,17 @@ namespace build2
       {
       case lang::c:
         {
-          // Keep msvc last since 'cl' is very generic.
+          // Try more specific variants first. Keep msvc last since 'cl' is
+          // very generic.
           //
-          if (auto r = check (type::gcc,   "gcc")  ) return *r;
-          if (auto r = check (type::clang, "clang")) return *r;
-          if (auto r = check (type::icc,   "icc")  ) return *r;
-          if (auto r = check (type::msvc,  "cl")   ) return *r;
+          if (auto r = check (type::msvc,  "clang-cl", "clang")) return *r;
+          if (auto r = check (type::clang, "clang"            )) return *r;
+          if (auto r = check (type::gcc,   "gcc"              )) return *r;
+          if (auto r = check (type::icc,   "icc"              )) return *r;
+          if (auto r = check (type::msvc,  "cl"               )) return *r;
 
-          if      (check (type::gcc,   as = "g++")    ) es = "gcc";
-          else if (check (type::clang, as = "clang++")) es = "clang";
+          if      (check (type::clang, as = "clang++")) es = "clang";
+          else if (check (type::gcc,   as = "g++")    ) es = "gcc";
           else if (check (type::icc,   as = "icpc")   ) es = "icc";
           else if (check (type::msvc,  as = "c++")    ) es = "cc";
 
@@ -287,15 +317,17 @@ namespace build2
         }
       case lang::cxx:
         {
-          // Keep msvc last since 'cl' is very generic.
+          // Try more specific variants first. Keep msvc last since 'cl' is
+          // very generic.
           //
-          if (auto r = check (type::gcc,   "g++")    ) return *r;
-          if (auto r = check (type::clang, "clang++")) return *r;
-          if (auto r = check (type::icc,   "icpc")   ) return *r;
-          if (auto r = check (type::msvc,  "cl")     ) return *r;
+          if (auto r = check (type::msvc,  "clang-cl", "clang")) return *r;
+          if (auto r = check (type::clang, "clang++"          )) return *r;
+          if (auto r = check (type::gcc,   "g++"              )) return *r;
+          if (auto r = check (type::icc,   "icpc"             )) return *r;
+          if (auto r = check (type::msvc,  "cl"               )) return *r;
 
-          if      (check (type::gcc,   as = "gcc")  ) es = "g++";
-          else if (check (type::clang, as = "clang")) es = "clang++";
+          if      (check (type::clang, as = "clang")) es = "clang++";
+          else if (check (type::gcc,   as = "gcc")  ) es = "g++";
           else if (check (type::icc,   as = "icc")  ) es = "icpc";
           else if (check (type::msvc,  as = "cc")   ) es = "c++";
 
@@ -311,11 +343,11 @@ namespace build2
       // If the user specified the id, then continue as if we pre-guessed.
       //
       if (xi)
-        return pair (xi->type, string::npos);
+        return pre_guess_result {xi->type, xi->variant, string::npos};
 
       l4 ([&]{trace << "unable to guess compiler type of " << xc;});
 
-      return pair (invalid_compiler_type, string::npos);
+      return pre_guess_result {invalid_compiler_type, nullopt, string::npos};
     }
 
     // Guess the compiler type and variant by running it. If the pre argument
@@ -337,19 +369,19 @@ namespace build2
       empty () const {return id.empty ();}
     };
 
-    // Allowed to change pre if succeeds.
+    // Note: allowed to change pre if succeeds.
     //
     static guess_result
     guess (const char* xm,
            lang,
            const path& xc,
            const optional<compiler_id>& xi,
-           compiler_type& pre,
+           pre_guess_result& pre,
            sha256& cs)
     {
       tracer trace ("cc::guess");
 
-      assert (!xi || xi->type == pre);
+      assert (!xi || (xi->type == pre.type && xi->variant == *pre.variant));
 
       using type = compiler_type;
       const type invalid = invalid_compiler_type;
@@ -371,7 +403,8 @@ namespace build2
         dir_path fallback;
 
 #ifdef _WIN32
-        if (pre == type::clang)
+        if (pre.type == type::clang ||
+            (pre.type == type::msvc && pre.variant && *pre.variant == "clang"))
         {
           if (optional<string> v = getenv ("VCINSTALLDIR"))
           {
@@ -395,7 +428,7 @@ namespace build2
                          true      /* path_only */);
       }
 
-      // Start with -v. This will cover gcc and clang.
+      // Start with -v. This will cover gcc and clang (including clang-cl).
       //
       // While icc also writes what may seem like something we can use to
       // detect it:
@@ -410,11 +443,13 @@ namespace build2
       // In fact, if someone renames icpc to g++, there will be no way for
       // us to detect this. Oh, well, their problem.
       //
-      if (r.empty () && (pre == invalid   ||
-                         pre == type::gcc ||
-                         pre == type::clang))
+      if (r.empty () && ( pre.type == invalid     ||
+                          pre.type == type::gcc   ||
+                          pre.type == type::clang ||
+                         (pre.type == type::msvc &&
+                          pre.variant && *pre.variant == "clang")))
       {
-        auto f = [&xi] (string& l, bool last) -> guess_result
+        auto f = [&xi, &pre] (string& l, bool last) -> guess_result
         {
           if (xi)
           {
@@ -483,8 +518,16 @@ namespace build2
           // Ubuntu clang version 3.6.0-2ubuntu1~trusty1 (tags/RELEASE_360/final) (based on LLVM 3.6.0)
           // clang version 3.7.0 (tags/RELEASE_370/final)
           //
+          // The clang-cl output is exactly the same, which means the only way
+          // to distinguish it is based on the executable name.
+          //
           if (l.find ("clang ") != string::npos)
-            return guess_result (compiler_id {type::clang, ""}, move (l));
+          {
+            return guess_result (pre.type == type::msvc
+                                 ? compiler_id {type::msvc, "clang"}
+                                 : compiler_id {type::clang, ""},
+                                 move (l));
+          }
 
           return guess_result ();
         };
@@ -522,18 +565,21 @@ namespace build2
           //
           if (r.id.type == type::clang &&
               r.id.variant == "apple"  &&
-              pre == type::gcc)
-            pre = type::clang;
+              pre.type == type::gcc)
+          {
+            pre.type = type::clang;
+            pre.variant = "apple";
+          }
         }
       }
 
       // Next try --version to detect icc. As well as obtain signature for
       // GCC/Clang-like compilers in case -v above didn't work.
       //
-      if (r.empty () && (pre == invalid   ||
-                         pre == type::icc ||
-                         pre == type::gcc ||
-                         pre == type::clang))
+      if (r.empty () && (pre.type == invalid   ||
+                         pre.type == type::icc ||
+                         pre.type == type::gcc ||
+                         pre.type == type::clang))
       {
         auto f = [&xi] (string& l, bool) -> guess_result
         {
@@ -569,7 +615,7 @@ namespace build2
 
       // Finally try to run it without any options to detect msvc.
       //
-      if (r.empty () && (pre == invalid || pre == type::msvc))
+      if (r.empty () && (pre.type == invalid || pre.type == type::msvc))
       {
         auto f = [&xi] (string& l, bool) -> guess_result
         {
@@ -621,11 +667,13 @@ namespace build2
 
       if (!r.empty ())
       {
-        if (pre != invalid && r.id.type != pre)
+        if (pre.type != invalid &&
+            (pre.type != r.id.type ||
+             (pre.variant && *pre.variant != r.id.variant)))
         {
           l4 ([&]{trace << "compiler type guess mismatch"
                         << ", pre-guessed " << pre
-                        << ", determined " << r.id.type;});
+                        << ", determined " << r.id;});
 
           r = guess_result ();
         }
@@ -798,7 +846,7 @@ namespace build2
       // "x64"
       // "ARM"
       //
-      compiler_version v;
+      compiler_version ver;
       {
         auto df = make_diag_frame (
           [&xm](const diag_record& dr)
@@ -835,7 +883,7 @@ namespace build2
         if (b == e)
           fail << "unable to extract MSVC version from '" << s << "'";
 
-        v = msvc_compiler_version (string (s, b, e - b));
+        ver = msvc_compiler_version (string (s, b, e - b));
       }
 
 
@@ -932,7 +980,7 @@ namespace build2
           else
             assert (false);
 
-          t += msvc_runtime_version (v);
+          t += msvc_runtime_version (ver);
         }
 
         ot = t;
@@ -964,7 +1012,8 @@ namespace build2
         move (gr.path),
         move (gr.id),
         compiler_class::msvc,
-        move (v),
+        move (ver),
+        nullopt,
         move (gr.signature),
         "",
         move (t),
@@ -999,7 +1048,7 @@ namespace build2
       //
       // "gcc version A.B.C[ ...]"
       //
-      compiler_version v;
+      compiler_version ver;
       {
         auto df = make_diag_frame (
           [&xm](const diag_record& dr)
@@ -1030,7 +1079,7 @@ namespace build2
         if (b == e)
           fail << "unable to extract GCC version from '" << s << "'";
 
-        v.string.assign (s, b, string::npos);
+        ver.string.assign (s, b, string::npos);
 
         // Split the version into components.
         //
@@ -1049,12 +1098,12 @@ namespace build2
                << string (s, b, e - b) << "'" << endf;
         };
 
-        v.major = next ("major");
-        v.minor = next ("minor");
-        v.patch = next ("patch");
+        ver.major = next ("major");
+        ver.minor = next ("minor");
+        ver.patch = next ("patch");
 
         if (e != s.size ())
-          v.build.assign (s, e + 1, string::npos);
+          ver.build.assign (s, e + 1, string::npos);
       }
 
       // Figure out the target architecture. This is actually a lot trickier
@@ -1157,7 +1206,8 @@ namespace build2
         move (gr.path),
         move (gr.id),
         compiler_class::gcc,
-        move (v),
+        move (ver),
+        nullopt,
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
@@ -1173,8 +1223,9 @@ namespace build2
 
     struct clang_msvc_info
     {
-      string   triple;
-      string   msvc_ver;
+      string   triple;        // cc1 -triple value
+      string   msvc_ver;      // system version from triple
+      string   msvc_comp_ver; // cc1 -fms-compatibility-version value
       dir_path msvc_dir;
       string   psdk_ver;
       dir_path psdk_dir;
@@ -1183,19 +1234,33 @@ namespace build2
     static clang_msvc_info
     guess_clang_msvc (lang xl,
                       const process_path& xp,
-                      const strings* c_co, const strings* x_co)
+                      const strings* c_co, const strings* x_co,
+                      bool cl)
     {
       tracer trace ("cc::guess_clang_msvc");
 
       cstrings args {xp.recall_string ()};
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
-      args.push_back ("-x");
-      switch (xl)
+
+      if (cl)
       {
-      case lang::c:   args.push_back ("c");   break;
-      case lang::cxx: args.push_back ("c++"); break;
+        switch (xl)
+        {
+        case lang::c:   args.push_back ("/TC"); break;
+        case lang::cxx: args.push_back ("/TP"); break;
+        }
       }
+      else
+      {
+        args.push_back ("-x");
+        switch (xl)
+        {
+        case lang::c:   args.push_back ("c");   break;
+        case lang::cxx: args.push_back ("c++"); break;
+        }
+      }
+
       args.push_back ("-v");
       args.push_back ("-E");
       args.push_back ("-");  // Read stdin.
@@ -1223,7 +1288,7 @@ namespace build2
         // ...
         // ...
         // InstalledDir: C:\Program Files\LLVM\bin
-        //  "C:\\Program Files\\LLVM\\bin\\clang++.exe" -cc1 -triple x86_64-pc-windows-msvc19.23.28105 ..."
+        //  "C:\\Program Files\\LLVM\\bin\\clang++.exe" -cc1 -triple x86_64-pc-windows-msvc19.23.28105 -fms-compatibility-version=19.23.28105 ..."
         // clang -cc1 version 9.0.0 based upon LLVM 9.0.0 default target x86_64-pc-windows-msvc
         // #include "..." search starts here:
         // #include <...> search starts here:
@@ -1258,8 +1323,17 @@ namespace build2
 
               r.msvc_ver.assign (r.triple, b += 5, string::npos);
 
+              if ((b = l.find ("-fms-compatibility-version=")) != string::npos &&
+                  (e = l.find (' ', b += 27)) != string::npos)
+              {
+                r.msvc_comp_ver.assign (l, b, e - b);
+              }
+              else
+                r.msvc_comp_ver = r.msvc_ver;
+
               l5 ([&]{trace << "MSVC target " << r.triple
-                            << ", version " << r.msvc_ver;});
+                            << ", version " << r.msvc_ver
+                            << ", compatibility version " << r.msvc_comp_ver;});
             }
 
             continue;
@@ -1355,11 +1429,13 @@ namespace build2
       if (!run_finish (args.data (), pr, false /* error */, l))
         fail << "unable to extract MSVC information from " << xp;
 
-      if (const char* w = (r.triple.empty ()   ? "MSVC target" :
-                           r.msvc_ver.empty () ? "MSVC version" :
-                           r.msvc_dir.empty () ? "MSVC directory" :
-                           r.psdk_dir.empty () ? "Platform SDK directory":
-                           nullptr))
+      if (const char* w = (
+            r.triple.empty ()        ? "MSVC target" :
+            r.msvc_ver.empty ()      ? "MSVC version" :
+            r.msvc_comp_ver.empty () ? "MSVC compatibility version" :
+            r.msvc_dir.empty ()      ? "MSVC directory" :
+            r.psdk_dir.empty ()      ? "Platform SDK directory":
+            nullptr))
         fail << "unable to extract " << w << " from " << xp;
 
       return r;
@@ -1379,17 +1455,29 @@ namespace build2
                  const strings* c_lo, const strings* x_lo,
                  guess_result&& gr, sha256& cs)
     {
+      // This function handles both vanialla Clang, including its clang-cl
+      // variant, as well as Apple Clang.
+      //
+      // The clang-cl variant appears to be a very thin wrapper over the
+      // standard clang/clang++ drivers. In addition to the cl options, it
+      // mostly accepts standard Clang options with a few exceptions (notably
+      // -x). It also has /clang:<arg> to pass things down to the driver
+      // (which for some reason doesn't work for -x).
+      //
+      bool cl (gr.id.type == compiler_type::msvc);
+
       const process_path& xp (gr.path);
 
       // Extract the version. Here we will try to handle both vanilla and
-      // Apple clang since the signature lines are fairly similar. They have
+      // Apple Clang since the signature lines are fairly similar. They have
       // the following format though language words can probably be translated
       // and even rearranged (see examples above).
       //
       // "[... ]clang version A.B.C[( |-)...]"
       // "Apple (clang|LLVM) version A.B[.C] ..."
       //
-      compiler_version v;
+      compiler_version ver;
+      optional<compiler_version> var_ver;
       {
         auto df = make_diag_frame (
           [&xm](const diag_record& dr)
@@ -1429,7 +1517,7 @@ namespace build2
         if (b == e)
           fail << "unable to extract Clang version from '" << s << "'";
 
-        v.string.assign (s, b, string::npos);
+        ver.string.assign (s, b, string::npos);
 
         // Split the version into components.
         //
@@ -1451,12 +1539,12 @@ namespace build2
                << string (s, b, e - b) << "'" << endf;
         };
 
-        v.major = next ("major", false);
-        v.minor = next ("minor", false);
-        v.patch = next ("patch", gr.id.variant == "apple");
+        ver.major = next ("major", false);
+        ver.minor = next ("minor", false);
+        ver.patch = next ("patch", gr.id.variant == "apple");
 
         if (e != s.size ())
-          v.build.assign (s, e + 1, string::npos);
+          ver.build.assign (s, e + 1, string::npos);
       }
 
       // Figure out the target architecture.
@@ -1468,7 +1556,8 @@ namespace build2
 
       if (xt == nullptr)
       {
-        cstrings args {xp.recall_string (), "-dumpmachine"};
+        cstrings args {xp.recall_string ()};
+        args.push_back (cl ? "/clang:-dumpmachine" : "-dumpmachine");
         if (c_co != nullptr) append_options (args, *c_co);
         if (x_co != nullptr) append_options (args, *x_co);
         args.push_back (nullptr);
@@ -1512,7 +1601,7 @@ namespace build2
         // (plus a couple of other useful bits like the VC installation
         // directory and Platform SDK).
         //
-        clang_msvc_info mi (guess_clang_msvc (xl, xp, c_co, x_co));
+        clang_msvc_info mi (guess_clang_msvc (xl, xp, c_co, x_co, cl));
 
         // Keep the CPU and replace the rest.
         //
@@ -1578,18 +1667,32 @@ namespace build2
 
         bin_pat += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /= cpu).
           representation ();
+
+        // If this is clang-cl, then use the MSVC compatibility version as its
+        // primary version.
+        //
+        if (cl)
+        {
+          var_ver = move (ver);
+          ver = msvc_compiler_version (mi.msvc_comp_ver);
+        }
       }
 
       // Derive the toolchain pattern. Try clang/clang++, the gcc/g++ alias,
       // as well as cc/c++.
       //
-      string pat (pattern (xc, xl == lang::c ? "clang" : "clang++"));
+      string pat;
 
-      if (pat.empty ())
-        pat = pattern (xc, xl == lang::c ? "gcc" : "g++");
+      if (!cl)
+      {
+        pat = pattern (xc, xl == lang::c ? "clang" : "clang++");
 
-      if (pat.empty ())
-        pat = pattern (xc, xl == lang::c ? "cc" : "c++");
+        if (pat.empty ())
+          pat = pattern (xc, xl == lang::c ? "gcc" : "g++");
+
+        if (pat.empty ())
+          pat = pattern (xc, xl == lang::c ? "cc" : "c++");
+      }
 
       // Runtime and standard library.
       //
@@ -1663,7 +1766,8 @@ namespace build2
         move (gr.path),
         move (gr.id),
         compiler_class::gcc,
-        move (v),
+        move (ver),
+        move (var_ver),
         move (gr.signature),
         move (gr.checksum), // Calculated on whole -v output.
         move (t),
@@ -1743,7 +1847,7 @@ namespace build2
       // Scan the string as words and look for the version. It consist of only
       // digits and periods and contains at least one period.
       //
-      compiler_version v;
+      compiler_version ver;
       {
         auto df = make_diag_frame (
           [&xm](const diag_record& dr)
@@ -1783,7 +1887,7 @@ namespace build2
         if (b == e)
           fail << "unable to extract ICC version from '" << s << "'";
 
-        v.string.assign (s, b, string::npos);
+        ver.string.assign (s, b, string::npos);
 
         // Split the version into components.
         //
@@ -1805,19 +1909,19 @@ namespace build2
                << string (s, b, e - b) << "'" << endf;
         };
 
-        v.major = next ("major", false);
-        v.minor = next ("minor", false);
-        v.patch = next ("patch", true);
+        ver.major = next ("major", false);
+        ver.minor = next ("minor", false);
+        ver.patch = next ("patch", true);
 
         if (vb != ve && next_word (s, e, vb, ve, '.'))
-          v.build.assign (s, vb, ve - vb);
+          ver.build.assign (s, vb, ve - vb);
 
         if (e != s.size ())
         {
-          if (!v.build.empty ())
-            v.build += ' ';
+          if (!ver.build.empty ())
+            ver.build += ' ';
 
-          v.build.append (s, e + 1, string::npos);
+          ver.build.append (s, e + 1, string::npos);
         }
       }
 
@@ -1954,7 +2058,8 @@ namespace build2
         move (gr.path),
         move (gr.id),
         compiler_class::gcc, //@@ TODO: msvc on Windows?
-        move (v),
+        move (ver),
+        nullopt,
         move (gr.signature),
         "",
         move (t),
@@ -2021,8 +2126,7 @@ namespace build2
         }
       }
 
-      pair<compiler_type, size_t> pre (pre_guess (xl, xc, xi));
-      compiler_type& type (pre.first);
+      pre_guess_result pre (pre_guess (xl, xc, xi));
 
       // If we could pre-guess the type based on the excutable name, then
       // try the test just for that compiler.
@@ -2030,60 +2134,52 @@ namespace build2
       guess_result gr;
       sha256 cs;
 
-      if (type != invalid_compiler_type)
+      if (pre.type != invalid_compiler_type)
       {
-        gr = guess (xm, xl, xc, xi, type, cs);
+        gr = guess (xm, xl, xc, xi, pre, cs);
 
         if (gr.empty ())
         {
-          warn << xc << " looks like " << type << " but it is not" <<
+          warn << xc << " looks like " << pre << " but it is not" <<
             info << "use config." << xm << " to override";
 
-          type = invalid_compiler_type; // Clear pre-guess.
+          // Clear pre-guess.
+          //
+          pre.type = invalid_compiler_type;
+          pre.variant = nullopt;
+          pre.pos = string::npos;
         }
       }
 
       if (gr.empty ())
-        gr = guess (xm, xl, xc, xi, type, cs);
+        gr = guess (xm, xl, xc, xi, pre, cs);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc <<
           info << "use config." << xm << ".id to specify explicitly";
 
-      compiler_info r;
-      const compiler_id& id (gr.id);
+      compiler_info (*gf) (
+        const char*, lang, const path&, const string*, const string*,
+        const strings*, const strings*,
+        const strings*, const strings*,
+        const strings*, const strings*,
+        guess_result&&, sha256&) = nullptr;
 
-      switch (id.type)
+      switch (gr.id.type)
       {
-      case compiler_type::gcc:
-        {
-          r = guess_gcc (xm, xl, xc, xv, xt,
-                         c_po, x_po, c_co, x_co, c_lo, x_lo,
-                         move (gr), cs);
-          break;
-        }
-      case compiler_type::clang:
-        {
-          r = guess_clang (xm, xl, xc, xv, xt,
-                           c_po, x_po, c_co, x_co, c_lo, x_lo,
-                           move (gr), cs);
-          break;
-        }
+      case compiler_type::gcc:   gf = &guess_gcc;   break;
+      case compiler_type::clang: gf = &guess_clang; break;
       case compiler_type::msvc:
         {
-          r = guess_msvc (xm, xl, xc, xv, xt,
-                          c_po, x_po, c_co, x_co, c_lo, x_lo,
-                          move (gr), cs);
+          gf = gr.id.variant == "clang" ? &guess_clang : &guess_msvc;
           break;
         }
-      case compiler_type::icc:
-        {
-          r = guess_icc (xm, xl, xc, xv, xt,
-                         c_po, x_po, c_co, x_co, c_lo, x_lo,
-                         move (gr), cs);
-          break;
-        }
+      case compiler_type::icc: gf = &guess_icc;     break;
       }
+
+      compiler_info r (gf (xm, xl, xc, xv, xt,
+                           c_po, x_po, c_co, x_co, c_lo, x_lo,
+                           move (gr), cs));
 
       // By default use the signature line to generate the checksum.
       //
@@ -2118,11 +2214,11 @@ namespace build2
       //
       if (r.bin_pattern.empty ())
       {
-        if (pre.second != 0 &&
-            pre.second != string::npos &&
-            !path::traits_type::is_separator (xc.string ()[pre.second - 1]))
+        if (pre.pos != 0 &&
+            pre.pos != string::npos &&
+            !path::traits_type::is_separator (xc.string ()[pre.pos - 1]))
         {
-          r.bin_pattern.assign (xc.string (), 0, pre.second);
+          r.bin_pattern.assign (xc.string (), 0, pre.pos);
           r.bin_pattern += '*'; // '-' or similar is already there.
         }
       }
@@ -2177,7 +2273,11 @@ namespace build2
           case type::gcc:    s = "gcc";   break;
           case type::clang:  s = "clang"; break;
           case type::icc:    s = "icc";   break;
-          case type::msvc:   s = "cl";    break;
+          case type::msvc:
+            {
+              s = (id.variant == "clang" ? "clang-cl" : "cl");
+              break;
+            }
           }
 
           break;
@@ -2189,7 +2289,11 @@ namespace build2
           case type::gcc:    s = "g++";     break;
           case type::clang:  s = "clang++"; break;
           case type::icc:    s = "icpc";    break;
-          case type::msvc:   s = "cl";      break;
+          case type::msvc:
+            {
+              s = (id.variant == "clang" ? "clang-cl" : "cl");
+              break;
+            }
           }
 
           break;
