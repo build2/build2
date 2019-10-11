@@ -1507,8 +1507,9 @@ namespace build2
     }
 
     // VC /showIncludes output. The first line is the file being compiled
-    // (handled by our caller). Then we have the list of headers, one per
-    // line, in this form (text can presumably be translated):
+    // (unless clang-cl; handled by our caller). Then we have the list of
+    // headers, one per line, in this form (text can presumably be
+    // translated):
     //
     // Note: including file: C:\Program Files (x86)\[...]\iostream
     //
@@ -1517,6 +1518,9 @@ namespace build2
     //
     // x.cpp(3): fatal error C1083: Cannot open include file: 'd/h.hpp':
     // No such file or directory
+    //
+    // @@ TODO: this is not the case for clang-cl: it issues completely
+    //          different diagnostics and before any /showIncludes lines.
     //
     // Distinguishing between the include note and the include error is
     // easy: we can just check for C1083. Distinguising between the note and
@@ -2994,6 +2998,10 @@ namespace build2
           {
           case compiler_class::msvc:
             {
+              // /F*: style option availability (see perform_update()).
+              //
+              bool fc (cmaj >= 18 && cvariant != "clang");
+
               args.push_back ("/nologo");
 
               // See perform_update() for details on overriding the default
@@ -3015,7 +3023,7 @@ namespace build2
 
               psrc = auto_rmfile (t.path () + x_pext);
 
-              if (cast<uint64_t> (rs[x_version_major]) >= 18)
+              if (fc)
               {
                 args.push_back ("/Fi:");
                 args.push_back (psrc.path.string ().c_str ());
@@ -3673,33 +3681,38 @@ namespace build2
                   {
                   case compiler_class::msvc:
                     {
+                      // The first line should be the file we are compiling,
+                      // unless this is clang-cl. If it is not, then something
+                      // went wrong even before we could compile anything
+                      // (e.g., file does not exist). In this case the first
+                      // line (and everything after it) is presumably
+                      // diagnostics.
+                      //
+                      // It can, however, be a command line warning, for
+                      // example:
+                      //
+                      // cl : Command line warning D9025 : overriding '/W3' with '/W4'
+                      //
+                      // So we try to detect and skip them assuming they will
+                      // also show up during the compilation proper.
+                      //
                       if (first)
                       {
-                        // The first line should be the file we are compiling.
-                        // If it is not, then something went wrong even before
-                        // we could compile anything (e.g., file does not
-                        // exist). In this case the first line (and everything
-                        // after it) is presumably diagnostics.
-                        //
-                        // It can, however, be a command line warning, for
-                        // example:
-                        //
-                        // cl : Command line warning D9025 : overriding '/W3' with '/W4'
-                        //
-                        // So we try to detect and skip them assuming they
-                        // will also show up during the compilation proper.
-                        //
-                        if (l != src.path ().leaf ().string ())
+                        if (cvariant != "clang")
                         {
-                          // D8XXX are errors while D9XXX are warnings.
-                          //
-                          size_t p (msvc_sense_diag (l, 'D'));
-                          if (p != string::npos && l[p] == '9')
-                            continue;
+                          if (l != src.path ().leaf ().string ())
+                          {
+                            // D8XXX are errors while D9XXX are warnings.
+                            //
+                            size_t p (msvc_sense_diag (l, 'D'));
+                            if (p != string::npos && l[p] == '9')
+                              continue;
 
-                          text << l;
-                          bad_error = true;
-                          break;
+                            text << l;
+                            bad_error = true;
+                            break;
+                          }
+                          // Fall through.
                         }
 
                         first = false;
@@ -5649,7 +5662,6 @@ namespace build2
       touch (ctx, md.dd, false, verb_never);
 
       const scope& bs (t.base_scope ());
-      const scope& rs (*bs.root_scope ());
 
       otype ot (compile_type (t, ut));
       linfo li (link_info (bs, ot));
@@ -5708,7 +5720,9 @@ namespace build2
         // in VS2013/12.0. Why do we bother? Because the command line suddenly
         // becomes readable.
         //
-        uint64_t ver (cast<uint64_t> (rs[x_version_major]));
+        // Also, clang-cl does not yet support them, at least not in 8 or 9.
+        //
+        bool fc (cmaj >= 18 && cvariant != "clang");
 
         args.push_back ("/nologo");
 
@@ -5768,7 +5782,7 @@ namespace build2
         //
         if (find_options ({"/Zi", "/ZI"}, args))
         {
-          if (ver >= 18)
+          if (fc)
             args.push_back ("/Fd:");
           else
             out1 = "/Fd";
@@ -5779,7 +5793,7 @@ namespace build2
           args.push_back (out1.c_str ());
         }
 
-        if (ver >= 18)
+        if (fc)
         {
           args.push_back ("/Fo:");
           args.push_back (relo.string ().c_str ());

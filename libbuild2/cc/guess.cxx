@@ -1822,7 +1822,7 @@ namespace build2
       return compiler_info {
         move (gr.path),
         move (gr.id),
-        compiler_class::gcc,
+        cl ? compiler_class::msvc : compiler_class::gcc,
         move (ver),
         move (var_ver),
         move (gr.signature),
