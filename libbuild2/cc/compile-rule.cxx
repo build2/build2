@@ -2588,15 +2588,9 @@ namespace build2
         }
       case compiler_type::clang:
         {
-          // -frewrite-includes is available since vanilla Clang 3.2.0.
+          // -frewrite-includes is available since Clang 3.2.0.
           //
-          // Apple Clang 5.0 is based on LLVM 3.3svn so it should have this
-          // option (4.2 is based on 3.2svc so it may or may not have it and,
-          // no, we are not going to try to find out).
-          //
-          if (cvariant == "apple"
-              ? (cmaj >= 5)
-              : (cmaj > 3 || (cmaj == 3 && cmin >= 2)))
+          if (cmaj > 3 || (cmaj == 3 && cmin >= 2))
             pp = "-frewrite-includes";
 
           break;

@@ -15,6 +15,8 @@ namespace build2
 {
   namespace cc
   {
+    using std::to_string;
+
     string
     to_string (compiler_type t)
     {
@@ -1465,6 +1467,7 @@ namespace build2
       // (which for some reason doesn't work for -x).
       //
       bool cl (gr.id.type == compiler_type::msvc);
+      bool apple (gr.id.variant == "apple");
 
       const process_path& xp (gr.path);
 
@@ -1541,10 +1544,64 @@ namespace build2
 
         ver.major = next ("major", false);
         ver.minor = next ("minor", false);
-        ver.patch = next ("patch", gr.id.variant == "apple");
+        ver.patch = next ("patch", apple);
 
         if (e != s.size ())
           ver.build.assign (s, e + 1, string::npos);
+
+        // Map Apple to vanilla Clang version, preserving the original as
+        // the variant version.
+        //
+        if (apple)
+        {
+          var_ver = move (ver);
+
+          // Apple no longer discloses the mapping so it's a guesswork and we
+          // better be conservative. For details see:
+          //
+          // https://gist.github.com/yamaya/2924292
+          //
+          // Note that this is Apple Clang version and not XCode version.
+          //
+          // 4.2    -> 3.2svn
+          // 5.0    -> 3.3svn
+          // 5.1    -> 3.4svn
+          // 6.0    -> 3.5svn
+          // 6.1.0  -> 3.6svn
+          // 7.0.0  -> 3.7
+          // 7.3.0  -> 3.8
+          // 8.0.0  -> 3.9
+          // 8.1.0  -> ?
+          // 9.0.0  -> 4.0
+          // 9.1.0  -> 5.0
+          // 10.0.0 -> 6.0
+          // 10.0.1 -> ?
+          // 11.0.0 -> 7.0 (?)
+          //
+          uint64_t mj (var_ver->major);
+          uint64_t mi (var_ver->minor);
+
+          if      (mj >= 11)           {mj = 7; mi = 0;}
+          else if (mj == 10)           {mj = 6; mi = 0;}
+          else if (mj == 9 && mi >= 1) {mj = 5; mi = 0;}
+          else if (mj == 9)            {mj = 4; mi = 0;}
+          else if (mj == 8)            {mj = 3; mi = 9;}
+          else if (mj == 7 && mi >= 3) {mj = 3; mi = 8;}
+          else if (mj == 7)            {mj = 3; mi = 7;}
+          else if (mj == 6 && mi >= 1) {mj = 3; mi = 5;}
+          else if (mj == 6)            {mj = 3; mi = 4;}
+          else if (mj == 5 && mi >= 1) {mj = 3; mi = 3;}
+          else if (mj == 5)            {mj = 3; mi = 2;}
+          else if (mj == 4 && mi >= 2) {mj = 3; mi = 1;}
+          else                         {mj = 3; mi = 0;}
+
+          ver = compiler_version {
+            to_string (mj) + '.' + to_string (mi) + ".0",
+            mj,
+            mi,
+            0,
+            ""};
+        }
       }
 
       // Figure out the target architecture.
