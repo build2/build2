@@ -1500,7 +1500,7 @@ namespace build2
       if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
       {
         lib_dirs = msvc_lib (*mi, "x64");
-        lib_dirs = msvc_include (*mi);
+        inc_dirs = msvc_include (*mi);
         bpat = msvc_bin (*mi, "x64");
       }
 
