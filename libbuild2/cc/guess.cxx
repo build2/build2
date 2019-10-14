@@ -786,6 +786,7 @@ namespace build2
           }
         }
 
+#ifndef BUILD2_BOOTSTRAP
         // If we pre-guessed MSVC or Clang (including clang-cl) try the search
         // and if not found, try to locate the MSVC installation and fallback
         // on that.
@@ -835,6 +836,7 @@ namespace build2
             goto search;
           }
         }
+#endif
 
         search:
 #endif
