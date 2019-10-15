@@ -2546,8 +2546,6 @@ namespace build2
             dr << info << "while extracting header dependencies from " << src;
         });
 
-      const scope& rs (*bs.root_scope ());
-
       // Preprocesor mode that preserves as much information as possible while
       // still performing inclusions. Also serves as a flag indicating whether
       // this compiler uses the separate preprocess and compile setup.
@@ -2749,8 +2747,7 @@ namespace build2
       // pointer to the temporary file path otherwise.
       //
       auto init_args = [a, &t, ot, li, reprocess,
-                        &src, &md, &psrc, &sense_diag, &mod_mapper,
-                        &rs, &bs,
+                        &src, &md, &psrc, &sense_diag, &mod_mapper, &bs,
                         pp, &env, &args, &args_gen, &args_i, &out, &drm,
                         &so_map, this]
         (bool& gen) -> const path*
