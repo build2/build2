@@ -3,7 +3,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 crosstest = false
-test.arguments = config.cxx="$recall($cxx.path)"
+test.arguments = config.cxx="\\'$recall($cxx.path)\\'"
 
 .include ../../common.testscript
 
