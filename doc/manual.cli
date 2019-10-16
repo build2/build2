@@ -3396,7 +3396,7 @@ x = (a == b)    # eval context
 x = {foo bar}   # name generation
 x = [null]      # attributes
 x = name@value  # pairs
-x = # comments
+x = # start of a comment
 \
 
 The complete set of syntax characters is \c{$(){\}[]@#} plus space and tab.
