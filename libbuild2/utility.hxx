@@ -222,11 +222,14 @@ namespace build2
               const location& = location ());
 
   LIBBUILD2_SYMEXPORT process_path
-  try_run_search (const path&,
+  run_try_search (const path&,
                   bool init = false,
                   const dir_path& fallback = dir_path (),
                   bool path_only = false,
                   const char* paths = nullptr);
+
+  [[noreturn]] LIBBUILD2_SYMEXPORT void
+  run_search_fail (const path&, const location& = location ());
 
   // Wait for process termination. Issue diagnostics and throw failed in case
   // of abnormal termination. If the process has terminated normally but with

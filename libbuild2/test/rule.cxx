@@ -808,7 +808,7 @@ namespace build2
       //
       process_path pp (!ctx.dry_run
                        ? run_search     (p, true /* init */)
-                       : try_run_search (p, true));
+                       : run_try_search (p, true));
       args.push_back (pp.empty () ? p.string ().c_str () : pp.recall_string ());
 
       // Do we have options and/or arguments?

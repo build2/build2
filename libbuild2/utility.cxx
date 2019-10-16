@@ -6,6 +6,7 @@
 
 #include <time.h>   // tzset() (POSIX), _tzset() (Windows)
 
+#include <cerrno>   // ENOENT
 #include <cstring>  // strlen(), str[n]cmp()
 #include <iostream> // cerr
 
@@ -183,13 +184,20 @@ namespace build2
   }
 
   process_path
-  try_run_search (const path& f,
+  run_try_search (const path& f,
                   bool init,
                   const dir_path& fallback,
                   bool path_only,
                   const char* paths)
   {
     return process::try_path_search (f, init, fallback, path_only, paths);
+  }
+
+  [[noreturn]] void
+  run_search_fail (const path& f, const location& l)
+  {
+    fail (l) << "unable to execute " << f << ": " << process_error (ENOENT)
+             << endf;
   }
 
   process

@@ -50,7 +50,7 @@ namespace build2
       if (paths != nullptr)
       {
         process_path r (
-          try_run_search (prog,
+          run_try_search (prog,
                           true        /* init */,
                           dir_path () /* fallback */,
                           true        /* path_only */,

@@ -430,6 +430,12 @@ namespace build2
 
 #if defined(_WIN32) && !defined(BUILD2_BOOTSTRAP)
 
+    static inline void
+    msvc_info_deleter (void* p)
+    {
+      delete static_cast<msvc_info*> (p);
+    }
+
     // We more or less follow the logic in the Clang 'simplementation (see
     // MSVC.cpp for details) but don't use the high level APIs (bstr_t,
     // com_ptr_t, etc) and the VC extensions (__uuidof(), class uuid
@@ -460,8 +466,13 @@ namespace build2
       0x42B21B78, 0x6192, 0x463E,
       {0x87, 0xBF, 0xD5, 0x77, 0x83, 0x8F, 0x1D, 0x5C}};
 
+    // If cl is not empty, then find an installation that contains this cl.exe
+    // path.
+    //
+    // @@ TODO: if (cl.sub (r.msvc_dir)) ...
+    //
     static optional<msvc_info>
-    find_msvc ()
+    find_msvc (const path& /*cl*/ =  path ())
     {
       using namespace butl;
 
@@ -752,7 +763,6 @@ namespace build2
 
       process_path xp;
       info_ptr search_info (nullptr, guess_result::null_info_deleter);
-      for (;;) // Breakout loop.
       {
         auto df = make_diag_frame (
           [&xm](const diag_record& dr)
@@ -760,6 +770,36 @@ namespace build2
             dr << info << "use config." << xm << " to override";
           });
 
+        // Normally we just search in PATH but in some situations we may need
+        // to fallback to an ad hoc search method. And the tricky question in
+        // this case is what should the recall path be. It's natural to make
+        // it the same as effective (which happens automatically if we use the
+        // fallback directory mechanism of run_search()) so that any command
+        // lines that we print are re-runnable by the user.
+        //
+        // On the other hand, passing the effective path (which would normally
+        // be absolute) to recursive instances of the build system (e.g., when
+        // running tests) will inhibit the ad hoc search which may supply
+        // other parts of the "environment" necessary to use the compiler. The
+        // good example of this is MSVC cl.exe which doesn't have any default
+        // header/library search paths (and which are normally supplied by the
+        // INCLUDE/LIB environment variables or explicitly via the command
+        // line).
+        //
+        // So a sensible strategy here would be to use the effective path if
+        // that's all that's required for the compiler to function (as, for
+        // example, is the case for Clang targeting MSVC) and use the initial
+        // path otherwise, thus triggering the same ad hoc search in any
+        // recursive instances.
+        //
+        // The main drawback of the latter, of course, is that the commands we
+        // print are no longer re-runnable (even though we may have supplied
+        // the rest of the "environment" explicitly on the command line).
+        //
+        // An alternative strategy is to try and obtain the corresponding
+        // "environment" in case of the effective (absolute) path similar to
+        // how it is done in case of the ad hoc search.
+        //
         dir_path fb; // Fallback search directory.
 
 #ifdef _WIN32
@@ -781,74 +821,88 @@ namespace build2
             {
               // Ignore it.
             }
-
-            goto search;
           }
         }
-
-#ifndef BUILD2_BOOTSTRAP
-        // If we pre-guessed MSVC or Clang (including clang-cl) try the search
-        // and if not found, try to locate the MSVC installation and fallback
-        // on that.
-        //
-        if (xc.simple () &&
-            (pt == type::clang ||
-             (pt == type::msvc && (!pv || *pv == "clang"))))
-        {
-          if (!(xp = try_run_search (xc, false, dir_path (), true)).empty ())
-            break;
-
-          if (optional<msvc_info> mi = find_msvc ())
-          {
-            try
-            {
-              if (pt == type::msvc && !pv)
-              {
-                // With MSVC you get a compiler binary per target (i.e., there
-                // is nothing like -m32/-m64 or /MACHINE). Targeting 64-bit
-                // seems like as good of a default as any.
-                //
-                fb = ((dir_path (mi->msvc_dir) /= "bin") /= "Hostx64") /= "x64";
-
-                search_info = info_ptr (new msvc_info (move (*mi)),
-                                        [] (void* p)
-                                        {
-                                          delete static_cast<msvc_info*> (p);
-                                        });
-              }
-              else
-              {
-                // Get to ...\VC\Tools\ from ...\VC\Tools\MSVC\<ver>\.
-                //
-                fb = (dir_path (mi->msvc_dir) /= "..") /= "..";
-                fb.normalize ();
-                (fb /= "Llvm") /= "bin";
-
-                // Note that in this case we drop msvc_info and extract it
-                // directly from Clang later.
-              }
-            }
-            catch (const invalid_path&)
-            {
-              fb.clear (); // Ignore it.
-            }
-
-            goto search;
-          }
-        }
-#endif
-
-        search:
 #endif
 
         // Only search in PATH (specifically, omitting the current
         // executable's directory on Windows).
         //
-        xp = run_search (xc,
-                         false /* init (note: result is cached) */,
-                         fb,
-                         true  /* path_only */);
-        break;
+        // Note that the process_path instance will be cached (as part of
+        // compiler_info) so init is false.
+        //
+        xp = run_try_search (xc,
+                             false /* init */,
+                             fb,
+                             true  /* path_only */);
+
+#if defined(_WIN32) && !defined(BUILD2_BOOTSTRAP)
+        // If we pre-guessed MSVC or Clang (including clang-cl) try the search
+        // and if not found, try to locate the MSVC installation and fallback
+        // on that.
+        //
+        if (xp.empty ())
+        {
+          if (xc.simple () &&
+              (pt == type::clang ||
+               (pt == type::msvc && (!pv || *pv == "clang"))))
+          {
+            if (optional<msvc_info> mi = find_msvc ())
+            {
+              try
+              {
+                if (pt == type::msvc && !pv)
+                {
+                  // With MSVC you get a compiler binary per target (i.e.,
+                  // there is nothing like -m32/-m64 or /MACHINE). Targeting
+                  // 64-bit seems like as good of a default as any.
+                  //
+                  fb = ((dir_path (mi->msvc_dir) /= "bin") /= "Hostx64") /=
+                    "x64";
+
+                  search_info = info_ptr (
+                    new msvc_info (move (*mi)), msvc_info_deleter);
+                }
+                else
+                {
+                  // Get to ...\VC\Tools\ from ...\VC\Tools\MSVC\<ver>\.
+                  //
+                  fb = (dir_path (mi->msvc_dir) /= "..") /= "..";
+                  fb.normalize ();
+                  (fb /= "Llvm") /= "bin";
+
+                  // Note that in this case we drop msvc_info and extract it
+                  // directly from Clang later.
+                }
+
+                xp = run_try_search (xc, false, fb, true);
+              }
+              catch (const invalid_path&)
+              {
+                // Ignore it.
+              }
+            }
+          }
+        }
+        else
+        {
+          // We try to find the matching installation only for MSVC (for Clang
+          // we extract this information from the compiler).
+          //
+          if (xc.absolute () &&
+              (pt == type::msvc && !pv))
+          {
+            if (optional<msvc_info> mi = find_msvc (xc))
+            {
+              search_info = info_ptr (
+                new msvc_info (move (*mi)), msvc_info_deleter);
+            }
+          }
+        }
+#endif
+
+        if (xp.empty ())
+          run_search_fail (xc);
       }
 
       // Start with -v. This will cover gcc and clang (including clang-cl).

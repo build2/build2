@@ -2,7 +2,7 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
-#include <errno.h> // E*
+#include <cerrno> // E*
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/context.hxx>
