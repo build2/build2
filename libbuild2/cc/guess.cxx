@@ -424,7 +424,6 @@ namespace build2
     struct msvc_info
     {
       dir_path msvc_dir; // VC directory (...\Tools\MSVC\<ver>\).
-      string   msvc_cpu; // Target CPU (x86, x64) or empty if unknown.
       dir_path psdk_dir; // Platfor SDK version (under Include/, Lib/, etc).
       string   psdk_ver; // Platfor SDK directory (...\Windows Kits\<ver>\).
     };
@@ -468,7 +467,7 @@ namespace build2
       {0x87, 0xBF, 0xD5, 0x77, 0x83, 0x8F, 0x1D, 0x5C}};
 
     // If cl is not empty, then find an installation that contains this cl.exe
-    // path and also derive msvc_cpu from it.
+    // path.
     //
     static optional<msvc_info>
     find_msvc (const path& cl =  path ())
@@ -676,16 +675,6 @@ namespace build2
 
         if (r.msvc_dir.empty ())
           return nullopt;
-      }
-
-      // If the cl.exe path is specified then derive msvc_cpu as its parent
-      // directory name.
-      //
-      if (!cl.empty ())
-      {
-        assert (cl.absolute ());
-
-        r.msvc_cpu = cl.directory ().leaf ().string ();
       }
 
       // Try to obtain the latest Platform SDK directory and version.
@@ -908,11 +897,8 @@ namespace build2
                   // there is nothing like -m32/-m64 or /MACHINE). Targeting
                   // 64-bit seems like as good of a default as any.
                   //
-                  if (mi->msvc_cpu.empty ())
-                    mi->msvc_cpu = "x64";
-
                   fb = ((dir_path (mi->msvc_dir) /= "bin") /= "Hostx64") /=
-                    mi->msvc_cpu;
+                    "x64";
 
                   search_info = info_ptr (
                     new msvc_info (move (*mi)), msvc_info_deleter);
@@ -1387,11 +1373,11 @@ namespace build2
     // Studio command prompt puts into LIB).
     //
     static dir_paths
-    msvc_lib (const msvc_info& mi)
+    msvc_lib (const msvc_info& mi, const char* cpu)
     {
       dir_paths r;
 
-      r.push_back ((dir_path (mi.msvc_dir) /= "lib") /= mi.msvc_cpu);
+      r.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
 
       // This path structure only appeared in Platform SDK 10 (if anyone wants
       // to use anything older, they will just have to use the MSVC command
@@ -1401,8 +1387,8 @@ namespace build2
       {
         dir_path d ((dir_path (mi.psdk_dir) /= "Lib") /= mi.psdk_ver);
 
-        r.push_back ((dir_path (d) /= "ucrt") /= mi.msvc_cpu);
-        r.push_back ((dir_path (d) /= "um"  ) /= mi.msvc_cpu);
+        r.push_back ((dir_path (d) /= "ucrt") /= cpu);
+        r.push_back ((dir_path (d) /= "um"  ) /= cpu);
       }
 
       return r;
@@ -1412,7 +1398,7 @@ namespace build2
     // command prompt puts into PATH).
     //
     static string
-    msvc_bin (const msvc_info& mi)
+    msvc_bin (const msvc_info& mi, const char* cpu)
     {
       string r;
 
@@ -1420,16 +1406,19 @@ namespace build2
       // MSVC tools (link.exe, etc). In case of the Platform SDK, it's unclear
       // what the CPU signifies (host, target, both).
       //
-      r  = (((dir_path (mi.msvc_dir) /= "bin") /= "Hostx64") /=
-            mi.msvc_cpu).representation ();
+      r  = (((dir_path (mi.msvc_dir) /= "bin") /= "Hostx64") /= cpu).
+        representation ();
 
       r += path::traits_type::path_separator;
 
-      r += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /=
-            mi.msvc_cpu).representation ();
+      r += (((dir_path (mi.psdk_dir) /= "bin") /= mi.psdk_ver) /= cpu).
+        representation ();
 
       return r;
     }
+
+    const char*
+    msvc_cpu (const string&); // msvc.cxx
 
     static compiler_info
     guess_msvc (const char* xm,
@@ -1512,7 +1501,7 @@ namespace build2
 
         // Scan the string as words and look for the CPU.
         //
-        string arch;
+        string cpu;
 
         for (size_t b (0), e (0), n;
              (n = next_word (s, b, e, ' ', ',')) != 0; )
@@ -1522,14 +1511,13 @@ namespace build2
               s.compare (b, n, "ARM", 3) == 0 ||
               s.compare (b, n, "80x86", 5) == 0)
           {
-            arch.assign (s, b, n);
+            cpu.assign (s, b, n);
             break;
           }
         }
 
-        if (arch.empty ())
-          fail << "unable to extract MSVC target architecture from "
-               << "'" << s << "'";
+        if (cpu.empty ())
+          fail << "unable to extract MSVC target CPU from " << "'" << s << "'";
 
         // Now we need to map x86, x64, and ARM to the target triplets. The
         // problem is, there aren't any established ones so we got to invent
@@ -1578,13 +1566,13 @@ namespace build2
         // x64  x86_64-microsoft-win32-msvc14.0
         // ARM  arm-microsoft-winup-???
         //
-        if (arch == "ARM")
+        if (cpu == "ARM")
           fail << "cl.exe ARM/WinRT/UWP target is not yet supported";
         else
         {
-          if (arch == "x64")
+          if (cpu == "x64")
             t = "x86_64-microsoft-win32-msvc";
-          else if (arch == "x86" || arch == "80x86")
+          else if (cpu == "x86" || cpu == "80x86")
             t = "i386-microsoft-win32-msvc";
           else
             assert (false);
@@ -1607,9 +1595,11 @@ namespace build2
 
       if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
       {
-        lib_dirs = msvc_lib (*mi);
+        const char* cpu (msvc_cpu (target_triplet (t).cpu));
+
+        lib_dirs = msvc_lib (*mi, cpu);
         inc_dirs = msvc_include (*mi);
-        bpat = msvc_bin (*mi);
+        bpat = msvc_bin (*mi, cpu);
       }
 
       // Derive the toolchain pattern.
@@ -2064,9 +2054,6 @@ namespace build2
       return r;
     }
 
-    const char*
-    msvc_cpu (const string&); // msvc.cxx
-
     static compiler_info
     guess_clang (const char* xm,
                  lang xl,
@@ -2280,7 +2267,6 @@ namespace build2
         // directory and Platform SDK).
         //
         clang_msvc_info mi (guess_clang_msvc (xl, xp, c_co, x_co, cl));
-        mi.msvc_cpu = msvc_cpu (tt.cpu);
 
         // Keep the CPU and replace the rest.
         //
@@ -2302,11 +2288,13 @@ namespace build2
         gr.signature += " MSVC version ";
         gr.signature += mi.msvc_ver;
 
+        const char* cpu (msvc_cpu (tt.cpu));
+
         // Come up with the system library search paths. Ideally we would want
         // to extract this from Clang and -print-search-paths would have been
         // the natural way for Clang to report it. But no luck.
         //
-        lib_dirs = msvc_lib (mi);
+        lib_dirs = msvc_lib (mi, cpu);
 
         // Binutils search paths.
         //
@@ -2315,7 +2303,7 @@ namespace build2
         // lines. However, reliably detecting this and making sure the result
         // matches Clang's is complex. So let's keep it simple for now.
         //
-        bpat = msvc_bin (mi);
+        bpat = msvc_bin (mi, cpu);
 
         // If this is clang-cl, then use the MSVC compatibility version as its
         // primary version.
