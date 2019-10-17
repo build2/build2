@@ -172,8 +172,7 @@ $ ./hello
 Hello, World!
 \
 
-Or, if we are on Windows and using Visual Studio, from the Visual Studio
-development command prompt:
+Or, if we are on Windows and using Visual Studio:
 
 \
 > cd hello
@@ -195,16 +194,28 @@ Hello, World!
 \
 
 By default \c{build2} uses the same C++ compiler it was built with and without
-passing any extra options, such as debug or optimization. To change these
-defaults we use \i{configuration variables}. For example, to specify a
-different C++ compiler we use \c{config.cxx}:
+passing any extra options, such as debug or optimization, target architecture,
+etc. To change these defaults we use \i{configuration variables}. For example,
+to specify a different C++ compiler we use \c{config.cxx}:
 
 \
 $ b config.cxx=clang++
 \
 
-And for additional compile options, such as debug information or optimization
-level, there is \c{config.cxx.coptions}. For example:
+\N|For Visual Studio, \c{build2} by default will use the latest available
+version and build for the \c{x86_64} target (\c{x64} in the Microsoft's
+terminology). You can, however, override these defaults by either running from
+a suitable Visual Studio development command prompt or by specifying an
+absolute path to \c{cl.exe} that you wish to use. For example:
+
+\
+> b \"config.cxx=...\VC\Tools\MSVC\14.23.28105\bin\Hostx64\x86\cl.exe\"
+\
+
+|
+
+Similarly, for additional compile options, such as debug information or
+optimization level, there is \c{config.cxx.coptions}. For example:
 
 \
 $ b config.cxx=clang++ config.cxx.coptions=-g
