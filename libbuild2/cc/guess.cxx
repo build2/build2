@@ -470,8 +470,6 @@ namespace build2
     // If cl is not empty, then find an installation that contains this cl.exe
     // path and also derive msvc_cpu from it.
     //
-    // @@ TODO: if (cl.sub (r.msvc_dir)), msvc_cpu derivation.
-    //
     static optional<msvc_info>
     find_msvc (const path& cl =  path ())
     {
@@ -479,12 +477,7 @@ namespace build2
 
       msvc_info r;
 
-      // @@ TMP
-      //
-      if (!cl.empty ())
-        r.msvc_cpu = "x64";
-
-      // Try to obtain the latest MSVC directory and version.
+      // Try to obtain the MSVC directory.
       //
       {
         // Initialize the COM library for use by the current thread.
@@ -522,9 +515,12 @@ namespace build2
           ei.reset (p);
         }
 
-        // Obtain an interface that helps with the VS version parsing.
+        // If we search for the latest VS then obtain an interface that helps
+        // with the VS version parsing.
         //
         unique_ptr<ISetupHelper, com_deleter> sh;
+
+        if (cl.empty ())
         {
           ISetupHelper* p;
           if (sc->QueryInterface (msvc_setup_helper_iid,
@@ -534,55 +530,26 @@ namespace build2
           sh.reset (p);
         }
 
-        // Iterate over the VS instances and pick the latest one. Bail out
-        // if any COM interface function call fails.
+        using vs_ptr = unique_ptr<ISetupInstance, com_deleter>;
+
+        // Return the Visual Studio instance VC directory path or the empty
+        // path on error.
         //
-        unsigned long long vs_ver (0); // VS version numeric representation.
-        unique_ptr<ISetupInstance, com_deleter> vs;
-        HRESULT hr;
-
-        for (ISetupInstance* p;
-             (hr = ei->Next (1, &p, nullptr /* pceltFetched */)) == S_OK; )
+        auto vc_dir = [] (const vs_ptr& vs)
         {
-          unique_ptr<ISetupInstance, com_deleter> i (p);
-
           // Note: we cannot use bstr_t due to the Clang 9.0 bug #42842.
           //
-          BSTR iv; // For example, 16.3.29324.140.
-          if (i->GetInstallationVersion (&iv) != S_OK)
-            return nullopt;
-
-          unique_ptr<wchar_t, bstr_deleter> deleter (iv);
-
-          unsigned long long v;
-          if (sh->ParseVersion (iv, &v) != S_OK)
-            return nullopt;
-
-          if (vs == nullptr || v > vs_ver)
-          {
-            vs = move (i);
-            vs_ver = v;
-          }
-        }
-
-        // Bail out if no VS instance is found or we didn't manage to iterate
-        // through all of them successfully.
-        //
-        if (vs == nullptr || hr != S_FALSE)
-          return nullopt;
-
-        // Obtain the VC directory path.
-        //
-        {
           BSTR p;
           if (vs->ResolvePath (L"VC", &p) !=  S_OK)
-            return nullopt;
+            return dir_path ();
 
           unique_ptr<wchar_t, bstr_deleter> deleter (p);
 
           // Convert BSTR to the NULL-terminated character string and then to
           // a path. Bail out if anything goes wrong.
           //
+          dir_path r;
+
           try
           {
             int n (WideCharToMultiByte (CP_ACP,
@@ -602,12 +569,80 @@ namespace build2
                                        p, -1,
                                        ps.data (), n,
                                        0, 0) != 0)
-                r.msvc_dir = dir_path (ps.data ());
+                r = dir_path (ps.data ());
             }
           }
           catch (const invalid_path&) {}
 
-          if (r.msvc_dir.relative ()) // Also covers the empty directory case.
+          if (r.relative ()) // Also covers the empty directory case.
+            return dir_path ();
+
+          return r;
+        };
+
+        // Iterate over the VS instances and pick the latest or containing
+        // cl.exe, if its path is specified. Bail out if any COM interface
+        // function call fails.
+        //
+        vs_ptr vs;
+        unsigned long long vs_ver (0); // VS version numeric representation.
+
+        HRESULT hr;
+        for (ISetupInstance* p;
+             (hr = ei->Next (1, &p, nullptr /* pceltFetched */)) == S_OK; )
+        {
+          vs_ptr i (p);
+
+          if (!cl.empty ())          // Searching for VS containing cl.exe.
+          {
+            dir_path d (vc_dir (i));
+            if (d.empty ())
+              return nullopt;
+
+            if (cl.sub (d))
+            {
+              vs = move (i);
+              r.msvc_dir = move (d); // Save not to query repeatedly.
+              break;
+            }
+          }
+          else                       // Searching for the latest VS.
+          {
+            BSTR iv; // For example, 16.3.29324.140.
+            if (i->GetInstallationVersion (&iv) != S_OK)
+              return nullopt;
+
+            unique_ptr<wchar_t, bstr_deleter> deleter (iv);
+
+            assert (sh != nullptr);
+
+            unsigned long long v;
+            if (sh->ParseVersion (iv, &v) != S_OK)
+              return nullopt;
+
+            if (vs == nullptr || v > vs_ver)
+            {
+              vs = move (i);
+              vs_ver = v;
+            }
+          }
+        }
+
+        // Bail out if no VS instance is found or we didn't manage to iterate
+        // through them successfully.
+        //
+        if (vs == nullptr || (hr != S_FALSE && hr != S_OK))
+          return nullopt;
+
+        // Note: we may already have the directory (search by cl.exe case).
+        //
+        if (r.msvc_dir.empty ())
+        {
+          assert (cl.empty ());
+
+          r.msvc_dir = vc_dir (vs);
+
+          if (r.msvc_dir.empty ())
             return nullopt;
         }
 
@@ -641,6 +676,16 @@ namespace build2
 
         if (r.msvc_dir.empty ())
           return nullopt;
+      }
+
+      // If the cl.exe path is specified then derive msvc_cpu as its parent
+      // directory name.
+      //
+      if (!cl.empty ())
+      {
+        assert (cl.absolute ());
+
+        r.msvc_cpu = cl.directory ().leaf ().string ();
       }
 
       // Try to obtain the latest Platform SDK directory and version.
