@@ -425,8 +425,8 @@ namespace build2
     {
       dir_path msvc_dir; // VC directory (...\Tools\MSVC\<ver>\).
       string   msvc_cpu; // Target CPU (x86, x64) or empty if unknown.
-      string   psdk_ver; // Platfor SDK directory (...\Windows Kits\<ver>\).
       dir_path psdk_dir; // Platfor SDK version (under Include/, Lib/, etc).
+      string   psdk_ver; // Platfor SDK directory (...\Windows Kits\<ver>\).
     };
 
 #if defined(_WIN32) && !defined(BUILD2_BOOTSTRAP)
@@ -473,11 +473,16 @@ namespace build2
     // @@ TODO: if (cl.sub (r.msvc_dir)), msvc_cpu derivation.
     //
     static optional<msvc_info>
-    find_msvc (const path& /*cl*/ =  path ())
+    find_msvc (const path& cl =  path ())
     {
       using namespace butl;
 
       msvc_info r;
+
+      // @@ TMP
+      //
+      if (!cl.empty ())
+        r.msvc_cpu = "x64";
 
       // Try to obtain the latest MSVC directory and version.
       //
@@ -707,7 +712,7 @@ namespace build2
           return nullopt;
       }
 
-      return move (r);
+      return r;
     }
 #endif
 
