@@ -2,8 +2,12 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <sstream>
+
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
+
+using namespace std;
 
 namespace build2
 {
@@ -40,6 +44,27 @@ namespace build2
     f["string"] = [](bool b) {return b ? "true" : "false";};
     f["string"] = [](uint64_t i) {return to_string (i);};
     f["string"] = [](name n) {return to_string (n);};
+
+    // Quote a value returning its string representation. If escape is true,
+    // then also escape (with a backslash) the quote characters being added
+    // (this is useful if the result will be re-parsed, for example as a
+    // Testscript command line).
+    //
+    f["quote"] = [](value* v, optional<value> escape)
+    {
+      if (v->null)
+        return string ();
+
+      untypify (*v); // Reverse to names.
+
+      ostringstream os;
+      to_stream (os,
+                 v->as<names> (),
+                 true /* quote */,
+                 '@'  /* pair */,
+                 escape && convert<bool> (move (*escape)));
+      return os.str ();
+    };
 
     // getenv
     //

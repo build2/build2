@@ -60,9 +60,9 @@ namespace build2
   }
 
   ostream&
-  to_stream (ostream& os, const name& n, bool quote, char pair)
+  to_stream (ostream& os, const name& n, bool quote, char pair, bool escape)
   {
-    auto write_string = [quote, pair, &os](const string& v)
+    auto write_string = [quote, pair, escape, &os](const string& v)
     {
       char sc[] = {
         '{', '}', '[', ']', '$', '(', ')', // Token endings.
@@ -78,6 +78,7 @@ namespace build2
         // Quote the string with the double quotes rather than with the single
         // one. Escape some of the special characters.
         //
+        if (escape) os << '\\';
         os << '"';
 
         for (auto c: v)
@@ -88,10 +89,19 @@ namespace build2
           os << c;
         }
 
+        if (escape) os << '\\';
         os << '"';
       }
       else if (quote && v.find_first_of (sc) != string::npos)
-        os << "'" << v << "'";
+      {
+        if (escape) os << '\\';
+        os << '\'';
+
+        os << v;
+
+        if (escape) os << '\\';
+        os << '\'';
+      }
       else
         os << v;
     };
@@ -115,7 +125,7 @@ namespace build2
     // If quoted then print empty name as '' rather than {}.
     //
     if (quote && n.empty ())
-      return os << "''";
+      return os << (escape ? "\\'\\'" : "''");
 
     if (n.proj)
     {
@@ -168,13 +178,17 @@ namespace build2
   }
 
   ostream&
-  to_stream (ostream& os, const names_view& ns, bool quote, char pair)
+  to_stream (ostream& os,
+             const names_view& ns,
+             bool quote,
+             char pair,
+             bool escape)
   {
     for (auto i (ns.begin ()), e (ns.end ()); i != e; )
     {
       const name& n (*i);
       ++i;
-      to_stream (os, n, quote, pair);
+      to_stream (os, n, quote, pair, escape);
 
       if (n.pair)
         os << n.pair;

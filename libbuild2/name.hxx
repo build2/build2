@@ -129,11 +129,19 @@ namespace build2
   //
   // \$("
   //
+  // If escape is true, then escape (with a backslash) the quote characters
+  // being added (this is useful if the result will be re-parsed, for example
+  // as a Testscript command line).
+  //
   // Note that in the quoted mode empty unqualified name is printed as '',
   // not {}.
   //
   LIBBUILD2_SYMEXPORT ostream&
-  to_stream (ostream&, const name&, bool quote, char pair = '\0');
+  to_stream (ostream&,
+             const name&,
+             bool quote,
+             char pair = '\0',
+             bool escape = false);
 
   inline ostream&
   operator<< (ostream& os, const name& n) {return to_stream (os, n, false);}
@@ -153,7 +161,11 @@ namespace build2
   // The same semantics as to_stream(name).
   //
   LIBBUILD2_SYMEXPORT ostream&
-  to_stream (ostream&, const names_view&, bool quote, char pair = '\0');
+  to_stream (ostream&,
+             const names_view&,
+             bool quote,
+             char pair = '\0',
+             bool escape = false);
 
   inline ostream&
   operator<< (ostream& os, const names_view& ns) {
