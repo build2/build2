@@ -155,6 +155,7 @@ namespace build2
     static string
     stdlib (lang xl,
             const process_path& xp,
+            const strings& x_mo,
             const strings* c_po, const strings* x_po,
             const strings* c_co, const strings* x_co,
             const char* src)
@@ -164,6 +165,7 @@ namespace build2
       if (x_po != nullptr) append_options (args, *x_po);
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
+      append_options (args, x_mo);
       args.push_back ("-x");
       switch (xl)
       {
@@ -784,6 +786,7 @@ namespace build2
     guess (const char* xm,
            lang,
            const path& xc,
+           const strings& x_mo,
            const optional<compiler_id>& xi,
            pre_guess_result& pre,
            sha256& cs)
@@ -945,6 +948,36 @@ namespace build2
           run_search_fail (xc);
       }
 
+      // Run the compiler with the specified option (-v, --version, etc; can
+      // also be NULL) calling the specified function on each trimmed output
+      // line (see build2::run() for details).
+      //
+      // Note that we suppress all the compiler errors because we may be
+      // trying an unsupported option (but still consider the exit code).
+      //
+      //
+      cstrings args {xp.recall_string ()};
+      append_options (args, x_mo);
+      args.push_back (nullptr); // Placeholder for the option.
+      args.push_back (nullptr);
+
+      auto run = [&cs, &xp, &args] (const char* o,
+                                    auto&& f,
+                                    const char* const* env = nullptr,
+                                    bool checksum = false) -> guess_result
+      {
+        args[args.size () - 2] = o;
+
+        return build2::run<guess_result> (
+          3                          /* verbosity */,
+          process_env (xp, env),
+          args.data (),
+          forward<decltype(f)> (f),
+          false                      /* error */,
+          false                      /* ignore_exit */,
+          checksum ? &cs : nullptr);
+      };
+
       // Start with -v. This will cover gcc and clang (including clang-cl).
       //
       // While icc also writes what may seem like something we can use to
@@ -1056,11 +1089,8 @@ namespace build2
         // One notable consequence of this is that if the locale changes
         // (e.g., via LC_ALL), then the compiler signature will most likely
         // change as well because of the translated text.
-
-        // Suppress all the compiler errors because we may be trying an
-        // unsupported option (but still consider the exit code).
         //
-        r = run<guess_result> (3, xp, "-v", f, false, false, &cs);
+        r = run ("-v", f, nullptr /* env */, true /* checksum */);
 
         if (r.empty ())
         {
@@ -1120,7 +1150,7 @@ namespace build2
           return guess_result ();
         };
 
-        r = run<guess_result> (3, xp, "--version", f, false);
+        r = run ("--version", f);
 
         if (r.empty ())
         {
@@ -1171,9 +1201,11 @@ namespace build2
         // going to unset these variables for our test (interestingly, only CL
         // seem to cause the problem but let's unset both, for good measure).
         //
+        // This is also the reason why we don't pass the mode options.
+        //
         const char* env[] = {"CL=", "_CL_=", nullptr};
 
-        r = run<guess_result> (3, process_env (xp, env), f, false);
+        r = build2::run<guess_result> (3, process_env (xp, env), f, false);
 
         if (r.empty ())
         {
@@ -1426,6 +1458,7 @@ namespace build2
                 const path& xc,
                 const string* xv,
                 const string* xt,
+                const strings&,
                 const strings*, const strings*,
                 const strings*, const strings*,
                 const strings*, const strings*,
@@ -1649,6 +1682,7 @@ namespace build2
                const path& xc,
                const string* xv,
                const string* xt,
+               const strings& x_mo,
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
@@ -1747,9 +1781,11 @@ namespace build2
 
       if (xt == nullptr)
       {
-        cstrings args {xp.recall_string (), "-print-multiarch"};
+        cstrings args {xp.recall_string ()};
         if (c_co != nullptr) append_options (args, *c_co);
         if (x_co != nullptr) append_options (args, *x_co);
+        append_options (args, x_mo);
+        args.push_back ("-print-multiarch"); // Note: position relied upon.
         args.push_back (nullptr);
 
         // The output of both -print-multiarch and -dumpmachine is a single
@@ -1764,7 +1800,7 @@ namespace build2
           l5 ([&]{trace << xc << " doesn's support -print-multiarch, "
                         << "falling back to -dumpmachine";});
 
-          args[1] = "-dumpmachine";
+          args[args.size () - 2] = "-dumpmachine";
           t = run<string> (3, xp, args.data (), f, false);
         }
 
@@ -1797,9 +1833,10 @@ namespace build2
       // documentation says that you should usually specify -lgcc.
       //
       string rt  ("libgcc");
-      string csl (tt.system == "mingw32"
-                  ? "msvc"
-                  : stdlib (xl, xp, c_po, x_po, c_co, x_co, c_stdlib_src));
+      string csl (
+        tt.system == "mingw32"
+        ? "msvc"
+        : stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, c_stdlib_src));
       string xsl;
       switch (xl)
       {
@@ -1813,7 +1850,7 @@ namespace build2
             "#include <bits/c++config.h> \n"
             "stdlib:=\"libstdc++\"       \n";
 
-          xsl = stdlib (xl, xp, c_po, x_po, c_co, x_co, src);
+          xsl = stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, src);
           break;
         }
       }
@@ -1847,6 +1884,7 @@ namespace build2
     static clang_msvc_info
     guess_clang_msvc (lang xl,
                       const process_path& xp,
+                      const strings& x_mo,
                       const strings* c_co, const strings* x_co,
                       bool cl)
     {
@@ -1855,6 +1893,7 @@ namespace build2
       cstrings args {xp.recall_string ()};
       if (c_co != nullptr) append_options (args, *c_co);
       if (x_co != nullptr) append_options (args, *x_co);
+      append_options (args, x_mo);
 
       if (cl)
       {
@@ -2060,6 +2099,7 @@ namespace build2
                  const path& xc,
                  const string* xv,
                  const string* xt,
+                 const strings& x_mo,
                  const strings* c_po, const strings* x_po,
                  const strings* c_co, const strings* x_co,
                  const strings* c_lo, const strings* x_lo,
@@ -2222,9 +2262,10 @@ namespace build2
       if (xt == nullptr)
       {
         cstrings args {xp.recall_string ()};
-        args.push_back (cl ? "/clang:-dumpmachine" : "-dumpmachine");
         if (c_co != nullptr) append_options (args, *c_co);
         if (x_co != nullptr) append_options (args, *x_co);
+        append_options (args, x_mo);
+        args.push_back (cl ? "/clang:-dumpmachine" : "-dumpmachine");
         args.push_back (nullptr);
 
         // The output of -dumpmachine is a single line containing just the
@@ -2266,7 +2307,7 @@ namespace build2
         // (plus a couple of other useful bits like the VC installation
         // directory and Platform SDK).
         //
-        clang_msvc_info mi (guess_clang_msvc (xl, xp, c_co, x_co, cl));
+        clang_msvc_info mi (guess_clang_msvc (xl, xp, x_mo, c_co, x_co, cl));
 
         // Keep the CPU and replace the rest.
         //
@@ -2352,8 +2393,9 @@ namespace build2
         };
 
         const string* o;
-        if ((o = find_rtlib (x_lo)) != nullptr ||
-            (o = find_rtlib (c_lo)) != nullptr)
+        if ((o = find_rtlib (&x_mo)) != nullptr ||
+            (o = find_rtlib (x_lo))  != nullptr ||
+            (o = find_rtlib (c_lo))  != nullptr)
         {
           rt = string (*o, 8);
         }
@@ -2363,9 +2405,10 @@ namespace build2
         else /* Mac OS, etc. */              rt = "compiler-rt";
       }
 
-      string csl (tt.system == "win32-msvc" || tt.system == "mingw32"
-                  ? "msvc"
-                  : stdlib (xl, xp, c_po, x_po, c_co, x_co, c_stdlib_src));
+      string csl (
+        tt.system == "win32-msvc" || tt.system == "mingw32"
+        ? "msvc"
+        : stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, c_stdlib_src));
 
       string xsl;
       switch (xl)
@@ -2394,7 +2437,7 @@ namespace build2
 
           xsl = tt.system == "win32-msvc"
             ? "msvcp"
-            : stdlib (xl, xp, c_po, x_po, c_co, x_co, src);
+            : stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, src);
           break;
         }
       }
@@ -2424,11 +2467,15 @@ namespace build2
                const path& xc,
                const string* xv,
                const string* xt,
+               const strings& x_mo,
                const strings* c_po, const strings* x_po,
                const strings* c_co, const strings* x_co,
                const strings*, const strings*,
                guess_result&& gr, sha256&)
     {
+      //@@ TODO: this should be reviewed/revised if/when we get access
+      //         to more recent ICC versions.
+
       const process_path& xp (gr.path);
 
       // Extract the version. If the version has the fourth component, then
@@ -2469,6 +2516,8 @@ namespace build2
         s.clear ();
 
         // The -V output is sent to STDERR.
+        //
+        // @@ TODO: running without the mode options.
         //
         s = run<string> (3, xp, "-V", f, false);
 
@@ -2575,6 +2624,8 @@ namespace build2
       // "Intel(R)" "64"
       // "Intel(R)" "MIC"      (-dumpmachine says: x86_64-k1om-linux)
       //
+      // @@ TODO: why can't we combine it with the previous -V run?
+      //
       string t, ot;
 
       if (xt == nullptr)
@@ -2585,9 +2636,11 @@ namespace build2
             dr << info << "use config." << xm << ".target to override";
           });
 
-        cstrings args {xp.recall_string (), "-V"};
+        cstrings args {xp.recall_string ()};
         if (c_co != nullptr) append_options (args, *c_co);
         if (x_co != nullptr) append_options (args, *x_co);
+        append_options (args, x_mo);
+        args.push_back ("-V");
         args.push_back (nullptr);
 
         // The -V output is sent to STDERR.
@@ -2637,6 +2690,8 @@ namespace build2
         // in the future. So instead we are going to use -dumpmachine and
         // substitute the CPU.
         //
+        // @@ TODO: running without the mode options.
+        //
         {
           auto f = [] (string& l, bool) {return move (l);};
           t = run<string> (3, xp, "-dumpmachine", f);
@@ -2677,9 +2732,10 @@ namespace build2
       // Linux/GCC.
       //
       string rt  (tt.system == "win32-msvc" ? "msvc" : "libgcc");
-      string csl (tt.system == "win32-msvc"
-                  ? "msvc"
-                  : stdlib (xl, xp, c_po, x_po, c_co, x_co, c_stdlib_src));
+      string csl (
+        tt.system == "win32-msvc"
+        ? "msvc"
+        : stdlib (xl, xp, x_mo, c_po, x_po, c_co, x_co, c_stdlib_src));
       string xsl;
       switch (xl)
       {
@@ -2722,6 +2778,7 @@ namespace build2
            const string* xis,
            const string* xv,
            const string* xt,
+           const strings& x_mo,
            const strings* c_po, const strings* x_po,
            const strings* c_co, const strings* x_co,
            const strings* c_lo, const strings* x_lo)
@@ -2734,6 +2791,7 @@ namespace build2
         cs.append (static_cast<size_t> (xl));
         cs.append (xc.string ());
         if (xis != nullptr) cs.append (*xis);
+        append_options (cs, x_mo);
         if (c_po != nullptr) append_options (cs, *c_po);
         if (x_po != nullptr) append_options (cs, *x_po);
         if (c_co != nullptr) append_options (cs, *c_co);
@@ -2773,7 +2831,7 @@ namespace build2
 
       if (pre.type != invalid_compiler_type)
       {
-        gr = guess (xm, xl, xc, xi, pre, cs);
+        gr = guess (xm, xl, xc, x_mo, xi, pre, cs);
 
         if (gr.empty ())
         {
@@ -2789,7 +2847,7 @@ namespace build2
       }
 
       if (gr.empty ())
-        gr = guess (xm, xl, xc, xi, pre, cs);
+        gr = guess (xm, xl, xc, x_mo, xi, pre, cs);
 
       if (gr.empty ())
         fail << "unable to guess " << xl << " compiler type of " << xc <<
@@ -2797,6 +2855,7 @@ namespace build2
 
       compiler_info (*gf) (
         const char*, lang, const path&, const string*, const string*,
+        const strings&,
         const strings*, const strings*,
         const strings*, const strings*,
         const strings*, const strings*,
@@ -2815,7 +2874,7 @@ namespace build2
       }
 
       compiler_info r (gf (xm, xl, xc, xv, xt,
-                           c_po, x_po, c_co, x_co, c_lo, x_lo,
+                           x_mo, c_po, x_po, c_co, x_co, c_lo, x_lo,
                            move (gr), cs));
 
       // By default use the signature line to generate the checksum.
@@ -2893,8 +2952,11 @@ namespace build2
       return (cache[key] = move (r));
     }
 
-    path
-    guess_default (lang xl, const string& cid, const string& pat)
+    strings
+    guess_default (lang xl,
+                   const string& cid,
+                   const string& pat,
+                   const strings& mode)
     {
       compiler_id id (cid);
       const char* s (nullptr);
@@ -2937,7 +2999,12 @@ namespace build2
         }
       }
 
-      return path (apply_pattern (s, pat));
+      strings r;
+      r.reserve (mode.size () + 1);
+      r.push_back (apply_pattern (s, pat));
+      r.insert (r.end (), mode.begin (), mode.end ());
+
+      return r;
     }
   }
 }

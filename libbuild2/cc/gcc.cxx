@@ -31,13 +31,11 @@ namespace build2
     {
       dir_paths r;
 
-      cstrings args;
-      string std; // Storage.
-
-      args.push_back (xc.recall_string ());
+      cstrings args {xc.recall_string ()};
       append_options (args, rs, c_coptions);
       append_options (args, rs, x_coptions);
       append_options (args, tstd);
+      append_options (args, rs, x_mode);
 
       // Compile as.
       //
@@ -182,15 +180,13 @@ namespace build2
       //
       dir_paths r;
 
-      cstrings args;
-      string std; // Storage.
-
-      args.push_back (xc.recall_string ());
+      cstrings args {xc.recall_string ()};
       append_options (args, rs, c_coptions);
       append_options (args, rs, x_coptions);
       append_options (args, tstd);
       append_options (args, rs, c_loptions);
       append_options (args, rs, x_loptions);
+      append_options (args, rs, x_mode);
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
 

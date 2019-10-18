@@ -607,23 +607,32 @@ namespace build2
   //
   template <typename T>
   bool
-  find_options (initializer_list<const char*>,
+  find_options (const initializer_list<const char*>&,
                 T&,
                 const variable&,
                 bool = false);
 
   template <typename T>
   bool
-  find_options (initializer_list<const char*>, T&, const char*, bool = false);
+  find_options (const initializer_list<const char*>&,
+                T&,
+                const char*,
+                bool = false);
 
   LIBBUILD2_SYMEXPORT bool
-  find_options (initializer_list<const char*>, const lookup&, bool = false);
+  find_options (const initializer_list<const char*>&,
+                const lookup&,
+                bool = false);
 
   LIBBUILD2_SYMEXPORT bool
-  find_options (initializer_list<const char*>, const strings&, bool = false);
+  find_options (const initializer_list<const char*>&,
+                const strings&,
+                bool = false);
 
   LIBBUILD2_SYMEXPORT bool
-  find_options (initializer_list<const char*>, const cstrings&, bool = false);
+  find_options (const initializer_list<const char*>&,
+                const cstrings&,
+                bool = false);
 
   // As above but look for an option that has the specified prefix. Return the
   // pointer to option or NULL if not found (thus can be used as bool).
@@ -651,29 +660,29 @@ namespace build2
   //
   template <typename T>
   const string*
-  find_option_prefixes (initializer_list<const char*>,
+  find_option_prefixes (const initializer_list<const char*>&,
                         T&,
                         const variable&,
                         bool = false);
 
   template <typename T>
   const string*
-  find_option_prefixes (initializer_list<const char*>,
+  find_option_prefixes (const initializer_list<const char*>&,
                         T&,
                         const char*,
                         bool = false);
 
   LIBBUILD2_SYMEXPORT const string*
-  find_option_prefixes (initializer_list<const char*>,
+  find_option_prefixes (const initializer_list<const char*>&,
                         const lookup&, bool = false);
 
   LIBBUILD2_SYMEXPORT const string*
-  find_option_prefixes (initializer_list<const char*>,
+  find_option_prefixes (const initializer_list<const char*>&,
                         const strings&,
                         bool = false);
 
   LIBBUILD2_SYMEXPORT const char*
-  find_option_prefixes (initializer_list<const char*>,
+  find_option_prefixes (const initializer_list<const char*>&,
                         const cstrings&,
                         bool = false);
 

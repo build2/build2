@@ -220,7 +220,8 @@ namespace build2
     msvc_header_search_paths (const process_path&, scope&) const
     {
       // The compiler doesn't seem to have any built-in paths and all of them
-      // come from the INCLUDE environment variable.
+      // either come from the INCLUDE environment variable or are specified
+      // explicitly on the command line.
 
       // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
       //    cl.exe /Be prints INCLUDE.
@@ -239,7 +240,8 @@ namespace build2
     msvc_library_search_paths (const process_path&, scope&) const
     {
       // The linker doesn't seem to have any built-in paths and all of them
-      // come from the LIB environment variable.
+      // either come from the LIB environment variable or are specified
+      // explicitly on the command line.
 
       // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
       //    cl.exe /Be prints LIB.

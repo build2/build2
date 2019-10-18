@@ -2237,12 +2237,11 @@ namespace build2
       }
       else
       {
-        if (tsys == "win32-msvc")
-        {
-          // We are using link.exe directly so don't pass the compiler
-          // options.
-        }
-        else
+        // Are we using the compiler or the linker (e.g., link.exe) directly?
+        //
+        bool ldc (tsys != "win32-msvc");
+
+        if (ldc)
         {
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
@@ -2364,6 +2363,9 @@ namespace build2
               sargs.push_back ("-Wl,-rpath-link," + p.string ());
           }
         }
+
+        if (ldc)
+          append_options (args, cmode);
       }
 
       // All the options should now be in. Hash them and compare with the db.
@@ -2560,8 +2562,10 @@ namespace build2
             // See the runtime selection code in the compile rule for details
             // on what's going on here.
             //
-            if (!find_options ({"-nostdlib", "-nostartfiles"}, t, c_coptions) &&
-                !find_options ({"-nostdlib", "-nostartfiles"}, t, x_coptions))
+            initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
+            if (!find_options (os, cmode)         &&
+                !find_options (os, t, c_coptions) &&
+                !find_options (os, t, x_coptions))
             {
               args.push_back ("/DEFAULTLIB:msvcrt");
               args.push_back ("/DEFAULTLIB:oldnames");

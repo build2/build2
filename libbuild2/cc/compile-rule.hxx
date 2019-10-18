@@ -160,14 +160,14 @@ namespace build2
       make_header_sidebuild (action, const scope&, linfo, const file&) const;
 
       void
-      append_headers (environment&, cstrings&, small_vector<string, 2>&,
-                      action, const file&,
-                      const match_data&, const path&) const;
+      append_header_options (environment&, cstrings&, small_vector<string, 2>&,
+                             action, const file&,
+                             const match_data&, const path&) const;
 
       void
-      append_modules (environment&, cstrings&, small_vector<string, 2>&,
-                      action, const file&,
-                      const match_data&, const path&) const;
+      append_module_options (environment&, cstrings&, small_vector<string, 2>&,
+                             action, const file&,
+                             const match_data&, const path&) const;
 
       // Compiler-specific language selection option. Return the number of
       // options (arguments, really) appended.

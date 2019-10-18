@@ -239,23 +239,27 @@ namespace build2
     // that most of it will be the same, at least for C and C++.
     //
     const compiler_info&
-    guess (const char* xm,    // Module (for variable names in diagnostics).
-           lang xl,           // Language.
-           const path& xc,    // Compiler path.
-           const string* xi,  // Compiler id (optional).
-           const string* xv,  // Compiler version (optional).
-           const string* xt,  // Compiler target (optional).
+    guess (const char* xm,        // Module (for var names in diagnostics).
+           lang xl,               // Language.
+           const path& xc,        // Compiler path.
+           const string* xi,      // Compiler id (optional).
+           const string* xv,      // Compiler version (optional).
+           const string* xt,      // Compiler target (optional).
+           const strings& x_mode, // Compiler mode options.
            const strings* c_poptions, const strings* x_poptions,
            const strings* c_coptions, const strings* x_coptions,
            const strings* c_loptions, const strings* x_loptions);
 
-    // Given a language, compiler id, and optionally an (empty) pattern,
-    // return an appropriate default compiler path.
+    // Given a language, compiler id, optional (empty) pattern, and mode
+    // return an appropriate default config.x value (compiler path and mode)
     //
     // For example, for (lang::cxx, gcc, *-4.9) we will get g++-4.9.
     //
-    path
-    guess_default (lang, const string& cid, const string& pattern);
+    strings
+    guess_default (lang,
+                   const string& cid,
+                   const string& pattern,
+                   const strings& mode);
   }
 }
 

@@ -56,6 +56,7 @@ namespace build2
       const variable* config_x_translatable_headers;
 
       const variable& x_path;         // Compiler process path.
+      const variable& x_mode;         // Compiler mode options.
       const variable& x_sys_lib_dirs; // System library search directories.
       const variable& x_sys_inc_dirs; // System header search directories.
 
@@ -147,6 +148,7 @@ namespace build2
       uint64_t cmaj;                // x.version.major
       uint64_t cmin;                // x.version.minor
       const process_path& cpath;    // x.path
+      const strings& cmode;         // x.mode (options)
 
       const target_triplet& ctgt;   // x.target
       const string& tsys;           // x.target.system
@@ -204,6 +206,7 @@ namespace build2
             compiler_class cl,
             uint64_t mj, uint64_t mi,
             const process_path& path,
+            const strings& mode,
             const target_triplet& tgt,
             const strings& std,
             bool fm,
@@ -223,7 +226,7 @@ namespace build2
             x_uninstall (uninstall),
             ctype (ct), cvariant (cv), cclass (cl),
             cmaj (mj), cmin (mi),
-            cpath (path),
+            cpath (path), cmode (mode),
             ctgt (tgt), tsys (ctgt.system), tclass (ctgt.class_),
             tstd (std),
             modules (fm),

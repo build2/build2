@@ -884,6 +884,8 @@ namespace build2
               cs.append ("-fPIC");
           }
 
+          append_options (cs, cmode);
+
           if (dd.expect (cs.string ()) != nullptr)
             l4 ([&]{trace << "options mismatch forcing update of " << t;});
         }
@@ -2972,6 +2974,8 @@ namespace build2
 
               args.push_back ("/nologo");
 
+              append_options (args, cmode);
+
               // See perform_update() for details on overriding the default
               // exceptions and runtime.
               //
@@ -3018,12 +3022,15 @@ namespace build2
 
               if (ctype == compiler_type::clang && tsys == "win32-msvc")
               {
-                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
+                initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
+                if (!find_options (os, cmode) && !find_options (os, args))
                 {
                   args.push_back ("-D_MT");
                   args.push_back ("-D_DLL");
                 }
               }
+
+              append_options (args, cmode);
 
               // Setup the dynamic module mapper if needed.
               //
@@ -4089,13 +4096,15 @@ namespace build2
           append_options (args, tstd,
                           tstd.size () - (modules && clang ? 1 : 0));
 
-          append_headers (env, args, header_args, a, t, md, dd);
+          append_header_options (env, args, header_args, a, t, md, dd);
 
           switch (cclass)
           {
           case compiler_class::msvc:
             {
               args.push_back ("/nologo");
+
+              append_options (args, cmode);
 
               if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
                 args.push_back ("/EHsc");
@@ -4122,12 +4131,15 @@ namespace build2
 
               if (ctype == compiler_type::clang && tsys == "win32-msvc")
               {
-                if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
+                initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
+                if (!find_options (os, cmode) && !find_options (os, args))
                 {
                   args.push_back ("-D_MT");
                   args.push_back ("-D_DLL");
                 }
               }
+
+              append_options (args, cmode);
 
               args.push_back ("-E");
               append_lang_options (args, md);
@@ -4659,8 +4671,8 @@ namespace build2
       // handle this: after match all our prerequisite BMIs will have their
       // prerequisite BMIs known, recursively. The only bit that is missing is
       // the re-export flag of some sorts. As well as deciding where to handle
-      // it: here or in append_modules(). After some meditation it became
-      // clear handling it here will be simpler: we need to weed out
+      // it: here or in append_module_options(). After some meditation it
+      // became clear handling it here will be simpler: we need to weed out
       // duplicates for which we can re-use the imports vector. And we may
       // also need to save this "flattened" list of modules in depdb.
       //
@@ -4678,8 +4690,8 @@ namespace build2
       //    (with all the re-exported by us at the back), we will go over them
       //    and copy all of their re-exported bmi{}s (using the position we
       //    saved on step #1). The end result will be a recursively-explored
-      //    list of imported bmi{}s that append_modules() can simply convert
-      //    to the list of options.
+      //    list of imported bmi{}s that append_module_options() can simply
+      //    convert to the list of options.
       //
       //    One issue with this approach is that these copied targets will be
       //    executed which means we need to adjust their dependent counts
@@ -5363,16 +5375,16 @@ namespace build2
     //
     // Note that this function is called for both full preprocessing and
     // compilation proper and in the latter case it is followed by a call
-    // to append_modules().
+    // to append_module_options().
     //
     void compile_rule::
-    append_headers (environment&,
-                    cstrings& args,
-                    small_vector<string, 2>& stor,
-                    action,
-                    const file&,
-                    const match_data& md,
-                    const path& dd) const
+    append_header_options (environment&,
+                           cstrings& args,
+                           small_vector<string, 2>& stor,
+                           action,
+                           const file&,
+                           const match_data& md,
+                           const path& dd) const
     {
       switch (ctype)
       {
@@ -5404,16 +5416,17 @@ namespace build2
     // Append module-related options.
     //
     // Note that this function is only called for the compilation proper and
-    // after a call to append_headers() (so watch out for duplicate options).
+    // after a call to append_header_options() (so watch out for duplicate
+    // options).
     //
     void compile_rule::
-    append_modules (environment& env,
-                    cstrings& args,
-                    small_vector<string, 2>& stor,
-                    action a,
-                    const file& t,
-                    const match_data& md,
-                    const path& dd) const
+    append_module_options (environment& env,
+                           cstrings& args,
+                           small_vector<string, 2>& stor,
+                           action a,
+                           const file& t,
+                           const match_data& md,
+                           const path& dd) const
     {
       unit_type ut (md.type);
       const module_positions& ms (md.modules);
@@ -5428,7 +5441,7 @@ namespace build2
           //
           // Note that it is also used to specify the output BMI file.
           //
-          if (md.headers == 0                && // Done in append_headers()?
+          if (md.headers == 0                && // In append_header_options()?
               (ms.start != 0                 ||
                ut == unit_type::module_iface ||
                ut == unit_type::module_header))
@@ -5686,6 +5699,8 @@ namespace build2
 
         args.push_back ("/nologo");
 
+        append_options (args, cmode);
+
         // While we want to keep the low-level build as "pure" as possible,
         // the two misguided defaults, exceptions and runtime, just have to be
         // fixed. Otherwise the default build is pretty much unusable. But we
@@ -5722,8 +5737,8 @@ namespace build2
 
         msvc_sanitize_cl (args);
 
-        append_headers (env, args, header_args, a, t, md, md.dd);
-        append_modules (env, args, module_args, a, t, md, md.dd);
+        append_header_options (env, args, header_args, a, t, md, md.dd);
+        append_module_options (env, args, module_args, a, t, md, md.dd);
 
         // The presence of /Zi or /ZI causes the compiler to write debug info
         // to the .pdb file. By default it is a shared file called vcNN.pdb
@@ -5803,7 +5818,8 @@ namespace build2
               // Clang's MSVC.cpp will not link the default runtime if either
               // -nostdlib or -nostartfiles is specified. Let's do the same.
               //
-              if (!find_options ({"-nostdlib", "-nostartfiles"}, args))
+              initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
+              if (!find_options (os, cmode) && !find_options (os, args))
               {
                 args.push_back ("-D_MT");
                 args.push_back ("-D_DLL");
@@ -5846,8 +5862,10 @@ namespace build2
           }
         }
 
-        append_headers (env, args, header_args, a, t, md, md.dd);
-        append_modules (env, args, module_args, a, t, md, md.dd);
+        append_options (args, cmode);
+
+        append_header_options (env, args, header_args, a, t, md, md.dd);
+        append_module_options (env, args, module_args, a, t, md, md.dd);
 
         // Note: the order of the following options is relied upon below.
         //

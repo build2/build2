@@ -105,6 +105,7 @@ namespace build2
       v.insert<string>         ("config.cc.id");
       v.insert<string>         ("config.cc.hinter"); // Hinting module.
       v.insert<string>         ("config.cc.pattern");
+      v.insert<strings>        ("config.cc.mode");
       v.insert<target_triplet> ("config.cc.target");
 
       // Compiler runtime and C standard library.
@@ -207,6 +208,15 @@ namespace build2
         //
         rs.assign<string> ("cc.pattern") =
           cast_empty<string> (h["config.cc.pattern"]);
+      }
+
+      // config.cc.mode
+      //
+      {
+        // This value could be hinted.
+        //
+        rs.assign<strings> ("cc.mode") =
+          cast_empty<strings> (h["config.cc.mode"]);
       }
 
       // cc.runtime

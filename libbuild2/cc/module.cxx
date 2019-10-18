@@ -51,89 +51,114 @@ namespace build2
 
       // config.x
       //
-
-      // Normally we will have a persistent configuration and computing the
-      // default value every time will be a waste. So try without a default
-      // first.
-      //
-      auto p (config::omitted (rs, config_x));
-
-      if (!p.first)
+      strings mode;
       {
-        // If there is a config.x value for one of the modules that can hint
-        // us the toolchain, load it's .guess module. This makes sure that the
-        // order in which we load the modules is unimportant and that the user
-        // can specify the toolchain using any of the config.x values.
+        // Normally we will have a persistent configuration and computing the
+        // default value every time will be a waste. So try without a default
+        // first.
         //
-        if (!cc_loaded)
+        auto p (config::omitted (rs, config_x));
+
+        if (!p.first)
         {
-          for (const char* const* pm (x_hinters); *pm != nullptr; ++pm)
+          // If there is a config.x value for one of the modules that can hint
+          // us the toolchain, load it's .guess module. This makes sure that
+          // the order in which we load the modules is unimportant and that
+          // the user can specify the toolchain using any of the config.x
+          // values.
+          //
+          if (!cc_loaded)
           {
-            string m (*pm);
-
-            // Must be the same as in module's init().
-            //
-            const variable& v (vp.insert<path> ("config." + m, true));
-
-            if (rs[v].defined ())
+            for (const char* const* pm (x_hinters); *pm != nullptr; ++pm)
             {
-              load_module (rs, rs, m + ".guess", loc);
-              cc_loaded = true;
-              break;
+              string m (*pm);
+
+              // Must be the same as in module's init().
+              //
+              const variable& v (vp.insert<strings> ("config." + m, true));
+
+              if (rs[v].defined ())
+              {
+                load_module (rs, rs, m + ".guess", loc);
+                cc_loaded = true;
+                break;
+              }
             }
           }
+
+          // If cc.core.config is already loaded then use its toolchain id,
+          // (optional) pattern, and mode to guess an appropriate default
+          // (e.g., for {gcc, *-4.9 -m64} we will get g++-4.9 -m64).
+          //
+          strings d;
+
+          if (cc_loaded)
+            d = guess_default (x_lang,
+                               cast<string>  (rs["cc.id"]),
+                               cast<string>  (rs["cc.pattern"]),
+                               cast<strings> (rs["cc.mode"]));
+          else
+          {
+            // Note that we don't have the default mode: it doesn't feel
+            // correct to default to, say, -m64 simply because that's how
+            // build2 was built.
+            //
+            d.push_back (x_default);
+
+            if (d.front ().empty ())
+              fail << "not built with default " << x_lang << " compiler" <<
+                info << "use " << config_x << " to specify";
+          }
+
+          // If this value was hinted, save it as commented out so that if the
+          // user changes the source of the pattern/mode, this one will get
+          // updated as well.
+          //
+          p = config::required (rs,
+                                config_x,
+                                move (d),
+                                false,
+                                cc_loaded ? config::save_commented : 0);
         }
 
-        // If cc.core.config is already loaded then use its toolchain id and
-        // (optional) pattern to guess an appropriate default (e.g., for {gcc,
-        // *-4.9} we will get g++-4.9).
+        // Split the value into the compiler path and mode.
         //
-        path d;
+        const strings& v (cast<strings> (*p.first));
 
-        if (cc_loaded)
-          d = guess_default (x_lang,
-                             cast<string> (rs["cc.id"]),
-                             cast<string> (rs["cc.pattern"]));
-        else
-        {
-          d = path (x_default);
+        path xc;
+        try { xc = path (v.front ()); } catch (const invalid_path&) {}
 
-          if (d.empty ())
-            fail << "not built with default " << x_lang << " compiler" <<
-              info << "use config." << x << " to specify";
-        }
+        if (xc.empty ())
+          fail << "invalid path '" << v.front () << "' in " << config_x;
 
-        // If this value was hinted, save it as commented out so that if the
-        // user changes the source of the pattern, this one will get updated
-        // as well.
+        mode.assign (++v.begin (), v.end ());
+
+        // Figure out which compiler we are dealing with, its target, etc.
         //
-        p = config::required (rs,
-                              config_x,
-                              d,
-                              false,
-                              cc_loaded ? config::save_commented : 0);
+        // Note that we could allow guess() to modify mode to support
+        // imaginary options (such as /MACHINE for cl.exe). Though it's not
+        // clear what cc.mode would contain (original or modified).
+        //
+        x_info = &build2::cc::guess (
+          x, x_lang, move (xc),
+          cast_null<string> (config::omitted (rs, config_x_id).first),
+          cast_null<string> (config::omitted (rs, config_x_version).first),
+          cast_null<string> (config::omitted (rs, config_x_target).first),
+          mode,
+          cast_null<strings> (rs[config_c_poptions]),
+          cast_null<strings> (rs[config_x_poptions]),
+          cast_null<strings> (rs[config_c_coptions]),
+          cast_null<strings> (rs[config_x_coptions]),
+          cast_null<strings> (rs[config_c_loptions]),
+          cast_null<strings> (rs[config_x_loptions]));
+
+        new_ = p.second;
       }
-
-      // Figure out which compiler we are dealing with, its target, etc.
-      //
-      x_info = &build2::cc::guess (
-        x,
-        x_lang,
-        cast<path> (*p.first),
-        cast_null<string> (config::omitted (rs, config_x_id).first),
-        cast_null<string> (config::omitted (rs, config_x_version).first),
-        cast_null<string> (config::omitted (rs, config_x_target).first),
-        cast_null<strings> (rs[config_c_poptions]),
-        cast_null<strings> (rs[config_x_poptions]),
-        cast_null<strings> (rs[config_c_coptions]),
-        cast_null<strings> (rs[config_x_coptions]),
-        cast_null<strings> (rs[config_c_loptions]),
-        cast_null<strings> (rs[config_x_loptions]));
 
       const compiler_info& xi (*x_info);
 
-      // Split/canonicalize the target. First see if the user asked us to
-      // use config.sub.
+      // Split/canonicalize the target. First see if the user asked us to use
+      // config.sub.
       //
       target_triplet tt;
       {
@@ -167,6 +192,9 @@ namespace build2
 
       // Assign values to variables that describe the compiler.
       //
+      rs.assign (x_path) = process_path (xi.path, false /* init */);
+      const strings& xm (cast<strings> (rs.assign (x_mode) = move (mode)));
+
       rs.assign (x_id) = xi.id.string ();
       rs.assign (x_id_type) = to_string (xi.id.type);
       rs.assign (x_id_variant) = xi.id.variant;
@@ -187,6 +215,9 @@ namespace build2
       assign_version (&x_variant_version,
                       xi.variant_version ? &*xi.variant_version : nullptr);
 
+      rs.assign (x_signature) = xi.signature;
+      rs.assign (x_checksum) = xi.checksum;
+
       // Also enter as x.target.{cpu,vendor,system,version,class} for
       // convenience of access.
       //
@@ -202,8 +233,6 @@ namespace build2
 
       if (!x_stdlib.alias (c_stdlib))
         rs.assign (x_stdlib) = xi.x_stdlib;
-
-      new_ = p.second;
 
       // Load cc.core.guess.
       //
@@ -221,6 +250,9 @@ namespace build2
 
         if (!xi.pattern.empty ())
           h.assign ("config.cc.pattern") = xi.pattern;
+
+        if (!xm.empty ())
+          h.assign ("config.cc.mode") = xm;
 
         h.assign (c_runtime) = xi.runtime;
         h.assign (c_stdlib) = xi.c_stdlib;
@@ -262,6 +294,9 @@ namespace build2
         // g++-7 vs gcc kind of mistakes. So now we warn since even if
         // intentional, it is still probably a bad idea.
         //
+        // Note also that it feels right to allow different modes (think
+        // -fexceptions for C or -fno-rtti for C++).
+        //
         check (cast<string> (rs["cc.pattern"]),
                cast<string> (rs[x_pattern]),
                "toolchain pattern",
@@ -299,6 +334,37 @@ namespace build2
       const compiler_info& xi (*x_info);
       const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
+      // config.x.{p,c,l}options
+      // config.x.libs
+      //
+      // These are optional. We also merge them into the corresponding
+      // x.* variables.
+      //
+      // The merging part gets a bit tricky if this module has already
+      // been loaded in one of the outer scopes. By doing the straight
+      // append we would just be repeating the same options over and
+      // over. So what we are going to do is only append to a value if
+      // it came from this scope. Then the usage for merging becomes:
+      //
+      // x.coptions = <overridable options> # Note: '='.
+      // using x
+      // x.coptions += <overriding options> # Note: '+='.
+      //
+      rs.assign (x_poptions) += cast_null<strings> (
+        config::optional (rs, config_x_poptions));
+
+      rs.assign (x_coptions) += cast_null<strings> (
+        config::optional (rs, config_x_coptions));
+
+      rs.assign (x_loptions) += cast_null<strings> (
+        config::optional (rs, config_x_loptions));
+
+      rs.assign (x_aoptions) += cast_null<strings> (
+        config::optional (rs, config_x_aoptions));
+
+      rs.assign (x_libs) += cast_null<strings> (
+        config::optional (rs, config_x_libs));
+
       // config.x.std overrides x.std
       //
       {
@@ -316,6 +382,22 @@ namespace build2
         // Translate x_std value (if any) to the compiler option(s) (if any).
         //
         tstd = translate_std (xi, rs, v);
+      }
+
+      // config.x.translatable_header
+      //
+      // It's still fuzzy whether specifying (or maybe tweaking) this list in
+      // the configuration will be a common thing to do so for now we use
+      // omitted. It's also probably too early to think whether we should have
+      // the cc.* version and what the semantics should be.
+      //
+      if (x_translatable_headers != nullptr)
+      {
+        lookup l (config::omitted (rs, *config_x_translatable_headers).first);
+
+        // @@ MODHDR: if(modules) ?
+        //
+        rs.assign (x_translatable_headers) += cast_null<strings> (l);
       }
 
       // Extract system header/library search paths from the compiler and
@@ -443,12 +525,27 @@ namespace build2
       //
       if (verb >= (new_ ? 2 : 3))
       {
+        const strings& mode (cast<strings> (rs[x_mode]));
+
         diag_record dr (text);
 
         {
           dr << x << ' ' << project (rs) << '@' << rs << '\n'
-             << "  " << left << setw (11) << x << xi.path << '\n'
-             << "  id         " << xi.id << '\n'
+             << "  " << left << setw (11) << x << xi.path << '\n';
+        }
+
+        if (!mode.empty ())
+        {
+          dr << "  mode      "; // One space short.
+
+          for (const string& o: mode)
+            dr << ' ' << o;
+
+          dr << '\n';
+        }
+
+        {
+          dr << "  id         " << xi.id << '\n'
              << "  version    " << xi.version.string << '\n'
              << "  major      " << xi.version.major << '\n'
              << "  minor      " << xi.version.minor << '\n'
@@ -525,59 +622,8 @@ namespace build2
         }
       }
 
-      rs.assign (x_path) = process_path (xi.path, false /* init */);
       rs.assign (x_sys_lib_dirs) = move (lib_dirs);
       rs.assign (x_sys_inc_dirs) = move (inc_dirs);
-
-      rs.assign (x_signature) = xi.signature;
-      rs.assign (x_checksum) = xi.checksum;
-
-      // config.x.{p,c,l}options
-      // config.x.libs
-      //
-      // These are optional. We also merge them into the corresponding
-      // x.* variables.
-      //
-      // The merging part gets a bit tricky if this module has already
-      // been loaded in one of the outer scopes. By doing the straight
-      // append we would just be repeating the same options over and
-      // over. So what we are going to do is only append to a value if
-      // it came from this scope. Then the usage for merging becomes:
-      //
-      // x.coptions = <overridable options> # Note: '='.
-      // using x
-      // x.coptions += <overriding options> # Note: '+='.
-      //
-      rs.assign (x_poptions) += cast_null<strings> (
-        config::optional (rs, config_x_poptions));
-
-      rs.assign (x_coptions) += cast_null<strings> (
-        config::optional (rs, config_x_coptions));
-
-      rs.assign (x_loptions) += cast_null<strings> (
-        config::optional (rs, config_x_loptions));
-
-      rs.assign (x_aoptions) += cast_null<strings> (
-        config::optional (rs, config_x_aoptions));
-
-      rs.assign (x_libs) += cast_null<strings> (
-        config::optional (rs, config_x_libs));
-
-      // config.x.translatable_header
-      //
-      // It's still fuzzy whether specifying (or maybe tweaking) this list in
-      // the configuration will be a common thing to do so for now we use
-      // omitted. It's also probably too early to think whether we should have
-      // the cc.* version and what the semantics should be.
-      //
-      if (x_translatable_headers != nullptr)
-      {
-        lookup l (config::omitted (rs, *config_x_translatable_headers).first);
-
-        // @@ MODHDR: if(modules) ?
-        //
-        rs.assign (x_translatable_headers) += cast_null<strings> (l);
-      }
 
       // Load cc.core.config.
       //

@@ -386,13 +386,17 @@ namespace build2
   }
 
   bool
-  find_options (initializer_list<const char*> os, const lookup& l, bool ic)
+  find_options (const initializer_list<const char*>& os,
+                const lookup& l,
+                bool ic)
   {
     return l && find_options (os, cast<strings> (l), ic);
   }
 
   bool
-  find_options (initializer_list<const char*> os, const strings& strs, bool ic)
+  find_options (const initializer_list<const char*>& os,
+                const strings& strs,
+                bool ic)
   {
     for (const string& s: strs)
       for (const char* o: os)
@@ -403,7 +407,7 @@ namespace build2
   }
 
   bool
-  find_options (initializer_list<const char*> os,
+  find_options (const initializer_list<const char*>& os,
                 const cstrings& cstrs,
                 bool ic)
   {
@@ -447,7 +451,7 @@ namespace build2
   }
 
   const string*
-  find_option_prefixes (initializer_list<const char*> ps,
+  find_option_prefixes (const initializer_list<const char*>& ps,
                         const lookup& l,
                         bool ic)
   {
@@ -455,7 +459,7 @@ namespace build2
   }
 
   const string*
-  find_option_prefixes (initializer_list<const char*> ps,
+  find_option_prefixes (const initializer_list<const char*>& ps,
                         const strings& strs,
                         bool ic)
   {
@@ -470,7 +474,7 @@ namespace build2
   }
 
   const char*
-  find_option_prefixes (initializer_list<const char*> ps,
+  find_option_prefixes (const initializer_list<const char*>& ps,
                         const cstrings& cstrs,
                         bool ic)
   {

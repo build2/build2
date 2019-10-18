@@ -101,7 +101,7 @@ namespace build2
 
   template <typename T>
   inline bool
-  find_options (initializer_list<const char*> os,
+  find_options (const initializer_list<const char*>& os,
                 T& s,
                 const variable& var,
                 bool ic)
@@ -111,7 +111,7 @@ namespace build2
 
   template <typename T>
   inline bool
-  find_options (initializer_list<const char*> os,
+  find_options (const initializer_list<const char*>& os,
                 T& s,
                 const char* var,
                 bool ic)
@@ -135,7 +135,7 @@ namespace build2
 
   template <typename T>
   inline const string*
-  find_option_prefixes (initializer_list<const char*> ps,
+  find_option_prefixes (const initializer_list<const char*>& ps,
                         T& s,
                         const variable& var,
                         bool ic)
@@ -145,7 +145,7 @@ namespace build2
 
   template <typename T>
   inline const string*
-  find_option_prefixes (initializer_list<const char*> ps,
+  find_option_prefixes (const initializer_list<const char*>& ps,
                         T& s,
                         const char* var,
                         bool ic)

@@ -391,7 +391,7 @@ namespace build2
 
         // Note: some overridable, some not.
         //
-        v.insert<path>    ("config.cxx",          true),
+        v.insert<strings> ("config.cxx",          true),
         v.insert<string>  ("config.cxx.id",       true),
         v.insert<string>  ("config.cxx.version",  true),
         v.insert<string>  ("config.cxx.target",   true),
@@ -414,6 +414,7 @@ namespace build2
         &v.insert<strings> ("config.cxx.translatable_headers", true),
 
         v.insert<process_path> ("cxx.path"),
+        v.insert<strings>      ("cxx.mode"),
         v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
         v.insert<dir_paths>    ("cxx.sys_inc_dirs"),
 
@@ -612,6 +613,7 @@ namespace build2
         cm.x_info->version.major,
         cm.x_info->version.minor,
         cast<process_path>   (rs[cm.x_path]),
+        cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
 
         cm.tstd,
