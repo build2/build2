@@ -13,7 +13,7 @@ namespace build2
     pair<lookup, bool>
     required (scope& root,
               const variable& var,
-              const T& def_val,
+              T&& def_val,
               bool def_ovr,
               uint64_t save_flags)
     {
@@ -35,7 +35,7 @@ namespace build2
       //
       if (!l.defined () || (def_ovr && !l.belongs (root)))
       {
-        value& v (root.assign (var) = def_val);
+        value& v (root.assign (var) = std::forward<T> (def_val)); // VC14
         v.extra = true; // Default value flag.
 
         n = (save_flags & save_commented) == 0; // Absence means default.

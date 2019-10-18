@@ -43,7 +43,7 @@ namespace build2
     pair<lookup, bool>
     required (scope& root,
               const variable&,
-              const T& default_value,
+              T&& default_value,
               bool override = false,
               uint64_t save_flags = 0);
 
@@ -53,12 +53,15 @@ namespace build2
     inline pair<lookup, bool>
     required (scope& root,
               const string& name,
-              const T& default_value,
+              T&& default_value,
               bool override = false,
               uint64_t save_flags = 0)
     {
-      return required (
-        root, root.ctx.var_pool[name], default_value, override, save_flags);
+      return required (root,
+                       root.ctx.var_pool[name],
+                       std::forward<T> (default_value), // VC14
+                       override,
+                       save_flags);
     }
 
     inline pair<lookup, bool>
