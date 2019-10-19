@@ -686,6 +686,20 @@ namespace build2
                         const cstrings&,
                         bool = false);
 
+  // Find in the string the stem separated from other characters with the
+  // specified separators or begin/end of the string. Return the stem's
+  // position or npos if not found.
+  //
+  size_t
+  find_stem (const string&, size_t pos, size_t n,
+             const char* stem, const char* seps = "-_.");
+
+  inline size_t
+  find_stem (const string& s, const char* stem, const char* seps = "-_.")
+  {
+    return find_stem (s, 0, s.size (), stem, seps);
+  }
+
   // Apply the specified substitution (stem) to a '*'-pattern. If pattern is
   // NULL or empty, then return the stem itself. Assume the pattern is valid,
   // i.e., contains a single '*' character.

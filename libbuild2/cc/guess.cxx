@@ -306,38 +306,19 @@ namespace build2
       size_t s_p (path::traits_type::find_leaf (s));
       size_t s_n (s.size ());
 
-      // Name separator characters (e.g., '-' in 'g++-4.8').
-      //
-      auto sep = [] (char c) -> bool
-      {
-        return c == '-' || c == '_' || c == '.';
-      };
-
-      auto stem = [&sep, &s, s_p, s_n] (const char* x) -> size_t
-      {
-        size_t m (strlen (x));
-        size_t p (s.find (x, s_p, m));
-
-        return (p != string::npos &&
-                (      p == s_p || sep (s[p - 1])) && // Separated beginning.
-                ((p + m) == s_n || sep (s[p + m])))   // Separated end.
-        ? p
-        : string::npos;
-      };
-
       using type = compiler_type;
 
       // If the user specified the compiler id, then only check the stem for
       // that compiler.
       //
-      auto check = [&xi, &stem] (type t,
-                                 const char* s,
-                                 const char* v = nullptr)
+      auto check = [&xi, &s, s_p, s_n] (type t,
+                                        const char* stem,
+                                        const char* v = nullptr)
         -> optional<pre_guess_result>
       {
         if (!xi || (xi->type == t && (v == nullptr || xi->variant == v)))
         {
-          size_t p (stem (s));
+          size_t p (find_stem (s, s_p, s_n, stem));
 
           if (p != string::npos)
           {

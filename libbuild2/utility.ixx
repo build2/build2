@@ -2,6 +2,8 @@
 // copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
+#include <cstring> // strlen() strchr()
+
 namespace build2
 {
   inline void
@@ -151,5 +153,24 @@ namespace build2
                         bool ic)
   {
     return find_option_prefixes (ps, s[var], ic);
+  }
+
+  inline size_t
+  find_stem (const string& s, size_t s_p, size_t s_n,
+             const char* stem, const char* seps)
+  {
+    auto sep = [seps] (char c) -> bool
+    {
+      return strchr (seps, c) != nullptr;
+    };
+
+    size_t m (strlen (stem));
+    size_t p (s.find (stem, s_p, m));
+
+    return (p != string::npos &&
+            (      p == s_p || sep (s[p - 1])) && // Separated beginning.
+            ((p + m) == s_n || sep (s[p + m])))   // Separated end.
+      ? p
+      : string::npos;
   }
 }
