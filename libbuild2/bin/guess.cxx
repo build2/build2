@@ -99,8 +99,14 @@ namespace build2
       // non-zero exit status -- go figure). So we are going to start with
       // that.
       //
+      // LLVM's llvm-lib.exe is similar to the Microsoft's version except it
+      // does not print any banners (it does print "LLVM Lib" phrase in the /?
+      // output). In fact, there doesn't seem to be any way to extract its
+      // version (maybe we could run llvm-ar instead -- it seems to be always
+      // around).
+      //
       {
-        auto f = [] (string& l, bool) -> guess_result
+        auto f = [&ar] (string& l, bool) -> guess_result
         {
           // Normally GNU binutils ar --version output has a line that starts
           // with "GNU ar" and ends with the version. For example:
@@ -159,6 +165,17 @@ namespace build2
             semantic_version v (parse_version (l, l.rfind (' ') + 1));
             return guess_result ("msvc", move (l), move (v));
           }
+
+          // For now we will recognize LLVM lib via its name.
+          //
+          const string& s (ar.string ());
+          size_t s_p (path::traits_type::find_leaf (s));
+          size_t s_n (s.size ());
+
+          if (find_stem (s, s_p, s_n, "llvm-lib") != string::npos)
+            return guess_result ("msvc-llvm",
+                                 "LLVM lib (unknown version)",
+                                 semantic_version (0, 0, 0));
 
           return guess_result ();
         };
@@ -293,34 +310,68 @@ namespace build2
       // doesn't support --version (nor any other way to get the version
       // without the error exit status) but it will still print its banner.
       // We also want to recognize link.exe as fast as possible since it will
-      // be the most commonly configured linker (for other platoforms the
+      // be the most commonly configured linker (for other platforms the
       // linker will normally be used indirectly via the compiler and the
       // bin.ld module won't be loaded). So we are going to ignore the error
-      // exit status. Our signatures are fairly specific to avoid any kind
-      // of false positives.
+      // exit status. Our signatures are fairly specific to avoid any kind of
+      // false positives.
+      //
+      // When it comes to LLD, ld.lld (Unix), lld-link (Windows), and wasm-ld
+      // (WebAssembly) all recognize --version while ld64.lld (Mac OS) does
+      // not (and not even -v per Apple ld64; LLVM bug #43721).
       //
       // Version extraction is a @@ TODO.
       //
       {
-        auto f = [] (string& l, bool) -> guess_result
+        auto f = [&ld] (string& l, bool) -> guess_result
         {
+          string id;
+          semantic_version ver;
+
           // Microsoft link.exe output starts with "Microsoft (R) ".
           //
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
-            return guess_result ("msvc", move (l), semantic_version ());
-
-          // Binutils ld.bfd --version output has a line that starts with
-          // "GNU ld " while ld.gold -- "GNU gold". Again, fortify it against
-          // embedded toolchain customizations by search for "GNU " in the
-          // former case.
+          {
+            id = "msvc";
+          }
+          // LLD prints a line in the form "LLD X.Y.Z ...".
           //
-          if (l.compare (0, 9, "GNU gold ") == 0)
-            return guess_result ("gold", move (l), semantic_version ());
+          else if (l.compare (0, 4, "LLD ") == 0)
+          {
+            // The only way to distinguish between various LLD drivers is via
+            // their name. Handle potential prefixes (say a target) and
+            // suffixes (say a version).
+            //
+            const string& s (ld.string ());
+            size_t s_p (path::traits_type::find_leaf (s));
+            size_t s_n (s.size ());
 
-          if (l.find ("GNU ") != string::npos)
-            return guess_result ("gnu", move (l), semantic_version ());
+            if      (find_stem (s, s_p, s_n, "ld.lld"  ) != string::npos)
+              id = "gnu-lld";
+            else if (find_stem (s, s_p, s_n, "lld-link") != string::npos)
+              id = "msvc-lld";
+            else if (find_stem (s, s_p, s_n, "ld64.lld") != string::npos)
+              id = "ld64-lld";
+            else if (find_stem (s, s_p, s_n, "wasm-ld" ) != string::npos)
+              id = "wasm-lld";
+          }
+          // Binutils ld.bfd --version output has a line that starts with "GNU
+          // ld " while ld.gold -- "GNU gold". Again, fortify it against
+          // embedded toolchain customizations by search for "GNU " in the
+          // former case (note that ld.lld mentions "GNU".
+          //
+          else if (l.compare (0, 9, "GNU gold ") == 0)
+          {
+            id = "gnu-gold";
+          }
+          else if (l.find ("GNU ") != string::npos)
+          {
+            id = "gnu";
+          }
 
-          return guess_result ();
+          return (id.empty ()
+                  ? guess_result ()
+                  : guess_result (move (id), move (l), move (ver)));
         };
 
         // Redirect STDERR to STDOUT and ignore exit status. Note that in case
@@ -365,7 +416,7 @@ namespace build2
           r.checksum = cs.string ();
       }
 
-      // Finally try -version which will take care of LLVM's lld.
+      // Finally try -version which will take care of older LLVM's lld.
       //
       if (r.empty ())
       {
@@ -377,7 +428,7 @@ namespace build2
           // LLVM Linker Version: 3.7
           //
           if (l.compare (0, 19, "LLVM Linker Version") == 0)
-            return guess_result ("llvm", move (l), semantic_version ());
+            return guess_result ("gnu-lld", move (l), semantic_version ());
 
           return guess_result ();
         };
@@ -434,14 +485,27 @@ namespace build2
       }
 
       // Microsoft rc.exe /? prints its standard banner and exits with zero
-      // status.
+      // status. LLVM's llvm-rc.exe /? doesn't print any LLVM-identifyable
+      // information (unlike llvm-lib.exe) and similarly there doesn't seem to
+      // be any way to get its version.
       //
       if (r.empty ())
       {
-        auto f = [] (string& l, bool) -> guess_result
+        auto f = [&rc] (string& l, bool) -> guess_result
         {
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
             return guess_result ("msvc", move (l), semantic_version ());
+
+          // For now we will recognize LLVM rc via its name.
+          //
+          const string& s (rc.string ());
+          size_t s_p (path::traits_type::find_leaf (s));
+          size_t s_n (s.size ());
+
+          if (find_stem (s, s_p, s_n, "llvm-rc") != string::npos)
+            return guess_result ("msvc-llvm",
+                                 "LLVM rc (unknown version)",
+                                 semantic_version ());
 
           return guess_result ();
         };

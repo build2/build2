@@ -17,9 +17,10 @@ namespace build2
     // Currently recognized ar/ranlib and their ids:
     //
     // gnu          GNU binutils
-    // llvm         LLVM
+    // llvm         LLVM ar
     // bsd          FreeBSD (and maybe other BSDs)
     // msvc         Microsoft's lib.exe
+    // msvc-llvm    LLVM llvm-lib.exe
     // generic      Generic/unrecognized
     //
     // The signature is normally the --version/-V line.
@@ -50,14 +51,18 @@ namespace build2
 
     // ld information.
     //
-    // Currently recognized linkers and their ids:
+    // Currently recognized linkers and their ids (following cc's type-variant
+    // theme):
     //
     // gnu          GNU binutils ld.bfd
-    // gold         GNU binutils ld.gold
-    // llvm         LLVM lld (note: not llvm-ld or llvm-link)
+    // gnu-gold     GNU binutils ld.gold
+    // gnu-lld      LLVM ld.lld (and older lld)
     // ld64         Apple's new linker
+    // ld64-lld     LLVM ld64.lld
     // cctools      Apple's old/classic linker
     // msvc         Microsoft's link.exe
+    // msvc-lld     LLVM lld-link.exe
+    // wasm-lld     LLVM wasm-ld
     //
     // Note that BSDs are currently using GNU ld but some of them (e.g.,
     // FreeBSD) are hoping to migrate to lld.
@@ -85,6 +90,7 @@ namespace build2
     //
     // gnu          GNU binutils windres
     // msvc         Microsoft's rc.exe
+    // msvc-llvm    LLVM llvm-rc.exe
     //
     // The signature is normally the --version line.
     //
