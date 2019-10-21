@@ -2188,6 +2188,19 @@ namespace build2
           // Add /MACHINE.
           //
           args.push_back (msvc_machine (cast<string> (rs[x_target_cpu])));
+
+          // For utility libraries use thin archives if possible.
+          //
+          // LLVM's lib replacement had the /LLVMLIBTHIN option at least from
+          // version 3.8 so we will assume always.
+          //
+          if (lt.utility)
+          {
+            const string& id (cast<string> (rs["bin.ar.id"]));
+
+            if (id == "msvc-llvm")
+              args.push_back ("/LLVMLIBTHIN");
+          }
         }
         else
         {
