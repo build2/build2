@@ -83,6 +83,8 @@ namespace build2
 
       auto v_t (variable_visibility::target);
 
+      // NOTE: remember to update documentation if changing anything here.
+      //
       v.insert<strings> ("config.cc.poptions", true);
       v.insert<strings> ("config.cc.coptions", true);
       v.insert<strings> ("config.cc.loptions", true);

@@ -4532,7 +4532,7 @@ name). Project-qualified names are never considered to be patterns.
 
 \h1#variables|Variables|
 
-Note: this section is a work in progress.
+\N{This chapter is a work in progress and is incomplete.}
 
 Note that while expansions in the target and prerequisite-specific assignments
 happen in the corresponding target and prerequisite contexts, respectively,
@@ -4568,6 +4568,8 @@ info $(file{bar}: y) # s w
 \
 
 \h1#module-test|\c{test} Module|
+
+\N{This chapter is a work in progress and is incomplete.}
 
 The targets to be tested as well as the tests/groups from testscripts to be
 run can be narrowed down using the \c{config.test} variable. While this
@@ -5074,15 +5076,173 @@ depends: libprint [3.0.0-b.2.1 3.0.0-b.3)
 
 \h1#module-bin|\c{bin} Module|
 
-Coming soon.
+\N{This chapter is a work in progress and is incomplete.}
+
+
+\h1#module-cc|\c{cc} Module|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+This chapter describes the \c{cc} build system module which provides the
+common compilation and linking support for C-family languages.
+
+\h#cc-config|C-Common Configuration Variables|
+
+\
+config.cc.poptions
+  cc.poptions
+
+config.cc.coptions
+  cc.coptions
+
+config.cc.loptions
+  cc.loptions
+
+config.cc.aoptions
+  cc.aoptions
+
+config.cc.libs
+  cc.libs
+\
+
+Note that the compiler mode options are \"cross-hinted\" between \c{config.c}
+and \c{config.cxx} meaning that if we specify one but not the other, mode
+options, if any, will be added to the absent. This may or may not be the
+desired behavior, for example:
+
+\
+# Ok: config.c=\"gcc -m32\"
+$ b config.cxx=\"g++ -m32\"
+
+# Not OK: config.c=\"clang -stdlib=libc++\"
+$ b config.cxx=\"clang++ -stdlib=libc++\"
+\
+
+
+\h1#module-c|\c{c} Module|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+This chapter describes the \c{c} build system module which provides the C
+compilation and linking support. Most of its functionality, however, is
+provided by the \l{#module-cc \c{cc} module}, a common implementation for the
+C-family languages.
+
+\h#c-config|C Configuration Variables|
+
+The following listing summarizes the \c{c} module configuration variables as
+well as the corresponding module-specific variables that are derived from
+their values. See also \l{#cc-config C-Common Configuration Variables}.
+
+\
+config.c
+  c.path
+  c.mode
+
+config.c.id
+  c.id
+  c.id.type
+  c.id.variant
+  c.class
+
+config.c.version
+  c.version
+  c.version.major
+  c.version.minor
+  c.version.patch
+  c.version.build
+
+config.c.target
+  c.target
+  c.target.cpu
+  c.target.vendor
+  c.target.system
+  c.target.version
+  c.target.class
+
+config.c.std
+  c.std
+
+config.c.poptions
+  c.poptions
+
+config.c.coptions
+  c.coptions
+
+config.c.loptions
+  c.loptions
+
+config.c.aoptions
+  c.aoptions
+
+config.c.libs
+  c.libs
+\
 
 
 \h1#module-cxx|\c{cxx} Module|
 
+\N{This chapter is a work in progress and is incomplete.}
+
 This chapter describes the \c{cxx} build system module which provides the C++
 compilation and linking support. Most of its functionality, however, is
-provided by the \c{cc} module, a common implementation for the C-family
-languages.
+provided by the \l{#module-cc \c{cc} module}, a common implementation for the
+C-family languages.
+
+\h#cxx-config|C++ Configuration Variables|
+
+The following listing summarizes the \c{cxx} module configuration variables as
+well as the corresponding module-specific variables that are derived from
+their values. See also \l{#cc-config C-Common Configuration Variables}.
+
+\
+config.cxx
+  cxx.path
+  cxx.mode
+
+config.cxx.id
+  cxx.id
+  cxx.id.type
+  cxx.id.variant
+  cxx.class
+
+config.cxx.version
+  cxx.version
+  cxx.version.major
+  cxx.version.minor
+  cxx.version.patch
+  cxx.version.build
+
+config.cxx.target
+  cxx.target
+  cxx.target.cpu
+  cxx.target.vendor
+  cxx.target.system
+  cxx.target.version
+  cxx.target.class
+
+config.cxx.std
+  cxx.std
+
+config.cxx.poptions
+  cxx.poptions
+
+config.cxx.coptions
+  cxx.coptions
+
+config.cxx.loptions
+  cxx.loptions
+
+config.cxx.aoptions
+  cxx.aoptions
+
+config.cxx.libs
+  cxx.libs
+
+config.cxx.translatable_headers
+  cxx.translatable_headers
+\
+
 
 \h#cxx-modules|C++ Modules Support|
 

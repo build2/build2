@@ -159,6 +159,8 @@ namespace build2
 
         // Note: some overridable, some not.
         //
+        // NOTE: remember to update documentation if changing anything here.
+        //
         v.insert<strings> ("config.c",          true),
         v.insert<string>  ("config.c.id",       true),
         v.insert<string>  ("config.c.version",  true),
