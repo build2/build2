@@ -1722,6 +1722,17 @@ $ b config.cxx.coptions=-O3  # Rebuild with -O3.
 $ b                          # Rebuild with -g.
 \
 
+\N|Besides the various \c{*.?options} variables, we can also specify the
+\"compiler mode\" options as part of the compiler executable in \c{config.c}
+and \c{config.cxx}. Such options cannot be modified by buildfiles and they
+will appear last on the command lines. For example:
+
+\
+$ b configure config.cxx=\"g++ -m32\"
+\
+
+|
+
 We can also configure out of source builds of our projects. In this case,
 besides \c{config.build}, \c{configure} also saves the location of the source
 directory so that we don't have to repeat that either. Remember, this is how
