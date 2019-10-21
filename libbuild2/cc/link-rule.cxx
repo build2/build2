@@ -2717,6 +2717,7 @@ namespace build2
       // The same logic as during hashing above. See also a similar loop
       // inside append_libraries().
       //
+      bool seen_obj (false);
       for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
         const target* pt (p.target);
@@ -2743,7 +2744,10 @@ namespace build2
           if (la || ls)
             append_libraries (sargs, *f, la, p.data, bs, a, li);
           else
+          {
             sargs.push_back (relative (f->path ()).string ()); // string()&&
+            seen_obj = true;
+          }
         }
       }
 
@@ -2751,6 +2755,25 @@ namespace build2
       //
       if (!manifest.empty () && tsys == "mingw32")
         sargs.push_back (relative (manifest).string ());
+
+      // LLD misses an input file if we are linking only whole archives (LLVM
+      // bug #43744). Repeating one of the previously-mentioned archives seems
+      // to work around the issue.
+      //
+      if (!seen_obj             &&
+          !lt.static_library () &&
+          tsys == "win32-msvc"  &&
+          cast<string> (rs["bin.ld.id"]) == "msvc-lld")
+      {
+        auto i (find_if (sargs.rbegin (), sargs.rend (),
+                         [] (const string& a)
+                         {
+                           return a.compare (0, 14, "/WHOLEARCHIVE:") == 0;
+                         }));
+
+        if (i != sargs.rend ())
+          sargs.push_back (i->c_str () + 14);
+      }
 
       // Shallow-copy sargs over to args.
       //
