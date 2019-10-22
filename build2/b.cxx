@@ -500,30 +500,22 @@ main (int argc, char* argv[])
 
     // Load builtin modules.
     //
-    {
-      auto load = [] (module_load_function* lf)
-      {
-        for (const module_functions* i (lf ()); i->name != nullptr; ++i)
-          loaded_modules[i->name] = i;
-      };
+    load_builtin_module (&config::build2_config_load);
+    load_builtin_module (&dist::build2_dist_load);
+    load_builtin_module (&test::build2_test_load);
+    load_builtin_module (&install::build2_install_load);
 
-      load (&config::build2_config_load);
-      load (&dist::build2_dist_load);
-      load (&test::build2_test_load);
-      load (&install::build2_install_load);
-
-      load (&bin::build2_bin_load);
-      load (&cc::build2_cc_load);
-      load (&c::build2_c_load);
-      load (&cxx::build2_cxx_load);
-      load (&version::build2_version_load);
-      load (&in::build2_in_load);
+    load_builtin_module (&bin::build2_bin_load);
+    load_builtin_module (&cc::build2_cc_load);
+    load_builtin_module (&c::build2_c_load);
+    load_builtin_module (&cxx::build2_cxx_load);
+    load_builtin_module (&version::build2_version_load);
+    load_builtin_module (&in::build2_in_load);
 
 #ifndef BUILD2_BOOTSTRAP
-      load (&cli::build2_cli_load);
-      load (&bash::build2_bash_load);
+    load_builtin_module (&cli::build2_cli_load);
+    load_builtin_module (&bash::build2_bash_load);
 #endif
-    }
 
     // Start up the scheduler and allocate lock shards.
     //

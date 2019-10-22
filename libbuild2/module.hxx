@@ -154,6 +154,14 @@ namespace build2
   //
   using loaded_module_map = std::map<string, const module_functions*>;
   LIBBUILD2_SYMEXPORT extern loaded_module_map loaded_modules;
+
+  // Load a builtin module (i.e., a module linked as a static/shared library
+  // or that is part of the build system driver).
+  //
+  // Note: assumes serial execution.
+  //
+  LIBBUILD2_SYMEXPORT void
+  load_builtin_module (module_load_function*);
 }
 
 #endif // LIBBUILD2_MODULE_HXX

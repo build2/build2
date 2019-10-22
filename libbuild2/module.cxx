@@ -33,6 +33,13 @@ namespace build2
 {
   loaded_module_map loaded_modules;
 
+  void
+  load_builtin_module (module_load_function* lf)
+  {
+    for (const module_functions* i (lf ()); i->name != nullptr; ++i)
+      loaded_modules[i->name] = i;
+  }
+
   // Sorted array of bundled modules (excluding core modules bundled with
   // libbuild2; see below).
   //
