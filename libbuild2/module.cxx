@@ -62,6 +62,8 @@ namespace build2
                  bool boot,
                  bool opt)
   {
+    tracer trace ("import_module");
+
     // Take care of core modules that are bundled with libbuild2 in case they
     // are not pre-loaded by the driver.
     //
@@ -139,6 +141,8 @@ namespace build2
     {
       // We found the module as a target in a project. Now we need to update
       // the target (which will also give us the shared library path).
+      //
+      l5 ([&]{trace << "found " << ir.first << " in " << ir.second;});
 
       // Create the build context if necessary.
       //
@@ -191,6 +195,8 @@ namespace build2
       // Load the imported project in the module context.
       //
       pair<names, const scope&> lr (import_load (ctx, move (ir), loc));
+
+      l5 ([&]{trace << "loaded " << lr.first;});
 
       // When happens next depends on whether this is a top-level or nested
       // module update.
@@ -254,6 +260,8 @@ namespace build2
           fail (loc) << "wrong export from build system module " << mod;
 
         lib = l.as<file> ().path ();
+
+        l5 ([&]{trace << "updated " << lib;});
       }
     }
     else
@@ -279,6 +287,8 @@ namespace build2
 #endif
 
       lib = path (pfx + mod + '-' + build_version_interface + sfx);
+
+      l5 ([&]{trace << "system-default search for " << lib;});
     }
 
     // The build2_<mod>_load() symbol name.
@@ -298,7 +308,7 @@ namespace build2
     {
       r = function_cast<module_load_function*> (dlsym (h, sym.c_str ()));
 
-      // I don't think we should ignore this even if optional.
+      // I don't think we should ignore this even if the module is optional.
       //
       if (r == nullptr)
         fail (loc) << "unable to lookup " << sym << " in build system module "
@@ -307,6 +317,8 @@ namespace build2
     else if (!opt)
       dr << fail (loc) << "unable to load build system module " << mod
          << " (" << lib << "): " << dlerror ();
+    else
+      l5 ([&]{trace << "unable to load " << lib << ": " << dlerror ();});
 #else
     if (HMODULE h = LoadLibrary (lib.string ().c_str ()))
     {
@@ -320,6 +332,9 @@ namespace build2
     else if (!opt)
       dr << fail (loc) << "unable to load build system module " << mod
          << " (" << lib << "): " << win32::last_error_msg ();
+    else
+      l5 ([&]{trace << "unable to load " << lib << ": "
+                    << win32::last_error_msg ();});
 #endif
 
     // Add a suggestion similar to import phase 2.
@@ -340,6 +355,8 @@ namespace build2
                bool boot,
                bool opt)
   {
+    tracer trace ("find_module");
+
     // Optional modules and submodules sure make this logic convoluted. So we
     // divide it into two parts: (1) find or insert an entry (for submodule
     // or, failed that, for the main module, the latter potentially NULL) and
@@ -368,6 +385,8 @@ namespace build2
           for (const module_functions* j (f ()); j->name != nullptr; ++j)
           {
             const string& n (j->name);
+
+            l5 ([&]{trace << "registering " << n;});
 
             auto p (loaded_modules.emplace (n, j));
 
