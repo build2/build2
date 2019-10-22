@@ -1290,7 +1290,7 @@ namespace build2
     // over anything that we may discover. In particular, we will prefer it
     // over any bundled subprojects.
     //
-    auto& vp (ibase.ctx.var_pool.rw (iroot));
+    auto& vp (ctx.var_pool.rw (iroot));
 
     for (;;) // Break-out loop.
     {

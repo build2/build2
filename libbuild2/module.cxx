@@ -493,7 +493,7 @@ namespace build2
       // Otherwise search for this module.
       //
       if (const module_functions* mf = find_module (
-            rs, mod, loc, false /* boot */, opt))
+            bs, mod, loc, false /* boot */, opt))
       {
         if (mf->boot != nullptr)
           fail (loc) << "build system module " << mod << " should be loaded "
