@@ -31,6 +31,8 @@ using namespace butl;
 
 namespace build2
 {
+  mutex loaded_modules_lock::mutex_;
+
   loaded_module_map loaded_modules;
 
   void
@@ -195,6 +197,10 @@ namespace build2
         ctx.module_context->current_operation (op_update);
       }
 
+      // Inherit loaded_modules lock from the outer context.
+      //
+      ctx.module_context->modules_lock = ctx.modules_lock;
+
       // "Switch" to the module context.
       //
       context& ctx (*bs.ctx.module_context);
@@ -270,6 +276,8 @@ namespace build2
 
         l5 ([&]{trace << "updated " << lib;});
       }
+
+      ctx.modules_lock = nullptr; // For good measure.
     }
     else
     {
@@ -363,6 +371,11 @@ namespace build2
                bool opt)
   {
     tracer trace ("find_module");
+
+    // Note that we hold the lock for the entire time it takes to build a
+    // module.
+    //
+    loaded_modules_lock lock (bs.ctx);
 
     // Optional modules and submodules sure make this logic convoluted. So we
     // divide it into two parts: (1) find or insert an entry (for submodule

@@ -10,6 +10,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/context.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
@@ -153,6 +154,38 @@ namespace build2
   // found.
   //
   using loaded_module_map = std::map<string, const module_functions*>;
+
+  // The loaded_modules map is locked per top-level (as opposed to nested)
+  // context (see context.hxx for details).
+  //
+  // Note: should only be constructed during context-wide serial execution.
+  //
+  class LIBBUILD2_SYMEXPORT loaded_modules_lock
+  {
+  public:
+    explicit
+    loaded_modules_lock (context& c)
+      : ctx_ (c), lock_ (mutex_, defer_lock)
+    {
+      if (ctx_.modules_lock == nullptr)
+      {
+        lock_.lock ();
+        ctx_.modules_lock = this;
+      }
+    }
+
+    ~loaded_modules_lock ()
+    {
+      if (ctx_.modules_lock == this)
+        ctx_.modules_lock = nullptr;
+    }
+
+  private:
+    static mutex mutex_;
+    context& ctx_;
+    mlock lock_;
+  };
+
   LIBBUILD2_SYMEXPORT extern loaded_module_map loaded_modules;
 
   // Load a builtin module (i.e., a module linked as a static/shared library

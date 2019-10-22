@@ -40,6 +40,8 @@ namespace build2
 
   struct opspec;
 
+  struct loaded_modules_lock;
+
   class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
   public:
@@ -128,6 +130,11 @@ namespace build2
   // As well as suppress progress which would otherwise clash (maybe in the
   // future we can do save/restore but then we would need some indication that
   // we have switched to another task).
+  //
+  // The loaded_modules state (module.hxx) is shared among all the contexts
+  // (there is no way to have multiple shared library loading "contexts") and
+  // is protected by loaded_modules_lock. A nested context should normally
+  // inherit this lock value from its outer context.
   //
   // Note also that any given thread should not participate in multiple
   // schedulers at the same time (see scheduler::join/leave() for details).
@@ -414,6 +421,10 @@ namespace build2
     dir_path old_src_root;
     dir_path new_src_root;
 
+    // NULL if this context hasn't already locked the loaded_modules state.
+    //
+    const loaded_modules_lock* modules_lock;
+
     // Nested context for updating build system modules.
     //
     // Note that such a context itself should normally have modules_context
@@ -434,7 +445,8 @@ namespace build2
              bool dry_run = false,
              bool keep_going = true,
              const strings& cmd_vars = {},
-             optional<context*> module_context = nullptr);
+             optional<context*> module_context = nullptr,
+             const loaded_modules_lock* inherited_mudules_lock = nullptr);
 
     // Set current meta-operation and operation.
     //

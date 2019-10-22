@@ -60,7 +60,8 @@ namespace build2
            bool dr,
            bool kg,
            const strings& cmd_vars,
-           optional<context*> mc)
+           optional<context*> mc,
+           const loaded_modules_lock* ml)
       : data_ (new data (*this)),
         sched (s),
         mutexes (ms),
@@ -76,6 +77,7 @@ namespace build2
         global_target_types (data_->global_target_types),
         global_override_cache (data_->global_override_cache),
         global_var_overrides (data_->global_var_overrides),
+        modules_lock (ml),
         module_context (mc ? *mc : nullptr),
         module_context_storage (mc
                                 ? optional<unique_ptr<context>> (nullptr)
