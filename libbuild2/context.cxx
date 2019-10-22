@@ -56,14 +56,14 @@ namespace build2
 
   context::
   context (scheduler& s,
-           global_mutex_shards& ms,
+           global_mutexes& ms,
            bool dr,
            bool kg,
            const strings& cmd_vars,
            optional<context*> mc)
       : data_ (new data (*this)),
         sched (s),
-        mutex_shards (ms),
+        mutexes (ms),
         dry_run_option (dr),
         keep_going (kg),
         phase_mutex (*this),

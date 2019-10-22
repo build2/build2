@@ -159,8 +159,8 @@ namespace build2
         // Serial execution.
         //
         scheduler sched (1);
-        global_mutex_shards shards (1);
-        context ctx (sched, shards);
+        global_mutexes mutexes (1);
+        context ctx (sched, mutexes);
 
         bool scope (false);
         bool id (false);

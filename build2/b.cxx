@@ -564,7 +564,7 @@ main (int argc, char* argv[])
                     ? optional<size_t> (ops.max_stack () * 1024)
                     : nullopt));
 
-    global_mutex_shards mutex_shards (sched.shard_size ());
+    global_mutexes mutexes (sched.shard_size ());
 
     // Trace some overall environment information.
     //
@@ -584,11 +584,11 @@ main (int argc, char* argv[])
     // below).
     //
     unique_ptr<context> ctx;
-    auto new_context = [&ctx, &sched, &mutex_shards, &cmd_vars]
+    auto new_context = [&ctx, &sched, &mutexes, &cmd_vars]
     {
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,
-                              mutex_shards,
+                              mutexes,
                               ops.dry_run (),
                               !ops.serial_stop () /* keep_going */,
                               cmd_vars));

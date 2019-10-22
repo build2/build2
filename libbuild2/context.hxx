@@ -99,14 +99,19 @@ namespace build2
     mutex lm_;
   };
 
-  class global_mutex_shards
+  // Context-wide mutexes and mutex shards.
+  //
+  class global_mutexes
   {
   public:
+
+    // Variable cache mutex shard (see variable.hxx for details).
+    //
     size_t                     variable_cache_size;
     unique_ptr<shared_mutex[]> variable_cache;
 
     explicit
-    global_mutex_shards (size_t vc)
+    global_mutexes (size_t vc)
         : variable_cache_size (vc),
           variable_cache (new shared_mutex[variable_cache_size]) {}
   };
@@ -134,7 +139,7 @@ namespace build2
 
   public:
     scheduler& sched;
-    global_mutex_shards& mutex_shards;
+    global_mutexes& mutexes;
 
     // Dry run flag (see --dry-run|-n).
     //
@@ -425,7 +430,7 @@ namespace build2
     //
     explicit
     context (scheduler&,
-             global_mutex_shards&,
+             global_mutexes&,
              bool dry_run = false,
              bool keep_going = true,
              const strings& cmd_vars = {},

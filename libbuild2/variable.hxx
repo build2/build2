@@ -1468,10 +1468,9 @@ namespace build2
   // the references remain valid).
   //
   // Note that since the cache can be modified on any lookup (including during
-  // the execute phase), it is protected by its own mutex shard (see
-  // global_mutex_shards in context). This shard is also used for value
-  // typification (which is kind of like caching) during concurrent execution
-  // phases.
+  // the execute phase), it is protected by its own mutex shard (see mutexes
+  // in context). This shard is also used for value typification (which is
+  // kind of like caching) during concurrent execution phases.
   //
   template <typename K>
   class variable_cache

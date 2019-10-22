@@ -614,8 +614,8 @@ namespace build2
                  : 0);
 
     shared_mutex& m (
-      ctx.mutex_shards.variable_cache[
-        hash<variable_cache*> () (this) % ctx.mutex_shards.variable_cache_size]);
+      ctx.mutexes.variable_cache[
+        hash<variable_cache*> () (this) % ctx.mutexes.variable_cache_size]);
 
     slock sl (m);
     ulock ul (m, defer_lock);

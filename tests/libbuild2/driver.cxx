@@ -37,8 +37,8 @@ main (int, char* argv[])
   // Serial execution.
   //
   scheduler sched (1);
-  global_mutex_shards shards (1);
-  context ctx (sched, shards);
+  global_mutexes mutexes (1);
+  context ctx (sched, mutexes);
 
   return 0;
 }
