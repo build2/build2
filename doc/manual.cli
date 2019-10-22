@@ -206,13 +206,13 @@ $ b config.cxx=clang++
 version and build for the \c{x86_64} target (\c{x64} in the Microsoft's
 terminology). You can, however, override these defaults by either running from
 a suitable Visual Studio development command prompt or by specifying an
-absolute path to \c{cl.exe} that you wish to use. For example:
+absolute path to \c{cl} that you wish to use. For example:
 
 \
-> b \"config.cxx=...\VC\Tools\MSVC\14.23.28105\bin\Hostx64\x86\cl.exe\"
+> b \"config.cxx=...\VC\Tools\MSVC\14.23.28105\bin\Hostx64\x86\cl\"
 \
 
-|
+See \l{#cc-msvc MSVC Compiler Toolchain} for details.|
 
 Similarly, for additional compile options, such as debug information or
 optimization level, there is \c{config.cxx.coptions}. For example:
@@ -5089,6 +5089,17 @@ common compilation and linking support for C-family languages.
 \h#cc-config|C-Common Configuration Variables|
 
 \
+config.c
+config.cxx
+  cc.id
+
+  c.target
+  c.target.cpu
+  c.target.vendor
+  c.target.system
+  c.target.version
+  c.target.class
+
 config.cc.poptions
   cc.poptions
 
@@ -5118,6 +5129,155 @@ $ b config.cxx=\"g++ -m32\"
 $ b config.cxx=\"clang++ -stdlib=libc++\"
 \
 
+\h#cc-gcc|GCC Compiler Toolchain|
+
+The GCC compiler id is \c{gcc}.
+
+
+\h#cc-clang|Clang Compiler Toolchain|
+
+The vanilla Clang compiler id is \c{clang} (including when targeting the MSVC
+runtime), Apple Clang compiler id is \c{clang-apple}, and Clang's \c{cl}
+compatibility driver (\c{clang-cl}) id is \c{msvc-clang}.
+
+\h2#cc-clang-msvc|Clang Targeting MSVC|
+
+There are two common ways to obtain Clang on Windows: bundled with the MSVC
+installation or as a separate installation. If you are using the separate
+installation, then the Clang compiler is most likely already in the \c{PATH}
+environment variable. Otherwise, if you are using Clang that is bundled with
+MSVC, the \c{cc} module will attempt various search strategies described
+below. Note, however, that in both cases once the Clang compiler binary
+located, the mode (32 or 64-bit) and the rest of the environment (locations of
+binary utilities as well as the system headers and libraries) are obtained
+by querying Clang.
+
+\N|Normally, if Clang is invoked from one of the Visual Studio command
+prompts, then it will use the corresponding Visual Studio version and
+environment (it is, however, still up to you to match the mode with the
+\c{-m32}/\c{-m64} options, if necessary). Otherwise, Clang will try to locate
+the latest version of Visual Studio and Platform SDK and use that (in this
+case it matches the environment to the \c{-m32}/\c{-m64} options).  Refer to
+Clang documentation for details.|
+
+If you specify the compiler as just \c{config.c=clang} or
+\c{config.cxx=clang++} and it is found in the \c{PATH} environment variable or
+if you specify it as an absolute path, then the \c{cc} module will use that.
+
+Otherwise, if you are building from one of the Visual Studio development
+command prompts, the \c{cc} module will look for the corresponding bundled
+Clang (\c{%VCINSTALLDIR%\\Tools\\Llvm\\bin}).
+
+Finally, the \c{cc} module will attempt to locate the latest installed version
+of Visual Studio and look for a bundled Clang in there.
+
+The default mode (32 or 64-bit) depends on the Clang configuration and can
+be overridden with the \c{-m32}/\c{-m64} options. For example:
+
+\
+> b \"config.cxx=clang++ -m64\"
+\
+
+The default MSVC runtime selected by the \c{cc} module is multi-threaded
+shared (the \c{/MD} option in \c{cl}). Unfortunately, the Clang driver does
+not yet provide anything equivalent to the \c{cl} \c{/M*} options (see
+\l{https://bugs.llvm.org/show_bug.cgi?id=33273 Clang bug #33273}) and
+selection of an alternative runtime has to be performed manually:
+
+\
+> rem /MD  - multi-threaded shared (default)
+> rem
+> b \"config.cxx=clang++ -nostdlib -D_MT -D_DLL\" ^
+    config.cc.libs=/DEFAULTLIB:msvcrt
+
+> rem /MDd - multi-threaded debug shared
+> rem
+> b \"config.cxx=clang++ -nostdlib -D_MT -D_DLL -D_DEBUG\" ^
+    config.cc.libs=/DEFAULTLIB:msvcrtd
+
+> rem /MT  - multi-threaded static
+> rem
+> b \"config.cxx=clang++ -nostdlib -D_MT\" ^
+    config.cc.libs=/DEFAULTLIB:libcmt
+
+> rem /MTd - multi-threaded debug static
+> rem
+> b \"config.cxx=clang++ -nostdlib -D_MT -D_DEBUG\" ^
+    config.cc.libs=/DEFAULTLIB:libcmtd
+\
+
+By default the MSVC's binary utilities (\c{link} and \c{lib}) are used when
+compiling with Clang. It is, however, possible to use LLVM's versions instead,
+for example:
+
+\
+> b config.cxx=clang++     ^
+    config.bin.ld=lld-link ^
+    config.bin.ar=llvm-lib
+\
+
+In particular, one benefit of using \c{llvm-lib} is support for thin archives
+which, if available, is automatically enabled for utility libraries.
+
+\N|While there is basic support for Clang's \c{cl} compatibility driver
+(\c{clang-cl}), its use is not recommended. This driver is a very thin wrapper
+over the standard Clang interface that does not always recreate the \c{cl}'s
+semantics exactly. Specifically, its diagnostics in the \c{/showIncludes} mode
+does not match that of \c{cl} in the presence of missing headers. As a result,
+\c{clang-cl}'s use, if any, should be limited to projects that do not have
+auto-generated headers.
+
+If you need to link with other projects that use \c{clang-cl}, then the
+recommended approach is to discover any additional \c{cc1} options passed by
+\c{clang-cl} by comparing the \c{-v} output of a test compilation with
+\c{clang-cl} and \c{clang}/\c{clang++} and then passing them explicitly
+to \c{clang}/\c{clang++} prefixed with \c{-Xclang}. For example:
+
+\
+b \"config.cxx=clang++ -Xclang -fms-volatile ...\"
+\
+
+|
+
+
+\h#cc-msvc|MSVC Compiler Toolchain|
+
+The Microsoft VC (MSVC) compiler id is \c{msvc}.
+
+There are several ways to specify the desired MSVC compiler and mode (32 or
+64-bit) as well as the corresponding environment (locations of binary
+utilities as well as the system headers and libraries).
+
+\N|Unlike other compilers, MSVC compiler (\c{cl}) binaries are
+target-specific, that is, there are no \c{-m32}/\c{-m64} options nor something
+like the \c{/MACHINE} option available in \c{link}.|
+
+If the compiler is specified as just \c{cl} in \c{config.{c,cxx}} and it is
+found in the \c{PATH} environment variable, then the \c{cc} module assumes the
+build is performed from one of the Visual Studio development command prompts
+and expects the environment (the \c{PATH}, \c{INCLUDE}, and \c{LIB}
+environment variables) to already be setup.
+
+If, however, \c{cl} is not found in \c{PATH}, then the \c{cc} module will
+attempt to locate the latest installed version of Visual Studio and Platform
+SDK and use that in the 64-bit mode.
+
+Finally, if the compiler is specified as an absolute path to \c{cl}, then the
+\c{cc} module will attempt to locate the corresponding Visual Studio
+installation as well as the latest Platform SDK and use that in the mode
+corresponding to the specified \c{cl} executable.
+
+Note that the latter two methods are only available for Visual Studio 15 (2017)
+and later and for earlier versions the development command prompt must be
+used.
+
+The default MSVC runtime selected by the \c{cc} module is multi-threaded
+shared (the \c{/MD} \c{cl} option). An alternative runtime can be selected
+by passing one of the \c{cl} \c{/M*} options, for example:
+
+\
+> b \"config.cxx=cl /MT\"
+\
 
 \h1#module-c|\c{c} Module|
 
