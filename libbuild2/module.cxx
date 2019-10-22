@@ -132,7 +132,15 @@ namespace build2
     // If this is one of the bundled modules, the project name is build2,
     // otherwise -- libbuild2-<mod>.
     //
-    project_name proj (bundled ? "build2" : "libbuild2-" + mod);
+    project_name proj;
+    try
+    {
+      proj = project_name (bundled ? "build2" : "libbuild2-" + mod);
+    }
+    catch (const invalid_argument& e)
+    {
+      fail (loc) << "invalid build system module '" << mod << "': " << e;
+    }
 
     // The target we are looking for is <prj>%libs{build2-<mod>}.
     //
