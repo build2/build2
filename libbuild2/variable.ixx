@@ -772,7 +772,7 @@ namespace build2
     else
     {
       if (v.type.load (memory_order_acquire) != var.type)
-        build2::typify_atomic (const_cast<value_data&> (v), *var.type, &var);
+        typify_atomic (*ctx, const_cast<value_data&> (v), *var.type, &var);
     }
   }
 

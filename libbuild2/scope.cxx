@@ -28,10 +28,10 @@ namespace build2
 
     // Process target type/pattern-specific prepend/append values.
     //
-    auto pre_app = [&var] (lookup& l,
-                           const scope* s,
-                           const target_type* tt, const string* tn,
-                           const target_type* gt, const string* gn)
+    auto pre_app = [&var, this] (lookup& l,
+                                 const scope* s,
+                                 const target_type* tt, const string* tn,
+                                 const target_type* gt, const string* gn)
     {
       const value& v (*l);
       assert ((v.extra == 1 || v.extra == 2) && v.type == nullptr);
@@ -51,6 +51,7 @@ namespace build2
       //
       pair<value&, ulock> entry (
         s->target_vars.cache.insert (
+          ctx,
           make_tuple (&v, tt, *tn),
           stem,
           static_cast<const variable_map::value_data&> (v).version,
@@ -436,6 +437,7 @@ namespace build2
 
     pair<value&, ulock> entry (
       cache.insert (
+        ctx,
         make_pair (&var, inner_vars),
         stem,
         0, // Overrides are immutable.

@@ -187,8 +187,8 @@ namespace build2
   // that, variables set by the C++ code are by default non-overridable.
   //
   // Initial processing including entering of global overrides happens in
-  // reset() before any other variables. Project wide overrides are entered in
-  // main(). Overriding happens in scope::find_override().
+  // context ctor before any other variables. Project wide overrides are
+  // entered in main(). Overriding happens in scope::find_override().
   //
   // NULL type and normal visibility are the defaults and can be overridden by
   // "tighter" values.
@@ -254,7 +254,7 @@ namespace build2
   inline ostream&
   operator<< (ostream& os, const variable& v) {return os << v.name;}
 
-  //
+  // A value (of a variable, function argument, etc).
   //
   class LIBBUILD2_SYMEXPORT value
   {
@@ -460,7 +460,7 @@ namespace build2
   void typify        (value&, const value_type&, const variable*);
 
   LIBBUILD2_SYMEXPORT void
-  typify_atomic (value&, const value_type&, const variable*);
+  typify_atomic (context&, value&, const value_type&, const variable*);
 
   // Remove value type from the value reversing it to names. This is similar
   // to reverse() below except that it modifies the value itself.
@@ -1005,8 +1005,8 @@ namespace build2
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<std::map<project_name, dir_path>>;
 
-  // Project-wide (as opposed to global) variable overrides. Returned by
-  // context.cxx:reset().
+  // Project-wide (as opposed to global) variable overrides (see context ctor
+  // for details).
   //
   struct variable_override
   {
@@ -1438,7 +1438,7 @@ namespace build2
     void
     clear () {m_.clear ();}
 
-    // Implementation details.
+    // Implementation details (only used for empty_variable_map).
     //
   public:
     explicit
@@ -1468,15 +1468,11 @@ namespace build2
   // the references remain valid).
   //
   // Note that since the cache can be modified on any lookup (including during
-  // the execute phase), it is protected by its own mutex shard (allocated in
-  // main()). This shard is also used for value typification (which is kind of
-  // like caching) during concurrent execution phases.
+  // the execute phase), it is protected by its own mutex shard (see
+  // global_mutex_shards in context). This shard is also used for value
+  // typification (which is kind of like caching) during concurrent execution
+  // phases.
   //
-  LIBBUILD2_SYMEXPORT extern size_t variable_cache_mutex_shard_size;
-
-  LIBBUILD2_SYMEXPORT extern unique_ptr<shared_mutex[]>
-  variable_cache_mutex_shard;
-
   template <typename K>
   class variable_cache
   {
@@ -1486,7 +1482,7 @@ namespace build2
     // then typify the cached value.
     //
     pair<value&, ulock>
-    insert (K, const lookup& stem, size_t version, const variable&);
+    insert (context&, K, const lookup& stem, size_t version, const variable&);
 
   private:
     struct entry_type
@@ -1565,7 +1561,6 @@ namespace build2
     context& ctx;
     map_type map_;
     bool global_;
-
   };
 
   class LIBBUILD2_SYMEXPORT variable_type_map

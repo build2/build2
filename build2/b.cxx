@@ -556,19 +556,15 @@ main (int argc, char* argv[])
         fail << "invalid --max-jobs|-J value";
     }
 
-     sched.startup (jobs,
-                    1,
-                    max_jobs,
-                    jobs * ops.queue_depth (),
-                    (ops.max_stack_specified ()
-                     ? optional<size_t> (ops.max_stack () * 1024)
-                     : nullopt));
+    sched.startup (jobs,
+                   1,
+                   max_jobs,
+                   jobs * ops.queue_depth (),
+                   (ops.max_stack_specified ()
+                    ? optional<size_t> (ops.max_stack () * 1024)
+                    : nullopt));
 
-    // @@ CTX: should these be per-context?
-    //
-    variable_cache_mutex_shard_size = sched.shard_size ();
-    variable_cache_mutex_shard.reset (
-      new shared_mutex[variable_cache_mutex_shard_size]);
+    global_mutex_shards mutex_shards (sched.shard_size ());
 
     // Trace some overall environment information.
     //
@@ -588,10 +584,11 @@ main (int argc, char* argv[])
     // below).
     //
     unique_ptr<context> ctx;
-    auto new_context = [&ctx, &sched, &cmd_vars]
+    auto new_context = [&ctx, &sched, &mutex_shards, &cmd_vars]
     {
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,
+                              mutex_shards,
                               ops.dry_run (),
                               !ops.serial_stop () /* keep_going */,
                               cmd_vars));
@@ -1425,7 +1422,7 @@ main (int argc, char* argv[])
                 continue;
 
               // If we have a directory, enter the scope, similar to how we do
-              // it in the context's reset().
+              // it in the context ctor.
               //
               scope& s (o.dir
                         ? sm.insert ((out_base / *o.dir).normalize ())->second

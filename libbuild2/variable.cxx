@@ -359,13 +359,16 @@ namespace build2
   }
 
   void
-  typify_atomic (value& v, const value_type& t, const variable* var)
+  typify_atomic (context& ctx,
+                 value& v,
+                 const value_type& t,
+                 const variable* var)
   {
     // Typification is kind of like caching so we reuse that mutex shard.
     //
     shared_mutex& m (
-      variable_cache_mutex_shard[
-        hash<value*> () (&v) % variable_cache_mutex_shard_size]);
+      ctx.mutex_shards.variable_cache[
+        hash<value*> () (&v) % ctx.mutex_shards.variable_cache_size]);
 
     // Note: v.type is rechecked by typify() under lock.
     //
@@ -1139,7 +1142,7 @@ namespace build2
           const bool* o) const
   {
     // Check overridability (all overrides, if any, should already have
-    // been entered (see context.cxx:reset()).
+    // been entered; see context ctor for details).
     //
     if (var.overrides != nullptr && (o == nullptr || !*o))
       fail << "variable " << var.name << " cannot be overridden";
@@ -1513,9 +1516,6 @@ namespace build2
 
     return lookup ();
   }
-
-  size_t variable_cache_mutex_shard_size;
-  unique_ptr<shared_mutex[]> variable_cache_mutex_shard;
 
   template struct LIBBUILD2_DEFEXPORT value_traits<strings>;
   template struct LIBBUILD2_DEFEXPORT value_traits<vector<name>>;

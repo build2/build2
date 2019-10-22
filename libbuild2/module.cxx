@@ -156,6 +156,7 @@ namespace build2
         //
         ctx.module_context_storage->reset (
           new context (ctx.sched,
+                       ctx.mutex_shards,
                        false,                    /* dry_run */
                        ctx.keep_going,
                        ctx.global_var_overrides, /* cmd_vars */
@@ -488,8 +489,8 @@ namespace build2
       }
     }
 
-    // Note: pattern-typed in context.cxx:reset() as project-visibility
-    // variables of type bool.
+    // Note: pattern-typed in context ctor as project-visibility variables of
+    // type bool.
     //
     // We call the variable 'loaded' rather than 'inited' because it is
     // buildfile-visible (where we use the term "load a module"; see the note

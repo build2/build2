@@ -99,6 +99,18 @@ namespace build2
     mutex lm_;
   };
 
+  class global_mutex_shards
+  {
+  public:
+    size_t                     variable_cache_size;
+    unique_ptr<shared_mutex[]> variable_cache;
+
+    explicit
+    global_mutex_shards (size_t vc)
+        : variable_cache_size (vc),
+          variable_cache (new shared_mutex[variable_cache_size]) {}
+  };
+
   // @@ CTX: document (backlinks, non-overlap etc). RW story.
   //
   // A context can be preempted to execute another context (we do this, for
@@ -122,6 +134,7 @@ namespace build2
 
   public:
     scheduler& sched;
+    global_mutex_shards& mutex_shards;
 
     // Dry run flag (see --dry-run|-n).
     //
@@ -412,6 +425,7 @@ namespace build2
     //
     explicit
     context (scheduler&,
+             global_mutex_shards&,
              bool dry_run = false,
              bool keep_going = true,
              const strings& cmd_vars = {},

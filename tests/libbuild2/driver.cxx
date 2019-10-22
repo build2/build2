@@ -34,8 +34,11 @@ main (int, char* argv[])
   in::build2_in_load ();
   bash::build2_bash_load ();
 
-  scheduler sched (1); // Serial execution.
-  context ctx (sched);
+  // Serial execution.
+  //
+  scheduler sched (1);
+  global_mutex_shards shards (1);
+  context ctx (sched, shards);
 
   return 0;
 }

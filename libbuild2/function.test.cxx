@@ -42,8 +42,12 @@ namespace build2
     //
     init_diag (1);
     init (nullptr, argv[0]);
-    scheduler sched (1);  // Serial execution.
-    context ctx (sched);
+
+    // Serial execution.
+    //
+    scheduler sched (1);
+    global_mutex_shards shards (1);
+    context ctx (sched, shards);
 
     auto& functions (ctx.functions);
 

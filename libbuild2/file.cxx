@@ -1306,8 +1306,8 @@ namespace build2
       // config.import.<proj>
       //
       {
-        // Note: pattern-typed in context.cxx:reset() as an overridable
-        // variable of type abs_dir_path (path auto-completion).
+        // Note: pattern-typed in context ctor as an overridable variable of
+        // type abs_dir_path (path auto-completion).
         //
         const variable& var (vp.insert (n));
 
@@ -1340,8 +1340,8 @@ namespace build2
       {
         auto lookup = [&iroot, &vp, &loc] (string name) -> path
         {
-          // Note: pattern-typed in context.cxx:reset() as an overridable
-          // variable of type path.
+          // Note: pattern-typed in context ctor as an overridable variable of
+          // type path.
           //
           const variable& var (vp.insert (move (name)));
 

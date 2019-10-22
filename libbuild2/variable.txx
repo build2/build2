@@ -600,7 +600,11 @@ namespace build2
   //
   template <typename K>
   pair<value&, ulock> variable_cache<K>::
-  insert (K k, const lookup& stem, size_t ver, const variable& var)
+  insert (context& ctx,
+          K k,
+          const lookup& stem,
+          size_t ver,
+          const variable& var)
   {
     using value_data = variable_map::value_data;
 
@@ -610,8 +614,8 @@ namespace build2
                  : 0);
 
     shared_mutex& m (
-      variable_cache_mutex_shard[
-        hash<variable_cache*> () (this) % variable_cache_mutex_shard_size]);
+      ctx.mutex_shards.variable_cache[
+        hash<variable_cache*> () (this) % ctx.mutex_shards.variable_cache_size]);
 
     slock sl (m);
     ulock ul (m, defer_lock);
