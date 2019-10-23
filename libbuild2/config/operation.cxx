@@ -154,8 +154,8 @@ namespace build2
               // values are still lingering in config.build. They are probably
               // still valid and we should probably continue using them but we
               // definitely want to move them to our config.build since they
-              // will be dropped from the amalgamation's config.build. Let's
-              // also warn the user just in case.
+              // will be dropped from the amalgamation's config.build on the
+              // next reconfigure. Let's also warn the user just in case.
               //
               // There is also another case that falls under this now that
               // overrides are by default amalgamation-wide rather than just
