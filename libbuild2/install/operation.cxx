@@ -39,7 +39,7 @@ namespace build2
       "installed",
       "has nothing to install", // We cannot "be installed".
       execution_mode::first,
-      0,
+      0 /* concurrency */,      // Run serially.
       &install_pre,
       nullptr
     };
@@ -62,7 +62,7 @@ namespace build2
       "uninstalled",
       "is not installed",
       execution_mode::last,
-      0,
+      0 /* concurrency */,      // Run serially
       &install_pre,
       nullptr
     };

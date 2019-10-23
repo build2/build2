@@ -221,8 +221,11 @@ namespace build2
 
     const execution_mode mode;
 
-    // This is the operation's concurrency multiplier. 0 means run serially,
-    // 1 means run at hardware concurrency (unless overridden by the user).
+    // This is the operation's concurrency multiplier. 0 means run serially, 1
+    // means run at hardware concurrency (or the concurrency specified by the
+    // user).
+    //
+    // Note: 0 and 1 are currently the only valid values.
     //
     const size_t concurrency;
 

@@ -243,10 +243,24 @@ namespace build2
           diag_frame::stack_guard diag_cutoff (nullptr);
 
           auto df = make_diag_frame (
-            [&loc, &mod](const diag_record& dr)
+            [&loc, &mod] (const diag_record& dr)
             {
               dr << info (loc) << "while loading build system module " << mod;
             });
+
+          // Un-tune the scheduler.
+          //
+          // Note that we can only do this if we are running serially because
+          // otherwise we cannot guarantee the scheduler is idle (we could
+          // have waiting threads from the outer context). This is fine for
+          // now since the only two tuning level we use are serial and full
+          // concurrency (turns out currently we don't really need this: we
+          // will always be called during load or match phases and we always
+          // do parallel match; but let's keep it in case things change).
+          //
+          auto sched_tune (ctx.sched.serial ()
+                           ? scheduler::tune_guard (ctx.sched, 0)
+                           : scheduler::tune_guard ());
 
           // Note that for now we suppress progress since it would clash with
           // the progress of what we are already doing (maybe in the future we

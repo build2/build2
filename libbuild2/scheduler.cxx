@@ -125,7 +125,7 @@ namespace build2
     else if (active_ == 0 && external_ == 0)
     {
       // Note that we tried to handle this directly in this thread but that
-      // wouldn't work for the phase lock case where we cal; deactivate and
+      // wouldn't work for the phase lock case where we call deactivate and
       // then go wait on a condition variable: we would be doing deadlock
       // detection while holding the lock that prevents other threads from
       // making progress! So it has to be a separate monitoring thread.
@@ -391,24 +391,35 @@ namespace build2
       dead_thread_ = thread (deadlock_monitor, this);
   }
 
-  void scheduler::
+  size_t scheduler::
   tune (size_t max_active)
   {
     // Note that if we tune a parallel scheduler to run serially, we will
     // still have the deadlock monitoring thread running.
 
+    // With multiple initial active threads we will need to make changes to
+    // max_active_ visible to other threads and which we currently say can be
+    // accessed between startup and shutdown without a lock.
+    //
+    assert (init_active_ == 1);
+
     if (max_active == 0)
       max_active = orig_max_active_;
 
-    assert (max_active >= init_active_ &&
-            max_active <= orig_max_active_);
+    if (max_active != max_active_)
+    {
+      assert (max_active >= init_active_ &&
+              max_active <= orig_max_active_);
 
-    // The scheduler must not be active though some threads might still be
-    // comming off from finishing a task. So we busy-wait for them.
-    //
-    lock l (wait_idle ());
+      // The scheduler must not be active though some threads might still be
+      // comming off from finishing a task. So we busy-wait for them.
+      //
+      lock l (wait_idle ());
 
-    max_active_ = max_active;
+      swap (max_active_, max_active);
+    }
+
+    return max_active == orig_max_active_ ? 0 : max_active;
   }
 
   auto scheduler::

@@ -271,100 +271,105 @@ namespace build2
     if (ctx.current_mode == execution_mode::last)
       reverse (ts.begin (), ts.end ());
 
-    // Tune the scheduler.
-    //
-    switch (ctx.current_inner_oif->concurrency)
-    {
-    case 0: ctx.sched.tune (1); break;          // Run serially.
-    case 1:                     break;          // Run as is.
-    default:                    assert (false); // Not yet supported.
-    }
-
     phase_lock pl (ctx, run_phase::execute); // Never switched.
 
-    // Set the dry-run flag.
-    //
-    ctx.dry_run = ctx.dry_run_option;
-
-    // Setup progress reporting if requested.
-    //
-    string what; // Note: must outlive monitor_guard.
-    scheduler::monitor_guard mg;
-
-    if (prog && show_progress (1 /* max_verb */))
     {
-      size_t init (ctx.target_count.load (memory_order_relaxed));
-      size_t incr (init > 100 ? init / 100 : 1); // 1%.
+      // Tune the scheduler.
+      //
+      using tune_guard = scheduler::tune_guard;
+      tune_guard sched_tune;
 
-      if (init != incr)
+      switch (ctx.current_inner_oif->concurrency)
       {
-        what = "% of targets " + diag_did (ctx, a);
+      case 0: sched_tune = tune_guard (ctx.sched, 1); break; // Run serially.
+      case 1:                                         break; // Run as is.
+      default:                               assert (false); // Not supported.
+      }
 
-        mg = ctx.sched.monitor (
-          ctx.target_count,
-          init - incr,
-          [init, incr, &what, &ctx] (size_t c) -> size_t
-          {
-            size_t p ((init - c) * 100 / init);
-            size_t s (ctx.skip_count.load (memory_order_relaxed));
+      // Set the dry-run flag.
+      //
+      ctx.dry_run = ctx.dry_run_option;
 
-            diag_progress_lock pl;
-            diag_progress  = ' ';
-            diag_progress += to_string (p);
-            diag_progress += what;
+      // Setup progress reporting if requested.
+      //
+      string what; // Note: must outlive monitor_guard.
+      scheduler::monitor_guard mg;
 
-            if (s != 0)
+      if (prog && show_progress (1 /* max_verb */))
+      {
+        size_t init (ctx.target_count.load (memory_order_relaxed));
+        size_t incr (init > 100 ? init / 100 : 1); // 1%.
+
+        if (init != incr)
+        {
+          what = "% of targets " + diag_did (ctx, a);
+
+          mg = ctx.sched.monitor (
+            ctx.target_count,
+            init - incr,
+            [init, incr, &what, &ctx] (size_t c) -> size_t
             {
-              diag_progress += " (";
-              diag_progress += to_string (s);
-              diag_progress += " skipped)";
-            }
+              size_t p ((init - c) * 100 / init);
+              size_t s (ctx.skip_count.load (memory_order_relaxed));
 
-            return c - incr;
-          });
+              diag_progress_lock pl;
+              diag_progress  = ' ';
+              diag_progress += to_string (p);
+              diag_progress += what;
+
+              if (s != 0)
+              {
+                diag_progress += " (";
+                diag_progress += to_string (s);
+                diag_progress += " skipped)";
+              }
+
+              return c - incr;
+            });
+        }
       }
-    }
 
-    // Similar logic to execute_members(): first start asynchronous execution
-    // of all the top-level targets.
-    //
-    {
-      atomic_count task_count (0);
-      wait_guard wg (ctx, task_count);
-
-      for (const action_target& at: ts)
+      // Similar logic to execute_members(): first start asynchronous
+      // execution of all the top-level targets.
+      //
       {
-        const target& t (at.as_target ());
+        atomic_count task_count (0);
+        wait_guard wg (ctx, task_count);
 
-        l5 ([&]{trace << diag_doing (a, t);});
+        for (const action_target& at: ts)
+        {
+          const target& t (at.as_target ());
 
-        target_state s (execute_async (a, t, 0, task_count, false));
+          l5 ([&]{trace << diag_doing (a, t);});
 
-        // Bail out if the target has failed and we weren't instructed to keep
-        // going.
-        //
-        if (s == target_state::failed && !ctx.keep_going)
-          break;
+          target_state s (execute_async (a, t, 0, task_count, false));
+
+          // Bail out if the target has failed and we weren't instructed to
+          // keep going.
+          //
+          if (s == target_state::failed && !ctx.keep_going)
+            break;
+        }
+
+        wg.wait ();
       }
 
-      wg.wait ();
-    }
+      // We are now running serially.
+      //
 
-    // We are now running serially.
-    //
+      // Clear the dry-run flag.
+      //
+      ctx.dry_run = false;
 
-    ctx.sched.tune (0); // Restore original scheduler settings.
+      // Clear the progress if present.
+      //
+      if (mg)
+      {
+        diag_progress_lock pl;
+        diag_progress.clear ();
+      }
 
-    // Clear the dry-run flag.
-    //
-    ctx.dry_run = false;
-
-    // Clear the progress if present.
-    //
-    if (mg)
-    {
-      diag_progress_lock pl;
-      diag_progress.clear ();
+      // Restore original scheduler settings.
     }
 
     // Print skip count if not zero. Note that we print it regardless of the
@@ -582,7 +587,7 @@ namespace build2
     "",
     "",
     execution_mode::first,
-    1,
+    1 /* concurrency */,
     nullptr,
     nullptr
   };
@@ -606,7 +611,7 @@ namespace build2
     "updated",
     "is up to date",
     execution_mode::first,
-    1,
+    1 /* concurrency */,
     nullptr,
     nullptr
   };
@@ -620,7 +625,7 @@ namespace build2
     "cleaned",
     "is clean",
     execution_mode::last,
-    1,
+    1 /* concurrency */,
     nullptr,
     nullptr
   };

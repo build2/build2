@@ -131,6 +131,9 @@ namespace build2
   // future we can do save/restore but then we would need some indication that
   // we have switched to another task).
   //
+  // Note that sharing the same scheduler between multiple top-level contexts
+  // can currently be problematic due to operation-specific scheduler tuning.
+  //
   // The loaded_modules state (module.hxx) is shared among all the contexts
   // (there is no way to have multiple shared library loading "contexts") and
   // is protected by loaded_modules_lock. A nested context should normally

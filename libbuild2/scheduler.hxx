@@ -209,16 +209,45 @@ namespace build2
 
     // Tune a started up scheduler.
     //
-    // Currently one cannot increase the number of max_active. Pass 0 to
-    // restore the initial value.
+    // Currently one cannot increase the number of (initial) max_active, only
+    // decrease it. Pass 0 to restore the initial value. Returns the old
+    // value (0 if it is initial).
     //
     // Note that tuning can only be done while the scheduler is inactive, that
-    // is, no threads are executing a task or are suspended. For example, in a
+    // is, no threads are executing or waiting on a task. For example, in a
     // setup with a single initial active thread that would be after a return
-    // from the top-level wait() call.
+    // from the top-level wait() call. Tuning the scheduler with more than one
+    // initial active threads is currently not supported.
     //
-    void
+    size_t
     tune (size_t max_active);
+
+    struct tune_guard
+    {
+      tune_guard (): s_ (nullptr) {}
+      tune_guard (scheduler& s, size_t ma): s_ (&s), o_ (s_->tune (ma)) {}
+      tune_guard (tune_guard&& x): s_ (x.s_), o_ (x.o_) {x.s_ = nullptr;}
+      tune_guard& operator= (tune_guard&& x)
+      {
+        if (&x != this)
+        {
+          s_ = x.s_;
+          o_ = x.o_;
+          x.s_ = nullptr;
+        }
+        return *this;
+      }
+
+      ~tune_guard ()
+      {
+        if (s_ != nullptr)
+          s_->tune (o_);
+      }
+
+    private:
+      scheduler* s_;
+      size_t o_;
+    };
 
     // Return true if the scheduler is configured to run tasks serially.
     //
@@ -415,8 +444,10 @@ namespace build2
     //                  active <= max_active
     // (init_active + helpers) <= max_threads (soft; see activate_helper())
     //
-    // Note that the first three are immutable between startup() and
-    // shutdown() so can be accessed without a lock (but see join()).
+    // Note that the first three are immutable between the startup() and
+    // shutdown() calls so can be accessed without a lock (but see join() and
+    // except for max_active_ which can be changed by tune() but only when the
+    // scheduler is idle).
     //
     size_t init_active_ = 0; // Initially active threads.
     size_t max_active_  = 0; // Maximum number of active threads.
@@ -430,7 +461,7 @@ namespace build2
     //
     size_t active_   = 0;  // Active master threads executing a task.
     size_t idle_     = 0;  // Idle helper threads waiting for a task.
-    size_t waiting_  = 0;  // Suspended master threads waiting for their tasks.
+    size_t waiting_  = 0;  // Suspended master threads waiting on their tasks.
     size_t ready_    = 0;  // Ready master thread waiting to become active.
     size_t starting_ = 0;  // Helper threads starting up.
 

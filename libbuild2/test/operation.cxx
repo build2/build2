@@ -33,7 +33,7 @@ namespace build2
       "tested",
       "has nothing to test", // We cannot "be tested".
       execution_mode::first,
-      1,
+      1 /* concurrency */,
       &test_pre,
       nullptr
     };
