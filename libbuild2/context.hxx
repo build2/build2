@@ -118,9 +118,12 @@ namespace build2
           variable_cache (new shared_mutex[variable_cache_size]) {}
   };
 
-  // @@ CTX: document (backlinks, non-overlap etc). RW story.
+  // A build context encapsulates the state of a build. It is possible to have
+  // multiple build contexts provided they are non-overlapping, that is, they
+  // don't try to build the same projects (note that this is currently not
+  // enforced).
   //
-  // A context can be preempted to execute another context (we do this, for
+  // One context can be preempted to execute another context (we do this, for
   // example, to update build system modules). When switching to such a nested
   // context you may want to cutoff the diagnostics stack (and maybe insert
   // your own entry), for example:
@@ -141,6 +144,14 @@ namespace build2
   //
   // Note also that any given thread should not participate in multiple
   // schedulers at the same time (see scheduler::join/leave() for details).
+  //
+  // @@ CTX TODO:
+  //
+  //   - Move verbosity level to context (see issue in import_module()).
+  //
+  //   - Scheduler tunning and multiple top-level contexts.
+  //
+  //   - Detect overlapping contexts (could be expensive).
   //
   class LIBBUILD2_SYMEXPORT context
   {
