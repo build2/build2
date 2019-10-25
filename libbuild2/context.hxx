@@ -40,7 +40,7 @@ namespace build2
 
   struct opspec;
 
-  struct loaded_modules_lock;
+  class loaded_modules_lock;
 
   class LIBBUILD2_SYMEXPORT run_phase_mutex
   {
