@@ -650,6 +650,7 @@ namespace build2
   : v_ (),
     V_ (),
     quiet_ (),
+    silent_ (),
     verbose_ (1),
     verbose_specified_ (false),
     stat_ (),
@@ -775,6 +776,12 @@ namespace build2
     {
       ::build2::cl::parser< bool>::merge (
         this->quiet_, a.quiet_);
+    }
+
+    if (a.silent_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->silent_, a.silent_);
     }
 
     if (a.verbose_specified_)
@@ -957,20 +964,28 @@ namespace build2
     os << "\033[1mOPTIONS\033[0m" << ::std::endl;
 
     os << std::endl
-       << "\033[1m-v\033[0m                    Print actual commands being executed. This is equivalent" << ::std::endl
-       << "                      to \033[1m--verbose 2\033[0m." << ::std::endl;
+       << "\033[1m-v\033[0m                    Print actual commands being executed. This options is" << ::std::endl
+       << "                      equivalent to \033[1m--verbose 2\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m-V\033[0m                    Print all underlying commands being executed. This is" << ::std::endl
-       << "                      equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
+       << "\033[1m-V\033[0m                    Print all underlying commands being executed. This" << ::std::endl
+       << "                      options is equivalent to \033[1m--verbose 3\033[0m." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--quiet\033[0m|\033[1m-q\033[0m            Run quietly, only printing error messages. This is" << ::std::endl
-       << "                      equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
+       << "\033[1m--quiet\033[0m|\033[1m-q\033[0m            Run quietly, only printing error messages in most" << ::std::endl
+       << "                      contexts. In certain contexts (for example, while" << ::std::endl
+       << "                      updating build system modules) this verbosity level may" << ::std::endl
+       << "                      be ignored. Use --silent\033[0m to run quietly in all contexts." << ::std::endl
+       << "                      This option is equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
+
+    os << std::endl
+       << "\033[1m--silent\033[0m              Run quietly, only printing error messages in all" << ::std::endl
+       << "                      contexts." << ::std::endl;
 
     os << std::endl
        << "\033[1m--verbose\033[0m \033[4mlevel\033[0m       Set the diagnostics verbosity to \033[4mlevel\033[0m between 0 and 6." << ::std::endl
-       << "                      Level 0 disables any non-error messages while level 6" << ::std::endl
+       << "                      Level 0 disables any non-error messages (but see the" << ::std::endl
+       << "                      difference between --quiet\033[0m and --silent\033[0m) while level 6" << ::std::endl
        << "                      produces lots of information, with level 1 being the" << ::std::endl
        << "                      default. The following additional types of diagnostics" << ::std::endl
        << "                      are produced at each level:" << ::std::endl
@@ -1168,6 +1183,8 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::quiet_ >;
       _cli_options_map_["-q"] = 
       &::build2::cl::thunk< options, bool, &options::quiet_ >;
+      _cli_options_map_["--silent"] = 
+      &::build2::cl::thunk< options, bool, &options::silent_ >;
       _cli_options_map_["--verbose"] = 
       &::build2::cl::thunk< options, uint16_t, &options::verbose_,
         &options::verbose_specified_ >;

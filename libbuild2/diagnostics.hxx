@@ -49,7 +49,7 @@ namespace build2
     print_process (args.data (), n != 0 ? n : args.size ());
   }
 
-  // Program verbosity level (-v/--verbose).
+  // Program verbosity level (-v/--verbose plus --silent).
   //
   // 0 - disabled
   // 1 - high-level information messages
@@ -59,13 +59,17 @@ namespace build2
   // 5 - information helpful to the developer
   // 6 - even more detailed information
   //
+  // If silent is true, then the level must be 0 (silent is level 0 that
+  // cannot be relaxed in certain contexts).
+  //
   // While uint8 is more than enough, use uint16 for the ease of printing.
   //
 
   // Forward-declarated in <libbuild2/utility.hxx>.
   //
+  // const uint16_t verb_never = 7;
   // extern uint16_t verb;
-  // const  uint16_t verb_never = 7;
+  // extern bool silent;
 
   template <typename F> inline void l1 (const F& f) {if (verb >= 1) f ();}
   template <typename F> inline void l2 (const F& f) {if (verb >= 2) f ();}

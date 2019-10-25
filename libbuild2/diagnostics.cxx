@@ -21,6 +21,7 @@ namespace build2
   // set from options.
   //
   uint16_t verb = 0;
+  bool silent = true;
 
   optional<bool> diag_progress_option;
 
@@ -30,9 +31,12 @@ namespace build2
   bool stderr_term = false;
 
   void
-  init_diag (uint16_t v, optional<bool> p, bool nl, bool nc, bool st)
+  init_diag (uint16_t v, bool s, optional<bool> p, bool nl, bool nc, bool st)
   {
+    assert (!s || v == 0);
+
     verb = v;
+    silent = s;
     diag_progress_option = p;
     diag_no_line = nl;
     diag_no_column = nc;

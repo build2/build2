@@ -278,6 +278,12 @@ namespace build2
     return this->quiet_;
   }
 
+  inline const bool& options::
+  silent () const
+  {
+    return this->silent_;
+  }
+
   inline const uint16_t& options::
   verbose () const
   {

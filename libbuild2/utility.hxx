@@ -97,15 +97,19 @@ namespace build2
   // Initialize the diagnostics state. Should be called once early in main().
   // Default values are for unit tests.
   //
+  // If silent is true, verbosity should be 0.
+  //
   LIBBUILD2_SYMEXPORT void
   init_diag (uint16_t verbosity,
+             bool silent = false,
              optional<bool> progress = nullopt,
              bool no_lines = false,
              bool no_columns = false,
              bool stderr_term = false);
 
-  LIBBUILD2_SYMEXPORT extern uint16_t verb;
   const uint16_t verb_never = 7;
+  LIBBUILD2_SYMEXPORT extern uint16_t verb;
+  LIBBUILD2_SYMEXPORT extern bool silent;
 
   // --[no-]progress
   //

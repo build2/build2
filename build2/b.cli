@@ -391,27 +391,35 @@ namespace build2
 
     bool -v
     {
-      "Print actual commands being executed. This is equivalent to
+      "Print actual commands being executed. This options is equivalent to
        \cb{--verbose 2}."
     }
 
     bool -V
     {
-      "Print all underlying commands being executed. This is equivalent to
-       \cb{--verbose 3}."
+      "Print all underlying commands being executed. This options is
+       equivalent to \cb{--verbose 3}."
     }
 
     bool --quiet|-q
     {
-      "Run quietly, only printing error messages. This is equivalent to
-       \cb{--verbose 0}."
+      "Run quietly, only printing error messages in most contexts. In certain
+       contexts (for example, while updating build system modules) this
+       verbosity level may be ignored. Use \c{--silent} to run quietly in all
+       contexts. This option is equivalent to \cb{--verbose 0}."
+    }
+
+    bool --silent
+    {
+      "Run quietly, only printing error messages in all contexts."
     }
 
     uint16_t --verbose = 1
     {
       "<level>",
       "Set the diagnostics verbosity to <level> between 0 and 6. Level 0
-       disables any non-error messages while level 6 produces lots of
+       disables any non-error messages (but see the difference between
+       \c{--quiet} and \c{--silent}) while level 6 produces lots of
        information, with level 1 being the default. The following additional
        types of diagnostics are produced at each level:
 

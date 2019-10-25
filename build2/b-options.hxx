@@ -439,6 +439,9 @@ namespace build2
     const bool&
     quiet () const;
 
+    const bool&
+    silent () const;
+
     const uint16_t&
     verbose () const;
 
@@ -575,6 +578,7 @@ namespace build2
     bool v_;
     bool V_;
     bool quiet_;
+    bool silent_;
     uint16_t verbose_;
     bool verbose_specified_;
     bool stat_;

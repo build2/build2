@@ -237,9 +237,16 @@ main (int argc, char* argv[])
     //
     auto verbosity = [] ()
     {
-      return ops.verbose_specified ()
-             ? ops.verbose ()
-             : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () ? 0 : 1;
+      uint16_t v (
+        ops.verbose_specified ()
+        ? ops.verbose ()
+        : ops.V () ? 3 : ops.v () ? 2 : ops.quiet () || ops.silent () ? 0 : 1);
+
+      if (ops.silent () && v != 0)
+        fail << "specified with -v, -V, or --verbose verbosity level " << v
+             << " is incompatible with --silent";
+
+      return v;
     };
 
     // We want to be able to specify options, vars, and buildspecs in any
@@ -423,6 +430,7 @@ main (int argc, char* argv[])
     // Initialize the diagnostics state.
     //
     init_diag (verbosity (),
+               ops.silent (),
                (ops.progress ()    ? optional<bool> (true)  :
                 ops.no_progress () ? optional<bool> (false) : nullopt),
                ops.no_line (),

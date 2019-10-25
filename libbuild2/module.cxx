@@ -262,6 +262,21 @@ namespace build2
                            ? scheduler::tune_guard (ctx.sched, 0)
                            : scheduler::tune_guard ());
 
+          // Remap verbosity level 0 to 1 unless we were requested to be
+          // silent. Failed that, we may have long periods of seemingly
+          // nothing happening while we quietly update the module, which
+          // may look like things have hung up.
+          //
+          // @@ CTX: modifying global verbosity level won't work if we have
+          //         multiple top-level contexts running in parallel.
+          //
+          auto verbg = make_guard (
+            [z = !silent && verb == 0 ? (verb = 1, true) : false] ()
+            {
+              if (z)
+                verb = 0;
+            });
+
           // Note that for now we suppress progress since it would clash with
           // the progress of what we are already doing (maybe in the future we
           // can do save/restore but then we would need some sort of
