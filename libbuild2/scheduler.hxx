@@ -224,7 +224,7 @@ namespace build2
 
     struct tune_guard
     {
-      tune_guard (): s_ (nullptr) {}
+      tune_guard (): s_ (nullptr), o_ (0) {}
       tune_guard (scheduler& s, size_t ma): s_ (&s), o_ (s_->tune (ma)) {}
       tune_guard (tune_guard&& x): s_ (x.s_), o_ (x.o_) {x.s_ = nullptr;}
       tune_guard& operator= (tune_guard&& x)
