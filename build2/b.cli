@@ -26,10 +26,10 @@ namespace build2
 
      \h|DESCRIPTION|
 
-     The \cb{build2} driver executes a set of meta-operations on operations on
-     targets according to the build specification, or \i{buildspec} for short.
-     This process can be controlled by specifying driver <options> and build
-     system <variables>.
+     The \cb{build2} build system driver executes a set of meta-operations on
+     operations on targets according to the build specification, or
+     \i{buildspec} for short.  This process can be controlled by specifying
+     driver <options> and build system <variables>.
 
      Note that <options>, <variables>, and <buildspec> fragments can be
      specified in any order. To avoid treating an argument that starts with
@@ -130,7 +130,7 @@ namespace build2
      ./: */
      \
 
-     In the above example, we assumed that the \cb{build2} driver was able to
+     In the above example, we assumed that the build system driver was able to
      determine the association between \cb{out_base} and \cb{src_base}. In
      case \cb{src_base} and \cb{out_base} are not the same directory, this is
      achieved in one of two ways: the \cb{config} module (which implements the
@@ -645,12 +645,44 @@ namespace build2
     bool --version {"Print version and exit."}
   };
 
-  "\h|EXIT STATUS|
+  "
+  \h|DEFAULT OPTIONS FILES|
+
+  Instead of having a separate config file format for tool configuration, the
+  \cb{build2} toolchain uses \i{default options files} which contain the same
+  options as what can be specified on the command line. The default options
+  files are like options files that one can specify with \cb{--options-file}
+  except that they are loaded by default.
+
+  The default options files for the build system driver are called
+  \cb{b.options} and are searched for in the \cb{.build2/} subdirectory of the
+  home directory and in the system directory (for example, \cb{/etc/build2/})
+  if configured.
+
+  Once the search is complete, the files are loaded in the reverse order, that
+  is, beginning from the system directory (if any), followed by the home
+  directory, and finishing off with the options specified on the command line.
+  In other words, the files are loaded from the more generic to the more
+  specific with the command line options having the ability to override any
+  values specified in the default options files.
+
+  If a default options file contains \cb{--no-default-options}, then the
+  search is stopped at the directory containing this file and no outer files
+  are loaded. If this option is specified on the command line, then none of
+  the default options files are searched for or loaded.
+
+  An additional directory containing default options files can be specified
+  with \cb{--default-options}. Its configuration files are loaded after the
+  home directory.
+
+  The order in which default options files are loaded is traced at the
+  verbosity level 3 (\cb{-V} option) or higher.
+
+  \h|EXIT STATUS|
 
   Non-zero exit status is returned in case of an error.
-  "
 
-  "\h|ENVIRONMENT|
+  \h|ENVIRONMENT|
 
   The \cb{HOME} environment variable is used to determine the user's home
   directory. If it is not set, then \cb{getpwuid(3)} is used instead. This
