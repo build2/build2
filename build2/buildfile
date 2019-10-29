@@ -27,7 +27,8 @@ if ($cxx.target.class != 'windows')
   {
     # Make sure backtrace includes function names.
     #
-    cxx.loptions += -rdynamic
+    if ($cc.stdlib == 'glibc')
+      cxx.loptions += -rdynamic
 
     # Make sure we use RPATH and not RUNPATH since the latter messes up
     # dlopen().
