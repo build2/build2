@@ -1465,9 +1465,10 @@ namespace build2
        << ::std::endl
        << "\033[1mDESCRIPTION\033[0m" << ::std::endl
        << ::std::endl
-       << "The \033[1mbuild2\033[0m driver executes a set of meta-operations on operations on targets" << ::std::endl
-       << "according to the build specification, or \033[4mbuildspec\033[0m for short. This process can" << ::std::endl
-       << "be controlled by specifying driver \033[4moptions\033[0m and build system \033[4mvariables\033[0m." << ::std::endl
+       << "The \033[1mbuild2\033[0m build system driver executes a set of meta-operations on operations" << ::std::endl
+       << "on targets according to the build specification, or \033[4mbuildspec\033[0m for short.  This" << ::std::endl
+       << "process can be controlled by specifying driver \033[4moptions\033[0m and build system" << ::std::endl
+       << "\033[4mvariables\033[0m." << ::std::endl
        << ::std::endl
        << "Note that \033[4moptions\033[0m, \033[4mvariables\033[0m, and \033[4mbuildspec\033[0m fragments can be specified in any" << ::std::endl
        << "order. To avoid treating an argument that starts with \033[1m'-'\033[0m as an option, add the" << ::std::endl
@@ -1479,11 +1480,40 @@ namespace build2
     if (p != ::build2::cl::usage_para::none)
       os << ::std::endl;
 
-    os << "\033[1mEXIT STATUS\033[0m" << ::std::endl
+    os << "\033[1mDEFAULT OPTIONS FILES\033[0m" << ::std::endl
        << ::std::endl
-       << "Non-zero exit status is returned in case of an error." << ::std::endl;
-
-    os << std::endl
+       << "Instead of having a separate config file format for tool configuration, the" << ::std::endl
+       << "\033[1mbuild2\033[0m toolchain uses \033[4mdefault options files\033[0m which contain the same options as" << ::std::endl
+       << "what can be specified on the command line. The default options files are like" << ::std::endl
+       << "options files that one can specify with \033[1m--options-file\033[0m except that they are" << ::std::endl
+       << "loaded by default." << ::std::endl
+       << ::std::endl
+       << "The default options files for the build system driver are called \033[1mb.options\033[0m and" << ::std::endl
+       << "are searched for in the \033[1m.build2/\033[0m subdirectory of the home directory and in the" << ::std::endl
+       << "system directory (for example, \033[1m/etc/build2/\033[0m) if configured." << ::std::endl
+       << ::std::endl
+       << "Once the search is complete, the files are loaded in the reverse order, that" << ::std::endl
+       << "is, beginning from the system directory (if any), followed by the home" << ::std::endl
+       << "directory, and finishing off with the options specified on the command line. In" << ::std::endl
+       << "other words, the files are loaded from the more generic to the more specific" << ::std::endl
+       << "with the command line options having the ability to override any values" << ::std::endl
+       << "specified in the default options files." << ::std::endl
+       << ::std::endl
+       << "If a default options file contains \033[1m--no-default-options\033[0m, then the search is" << ::std::endl
+       << "stopped at the directory containing this file and no outer files are loaded. If" << ::std::endl
+       << "this option is specified on the command line, then none of the default options" << ::std::endl
+       << "files are searched for or loaded." << ::std::endl
+       << ::std::endl
+       << "An additional directory containing default options files can be specified with" << ::std::endl
+       << "\033[1m--default-options\033[0m. Its configuration files are loaded after the home directory." << ::std::endl
+       << ::std::endl
+       << "The order in which default options files are loaded is traced at the verbosity" << ::std::endl
+       << "level 3 (\033[1m-V\033[0m option) or higher." << ::std::endl
+       << ::std::endl
+       << "\033[1mEXIT STATUS\033[0m" << ::std::endl
+       << ::std::endl
+       << "Non-zero exit status is returned in case of an error." << ::std::endl
+       << ::std::endl
        << "\033[1mENVIRONMENT\033[0m" << ::std::endl
        << ::std::endl
        << "The \033[1mHOME\033[0m environment variable is used to determine the user's home directory." << ::std::endl
