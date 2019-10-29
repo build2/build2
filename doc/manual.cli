@@ -2853,7 +2853,7 @@ lib{hello}: bin.lib.version = @-1.2 linux@3
 \
 
 \N{While the interface for platform-specific versions is defined, their
-support is not yet implemented by the C/C++ link and install rules.}
+support is currently only implemented on Linux.}
 
 A platform-independent version is embedded as a suffix into the library name
 (and into its \c{soname} on relevant platforms) while platform-specific
