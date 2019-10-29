@@ -386,32 +386,39 @@ namespace build2
       if (sfx != nullptr && sfx[0] != '\0')
         b += sfx;
 
-      // Clean pattern.
+      // Clean patterns.
       //
-      // Note that it's quite loose and we do additional filtering at the
-      // match site.
+      // Note that looser patterns tend to match all kinds of unexpected
+      // stuff, for example (using Windows; without the lib prefix things are
+      // even worse):
       //
-      // Note that it is used to "catch" not only old versions but also old
-      // load suffixes.
+      // foo-io.dll
+      // foo.dll.obj
+      // foo-1.dll.obj
+      // foo.dll.u.lib
       //
-      // @@ Won't we have an issue if we have, say, libfoo and libfoo-io
-      //    in the same directory?
+      // Even with these patterns we tighted things up we do additional
+      // filtering (of things like .d, .t that derived from the suffixed
+      // and versioned name) at the match site.
       //
-      path cp (b);
-      cp += "?*"; // For libfoo-1.2.so (don't match empty).
-      append_ext (cp);
-#if 0
-      // @@ This is too loose, it matches all kinds of unexpected stuff:
-      //    utility libraries (libfoo.so.u.a), object files (foo.dll.obj).
+      path cp_l, cp_v;
+
+      // Append separator characters (`-`, `_`, maybe `-v`) to the clean
+      // pattern until we encounter a digit. Return false if the digit was
+      // never encountered.
       //
-      //    Maybe `libfoo*.so.[0-9]*` would have done the trick? But that
-      //    won't catch old load suffixes (@@ test this, BTW). Maybe
-      //    adjust dependening on whether there is one?
-      //
-      //    Note that this will still match .d.
-      //
-      cp += '*';  // For libfoo.so.1.2.
-#endif
+      auto append_sep = [] (path& cp, const string& s) -> bool
+      {
+        for (char c: s)
+        {
+          if (digit (c))
+            return true;
+
+          cp += c;
+        }
+
+        return false;
+      };
 
       // On Windows the real path is to libs{} and the link path is empty.
       // Note that we still need to derive the import library path.
@@ -445,6 +452,17 @@ namespace build2
       //
       if (!ls.empty ())
       {
+        // Derive the load suffix clean pattern (e.g., `foo-[0-9]*.dll`).
+        //
+        // Note: postpone appending the extension since we use this pattern as
+        // a base for the version clean pattern.
+        //
+        cp_l = b;
+        if (append_sep (cp_l, ls))
+          cp_l += "[0-9]*";
+        else
+          cp_l.clear (); // Non-digit load suffix (use custom clean pattern).
+
         b += ls;
 
         // We will only need the load name if the following name differs.
@@ -462,17 +480,38 @@ namespace build2
       if (ver.empty () || !verp)
       {
         if (!ver.empty ())
+        {
+          // Derive the version clean pattern (e.g., `foo-[0-9]*.dll`, or, if
+          // we have the load clean pattern, `foo-[0-9]*-[0-9]*.dll`).
+          //
+          cp_v = cp_l.empty () ? b : cp_l;
+          if (append_sep (cp_v, ver))
+          {
+            cp_v += "[0-9]*";
+            append_ext (cp_v);
+          }
+          else
+            cp_v.clear (); // Non-digit version (use custom clean pattern).
+
           b += ver;
+        }
 
         re = &t.derive_path (move (b));
       }
       else
       {
+        // Derive the version clean pattern (e.g., `libfoo.so.[0-9]*`, or, if
+        // we have the load clean pattern, `libfoo-[0-9]*.so.[0-9]*`).
+        //
+        cp_v = cp_l.empty () ? b : cp_l;
+        append_ext (cp_v);
+        cp_v += ".[0-9]*";
+
         // Parse the next version component in the X.Y.Z version form.
         //
         // Note that we don't bother verifying components are numeric assuming
         // the user knows what they are doing (one can sometimes see versions
-        // with non-numeric components).
+        // with non-numeric components though probably not for X).
         //
         auto next = [&ver,
                      b = size_t (0),
@@ -527,8 +566,15 @@ namespace build2
           fail << tclass << "-specific bin.lib.version not yet supported";
       }
 
+      if (!cp_l.empty ()) append_ext (cp_l);
+
       return libs_paths {
-        move (lk), move (ld), move (so), move (in), re, move (cp)};
+        move (lk),
+        move (ld),
+        move (so),
+        move (in),
+        re,
+        move (cp_l), move (cp_v)};
     }
 
     // Look for binary-full utility library recursively until we hit a
@@ -2793,63 +2839,70 @@ namespace build2
       if (lt.shared_library ())
       {
         const libs_paths& paths (md.libs_paths);
-        const path& p (paths.clean);
 
-        if (!p.empty ())
-        try
+        auto rm = [&paths, this] (path&& m, const string&, bool interm)
         {
-          if (verb >= 4) // Seeing this with -V doesn't really add any value.
-            text << "rm " << p;
-
-          auto rm = [&paths, this] (path&& m, const string&, bool interm)
+          if (!interm)
           {
-            if (!interm)
+            // Filter out paths that match one of the current paths or a
+            // prefix of the real path (the latter takes care of auxiliary
+            // things like .d, .t, etc., that are normally derived from the
+            // target name).
+            //
+            // Yes, we are basically ad hoc-excluding things that break. Maybe
+            // we should use something more powerful for the pattern, such as
+            // regex? We could have a filesystem pattern which we then filter
+            // against a regex pattern?
+            //
+            auto prefix = [&m] (const path& p)
             {
-              // Filter out paths that match one of the current paths or a
-              // prefix of the real path (the latter takes care of auxiliary
-              // things like .d, .t, etc., that are normally derived from the
-              // target name).
-              //
-              // Yes, we are basically ad hoc-excluding things that break.
-              // Maybe we should use something more powerful for the pattern,
-              // such as regex? We could have a filesystem pattern which we
-              // then filter against a regex pattern?
-              //
-              auto prefix = [&m] (const path& p)
-              {
-                return path::traits_type::compare (m.string (),
-                                                   p.string (),
-                                                   p.string ().size ()) == 0;
-              };
+              return path::traits_type::compare (m.string (),
+                                                 p.string (),
+                                                 p.string ().size ()) == 0;
+            };
 
-              if (!prefix (*paths.real) &&
-                  m !=  paths.interm    &&
-                  m !=  paths.soname    &&
-                  m !=  paths.load      &&
-                  m !=  paths.link)
-              {
-                try_rmfile (m);
+            if (!prefix (*paths.real) &&
+                m !=  paths.interm    &&
+                m !=  paths.soname    &&
+                m !=  paths.load      &&
+                m !=  paths.link)
+            {
+              try_rmfile (m);
 
-                if (m.extension () != "d")
+              if (m.extension () != "d")
+              {
+                try_rmfile (m + ".d");
+
+                if (tsys == "win32-msvc")
                 {
-                  try_rmfile (m + ".d");
-
-                  if (tsys == "win32-msvc")
-                  {
-                    try_rmfile (m.base () += ".ilk");
-                    try_rmfile (m += ".pdb");
-                  }
+                  try_rmfile (m.base () += ".ilk");
+                  try_rmfile (m += ".pdb");
                 }
               }
             }
-            return true;
-          };
+          }
+          return true;
+        };
 
-          // Note: doesn't follow symlinks.
-          //
-          path_search (p, rm, dir_path () /* start */, path_match_flags::none);
-        }
-        catch (const system_error&) {} // Ignore errors.
+        auto clean = [&rm] (const path& p)
+        {
+          try
+          {
+            if (verb >= 4) // Seeing this with -V doesn't really add any value.
+              text << "rm " << p;
+
+            // Note: doesn't follow symlinks.
+            //
+            path_search (p,
+                         rm,
+                         dir_path () /* start */,
+                         path_match_flags::none);
+          }
+          catch (const system_error&) {} // Ignore errors.
+        };
+
+        if (!paths.clean_load.empty ())    clean (paths.clean_load);
+        if (!paths.clean_version.empty ()) clean (paths.clean_version);
       }
       else if (lt.static_library ())
       {

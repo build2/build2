@@ -64,7 +64,7 @@ namespace build2
         //
         // Note that the paths must form a "hierarchy" with subsequent paths
         // adding extra information as suffixes. This is relied upon by the
-        // clean pattern (see below).
+        // clean patterns (see below).
         //
         // The libs{} path is always the real path. On Windows what we link
         // to is the import library and the link path is empty.
@@ -81,11 +81,13 @@ namespace build2
         inline const path&
         effect_soname () const {return soname.empty () ? *real : soname;}
 
-        // Cleanup pattern used to remove previous versions. If empty, no
-        // cleanup is performed. The above (current) names are automatically
+        // Cleanup patterns used to remove previous load suffixes/versions.
+        // If empty, no corresponding cleanup is performed. The current names
+        // as well as names with the real path as a prefix are automatically
         // filtered out.
         //
-        path clean;
+        path clean_load;
+        path clean_version;
       };
 
       libs_paths
