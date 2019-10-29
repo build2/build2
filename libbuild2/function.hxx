@@ -10,6 +10,7 @@
 #include <type_traits>   // aligned_storage
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/variable.hxx>

@@ -8,6 +8,7 @@
 #include <stack>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/spec.hxx>
@@ -20,11 +21,6 @@
 
 namespace build2
 {
-  class scope;
-  class target;
-  class context;
-  class prerequisite;
-
   class LIBBUILD2_SYMEXPORT parser
   {
   public:

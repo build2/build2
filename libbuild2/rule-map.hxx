@@ -10,14 +10,13 @@
 #include <libbutl/prefix-map.mxx>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/action.hxx>
 
 namespace build2
 {
-  class rule;
-
   using hint_rule_map =
     butl::prefix_map<string, reference_wrapper<const rule>, '.'>;
 

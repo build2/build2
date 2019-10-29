@@ -9,6 +9,7 @@
 #include <unordered_set>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/module.hxx>

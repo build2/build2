@@ -12,6 +12,7 @@
 #include <libbutl/multi-index.mxx> // map_iterator_adapter
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/scope.hxx>
@@ -27,9 +28,6 @@
 
 namespace build2
 {
-  class rule;
-  class target;
-
   // From <libbuild2/algorithm.hxx>.
   //
   LIBBUILD2_SYMEXPORT const target&

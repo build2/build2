@@ -8,6 +8,7 @@
 #include <map>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/context.hxx>
@@ -23,9 +24,6 @@ namespace build2
   // implementation's perspectives, the module library is "loaded" and the
   // module is "bootstrapped" (or "booted" for short) and then "initialized"
   // (or "inited").
-
-  class scope;
-  class location;
 
   class module_base
   {

@@ -6,6 +6,7 @@
 #define LIBBUILD2_CC_UTILITY_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target.hxx>
@@ -15,8 +16,6 @@
 
 namespace build2
 {
-  struct variable;
-
   namespace cc
   {
     // To form the complete path do:

@@ -6,6 +6,7 @@
 #define LIBBUILD2_PREREQUISITE_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/scope.hxx>
@@ -18,8 +19,6 @@
 
 namespace build2
 {
-  class target;
-
   // Light-weight (by being shallow-pointing) prerequisite key, similar
   // to (and based on) target key.
   //

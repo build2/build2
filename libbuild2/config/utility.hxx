@@ -6,6 +6,7 @@
 #define LIBBUILD2_CONFIG_UTILITY_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/scope.hxx>
@@ -16,8 +17,6 @@
 
 namespace build2
 {
-  class scope;
-
   namespace config
   {
     // Set, if necessary, a required config.* variable.

@@ -8,6 +8,7 @@
 #include <libbutl/string-table.mxx>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/action.hxx>
@@ -17,19 +18,6 @@
 
 namespace build2
 {
-  class location;
-  class scope;
-  class target;
-  class target_key;
-  class context;
-  class include_type;
-  struct prerequisite_member;
-
-  class value;
-  using values = small_vector<value, 1>;
-
-  struct opspec;
-
   // Meta-operation info.
   //
 

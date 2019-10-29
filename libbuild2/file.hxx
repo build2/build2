@@ -8,6 +8,7 @@
 #include <map>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/scope.hxx>
@@ -17,10 +18,6 @@
 
 namespace build2
 {
-  class target;
-  class location;
-  class prerequisite_key;
-
   using subprojects = std::map<project_name, dir_path>;
 
   LIBBUILD2_SYMEXPORT ostream&

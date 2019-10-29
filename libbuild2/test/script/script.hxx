@@ -8,6 +8,7 @@
 #include <set>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/variable.hxx>
@@ -18,8 +19,6 @@
 
 namespace build2
 {
-  class target;
-
   namespace test
   {
     namespace script

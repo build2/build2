@@ -6,6 +6,7 @@
 #define LIBBUILD2_DUMP_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/action.hxx>
@@ -14,10 +15,6 @@
 
 namespace build2
 {
-  class scope;
-  class target;
-  class context;
-
   // Dump the build state to diag_stream. If action is specified, then assume
   // rules have been matched for this action and dump action-specific
   // information (like rule-specific variables).

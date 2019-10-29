@@ -6,6 +6,7 @@
 #define LIBBUILD2_SPEC_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/variable.hxx>
@@ -14,8 +15,6 @@
 
 namespace build2
 {
-  class scope;
-
   struct targetspec
   {
     typedef build2::name name_type;

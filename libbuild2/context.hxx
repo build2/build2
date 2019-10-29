@@ -6,6 +6,7 @@
 #define LIBBUILD2_CONTEXT_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 // NOTE: this file is included by pretty much every other build state header
@@ -20,26 +21,6 @@
 
 namespace build2
 {
-  class context;
-
-  class scope;
-  class scope_map;
-  class target_set;
-  class target_type_map;
-
-  class value;
-  using values = small_vector<value, 1>;
-
-  struct variable;
-  class variable_pool;
-  struct variable_override;
-  using variable_overrides = vector<variable_override>;
-  class variable_override_cache;
-
-  class function_map;
-
-  struct opspec;
-
   class loaded_modules_lock;
 
   class LIBBUILD2_SYMEXPORT run_phase_mutex

@@ -21,6 +21,7 @@
 #include <unordered_set>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 
 // "Fake" version values used during bootstrap.
 //
@@ -156,8 +157,6 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT extern optional<path> config_sub;   // --config-sub
   LIBBUILD2_SYMEXPORT extern optional<path> config_guess; // --config-guess
-
-  class location;
 
   LIBBUILD2_SYMEXPORT void
   check_build_version (const standard_version_constraint&, const location&);
@@ -502,8 +501,6 @@ namespace build2
   //
   // If excl is not NULL, then filter this option out (note: case sensitive).
   //
-  struct variable;
-
   template <typename T>
   void
   append_options (cstrings&, T&, const variable&, const char* excl = nullptr);
@@ -530,9 +527,6 @@ namespace build2
 
   // As above but from the strings value directly.
   //
-  class value;
-  struct lookup;
-
   LIBBUILD2_SYMEXPORT void
   append_options (cstrings&, const lookup&, const char* excl = nullptr);
 

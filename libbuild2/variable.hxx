@@ -14,6 +14,7 @@
 #include <libbutl/multi-index.mxx> // map_key
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/context.hxx>
@@ -33,10 +34,6 @@ namespace build2
   // 3. Any entity (module) that assigns a target-specific variable value
   //    during a phase other than load must make sure the variable has already
   //    been typified.
-
-  class value;
-  struct variable;
-  struct lookup;
 
   struct value_type
   {
@@ -481,8 +478,6 @@ namespace build2
   // A variable can be undefined, NULL, or contain a (potentially empty)
   // value.
   //
-  class variable_map;
-
   struct lookup
   {
     using value_type = build2::value;

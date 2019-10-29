@@ -6,6 +6,7 @@
 #define LIBBUILD2_TEST_SCRIPT_PARSER_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/parser.hxx>
@@ -16,8 +17,6 @@
 
 namespace build2
 {
-  class context;
-
   namespace test
   {
     namespace script

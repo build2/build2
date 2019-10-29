@@ -6,6 +6,7 @@
 #define LIBBUILD2_ALGORITHM_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/action.hxx>
@@ -15,11 +16,6 @@
 
 namespace build2
 {
-  class scope;
-  class context;
-  class prerequisite;
-  class prerequisite_key;
-
   // The default prerequisite search implementation. It first calls the
   // prerequisite-type-specific search function. If that doesn't yeld
   // anything, it creates a new target.

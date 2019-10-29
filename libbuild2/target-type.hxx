@@ -8,18 +8,13 @@
 #include <map>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/export.hxx>
 
 namespace build2
 {
-  class scope;
-  class target;
-  class context;
-  class target_key;
-  class prerequisite_key;
-
   // Target type.
   //
   // Note that we assume there is always a single instance of this class for

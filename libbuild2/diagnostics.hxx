@@ -8,6 +8,7 @@
 #include <libbutl/diagnostics.mxx>
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/export.hxx>
@@ -441,11 +442,6 @@ namespace build2
   //
   // info << "while " << diag_doing (a, t);
   //
-  class scope;
-  class target;
-  class context;
-  struct action;
-
   struct diag_phrase
   {
     const action& a;

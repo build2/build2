@@ -6,16 +6,13 @@
 #define LIBBUILD2_SEARCH_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/export.hxx>
 
 namespace build2
 {
-  class target;
-  class context;
-  class prerequisite_key;
-
   // Search for an existing target in this prerequisite's scope. Scope can be
   // NULL if directories are absolute.
   //

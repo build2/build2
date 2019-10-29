@@ -8,9 +8,8 @@
 #include <map>
 #include <cstring> // strcmp()
 
-#include <libbutl/utility.mxx> // compare_c_string
-
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/target-type.hxx>
