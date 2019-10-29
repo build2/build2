@@ -690,13 +690,11 @@ namespace build2
       return p;
     }
 
-    // install -d <dir>
-    //
-    static void
+    void file_rule::
     install_d (const scope& rs,
                const install_dir& base,
                const dir_path& d,
-               bool verbose = true)
+               uint16_t verbosity)
     {
       context& ctx (rs.ctx);
 
@@ -737,7 +735,7 @@ namespace build2
         dir_path pd (d.directory ());
 
         if (pd != base.dir)
-          install_d (rs, base, pd, verbose);
+          install_d (rs, base, pd, verbosity);
       }
 
       cstrings args;
@@ -763,24 +761,24 @@ namespace build2
 
       process_path pp (run_search (args[0]));
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb && verbose)
-        text << "install " << chd;
+      if (verb >= verbosity)
+      {
+        if (verb >= 2)
+          print_process (args);
+        else if (verb)
+          text << "install " << chd;
+      }
 
       run (pp, args);
     }
 
-    // install <file> <dir>/
-    // install <file> <file>
-    //
-    static void
+    void file_rule::
     install_f (const scope& rs,
                const install_dir& base,
                const path& name,
                const file& t,
                const path& f,
-               bool verbose)
+               uint16_t verbosity)
     {
       context& ctx (rs.ctx);
 
@@ -817,10 +815,13 @@ namespace build2
 
       process_path pp (run_search (args[0]));
 
-      if (verb >= 2)
-        print_process (args);
-      else if (verb && verbose)
-        text << "install " << t;
+      if (verb >= verbosity)
+      {
+        if (verb >= 2)
+          print_process (args);
+        else if (verb)
+          text << "install " << t;
+      }
 
       if (!ctx.dry_run)
         run (pp, args);
@@ -921,7 +922,7 @@ namespace build2
 
       auto install_target = [&rs, this] (const file& t,
                                          const path& p,
-                                         bool verbose)
+                                         uint16_t verbosity)
       {
         // Note: similar logic to resolve_file().
         //
@@ -949,7 +950,7 @@ namespace build2
         // sudo, etc).
         //
         for (auto i (ids.begin ()), j (i); i != ids.end (); j = i++)
-          install_d (rs, *j, i->dir, verbose); // install -d
+          install_d (rs, *j, i->dir, verbosity); // install -d
 
         install_dir& id (ids.back ());
 
@@ -974,7 +975,7 @@ namespace build2
           n ? p.leaf () : fp.leaf () != tp.leaf () ? tp.leaf () : path (),
           t,
           f.path,
-          verbose);
+          verbosity);
 
         install_post (t, id, move (f));
       };
@@ -989,7 +990,7 @@ namespace build2
       {
         if (const path* p = lookup_install<path> (*m, "install"))
         {
-          install_target (m->as<file> (), *p, tp.empty () /* verbose */);
+          install_target (m->as<file> (), *p, tp.empty () ? 1 : 2);
           r |= target_state::changed;
         }
       }
@@ -999,24 +1000,18 @@ namespace build2
       //
       if (!tp.empty ())
       {
-        install_target (t, cast<path> (t["install"]), true /* verbose */);
+        install_target (t, cast<path> (t["install"]), 1);
         r |= target_state::changed;
       }
 
       return r;
     }
 
-    // uninstall -d <dir>
-    //
-    // We try to remove all the directories between base and dir but not base
-    // itself unless base == dir. Return false if nothing has been removed
-    // (i.e., the directories do not exist or are not empty).
-    //
-    static bool
+    bool file_rule::
     uninstall_d (const scope& rs,
                  const install_dir& base,
                  const dir_path& d,
-                 uint16_t verbosity = 1)
+                 uint16_t verbosity)
     {
       // See install_d() for the rationale.
       //
@@ -1244,7 +1239,7 @@ namespace build2
         //
         for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
         {
-          if (install::uninstall_d (rs, ++j != e ? *j : *i, i->dir, verbosity))
+          if (uninstall_d (rs, ++j != e ? *j : *i, i->dir, verbosity))
             r |= target_state::changed;
         }
 

@@ -158,7 +158,32 @@ namespace build2
       // The verbosity argument specified the level to start printing the
       // command at. Note that these functions respect the dry_run flag.
 
-      // Install a symlink: base/link -> target.
+      // Install (create) a directory:
+      //
+      // install -d <dir>
+      //
+      static void
+      install_d (const scope& rs,
+                 const install_dir& base,
+                 const dir_path& dir,
+                 uint16_t verbosity = 1);
+
+      // Install a file:
+      //
+      // install <file> <base>/        # if <name> is empty
+      // install <file> <base>/<name>  # if <name> is not empty
+      //
+      static void
+      install_f (const scope& rs,
+                 const install_dir& base,
+                 const path& name,
+                 const file& target,
+                 const path& file,
+                 uint16_t verbosity = 1);
+
+      // Install (make) a symlink:
+      //
+      // ln -s <target> <base>/<link>
       //
       static void
       install_l (const scope& rs,
@@ -167,10 +192,10 @@ namespace build2
                  const path& link,
                  uint16_t verbosity = 1);
 
-      // Uninstall a file or symlink:
+      // Uninstall (remove) a file or symlink:
       //
-      // uninstall <target> <base>/  rm <base>/<target>.leaf (); name empty
-      // uninstall <target> <name>   rm <base>/<name>; target can be NULL
+      // uninstall <target> <base>/  # rm <base>/<target>.leaf (); name empty
+      // uninstall <target> <name>   # rm <base>/<name>; target can be NULL
       //
       // Return false if nothing has been removed (i.e., the file does not
       // exist).
@@ -180,6 +205,20 @@ namespace build2
                    const install_dir& base,
                    const file* target,
                    const path& name,
+                   uint16_t verbosity = 1);
+
+      // Uninstall (remove) an empty directory.
+      //
+      // uninstall -d <dir>
+      //
+      // We try to remove all the directories between base and dir but not base
+      // itself unless base == dir. Return false if nothing has been removed
+      // (i.e., the directories do not exist or are not empty).
+      //
+      static bool
+      uninstall_d (const scope& rs,
+                   const install_dir& base,
+                   const dir_path& dir,
                    uint16_t verbosity = 1);
 
       target_state
