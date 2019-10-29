@@ -59,6 +59,9 @@ namespace build2
       //
       auto& vp (rs.ctx.var_pool.rw (rs));
 
+      const auto vis_tgt (variable_visibility::target);
+      const auto vis_prj (variable_visibility::project);
+
       vp.insert<string>    ("config.bin.target",   true);
       vp.insert<string>    ("config.bin.pattern",  true);
 
@@ -117,18 +120,24 @@ namespace build2
       //
       // If unspecified, defaults to false for liba{} and to true for libu*{}.
       //
-      vp.insert<bool>      ("bin.whole", false, variable_visibility::target);
+      vp.insert<bool>      ("bin.whole", false, vis_tgt);
 
       vp.insert<string>    ("bin.exe.prefix");
       vp.insert<string>    ("bin.exe.suffix");
       vp.insert<string>    ("bin.lib.prefix");
       vp.insert<string>    ("bin.lib.suffix");
 
-      vp.insert<string>    ("bin.lib.load_suffix",
-                            variable_visibility::project);
+      // The optional custom clean patterns should be just the pattern stem,
+      // without the library prefix/name or extension. For example, `-[A-Z]`
+      // instead of `libfoo-[A-Z].so`. Note that the custom version pattern is
+      // only used for platform-independent versions (for platforms-specific
+      // versions we can always derive the pattern automatically).
+      //
+      vp.insert<string> ("bin.lib.load_suffix", vis_prj);
+      vp.insert<string> ("bin.lib.load_suffix_pattern", vis_prj);
 
-      vp.insert<map<string, string>> ("bin.lib.version",
-                                      variable_visibility::project);
+      vp.insert<map<string, string>> ("bin.lib.version", vis_prj);
+      vp.insert<string>              ("bin.lib.version_pattern", vis_prj);
 
       return true;
     }

@@ -458,7 +458,9 @@ namespace build2
         // a base for the version clean pattern.
         //
         cp_l = b;
-        if (append_sep (cp_l, ls))
+        if (auto* p = cast_null<string> (t["bin.lib.load_suffix_pattern"]))
+          cp_l += *p;
+        else if (append_sep (cp_l, ls))
           cp_l += "[0-9]*";
         else
           cp_l.clear (); // Non-digit load suffix (use custom clean pattern).
@@ -485,13 +487,16 @@ namespace build2
           // we have the load clean pattern, `foo-[0-9]*-[0-9]*.dll`).
           //
           cp_v = cp_l.empty () ? b : cp_l;
-          if (append_sep (cp_v, ver))
-          {
+
+          if (auto* p = cast_null<string> (t["bin.lib.version_pattern"]))
+            cp_v += *p;
+          else if (append_sep (cp_v, ver))
             cp_v += "[0-9]*";
-            append_ext (cp_v);
-          }
           else
             cp_v.clear (); // Non-digit version (use custom clean pattern).
+
+          if (!cp_v.empty ())
+            append_ext (cp_v);
 
           b += ver;
         }
