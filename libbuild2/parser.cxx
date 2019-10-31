@@ -1439,7 +1439,15 @@ namespace build2
       else
       {
         a = path::traits_type::is_separator (n.value.back ());
-        p /= path (move (n.value));
+
+        try
+        {
+          p /= path (move (n.value));
+        }
+        catch (const invalid_path& e)
+        {
+          fail (l) << "invalid include path '" << e.path << "'";
+        }
       }
 
       if (a)
@@ -1458,26 +1466,37 @@ namespace build2
       //
       dir_path out_base;
 
-      if (p.relative ())
+      try
       {
-        out_base = scope_->out_path () / p.directory ();
-        out_base.normalize ();
+        if (p.relative ())
+        {
+          out_base = scope_->out_path () / p.directory ();
+          out_base.normalize ();
+        }
+        else
+        {
+          p.normalize ();
+
+          // Make sure the path is in this project. Include is only meant
+          // to be used for intra-project inclusion (plus amalgamation).
+          //
+          bool in_out (false);
+          if (!p.sub (root_->src_path ()) &&
+              !(in_out = p.sub (root_->out_path ())))
+            fail (l) << "out of project include " << p;
+
+          out_base = in_out
+            ? p.directory ()
+            : out_src (p.directory (), *root_);
+        }
       }
-      else
+      catch (const invalid_path&)
       {
-        p.normalize ();
-
-        // Make sure the path is in this project. Include is only meant
-        // to be used for intra-project inclusion (plus amalgamation).
+        // The failure reason can only be the specified 'go past the root'
+        // path. Let's print the original path.
         //
-        bool in_out (false);
-        if (!p.sub (root_->src_path ()) &&
-            !(in_out = p.sub (root_->out_path ())))
-          fail (l) << "out of project include " << p;
-
-        out_base = in_out
-          ? p.directory ()
-          : out_src (p.directory (), *root_);
+        fail (l) << "invalid include path '" << (a ? p.directory () : p)
+                 << "'";
       }
 
       // Switch the scope. Note that we need to do this before figuring
