@@ -206,10 +206,11 @@ $ b config.cxx=clang++
 version and build for the \c{x86_64} target (\c{x64} in the Microsoft's
 terminology). You can, however, override these defaults by either running from
 a suitable Visual Studio development command prompt or by specifying an
-absolute path to \c{cl} that you wish to use. For example:
+absolute path to \c{cl} that you wish to use. For example (notice the use
+of inner quotes):
 
 \
-> b \"config.cxx=...\VC\Tools\MSVC\14.23.28105\bin\Hostx64\x86\cl\"
+> b \"config.cxx='...\VC\Tools\MSVC\14.23.28105\bin\Hostx64\x86\cl'\"
 \
 
 See \l{#cc-msvc MSVC Compiler Toolchain} for details.|
@@ -5265,11 +5266,16 @@ SDK and use that in the 64-bit mode.
 Finally, if the compiler is specified as an absolute path to \c{cl}, then the
 \c{cc} module will attempt to locate the corresponding Visual Studio
 installation as well as the latest Platform SDK and use that in the mode
-corresponding to the specified \c{cl} executable.
+corresponding to the specified \c{cl} executable. Note that to specify an
+absolute path to \c{cl} (which most likely contains spaces) we have to
+use two levels of quoting:
 
-Note that the latter two methods are only available for Visual Studio 15 (2017)
-and later and for earlier versions the development command prompt must be
-used.
+\
+> b \"config.cxx='...\VC\Tools\MSVC\14.23.28105\bin\Hostx64\x86\cl'\"
+\
+
+\N|The latter two methods are only available for Visual Studio 15 (2017) and
+later and for earlier versions the development command prompt must be used.|
 
 The default MSVC runtime selected by the \c{cc} module is multi-threaded
 shared (the \c{/MD} \c{cl} option). An alternative runtime can be selected
