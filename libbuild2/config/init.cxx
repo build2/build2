@@ -9,6 +9,7 @@
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/context.hxx>
+#include <libbuild2/function.hxx>
 #include <libbuild2/filesystem.hxx>  // exists()
 #include <libbuild2/diagnostics.hxx>
 
@@ -23,15 +24,19 @@ namespace build2
 {
   namespace config
   {
+    void
+    functions (function_map&); // functions.cxx
+
     bool
     boot (scope& rs, const location&, unique_ptr<module_base>& mod)
     {
       tracer trace ("config::boot");
 
+      context& ctx (rs.ctx);
+
       l5 ([&]{trace << "for " << rs;});
 
-      const string& mname (rs.ctx.current_mname);
-      const string& oname (rs.ctx.current_oname);
+      auto& vp (rs.ctx.var_pool.rw (rs));
 
       // While config.import (see below) could theoretically be specified in a
       // buildfile, config.export is expected to always be specified as a
@@ -46,8 +51,17 @@ namespace build2
       // forced with config.module (useful if we need to call $config.export()
       // during other meta-operations).
       //
-      if ((                   mname == "configure" || mname == "create") ||
-          (mname.empty () && (oname == "configure" || oname == "create")))
+      // Detecting the former (configuring/creating) is a bit tricky since the
+      // build2 core may not yet know if this is the case. But we know.
+      //
+      auto& c_m (vp.insert<bool> ("config.module", false /*ovr*/));
+
+      const string& mname (ctx.current_mname);
+      const string& oname (ctx.current_oname);
+
+      if ((                   mname == "configure" || mname == "create")  ||
+          (mname.empty () && (oname == "configure" || oname == "create")) ||
+          cast_false<bool> (rs.vars[c_m]))
       {
         unique_ptr<module> m (new module);
 
@@ -58,6 +72,12 @@ namespace build2
 
         mod = move (m);
       }
+
+      // Register the config function family if this is the first instance of
+      // the config module.
+      //
+      if (!function_family::defined (ctx.functions, "config"))
+        functions (ctx.functions);
 
       // Register meta-operations. Note that we don't register create_id
       // since it will be pre-processed into configure.
@@ -85,8 +105,7 @@ namespace build2
         return true;
       }
 
-      const dir_path& out_root (rs.out_path ());
-      l5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << rs;});
 
       assert (config_hints.empty ()); // We don't known any hints.
 

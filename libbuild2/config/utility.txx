@@ -19,8 +19,7 @@ namespace build2
     {
       // Note: see also omitted() if changing anything here.
 
-      if (root.ctx.current_mif->id == configure_id)
-        save_variable (root, var, save_flags);
+      save_variable (root, var, save_flags);
 
       pair<lookup, size_t> org (root.find_original (var));
 

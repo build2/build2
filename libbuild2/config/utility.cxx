@@ -18,12 +18,12 @@ namespace build2
   namespace config
   {
     pair<lookup, bool>
-    omitted (scope& r, const variable& var)
+    omitted (scope& rs, const variable& var)
     {
       // This is a stripped-down version of the required() twisted
       // implementation.
 
-      pair<lookup, size_t> org (r.find_original (var));
+      pair<lookup, size_t> org (rs.find_original (var));
 
       bool n (false); // New flag.
       lookup l (org.first);
@@ -35,7 +35,7 @@ namespace build2
 
       if (var.overrides != nullptr)
       {
-        pair<lookup, size_t> ovr (r.find_override (var, move (org)));
+        pair<lookup, size_t> ovr (rs.find_override (var, move (org)));
 
         if (l != ovr.first) // Overriden?
         {
@@ -46,26 +46,25 @@ namespace build2
         }
       }
 
-      if (l.defined () && r.ctx.current_mif->id == configure_id)
-        save_variable (r, var);
+      if (l.defined ())
+        save_variable (rs, var);
 
       return pair<lookup, bool> (l, n);
     }
 
     lookup
-    optional (scope& r, const variable& var)
+    optional (scope& rs, const variable& var)
     {
-      if (r.ctx.current_mif->id == configure_id)
-        save_variable (r, var);
+      save_variable (rs, var);
 
-      auto l (r[var]);
+      auto l (rs[var]);
       return l.defined ()
         ? l
-        : lookup (r.assign (var), var, r); // NULL.
+        : lookup (rs.assign (var), var, rs); // NULL.
     }
 
     bool
-    specified (scope& r, const string& n)
+    specified (scope& rs, const string& n)
     {
       // Search all outer scopes for any value in this namespace.
       //
@@ -75,8 +74,8 @@ namespace build2
       // any original values, they will be "visible"; see find_override() for
       // details.
       //
-      const variable& vns (r.ctx.var_pool.rw (r).insert ("config." + n));
-      for (scope* s (&r); s != nullptr; s = s->parent_scope ())
+      const variable& vns (rs.ctx.var_pool.rw (rs).insert ("config." + n));
+      for (scope* s (&rs); s != nullptr; s = s->parent_scope ())
       {
         for (auto p (s->vars.find_namespace (vns));
              p.first != p.second;
@@ -103,8 +102,7 @@ namespace build2
       const variable& var (
         rs.ctx.var_pool.rw (rs).insert ("config." + n + ".configured"));
 
-      if (rs.ctx.current_mif->id == configure_id)
-        save_variable (rs, var);
+      save_variable (rs, var);
 
       auto l (rs[var]); // Include inherited values.
       return l && !cast<bool> (l);
@@ -118,8 +116,7 @@ namespace build2
       const variable& var (
         rs.ctx.var_pool.rw (rs).insert ("config." + n + ".configured"));
 
-      if (rs.ctx.current_mif->id == configure_id)
-        save_variable (rs, var);
+      save_variable (rs, var);
 
       value& x (rs.assign (var));
 
@@ -133,25 +130,16 @@ namespace build2
     }
 
     void
-    save_variable (scope& r, const variable& var, uint64_t flags)
+    save_variable (scope& rs, const variable& var, uint64_t flags)
     {
-      if (r.ctx.current_mif->id != configure_id)
-        return;
-
-      // The project might not be using the config module. But then how
-      // could we be configuring it? Good question.
-      //
-      if (module* m = r.lookup_module<module> (module::name))
+      if (module* m = rs.lookup_module<module> (module::name))
         m->save_variable (var, flags);
     }
 
     void
-    save_module (scope& r, const char* name, int prio)
+    save_module (scope& rs, const char* name, int prio)
     {
-      if (r.ctx.current_mif->id != configure_id)
-        return;
-
-      if (module* m = r.lookup_module<module> (module::name))
+      if (module* m = rs.lookup_module<module> (module::name))
         m->save_module (name, prio);
     }
 

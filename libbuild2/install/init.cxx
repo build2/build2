@@ -137,8 +137,8 @@ namespace build2
 
       context& ctx (rs.ctx);
 
-      // Register install function family if this is the first instance of the
-      // install modules.
+      // Register the install function family if this is the first instance of
+      // the install modules.
       //
       if (!function_family::defined (ctx.functions, "install"))
         functions (ctx.functions);
@@ -188,8 +188,7 @@ namespace build2
         return true;
       }
 
-      const dir_path& out_root (rs.out_path ());
-      l5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << rs;});
 
       assert (config_hints.empty ()); // We don't known any hints.
 

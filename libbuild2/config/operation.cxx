@@ -4,8 +4,6 @@
 
 #include <libbuild2/config/operation.hxx>
 
-#include <set>
-
 #include <libbuild2/file.hxx>
 #include <libbuild2/spec.hxx>
 #include <libbuild2/scope.hxx>
@@ -90,26 +88,23 @@ namespace build2
     // If inherit is false, then don't rely on inheritance from outer scopes
     // (used for config.export).
     //
-    static void
+    void
     save_config (const scope& rs,
-                 const path& f,
+                 ostream& os,
+                 const string& name,
                  bool inherit,
                  const project_set& projects)
     {
       context& ctx (rs.ctx);
 
-      const module& mod (*rs.lookup_module<const module> (module::name));
+      const module* mod (rs.lookup_module<const module> (module::name));
 
-      const string& df (f.string () != "-" ? f.string () : "<stdout>");
-
-      if (verb)
-        text << (verb >= 2 ? "cat >" : "save ") << df;
+      if (mod == nullptr)
+        fail << "no configuration information available during this meta-"
+             << "operation";
 
       try
       {
-        ofdstream ofs;
-        ostream& os (open_file_or_stdout (f, ofs));
-
         os << "# Created automatically by the config module, but feel " <<
           "free to edit." << endl
            << "#" << endl;
@@ -132,7 +127,7 @@ namespace build2
         //
         names storage;
 
-        for (auto p: mod.saved_modules.order)
+        for (auto p: mod->saved_modules.order)
         {
           const string& sname (p.second->first);
           const saved_variables& svars (p.second->second);
@@ -170,7 +165,8 @@ namespace build2
               // still valid and we should probably continue using them but we
               // definitely want to move them to our config.build since they
               // will be dropped from the amalgamation's config.build on the
-              // next reconfigure. Let's also warn the user just in case.
+              // next reconfigure. Let's also warn the user just in case,
+              // unless there is no module and thus we couldn't really check.
               //
               // There is also another case that falls under this now that
               // overrides are by default amalgamation-wide rather than just
@@ -178,13 +174,13 @@ namespace build2
               // subproject but the override is now set on the outer project's
               // root.
               //
-              bool found (false);
+              bool found (false), checked (true);
               const scope* r (&rs);
               while ((r = r->parent_scope ()->root_scope ()) != nullptr)
               {
                 if (l.belongs (*r))
                 {
-                  // Find the config module.
+                  // Find the config module (might not be there).
                   //
                   if (auto* m = r->lookup_module<const module> (module::name))
                   {
@@ -215,6 +211,8 @@ namespace build2
                         found = false;
                     }
                   }
+                  else
+                    checked = false;
 
                   break;
                 }
@@ -229,32 +227,30 @@ namespace build2
               }
               else
               {
-                location loc (&f);
-
                 // If this value is not defined in a project's root scope,
                 // then something is broken.
                 //
                 if (r == nullptr)
-                  fail (loc) << "inherited variable " << var << " value "
-                             << "is not from a root scope";
+                  fail << name << ": inherited variable " << var << " value "
+                       << "is not from a root scope";
 
                 // If none of the outer project's configurations use this
-                // value, then we warn and save as our own. One special case
-                // where we don't want to warn the user is if the variable is
-                // overriden.
+                // value, then we warn (unless we couldn't check) and save as
+                // our own. One special case where we don't want to warn the
+                // user is if the variable is overriden.
                 //
-                if (org.first == ovr.first)
+                if (checked && org.first == ovr.first)
                 {
                   diag_record dr;
-                  dr << warn (loc) << "saving previously inherited variable "
-                     << var;
+                  dr << warn << name << ": saving previously inherited "
+                     << "variable " << var;
 
-                  dr << info (loc) << "because project " << *r
-                     << " no longer uses it in its configuration";
+                  dr << info << "because project " << *r << " no longer uses "
+                     << "it in its configuration";
 
                   if (verb >= 2)
                   {
-                    dr << info (loc) << "variable value: ";
+                    dr << info << "variable value: ";
 
                     if (*l)
                     {
@@ -322,12 +318,34 @@ namespace build2
               os << n << " = [null]" << endl;
           }
         }
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to write " << name << ": " << e;
+      }
+    }
 
+    static void
+    save_config (const scope& rs,
+                 const path& f,
+                 bool inherit,
+                 const project_set& projects)
+    {
+      const string& fs (f.string () != "-" ? f.string () : "<stdout>");
+
+      if (verb)
+        text << (verb >= 2 ? "cat >" : "save ") << fs;
+
+      try
+      {
+        ofdstream ofs;
+        ostream& os ();
+        save_config (rs, open_file_or_stdout (f, ofs), fs, inherit, projects);
         ofs.close ();
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << df << ": " << e;
+        fail << "unable to write " << fs << ": " << e;
       }
     }
 

@@ -51,10 +51,10 @@ namespace build2
     scope*       parent_scope ()       {return parent_;}
     const scope* parent_scope () const {return parent_;}
 
-    // Root scope of this scope or NULL if this scope is not (yet)
-    // in any (known) project. Note that if the scope itself is
-    // root, then this function return this. To get to the outer
-    // root, query the root scope of the parent.
+    // Root scope of this scope or NULL if this scope is not (yet) in any
+    // (known) project. Note that if the scope itself is root, then this
+    // function return this. To get to the outer root, query the root scope of
+    // the parent.
     //
     scope*       root_scope ()       {return root_;}
     const scope* root_scope () const {return root_;}

@@ -19,11 +19,11 @@ namespace build2
 {
   namespace config
   {
-    // An ordered list of modules each with an ordered list of list of
-    // config.* variables and their "save flags" (see save_variable()) that
-    // are used (as opposed to just being specified) in this configuration.
-    // Populated by the config utility functions (required(), optional())
-    // and saved in the order populated.
+    // An ordered list of build system modules each with an ordered list of
+    // list of config.* variables and their "save flags" (see save_variable())
+    // that are used (as opposed to just being specified) in this
+    // configuration. Populated by the config utility functions (required(),
+    // optional()) and saved in the order populated.
     //
     struct saved_variable
     {

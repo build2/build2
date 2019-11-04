@@ -137,8 +137,7 @@ namespace build2
         return true;
       }
 
-      const dir_path& out_root (rs.out_path ());
-      l5 ([&]{trace << "for " << out_root;});
+      l5 ([&]{trace << "for " << rs;});
 
       assert (mod != nullptr);
       module& m (static_cast<module&> (*mod));
