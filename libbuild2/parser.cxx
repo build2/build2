@@ -213,9 +213,14 @@ namespace build2
   void parser::
   parse_buildfile (istream& is, const path& p, scope& root, scope& base)
   {
-    path_ = &p;
+    lexer l (is, p);
+    parse_buildfile (l, root, base);
+  }
 
-    lexer l (is, *path_);
+  void parser::
+  parse_buildfile (lexer& l, scope& root, scope& base)
+  {
+    path_ = &l.name ();
     lexer_ = &l;
     root_ = &root;
     scope_ = &base;
@@ -224,7 +229,7 @@ namespace build2
     prerequisite_ = nullptr;
     default_target_ = nullptr;
 
-    enter_buildfile (p); // Needs scope_.
+    enter_buildfile (*path_); // Needs scope_.
 
     token t;
     type tt;

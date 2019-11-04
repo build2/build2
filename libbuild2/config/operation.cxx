@@ -87,35 +87,45 @@ namespace build2
 
     using project_set = set<const scope*>; // Use pointers to get comparison.
 
+    // If inherit is false, then don't rely on inheritance from outer scopes
+    // (used for config.export).
+    //
     static void
-    save_config (const scope& rs, const project_set& projects)
+    save_config (const scope& rs,
+                 const path& f,
+                 bool inherit,
+                 const project_set& projects)
     {
       context& ctx (rs.ctx);
 
-      path f (config_file (rs));
+      const module& mod (*rs.lookup_module<const module> (module::name));
+
+      const string& df (f.string () != "-" ? f.string () : "<stdout>");
 
       if (verb)
-        text << (verb >= 2 ? "cat >" : "save ") << f;
-
-      const module& mod (*rs.lookup_module<const module> (module::name));
+        text << (verb >= 2 ? "cat >" : "save ") << df;
 
       try
       {
-        ofdstream ofs (f);
+        ofdstream ofs;
+        ostream& os (open_file_or_stdout (f, ofs));
 
-        ofs << "# Created automatically by the config module, but feel " <<
+        os << "# Created automatically by the config module, but feel " <<
           "free to edit." << endl
-            << "#" << endl;
+           << "#" << endl;
 
-        ofs << "config.version = " << module::version << endl;
+        os << "config.version = " << module::version << endl;
 
-        if (auto l = rs.vars[ctx.var_amalgamation])
+        if (inherit)
         {
-          const dir_path& d (cast<dir_path> (l));
+          if (auto l = rs.vars[ctx.var_amalgamation])
+          {
+            const dir_path& d (cast<dir_path> (l));
 
-          ofs << endl
-              << "# Base configuration inherited from " << d << endl
-              << "#" << endl;
+            os << endl
+               << "# Base configuration inherited from " << d << endl
+               << "#" << endl;
+          }
         }
 
         // Save config variables.
@@ -146,6 +156,11 @@ namespace build2
             if (!l.defined ())
               continue;
 
+            // Handle inherited from outer scope values.
+            //
+            // Note that we keep this logic (with warnings and all) even if
+            // inherit is false to make things easier to reason about.
+            //
             if (!(l.belongs (rs) || l.belongs (ctx.global_scope)))
             {
               // This is presumably an inherited value. But it could also be
@@ -205,42 +220,50 @@ namespace build2
                 }
               }
 
-              if (found) // Inherited.
-                continue;
-
-              location loc (&f);
-
-              // If this value is not defined in a project's root scope, then
-              // something is broken.
-              //
-              if (r == nullptr)
-                fail (loc) << "inherited variable " << var << " value "
-                           << "is not from a root scope";
-
-              // If none of the outer project's configurations use this value,
-              // then we warn and save as our own. One special case where we
-              // don't want to warn the user is if the variable is overriden.
-              //
-              if (org.first == ovr.first)
+              if (found)
               {
-                diag_record dr;
-                dr << warn (loc) << "saving previously inherited variable "
-                   << var;
+                // Inherited.
+                //
+                if (inherit)
+                  continue;
+              }
+              else
+              {
+                location loc (&f);
 
-                dr << info (loc) << "because project " << *r
-                   << " no longer uses it in its configuration";
+                // If this value is not defined in a project's root scope,
+                // then something is broken.
+                //
+                if (r == nullptr)
+                  fail (loc) << "inherited variable " << var << " value "
+                             << "is not from a root scope";
 
-                if (verb >= 2)
+                // If none of the outer project's configurations use this
+                // value, then we warn and save as our own. One special case
+                // where we don't want to warn the user is if the variable is
+                // overriden.
+                //
+                if (org.first == ovr.first)
                 {
-                  dr << info (loc) << "variable value: ";
+                  diag_record dr;
+                  dr << warn (loc) << "saving previously inherited variable "
+                     << var;
 
-                  if (*l)
+                  dr << info (loc) << "because project " << *r
+                     << " no longer uses it in its configuration";
+
+                  if (verb >= 2)
                   {
-                    storage.clear ();
-                    dr << "'" << reverse (*l, storage) << "'";
+                    dr << info (loc) << "variable value: ";
+
+                    if (*l)
+                    {
+                      storage.clear ();
+                      dr << "'" << reverse (*l, storage) << "'";
+                    }
+                    else
+                      dr << "[null]";
                   }
-                  else
-                    dr << "[null]";
                 }
               }
             }
@@ -264,7 +287,7 @@ namespace build2
             //
             if (first)
             {
-              ofs << endl;
+              os << endl;
               first = false;
             }
 
@@ -274,7 +297,7 @@ namespace build2
                 org.first == ovr.first &&                     // Not overriden.
                 (sv.flags & save_commented) == save_commented)
             {
-              ofs << '#' << n << " =" << endl;
+              os << '#' << n << " =" << endl;
               continue;
             }
 
@@ -283,20 +306,20 @@ namespace build2
               storage.clear ();
               names_view ns (reverse (v, storage));
 
-              ofs << n;
+              os << n;
 
               if (ns.empty ())
-                ofs << " =";
+                os << " =";
               else
               {
-                ofs << " = ";
-                to_stream (ofs, ns, true, '@'); // Quote.
+                os << " = ";
+                to_stream (os, ns, true, '@'); // Quote.
               }
 
-              ofs << endl;
+              os << endl;
             }
             else
-              ofs << n << " = [null]" << endl;
+              os << n << " = [null]" << endl;
           }
         }
 
@@ -304,12 +327,15 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << f << ": " << e;
+        fail << "unable to write " << df << ": " << e;
       }
     }
 
     static void
-    configure_project (action a, const scope& rs, project_set& projects)
+    configure_project (action a,
+                       const scope& rs,
+                       const variable* c_e, // config.export
+                       project_set& projects)
     {
       tracer trace ("configure_project");
 
@@ -332,8 +358,7 @@ namespace build2
         mkdir (out_root / rs.root_extra->bootstrap_dir, 2);
       }
 
-      // We distinguish between a complete configure and operation-
-      // specific.
+      // We distinguish between a complete configure and operation-specific.
       //
       if (a.operation () == default_id)
       {
@@ -341,15 +366,48 @@ namespace build2
 
         // Save src-root.build unless out_root is the same as src.
         //
-        if (out_root != src_root)
+        if (c_e == nullptr && out_root != src_root)
           save_src_root (rs);
 
-        // Save config.build.
+        // Save config.build unless an alternative is specified with
+        // config.export. Similar to config.import we will only save to that
+        // file if it is specified on our root scope or as a global override
+        // (the latter is a bit iffy but let's allow it, for example, to dump
+        // everything to stdout). Note that to save a subproject's config we
+        // will have to use a scope-specific override (since the default will
+        // apply to the amalgamation):
         //
-        save_config (rs, projects);
+        // b configure: subproj/ subproj/config.export=.../config.build
+        //
+        // Could be confusing but then normally it will be the amalgamation
+        // whose configuration we want to export.
+        //
+        // Note also that if config.export is specified we do not rewrite
+        // config.build files (say, of subprojects) as well as src-root.build
+        // above. Failed that, if we are running in a disfigured project, we
+        // may end up leaving it in partially configured state.
+        //
+        if (c_e == nullptr)
+          save_config (rs, config_file (rs), true /* inherit */, projects);
+        else
+        {
+          lookup l (rs[*c_e]);
+          if (l && (l.belongs (rs) || l.belongs (ctx.global_scope)))
+          {
+            // While writing the complete configuration seems like a natural
+            // default, there might be a desire to take inheritance into
+            // account (if, say, we are exporting at multiple levels). One can
+            // of course just copy the relevant config.build files, but we may
+            // still want to support this mode somehow in the future (maybe
+            // using `+` as a modifier, say config.export=+.../config.build).
+            //
+            save_config (rs, cast<path> (l), false /* inherit */, projects);
+          }
+        }
       }
       else
       {
+        fail << "operation-specific configuration not yet supported";
       }
 
       // Configure subprojects that have been loaded.
@@ -368,7 +426,7 @@ namespace build2
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
 
-          configure_project (a, nrs, projects);
+          configure_project (a, nrs, c_e, projects);
         }
       }
     }
@@ -513,6 +571,15 @@ namespace build2
     {
       bool fwd (forward (params));
 
+      context& ctx (fwd ? ts[0].as<scope> ().ctx : ts[0].as<target> ().ctx);
+
+      const variable* c_e (ctx.var_pool.find ("config.export"));
+
+      if (c_e->overrides == nullptr)
+        c_e = nullptr;
+      else if (fwd)
+        fail << "config.export specified for forward configuration";
+
       project_set projects;
 
       for (const action_target& at: ts)
@@ -521,53 +588,52 @@ namespace build2
         {
           // Forward configuration.
           //
-          const scope& rs (*static_cast<const scope*> (at.target));
+          const scope& rs (at.as<scope> ());
           configure_forward (rs, projects);
-          continue;
         }
-
-        // Normal configuration.
-        //
-        // Match rules to configure every operation supported by each project.
-        // Note that we are not calling operation_pre/post() callbacks here
-        // since the meta operation is configure and we know what we are
-        // doing.
-        //
-        // Note that we cannot do this in parallel. We cannot parallelize the
-        // outer loop because we should match for a single action at a time.
-        // And we cannot swap the loops because the list of operations is
-        // target-specific. However, inside match(), things can proceed in
-        // parallel.
-        //
-        const target& t (at.as_target ());
-        const scope* rs (t.base_scope ().root_scope ());
-
-        if (rs == nullptr)
-          fail << "out of project target " << t;
-
-        context& ctx (t.ctx);
-
-        const operations& ops (rs->root_extra->operations);
-
-        for (operation_id id (default_id + 1); // Skip default_id.
-             id < ops.size ();
-             ++id)
+        else
         {
-          if (const operation_info* oif = ops[id])
+          // Normal configuration.
+          //
+          // Match rules to configure every operation supported by each
+          // project. Note that we are not calling operation_pre/post()
+          // callbacks here since the meta operation is configure and we know
+          // what we are doing.
+          //
+          // Note that we cannot do this in parallel. We cannot parallelize
+          // the outer loop because we should match for a single action at a
+          // time. And we cannot swap the loops because the list of operations
+          // is target-specific. However, inside match(), things can proceed
+          // in parallel.
+          //
+          const target& t (at.as<target> ());
+          const scope* rs (t.base_scope ().root_scope ());
+
+          if (rs == nullptr)
+            fail << "out of project target " << t;
+
+          const operations& ops (rs->root_extra->operations);
+
+          for (operation_id id (default_id + 1); // Skip default_id.
+               id < ops.size ();
+               ++id)
           {
-            // Skip aliases (e.g., update-for-install).
-            //
-            if (oif->id != id)
-              continue;
+            if (const operation_info* oif = ops[id])
+            {
+              // Skip aliases (e.g., update-for-install).
+              //
+              if (oif->id != id)
+                continue;
 
-            ctx.current_operation (*oif);
+              ctx.current_operation (*oif);
 
-            phase_lock pl (ctx, run_phase::match);
-            match (action (configure_id, id), t);
+              phase_lock pl (ctx, run_phase::match);
+              match (action (configure_id, id), t);
+            }
           }
-        }
 
-        configure_project (a, *rs, projects);
+          configure_project (a, *rs, c_e, projects);
+        }
       }
     }
 
@@ -802,7 +868,7 @@ namespace build2
       //
       for (const action_target& at: ts)
       {
-        const scope& rs (*static_cast<const scope*> (at.target));
+        const scope& rs (at.as<scope> ());
 
         if (!(fwd
               ? disfigure_forward (   rs, projects)

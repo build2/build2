@@ -221,6 +221,9 @@ namespace build2
 
       // Set all the version.* variables.
       //
+      // Note also that we have "gifted" the config.version variable name to
+      // the config module.
+      //
       auto& vp (ctx.var_pool.rw (rs));
 
       auto set = [&vp, &rs] (const char* var, auto val)

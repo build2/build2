@@ -30,7 +30,7 @@ namespace build2
         i = sm.insert (string (n, 0, n.find ('.', 7)));
       }
 
-      // Don't insert duplicates. The config.import vars are particularly
+      // Don't insert duplicates. The config.import.* vars are particularly
       // susceptible to duplication.
       //
       saved_variables& sv (i->second);

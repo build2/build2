@@ -194,7 +194,7 @@ namespace build2
         mode (lexer_mode::normal, '@', escapes);
     }
 
-    const path name_;
+    const path name_; // @@ TODO: why not shallow (like istream)?
     std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().

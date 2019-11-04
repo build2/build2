@@ -304,7 +304,7 @@ namespace build2
         }
 
         assert (tgs.size () == 1);
-        const target& l (tgs[0].as_target ());
+        const target& l (tgs[0].as<target> ());
 
         if (!l.is_a ("libs"))
           fail (loc) << "wrong export from build system module " << mod;

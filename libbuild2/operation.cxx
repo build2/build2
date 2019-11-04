@@ -136,7 +136,7 @@ namespace build2
     if (ts.empty ())
       return;
 
-    context& ctx (ts[0].as_target ().ctx);
+    context& ctx (ts[0].as<target> ().ctx);
 
     {
       phase_lock l (ctx, run_phase::match);
@@ -176,7 +176,7 @@ namespace build2
 
         for (; i != n; ++i)
         {
-          const target& t (ts[i].as_target ());
+          const target& t (ts[i].as<target> ());
           l5 ([&]{trace << diag_doing (a, t);});
 
           target_state s (match_async (a, t, 0, task_count, false));
@@ -208,7 +208,7 @@ namespace build2
       for (size_t j (0); j != n; ++j)
       {
         action_target& at (ts[j]);
-        const target& t (at.as_target ());
+        const target& t (at.as<target> ());
 
         target_state s (j < i
                         ? match (a, t, false)
@@ -264,7 +264,7 @@ namespace build2
     if (ts.empty ())
       return;
 
-    context& ctx (ts[0].as_target ().ctx);
+    context& ctx (ts[0].as<target> ().ctx);
 
     // Reverse the order of targets if the execution mode is 'last'.
     //
@@ -338,7 +338,7 @@ namespace build2
 
         for (const action_target& at: ts)
         {
-          const target& t (at.as_target ());
+          const target& t (at.as<target> ());
 
           l5 ([&]{trace << diag_doing (a, t);});
 
@@ -389,7 +389,7 @@ namespace build2
     bool fail (false);
     for (action_target& at: ts)
     {
-      const target& t (at.as_target ());
+      const target& t (at.as<target> ());
 
       switch ((at.state = t.executed_state (a, false)))
       {
@@ -521,7 +521,7 @@ namespace build2
       if (i != 0)
         cout << endl;
 
-      const scope& rs (*static_cast<const scope*> (ts[i].target));
+      const scope& rs (ts[i].as<scope> ());
 
       context& ctx (rs.ctx);
 

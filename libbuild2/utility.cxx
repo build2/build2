@@ -8,7 +8,7 @@
 
 #include <cerrno>   // ENOENT
 #include <cstring>  // strlen(), str[n]cmp()
-#include <iostream> // cerr
+#include <iostream> // cin cout cerr
 
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -99,6 +99,36 @@ namespace build2
   dir_path work;
   dir_path home;
   const dir_path* relative_base = &work;
+
+  istream&
+  open_file_or_stdin (const path& f, ifdstream& ifs)
+  {
+    if (f.string () != "-")
+    {
+      ifs.open (f);
+      return ifs;
+    }
+    else
+    {
+      cin.exceptions (ifdstream::failbit | ifdstream::badbit);
+      return cin;
+    }
+  }
+
+  ostream&
+  open_file_or_stdout (const path& f, ofdstream& ofs)
+  {
+    if (f.string () != "-")
+    {
+      ofs.open (f);
+      return ofs;
+    }
+    else
+    {
+      cout.exceptions (ofdstream::failbit | ofdstream::badbit);
+      return cout;
+    }
+  }
 
   path
   relative (const path_target& t)

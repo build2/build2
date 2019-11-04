@@ -473,7 +473,7 @@ namespace build2
     // Enter builtin variables and patterns.
     //
 
-    // All config. variables are by default overridable.
+    // All config.* variables are by default overridable.
     //
     vp.insert_pattern ("config.**", nullopt, true, nullopt, true, false);
 

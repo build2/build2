@@ -106,7 +106,7 @@ namespace build2
 
       if (ops.structured_result ())
       {
-        const target& t (at.as_target ());
+        const target& t (at.as<target> ());
         context& ctx (t.ctx);
 
         cout << at.state

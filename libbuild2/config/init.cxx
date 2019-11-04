@@ -6,6 +6,7 @@
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/rule.hxx>
+#include <libbuild2/lexer.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/filesystem.hxx>  // exists()
@@ -32,9 +33,18 @@ namespace build2
       const string& mname (rs.ctx.current_mname);
       const string& oname (rs.ctx.current_oname);
 
-      // Only create the module if we are configuring or creating. This is a
-      // bit tricky since the build2 core may not yet know if this is the
-      // case. But we know.
+      // While config.import (see below) could theoretically be specified in a
+      // buildfile, config.export is expected to always be specified as a
+      // command line override.
+      //
+      // Note: must be entered during bootstrap since we need it in
+      // configure_execute().
+      //
+      vp.insert<path> ("config.export", true /* ovr */);
+
+      // Only create the module if we are configuring or creating or if it was
+      // forced with config.module (useful if we need to call $config.export()
+      // during other meta-operations).
       //
       if ((                   mname == "configure" || mname == "create") ||
           (mname.empty () && (oname == "configure" || oname == "create")))
@@ -80,42 +90,80 @@ namespace build2
 
       assert (config_hints.empty ()); // We don't known any hints.
 
+      // Note that the config.<name>* variables belong to the module <name>.
+      // So the only "special" variables we can allocate in config.* are
+      // config.config.*, names that have been "gifted" to us by other modules
+      // (like config.version) as well as names that we have reserved to not
+      // be valid module names (build, import, export).
+      //
       auto& vp (rs.ctx.var_pool.rw (rs));
 
-      // Load config.build if one exists (we don't need to worry about
-      // disfigure since we will never be init'ed).
+      auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/));
+      auto& c_i (vp.insert<paths> ("config.import", true /* ovr */));
+
+      // Load config.build if one exists followed by extra files specified in
+      // config.import (we don't need to worry about disfigure since we will
+      // never be init'ed).
       //
-      const variable& c_v (vp.insert<uint64_t> ("config.version", false));
+      auto load_config = [&rs, &c_v] (const path& f, const location& l)
+      {
+        // Check the config version. We assume that old versions cannot
+        // understand new configs and new versions are incompatible with old
+        // configs.
+        //
+        // We extract the value manually instead of loading and then checking
+        // in order to be able to fixup/migrate the file which we may want to
+        // do in the future.
+        //
+
+        // This is tricky for stdin since we cannot reopen it (or put more
+        // than one character back). So what we are going to do is continue
+        // reading after extracting the variable. One side effect of this is
+        // that we won't have the config.version variable entered in the scope
+        // but that is harmless (we could do it manually if necessary).
+        //
+        ifdstream ifs;
+        lexer lex (open_file_or_stdin (f, ifs), f);
+
+        // Assume missing version is 0.
+        //
+        auto p (extract_variable (rs.ctx, lex, c_v));
+        uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
+
+        if (v != module::version)
+          fail (l) << "incompatible config file " << f <<
+            info << "config file version   " << v
+                   << (p.second ? "" : " (missing)") <<
+            info << "config module version " << module::version <<
+            info << "consider reconfiguring " << project (rs) << '@'
+                   << rs.out_path ();
+
+        source (rs, rs, lex);
+      };
 
       {
         path f (config_file (rs));
 
         if (exists (f))
+          load_config (f, l);
+      }
+
+      if (lookup l = rs[c_i])
+      {
+        // Only load files that were specified on our root scope as well as
+        // global overrides. This way we can use our override "positioning"
+        // machinery (i.e., where the override applies) to decide where the
+        // extra config is loaded. The resulting semantics feels quite natural
+        // and consistent with command line variable overrides:
+        //
+        // b   config.import=.../config.build  # outermost amalgamation
+        // b ./config.import=.../config.build  # this project
+        // b  !config.import=.../config.build  # every project
+        //
+        if (l.belongs (rs) || l.belongs (rs.ctx.global_scope))
         {
-          // Check the config version. We assume that old versions cannot
-          // understand new configs and new versions are incompatible with old
-          // configs.
-          //
-          // We extract the value manually instead of loading and then
-          // checking in order to be able to fixup/migrate the file which we
-          // may want to do in the future.
-          //
-          {
-            // Assume missing version is 0.
-            //
-            auto p (extract_variable (rs.ctx, f, c_v));
-            uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
-
-            if (v != module::version)
-              fail (l) << "incompatible config file " << f <<
-                info << "config file version   " << v
-                         << (p.second ? "" : " (missing)") <<
-                info << "config module version " << module::version <<
-                info << "consider reconfiguring " << project (rs) << '@'
-                         << out_root;
-          }
-
-          source (rs, rs, f);
+          for (const path& f: cast<paths> (l))
+            load_config (f, location (&f));
         }
       }
 

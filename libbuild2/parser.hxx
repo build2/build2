@@ -36,6 +36,9 @@ namespace build2
     void
     parse_buildfile (istream&, const path& name, scope& root, scope& base);
 
+    void
+    parse_buildfile (lexer&, scope& root, scope& base);
+
     buildspec
     parse_buildspec (istream&, const path& name);
 

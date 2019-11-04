@@ -4,8 +4,6 @@
 
 #include <libbuild2/file.hxx>
 
-#include <iostream> // cin
-
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -161,27 +159,39 @@ namespace build2
   }
 
   static void
-  source (scope& root, scope& base, const path& bf, bool boot)
+  source (scope& root, scope& base, lexer& l, bool boot)
   {
     tracer trace ("source");
 
+    const path& bf (l.name ());
+
     try
     {
-      bool sin (bf.string () == "-");
-
-      ifdstream ifs;
-
-      if (!sin)
-        ifs.open (bf);
-      else
-        cin.exceptions (ifdstream::failbit | ifdstream::badbit);
-
-      istream& is (sin ? cin : ifs);
-
       l5 ([&]{trace << "sourcing " << bf;});
 
       parser p (root.ctx, boot);
-      p.parse_buildfile (is, bf, root, base);
+      p.parse_buildfile (l, root, base);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to read buildfile " << bf << ": " << e;
+    }
+  }
+
+  static void
+  source (scope& root, scope& base, istream& is, const path& bf, bool boot)
+  {
+    lexer l (is, bf);
+    source (root, base, l, boot);
+  }
+
+  static void
+  source (scope& root, scope& base, const path& bf, bool boot)
+  {
+    try
+    {
+      ifdstream ifs;
+      return source (root, base, open_file_or_stdin (bf, ifs), bf, boot);
     }
     catch (const io_error& e)
     {
@@ -195,6 +205,18 @@ namespace build2
     source (root, base, bf, false);
   }
 
+  void
+  source (scope& root, scope& base, istream& is, const path& bf)
+  {
+    source (root, base, is, bf, false);
+  }
+
+  void
+  source (scope& root, scope& base, lexer& l)
+  {
+    source (root, base, l, false);
+  }
+
   bool
   source_once (scope& root, scope& base, const path& bf, scope& once)
   {
@@ -206,7 +228,7 @@ namespace build2
       return false;
     }
 
-    source (root, base, bf);
+    source (root, base, bf, false);
     return true;
   }
 
@@ -498,18 +520,17 @@ namespace build2
   }
 
   pair<value, bool>
-  extract_variable (context& ctx, const path& bf, const variable& var)
+  extract_variable (context& ctx, lexer& l, const variable& var)
   {
+    const path& bf (l.name ());
+
     try
     {
-      ifdstream ifs (bf);
-
-      lexer lex (ifs, bf);
-      token t (lex.next ());
+      token t (l.next ());
       token_type tt;
 
       if (t.type != token_type::word || t.value != var.name ||
-          ((tt = lex.next ().type) != token_type::assign &&
+          ((tt = l.next ().type) != token_type::assign &&
            tt != token_type::prepend &&
            tt != token_type::append))
       {
@@ -518,7 +539,7 @@ namespace build2
 
       parser p (ctx);
       temp_scope tmp (ctx.global_scope.rw ());
-      p.parse_variable (lex, tmp, var, tt);
+      p.parse_variable (l, tmp, var, tt);
 
       value* v (tmp.vars.find_to_modify (var).first);
       assert (v != nullptr);
@@ -532,6 +553,32 @@ namespace build2
       fail << "unable to read buildfile " << bf << ": " << e << endf;
     }
   }
+
+  pair<value, bool>
+  extract_variable (context& ctx,
+                    istream& is,
+                    const path& bf,
+                    const variable& var)
+  {
+    lexer l (is, bf);
+    return extract_variable (ctx, l, var);
+  }
+
+  pair<value, bool>
+  extract_variable (context& ctx, const path& bf, const variable& var)
+  {
+    try
+    {
+      ifdstream ifs (bf);
+      return extract_variable (ctx, ifs, bf, var);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to read buildfile " << bf << ": " << e << endf;
+    }
+  }
+
+
 
   // Extract the project name from bootstrap.build.
   //
@@ -745,7 +792,7 @@ namespace build2
         // root scope multiple time.
         //
         if (rs.buildfiles.insert (f).second)
-          source (rs, rs, f, true);
+          source (rs, rs, f, true /* boot */);
         else
           l5 ([&]{trace << "skipping already sourced " << f;});
 

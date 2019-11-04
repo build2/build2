@@ -75,7 +75,7 @@ namespace build2
 
       // For now we assume all the targets are from the same project.
       //
-      const target& t (ts[0].as_target ());
+      const target& t (ts[0].as<target> ());
       const scope* rs (t.base_scope ().root_scope ());
 
       if (rs == nullptr)
@@ -118,7 +118,7 @@ namespace build2
       //
       for (const action_target& at: ts)
       {
-        const target& t (at.as_target ());
+        const target& t (at.as<target> ());
 
         if (rs != t.base_scope ().root_scope ())
           fail << "target " << t << " is from a different project" <<
@@ -353,7 +353,7 @@ namespace build2
 
       for (size_t i (0), n (files.size ()); i != n; ++i)
       {
-        const file& t (*files[i].as_target ().is_a<file> ());
+        const file& t (*files[i].as<target> ().is_a<file> ());
 
         // Figure out where this file is inside the target directory.
         //

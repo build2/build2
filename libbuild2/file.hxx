@@ -18,6 +18,8 @@
 
 namespace build2
 {
+  class lexer;
+
   using subprojects = std::map<project_name, dir_path>;
 
   LIBBUILD2_SYMEXPORT ostream&
@@ -70,6 +72,18 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT void
   source (scope& root, scope& base, const path&);
+
+  // As above, but extract from a stream. The name argument is used for
+  // diagnostics.
+  //
+  LIBBUILD2_SYMEXPORT void
+  source (scope& root, scope& base, istream&, const path& name);
+
+  // As above, but extract from a lexer (this could be useful for sourcing
+  // stdin that requires parse_variable()).
+  //
+  LIBBUILD2_SYMEXPORT void
+  source (scope& root, scope& base, lexer&);
 
   // As above but first check if this buildfile has already been sourced for
   // the base scope. Return false if the file has already been sourced.
@@ -194,6 +208,18 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT pair<value, bool>
   extract_variable (context&, const path&, const variable&);
+
+  // As above, but extract from a stream. The name argument is used for
+  // diagnostics.
+  //
+  LIBBUILD2_SYMEXPORT pair<value, bool>
+  extract_variable (context&, istream&, const path& name, const variable&);
+
+  // As above, but extract from a lexer (this could be useful for extracting
+  // from stdin).
+  //
+  LIBBUILD2_SYMEXPORT pair<value, bool>
+  extract_variable (context&, lexer&, const variable&);
 
   // Import has two phases: the first is triggered by the import directive in
   // the buildfile. It will try to find and load the project. Failed that, it

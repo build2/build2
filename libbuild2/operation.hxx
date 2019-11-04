@@ -29,16 +29,15 @@ namespace build2
   //
   struct action_target
   {
-    using target_type = build2::target;
-
     const void* target = nullptr;
     target_state state = target_state::unknown;
 
     action_target () = default;
     action_target (const void* t): target (t) {}
 
-    const target_type&
-    as_target () const {return *static_cast<const target_type*> (target);}
+    template <typename T>
+    const T&
+    as () const {return *static_cast<const T*> (target);}
   };
 
   class action_targets: public vector<action_target>
