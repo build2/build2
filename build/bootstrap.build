@@ -4,6 +4,11 @@
 
 project = build2
 
+# Force config module creation for meta-opeations other than configure so that
+# we can call $config.export() during perform update.
+#
+config.module = true
+
 using version
 using config
 using test

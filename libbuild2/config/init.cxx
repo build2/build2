@@ -4,6 +4,8 @@
 
 #include <libbuild2/config/init.hxx>
 
+#include <sstream>
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/rule.hxx>
 #include <libbuild2/lexer.hxx>
@@ -88,6 +90,10 @@ namespace build2
       return true; // Initialize first (load config.build).
     }
 
+#ifndef BUILD2_BOOTSTRAP
+    extern const char host_config[]; // host-config.cxx.in
+#endif
+
     bool
     init (scope& rs,
           scope&,
@@ -124,7 +130,9 @@ namespace build2
       // config.import (we don't need to worry about disfigure since we will
       // never be init'ed).
       //
-      auto load_config = [&rs, &c_v] (const path& f, const location& l)
+      auto load_config = [&rs, &c_v] (istream& is,
+                                      const path& f,
+                                      const location& l)
       {
         // Check the config version. We assume that old versions cannot
         // understand new configs and new versions are incompatible with old
@@ -141,8 +149,7 @@ namespace build2
         // that we won't have the config.version variable entered in the scope
         // but that is harmless (we could do it manually if necessary).
         //
-        ifdstream ifs;
-        lexer lex (open_file_or_stdin (f, ifs), f);
+        lexer lex (is, f);
 
         // Assume missing version is 0.
         //
@@ -160,11 +167,17 @@ namespace build2
         source (rs, rs, lex);
       };
 
+      auto load_config_file = [&load_config] (const path& f, const location& l)
+      {
+        ifdstream ifs;
+        load_config (open_file_or_stdin (f, ifs), f, l);
+      };
+
       {
         path f (config_file (rs));
 
         if (exists (f))
-          load_config (f, l);
+          load_config_file (f, l);
       }
 
       if (lookup l = rs[c_i])
@@ -182,7 +195,26 @@ namespace build2
         if (l.belongs (rs) || l.belongs (rs.ctx.global_scope))
         {
           for (const path& f: cast<paths> (l))
-            load_config (f, location (&f));
+          {
+            location l (&f);
+
+            const string& s (f.string ());
+
+            if (s[0] != '~')
+              load_config_file (f, l);
+            else if (s == "~host")
+            {
+#ifdef BUILD2_BOOTSTRAP
+              assert (false);
+#else
+              istringstream is (host_config);
+              load_config (is, f, l);
+#endif
+            }
+            else
+              fail << "unknown special configuration name '" << s << "' in "
+                   << "config.import";
+          }
         }
       }
 

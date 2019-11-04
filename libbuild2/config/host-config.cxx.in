@@ -1,0 +1,13 @@
+// file      : libbuild2/config/host-config.cxx.in -*- C++ -*-
+// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
+// license   : MIT; see accompanying LICENSE file
+
+namespace build2
+{
+  namespace config
+  {
+    // This is a raw string literal, in case you are unfamiliar.
+    //
+    extern const char host_config[] = R"###($host_config$)###";
+  }
+}
