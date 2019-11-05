@@ -207,16 +207,15 @@ namespace build2
       {
         // Print the call location in case the function fails.
         //
-        auto g (
-          make_exception_guard (
-            [fa, &loc, &print_call] ()
+        auto df = make_diag_frame (
+          [fa, &loc, &print_call] (const diag_record& dr)
+          {
+            if (fa)
             {
-              if (fa && verb != 0)
-              {
-                diag_record dr (info (loc));
-                dr << "while calling "; print_call (dr.os);
-              }
-            }));
+              dr << info (loc) << "while calling ";
+              print_call (dr.os);
+            }
+          });
 
         auto f (ovls.back ());
 

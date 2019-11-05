@@ -4276,14 +4276,12 @@ namespace build2
         {
           // Print the location information in case the function fails.
           //
-          auto g (
-            make_exception_guard (
-              [&loc, l, r] ()
-              {
-                if (verb != 0)
-                  info (loc) << "while concatenating " << l << " to " << r <<
-                    info << "use quoting to force untyped concatenation";
-              }));
+          auto df = make_diag_frame (
+            [&loc, l, r] (const diag_record& dr)
+            {
+              dr << info (loc) << "while concatenating " << l << " to " << r;
+              dr << info << "use quoting to force untyped concatenation";
+            });
 
           p = ctx.functions.try_call (
             scope_, "builtin.concat", vector_view<value> (a), loc);
@@ -5078,13 +5076,11 @@ namespace build2
             {
               // Print the location information in case the function fails.
               //
-              auto g (
-                make_exception_guard (
-                  [&loc, t] ()
-                  {
-                    if (verb != 0)
-                      info (loc) << "while converting " << t << " to string";
-                  }));
+              auto df = make_diag_frame (
+                [&loc, t] (const diag_record& dr)
+                {
+                  dr << info (loc) << "while converting " << t << " to string";
+                });
 
               p = ctx.functions.try_call (
                 scope_, "string", vector_view<value> (&result_data, 1), loc);
