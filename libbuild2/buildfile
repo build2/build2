@@ -117,8 +117,18 @@ cross = ($cxx.target.cpu != $build.host.cpu || \
          $cxx.target.system != $build.host.system)
 
 if! $cross
+{
   {obja objs}{context}: cxx.poptions += \
     -DBUILD2_IMPORT_PATH=\"$regex.replace($out_root, '\\', '\\\\')\"
+
+  # While this object file should only be linked when we are installing, it
+  # will be compiled even in the uninstalled case.
+  #
+  if ($install.root != [null])
+    {obja objs}{utility-installed}: cxx.poptions += \
+      -DBUILD2_INSTALL_LIB=\"$regex.replace(\
+        $install.resolve($install.lib), '\\', '\\\\')\"
+}
 
 if ($cxx.target.class != 'windows')
 {

@@ -1435,6 +1435,9 @@ namespace build2
 
       // import.build2
       //
+      // Note that the installed case is taken care of by special code in the
+      // cc module's search_library().
+      //
       if (proj == "build2")
       {
         // Note that this variable can be set to NULL to disable relying on

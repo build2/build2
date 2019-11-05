@@ -11,6 +11,10 @@
 namespace build2
 {
   const bool build_installed = true;
+
+#ifdef BUILD2_INSTALL_LIB
+  const dir_path build_install_lib (BUILD2_INSTALL_LIB);
+#endif
 }
 
 #endif

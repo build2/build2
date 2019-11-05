@@ -7,4 +7,5 @@
 namespace build2
 {
   const bool build_installed = false;
+  const dir_path build_install_lib; // Empty.
 }

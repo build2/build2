@@ -786,12 +786,27 @@ namespace build2
         return a != nullptr || s != nullptr;
       };
 
-      // First try user directories (i.e., -L).
+      // First try user directories (i.e., -L or /LIBPATH).
       //
       bool sys (false);
 
       if (!usrd)
+      {
         usrd = extract_library_dirs (*p.scope);
+
+        // Handle automatic importing of installed build2 libraries. This is a
+        // mirror side of the uninstalled case that is handled via the special
+        // import.build2 value in import_search().
+        //
+        if (build_installed && p.proj && *p.proj == "build2")
+        {
+          // Note that we prepend it to other user directories instead of
+          // making it the only one to allow things to be overriden (e.g., if
+          // build2 was moved or some such).
+          //
+          usrd->insert (usrd->begin (), build_install_lib);
+        }
+      }
 
       const dir_path* pd (nullptr);
       for (const dir_path& d: *usrd)
