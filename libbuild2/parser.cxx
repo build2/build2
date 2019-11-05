@@ -287,8 +287,8 @@ namespace build2
   {
     tracer trace ("parser::parse_clause", &path_);
 
-    // clause() should always stop at a token that is at the beginning of
-    // the line (except for eof). That is, if something is called to parse
+    // parse_clause() should always stop at a token that is at the beginning
+    // of the line (except for eof). That is, if something is called to parse
     // a line, it should parse it until newline (or fail). This is important
     // for if-else blocks, directory scopes, etc., that assume the '}' token
     // they see is on the new line.
