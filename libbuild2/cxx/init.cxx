@@ -225,18 +225,19 @@ namespace build2
             ;
           else
           {
-            // Translate 11 to 0x, 14 to 1y, 17 to 1z, and 20 to 2a for
-            // compatibility with older versions of the compilers.
+            // Translate 11 to 0x, 14 to 1y, 17 to 1z, 20 to 2a, and 23 to 2b
+            // for compatibility with older versions of the compilers.
             //
             o = "-std=";
 
-            if      (*v == "98") o += "c++98";
-            else if (*v == "03") o += "c++03";
-            else if (*v == "11") o += "c++0x";
-            else if (*v == "14") o += "c++1y";
-            else if (*v == "17") o += "c++1z";
+            if      (*v == "23") o += "c++2b";
             else if (*v == "20") o += "c++2a";
-            else o += *v; // In case the user specifies e.g., 'gnu++17'.
+            else if (*v == "17") o += "c++1z";
+            else if (*v == "14") o += "c++1y";
+            else if (*v == "11") o += "c++0x";
+            else if (*v == "03") o += "c++03";
+            else if (*v == "98") o += "c++98";
+            else o += *v; // In case the user specifies `gnu++NN` or some such.
           }
 
           if (!o.empty ())

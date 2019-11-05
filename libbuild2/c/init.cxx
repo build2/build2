@@ -72,8 +72,10 @@ namespace build2
           // So let's say C99 is supported from 10.0 and C11 from 11.0. And
           // C90 is supported by everything we care to support.
           //
-          // C17 is a bug-fix version of C11 so here we assume it is the same
-          // as C11.
+          // C17/18 is a bug-fix version of C11 so here we assume it is the
+          // same as C11.
+          //
+          // And it's still early days for C2X.
           //
           if (v == nullptr)
             ;
@@ -81,9 +83,11 @@ namespace build2
           {
             uint64_t cver (ci.version.major);
 
-            if ((*v == "99"   && cver < 16) || // Since VS2010/10.0.
+            if ((*v == "99"   && cver < 16) ||  // Since VS2010/10.0.
                 ((*v == "11" ||
-                  *v == "17") && cver < 17))   // Since VS2012/11.0.
+                  *v == "17" ||
+                  *v == "18") && cver < 18) ||
+                (*v == "2x"               ))
             {
               fail << "C" << *v << " is not supported by " << ci.signature <<
                 info << "required by " << project (rs) << '@' << rs;
@@ -102,11 +106,13 @@ namespace build2
           {
             string o ("-std=");
 
-            if      (*v == "90") o += "c90";
-            else if (*v == "99") o += "c9x";
+            if      (*v == "2x") o += "c2x"; // GCC 9, Clang 9 (8?).
+            else if (*v == "17" ||
+                     *v == "18") o += "c17"; // GCC 8, Clang 6.
             else if (*v == "11") o += "c1x";
-            else if (*v == "17") o += "c17"; // GCC 8, Clang 6.
-            else o += *v; // In case the user specifies e.g., 'gnu11'.
+            else if (*v == "99") o += "c9x";
+            else if (*v == "90") o += "c90";
+            else o += *v; // In case the user specifies `gnuNN` or some such.
 
             r.push_back (move (o));
           }
