@@ -626,6 +626,7 @@ namespace build2
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_inc_dirs]),
+        cm.x_info->sys_mod_dirs,
 
         cm.sys_lib_dirs_extra,
         cm.sys_inc_dirs_extra,

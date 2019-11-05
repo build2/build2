@@ -5576,11 +5576,24 @@ namespace build2
       for (const string& a: stor)
         args.push_back (a.c_str ());
 
-      // VC's IFCPATH takes precedence over /module:stdIfcDir so unset it
-      // if we are using our own std modules.
-      //
-      if (!stdifc.empty ())
-        env.push_back ("IFCPATH");
+      if (getenv ("IFCPATH"))
+      {
+        // VC's IFCPATH takes precedence over /module:stdIfcDir so unset it if
+        // we are using our own std modules.
+        //
+        if (!stdifc.empty ())
+          env.push_back ("IFCPATH");
+      }
+      else if (stdifc.empty ())
+      {
+        // Add the VC's default directory (should be only one).
+        //
+        if (sys_mod_dirs && !sys_mod_dirs->empty ())
+        {
+          args.push_back ("/module:stdIfcDir");
+          args.push_back (sys_mod_dirs->front ().string ().c_str ());
+        }
+      }
     }
 
     target_state compile_rule::

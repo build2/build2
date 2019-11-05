@@ -162,8 +162,9 @@ namespace build2
       const strings* xlate_hdr;     // x.translatable_headers (NULL if
                                     // unused/empty).
 
-      const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
-      const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
+      const dir_paths&           sys_lib_dirs; // x.sys_lib_dirs
+      const dir_paths&           sys_inc_dirs; // x.sys_inc_dirs
+      const optional<dir_paths>& sys_mod_dirs; // compiler_info::sys_mod_dirs
 
       size_t sys_lib_dirs_extra;     // First extra path (size if none).
       size_t sys_inc_dirs_extra;     // First extra path (size if none).
@@ -213,6 +214,7 @@ namespace build2
             bool fs,
             const dir_paths& sld,
             const dir_paths& sid,
+            const optional<dir_paths>& smd,
             size_t sle,
             size_t sie,
             const target_type& src,
@@ -232,7 +234,7 @@ namespace build2
             modules (fm),
             symexport (fs),
             xlate_hdr (nullptr),
-            sys_lib_dirs (sld), sys_inc_dirs (sid),
+            sys_lib_dirs (sld), sys_inc_dirs (sid), sys_mod_dirs (smd),
             sys_lib_dirs_extra (sle), sys_inc_dirs_extra (sie),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };

@@ -1360,7 +1360,7 @@ namespace build2
     // do that probably first checking if they exist/empty).
     //
     static dir_paths
-    msvc_include (const msvc_info& mi)
+    msvc_inc (const msvc_info& mi)
     {
       dir_paths r;
 
@@ -1378,6 +1378,19 @@ namespace build2
         r.push_back (dir_path (d) /= "shared");
         r.push_back (dir_path (d) /= "um"    );
       }
+
+      return r;
+    }
+
+    // Return the MSVC system module search paths (i.e., what the Visual
+    // Studio command prompt puts into IFCPATH).
+    //
+    static dir_paths
+    msvc_mod (const msvc_info& mi, const char* cpu)
+    {
+      dir_paths r;
+
+      r.push_back ((dir_path (mi.msvc_dir) /= "ifc") /= cpu);
 
       return r;
     }
@@ -1601,10 +1614,11 @@ namespace build2
 
       // If we have the MSVC installation information, then this means we are
       // running out of the Visual Studio command prompt and will have to
-      // supply PATH/INCLUDE/LIB equivalents ourselves.
+      // supply PATH/INCLUDE/LIB/IFCPATH equivalents ourselves.
       //
       optional<dir_paths> lib_dirs;
       optional<dir_paths> inc_dirs;
+      optional<dir_paths> mod_dirs;
       string bpat;
 
       if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
@@ -1612,7 +1626,9 @@ namespace build2
         const char* cpu (msvc_cpu (target_triplet (t).cpu));
 
         lib_dirs = msvc_lib (*mi, cpu);
-        inc_dirs = msvc_include (*mi);
+        inc_dirs = msvc_inc (*mi);
+        mod_dirs = msvc_mod (*mi, cpu);
+
         bpat = msvc_bin (*mi, cpu);
       }
 
@@ -1654,7 +1670,8 @@ namespace build2
         move (csl),
         move (xsl),
         move (lib_dirs),
-        move (inc_dirs)};
+        move (inc_dirs),
+        move (mod_dirs)};
     }
 
     static compiler_info
@@ -1851,6 +1868,7 @@ namespace build2
         move (rt),
         move (csl),
         move (xsl),
+        nullopt,
         nullopt,
         nullopt};
     }
@@ -2438,6 +2456,7 @@ namespace build2
         move (csl),
         move (xsl),
         move (lib_dirs),
+        nullopt,
         nullopt};
     }
 
@@ -2742,6 +2761,7 @@ namespace build2
         move (rt),
         move (csl),
         move (xsl),
+        nullopt,
         nullopt,
         nullopt};
     }

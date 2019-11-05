@@ -403,8 +403,11 @@ namespace build2
       // Extract system header/library search paths from the compiler and
       // determine if we need any additional search paths.
       //
+      // Note that for now module search paths only come from compiler_info.
+      //
       dir_paths lib_dirs;
       dir_paths inc_dirs;
+      const optional<dir_paths>& mod_dirs (xi.sys_mod_dirs);
 
       if (xi.sys_lib_dirs)
         lib_dirs = *xi.sys_lib_dirs;
@@ -597,6 +600,15 @@ namespace build2
         if (!xi.pattern.empty ()) // Note: bin_pattern printed by bin
         {
           dr << "\n  pattern    " << xi.pattern;
+        }
+
+        if (verb >= 3 && mod_dirs && !mod_dirs->empty ())
+        {
+          dr << "\n  mod dirs";
+          for (const dir_path& d: *mod_dirs)
+          {
+            dr << "\n    " << d;
+          }
         }
 
         if (verb >= 3 && !inc_dirs.empty ())
