@@ -42,21 +42,30 @@
 
     : multiple-names
     :
-    $* <<EOI 2>'error: invalid argument: invalid string value: multiple names' != 0
+    $* <<EOI 2>>EOE != 0
     print $regex.replace(foo.cxx bar.cxx, '([^.]*)', '\1.o')
     EOI
+    error: invalid argument: invalid string value: multiple names
+      <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>)
+    EOE
 
     : null
     :
-    $* <<EOI 2>'error: invalid argument: null value' != 0
+    $* <<EOI 2>>EOE != 0
     print $regex.replace([null], '([^.]*)', '\1.o')
     EOI
+    error: invalid argument: null value
+      <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>)
+    EOE
 
     : null-regex
     :
-    $* <<EOI 2>'error: invalid argument: null value' != 0
+    $* <<EOI 2>>EOE != 0
     print $regex.replace(foo.cxx, [null], '\1.o')
     EOI
+    error: invalid argument: null value
+      <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>)
+    EOE
   }
 
   : no-subs
@@ -104,15 +113,19 @@
 
     : unknown
     :
-    $* <<EOI 2>"error: invalid argument: invalid flag 'unknown'" != 0
+    $* <<EOI 2>>EOE != 0
     print $regex.replace("foo.cxx", '(f[^.]*).*', '\1.o', unknown)
     EOI
+    error: invalid argument: invalid flag 'unknown'
+      <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>, <untyped>)
+    EOE
   }
 
   : invalid-regex
   :
   $* <'print $regex.replace(a, "[", b)' 2>>~/EOE/ != 0
   /error: invalid argument: invalid regex '\['.*/
+    <stdin>:1:8: info: while calling regex.replace(<untyped>, <untyped>, <untyped>)
   EOE
 }
 

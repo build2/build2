@@ -105,6 +105,7 @@
     :
     $* <'print $getenv(a b)' 2>>EOE != 0
     error: invalid argument: invalid string value: multiple names
+      <stdin>:1:8: info: while calling getenv(<untyped>)
     EOE
   }
 

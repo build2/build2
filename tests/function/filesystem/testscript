@@ -23,6 +23,7 @@
     $* <'print $path_search([path] "b**/", [dir_path] ../../a)' 2>>~%EOE% != 0
     %error: start directory '.+' is relative%
     %  info: pattern '.+' is relative%
+      <stdin>:1:8: info: while calling path_search(path, dir_path)
     EOE
 
     : start-untyped
@@ -33,6 +34,7 @@
     :
     $* <'print $path_search([path] "b**/", a b)' 2>>EOE != 0
     error: invalid argument: invalid dir_path value: multiple names
+      <stdin>:1:8: info: while calling path_search(path, <untyped>)
     EOE
   }
 
@@ -68,6 +70,7 @@
     touch b;
     $* <'print $path_search(a b, $src_base)' 2>>EOE != 0
     error: invalid argument: invalid path value: multiple names
+      <stdin>:1:8: info: while calling path_search(<untyped>, dir_path)
     EOE
   }
 }

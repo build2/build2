@@ -29,5 +29,6 @@ EOI
   $* <'print $install.resolve([dir_path] foo/a)' 2>>EOE != 0
   error: unknown installation directory name 'foo'
     info: did you forget to specify config.install.foo?
+    <stdin>:1:8: info: while calling install.resolve(dir_path)
   EOE
 }

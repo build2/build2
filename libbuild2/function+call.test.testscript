@@ -31,14 +31,14 @@ $* <'print $variadic([bool] true, foo, bar)' >'3'
 :
 $* <'$fail()' 2>>EOE != 0
 error: failed
-buildfile:1:2: info: while calling fail()
+  buildfile:1:2: info: while calling fail()
 EOE
 
 : fail-invalid-arg
 :
 $* <'$fail_arg(abc)' 2>>EOE != 0
 error: invalid argument: invalid uint64 value: 'abc'
-buildfile:1:2: info: while calling fail_arg(<untyped>)
+  buildfile:1:2: info: while calling fail_arg(<untyped>)
 EOE
 
 : no-match-name
@@ -111,7 +111,7 @@ $* <'print $nullable(nonull)' >'false'
 :
 $* <'$dummy1([string null])' 2>>EOE != 0
 error: invalid argument: null value
-buildfile:1:2: info: while calling dummy1(string)
+  buildfile:1:2: info: while calling dummy1(string)
 EOE
 
 : print-call-1-untyped

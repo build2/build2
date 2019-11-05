@@ -72,6 +72,7 @@ s = ($cxx.target.class != 'windows' ? '/' : '\')
   :
   $* <'print $leaf([path] a/b/c, [dir_path] a/d)' 2>>"EOE" != 0
   error: 'a/d$s' is not a prefix of 'a/b/c'
+    <stdin>:1:8: info: while calling leaf\(path, dir_path\)
   EOE
 }
 
@@ -106,6 +107,7 @@ s = ($cxx.target.class != 'windows' ? '/' : '\')
 p = ($cxx.target.class != 'windows' ? /../foo : 'c:/../foo');
 $* <"\$path.normalize\('$p')" 2>>"EOE" != 0
 error: invalid path: '$p'
+  <stdin>:1:2: info: while calling path.normalize\(<untyped>\)
 EOE
 
 : path-match
