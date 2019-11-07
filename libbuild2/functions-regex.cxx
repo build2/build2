@@ -61,7 +61,7 @@ namespace build2
 
     if (flags)
     {
-      for (auto& f: *flags)
+      for (name& f: *flags)
       {
         string s (convert<string> (move (f)));
 
@@ -223,8 +223,102 @@ namespace build2
     }
     catch (const regex_error& e)
     {
+      // Print regex_error description if meaningful (no space).
+      //
       fail << "unable to replace" << e;
     }
+
+    return r;
+  }
+
+  // Replace matched parts in lines using the format string. See
+  // replace_lines() overloads (below) for details.
+  //
+  static names
+  replace_lines (value&& v,
+                 const string& re,
+                 const optional<string>& fmt,
+                 optional<names>&& flags)
+  {
+    string s (to_string (move (v)));
+
+    // Extract the return_lines flag, if present, and parse the remaining
+    // flags using parse_replacement_flags().
+    //
+    bool rls (false);
+
+    if (flags)
+    {
+      names& fs (*flags);
+      const name rlf ("return_lines");
+
+      for (names::const_iterator i (fs.begin ()); i != fs.end (); )
+      {
+        if (*i == rlf)
+        {
+          rls = true;
+          i = fs.erase (i);
+        }
+        else
+          ++i;
+      }
+    }
+
+    auto fl (parse_replacement_flags (move (flags)));
+    regex rge (parse_regex (re, fl.first));
+
+    names r;
+    string ls;
+
+    try
+    {
+      istringstream is (s);
+      is.exceptions (istringstream::badbit);
+
+      const string& efmt (fmt ? *fmt : "");
+
+      for (string l; !eof (getline (is, l)); )
+      {
+        auto rr (regex_replace_search (l, rge, efmt, fl.second));
+        string& s (rr.first);
+
+        // Skip the empty replacement for a matched line if the format is
+        // absent.
+        //
+        if (!fmt && rr.second && s.empty ())
+          continue;
+
+        if (!rls)
+          r.emplace_back (to_name (move (s)));
+        else
+        {
+          if (ls.empty ())
+            ls = move (s);
+          else
+            ls += s;
+
+          // Append the trailing newline for the added line if EOS is not
+          // reached, which indicates that the original line is terminated
+          // with newline.
+          //
+          if (!is.eof ())
+            ls += '\n';
+        }
+      }
+    }
+    catch (const regex_error& e)
+    {
+      // Print regex_error description if meaningful (no space).
+      //
+      fail << "unable to replace lines" << e;
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to read lines: " << e;
+    }
+
+    if (rls)
+      r.push_back (move (ls));
 
     return r;
   }
@@ -257,6 +351,8 @@ namespace build2
     }
     catch (const regex_error& e)
     {
+      // Print regex_error description if meaningful (no space).
+      //
       fail << "unable to split" << e;
     }
 
@@ -292,6 +388,8 @@ namespace build2
     }
     catch (const regex_error& e)
     {
+      // Print regex_error description if meaningful (no space).
+      //
       fail << "unable to apply" << e;
     }
 
@@ -335,6 +433,8 @@ namespace build2
     }
     catch (const regex_error& e)
     {
+      // Print regex_error description if meaningful (no space).
+      //
       fail << "unable to merge" << e;
     }
 
@@ -389,7 +489,7 @@ namespace build2
     //                sub-string that matches the whole regular expression and
     //                NULL if no match
     //
-    // return_subs -  return names (rather than boolean), that contain
+    // return_subs  - return names (rather than boolean), that contain
     //                sub-strings that match the marked sub-expressions and
     //                NULL if no match
     //
@@ -437,6 +537,45 @@ namespace build2
                       convert<string> (move (re)),
                       convert<string> (move (fmt)),
                       move (flags));
+    };
+
+    // $regex.replace_lines(<val>, <pat>, <fmt> [, <flags>])
+    //
+    // Convert the value to string, parse it into lines and for each line
+    // apply the $regex.replace() function with the specified pattern, format,
+    // and flags. If the format argument is NULL, omit the "all-NULL"
+    // replacements for the matched lines from the result. Return unmatched
+    // lines and line replacements as a name list unless return_lines flag is
+    // specified (see below), in which case return a single multi-line simple
+    // name value.
+    //
+    // The following flags are supported in addition to the $regex.replace()
+    // function flags:
+    //
+    // return_lines - return the simple name (rather than a name list)
+    //                containing the unmatched lines and line replacements
+    //                seperated with newlines.
+    //
+    f[".replace_lines"] = [](value s,
+                             string re,
+                             string fmt,
+                             optional<names> flags)
+    {
+      return replace_lines (move (s), re, move (fmt), move (flags));
+    };
+
+    f[".replace_lines"] = [](value s,
+                             names re,
+                             names* fmt,
+                             optional<names> flags)
+    {
+      return replace_lines (
+        move (s),
+        convert<string> (move (re)),
+        (fmt != nullptr
+         ? optional<string> (convert<string> (move (*fmt)))
+         : nullopt),
+        move (flags));
     };
 
     // $regex.split(<val>, <pat>, <fmt> [, <flags>])

@@ -129,6 +129,88 @@
   EOE
 }
 
+: replace_lines
+:
+{
+  : untyped
+  :
+  {
+    : return-list
+    :
+    {
+      : non-null-fmt
+      :
+      $* <<EOI >'foo.hxx bar.txt'
+        v = "foo.cxx
+        bar.txt"
+
+        print $regex.replace_lines($v, '(.*)\.cxx', '\1.hxx')
+        EOI
+
+      : null-fmt
+      :
+      $* <<EOI >'bar.txt'
+        v = "foo.cxx
+        bar.txt"
+
+        print $regex.replace_lines($v, '(.*)\.cxx', [null])
+        EOI
+    }
+
+    : return-lines
+    :
+    : Note that print adds the trailing newline the value it prints.
+    :
+    {
+      : non-null-fmt
+      :
+      $* <<EOI >>EOO
+        v = "foo.cxx
+        bar.txt"
+
+        print $regex.replace_lines($v, '(.*)\.cxx', '\1.hxx', return_lines)
+        EOI
+        foo.hxx
+        bar.txt
+        EOO
+
+      : null-fmt
+      :
+      $* <<EOI >'bar.txt'
+        v = "foo.cxx
+        bar.txt"
+
+        print $regex.replace_lines($v, '(.*)\.cxx', [null], return_lines)
+        EOI
+    }
+  }
+
+  : strings
+  :
+  {
+    : return-list
+    :
+    $* <<EOI >'foo.hxx bar.txt'
+      v = [string] "foo.cxx
+      bar.txt"
+
+      print $regex.replace_lines($v, [string] '(.*)\.cxx',  [string] '\1.hxx')
+      EOI
+
+    : return-lines
+    :
+    $* <<EOI >>EOO
+      v = [string] "foo.cxx
+      bar.txt"
+
+      print $regex.replace_lines($v, [string] '(.*)\.cxx', [string]'\1.hxx', return_lines)
+      EOI
+      foo.hxx
+      bar.txt
+      EOO
+  }
+}
+
 : match
 :
 {
