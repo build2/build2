@@ -528,6 +528,8 @@ namespace build2
 
       assert (p.scope != nullptr);
 
+      context& ctx (p.scope->ctx);
+
       // @@ This is hairy enough to warrant a separate implementation for
       //    Windows.
 
@@ -800,11 +802,25 @@ namespace build2
         //
         if (build_installed && p.proj && *p.proj == "build2")
         {
-          // Note that we prepend it to other user directories instead of
-          // making it the only one to allow things to be overriden (e.g., if
-          // build2 was moved or some such).
+          const scope& rs (*p.scope->root_scope ());
+
+          // Check if import.build2 is set to NULL to disable relying on the
+          // built-in path. We use this in our tests to make sure we are
+          // importing and testing the build system being built and not the
+          // one doing the building.
           //
-          usrd->insert (usrd->begin (), build_install_lib);
+          // Note that for the installed case this value is undefined by
+          // default.
+          //
+          lookup l (rs[ctx.var_import_build2]);
+          if (!(l.defined () && l->null))
+          {
+            // Note that we prepend it to other user directories instead of
+            // making it the only one to allow things to be overriden (e.g.,
+            // if build2 was moved or some such).
+            //
+            usrd->insert (usrd->begin (), build_install_lib);
+          }
         }
       }
 
@@ -840,8 +856,7 @@ namespace build2
       // Enter (or find) the lib{} target group.
       //
       lib* lt;
-      insert_library (
-        p.scope->ctx, lt, name, *pd, l ? p.tk.ext : nullopt, exist, trace);
+      insert_library (ctx, lt, name, *pd, l ? p.tk.ext : nullopt, exist, trace);
 
       // Result.
       //
