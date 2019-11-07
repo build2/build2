@@ -330,7 +330,9 @@ namespace build2
       //
       const char* pfx;
       const char* sfx;
-#if   defined(_WIN32)
+#if   defined(__MINGW32__)
+      pfx = "libbuild2-"; sfx = ".dll";
+#elif defined(_WIN32)
       pfx = "build2-";    sfx = ".dll";
 #elif defined(__APPLE__)
       pfx = "libbuild2-"; sfx = ".dylib";
