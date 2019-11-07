@@ -8,7 +8,7 @@
 
 #include <cerrno>   // ENOENT
 #include <cstring>  // strlen(), str[n]cmp()
-#include <iostream> // cin cout cerr
+#include <iostream> // cerr
 
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -42,6 +42,12 @@ namespace std
     return os << (stream_verb (os).path < 1
                   ? diag_relative (p)
                   : p.representation ());
+  }
+
+  ostream&
+  operator<< (ostream& os, const ::butl::path_name& pn)
+  {
+    return pn.name ? (os << *pn.name) : (os << *pn.path);
   }
 
   ostream&
@@ -100,36 +106,6 @@ namespace build2
   dir_path home;
   const dir_path* relative_base = &work;
 
-  istream&
-  open_file_or_stdin (const path& f, ifdstream& ifs)
-  {
-    if (f.string () != "-")
-    {
-      ifs.open (f);
-      return ifs;
-    }
-    else
-    {
-      cin.exceptions (ifdstream::failbit | ifdstream::badbit);
-      return cin;
-    }
-  }
-
-  ostream&
-  open_file_or_stdout (const path& f, ofdstream& ofs)
-  {
-    if (f.string () != "-")
-    {
-      ofs.open (f);
-      return ofs;
-    }
-    else
-    {
-      cout.exceptions (ofdstream::failbit | ofdstream::badbit);
-      return cout;
-    }
-  }
-
   path
   relative (const path_target& t)
   {
@@ -141,7 +117,7 @@ namespace build2
   string
   diag_relative (const path& p, bool cur)
   {
-    if (p.string () == "-")
+    if (p.string () == "-") // @@ PATH_NAME: remove
       return "<stdin>";
 
     const path& b (*relative_base);

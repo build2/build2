@@ -109,7 +109,7 @@ namespace build2
 
     if (!loc_.empty ())
     {
-      r << *loc_.file << ':';
+      r << loc_.file << ':';
 
       if (!diag_no_line)
       {

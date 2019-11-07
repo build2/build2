@@ -84,13 +84,14 @@ namespace build2
   public:
     // If escape is not NULL then only escape sequences with characters from
     // this string are considered "effective escapes" with all others passed
-    // through as is. Note that the escape string is not copied.
+    // through as is. Note that neither the name nor escape arguments are
+    // copied.
     //
     lexer (istream& is,
            const path& name,
            uint64_t line = 1, // Start line in the stream.
            const char* escapes = nullptr)
-        : lexer (is, name, line, escapes, true /* set_mode */) {}
+      : lexer (is, name, line, escapes, true /* set_mode */) {}
 
     const path&
     name () const {return name_;}
@@ -180,13 +181,11 @@ namespace build2
     // Lexer state.
     //
   protected:
-    lexer (istream& is,
-           const path& name,
-           uint64_t line,
+    lexer (istream& is, const path& name, uint64_t line,
            const char* escapes,
            bool set_mode)
         : char_scanner (is, true /* crlf */, line),
-          fail ("error", &name_),
+          fail ("error", &name),
           name_ (name),
           sep_ (false)
     {
@@ -194,7 +193,7 @@ namespace build2
         mode (lexer_mode::normal, '@', escapes);
     }
 
-    const path name_; // @@ TODO: why not shallow (like istream)?
+    const path& name_;
     std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().

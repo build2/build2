@@ -45,15 +45,15 @@ namespace build2
         using base_lexer = build2::lexer;
         using base_mode = build2::lexer_mode;
 
+        // Note that neither the name nor escape arguments are copied.
+        //
         lexer (istream& is,
                const path& name,
                lexer_mode m,
                const char* escapes = nullptr)
-            : base_lexer (is,
-                          name,
-                          1       /* line */,
-                          nullptr /* escapes */,
-                          false   /* set_mode */)
+            : base_lexer (is, name, 1 /* line */,
+                          nullptr     /* escapes */,
+                          false       /* set_mode */)
         {
           mode (m, '\0', escapes);
         }

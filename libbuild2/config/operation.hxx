@@ -36,7 +36,7 @@ namespace build2
     //
     void
     save_config (const scope& rs,
-                 ostream&, const string& name,
+                 ostream&, const path_name&,
                  bool inherit,
                  const project_set&);
   }

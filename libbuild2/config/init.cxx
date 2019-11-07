@@ -169,8 +169,11 @@ namespace build2
 
       auto load_config_file = [&load_config] (const path& f, const location& l)
       {
+        // @@ PATH_NAME TODO
+        //
+        path_name fn (f);
         ifdstream ifs;
-        load_config (open_file_or_stdin (f, ifs), f, l);
+        load_config (open_file_or_stdin (fn, ifs), f /* fn */, l);
       };
 
       {

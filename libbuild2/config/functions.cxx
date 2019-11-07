@@ -43,7 +43,10 @@ namespace build2
         // Empty project set should is ok as long as inherit is false.
         //
         project_set ps;
-        save_config (*s, os, "config.export()", false /* inherit */, ps);
+        save_config (*s,
+                     os, path_name ("config.export()"),
+                     false /* inherit */,
+                     ps);
 
         return os.str ();
       };

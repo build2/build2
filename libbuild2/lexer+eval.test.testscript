@@ -66,11 +66,11 @@ EOO
 : newline
 :
 $* <'x' >- 2>>EOE != 0
-stdin:1:2: error: newline in evaluation context
+<stdin>:1:2: error: newline in evaluation context
 EOE
 
 : eof
 :
 $* <:'' 2>>EOE != 0
-stdin:1:1: error: unterminated evaluation context
+<stdin>:1:1: error: unterminated evaluation context
 EOE

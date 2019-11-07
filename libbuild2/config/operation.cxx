@@ -50,7 +50,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << f << ": " << e;
+        fail << "unable to write to " << f << ": " << e;
       }
     }
 
@@ -79,7 +79,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << f << ": " << e;
+        fail << "unable to write to " << f << ": " << e;
       }
     }
 
@@ -90,8 +90,7 @@ namespace build2
     //
     void
     save_config (const scope& rs,
-                 ostream& os,
-                 const string& name,
+                 ostream& os, const path_name& on,
                  bool inherit,
                  const project_set& projects)
     {
@@ -100,8 +99,8 @@ namespace build2
       const module* mod (rs.lookup_module<const module> (module::name));
 
       if (mod == nullptr)
-        fail << "no configuration information available during this meta-"
-             << "operation";
+        fail (on) << "no configuration information available during this "
+                  << "meta-operation";
 
       try
       {
@@ -231,8 +230,8 @@ namespace build2
                 // then something is broken.
                 //
                 if (r == nullptr)
-                  fail << name << ": inherited variable " << var << " value "
-                       << "is not from a root scope";
+                  fail (on) << "inherited variable " << var << " value is not "
+                            << "from a root scope";
 
                 // If none of the outer project's configurations use this
                 // value, then we warn (unless we couldn't check) and save as
@@ -242,8 +241,8 @@ namespace build2
                 if (checked && org.first == ovr.first)
                 {
                   diag_record dr;
-                  dr << warn << name << ": saving previously inherited "
-                     << "variable " << var;
+                  dr << warn (on) << "saving previously inherited variable "
+                     << var;
 
                   dr << info << "because project " << *r << " no longer uses "
                      << "it in its configuration";
@@ -321,7 +320,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << name << ": " << e;
+        fail << "unable to write to " << on << ": " << e;
       }
     }
 
@@ -331,21 +330,23 @@ namespace build2
                  bool inherit,
                  const project_set& projects)
     {
-      const string& fs (f.string () != "-" ? f.string () : "<stdout>");
+      path_name fn (f);
+
+      if (f.string () == "-")
+        fn.name = "<stdout>";
 
       if (verb)
-        text << (verb >= 2 ? "cat >" : "save ") << fs;
+        text << (verb >= 2 ? "cat >" : "save ") << fn;
 
       try
       {
         ofdstream ofs;
-        ostream& os ();
-        save_config (rs, open_file_or_stdout (f, ofs), fs, inherit, projects);
+        save_config (rs, open_file_or_stdout (fn, ofs), fn, inherit, projects);
         ofs.close ();
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << fs << ": " << e;
+        fail << "unable to write to " << fn << ": " << e;
       }
     }
 

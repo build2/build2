@@ -227,6 +227,7 @@ namespace build2
   // <libbutl/path-map.mxx>
   //
   using butl::path;
+  using butl::path_name;
   using butl::dir_path;
   using butl::path_cast;
   using butl::basic_path;
@@ -274,13 +275,13 @@ namespace build2
   using butl::sha256;
 
   // <libbutl/process.mxx>
-  // <libbutl/fdstream.mxx>
-  //
   using butl::process;
   using butl::process_env;
   using butl::process_path;
   using butl::process_error;
 
+  // <libbutl/fdstream.mxx>
+  //
   using butl::auto_fd;
   using butl::ifdstream;
   using butl::ofdstream;
@@ -319,12 +320,16 @@ namespace build2
     location (const path* f = nullptr, uint64_t l = 0, uint64_t c = 0)
         : file (f), line (l), column (c) {}
 
-    bool
-    empty () const {return file == nullptr;}
+    explicit
+    location (const path_name& f, uint64_t l = 0, uint64_t c = 0)
+        : file (f), line (l), column (c) {}
 
-    const path* file;
-    uint64_t    line;
-    uint64_t    column;
+    bool
+    empty () const {return file.path == nullptr;}
+
+    path_name file;
+    uint64_t  line;
+    uint64_t  column;
   };
 
   // See context.
@@ -342,10 +347,13 @@ namespace build2
 //
 namespace std
 {
-  // Path printing with trailing slash for directories.
+  // Path printing potentially relative with trailing slash for directories.
   //
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const ::butl::path&);
+
+  LIBBUILD2_SYMEXPORT ostream&
+  operator<< (ostream&, const ::butl::path_name&);
 
   // Print as recall[@effect].
   //

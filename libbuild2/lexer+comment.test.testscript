@@ -134,6 +134,6 @@
   #\
   comment
   EOI
-  stdin:3:1: error: unterminated multi-line comment
+  <stdin>:3:1: error: unterminated multi-line comment
   EOE
 }

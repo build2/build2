@@ -188,14 +188,17 @@ namespace build2
   static void
   source (scope& root, scope& base, const path& bf, bool boot)
   {
+    path_name fn (bf);
     try
     {
+      // @@ PATH_NAME TODO
+      //
       ifdstream ifs;
-      return source (root, base, open_file_or_stdin (bf, ifs), bf, boot);
+      return source (root, base, open_file_or_stdin (fn, ifs), bf /* fn */, boot);
     }
     catch (const io_error& e)
     {
-      fail << "unable to read buildfile " << bf << ": " << e;
+      fail << "unable to read buildfile " << fn << ": " << e;
     }
   }
 

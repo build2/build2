@@ -88,18 +88,10 @@ namespace build2
 
   using butl::eof;
 
-  // Open a file or, if the file name is `-`, stdin/stdout.
+  // <libbutl/fdstream.mxx>
   //
-  // Note that ofdstream::close() should be called explicitly if not stdout
-  // (but harmless to call even if it is). Also note that our overload of
-  // operator<<(path) always translats `-` to `<stdin>` so care must be taken
-  // when issuing diagnostics.
-  //
-  istream&
-  open_file_or_stdin (const path&, ifdstream&);
-
-  ostream&
-  open_file_or_stdout (const path&, ofdstream&);
+  using butl::open_file_or_stdin;
+  using butl::open_file_or_stdout;
 
   // Diagnostics state (verbosity level, etc; see <libbuild2/diagnostics.hxx>).
   //

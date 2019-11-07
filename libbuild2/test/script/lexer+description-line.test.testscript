@@ -29,5 +29,5 @@ EOO
 $* <:"foo" >>EOO 2>>EOE != 0
 'foo'
 EOO
-stdin:1:4: error: expected newline at the end of description line
+<stdin>:1:4: error: expected newline at the end of description line
 EOE

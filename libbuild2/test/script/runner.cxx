@@ -167,7 +167,7 @@ namespace build2
         }
         catch (const io_error& e)
         {
-          fail (ll) << "unable to write " << p << ": " << e;
+          fail (ll) << "unable to write to " << p << ": " << e;
         }
       }
 
@@ -339,7 +339,7 @@ namespace build2
             }
             catch (const io_error& e)
             {
-              fail (ll) << "unable to write " << ep << ": " << e;
+              fail (ll) << "unable to write to " << ep << ": " << e;
             }
 
             // Diff utility prints the differences to stdout. But for the
@@ -1134,7 +1134,7 @@ namespace build2
                                       value (move (ns)),
                                       *ats,
                                       token_type::assign,
-                                      path ("<attributes>"));
+                                      path ("<attributes>")); // @@ PATH_NAME TODO
           }
         }
         catch (const io_error& e)
@@ -1536,7 +1536,7 @@ namespace build2
           }
           catch (const io_error& e)
           {
-            fail (ll) << "unable to write " << p << ": " << e;
+            fail (ll) << "unable to write to " << p << ": " << e;
           }
 
           return fd;

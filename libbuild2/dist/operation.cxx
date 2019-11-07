@@ -144,7 +144,7 @@ namespace build2
       // since the meta operation is dist and we know what we are doing.
       //
       values params;
-      const path locf ("<dist>");
+      const path locf ("<dist>"); // @@ PATH_NAME TODO
       const location loc (&locf); // Dummy location.
 
       const operations& ops (rs->root_extra->operations);
@@ -822,7 +822,7 @@ namespace build2
         }
         catch (const io_error& e)
         {
-          fail << "unable to write " << cp << ": " << e;
+          fail << "unable to write to " << cp << ": " << e;
         }
       }
 

@@ -1622,7 +1622,7 @@ namespace build2
           });
 
         source (is,
-                path ("<stdout>"),
+                path ("<stdout>"), // @@ PATH_NAME TODO
                 l,
                 false /* enter */,
                 false /* default_target */);
@@ -5382,7 +5382,7 @@ namespace build2
   // normally: perform(update($identity(foo/ bar/))).
   //
   buildspec parser::
-  parse_buildspec (istream& is, const path& name)
+  parse_buildspec (istream& is, const path& name) // @@ PATH_NAME TODO
   {
     path_ = &name;
 

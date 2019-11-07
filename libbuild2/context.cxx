@@ -284,7 +284,8 @@ namespace build2
       // (basically what's necessary inside a double-quoted literal plus the
       // single quote).
       //
-      lexer l (is, path ("<cmdline>"), 1 /* line */, "\'\"\\$(");
+      path in ("<cmdline>"); // @@ PATH_NAME: make name
+      lexer l (is, in, 1 /* line */, "\'\"\\$(");
 
       // At the buildfile level the scope-specific variable should be
       // separated from the directory with a whitespace, for example:

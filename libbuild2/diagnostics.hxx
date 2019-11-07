@@ -300,6 +300,15 @@ namespace build2
     location_prologue_base (const char* type,
                             const char* mod,
                             const char* name,
+                            const path_name& f,
+                            stream_verbosity sverb)
+        : type_ (type), mod_ (mod), name_ (name),
+          loc_ (f),
+          sverb_ (sverb) {}
+
+    location_prologue_base (const char* type,
+                            const char* mod,
+                            const char* name,
                             path&& f,
                             stream_verbosity sverb)
         : type_ (type), mod_ (mod), name_ (name),
@@ -344,6 +353,12 @@ namespace build2
     operator() (const location& l) const
     {
       return location_prologue (epilogue_, type_, mod_, name_, l, sverb_ ());
+    }
+
+    location_prologue
+    operator() (const path_name& f) const
+    {
+      return location_prologue (epilogue_, type_, mod_, name_, f, sverb_ ());
     }
 
     // fail (relative (src)) << ...

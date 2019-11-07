@@ -2302,9 +2302,9 @@ namespace build2
                   // cmd $args               # cmd x="foo bar"
                   //
 
-                  path name ("<string>");
                   istringstream is (s);
-                  lexer lex (is, name,
+                  path in ("<string>"); // @@ PATH_NAME TODO
+                  lexer lex (is, in,
                              lexer_mode::command_expansion,
                              "\'\"\\");
 
@@ -2315,7 +2315,7 @@ namespace build2
                   // fail(t). Rather we should do fail(l).
                   //
                   token t (lex.next ());
-                  location l (build2::get_location (t, name));
+                  location l (build2::get_location (t, in));
                   t.separated = true;
 
                   string w;
@@ -2324,7 +2324,7 @@ namespace build2
                   for (; t.type != type::eos; t = lex.next ())
                   {
                     type tt (t.type);
-                    l = build2::get_location (t, name);
+                    l = build2::get_location (t, in);
 
                     // Re-lexing double-quotes will recognize $, ( inside as
                     // tokens so we have to reverse them back. Since we don't

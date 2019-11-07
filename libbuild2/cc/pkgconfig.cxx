@@ -1543,7 +1543,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail << "unable to write " << p << ": " << e;
+        fail << "unable to write to " << p << ": " << e;
       }
     }
   }
