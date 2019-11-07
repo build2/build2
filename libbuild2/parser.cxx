@@ -211,9 +211,9 @@ namespace build2
   };
 
   void parser::
-  parse_buildfile (istream& is, const path& p, scope& root, scope& base)
+  parse_buildfile (istream& is, const path_name& in, scope& root, scope& base)
   {
-    lexer l (is, p);
+    lexer l (is, in);
     parse_buildfile (l, root, base);
   }
 
@@ -1315,20 +1315,20 @@ namespace build2
 
   void parser::
   source (istream& is,
-          const path& p,
+          const path_name& in,
           const location& loc,
           bool enter,
           bool deft)
   {
     tracer trace ("parser::source", &path_);
 
-    l5 ([&]{trace (loc) << "entering " << p;});
+    l5 ([&]{trace (loc) << "entering " << in;});
 
     if (enter)
-      enter_buildfile (p);
+      enter_buildfile (in);
 
-    const path* op (path_);
-    path_ = &p;
+    const path_name* op (path_);
+    path_ = &in;
 
     lexer l (is, *path_);
     lexer* ol (lexer_);
@@ -1358,7 +1358,7 @@ namespace build2
     lexer_ = ol;
     path_ = op;
 
-    l5 ([&]{trace (loc) << "leaving " << p;});
+    l5 ([&]{trace (loc) << "leaving " << in;});
   }
 
   void parser::
@@ -1396,7 +1396,7 @@ namespace build2
       {
         ifdstream ifs (p);
         source (ifs,
-                p,
+                path_name (p),
                 get_location (t),
                 true  /* enter */,
                 false /* default_target */);
@@ -1537,7 +1537,7 @@ namespace build2
       {
         ifdstream ifs (p);
         source (ifs,
-                p,
+                path_name (p),
                 get_location (t),
                 true  /* enter */,
                 true  /* default_target */);
@@ -1622,7 +1622,7 @@ namespace build2
           });
 
         source (is,
-                path ("<stdout>"), // @@ PATH_NAME TODO
+                path_name ("<stdout>"),
                 l,
                 false /* enter */,
                 false /* default_target */);
@@ -5382,9 +5382,9 @@ namespace build2
   // normally: perform(update($identity(foo/ bar/))).
   //
   buildspec parser::
-  parse_buildspec (istream& is, const path& name) // @@ PATH_NAME TODO
+  parse_buildspec (istream& is, const path_name& in)
   {
-    path_ = &name;
+    path_ = &in;
 
     // We do "effective escaping" and only for ['"\$(] (basically what's
     // necessary inside a double-quoted literal plus the single quote).
@@ -5809,11 +5809,12 @@ namespace build2
   }
 
   void parser::
-  enter_buildfile (const path& p)
+  enter_buildfile (const path_name& pn)
   {
     tracer trace ("parser::enter_buildfile", &path_);
 
-    dir_path d (p.directory ());
+    const path& p (pn.path != nullptr ? *pn.path : path ());
+    dir_path d (p.directory ()); // Empty for a path name with the NULL path.
 
     // Figure out if we need out.
     //
@@ -5828,8 +5829,8 @@ namespace build2
     ctx.targets.insert<buildfile> (
       move (d),
       move (out),
-      p.leaf ().base ().string (),
-      p.extension (),               // Always specified.
+      pn.name ? *pn.name : p.leaf ().base ().string (),
+      p.extension (),                                   // Always specified.
       trace);
   }
 

@@ -131,7 +131,7 @@ namespace build2
       // never be init'ed).
       //
       auto load_config = [&rs, &c_v] (istream& is,
-                                      const path& f,
+                                      const path_name& in,
                                       const location& l)
       {
         // Check the config version. We assume that old versions cannot
@@ -149,7 +149,7 @@ namespace build2
         // that we won't have the config.version variable entered in the scope
         // but that is harmless (we could do it manually if necessary).
         //
-        lexer lex (is, f);
+        lexer lex (is, in);
 
         // Assume missing version is 0.
         //
@@ -157,7 +157,7 @@ namespace build2
         uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
 
         if (v != module::version)
-          fail (l) << "incompatible config file " << f <<
+          fail (l) << "incompatible config file " << in <<
             info << "config file version   " << v
                    << (p.second ? "" : " (missing)") <<
             info << "config module version " << module::version <<
@@ -169,11 +169,9 @@ namespace build2
 
       auto load_config_file = [&load_config] (const path& f, const location& l)
       {
-        // @@ PATH_NAME TODO
-        //
         path_name fn (f);
         ifdstream ifs;
-        load_config (open_file_or_stdin (fn, ifs), f /* fn */, l);
+        load_config (open_file_or_stdin (fn, ifs), fn, l);
       };
 
       {
@@ -211,7 +209,7 @@ namespace build2
               assert (false);
 #else
               istringstream is (host_config);
-              load_config (is, f, l);
+              load_config (is, path_name (s), l);
 #endif
             }
             else

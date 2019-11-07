@@ -605,7 +605,7 @@ main (int argc, char* argv[])
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
       parser p (*ctx);
-      bspec = p.parse_buildspec (is, path ("<buildspec>"));
+      bspec = p.parse_buildspec (is, path_name ("<buildspec>"));
     }
     catch (const io_error&)
     {

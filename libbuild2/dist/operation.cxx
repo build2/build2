@@ -144,8 +144,7 @@ namespace build2
       // since the meta operation is dist and we know what we are doing.
       //
       values params;
-      const path locf ("<dist>"); // @@ PATH_NAME TODO
-      const location loc (&locf); // Dummy location.
+      const location loc (path_name ("<dist>")); // Dummy location.
 
       const operations& ops (rs->root_extra->operations);
 

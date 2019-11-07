@@ -546,9 +546,9 @@ namespace build2
         friend class parser;
 
         // Testscript file paths. Specifically, replay_token::file points to
-        // these paths.
+        // these path names.
         //
-        std::set<path> paths_;
+        std::set<path_name_value> paths_;
       };
     }
   }

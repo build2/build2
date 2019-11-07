@@ -53,7 +53,7 @@ namespace build2
                   m == lexer_mode::description_line ||
                   m == lexer_mode::variable);
 
-          path in ("<stdin>"); // @@ PATH_NAME TODO
+          path_name in ("<stdin>");
           lexer l (cin, in, u ? lexer_mode::command_line : m);
           if (u)
             l.mode (m);

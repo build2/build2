@@ -1134,7 +1134,7 @@ namespace build2
                                       value (move (ns)),
                                       *ats,
                                       token_type::assign,
-                                      path ("<attributes>")); // @@ PATH_NAME TODO
+                                      path_name ("<attributes>"));
           }
         }
         catch (const io_error& e)

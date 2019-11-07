@@ -54,7 +54,8 @@ namespace build2
       void parser::
       pre_parse (istream& is, script& s)
       {
-        path_ = &*s.paths_.insert (s.script_target.path ()).first;
+        path_ = &*s.paths_.insert (
+          path_name_value (s.script_target.path ())).first;
 
         pre_parse_ = true;
 
@@ -78,7 +79,7 @@ namespace build2
         // Start location of the implied script group is the beginning of
         // the file. End location -- end of the file.
         //
-        group_->start_loc_ = location (path_, 1, 1);
+        group_->start_loc_ = location (*path_, 1, 1);
 
         token t (pre_parse_scope_body ());
 
@@ -1007,29 +1008,37 @@ namespace build2
           // It may be tempting to use relative paths in diagnostics but it
           // most likely will be misguided.
           //
-          auto enter_path = [this] (string n) -> const path&
+          auto enter_path = [this] (string n) -> const path_name_value&
           {
             path p (move (n));
 
             if (p.relative ())
-              p = path_->directory () / p;
+            {
+              // There is always the testscript path (path_ refers to an
+              // object in the script::paths_ set).
+              //
+              assert (path_->path != nullptr);
+
+              p = path_->path->directory () / p;
+            }
 
             p.normalize ();
 
-            return *script_->paths_.insert (move (p)).first;
+            return *script_->paths_.insert (path_name_value (move (p))).first;
           };
 
-          const path& p (enter_path (move (n)));
+          const path_name_value& pn (enter_path (move (n)));
+          const path& p (*pn.path);
 
           if (include_set_->insert (p).second || !once)
           {
             try
             {
               ifdstream ifs (p);
-              lexer l (ifs, p, lexer_mode::command_line);
+              lexer l (ifs, pn, lexer_mode::command_line);
 
-              const path* op (path_);
-              path_ = &p;
+              const path_name* op (path_);
+              path_ = &pn;
 
               lexer* ol (lexer_);
               set_lexer (&l);
@@ -2303,7 +2312,7 @@ namespace build2
                   //
 
                   istringstream is (s);
-                  path in ("<string>"); // @@ PATH_NAME TODO
+                  path_name in ("<string>");
                   lexer lex (is, in,
                              lexer_mode::command_expansion,
                              "\'\"\\");
@@ -3432,7 +3441,7 @@ namespace build2
                               value&& rhs,
                               const string& attributes,
                               token_type kind,
-                              const path& name)
+                              const path_name& name)
       {
         path_ = &name;
 

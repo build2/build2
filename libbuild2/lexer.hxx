@@ -88,12 +88,12 @@ namespace build2
     // copied.
     //
     lexer (istream& is,
-           const path& name,
+           const path_name& name,
            uint64_t line = 1, // Start line in the stream.
            const char* escapes = nullptr)
       : lexer (is, name, line, escapes, true /* set_mode */) {}
 
-    const path&
+    const path_name&
     name () const {return name_;}
 
     // Note: sets mode for the next token. The second argument can be used to
@@ -181,7 +181,7 @@ namespace build2
     // Lexer state.
     //
   protected:
-    lexer (istream& is, const path& name, uint64_t line,
+    lexer (istream& is, const path_name& name, uint64_t line,
            const char* escapes,
            bool set_mode)
         : char_scanner (is, true /* crlf */, line),
@@ -193,7 +193,7 @@ namespace build2
         mode (lexer_mode::normal, '@', escapes);
     }
 
-    const path& name_;
+    const path_name& name_;
     std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().
@@ -210,7 +210,7 @@ namespace butl // ADL
     using namespace build2;
 
     assert (data != nullptr); // E.g., must be &lexer::name_.
-    return location (static_cast<const path*> (data), c.line, c.column);
+    return location (*static_cast<const path_name*> (data), c.line, c.column);
   }
 }
 

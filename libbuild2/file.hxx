@@ -77,7 +77,7 @@ namespace build2
   // diagnostics.
   //
   LIBBUILD2_SYMEXPORT void
-  source (scope& root, scope& base, istream&, const path& name);
+  source (scope& root, scope& base, istream&, const path_name&);
 
   // As above, but extract from a lexer (this could be useful for sourcing
   // stdin that requires parse_variable()).

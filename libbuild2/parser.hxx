@@ -34,13 +34,16 @@ namespace build2
     // Issue diagnostics and throw failed in case of an error.
     //
     void
-    parse_buildfile (istream&, const path& name, scope& root, scope& base);
+    parse_buildfile (istream&,
+                     const path_name&,
+                     scope& root,
+                     scope& base);
 
     void
     parse_buildfile (lexer&, scope& root, scope& base);
 
     buildspec
-    parse_buildspec (istream&, const path& name);
+    parse_buildspec (istream&, const path_name&);
 
     token
     parse_variable (lexer&, scope&, const variable&, token_type kind);
@@ -49,9 +52,9 @@ namespace build2
     parse_variable_value (lexer&, scope&, const dir_path*, const variable&);
 
     names
-    parse_export_stub (istream& is, const path& p, scope& r, scope& b)
+    parse_export_stub (istream& is, const path_name& name, scope& r, scope& b)
     {
-      parse_buildfile (is, p, r, b);
+      parse_buildfile (is, name, r, b);
       return move (export_value_);
     }
 
@@ -248,7 +251,7 @@ namespace build2
     //
     void
     source (istream&,
-            const path&,
+            const path_name&,
             const location&,
             bool enter,
             bool default_target);
@@ -467,7 +470,7 @@ namespace build2
     // Enter buildfile as a target.
     //
     void
-    enter_buildfile (const path&);
+    enter_buildfile (const path_name&);
 
     // Lexer.
     //
@@ -684,8 +687,8 @@ namespace build2
     bool pre_parse_ = false;
     bool boot_;
 
-    const path* path_; // Current path.
-    lexer*      lexer_;
+    const path_name* path_; // Current path name.
+    lexer*           lexer_;
 
     prerequisite* prerequisite_ = nullptr; // Current prerequisite, if any.
     target*       target_       = nullptr; // Current target, if any.
@@ -704,8 +707,8 @@ namespace build2
 
     enum class replay {stop, save, play} replay_ = replay::stop;
     replay_tokens replay_data_;
-    size_t replay_i_;         // Position of the next token during replay.
-    const path* replay_path_; // Path before replay began (to be restored).
+    size_t replay_i_;              // Position of the next token during replay.
+    const path_name* replay_path_; // Path before replay began (to be restored).
   };
 }
 

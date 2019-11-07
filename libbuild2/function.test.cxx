@@ -125,7 +125,7 @@ namespace build2
       scope& s (ctx.global_scope.rw ());
 
       parser p (ctx);
-      p.parse_buildfile (cin, path ("buildfile"), s, s);
+      p.parse_buildfile (cin, path_name ("buildfile"), s, s);
     }
     catch (const failed&)
     {

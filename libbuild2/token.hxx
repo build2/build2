@@ -161,32 +161,32 @@ namespace build2
   struct replay_token
   {
     build2::token token;
-    const path* file;
+    const path_name* file;
     lexer_mode_base mode;
 
     using location_type = build2::location;
 
     location_type
-    location () const {return location_type (file, token.line, token.column);}
+    location () const {return location_type (*file, token.line, token.column);}
   };
 
   using replay_tokens = vector<replay_token>;
 
   // Diagnostics plumbing. We assume that any diag stream for which we can use
-  // token as location has its aux data pointing to pointer to path.
+  // token as location has its aux data pointing to pointer to path name.
   //
   inline location
-  get_location (const token& t, const path& p)
+  get_location (const token& t, const path_name& pn)
   {
-    return location (&p, t.line, t.column);
+    return location (pn, t.line, t.column);
   }
 
   inline location
   get_location (const token& t, const void* data)
   {
     assert (data != nullptr); // E.g., must be &parser::path_.
-    const path* p (*static_cast<const path* const*> (data));
-    return get_location (t, *p);
+    const path_name* pn (*static_cast<const path_name* const*> (data));
+    return get_location (t, *pn);
   }
 }
 

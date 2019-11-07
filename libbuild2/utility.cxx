@@ -47,6 +47,8 @@ namespace std
   ostream&
   operator<< (ostream& os, const ::butl::path_name& pn)
   {
+    assert (!pn.empty ());
+
     return pn.name ? (os << *pn.name) : (os << *pn.path);
   }
 
@@ -117,9 +119,6 @@ namespace build2
   string
   diag_relative (const path& p, bool cur)
   {
-    if (p.string () == "-") // @@ PATH_NAME: remove
-      return "<stdin>";
-
     const path& b (*relative_base);
 
     if (p.absolute ())

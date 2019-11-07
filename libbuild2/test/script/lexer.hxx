@@ -48,7 +48,7 @@ namespace build2
         // Note that neither the name nor escape arguments are copied.
         //
         lexer (istream& is,
-               const path& name,
+               const path_name& name,
                lexer_mode m,
                const char* escapes = nullptr)
             : base_lexer (is, name, 1 /* line */,

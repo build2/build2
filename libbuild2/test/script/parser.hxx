@@ -48,7 +48,7 @@ namespace build2
                                 value&& rhs,
                                 const string& attributes,
                                 token_type assign_kind,
-                                const path& name); // For diagnostics.
+                                const path_name&); // For diagnostics.
 
         // Recursive descent parser.
         //

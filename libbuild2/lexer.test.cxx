@@ -48,7 +48,7 @@ namespace build2
 
       // Most alternative modes auto-expire so we need something underneath.
       //
-      path in ("<stdin>"); // @@ PATH_NAME TODO
+      path_name in ("<stdin>");
       lexer l (cin, in);
 
       if (m != lexer_mode::normal)

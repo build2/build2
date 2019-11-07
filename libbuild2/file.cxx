@@ -163,25 +163,29 @@ namespace build2
   {
     tracer trace ("source");
 
-    const path& bf (l.name ());
+    const path_name& fn (l.name ());
 
     try
     {
-      l5 ([&]{trace << "sourcing " << bf;});
+      l5 ([&]{trace << "sourcing " << fn;});
 
       parser p (root.ctx, boot);
       p.parse_buildfile (l, root, base);
     }
     catch (const io_error& e)
     {
-      fail << "unable to read buildfile " << bf << ": " << e;
+      fail << "unable to read buildfile " << fn << ": " << e;
     }
   }
 
   static void
-  source (scope& root, scope& base, istream& is, const path& bf, bool boot)
+  source (scope& root,
+          scope& base,
+          istream& is,
+          const path_name& in,
+          bool boot)
   {
-    lexer l (is, bf);
+    lexer l (is, in);
     source (root, base, l, boot);
   }
 
@@ -191,10 +195,8 @@ namespace build2
     path_name fn (bf);
     try
     {
-      // @@ PATH_NAME TODO
-      //
       ifdstream ifs;
-      return source (root, base, open_file_or_stdin (fn, ifs), bf /* fn */, boot);
+      return source (root, base, open_file_or_stdin (fn, ifs), fn, boot);
     }
     catch (const io_error& e)
     {
@@ -209,9 +211,9 @@ namespace build2
   }
 
   void
-  source (scope& root, scope& base, istream& is, const path& bf)
+  source (scope& root, scope& base, istream& is, const path_name& in)
   {
-    source (root, base, is, bf, false);
+    source (root, base, is, in, false /* boot */);
   }
 
   void
@@ -525,7 +527,7 @@ namespace build2
   pair<value, bool>
   extract_variable (context& ctx, lexer& l, const variable& var)
   {
-    const path& bf (l.name ());
+    const path_name& fn (l.name ());
 
     try
     {
@@ -553,7 +555,7 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      fail << "unable to read buildfile " << bf << ": " << e << endf;
+      fail << "unable to read buildfile " << fn << ": " << e << endf;
     }
   }
 
@@ -563,7 +565,8 @@ namespace build2
                     const path& bf,
                     const variable& var)
   {
-    lexer l (is, bf);
+    path_name in (bf);
+    lexer l (is, in);
     return extract_variable (ctx, l, var);
   }
 
@@ -1665,7 +1668,7 @@ namespace build2
       // name?
       //
       parser p (ctx);
-      names v (p.parse_export_stub (ifs, es, gs, ts));
+      names v (p.parse_export_stub (ifs, path_name (es), gs, ts));
 
       // If there were no export directive executed in an export stub, assume
       // the target is not exported.

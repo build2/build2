@@ -228,6 +228,7 @@ namespace build2
   //
   using butl::path;
   using butl::path_name;
+  using butl::path_name_value;
   using butl::dir_path;
   using butl::path_cast;
   using butl::basic_path;
@@ -321,11 +322,11 @@ namespace build2
         : file (f), line (l), column (c) {}
 
     explicit
-    location (const path_name& f, uint64_t l = 0, uint64_t c = 0)
-        : file (f), line (l), column (c) {}
+    location (path_name f, uint64_t l = 0, uint64_t c = 0)
+        : file (std::move (f)), line (l), column (c) {}
 
     bool
-    empty () const {return file.path == nullptr;}
+    empty () const {return file.empty ();}
 
     path_name file;
     uint64_t  line;
