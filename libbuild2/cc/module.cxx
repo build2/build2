@@ -322,7 +322,7 @@ namespace build2
     static const dir_path usr_loc_inc ("/usr/local/include");
 #  ifdef __APPLE__
     static const dir_path a_usr_inc (
-      "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include");
+      "/Library/Developer/CommandLineTools/SDKs/MacOSX*.sdk/usr/include");
 #  endif
 #endif
 
@@ -475,11 +475,11 @@ namespace build2
         // /Library/Developer/CommandLineTools/usr/include
         // /Library/Developer/CommandLineTools/SDKs/MacOSX10.14.sdk/usr/include
         //
-        // What exactly all this means is anyone's guess, of course. So for
-        // now we will assume that anything that is or resolves (like that
-        // MacOSX10.14.sdk symlink) to:
+        // What exactly all this means is anyone's guess, of course (see
+        // homebrew-core issue #46393 for some background). So for now we
+        // will assume that anything that matches this pattern:
         //
-        // /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
+        // /Library/Developer/CommandLineTools/SDKs/MacOSX*.sdk/usr/include
         //
         // Is Apple's /usr/include.
         //
@@ -487,19 +487,11 @@ namespace build2
         {
           for (const dir_path& d: inc_dirs)
           {
-            // Both Clang and GCC skip non-existent paths but let's handle
-            // (and ignore) directories that cause any errors, for good
-            // measure.
-            //
-            try
+            if (path_match (d, a_usr_inc))
             {
-              if (d == a_usr_inc || dir_path (d).realize () == a_usr_inc)
-              {
-                ui = true;
-                break;
-              }
+              ui = true;
+              break;
             }
-            catch (...) {}
           }
         }
 #endif
