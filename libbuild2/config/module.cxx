@@ -10,7 +10,7 @@ namespace build2
 {
   namespace config
   {
-    void module::
+    bool module::
     save_variable (const variable& var, uint64_t flags)
     {
       const string& n (var.name);
@@ -27,7 +27,7 @@ namespace build2
       {
         // @@ For now with 'config.' prefix.
         //
-        i = sm.insert (string (n, 0, n.find ('.', 7)));
+        i = sm.insert (string (n, 0, n.find ('.', 7))).first;
       }
 
       // Don't insert duplicates. The config.import.* vars are particularly
@@ -36,16 +36,20 @@ namespace build2
       saved_variables& sv (i->second);
       auto j (sv.find (var));
 
-      if (j == sv.end ())
-        sv.push_back (saved_variable {var, flags});
-      else
+      if (j != sv.end ())
+      {
         assert (j->flags == flags);
+        return false;
+      }
+
+      sv.push_back (saved_variable {var, flags});
+      return true;
     }
 
-    void module::
+    bool module::
     save_module (const char* name, int prio)
     {
-      saved_modules.insert (string ("config.") += name, prio);
+      return saved_modules.insert (string ("config.") += name, prio).second;
     }
 
     const string module::name ("config");

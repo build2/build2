@@ -62,7 +62,7 @@ namespace build2
       //
       std::multimap<std::int32_t, const_iterator> order;
 
-      iterator
+      pair<iterator, bool>
       insert (string name, int prio = 0)
       {
         auto p (emplace (move (name), saved_variables ()));
@@ -70,7 +70,7 @@ namespace build2
         if (p.second)
           order.emplace (prio, p.first);
 
-        return p.first;
+        return p;
       }
     };
 
@@ -78,10 +78,12 @@ namespace build2
     {
       config::saved_modules saved_modules;
 
-      void
+      // Return true if variable/module were newly inserted.
+      //
+      bool
       save_variable (const variable&, uint64_t flags = 0);
 
-      void
+      bool
       save_module (const char* name, int prio = 0);
 
       static const string name;

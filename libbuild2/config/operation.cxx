@@ -85,6 +85,36 @@ namespace build2
 
     using project_set = set<const scope*>; // Use pointers to get comparison.
 
+    // Mark all the config.import.* variables defined in this variable map as
+    // saved optionally issuing a warning if the variable would otherwise be
+    // unsaved.
+    //
+    static void
+    save_config_import (context& ctx,
+                        module& m,
+                        const variable_map& vars,
+                        bool warning = false,
+                        const location& loc = location ())
+    {
+      auto& vp (ctx.var_pool);
+
+      for (auto p (vars.find_namespace (*vp.find ("config.import")));
+           p.first != p.second;
+           ++p.first)
+      {
+        const variable* var (&p.first->first.get ());
+
+        // Annoyingly, this can be one of the overrides (__override, __prefix,
+        // etc).
+        //
+        if (size_t n = var->override ())
+          var = vp.find (string (var->name, 0, n));
+
+        if (m.save_variable (*var) && warning)
+          warn (loc) << "keeping potentially no longer used variable " << *var;
+      }
+    }
+
     // If inherit is false, then don't rely on inheritance from outer scopes
     // (used for config.export).
     //
@@ -96,7 +126,11 @@ namespace build2
     {
       context& ctx (rs.ctx);
 
-      const module* mod (rs.lookup_module<const module> (module::name));
+      // @@ We are modifying the module (marking additional variables as
+      // saved) and this function can be called from a buildfile (probably
+      // only during serial execution but still).
+      //
+      module* mod (rs.lookup_module<module> (module::name));
 
       if (mod == nullptr)
         fail (on) << "no configuration information available during this "
@@ -121,6 +155,21 @@ namespace build2
                << "#" << endl;
           }
         }
+
+        // Mark all the config.import.* variables defined on our root scope as
+        // saved.
+        //
+        // This is in contrast to module-specific config variables (and later
+        // probably to project-specific) where by default we drop no longer
+        // used values (see below). Note that this also used to be the case
+        // for the config.import.* variables but that turned out to be a poor
+        // default since there is no way to "use" such variables except to
+        // import something. So now the default for config.import.* is to keep
+        // with a warning.
+        //
+        // Note that in the future we may make these defaults configurable.
+        //
+        save_config_import (ctx, *mod, rs.vars, true /* warn */, location (on));
 
         // Save config variables.
         //
@@ -165,7 +214,9 @@ namespace build2
               // definitely want to move them to our config.build since they
               // will be dropped from the amalgamation's config.build on the
               // next reconfigure. Let's also warn the user just in case,
-              // unless there is no module and thus we couldn't really check.
+              // unless there is no module and thus we couldn't really check
+              // (the latter could happen when calling $config.export() during
+              // other meta-operations).
               //
               // There is also another case that falls under this now that
               // overrides are by default amalgamation-wide rather than just
@@ -193,6 +244,21 @@ namespace build2
                       //
                       const saved_variables& sv (i->second);
                       found = sv.find (var) != sv.end ();
+
+                      // By default treat config.import.* values as "found"
+                      // (see above for details).
+                      //
+                      // Note that if/when we support overriding this default,
+                      // we would need to get the "effective" value for an
+                      // outer project (and the user would need to specify
+                      // such an override even though that project is not
+                      // being configured -- i.e., they would need to
+                      // communicate to us what will have happened once the
+                      // outer project is reconfigured). Feels like it will be
+                      // quite obscure and error-prone.
+                      //
+                      if (!found)
+                        found = var.name.compare (0, 14, "config.import.") == 0;
 
                       // Handle that other case: if this is an override but
                       // the outer project itself is not being configured,
@@ -949,22 +1015,10 @@ namespace build2
 
       // Save all the global config.import.* variables.
       //
-      variable_pool& vp (ctx.var_pool.rw (rs));
-      for (auto p (gs.vars.find_namespace (vp.insert ("config.import")));
-           p.first != p.second;
-           ++p.first)
-      {
-        const variable& var (p.first->first);
-
-        // Annoyingly, this can be (always is?) one of the overrides
-        // (__override, __prefix, etc).
-        //
-        size_t n (var.override ());
-        m.save_variable (n != 0 ? *vp.find (string (var.name, 0, n)) : var);
-      }
+      save_config_import (ctx, m, gs.vars);
 
       // Now project-specific. For now we just save all of them and let
-      // save_config() above weed out the ones that don't apply.
+      // save_config() above weed out the ones that do not apply.
       //
       for (const variable_override& vo: ctx.var_overrides)
       {

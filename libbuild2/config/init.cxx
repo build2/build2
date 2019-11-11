@@ -40,14 +40,15 @@ namespace build2
 
       auto& vp (rs.ctx.var_pool.rw (rs));
 
-      // While config.import (see below) could theoretically be specified in a
-      // buildfile, config.export is expected to always be specified as a
-      // command line override.
+      // While config.import could theoretically be specified in a buildfile,
+      // config.export is expected to always be specified as a command line
+      // override.
       //
-      // Note: must be entered during bootstrap since we need it in
+      // Note: must be entered during bootstrap since we need them in
       // configure_execute().
       //
-      vp.insert<path> ("config.export", true /* ovr */);
+      vp.insert<path>  ("config.export", true /* ovr */);
+      vp.insert<paths> ("config.import", true /* ovr */);
 
       // Only create the module if we are configuring or creating or if it was
       // forced with config.module (useful if we need to call $config.export()
@@ -124,7 +125,6 @@ namespace build2
       auto& vp (rs.ctx.var_pool.rw (rs));
 
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/));
-      auto& c_i (vp.insert<paths> ("config.import", true /* ovr */));
 
       // Load config.build if one exists followed by extra files specified in
       // config.import (we don't need to worry about disfigure since we will
@@ -181,7 +181,7 @@ namespace build2
           load_config_file (f, l);
       }
 
-      if (lookup l = rs[c_i])
+      if (lookup l = rs["config.import"])
       {
         // Only load files that were specified on our root scope as well as
         // global overrides. This way we can use our override "positioning"
