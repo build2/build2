@@ -120,7 +120,7 @@ namespace build2
       //
       // If unspecified, defaults to false for liba{} and to true for libu*{}.
       //
-      vp.insert<bool>      ("bin.whole", false, vis_tgt);
+      vp.insert<bool>      ("bin.whole", vis_tgt);
 
       vp.insert<string>    ("bin.exe.prefix");
       vp.insert<string>    ("bin.exe.suffix");

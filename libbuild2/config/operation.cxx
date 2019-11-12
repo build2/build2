@@ -85,20 +85,18 @@ namespace build2
 
     using project_set = set<const scope*>; // Use pointers to get comparison.
 
-    // Mark all the config.import.* variables defined in this variable map as
-    // saved optionally issuing a warning if the variable would otherwise be
-    // unsaved.
+    // Mark all the config.import.* variables defined on this scope as saved
+    // optionally warning if the variable would otherwise be dropped.
     //
     static void
-    save_config_import (context& ctx,
-                        module& m,
-                        const variable_map& vars,
-                        bool warning = false,
-                        const location& loc = location ())
+    save_config_import (module& m,
+                        const scope& rs,
+                        const location& loc,
+                        bool warning)
     {
-      auto& vp (ctx.var_pool);
+      auto& vp (rs.ctx.var_pool);
 
-      for (auto p (vars.find_namespace (*vp.find ("config.import")));
+      for (auto p (rs.vars.find_namespace (*vp.find ("config.import")));
            p.first != p.second;
            ++p.first)
       {
@@ -111,7 +109,22 @@ namespace build2
           var = vp.find (string (var->name, 0, n));
 
         if (m.save_variable (*var) && warning)
+        {
+          // Consistently with save_config() below we don't warn about an
+          // overriden variable.
+          //
+          if (var->overrides != nullptr)
+          {
+            lookup l {p.first->second, *var, rs.vars};
+            pair<lookup, size_t> org {l, 1 /* depth */};
+            pair<lookup, size_t> ovr (rs.find_override (*var, org));
+
+            if (org.first != ovr.first)
+              continue;
+          }
+
           warn (loc) << "keeping potentially no longer used variable " << *var;
+        }
       }
     }
 
@@ -155,8 +168,8 @@ namespace build2
           }
         }
 
-        // Mark all the config.import.* variables defined on our root scope as
-        // saved.
+        // Pre-mark all the config.import.* variables defined on our root
+        // scope as saved.
         //
         // This is in contrast to module-specific config variables (and later
         // probably to project-specific) where by default we drop no longer
@@ -168,7 +181,8 @@ namespace build2
         //
         // Note that in the future we may make these defaults configurable.
         //
-        save_config_import (ctx, *mod, rs.vars, true /* warn */, location (on));
+        if (mod->persist) //@@ TMP
+          save_config_import (*mod, rs, location (on), false /* warn */);
 
         // Save config variables.
         //
@@ -195,7 +209,7 @@ namespace build2
             // inherited. We might also not have any value at all (see
             // unconfigured()).
             //
-            if (!l.defined ())
+            if (!l.defined () || (l->null && sv.flags & omit_null))
               continue;
 
             // Handle inherited from outer scope values.
@@ -256,7 +270,7 @@ namespace build2
                       // outer project is reconfigured). Feels like this will
                       // be quite obscure and error-prone.
                       //
-                      if (!found)
+                      if (!found && m->persist) //@@ TMP
                         found = var.name.compare (0, 14, "config.import.") == 0;
 
                       // Handle that other case: if this is an override but
@@ -504,8 +518,8 @@ namespace build2
           dir_path out_nroot (out_root / pd);
           const scope& nrs (ctx.scopes.find (out_nroot));
 
-          // @@ Strictly speaking we need to check whether the config
-          // module was loaded for this subproject.
+          // @@ Strictly speaking we need to check whether the config module
+          //    was loaded for this subproject.
           //
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
@@ -1002,29 +1016,23 @@ namespace build2
     {
       // Since there aren't any sub-projects yet, any config.import.* values
       // that the user may want to specify won't be saved in config.build. So
-      // let's go ahead and mark them all to be saved. To do this, however, we
-      // need the config module (which is where this information is stored).
-      // And the module is created by init() during bootstrap. So what we are
-      // going to do is bootstrap the newly created project, similar to the
-      // way main() does it.
+      // we go ahead and add them to config.config.persist (unless overriden).
+      // To do this, however, we need the project's root scope (which is where
+      // this information is stored). So what we are going to do is bootstrap
+      // the newly created project, similar to the way main() does it.
       //
       scope& gs (ctx.global_scope.rw ());
       scope& rs (load_project (gs, d, d, false /* fwd */, false /* load */));
-      module& m (*rs.lookup_module<module> (module::name));
 
-      // Save all the global config.import.* variables.
+      // Add the default config.config.persist value unless there is a custom
+      // one (specified as a command line override).
       //
-      save_config_import (ctx, m, gs.vars);
+      const variable& var (*ctx.var_pool.find ("config.config.persist"));
 
-      // Now project-specific. For now we just save all of them and let
-      // save_config() above weed out the ones that do not apply.
-      //
-      for (const variable_override& vo: ctx.var_overrides)
+      if (!rs[var].defined ())
       {
-        const variable& var (vo.var);
-
-        if (var.name.compare (0, 14, "config.import.") == 0)
-          m.save_variable (var);
+        rs.assign (var) = vector<pair<string, string>> {
+          pair<string, string> {"config.import.*", "unused=keep"}};
       }
     }
 

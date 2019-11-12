@@ -86,6 +86,10 @@ namespace build2
       bool
       save_module (const char* name, int prio = 0);
 
+      // Cached (during init) config.config.persist value, if defined.
+      //
+      const vector<pair<string, string>>* persist = nullptr;
+
       static const string name;
       static const uint64_t version;
     };

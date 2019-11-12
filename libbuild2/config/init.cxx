@@ -47,14 +47,23 @@ namespace build2
       //
       auto& vp (rs.ctx.var_pool.rw (rs));
 
-      // While config.config.load could theoretically be specified in a
-      // buildfile, config.config.save is expected to always be specified as a
-      // command line override.
+      // While config.config.load (see below) could theoretically be specified
+      // in a buildfile, config.config.save is expected to always be specified
+      // as a command line override.
       //
       // Note: must be entered during bootstrap since we need it in
       // configure_execute().
       //
-      vp.insert<path>  ("config.config.save", true /* ovr */);
+      vp.insert<path> ("config.config.save", true /* ovr */);
+
+      // @@ TODO
+      //
+      // Use the NULL value to clear.
+      //
+      auto& c_p (vp.insert<vector<pair<string, string>>> (
+                   "config.config.persist",
+                   true /* ovr */,
+                   variable_visibility::project));
 
       // Only create the module if we are configuring or creating or if it was
       // requested with config.config.module (useful if we need to call
@@ -78,10 +87,13 @@ namespace build2
 
         unique_ptr<module> m (new module);
 
-        // Adjust priority for the import pseudo-module so that
-        // config.import.* values come first in config.build.
+        // Adjust priority for the config module and import pseudo-module so
+        // that their variables come first in config.build.
         //
+        m->save_module ("config", INT32_MIN);
         m->save_module ("import", INT32_MIN);
+
+        m->save_variable (c_p, omit_null);
 
         mod = move (m);
       }
@@ -109,7 +121,7 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>&,
+          unique_ptr<module_base>& mod,
           bool first,
           bool,
           const variable_map& config_hints)
@@ -222,6 +234,15 @@ namespace build2
                    << "config.config.load";
           }
         }
+      }
+
+      // Cache the config.config.persist value, if any.
+      //
+      if (mod != nullptr)
+      {
+        static_cast<module&> (*mod).persist =
+          cast_null<vector<pair<string, string>>> (
+            rs["config.config.persist"]);
       }
 
       // Register alias and fallback rule for the configure meta-operation.

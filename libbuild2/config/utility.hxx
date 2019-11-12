@@ -143,6 +143,7 @@ namespace build2
     // config::module for details.
     //
     const uint64_t save_commented = 0x01; // Save default value as commented.
+    const uint64_t omit_null      = 0x02; // Treat NULL as undefined.
 
     LIBBUILD2_SYMEXPORT void
     save_variable (scope& root, const variable&, uint64_t flags = 0);
