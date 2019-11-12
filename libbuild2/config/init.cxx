@@ -38,6 +38,13 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs;});
 
+      // Note that the config.<name>* variables belong to the module <name>.
+      // So the only "special" variables we can allocate in config.* are
+      // config.config.*, names that have been "gifted" to us by other modules
+      // (like config.version below) as well as names that we have reserved to
+      // not be valid module names (`build`). We also currently treat `import`
+      // as special.
+      //
       auto& vp (rs.ctx.var_pool.rw (rs));
 
       // While config.import could theoretically be specified in a buildfile,
@@ -51,13 +58,13 @@ namespace build2
       vp.insert<paths> ("config.import", true /* ovr */);
 
       // Only create the module if we are configuring or creating or if it was
-      // forced with config.module (useful if we need to call $config.export()
-      // during other meta-operations).
+      // requested with config.config.module (useful if we need to call
+      // $config.export() during other meta-operations).
       //
       // Detecting the former (configuring/creating) is a bit tricky since the
       // build2 core may not yet know if this is the case. But we know.
       //
-      auto& c_m (vp.insert<bool> ("config.module", false /*ovr*/));
+      auto& c_m (vp.insert<bool> ("config.config.module", false /*ovr*/));
 
       const string& mname (ctx.current_mname);
       const string& oname (ctx.current_oname);
@@ -116,14 +123,7 @@ namespace build2
 
       assert (config_hints.empty ()); // We don't known any hints.
 
-      // Note that the config.<name>* variables belong to the module <name>.
-      // So the only "special" variables we can allocate in config.* are
-      // config.config.*, names that have been "gifted" to us by other modules
-      // (like config.version) as well as names that we have reserved to not
-      // be valid module names (build, import, export).
-      //
       auto& vp (rs.ctx.var_pool.rw (rs));
-
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/));
 
       // Load config.build if one exists followed by extra files specified in

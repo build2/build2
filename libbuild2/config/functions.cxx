@@ -25,8 +25,8 @@ namespace build2
       // config.export variable functionality.
       //
       // Note that this function can only be used during configure unless the
-      // config module creation was forced for other meta-operations with
-      // config.module=true in bootstrap.build.
+      // config module creation was requested for other meta-operations with
+      // config.config.module=true in bootstrap.build.
       //
       f[".export"] = [] (const scope* s)
       {
