@@ -1028,7 +1028,7 @@ namespace build2
           };
 
           const path_name_value& pn (enter_path (move (n)));
-          const path& p (*pn.path);
+          const path& p (pn.path);
 
           if (include_set_->insert (p).second || !once)
           {

@@ -4218,7 +4218,7 @@ namespace build2
                         fdstream_mode::binary | fdstream_mode::skip);
 
           parser p;
-          unit tu (p.parse (is, *sp));
+          unit tu (p.parse (is, path_name (*sp)));
 
           is.close ();
 

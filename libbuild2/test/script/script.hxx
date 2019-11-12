@@ -548,7 +548,19 @@ namespace build2
         // Testscript file paths. Specifically, replay_token::file points to
         // these path names.
         //
-        std::set<path_name_value> paths_;
+        struct compare_paths
+        {
+          bool operator() (const path_name_value& x,
+                           const path_name_value& y) const
+          {
+            // Note that these path names are always paths, so we compare them
+            // as paths.
+            //
+            return x.path < y.path;
+          }
+        };
+
+        std::set<path_name_value, compare_paths> paths_;
       };
     }
   }

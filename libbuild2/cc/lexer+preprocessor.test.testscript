@@ -46,7 +46,7 @@ $* -l <<EOI >>EOO
 # 5 "test.cxx"
 ;
 EOI
-';' stdin:1:1
+';' <stdin>:1:1
 ';' test.cxx:1:1
 ';' test.cxx:2:3
 ';' test.cxx:4:1
@@ -60,7 +60,7 @@ EOO
 $* <<EOI 2>>EOE != 0
 #include <foo/bar>
 EOI
-stdin:1:1: error: unexpected #include directive
+<stdin>:1:1: error: unexpected #include directive
 EOE
 
 : nested

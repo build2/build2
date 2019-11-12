@@ -38,7 +38,7 @@ namespace butl // ADL
     using namespace build2;
 
     assert (data != nullptr); // E.g., must be &lexer::name_.
-    return location (static_cast<const path*> (data), c.line, c.column);
+    return location (*static_cast<const path_name*> (data), c.line, c.column);
   }
 }
 
@@ -146,7 +146,7 @@ namespace build2
     {
       for (;; c = skip_spaces ())
       {
-        t.file = log_file_;
+        t.file = &log_file_;
         t.line = log_line_ ? *log_line_ : c.line;
         t.column = c.column;
 
@@ -156,7 +156,7 @@ namespace build2
           return;
         }
 
-        const location l (&name_, c.line, c.column);
+        const location l (name_, c.line, c.column);
 
         // Hash the token's line. The reason is debug info. In fact, doing
         // this will make quite a few "noop" changes (like adding a newline
@@ -646,7 +646,7 @@ namespace build2
     {
       // note: c is hashed
 
-      const location l (&name_, c.line, c.column);
+      const location l (name_, c.line, c.column);
 
       for (char p (c);;) // Previous character (see below).
       {
@@ -677,7 +677,7 @@ namespace build2
     {
       // note: c is hashed
 
-      const location l (&name_, c.line, c.column);
+      const location l (name_, c.line, c.column);
 
       for (char p (c);;) // Previous character (see below).
       {
@@ -736,7 +736,7 @@ namespace build2
       // Note that the <raw_characters> are not processed in any way, not even
       // for line continuations.
       //
-      const location l (&name_, c.line, c.column);
+      const location l (name_, c.line, c.column);
 
       // As a first step, parse the delimiter (including the openning paren).
       //
@@ -830,7 +830,7 @@ namespace build2
 
       if (c == '\"')
       {
-        const location l (&name_, c.line, c.column);
+        const location l (name_, c.line, c.column);
 
         // It is common to have a large number of #line directives that don't
         // change the file (they seem to be used to track macro locations or
@@ -895,15 +895,42 @@ namespace build2
           }
         }
 
-        if (log_file_.string () == s)
-          return;
-
-        // Swap the two string buffers.
-        //
+        try
         {
-          string r (move (log_file_).string ()); // Move string rep out.
-          r.swap (s);
-          log_file_ = path (move (r)); // Move back in.
+          if (s.empty ())
+            throw invalid_path ("");
+
+          // Handle special names (<stdin>, <built-in>, etc).
+          //
+          if (s.front () == '<' && s.back () == '>')
+          {
+            if (log_file_.name)
+            {
+              if (*log_file_.name == s)
+                return;
+
+              log_file_.name->swap (s);
+            }
+            else
+              log_file_.name = move (s);
+
+            log_file_.path.clear ();
+          }
+          else
+          {
+            if (log_file_.path.string () == s)
+              return;
+
+            string r (move (log_file_.path).string ()); // Move string rep out.
+            r.swap (s);
+            log_file_.path = path (move (r)); // Move back in.
+
+            log_file_.name = nullopt;
+          }
+        }
+        catch (const invalid_path&)
+        {
+          fail (l) << "invalid path in #line directive";
         }
 
         // If the path is relative, then prefix it with the current working
@@ -926,17 +953,19 @@ namespace build2
         // the part starting from the project root which is immutable. Plus
         // we will need -ffile-prefix-map to deal with __FILE__.
         //
-        if (!log_file_.to_directory ())
-          cs_.append (log_file_.string ());
+        if (!log_file_.path.to_directory ()) // Also covers special names.
+          cs_.append (log_file_.name
+                      ? *log_file_.name
+                      : log_file_.path.string ());
 #if 0
         {
-          using tr = path::traits;
-          const string& f (log_file_.string ());
+          using tr = path::traits_type;
+          const string& f (log_file_.path.string ());
 
-          if (f.find (':') != string::npos            ||
-              (f.front () == '<' && f.back () == '>') ||
-              log_file_.absolute ())
-            cs_.append (f);
+          if (log_file_.name               ||
+              f.find (':') != string::npos ||
+              log_file_.path.absolute ())
+            cs_.append (log_file_.name ? *log_file_.name : f);
           else
           {
             // This gets complicated and slow: the path may contain '..' and

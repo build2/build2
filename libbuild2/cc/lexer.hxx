@@ -63,9 +63,12 @@ namespace build2
 
       // Logical position.
       //
-      path     file;
-      uint64_t line   = 0;
-      uint64_t column = 0;
+      // Note that file is a shallow pointer to the state maintained by the
+      // lexer.
+      //
+      const path_name* file   = nullptr;
+      uint64_t         line   = 0;
+      uint64_t         column = 0;
 
       // Physical position in the stream, currently only for identifiers.
       //
@@ -80,13 +83,15 @@ namespace build2
     class lexer: protected butl::char_scanner
     {
     public:
-      lexer (ifdstream& is, const path& name)
+      lexer (ifdstream& is, const path_name& name)
           : char_scanner (is, false),
             name_ (name),
             fail ("error", &name_),
-            log_file_ (name) {}
+            log_file_ (name)
+      {
+      }
 
-      const path&
+      const path_name&
       name () const {return name_;}
 
       string
@@ -164,13 +169,13 @@ namespace build2
       geth (const xchar& peeked);
 
     private:
-      const path name_;
+      const path_name& name_;
       const fail_mark fail;
 
       // Logical file and line as set by the #line directives. Note that the
       // lexer diagnostics still uses the physical file/lines.
       //
-      path               log_file_;
+      path_name_value    log_file_;
       optional<uint64_t> log_line_;
 
       string tmp_file_;
@@ -182,7 +187,7 @@ namespace build2
     inline location
     get_location (const token& t, const void* = nullptr)
     {
-      return location (&t.file, t.line, t.column);
+      return location (*t.file, t.line, t.column);
     }
   }
 }

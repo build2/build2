@@ -89,7 +89,7 @@ export
   module foo;
 }
 EOI
-stdin:8:1: error: {}-imbalance detected
+<stdin>:8:1: error: {}-imbalance detected
 EOE
 
 : brace-stray
@@ -103,7 +103,7 @@ export
 }
 module foo;
 EOI
-stdin:6:1: error: {}-imbalance detected
+<stdin>:6:1: error: {}-imbalance detected
 EOE
 
 : import-missing-name
@@ -111,7 +111,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 import ;
 EOI
-stdin:1:8: error: module or header name expected instead of ';'
+<stdin>:1:8: error: module or header name expected instead of ';'
 EOE
 
 : module-missing-name
@@ -119,7 +119,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 module ;
 EOI
-stdin:1:1: error: module declaration expected after leading module marker
+<stdin>:1:1: error: module declaration expected after leading module marker
 EOE
 
 : import-missing-semi
@@ -127,7 +127,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 import foo
 EOI
-stdin:2:1: error: ';' expected instead of <end of file>
+<stdin>:2:1: error: ';' expected instead of <end of file>
 EOE
 
 : module-missing-semi
@@ -135,7 +135,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 export module foo
 EOI
-stdin:2:1: error: ';' expected instead of <end of file>
+<stdin>:2:1: error: ';' expected instead of <end of file>
 EOE
 
 : import-missing-header
@@ -143,5 +143,5 @@ EOE
 $* <<EOI 2>>EOE != 0
 import <foo.h;
 EOI
-stdin:2:1: error: closing '>' expected after header name
+<stdin>:2:1: error: closing '>' expected after header name
 EOE

@@ -25,7 +25,7 @@ namespace build2
     {
     public:
       unit
-      parse (ifdstream&, const path& name);
+      parse (ifdstream&, const path_name&);
 
     private:
       void

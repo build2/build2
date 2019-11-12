@@ -24,22 +24,26 @@ namespace build2
     {
       try
       {
-        const char* file;
+        path file;
 
+        path_name in;
         ifdstream is;
+
         if (argc > 1)
         {
-          file = argv[1];
+          file = path (argv[1]);
+
+          in = path_name (file);
           is.open (file);
         }
         else
         {
-          file = "stdin";
+          in = path_name ("<stdin>");
           is.open (fddup (stdin_fd ()));
         }
 
         parser p;
-        unit u (p.parse (is, path (file)));
+        unit u (p.parse (is, in));
         unit_type ut (u.type);
 
         for (const module_import& m: u.module_info.imports)

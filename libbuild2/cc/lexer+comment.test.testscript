@@ -41,7 +41,7 @@ $* <<EOI 2>>EOE != 0
 /*
 comment
 EOI
-stdin:1:2: error: unterminated comment
+<stdin>:1:2: error: unterminated comment
 EOE
 
 : cxx-unterminated

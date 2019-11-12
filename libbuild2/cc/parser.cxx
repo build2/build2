@@ -16,9 +16,9 @@ namespace build2
     using type = token_type;
 
     unit parser::
-    parse (ifdstream& is, const path& name)
+    parse (ifdstream& is, const path_name& in)
     {
-      lexer l (is, name);
+      lexer l (is, in);
       l_ = &l;
 
       unit u;

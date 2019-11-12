@@ -23,7 +23,7 @@ namespace build2
     main (int argc, char* argv[])
     {
       bool loc (false);
-      const char* file (nullptr);
+      path file;
 
       for (int i (1); i != argc; ++i)
       {
@@ -33,23 +33,28 @@ namespace build2
           loc = true;
         else
         {
-          file = argv[i];
+          file = path (argv[i]);
           break;
         }
       }
 
       try
       {
+        path_name in;
         ifdstream is;
-        if (file != nullptr)
+
+        if (!file.empty ())
+        {
+          in = path_name (file);
           is.open (file);
+        }
         else
         {
-          file = "stdin";
+          in = path_name ("<stdin>");
           is.open (fddup (stdin_fd ()));
         }
 
-        lexer l (is, path (file));
+        lexer l (is, in);
 
         // No use printing eos since we will either get it or loop forever.
         //
@@ -58,7 +63,7 @@ namespace build2
           cout << t;
 
           if (loc)
-            cout << ' ' << t.file << ':' << t.line << ':' << t.column;
+            cout << ' ' << *t.file << ':' << t.line << ':' << t.column;
 
           cout << endl;
         }
