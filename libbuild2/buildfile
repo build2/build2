@@ -5,7 +5,15 @@
 # NOTE: remember to update bundled_modules in libbuild2/module.cxx if adding a
 #       new module.
 #
-./: lib{build2} bash/ bin/ c/ cc/ cxx/ in/ version/
+bundled_modules = bash/ bin/ c/ cc/ cxx/ in/ version/
+
+./: lib{build2} $bundled_modules
+
+# Note that we have to load these buildfiles explicitly in order to have their
+# imports processed before the $config.save() call below. Failed that, we will
+# get a warning about saving unused config.import.* values.
+#
+include $bundled_modules
 
 # A module should treat lib{build2} as an "implied interface dependency"
 # meaning that it can link it as an implementation dependency and assume that
