@@ -954,6 +954,33 @@ namespace build2
     static const value_type_ex value_type;
   };
 
+  // vector<pair<K, V>>
+  //
+  template <typename K, typename V>
+  struct value_traits<vector<pair<K, V>>>
+  {
+    static_assert (sizeof (vector<pair<K, V>>) <= value::size_,
+                   "insufficient space");
+
+    static void assign (value&, vector<pair<K, V>>&&);
+    static void append (value&, vector<pair<K, V>>&&);
+    static void prepend (value& v, vector<pair<K, V>>&& x) {
+      return append (v, move (x));}
+    static bool empty (const vector<pair<K, V>>& x) {return x.empty ();}
+
+    static const vector<pair<K, V>> empty_instance;
+
+    // Make sure these are static-initialized together. Failed that VC will
+    // make sure it's done in the wrong order.
+    //
+    struct value_type_ex: build2::value_type
+    {
+      string type_name;
+      value_type_ex (value_type&&);
+    };
+    static const value_type_ex value_type;
+  };
+
   // map<K, V>
   //
   template <typename K, typename V>
@@ -993,6 +1020,9 @@ namespace build2
   extern template struct LIBBUILD2_DECEXPORT value_traits<paths>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<dir_paths>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<uint64s>;
+
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<vector<pair<string, string>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<std::map<string, string>>;

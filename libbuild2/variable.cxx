@@ -1523,7 +1523,11 @@ namespace build2
   template struct LIBBUILD2_DEFEXPORT value_traits<dir_paths>;
   template struct LIBBUILD2_DEFEXPORT value_traits<uint64s>;
 
-  template struct LIBBUILD2_DEFEXPORT value_traits<std::map<string, string>>;
+  template struct LIBBUILD2_DEFEXPORT
+  value_traits<vector<pair<string, string>>>;
+
+  template struct LIBBUILD2_DEFEXPORT
+  value_traits<std::map<string, string>>;
 
   template struct LIBBUILD2_DEFEXPORT
   value_traits<std::map<project_name, dir_path>>;

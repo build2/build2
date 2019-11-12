@@ -424,6 +424,170 @@ namespace build2
     &default_empty<vector<T>>
   };
 
+  // vector<pair<K, V>> value
+  //
+  template <typename K, typename V>
+  void
+  pair_vector_append (value& v, names&& ns, const variable* var)
+  {
+    vector<pair<K, V>>& p (v
+                           ? v.as<vector<pair<K, V>>> ()
+                           : *new (&v.data_) vector<pair<K, V>> ());
+
+    // Verify we have a sequence of pairs and convert each lhs/rhs to K/V.
+    //
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
+    {
+      name& l (*i);
+
+      if (!l.pair)
+      {
+        diag_record dr (fail);
+
+        dr << value_traits<vector<pair<K, V>>>::value_type.name
+           << " key-value pair expected instead of '" << l << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
+
+      name& r (*++i); // Got to have the second half of the pair.
+
+      if (l.pair != '@')
+      {
+        diag_record dr (fail);
+
+        dr << "unexpected pair style for "
+           << value_traits<vector<pair<K, V>>>::value_type.name
+           << " key-value '" << l << "'" << l.pair << "'" << r << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
+
+      try
+      {
+        K k (value_traits<K>::convert (move (l), nullptr));
+
+        try
+        {
+          V v (value_traits<V>::convert (move (r), nullptr));
+
+          p.emplace_back (move (k), move (v));
+        }
+        catch (const invalid_argument&)
+        {
+          diag_record dr (fail);
+
+          dr << "invalid " << value_traits<V>::value_type.name
+             << " element value '" << r << "'";
+
+          if (var != nullptr)
+            dr << " in variable " << var->name;
+        }
+      }
+      catch (const invalid_argument&)
+      {
+        diag_record dr (fail);
+
+        dr << "invalid " << value_traits<K>::value_type.name
+           << " element key '" << l << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+      }
+    }
+  }
+
+  template <typename K, typename V>
+  void
+  pair_vector_assign (value& v, names&& ns, const variable* var)
+  {
+    if (v)
+      v.as<vector<pair<K, V>>> ().clear ();
+
+    pair_vector_append<K, V> (v, move (ns), var);
+  }
+
+  template <typename K, typename V>
+  static names_view
+  pair_vector_reverse (const value& v, names& s)
+  {
+    auto& vv (v.as<vector<pair<K, V>>> ());
+    s.reserve (2 * vv.size ());
+
+    for (const auto& p: vv)
+    {
+      s.push_back (value_traits<K>::reverse (p.first));
+      s.back ().pair = '@';
+      s.push_back (value_traits<V>::reverse (p.second));
+    }
+
+    return s;
+  }
+
+  template <typename K, typename V>
+  static int
+  pair_vector_compare (const value& l, const value& r)
+  {
+    auto& lv (l.as<vector<pair<K, V>>> ());
+    auto& rv (r.as<vector<pair<K, V>>> ());
+
+    auto li (lv.begin ()), le (lv.end ());
+    auto ri (rv.begin ()), re (rv.end ());
+
+    for (; li != le && ri != re; ++li, ++ri)
+    {
+      int r;
+      if ((r = value_traits<K>::compare (li->first, ri->first)) != 0 ||
+          (r = value_traits<V>::compare (li->second, ri->second)) != 0)
+        return r;
+    }
+
+    if (li == le && ri != re) // l shorter than r.
+      return -1;
+
+    if (ri == re && li != le) // r shorter than l.
+      return 1;
+
+    return 0;
+  }
+
+  template <typename K, typename V>
+  value_traits<vector<pair<K, V>>>::value_type_ex::
+  value_type_ex (value_type&& v)
+    : value_type (move (v))
+  {
+    type_name  = value_traits<K>::type_name;
+    type_name += '_';
+    type_name += value_traits<V>::type_name;
+    type_name += "_pair_vector";
+    name = type_name.c_str ();
+  }
+
+  template <typename K, typename V>
+  const vector<pair<K, V>> value_traits<vector<pair<K, V>>>::empty_instance;
+
+  template <typename K, typename V>
+  const typename value_traits<std::vector<pair<K, V>>>::value_type_ex
+  value_traits<vector<pair<K, V>>>::value_type = build2::value_type // VC14 wants =
+  {
+    nullptr,                     // Patched above.
+    sizeof (vector<pair<K, V>>),
+    nullptr,                     // No base.
+    nullptr,                     // No element.
+    &default_dtor<vector<pair<K, V>>>,
+    &default_copy_ctor<vector<pair<K, V>>>,
+    &default_copy_assign<vector<pair<K, V>>>,
+    &pair_vector_assign<K, V>,
+    &pair_vector_append<K, V>,
+    &pair_vector_append<K, V>,   // Prepend is the same as append.
+    &pair_vector_reverse<K, V>,
+    nullptr,                     // No cast (cast data_ directly).
+    &pair_vector_compare<K, V>,
+    &default_empty<vector<pair<K, V>>>
+  };
+
   // map<K, V> value
   //
   template <typename K, typename V>
@@ -574,7 +738,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  const std::map<K,V> value_traits<std::map<K, V>>::empty_instance;
+  const std::map<K, V> value_traits<std::map<K, V>>::empty_instance;
 
   template <typename K, typename V>
   const typename value_traits<std::map<K, V>>::value_type_ex

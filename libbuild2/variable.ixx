@@ -707,6 +707,37 @@ namespace build2
       new (&v.data_) vector<T> (move (x));
   }
 
+  // vector<pair<K, V>> value
+  //
+  template <typename K, typename V>
+  inline void value_traits<vector<pair<K, V>>>::
+  assign (value& v, vector<pair<K, V>>&& x)
+  {
+    if (v)
+      v.as<vector<pair<K, V>>> () = move (x);
+    else
+      new (&v.data_) vector<pair<K, V>> (move (x));
+  }
+
+  template <typename K, typename V>
+  inline void value_traits<vector<pair<K, V>>>::
+  append (value& v, vector<pair<K, V>>&& x)
+  {
+    if (v)
+    {
+      vector<pair<K, V>>& y (v.as<vector<pair<K, V>>> ());
+
+      if (y.empty ())
+        y.swap (x);
+      else
+        y.insert (y.end (),
+                  make_move_iterator (x.begin ()),
+                  make_move_iterator (x.end ()));
+    }
+    else
+      new (&v.data_) vector<pair<K, V>> (move (x));
+  }
+
   // map<K, V> value
   //
   template <typename K, typename V>
