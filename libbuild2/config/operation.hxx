@@ -31,8 +31,8 @@ namespace build2
     using project_set = std::set<const scope*>; // Pointers for comparison.
 
     // If inherit is false, then don't rely on inheritance from outer scopes
-    // (used for config.export). In this case the already configured project
-    // set can be empty.
+    // (used for config.config.save/$config.save()). In this case the already
+    // configured project set can be empty.
     //
     void
     save_config (const scope& rs,

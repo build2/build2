@@ -47,19 +47,18 @@ namespace build2
       //
       auto& vp (rs.ctx.var_pool.rw (rs));
 
-      // While config.import could theoretically be specified in a buildfile,
-      // config.export is expected to always be specified as a command line
-      // override.
+      // While config.config.load could theoretically be specified in a
+      // buildfile, config.config.save is expected to always be specified as a
+      // command line override.
       //
-      // Note: must be entered during bootstrap since we need them in
+      // Note: must be entered during bootstrap since we need it in
       // configure_execute().
       //
-      vp.insert<path>  ("config.export", true /* ovr */);
-      vp.insert<paths> ("config.import", true /* ovr */);
+      vp.insert<path>  ("config.config.save", true /* ovr */);
 
       // Only create the module if we are configuring or creating or if it was
       // requested with config.config.module (useful if we need to call
-      // $config.export() during other meta-operations).
+      // $config.save() during other meta-operations).
       //
       // Detecting the former (configuring/creating) is a bit tricky since the
       // build2 core may not yet know if this is the case. But we know.
@@ -73,6 +72,10 @@ namespace build2
           (mname.empty () && (oname == "configure" || oname == "create")) ||
           cast_false<bool> (rs.vars[c_m]))
       {
+        // Used as a variable prefix by configure_execute().
+        //
+        vp.insert ("config.import");
+
         unique_ptr<module> m (new module);
 
         // Adjust priority for the import pseudo-module so that
@@ -124,11 +127,12 @@ namespace build2
       assert (config_hints.empty ()); // We don't known any hints.
 
       auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/));
 
       // Load config.build if one exists followed by extra files specified in
-      // config.import (we don't need to worry about disfigure since we will
-      // never be init'ed).
+      // config.config.load (we don't need to worry about disfigure since we
+      // will never be init'ed).
       //
       auto load_config = [&rs, &c_v] (istream& is,
                                       const path_name& in,
@@ -147,7 +151,8 @@ namespace build2
         // than one character back). So what we are going to do is continue
         // reading after extracting the variable. One side effect of this is
         // that we won't have the config.version variable entered in the scope
-        // but that is harmless (we could do it manually if necessary).
+        // but that is harmless (we could do it manually if necessary though
+        // it's not clear which it should be if we load multiple files).
         //
         lexer lex (is, in);
 
@@ -181,7 +186,7 @@ namespace build2
           load_config_file (f, l);
       }
 
-      if (lookup l = rs["config.import"])
+      if (lookup l = rs[c_l])
       {
         // Only load files that were specified on our root scope as well as
         // global overrides. This way we can use our override "positioning"
@@ -189,9 +194,9 @@ namespace build2
         // extra config is loaded. The resulting semantics feels quite natural
         // and consistent with command line variable overrides:
         //
-        // b   config.import=.../config.build  # outermost amalgamation
-        // b ./config.import=.../config.build  # this project
-        // b  !config.import=.../config.build  # every project
+        // b   config.config.load=.../config.build  # outermost amalgamation
+        // b ./config.config.load=.../config.build  # this project
+        // b  !config.config.load=.../config.build  # every project
         //
         if (l.belongs (rs) || l.belongs (rs.ctx.global_scope))
         {
@@ -214,7 +219,7 @@ namespace build2
             }
             else
               fail << "unknown special configuration name '" << s << "' in "
-                   << "config.import";
+                   << "config.config.load";
           }
         }
       }

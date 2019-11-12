@@ -115,8 +115,7 @@ namespace build2
       }
     }
 
-    // If inherit is false, then don't rely on inheritance from outer scopes
-    // (used for config.export).
+    // If inherit is false, then don't rely on inheritance from outer scopes.
     //
     void
     save_config (const scope& rs,
@@ -215,7 +214,7 @@ namespace build2
               // will be dropped from the amalgamation's config.build on the
               // next reconfigure. Let's also warn the user just in case,
               // unless there is no module and thus we couldn't really check
-              // (the latter could happen when calling $config.export() during
+              // (the latter could happen when calling $config.save() during
               // other meta-operations).
               //
               // There is also another case that falls under this now that
@@ -254,8 +253,8 @@ namespace build2
                       // such an override even though that project is not
                       // being configured -- i.e., they would need to
                       // communicate to us what will have happened once the
-                      // outer project is reconfigured). Feels like it will be
-                      // quite obscure and error-prone.
+                      // outer project is reconfigured). Feels like this will
+                      // be quite obscure and error-prone.
                       //
                       if (!found)
                         found = var.name.compare (0, 14, "config.import.") == 0;
@@ -419,7 +418,7 @@ namespace build2
     static void
     configure_project (action a,
                        const scope& rs,
-                       const variable* c_e, // config.export
+                       const variable* c_s, // config.config.save
                        project_set& projects)
     {
       tracer trace ("configure_project");
@@ -451,40 +450,40 @@ namespace build2
 
         // Save src-root.build unless out_root is the same as src.
         //
-        if (c_e == nullptr && out_root != src_root)
+        if (c_s == nullptr && out_root != src_root)
           save_src_root (rs);
 
         // Save config.build unless an alternative is specified with
-        // config.export. Similar to config.import we will only save to that
-        // file if it is specified on our root scope or as a global override
-        // (the latter is a bit iffy but let's allow it, for example, to dump
-        // everything to stdout). Note that to save a subproject's config we
-        // will have to use a scope-specific override (since the default will
-        // apply to the amalgamation):
+        // config.config.save. Similar to config.config.load we will only save
+        // to that file if it is specified on our root scope or as a global
+        // override (the latter is a bit iffy but let's allow it, for example,
+        // to dump everything to stdout). Note that to save a subproject's
+        // config we will have to use a scope-specific override (since the
+        // default will apply to the amalgamation):
         //
-        // b configure: subproj/ subproj/config.export=.../config.build
+        // b configure: subproj/ subproj/config.config.save=.../config.build
         //
         // Could be confusing but then normally it will be the amalgamation
         // whose configuration we want to export.
         //
-        // Note also that if config.export is specified we do not rewrite
+        // Note also that if config.config.save is specified we do not rewrite
         // config.build files (say, of subprojects) as well as src-root.build
         // above. Failed that, if we are running in a disfigured project, we
         // may end up leaving it in partially configured state.
         //
-        if (c_e == nullptr)
+        if (c_s == nullptr)
           save_config (rs, config_file (rs), true /* inherit */, projects);
         else
         {
-          lookup l (rs[*c_e]);
+          lookup l (rs[*c_s]);
           if (l && (l.belongs (rs) || l.belongs (ctx.global_scope)))
           {
             // While writing the complete configuration seems like a natural
             // default, there might be a desire to take inheritance into
             // account (if, say, we are exporting at multiple levels). One can
             // of course just copy the relevant config.build files, but we may
-            // still want to support this mode somehow in the future (maybe
-            // using `+` as a modifier, say config.export=+.../config.build).
+            // still want to support this mode somehow in the future (it seems
+            // like an override of config.config.persist should do the trick).
             //
             save_config (rs, cast<path> (l), false /* inherit */, projects);
           }
@@ -511,7 +510,7 @@ namespace build2
           if (nrs.out_path () != out_nroot) // This subproject not loaded.
             continue;
 
-          configure_project (a, nrs, c_e, projects);
+          configure_project (a, nrs, c_s, projects);
         }
       }
     }
@@ -658,12 +657,12 @@ namespace build2
 
       context& ctx (fwd ? ts[0].as<scope> ().ctx : ts[0].as<target> ().ctx);
 
-      const variable* c_e (ctx.var_pool.find ("config.export"));
+      const variable* c_s (ctx.var_pool.find ("config.config.save"));
 
-      if (c_e->overrides == nullptr)
-        c_e = nullptr;
+      if (c_s->overrides == nullptr)
+        c_s = nullptr;
       else if (fwd)
-        fail << "config.export specified for forward configuration";
+        fail << "config.config.save specified for forward configuration";
 
       project_set projects;
 
@@ -717,7 +716,7 @@ namespace build2
             }
           }
 
-          configure_project (a, *rs, c_e, projects);
+          configure_project (a, *rs, c_s, projects);
         }
       }
     }

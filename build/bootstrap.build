@@ -5,7 +5,7 @@
 project = build2
 
 # Force config module creation for meta-opeations other than configure so that
-# we can call $config.export() during perform update.
+# we can call $config.save() during perform update.
 #
 config.config.module = true
 

@@ -22,21 +22,21 @@ namespace build2
       function_family f (m, "config");
 
       // Return the configuration file contents as a string, similar to the
-      // config.export variable functionality.
+      // config.config.save variable functionality.
       //
       // Note that this function can only be used during configure unless the
       // config module creation was requested for other meta-operations with
       // config.config.module=true in bootstrap.build.
       //
-      f[".export"] = [] (const scope* s)
+      f[".save"] = [] (const scope* s)
       {
         if (s == nullptr)
-          fail << "config.export() called out of scope" << endf;
+          fail << "config.save() called out of scope" << endf;
 
         s = s->root_scope ();
 
         if (s == nullptr)
-          fail << "config.export() called out of project" << endf;
+          fail << "config.save() called out of project" << endf;
 
         ostringstream os;
 
@@ -44,7 +44,7 @@ namespace build2
         //
         project_set ps;
         save_config (*s,
-                     os, path_name ("config.export()"),
+                     os, path_name ("config.save()"),
                      false /* inherit */,
                      ps);
 

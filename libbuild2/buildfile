@@ -44,7 +44,7 @@ config/cxx{host-config}: config/in{host-config}
   # Remove comment lines which could be confused with preprocessor directives
   # by some lesser compilers.
   #
-  host_config = $regex.replace_lines($config.export(), '^ *#.*$', [null], return_lines)
+  host_config = $regex.replace_lines($config.save(), '^ *#.*$', [null], return_lines)
 }
 
 libul{build2}: dist/{hxx ixx txx cxx}{** -**.test...}
