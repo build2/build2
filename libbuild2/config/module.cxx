@@ -25,7 +25,7 @@ namespace build2
       //
       if (i == sm.end ())
       {
-        // @@ For now with 'config.' prefix.
+        // Note: with 'config.' prefix.
         //
         i = sm.insert (string (n, 0, n.find ('.', 7))).first;
       }

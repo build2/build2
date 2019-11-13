@@ -85,47 +85,77 @@ namespace build2
 
     using project_set = set<const scope*>; // Use pointers to get comparison.
 
-    // Mark all the config.import.* variables defined on this scope as saved
-    // optionally warning if the variable would otherwise be dropped.
+    // Return (first) whether an unused/inherited variable should be saved
+    // according to the config.config.persist value and (second) whether the
+    // user should be warned about it.
     //
-    static void
-    save_config_import (module& m,
-                        const scope& rs,
-                        const location& loc,
-                        bool warning)
+    static pair<bool, bool>
+    save_config_variable (const variable& var,
+                          const vector<pair<string, string>>* persist,
+                          bool inherited,
+                          bool unused)
     {
-      auto& vp (rs.ctx.var_pool);
+      assert (inherited || unused);
 
-      for (auto p (rs.vars.find_namespace (*vp.find ("config.import")));
-           p.first != p.second;
-           ++p.first)
+      if (persist != nullptr)
       {
-        const variable* var (&p.first->first.get ());
-
-        // Annoyingly, this can be one of the overrides (__override, __prefix,
-        // etc).
-        //
-        if (size_t n = var->override ())
-          var = vp.find (string (var->name, 0, n));
-
-        if (m.save_variable (*var) && warning)
+        for (const pair<string, string>& pc: reverse_iterate (*persist))
         {
-          // Consistently with save_config() below we don't warn about an
-          // overriden variable.
-          //
-          if (var->overrides != nullptr)
-          {
-            lookup l {p.first->second, *var, rs.vars};
-            pair<lookup, size_t> org {l, 1 /* depth */};
-            pair<lookup, size_t> ovr (rs.find_override (*var, org));
+          if (!path_match (var.name, pc.first))
+            continue;
 
-            if (org.first != ovr.first)
+          const string& c (pc.second);
+
+          size_t p;
+          if      (c.compare (0, (p = 7),  "unused=") == 0)
+          {
+            if (!unused || inherited)
               continue;
           }
+          else if (c.compare (0, (p = 10), "inherited=") == 0)
+          {
+            // Applies to both used an unused.
+            //
+            if (!inherited)
+              continue;
+          }
+          else if (c.compare (0, (p = 15), "inherited-used=") == 0)
+          {
+            if (!inherited || unused)
+              continue;
+          }
+          else if (c.compare (0, (p = 17), "inherited-unused=") == 0)
+          {
+            if (!inherited || !unused)
+              continue;
+          }
+          else
+            fail << "invalid config.config.persist condition '" << c << "'";
 
-          warn (loc) << "keeping potentially no longer used variable " << *var;
+          bool r;
+          if      (c.compare (p, 4 , "save") == 0) r = true;
+          else if (c.compare (p, 4 , "drop") == 0) r = false;
+          else fail << "invalid config.config.persist action '" << c << "'";
+
+          bool w (false);
+          if ((p += 4) != c.size ())
+          {
+            if (c.compare (p, string::npos, "+warn") == 0) w = true;
+            else fail << "invalid config.config.persist action '" << c << "'";
+          }
+
+          return make_pair (r, w);
         }
       }
+
+      // Defaults.
+      //
+      if (!inherited)
+        return make_pair (false, true);  // unused:           drop  warn
+      else if (unused)
+        return make_pair (true,  true);  // inherited-unused: save  warn
+      else
+        return make_pair (false, false); // inherited-used:   drop !warn
     }
 
     // If inherit is false, then don't rely on inheritance from outer scopes.
@@ -148,6 +178,21 @@ namespace build2
         fail (on) << "no configuration information available during this "
                   << "meta-operation";
 
+      names storage;
+
+      auto info_value = [&storage] (diag_record& dr, const value& v) mutable
+      {
+        dr << info << "variable value: ";
+
+        if (v)
+        {
+          storage.clear ();
+          dr << "'" << reverse (v, storage) << "'";
+        }
+        else
+          dr << "[null]";
+      };
+
       try
       {
         os << "# Created automatically by the config module, but feel " <<
@@ -168,26 +213,71 @@ namespace build2
           }
         }
 
-        // Pre-mark all the config.import.* variables defined on our root
-        // scope as saved.
+        // Mark the unused config.* variables defined on our root scope as
+        // saved according to config.config.persist potentially warning if the
+        // variable would otherwise be dropped.
         //
-        // This is in contrast to module-specific config variables (and later
-        // probably to project-specific) where by default we drop no longer
-        // used values (see below). Note that this also used to be the case
-        // for the config.import.* variables but that turned out to be a poor
-        // default since there is no way to "use" such variables except to
-        // import something. So now the default for config.import.* is to keep
-        // with a warning.
-        //
-        // Note that in the future we may make these defaults configurable.
-        //
-        if (mod->persist) //@@ TMP
-          save_config_import (*mod, rs, location (on), false /* warn */);
+        auto& vp (ctx.var_pool);
+
+        for (auto p (rs.vars.find_namespace (*vp.find ("config.import")));
+             p.first != p.second;
+             ++p.first)
+        {
+          const variable* var (&p.first->first.get ());
+
+          // Annoyingly, this can be one of the overrides (__override,
+          // __prefix, etc).
+          //
+          if (size_t n = var->override ())
+            var = vp.find (string (var->name, 0, n));
+
+          if (mod->saved (*var))
+            continue;
+
+          const value& v (p.first->second);
+
+          pair<bool, bool> r (save_config_variable (*var,
+                                                    mod->persist,
+                                                    false /* inherited */,
+                                                    true  /* unused */));
+          if (r.first) // save
+          {
+            mod->save_variable (*var);
+
+            if (r.second) // warn
+            {
+              // Consistently with save_config() below we don't warn about an
+              // overriden variable.
+              //
+              if (var->overrides != nullptr)
+              {
+                lookup l {v, *var, rs.vars};
+                pair<lookup, size_t> org {l, 1 /* depth */};
+                pair<lookup, size_t> ovr (rs.find_override (*var, org));
+
+                if (org.first != ovr.first)
+                  continue;
+              }
+
+              diag_record dr;
+              dr << warn (on) << "saving no longer used variable " << *var;
+              if (verb >= 2)
+                info_value (dr, v);
+            }
+          }
+          else // drop
+          {
+            if (r.second) // warn
+            {
+              diag_record dr;
+              dr << warn (on) << "dropping no longer used variable " << *var;
+              info_value (dr, v);
+            }
+          }
+        }
 
         // Save config variables.
         //
-        names storage;
-
         for (auto p: mod->saved_modules.order)
         {
           const string& sname (p.second->first);
@@ -214,10 +304,11 @@ namespace build2
 
             // Handle inherited from outer scope values.
             //
-            // Note that we keep this logic (with warnings and all) even if
-            // inherit is false to make things easier to reason about.
+            // Note that we skip this entire logic if inherit is false since
+            // we save the inherited values regardless of whether they are
+            // used or not.
             //
-            if (!(l.belongs (rs) || l.belongs (ctx.global_scope)))
+            if (inherit && !(l.belongs (rs) || l.belongs (ctx.global_scope)))
             {
               // This is presumably an inherited value. But it could also be
               // some left-over garbage. For example, an amalgamation could
@@ -229,7 +320,7 @@ namespace build2
               // next reconfigure. Let's also warn the user just in case,
               // unless there is no module and thus we couldn't really check
               // (the latter could happen when calling $config.save() during
-              // other meta-operations).
+              // other meta-operations, though it passes false for inherit).
               //
               // There is also another case that falls under this now that
               // overrides are by default amalgamation-wide rather than just
@@ -258,20 +349,17 @@ namespace build2
                       const saved_variables& sv (i->second);
                       found = sv.find (var) != sv.end ();
 
-                      // By default treat config.import.* values as "found"
-                      // (see above for details).
+                      // If not marked as saved, check whether overriden via
+                      // config.config.persist.
                       //
-                      // Note that if/when we support overriding this default,
-                      // we would need to get the "effective" value for an
-                      // outer project (and the user would need to specify
-                      // such an override even though that project is not
-                      // being configured -- i.e., they would need to
-                      // communicate to us what will have happened once the
-                      // outer project is reconfigured). Feels like this will
-                      // be quite obscure and error-prone.
-                      //
-                      if (!found && m->persist) //@@ TMP
-                        found = var.name.compare (0, 14, "config.import.") == 0;
+                      if (!found && m->persist != nullptr)
+                      {
+                        found = save_config_variable (
+                          var,
+                          m->persist,
+                          false /* inherited */,
+                          true  /* unused */).first;
+                      }
 
                       // Handle that other case: if this is an override but
                       // the outer project itself is not being configured,
@@ -300,8 +388,7 @@ namespace build2
               {
                 // Inherited.
                 //
-                if (inherit)
-                  continue;
+                continue;
               }
               else
               {
@@ -327,17 +414,7 @@ namespace build2
                      << "it in its configuration";
 
                   if (verb >= 2)
-                  {
-                    dr << info << "variable value: ";
-
-                    if (*l)
-                    {
-                      storage.clear ();
-                      dr << "'" << reverse (*l, storage) << "'";
-                    }
-                    else
-                      dr << "[null]";
-                  }
+                    info_value (dr, *l);
                 }
               }
             }
@@ -1032,7 +1109,7 @@ namespace build2
       if (!rs[var].defined ())
       {
         rs.assign (var) = vector<pair<string, string>> {
-          pair<string, string> {"config.import.*", "unused=keep"}};
+          pair<string, string> {"config.import.*", "unused=save"}};
       }
     }
 

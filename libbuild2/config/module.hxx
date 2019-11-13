@@ -86,6 +86,16 @@ namespace build2
       bool
       save_module (const char* name, int prio = 0);
 
+      // Return true if the variable is already saved.
+      //
+      bool
+      saved (const variable& var)
+      {
+        auto i (saved_modules.find_sup (var.name));
+        return i != saved_modules.end () &&
+          i->second.find (var) != i->second.end ();
+      }
+
       // Cached (during init) config.config.persist value, if defined.
       //
       const vector<pair<string, string>>* persist = nullptr;

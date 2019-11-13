@@ -56,7 +56,35 @@ namespace build2
       //
       vp.insert<path> ("config.config.save", true /* ovr */);
 
-      // @@ TODO
+      // Configuration variables persistence mode.
+      //
+      // By default a config.* variable is saved in the config.build file if
+      // (1) it is explicitly marked as persistent with save_variable() and
+      // (2) it is not inherited from an amalgamation that also saves this
+      // variable (however, there are some exception; see save_config() for
+      // details). If the first condition is not met, then the variable is
+      // presumed to be no longer used.
+      //
+      // The config.config.persist can be used to adjust this default logic.
+      // It contains a list of key-value pairs with the key being a variable
+      // name pattern and the value specifying the condition/action:
+      //
+      // <pair>      = <pattern>@<condition>=<action>
+      // <condition> = unused|inherited|inherited-used|inherited-unused
+      // <action>    = (save|drop)[+warn]
+      //
+      // The last pattern and condition that matches is used (we may want to
+      // change this to more specific pattern later).
+      //
+      // Note that support for inherited conditions is still a @@ TODO.
+      //
+      // The create meta-operation by default (i.e., unless a custom value is
+      // specified) saves unused config.import.* variables without a warning
+      // (since there is no way to "use" such variables in a configuration).
+      //
+      // Note that variable patterns must be quoted, for example:
+      //
+      // b "config.config.persist='config.*'@unused=save+warn"
       //
       // Use the NULL value to clear.
       //
