@@ -852,7 +852,7 @@ namespace build2
           if (i <= m)
             this_thread::yield ();
           else
-            active_sleep ((i - m) * 10ms);
+            active_sleep ((i - m) * 20ms);
 
           np = s.progress_.load (memory_order_consume);
         }
