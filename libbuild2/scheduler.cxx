@@ -871,10 +871,9 @@ namespace build2
           // thing about abort is if this is not a dependency cycle, then we
           // have a core to examine).
           //
-          error << "deadlock detected, aborting" <<
+          error << "deadlock suspected, aborting" <<
             info << "deadlocks are normally caused by dependency cycles" <<
-            info << "re-run with -s to diagnose dependency cycles" <<
-            info << "if not a dependency cycle, please report as a bug";
+            info << "re-run with -s to diagnose dependency cycles";
 
           terminate (false /* trace */);
         }
