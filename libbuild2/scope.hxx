@@ -412,7 +412,9 @@ namespace build2
   inline ostream&
   operator<< (ostream& os, const scope& s)
   {
-    return os << s.out_path ().representation (); // Always absolute.
+    // Always absolute.
+    //
+    return to_stream (os, s.out_path (), true /* representation */);
   }
 
   // Return the src/out directory corresponding to the given out/src. The

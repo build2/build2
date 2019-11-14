@@ -16,7 +16,8 @@
 
 #include <libbutl/ft/lang.hxx>
 
-#include <libbutl/utility.mxx> // combine_hash(), reverse_iterate(), etc
+#include <libbutl/utility.mxx>  // combine_hash(), reverse_iterate(), etc
+#include <libbutl/fdstream.mxx>
 
 #include <unordered_set>
 

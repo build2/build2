@@ -195,7 +195,10 @@ namespace build2
             ofs << "amalgamation =";
 
             if (!amal->empty ())
-              ofs << ' ' << amal->representation ();
+            {
+              ofs << ' ';
+              to_stream (ofs, *amal, true /* representation */);
+            }
 
             ofs << endl;
           }

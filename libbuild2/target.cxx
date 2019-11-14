@@ -506,7 +506,7 @@ namespace build2
       if (dv < 1)
         os << diag_relative (pd);
       else
-        os << pd.representation ();
+        to_stream (os, pd, true /* representation */);
     }
 
     const target_type& tt (*k.type);
@@ -535,7 +535,9 @@ namespace build2
         assert (!k.ext);
     }
     else
-      os << (rd.empty () ? dir_path (".") : rd.leaf ()).representation ();
+      to_stream (os,
+                 rd.empty () ? dir_path (".") : rd.leaf (),
+                 true /* representation */);
 
     os << '}';
 

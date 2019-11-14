@@ -110,13 +110,10 @@ namespace build2
 
     auto write_dir = [dv, quote, &os, &write_string] (const dir_path& d)
     {
-      const string& s (dv < 1
-                       ? diag_relative (d)
-                       : d.representation ());
       if (quote)
-        write_string (s);
+        write_string (dv < 1 ? diag_relative (d) : d.representation ());
       else
-        os << s;
+        os << d;
     };
 
     // Note: similar to to_string() below.

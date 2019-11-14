@@ -39,9 +39,10 @@ namespace std
   {
     using namespace build2;
 
-    return os << (stream_verb (os).path < 1
-                  ? diag_relative (p)
-                  : p.representation ());
+    if (stream_verb (os).path < 1)
+      return os << diag_relative (p);
+    else
+      return to_stream (os, p, true /* representation */);
   }
 
   ostream&
