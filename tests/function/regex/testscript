@@ -203,7 +203,7 @@
       v = [string] "foo.cxx
       bar.txt"
 
-      print $regex.replace_lines($v, [string] '(.*)\.cxx', [string]'\1.hxx', return_lines)
+      print $regex.replace_lines($v, [string] '(.*)\.cxx', [string] '\1.hxx', return_lines)
       EOI
       foo.hxx
       bar.txt

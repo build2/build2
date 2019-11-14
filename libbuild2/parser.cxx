@@ -3582,8 +3582,25 @@ namespace build2
 
     next (t, tt);
 
-    if (!standalone && (tt == type::newline || tt == type::eos))
-      fail (t) << "standalone attributes";
+    if (tt == type::newline || tt == type::eos)
+    {
+      if (!standalone)
+        fail (t) << "standalone attributes";
+    }
+    //
+    // We require attributes to be separated from the following word or
+    // "word-producing" tokens (`$` for variable expansions/function calls,
+    // `(` for eval contexts, and `{` for name generation) to reduce the
+    // possibility of confusing them with wildcard patterns. Consider:
+    //
+    // ./: [abc]-foo.txt
+    //
+    else if (!t.separated && (tt == type::word   ||
+                              tt == type::dollar ||
+                              tt == type::lparen ||
+                              tt == type::lcbrace))
+      fail (t) << "whitespace required after attributes" <<
+        info << "add an empty attribute list if this is a wildcard pattern";
 
     return make_pair (has, l);
   }
