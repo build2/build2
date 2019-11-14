@@ -463,8 +463,7 @@ namespace build2
           // members though the fact that the primary target is listed first
           // would make it rather unintuitive.
           //
-          enable_attributes ();
-          next (t, tt);
+          next_with_attributes (t, tt);
 
           auto at (attributes_push (t, tt));
 
@@ -631,8 +630,7 @@ namespace build2
           }
         };
 
-        enable_attributes (); // Recognize attributes after `:`.
-        next (t, tt);
+        next_with_attributes (t, tt); // Recognize attributes after `:`.
 
         if (tt == type::newline)
         {
@@ -1214,8 +1212,7 @@ namespace build2
       fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
                   << "specific variable assignment";
 
-    enable_attributes (); // Recognize attributes after `:`.
-    next (t, tt);
+    next_with_attributes (t, tt); // Recognize attributes after `:`.
 
     auto at (attributes_push (t, tt));
 
@@ -1670,8 +1667,7 @@ namespace build2
     // manually looking for =/=+/+=.
     //
     mode (lexer_mode::value, '@');
-    enable_attributes (); // @@ VAL.
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     // Get variable attributes, if any (note that here we will go into a
     // nested value mode with a different pair character).
@@ -1821,8 +1817,7 @@ namespace build2
     // being able to type them or to return NULL.
     //
     mode (lexer_mode::value, '@');
-    enable_attributes (); // @@ VAL.
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     auto at (attributes_push (t, tt));
 
@@ -1974,8 +1969,7 @@ namespace build2
     {
       string k (move (t.value));
 
-      enable_attributes (); // Recognize attributes before value.
-      next (t, tt);
+      next_with_attributes (t, tt); // Recognize attributes before value.
 
       bool take (false); // Take this branch?
 
@@ -2135,8 +2129,7 @@ namespace build2
 
     do
     {
-      enable_attributes (); // Recognize attributes before value.
-      next (t, tt);
+      next_with_attributes (t, tt); // Recognize attributes before value.
 
       if (tt == type::newline || tt == type::eos)
         fail (t) << "expected switch expression instead of " << t;
@@ -2251,8 +2244,9 @@ namespace build2
 
           for (size_t i (0);; ++i)
           {
-            enable_attributes (); // Recognize attributes before pattern.
-            next (t, tt);
+            // Recognize attributes before first pattern.
+            //
+            next_with_attributes (t, tt);
 
             if (tt == type::newline || tt == type::eos)
               fail (t) << "expected case pattern instead of " << t;
@@ -2308,8 +2302,7 @@ namespace build2
                 pre_parse_ = true;
                 do
                 {
-                  enable_attributes (); // Recognize attributes before pattern.
-                  next (t, tt); // Skip `|`.
+                  next_with_attributes (t, tt); // Skip `|`.
                   parse_pattern_with_attributes (t, tt);
                 }
                 while (tt == type::bit_or);
@@ -2318,8 +2311,9 @@ namespace build2
                 break;
               }
 
-              enable_attributes (); // Recognize attributes before pattern.
-              next (t, tt);
+              // Recognize attributes before next pattern.
+              //
+              next_with_attributes (t, tt);
             }
 
             if (!take)
@@ -2433,8 +2427,7 @@ namespace build2
     // First take care of the variable name. There is no reason not to
     // support variable attributes.
     //
-    enable_attributes ();
-    next (t, tt);
+    next_with_attributes (t, tt);
     attributes_push (t, tt);
 
     // @@ PAT: currently we pattern-expand for var.
@@ -2458,8 +2451,7 @@ namespace build2
     // value on the RHS of an assignment (expansion, attributes).
     //
     mode (lexer_mode::value, '@');
-    enable_attributes (); // @@ VAL
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     value val (parse_value_with_attributes (t, tt, pattern_mode::expand));
 
@@ -2587,8 +2579,7 @@ namespace build2
     // condition) for the same reason as in if-else (see parse_if_else()).
     //
     mode (lexer_mode::value);
-    enable_attributes (); // @@ VAL
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     const location el (get_location (t));
 
@@ -2642,8 +2633,7 @@ namespace build2
     // (expansion, attributes).
     //
     mode (lexer_mode::value, '@');
-    enable_attributes (); // @@ VAL
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
@@ -2676,8 +2666,7 @@ namespace build2
     // (expansion, attributes).
     //
     mode (lexer_mode::value, '@');
-    enable_attributes (); // @@ VAL
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
@@ -2879,8 +2868,7 @@ namespace build2
   parse_variable_value (token& t, type& tt)
   {
     mode (lexer_mode::value, '@');
-    enable_attributes (); // @@ VAL.
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     // Parse value attributes if any. Note that it's ok not to have anything
     // after the attributes (e.g., foo=[null]).
@@ -3139,8 +3127,7 @@ namespace build2
     // leave: rparen
 
     mode (lexer_mode::eval, '@'); // Auto-expires at rparen.
-    enable_attributes (); // @@ VAL (eval)
-    next (t, tt);
+    next_with_attributes (t, tt);
 
     if (tt == type::rparen)
       return values ();
@@ -3169,8 +3156,7 @@ namespace build2
 
     while (tt == type::comma)
     {
-      enable_attributes (); // Recognize attributes before value.
-      next (t, tt);
+      next_with_attributes (t, tt); // Recognize attributes before value.
 
       value rhs (parse_eval_ternary (t, tt, pmode));
 
@@ -3217,8 +3203,7 @@ namespace build2
     if (!pp)
       pre_parse_ = !q; // Short-circuit middle?
 
-    enable_attributes (); // Recognize attributes before value.
-    next (t, tt);
+    next_with_attributes (t, tt); // Recognize attributes before value.
 
     value mhs (parse_eval_ternary (t, tt, pmode));
 
@@ -3228,8 +3213,7 @@ namespace build2
     if (!pp)
       pre_parse_ = q; // Short-circuit right?
 
-    enable_attributes (); // Recognize attributes before value.
-    next (t, tt);
+    next_with_attributes (t, tt); // Recognize attributes before value.
 
     value rhs (parse_eval_ternary (t, tt, pmode));
 
@@ -3259,8 +3243,7 @@ namespace build2
         if (!pre_parse_ && convert<bool> (move (lhs)))
           pre_parse_ = true;
 
-        enable_attributes (); // Recognize attributes before value.
-        next (t, tt);
+        next_with_attributes (t, tt); // Recognize attributes before value.
 
         l = get_location (t);
         value rhs (parse_eval_and (t, tt, pmode));
@@ -3301,8 +3284,7 @@ namespace build2
         if (!pre_parse_ && !convert<bool> (move (lhs)))
           pre_parse_ = true;
 
-        enable_attributes (); // Recognize attributes before value.
-        next (t, tt);
+        next_with_attributes (t, tt); // Recognize attributes before value.
 
         l = get_location (t);
         value rhs (parse_eval_comp (t, tt, pmode));
@@ -3341,8 +3323,7 @@ namespace build2
       type op (tt);
       location l (get_location (t));
 
-      enable_attributes (); // Recognize attributes before value.
-      next (t, tt);
+      next_with_attributes (t, tt); // Recognize attributes before value.
 
       value rhs (parse_eval_value (t, tt, pmode));
 
@@ -3375,8 +3356,7 @@ namespace build2
     {
     case type::log_not:
       {
-        enable_attributes (); // Recognize attributes before value.
-        next (t, tt);
+        next_with_attributes (t, tt); // Recognize attributes before value.
 
         v = parse_eval_value (t, tt, pmode);
 

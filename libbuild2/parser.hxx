@@ -484,6 +484,13 @@ namespace build2
     token_type
     next (token&, token_type&);
 
+    token_type
+    next_with_attributes (token& t, token_type& tt)
+    {
+      enable_attributes ();
+      return next (t, tt);
+    }
+
     // If the current token is newline, then get the next token. Otherwise,
     // fail unless the current token is eos (i.e., optional newline at the end
     // of stream). If the after argument is not \0, use it in diagnostics as

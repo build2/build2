@@ -58,8 +58,6 @@ namespace build2
   // cases it is automatically reset after lexing the next token (whether `[`
   // or not).
   //
-  // @@ Maybe also enable at the beginning of value?
-  //
 
   // Extendable/inheritable enum-like class.
   //

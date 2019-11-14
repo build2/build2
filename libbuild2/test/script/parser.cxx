@@ -1292,8 +1292,7 @@ namespace build2
         // want to treat as a literal.
         //
         mode (lexer_mode::variable_line);
-        enable_attributes (); // @@ VAL
-        next (t, tt);
+        next_with_attributes (t, tt);
 
         // Parse value attributes if any. Note that it's ok not to have
         // anything after the attributes (e.g., foo=[null]).
@@ -3453,8 +3452,7 @@ namespace build2
         token t;
         type tt;
 
-        enable_attributes (); // Enable `[` recognition.
-        next (t, tt);
+        next_with_attributes (t, tt); // Enable `[` recognition.
 
         if (tt != type::lsbrace && tt != type::eos)
           fail (t) << "expected '[' instead of " << t;
