@@ -23,11 +23,15 @@ namespace build2
   void lexer::
   mode (lexer_mode m, char ps, optional<const char*> esc)
   {
+    bool a (false); // attributes
+
     const char* s1 (nullptr);
     const char* s2 (nullptr);
-    bool s (true);
-    bool n (true);
-    bool q (true);
+
+    bool s (true); // space
+    bool n (true); // newline
+    bool q (true); // quotes
+
 
     if (!esc)
     {
@@ -39,35 +43,39 @@ namespace build2
     {
     case lexer_mode::normal:
       {
-        s1 = ":<>=+ $(){}[]#\t\n";
-        s2 = "    =           ";
+        a  = true;
+        s1 = ":<>=+ $(){}#\t\n";
+        s2 = "    =         ";
         break;
       }
     case lexer_mode::value:
       {
-        s1 = " $(){}[]#\t\n";
-        s2 = "           ";
+        s1 = " $(){}#\t\n";
+        s2 = "         ";
         break;
       }
     case lexer_mode::values:
       {
-        s1 = " $(){}[],#\t\n";
-        s2 = "            ";
+        // a: beginning and after `,`?
+        s1 = " $(){},#\t\n";
+        s2 = "          ";
         break;
       }
     case lexer_mode::switch_expressions:
       {
-        s1 = " $(){}[],:#\t\n";
-        s2 = "             ";
+        // a: beginning and after `,`?
+        s1 = " $(){},:#\t\n";
+        s2 = "           ";
         break;
       }
     case lexer_mode::case_patterns:
       {
-        s1 = " $(){}[],|:#\t\n";
-        s2 = "              ";
+        // a: beginning and after `,` & `|`?
+        s1 = " $(){},|:#\t\n";
+        s2 = "            ";
         break;
       }
-    case lexer_mode::attribute:
+    case lexer_mode::attributes:
       {
         s1 = " $(]#\t\n";
         s2 = "       ";
@@ -75,8 +83,8 @@ namespace build2
       }
     case lexer_mode::eval:
       {
-        s1 = ":<>=!&|?, $(){}[]#\t\n";
-        s2 = "   = &|             ";
+        s1 = ":<>=!&|?, $(){}#\t\n";
+        s2 = "   = &|           ";
         break;
       }
     case lexer_mode::buildspec:
@@ -91,8 +99,10 @@ namespace build2
         //
         // 3. Treat newline as an ordinary space.
         //
-        s1 = " $(){}[],\t\n";
-        s2 = "           ";
+        // Also note that we don't have buildspec attributes.
+        //
+        s1 = " $(){},\t\n";
+        s2 = "         ";
         n = false;
         break;
       }
@@ -109,13 +119,13 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, ps, s, n, q, *esc, s1, s2});
+    state_.push (state {m, a, ps, s, n, q, *esc, s1, s2});
   }
 
   token lexer::
   next ()
   {
-    const state& st (state_.top ());
+    state& st (state_.top ());
     lexer_mode m (st.mode);
 
     // For some modes we have dedicated imlementations of next().
@@ -127,7 +137,7 @@ namespace build2
     case lexer_mode::values:
     case lexer_mode::switch_expressions:
     case lexer_mode::case_patterns:
-    case lexer_mode::attribute:
+    case lexer_mode::attributes:
     case lexer_mode::variable:
     case lexer_mode::buildspec:     break;
     case lexer_mode::eval:          return next_eval ();
@@ -147,6 +157,17 @@ namespace build2
                     ln, cn, token_printer);
     };
 
+    // Handle attributes (do it first to make sure the flag is cleared
+    // regardless of what we return).
+    //
+    if (st.attributes)
+    {
+      st.attributes = false;
+
+      if (c == '[')
+        return make_token (type::lsbrace);
+    }
+
     if (eos (c))
       return make_token (type::eos);
 
@@ -155,11 +176,11 @@ namespace build2
     if (c == st.sep_pair)
       return make_token (type::pair_separator, string (1, c));
 
+    // NOTE: remember to update mode(), next_eval() if adding any new special
+    // characters.
+
     switch (c)
     {
-      // NOTE: remember to update mode(), next_eval() if adding new special
-      // characters.
-      //
     case '\n':
       {
         // Expire value/values modes at the end of the line.
@@ -170,20 +191,13 @@ namespace build2
             m == lexer_mode::case_patterns)
           state_.pop ();
 
+        // Re-enable attributes in the normal mode.
+        //
+        if (state_.top ().mode == lexer_mode::normal)
+          state_.top ().attributes = true;
+
         sep = true; // Treat newline as always separated.
         return make_token (type::newline);
-      }
-    case '{': return make_token (type::lcbrace);
-    case '}': return make_token (type::rcbrace);
-    case '[': return make_token (type::lsbrace);
-    case ']':
-      {
-        // Expire attribute mode after closing ']'.
-        //
-        if (m == lexer_mode::attribute)
-          state_.pop ();
-
-        return make_token (type::rsbrace);
       }
     case '$': return make_token (type::dollar);
     case ')': return make_token (type::rparen);
@@ -198,6 +212,31 @@ namespace build2
       }
     }
 
+    // The following characters are special in all modes except attributes.
+    //
+    if (m != lexer_mode::attributes)
+    {
+      switch (c)
+      {
+      case '{': return make_token (type::lcbrace);
+      case '}': return make_token (type::rcbrace);
+      }
+    }
+
+    // The following characters are special in the attributes modes.
+    //
+    if (m == lexer_mode::attributes)
+    {
+      switch (c)
+      {
+      case ']':
+        {
+          state_.pop (); // Expire the attributes mode after closing `]`.
+          return make_token (type::rsbrace);
+        }
+      }
+    }
+
     // The following characters are special in the normal, variable, and
     // switch_expressions modes.
     //
@@ -208,9 +247,6 @@ namespace build2
     {
       switch (c)
       {
-        // NOTE: remember to update mode(), next_eval() if adding new special
-        // characters.
-        //
       case ':': return make_token (type::colon);
       }
     }
@@ -221,9 +257,6 @@ namespace build2
     {
       switch (c)
       {
-        // NOTE: remember to update mode(), next_eval() if adding new special
-        // characters.
-        //
       case '=':
         {
           if (peek () == '+')
@@ -249,8 +282,6 @@ namespace build2
     //
     if (m == lexer_mode::normal)
     {
-      // NOTE: remember to update mode() if adding new special characters.
-      //
       switch (c)
       {
       case '<': return make_token (type::labrace);
@@ -265,8 +296,6 @@ namespace build2
         m == lexer_mode::switch_expressions ||
         m == lexer_mode::case_patterns)
     {
-      // NOTE: remember to update mode() if adding new special characters.
-      //
       switch (c)
       {
       case ',': return make_token (type::comma);
@@ -277,8 +306,6 @@ namespace build2
     //
     if (m == lexer_mode::case_patterns)
     {
-      // NOTE: remember to update mode() if adding new special characters.
-      //
       switch (c)
       {
       case '|': return make_token (type::bit_or);
@@ -294,13 +321,16 @@ namespace build2
   token lexer::
   next_eval ()
   {
+    // This mode is quite a bit like the value mode when it comes to special
+    // characters, except that we have some of our own.
+
     bool sep (skip_spaces ());
     xchar c (get ());
 
     if (eos (c))
       fail (c) << "unterminated evaluation context";
 
-    const state& st (state_.top ());
+    state& st (state_.top ());
 
     uint64_t ln (c.line), cn (c.column);
 
@@ -311,28 +341,30 @@ namespace build2
                     ln, cn, token_printer);
     };
 
-    // This mode is quite a bit like the value mode when it comes to special
-    // characters, except that we have some of our own.
+    // Handle attributes (do it first to make sure the flag is cleared
+    // regardless of what we return).
     //
+    if (st.attributes)
+    {
+      st.attributes = false;
+
+      if (c == '[')
+        return make_token (type::lsbrace);
+    }
 
     // Handle pair separator.
     //
     if (c == st.sep_pair)
       return make_token (type::pair_separator, string (1, c));
 
-    // Note: we don't treat [ and ] as special here. Maybe can use them for
-    // something later.
-    //
+    // NOTE: remember to update mode() if adding any new special characters.
+
     switch (c)
     {
-      // NOTE: remember to update mode() if adding new special characters.
-      //
     case '\n': fail (c) << "newline in evaluation context" << endf;
     case ':': return make_token (type::colon);
     case '{': return make_token (type::lcbrace);
     case '}': return make_token (type::rcbrace);
-    case '[': return make_token (type::lsbrace);
-    case ']': return make_token (type::rsbrace);
     case '$': return make_token (type::dollar);
     case '?': return make_token (type::question);
     case ',': return make_token (type::comma);

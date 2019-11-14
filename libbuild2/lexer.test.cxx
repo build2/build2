@@ -31,12 +31,12 @@ namespace build2
         quote = true;
       else
       {
-        if      (a == "normal")    m = lexer_mode::normal;
-        else if (a == "variable")  m = lexer_mode::variable;
-        else if (a == "value")     m = lexer_mode::value;
-        else if (a == "attribute") m = lexer_mode::attribute;
-        else if (a == "eval")      m = lexer_mode::eval;
-        else if (a == "buildspec") m = lexer_mode::buildspec;
+        if      (a == "normal")     m = lexer_mode::normal;
+        else if (a == "variable")   m = lexer_mode::variable;
+        else if (a == "value")      m = lexer_mode::value;
+        else if (a == "attributes") m = lexer_mode::attributes;
+        else if (a == "eval")       m = lexer_mode::eval;
+        else if (a == "buildspec")  m = lexer_mode::buildspec;
         else                       assert (false);
         break;
       }

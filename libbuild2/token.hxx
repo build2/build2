@@ -14,7 +14,8 @@
 
 namespace build2
 {
-  // Extendable/inheritable enum-like class.
+
+  // Token type.
   //
   // A line consists of a sequence of words separated by separators and
   // terminated with the newline. If whitespace is a separator, then it is
@@ -22,6 +23,8 @@ namespace build2
   //
   struct token_type
   {
+    // Extendable/inheritable enum-like class.
+    //
     enum
     {
       // NOTE: remember to update token_printer()!
@@ -145,10 +148,12 @@ namespace build2
   inline ostream&
   operator<< (ostream& o, const token& t) {t.printer (o, t, true); return o;}
 
-  // Extendable/inheritable enum-like class.
+  // Context-dependent lexing (see lexer_mode for details).
   //
   struct lexer_mode_base
   {
+    // Extendable/inheritable enum-like class.
+    //
     enum { value_next };
 
     using value_type = uint16_t;

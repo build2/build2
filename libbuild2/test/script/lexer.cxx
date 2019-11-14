@@ -19,11 +19,14 @@ namespace build2
       void lexer::
       mode (base_mode m, char ps, optional<const char*> esc)
       {
+        bool a (false); // attributes
+
         const char* s1 (nullptr);
         const char* s2 (nullptr);
-        bool s (true);
-        bool n (true);
-        bool q (true);
+
+        bool s (true); // space
+        bool n (true); // newline
+        bool q (true); // quotes
 
         if (!esc)
         {
@@ -71,8 +74,8 @@ namespace build2
             // Note that we don't recognize ':' since having a trailing
             // variable assignment is illegal.
             //
-            s1 = "; $([]#\t\n";
-            s2 = "         ";
+            s1 = "; $(#\t\n";
+            s2 = "       ";
             break;
           }
 
@@ -128,7 +131,7 @@ namespace build2
             //
             assert (ps == '\0' ||
                     m == lexer_mode::eval ||
-                    m == lexer_mode::attribute);
+                    m == lexer_mode::attributes);
 
             base_lexer::mode (m, ps, esc);
             return;
@@ -136,7 +139,7 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (state {m, ps, s, n, q, *esc, s1, s2});
+        state_.push (state {m, a, ps, s, n, q, *esc, s1, s2});
       }
 
       token lexer::
@@ -177,9 +180,6 @@ namespace build2
         xchar c (get ());
         uint64_t ln (c.line), cn (c.column);
 
-        if (eos (c))
-          return token (type::eos, sep, ln, cn, token_printer);
-
         state st (state_.top ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
 
@@ -217,6 +217,22 @@ namespace build2
           return make_token (t, move (v));
         };
 
+        // Handle attributes (do it first to make sure the flag is cleared
+        // regardless of what we return).
+        //
+        if (st.attributes)
+        {
+          assert (m == lexer_mode::variable_line);
+
+          state_.top ().attributes = false;
+
+          if (c == '[')
+            return make_token (type::lsbrace);
+        }
+
+        if (eos (c))
+          return make_token (type::eos);
+
         // Expire certain modes at the end of the token. Do it early in case
         // we push any new mode (e.g., double quote).
         //
@@ -250,18 +266,6 @@ namespace build2
             //
           case '$': return make_token (type::dollar);
           case '(': return make_token (type::lparen);
-          }
-        }
-
-
-        if (m == lexer_mode::variable_line)
-        {
-          switch (c)
-          {
-            // Attributes.
-            //
-          case '[': return make_token (type::lsbrace);
-          case ']': return make_token (type::rsbrace);
           }
         }
 

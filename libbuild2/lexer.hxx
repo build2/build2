@@ -21,34 +21,44 @@ namespace build2
 {
   // Context-dependent lexing mode. Quoted modes are internal and should not
   // be set explicitly. In the value mode we don't treat certain characters
-  // (e.g., '+', '=') as special so that we can use them in the variable
-  // values, e.g., 'foo = g++'. In contrast, in the variable mode, we restrict
-  // certain character (e.g., '/') from appearing in the name. The values mode
-  // is like value but recogizes ',' as special (used in contexts where we
-  // need to list multiple values). The attribute mode is also like value
-  // except it doesn't treat '{' and '}' as special (so we cannot have name
-  // groups in attributes). The eval mode is used in the evaluation context.
+  // (e.g., `+`, `=`) as special so that we can use them in the variable
+  // values, e.g., `foo = g++`. In contrast, in the variable mode, we restrict
+  // certain character (e.g., `/`) from appearing in the name. The values mode
+  // is like value but recogizes `,` as special (used in contexts where we
+  // need to list multiple values). The attributes mode is also like value
+  // except it doesn't treat `{` and `}` as special (so we cannot have name
+  // groups in attributes) and recognizes the closing `]`. The eval mode is
+  // used in the evaluation context.
   //
   // A number of modes are "derived" from the value/values mode by recognizing
   // a few extra characters:
   //
   //   switch_expressions  values plus `:`
-  //   case_patterns       values plus '|' and ':'
+  //   case_patterns       values plus `|` and `:`
   //
   // Note that the normal, value/values and derived, as well as eval modes
   // split words separated by the pair character (to disable pairs one can
-  // pass '\0' as a pair character).
+  // pass `\0` as a pair character).
   //
   // The alternative modes must be set manually. The value/values and derived
   // modes automatically expires after the end of the line. The attribute mode
-  // expires after the closing ']'. The variable mode expires after the word
-  // token. And the eval mode expires after the closing ')'.
+  // expires after the closing `]`. The variable mode expires after the word
+  // token. And the eval mode expires after the closing `)`.
   //
   // Note that normally it is only safe to switch mode when the current token
   // is not quoted (or, more generally, when you are not in the double-quoted
   // mode) unless the mode treats the double-quote as a separator (e.g.,
   // variable name mode). Failed that your mode (which now will be the top of
   // the mode stack) will prevent proper recognition of the closing quote.
+  //
+  // Finally, attributes recognition (the `[` token) cuts across most of the
+  // modes and is handled with a flag. In the normal mode it is automatically
+  // set at the beginning and after each newline. In all other modes it must
+  // be explicitly set at points where attributes are recognized. In all the
+  // cases it is automatically reset after lexing the next token (whether `[`
+  // or not).
+  //
+  // @@ Maybe also enable at the beginning of value?
   //
 
   // Extendable/inheritable enum-like class.
@@ -65,7 +75,7 @@ namespace build2
       values,
       case_patterns,
       switch_expressions,
-      attribute,
+      attributes,
       eval,
       single_quoted,
       double_quoted,
@@ -97,14 +107,19 @@ namespace build2
     name () const {return name_;}
 
     // Note: sets mode for the next token. The second argument can be used to
-    // specifythe pair separator character (if the mode supports pairs). If
-    // escapes not specified, then inherit the current mode's (thought a mode
-    // can also override it).
+    // specify the pair separator character (if the mode supports pairs). If
+    // escapes is not specified, then inherit the current mode's (though a
+    // mode can also override it).
     //
     virtual void
     mode (lexer_mode,
           char pair_separator = '\0',
           optional<const char*> escapes = nullopt);
+
+    // Enable attributes recognition for the next token.
+    //
+    void
+    enable_attributes () {state_.top ().attributes = true;}
 
     // Expire the current mode early.
     //
@@ -136,6 +151,7 @@ namespace build2
     struct state
     {
       lexer_mode mode;
+      bool       attributes;
 
       char sep_pair;
       bool sep_space;    // Are whitespaces separators (see skip_spaces())?

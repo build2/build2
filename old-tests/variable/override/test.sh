@@ -53,8 +53,7 @@ function test ()
   fi
 }
 
-fail foo=bar[]             # error: unexpected [ in variable assignment 'foo=bar[]'
-fail foo=[string]bar       # error: typed override of variable foo
+fail "foo= [string] bar"    # error: typed override of variable foo
 #fail "!foo=bar" "!foo=BAR" # error: multiple global overrides of variable foo
 #fail "foo=bar" "foo=BAR"   # error: multiple project overrides of variable foo
 #fail "%foo=bar" "%foo=BAR" # error: multiple project overrides of variable foo

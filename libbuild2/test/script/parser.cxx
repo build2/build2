@@ -1288,10 +1288,11 @@ namespace build2
         // enter: assignment
         // leave: newline or semi
 
-        // We cannot reuse the value mode since it will recognize { which we
+        // We cannot reuse the value mode since it will recognize `{` which we
         // want to treat as a literal.
         //
         mode (lexer_mode::variable_line);
+        enable_attributes (); // @@ VAL
         next (t, tt);
 
         // Parse value attributes if any. Note that it's ok not to have
@@ -3446,11 +3447,13 @@ namespace build2
         path_ = &name;
 
         istringstream is (attributes);
-        lexer l (is, name, lexer_mode::attribute);
+        lexer l (is, name, lexer_mode::attributes);
         set_lexer (&l);
 
         token t;
         type tt;
+
+        enable_attributes (); // Enable `[` recognition.
         next (t, tt);
 
         if (tt != type::lsbrace && tt != type::eos)

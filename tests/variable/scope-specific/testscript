@@ -9,14 +9,11 @@
 $* <<EOI >>EOO
 x = x
 foo/ x = X
-foo/ [uint64] y=00
 print $x
 print $(foo/ x)
-print $(foo/ y)
 EOI
 x
 X
-0
 EOO
 
 : basic-block
@@ -37,12 +34,20 @@ x
 0
 EOO
 
-: expect-assignment
+: unexpected-newline
 :
 $* <<EOI 2>>EOE != 0
-foo/ [uint64] y
+foo/ y
 EOI
-<stdin>:1:16: error: expected variable assignment instead of <newline>
+<stdin>:1:7: error: unexpected <newline> after foo/ y
+EOE
+
+: expected-varname
+:
+$* <<EOI 2>>EOE != 0
+foo/ [uint64] y = 0
+EOI
+<stdin>:1:1: error: expected variable name instead of foo/ [uint64] y
 EOE
 
 : unexpected-attribute

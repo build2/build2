@@ -535,8 +535,8 @@ namespace build2
         lexer_->mode (m, ps);
       else
         // As a sanity check, make sure the mode matches the next token. Note
-        // that we don't check the pair separator since it can be overriden by
-        // the lexer's mode() implementation.
+        // that we don't check the attributes flags or the pair separator
+        // since they can be overridden by the lexer's mode() implementation.
         //
         assert (replay_i_ != replay_data_.size () &&
                 replay_data_[replay_i_].mode == m);
@@ -552,6 +552,13 @@ namespace build2
         assert (replay_i_ != replay_data_.size ());
         return replay_data_[replay_i_].mode;
       }
+    }
+
+    void
+    enable_attributes ()
+    {
+      if (replay_ != replay::play)
+        lexer_->enable_attributes ();
     }
 
     void

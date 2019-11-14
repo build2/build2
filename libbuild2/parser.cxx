@@ -287,11 +287,15 @@ namespace build2
   {
     tracer trace ("parser::parse_clause", &path_);
 
-    // parse_clause() should always stop at a token that is at the beginning
-    // of the line (except for eof). That is, if something is called to parse
-    // a line, it should parse it until newline (or fail). This is important
-    // for if-else blocks, directory scopes, etc., that assume the '}' token
-    // they see is on the new line.
+    // This function should be called in the normal lexing mode with the first
+    // token of a line or an alternative arrangements may have to be made to
+    // recognize the attributes.
+    //
+    // It should also always stop at a token that is at the beginning of the
+    // line (except for eof). That is, if something is called to parse a line,
+    // it should parse it until newline (or fail). This is important for
+    // if-else blocks, directory scopes, etc., that assume the '}' token they
+    // see is on the new line.
     //
     bool parsed (false);
 
@@ -302,8 +306,7 @@ namespace build2
       assert (attributes_.empty ());
       auto at (attributes_push (t, tt));
 
-      // We should always start with one or more names, potentially
-      // <>-grouped.
+      // We always start with one or more names, potentially <>-grouped.
       //
       if (!(start_names (tt) || tt == type::labrace))
       {
@@ -454,6 +457,13 @@ namespace build2
         {
           // Parse target names inside < >.
           //
+          // We "reserve" the right to have attributes inside <> though what
+          // exactly that would mean is unclear. One potentially useful
+          // semantics would be the ability to specify attributes for ad hoc
+          // members though the fact that the primary target is listed first
+          // would make it rather unintuitive.
+          //
+          enable_attributes ();
           next (t, tt);
 
           auto at (attributes_push (t, tt));
@@ -621,7 +631,10 @@ namespace build2
           }
         };
 
-        if (next (t, tt) == type::newline)
+        enable_attributes (); // Recognize attributes after `:`.
+        next (t, tt);
+
+        if (tt == type::newline)
         {
           // See if this is a target block.
           //
@@ -734,85 +747,70 @@ namespace build2
       //
       // This can take any of the following forms:
       //
-      //              x = y
-      // foo/         x = y   (ns will have two elements)
-      // foo/ [attrs] x = y   (tt will be '[')
+      //        x = y
+      //   foo/ x = y   (ns will have two elements)
       //
-      // In the future we may also want to support:
+      // And in the future we may also want to support:
       //
-      // foo/ bar/ x = y
+      //   foo/ bar/ x = y
       //
-      if (tt == type::assign || tt == type::prepend || tt == type::append ||
-          tt == type::lsbrace)
+      // Note that we don't support this:
+      //
+      //   foo/ [attrs] x = y
+      //
+      // Because the meaning of `[attrs]` would be ambiguous (it could also be
+      // a name). Note that the above semantics can be easily achieved with an
+      // explicit directory scope:
+      //
+      //   foo/
+      //   {
+      //     [attrs] x = y
+      //   }
+      //
+      if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
         // Detect and handle the directory scope. If things look off, then we
         // let parse_variable_name() complain.
         //
         dir_path d;
-
-        if ((ns.size () == 2 && ns[0].directory ())                      ||
-            (ns.size () == 1 && ns[0].directory () && tt == type::lsbrace))
+        if (ns.size () == 2 && ns[0].directory ())
         {
           if (at.first)
             fail (at.second) << "attributes before scope directory";
 
-          if (tt == type::lsbrace)
-          {
-            attributes_pop ();
-            attributes_push (t, tt);
+          d = move (ns[0].dir);
+          ns.erase (ns.begin ());
 
-            d = move (ns[0].dir);
-            nloc = get_location (t);
-            ns = parse_names (t, tt, pattern_mode::ignore);
-
-            // It got to be a variable assignment.
-            //
-            if (tt != type::assign  &&
-                tt != type::prepend &&
-                tt != type::append)
-              fail (t) << "expected variable assignment instead of " << t;
-          }
-          else
-          {
-            d = move (ns[0].dir);
-            ns.erase (ns.begin ());
-          }
+          // Make sure it's not a pattern (see also the target case above and
+          // scope below).
+          //
+          if (path_pattern (d))
+            fail (nloc) << "pattern in directory " << d.representation ();
         }
 
-        // Make sure not a pattern (see also the target case above and scope
-        // below).
-        //
-        if (path_pattern (d))
-          fail (nloc) << "pattern in directory " << d.representation ();
+        const variable& var (parse_variable_name (move (ns), nloc));
+        apply_variable_attributes (var);
 
-        if (tt != type::lsbrace)
+        if (var.visibility >= variable_visibility::target)
         {
-          const variable& var (parse_variable_name (move (ns), nloc));
-          apply_variable_attributes (var);
+          diag_record dr (fail (nloc));
 
-          if (var.visibility >= variable_visibility::target)
-          {
-            diag_record dr (fail (nloc));
+          dr << "variable " << var << " has " << var.visibility
+             << " visibility but is assigned on a scope";
 
-            dr << "variable " << var << " has " << var.visibility
-               << " visibility but is assigned on a scope";
-
-            if (var.visibility == variable_visibility::target)
-              dr << info << "consider changing it to '*: " << var << "'";
-          }
-
-          {
-            enter_scope sg (d.empty ()
-                            ? enter_scope ()
-                            : enter_scope (*this, move (d)));
-            parse_variable (t, tt, var, tt);
-          }
-
-          next_after_newline (t, tt);
-          continue;
+          if (var.visibility == variable_visibility::target)
+            dr << info << "consider changing it to '*: " << var << "'";
         }
 
-        // Not "our" attribute, see if anyone else likes it.
+        {
+          enter_scope sg (d.empty ()
+                          ? enter_scope ()
+                          : enter_scope (*this, move (d)));
+          parse_variable (t, tt, var, tt);
+        }
+
+        next_after_newline (t, tt);
+        continue;
       }
 
       // See if this is a directory scope.
@@ -873,7 +871,7 @@ namespace build2
     // Parse a target or prerequisite-specific variable block. If type is not
     // NULL, then this is a target type/pattern-specific block.
     //
-    // enter: first token of first line in the block
+    // enter: first token of first line in the block (normal lexer mode)
     // leave: rcbrace
     //
     // This is a more restricted variant of parse_clause() that only allows
@@ -1216,7 +1214,9 @@ namespace build2
       fail (ploc) << "no prerequisites in dependency chain or prerequisite-"
                   << "specific variable assignment";
 
+    enable_attributes (); // Recognize attributes after `:`.
     next (t, tt);
+
     auto at (attributes_push (t, tt));
 
     // @@ PAT: currently we pattern-expand prerequisite-specific vars.
@@ -1670,6 +1670,7 @@ namespace build2
     // manually looking for =/=+/+=.
     //
     mode (lexer_mode::value, '@');
+    enable_attributes (); // @@ VAL.
     next (t, tt);
 
     // Get variable attributes, if any (note that here we will go into a
@@ -1820,6 +1821,7 @@ namespace build2
     // being able to type them or to return NULL.
     //
     mode (lexer_mode::value, '@');
+    enable_attributes (); // @@ VAL.
     next (t, tt);
 
     auto at (attributes_push (t, tt));
@@ -1971,6 +1973,8 @@ namespace build2
     for (;;)
     {
       string k (move (t.value));
+
+      enable_attributes (); // Recognize attributes before value.
       next (t, tt);
 
       bool take (false); // Take this branch?
@@ -2131,7 +2135,9 @@ namespace build2
 
     do
     {
+      enable_attributes (); // Recognize attributes before value.
       next (t, tt);
+
       if (tt == type::newline || tt == type::eos)
         fail (t) << "expected switch expression instead of " << t;
 
@@ -2237,7 +2243,7 @@ namespace build2
           //
           mode (lexer_mode::case_patterns); // Recognize `|` and `,`.
 
-          auto parse_pattern = [this] (token& t, type& tt)
+          auto parse_pattern_with_attributes = [this] (token& t, type& tt)
           {
             return parse_value_with_attributes (
               t, tt, pattern_mode::ignore, "pattern", nullptr);
@@ -2245,7 +2251,9 @@ namespace build2
 
           for (size_t i (0);; ++i)
           {
+            enable_attributes (); // Recognize attributes before pattern.
             next (t, tt);
+
             if (tt == type::newline || tt == type::eos)
               fail (t) << "expected case pattern instead of " << t;
 
@@ -2254,10 +2262,10 @@ namespace build2
 
             // Handle pattern alternatives (<pattern>|<pattern>).
             //
-            for (;; next (t, tt))
+            for (;;)
             {
               const location l (get_location (t));
-              value p (parse_pattern (t, tt));
+              value p (parse_pattern_with_attributes (t, tt));
               expr& e (exprs[i]); // Note: value might be modified (typified).
 
               if (e.func)
@@ -2300,14 +2308,18 @@ namespace build2
                 pre_parse_ = true;
                 do
                 {
+                  enable_attributes (); // Recognize attributes before pattern.
                   next (t, tt); // Skip `|`.
-                  parse_pattern (t, tt);
+                  parse_pattern_with_attributes (t, tt);
                 }
                 while (tt == type::bit_or);
                 pre_parse_ = false;
 
                 break;
               }
+
+              enable_attributes (); // Recognize attributes before pattern.
+              next (t, tt);
             }
 
             if (!take)
@@ -2421,6 +2433,7 @@ namespace build2
     // First take care of the variable name. There is no reason not to
     // support variable attributes.
     //
+    enable_attributes ();
     next (t, tt);
     attributes_push (t, tt);
 
@@ -2445,6 +2458,7 @@ namespace build2
     // value on the RHS of an assignment (expansion, attributes).
     //
     mode (lexer_mode::value, '@');
+    enable_attributes (); // @@ VAL
     next (t, tt);
 
     value val (parse_value_with_attributes (t, tt, pattern_mode::expand));
@@ -2573,6 +2587,7 @@ namespace build2
     // condition) for the same reason as in if-else (see parse_if_else()).
     //
     mode (lexer_mode::value);
+    enable_attributes (); // @@ VAL
     next (t, tt);
 
     const location el (get_location (t));
@@ -2627,6 +2642,7 @@ namespace build2
     // (expansion, attributes).
     //
     mode (lexer_mode::value, '@');
+    enable_attributes (); // @@ VAL
     next (t, tt);
 
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
@@ -2660,6 +2676,7 @@ namespace build2
     // (expansion, attributes).
     //
     mode (lexer_mode::value, '@');
+    enable_attributes (); // @@ VAL
     next (t, tt);
 
     if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
@@ -2862,6 +2879,7 @@ namespace build2
   parse_variable_value (token& t, type& tt)
   {
     mode (lexer_mode::value, '@');
+    enable_attributes (); // @@ VAL.
     next (t, tt);
 
     // Parse value attributes if any. Note that it's ok not to have anything
@@ -3121,6 +3139,7 @@ namespace build2
     // leave: rparen
 
     mode (lexer_mode::eval, '@'); // Auto-expires at rparen.
+    enable_attributes (); // @@ VAL (eval)
     next (t, tt);
 
     if (tt == type::rparen)
@@ -3137,7 +3156,7 @@ namespace build2
   values parser::
   parse_eval_comma (token& t, type& tt, pattern_mode pmode, bool first)
   {
-    // enter: first token of LHS
+    // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
 
     // Left-associative: parse in a loop for as long as we can.
@@ -3150,7 +3169,9 @@ namespace build2
 
     while (tt == type::comma)
     {
+      enable_attributes (); // Recognize attributes before value.
       next (t, tt);
+
       value rhs (parse_eval_ternary (t, tt, pmode));
 
       if (!pre_parse_)
@@ -3163,7 +3184,7 @@ namespace build2
   value parser::
   parse_eval_ternary (token& t, type& tt, pattern_mode pmode, bool first)
   {
-    // enter: first token of LHS
+    // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
 
     // Right-associative (kind of): we parse what's between ?: without
@@ -3196,7 +3217,9 @@ namespace build2
     if (!pp)
       pre_parse_ = !q; // Short-circuit middle?
 
+    enable_attributes (); // Recognize attributes before value.
     next (t, tt);
+
     value mhs (parse_eval_ternary (t, tt, pmode));
 
     if (tt != type::colon)
@@ -3205,7 +3228,9 @@ namespace build2
     if (!pp)
       pre_parse_ = q; // Short-circuit right?
 
+    enable_attributes (); // Recognize attributes before value.
     next (t, tt);
+
     value rhs (parse_eval_ternary (t, tt, pmode));
 
     pre_parse_ = pp;
@@ -3215,7 +3240,7 @@ namespace build2
   value parser::
   parse_eval_or (token& t, type& tt, pattern_mode pmode, bool first)
   {
-    // enter: first token of LHS
+    // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
 
     // Left-associative: parse in a loop for as long as we can.
@@ -3234,7 +3259,9 @@ namespace build2
         if (!pre_parse_ && convert<bool> (move (lhs)))
           pre_parse_ = true;
 
+        enable_attributes (); // Recognize attributes before value.
         next (t, tt);
+
         l = get_location (t);
         value rhs (parse_eval_and (t, tt, pmode));
 
@@ -3255,7 +3282,7 @@ namespace build2
   value parser::
   parse_eval_and (token& t, type& tt, pattern_mode pmode, bool first)
   {
-    // enter: first token of LHS
+    // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
 
     // Left-associative: parse in a loop for as long as we can.
@@ -3274,7 +3301,9 @@ namespace build2
         if (!pre_parse_ && !convert<bool> (move (lhs)))
           pre_parse_ = true;
 
+        enable_attributes (); // Recognize attributes before value.
         next (t, tt);
+
         l = get_location (t);
         value rhs (parse_eval_comp (t, tt, pmode));
 
@@ -3295,7 +3324,7 @@ namespace build2
   value parser::
   parse_eval_comp (token& t, type& tt, pattern_mode pmode, bool first)
   {
-    // enter: first token of LHS
+    // enter: first token of LHS (lexed with enabled attributes)
     // leave: next token after last RHS
 
     // Left-associative: parse in a loop for as long as we can.
@@ -3312,7 +3341,9 @@ namespace build2
       type op (tt);
       location l (get_location (t));
 
+      enable_attributes (); // Recognize attributes before value.
       next (t, tt);
+
       value rhs (parse_eval_value (t, tt, pmode));
 
       if (pre_parse_)
@@ -3329,7 +3360,7 @@ namespace build2
   value parser::
   parse_eval_value (token& t, type& tt, pattern_mode pmode, bool first)
   {
-    // enter: first token of value
+    // enter: first token of value (lexed with enabled attributes)
     // leave: next token after value
 
     // Parse value attributes if any. Note that it's ok not to have anything
@@ -3344,7 +3375,9 @@ namespace build2
     {
     case type::log_not:
       {
+        enable_attributes (); // Recognize attributes before value.
         next (t, tt);
+
         v = parse_eval_value (t, tt, pmode);
 
         if (pre_parse_)
@@ -3498,7 +3531,7 @@ namespace build2
     // Using '@' for attribute key-value pairs would be just too ugly. Seeing
     // that we control what goes into keys/values, let's use a much nicer '='.
     //
-    mode (lexer_mode::attribute, '=');
+    mode (lexer_mode::attributes, '=');
     next (t, tt);
 
     has = (tt != type::rsbrace);
@@ -5372,7 +5405,7 @@ namespace build2
   // In fact, because this is only done in the buildspec mode, we can still
   // use eval contexts provided that we quote them: '"cle(an)"'. Note that
   // function calls also need quoting (since a separated '(' is not treated as
-  // function call): '"$identity(update)"'.
+  // a function call): '"$identity(update)"'.
   //
   // This poses a problem, though: if it's quoted then it is a concatenated
   // expansion and therefore cannot contain multiple values, for example,

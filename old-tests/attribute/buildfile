@@ -6,10 +6,10 @@
 #[foo=dir/file{bar}]  # error: invalid attribute key
 
 #[foo] print hello    # error: attributes before print
-#[foo]./              # error: attributes before directory scope
+#[foo] ./             # error: attributes before directory scope
 #{
 #}
-#[foo]./:             # error: attributes before target scope
+#[foo] ./:            # error: attributes before target scope
 #./: [foo] buildfile  # error: attributes before prerequisites
 #import [foo] libz    # error: attributes without variable
 
