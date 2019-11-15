@@ -47,7 +47,7 @@ namespace build2
       lexer* l_;
       unit* u_;
 
-      optional<location> module_marker_;
+      optional<location_value> module_marker_;
     };
   }
 }

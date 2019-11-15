@@ -187,7 +187,7 @@ namespace build2
       //
       if (!ex && t.type == type::semi)
       {
-        module_marker_ = move (l);
+        module_marker_ = location_value (move (l));
         return;
       }
 

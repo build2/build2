@@ -311,12 +311,12 @@ namespace build2
 
   // Diagnostics location.
   //
+  // Note that location maintains a shallow reference to path. Zero lines or
+  // columns are not printed.
+  //
   class location
   {
   public:
-    // Note that location maintains a shallow reference to path. Zero lines
-    // or columns are not printed.
-    //
     explicit
     location (const path* f = nullptr, uint64_t l = 0, uint64_t c = 0)
         : file (f), line (l), column (c) {}
@@ -331,6 +331,27 @@ namespace build2
     path_name file;
     uint64_t  line;
     uint64_t  column;
+  };
+
+  // Similar (and implicit-convertible) to the above but stores a copy of the
+  // path.
+  //
+  class location_value: public location
+  {
+  public:
+    location_value () = default;
+
+    explicit
+    location_value (const location& l)
+        : location (path_name (file_value, l.file.name), l.line, l.column),
+          file_value (l.file.path != nullptr ? *l.file.path : path ()) {}
+
+    explicit
+    location_value (location&& l)
+        : location (path_name (file_value, move (l.file.name)), l.line, l.column),
+          file_value (l.file.path != nullptr ? *l.file.path : path ()) {}
+
+    path file_value;
   };
 
   // See context.

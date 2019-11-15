@@ -356,6 +356,12 @@ namespace build2
     }
 
     location_prologue
+    operator() (const location_value& l) const
+    {
+      return location_prologue (epilogue_, type_, mod_, name_, l, sverb_ ());
+    }
+
+    location_prologue
     operator() (const path_name& f) const
     {
       return location_prologue (epilogue_, type_, mod_, name_, f, sverb_ ());
