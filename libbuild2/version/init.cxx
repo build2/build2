@@ -74,8 +74,8 @@ namespace build2
               if (nv.value != pn.string ())
               {
                 path bf (rs.src_path () / rs.root_extra->bootstrap_file);
-                location ml (&f, nv.value_line, nv.value_column);
-                location bl (&bf);
+                location ml (f, nv.value_line, nv.value_column);
+                location bl (bf);
 
                 fail (ml) << "package name " << nv.value << " does not match "
                           << "build system project name " << pn <<
@@ -164,7 +164,7 @@ namespace build2
         }
         catch (const manifest_parsing& e)
         {
-          location l (&f, e.line, e.column);
+          location l (f, e.line, e.column);
           fail (l) << e.description;
         }
         catch (const io_error& e)

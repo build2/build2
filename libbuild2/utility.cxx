@@ -46,11 +46,11 @@ namespace std
   }
 
   ostream&
-  operator<< (ostream& os, const ::butl::path_name& pn)
+  operator<< (ostream& os, const ::butl::path_name_view& v)
   {
-    assert (!pn.empty ());
+    assert (!v.empty ());
 
-    return pn.name ? (os << *pn.name) : (os << *pn.path);
+    return v.name != nullptr && *v.name ? (os << **v.name) : (os << *v.path);
   }
 
   ostream&

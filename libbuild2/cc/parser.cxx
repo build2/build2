@@ -197,7 +197,7 @@ namespace build2
       // enter: module keyword
       // leave: semi
 
-      location l (get_location (t));
+      location_value l (get_location (t));
 
       l_->next (t);
 
@@ -208,7 +208,7 @@ namespace build2
       //
       if (!ex && t.type == type::semi)
       {
-        module_marker_ = location_value (move (l));
+        module_marker_ = move (l);
         return;
       }
 

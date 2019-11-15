@@ -63,12 +63,12 @@ namespace build2
         }
         catch (const manifest_parsing& e)
         {
-          location l (&in, e.line, e.column);
+          location l (in, e.line, e.column);
           fail (l) << e.description;
         }
         catch (const manifest_serialization& e)
         {
-          location l (&r.path);
+          location l (r.path);
           fail (l) << e.description;
         }
         catch (const io_error& e)

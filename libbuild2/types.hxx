@@ -228,6 +228,7 @@ namespace build2
   //
   using butl::path;
   using butl::path_name;
+  using butl::path_name_view;
   using butl::path_name_value;
   using butl::dir_path;
   using butl::path_cast;
@@ -311,26 +312,37 @@ namespace build2
 
   // Diagnostics location.
   //
-  // Note that location maintains a shallow reference to path. Zero lines or
-  // columns are not printed.
+  // Note that location maintains a shallow reference to path/path_name. Zero
+  // lines or columns are not printed.
   //
   class location
   {
   public:
+    path_name_view file;
+    uint64_t       line;
+    uint64_t       column;
+
+    location (): line (0), column (0) {}
+
     explicit
-    location (const path* f = nullptr, uint64_t l = 0, uint64_t c = 0)
+    location (const path& f, uint64_t l = 0, uint64_t c = 0)
+        : file (&f, nullptr /* name */), line (l), column (c) {}
+
+    explicit
+    location (path&&, uint64_t = 0, uint64_t = 0) = delete;
+
+    explicit
+    location (const path_name_view& f, uint64_t l = 0, uint64_t c = 0)
         : file (f), line (l), column (c) {}
 
     explicit
-    location (path_name f, uint64_t l = 0, uint64_t c = 0)
-        : file (std::move (f)), line (l), column (c) {}
+    location (path_name_view&&, uint64_t = 0, uint64_t = 0) = delete;
 
     bool
-    empty () const {return file.empty ();}
+    empty () const {return file.null () || file.empty ();}
 
-    path_name file;
-    uint64_t  line;
-    uint64_t  column;
+  protected:
+    location (uint64_t l, uint64_t c): line (l), column (c) {}
   };
 
   // Similar (and implicit-convertible) to the above but stores a copy of the
@@ -339,19 +351,17 @@ namespace build2
   class location_value: public location
   {
   public:
-    location_value () = default;
+    path_name_value file;
+
+    location_value ();
 
     explicit
-    location_value (const location& l)
-        : location (path_name (file_value, l.file.name), l.line, l.column),
-          file_value (l.file.path != nullptr ? *l.file.path : path ()) {}
+    location_value (const location&);
 
-    explicit
-    location_value (location&& l)
-        : location (path_name (file_value, move (l.file.name)), l.line, l.column),
-          file_value (l.file.path != nullptr ? *l.file.path : path ()) {}
-
-    path file_value;
+    location_value (location_value&&);
+    location_value (const location_value&);
+    location_value& operator= (location_value&&);
+    location_value& operator= (const location_value&);
   };
 
   // See context.
@@ -375,7 +385,7 @@ namespace std
   operator<< (ostream&, const ::butl::path&);
 
   LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::path_name&);
+  operator<< (ostream&, const ::butl::path_name_view&);
 
   // Print as recall[@effect].
   //
@@ -386,5 +396,7 @@ namespace std
 // <libbuild2/name.hxx>
 //
 #include <libbuild2/name.hxx>
+
+#include <libbuild2/types.ixx>
 
 #endif // LIBBUILD2_TYPES_HXX

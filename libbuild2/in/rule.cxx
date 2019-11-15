@@ -221,7 +221,7 @@ namespace build2
               // can be overriden with custom substitution semantics.
               //
               optional<string> v (
-                substitute (location (&ip, ln), a, t, n, strict));
+                substitute (location (ip, ln), a, t, n, strict));
 
               assert (v); // Rule semantics change without version increment?
 
@@ -302,7 +302,7 @@ namespace build2
 
           // Not tracking column for now (see also depdb above).
           //
-          const location l (&ip, ln);
+          const location l (ip, ln);
 
           // Scan the line looking for substiutions in the $<name>$ form. In
           // the strict mode treat $$ as an escape sequence.

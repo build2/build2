@@ -741,7 +741,7 @@ main (int argc, char* argv[])
       }
 
       const path p ("<buildspec>");
-      const location l (&p, 0, 0); //@@ TODO
+      const location l (p, 0, 0); //@@ TODO
 
       meta_operation_id mid (0); // Not yet translated.
       const meta_operation_info* mif (nullptr);

@@ -242,7 +242,7 @@ namespace build2
         {
           for (const path& f: cast<paths> (l))
           {
-            location l (&f);
+            location l (f);
 
             const string& s (f.string ());
 
