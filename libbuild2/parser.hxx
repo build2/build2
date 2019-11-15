@@ -214,9 +214,9 @@ namespace build2
     //
     struct attributes
     {
-      bool has;                         // Has attributes flag.
-      location loc;                     // Start of attributes location.
-      vector<pair<string, string>> ats; // Attributes.
+      bool has;                                 // Has attributes flag.
+      location loc;                             // Start location.
+      small_vector<pair<string, value>, 1> ats; // Attributes.
 
       explicit operator bool () const {return has;}
     };

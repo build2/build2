@@ -56,29 +56,32 @@ namespace build2
       }
     case lexer_mode::values:
       {
-        // a: beginning and after `,`?
         s1 = " $(){},#\t\n";
         s2 = "          ";
         break;
       }
     case lexer_mode::switch_expressions:
       {
-        // a: beginning and after `,`?
         s1 = " $(){},:#\t\n";
         s2 = "           ";
         break;
       }
     case lexer_mode::case_patterns:
       {
-        // a: beginning and after `,` & `|`?
         s1 = " $(){},|:#\t\n";
         s2 = "            ";
         break;
       }
     case lexer_mode::attributes:
       {
-        s1 = " $(]#\t\n";
-        s2 = "       ";
+        s1 = " $()=,]#\t\n";
+        s2 = "          ";
+        break;
+      }
+    case lexer_mode::attribute_value:
+      {
+        s1 = " $(),]#\t\n";
+        s2 = "         ";
         break;
       }
     case lexer_mode::eval:
@@ -138,6 +141,7 @@ namespace build2
     case lexer_mode::switch_expressions:
     case lexer_mode::case_patterns:
     case lexer_mode::attributes:
+    case lexer_mode::attribute_value:
     case lexer_mode::variable:
     case lexer_mode::buildspec:     break;
     case lexer_mode::eval:          return next_eval ();
@@ -214,7 +218,7 @@ namespace build2
 
     // The following characters are special in all modes except attributes.
     //
-    if (m != lexer_mode::attributes)
+    if (m != lexer_mode::attributes && m != lexer_mode::attribute_value)
     {
       switch (c)
       {
@@ -226,6 +230,14 @@ namespace build2
     // The following characters are special in the attributes modes.
     //
     if (m == lexer_mode::attributes)
+    {
+      switch (c)
+      {
+      case '=': return make_token (type::assign);
+      }
+    }
+
+    if (m == lexer_mode::attributes || m == lexer_mode::attribute_value)
     {
       switch (c)
       {
@@ -289,12 +301,14 @@ namespace build2
       }
     }
 
-    // The following characters are special in the values and buildspec mode.
+    // The following characters are special in the values and alike modes.
     //
     if (m == lexer_mode::buildspec          ||
         m == lexer_mode::values             ||
         m == lexer_mode::switch_expressions ||
-        m == lexer_mode::case_patterns)
+        m == lexer_mode::case_patterns      ||
+        m == lexer_mode::attributes         ||
+        m == lexer_mode::attribute_value)
     {
       switch (c)
       {

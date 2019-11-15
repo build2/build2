@@ -109,7 +109,7 @@ $* <'print $nullable(nonull)' >'false'
 
 : null-fail
 :
-$* <'$dummy1([string null])' 2>>EOE != 0
+$* <'$dummy1([string, null])' 2>>EOE != 0
 error: invalid argument: null value
   buildfile:1:2: info: while calling dummy1(string)
 EOE

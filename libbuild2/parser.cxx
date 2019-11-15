@@ -2917,10 +2917,16 @@ namespace build2
     const location& l (a.loc);
     const value_type* type (nullptr);
 
+    auto print = [storage = names ()] (diag_record& dr, const value& v) mutable
+    {
+      storage.clear ();
+      to_stream (dr.os, reverse (v, storage), true /* quote */, '@');
+    };
+
     for (auto& p: a.ats)
     {
       string& k (p.first);
-      string& v (p.second);
+      value& v (p.second);
 
       if (const value_type* t = map_type (k))
       {
@@ -2935,12 +2941,19 @@ namespace build2
         diag_record dr (fail (l));
         dr << "unknown variable attribute " << k;
 
-        if (!v.empty ())
-          dr << '=' << v;
+        if (!v.null)
+        {
+          dr << '=';
+          print (dr, v);
+        }
       }
 
-      if (!v.empty ())
-        fail (l) << "unexpected value for attribute " << k << ": " << v;
+      if (!v.null)
+      {
+        diag_record dr (fail (l));
+        dr << "unexpected value for attribute " << k << ": ";
+        print (dr, v);
+      }
     }
 
     if (type != nullptr)
@@ -2970,10 +2983,16 @@ namespace build2
     bool null (false);
     const value_type* type (nullptr);
 
+    auto print = [storage = names ()] (diag_record& dr, const value& v) mutable
+    {
+      storage.clear ();
+      to_stream (dr.os, reverse (v, storage), true /* quote */, '@');
+    };
+
     for (auto& p: a.ats)
     {
       string& k (p.first);
-      string& v (p.second);
+      value& v (p.second);
 
       if (k == "null")
       {
@@ -2996,12 +3015,19 @@ namespace build2
         diag_record dr (fail (l));
         dr << "unknown value attribute " << k;
 
-        if (!v.empty ())
-          dr << '=' << v;
+        if (!v.null)
+        {
+          dr << '=';
+          print (dr, v);
+        }
       }
 
-      if (!v.empty ())
-        fail (l) << "unexpected value for attribute " << k << ": " << v;
+      if (!v.null)
+      {
+        diag_record dr (fail (l));
+        dr << "unexpected value for attribute " << k << ": ";
+        print (dr, v);
+      }
     }
 
     // When do we set the type and when do we keep the original? This gets
@@ -3508,53 +3534,59 @@ namespace build2
     if (!has)
       return make_pair (false, l);
 
-    // Using '@' for attribute key-value pairs would be just too ugly. Seeing
-    // that we control what goes into keys/values, let's use a much nicer '='.
-    //
-    mode (lexer_mode::attributes, '=');
+    mode (lexer_mode::attributes);
     next (t, tt);
 
-    has = (tt != type::rsbrace);
-    if (has)
+    if ((has = (tt != type::rsbrace)))
     {
-      names ns (
-        parse_names (t, tt, pattern_mode::ignore, "attribute", nullptr));
-
-      if (!pre_parse_)
+      do
       {
-        attributes& a (attributes_.top ());
+        if (tt == type::newline || tt == type::eos)
+          break;
 
-        for (auto i (ns.begin ()); i != ns.end (); ++i)
+        // Parse the attribute name with expansion (we rely on this in some
+        // old and hairy tests).
+        //
+        const location l (get_location (t));
+
+        names ns (
+          parse_names (t, tt, pattern_mode::ignore, "attribute", nullptr));
+
+        string n;
+        value v;
+
+        if (!pre_parse_)
         {
-          string k, v;
+          // The list should contain a single, simple name.
+          //
+          if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
+            fail (l) << "expected attribute name instead of " << ns;
 
-          try
-          {
-            k = convert<string> (move (*i));
-          }
-          catch (const invalid_argument&)
-          {
-            fail (l) << "invalid attribute key '" << *i << "'";
-          }
-
-          if (i->pair)
-          {
-            if (i->pair != '=')
-              fail (l) << "unexpected pair style in attributes";
-
-            try
-            {
-              v = convert<string> (move (*++i));
-            }
-            catch (const invalid_argument&)
-            {
-              fail (l) << "invalid attribute value '" << *i << "'";
-            }
-          }
-
-          a.ats.emplace_back (move (k), move (v));
+          n = move (ns[0].value);
         }
+
+        if (tt == type::assign)
+        {
+          // To handle the value we switch into the attribute_value mode
+          // (which doesn't treat `=` as special).
+          //
+          mode (lexer_mode::attribute_value, '@');
+          next (t, tt);
+
+          v = (tt != type::comma && tt != type::rsbrace
+               ? parse_value (t, tt, pattern_mode::ignore, "attribute value")
+               : value (names ()));
+
+          expire_mode ();
+        }
+
+        if (!pre_parse_)
+          attributes_.top ().ats.emplace_back (move (n), move (v));
+
+        if (tt == type::comma)
+          next (t, tt);
       }
+      while (tt != type::rsbrace);
     }
 
     if (tt != type::rsbrace)

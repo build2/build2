@@ -25,10 +25,11 @@ namespace build2
   // values, e.g., `foo = g++`. In contrast, in the variable mode, we restrict
   // certain character (e.g., `/`) from appearing in the name. The values mode
   // is like value but recogizes `,` as special (used in contexts where we
-  // need to list multiple values). The attributes mode is also like value
-  // except it doesn't treat `{` and `}` as special (so we cannot have name
-  // groups in attributes) and recognizes the closing `]`. The eval mode is
-  // used in the evaluation context.
+  // need to list multiple values). The attributes/attribute_value modes are
+  // like values where each value is potentially a variable assignment; they
+  // don't treat `{` and `}` as special (so we cannot have name groups in
+  // attributes) as well as recognizes `=` and `]`. The eval mode is used in
+  // the evaluation context.
   //
   // A number of modes are "derived" from the value/values mode by recognizing
   // a few extra characters:
@@ -74,6 +75,7 @@ namespace build2
       case_patterns,
       switch_expressions,
       attributes,
+      attribute_value,
       eval,
       single_quoted,
       double_quoted,

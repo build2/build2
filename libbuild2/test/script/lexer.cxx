@@ -131,7 +131,7 @@ namespace build2
             //
             assert (ps == '\0' ||
                     m == lexer_mode::eval ||
-                    m == lexer_mode::attributes);
+                    m == lexer_mode::attribute_value);
 
             base_lexer::mode (m, ps, esc);
             return;

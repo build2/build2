@@ -43,7 +43,7 @@ namespace build2
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "src_root = ";
-        to_stream (ofs, name (src_root), true, '@'); // Quote.
+        to_stream (ofs, name (src_root), true /* quote */, '@');
         ofs << endl;
 
         ofs.close ();
@@ -72,7 +72,7 @@ namespace build2
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "out_root = ";
-        to_stream (ofs, name (out_root), true, '@'); // Quote.
+        to_stream (ofs, name (out_root), true /* quote */, '@');
         ofs << endl;
 
         ofs.close ();
@@ -464,7 +464,7 @@ namespace build2
               else
               {
                 os << " = ";
-                to_stream (os, ns, true, '@'); // Quote.
+                to_stream (os, ns, true /* quote */, '@');
               }
 
               os << endl;

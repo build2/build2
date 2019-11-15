@@ -10,7 +10,7 @@
   $* <'print $type([string])'      >'string'  : empty-typed
   $* <'print $type("")'            >''        : empty-untyped
 
-  $* <'print $type([string null])' >'string'  : null-typed
+  $* <'print $type([string, null])' >'string' : null-typed
   $* <'print $type([null])'        >''        : null-untyped
 
   $* <'print $type([string] abc)'  >'string'  : value-typed
@@ -48,8 +48,8 @@
   $* <'print       $identity("")'              >'{}';
   $* <'print $type($identity(""))'             >''         : empty-untyped
 
-  $* <'print       $identity([string null])'   >'[null]';
-  $* <'print $type($identity([string null]))'  >'string'   : null-typed
+  $* <'print       $identity([string, null])'  >'[null]';
+  $* <'print $type($identity([string, null]))' >'string'   : null-typed
 
   $* <'print       $identity([null])'          >'[null]';
   $* <'print $type($identity([null]))'         >''         : null-untyped

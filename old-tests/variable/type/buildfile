@@ -4,7 +4,7 @@
 #[string] str3 = foo
 #[bool] str3 = false       # error: changing str3 type from string to bool
 
-#[bool string] str3 = foo  # error: multiple variable types: bool, string
+#[bool, string] str3 = foo # error: multiple variable types: bool, string
 
 #[junk] jnk = foo          # error: unknown variable attribute junk
 
@@ -21,8 +21,8 @@ print $str2
 # Value typing.
 #
 
-#v = [bool string] true # error: multiple value types: string, bool
-#v = [string=junk] true # error: unexpected value for attribute string: junk
+#v = [bool, string] true # error: multiple value types: string, bool
+#v = [string=junk] true  # error: unexpected value for attribute string: junk
 
 #[string] var =
 #var = [bool] true # error: confliction variable var type string and value type bool
@@ -67,11 +67,11 @@ sub/
   print $v5b # 2
 }
 
-v6 = [uint64 null]
+v6 = [uint64, null]
 v6 += 00
 print $v6 # 0
 
-v7 = [string null]
+v7 = [string, null]
 v7 += [uint64] 00
 print $v7 # 0
 
