@@ -80,7 +80,7 @@ EOO
 
 : brace-missing
 :
-$* <<EOI 2>>EOE != 0
+$* <<EOI 2>>EOE
 export
 {
   class foo
@@ -89,12 +89,12 @@ export
   module foo;
 }
 EOI
-<stdin>:8:1: error: {}-imbalance detected
+<stdin>:8:1: warning: missing '}'
 EOE
 
 : brace-stray
 :
-$* <<EOI 2>>EOE != 0
+$* <<EOI 2>>EOE
 export
 {
   class foo
@@ -103,7 +103,7 @@ export
 }
 module foo;
 EOI
-<stdin>:6:1: error: {}-imbalance detected
+<stdin>:6:1: warning: extraneous '}'
 EOE
 
 : import-missing-name

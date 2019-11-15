@@ -4013,13 +4013,15 @@ namespace build2
 
       otype ot (li.type);
 
-      // If things go wrong give the user a bit extra context.
+      // If things go wrong give the user a bit extra context. Let's call it
+      // "scanning" instead of "parsing" since this has become an established
+      // term.
       //
       auto df = make_diag_frame (
         [&src](const diag_record& dr)
         {
           if (verb != 0)
-            dr << info << "while parsing " << src;
+            dr << info << "while scanning " << src;
         });
 
       // For some compilers (GCC, Clang) the preporcessed output is only

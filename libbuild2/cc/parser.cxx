@@ -30,8 +30,16 @@ namespace build2
       // issue warnings. But the problem with this approach is that they are
       // easy to miss. So for now we fail. And it turns out we don't mis-
       // parse much.
+
+      // We keep a {}-balance and skip everything at depth 1 and greater.
+      // While after P1703 and P1857 everything that we are interested in
+      // (module and import declarations) are treated as pseudo-pp-directives
+      // and recognized everywhere, they are illegal everywhere execept at
+      // depth 0. So we are going to skip for performance reasons and expect
+      // the compiler to complain about the syntax rather than, say, module
+      // BMI not being found.
       //
-      size_t bb (0); // {}-balance.
+      int64_t bb (0);
 
       token t;
       for (bool n (true); (n ? l_->next (t) : t.type) != type::eos; )
@@ -50,7 +58,7 @@ namespace build2
           }
         case type::rcbrace:
           {
-            if (bb-- == 0)
+            if (--bb < 0)
               break; // Imbalance.
 
             continue;
@@ -60,9 +68,9 @@ namespace build2
             // Constructs we need to recognize:
             //
             //           module                              ;
+            // [export]  module <module-name> [<attributes>] ;
             // [export]  import <module-name> [<attributes>] ;
             // [export]  import <header-name> [<attributes>] ;
-            // [export]  module <module-name> [<attributes>] ;
             //
             // Additionally, when include is translated to an import, it's
             // normally replaced with the special __import keyword since it
@@ -100,8 +108,21 @@ namespace build2
         break;
       }
 
+      // We used to issue an error here but the diagnostics and, especially,
+      // the location are not very helpful. While the compilers don't do a
+      // much better job at it, there are often other semantic errors that are
+      // more helpful and which we cannot match. So now we warn and let the
+      // compiler fail.
+      //
+      // Another option would have been to postpone this diagnostics until
+      // after the compiler fails (and thus also confirming that it indeed has
+      // failed) but that would require propagating this state from apply() to
+      // perform_update() and also making sure we issue this diagnostics even
+      // if anything in between fails (probably by having it sitting in a
+      // diag_frame). So let's keep it simple for now.
+      //
       if (bb != 0)
-        /*warn*/ fail (t) << "{}-imbalance detected";
+        warn (t) << (bb > 0 ? "missing '}'" : "extraneous '}'");
 
       if (module_marker_ && u.module_info.name.empty ())
         fail (*module_marker_) << "module declaration expected after "
