@@ -129,7 +129,17 @@ EOI
   $* <'print {*.txt -f*.txt +*x.txt}' >'fox.txt'   : include-exclude-order
 
   touch foo.txt;
-  $* <'print {+foo.txt} {+bar.txt}' >'foo.txt'      : non-wildcard
+  $* <'print {+foo.txt} {+bar.txt}' >'foo.txt'     : non-wildcard
+}
+
+: escaping
+:
+{
+  touch foo.txt;
+  $* <'print \[fgh]oo.txt'  >'foo.txt'             : bracket
+
+  touch true1.txt;
+  $* <'print (true\?.txt')  >'true1.txt'           : question
 }
 
 : target-type

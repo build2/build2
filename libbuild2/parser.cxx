@@ -3612,7 +3612,7 @@ namespace build2
                               tt == type::lparen ||
                               tt == type::lcbrace))
       fail (t) << "whitespace required after attributes" <<
-        info << "add an empty attribute list if this is a wildcard pattern";
+        info << "use the '\\[' escape sequence if this is a wildcard pattern";
 
     return make_pair (has, l);
   }

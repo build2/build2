@@ -3422,10 +3422,14 @@ x = name@value  # pairs
 x = # start of a comment
 \
 
-The complete set of syntax characters is \c{$(){\}[]@#} plus space and tab.
-Additionally, \c{*?} will be treated as wildcards in a name pattern. If
-instead we need these characters to appear literally as part of the value,
-then we either have to \i{escape} or \i{quote} them.
+The complete set of syntax characters is \c{$(){\}@#\"'} plus space and tab as
+well as \c{[]} but only in certain contexts (see \l{#attributes Attributes}
+for details). If instead we need these characters to appear literally as part
+of the value, then we either have to \i{escape} or \i{quote} them.
+
+\N|Additionally, \c{*?[} will be treated as wildcards in name patterns. Note
+that this treatment can only be inhibited with quoting and not escaping. See
+\l{#name-patterns Name Patterns} for details.|
 
 To escape a special character, we prefix it with a backslash (\c{\\}; to
 specify a literal backslash double it). For example:
@@ -3454,7 +3458,7 @@ line two
 line three'
 \
 
-Since quote characters are now also part of the syntax, if you need to specify
+Since quote characters are also part of the syntax, if you need to specify
 them literally in the value, then they will either have to be escaped or
 quoted. For example:
 
@@ -4317,6 +4321,11 @@ the number of jobs to perform in parallel, the stack size, queue depths, etc.
 See the \l{b(1)} man pages for details.
 
 
+\h1#attributes|Attributes|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+
 \h1#name-patterns|Name Patterns|
 
 For convenience, in certain contexts, names can be generated with shell-like
@@ -4348,11 +4357,29 @@ pat = 'foo*bar'
 ./: cxx{'foo*bar'}
 \
 
-The following characters are wildcards:
+The following wildcards are recognized:
 
 \
-*  - match any number of characters (including zero)
-?  - match any single character
+*     - match any number of characters (including zero)
+?     - match any single character
+[...] - match a character with a bracket expression
+\
+
+\N|Currently only literal character and range bracket expressions are
+supported. Specifically, no character or equivalence classes, etc., are
+supported nor the special characters backslash-escaping. See the \"Pattern
+Matching Notation\" section in the POSIX \"Shell Command Language\"
+specification for details.|
+
+Note that some wildcard characters may have special meaning in certain
+contexts. For instance, \c{[} at the beginning of a value will be interpreted
+as the start of the attribute list while \c{?} in the eval context is part of
+the ternary operator. In such cases the wildcard character will have to be
+escaped, for example:
+
+\
+x = \[1-9]-foo.txt
+y = (foo.\?xx)
 \
 
 If a pattern ends with a directory separator, then it only matches
@@ -4360,12 +4387,11 @@ directories. Otherwise, it only matches files. Matches that start with a dot
 (\c{.}) are automatically ignored unless the pattern itself also starts with
 this character.
 
-In addition to the above wildcard characters, \c{**} and \c{***} are
-recognized as wildcard character sequences. If a pattern contains \c{**}, then
-it is matched just like \c{*} but in all the subdirectories, recursively, but
-excluding directories that contain the \c{.buildignore} file. The \c{***}
-wildcard behaves like \c{**} but also matches the start directory itself. For
-example:
+In addition to the above wildcards, \c{**} and \c{***} are recognized as
+wildcard sequences. If a pattern contains \c{**}, then it is matched just like
+\c{*} but in all the subdirectories, recursively, but excluding directories
+that contain the \c{.buildignore} file. The \c{***} wildcard behaves like
+\c{**} but also matches the start directory itself. For example:
 
 \
 exe{hello}: cxx{**}  # All C++ source files recursively.
