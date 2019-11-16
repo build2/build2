@@ -1,28 +1,247 @@
 Version 0.12.0
 
-  * The build system has been split into a library (libbuild2) and a driver.
+  * Support for dynamically-buildable/loadable build system modules.
+
+    See the libbuild2-hello sample module to get started:
+
+    https://github.com/build2/libbuild2-hello
+
+  * Support for pattern matching (switch).
+
+    For example:
+
+    switch $cxx.target.class, $cxx.target.system
+    {
+      case 'windows', 'mingw32'
+	cxx.libs += -lrpcrt4
+
+      case 'windows'
+        cxx.libs += rpcrt4.lib
+
+      case 'macos'
+        cxx.libs += -framework CoreFoundation
+    }
+
+    See the "Pattern Matching (switch)" section in the manual for details.
+
+  * Support for default options files (aka tool config files).
+
+    See the DEFAULT OPTIONS FILES section in b(1) for details.
+
+  * Support for Clang targeting MSVC runtime on Windows.
+
+    In particular, the build2 toolchain itself can now be build with Clang on
+    Windows, including using LLD. See the "Clang Compiler Toolchain" section
+    in the manual for details.
+
+  * Support for automatic installation discovery for MSVC 15 (2017) and later.
+
+    In particular, this allows building outside the Visual Studio development
+    command prompts. See the "MSVC Compiler Toolchain" section in the manual
+    for details.
+
+  * Ability to specify "compiler mode" options as part of config.{c,cxx}.
+
+    Such options are not overridden in buildfiles and are passed last (after
+    cc.coptions and {c,cxx}.coptions) in the resulting command lines. Note
+    that they are also cross-hinted between config.c and config.cxx. For
+    example:
+
+    $ b config.cxx="g++-9 -m32"  # implies config.c="gcc-9 -m32"
+
+    But:
+
+    $ b config.cxx="clang++ -stdlib=libc++" config.c=clang
+
+  * Support for [config.]{cc,c,cxx}.aoptions (archive options).
+
+    In particular, this can be used to suppress lib.exe warnings, for example:
+
+    cc.aoptions += /IGNORE:4221
+
+  * The cxx.std=latest value has been remapped from c++latest to c++17 for
+    MSVC 16 (2019).
+
+    See issue #34 for background:
+
+    https://github.com/build2/build2/issues/34
+
+  * Support for bracket expressions ([...]) in wildcard patterns.
+
+    See the "Name Patterns" section in the manual for details.
+
+  * Support for native shared library versioning on Linux.
+
+    Now we can do:
+
+    lib{foo}: bin.lib.version = linux@1.2
+
+    And end up with:
+
+    libfoo.so.1.2
+    libfoo.so.1    -> libfoo.so.1.2
+
+    See issue #49 for background and details:
+
+    https://github.com/build2/build2/issues/49
+
+  * Changes to the Buildfile language functions:
+
+    - $string.icasecmp(): new
+
+    - $regex.replace_lines(): new
+
+    - $regex.{match,search}(): now return NULL on no match with return_* flags
+
+    - $filesystem.path_match(): renamed to $path.match()
+
+    - $quote(): new
+
+      This function can be useful if we want to pass a value on the command
+      line, for example, in a testscript:
+
+      $* config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
+
+    - $config.save(): new
+
+      This is similar to the config.config.save variable functionality (see
+      below) except that it can be called from within buildfiles and with the
+      result saved in a variable, printed, etc.
+
+      Note that this function can only be used during configure unless the
+      config module creation was forced for other meta-operations with
+      config.config.module=true in bootstrap.build.
+
+  * Support for configuration exporting and importing.
+
+    The new config.config.save variable specifies the alternative file to
+    write the configuration to as part of the configure meta-operation. For
+    example:
+
+    $ b configure: proj/ config.config.save=proj-config.build
+
+    The config.config.save value "applies" only to the projects on whose root
+    scope it is specified or if it is a global override (the latter is a bit
+    iffy but we allow it, for example, to dump everything to stdout). This
+    means that in order to save a subproject's configuration we will have to
+    use a scope-specific override (since the default will apply to the
+    outermost amalgamation). For example:
+
+    $ b configure: subproj/ subproj/config.config.save=.../subproj-config.build
+
+    This is somewhat counter-intuitive but then it will be the amalgamation
+    whose configuration we would normally want to export.
+
+    The new config.config.load variable specifies additional configuration
+    files to be loaded after the project's default config.build, if any. For
+    example:
+
+    $ b create: cfg/,cc config.config.load=.../my-config.build
+
+    Similar to config.config.save, the config.config.load value "applies" only
+    to the project on whose root scope it is specified or if it is a global
+    override. This allows the use of the standard override "positioning"
+    machinery (i.e., where the override applies) to decide where the extra
+    configuration files are loaded. The resulting semantics is quite natural
+    and consistent with command line variable overrides, for example:
+
+    $ b   config.config.load=.../config.build  # outermost amalgamation
+    $ b ./config.config.load=.../config.build  # this project
+    $ b  !config.config.load=.../config.build  # every project
+
+    Both config.config.load and config.config.save recognize the special `-`
+    file name as an instruction to read/write from/to stdin/stdout,
+    respectively. For example:
+
+    $ b configure: src-prj/ config.config.save=- | \
+      b configure: dst-prj/ config.config.load=-
+
+    The config.config.load also recognizes the `~host` special configuration
+    name. This is the "default host configuration" that corresponds to how the
+    build system itself was built. For example:
+
+    $ b create: tools/,cc config.config.load=~host
+
+  * Attributes are now comma-separated with support for arbitrary values.
+
+    Before:
+
+    x = [string null]
+
+    After:
+
+    x = [string, null]
+
+  * The build system has been split into a library (libbuild2) a set of
+    modules, and a driver.
+
+    See the following mailing list post for details:
+
+    https://lists.build2.org/archives/users/2019-October/000687.html
 
     As part of this change the following configuration macros (normally
-    supplied via the -D preprocessor options) have been renamed from their
-    old BUILD2_* versions to:
+    supplied via the -D preprocessor options) have been renamed from their old
+    BUILD2_* versions to:
 
     LIBBUILD2_MTIME_CHECK
     LIBBUILD2_SANE_STACK_SIZE
     LIBBUILD2_DEFAULT_STACK_SIZE
     LIBBUILD2_ATOMIC_NON_LOCK_FREE
 
+  * A notion of build context.
+
+    All the non-const global state has been moved to class context and we can
+    now have multiple independent builds at the same time. In particular, this
+    functionality is used to update build system modules as part of another
+    build.
+
+  * New --silent options.
+
+    Now in certain contexts (for example, while updating build system modules)
+    the --quiet|-q verbosity level is ignored. We can specify --silent instead
+    to run quietly in all contexts.
+
+  * Support for the for_install prerequisite-specific variable.
+
+    Setting this variable to true or false controls whether a prerequisite
+    will be used by the link rule depending on whether the update is for
+    install or not. Also reserve for_test for future use.
+
+  * New config.config.persist variable.
+
+    This variable is part of initial support for customizable config.*
+    variable persistence.
+
+  * New bin.lib.load_suffix variable.
+
+    Setting this variable triggers the creation of yet another symlink to the
+    shared library that is meant to be used for dynamic loading. For example,
+    we may want to embed the main program interface number into its plugins to
+    make sure that we only load compatible versions.
+
+  * New bin.lib.{version_pattern,load_suffix_pattern} variables.
+
+    These variables allow specifying custom version and load suffix patterns
+    that are used to automatically cleanup files corresponding to previous
+    versions.
+
+  * Rename the config.cxx.importable_headers variable to
+    config.cxx.translatable_headers.
+
+    The new name aligns better with the post-Cologne importable/translatable
+    semantics.
 
   * The libu{} target group has been removed.
 
-    The semantics provided by libu{} is rarely required and as result was not
-    yet documented. However, if you are using it, the new way to achieve the
-    same result is to use both libue{} and libul{} explicitly, for example:
+    The semantics provided by libu{} is rarely required and as a result was
+    not yet documented. However, if you are using it, the new way to achieve
+    the same result is to use both libue{} and libul{} explicitly, for
+    example:
 
     exe{foo}: libue{foo}
     lib{foo}: libul{foo}
 
     {libue libul}{foo}: cxx{*}
-
 
 Version 0.11.0
 
@@ -136,8 +355,8 @@ Version 0.10.0
 
     Now the build/*.build, buildfile, and .buildignore filesystem entries in a
     project can alternatively (but consistently) be called build2/*.build2,
-    build2file, and .build2ignore. See a note at the beginning of the Project
-    Structure section in the manual for details (motivation, restrictions,
+    build2file, and .build2ignore. See a note at the beginning of the "Project
+    Structure" section in the manual for details (motivation, restrictions,
     etc).
 
   * Support for multiple variable overrides.
