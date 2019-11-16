@@ -1151,6 +1151,8 @@ namespace build2
                   backlink_mode m,
                   bool ie /* ignore_errors */= false)
   {
+    // Note that this function should not be called in the dry-run mode.
+    //
     // See also clean_backlink() below.
 
     using mode = backlink_mode;
@@ -1183,16 +1185,17 @@ namespace build2
 
   void
   update_backlink (context& ctx,
-                   const path& p, const path& l, backlink_mode om)
+                   const path& p, const path& l, backlink_mode om,
+                   uint16_t verbosity)
   {
     using mode = backlink_mode;
 
     bool d (l.to_directory ());
     mode m (om); // Keep original mode.
 
-    auto print = [&p, &l, &m, d] ()
+    auto print = [&p, &l, &m, verbosity, d] ()
     {
-      if (verb >= 3)
+      if (verb >= verbosity)
       {
         const char* c (nullptr);
         switch (m)
@@ -1208,14 +1211,17 @@ namespace build2
       }
     };
 
+    // Note that none of mk*() or cp*() functions that we use here handle
+    // the dry-run mode.
+    //
+    if (!ctx.dry_run)
     try
     {
       try
       {
         // Normally will be there.
         //
-        if (!ctx.dry_run)
-          try_rmbacklink (l, m);
+        try_rmbacklink (l, m);
 
         // Skip (ad hoc) targets that don't exist.
         //
@@ -1258,7 +1264,7 @@ namespace build2
                 path f (fr / de.path ());
                 path t (to / de.path ());
 
-                update_backlink (ctx, f, t, mode::link);
+                update_backlink (ctx, f, t, mode::link, verb_never);
               }
             }
             else
@@ -1303,6 +1309,8 @@ namespace build2
                   const path& l, uint16_t v /*verbosity*/, backlink_mode m)
   {
     // Like try_rmbacklink() but with diagnostics and error handling.
+    //
+    // Note that here the dry-run mode is handled by the filesystem functions.
 
     using mode = backlink_mode;
 
@@ -1342,8 +1350,8 @@ namespace build2
     reference_wrapper<const path_type> target;
     backlink_mode mode;
 
-    backlink (const path_type& t, path_type&& l, backlink_mode m)
-        : auto_rm<path_type> (move (l)), target (t), mode (m)
+    backlink (const path_type& t, path_type&& l, backlink_mode m, bool active)
+        : auto_rm<path_type> (move (l), active), target (t), mode (m)
     {
       assert (t.to_directory () == path.to_directory ());
     }
@@ -1437,7 +1445,10 @@ namespace build2
     backlinks bls;
     auto add = [&bls, &s] (const path& p, mode m)
     {
-      bls.emplace_back (p, s.src_path () / p.leaf (s.out_path ()), m);
+      bls.emplace_back (p,
+                        s.src_path () / p.leaf (s.out_path ()),
+                        m,
+                        !s.ctx.dry_run /* active */);
     };
 
     // First the target itself.
@@ -1514,8 +1525,11 @@ namespace build2
 
     // Cancel removal.
     //
-    for (backlink& bl: bls)
-      bl.cancel ();
+    if (!t.ctx.dry_run)
+    {
+      for (backlink& bl: bls)
+        bl.cancel ();
+    }
   }
 
   static void

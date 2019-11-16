@@ -767,7 +767,8 @@ namespace build2
   update_backlink (context&,
                    const path& target,
                    const path& link,
-                   backlink_mode = backlink_mode::link);
+                   backlink_mode = backlink_mode::link,
+                   uint16_t verbosity = 3);
 
   LIBBUILD2_SYMEXPORT void
   clean_backlink (context&,
