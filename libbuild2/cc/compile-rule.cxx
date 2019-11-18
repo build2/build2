@@ -779,7 +779,7 @@ namespace build2
         // t.prerequisite_targets since we used standard search() and match()
         // above.
         //
-        const file& src (*md.src.search (t).is_a<file> ());
+        const file& src (*md.src.load (memory_order_relaxed)->is_a<file> ());
 
         // Figure out if __symexport is used. While normally it is specified
         // on the project root (which we cached), it can be overridden with
@@ -892,8 +892,13 @@ namespace build2
 
         // Finally the source file.
         //
-        if (dd.expect (src.path ()) != nullptr)
-          l4 ([&]{trace << "source file mismatch forcing update of " << t;});
+        {
+          const path& p (src.path ());
+          assert (!p.empty ()); // Sanity check.
+
+          if (dd.expect (p) != nullptr)
+            l4 ([&]{trace << "source file mismatch forcing update of " << t;});
+        }
 
         // If any of the above checks resulted in a mismatch (different
         // compiler, options, or source file) or if the depdb is newer than

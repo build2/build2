@@ -700,8 +700,7 @@ namespace build2
       p += ee;
     }
 
-    path (move (p));
-    return path_;
+    return path (move (p));
   }
 
   // Search functions.

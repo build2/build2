@@ -71,7 +71,7 @@ namespace build2
         if (p->empty ())
         {
           // Since we cannot come up with an extension, ask the target's
-          // derivation function to treat this as prerequisite (just like in
+          // derivation function to treat this as a prerequisite (just like in
           // search_existing_file()).
           //
           if (pt->derive_extension (true) == nullptr)
