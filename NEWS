@@ -30,7 +30,7 @@ Version 0.12.0
 
   * Support for Clang targeting MSVC runtime on Windows.
 
-    In particular, the build2 toolchain itself can now be build with Clang on
+    In particular, the build2 toolchain itself can now be built with Clang on
     Windows, including using LLD. See the "Clang Compiler Toolchain" section
     in the manual for details.
 
@@ -209,7 +209,7 @@ Version 0.12.0
 
   * New config.config.persist variable.
 
-    This variable is part of initial support for customizable config.*
+    This variable is part of the initial support for customizable config.*
     variable persistence.
 
   * New bin.lib.load_suffix variable.
@@ -233,9 +233,9 @@ Version 0.12.0
 
   * The libu{} target group has been removed.
 
-    The semantics provided by libu{} is rarely required and as a result was
-    not yet documented. However, if you are using it, the new way to achieve
-    the same result is to use both libue{} and libul{} explicitly, for
+    The semantics provided by libu{} is rarely required and as a result has
+    not yet been documented. However, if you are using it, the new way to
+    achieve the same result is to use both libue{} and libul{} explicitly, for
     example:
 
     exe{foo}: libue{foo}
