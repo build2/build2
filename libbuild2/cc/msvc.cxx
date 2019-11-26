@@ -192,13 +192,13 @@ namespace build2
         if (l.compare (0, 3, "   ") == 0)
         {
           // Use the actual import library name if this is a library (since we
-          // override this name) and the executable name otherwise (by default
-          // .lib/.exp are named by replacing the .exe extension).
+          // override this name) and the executable name otherwise (we pass
+          // /IMPLIB with .lib appended to the .exe extension).
           //
           path i (
             lt == otype::s
             ? find_adhoc_member<libi> (t)->path ().leaf ()
-            : t.path ().leaf ().base () + ".lib");
+            : t.path ().leaf () + ".lib");
 
           if (l.find (i.string ())                  != string::npos &&
               l.find (i.base ().string () + ".exp") != string::npos)

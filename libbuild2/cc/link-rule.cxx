@@ -2671,6 +2671,30 @@ namespace build2
             args.push_back (in.c_str ());
           }
 
+          // VC link.exe creates an import library and .exp file for an
+          // executable if any of its object files export any symbols (think a
+          // unit test linking libus{}). And, no, there is no way to suppress
+          // it (but we can change their names with /IMPLIB). Well, there is a
+          // way: create a .def file with an empty EXPORTS section, pass it to
+          // lib.exe to create a dummy .exp (and .lib), and then pass this
+          // empty .exp to link.exe. Wanna go this way? Didn't think so.
+          //
+          // Having no way to disable this, the next simplest thing seems to
+          // be just cleaning this mess up. Note, however, that we better
+          // change the default name since otherwise it will be impossible to
+          // have a library and an executable with the same name in the same
+          // directory (their .lib's will clash).
+          //
+          // Note also that if at some point we decide to support such "shared
+          // executables" (-rdynamic, etc), then it will probably have to be a
+          // different target type (exes{}?) since it will need a different set
+          // of object files (-fPIC so probably objs{}), etc.
+          //
+          // Also, while we are at it, this means there could be a DLL without
+          // an import library (which we currently don't handle very well).
+          //
+          out2 = "/IMPLIB:";
+
           if (ot == otype::s)
           {
             // On Windows libs{} is the DLL and an ad hoc group member is the
@@ -2680,12 +2704,15 @@ namespace build2
             // derived from the import library by changing the extension.
             // Lucky for us -- there is no option to name it.
             //
-            const file& imp (*find_adhoc_member<libi> (t));
-
-            out2 = "/IMPLIB:";
-            out2 += relative (imp.path ()).string ();
-            args.push_back (out2.c_str ());
+            out2 += relative (find_adhoc_member<libi> (t)->path ()).string ();
           }
+          else
+          {
+            out2 += relt.string ();
+            out2 += ".lib";
+          }
+
+          args.push_back (out2.c_str ());
 
           // If we have /DEBUG then name the .pdb file. It is an ad hoc group
           // member.
@@ -2700,13 +2727,6 @@ namespace build2
             args.push_back (out1.c_str ());
           }
 
-          // @@ An executable can have an import library and VS seems to
-          //    always name it. I wonder what would trigger its generation?
-          //    Could it be the presence of export symbols? Yes, link.exe will
-          //    generate the import library iff there are exported symbols.
-          //    Which means there could be a DLL without an import library
-          //    (which we currently don't handle very well).
-          //
           out = "/OUT:" + relt.string ();
           args.push_back (out.c_str ());
         }
@@ -3054,7 +3074,12 @@ namespace build2
           // something like this) we are going to redirect stdout to stderr.
           // For sane compilers this should be harmless.
           //
-          bool filter (tsys == "win32-msvc" && !lt.static_library ());
+          // Note that we don't need this for LLD's link.exe replacement which
+          // is quiet.
+          //
+          bool filter (tsys == "win32-msvc"  &&
+                       !lt.static_library () &&
+                       cast<string> (rs["bin.ld.id"]) != "msvc-lld");
 
           process pr (*ld,
                       args.data (),
@@ -3108,25 +3133,12 @@ namespace build2
           throw failed ();
         }
 
-        // VC link.exe creates an import library and .exp file for an
-        // executable if any of its object files export any symbols (think a
-        // unit test linking libus{}). And, no, there is no way to suppress
-        // it. Well, there is a way: create a .def file with an empty EXPORTS
-        // section, pass it to lib.exe to create a dummy .exp (and .lib), and
-        // then pass this empty .exp to link.exe. Wanna go this way? Didn't
-        // think so. Having no way to disable this, the next simplest thing
-        // seems to be just cleaning the mess up.
-        //
-        // Note also that if at some point we decide to support such "shared
-        // executables" (-rdynamic, etc), then it will probably have to be a
-        // different target type (exes{}?) since it will need a different set
-        // of object files (-fPIC so probably objs{}), etc.
+        // Clean up executable's import library (see above for details).
         //
         if (lt.executable () && tsys == "win32-msvc")
         {
-          path b (relt.base ());
-          try_rmfile (b + ".lib", true /* ignore_errors */);
-          try_rmfile (b + ".exp", true /* ignore_errors */);
+          try_rmfile (relt + ".lib", true /* ignore_errors */);
+          try_rmfile (relt + ".exp", true /* ignore_errors */);
         }
       }
 
