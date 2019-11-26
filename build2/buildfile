@@ -21,9 +21,9 @@ exe{b}: {hxx ixx txx cxx}{** -b-options} {hxx ixx cxx}{b-options} $libs
 #
 obj{b}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
-if ($cxx.target.class != 'windows')
+switch $cxx.target.class
 {
-  if ($cxx.target.class == 'linux')
+  case 'linux'
   {
     # Make sure backtrace includes function names.
     #
@@ -35,19 +35,17 @@ if ($cxx.target.class != 'windows')
     #
     cxx.loptions += -Wl,--disable-new-dtags
   }
-}
-else
-{
-  # Adjust stack size (affects all threads).
-  #
-  if ($cxx.target.cpu == "x86_64")
-    stack_size = 8388608 # 8M
-  else
-    stack_size = 4194304 # 4M
+  case 'windows'
+  {
+    # Adjust stack size (affects all threads).
+    #
+    #                                                8M        4M
+    stack_size = ($cxx.target.cpu == "x86_64" ? 8388608 : 4194304)
 
-  cxx.loptions += ($cxx.target.system == 'win32-msvc' \
-                   ? "/STACK:$stack_size"             \
-                   : "-Wl,--stack,$stack_size")
+    cxx.loptions += ($cxx.target.system == 'win32-msvc' \
+                     ? "/STACK:$stack_size"             \
+                     : "-Wl,--stack,$stack_size")
+  }
 }
 
 # Generated options parser.
