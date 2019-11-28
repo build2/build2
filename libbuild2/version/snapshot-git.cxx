@@ -21,6 +21,41 @@ namespace build2
       snapshot r;
       const char* d (src_root.string ().c_str ());
 
+      // On startup git prepends the PATH environment variable value with the
+      // computed directory path where its sub-programs are supposedly located
+      // (--exec-path option, GIT_EXEC_PATH environment variable, etc; see
+      // cmd_main() in git's git.c for details).
+      //
+      // Then, when git needs to run itself or one of its components as a
+      // child process, it resolves the full executable path searching in
+      // directories listed in PATH (see locate_in_PATH() in git's
+      // run-command.c for details).
+      //
+      // On Windows we install git and its components into a place where it is
+      // not expected to be, which results in the wrong path in PATH as set by
+      // git (for example, c:/build2/libexec/git-core) which in turn may lead
+      // to running some other git that appear in the PATH variable. To
+      // prevent this we pass the git's exec directory via the --exec-path
+      // option explicitly.
+      //
+      path p ("git");
+      process_path pp (run_search (p, true /* init */));
+
+#ifdef _WIN32
+      string ep ("--exec-path=" + pp.effect.directory ().string ());
+#endif
+
+      size_t args_i (3); // First reserved.
+      const char* args[] {
+        pp.recall_string (),
+#ifdef _WIN32
+        (++args_i, ep.c_str ()),
+#endif
+        "-C",
+        d,
+        nullptr, nullptr, nullptr, // Reserve.
+        nullptr};
+
       // First check whether the working directory is clean. There doesn't
       // seem to be a way to do everything in a single invocation (the
       // porcelain v2 gives us the commit id but not timestamp).
@@ -29,13 +64,15 @@ namespace build2
       // If git status --porcelain returns anything, then the working
       // directory is not clean.
       //
-      {
-        const char* args[] {"git", "-C", d, "status", "--porcelain", nullptr};
-        r.committed = run<string> (
-          3 /* verbosity */,
-          args,
-          [](string& s, bool) {return move (s);}).empty ();
-      }
+      args[args_i    ] = "status";
+      args[args_i + 1] = "--porcelain";
+      args[args_i + 2] = nullptr;
+
+      r.committed = run<string> (
+        3 /* verbosity */,
+        pp,
+        args,
+        [](string& s, bool) {return move (s);}).empty ();
 
       // Now extract the commit id and date. One might think that would be
       // easy... Commit id is a SHA1 hash of the commit object. And commit
@@ -61,9 +98,13 @@ namespace build2
       //
       string data;
 
-      const char* args[] {
-        "git", "-C", d, "cat-file", "commit", "HEAD", nullptr};
+      args[args_i    ] = "cat-file";
+      args[args_i + 1] = "commit";
+      args[args_i + 2] = "HEAD";
+      args[args_i + 3] = nullptr;
+
       process pr (run_start (3     /* verbosity */,
+                             pp,
                              args,
                              0     /* stdin  */,
                              -1    /* stdout */,
