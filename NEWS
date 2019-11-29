@@ -325,7 +325,7 @@ Version 0.11.0
 
     Note that commands that are required to create an accurate build state
     will still be executed and the extracted auxiliary dependency information
-    saved.  In other words, this is not the "don't touch the filesystem" mode
+    saved. In other words, this is not the "don't touch the filesystem" mode
     but rather "do minimum amount of work to show what needs to be done". In
     particular, this mode is useful to quickly generate the compilation
     database, for example:
