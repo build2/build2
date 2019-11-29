@@ -531,7 +531,7 @@ namespace build2
       for (; e == 1; e = path_state_.load (memory_order_acquire))
         /*this_thread::yield ()*/ ;
 
-      assert (path_ == p);
+      assert (e == 2 && path_ == p);
     }
 
     return path_;
