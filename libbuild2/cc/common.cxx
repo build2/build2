@@ -38,7 +38,7 @@ namespace build2
     //
     // Note that the order of processing is:
     //
-    // 1. options
+    // 1. options (x.* then cc.* to be consistent with poptions/loptions)
     // 2. lib itself (if self is true)
     // 3. dependency libs (prerequisite_targets, left to right, depth-first)
     // 4. dependency libs (*.libs variables).
@@ -141,24 +141,25 @@ namespace build2
                 // perhaps we can assume non-common values will be set on
                 // libs{}/liba{}.
                 //
-                proc_opt (l, *t, true, true);
                 proc_opt (l, *t, false, true);
+                proc_opt (l, *t, true, true);
+
               }
               else
               {
                 // For default export we use the same options as were used to
                 // build the library.
                 //
-                proc_opt (l, *t, true, false);
                 proc_opt (l, *t, false, false);
+                proc_opt (l, *t, true, false);
               }
             }
             else
             {
               // Interface: only add *.export.* (interface dependencies).
               //
-              proc_opt (l, *t, true, true);
               proc_opt (l, *t, false, true);
+              proc_opt (l, *t, true, true);
             }
           }
         }

@@ -2312,8 +2312,13 @@ namespace build2
           append_options (args, tstd);
         }
 
-        append_options (args, t, c_loptions);
+        // Note that these come in the reverse order of coptions since the
+        // library search paths are examined in the order specified (in
+        // contrast to the "last value wins" semantics that we assume for
+        // coptions).
+        //
         append_options (args, t, x_loptions);
+        append_options (args, t, c_loptions);
 
         // Extra system library dirs (last).
         //

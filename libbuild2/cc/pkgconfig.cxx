@@ -1358,8 +1358,8 @@ namespace build2
         //
         os << "Cflags:";
         os << " -I" << escape (idir.string ());
-        save_poptions (c_export_poptions);
         save_poptions (x_export_poptions);
+        save_poptions (c_export_poptions);
         os << endl;
 
         // Libs.

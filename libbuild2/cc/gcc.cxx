@@ -184,8 +184,8 @@ namespace build2
       append_options (args, rs, c_coptions);
       append_options (args, rs, x_coptions);
       append_options (args, tstd);
-      append_options (args, rs, c_loptions);
       append_options (args, rs, x_loptions);
+      append_options (args, rs, c_loptions);
       append_options (args, rs, x_mode);
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);

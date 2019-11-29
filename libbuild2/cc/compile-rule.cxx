@@ -860,8 +860,8 @@ namespace build2
 
           if (md.pp != preprocessed::all)
           {
-            append_options (cs, t, c_poptions);
             append_options (cs, t, x_poptions);
+            append_options (cs, t, c_poptions);
 
             // Hash *.export.poptions from prerequisite libraries.
             //
@@ -1416,8 +1416,8 @@ namespace build2
 
       // First process our own.
       //
-      append_prefixes (m, t, c_poptions);
       append_prefixes (m, t, x_poptions);
+      append_prefixes (m, t, c_poptions);
 
       // Then process the include directories from prerequisite libraries.
       //
@@ -2807,8 +2807,8 @@ namespace build2
           if (reprocess)
             args.push_back ("-D__build2_preprocess");
 
-          append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
+          append_options (args, t, c_poptions);
 
           // Add *.export.poptions from prerequisite libraries.
           //
@@ -4075,8 +4075,8 @@ namespace build2
           if (reprocess)
             args.push_back ("-D__build2_preprocess");
 
-          append_options (args, t, c_poptions);
           append_options (args, t, x_poptions);
+          append_options (args, t, c_poptions);
 
           append_lib_options (t.base_scope (), args, a, t, li);
 
@@ -5681,8 +5681,13 @@ namespace build2
       //
       if (md.pp != preprocessed::all)
       {
-        append_options (args, t, c_poptions);
+        // Note that these come in the reverse order of coptions since the
+        // header search paths are examined in the order specified (in
+        // contrast to the "last value wins" semantics that we assume for
+        // coptions).
+        //
         append_options (args, t, x_poptions);
+        append_options (args, t, c_poptions);
 
         // Add *.export.poptions from prerequisite libraries.
         //
