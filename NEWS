@@ -13,7 +13,7 @@ Version 0.12.0
     switch $cxx.target.class, $cxx.target.system
     {
       case 'windows', 'mingw32'
-	cxx.libs += -lrpcrt4
+        cxx.libs += -lrpcrt4
 
       case 'windows'
         cxx.libs += rpcrt4.lib
