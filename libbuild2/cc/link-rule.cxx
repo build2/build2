@@ -1601,7 +1601,15 @@ namespace build2
       {
         // Don't try to pass any loptions when linking a static library.
         //
-        if (d.li.type == otype::a)
+        // Note also that we used to pass non-export loptions but that didn't
+        // turn out to be very natural. Specifically, we would end up linking
+        // things like version scripts (used to build the shared library
+        // variant) when linking the static variant. So now any loptions must
+        // be explicitly exported. Note that things are a bit fuzzy when it
+        // comes to utility libraries so let's keep the original logic with
+        // the exp checks below.
+        //
+        if (d.li.type == otype::a || !exp)
           return;
 
         // If we need an interface value, then use the group (lib{}).
@@ -1705,7 +1713,7 @@ namespace build2
                              bool com,
                              bool exp)
       {
-        if (d.li.type == otype::a)
+        if (d.li.type == otype::a || !exp)
           return;
 
         if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
