@@ -181,6 +181,14 @@ namespace build2
       return vars.assign (ctx.var_pool.rw (*this).insert<T> (move (name)));
     }
 
+    template <typename T>
+    T&
+    assign (string name, T&& val)
+    {
+      value& v (assign<T> (move (name)) = forward<T> (val));
+      return v.as<T> ();
+    }
+
     // Return a value suitable for appending. If the variable does not
     // exist in this scope's map, then outer scopes are searched for
     // the same variable. If found then a new variable with the found
@@ -289,6 +297,22 @@ namespace build2
   public:
     rule_map rules;
 
+    template <typename T>
+    void
+    insert_rule (action_id a, const char* hint, const rule& r)
+    {
+      rules.insert<T> (a, hint, r);
+    }
+
+    template <typename T>
+    void
+    insert_rule (meta_operation_id mid, operation_id oid,
+                 const char* hint,
+                 const rule& r)
+    {
+      rules.insert<T> (mid, oid, hint, r);
+    }
+
     // Operation callbacks.
     //
     // An entity (module, core) can register a function that will be called
@@ -374,9 +398,9 @@ namespace build2
 
     template <typename T>
     T*
-    lookup_module (const string& name) const
+    find_module (const string& name) const
     {
-      return root_extra->modules.lookup<T> (name);
+      return root_extra->modules.find_module<T> (name);
     }
 
   public:
@@ -387,6 +411,12 @@ namespace build2
     {
       assert (ctx.phase == run_phase::load);
       return const_cast<scope&> (*this);
+    }
+
+    variable_pool&
+    var_pool ()
+    {
+      return ctx.var_pool.rw (*this);
     }
 
   private:
