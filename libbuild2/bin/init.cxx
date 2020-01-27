@@ -539,7 +539,7 @@ namespace build2
         r.insert<lib> (perform_id, 0, "bin.lib", lib_);
         r.insert<lib> (configure_id, 0, "bin.lib", lib_);
 
-        // Treat as a see through group for install and test.
+        // Treat as a see through group for install, test, and dist.
         //
         if (install_loaded)
         {
@@ -552,6 +552,11 @@ namespace build2
         if (const test::module* m = rs.find_module<test::module> ("test"))
         {
           r.insert<lib> (perform_test_id, "bin.lib", m->group_rule ());
+        }
+
+        if (rs.find_module ("dist"))
+        {
+          r.insert<lib> (dist_id, 0, "bin.lib", lib_);
         }
       }
 

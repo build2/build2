@@ -53,11 +53,14 @@ namespace build2
     }
 
     bool lib_rule::
-    match (action, target& xt, const string&) const
+    match (action a, target& xt, const string&) const
     {
       lib& t (xt.as<lib> ());
 
-      members bm (build_members (t.root_scope ()));
+      members bm (a.meta_operation () != dist_id
+                  ? build_members (t.root_scope ())
+                  : members {true, true});
+
       t.a = bm.a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
       t.s = bm.s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;
 

@@ -396,6 +396,12 @@ namespace build2
       root_extra->meta_operations.insert (id, in);
     }
 
+    bool
+    find_module (const string& name) const
+    {
+      return root_extra->modules.find_module<module_base> (name) != nullptr;
+    }
+
     template <typename T>
     T*
     find_module (const string& name) const
