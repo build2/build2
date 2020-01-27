@@ -31,7 +31,7 @@ namespace build2
     // or not, including overrides). We also treat command line overrides
     // (inherited or not) as new. This flag is usually used to test that the
     // new value is valid, print report, etc. We return the value as lookup
-    // (always defined) to pass alone its location (could be used to detect
+    // (always defined) to pass along its location (could be used to detect
     // inheritance, etc).
     //
     // Note also that if save_flags has save_commented, then a default value
