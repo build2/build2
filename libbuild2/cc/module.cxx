@@ -79,7 +79,7 @@ namespace build2
 
               if (rs[v].defined ())
               {
-                load_module (rs, rs, m + ".guess", loc);
+                init_module (rs, rs, m + ".guess", loc);
                 cc_loaded = true;
                 break;
               }
@@ -126,10 +126,14 @@ namespace build2
         const strings& v (cast<strings> (*p.first));
 
         path xc;
-        try { xc = path (v.front ()); } catch (const invalid_path&) {}
+        {
+          const string& s (v.empty () ? empty_string : v.front ());
 
-        if (xc.empty ())
-          fail << "invalid path '" << v.front () << "' in " << config_x;
+          try { xc = path (s); } catch (const invalid_path&) {}
+
+          if (xc.empty ())
+            fail << "invalid path '" << s << "' in " << config_x;
+        }
 
         mode.assign (++v.begin (), v.end ());
 
@@ -257,7 +261,7 @@ namespace build2
         h.assign (c_runtime) = xi.runtime;
         h.assign (c_stdlib) = xi.c_stdlib;
 
-        load_module (rs, rs, "cc.core.guess", loc, false, h);
+        init_module (rs, rs, "cc.core.guess", loc, false, h);
       }
       else
       {
@@ -638,7 +642,7 @@ namespace build2
         if (!xi.bin_pattern.empty ())
           h.assign ("config.bin.pattern") = xi.bin_pattern;
 
-        load_module (rs, rs, "cc.core.config", loc, false, h);
+        init_module (rs, rs, "cc.core.config", loc, false, h);
       }
     }
 
@@ -650,8 +654,7 @@ namespace build2
       // Load cc.core. Besides other things, this will load bin (core) plus
       // extra bin.* modules we may need.
       //
-      if (!cast_false<bool> (rs["cc.core.loaded"]))
-        load_module (rs, rs, "cc.core", loc);
+      load_module (rs, rs, "cc.core", loc);
 
       // Process, sort, and cache (in this->xlate_hdr) translatable headers.
       // Keep the cache NULL if unused or empty.
