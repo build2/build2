@@ -2770,6 +2770,7 @@ namespace build2
     // several times) so we cache the result.
     //
     static map<string, compiler_info> cache;
+    static mutex cache_mutex;
 
     const compiler_info&
     guess (const char* xm,
@@ -2799,6 +2800,8 @@ namespace build2
         if (c_lo != nullptr) append_options (cs, *c_lo);
         if (x_lo != nullptr) append_options (cs, *x_lo);
         key = cs.string ();
+
+        mlock l (cache_mutex);
 
         auto i (cache.find (key));
         if (i != cache.end ())
@@ -2949,7 +2952,15 @@ namespace build2
           r.bin_pattern = p.directory ().representation (); // Trailing slash.
       }
 
-      return (cache[key] = move (r));
+      // It's possible the cache entry already exists, in which case we
+      // ignore our value.
+      //
+      // But what if the compiler information it contains is different? Well,
+      // we don't generally deal with toolchain changes during the build so we
+      // ignore this special case as well.
+      //
+      mlock l (cache_mutex);
+      return cache.insert (make_pair (move (key), move (r))).first->second;
     }
 
     strings
