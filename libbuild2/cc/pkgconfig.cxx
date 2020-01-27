@@ -1413,21 +1413,7 @@ namespace build2
             //@@ TODO: how will the Libs/Libs.private work?
             //@@ TODO: remember to use escape()
 
-            /*
-            // If we need an interface value, then use the group (lib{}).
-            //
-            if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
-            {
-              const variable& var (
-                com
-                ? (exp ? c_export_loptions : c_loptions)
-                : (t == x
-                   ? (exp ? x_export_loptions : x_loptions)
-                   : var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
-
-              append_options (args, *g, var);
-            }
-            */
+            // See link_rule::append_libraries().
           };
 
           // Pretend we are linking an executable using what would be normal,
