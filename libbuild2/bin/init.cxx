@@ -161,8 +161,7 @@ namespace build2
 
       // Load bin.vars.
       //
-      if (!cast_false<bool> (rs["bin.vars.loaded"]))
-        load_module (rs, rs, "bin.vars", loc);
+      load_module (rs, rs, "bin.vars", loc);
 
       // Configure.
       //
@@ -423,8 +422,7 @@ namespace build2
 
       // Load bin.config.
       //
-      if (!cast_false<bool> (rs["bin.config.loaded"]))
-        load_module (rs, rs, "bin.config", loc, false, hints);
+      load_module (rs, rs, "bin.config", loc, hints);
 
       // Cache some config values we will be needing below.
       //
@@ -551,7 +549,7 @@ namespace build2
           r.insert<lib> (perform_uninstall_id, "bin.lib", gr);
         }
 
-        if (const test::module* m = rs.lookup_module<test::module> ("test"))
+        if (const test::module* m = rs.find_module<test::module> ("test"))
         {
           r.insert<lib> (perform_test_id, "bin.lib", m->group_rule ());
         }
@@ -574,8 +572,7 @@ namespace build2
 
       // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (rs["bin.config.loaded"]))
-        load_module (rs, bs, "bin.config", loc, false, hints);
+      load_module (rs, bs, "bin.config", loc, hints);
 
       // Enter configuration variables.
       //
@@ -723,11 +720,8 @@ namespace build2
 
       // Make sure the bin core and ar.config are loaded.
       //
-      if (!cast_false<bool> (bs["bin.loaded"]))
-        load_module (rs, bs, "bin", loc, false, hints);
-
-      if (!cast_false<bool> (bs["bin.ar.config.loaded"]))
-        load_module (rs, bs, "bin.ar.config", loc, false, hints);
+      load_module (rs, bs, "bin",           loc, hints);
+      load_module (rs, bs, "bin.ar.config", loc, hints);
 
       return true;
     }
@@ -746,8 +740,7 @@ namespace build2
 
       // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (rs["bin.config.loaded"]))
-        load_module (rs, rs, "bin.config", loc, false, hints);
+      load_module (rs, rs, "bin.config", loc, hints);
 
       // Enter configuration variables.
       //
@@ -820,11 +813,8 @@ namespace build2
 
       // Make sure the bin core and ld.config are loaded.
       //
-      if (!cast_false<bool> (bs["bin.loaded"]))
-        load_module (rs, bs, "bin", loc, false, hints);
-
-      if (!cast_false<bool> (bs["bin.ld.config.loaded"]))
-        load_module (rs, bs, "bin.ld.config", loc, false, hints);
+      load_module (rs, bs, "bin",           loc, hints);
+      load_module (rs, bs, "bin.ld.config", loc, hints);
 
       const string& lid (cast<string> (rs["bin.ld.id"]));
 
@@ -856,8 +846,7 @@ namespace build2
 
       // Make sure bin.config is loaded.
       //
-      if (!cast_false<bool> (bs["bin.config.loaded"]))
-        load_module (rs, bs, "bin.config", loc, false, hints);
+      load_module (rs, bs, "bin.config", loc, hints);
 
       // Enter configuration variables.
       //
@@ -930,11 +919,8 @@ namespace build2
 
       // Make sure the bin core and rc.config are loaded.
       //
-      if (!cast_false<bool> (bs["bin.loaded"]))
-        load_module (rs, bs, "bin", loc, false, hints);
-
-      if (!cast_false<bool> (bs["bin.rc.config.loaded"]))
-        load_module (rs, bs, "bin.rc.config", loc, false, hints);
+      load_module (rs, bs, "bin",           loc, hints);
+      load_module (rs, bs, "bin.rc.config", loc, hints);
 
       return true;
     }

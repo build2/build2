@@ -146,8 +146,7 @@ namespace build2
 
       // Load cc.core.vars so that we can cache all the cc.* variables.
       //
-      if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
-        load_module (rs, rs, "cc.core.vars", loc);
+      load_module (rs, rs, "cc.core.vars", loc);
 
       // Enter all the variables and initialize the module data.
       //
@@ -285,10 +284,8 @@ namespace build2
 
       // Load c.guess.
       //
-      if (!cast_false<bool> (rs["c.guess.loaded"]))
-        load_module (rs, rs, "c.guess", loc, false, hints);
+      auto& cm (load_module<config_module> (rs, rs, "c.guess", loc, hints));
 
-      config_module& cm (*rs.lookup_module<config_module> ("c.guess"));
       cm.init (rs, loc, hints);
       return true;
     }
@@ -325,10 +322,11 @@ namespace build2
 
       // Load c.config.
       //
-      if (!cast_false<bool> (rs["c.config.loaded"]))
-        load_module (rs, rs, "c.config", loc, false, hints);
+      // @@ TODO: move guess to config and use return value?
+      //
+      load_module (rs, rs, "c.config", loc, hints);
 
-      config_module& cm (*rs.lookup_module<config_module> ("c.guess"));
+      config_module& cm (*rs.find_module<config_module> ("c.guess"));
 
       cc::data d {
         cm,

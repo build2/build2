@@ -1245,7 +1245,7 @@ namespace build2
       module_state& s (p.second);
 
       if (s.boot && s.first)
-        load_module (root, root, p.first, s.loc);
+        init_module (root, root, p.first, s.loc);
     }
 
     for (auto& p: root.root_extra->modules)
@@ -1253,7 +1253,7 @@ namespace build2
       module_state& s (p.second);
 
       if (s.boot && !s.first)
-        load_module (root, root, p.first, s.loc);
+        init_module (root, root, p.first, s.loc);
     }
 
     // Load hooks and root.build.

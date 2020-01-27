@@ -526,7 +526,7 @@ namespace build2
     rs.assign (rs.ctx.var_pool.rw (rs).insert (mod + ".booted")) = true;
   }
 
-  bool
+  module_state*
   init_module (scope& rs,
                scope& bs,
                const string& mod,
@@ -614,6 +614,42 @@ namespace build2
       cv = c;
     }
 
-    return l && c;
+    return l && c ? &i->second : nullptr;
+  }
+
+  // @@ TODO: This is a bit of a fuzzy mess:
+  //
+  //    - The .loaded variable check: it's not clear if init_module()
+  //      already has this semantics?
+  //
+  //    - Why do we use variable instead of the module map entry? Probably
+  //      because of optional. Also entry present if only booted. Need to be
+  //      careful here. Also root vs base!
+  //
+  // Note that it would have been nice to keep these inline but we need the
+  // definition of scope for the variable lookup.
+  //
+  bool
+  load_module (scope& rs,
+               scope& bs,
+               const string& name,
+               const location& loc,
+               bool opt,
+               const variable_map& hints)
+  {
+    return cast_false<bool> (bs[name + ".loaded"]) ||
+      init_module (rs, bs, name, loc, opt, hints);
+  }
+
+  unique_ptr<module_base>&
+  load_module (scope& rs,
+               scope& bs,
+               const string& name,
+               const location& loc,
+               const variable_map& hints)
+  {
+    return cast_false<bool> (bs[name + ".loaded"])
+      ? rs.root_extra->modules.find (name)->second.module
+      : init_module (rs, bs, name, loc, false /* optional */, hints)->module;
   }
 }

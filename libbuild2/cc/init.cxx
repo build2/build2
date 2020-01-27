@@ -74,8 +74,7 @@ namespace build2
 
       // Load bin.vars (we need its config.bin.target/pattern for hints).
       //
-      if (!cast_false<bool> (rs["bin.vars.loaded"]))
-        load_module (rs, rs, "bin.vars", loc);
+      load_module (rs, rs, "bin.vars", loc);
 
       // Enter variables. Note: some overridable, some not.
       //
@@ -172,8 +171,7 @@ namespace build2
 
       // Load cc.core.vars.
       //
-      if (!cast_false<bool> (rs["cc.core.vars.loaded"]))
-        load_module (rs, rs, "cc.core.vars", loc);
+      load_module (rs, rs, "cc.core.vars", loc);
 
       // config.cc.{id,hinter}
       //
@@ -246,8 +244,7 @@ namespace build2
 
       // Load cc.core.guess.
       //
-      if (!cast_false<bool> (rs["cc.core.guess.loaded"]))
-        load_module (rs, rs, "cc.core.guess", loc);
+      load_module (rs, rs, "cc.core.guess", loc);
 
       // Configure.
       //
@@ -303,7 +300,7 @@ namespace build2
             h.assign ("config.bin.pattern") = cast<string> (l);
         }
 
-        load_module (rs, rs, "bin.config", loc, false, h);
+        init_module (rs, rs, "bin.config", loc, false /* optional */, h);
       }
 
       // Verify bin's target matches ours (we do it even if we loaded it
@@ -330,20 +327,13 @@ namespace build2
       //
       const string& tsys (cast<string> (rs["cc.target.system"]));
 
-      if (!cast_false<bool> (rs["bin.ar.config.loaded"]))
-        load_module (rs, rs, "bin.ar.config", loc);
+      load_module (rs, rs, "bin.ar.config", loc);
 
       if (tsys == "win32-msvc")
-      {
-        if (!cast_false<bool> (rs["bin.ld.config.loaded"]))
-          load_module (rs, rs, "bin.ld.config", loc);
-      }
+        load_module (rs, rs, "bin.ld.config", loc);
 
       if (tsys == "mingw32")
-      {
-        if (!cast_false<bool> (rs["bin.rc.config.loaded"]))
-          load_module (rs, rs, "bin.rc.config", loc);
-      }
+        load_module (rs, rs, "bin.rc.config", loc);
 
       return true;
     }
@@ -366,36 +356,27 @@ namespace build2
 
       // Load cc.core.config.
       //
-      if (!cast_false<bool> (rs["cc.core.config.loaded"]))
-        load_module (rs, rs, "cc.core.config", loc, false, hints);
+      load_module (rs, rs, "cc.core.config", loc, hints);
 
       // Load the bin module.
       //
-      if (!cast_false<bool> (rs["bin.loaded"]))
-        load_module (rs, rs, "bin", loc);
+      load_module (rs, rs, "bin", loc);
 
       // Load the bin.ar module.
       //
-      if (!cast_false<bool> (rs["bin.ar.loaded"]))
-        load_module (rs, rs, "bin.ar", loc);
+      load_module (rs, rs, "bin.ar", loc);
 
       // For this target we link things directly with link.exe so load the
       // bin.ld module.
       //
       if (tsys == "win32-msvc")
-      {
-        if (!cast_false<bool> (rs["bin.ld.loaded"]))
-          load_module (rs, rs, "bin.ld", loc);
-      }
+        load_module (rs, rs, "bin.ld", loc);
 
       // If our target is MinGW, then we will need the resource compiler
       // (windres) in order to embed manifests into executables.
       //
       if (tsys == "mingw32")
-      {
-        if (!cast_false<bool> (rs["bin.rc.loaded"]))
-          load_module (rs, rs, "bin.rc", loc);
-      }
+        load_module (rs, rs, "bin.rc", loc);
 
       return true;
     }
@@ -436,13 +417,13 @@ namespace build2
       //
       if (lc && lp && rs["config.c"])
       {
-        load_module (rs, rs, c, loc, false, hints);
-        load_module (rs, rs, cxx, loc, false, hints);
+        init_module (rs, rs, c,   loc, false /* optional */, hints);
+        init_module (rs, rs, cxx, loc, false /* optional */, hints);
       }
       else
       {
-        if (lp) load_module (rs, rs, cxx, loc, false, hints);
-        if (lc) load_module (rs, rs, c, loc, false, hints);
+        if (lp) init_module (rs, rs, cxx, loc, false, hints);
+        if (lc) init_module (rs, rs, c,   loc, false, hints);
       }
 
       return true;

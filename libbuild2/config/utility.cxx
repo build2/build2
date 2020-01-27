@@ -132,14 +132,14 @@ namespace build2
     void
     save_variable (scope& rs, const variable& var, uint64_t flags)
     {
-      if (module* m = rs.lookup_module<module> (module::name))
+      if (module* m = rs.find_module<module> (module::name))
         m->save_variable (var, flags);
     }
 
     void
     save_module (scope& rs, const char* name, int prio)
     {
-      if (module* m = rs.lookup_module<module> (module::name))
+      if (module* m = rs.find_module<module> (module::name))
         m->save_module (name, prio);
     }
 

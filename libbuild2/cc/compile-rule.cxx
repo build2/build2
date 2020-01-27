@@ -5201,7 +5201,7 @@ namespace build2
       //
 #ifndef NDEBUG
       assert (ps->root ());
-      const module* m (ps->lookup_module<module> (x));
+      const module* m (ps->find_module<module> (x));
       assert (m != nullptr && m->modules);
 #endif
 

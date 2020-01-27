@@ -346,7 +346,7 @@ namespace build2
 
       // Copy over all the files. Apply post-processing callbacks.
       //
-      module& mod (*rs->lookup_module<module> (module::name));
+      module& mod (*rs->find_module<module> (module::name));
 
       prog = prog && show_progress (1 /* max_verb */);
       size_t prog_percent (0);
@@ -380,7 +380,7 @@ namespace build2
             {
               srs = &ctx.scopes.find (out_root / pd);
 
-              if (auto* m = srs->lookup_module<module> (module::name))
+              if (auto* m = srs->find_module<module> (module::name))
                 cbs = &m->callbacks_;
               else
                 fail << "dist module not loaded in subproject " << pd;

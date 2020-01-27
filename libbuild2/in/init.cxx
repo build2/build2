@@ -84,8 +84,7 @@ namespace build2
 
       // Load in.base.
       //
-      if (!cast_false<bool> (rs["in.base.loaded"]))
-        load_module (rs, rs, "in.base", loc);
+      load_module (rs, rs, "in.base", loc);
 
       // Register rules.
       //

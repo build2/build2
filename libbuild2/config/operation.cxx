@@ -172,7 +172,7 @@ namespace build2
       // saved) and this function can be called from a buildfile (probably
       // only during serial execution but still).
       //
-      module* mod (rs.lookup_module<module> (module::name));
+      module* mod (rs.find_module<module> (module::name));
 
       if (mod == nullptr)
         fail (on) << "no configuration information available during this "
@@ -336,7 +336,7 @@ namespace build2
                 {
                   // Find the config module (might not be there).
                   //
-                  if (auto* m = r->lookup_module<const module> (module::name))
+                  if (auto* m = r->find_module<const module> (module::name))
                   {
                     // Find the corresponding saved module.
                     //

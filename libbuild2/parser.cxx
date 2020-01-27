@@ -1905,7 +1905,7 @@ namespace build2
         if (boot_)
           boot_module (*root_, n, l);
         else
-          load_module (*root_, *scope_, n, l, optional);
+          init_module (*root_, *scope_, n, l, optional);
       }
     }
 

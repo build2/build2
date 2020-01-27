@@ -37,8 +37,7 @@ namespace build2
 
       // Load in.base (in.* variables, in{} target type).
       //
-      if (!cast_false<bool> (rs["in.base.loaded"]))
-        load_module (rs, rs, "in.base", l);
+      load_module (rs, rs, "in.base", l);
 
       bool install_loaded (cast_false<bool> (rs["install.loaded"]));
 

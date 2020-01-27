@@ -80,7 +80,7 @@ namespace build2
       // If we match, lookup and cache the module for the update operation.
       //
       if (r && a == perform_update_id)
-        t.data (rs.lookup_module<module> (module::name));
+        t.data (rs.find_module<module> (module::name));
 
       return r;
     }
@@ -319,7 +319,7 @@ namespace build2
       const path& p (t.path ());
 
       const scope& rs (t.root_scope ());
-      const module& m (*rs.lookup_module<module> (module::name));
+      const module& m (*rs.find_module<module> (module::name));
 
       if (!m.rewritten)
         return auto_rmfile (p, false /* active */);

@@ -96,7 +96,7 @@ namespace build2
   {
     template <typename T>
     T*
-    lookup (const string& name) const
+    find_module (const string& name) const
     {
       auto i (find (name));
       return i != end ()
@@ -111,9 +111,10 @@ namespace build2
   boot_module (scope& root, const string& name, const location&);
 
   // Init the specified module loading its library if necessary. Used by the
-  // parser but also by some modules to init prerequisite modules. Return true
-  // if the module was both successfully loaded and configured (false can only
-  // be returned if optional is true).
+  // parser but also by some modules to init prerequisite modules. Return a
+  // pointer to the corresponding module state if the module was both
+  // successfully loaded and configured and NULL otherwise (which can only
+  // happen if optional is true). Note that the return can be used as a bool.
   //
   // The config_hints variable map can be used to pass configuration hints
   // from one module to another. For example, the cxx modude may pass the
@@ -121,7 +122,7 @@ namespace build2
   // module (which may not always be able to extract the same information from
   // its tools).
   //
-  LIBBUILD2_SYMEXPORT bool
+  LIBBUILD2_SYMEXPORT module_state*
   init_module (scope& root,
                scope& base,
                const string& name,
@@ -129,21 +130,37 @@ namespace build2
                bool optional = false,
                const variable_map& config_hints = empty_variable_map);
 
-  // An alias to use from other modules (we could also distinguish between
-  // boot and init).
+  // A wrapper over init_module() to use from other modules that incorporates
+  // the <name>.loaded variable check (use init_module() directly to sidestep
+  // this check).
   //
-  // @@ TODO: maybe incorporate the .loaded variable check we have all over
-  //          (it's not clear if init_module() already has this semantics)?
-  //
-  inline bool
+  bool
   load_module (scope& root,
                scope& base,
                const string& name,
-               const location& loc,
-               bool optional = false,
+               const location&,
+               bool optional,
+               const variable_map& config_hints = empty_variable_map);
+
+  // As above but always load and return a reference to the module instance
+  // pointer (so it can be moved).
+  //
+  unique_ptr<module_base>&
+  load_module (scope& root,
+               scope& base,
+               const string& name,
+               const location&,
+               const variable_map& config_hints = empty_variable_map);
+
+  template <typename T>
+  inline T&
+  load_module (scope& root,
+               scope& base,
+               const string& name,
+               const location& l,
                const variable_map& config_hints = empty_variable_map)
   {
-    return init_module (root, base, name, loc, optional, config_hints);
+    return static_cast<T&> (*load_module (root, base, name, l, config_hints));
   }
 
   // Loaded modules (as in libraries).

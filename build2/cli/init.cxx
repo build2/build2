@@ -320,7 +320,7 @@ namespace build2
       //
       if (!cast_false<bool> (bs["cli.config.loaded"]))
       {
-        if (!load_module (rs, bs, "cli.config", l, optional, hints))
+        if (!init_module (rs, bs, "cli.config", l, optional, hints))
           return false;
       }
       else if (!cast_false<bool> (bs["cli.config.configured"]))

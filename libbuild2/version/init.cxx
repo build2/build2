@@ -303,8 +303,7 @@ namespace build2
 
       // Load in.base (in.* variables, in{} target type).
       //
-      if (!cast_false<bool> (rs["in.base.loaded"]))
-        load_module (rs, rs, "in.base", l);
+      load_module (rs, rs, "in.base", l);
 
       module& m (static_cast<module&> (*mod));
       const standard_version& v (m.version);
@@ -312,12 +311,11 @@ namespace build2
       // If the dist module is used, set its dist.package and register the
       // post-processing callback.
       //
-      if (auto* dm = rs.lookup_module<dist::module> (dist::module::name))
+      if (auto* dm = rs.find_module<dist::module> (dist::module::name))
       {
         // Make sure dist is init'ed, not just boot'ed.
         //
-        if (!cast_false<bool> (rs["dist.loaded"]))
-          load_module (rs, rs, "dist", l);
+        load_module (rs, rs, "dist", l);
 
         m.dist_uncommitted = cast_false<bool> (rs["config.dist.uncommitted"]);
 
