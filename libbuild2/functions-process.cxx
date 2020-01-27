@@ -65,10 +65,10 @@ namespace build2
   }
 
   static process
-  start (const scope*,
-         const process_path& pp,
-         const strings& args,
-         cstrings& cargs)
+  run_start (const scope*,
+             const process_path& pp,
+             const strings& args,
+             cstrings& cargs)
   {
     cargs.reserve (args.size () + 2);
     cargs.push_back (pp.recall_string ());
@@ -85,23 +85,13 @@ namespace build2
                       -1              /* stdout */);
   }
 
-  static void
-  finish (cstrings& args, process& pr, bool io)
-  {
-    run_finish (args, pr);
-
-    if (io)
-      fail << "error reading " << args[0] << " output";
-  }
-
   static value
   run (const scope* s, const process_path& pp, const strings& args)
   {
     cstrings cargs;
-    process pr (start (s, pp, args, cargs));
+    process pr (run_start (s, pp, args, cargs));
 
     string v;
-    bool io (false);
     try
     {
       ifdstream is (move (pr.in_ofd));
@@ -113,15 +103,16 @@ namespace build2
 
       is.close (); // Detect errors.
     }
-    catch (const io_error&)
+    catch (const io_error& e)
     {
-      // Presumably the child process failed and issued diagnostics so let
-      // finish() try to deal with that first.
-      //
-      io = true;
+      if (run_wait (cargs, pr))
+        fail << "io error reading " << cargs[0] << " output: " << e;
+
+      // If the child process has failed then assume the io error was
+      // caused by that and let run_finish() deal with it.
     }
 
-    finish (cargs, pr, io);
+    run_finish (cargs, pr);
 
     names r;
     r.push_back (to_name (move (trim (v))));
@@ -141,10 +132,9 @@ namespace build2
     regex re (parse_regex (pat, regex::ECMAScript));
 
     cstrings cargs;
-    process pr (start (s, pp, args, cargs));
+    process pr (run_start (s, pp, args, cargs));
 
     names r;
-    bool io (false);
     try
     {
       ifdstream is (move (pr.in_ofd), ifdstream::badbit);
@@ -167,15 +157,16 @@ namespace build2
 
       is.close (); // Detect errors.
     }
-    catch (const io_error&)
+    catch (const io_error& e)
     {
-      // Presumably the child process failed and issued diagnostics so let
-      // finish() try to deal with that first.
-      //
-      io = true;
+      if (run_wait (cargs, pr))
+        fail << "io error reading " << cargs[0] << " output: " << e;
+
+      // If the child process has failed then assume the io error was
+      // caused by that and let run_finish() deal with it.
     }
 
-    finish (cargs, pr, io);
+    run_finish (cargs, pr);
 
     return value (move (r));
   }

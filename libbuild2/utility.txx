@@ -56,6 +56,9 @@ namespace build2
     return p;
   }
 
+  [[noreturn]] LIBBUILD2_SYMEXPORT void
+  run_io_error (const char*[], const io_error&);
+
   template <typename T, typename F>
   T
   run (uint16_t verbosity,
@@ -102,12 +105,16 @@ namespace build2
 
       is.close ();
     }
-    catch (const io_error&)
+    catch (const io_error& e)
     {
-      // Presumably the child process failed. Let run_finish() deal with that.
+      if (run_wait (args, pr))
+        run_io_error (args, e);
+
+      // If the child process has failed then assume the io error was
+      // caused by that and let run_finish() deal with it.
     }
 
-    if (!(run_finish (args, pr, err, l) || ignore_exit))
+    if (!(run_finish_impl (args, pr, err, l) || ignore_exit))
       r = T ();
 
     return r;

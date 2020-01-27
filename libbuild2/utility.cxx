@@ -252,11 +252,22 @@ namespace build2
   }
 
   bool
-  run_finish (const char* args[],
-              process& pr,
-              bool err,
-              const string& l,
-              const location& loc)
+  run_wait (const char* args[], process& pr, const location& loc)
+  try
+  {
+    return pr.wait ();
+  }
+  catch (const process_error& e)
+  {
+    fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
+  }
+
+  bool
+  run_finish_impl (const char* args[],
+                   process& pr,
+                   bool err,
+                   const string& l,
+                   const location& loc)
   try
   {
     tracer trace ("run_finish");
@@ -296,6 +307,13 @@ namespace build2
   {
     fail (loc) << "unable to execute " << args[0] << ": " << e << endf;
   }
+
+  void
+  run_io_error (const char* args[], const io_error& e)
+  {
+    fail << "io error reading " << args[0] << " output: " << e << endf;
+  }
+
 
   const string       empty_string;
   const path         empty_path;

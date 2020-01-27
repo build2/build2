@@ -224,7 +224,7 @@ namespace build2
         // that.
       }
 
-      if (!run_finish (args.data (), pr, false /* error */, l))
+      if (!run_finish_code (args.data (), pr, l))
         r = "none";
 
       if (r.empty ())
@@ -2077,7 +2077,7 @@ namespace build2
         // that.
       }
 
-      if (!run_finish (args.data (), pr, false /* error */, l))
+      if (!run_finish_code (args.data (), pr, l))
         fail << "unable to extract MSVC information from " << xp;
 
       if (const char* w = (

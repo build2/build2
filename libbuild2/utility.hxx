@@ -242,25 +242,39 @@ namespace build2
   [[noreturn]] LIBBUILD2_SYMEXPORT void
   run_search_fail (const path&, const location& = location ());
 
-  // Wait for process termination. Issue diagnostics and throw failed in case
-  // of abnormal termination. If the process has terminated normally but with
-  // a non-zero exit status, then, if error is true, assume the diagnostics
-  // has already been issued and throw failed as well. Otherwise (error is
-  // false), return false. The last argument is used in cooperation with
-  // run_start() in case STDERR is redirected to STDOUT.
+  // Wait for process termination returning true if the process exited
+  // normally with a zero code and false otherwise. The latter case is
+  // normally followed up with a call to run_finish().
   //
   LIBBUILD2_SYMEXPORT bool
+  run_wait (const char* args[], process&, const location& = location ());
+
+  bool
+  run_wait (cstrings& args, process&, const location& = location ());
+
+  // Wait for process termination. Issue diagnostics and throw failed in case
+  // of abnormal termination. If the process has terminated normally but with
+  // a non-zero exit status, then assume the diagnostics has already been
+  // issued and just throw failed. The last argument is used in cooperation
+  // with run_start() in case STDERR is redirected to STDOUT.
+  //
+  void
   run_finish (const char* args[],
               process&,
-              bool error = true,
               const string& = string (),
               const location& = location ());
 
-  inline void
-  run_finish (cstrings& args, process& pr, const location& l = location ())
-  {
-    run_finish (args.data (), pr, true, string (), l);
-  }
+  void
+  run_finish (cstrings& args, process& pr, const location& l = location ());
+
+  // As above but if the process has exited normally with a non-zero code,
+  // then return false rather than throwing.
+  //
+  bool
+  run_finish_code (const char* args[],
+                   process&,
+                   const string& = string (),
+                   const location& = location ());
 
   // Start a process with the specified arguments. If in is -1, then redirect
   // STDIN to a pipe (can also be -2 to redirect to /dev/null or equivalent).

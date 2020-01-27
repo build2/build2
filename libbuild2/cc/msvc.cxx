@@ -356,7 +356,7 @@ namespace build2
         // that.
       }
 
-      if (!run_finish (args, pr, false, s))
+      if (!run_finish_code (args, pr, s))
         return otype::e;
 
       if (obj && dll)

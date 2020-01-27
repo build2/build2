@@ -2127,9 +2127,12 @@ namespace build2
                 }
                 catch (const io_error& e)
                 {
-                  if (pr.wait ()) // Ignore if child failed.
+                  if (run_wait (args, pr))
                     fail << "unable to pipe resource file to " << args[0]
                          << ": " << e;
+
+                  // If the child process has failed then assume the io error
+                  // was caused by that and let run_finish() deal with it.
                 }
 
                 run_finish (args, pr);

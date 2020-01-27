@@ -6,6 +6,45 @@
 
 namespace build2
 {
+  inline bool
+  run_wait (cstrings& args, process& pr, const location& loc)
+  {
+    return run_wait (args.data (), pr, loc);
+  }
+
+  // Note: currently this function is also used in a run() implementations.
+  //
+  LIBBUILD2_SYMEXPORT bool
+  run_finish_impl (const char*[],
+                   process&,
+                   bool error,
+                   const string&,
+                   const location& = location ());
+
+  inline void
+  run_finish (const char* args[],
+              process& pr,
+              const string& l,
+              const location& loc)
+  {
+    run_finish_impl (args, pr, true /* error */, l, loc);
+  }
+
+  inline void
+  run_finish (cstrings& args, process& pr, const location& loc)
+  {
+    run_finish (args.data (), pr, string (), loc);
+  }
+
+  inline bool
+  run_finish_code (const char* args[],
+                   process& pr,
+                   const string& l,
+                   const location& loc)
+  {
+    return run_finish_impl (args, pr, false /* error */, l, loc);
+  }
+
   inline void
   hash_path (sha256& cs, const path& p, const dir_path& prefix)
   {

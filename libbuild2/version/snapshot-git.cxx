@@ -187,7 +187,7 @@ namespace build2
         // that.
       }
 
-      if (!run_finish (args, pr, false /* error */, l))
+      if (!run_finish_code (args, pr, l))
       {
         // Presumably new repository without HEAD. Return uncommitted snapshot
         // with UNIX epoch as timestamp.

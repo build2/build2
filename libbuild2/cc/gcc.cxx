@@ -219,11 +219,14 @@ namespace build2
 
         is.close (); // Don't block.
       }
-      catch (const io_error&)
+      catch (const io_error& e)
       {
-        pr.wait ();
-        fail << "error reading " << x_lang << " compiler -print-search-dirs "
-             << "output";
+        if (run_wait (args, pr))
+          fail << "io error reading " << args[0] << " -print-search-dirs "
+               << "output: " << e;
+
+        // If the child process has failed then assume the io error was caused
+        // by that and let run_finish() deal with it.
       }
 
       run_finish (args, pr);

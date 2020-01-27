@@ -1597,7 +1597,6 @@ namespace build2
                            dir_path ()  /* cwd    */,
                            nullptr      /* env    */,
                            l));
-    bool bad (false);
     try
     {
       // While a failing process could write garbage to stdout, for simplicity
@@ -1627,18 +1626,16 @@ namespace build2
 
       is.close (); // Detect errors.
     }
-    catch (const io_error&)
+    catch (const io_error& e)
     {
-      // Presumably the child process failed and issued diagnostics so let
-      // run_finish() try to deal with that first.
-      //
-      bad = true;
+      if (run_wait (cargs, pr, l))
+        fail (l) << "io error reading " << cargs[0] << " output: " << e;
+
+      // If the child process has failed then assume the io error was
+      // caused by that and let run_finish() deal with it.
     }
 
     run_finish (cargs, pr, l);
-
-    if (bad)
-      fail (l) << "error reading " << args[0] << " output";
 
     next_after_newline (t, tt);
   }
