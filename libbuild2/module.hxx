@@ -134,7 +134,7 @@ namespace build2
   // the <name>.loaded variable check (use init_module() directly to sidestep
   // this check).
   //
-  bool
+  LIBBUILD2_SYMEXPORT bool
   load_module (scope& root,
                scope& base,
                const string& name,
@@ -145,7 +145,7 @@ namespace build2
   // As above but always load and return a reference to the module instance
   // pointer (so it can be moved).
   //
-  unique_ptr<module_base>&
+  LIBBUILD2_SYMEXPORT unique_ptr<module_base>&
   load_module (scope& root,
                scope& base,
                const string& name,
