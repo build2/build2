@@ -279,22 +279,16 @@ namespace build2
       // libraries imported from /usr/lib). We are registring it on the
       // global scope similar to builtin rules.
       //
-      {
-        auto& r (rs.global_scope ().rules);
-        r.insert<mtime_target> (
-          configure_id, 0, "config.file", file_rule::instance);
-      }
-      {
-        auto& r (rs.rules);
+      rs.global_scope ().insert_rule<mtime_target> (
+        configure_id, 0, "config.file", file_rule::instance);
 
-        //@@ outer
-        r.insert<alias> (configure_id, 0, "config.alias", alias_rule::instance);
+      //@@ outer
+      rs.insert_rule<alias> (configure_id, 0, "config.alias", alias_rule::instance);
 
-        // This allows a custom configure rule while doing nothing by default.
-        //
-        r.insert<target> (configure_id, 0, "config", noop_rule::instance);
-        r.insert<file> (configure_id, 0, "config.file", noop_rule::instance);
-      }
+      // This allows a custom configure rule while doing nothing by default.
+      //
+      rs.insert_rule<target> (configure_id, 0, "config", noop_rule::instance);
+      rs.insert_rule<file> (configure_id, 0, "config.file", noop_rule::instance);
 
       return true;
     }

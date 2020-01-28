@@ -106,8 +106,8 @@ namespace build2
       // Register our wildcard rule. Do it explicitly for the alias to prevent
       // something like insert<target>(dist_id, test_id) taking precedence.
       //
-      rs.rules.insert<target> (dist_id, 0, "dist", rule_);
-      rs.rules.insert<alias> (dist_id, 0, "dist.alias", rule_); //@@ outer?
+      rs.insert_rule<target> (dist_id, 0, "dist",       rule_);
+      rs.insert_rule<alias>  (dist_id, 0, "dist.alias", rule_); //@@ outer?
 
       // Configuration.
       //

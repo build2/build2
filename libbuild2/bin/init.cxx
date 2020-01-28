@@ -536,7 +536,7 @@ namespace build2
         //
 
         //@@ outer
-        r.insert<lib> (perform_id, 0, "bin.lib", lib_);
+        r.insert<lib> (perform_id,   0, "bin.lib", lib_);
         r.insert<lib> (configure_id, 0, "bin.lib", lib_);
 
         // Treat as a see through group for install, test, and dist.
@@ -545,7 +545,7 @@ namespace build2
         {
           auto& gr (install::group_rule::instance);
 
-          r.insert<lib> (perform_install_id, "bin.lib", gr);
+          r.insert<lib> (perform_install_id,   "bin.lib", gr);
           r.insert<lib> (perform_uninstall_id, "bin.lib", gr);
         }
 

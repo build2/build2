@@ -343,20 +343,18 @@ namespace build2
       // Register our rules.
       //
       {
-        auto& r (bs.rules);
-
-        auto reg = [&r] (meta_operation_id mid, operation_id oid)
+        auto reg = [&bs] (meta_operation_id mid, operation_id oid)
         {
-          r.insert<cli_cxx>  (mid, oid, "cli.compile", compile_rule_);
-          r.insert<cxx::hxx> (mid, oid, "cli.compile", compile_rule_);
-          r.insert<cxx::cxx> (mid, oid, "cli.compile", compile_rule_);
-          r.insert<cxx::ixx> (mid, oid, "cli.compile", compile_rule_);
+          bs.insert_rule<cli_cxx>  (mid, oid, "cli.compile", compile_rule_);
+          bs.insert_rule<cxx::hxx> (mid, oid, "cli.compile", compile_rule_);
+          bs.insert_rule<cxx::cxx> (mid, oid, "cli.compile", compile_rule_);
+          bs.insert_rule<cxx::ixx> (mid, oid, "cli.compile", compile_rule_);
         };
 
         reg (perform_id, update_id);
         reg (perform_id, clean_id);
 
-        // Other rules (e.g., cxx::compile) may need to have the group members
+        // Other rules (e.g., cc::compile) may need to have the group members
         // resolved/linked up. Looks like a general pattern: groups should
         // resolve on *(update).
         //

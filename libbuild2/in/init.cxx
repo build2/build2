@@ -88,19 +88,15 @@ namespace build2
 
       // Register rules.
       //
-      {
-        auto& r (bs.rules);
-
-        // There are rules that are "derived" from this generic in rule in
-        // order to provide extended preprocessing functionality (see the
-        // version module for an example). To make sure they are tried first
-        // we register for path_target, not file, but in rule::match() we only
-        // match if the target is a file. A bit of a hack.
-        //
-        r.insert<path_target> (perform_update_id,   "in", rule_);
-        r.insert<path_target> (perform_clean_id,    "in", rule_);
-        r.insert<path_target> (configure_update_id, "in", rule_);
-      }
+      // There are rules that are "derived" from this generic in rule in
+      // order to provide extended preprocessing functionality (see the
+      // version module for an example). To make sure they are tried first
+      // we register for path_target, not file, but in rule::match() we only
+      // match if the target is a file. A bit of a hack.
+      //
+      bs.insert_rule<path_target> (perform_update_id,   "in", rule_);
+      bs.insert_rule<path_target> (perform_clean_id,    "in", rule_);
+      bs.insert_rule<path_target> (configure_update_id, "in", rule_);
 
       return true;
     }

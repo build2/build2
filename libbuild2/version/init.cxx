@@ -342,18 +342,14 @@ namespace build2
 
       // Register rules.
       //
+      rs.insert_rule<file> (perform_update_id,   "version.in", in_rule_);
+      rs.insert_rule<file> (perform_clean_id,    "version.in", in_rule_);
+      rs.insert_rule<file> (configure_update_id, "version.in", in_rule_);
+
+      if (cast_false<bool> (rs["install.booted"]))
       {
-        auto& r (rs.rules);
-
-        r.insert<file> (perform_update_id,   "version.in", in_rule_);
-        r.insert<file> (perform_clean_id,    "version.in", in_rule_);
-        r.insert<file> (configure_update_id, "version.in", in_rule_);
-
-        if (cast_false<bool> (rs["install.booted"]))
-        {
-          r.insert<manifest> (
-            perform_install_id, "version.manifest", manifest_install_rule_);
-        }
+        rs.insert_rule<manifest> (
+          perform_install_id, "version.manifest", manifest_install_rule_);
       }
 
       return true;

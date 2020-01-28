@@ -214,8 +214,8 @@ namespace build2
       {
         default_rule& dr (m);
 
-        rs.rules.insert<target> (perform_test_id, "test", dr);
-        rs.rules.insert<alias>  (perform_test_id, "test", dr);
+        rs.insert_rule<target> (perform_test_id, "test", dr);
+        rs.insert_rule<alias>  (perform_test_id, "test", dr);
       }
 
       return true;

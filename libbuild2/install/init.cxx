@@ -216,24 +216,22 @@ namespace build2
       // Register our rules.
       //
       {
-        auto& r (bs.rules);
-
         const auto& ar (alias_rule::instance);
         const auto& dr (fsdir_rule::instance);
         const auto& fr (file_rule::instance);
         const auto& gr (group_rule_);
 
-        r.insert<alias> (perform_install_id,   "install.alias", ar);
-        r.insert<alias> (perform_uninstall_id, "uninstall.alias", ar);
+        bs.insert_rule<alias> (perform_install_id,   "install.alias", ar);
+        bs.insert_rule<alias> (perform_uninstall_id, "uninstall.alias", ar);
 
-        r.insert<fsdir> (perform_install_id,   "install.fsdir", dr);
-        r.insert<fsdir> (perform_uninstall_id, "install.fsdir", dr);
+        bs.insert_rule<fsdir> (perform_install_id,   "install.fsdir", dr);
+        bs.insert_rule<fsdir> (perform_uninstall_id, "install.fsdir", dr);
 
-        r.insert<file> (perform_install_id,   "install.file", fr);
-        r.insert<file> (perform_uninstall_id, "uninstall.file", fr);
+        bs.insert_rule<file> (perform_install_id,   "install.file", fr);
+        bs.insert_rule<file> (perform_uninstall_id, "uninstall.file", fr);
 
-        r.insert<target> (perform_install_id,   "install.file", gr);
-        r.insert<target> (perform_uninstall_id, "uninstall.file", gr);
+        bs.insert_rule<target> (perform_install_id,   "install.file", gr);
+        bs.insert_rule<target> (perform_uninstall_id, "uninstall.file", gr);
      }
 
       // Configuration.

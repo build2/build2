@@ -64,25 +64,21 @@ namespace build2
 
       // Register rules.
       //
+      bs.insert_rule<exe> (perform_update_id,   "bash.in", in_rule_);
+      bs.insert_rule<exe> (perform_clean_id,    "bash.in", in_rule_);
+      bs.insert_rule<exe> (configure_update_id, "bash.in", in_rule_);
+
+      bs.insert_rule<bash> (perform_update_id,   "bash.in", in_rule_);
+      bs.insert_rule<bash> (perform_clean_id,    "bash.in", in_rule_);
+      bs.insert_rule<bash> (configure_update_id, "bash.in", in_rule_);
+
+      if (install_loaded)
       {
-        auto& r (bs.rules);
+        bs.insert_rule<exe>  (perform_install_id,   "bash.install",   install_rule_);
+        bs.insert_rule<exe>  (perform_uninstall_id, "bash.uninstall", install_rule_);
 
-        r.insert<exe> (perform_update_id,   "bash.in", in_rule_);
-        r.insert<exe> (perform_clean_id,    "bash.in", in_rule_);
-        r.insert<exe> (configure_update_id, "bash.in", in_rule_);
-
-        r.insert<bash> (perform_update_id,   "bash.in", in_rule_);
-        r.insert<bash> (perform_clean_id,    "bash.in", in_rule_);
-        r.insert<bash> (configure_update_id, "bash.in", in_rule_);
-
-        if (install_loaded)
-        {
-          r.insert<exe>  (perform_install_id,   "bash.install",   install_rule_);
-          r.insert<exe>  (perform_uninstall_id, "bash.uninstall", install_rule_);
-
-          r.insert<bash> (perform_install_id,   "bash.install",   install_rule_);
-          r.insert<bash> (perform_uninstall_id, "bash.uninstall", install_rule_);
-        }
+        bs.insert_rule<bash> (perform_install_id,   "bash.install",   install_rule_);
+        bs.insert_rule<bash> (perform_uninstall_id, "bash.uninstall", install_rule_);
       }
 
       return true;
