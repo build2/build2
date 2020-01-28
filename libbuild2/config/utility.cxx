@@ -74,7 +74,7 @@ namespace build2
       // any original values, they will be "visible"; see find_override() for
       // details.
       //
-      const variable& vns (rs.ctx.var_pool.rw (rs).insert ("config." + n));
+      const variable& vns (rs.var_pool ().insert ("config." + n));
       for (scope* s (&rs); s != nullptr; s = s->parent_scope ())
       {
         for (auto p (s->vars.find_namespace (vns));
@@ -100,7 +100,7 @@ namespace build2
       // Pattern-typed in boot() as bool.
       //
       const variable& var (
-        rs.ctx.var_pool.rw (rs).insert ("config." + n + ".configured"));
+        rs.var_pool ().insert ("config." + n + ".configured"));
 
       save_variable (rs, var);
 
@@ -114,7 +114,7 @@ namespace build2
       // Pattern-typed in boot() as bool.
       //
       const variable& var (
-        rs.ctx.var_pool.rw (rs).insert ("config." + n + ".configured"));
+        rs.var_pool ().insert ("config." + n + ".configured"));
 
       save_variable (rs, var);
 

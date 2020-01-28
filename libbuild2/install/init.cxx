@@ -40,7 +40,7 @@ namespace build2
     template <typename T, typename CT>
     static void
     set_var (bool spec,
-             scope& r,
+             scope& rs,
              const char* name,
              const char* var,
              const CT* dv,
@@ -62,13 +62,13 @@ namespace build2
           vn += name;
         }
         vn += var;
-        const variable& vr (r.ctx.var_pool.rw (r).insert<CT> (move (vn), true));
+        const variable& vr (rs.var_pool ().insert<CT> (move (vn), true));
 
         l = dv != nullptr
-          ? config::required (r, vr, *dv, override).first
+          ? config::required (rs, vr, *dv, override).first
           : (global
-             ? config::optional (r, vr)
-             : config::omitted (r, vr).first);
+             ? config::optional (rs, vr)
+             : config::omitted (rs, vr).first);
       }
 
       if (global)
@@ -79,9 +79,9 @@ namespace build2
       vn = "install.";
       vn += name;
       vn += var;
-      const variable& vr (r.ctx.var_pool.rw (r).insert<T> (move (vn)));
+      const variable& vr (rs.var_pool ().insert<T> (move (vn)));
 
-      value& v (r.assign (vr));
+      value& v (rs.assign (vr));
 
       if (spec)
       {
@@ -98,7 +98,7 @@ namespace build2
     template <typename T>
     static void
     set_dir (bool s,                                  // specified
-             scope& r,                                // root scope
+             scope& rs,                               // root scope
              const char* n,                           // var name
              const T& p,                              // path
              bool o = false,                          // override
@@ -111,19 +111,18 @@ namespace build2
       bool global (*n == '\0');
 
       if (!global)
-        set_var<dir_path> (s, r, n, "",        p.empty ()  ? nullptr : &p, o);
+        set_var<dir_path> (s, rs, n, "",        p.empty ()  ? nullptr : &p, o);
 
-      set_var<path>     (s, r, n, ".cmd",      c.empty ()  ? nullptr : &c);
-      set_var<strings>  (s, r, n, ".options",  (strings*) (nullptr));
-      set_var<string>   (s, r, n, ".mode",     fm.empty () ? nullptr : &fm);
-      set_var<string>   (s, r, n, ".dir_mode", dm.empty () ? nullptr : &dm);
-      set_var<string>   (s, r, n, ".sudo",     (string*) (nullptr));
+      set_var<path>     (s, rs, n, ".cmd",      c.empty ()  ? nullptr : &c);
+      set_var<strings>  (s, rs, n, ".options",  (strings*) (nullptr));
+      set_var<string>   (s, rs, n, ".mode",     fm.empty () ? nullptr : &fm);
+      set_var<string>   (s, rs, n, ".dir_mode", dm.empty () ? nullptr : &dm);
+      set_var<string>   (s, rs, n, ".sudo",     (string*) (nullptr));
 
       // This one doesn't have config.* value (only set in a buildfile).
       //
       if (!global)
-        r.ctx.var_pool.rw (r).insert<bool> (
-          string ("install.") + n + ".subdirs");
+        rs.var_pool ().insert<bool> (string ("install.") + n + ".subdirs");
     }
 
     void
@@ -194,7 +193,7 @@ namespace build2
 
       // Enter module variables.
       //
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       // Note that the set_dir() calls below enter some more.
       //

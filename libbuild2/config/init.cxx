@@ -45,7 +45,7 @@ namespace build2
       // not be valid module names (`build`). We also currently treat `import`
       // as special.
       //
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       // While config.config.load (see below) could theoretically be specified
       // in a buildfile, config.config.save is expected to always be specified
@@ -166,7 +166,7 @@ namespace build2
 
       assert (config_hints.empty ()); // We don't known any hints.
 
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
       auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/));
 

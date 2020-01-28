@@ -169,7 +169,7 @@ namespace build2
     value&
     assign (string name)
     {
-      return assign (ctx.var_pool.rw (*this).insert (move (name)));
+      return assign (var_pool ().insert (move (name)));
     }
 
     // Assign a typed non-overridable variable with normal visibility.
@@ -178,7 +178,7 @@ namespace build2
     value&
     assign (string name)
     {
-      return vars.assign (ctx.var_pool.rw (*this).insert<T> (move (name)));
+      return vars.assign (var_pool ().insert<T> (move (name)));
     }
 
     template <typename T>

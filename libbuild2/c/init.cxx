@@ -150,7 +150,7 @@ namespace build2
 
       // Enter all the variables and initialize the module data.
       //
-      auto& v (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       cc::config_data d {
         cc::lang::c,
@@ -166,97 +166,97 @@ namespace build2
         //
         // NOTE: remember to update documentation if changing anything here.
         //
-        v.insert<strings> ("config.c",          true),
-        v.insert<string>  ("config.c.id",       true),
-        v.insert<string>  ("config.c.version",  true),
-        v.insert<string>  ("config.c.target",   true),
-        v.insert<string>  ("config.c.std",      true),
-        v.insert<strings> ("config.c.poptions", true),
-        v.insert<strings> ("config.c.coptions", true),
-        v.insert<strings> ("config.c.loptions", true),
-        v.insert<strings> ("config.c.aoptions", true),
-        v.insert<strings> ("config.c.libs",     true),
+        vp.insert<strings> ("config.c",          true),
+        vp.insert<string>  ("config.c.id",       true),
+        vp.insert<string>  ("config.c.version",  true),
+        vp.insert<string>  ("config.c.target",   true),
+        vp.insert<string>  ("config.c.std",      true),
+        vp.insert<strings> ("config.c.poptions", true),
+        vp.insert<strings> ("config.c.coptions", true),
+        vp.insert<strings> ("config.c.loptions", true),
+        vp.insert<strings> ("config.c.aoptions", true),
+        vp.insert<strings> ("config.c.libs",     true),
         nullptr          /* config.c.translatable_headers */,
 
-        v.insert<process_path> ("c.path"),
-        v.insert<strings>      ("c.mode"),
-        v.insert<dir_paths>    ("c.sys_lib_dirs"),
-        v.insert<dir_paths>    ("c.sys_inc_dirs"),
+        vp.insert<process_path> ("c.path"),
+        vp.insert<strings>      ("c.mode"),
+        vp.insert<dir_paths>    ("c.sys_lib_dirs"),
+        vp.insert<dir_paths>    ("c.sys_inc_dirs"),
 
-        v.insert<string>       ("c.std", variable_visibility::project),
+        vp.insert<string>       ("c.std", variable_visibility::project),
 
-        v.insert<strings>      ("c.poptions"),
-        v.insert<strings>      ("c.coptions"),
-        v.insert<strings>      ("c.loptions"),
-        v.insert<strings>      ("c.aoptions"),
-        v.insert<strings>      ("c.libs"),
+        vp.insert<strings>      ("c.poptions"),
+        vp.insert<strings>      ("c.coptions"),
+        vp.insert<strings>      ("c.loptions"),
+        vp.insert<strings>      ("c.aoptions"),
+        vp.insert<strings>      ("c.libs"),
 
         nullptr                /* c.translatable_headers */,
 
-        v["cc.poptions"],
-        v["cc.coptions"],
-        v["cc.loptions"],
-        v["cc.aoptions"],
-        v["cc.libs"],
+        vp["cc.poptions"],
+        vp["cc.coptions"],
+        vp["cc.loptions"],
+        vp["cc.aoptions"],
+        vp["cc.libs"],
 
-        v.insert<strings>      ("c.export.poptions"),
-        v.insert<strings>      ("c.export.coptions"),
-        v.insert<strings>      ("c.export.loptions"),
-        v.insert<vector<name>> ("c.export.libs"),
+        vp.insert<strings>      ("c.export.poptions"),
+        vp.insert<strings>      ("c.export.coptions"),
+        vp.insert<strings>      ("c.export.loptions"),
+        vp.insert<vector<name>> ("c.export.libs"),
 
-        v["cc.export.poptions"],
-        v["cc.export.coptions"],
-        v["cc.export.loptions"],
-        v["cc.export.libs"],
+        vp["cc.export.poptions"],
+        vp["cc.export.coptions"],
+        vp["cc.export.loptions"],
+        vp["cc.export.libs"],
 
-        v.insert_alias (v["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
+        vp.insert_alias (vp["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
 
-        v["cc.runtime"],
-        v["cc.stdlib"],
+        vp["cc.runtime"],
+        vp["cc.stdlib"],
 
-        v["cc.type"],
-        v["cc.system"],
-        v["cc.module_name"],
-        v["cc.reprocess"],
+        vp["cc.type"],
+        vp["cc.system"],
+        vp["cc.module_name"],
+        vp["cc.reprocess"],
 
-        v.insert<string>   ("c.preprocessed"), // See cxx.preprocessed.
-        nullptr,                               // No __symexport (no modules).
+        vp.insert<string>   ("c.preprocessed"), // See cxx.preprocessed.
+        nullptr,                                // No __symexport (no modules).
 
-        v.insert<string>   ("c.id"),
-        v.insert<string>   ("c.id.type"),
-        v.insert<string>   ("c.id.variant"),
+        vp.insert<string>   ("c.id"),
+        vp.insert<string>   ("c.id.type"),
+        vp.insert<string>   ("c.id.variant"),
 
-        v.insert<string>   ("c.class"),
+        vp.insert<string>   ("c.class"),
 
-        &v.insert<string>   ("c.version"),
-        &v.insert<uint64_t> ("c.version.major"),
-        &v.insert<uint64_t> ("c.version.minor"),
-        &v.insert<uint64_t> ("c.version.patch"),
-        &v.insert<string>   ("c.version.build"),
+        &vp.insert<string>   ("c.version"),
+        &vp.insert<uint64_t> ("c.version.major"),
+        &vp.insert<uint64_t> ("c.version.minor"),
+        &vp.insert<uint64_t> ("c.version.patch"),
+        &vp.insert<string>   ("c.version.build"),
 
-        &v.insert<string>   ("c.variant_version"),
-        &v.insert<uint64_t> ("c.variant_version.major"),
-        &v.insert<uint64_t> ("c.variant_version.minor"),
-        &v.insert<uint64_t> ("c.variant_version.patch"),
-        &v.insert<string>   ("c.variant_version.build"),
+        &vp.insert<string>   ("c.variant_version"),
+        &vp.insert<uint64_t> ("c.variant_version.major"),
+        &vp.insert<uint64_t> ("c.variant_version.minor"),
+        &vp.insert<uint64_t> ("c.variant_version.patch"),
+        &vp.insert<string>   ("c.variant_version.build"),
 
-        v.insert<string>   ("c.signature"),
-        v.insert<string>   ("c.checksum"),
+        vp.insert<string>   ("c.signature"),
+        vp.insert<string>   ("c.checksum"),
 
-        v.insert<string>   ("c.pattern"),
+        vp.insert<string>   ("c.pattern"),
 
-        v.insert<target_triplet> ("c.target"),
+        vp.insert<target_triplet> ("c.target"),
 
-        v.insert<string>   ("c.target.cpu"),
-        v.insert<string>   ("c.target.vendor"),
-        v.insert<string>   ("c.target.system"),
-        v.insert<string>   ("c.target.version"),
-        v.insert<string>   ("c.target.class")
+        vp.insert<string>   ("c.target.cpu"),
+        vp.insert<string>   ("c.target.vendor"),
+        vp.insert<string>   ("c.target.system"),
+        vp.insert<string>   ("c.target.version"),
+        vp.insert<string>   ("c.target.class")
       };
 
       // Alias some cc. variables as c.
       //
-      v.insert_alias (d.c_runtime, "c.runtime");
+      vp.insert_alias (d.c_runtime, "c.runtime");
 
       assert (mod == nullptr);
       config_module* m (new config_module (move (d)));

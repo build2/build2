@@ -1714,7 +1714,7 @@ namespace build2
       // Is this the 'foo=...' case?
       //
       size_t p (t.value.find ('='));
-      auto& vp (ctx.var_pool.rw (*scope_));
+      auto& vp (scope_->var_pool ());
 
       if (p != string::npos)
         var = &vp.insert (split (p), true /* overridable */);
@@ -2748,7 +2748,7 @@ namespace build2
       //@@ TODO: append namespace if any.
     }
 
-    return ctx.var_pool.rw (*scope_).insert (move (n), true /* overridable */);
+    return scope_->var_pool ().insert (move (n), true /* overridable */);
   }
 
   void parser::
@@ -5739,7 +5739,7 @@ namespace build2
 
     // Lookup.
     //
-    const auto& var (ctx.var_pool.rw (*scope_).insert (move (name), true));
+    const variable& var (scope_->var_pool ().insert (move (name), true));
 
     if (p != nullptr)
     {

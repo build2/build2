@@ -39,7 +39,7 @@ namespace build2
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build.
       //
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       common_data d {
 

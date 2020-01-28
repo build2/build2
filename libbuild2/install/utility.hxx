@@ -24,7 +24,7 @@ namespace build2
     {
       auto r (
         s.target_vars[tt]["*"].insert (
-          s.ctx.var_pool.rw (s).insert ("install")));
+          s.var_pool ().insert ("install")));
 
       if (r.second) // Already set by the user?
         r.first.get () = path_cast<path> (move (d));
@@ -42,7 +42,7 @@ namespace build2
     {
       auto r (
         s.target_vars[tt]["*"].insert (
-          s.ctx.var_pool.rw (s).insert ("install.mode")));
+          s.var_pool ().insert ("install.mode")));
 
       if (r.second) // Already set by the user?
         r.first.get () = move (m);

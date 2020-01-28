@@ -91,8 +91,7 @@ namespace build2
       //
       auto enter = [&rs] (const char* v) -> const variable&
       {
-        return rs.ctx.var_pool.rw (rs).insert<bool> (
-          v, variable_visibility::project);
+        return rs.var_pool ().insert<bool> (v, variable_visibility::project);
       };
 
       //bool concepts (false); auto& v_c (enter ("cxx.features.concepts"));
@@ -373,7 +372,7 @@ namespace build2
 
       // Enter all the variables and initialize the module data.
       //
-      auto& v (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       cc::config_data d {
         cc::lang::cxx,
@@ -389,16 +388,16 @@ namespace build2
         //
         // NOTE: remember to update documentation if changing anything here.
         //
-        v.insert<strings> ("config.cxx",          true),
-        v.insert<string>  ("config.cxx.id",       true),
-        v.insert<string>  ("config.cxx.version",  true),
-        v.insert<string>  ("config.cxx.target",   true),
-        v.insert<string>  ("config.cxx.std",      true),
-        v.insert<strings> ("config.cxx.poptions", true),
-        v.insert<strings> ("config.cxx.coptions", true),
-        v.insert<strings> ("config.cxx.loptions", true),
-        v.insert<strings> ("config.cxx.aoptions", true),
-        v.insert<strings> ("config.cxx.libs",     true),
+        vp.insert<strings> ("config.cxx",          true),
+        vp.insert<string>  ("config.cxx.id",       true),
+        vp.insert<string>  ("config.cxx.version",  true),
+        vp.insert<string>  ("config.cxx.target",   true),
+        vp.insert<string>  ("config.cxx.std",      true),
+        vp.insert<strings> ("config.cxx.poptions", true),
+        vp.insert<strings> ("config.cxx.coptions", true),
+        vp.insert<strings> ("config.cxx.loptions", true),
+        vp.insert<strings> ("config.cxx.aoptions", true),
+        vp.insert<strings> ("config.cxx.libs",     true),
 
         // List of translatable headers. Inclusions of such headers are
         // translated to the corresponding header unit imports.
@@ -409,48 +408,48 @@ namespace build2
         // opposed to -I) header search paths. Note also that all entries must
         // be specified before loading the cxx module.
         //
-        &v.insert<strings> ("config.cxx.translatable_headers", true),
+        &vp.insert<strings> ("config.cxx.translatable_headers", true),
 
-        v.insert<process_path> ("cxx.path"),
-        v.insert<strings>      ("cxx.mode"),
-        v.insert<dir_paths>    ("cxx.sys_lib_dirs"),
-        v.insert<dir_paths>    ("cxx.sys_inc_dirs"),
+        vp.insert<process_path> ("cxx.path"),
+        vp.insert<strings>      ("cxx.mode"),
+        vp.insert<dir_paths>    ("cxx.sys_lib_dirs"),
+        vp.insert<dir_paths>    ("cxx.sys_inc_dirs"),
 
-        v.insert<string>   ("cxx.std", variable_visibility::project),
+        vp.insert<string>   ("cxx.std", variable_visibility::project),
 
-        v.insert<strings>  ("cxx.poptions"),
-        v.insert<strings>  ("cxx.coptions"),
-        v.insert<strings>  ("cxx.loptions"),
-        v.insert<strings>  ("cxx.aoptions"),
-        v.insert<strings>  ("cxx.libs"),
+        vp.insert<strings>  ("cxx.poptions"),
+        vp.insert<strings>  ("cxx.coptions"),
+        vp.insert<strings>  ("cxx.loptions"),
+        vp.insert<strings>  ("cxx.aoptions"),
+        vp.insert<strings>  ("cxx.libs"),
 
-        &v.insert<strings> ("cxx.translatable_headers"),
+        &vp.insert<strings> ("cxx.translatable_headers"),
 
-        v["cc.poptions"],
-        v["cc.coptions"],
-        v["cc.loptions"],
-        v["cc.aoptions"],
-        v["cc.libs"],
+        vp["cc.poptions"],
+        vp["cc.coptions"],
+        vp["cc.loptions"],
+        vp["cc.aoptions"],
+        vp["cc.libs"],
 
-        v.insert<strings>      ("cxx.export.poptions"),
-        v.insert<strings>      ("cxx.export.coptions"),
-        v.insert<strings>      ("cxx.export.loptions"),
-        v.insert<vector<name>> ("cxx.export.libs"),
+        vp.insert<strings>      ("cxx.export.poptions"),
+        vp.insert<strings>      ("cxx.export.coptions"),
+        vp.insert<strings>      ("cxx.export.loptions"),
+        vp.insert<vector<name>> ("cxx.export.libs"),
 
-        v["cc.export.poptions"],
-        v["cc.export.coptions"],
-        v["cc.export.loptions"],
-        v["cc.export.libs"],
+        vp["cc.export.poptions"],
+        vp["cc.export.coptions"],
+        vp["cc.export.loptions"],
+        vp["cc.export.libs"],
 
-        v.insert<string> ("cxx.stdlib"),
+        vp.insert<string> ("cxx.stdlib"),
 
-        v["cc.runtime"],
-        v["cc.stdlib"],
+        vp["cc.runtime"],
+        vp["cc.stdlib"],
 
-        v["cc.type"],
-        v["cc.system"],
-        v["cc.module_name"],
-        v["cc.reprocess"],
+        vp["cc.type"],
+        vp["cc.system"],
+        vp["cc.module_name"],
+        vp["cc.reprocess"],
 
         // Ability to signal that source is already (partially) preprocessed.
         // Valid values are 'none' (not preprocessed), 'includes' (no #include
@@ -464,46 +463,46 @@ namespace build2
         // What about header unit imports? Well, they are in a sense
         // standardized precompiled headers so we treat them as includes.
         //
-        v.insert<string>   ("cxx.preprocessed"),
+        vp.insert<string>   ("cxx.preprocessed"),
 
         nullptr, // cxx.features.symexport (set in init() below).
 
-        v.insert<string>   ("cxx.id"),
-        v.insert<string>   ("cxx.id.type"),
-        v.insert<string>   ("cxx.id.variant"),
+        vp.insert<string>   ("cxx.id"),
+        vp.insert<string>   ("cxx.id.type"),
+        vp.insert<string>   ("cxx.id.variant"),
 
-        v.insert<string>   ("cxx.class"),
+        vp.insert<string>   ("cxx.class"),
 
-        &v.insert<string>   ("cxx.version"),
-        &v.insert<uint64_t> ("cxx.version.major"),
-        &v.insert<uint64_t> ("cxx.version.minor"),
-        &v.insert<uint64_t> ("cxx.version.patch"),
-        &v.insert<string>   ("cxx.version.build"),
+        &vp.insert<string>   ("cxx.version"),
+        &vp.insert<uint64_t> ("cxx.version.major"),
+        &vp.insert<uint64_t> ("cxx.version.minor"),
+        &vp.insert<uint64_t> ("cxx.version.patch"),
+        &vp.insert<string>   ("cxx.version.build"),
 
-        &v.insert<string>   ("cxx.variant_version"),
-        &v.insert<uint64_t> ("cxx.variant_version.major"),
-        &v.insert<uint64_t> ("cxx.variant_version.minor"),
-        &v.insert<uint64_t> ("cxx.variant_version.patch"),
-        &v.insert<string>   ("cxx.variant_version.build"),
+        &vp.insert<string>   ("cxx.variant_version"),
+        &vp.insert<uint64_t> ("cxx.variant_version.major"),
+        &vp.insert<uint64_t> ("cxx.variant_version.minor"),
+        &vp.insert<uint64_t> ("cxx.variant_version.patch"),
+        &vp.insert<string>   ("cxx.variant_version.build"),
 
-        v.insert<string>   ("cxx.signature"),
-        v.insert<string>   ("cxx.checksum"),
+        vp.insert<string>   ("cxx.signature"),
+        vp.insert<string>   ("cxx.checksum"),
 
-        v.insert<string>   ("cxx.pattern"),
+        vp.insert<string>   ("cxx.pattern"),
 
-        v.insert<target_triplet> ("cxx.target"),
+        vp.insert<target_triplet> ("cxx.target"),
 
-        v.insert<string>   ("cxx.target.cpu"),
-        v.insert<string>   ("cxx.target.vendor"),
-        v.insert<string>   ("cxx.target.system"),
-        v.insert<string>   ("cxx.target.version"),
-        v.insert<string>   ("cxx.target.class")
+        vp.insert<string>   ("cxx.target.cpu"),
+        vp.insert<string>   ("cxx.target.vendor"),
+        vp.insert<string>   ("cxx.target.system"),
+        vp.insert<string>   ("cxx.target.version"),
+        vp.insert<string>   ("cxx.target.class")
       };
 
       // Alias some cc. variables as cxx.
       //
-      v.insert_alias (d.c_runtime, "cxx.runtime");
-      v.insert_alias (d.c_module_name, "cxx.module_name");
+      vp.insert_alias (d.c_runtime,     "cxx.runtime");
+      vp.insert_alias (d.c_module_name, "cxx.module_name");
 
       assert (mod == nullptr);
       config_module* m (new config_module (move (d)));
@@ -583,7 +582,7 @@ namespace build2
 
       config_module& cm (*rs.find_module<config_module> ("cxx.guess"));
 
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       bool modules (cast<bool> (rs["cxx.features.modules"]));
 

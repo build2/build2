@@ -1343,7 +1343,7 @@ namespace build2
     // over anything that we may discover. In particular, we will prefer it
     // over any bundled subprojects.
     //
-    auto& vp (ctx.var_pool.rw (iroot));
+    auto& vp (iroot.var_pool ());
 
     for (;;) // Break-out loop.
     {

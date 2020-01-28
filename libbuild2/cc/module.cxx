@@ -41,7 +41,7 @@ namespace build2
 
       config::save_module (rs, x, 250);
 
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       // Must already exist.
       //

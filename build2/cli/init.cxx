@@ -43,22 +43,22 @@ namespace build2
       //
       if (first)
       {
-        auto& v (rs.ctx.var_pool.rw (rs));
+        auto& vp (rs.var_pool ());
 
         // Note: some overridable, some not.
         //
         // The config.cli=false is recognized as an explicit request to leave
         // the module unconfigured.
         //
-        v.insert<path>    ("config.cli",         true);
-        v.insert<strings> ("config.cli.options", true);
+        vp.insert<path>    ("config.cli",         true);
+        vp.insert<strings> ("config.cli.options", true);
 
         //@@ TODO: split version into componets (it is stdver).
         //
-        v.insert<process_path> ("cli.path");
-        v.insert<string>       ("cli.version");
-        v.insert<string>       ("cli.checksum");
-        v.insert<strings>      ("cli.options");
+        vp.insert<process_path> ("cli.path");
+        vp.insert<string>       ("cli.version");
+        vp.insert<string>       ("cli.checksum");
+        vp.insert<strings>      ("cli.options");
       }
 
       // Configure.

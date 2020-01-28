@@ -78,41 +78,41 @@ namespace build2
 
       // Enter variables. Note: some overridable, some not.
       //
-      auto& v (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       auto v_t (variable_visibility::target);
 
       // NOTE: remember to update documentation if changing anything here.
       //
-      v.insert<strings> ("config.cc.poptions", true);
-      v.insert<strings> ("config.cc.coptions", true);
-      v.insert<strings> ("config.cc.loptions", true);
-      v.insert<strings> ("config.cc.aoptions", true);
-      v.insert<strings> ("config.cc.libs",     true);
+      vp.insert<strings> ("config.cc.poptions", true);
+      vp.insert<strings> ("config.cc.coptions", true);
+      vp.insert<strings> ("config.cc.loptions", true);
+      vp.insert<strings> ("config.cc.aoptions", true);
+      vp.insert<strings> ("config.cc.libs",     true);
 
-      v.insert<strings> ("cc.poptions");
-      v.insert<strings> ("cc.coptions");
-      v.insert<strings> ("cc.loptions");
-      v.insert<strings> ("cc.aoptions");
-      v.insert<strings> ("cc.libs");
+      vp.insert<strings> ("cc.poptions");
+      vp.insert<strings> ("cc.coptions");
+      vp.insert<strings> ("cc.loptions");
+      vp.insert<strings> ("cc.aoptions");
+      vp.insert<strings> ("cc.libs");
 
-      v.insert<strings>      ("cc.export.poptions");
-      v.insert<strings>      ("cc.export.coptions");
-      v.insert<strings>      ("cc.export.loptions");
-      v.insert<vector<name>> ("cc.export.libs");
+      vp.insert<strings>      ("cc.export.poptions");
+      vp.insert<strings>      ("cc.export.coptions");
+      vp.insert<strings>      ("cc.export.loptions");
+      vp.insert<vector<name>> ("cc.export.libs");
 
       // Hint variables (not overridable).
       //
-      v.insert<string>         ("config.cc.id");
-      v.insert<string>         ("config.cc.hinter"); // Hinting module.
-      v.insert<string>         ("config.cc.pattern");
-      v.insert<strings>        ("config.cc.mode");
-      v.insert<target_triplet> ("config.cc.target");
+      vp.insert<string>         ("config.cc.id");
+      vp.insert<string>         ("config.cc.hinter"); // Hinting module.
+      vp.insert<string>         ("config.cc.pattern");
+      vp.insert<strings>        ("config.cc.mode");
+      vp.insert<target_triplet> ("config.cc.target");
 
       // Compiler runtime and C standard library.
       //
-      v.insert<string> ("cc.runtime");
-      v.insert<string> ("cc.stdlib");
+      vp.insert<string> ("cc.runtime");
+      vp.insert<string> ("cc.stdlib");
 
       // Target type, for example, "C library" or "C++ library". Should be set
       // on the target as a rule-specific variable by the matching rule to the
@@ -124,23 +124,23 @@ namespace build2
       // but specific language is not known. Used in the import installed
       // logic.
       //
-      v.insert<string> ("cc.type", v_t);
+      vp.insert<string> ("cc.type", v_t);
 
       // If set and is true, then this (imported) library has been found in a
       // system library search directory.
       //
-      v.insert<bool> ("cc.system", v_t);
+      vp.insert<bool> ("cc.system", v_t);
 
       // C++ module name. Set on the bmi*{} target as a rule-specific variable
       // by the matching rule. Can also be set by the user (normally via the
       // x.module_name alias) on the x_mod{} source.
       //
-      v.insert<string> ("cc.module_name", v_t);
+      vp.insert<string> ("cc.module_name", v_t);
 
       // Ability to disable using preprocessed output for compilation.
       //
-      v.insert<bool> ("config.cc.reprocess", true);
-      v.insert<bool> ("cc.reprocess");
+      vp.insert<bool> ("config.cc.reprocess", true);
+      vp.insert<bool> ("cc.reprocess");
 
       // Register scope operation callback.
       //

@@ -57,7 +57,7 @@ namespace build2
       // Target is a string and not target_triplet because it can be
       // specified by the user.
       //
-      auto& vp (rs.ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       const auto vis_tgt (variable_visibility::target);
       const auto vis_prj (variable_visibility::project);
@@ -583,13 +583,13 @@ namespace build2
       //
       if (first)
       {
-        auto& v (rs.ctx.var_pool.rw (rs));
+        auto& vp (rs.var_pool ());
 
-        v.insert<process_path> ("bin.ar.path");
-        v.insert<process_path> ("bin.ranlib.path");
+        vp.insert<process_path> ("bin.ar.path");
+        vp.insert<process_path> ("bin.ranlib.path");
 
-        v.insert<path>         ("config.bin.ar", true);
-        v.insert<path>         ("config.bin.ranlib", true);
+        vp.insert<path>         ("config.bin.ar", true);
+        vp.insert<path>         ("config.bin.ranlib", true);
       }
 
       // Configure.
@@ -751,10 +751,10 @@ namespace build2
       //
       if (first)
       {
-        auto& v (rs.ctx.var_pool.rw (rs));
+        auto& vp (rs.var_pool ());
 
-        v.insert<process_path> ("bin.ld.path");
-        v.insert<path>         ("config.bin.ld", true);
+        vp.insert<process_path> ("bin.ld.path");
+        vp.insert<path>         ("config.bin.ld", true);
       }
 
       // Configure.
@@ -857,10 +857,10 @@ namespace build2
       //
       if (first)
       {
-        auto& v (rs.ctx.var_pool.rw (rs));
+        auto& vp (rs.var_pool ());
 
-        v.insert<process_path> ("bin.rc.path");
-        v.insert<path>         ("config.bin.rc", true);
+        vp.insert<process_path> ("bin.rc.path");
+        vp.insert<path>         ("config.bin.rc", true);
       }
 
       // Configure.

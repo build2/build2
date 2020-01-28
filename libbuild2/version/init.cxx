@@ -224,7 +224,7 @@ namespace build2
       // Note also that we have "gifted" the config.version variable name to
       // the config module.
       //
-      auto& vp (ctx.var_pool.rw (rs));
+      auto& vp (rs.var_pool ());
 
       auto set = [&vp, &rs] (const char* var, auto val)
       {
