@@ -16,18 +16,6 @@ namespace build2
 {
   namespace test
   {
-    bool
-    boot (scope&, const location&, unique_ptr<module_base>&);
-
-    bool
-    init (scope&,
-          scope&,
-          const location&,
-          unique_ptr<module_base>&,
-          bool,
-          bool,
-          const variable_map&);
-
     // Module `test` requires bootstrapping.
     //
     // `test` -- registers the test and update-for-test operations, registers/

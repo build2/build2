@@ -29,7 +29,7 @@ namespace build2
 
     using dependencies = std::map<string, dependency>;
 
-    struct module: module_base
+    struct module: build2::module
     {
       using dependencies_type = version::dependencies;
 

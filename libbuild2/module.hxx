@@ -22,23 +22,62 @@ namespace build2
   // A few high-level notes on the terminology: From the user's perspective,
   // the module is "loaded" (with the `using` directive). From the
   // implementation's perspectives, the module library is "loaded" and the
-  // module is "bootstrapped" (or "booted" for short) and then "initialized"
-  // (or "inited").
+  // module is optionally "bootstrapped" (or "booted" for short) and then
+  // "initialized" (or "inited").
 
-  class module_base
+  // Base class for module instance.
+  //
+  class module
   {
   public:
     virtual
-    ~module_base () = default;
+    ~module () = default;
+  };
+
+  // Module boot function signature.
+  //
+  // The module_*_extra arguments (here and in init below) are used to pass
+  // additional information that is only used by some modules. It is also a
+  // way for us to later pass more information without breaking source
+  // compatibility.
+  //
+  struct module_boot_extra
+  {
+    shared_ptr<build2::module>& module; // Module instance (out).
+
+    // Convenience functions.
+    //
+    template <typename T>
+    T& set_module (T* p) {assert (!module); module.reset (p); return *p;}
+
+    template <typename T>
+    T& module_as () {assert (module); return static_cast<T&> (*module);}
   };
 
   // Return true if the module should be initialized first (the order of
-  // initialization within each group is unspecified).
+  // initialization within the resulting two groups of modules is
+  // unspecified).
   //
   using module_boot_function =
     bool (scope& root,
           const location&,
-          unique_ptr<module_base>&);
+          module_boot_extra&);
+
+  // Module init function signature.
+  //
+  struct module_init_extra
+  {
+    shared_ptr<build2::module>& module; // Module instance (in/out).
+    const variable_map&         hints;  // Configuration hints (see below).
+
+    // Convenience functions.
+    //
+    template <typename T>
+    T& set_module (T* p) {assert (!module); module.reset (p); return *p;}
+
+    template <typename T>
+    T& module_as () {assert (module); return static_cast<T&> (*module);}
+  };
 
   // Return false if the module configuration (normally based on the default
   // values) was unsuccessful but this is not (yet) an error. One example
@@ -50,13 +89,13 @@ namespace build2
     bool (scope& root,
           scope& base,
           const location&,
-          unique_ptr<module_base>&,
           bool first,                 // First time for this project.
           bool optional,              // Loaded with using? (optional module).
-          const variable_map& hints); // Configuration hints (see below).
+          module_init_extra&);
 
   // If the boot function is not NULL, then such a module is said to require
-  // bootstrapping and must be loaded in bootstrap.build.
+  // bootstrapping and must be loaded in bootstrap.build. Such a module cannot
+  // be optional.
   //
   struct module_functions
   {
@@ -88,7 +127,7 @@ namespace build2
     bool boot;  // True if the module boot'ed but not yet init'ed.
     bool first; // True if the boot'ed module must be init'ed first.
     module_init_function* init;
-    unique_ptr<module_base> module;
+    shared_ptr<build2::module> module;
     const location loc; // Boot location.
   };
 
@@ -142,10 +181,9 @@ namespace build2
                bool optional,
                const variable_map& config_hints = empty_variable_map);
 
-  // As above but always load and return a reference to the module instance
-  // pointer (so it can be moved).
+  // As above but always load and return a pointer to the module instance.
   //
-  LIBBUILD2_SYMEXPORT unique_ptr<module_base>&
+  LIBBUILD2_SYMEXPORT const shared_ptr<module>&
   load_module (scope& root,
                scope& base,
                const string& name,
@@ -173,7 +211,7 @@ namespace build2
   // The loaded_modules map is locked per top-level (as opposed to nested)
   // context (see context.hxx for details).
   //
-  // Note: should only be constructed during context-wide serial execution.
+  // Note: should only be constructed during contexts-wide serial execution.
   //
   class LIBBUILD2_SYMEXPORT loaded_modules_lock
   {

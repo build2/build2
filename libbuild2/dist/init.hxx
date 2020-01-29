@@ -16,18 +16,6 @@ namespace build2
 {
   namespace dist
   {
-    bool
-    boot (scope&, const location&, unique_ptr<module_base>&);
-
-    bool
-    init (scope&,
-          scope&,
-          const location&,
-          unique_ptr<module_base>&,
-          bool,
-          bool,
-          const variable_map&);
-
     // Module `dist` requires bootstrapping.
     //
     // `dist` -- registers the dist meta-operation, registers/sets variables,

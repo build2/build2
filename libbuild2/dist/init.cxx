@@ -24,7 +24,7 @@ namespace build2
     static const rule rule_;
 
     bool
-    boot (scope& rs, const location&, unique_ptr<module_base>& mod)
+    boot (scope& rs, const location&, module_boot_extra& extra)
     {
       tracer trace ("dist::boot");
 
@@ -77,7 +77,7 @@ namespace build2
 
       // Create the module.
       //
-      mod.reset (new module (v_d_p));
+      extra.set_module (new module (v_d_p));
 
       return false;
     }
@@ -86,10 +86,9 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>&,
           bool first,
           bool,
-          const variable_map& config_hints)
+          module_init_extra&)
     {
       tracer trace ("dist::init");
 
@@ -100,8 +99,6 @@ namespace build2
       }
 
       l5 ([&]{trace << "for " << rs;});
-
-      assert (config_hints.empty ()); // We don't known any hints.
 
       // Register our wildcard rule. Do it explicitly for the alias to prevent
       // something like insert<target>(dist_id, test_id) taking precedence.

@@ -32,7 +32,7 @@ namespace build2
     static const manifest_install_rule manifest_install_rule_;
 
     bool
-    boot (scope& rs, const location& l, unique_ptr<module_base>& mod)
+    boot (scope& rs, const location& l, module_boot_extra& extra)
     {
       tracer trace ("version::boot");
       l5 ([&]{trace << "for " << rs;});
@@ -271,13 +271,14 @@ namespace build2
 
       set ("version.revision", uint64_t (v.revision));
 
-      // Create the module.
+      // Create the module instance.
       //
-      mod.reset (new module (cast<project_name> (rs.vars[ctx.var_project]),
-                             move (v),
-                             committed,
-                             rewritten,
-                             move (ds)));
+      extra.set_module (
+        new module (cast<project_name> (rs.vars[ctx.var_project]),
+                    move (v),
+                    committed,
+                    rewritten,
+                    move (ds)));
 
       return true; // Init first (dist.package, etc).
     }
@@ -289,10 +290,9 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>& mod,
           bool first,
           bool,
-          const variable_map&)
+          module_init_extra& extra)
     {
       tracer trace ("version::init");
 
@@ -305,7 +305,7 @@ namespace build2
       //
       load_module (rs, rs, "in.base", l);
 
-      module& m (static_cast<module&> (*mod));
+      auto& m (extra.module_as<module> ());
       const standard_version& v (m.version);
 
       // If the dist module is used, set its dist.package and register the

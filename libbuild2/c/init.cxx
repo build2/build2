@@ -131,10 +131,9 @@ namespace build2
     guess_init (scope& rs,
                 scope& bs,
                 const location& loc,
-                unique_ptr<module_base>& mod,
                 bool,
                 bool,
-                const variable_map& hints)
+                module_init_extra& extra)
     {
       tracer trace ("c::guess_init");
       l5 ([&]{trace << "for " << bs;});
@@ -258,10 +257,9 @@ namespace build2
       //
       vp.insert_alias (d.c_runtime, "c.runtime");
 
-      assert (mod == nullptr);
-      config_module* m (new config_module (move (d)));
-      mod.reset (m);
-      m->guess (rs, loc, hints);
+      auto& m (extra.set_module (new config_module (move (d))));
+      m.guess (rs, loc, extra.hints);
+
       return true;
     }
 
@@ -269,10 +267,9 @@ namespace build2
     config_init (scope& rs,
                  scope& bs,
                  const location& loc,
-                 unique_ptr<module_base>&,
                  bool,
                  bool,
-                 const variable_map& hints)
+                 module_init_extra& extra)
     {
       tracer trace ("c::config_init");
       l5 ([&]{trace << "for " << bs;});
@@ -282,11 +279,11 @@ namespace build2
       if (&rs != &bs)
         fail (loc) << "c.config module must be loaded in project root";
 
-      // Load c.guess.
+      // Load c.guess and share its module instance as ours.
       //
-      auto& cm (load_module<config_module> (rs, rs, "c.guess", loc, hints));
+      extra.module = load_module (rs, rs, "c.guess", loc, extra.hints);
+      extra.module_as<config_module> ().init (rs, loc, extra.hints);
 
-      cm.init (rs, loc, hints);
       return true;
     }
 
@@ -307,10 +304,9 @@ namespace build2
     init (scope& rs,
           scope& bs,
           const location& loc,
-          unique_ptr<module_base>& mod,
           bool,
           bool,
-          const variable_map& hints)
+          module_init_extra& extra)
     {
       tracer trace ("c::init");
       l5 ([&]{trace << "for " << bs;});
@@ -322,11 +318,8 @@ namespace build2
 
       // Load c.config.
       //
-      // @@ TODO: move guess to config and use return value?
-      //
-      load_module (rs, rs, "c.config", loc, hints);
-
-      config_module& cm (*rs.find_module<config_module> ("c.guess"));
+      auto& cm (
+        load_module<config_module> (rs, rs, "c.config", loc, extra.hints));
 
       cc::data d {
         cm,
@@ -363,10 +356,9 @@ namespace build2
         inc
       };
 
-      assert (mod == nullptr);
-      module* m;
-      mod.reset (m = new module (move (d)));
-      m->init (rs, loc, hints);
+      auto& m (extra.set_module (new module (move (d))));
+      m.init (rs, loc, extra.hints);
+
       return true;
     }
 

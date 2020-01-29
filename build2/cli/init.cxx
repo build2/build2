@@ -29,15 +29,12 @@ namespace build2
     config_init (scope& rs,
                  scope& bs,
                  const location& l,
-                 unique_ptr<module_base>&,
                  bool first,
                  bool optional,
-                 const variable_map& hints)
+                 module_init_extra&)
     {
       tracer trace ("cli::config_init");
       l5 ([&]{trace << "for " << bs;});
-
-      assert (hints.empty ()); // We don't known any hints.
 
       // Enter variables.
       //
@@ -300,10 +297,9 @@ namespace build2
     init (scope& rs,
           scope& bs,
           const location& l,
-          unique_ptr<module_base>&,
           bool first,
           bool optional,
-          const variable_map& hints)
+          module_init_extra& extra)
     {
       tracer trace ("cli::init");
       l5 ([&]{trace << "for " << bs;});
@@ -320,7 +316,7 @@ namespace build2
       //
       if (!cast_false<bool> (bs["cli.config.loaded"]))
       {
-        if (!init_module (rs, bs, "cli.config", l, optional, hints))
+        if (!init_module (rs, bs, "cli.config", l, optional, extra.hints))
           return false;
       }
       else if (!cast_false<bool> (bs["cli.config.configured"]))

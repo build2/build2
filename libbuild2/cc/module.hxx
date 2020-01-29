@@ -25,7 +25,7 @@ namespace build2
   {
     struct compiler_info;
 
-    class LIBBUILD2_CC_SYMEXPORT config_module: public module_base,
+    class LIBBUILD2_CC_SYMEXPORT config_module: public build2::module,
                                                 public virtual config_data
     {
     public:
@@ -81,7 +81,7 @@ namespace build2
       bool new_; // See guess() and init() for details.
     };
 
-    class LIBBUILD2_CC_SYMEXPORT module: public module_base,
+    class LIBBUILD2_CC_SYMEXPORT module: public build2::module,
                                          public virtual common,
                                          link_rule,
                                          compile_rule,

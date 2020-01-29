@@ -16,18 +16,6 @@ namespace build2
 {
   namespace config
   {
-    bool
-    boot (scope&, const location&, unique_ptr<module_base>&);
-
-    bool
-    init (scope&,
-          scope&,
-          const location&,
-          unique_ptr<module_base>&,
-          bool,
-          bool,
-          const variable_map&);
-
     // Module `config` requires bootstrapping.
     //
     // `config` -- registers the configure and disfigure meta-operations,

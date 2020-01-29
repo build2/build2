@@ -74,7 +74,7 @@ namespace build2
       }
     };
 
-    struct module: module_base
+    struct module: build2::module
     {
       config::saved_modules saved_modules;
 

@@ -25,7 +25,7 @@ namespace build2
   namespace test
   {
     bool
-    boot (scope& rs, const location&, unique_ptr<module_base>& mod)
+    boot (scope& rs, const location&, module_boot_extra& extra)
     {
       tracer trace ("test::boot");
 
@@ -116,7 +116,8 @@ namespace build2
           v = cast<target_triplet> (rs.ctx.global_scope["build.host"]);
       }
 
-      mod.reset (new module (move (d)));
+      extra.set_module (new module (move (d)));
+
       return false;
     }
 
@@ -124,10 +125,9 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>& mod,
           bool first,
           bool,
-          const variable_map& config_hints)
+          module_init_extra& extra)
     {
       tracer trace ("test::init");
 
@@ -139,12 +139,10 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs;});
 
-      assert (mod != nullptr);
-      module& m (static_cast<module&> (*mod));
+      auto& m (extra.module_as<module> ());
 
       // Configure.
       //
-      assert (config_hints.empty ()); // We don't known any hints.
 
       // Adjust module priority so that the config.test.* values are saved at
       // the end of config.build.

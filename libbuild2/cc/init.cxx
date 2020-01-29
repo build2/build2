@@ -62,10 +62,9 @@ namespace build2
     core_vars_init (scope& rs,
                     scope&,
                     const location& loc,
-                    unique_ptr<module_base>&,
                     bool first,
                     bool,
-                    const variable_map&)
+                    module_init_extra&)
     {
       tracer trace ("cc::core_vars_init");
       l5 ([&]{trace << "for " << rs;});
@@ -159,15 +158,16 @@ namespace build2
     core_guess_init (scope& rs,
                      scope&,
                      const location& loc,
-                     unique_ptr<module_base>&,
                      bool first,
                      bool,
-                     const variable_map& h)
+                     module_init_extra& extra)
     {
       tracer trace ("cc::core_guess_init");
       l5 ([&]{trace << "for " << rs;});
 
       assert (first);
+
+      auto& h (extra.hints);
 
       // Load cc.core.vars.
       //
@@ -232,10 +232,9 @@ namespace build2
     core_config_init (scope& rs,
                       scope&,
                       const location& loc,
-                      unique_ptr<module_base>&,
                       bool first,
                       bool,
-                      const variable_map& hints)
+                      module_init_extra& extra)
     {
       tracer trace ("cc::core_config_init");
       l5 ([&]{trace << "for " << rs;});
@@ -296,7 +295,7 @@ namespace build2
           h.assign ("config.bin.target") =
             cast<target_triplet> (rs["cc.target"]).string ();
 
-          if (auto l = hints["config.bin.pattern"])
+          if (auto l = extra.hints["config.bin.pattern"])
             h.assign ("config.bin.pattern") = cast<string> (l);
         }
 
@@ -342,10 +341,9 @@ namespace build2
     core_init (scope& rs,
                scope&,
                const location& loc,
-               unique_ptr<module_base>&,
                bool first,
                bool,
-               const variable_map& hints)
+               module_init_extra& extra)
     {
       tracer trace ("cc::core_init");
       l5 ([&]{trace << "for " << rs;});
@@ -356,7 +354,7 @@ namespace build2
 
       // Load cc.core.config.
       //
-      load_module (rs, rs, "cc.core.config", loc, hints);
+      load_module (rs, rs, "cc.core.config", loc, extra.hints);
 
       // Load the bin module.
       //
@@ -433,34 +431,32 @@ namespace build2
     config_init (scope& rs,
                  scope& bs,
                  const location& loc,
-                 unique_ptr<module_base>&,
                  bool,
                  bool,
-                 const variable_map& hints)
+                 module_init_extra& extra)
     {
       tracer trace ("cc::config_init");
       return init_alias (trace, rs, bs,
                          "cc.config",
                          "c.config",   "c.config.loaded",
                          "cxx.config", "cxx.config.loaded",
-                         loc, hints);
+                         loc, extra.hints);
     }
 
     bool
     init (scope& rs,
           scope& bs,
           const location& loc,
-          unique_ptr<module_base>&,
           bool,
           bool,
-          const variable_map& hints)
+          module_init_extra& extra)
     {
       tracer trace ("cc::init");
       return init_alias (trace, rs, bs,
                          "cc",
                          "c",   "c.loaded",
                          "cxx", "cxx.loaded",
-                         loc, hints);
+                         loc, extra.hints);
     }
 
     static const module_functions mod_functions[] =

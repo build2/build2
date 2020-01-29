@@ -27,10 +27,9 @@ namespace build2
     init (scope& rs,
           scope& bs,
           const location& l,
-          unique_ptr<module_base>&,
           bool first,
           bool,
-          const variable_map&)
+          module_init_extra&)
     {
       tracer trace ("bash::init");
       l5 ([&]{trace << "for " << bs;});

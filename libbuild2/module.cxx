@@ -521,7 +521,11 @@ namespace build2
 
     i = lm.emplace (mod,
                     module_state {true, false, mf.init, nullptr, loc}).first;
-    i->second.first = mf.boot (rs, loc, i->second.module);
+
+    {
+      module_boot_extra extra {i->second.module};
+      i->second.first = mf.boot (rs, loc, extra);
+    }
 
     rs.assign (rs.var_pool ().insert (mod + ".booted")) = true;
   }
@@ -608,7 +612,12 @@ namespace build2
     else
     {
       l = i != lm.end ();
-      c = l && i->second.init (rs, bs, loc, i->second.module, f, opt, hints);
+
+      if ((c = l))
+      {
+        module_init_extra extra {i->second.module, hints};
+        c = i->second.init (rs, bs, loc, f, opt, extra);
+      }
 
       lv = l;
       cv = c;
@@ -641,7 +650,7 @@ namespace build2
       init_module (rs, bs, name, loc, opt, hints);
   }
 
-  unique_ptr<module_base>&
+  const shared_ptr<module>&
   load_module (scope& rs,
                scope& bs,
                const string& name,

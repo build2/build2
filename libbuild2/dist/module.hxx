@@ -17,7 +17,7 @@ namespace build2
 {
   namespace dist
   {
-    struct LIBBUILD2_SYMEXPORT module: module_base
+    struct LIBBUILD2_SYMEXPORT module: build2::module
     {
       static const string name;
 

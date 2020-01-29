@@ -129,7 +129,7 @@ namespace build2
     functions (function_map&); // functions.cxx
 
     bool
-    boot (scope& rs, const location&, unique_ptr<module_base>&)
+    boot (scope& rs, const location&, module_boot_extra&)
     {
       tracer trace ("install::boot");
       l5 ([&]{trace << "for " << rs;});
@@ -174,10 +174,9 @@ namespace build2
     init (scope& rs,
           scope& bs,
           const location& l,
-          unique_ptr<module_base>&,
           bool first,
           bool,
-          const variable_map& config_hints)
+          module_init_extra&)
     {
       tracer trace ("install::init");
 
@@ -188,8 +187,6 @@ namespace build2
       }
 
       l5 ([&]{trace << "for " << rs;});
-
-      assert (config_hints.empty ()); // We don't known any hints.
 
       // Enter module variables.
       //

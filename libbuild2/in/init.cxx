@@ -23,10 +23,9 @@ namespace build2
     base_init (scope& rs,
                scope&,
                const location&,
-               unique_ptr<module_base>&,
                bool first,
                bool,
-               const variable_map&)
+               module_init_extra&)
     {
       tracer trace ("in::base_init");
       l5 ([&]{trace << "for " << rs;});
@@ -74,10 +73,9 @@ namespace build2
     init (scope& rs,
           scope& bs,
           const location& loc,
-          unique_ptr<module_base>&,
           bool,
           bool,
-          const variable_map&)
+          module_init_extra&)
     {
       tracer trace ("in::init");
       l5 ([&]{trace << "for " << bs;});

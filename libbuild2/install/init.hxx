@@ -16,18 +16,6 @@ namespace build2
 {
   namespace install
   {
-    bool
-    boot (scope&, const location&, unique_ptr<module_base>&);
-
-    bool
-    init (scope&,
-          scope&,
-          const location&,
-          unique_ptr<module_base>&,
-          bool,
-          bool,
-          const variable_map&);
-
     // Module `install` requires bootstrapping.
     //
     // `install` -- registers the install, uninstall, and update-for-install

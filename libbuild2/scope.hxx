@@ -399,7 +399,7 @@ namespace build2
     bool
     find_module (const string& name) const
     {
-      return root_extra->modules.find_module<module_base> (name) != nullptr;
+      return root_extra->modules.find_module<module> (name) != nullptr;
     }
 
     template <typename T>

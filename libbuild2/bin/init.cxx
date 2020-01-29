@@ -42,10 +42,9 @@ namespace build2
     vars_init (scope& rs,
                scope&,
                const location&,
-               unique_ptr<module_base>&,
                bool first,
                bool,
-               const variable_map&)
+               module_init_extra&)
     {
       tracer trace ("bin::vars_init");
       l5 ([&]{trace << "for " << rs;});
@@ -146,10 +145,9 @@ namespace build2
     config_init (scope& rs,
                  scope& bs,
                  const location& loc,
-                 unique_ptr<module_base>&,
                  bool first,
                  bool,
-                 const variable_map& hints)
+                 module_init_extra& extra)
     {
       tracer trace ("bin::config_init");
       l5 ([&]{trace << "for " << bs;});
@@ -288,7 +286,7 @@ namespace build2
           bool hint (false);
           if (!l)
           {
-            if (auto hl = hints[var])
+            if (auto hl = extra.hints[var])
             {
               l = hl;
               hint = true;
@@ -364,7 +362,7 @@ namespace build2
           //
           if (!l)
           {
-            if (auto hl = hints[var])
+            if (auto hl = extra.hints[var])
               l = hl;
           }
 
@@ -412,17 +410,16 @@ namespace build2
     init (scope& rs,
           scope& bs,
           const location& loc,
-          unique_ptr<module_base>&,
           bool first,
           bool,
-          const variable_map& hints)
+          module_init_extra& extra)
     {
       tracer trace ("bin::init");
       l5 ([&]{trace << "for " << bs;});
 
       // Load bin.config.
       //
-      load_module (rs, rs, "bin.config", loc, hints);
+      load_module (rs, rs, "bin.config", loc, extra.hints);
 
       // Cache some config values we will be needing below.
       //
@@ -567,17 +564,16 @@ namespace build2
     ar_config_init (scope& rs,
                     scope& bs,
                     const location& loc,
-                    unique_ptr<module_base>&,
                     bool first,
                     bool,
-                    const variable_map& hints)
+                    module_init_extra& extra)
     {
       tracer trace ("bin::ar_config_init");
       l5 ([&]{trace << "for " << bs;});
 
       // Make sure bin.config is loaded.
       //
-      load_module (rs, bs, "bin.config", loc, hints);
+      load_module (rs, bs, "bin.config", loc, extra.hints);
 
       // Enter configuration variables.
       //
@@ -715,18 +711,17 @@ namespace build2
     ar_init (scope& rs,
              scope& bs,
              const location& loc,
-             unique_ptr<module_base>&,
              bool,
              bool,
-             const variable_map& hints)
+             module_init_extra& extra)
     {
       tracer trace ("bin::ar_init");
       l5 ([&]{trace << "for " << bs;});
 
       // Make sure the bin core and ar.config are loaded.
       //
-      load_module (rs, bs, "bin",           loc, hints);
-      load_module (rs, bs, "bin.ar.config", loc, hints);
+      load_module (rs, bs, "bin",           loc, extra.hints);
+      load_module (rs, bs, "bin.ar.config", loc, extra.hints);
 
       return true;
     }
@@ -735,17 +730,16 @@ namespace build2
     ld_config_init (scope& rs,
                     scope& bs,
                     const location& loc,
-                    unique_ptr<module_base>&,
                     bool first,
                     bool,
-                    const variable_map& hints)
+                    module_init_extra& extra)
     {
       tracer trace ("bin::ld_config_init");
       l5 ([&]{trace << "for " << bs;});
 
       // Make sure bin.config is loaded.
       //
-      load_module (rs, rs, "bin.config", loc, hints);
+      load_module (rs, rs, "bin.config", loc, extra.hints);
 
       // Enter configuration variables.
       //
@@ -808,18 +802,17 @@ namespace build2
     ld_init (scope& rs,
              scope& bs,
              const location& loc,
-             unique_ptr<module_base>&,
              bool,
              bool,
-             const variable_map& hints)
+             module_init_extra& extra)
     {
       tracer trace ("bin::ld_init");
       l5 ([&]{trace << "for " << bs;});
 
       // Make sure the bin core and ld.config are loaded.
       //
-      load_module (rs, bs, "bin",           loc, hints);
-      load_module (rs, bs, "bin.ld.config", loc, hints);
+      load_module (rs, bs, "bin",           loc, extra.hints);
+      load_module (rs, bs, "bin.ld.config", loc, extra.hints);
 
       const string& lid (cast<string> (rs["bin.ld.id"]));
 
@@ -841,17 +834,16 @@ namespace build2
     rc_config_init (scope& rs,
                     scope& bs,
                     const location& loc,
-                    unique_ptr<module_base>&,
                     bool first,
                     bool,
-                    const variable_map& hints)
+                    module_init_extra& extra)
     {
       tracer trace ("bin::rc_config_init");
       l5 ([&]{trace << "for " << bs;});
 
       // Make sure bin.config is loaded.
       //
-      load_module (rs, bs, "bin.config", loc, hints);
+      load_module (rs, bs, "bin.config", loc, extra.hints);
 
       // Enter configuration variables.
       //
@@ -914,18 +906,17 @@ namespace build2
     rc_init (scope& rs,
              scope& bs,
              const location& loc,
-             unique_ptr<module_base>&,
              bool,
              bool,
-             const variable_map& hints)
+             module_init_extra& extra)
     {
       tracer trace ("bin::rc_init");
       l5 ([&]{trace << "for " << bs;});
 
       // Make sure the bin core and rc.config are loaded.
       //
-      load_module (rs, bs, "bin",           loc, hints);
-      load_module (rs, bs, "bin.rc.config", loc, hints);
+      load_module (rs, bs, "bin",           loc, extra.hints);
+      load_module (rs, bs, "bin.rc.config", loc, extra.hints);
 
       return true;
     }

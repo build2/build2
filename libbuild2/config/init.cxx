@@ -30,7 +30,7 @@ namespace build2
     functions (function_map&); // functions.cxx
 
     bool
-    boot (scope& rs, const location&, unique_ptr<module_base>& mod)
+    boot (scope& rs, const location&, module_boot_extra& extra)
     {
       tracer trace ("config::boot");
 
@@ -113,17 +113,15 @@ namespace build2
         //
         vp.insert ("config.import");
 
-        unique_ptr<module> m (new module);
+        auto& m (extra.set_module (new module));
 
         // Adjust priority for the config module and import pseudo-module so
         // that their variables come first in config.build.
         //
-        m->save_module ("config", INT32_MIN);
-        m->save_module ("import", INT32_MIN);
+        m.save_module ("config", INT32_MIN);
+        m.save_module ("import", INT32_MIN);
 
-        m->save_variable (c_p, omit_null);
-
-        mod = move (m);
+        m.save_variable (c_p, omit_null);
       }
 
       // Register the config function family if this is the first instance of
@@ -149,10 +147,9 @@ namespace build2
     init (scope& rs,
           scope&,
           const location& l,
-          unique_ptr<module_base>& mod,
           bool first,
           bool,
-          const variable_map& config_hints)
+          module_init_extra& extra)
     {
       tracer trace ("config::init");
 
@@ -163,8 +160,6 @@ namespace build2
       }
 
       l5 ([&]{trace << "for " << rs;});
-
-      assert (config_hints.empty ()); // We don't known any hints.
 
       auto& vp (rs.var_pool ());
       auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
@@ -266,9 +261,11 @@ namespace build2
 
       // Cache the config.config.persist value, if any.
       //
-      if (mod != nullptr)
+      if (extra.module != nullptr)
       {
-        static_cast<module&> (*mod).persist =
+        auto& m (extra.module_as<module> ());
+
+        m.persist =
           cast_null<vector<pair<string, string>>> (
             rs["config.config.persist"]);
       }

@@ -17,7 +17,10 @@ namespace build2
 {
   namespace test
   {
-    struct module: module_base, virtual common, default_rule, group_rule
+    struct module: build2::module,
+                   virtual common,
+                   default_rule,
+                   group_rule
     {
       const test::group_rule&
       group_rule () const
