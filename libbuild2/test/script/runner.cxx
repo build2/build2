@@ -2014,11 +2014,15 @@ namespace build2
         // expectations. Note that stdout is only redirected to file for the
         // last command in the pipeline.
         //
+        // The thinking behind matching stderr first is that if it mismatches,
+        // then the program probably misbehaves (executes wrong functionality,
+        // etc) in which case its stdout doesn't really matter.
+        //
         if (success)
           success =
+            check_output (pr, esp, isp, err, ll, sp, diag, "stderr") &&
             (!last ||
-             check_output (pr, osp, isp, out, ll, sp, diag, "stdout")) &&
-            check_output (pr, esp, isp, err, ll, sp, diag, "stderr");
+             check_output (pr, osp, isp, out, ll, sp, diag, "stdout"));
 
         return success;
       }
