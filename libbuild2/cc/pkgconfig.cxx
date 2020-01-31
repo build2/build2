@@ -846,8 +846,9 @@ namespace build2
         bool all (true);
         optional<dir_paths> usrd; // Populate lazily.
 
-        for (name& n: libs)
+        for (auto i (libs.begin ()); i != libs.end (); ++i)
         {
+          name& n (*i);
           string& l (n.value);
 
           // These ones are common/standard/POSIX.
@@ -913,10 +914,10 @@ namespace build2
           // resolve_library().
           //
           dir_path out;
-          string name (l, 2); // Sans -l.
+          string nm (l, 2); // Sans -l.
 
           prerequisite_key pk {
-            nullopt, {&lib::static_type, &out, &out, &name, nullopt}, &s};
+            nullopt, {&lib::static_type, &out, &out, &nm, nullopt}, &s};
 
           if (const target* lt = search_library (a, top_sysd, usrd, pk))
           {
@@ -926,6 +927,12 @@ namespace build2
             n.dir = lt->dir;
             n.type = lib::static_type.name;
             n.value = lt->name;
+
+            if (!lt->out.empty ())
+            {
+              n.pair = true;
+              i = libs.insert (i + 1, name (lt->out));
+            }
 
             if (ps != nullptr)
               ps->push_back (prerequisite (*lt));
@@ -940,7 +947,7 @@ namespace build2
             {
               // Translate -l<name> to <name>.lib.
               //
-              l = move (name += ".lib");
+              l = move (nm += ".lib");
             }
           }
         }

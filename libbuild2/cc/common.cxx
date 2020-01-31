@@ -299,8 +299,10 @@ namespace build2
           if (ns == nullptr || ns->empty ())
             return;
 
-          for (const name& n: *ns)
+          for (auto i (ns->begin ()), e (ns->end ()); i != e; ++i)
           {
+            const name& n (*i);
+
             if (n.simple ())
             {
               // This is something like -lpthread or shell32.lib so should be
@@ -318,7 +320,13 @@ namespace build2
               if (sysd == nullptr) find_sysd ();
               if (!li) find_linfo ();
 
-              const file& t (resolve_library (a, bs, n, *li, *sysd, usrd));
+              const file& t (
+                resolve_library (a,
+                                 bs,
+                                 n,
+                                 (n.pair ? (++i)->dir : dir_path ()),
+                                 *li,
+                                 *sysd, usrd));
 
               if (proc_lib)
               {
@@ -433,30 +441,32 @@ namespace build2
     const file& common::
     resolve_library (action a,
                      const scope& s,
-                     name n,
+                     const name& cn,
+                     const dir_path& out,
                      linfo li,
                      const dir_paths& sysd,
                      optional<dir_paths>& usrd) const
     {
-      if (n.type != "lib" && n.type != "liba" && n.type != "libs")
-        fail << "target name " << n << " is not a library";
+      if (cn.type != "lib" && cn.type != "liba" && cn.type != "libs")
+        fail << "target name " << cn << " is not a library";
 
       const target* xt (nullptr);
 
-      if (!n.qualified ())
+      if (!cn.qualified ())
       {
         // Search for an existing target with this name "as if" it was a
         // prerequisite.
         //
-        xt = search_existing (n, s);
+        xt = search_existing (cn, s, out);
 
         if (xt == nullptr)
-          fail << "unable to find library " << n;
+          fail << "unable to find library " << cn;
       }
       else
       {
         // This is import.
         //
+        name n (cn);
         auto rp (s.find_target_type (n, location ())); // Note: changes name.
         const target_type* tt (rp.first);
         optional<string>& ext (rp.second);

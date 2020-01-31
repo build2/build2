@@ -290,7 +290,8 @@ namespace build2
       const file&
       resolve_library (action,
                        const scope&,
-                       name,
+                       const name&,
+                       const dir_path&,
                        linfo,
                        const dir_paths&,
                        optional<dir_paths>&) const;
