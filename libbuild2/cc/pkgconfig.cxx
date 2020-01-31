@@ -931,9 +931,18 @@ namespace build2
               ps->push_back (prerequisite (*lt));
           }
           else
+          {
             // If we couldn't find the library, then leave it as -l.
             //
             all = false;
+
+            if (tsys == "win32-msvc")
+            {
+              // Translate -l<name> to <name>.lib.
+              //
+              l = move (name += ".lib");
+            }
+          }
         }
 
         // If all the -l's resolved and there were no other options, then drop
@@ -1309,9 +1318,9 @@ namespace build2
           }
         };
 
-        // Given a library save its -l-style library name.
+        // Given a library target, save its -l-style library name.
         //
-        auto save_library = [&os, this] (const file& l)
+        auto save_library_target = [&os, this] (const file& l)
         {
           // If available (it may not, in case of import-installed libraris),
           // use the .pc file name to derive the -l library name (in case of
@@ -1349,6 +1358,29 @@ namespace build2
           }
 
           os << " -l" << n;
+        };
+
+        // Given a (presumably) compiler-specific library name, save its
+        // -l-style library name.
+        //
+        auto save_library_name = [&os, this] (const string& n)
+        {
+          if (tsys == "win32-msvc")
+          {
+            // Translate <name>.lib to -l<name>.
+            //
+            size_t p (path::traits_type::find_extension (n));
+
+            if (p != string::npos && icasecmp (n.c_str () + p + 1, "lib") == 0)
+            {
+              os << " -l" << string (n, 0, p);
+              return;
+            }
+
+            // Fall through and save as is.
+          }
+
+          os << ' ' << n;
         };
 
         // @@ TODO: support whole archive?
@@ -1389,7 +1421,8 @@ namespace build2
           bool priv (false);
           auto imp = [&priv] (const file&, bool la) {return priv && la;};
 
-          auto lib = [&os, &save_library] (const file* const* c,
+          auto lib = [&save_library_target,
+                      &save_library_name] (const file* const* c,
                                            const string& p,
                                            lflags,
                                            bool)
@@ -1399,10 +1432,10 @@ namespace build2
             if (l != nullptr)
             {
               if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
-                save_library (*l);
+                save_library_target (*l);
             }
             else
-              os << ' ' << p; // Something "system'y", pass as is.
+              save_library_name (p); // Something "system'y", save as is.
           };
 
           auto opt = [] (const file&,
