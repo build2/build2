@@ -490,22 +490,23 @@ namespace build2
       return xt->as<file> ();
     }
 
-    // Insert a target verifying that it already exists if requested. Return
-    // the lock.
+    // Insert a target "tagging" it with the specified process path and
+    // verifying that it already exists if requested. Return the lock.
     //
     template <typename T>
     ulock common::
     insert_library (context& ctx,
                     T*& r,
-                    const string& name,
-                    const dir_path& d,
+                    string name,
+                    dir_path dir,
+                    const process_path& out,
                     optional<string> ext,
                     bool exist,
                     tracer& trace)
     {
       auto p (ctx.targets.insert_locked (T::static_type,
-                                         d,
-                                         dir_path (),
+                                         move (dir),
+                                         path_cast<dir_path> (out.effect),
                                          name,
                                          move (ext),
                                          true, // Implied.
@@ -530,6 +531,17 @@ namespace build2
       assert (p.scope != nullptr);
 
       context& ctx (p.scope->ctx);
+      const scope& rs (*p.scope->root_scope ());
+
+      // Here is the problem: we may be building for two different toolchains
+      // simultaneously that use the same installed library. But our search is
+      // toolchain-specific. To make sure we end up with different targets for
+      // each toolchain we are going to "tag" each target with the linker path
+      // as its out directory.
+      //
+      const process_path& ld (tsys != "win32-msvc"
+                              ? cpath
+                              : cast<process_path> (rs["bin.ld.path"]));
 
       // @@ This is hairy enough to warrant a separate implementation for
       //    Windows.
@@ -628,7 +640,8 @@ namespace build2
                     &an, &ae,
                     &sn, &se,
                     &name, ext,
-                    &p, &f, exist, &trace, this] (const dir_path& d) -> bool
+                    &ld, &f,
+                    &p, exist, &trace, this] (const dir_path& d) -> bool
       {
         context& ctx (p.scope->ctx);
 
@@ -654,10 +667,10 @@ namespace build2
             if (tclass == "windows")
             {
               libi* i (nullptr);
-              insert_library (ctx, i, name, d, se, exist, trace);
+              insert_library (ctx, i, name, d, ld, se, exist, trace);
 
               ulock l (
-                insert_library (ctx, s, name, d, nullopt, exist, trace));
+                insert_library (ctx, s, name, d, ld, nullopt, exist, trace));
 
               if (!exist)
               {
@@ -684,7 +697,7 @@ namespace build2
             }
             else
             {
-              insert_library (ctx, s, name, d, se, exist, trace);
+              insert_library (ctx, s, name, d, ld, se, exist, trace);
 
               s->mtime (mt);
               s->path (move (f));
@@ -704,7 +717,7 @@ namespace build2
 
             if (mt != timestamp_nonexistent)
             {
-              insert_library (ctx, s, name, d, se, exist, trace);
+              insert_library (ctx, s, name, d, ld, se, exist, trace);
 
               s->mtime (mt);
               s->path (move (f));
@@ -729,7 +742,7 @@ namespace build2
             // Note that this target is outside any project which we treat
             // as out trees.
             //
-            insert_library (ctx, a, name, d, ae, exist, trace);
+            insert_library (ctx, a, name, d, ld, ae, exist, trace);
             a->mtime (mt);
             a->path (move (f));
           }
@@ -739,9 +752,6 @@ namespace build2
         //
         if (tsys == "win32-msvc")
         {
-          const scope& rs (*p.scope->root_scope ());
-          const process_path& ld (cast<process_path> (rs["bin.ld.path"]));
-
           if (s == nullptr && !sn.empty ())
             s = msvc_search_shared (ld, d, p, exist);
 
@@ -767,14 +777,14 @@ namespace build2
 
             if (na && !r.first.empty ())
             {
-              insert_library (ctx, a, name, d, nullopt, exist, trace);
+              insert_library (ctx, a, name, d, ld, nullopt, exist, trace);
               a->mtime (timestamp_unreal);
               a->path (empty_path);
             }
 
             if (ns && !r.second.empty ())
             {
-              insert_library (ctx, s, name, d, nullopt, exist, trace);
+              insert_library (ctx, s, name, d, ld, nullopt, exist, trace);
               s->mtime (timestamp_unreal);
               s->path (empty_path);
             }
@@ -803,8 +813,6 @@ namespace build2
         //
         if (build_installed && p.proj && *p.proj == "build2")
         {
-          const scope& rs (*p.scope->root_scope ());
-
           // Check if import.build2 is set to NULL to disable relying on the
           // built-in path. We use this in our tests to make sure we are
           // importing and testing the build system being built and not the
@@ -857,7 +865,8 @@ namespace build2
       // Enter (or find) the lib{} target group.
       //
       lib* lt;
-      insert_library (ctx, lt, name, *pd, l ? p.tk.ext : nullopt, exist, trace);
+      insert_library (
+        ctx, lt, name, *pd, ld, l ? p.tk.ext : nullopt, exist, trace);
 
       // Result.
       //

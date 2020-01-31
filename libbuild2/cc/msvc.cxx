@@ -426,7 +426,7 @@ namespace build2
         // Enter the target.
         //
         T* t;
-        common::insert_library (p.scope->ctx, t, name, d, e, exist, trace);
+        common::insert_library (p.scope->ctx, t, name, d, ld, e, exist, trace);
 
         t->mtime (mt);
         t->path (move (f));
@@ -488,7 +488,7 @@ namespace build2
         {
           ulock l (
             insert_library (
-              pk.scope->ctx, s, *pk.tk.name, d, nullopt, exist, trace));
+              pk.scope->ctx, s, *pk.tk.name, d, ld, nullopt, exist, trace));
 
           if (!exist)
           {

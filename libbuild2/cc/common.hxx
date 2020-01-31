@@ -299,8 +299,9 @@ namespace build2
       static ulock
       insert_library (context&,
                       T*&,
-                      const string&,
-                      const dir_path&,
+                      string,
+                      dir_path,
+                      const process_path&,
                       optional<string>,
                       bool,
                       tracer&);
