@@ -878,6 +878,11 @@ namespace build2
             if (l == "-lSystem")
               continue;
           }
+          else if (tclass == "bsd")
+          {
+            if (l == "-lexecinfo")
+              continue;
+          }
 
           // Prepare user search paths by entering the -L paths from the .pc
           // file.
