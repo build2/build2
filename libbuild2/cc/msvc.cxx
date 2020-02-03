@@ -214,43 +214,135 @@ namespace build2
       }
     }
 
+    void
+    msvc_extract_header_search_dirs (const strings& v, dir_paths& r)
+    {
+      for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
+      {
+        const string& o (*i);
+
+        dir_path d;
+        try
+        {
+          // -I can either be in the "-Ifoo" or "-I foo" form. For VC it can
+          // also be /I.
+          //
+          if (o.size () > 1 && (o[0] == '-' || o[0] == '/') && o[1] == 'I')
+          {
+            if (o.size () == 2)
+            {
+              if (++i == e)
+                break; // Let the compiler complain.
+
+              d = dir_path (*i);
+            }
+            else
+              d = dir_path (o, 2, string::npos);
+          }
+          else
+            continue;
+        }
+        catch (const invalid_path& e)
+        {
+          fail << "invalid directory '" << e.path << "'" << " in option '"
+               << o << "'";
+        }
+
+        // Ignore relative paths. Or maybe we should warn?
+        //
+        if (!d.relative ())
+          r.push_back (move (d));
+      }
+    }
+
+    void
+    msvc_extract_library_search_dirs (const strings& v, dir_paths& r)
+    {
+      for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
+      {
+        const string& o (*i);
+
+        dir_path d;
+        try
+        {
+          // /LIBPATH:<dir> (case-insensitive).
+          //
+          if ((o[0] == '/' || o[0] == '-') &&
+              icasecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
+            d = dir_path (o, 9, string::npos);
+          else
+            continue;
+        }
+        catch (const invalid_path& e)
+        {
+          fail << "invalid directory '" << e.path << "'" << " in option '"
+               << o << "'";
+        }
+
+        // Ignore relative paths. Or maybe we should warn?
+        //
+        if (!d.relative ())
+          r.push_back (move (d));
+      }
+    }
+
     // Extract system header search paths from MSVC.
     //
-    dir_paths config_module::
-    msvc_header_search_paths (const process_path&, scope&) const
+    pair<dir_paths, size_t> config_module::
+    msvc_header_search_dirs (const process_path&, scope& rs) const
     {
       // The compiler doesn't seem to have any built-in paths and all of them
       // either come from the INCLUDE environment variable or are specified
-      // explicitly on the command line.
+      // explicitly on the command line (we now do this if running out of the
+      // command prompt; see guess).
 
       // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
-      //    cl.exe /Be prints INCLUDE.
+      //    cl.exe /Be prints INCLUDE. One advantage of going through the
+      //    compiler is that it may be a wrapper (like our msvc-linux). Note
+      //    also that we will still have to incorporate mode options. And this
+      //    is not used for Clang targeting MSVC.
       //
       //    Should we actually bother? INCLUDE is normally used for system
       //    headers and its highly unlikely we will see an imported library
       //    that lists one of those directories in pkg-config Cflags value.
-      //    Let's wait and see.
+      //    So the only benefit is to be able to print them. Let's wait and
+      //    see.
+
+      // Extract -I paths from the compiler mode.
       //
-      return dir_paths ();
+      dir_paths r;
+      msvc_extract_header_search_dirs (cast<strings> (rs[x_mode]), r);
+      size_t rn (r.size ());
+
+      return make_pair (move (r), rn);
      }
 
     // Extract system library search paths from MSVC.
     //
-    dir_paths config_module::
-    msvc_library_search_paths (const process_path&, scope&) const
+    pair<dir_paths, size_t> config_module::
+    msvc_library_search_dirs (const process_path&, scope& rs) const
     {
       // The linker doesn't seem to have any built-in paths and all of them
       // either come from the LIB environment variable or are specified
-      // explicitly on the command line.
+      // explicitly on the command line (we now do this if running out of the
+      // command prompt; see guess).
 
       // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
-      //    cl.exe /Be prints LIB.
+      //    cl.exe /Be prints LIB. See above for further discussion.
       //
       //    Should we actually bother? LIB is normally used for system
       //    libraries and its highly unlikely we will see an explicit import
-      //    for a library from one of those directories. Let's wait and see.
+      //    for a library from one of those directories. So the only benefit
+      //    is to be able to print them. Let's wait and see.
       //
-      return dir_paths ();
+
+      // Extract /LIBPATH paths from the compiler mode.
+      //
+      dir_paths r;
+      msvc_extract_library_search_dirs (cast<strings> (rs[x_mode]), r);
+      size_t rn (r.size ());
+
+      return make_pair (move (r), rn);
     }
 
     // Inspect the file and determine if it is static or import library.

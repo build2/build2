@@ -35,8 +35,7 @@ namespace build2
     {
     public:
       explicit
-      config_module (config_data&& d)
-          : config_data (move (d)), cc::config_module (move (d)) {}
+      config_module (config_data&& d): cc::config_module (move (d)) {}
 
       virtual strings
       translate_std (const compiler_info&,
@@ -345,7 +344,11 @@ namespace build2
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_inc_dirs]),
-        cm.x_info->sys_mod_dirs,
+        cm.x_info->sys_mod_dirs ? &cm.x_info->sys_mod_dirs->first : nullptr,
+
+        cm.sys_lib_dirs_mode,
+        cm.sys_inc_dirs_mode,
+        cm.sys_mod_dirs_mode,
 
         cm.sys_lib_dirs_extra,
         cm.sys_inc_dirs_extra,

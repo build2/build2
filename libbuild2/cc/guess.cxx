@@ -1353,16 +1353,28 @@ namespace build2
            << "' to runtime version" << endf;
     }
 
+    void
+    msvc_extract_header_search_dirs (const strings&, dir_paths&); // msvc.cxx
+
+    void
+    msvc_extract_library_search_dirs (const strings&, dir_paths&); // msvc.cxx
+
     // Return the MSVC system header search paths (i.e., what the Visual
-    // Studio command prompt puts into INCLUDE).
+    // Studio command prompt puts into INCLUDE) including any paths from the
+    // compiler mode and their count.
     //
     // Note that currently we don't add any ATL/MFC or WinRT paths (but could
     // do that probably first checking if they exist/empty).
     //
-    static dir_paths
-    msvc_inc (const msvc_info& mi)
+    static pair<dir_paths, size_t>
+    msvc_inc (const msvc_info& mi, const strings& mo)
     {
       dir_paths r;
+
+      // Extract /I paths from the compiler mode.
+      //
+      msvc_extract_header_search_dirs (mo, r);
+      size_t rn (r.size ());
 
       r.push_back (dir_path (mi.msvc_dir) /= "include");
 
@@ -1379,29 +1391,38 @@ namespace build2
         r.push_back (dir_path (d) /= "um"    );
       }
 
-      return r;
+      return make_pair (move (r), rn);
     }
 
     // Return the MSVC system module search paths (i.e., what the Visual
-    // Studio command prompt puts into IFCPATH).
+    // Studio command prompt puts into IFCPATH) including any paths from the
+    // compiler mode and their count.
     //
-    static dir_paths
-    msvc_mod (const msvc_info& mi, const char* cpu)
+    static pair<dir_paths, size_t>
+    msvc_mod (const msvc_info& mi, const strings&, const char* cpu)
     {
+      //@@ TODO: mode.
+
       dir_paths r;
 
       r.push_back ((dir_path (mi.msvc_dir) /= "ifc") /= cpu);
 
-      return r;
+      return make_pair (move (r), size_t (0));
     }
 
     // Return the MSVC system library search paths (i.e., what the Visual
-    // Studio command prompt puts into LIB).
+    // Studio command prompt puts into LIB) including any paths from the
+    // compiler mode and their count.
     //
-    static dir_paths
-    msvc_lib (const msvc_info& mi, const char* cpu)
+    static pair<dir_paths, size_t>
+    msvc_lib (const msvc_info& mi, const strings& mo, const char* cpu)
     {
       dir_paths r;
+
+      // Extract /LIBPATH paths from the compiler mode.
+      //
+      msvc_extract_library_search_dirs (mo, r);
+      size_t rn (r.size ());
 
       r.push_back ((dir_path (mi.msvc_dir) /= "lib") /= cpu);
 
@@ -1417,7 +1438,7 @@ namespace build2
         r.push_back ((dir_path (d) /= "um"  ) /= cpu);
       }
 
-      return r;
+      return make_pair (move (r), rn);
     }
 
     // Return the MSVC binutils search paths (i.e., what the Visual Studio
@@ -1452,7 +1473,7 @@ namespace build2
                 const path& xc,
                 const string* xv,
                 const string* xt,
-                const strings&,
+                const strings& x_mo,
                 const strings*, const strings*,
                 const strings*, const strings*,
                 const strings*, const strings*,
@@ -1616,18 +1637,18 @@ namespace build2
       // running out of the Visual Studio command prompt and will have to
       // supply PATH/INCLUDE/LIB/IFCPATH equivalents ourselves.
       //
-      optional<dir_paths> lib_dirs;
-      optional<dir_paths> inc_dirs;
-      optional<dir_paths> mod_dirs;
+      optional<pair<dir_paths, size_t>> lib_dirs;
+      optional<pair<dir_paths, size_t>> inc_dirs;
+      optional<pair<dir_paths, size_t>> mod_dirs;
       string bpat;
 
       if (const msvc_info* mi = static_cast<msvc_info*> (gr.info.get ()))
       {
         const char* cpu (msvc_cpu (target_triplet (t).cpu));
 
-        lib_dirs = msvc_lib (*mi, cpu);
-        inc_dirs = msvc_inc (*mi);
-        mod_dirs = msvc_mod (*mi, cpu);
+        lib_dirs = msvc_lib (*mi, x_mo, cpu);
+        inc_dirs = msvc_inc (*mi, x_mo);
+        mod_dirs = msvc_mod (*mi, x_mo, cpu);
 
         bpat = msvc_bin (*mi, cpu);
       }
@@ -2291,7 +2312,7 @@ namespace build2
       // For Clang on Windows targeting MSVC we remap the target to match
       // MSVC's.
       //
-      optional<dir_paths> lib_dirs;
+      optional<pair<dir_paths, size_t>> lib_dirs;
       string bpat;
 
       if (tt.system == "windows-msvc")
@@ -2333,7 +2354,7 @@ namespace build2
         // to extract this from Clang and -print-search-paths would have been
         // the natural way for Clang to report it. But no luck.
         //
-        lib_dirs = msvc_lib (mi, cpu);
+        lib_dirs = msvc_lib (mi, x_mo, cpu);
 
         // Binutils search paths.
         //

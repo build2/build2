@@ -2331,39 +2331,6 @@ namespace build2
         append_options (args, t, x_loptions);
         append_options (args, t, c_loptions);
 
-        // Extra system library dirs (last).
-        //
-        assert (sys_lib_dirs_extra <= sys_lib_dirs.size ());
-
-        if (tsys == "win32-msvc")
-        {
-          // If we have no LIB environment variable set, then we add all of
-          // them. But we want extras to come first.
-          //
-          auto b (sys_lib_dirs.begin ());
-          auto m (b + sys_lib_dirs_extra);
-          auto e (sys_lib_dirs.end ());
-
-          for (auto i (m); i != e; ++i)
-            sargs1.push_back ("/LIBPATH:" + i->string ());
-
-          if (!getenv ("LIB"))
-          {
-            for (auto i (b); i != m; ++i)
-              sargs1.push_back ("/LIBPATH:" + i->string ());
-          }
-
-          append_args (sargs1);
-        }
-        else
-        {
-          append_option_values (
-            args,
-            "-L",
-            sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
-            [] (const dir_path& d) {return d.string ().c_str ();});
-        }
-
         // Handle soname/rpath.
         //
         if (tclass == "windows")
@@ -2446,6 +2413,41 @@ namespace build2
 
         if (ldc)
           append_options (args, cmode);
+
+        // Extra system library dirs (last).
+        //
+        assert (sys_lib_dirs_extra <= sys_lib_dirs.size ());
+
+        if (tsys == "win32-msvc")
+        {
+          // If we have no LIB environment variable set, then we add all of
+          // them. But we want extras to come first.
+          //
+          // Note that the mode options are added as part of cmode.
+          //
+          auto b (sys_lib_dirs.begin () + sys_lib_dirs_mode);
+          auto m (sys_lib_dirs.begin () + sys_lib_dirs_extra);
+          auto e (sys_lib_dirs.end ());
+
+          for (auto i (m); i != e; ++i)
+            sargs1.push_back ("/LIBPATH:" + i->string ());
+
+          if (!getenv ("LIB"))
+          {
+            for (auto i (b); i != m; ++i)
+              sargs1.push_back ("/LIBPATH:" + i->string ());
+          }
+
+          append_args (sargs1);
+        }
+        else
+        {
+          append_option_values (
+            args,
+            "-L",
+            sys_lib_dirs.begin () + sys_lib_dirs_extra, sys_lib_dirs.end (),
+            [] (const dir_path& d) {return d.string ().c_str ();});
+        }
       }
 
       // All the options should now be in. Hash them and compare with the db.

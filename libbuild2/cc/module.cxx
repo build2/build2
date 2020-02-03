@@ -409,9 +409,9 @@ namespace build2
       //
       // Note that for now module search paths only come from compiler_info.
       //
-      dir_paths lib_dirs;
-      dir_paths inc_dirs;
-      const optional<dir_paths>& mod_dirs (xi.sys_mod_dirs);
+      pair<dir_paths, size_t> lib_dirs;
+      pair<dir_paths, size_t> inc_dirs;
+      const optional<pair<dir_paths, size_t>>& mod_dirs (xi.sys_mod_dirs);
 
       if (xi.sys_lib_dirs)
         lib_dirs = *xi.sys_lib_dirs;
@@ -420,10 +420,10 @@ namespace build2
         switch (xi.class_)
         {
         case compiler_class::gcc:
-          lib_dirs = gcc_library_search_paths (xi.path, rs);
+          lib_dirs = gcc_library_search_dirs (xi.path, rs);
           break;
         case compiler_class::msvc:
-          lib_dirs = msvc_library_search_paths (xi.path, rs);
+          lib_dirs = msvc_library_search_dirs (xi.path, rs);
           break;
         }
       }
@@ -435,16 +435,20 @@ namespace build2
         switch (xi.class_)
         {
         case compiler_class::gcc:
-          inc_dirs = gcc_header_search_paths (xi.path, rs);
+          inc_dirs = gcc_header_search_dirs (xi.path, rs);
           break;
         case compiler_class::msvc:
-          inc_dirs = msvc_header_search_paths (xi.path, rs);
+          inc_dirs = msvc_header_search_dirs (xi.path, rs);
           break;
         }
       }
 
-      sys_lib_dirs_extra = lib_dirs.size ();
-      sys_inc_dirs_extra = inc_dirs.size ();
+      sys_lib_dirs_mode = lib_dirs.second;
+      sys_inc_dirs_mode = inc_dirs.second;
+      sys_mod_dirs_mode = mod_dirs ? mod_dirs->second : 0;
+
+      sys_lib_dirs_extra = lib_dirs.first.size ();
+      sys_inc_dirs_extra = inc_dirs.first.size ();
 
 #ifndef _WIN32
       // Add /usr/local/{include,lib}. We definitely shouldn't do this if we
@@ -460,8 +464,8 @@ namespace build2
       // on the next invocation.
       //
       {
-        auto& is (inc_dirs);
-        auto& ls (lib_dirs);
+        auto& is (inc_dirs.first);
+        auto& ls (lib_dirs.first);
 
         bool ui  (find (is.begin (), is.end (), usr_inc)     != is.end ());
         bool uli (find (is.begin (), is.end (), usr_loc_inc) != is.end ());
@@ -598,40 +602,44 @@ namespace build2
           dr << "\n  pattern    " << xi.pattern;
         }
 
-        if (verb >= 3 && mod_dirs && !mod_dirs->empty ())
+        auto& mods (mod_dirs ? mod_dirs->first : dir_paths ());
+        auto& incs (inc_dirs.first);
+        auto& libs (lib_dirs.first);
+
+        if (verb >= 3 && !mods.empty ())
         {
           dr << "\n  mod dirs";
-          for (const dir_path& d: *mod_dirs)
+          for (const dir_path& d: mods)
           {
             dr << "\n    " << d;
           }
         }
 
-        if (verb >= 3 && !inc_dirs.empty ())
+        if (verb >= 3 && !incs.empty ())
         {
           dr << "\n  inc dirs";
-          for (size_t i (0); i != inc_dirs.size (); ++i)
+          for (size_t i (0); i != incs.size (); ++i)
           {
             if (i == sys_inc_dirs_extra)
               dr << "\n    --";
-            dr << "\n    " << inc_dirs[i];
+            dr << "\n    " << incs[i];
           }
         }
 
-        if (verb >= 3 && !lib_dirs.empty ())
+        if (verb >= 3 && !libs.empty ())
         {
           dr << "\n  lib dirs";
-          for (size_t i (0); i != lib_dirs.size (); ++i)
+          for (size_t i (0); i != libs.size (); ++i)
           {
             if (i == sys_lib_dirs_extra)
               dr << "\n    --";
-            dr << "\n    " << lib_dirs[i];
+            dr << "\n    " << libs[i];
           }
         }
       }
 
-      rs.assign (x_sys_lib_dirs) = move (lib_dirs);
-      rs.assign (x_sys_inc_dirs) = move (inc_dirs);
+      rs.assign (x_sys_lib_dirs) = move (lib_dirs.first);
+      rs.assign (x_sys_inc_dirs) = move (inc_dirs.first);
 
       // Load cc.core.config.
       //

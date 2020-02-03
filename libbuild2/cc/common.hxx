@@ -162,12 +162,20 @@ namespace build2
       const strings* xlate_hdr;     // x.translatable_headers (NULL if
                                     // unused/empty).
 
-      const dir_paths&           sys_lib_dirs; // x.sys_lib_dirs
-      const dir_paths&           sys_inc_dirs; // x.sys_inc_dirs
-      const optional<dir_paths>& sys_mod_dirs; // compiler_info::sys_mod_dirs
+      // The order of sys_*_dirs is the mode entries first, followed by the
+      // compiler built-in entries, and finished off with any extra entries
+      // (e.g., fallback directories such as /usr/local/*).
+      //
+      const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
+      const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
+      const dir_paths* sys_mod_dirs; // compiler_info::sys_mod_dirs
 
-      size_t sys_lib_dirs_extra;     // First extra path (size if none).
-      size_t sys_inc_dirs_extra;     // First extra path (size if none).
+      size_t sys_lib_dirs_mode; // Number of leading mode entries (0 if none).
+      size_t sys_inc_dirs_mode;
+      size_t sys_mod_dirs_mode;
+
+      size_t sys_lib_dirs_extra; // First trailing extra entry (size if none).
+      size_t sys_inc_dirs_extra;
 
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
@@ -214,9 +222,9 @@ namespace build2
             bool fs,
             const dir_paths& sld,
             const dir_paths& sid,
-            const optional<dir_paths>& smd,
-            size_t sle,
-            size_t sie,
+            const dir_paths* smd,
+            size_t slm, size_t sim, size_t smm,
+            size_t sle, size_t sie,
             const target_type& src,
             const target_type* mod,
             const target_type* const* hdr,
@@ -235,6 +243,8 @@ namespace build2
             symexport (fs),
             xlate_hdr (nullptr),
             sys_lib_dirs (sld), sys_inc_dirs (sid), sys_mod_dirs (smd),
+            sys_lib_dirs_mode (slm), sys_inc_dirs_mode (sim),
+            sys_mod_dirs_mode (smm),
             sys_lib_dirs_extra (sle), sys_inc_dirs_extra (sie),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };
@@ -324,7 +334,7 @@ namespace build2
       }
 
       dir_paths
-      extract_library_dirs (const scope&) const;
+      extract_library_search_dirs (const scope&) const;
 
       // Alternative search logic for VC (msvc.cxx).
       //

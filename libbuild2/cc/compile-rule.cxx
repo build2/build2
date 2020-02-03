@@ -192,12 +192,19 @@ namespace build2
     {
       assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
 
-      auto b (sys_inc_dirs.begin ());
-      auto m (b + sys_inc_dirs_extra);
+      // Note that the mode options are added as part of cmode.
+      //
+      auto b (sys_inc_dirs.begin () + sys_inc_dirs_mode);
+      auto m (sys_inc_dirs.begin () + sys_inc_dirs_extra);
       auto e (sys_inc_dirs.end ());
 
+      // Note: starting from 15.6, MSVC gained /external:I option though it
+      // doesn't seem to affect the order, only "system-ness".
+      //
       append_option_values (
-        args, cclass == compiler_class::msvc ? "/I" : "-I",
+        args,
+        cclass == compiler_class::gcc  ? "-idirafter" :
+        cclass == compiler_class::msvc ? "/I" : "-I",
         m, e,
         [] (const dir_path& d) {return d.string ().c_str ();});
 
@@ -866,10 +873,6 @@ namespace build2
             // Hash *.export.poptions from prerequisite libraries.
             //
             append_lib_options (bs, cs, a, t, li);
-
-            // Extra system header dirs (last).
-            //
-            append_sys_inc_options (cs);
           }
 
           append_options (cs, t, c_coptions);
@@ -885,6 +888,9 @@ namespace build2
           }
 
           append_options (cs, cmode);
+
+          if (md.pp != preprocessed::all)
+            append_sys_inc_options (cs); // Extra system header dirs (last).
 
           if (dd.expect (cs.string ()) != nullptr)
             l4 ([&]{trace << "options mismatch forcing update of " << t;});
@@ -2933,10 +2939,6 @@ namespace build2
             }
           }
 
-          // Extra system header dirs (last).
-          //
-          append_sys_inc_options (args);
-
           if (md.symexport)
             append_symexport_options (args, t);
 
@@ -2980,6 +2982,7 @@ namespace build2
               args.push_back ("/nologo");
 
               append_options (args, cmode);
+              append_sys_inc_options (args); // Extra system header dirs (last).
 
               // See perform_update() for details on overriding the default
               // exceptions and runtime.
@@ -3036,6 +3039,7 @@ namespace build2
               }
 
               append_options (args, cmode);
+              append_sys_inc_options (args); // Extra system header dirs (last).
 
               // Setup the dynamic module mapper if needed.
               //
@@ -4080,8 +4084,6 @@ namespace build2
 
           append_lib_options (t.base_scope (), args, a, t, li);
 
-          append_sys_inc_options (args);
-
           if (md.symexport)
             append_symexport_options (args, t);
 
@@ -4112,6 +4114,7 @@ namespace build2
               args.push_back ("/nologo");
 
               append_options (args, cmode);
+              append_sys_inc_options (args);
 
               if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
                 args.push_back ("/EHsc");
@@ -4147,6 +4150,7 @@ namespace build2
               }
 
               append_options (args, cmode);
+              append_sys_inc_options (args);
 
               args.push_back ("-E");
               append_lang_options (args, md);
@@ -5595,7 +5599,7 @@ namespace build2
       {
         // Add the VC's default directory (should be only one).
         //
-        if (sys_mod_dirs && !sys_mod_dirs->empty ())
+        if (sys_mod_dirs != nullptr && !sys_mod_dirs->empty ())
         {
           args.push_back ("/module:stdIfcDir");
           args.push_back (sys_mod_dirs->front ().string ().c_str ());
@@ -5693,10 +5697,6 @@ namespace build2
         //
         append_lib_options (bs, args, a, t, li);
 
-        // Extra system header dirs (last).
-        //
-        append_sys_inc_options (args);
-
         if (md.symexport)
           append_symexport_options (args, t);
       }
@@ -5725,6 +5725,9 @@ namespace build2
         args.push_back ("/nologo");
 
         append_options (args, cmode);
+
+        if (md.pp != preprocessed::all)
+          append_sys_inc_options (args); // Extra system header dirs (last).
 
         // While we want to keep the low-level build as "pure" as possible,
         // the two misguided defaults, exceptions and runtime, just have to be
@@ -5888,6 +5891,9 @@ namespace build2
         }
 
         append_options (args, cmode);
+
+        if (md.pp != preprocessed::all)
+          append_sys_inc_options (args); // Extra system header dirs (last).
 
         append_header_options (env, args, header_args, a, t, md, md.dd);
         append_module_options (env, args, module_args, a, t, md, md.dd);

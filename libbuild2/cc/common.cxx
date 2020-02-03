@@ -815,7 +815,7 @@ namespace build2
 
       if (!usrd)
       {
-        usrd = extract_library_dirs (*p.scope);
+        usrd = extract_library_search_dirs (*p.scope);
 
         // Handle automatic importing of installed build2 libraries. This is a
         // mirror side of the uninstalled case that is handled via the special
@@ -1011,8 +1011,14 @@ namespace build2
       return r;
     }
 
+    void
+    gcc_extract_library_search_dirs (const strings&, dir_paths&); // gcc.cxx
+
+    void
+    msvc_extract_library_search_dirs (const strings&, dir_paths&); // msvc.cxx
+
     dir_paths common::
-    extract_library_dirs (const scope& bs) const
+    extract_library_search_dirs (const scope& bs) const
     {
       dir_paths r;
 
@@ -1020,58 +1026,18 @@ namespace build2
       //
       auto extract = [&bs, &r, this] (const value& val, const variable& var)
       {
-        bool msvc (tsys == "win32-msvc");
-
         const auto& v (cast<strings> (val));
 
-        for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
-        {
-          const string& o (*i);
-
-          dir_path d;
-
-          try
+        auto df = make_diag_frame (
+          [&var, &bs](const diag_record& dr)
           {
-            if (msvc)
-            {
-              // /LIBPATH:<dir> (case-insensitive).
-              //
-              if ((o[0] == '/' || o[0] == '-') &&
-                  icasecmp (o.c_str () + 1, "LIBPATH:", 8) == 0)
-                d = dir_path (o, 9, string::npos);
-              else
-                continue;
-            }
-            else
-            {
-              // -L can either be in the "-L<dir>" or "-L <dir>" form.
-              //
-              if (o == "-L")
-              {
-                if (++i == e)
-                  break; // Let the compiler complain.
+            dr << info << "in variable " << var << " for scope " << bs;
+          });
 
-                d = dir_path (*i);
-              }
-              else if (o.compare (0, 2, "-L") == 0)
-                d = dir_path (o, 2, string::npos);
-              else
-                continue;
-            }
-          }
-          catch (const invalid_path& e)
-          {
-            fail << "invalid directory '" << e.path << "'"
-                 << " in option '" << o << "'"
-                 << " in variable " << var
-                 << " for scope " << bs;
-          }
-
-          // Ignore relative paths. Or maybe we should warn?
-          //
-          if (!d.relative ())
-            r.push_back (move (d));
-        }
+        if (tsys == "win32-msvc")
+          msvc_extract_library_search_dirs (v, r);
+        else
+          gcc_extract_library_search_dirs (v, r);
       };
 
       if (auto l = bs[c_loptions]) extract (*l, c_loptions);

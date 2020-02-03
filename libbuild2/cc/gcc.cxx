@@ -23,17 +23,61 @@ namespace build2
   {
     using namespace bin;
 
+    void
+    gcc_extract_library_search_dirs (const strings& v, dir_paths& r)
+    {
+      for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
+      {
+        const string& o (*i);
+
+        dir_path d;
+        try
+        {
+          // -L can either be in the "-L<dir>" or "-L <dir>" form.
+          //
+          if (o == "-L")
+          {
+            if (++i == e)
+              break; // Let the compiler complain.
+
+            d = dir_path (*i);
+          }
+          else if (o.compare (0, 2, "-L") == 0)
+            d = dir_path (o, 2, string::npos);
+          else
+            continue;
+        }
+        catch (const invalid_path& e)
+        {
+          fail << "invalid directory '" << e.path << "'" << " in option '"
+               << o << "'";
+        }
+
+        // Ignore relative paths. Or maybe we should warn?
+        //
+        if (!d.relative ())
+          r.push_back (move (d));
+      }
+    }
+
     // Extract system header search paths from GCC (gcc/g++) or compatible
-    // (Clang, Intel) using the -v -E </dev/null method.
+    // (Clang, Intel) using the `-v -E </dev/null` method.
     //
-    dir_paths config_module::
-    gcc_header_search_paths (const process_path& xc, scope& rs) const
+    // Note that we currently do not return an accurate number of mode paths
+    // though this information is currently not used for this compiler class.
+    // It's not even clear whether we can do this correctly since GCC will
+    // ignore an already-known system include path. Probably the only way to
+    // do this is to run the compiler twice.
+    //
+    pair<dir_paths, size_t> config_module::
+    gcc_header_search_dirs (const process_path& xc, scope& rs) const
     {
       dir_paths r;
 
+      // Note also that any -I and similar that we may specify on the command
+      // line are factored into the output.
+      //
       cstrings args {xc.recall_string ()};
-      append_options (args, rs, c_coptions);
-      append_options (args, rs, x_coptions);
       append_options (args, tstd);
       append_options (args, rs, x_mode);
 
@@ -154,14 +198,14 @@ namespace build2
         fail << "unable to extract " << x_lang << " compiler system header "
              << "search paths";
 
-      return r;
+      return make_pair (move (r), size_t (0));
     }
 
     // Extract system library search paths from GCC (gcc/g++) or compatible
     // (Clang, Intel) using the -print-search-dirs option.
     //
-    dir_paths config_module::
-    gcc_library_search_paths (const process_path& xc, scope& rs) const
+    pair<dir_paths, size_t> config_module::
+    gcc_library_search_dirs (const process_path& xc, scope& rs) const
     {
       // The output of -print-search-dirs are a bunch of lines that start with
       // "<name>: =" where name can be "install", "programs", or "libraries".
@@ -176,16 +220,20 @@ namespace build2
       // Maybe it's time we stop playing these games and start running
       // everything with LC_ALL=C? One drawback of this approach is that the
       // command that we print isn't exactly how we run. Maybe print it with
-      // the environment variables in front?
+      // the environment variables in front? Also there is MinGW GCC.
+      //
+      // Note also that any -L that we may specify on the command line are not
+      // factored into the output (unlike for headers above).
       //
       dir_paths r;
 
+      // Extract -L paths from the compiler mode.
+      //
+      gcc_extract_library_search_dirs (cast<strings> (rs[x_mode]), r);
+      size_t rn (r.size ());
+
       cstrings args {xc.recall_string ()};
-      append_options (args, rs, c_coptions);
-      append_options (args, rs, x_coptions);
       append_options (args, tstd);
-      append_options (args, rs, x_loptions);
-      append_options (args, rs, c_loptions);
       append_options (args, rs, x_mode);
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
@@ -267,7 +315,9 @@ namespace build2
           break;
       }
 
-      return r;
+      return make_pair (move (r), rn);
     }
+
+
   }
 }

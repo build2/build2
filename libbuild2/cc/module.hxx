@@ -26,7 +26,7 @@ namespace build2
     struct compiler_info;
 
     class LIBBUILD2_CC_SYMEXPORT config_module: public build2::module,
-                                                public virtual config_data
+                                                public config_data
     {
     public:
       explicit
@@ -55,27 +55,31 @@ namespace build2
 
       const compiler_info* x_info;
 
-      // Temporary storage for data::sys_*_dirs_extra.
+      // Temporary storage for data::sys_*_dirs_*.
       //
+      size_t sys_lib_dirs_mode;
+      size_t sys_inc_dirs_mode;
+      size_t sys_mod_dirs_mode;
+
       size_t sys_lib_dirs_extra;
       size_t sys_inc_dirs_extra;
 
     private:
       // Defined in gcc.cxx.
       //
-      dir_paths
-      gcc_header_search_paths (const process_path&, scope&) const;
+      pair<dir_paths, size_t>
+      gcc_header_search_dirs (const process_path&, scope&) const;
 
-      dir_paths
-      gcc_library_search_paths (const process_path&, scope&) const;
+      pair<dir_paths, size_t>
+      gcc_library_search_dirs (const process_path&, scope&) const;
 
       // Defined in msvc.cxx.
       //
-      dir_paths
-      msvc_header_search_paths (const process_path&, scope&) const;
+      pair<dir_paths, size_t>
+      msvc_header_search_dirs (const process_path&, scope&) const;
 
-      dir_paths
-      msvc_library_search_paths (const process_path&, scope&) const;
+      pair<dir_paths, size_t>
+      msvc_library_search_dirs (const process_path&, scope&) const;
 
     private:
       bool new_; // See guess() and init() for details.
