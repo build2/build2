@@ -493,7 +493,7 @@ namespace build2
         //
         if (!ui && !uli)
         {
-          for (const dir_path& d: inc_dirs)
+          for (const dir_path& d: is)
           {
             if (path_match (d, a_usr_inc))
             {
