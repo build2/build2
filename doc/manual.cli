@@ -1732,6 +1732,19 @@ will appear last on the command lines. For example:
 $ b configure config.cxx=\"g++ -m32\"
 \
 
+The compiler mode options are also the correct place to specify
+\i{system-like} header (\c{-I}) and library (\c{-L}, \c{/LIBPATH}) search
+paths. Where by system-like we mean common installation directories like
+\c{/usr/include} or \c{/usr/local/lib} which may contain older versions of the
+libraries we are trying to build and/or use. By specifying these paths as part
+of the mode options (as opposed to \c{config.*.poptions} and
+\c{config.*.loptions}) we make sure they will be considered last, similar to
+the compiler's build-in search paths. For example:
+
+\
+$ b configure config.cxx=\"g++ -L/opt/install\"
+\
+
 |
 
 We can also configure out of source builds of our projects. In this case,

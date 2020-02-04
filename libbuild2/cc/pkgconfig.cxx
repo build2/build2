@@ -74,7 +74,9 @@ namespace build2
 #ifndef BUILD2_BOOTSTRAP
 
   // Load package information from a .pc file. Filter out the -I/-L options
-  // that refer to system directories.
+  // that refer to system directories. This makes sure all the system search
+  // directories are "pushed" to the back which minimizes the chances of
+  // picking up wrong (e.g., old installed version) header/library.
   //
   // Note that the prerequisite package .pc files search order is as follows:
   //

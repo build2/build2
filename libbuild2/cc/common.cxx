@@ -1040,6 +1040,8 @@ namespace build2
           gcc_extract_library_search_dirs (v, r);
       };
 
+      // Note that the compiler mode options are in sys_lib_dirs.
+      //
       if (auto l = bs[c_loptions]) extract (*l, c_loptions);
       if (auto l = bs[x_loptions]) extract (*l, x_loptions);
 
