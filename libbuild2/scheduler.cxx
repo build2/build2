@@ -283,48 +283,54 @@ namespace build2
   {
     size_t n (max_threads_ == 1 ? 0 : max_threads_ * mul / div / 4);
 
+    // Return true if the specified number is prime.
+    //
+    auto prime = [] (size_t n)
+    {
+      // Check whether any number from 2 to the square root of n evenly
+      // divides n, and return false if that's the case.
+      //
+      // While iterating i till sqrt(n) would be more efficient let's do
+      // without floating arithmetic, since it doesn't make much difference
+      // for the numbers we evaluate. Note that checking for i <= n / 2 is
+      // just as efficient for small numbers but degrades much faster for
+      // bigger numbers.
+      //
+      for (size_t i (2); i * i <= n; ++i)
+      {
+        if (n % i == 0)
+          return false;
+      }
+
+      return n > 1;
+    };
+
+    // Return a prime number that is not less than the specified number.
+    //
+    auto next_prime = [&prime] (size_t n)
+    {
+      // Note that there is always a prime number in [n, 2 * n).
+      //
+      for (;; ++n)
+      {
+        if (prime (n))
+          return n;
+      }
+    };
+
     // Experience shows that we want something close to 2x for small numbers,
     // then reduce to 1.5x in-between, and 1x for large ones.
     //
     // Note that Intel Xeons are all over the map when it comes to cores (6,
     // 8, 10, 12, 14, 16, 18, 20, 22).
     //
-    return              // HW threads x arch-bits (see max_threads below)
-      n ==   0 ?    1 : // serial
-      //
-      // 2x
-      //
-      n ==   1 ?    3 :
-      n ==   2 ?    5 :
-      n ==   4 ?   11 :
-      n ==   6 ?   13 :
-      n ==   8 ?   17 : // 2 x 4
-      n ==  16 ?   31 : // 4 x 4, 2 x 8
-      //
-      // 1.5x
-      //
-      n ==  32 ?   47 : // 4 x 8
-      n ==  48 ?   53 : // 6 x 8
-      n ==  64 ?   67 : // 8 x 8
-      n ==  80 ?   89 : // 10 x 8
-      //
-      // 1x
-      //
-      n ==  96 ?  101 : // 12 x 8
-      n == 112 ?  127 : // 14 x 8
-      n == 128 ?  131 : // 16 x 8
-      n == 144 ?  139 : // 18 x 8
-      n == 160 ?  157 : // 20 x 8
-      n == 176 ?  173 : // 22 x 8
-      n == 192 ?  191 : // 24 x 8
-      n == 224 ?  223 : // 28 x 8
-      n == 256 ?  251 : // 32 x 8
-      n == 288 ?  271 : // 36 x 8
-      n == 320 ?  313 : // 40 x 8
-      n == 352 ?  331 : // 44 x 8
-      n == 384 ?  367 : // 48 x 8
-      n == 512 ?  499 : // 64 x 8
-      n - 1;            // Assume it is even.
+    // HW threads x arch-bits (see max_threads below).
+    //
+    return n ==  0 ? 1                      : // serial
+           n ==  1 ? 3                      : // odd prime number
+           n <= 16 ? next_prime (n * 2)     : // {2, 4} x 4, 2 x 8
+           n <= 80 ? next_prime (n * 3 / 2) : // {4, 6, 8, 10} x 8
+                     next_prime (n)         ; // {12, 14, 16, ...} x 8, ...
   }
 
   void scheduler::
