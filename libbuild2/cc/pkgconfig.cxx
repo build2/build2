@@ -839,11 +839,12 @@ namespace build2
         // shouldn't matter if we imported them via an export stub, direct
         // import installed, or via a .pc file (which we could have generated
         // from the export stub). The exception is "runtime libraries" (which
-        // are really the extension of libc) such as -lm, -ldl, -lpthread,
-        // etc. Those we will detect and leave as -l*.
+        // are really the extension of libc or the operating system in case of
+        // Windows) such as -lm, -ldl, -lpthread, etc. Those we will detect
+        // and leave as -l*.
         //
         // If we managed to resolve all the -l's (sans runtime), then we can
-        // omit -L's for nice and tidy command line.
+        // omit -L's for a nice and tidy command line.
         //
         bool all (true);
         optional<dir_paths> usrd; // Populate lazily.
@@ -853,37 +854,84 @@ namespace build2
           name& n (*i);
           string& l (n.value);
 
-          // These ones are common/standard/POSIX.
-          //
-          if (l[0] != '-'      || // e.g., shell32.lib
-              l == "-lm"       ||
-              l == "-ldl"      ||
-              l == "-lrt"      ||
-              l == "-lpthread")
-            continue;
-
-          // Note: these list are most likely incomplete.
-          //
-          if (tclass == "linux")
+          if (tclass == "windows")
           {
-            // Some extras from libc (see libc6-dev) and other places.
+            // This is a potentially very long and unstable list and we may
+            // need a mechanism to extend it on the fly. See issue #59 for one
+            // idea.
             //
-            if (l == "-lanl"     ||
-                l == "-lcrypt"   ||
-                l == "-lnsl"     ||
-                l == "-lresolv"  ||
-                l == "-lgcc")
-            continue;
-          }
-          else if (tclass == "macos")
-          {
-            if (l == "-lSystem")
+            auto cmp = [&l] (const char* s, size_t n = string::npos)
+            {
+              return icasecmp (l.c_str () + 2, s, n) == 0;
+            };
+
+            if (l[0] != '-') // e.g., just shell32.lib
               continue;
-          }
-          else if (tclass == "bsd")
-          {
-            if (l == "-lexecinfo")
+            else if (cmp ("advapi32")  ||
+                     cmp ("bcrypt")    ||
+                     cmp ("crypt32")   ||
+                     cmp ("d3d",   3)  || // d3d*
+                     cmp ("gdi32")     ||
+                     cmp ("imagehlp")  ||
+                     cmp ("mswsock")   ||
+                     cmp ("msxml", 5)  || // msxml*
+                     cmp ("normaliz")  ||
+                     cmp ("odbc32")    ||
+                     cmp ("ole32")     ||
+                     cmp ("oleaut32")  ||
+                     cmp ("rpcrt4")    ||
+                     cmp ("secur32")   ||
+                     cmp ("shell32")   ||
+                     cmp ("shlwapi")   ||
+                     cmp ("version")   ||
+                     cmp ("ws2")       ||
+                     cmp ("ws2_32")    ||
+                     cmp ("wsock32"))
+            {
+              if (tsys == "win32-msvc")
+              {
+                // Translate -l<name> to <name>.lib.
+                //
+                l.erase (0, 2);
+                l += ".lib";
+              }
               continue;
+            }
+          }
+          else
+          {
+            // These ones are common/standard/POSIX.
+            //
+            if (l[0] != '-'      || // e.g., absolute path
+                l == "-lm"       ||
+                l == "-ldl"      ||
+                l == "-lrt"      ||
+                l == "-lpthread")
+              continue;
+
+            // Note: these lists are most likely incomplete.
+            //
+            if (tclass == "linux")
+            {
+              // Some extras from libc (see libc6-dev) and other places.
+              //
+              if (l == "-lanl"     ||
+                  l == "-lcrypt"   ||
+                  l == "-lnsl"     ||
+                  l == "-lresolv"  ||
+                  l == "-lgcc")
+                continue;
+            }
+            else if (tclass == "macos")
+            {
+              if (l == "-lSystem")
+                continue;
+            }
+            else if (tclass == "bsd")
+            {
+              if (l == "-lexecinfo")
+                continue;
+            }
           }
 
           // Prepare user search paths by entering the -L paths from the .pc
@@ -952,7 +1000,7 @@ namespace build2
 
             if (tsys == "win32-msvc")
             {
-              // Translate -l<name> to <name>.lib.
+              // Again, translate -l<name> to <name>.lib.
               //
               l = move (nm += ".lib");
             }
