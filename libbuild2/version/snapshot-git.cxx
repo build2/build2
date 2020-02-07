@@ -1,5 +1,4 @@
 // file      : libbuild2/version/snapshot-git.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #include <ctime> // time_t

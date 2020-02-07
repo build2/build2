@@ -1,5 +1,4 @@
 // file      : libbuild2/cc/link-rule.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef LIBBUILD2_CC_LINK_RULE_HXX

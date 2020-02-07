@@ -1,5 +1,4 @@
 // file      : libbuild2/utility-installed.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 // Bootstrap build is never considered installed.

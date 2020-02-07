@@ -1,5 +1,4 @@
 # file      : tests/directive/run.testscript
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 # We are going to run the build system driver so no cross-testing.

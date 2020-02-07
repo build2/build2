@@ -1,5 +1,4 @@
 # file      : tests/function/regex/buildfile
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 ./: testscript $b

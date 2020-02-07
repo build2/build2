@@ -1,5 +1,4 @@
 # file      : tests/test/config-test/testscript
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 # Setup a realistic test project that we will then exercise.

@@ -1,5 +1,4 @@
 # file      : tests/test/script/generated/testscript.in
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 echo '@version@' >'1.2.3'

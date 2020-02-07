@@ -1,7 +1,6 @@
 #!/bin/sh
 
 # file      : bootstrap.sh
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 usage="Usage: $0 [-h] [--libbutl <dir>] [--host <triplet>] <cxx> [<cxx-option>...]"

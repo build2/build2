@@ -1,5 +1,4 @@
 // file      : build2/cli/target.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef BUILD2_CLI_TARGET_HXX

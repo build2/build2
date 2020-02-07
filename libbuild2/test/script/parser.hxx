@@ -1,5 +1,4 @@
 // file      : libbuild2/test/script/parser.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef LIBBUILD2_TEST_SCRIPT_PARSER_HXX

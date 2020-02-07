@@ -1,5 +1,4 @@
 // file      : libbuild2/name.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 // Note: include <libbuild2/types.hxx> instead of this file directly.

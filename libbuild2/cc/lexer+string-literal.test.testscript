@@ -1,5 +1,4 @@
 # file      : libbuild2/cc/lexer+string-literal.test.testscript
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 # Test string literals (except raw).

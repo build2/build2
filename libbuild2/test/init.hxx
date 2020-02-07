@@ -1,5 +1,4 @@
 // file      : libbuild2/test/init.hxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef LIBBUILD2_TEST_INIT_HXX

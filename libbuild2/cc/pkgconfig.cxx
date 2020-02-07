@@ -1,5 +1,4 @@
 // file      : libbuild2/cc/pkgconfig.cxx -*- C++ -*-
-// copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 // license   : MIT; see accompanying LICENSE file
 
 // In order not to complicate the bootstrap procedure with libpkgconf building

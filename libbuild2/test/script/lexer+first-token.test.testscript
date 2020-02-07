@@ -1,5 +1,4 @@
 # file      : libbuild2/test/script/lexer+first-token.test.testscript
-# copyright : Copyright (c) 2014-2019 Code Synthesis Ltd
 # license   : MIT; see accompanying LICENSE file
 
 # Note: this mode auto-expires after each token.
