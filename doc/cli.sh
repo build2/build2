@@ -1,13 +1,15 @@
 #! /usr/bin/env bash
 
 version=0.13.0-a.0.z
-date="$(date +"%B %Y")"
 
 trap 'exit 1' ERR
 set -o errtrace # Trap in functions.
 
 function info () { echo "$*" 1>&2; }
 function error () { info "$*"; exit 1; }
+
+date="$(date +"%B %Y")"
+copyright="$(sed -n -re 's%^Copyright \(c\) (.+)\.$%\1%p' ../COPYRIGHT)"
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -36,14 +38,26 @@ function compile ()
     shift
   done
 
-  cli -I .. -v project="build2" -v version="$version" -v date="$date" \
---include-base-last "${o[@]}" --generate-html --html-prologue-file \
-man-prologue.xhtml --html-epilogue-file man-epilogue.xhtml --html-suffix \
-.xhtml ../build2/$n.cli
+  cli -I .. \
+-v project="build2" \
+-v version="$version" \
+-v date="$date" \
+-v copyright="$copyright" \
+--include-base-last "${o[@]}" \
+--generate-html --html-suffix .xhtml \
+--html-prologue-file man-prologue.xhtml \
+--html-epilogue-file man-epilogue.xhtml \
+../build2/$n.cli
 
-  cli -I .. -v project="build2" -v version="$version" -v date="$date" \
---include-base-last "${o[@]}" --generate-man --man-prologue-file \
-man-prologue.1 --man-epilogue-file man-epilogue.1 --man-suffix .1 \
+  cli -I .. \
+-v project="build2" \
+-v version="$version" \
+-v date="$date" \
+-v copyright="$copyright" \
+--include-base-last "${o[@]}" \
+--generate-man --man-suffix .1 \
+--man-prologue-file man-prologue.1 \
+--man-epilogue-file man-epilogue.1 \
 ../build2/$n.cli
 }
 
@@ -78,6 +92,7 @@ function compile_doc () # <file> <prefix> <suffix>
   cli -I .. \
 -v version="$(echo "$version" | sed -e 's/^\([^.]*\.[^.]*\).*/\1/')" \
 -v date="$date" \
+-v copyright="$copyright" \
 --generate-html --html-suffix .xhtml \
 --html-prologue-file doc-prologue.xhtml \
 --html-epilogue-file doc-epilogue.xhtml \
