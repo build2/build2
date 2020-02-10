@@ -313,6 +313,31 @@ namespace build2
     fail << "io error reading " << args[0] << " output: " << e << endf;
   }
 
+  fdpipe
+  open_pipe ()
+  {
+    try
+    {
+      return fdopen_pipe ();
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to open pipe: " << e << endf;
+    }
+  }
+
+  auto_fd
+  open_dev_null ()
+  {
+    try
+    {
+      return fdnull ();
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to open null device: " << e << endf;
+    }
+  }
 
   const string       empty_string;
   const path         empty_path;

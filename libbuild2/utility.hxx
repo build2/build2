@@ -516,6 +516,14 @@ namespace build2
       verbosity, pe, args, forward<F> (f), error, ignore_exit, checksum);
   }
 
+  // File descriptor streams.
+  //
+  fdpipe
+  open_pipe ();
+
+  auto_fd
+  open_dev_null ();
+
   // Empty/nullopt string, path, and project name.
   //
   LIBBUILD2_SYMEXPORT extern const string       empty_string;

@@ -284,6 +284,7 @@ namespace build2
   // <libbutl/fdstream.mxx>
   //
   using butl::auto_fd;
+  using butl::fdpipe;
   using butl::ifdstream;
   using butl::ofdstream;
   using butl::fdopen_mode;

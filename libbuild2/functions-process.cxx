@@ -2,6 +2,7 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <libbutl/regex.mxx>
+#include <libbutl/builtin.mxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
@@ -17,7 +18,190 @@ namespace build2
   // - Mode to ignore error/suppress diagnostics and return NULL?
   // - Similar regex flags to regex.* functions (icase, etc)?
 
-  // Process arguments.
+  // Convert the program (builtin or process) arguments from names to strings.
+  // The function name is only used for diagnostics.
+  //
+  static inline strings
+  program_args (names&& args, const char* fn)
+  {
+    try
+    {
+      return convert<strings> (move (args));
+    }
+    catch (const invalid_argument& e)
+    {
+      fail << "invalid process." << fn << "() argument: " << e << endf;
+    }
+  }
+
+  // Read text from a stream, trim it and return as a value. Throw io_error on
+  // the stream reading error.
+  //
+  static value
+  read (auto_fd&& fd)
+  {
+    string v;
+    ifdstream is (move (fd));
+
+    // Note that getline() will fail if there is no data.
+    //
+    if (is.peek () != ifdstream::traits_type::eof ())
+      getline (is, v, '\0');
+
+    is.close (); // Detect errors.
+
+    names r;
+    r.push_back (to_name (move (trim (v))));
+    return value (move (r));
+  }
+
+  regex
+  parse_regex (const string&, regex::flag_type); // functions-regex.cxx
+
+  // Read lines from a stream, match them against a regular expression, and
+  // return the list of matched lines or their replacements, if the format is
+  // specified. Throw invalid_argument on the regex parsing error and io_error
+  // on the stream reading error.
+  //
+  static value
+  read_regex (auto_fd&& fd, const string& pat, const optional<string>& fmt)
+  {
+    names r;
+    ifdstream is (move (fd), fdstream_mode::skip, ifdstream::badbit);
+
+    // Note that the stream is read out (and is silently closed) if
+    // invalid_argument is thrown, which is probably ok since this is not a
+    // common case.
+    //
+    regex re (parse_regex (pat, regex::ECMAScript));
+
+    for (string l; !eof (getline (is, l)); )
+    {
+      if (fmt)
+      {
+        pair<string, bool> p (regex_replace_match (l, re, *fmt));
+
+        if (p.second)
+          r.push_back (to_name (move (p.first)));
+      }
+      else if (regex_match (l, re))
+        r.push_back (to_name (move (l)));
+    }
+
+    is.close (); // Detect errors.
+
+    return value (move (r));
+  }
+
+  // Return the builtin function pointer if this is a call to a builtin and
+  // NULL otherwise.
+  //
+  static builtin_function*
+  builtin (const names& args)
+  {
+    if (args.empty ())
+      return nullptr;
+
+    const name& nm (args[0]);
+    if (!nm.simple () || nm.pair)
+      return nullptr;
+
+    return builtins.find (nm.value);
+  }
+
+  // Return the builtin name and its arguments. The builtin function is only
+  // used to make sure that args have been checked with the builtin()
+  // predicate.
+  //
+  static pair<string, strings>
+  builtin_args (builtin_function*, names&& args, const char* fn)
+  {
+    string bn (move (args[0].value));
+    args.erase (args.begin (), args.begin () + 1);
+    return pair<string, strings> (move (bn), program_args (move (args), fn));
+  }
+
+  // Read data from a stream, optionally processing it and returning the
+  // result as a value.
+  //
+  using read_function = function<value (auto_fd&&)>;
+
+  // Run a builtin. The builtin name is only used for diagnostics.
+  //
+  static value
+  run_builtin_impl (builtin_function* bf,
+                    const strings& args,
+                    const string& bn,
+                    const read_function& read)
+  {
+    try
+    {
+      dir_path cwd;
+      builtin_callbacks cb;
+      fdpipe ofd (open_pipe ());
+
+      uint8_t rs; // Storage.
+      butl::builtin b (bf (rs,
+                           args,
+                           nullfd         /* stdin */,
+                           move (ofd.out) /* stdout */,
+                           nullfd         /* stderr */,
+                           cwd,
+                           cb));
+
+      try
+      {
+        value r (read (move (ofd.in)));
+
+        if (b.wait () == 0)
+          return r;
+
+        // Fall through.
+        //
+      }
+      catch (const io_error& e)
+      {
+        // If the builtin has failed then assume the io error was caused by
+        // that and so fall through.
+        //
+        if (b.wait () == 0)
+          fail << "io error reading " << bn << " builtin output: " << e;
+      }
+
+      // While assuming that the builtin has issued the diagnostics on failure
+      // we still print the error message (see process_finish() for details).
+      //
+      fail << bn << " builtin " << process_exit (rs) << endf;
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to execute " << bn << " builtin: " << e << endf;
+    }
+  }
+
+  static inline value
+  run_builtin (builtin_function* bf, const strings& args, const string& bn)
+  {
+    return run_builtin_impl (bf, args, bn, read);
+  }
+
+  static inline value
+  run_builtin_regex (builtin_function* bf,
+                     const strings& args,
+                     const string& bn,
+                     const string& pat,
+                     const optional<string>& fmt)
+  {
+    // Note that we rely on the "small function object" optimization here.
+    //
+    return run_builtin_impl (bf, args, bn,
+                             [&pat, &fmt] (auto_fd&& fd)
+                             {
+                               return read_regex (move (fd), pat, fmt);
+                             });
+  }
+
+  // Return the process path and its arguments.
   //
   static pair<process_path, strings>
   process_args (names&& args, const char* fn)
@@ -39,7 +223,26 @@ namespace build2
       }
       else
       {
-        pp = run_search (convert<path> (move (args[0])));
+        // Strip the builtin-escaping '^' character, if present.
+        //
+        path p (convert<path> (move (args[0])));
+
+        if (p.simple ())
+        try
+        {
+          const string& s (p.string ());
+
+          // Don't end up with an empty path.
+          //
+          if (s.size () > 1 && s[0] == '^')
+            p = path (s, 1, s.size () - 1);
+        }
+        catch (const invalid_path& e)
+        {
+          throw invalid_argument (e.path);
+        }
+
+        pp = run_search (p);
         erase = 1;
       }
 
@@ -47,27 +250,18 @@ namespace build2
     }
     catch (const invalid_argument& e)
     {
-      fail << "invalid process." << fn << "() executable path: " << e.what ();
+      fail << "invalid process." << fn << "() executable path: " << e;
     }
 
-    strings sargs;
-    try
-    {
-      sargs = convert<strings> (move (args));
-    }
-    catch (const invalid_argument& e)
-    {
-      fail << "invalid process." << fn << "() argument: " << e.what ();
-    }
-
-    return pair<process_path, strings> (move (pp), move (sargs));
+    return pair<process_path, strings> (move (pp),
+                                        program_args (move (args), fn));
   }
 
   static process
-  run_start (const scope*,
-             const process_path& pp,
-             const strings& args,
-             cstrings& cargs)
+  process_start (const scope*,
+                 const process_path& pp,
+                 const strings& args,
+                 cstrings& cargs)
   {
     cargs.reserve (args.size () + 2);
     cargs.push_back (pp.recall_string ());
@@ -84,77 +278,41 @@ namespace build2
                       -1              /* stdout */);
   }
 
-  static value
-  run (const scope* s, const process_path& pp, const strings& args)
+  // Always issue diagnostics on process failure, regardless if the process
+  // exited abnormally or normally with non-zero exit code.
+  //
+  // Note that the diagnostics stack is only printed if a diagnostics record
+  // is created, which is not always the case for run_finish().
+  //
+  void
+  process_finish (const scope*, const cstrings& args, process& pr)
   {
-    cstrings cargs;
-    process pr (run_start (s, pp, args, cargs));
-
-    string v;
     try
     {
-      ifdstream is (move (pr.in_ofd));
-
-      // Note that getline() will fail if there is no output.
-      //
-      if (is.peek () != ifdstream::traits_type::eof ())
-        getline (is, v, '\0');
-
-      is.close (); // Detect errors.
+      if (!pr.wait ())
+        fail << "process " << args[0] << " " << *pr.exit;
     }
-    catch (const io_error& e)
+    catch (const process_error& e)
     {
-      if (run_wait (cargs, pr))
-        fail << "io error reading " << cargs[0] << " output: " << e;
-
-      // If the child process has failed then assume the io error was
-      // caused by that and let run_finish() deal with it.
+      fail << "unable to execute " << args[0] << ": " << e;
     }
-
-    run_finish (cargs, pr);
-
-    names r;
-    r.push_back (to_name (move (trim (v))));
-    return value (move (r));
   }
 
-  regex
-  parse_regex (const string&, regex::flag_type); // functions-regex.cxx
-
+  // Run a process.
+  //
   static value
-  run_regex (const scope* s,
-             const process_path& pp,
-             const strings& args,
-             const string& pat,
-             const optional<string>& fmt)
+  run_process_impl (const scope* s,
+                    const process_path& pp,
+                    const strings& args,
+                    const read_function& read)
   {
-    regex re (parse_regex (pat, regex::ECMAScript));
-
     cstrings cargs;
-    process pr (run_start (s, pp, args, cargs));
+    process pr (process_start (s, pp, args, cargs));
 
-    names r;
+    value r;
     try
     {
-      ifdstream is (move (pr.in_ofd), ifdstream::badbit);
-
-      for (string l; !eof (getline (is, l)); )
-      {
-        if (fmt)
-        {
-          pair<string, bool> p (regex_replace_match (l, re, *fmt));
-
-          if (p.second)
-            r.push_back (to_name (move (p.first)));
-        }
-        else
-        {
-          if (regex_match (l, re))
-            r.push_back (to_name (move (l)));
-        }
-      }
-
-      is.close (); // Detect errors.
+      r = read (move (pr.in_ofd));
     }
     catch (const io_error& e)
     {
@@ -162,12 +320,48 @@ namespace build2
         fail << "io error reading " << cargs[0] << " output: " << e;
 
       // If the child process has failed then assume the io error was
-      // caused by that and let run_finish() deal with it.
+      // caused by that and let process_finish() deal with it.
     }
 
-    run_finish (cargs, pr);
+    process_finish (s, cargs, pr);
+    return r;
+  }
 
-    return value (move (r));
+  static inline value
+  run_process (const scope* s, const process_path& pp, const strings& args)
+  {
+    return run_process_impl (s, pp, args, read);
+  }
+
+  static inline value
+  run_process_regex (const scope* s,
+                     const process_path& pp,
+                     const strings& args,
+                     const string& pat,
+                     const optional<string>& fmt)
+  {
+    // Note that we rely on the "small function object" optimization here.
+    //
+    return run_process_impl (s, pp, args,
+                             [&pat, &fmt] (auto_fd&& fd)
+                             {
+                               return read_regex (move (fd), pat, fmt);
+                             });
+  }
+
+  static inline value
+  run (const scope* s, names&& args)
+  {
+    if (builtin_function* bf = builtin (args))
+    {
+      pair<string, strings> ba (builtin_args (bf, move (args), "run"));
+      return run_builtin (bf, ba.second, ba.first);
+    }
+    else
+    {
+      pair<process_path, strings> pa (process_args (move (args), "run"));
+      return run_process (s, pa.first, pa.second);
+    }
   }
 
   static inline value
@@ -176,8 +370,18 @@ namespace build2
              const string& pat,
              const optional<string>& fmt)
   {
-    pair<process_path, strings> pa (process_args (move (args), "run_regex"));
-    return run_regex (s, pa.first, pa.second, pat, fmt);
+    if (builtin_function* bf = builtin (args))
+    {
+      pair<string, strings> ba (builtin_args (bf, move (args), "run_regex"));
+      return run_builtin_regex (bf, ba.second, ba.first, pat, fmt);
+    }
+    else
+    {
+      pair<process_path, strings> pa (process_args (move (args),
+                                                    "run_regex"));
+
+      return run_process_regex (s, pa.first, pa.second, pat, fmt);
+    }
   }
 
   void
@@ -187,22 +391,22 @@ namespace build2
 
     // $process.run(<prog>[ <args>...])
     //
-    // Return trimmed stdout.
+    // Run builtin or external program and return trimmed stdout.
     //
     f[".run"] = [](const scope* s, names args)
     {
-      pair<process_path, strings> pa (process_args (move (args), "run"));
-      return run (s, pa.first, pa.second);
+      return run (s, move (args));
     };
 
     f["run"] = [](const scope* s, process_path pp)
     {
-      return run (s, pp, strings ());
+      return run_process (s, pp, strings ());
     };
 
     // $process.run_regex(<prog>[ <args>...], <pat> [, <fmt>])
     //
-    // Return stdout lines matched and optionally processed with regex.
+    // Run builtin or external program and return stdout lines matched and
+    // optionally processed with regex.
     //
     // Each line of stdout (including the customary trailing blank) is matched
     // (as a whole) against <pat> and, if successful, returned, optionally
@@ -226,7 +430,7 @@ namespace build2
                         string p,
                         optional<string> f)
     {
-      return run_regex (s, pp, strings (), p, f);
+      return run_process_regex (s, pp, strings (), p, f);
     };
 
     f["run_regex"] = [](const scope* s,
@@ -234,10 +438,12 @@ namespace build2
                         names p,
                         optional<names> f)
     {
-      return run_regex (s,
-                        pp, strings (),
-                        convert<string> (move (p)),
-                        f ? convert<string> (move (*f)) : nullopt_string);
+      return run_process_regex (s,
+                                pp, strings (),
+                                convert<string> (move (p)),
+                                (f
+                                 ? convert<string> (move (*f))
+                                 : nullopt_string));
     };
   }
 }

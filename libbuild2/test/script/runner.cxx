@@ -7,7 +7,7 @@
 
 #include <libbutl/regex.mxx>
 #include <libbutl/builtin.mxx>
-#include <libbutl/fdstream.mxx>     // fdopen_mode, fdnull(), fddup()
+#include <libbutl/fdstream.mxx>     // fdopen_mode, fddup()
 #include <libbutl/filesystem.mxx>   // path_search()
 #include <libbutl/path-pattern.mxx>
 
@@ -1352,15 +1352,7 @@ namespace build2
             //
           case redirect_type::null:
             {
-              try
-              {
-                ifd = fdnull ();
-              }
-              catch (const io_error& e)
-              {
-                fail (ll) << "unable to write to null device: " << e;
-              }
-
+              ifd = open_dev_null ();
               break;
             }
 
@@ -1388,7 +1380,6 @@ namespace build2
               open_stdin ();
               break;
             }
-
           case redirect_type::trace:
           case redirect_type::merge:
           case redirect_type::here_str_regex:
@@ -1445,7 +1436,6 @@ namespace build2
 
           fdopen_mode m (fdopen_mode::out | fdopen_mode::create);
 
-          auto_fd fd;
           redirect_type rt (r.type != redirect_type::trace
                             ? r.type
                             : verb < 2
@@ -1457,36 +1447,19 @@ namespace build2
             {
               try
               {
-                fd = fddup (dfd);
+                return fddup (dfd);
               }
               catch (const io_error& e)
               {
                 fail (ll) << "unable to duplicate " << what << ": " << e;
               }
-
-              return fd;
             }
 
-          case redirect_type::null:
-            {
-              try
-              {
-                fd = fdnull ();
-              }
-              catch (const io_error& e)
-              {
-                fail (ll) << "unable to write to null device: " << e;
-              }
+          case redirect_type::null: return open_dev_null ();
 
-              return fd;
-            }
-
-          case redirect_type::merge:
-            {
-              // Duplicate the paired file descriptor later.
-              //
-              return fd; // nullfd
-            }
+            // Duplicate the paired file descriptor later.
+            //
+          case redirect_type::merge: return nullfd;
 
           case redirect_type::file:
             {
@@ -1520,6 +1493,8 @@ namespace build2
           case redirect_type::trace:
           case redirect_type::here_doc_ref: assert (false); break;
           }
+
+          auto_fd fd;
 
           try
           {
@@ -1562,15 +1537,7 @@ namespace build2
         else
         {
           assert (out.type == redirect_type::none); // No redirect expected.
-
-          try
-          {
-            ofd = fdopen_pipe ();
-          }
-          catch (const io_error& e)
-          {
-            fail (ll) << "unable to open pipe: " << e;
-          }
+          ofd = open_pipe ();
         }
 
         path esp;

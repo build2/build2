@@ -5,25 +5,137 @@
 
 : run
 :
-$* <<EOI >>~/EOO/
-print $process.run($build.path --version)
-EOI
-/build2 .+/
-/.+/*
-EOO
+{
+  : process
+  :
+  {
+    $* <<EOI >>~/EOO/
+      print $process.run($build.path --version)
+      EOI
+      /build2 .+/
+      /.+/*
+      EOO
+  }
+
+  : bultin
+  :
+  {
+    echo 'abc' >=f;
+
+    $* <<EOI >>EOO
+      print $process.run(sed -e 's/abc/xyz/' f)
+      EOI
+      xyz
+      EOO
+  }
+
+  : escape-bultin
+  :
+  if ($cxx.target.class == 'linux')
+  {
+    cat <<EOI >=f;
+      a
+
+
+      b
+      EOI
+
+    $* <<EOI >>EOO
+      print $process.run(^cat --squeeze-blank f)
+      EOI
+      a
+
+      b
+      EOO
+  }
+}
 
 : run-regex-match
 :
-$* <<EOI >>~/EOO/
-print $process.run_regex($build.path --version, 'build2 .+')
-EOI
-/build2 .+/
-EOO
+{
+  : process
+  :
+  {
+    : success
+    :
+    {
+      $* <<EOI >>~/EOO/
+        print $process.run_regex($build.path --version, 'build2 .+')
+        EOI
+        /build2 .+/
+        EOO
+    }
+
+    : failure
+    :
+    {
+      $* <<EOI 2>>~/EOE/ != 0
+        print $process.run_regex($build.path --version, 'build2 (.+')
+        EOI
+        /error: invalid argument: invalid regex .+/
+        /.+
+        EOE
+    }
+  }
+
+  : builtin
+  :
+  {
+    : success
+    :
+    {
+      cat <<EOI >=f;
+        123
+        abc
+        EOI
+
+      $* <<EOI >>EOO
+        print $process.run_regex(cat f, 'a.+')
+        EOI
+        abc
+        EOO
+    }
+
+    : failure
+    :
+    {
+      echo 'a' >=f;
+
+      $* <<EOI 2>>~/EOE/ != 0
+        print $process.run_regex(cat f, 'a(.+')
+        EOI
+        /error: invalid argument: invalid regex .+/
+        /.+
+        EOE
+    }
+  }
+}
 
 : run-regex-replace
 :
-$* <<EOI >>~/EOO/
-print $process.run_regex($build.path --version, 'build2 ([0-9.]+).*', '\1')
-EOI
-/[0-9]+.[0-9]+.[0-9]+/d
-EOO
+{
+  : process
+  :
+  {
+    $* <<EOI >>~/EOO/
+      print $process.run_regex($build.path --version, 'build2 ([0-9.]+).*', '\1')
+      EOI
+      /[0-9]+.[0-9]+.[0-9]+/d
+      EOO
+  }
+
+  : builtin
+  :
+  {
+    cat <<EOI >=f;
+      123
+      abc
+      EOI
+
+    $* <<EOI >>EOO
+      print $process.run_regex(cat f, 'a(.+)', 'x\1')
+      EOI
+      xbc
+      EOO
+  }
+}
