@@ -2479,10 +2479,9 @@ namespace build2
       return make_pair (pt, remapped);
     }
 
-    // Update and add (unless add is false) to the list of prerequisite
-    // targets a header or header unit target. Depending on the cache flag,
-    // the target is assumed to either have come from the depdb cache or from
-    // the compiler run.
+    // Update and add to the list of prerequisite targets a header or header
+    // unit target. Depending on the cache flag, the target is assumed to
+    // either have come from the depdb cache or from the compiler run.
     //
     // Return the indication of whether it has changed or, if the passed
     // timestamp is not timestamp_unknown, is older than the target. If the
@@ -2505,10 +2504,21 @@ namespace build2
       // uninstalled and now we need to use one from /usr/include). This will
       // lead to the match failure which we translate to a restart.
       //
-      if (!cache)
-        build2::match (a, pt);
-      else if (!build2::try_match (a, pt).first)
-        return nullopt;
+      // And if this is not a cached entry, then we still use try_match() in
+      // order to issue consistent (with extract_headers() below) diagnostics
+      // (rather than the generic "not rule to update ...").
+      //
+      if (!try_match (a, pt).first)
+      {
+        if (cache)
+          return nullopt;
+
+        diag_record dr;
+        dr << fail << "header " << pt << " not found and cannot be generated";
+
+        if (verb < 4)
+          dr << info << "re-run with --verbose=4 for more information";
+      }
 
       bool r (update (trace, a, pt, mt));
 
@@ -3286,7 +3296,14 @@ namespace build2
                                       move (hp), true /* cache */,
                                       pfx_map, so_map).first);
         if (ht == nullptr)
-          fail << "header '" << hp << "' not found and cannot be generated";
+        {
+          diag_record dr;
+          dr << fail << "header '" << hp
+             << "' not found and cannot be generated";
+
+          if (verb < 4)
+            dr << info << "re-run with --verbose=4 for more information";
+        }
 
         // Again, looks like we have to update the header explicitly since
         // we want to restart rather than fail if it cannot be updated.
