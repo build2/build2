@@ -145,55 +145,58 @@ namespace build2
       values params;
       path_name pn ("<dist>");
       const location loc (pn); // Dummy location.
-
-      const operations& ops (rs->root_extra->operations);
-
-      for (operations::size_type id (default_id + 1); // Skip default_id.
-           id < ops.size ();
-           ++id)
       {
-        if (const operation_info* oif = ops[id])
+        auto mog = make_guard ([&ctx] () {ctx.match_only = false;});
+        ctx.match_only = true;
+
+        const operations& ops (rs->root_extra->operations);
+        for (operations::size_type id (default_id + 1); // Skip default_id.
+             id < ops.size ();
+             ++id)
         {
-          // Skip aliases (e.g., update-for-install). In fact, one can argue
-          // the default update should be sufficient since it is assumed to
-          // update all prerequisites and we no longer support ad hoc stuff
-          // like test.input. Though here we are using the dist meta-operation,
-          // not perform.
-          //
-          if (oif->id != id)
-            continue;
-
-          // Use standard (perform) match.
-          //
-          if (oif->pre != nullptr)
+          if (const operation_info* oif = ops[id])
           {
-            if (operation_id pid = oif->pre (params, dist_id, loc))
+            // Skip aliases (e.g., update-for-install). In fact, one can argue
+            // the default update should be sufficient since it is assumed to
+            // update all prerequisites and we no longer support ad hoc stuff
+            // like test.input. Though here we are using the dist meta-
+            // operation, not perform.
+            //
+            if (oif->id != id)
+              continue;
+
+            // Use standard (perform) match.
+            //
+            if (oif->pre != nullptr)
             {
-              const operation_info* poif (ops[pid]);
-              ctx.current_operation (*poif, oif, false /* diag_noise */);
-              action a (dist_id, poif->id, oif->id);
-              match (params, a, ts,
-                     1     /* diag (failures only) */,
-                     false /* progress */);
+              if (operation_id pid = oif->pre (params, dist_id, loc))
+              {
+                const operation_info* poif (ops[pid]);
+                ctx.current_operation (*poif, oif, false /* diag_noise */);
+                action a (dist_id, poif->id, oif->id);
+                match (params, a, ts,
+                       1     /* diag (failures only) */,
+                       false /* progress */);
+              }
             }
-          }
 
-          ctx.current_operation (*oif, nullptr, false /* diag_noise */);
-          action a (dist_id, oif->id);
-          match (params, a, ts,
-                 1     /* diag (failures only) */,
-                 false /* progress */);
+            ctx.current_operation (*oif, nullptr, false /* diag_noise */);
+            action a (dist_id, oif->id);
+            match (params, a, ts,
+                   1     /* diag (failures only) */,
+                   false /* progress */);
 
-          if (oif->post != nullptr)
-          {
-            if (operation_id pid = oif->post (params, dist_id))
+            if (oif->post != nullptr)
             {
-              const operation_info* poif (ops[pid]);
-              ctx.current_operation (*poif, oif, false /* diag_noise */);
-              action a (dist_id, poif->id, oif->id);
-              match (params, a, ts,
-                     1     /* diag (failures only) */,
-                     false /* progress */);
+              if (operation_id pid = oif->post (params, dist_id))
+              {
+                const operation_info* poif (ops[pid]);
+                ctx.current_operation (*poif, oif, false /* diag_noise */);
+                action a (dist_id, poif->id, oif->id);
+                match (params, a, ts,
+                       1     /* diag (failures only) */,
+                       false /* progress */);
+              }
             }
           }
         }

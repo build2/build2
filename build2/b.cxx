@@ -588,6 +588,7 @@ main (int argc, char* argv[])
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,
                               mutexes,
+                              ops.match_only (),
                               ops.dry_run (),
                               !ops.serial_stop () /* keep_going */,
                               cmd_vars));
@@ -1558,7 +1559,7 @@ main (int argc, char* argv[])
             if (dump_match)
               dump (*ctx, a);
 
-            if (mif->execute != nullptr && !ops.match_only ())
+            if (mif->execute != nullptr && !ctx->match_only)
               mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 
@@ -1585,7 +1586,7 @@ main (int argc, char* argv[])
           if (dump_match)
             dump (*ctx, a);
 
-          if (mif->execute != nullptr && !ops.match_only ())
+          if (mif->execute != nullptr && !ctx->match_only)
             mif->execute (mparams, a, tgs, diag, true /* progress */);
         }
 
@@ -1613,7 +1614,7 @@ main (int argc, char* argv[])
             if (dump_match)
               dump (*ctx, a);
 
-            if (mif->execute != nullptr && !ops.match_only ())
+            if (mif->execute != nullptr && !ctx->match_only)
               mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 

@@ -177,6 +177,7 @@ namespace build2
         ctx.module_context_storage->reset (
           new context (ctx.sched,
                        ctx.mutexes,
+                       false,                    /* match_only */
                        false,                    /* dry_run */
                        ctx.keep_going,
                        ctx.global_var_overrides, /* cmd_vars */

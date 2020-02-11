@@ -142,6 +142,10 @@ namespace build2
     scheduler& sched;
     global_mutexes& mutexes;
 
+    // Match only flag (see --match-only but also dist).
+    //
+    bool match_only;
+
     // Dry run flag (see --dry-run|-n).
     //
     // This flag is set (based on dry_run_option) only for the final execute
@@ -436,6 +440,7 @@ namespace build2
     explicit
     context (scheduler&,
              global_mutexes&,
+             bool match_only = false,
              bool dry_run = false,
              bool keep_going = true,
              const strings& cmd_vars = {},
