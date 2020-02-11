@@ -900,7 +900,18 @@ namespace build2
         //
         {
           const path& p (src.path ());
-          assert (!p.empty ()); // Sanity check.
+
+          // We seem to have a race condition here but can't quite put our
+          // finger on it.
+          //
+          // assert (!p.empty ()); // Sanity check.
+          if (p.empty ())
+          {
+            info << "unassigned path for target " << src <<
+              info << "target state: " << src.matched_state (a, false) <<
+              info << "is empty_path: " << (&p == &empty_path);
+            assert (false);
+          }
 
           if (dd.expect (p) != nullptr)
             l4 ([&]{trace << "source file mismatch forcing update of " << t;});
