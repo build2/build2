@@ -442,9 +442,13 @@ main (int argc, char* argv[])
     {
       cout << "build2 " << LIBBUILD2_VERSION_ID << endl
            << "libbutl " << LIBBUTL_VERSION_ID << endl
-           << "host " << BUILD2_HOST_TRIPLET << endl
-           << "Copyright (c) 2014-2019 Code Synthesis Ltd" << endl
-           << "This is free software released under the MIT license." << endl;
+           << "host " << BUILD2_HOST_TRIPLET << endl;
+
+#ifndef BUILD2_BOOTSTRAP
+      cout << "Copyright (c) " << BUILD2_COPYRIGHT << "." << endl;
+#endif
+
+      cout << "This is free software released under the MIT license." << endl;
       return 0;
     }
 

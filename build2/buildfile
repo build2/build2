@@ -20,6 +20,14 @@ exe{b}: {hxx ixx txx cxx}{** -b-options} {hxx ixx cxx}{b-options} $libs
 #
 obj{b}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
+# Pass the copyright notice extracted from the COPYRIGHT file.
+#
+copyright = $process.run_regex(cat $src_root/COPYRIGHT,  \
+                               'Copyright \(c\) (.+)\.', \
+                               '\1')
+
+obj{b}: cxx.poptions += -DBUILD2_COPYRIGHT=\"$copyright\"
+
 switch $cxx.target.class
 {
   case 'linux'
