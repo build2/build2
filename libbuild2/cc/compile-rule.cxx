@@ -166,6 +166,7 @@ namespace build2
 
       unit_type type;
       preprocessed pp = preprocessed::none;
+      bool deferred_failure = false;        // Failure deferred to compilation.
       bool symexport = false;               // Target uses __symexport.
       bool touch = false;                   // Target needs to be touched.
       timestamp mt = timestamp_unknown;     // Target timestamp.
@@ -985,6 +986,11 @@ namespace build2
         // Store the translation unit's checksum to detect ignorable changes
         // (whitespaces, comments, etc).
         //
+        // Note that we skip all of this if we have deferred a failure from
+        // the header extraction phase (none of the module information should
+        // be relevant).
+        //
+        if (!md.deferred_failure)
         {
           optional<string> cs;
           if (string* l = dd.read ())
@@ -1968,13 +1974,25 @@ namespace build2
                 break;
               }
 
-              // If we couldn't enter this header as a target (as opposed to
-              // not finding a rule to update it), then our diagnostics won't
-              // really add anything to the compiler's.
+              // If we couldn't enter this header as a target or find a rule
+              // to update it, then it most likely means a misspelled header
+              // (rather than a broken generated header setup) and our
+              // diagnostics won't really add anything to the compiler's. So
+              // let's only print it at -V or higher.
               //
               if (ht == nullptr)
               {
                 assert (!exists); // Sanity check.
+
+                if (verb > 2)
+                {
+                  diag_record dr;
+                  dr << error << "header '" << f << "' not found";
+
+                  if (verb < 4)
+                    dr << info << "re-run with --verbose=4 for more information";
+                }
+
                 throw failed ();
               }
 
@@ -1987,9 +2005,11 @@ namespace build2
                 if (pts.empty () || pts.back () != ht)
                 {
                   optional<bool> ir (inject_header (a, t,
-                                                    *ht, false /* cache */,
-                                                    timestamp_unknown));
-                  assert (ir); // Not from cache.
+                                                    *ht, timestamp_unknown,
+                                                    verb > 2 /* fail */));
+                  if (!ir)
+                    throw failed ();
+
                   updated = *ir;
                 }
                 else
@@ -2063,8 +2083,8 @@ namespace build2
               if (!skip)
               {
                 optional<bool> ir (inject_header (a, t,
-                                                  bt, false /* cache */,
-                                                  timestamp_unknown));
+                                                  bt, timestamp_unknown,
+                                                  true /* fail */));
                 assert (ir); // Not from cache.
                 update = *ir || update;
               }
@@ -2480,41 +2500,35 @@ namespace build2
     }
 
     // Update and add to the list of prerequisite targets a header or header
-    // unit target. Depending on the cache flag, the target is assumed to
-    // either have come from the depdb cache or from the compiler run.
+    // unit target.
     //
     // Return the indication of whether it has changed or, if the passed
     // timestamp is not timestamp_unknown, is older than the target. If the
-    // header came from the cache and it no longer exists nor can be
-    // generated, then return nullopt.
+    // header does not exists nor can be generated (no rule), then issue
+    // diagnostics and fail if the fail argument is true and return nullopt
+    // otherwise.
     //
     // Note: this used to be a lambda inside extract_headers() so refer to the
     // body of that function for the overall picture.
     //
     optional<bool> compile_rule::
     inject_header (action a, file& t,
-                   const file& pt, bool cache, timestamp mt) const
+                   const file& pt, timestamp mt, bool f /* fail */) const
     {
       tracer trace (x, "compile_rule::inject_header");
 
-      // Match to a rule.
-      //
-      // If we are reading the cache, then it is possible the file has since
-      // been removed (think of a header in /usr/local/include that has been
-      // uninstalled and now we need to use one from /usr/include). This will
-      // lead to the match failure which we translate to a restart.
-      //
-      // And if this is not a cached entry, then we still use try_match() in
-      // order to issue consistent (with extract_headers() below) diagnostics
-      // (rather than the generic "not rule to update ...").
+      // Even if failing we still use try_match() in order to issue consistent
+      // (with extract_headers() below) diagnostics (rather than the generic
+      // "not rule to update ...").
       //
       if (!try_match (a, pt).first)
       {
-        if (cache)
+        if (!f)
           return nullopt;
 
         diag_record dr;
-        dr << fail << "header " << pt << " not found and cannot be generated";
+        dr << fail << "header " << pt << " not found and no rule to "
+           << "generate it";
 
         if (verb < 4)
           dr << info << "re-run with --verbose=4 for more information";
@@ -3249,27 +3263,46 @@ namespace build2
       // Enter as a target, update, and add to the list of prerequisite
       // targets a header file. Depending on the cache flag, the file is
       // assumed to either have come from the depdb cache or from the compiler
-      // run. Return true if the extraction process should be restarted.
+      // run. Return true if the extraction process should be restarted and
+      // false otherwise. Return nullopt if the header is not found and cannot
+      // be generated, the diagnostics has been issued, but the failure has
+      // been deferred to the compiler run in order to get better diagnostics.
       //
       auto add = [a, &bs, &t, li,
                   &pfx_map, &so_map,
                   &dd, &skip_count,
-                  this] (path hp, bool cache, timestamp mt) -> bool
+                  this] (path hp, bool cache, timestamp mt) -> optional<bool>
       {
+        context& ctx (t.ctx);
+
+        // We can only defer the failure if we will be running the compiler.
+        // Let's also only do it in the "keep going" mode.
+        //
+        bool df (!ctx.dry_run_option && ctx.keep_going);
+
         const file* ht (enter_header (a, bs, t, li,
                                       move (hp), cache,
                                       pfx_map, so_map).first);
         if (ht == nullptr)
         {
           diag_record dr;
-          dr << fail << "header '" << hp
-             << "' not found and cannot be generated";
+          dr << error << "header '" << hp << "' not found";
+
+          if (df)
+            dr << info << "failure deferred to compiler diagnostics";
 
           if (verb < 4)
             dr << info << "re-run with --verbose=4 for more information";
+
+          if (df) return nullopt; else dr << endf;
         }
 
-        if (optional<bool> u = inject_header (a, t, *ht, cache, mt))
+        // If we are reading the cache, then it is possible the file has since
+        // been removed (think of a header in /usr/local/include that has been
+        // uninstalled and now we need to use one from /usr/include). This
+        // will lead to the match failure which we translate to a restart.
+        //
+        if (optional<bool> u = inject_header (a, t, *ht, mt, false /* fail */))
         {
           // Verify/add it to the dependency database.
           //
@@ -3278,6 +3311,20 @@ namespace build2
 
           skip_count++;
           return *u;
+        }
+        else if (!cache)
+        {
+          diag_record dr;
+          dr << error << "header " << *ht << " not found and no rule to "
+             << "generate it";
+
+          if (df)
+            dr << info << "failure deferred to compiler diagnostics";
+
+          if (verb < 4)
+            dr << info << "re-run with --verbose=4 for more information";
+
+          if (df) return nullopt; else dr << endf;
         }
 
         dd.write (); // Invalidate this line.
@@ -3290,25 +3337,32 @@ namespace build2
       auto add_unit = [a, &bs, &t, li,
                        &pfx_map, &so_map,
                        &dd, &skip_count, &md,
-                       this] (path hp, path bp, timestamp mt) -> bool
+                       this] (path hp, path bp, timestamp mt) -> optional<bool>
       {
+        context& ctx (t.ctx);
+        bool df (!ctx.dry_run_option && ctx.keep_going);
+
         const file* ht (enter_header (a, bs, t, li,
                                       move (hp), true /* cache */,
                                       pfx_map, so_map).first);
         if (ht == nullptr)
         {
           diag_record dr;
-          dr << fail << "header '" << hp
-             << "' not found and cannot be generated";
+          dr << error << "header '" << hp << "' not found";
+
+          if (df)
+            dr << info << "failure deferred to compiler diagnostics";
 
           if (verb < 4)
             dr << info << "re-run with --verbose=4 for more information";
+
+          if (df) return nullopt; else dr << endf;
         }
 
         // Again, looks like we have to update the header explicitly since
         // we want to restart rather than fail if it cannot be updated.
         //
-        if (inject_header (a, t, *ht, true /* cache */, mt))
+        if (inject_header (a, t, *ht, mt, false /* fail */))
         {
           const file& bt (make_header_sidebuild (a, bs, li, *ht));
 
@@ -3316,8 +3370,7 @@ namespace build2
           // the header, we should be able to build its BMI. In other words, a
           // restart is not going to change anything.
           //
-          optional<bool> u (inject_header (a, t,
-                                           bt, false /* cache */, mt));
+          optional<bool> u (inject_header (a, t, bt, mt, true /* fail */));
           assert (u); // Not from cache.
 
           if (bt.path () == bp)
@@ -3386,6 +3439,7 @@ namespace build2
             // older than the target (if it has changed since the target was
             // updated, then the cached data is stale).
             //
+            optional<bool> r;
             if ((*l)[0] == '@')
             {
               size_t p (l->find ('\'', 3));
@@ -3395,19 +3449,35 @@ namespace build2
                 path h (*l, 3, p - 3);
                 path b (move (l->erase (0, p + 2)));
 
-                restart = add_unit (move (h), move (b), mt);
+                r = add_unit (move (h), move (b), mt);
               }
               else
-                restart = true; // Corrupt database?
+                r = true; // Corrupt database?
             }
             else
-              restart = add (path (move (*l)), true, mt);
+              r = add (path (move (*l)), true /* cache */, mt);
 
-            if (restart)
+            if (r)
             {
+              restart = *r;
+
+              if (restart)
+              {
+                update = true;
+                l6 ([&]{trace << "restarting (cache)";});
+                break;
+              }
+            }
+            else
+            {
+              // Trigger recompilation and mark as expected to fail.
+              //
               update = true;
-              l6 ([&]{trace << "restarting (cache)";});
-              break;
+              md.deferred_failure = true;
+
+              // Bail out early if we have deferred a failure.
+              //
+              return make_pair (auto_rmfile (), false);
             }
           }
         }
@@ -3739,37 +3809,50 @@ namespace build2
                       }
                       else
                       {
-                        restart = add (path (move (f)), false, pmt);
-
-                        // If the header does not exist (good_error), then
-                        // restart must be true. Except that it is possible
-                        // that someone running in parallel has already
-                        // updated it. In this case we must force a restart
-                        // since we haven't yet seen what's after this
-                        // at-that-time-non-existent header.
-                        //
-                        // We also need to force the target update (normally
-                        // done by add()).
-                        //
-                        if (good_error)
-                          restart = true;
-                        //
-                        // And if we have updated the header (restart is
-                        // true), then we may end up in this situation: an old
-                        // header got included which caused the preprocessor
-                        // to fail down the line. So if we are restarting, set
-                        // the good error flag in case the process fails
-                        // because of something like this (and if it is for a
-                        // valid reason, then we will pick it up on the next
-                        // round).
-                        //
-                        else if (restart)
-                          good_error = true;
-
-                        if (restart)
+                        if (optional<bool> r = add (path (move (f)),
+                                                    false /* cache */,
+                                                    pmt))
                         {
+                          restart = *r;
+
+                          // If the header does not exist (good_error), then
+                          // restart must be true. Except that it is possible
+                          // that someone running in parallel has already
+                          // updated it. In this case we must force a restart
+                          // since we haven't yet seen what's after this
+                          // at-that-time-non-existent header.
+                          //
+                          // We also need to force the target update (normally
+                          // done by add()).
+                          //
+                          if (good_error)
+                            restart = true;
+                          //
+                          // And if we have updated the header (restart is
+                          // true), then we may end up in this situation: an
+                          // old header got included which caused the
+                          // preprocessor to fail down the line. So if we are
+                          // restarting, set the good error flag in case the
+                          // process fails because of something like this (and
+                          // if it is for a valid reason, then we will pick it
+                          // up on the next round).
+                          //
+                          else if (restart)
+                            good_error = true;
+
+                          if (restart)
+                          {
+                            update = true;
+                            l6 ([&]{trace << "restarting";});
+                          }
+                        }
+                        else
+                        {
+                          // Trigger recompilation and mark as expected to
+                          // fail.
+                          //
                           update = true;
-                          l6 ([&]{trace << "restarting";});
+                          md.deferred_failure = true;
                         }
                       }
 
@@ -3834,17 +3917,31 @@ namespace build2
                           continue;
                         }
 
-                        restart = add (path (move (f)), false, pmt);
-
-                        if (restart)
+                        if (optional<bool> r = add (path (move (f)),
+                                                    false /* cache */,
+                                                    pmt))
                         {
-                          // The same "preprocessor may fail down the line"
-                          // logic as above.
-                          //
-                          good_error = true;
+                          restart = *r;
 
+                          if (restart)
+                          {
+                            // The same "preprocessor may fail down the line"
+                            // logic as above.
+                            //
+                            good_error = true;
+
+                            update = true;
+                            l6 ([&]{trace << "restarting";});
+                            break;
+                          }
+                        }
+                        else
+                        {
+                          // Trigger recompilation, mark as expected to fail,
+                          // and bail out.
+                          //
                           update = true;
-                          l6 ([&]{trace << "restarting";});
+                          md.deferred_failure = true;
                           break;
                         }
                       }
@@ -3853,8 +3950,16 @@ namespace build2
                     }
                   }
 
-                  if (bad_error)
+                  if (bad_error || md.deferred_failure)
                     break;
+                }
+
+                // Bail out early if we have deferred a failure.
+                //
+                if (md.deferred_failure)
+                {
+                  is.close ();
+                  return make_pair (auto_rmfile (), false);
                 }
 
                 // In case of VC, we are parsing stderr and if things go
@@ -5655,7 +5760,10 @@ namespace build2
       const file& s (pr.second);
       const path* sp (&s.path ());
 
-      if (pr.first)
+      // Force recompilation in case of a deferred failure even if nothing
+      // changed.
+      //
+      if (pr.first && !md.deferred_failure)
       {
         if (md.touch)
         {
@@ -6086,7 +6194,7 @@ namespace build2
       // re-using the previously preprocessed output. However, everything
       // points towards us needing this in the near future since with modules
       // we may be out of date but not needing to re-preprocess the
-      // translation unit (i.e., one of the imported module's has BMIs
+      // translation unit (i.e., one of the imported module's BMIs has
       // changed).
       //
       if (!ctx.dry_run)
@@ -6143,6 +6251,9 @@ namespace build2
 
           throw failed ();
         }
+
+        if (md.deferred_failure)
+          fail << "expected error exit status from " << x_lang << " compiler";
       }
 
       // Remove preprocessed file (see above).
