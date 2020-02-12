@@ -1352,7 +1352,7 @@ namespace build2
             //
           case redirect_type::null:
             {
-              ifd = open_dev_null ();
+              ifd = open_null ();
               break;
             }
 
@@ -1455,7 +1455,7 @@ namespace build2
               }
             }
 
-          case redirect_type::null: return open_dev_null ();
+          case redirect_type::null: return open_null ();
 
             // Duplicate the paired file descriptor later.
             //

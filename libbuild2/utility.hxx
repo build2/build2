@@ -522,7 +522,7 @@ namespace build2
   open_pipe ();
 
   auto_fd
-  open_dev_null ();
+  open_null ();
 
   // Empty/nullopt string, path, and project name.
   //
