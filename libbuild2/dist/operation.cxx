@@ -694,7 +694,7 @@ namespace build2
       // Change the archiver's working directory to dist_root.
       //
       apr = run_start (app,
-                       args.data (),
+                       args,
                        0                 /* stdin  */,
                        (i != 0 ? -1 : 1) /* stdout */,
                        true              /* error */,

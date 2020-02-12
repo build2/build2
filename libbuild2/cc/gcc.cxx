@@ -243,7 +243,7 @@ namespace build2
       // Open pipe to stdout.
       //
       process pr (run_start (xc,
-                             args.data (),
+                             args,
                              0, /* stdin */
                              -1 /* stdout */));
 

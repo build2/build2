@@ -293,7 +293,20 @@ namespace build2
              const location& = location ());
 
   inline process
-  run_start (const process_env& pe, // Implicit-constructible from process_path.
+  run_start (uint16_t verbosity,
+             const process_env& pe,
+             cstrings& args,
+             int in,
+             int out,
+             bool error = true,
+             const dir_path& cwd = dir_path (),
+             const location& l = location ())
+  {
+    return run_start (verbosity, pe, args.data (), in, out, error, cwd, l);
+  }
+
+  inline process
+  run_start (const process_env& pe,
              const char* args[],
              int in,
              int out,
@@ -302,6 +315,18 @@ namespace build2
              const location& l = location ())
   {
     return run_start (verb_never, pe, args, in, out, error, cwd, l);
+  }
+
+  inline process
+  run_start (const process_env& pe,
+             cstrings& args,
+             int in,
+             int out,
+             bool error = true,
+             const dir_path& cwd = dir_path (),
+             const location& l = location ())
+  {
+    return run_start (pe, args.data (), in, out, error, cwd, l);
   }
 
   inline void

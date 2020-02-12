@@ -79,7 +79,7 @@ namespace build2
 
     return run_start (3               /* verbosity */,
                       pp,
-                      cargs.data (),
+                      cargs,
                       0               /* stdin  */,
                       -1              /* stdout */);
   }

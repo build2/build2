@@ -184,7 +184,7 @@ namespace build2
       //
       process pr (run_start (3     /* verbosity */,
                              xp,
-                             args.data (),
+                             args,
                              -1    /* stdin */,
                              -1    /* stdout */,
                              false /* error  */));
@@ -1942,7 +1942,7 @@ namespace build2
       //
       process pr (run_start (3     /* verbosity */,
                              xp,
-                             args.data (),
+                             args,
                              -2    /* stdin  (/dev/null) */,
                              -1    /* stdout             */,
                              false /* error  (2>&1)      */));
