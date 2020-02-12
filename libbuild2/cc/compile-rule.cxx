@@ -3287,9 +3287,12 @@ namespace build2
         context& ctx (t.ctx);
 
         // We can only defer the failure if we will be running the compiler.
-        // Let's also only do it in the "keep going" mode.
         //
-        bool df (!ctx.match_only && !ctx.dry_run_option && ctx.keep_going);
+        // We also used to only do it in the "keep going" mode but that proved
+        // to be inconvenient: some users like to re-run a failed build with
+        // -s not to get "swamped" with errors.
+        //
+        bool df (!ctx.match_only && !ctx.dry_run_option);
 
         const file* ht (enter_header (a, bs, t, li,
                                       move (hp), cache,
@@ -3351,7 +3354,7 @@ namespace build2
                        this] (path hp, path bp, timestamp mt) -> optional<bool>
       {
         context& ctx (t.ctx);
-        bool df (!ctx.match_only && !ctx.dry_run_option && ctx.keep_going);
+        bool df (!ctx.match_only && !ctx.dry_run_option);
 
         const file* ht (enter_header (a, bs, t, li,
                                       move (hp), true /* cache */,
