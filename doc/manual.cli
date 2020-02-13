@@ -465,7 +465,7 @@ executable (\c{-t\ exe}) and library (\c{-t\ lib}) projects. To change the C++
 file extensions to \c{.hpp/.cpp}, pass \c{-l c++,cpp}. For example:
 
 \
-$ bdep new --no-init -t exe -l c++,cpp hello
+$ bdep new --no-init -l c++,cpp -t exe hello
 \
 
 |
@@ -2833,7 +2833,7 @@ will always be binless and in all configurations, then you can produce a
 simplified \c{buildfile} by specifying the \c{binless} option, for example:
 
 \
-$ bdep new -t lib -l c++,binless libheader-only
+$ bdep new -l c++,binless -t lib libheader-only
 \
 
 |
