@@ -2833,7 +2833,7 @@ will always be binless and in all configurations, then you can produce a
 simplified \c{buildfile} by specifying the \c{binless} option, for example:
 
 \
-$ bdep new -l c++,binless -t lib libheader-only
+$ bdep new -l c++ -t lib,binless libheader-only
 \
 
 |
