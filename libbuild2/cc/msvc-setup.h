@@ -1,3 +1,6 @@
+// This file comes from the Microsoft.VisualStudio.Setup.Configuration.Native
+// NuGet package where it is called Setup.Configuration.h.
+//
 // The MIT License(MIT)
 // Copyright(C) Microsoft Corporation.All rights reserved.
 //

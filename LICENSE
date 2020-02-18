@@ -1,14 +1,7 @@
-libbuild2/cc/msvc-setup.h:
-
-MIT License, see the file header for details. This file comes from the
-Microsoft.VisualStudio.Setup.Configuration.Native NuGet package and is
-originally named Setup.Configuration.h.
-
-The rest:
-
 MIT License
 
-See the accompanying COPYRIGHT file for the copyright information.
+Copyright (c) 2014-2020 the build2 authors (see the AUTHORS file).
+Copyright (c) Microsoft Corporation for the libbuild2/cc/msvc-setup.h file.
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
