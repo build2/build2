@@ -20,11 +20,12 @@ exe{b}: {hxx ixx txx cxx}{** -b-options} {hxx ixx cxx}{b-options} $libs
 #
 obj{b}: cxx.poptions += -DBUILD2_HOST_TRIPLET=\"$cxx.target\"
 
-# Pass the copyright notice extracted from the COPYRIGHT file.
+# Pass the copyright notice extracted from the LICENSE file.
 #
-copyright = $process.run_regex(cat $src_root/COPYRIGHT,  \
-                               'Copyright \(c\) (.+)\.', \
-                               '\1')
+copyright = $process.run_regex(                      \
+  cat $src_root/LICENSE,                             \
+  'Copyright \(c\) (.+) \(see the AUTHORS file\)\.', \
+  '\1')
 
 obj{b}: cxx.poptions += -DBUILD2_COPYRIGHT=\"$copyright\"
 

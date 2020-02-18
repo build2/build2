@@ -9,7 +9,7 @@ function info () { echo "$*" 1>&2; }
 function error () { info "$*"; exit 1; }
 
 date="$(date +"%B %Y")"
-copyright="$(sed -n -re 's%^Copyright \(c\) (.+)\.$%\1%p' ../COPYRIGHT)"
+copyright="$(sed -n -re 's%^Copyright \(c\) (.+) \(see the AUTHORS file\)\.$%\1%p' ../LICENSE)"
 
 while [ $# -gt 0 ]; do
   case $1 in
