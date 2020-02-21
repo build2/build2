@@ -88,7 +88,7 @@ namespace build2
     lexer_mode (base_type v): base_type (v) {}
   };
 
-  class LIBBUILD2_SYMEXPORT lexer: public butl::char_scanner
+  class LIBBUILD2_SYMEXPORT lexer: public butl::char_scanner<>
   {
   public:
     // If escape is not NULL then only escape sequences with characters from
@@ -220,7 +220,7 @@ namespace build2
 namespace butl // ADL
 {
   inline build2::location
-  get_location (const butl::char_scanner::xchar& c, const void* data)
+  get_location (const butl::char_scanner<>::xchar& c, const void* data)
   {
     using namespace build2;
 

@@ -79,11 +79,11 @@ namespace build2
     ostream&
     operator<< (ostream&, const token&);
 
-    class lexer: protected butl::char_scanner
+    class lexer: protected butl::char_scanner<>
     {
     public:
       lexer (ifdstream& is, const path_name& name)
-          : char_scanner (is, false),
+          : char_scanner (is, false /* crlf */),
             name_ (name),
             fail ("error", &name_),
             log_file_ (name)

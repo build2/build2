@@ -32,7 +32,7 @@ static const uint8_t char_flags[256] =
 namespace butl // ADL
 {
   inline build2::location
-  get_location (const butl::char_scanner::xchar& c, const void* data)
+  get_location (const butl::char_scanner<>::xchar& c, const void* data)
   {
     using namespace build2;
 
@@ -702,7 +702,8 @@ namespace build2
           const char* p (b);
 
           for (char c;
-               p != e && (c = *p) != '\"' && c != '\\' && c != '\n';
+               p != e &&
+               (c = *p) != '\"' && c != '\\' && c != '\n' && c != '\r';
                ++p) ;
 
           size_t n (p - b);
@@ -885,7 +886,8 @@ namespace build2
             const char* p (b);
 
             for (char c;
-                 p != e && (c = *p) != '\"' && c != '\\' && c != '\n';
+                 p != e &&
+                 (c = *p) != '\"' && c != '\\' && c != '\n' && c != '\r';
                  ++p) ;
 
             size_t n (p - b);
@@ -1095,27 +1097,35 @@ namespace build2
                   break;
                 }
 
-                // Direct buffer scan.
-                //
-                const char* b (gptr_);
-                const char* e (egptr_);
-                const char* p (b);
-
-                for (char c;
-                     p != e && (c = *p) != '*' && c != '\\';
-                     ++p)
+                if (c != '*' && c != '\\')
                 {
-                  if (c == '\n')
-                  {
-                    if (log_line_) ++*log_line_;
-                    ++line;
-                    column = 1;
-                  }
-                  else
-                    ++column;
-                }
+                  // Direct buffer scan.
+                  //
+                  // Note that we should call get() prior to the direct buffer
+                  // scan (see butl::char_scanner for details).
+                  //
+                  get (c);
 
-                gptr_ = p; buf_->gbump (static_cast<int> (p - b));
+                  const char* b (gptr_);
+                  const char* e (egptr_);
+                  const char* p (b);
+
+                  for (char c;
+                       p != e && (c = *p) != '*' && c != '\\';
+                       ++p)
+                  {
+                    if (c == '\n')
+                    {
+                      if (log_line_) ++*log_line_;
+                      ++line;
+                      column = 1;
+                    }
+                    else
+                      ++column;
+                  }
+
+                  gptr_ = p; buf_->gbump (static_cast<int> (p - b));
+                }
               }
               continue;
             }
