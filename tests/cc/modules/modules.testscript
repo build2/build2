@@ -206,7 +206,7 @@ cat <<EOI >=g.hxx;
 void g ();
 EOI
 cat <<EOI >=core.mxx;
-#if __cpp_modules >= 201804
+#if __cpp_modules >= 201810
 module;
 #endif
 

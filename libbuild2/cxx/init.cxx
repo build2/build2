@@ -273,18 +273,21 @@ namespace build2
           {
           case compiler_type::msvc:
             {
-              // While modules are supported in VC15.0 (19.10), there is a bug
-              // in separate interface/implementation unit support which makes
-              // them pretty much unusable. This has been fixed in VC15.3
-              // (19.11). And VC15.5 (19.12) supports the 'export module M;'
-              // syntax.
+              // While modules are supported in VC 15.0 (19.10), there is a
+              // bug in the separate interface/implementation unit support
+              // which makes them pretty much unusable. This has been fixed in
+              // 15.3 (19.11). And 15.5 (19.12) supports the `export module
+              // M;` syntax. And 16.4 (19.24) supports the global module
+              // fragment.
               //
               if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 12)))
               {
                 r.push_back (
-                  mj > 19 || mi > 11
-                  ? "/D__cpp_modules=201704"   // p0629r0 (export module M;)
-                  : "/D__cpp_modules=201703"); // n4647   (       module M;)
+                  mj > 19  || mi >= 24     ?
+                  "/D__cpp_modules=201810" : // p1103 (merged modules)
+                  mj == 19 || mi >= 12     ?
+                  "/D__cpp_modules=201704" : // p0629r0 (export module M;)
+                  "/D__cpp_modules=201703"); // n4647   (       module M;)
 
                 r.push_back ("/experimental:module");
                 modules = true;
