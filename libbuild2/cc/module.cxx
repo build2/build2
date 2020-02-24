@@ -384,7 +384,7 @@ namespace build2
 
         // Translate x_std value (if any) to the compiler option(s) (if any).
         //
-        tstd = translate_std (xi, rs, v);
+        tstd = translate_std (xi, tt, rs, v);
       }
 
       // config.x.translatable_header

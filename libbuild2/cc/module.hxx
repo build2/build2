@@ -48,7 +48,10 @@ namespace build2
       // root scope.
       //
       virtual strings
-      translate_std (const compiler_info&, scope&, const string*) const = 0;
+      translate_std (const compiler_info&,
+                     const target_triplet&,
+                     scope&,
+                     const string*) const = 0;
 
       strings tstd;
 

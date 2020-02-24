@@ -38,6 +38,7 @@ namespace build2
 
       virtual strings
       translate_std (const compiler_info&,
+                     const target_triplet&,
                      scope&,
                      const string*) const override;
     };
@@ -45,7 +46,10 @@ namespace build2
     using cc::module;
 
     strings config_module::
-    translate_std (const compiler_info& ci, scope& rs, const string* v) const
+    translate_std (const compiler_info& ci,
+                   const target_triplet&,
+                   scope& rs,
+                   const string* v) const
     {
       strings r;
 

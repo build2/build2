@@ -39,6 +39,7 @@ namespace build2
 
       virtual strings
       translate_std (const compiler_info&,
+                     const target_triplet&,
                      scope&,
                      const string*) const override;
     };
@@ -46,7 +47,10 @@ namespace build2
     using cc::module;
 
     strings config_module::
-    translate_std (const compiler_info& ci, scope& rs, const string* v) const
+    translate_std (const compiler_info& ci,
+                   const target_triplet& tt,
+                   scope& rs,
+                   const string* v) const
     {
       strings r;
 
@@ -63,9 +67,9 @@ namespace build2
       // that is not necessarily complete or final but is practically usable.
       // In other words, a project that uses this value and does not rely on
       // any unstable/bleeding edge parts of the standard (or takes care to
-      // deal with them, for example, using feature test macros), can
-      // reasonably expect to work. In particular, this is the value we use by
-      // default in projects created by bdep-new(1) as well as to build the
+      // deal with them, for example, using feature test macros), can be
+      // reasonably expected to work. In particular, this is the value we use
+      // by default in projects created by bdep-new(1) as well as to build the
       // build2 toolchain itself.
       //
       // The `experimental` value, as the name suggests, is the latest
@@ -199,7 +203,22 @@ namespace build2
               }
             case compiler_type::clang:
               {
-                if       (mj >= 5)                         o = "-std=c++2a";
+                // Clang 10.0.0 targeting MSVC 16.4 and 16.5 (preview) in the
+                // c++2a mode uncovers some Concepts-related bugs in MSVC
+                // (LLVM bug #44956). So in this case we for now map `latest`
+                // to c++17. @@ TMP
+                //
+                // Note that if 10.0.0 is released without a workaround, then
+                // we will need to carry this forward at least for 16.4 since
+                // this version is unlikely to ever be fixed. Which means we
+                // will somehow need to pass the version of MSVC Clang is
+                // targeting.
+                //
+                if (latest && mj == 10 && tt.system == "win32-msvc")
+                {
+                  o = "-std=c++17";
+                }
+                else if  (mj >= 5)                         o = "-std=c++2a";
                 else if  (mj >  3 || (mj == 3 && mi >= 5)) o = "-std=c++1z";
                 else if  (mj == 3 && mi >= 4)              o = "-std=c++1y";
                 else     /* ??? */                         o = "-std=c++0x";
