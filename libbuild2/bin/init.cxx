@@ -781,17 +781,46 @@ namespace build2
         //
         if (verb >= (p.second ? 2 : 3))
         {
-          text << "bin.ld " << project (rs) << '@' << rs << '\n'
+          diag_record dr (text);
+
+          {
+            dr << "bin.ld " << project (rs) << '@' << rs << '\n'
                << "  ld         " << ldi.path << '\n'
-               << "  id         " << ldi.id << '\n'
-               << "  signature  " << ldi.signature << '\n'
-               << "  checksum   " << ldi.checksum;
+               << "  id         " << ldi.id << '\n';
+          }
+
+          if (ldi.version)
+          {
+            dr << "  version    " << ldi.version->string () << '\n'
+               << "  major      " << ldi.version->major << '\n'
+               << "  minor      " << ldi.version->minor << '\n'
+               << "  patch      " << ldi.version->patch << '\n';
+          }
+
+          if (ldi.version && !ldi.version->build.empty ())
+          {
+            dr << "  build      " << ldi.version->build << '\n';
+          }
+
+          dr << "  signature  " << ldi.signature << '\n'
+             << "  checksum   " << ldi.checksum;
         }
 
         rs.assign<process_path> ("bin.ld.path")      = move (ldi.path);
         rs.assign<string>       ("bin.ld.id")        = move (ldi.id);
         rs.assign<string>       ("bin.ld.signature") = move (ldi.signature);
         rs.assign<string>       ("bin.ld.checksum")  = move (ldi.checksum);
+
+        if (ldi.version)
+        {
+          semantic_version& v (*ldi.version);
+
+          rs.assign<string>   ("bin.ld.version")       = v.string ();
+          rs.assign<uint64_t> ("bin.ld.version.major") = v.major;
+          rs.assign<uint64_t> ("bin.ld.version.minor") = v.minor;
+          rs.assign<uint64_t> ("bin.ld.version.patch") = v.patch;
+          rs.assign<string>   ("bin.ld.version.build") = move (v.build);
+        }
       }
 
       return true;

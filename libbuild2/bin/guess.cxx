@@ -16,10 +16,14 @@ namespace build2
       string id;
       string signature;
       string checksum;
-      semantic_version version;
+      optional<semantic_version> version;
 
       guess_result () = default;
+
       guess_result (string&& i, string&& s, semantic_version&& v)
+          : id (move (i)), signature (move (s)), version (move (v)) {}
+
+      guess_result (string&& i, string&& s, optional<semantic_version>&& v)
           : id (move (i)), signature (move (s)), version (move (v)) {}
 
       bool
@@ -288,7 +292,7 @@ namespace build2
         move (arr.id),
         move (arr.signature),
         move (arr.checksum),
-        move (arr.version),
+        move (*arr.version),
 
         move (rlp),
         move (rlr.id),
@@ -325,7 +329,7 @@ namespace build2
         auto f = [&ld] (string& l, bool) -> guess_result
         {
           string id;
-          semantic_version ver;
+          optional<semantic_version> ver;
 
           // Microsoft link.exe output starts with "Microsoft (R) ".
           //
@@ -337,6 +341,8 @@ namespace build2
           //
           else if (l.compare (0, 4, "LLD ") == 0)
           {
+            ver = parse_version (l, 4);
+
             // The only way to distinguish between various LLD drivers is via
             // their name. Handle potential prefixes (say a target) and
             // suffixes (say a version).
@@ -446,7 +452,11 @@ namespace build2
         fail << "unable to guess " << ld << " signature";
 
       return ld_info {
-        move (pp), move (r.id), move (r.signature), move (r.checksum)};
+        move (pp),
+        move (r.id),
+        move (r.signature),
+        move (r.checksum),
+        move (r.version)};
     }
 
     rc_info

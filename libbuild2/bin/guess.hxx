@@ -72,12 +72,17 @@ namespace build2
     // toolchain-specific manner (usually the output of --version/-version/-v)
     // and is not bulletproof.
     //
+    // Note that for now the version is extracted only for some linkers. Once
+    // it's done for all of them, we should drop optional.
+    //
     struct ld_info
     {
       process_path path;
       string id;
       string signature;
       string checksum;
+
+      optional<semantic_version> version;
     };
 
     ld_info
