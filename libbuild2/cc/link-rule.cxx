@@ -2845,22 +2845,29 @@ namespace build2
         sargs.push_back (relative (manifest).string ());
 
       // LLD misses an input file if we are linking only whole archives (LLVM
-      // bug #43744). Repeating one of the previously-mentioned archives seems
-      // to work around the issue.
+      // bug #43744, fixed in 9.0.1, 10.0.0). Repeating one of the previously-
+      // mentioned archives seems to work around the issue.
       //
       if (!seen_obj             &&
           !lt.static_library () &&
           tsys == "win32-msvc"  &&
           cast<string> (rs["bin.ld.id"]) == "msvc-lld")
       {
-        auto i (find_if (sargs.rbegin (), sargs.rend (),
-                         [] (const string& a)
-                         {
-                           return a.compare (0, 14, "/WHOLEARCHIVE:") == 0;
-                         }));
+        uint64_t mj;
+        if ((mj = cast<uint64_t> (rs["bin.ld.version.major"])) < 9 ||
+            (mj == 9 &&
+             cast<uint64_t> (rs["bin.ld.version.minor"]) == 0 &&
+             cast<uint64_t> (rs["bin.ld.version.patch"]) == 0))
+        {
+          auto i (find_if (sargs.rbegin (), sargs.rend (),
+                           [] (const string& a)
+                           {
+                             return a.compare (0, 14, "/WHOLEARCHIVE:") == 0;
+                           }));
 
-        if (i != sargs.rend ())
-          sargs.push_back (i->c_str () + 14);
+          if (i != sargs.rend ())
+            sargs.push_back (i->c_str () + 14);
+        }
       }
 
       // Shallow-copy sargs over to args.
