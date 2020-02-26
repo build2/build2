@@ -1169,6 +1169,13 @@ namespace build2
                 size_t ci, size_t li, const location& ll,
                 bool diag)
       {
+        // These are used to be defined much later but there is some
+        // optimization bug in Clang (as of 10.0.0-rc2; see the #45021 bug
+        // report for details).
+        //
+        path osp;
+        fdpipe ofd;
+
         if (bc == ec) // End of the pipeline.
           return true;
 
@@ -1515,9 +1522,6 @@ namespace build2
 
           return fd;
         };
-
-        path osp;
-        fdpipe ofd;
 
         // If this is the last command in the pipeline than redirect the
         // command process stdout to a file. Otherwise create a pipe and
