@@ -178,13 +178,12 @@ namespace build2
   // Also disable merging options like -framework into a single fragment, if
   // possible.
   //
-#ifdef PKGCONF_PKG_PKGF_DONT_MERGE_SPECIAL_FRAGMENTS
   static const int pkgconf_flags =
-    PKGCONF_PKG_PKGF_SIMPLIFY_ERRORS |
-    PKGCONF_PKG_PKGF_DONT_MERGE_SPECIAL_FRAGMENTS;
-#else
-  static const int pkgconf_flags = PKGCONF_PKG_PKGF_SIMPLIFY_ERRORS;
+    PKGCONF_PKG_PKGF_SIMPLIFY_ERRORS
+#ifdef PKGCONF_PKG_PKGF_DONT_MERGE_SPECIAL_FRAGMENTS
+    | PKGCONF_PKG_PKGF_DONT_MERGE_SPECIAL_FRAGMENTS
 #endif
+    ;
 
   static bool
   pkgconf_error_handler (const char* msg, const pkgconf_client_t*, const void*)
