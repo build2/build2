@@ -110,7 +110,7 @@ namespace build2
       {
         // Used as a variable prefix by configure_execute().
         //
-        vp.insert ("config.import");
+        vp.insert ("config");
 
         auto& m (extra.set_module (new module));
 

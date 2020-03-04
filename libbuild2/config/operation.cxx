@@ -218,7 +218,7 @@ namespace build2
         //
         auto& vp (ctx.var_pool);
 
-        for (auto p (rs.vars.find_namespace (*vp.find ("config.import")));
+        for (auto p (rs.vars.find_namespace (*vp.find ("config")));
              p.first != p.second;
              ++p.first)
         {
@@ -229,6 +229,14 @@ namespace build2
           //
           if (size_t n = var->override ())
             var = vp.find (string (var->name, 0, n));
+
+          // Skip special variables.
+          //
+          if (var->name == "config.booted"                   ||
+              var->name == "config.loaded"                   ||
+              var->name == "config.configured"               ||
+              var->name.compare (0, 14, "config.config.") == 0)
+            continue;
 
           if (mod->saved (*var))
             continue;
