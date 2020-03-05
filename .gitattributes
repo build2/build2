@@ -10,7 +10,7 @@
 #*.bat text eol=crlf
 
 # Use `eol=lf` for files that should have the LF line ending both in the
-# working tree (even on Windows) in the repository.
+# working tree (even on Windows) and in the repository.
 #
 #*.sh text eol=lf
 
