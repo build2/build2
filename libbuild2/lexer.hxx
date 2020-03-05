@@ -6,6 +6,7 @@
 
 #include <stack>
 
+#include <libbutl/utf8.mxx>
 #include <libbutl/char-scanner.mxx>
 
 #include <libbuild2/types.hxx>
@@ -88,7 +89,8 @@ namespace build2
     lexer_mode (base_type v): base_type (v) {}
   };
 
-  class LIBBUILD2_SYMEXPORT lexer: public butl::char_scanner<>
+  class LIBBUILD2_SYMEXPORT lexer:
+    public butl::char_scanner<butl::utf8_validator>
   {
   public:
     // If escape is not NULL then only escape sequences with characters from
@@ -220,7 +222,8 @@ namespace build2
 namespace butl // ADL
 {
   inline build2::location
-  get_location (const butl::char_scanner<>::xchar& c, const void* data)
+  get_location (const butl::char_scanner<butl::utf8_validator>::xchar& c,
+                const void* data)
   {
     using namespace build2;
 
