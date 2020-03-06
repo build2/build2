@@ -7,6 +7,7 @@
 #include <stack>
 
 #include <libbutl/utf8.mxx>
+#include <libbutl/unicode.mxx>
 #include <libbutl/char-scanner.mxx>
 
 #include <libbuild2/types.hxx>
@@ -201,10 +202,14 @@ namespace build2
     lexer (istream& is, const path_name& name, uint64_t line,
            const char* escapes,
            bool set_mode)
-        : char_scanner (is, true /* crlf */, line),
-          fail ("error", &name),
-          name_ (name),
-          sep_ (false)
+      : char_scanner (is,
+                      butl::utf8_validator (butl::codepoint_types::graphic,
+                                            U"\n\r\t"),
+                      true /* crlf */,
+                      line),
+        fail ("error", &name),
+        name_ (name),
+        sep_ (false)
     {
       if (set_mode)
         mode (lexer_mode::normal, '@', escapes);
