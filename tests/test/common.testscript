@@ -9,6 +9,7 @@
 +cat <<EOI >=build/bootstrap.build
 project = test
 amalgamation =
+subprojects =
 
 using test
 EOI

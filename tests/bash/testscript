@@ -13,6 +13,8 @@ if ($test.target == $build.host && $build.host.class != 'windows')
   .include ../common.testscript
 
   +cat <<EOI >+build/bootstrap.build
+    subprojects = sub.bash
+
     using test
     using install
     EOI

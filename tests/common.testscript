@@ -29,6 +29,7 @@ end
 +cat <<EOI >=build/bootstrap.build
 project = test
 amalgamation =
+subprojects =
 EOI
 
 test.options += --no-default-options --serial-stop --quiet
