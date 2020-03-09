@@ -1082,6 +1082,10 @@ failures (due to unexpected output) to go undetected.
 
 \h1#lexical|Lexical Structure|
 
+At the lexical level, testscripts are UTF-8 encoded text restricted to the
+Unicode graphic characters, tabs (\c{\\t}), carriage returns (\c{\\r}), and
+line feeds (\c{\\n}).
+
 Testscript is a line-oriented language with a context-dependent lexical
 structure. It \"borrows\" several building blocks (variable expansion,
 function calls, and evaluation contexts; collectively called \i{expansions}

@@ -3157,7 +3157,10 @@ detail and with more precision.
 
 Buildfile is primarily a declarative language with support for variables, pure
 functions, repetition (\c{for}-loop), conditional inclusion/exclusion
-(\c{if-else}), and pattern matching (\c{switch}).
+(\c{if-else}), and pattern matching (\c{switch}). At the lexical level,
+\c{buildfiles} are UTF-8 encoded text restricted to the Unicode graphic
+characters, tabs (\c{\\t}), carriage returns (\c{\\r}), and line feeds
+(\c{\\n}).
 
 Buildfile is a line-oriented language. That is, every construct ends at the
 end of the line unless escaped with line continuation (trailing \c{\\}). For
