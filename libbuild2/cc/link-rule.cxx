@@ -1076,7 +1076,8 @@ namespace build2
             // The problem is the Windows DLL assembly "logic" refuses to
             // recognize a junction as a valid assembly for some reason. So we
             // are going to resort to copy-link (i.e., a real directory with a
-            // bunch of links).
+            // bunch of links). Note also that while DLLs can be symlinked,
+            // the assembly manifest cannot (has to be hard-linked or copied).
             //
             // Interestingly, the directory symlink works just fine under
             // Wine. So we only resort to copy-link'ing if we are running on

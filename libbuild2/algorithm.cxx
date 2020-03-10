@@ -1248,9 +1248,11 @@ namespace build2
             if (d)
             {
               // Currently, for a directory, we do a "copy-link": we make the
-              // target directory and then link each entry (for now this is
+              // target directory and then link each entry. (For now this is
               // only used to "link" a Windows DLL assembly with only files
-              // inside).
+              // inside. We also have to use hard links; see the relevant
+              // comment in cc/link-rule for details. Maybe we can invent a
+              // special "assembly link" for this).
               //
               dir_path fr (path_cast<dir_path> (p));
               dir_path to (path_cast<dir_path> (l));
@@ -1263,7 +1265,7 @@ namespace build2
                 path f (fr / de.path ());
                 path t (to / de.path ());
 
-                update_backlink (ctx, f, t, mode::link, verb_never);
+                update_backlink (ctx, f, t, mode::hard, verb_never);
               }
             }
             else
