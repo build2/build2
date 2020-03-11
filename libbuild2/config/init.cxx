@@ -120,7 +120,7 @@ namespace build2
         m.save_module ("config", INT32_MIN);
         m.save_module ("import", INT32_MIN);
 
-        m.save_variable (c_p, omit_null);
+        m.save_variable (c_p, save_null_omitted);
       }
 
       // Register the config function family if this is the first instance of

@@ -281,9 +281,9 @@ namespace build2
       {
         // config.cli.options
         //
-        // This one is optional. We also merge it into the corresponding
-        // cli.* variables. See the cxx module for more information on
-        // this merging semantics and some of its tricky aspects.
+        // This one is optional. We also merge it into the corresponding cli.*
+        // variables. See the cc module for more information on this merging
+        // semantics and some of its tricky aspects.
         //
         bs.assign ("cli.options") += cast_null<strings> (
           config::optional (rs, "config.cli.options"));

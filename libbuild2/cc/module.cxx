@@ -113,11 +113,12 @@ namespace build2
           // user changes the source of the pattern/mode, this one will get
           // updated as well.
           //
-          p = config::required (rs,
-                                config_x,
-                                move (d),
-                                false,
-                                cc_loaded ? config::save_commented : 0);
+          p = config::required (
+            rs,
+            config_x,
+            move (d),
+            false,
+            cc_loaded ? config::save_default_commented : 0);
         }
 
         // Split the value into the compiler path and mode.
@@ -348,6 +349,16 @@ namespace build2
       // append we would just be repeating the same options over and
       // over. So what we are going to do is only append to a value if
       // it came from this scope. Then the usage for merging becomes:
+      //
+      // @@ There are actually two cases to this issue:
+      //
+      //    1. The module is loaded in the outer project (e.g., tests inside a
+      //       project). It feels like this should be handled with project-
+      //       specific variable visibility.
+      //
+      //    2. The module is loaded in the outer scope within the same
+      //       project. We are currently thinking whether we should even
+      //       support loading of modules in non-root scopes.
       //
       // x.coptions = <overridable options> # Note: '='.
       // using x

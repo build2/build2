@@ -625,7 +625,7 @@ namespace build2
             "config.bin.ar",
             path (apply_pattern (ar_d, pat.pattern)),
             false,
-            config::save_commented));
+            config::save_default_commented));
 
         auto rp (
           config::required (
@@ -633,7 +633,7 @@ namespace build2
             "config.bin.ranlib",
             nullptr,
             false,
-            config::save_commented));
+            config::save_default_commented));
 
         const path& ar (cast<path> (ap.first));
         const path* ranlib (cast_null<path> (rp.first));
@@ -771,7 +771,7 @@ namespace build2
             "config.bin.ld",
             path (apply_pattern (ld_d, pat.pattern)),
             false,
-            config::save_commented));
+            config::save_default_commented));
 
         const path& ld (cast<path> (p.first));
         ld_info ldi (guess_ld (ld, pat.paths));
@@ -904,7 +904,7 @@ namespace build2
             "config.bin.rc",
             path (apply_pattern (rc_d, pat.pattern)),
             false,
-            config::save_commented));
+            config::save_default_commented));
 
         const path& rc (cast<path> (p.first));
         rc_info rci (guess_rc (rc, pat.paths));

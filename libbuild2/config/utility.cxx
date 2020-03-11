@@ -19,8 +19,7 @@ namespace build2
     pair<lookup, bool>
     omitted (scope& rs, const variable& var)
     {
-      // This is a stripped-down version of the required() twisted
-      // implementation.
+      // This is a stripped-down version of the required()'s twisted logic.
 
       pair<lookup, size_t> org (rs.find_original (var));
 

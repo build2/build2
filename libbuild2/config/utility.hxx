@@ -39,38 +39,37 @@ namespace build2
     //
     template <typename T>
     pair<lookup, bool>
-    required (scope& root,
+    required (scope& rs,
               const variable&,
               T&& default_value,
               bool override = false,
               uint64_t save_flags = 0);
 
-    // Note that the variable is expected to have already been registered.
+    // Note that the variable is expected to have already been entered.
     //
     template <typename T>
     inline pair<lookup, bool>
-    required (scope& root,
-              const string& name,
+    required (scope& rs,
+              const string& var,
               T&& default_value,
               bool override = false,
               uint64_t save_flags = 0)
     {
-      return required (root,
-                       root.ctx.var_pool[name],
+      return required (rs,
+                       rs.ctx.var_pool[var],
                        std::forward<T> (default_value), // VC14
                        override,
                        save_flags);
     }
 
     inline pair<lookup, bool>
-    required (scope& root,
-              const string& name,
+    required (scope& rs,
+              const string& var,
               const char* default_value,
               bool override = false,
               uint64_t save_flags = 0)
     {
-      return required (
-        root, name, string (default_value), override, save_flags);
+      return required (rs, var, string (default_value), override, save_flags);
     }
 
     // As above, but leave the unspecified value as undefined rather than
@@ -80,14 +79,14 @@ namespace build2
     // out some fallback. See config.bin.target for an example.
     //
     LIBBUILD2_SYMEXPORT pair<lookup, bool>
-    omitted (scope& root, const variable&);
+    omitted (scope& rs, const variable&);
 
-    // Note that the variable is expected to have already been registered.
+    // Note that the variable is expected to have already been entered.
     //
     inline pair<lookup, bool>
-    omitted (scope& root, const string& name)
+    omitted (scope& rs, const string& var)
     {
-      return omitted (root, root.ctx.var_pool[name]);
+      return omitted (rs, rs.ctx.var_pool[var]);
     }
 
     // Set, if necessary, an optional config.* variable. In particular, an
@@ -98,15 +97,18 @@ namespace build2
     //
     // @@ Rename since clashes with the optional class template.
     //
+    // @@ Does it make sense to return the new indicator here as well,
+    //    for consistency/generality.
+    //
     LIBBUILD2_SYMEXPORT lookup
-    optional (scope& root, const variable&);
+    optional (scope& rs, const variable&);
 
     // Note that the variable is expected to have already been registered.
     //
     inline lookup
-    optional (scope& root, const string& name)
+    optional (scope& rs, const string& var)
     {
-      return optional (root, root.ctx.var_pool[name]);
+      return optional (rs, rs.ctx.var_pool[var]);
     }
 
     // Check whether there are any variables specified from the config
@@ -122,35 +124,35 @@ namespace build2
     // running the tests, etc).
     //
     LIBBUILD2_SYMEXPORT bool
-    specified (scope& root, const string& name);
+    specified (scope& rs, const string& var);
 
     // Check if there is a false config.*.configured value. This mechanism can
     // be used to "remember" that the module is left unconfigured in order to
     // avoid re-running the tests, etc.
     //
     LIBBUILD2_SYMEXPORT bool
-    unconfigured (scope& root, const string& name);
+    unconfigured (scope& rs, const string& var);
 
     // Set the config.*.configured value. Note that you only need to set it to
     // false. It will be automatically ignored if there are any other config.*
     // values for this module. Return true if this sets a new value.
     //
     LIBBUILD2_SYMEXPORT bool
-    unconfigured (scope& root, const string& name, bool);
+    unconfigured (scope& rs, const string& var, bool value);
 
     // Enter the variable so that it is saved during configuration. See
     // config::module for details.
     //
-    const uint64_t save_commented = 0x01; // Save default value as commented.
-    const uint64_t omit_null      = 0x02; // Treat NULL as undefined.
+    const uint64_t save_default_commented = 0x01; // Based on value::extra.
+    const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
 
     LIBBUILD2_SYMEXPORT void
-    save_variable (scope& root, const variable&, uint64_t flags = 0);
+    save_variable (scope& rs, const variable&, uint64_t flags = 0);
 
     // Establish module order/priority. See config::module for details.
     //
     LIBBUILD2_SYMEXPORT void
-    save_module (scope& root, const char* name, int prio = 0);
+    save_module (scope& rs, const char* module, int prio = 0);
 
     // Create a project in the specified directory.
     //
@@ -167,11 +169,11 @@ namespace build2
                     uint16_t verbosity = 1);        // Diagnostic verbosity.
 
     inline path
-    config_file (const scope& root)
+    config_file (const scope& rs)
     {
-      return (root.out_path () /
-              root.root_extra->build_dir /
-              "config." + root.root_extra->build_ext);
+      return (rs.out_path () /
+              rs.root_extra->build_dir /
+              "config." + rs.root_extra->build_ext);
     }
   }
 }

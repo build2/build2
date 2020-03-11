@@ -10,17 +10,17 @@ namespace build2
   {
     template <typename T>
     pair<lookup, bool>
-    required (scope& root,
+    required (scope& rs,
               const variable& var,
               T&& def_val,
               bool def_ovr,
-              uint64_t save_flags)
+              uint64_t sflags)
     {
       // Note: see also omitted() if changing anything here.
 
-      save_variable (root, var, save_flags);
+      save_variable (rs, var, sflags);
 
-      pair<lookup, size_t> org (root.find_original (var));
+      pair<lookup, size_t> org (rs.find_original (var));
 
       bool n (false); // New flag.
       lookup l (org.first);
@@ -31,23 +31,23 @@ namespace build2
       // are going to do is first ignore overrides and perform the normal
       // logic on the original. Then we apply the overrides on the result.
       //
-      if (!l.defined () || (def_ovr && !l.belongs (root)))
+      if (!l.defined () || (def_ovr && !l.belongs (rs)))
       {
-        value& v (root.assign (var) = std::forward<T> (def_val)); // VC14
+        value& v (rs.assign (var) = std::forward<T> (def_val)); // VC14
         v.extra = true; // Default value flag.
 
-        n = (save_flags & save_commented) == 0; // Absence means default.
-        l = lookup (v, var, root);
-        org = make_pair (l, 1); // Lookup depth is 1 since it's in root.vars.
+        n = (sflags & save_default_commented) == 0; // Absence means default.
+        l = lookup (v, var, rs);
+        org = make_pair (l, 1); // Lookup depth is 1 since it's in rs.vars.
       }
       // Treat an inherited value that was set to default as new.
       //
       else if (l->extra)
-        n = (save_flags & save_commented) == 0; // Absence means default.
+        n = (sflags & save_default_commented) == 0; // Absence means default.
 
       if (var.overrides != nullptr)
       {
-        pair<lookup, size_t> ovr (root.find_override (var, move (org)));
+        pair<lookup, size_t> ovr (rs.find_override (var, move (org)));
 
         if (l != ovr.first) // Overriden?
         {

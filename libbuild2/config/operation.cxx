@@ -306,7 +306,7 @@ namespace build2
             // inherited. We might also not have any value at all (see
             // unconfigured()).
             //
-            if (!l.defined () || (l->null && sv.flags & omit_null))
+            if (!l.defined () || (l->null && sv.flags & save_null_omitted))
               continue;
 
             // Handle inherited from outer scope values.
@@ -449,11 +449,11 @@ namespace build2
               first = false;
             }
 
-            // Handle the save_commented flag.
+            // Handle the save_default_commented flag.
             //
             if ((org.first.defined () && org.first->extra) && // Default value.
                 org.first == ovr.first &&                     // Not overriden.
-                (sv.flags & save_commented) == save_commented)
+                (sv.flags & save_default_commented) != 0)
             {
               os << '#' << n << " =" << endl;
               continue;
