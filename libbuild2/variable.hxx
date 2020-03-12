@@ -472,7 +472,7 @@ namespace build2
   vector_view<name>
   reverse (value&, names& storage);
 
-  // lookup
+  // Variable lookup result, AKA, binding of a name to a value.
   //
   // A variable can be undefined, NULL, or contain a (potentially empty)
   // value.

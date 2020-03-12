@@ -512,7 +512,7 @@ namespace std
     narrow (const char_type*, const char_type*, char, char*) const;
   };
 
-  // Note: the current application locale must be the POSIX one. Otherwise the
+  // Note: the current application locale must be POSIX. Otherwise the
   // behavior is undefined.
   //
   template <>
