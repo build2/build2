@@ -2413,7 +2413,8 @@ If the last argument does not end with a directory separator, then the first
 synopsis is assumed where \c{ln} creates the symbolic link to \i{target-path}
 at \i{link-path} failing if the \i{target-path} filesystem entry does not
 exist, \i{link-path} filesystem entry already exists or more than two arguments
-are specified.
+are specified. If \i{target-path} is relative, then it is assumed to be
+relative to the \i{link-path}'s directory.
 
 If the last argument ends with a directory separator, then the second synopsis
 is assumed where \c{ln} creates one or more symbolic links to \i{target-path}

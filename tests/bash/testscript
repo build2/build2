@@ -182,7 +182,7 @@ if ($test.target == $build.host && $build.host.class != 'windows')
       # Test execution via symlink.
       #
       mkdir bin;
-      ln -s tmp/bin/driver bin/driver;
+      ln -s ../tmp/bin/driver bin/driver;
       bin/driver >'sub';
 
       # Test execution via PATH.

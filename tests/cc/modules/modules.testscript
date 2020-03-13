@@ -109,7 +109,7 @@ $* test clean <<EOI
   : Test subdirectory.
   :
   mkdir foo;
-  ln -s ../../core.mxx foo/core.mxx;
+  ln -s ../../../core.mxx foo/core.mxx;
   ln -s ../core.mxx ../../core.cxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver core} mxx{core} foo/mxx{core}'
 
@@ -136,7 +136,7 @@ $* test clean <<EOI
   : Secondary score: sub/core.mxx vs ext-core.mxx (stronger separator).
   :
   mkdir sub;
-  ln -s ../../core.mxx ../../core.cxx sub/;
+  ln -s ../../../core.mxx ../../../core.cxx sub/;
   ln -s ../ext-core.mxx ../../driver.cxx ./;
   $* test clean <'exe{test}: cxx{driver} mxx{ext-core} sub/{mxx cxx}{core}'
 

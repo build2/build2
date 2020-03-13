@@ -57,7 +57,7 @@
   $c <<EOI && $b
     mkdir b c;
     touch a b/c;
-    ln -s a b c/
+    ln -s ../a ../b c/
     EOI
 
   : no-cleanup
@@ -65,7 +65,7 @@
   $c <<EOI && $b
     mkdir b c;
     touch a b/c;
-    ln -s --no-cleanup a b c/;
+    ln -s --no-cleanup ../a ../b c/;
     rm -r c/a c/b
     EOI
 }
