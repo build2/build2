@@ -21,6 +21,8 @@
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/parser.hxx>
 
+#include <libbuild2/config/utility.hxx> // config_preprocess_create
+
 using namespace std;
 using namespace butl;
 
@@ -892,12 +894,4 @@ namespace build2
 
     //text << this_thread::get_id () << " phase restore " << n << " " << o;
   }
-
-  void (*config_save_variable) (scope&, const variable&, uint64_t);
-
-  const string& (*config_preprocess_create) (context&,
-                                             values&,
-                                             vector_view<opspec>&,
-                                             bool,
-                                             const location&);
 }

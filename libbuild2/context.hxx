@@ -589,18 +589,6 @@ namespace build2
     atomic_count* task_count;
     bool phase;
   };
-
-  // Config module entry points.
-  //
-  LIBBUILD2_SYMEXPORT extern void (*config_save_variable) (
-    scope&, const variable&, uint64_t flags);
-
-  LIBBUILD2_SYMEXPORT extern const string& (*config_preprocess_create) (
-    context&,
-    values&,
-    vector_view<opspec>&,
-    bool lifted,
-    const location&);
 }
 
 #include <libbuild2/context.ixx>

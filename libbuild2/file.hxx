@@ -261,6 +261,20 @@ namespace build2
   //
   const target*
   import_existing (context&, const prerequisite_key&);
+
+  // Create a build system project in the specified directory.
+  //
+  LIBBUILD2_SYMEXPORT void
+  create_project (const dir_path&,
+                  const optional<dir_path>& amalgamation,
+                  const strings& boot_modules,    // Bootstrap modules.
+                  const string&  root_pre,        // Extra root.build text.
+                  const strings& root_modules,    // Root modules.
+                  const string&  root_post,       // Extra root.build text.
+                  const optional<string>& config, // Config module to load.
+                  bool buildfile,                 // Create root buildfile.
+                  const char* who,                // Who is creating it.
+                  uint16_t verbosity = 1);        // Diagnostic verbosity.
 }
 
 #include <libbuild2/file.ixx>

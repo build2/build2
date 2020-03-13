@@ -15,8 +15,6 @@
 #include <libbuild2/filesystem.hxx>  // mtime()
 #include <libbuild2/diagnostics.hxx>
 
-#include <libbuild2/config/utility.hxx> // create_project()
-
 #include <libbuild2/bin/target.hxx>
 
 #include <libbuild2/cc/parser.hxx>
@@ -5316,14 +5314,14 @@ namespace build2
 
             extra += string (x) + ".features.modules = true";
 
-            config::create_project (
+            create_project (
               pd,
               as->out_path ().relative (pd),  /* amalgamation */
               {},                             /* boot_modules */
               extra,                          /* root_pre */
               {string (x) + '.'},             /* root_modules */
               "",                             /* root_post */
-              false,                          /* config */
+              nullopt,                        /* config */
               false,                          /* buildfile */
               "the cc module",
               2);                             /* verbosity */

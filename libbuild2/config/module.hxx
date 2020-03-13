@@ -11,6 +11,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/scope.hxx>
 #include <libbuild2/module.hxx>
 #include <libbuild2/variable.hxx>
 
@@ -51,14 +52,6 @@ namespace build2
       // Priority order with INT32_MIN being the highest. Modules with the
       // same priority are saved in the order inserted.
       //
-      // Generally, the idea is that we want higher-level modules at the top
-      // of the file since that's the configuration that we usualy want to
-      // change. So we have the following priority bands/defaults:
-      //
-      // 101-200/150 - code generators (e.g., yacc, bison)
-      // 201-300/250 - compilers (e.g., C, C++),
-      // 301-400/350 - binutils (ar, ld)
-      //
       std::multimap<std::int32_t, const_iterator> order;
 
       pair<iterator, bool>
@@ -82,8 +75,14 @@ namespace build2
       bool
       save_variable (const variable&, uint64_t flags = 0);
 
+      static void
+      save_variable (scope&, const variable&, uint64_t);
+
       bool
       save_module (const char* name, int prio = 0);
+
+      static void
+      save_module (scope&, const char*, int);
 
       // Return true if the variable is already saved.
       //
@@ -102,6 +101,17 @@ namespace build2
       static const string name;
       static const uint64_t version;
     };
+
+    // Implementation-specific utilities.
+    //
+
+    inline path
+    config_file (const scope& rs)
+    {
+      return (rs.out_path () /
+              rs.root_extra->build_dir /
+              "config." + rs.root_extra->build_ext);
+    }
   }
 }
 

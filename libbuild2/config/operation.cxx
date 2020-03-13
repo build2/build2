@@ -13,7 +13,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/config/module.hxx>
-#include <libbuild2/config/utility.hxx>
+#include <libbuild2/config/utility.hxx> // save_*
 
 using namespace std;
 using namespace butl;
@@ -1224,7 +1224,7 @@ namespace build2
                           "",          /* root_pre */
                           rmod,
                           "",          /* root_post */
-                          true,        /* config */
+                          "config",    /* config */
                           true,        /* buildfile */
                           "the create meta-operation");
 

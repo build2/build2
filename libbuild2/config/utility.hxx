@@ -10,14 +10,73 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/variable.hxx>
-#include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/export.hxx>
 
 namespace build2
 {
+  // Note that the utility functions in this file are part of the build system
+  // core rather than the config module. They define the basic configuration
+  // semantics that should be applicable to both transient configurations as
+  // well as to other implementations of configuration persistence.
+  //
+  // The only persistence-specific aspects of this functionality are marking
+  // of the variables as to be persisted (saved, potentially with flags),
+  // establishing the module saving order (priority), and configuration
+  // creation (the create meta-operation implementation) These are accessed
+  // through the config module entry points (which are NULL for transient
+  // configurations). Note also that the exact interpretation of the save
+  // flags and module order depends on the config module implementation (which
+  // may ignore them as not applicable). An implementation may also define
+  // custom save flags (for example, accessible through the config.save
+  // attribute). Such flags should start from 0x100000000.
+  //
+  LIBBUILD2_SYMEXPORT extern void
+  (*config_save_variable) (scope&, const variable&, uint64_t);
+
+  LIBBUILD2_SYMEXPORT extern void
+  (*config_save_module) (scope&, const char*, int);
+
+  LIBBUILD2_SYMEXPORT extern const string&
+  (*config_preprocess_create) (context&,
+                               values&,
+                               vector_view<opspec>&,
+                               bool,
+                               const location&);
+
   namespace config
   {
+    // Mark the variable to be saved during configuration.
+    //
+    const uint64_t save_default_commented = 0x01; // Based on value::extra.
+    const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
+
+    inline void
+    save_variable (scope& rs, const variable& var, uint64_t flags = 0)
+    {
+      if (config_save_variable != nullptr)
+        config_save_variable (rs, var, flags);
+    }
+
+    // Establish module save order/priority with INT32_MIN being the highest.
+    // Modules with the same priority are saved in the order inserted.
+    //
+    // Generally, for user-editable persisten configuration, we want higher-
+    // level modules at the top of the file since that's the configuration
+    // that the user usually wants to change. As a result, we define the
+    // following priority bands/defaults:
+    //
+    // 101-200/150 - code generators (e.g., yacc, bison)
+    // 201-300/250 - compilers (e.g., C, C++),
+    // 301-400/350 - binutils (ar, ld)
+    //
+    inline void
+    save_module (scope& rs, const char* module, int prio = 0)
+    {
+      if (config_save_module != nullptr)
+        config_save_module (rs, module, prio);
+    }
+
     // Set, if necessary, a required config.* variable.
     //
     // If override is true and the variable doesn't come from this root scope
@@ -33,9 +92,12 @@ namespace build2
     // (always defined) to pass along its location (could be used to detect
     // inheritance, etc).
     //
-    // Note also that if save_flags has save_commented, then a default value
-    // is never considered "new" since for such variables absence of a value
-    // means the default value.
+    // Note also that if save_flags has save_default_commented, then a default
+    // value is never considered "new" since for such variables absence of a
+    // value means the default value.
+    //
+    // @@ Should save_null_omitted be interpreted to treat null as undefined?
+    //    Sounds logical.
     //
     template <typename T>
     pair<lookup, bool>
@@ -139,42 +201,6 @@ namespace build2
     //
     LIBBUILD2_SYMEXPORT bool
     unconfigured (scope& rs, const string& var, bool value);
-
-    // Enter the variable so that it is saved during configuration. See
-    // config::module for details.
-    //
-    const uint64_t save_default_commented = 0x01; // Based on value::extra.
-    const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
-
-    LIBBUILD2_SYMEXPORT void
-    save_variable (scope& rs, const variable&, uint64_t flags = 0);
-
-    // Establish module order/priority. See config::module for details.
-    //
-    LIBBUILD2_SYMEXPORT void
-    save_module (scope& rs, const char* module, int prio = 0);
-
-    // Create a project in the specified directory.
-    //
-    LIBBUILD2_SYMEXPORT void
-    create_project (const dir_path& d,
-                    const build2::optional<dir_path>& amalgamation,
-                    const strings& boot_modules,    // Bootstrap modules.
-                    const string&  root_pre,        // Extra root.build text.
-                    const strings& root_modules,    // Root modules.
-                    const string&  root_post,       // Extra root.build text.
-                    bool config,                    // Load config module.
-                    bool buildfile,                 // Create root buildfile.
-                    const char* who,                // Who is creating it.
-                    uint16_t verbosity = 1);        // Diagnostic verbosity.
-
-    inline path
-    config_file (const scope& rs)
-    {
-      return (rs.out_path () /
-              rs.root_extra->build_dir /
-              "config." + rs.root_extra->build_ext);
-    }
   }
 }
 

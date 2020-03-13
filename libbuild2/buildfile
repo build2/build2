@@ -34,7 +34,9 @@ lib{build2}: cxx{utility-uninstalled}: for_install = false
 
 # These are "core modules" that come bundled with libbuild2 (see also unit
 # tests loop below). Note that the build system core can still function
-# without them or with their alternative implementations.
+# without them or with their alternative implementations. Also note that
+# config/utility.?xx are part of the build system core (see comments in the
+# header for details).
 #
 # NOTE: remember to update import_modules() in libbuild2/modules.cxx if adding
 #       a new such module.
