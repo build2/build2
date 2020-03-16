@@ -1219,13 +1219,13 @@ namespace build2
           // configurations).
           //
           create_project (d,
-                          dir_path (), /* amalgamation */
+                          dir_path (),        /* amalgamation */
                           bmod,
-                          "",          /* root_pre */
+                          "",                 /* root_pre */
                           rmod,
-                          "",          /* root_post */
-                          "config",    /* config */
-                          true,        /* buildfile */
+                          "",                 /* root_post */
+                          string ("config"),  /* config_module */
+                          true,               /* buildfile */
                           "the create meta-operation");
 
           save_config (ctx, d);

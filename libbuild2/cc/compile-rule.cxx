@@ -5321,7 +5321,7 @@ namespace build2
               extra,                          /* root_pre */
               {string (x) + '.'},             /* root_modules */
               "",                             /* root_post */
-              nullopt,                        /* config */
+              nullopt,                        /* config_module */
               false,                          /* buildfile */
               "the cc module",
               2);                             /* verbosity */

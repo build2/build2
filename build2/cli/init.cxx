@@ -57,11 +57,15 @@ namespace build2
         vp.insert<strings>      ("cli.options");
       }
 
-      // Configure.
+      // Configuration.
       //
       // The plan is as follows: try to configure the module. If this fails,
       // we are using default values, and the module is optional, leave it
       // unconfigured.
+      //
+      using config::lookup_config;
+      using config::specified_config;
+
 
       // First take care of the explicit request by the user to leave the
       // module unconfigured.
@@ -81,7 +85,7 @@ namespace build2
         // Otherwise we will only honor optional if the user didn't specify
         // any cli configuration explicitly.
         //
-        optional = optional && !config::specified (rs, "cli");
+        optional = optional && !specified_config (rs, "cli");
 
         // If the configuration says we are unconfigured, then we should't
         // re-run tests, etc. But we may still need to print the config
@@ -197,9 +201,9 @@ namespace build2
         //
         config::save_module (rs, "cli", 150);
 
-        string ver;       // Empty means unconfigured.
-        path cli ("cli"); // Default.
-        bool nv (false);  // New value.
+        string ver;            // Empty means unconfigured.
+        path cli ("cli");      // Default value.
+        bool new_cfg (false);  // New configuration.
 
         if (optional)
         {
@@ -212,27 +216,24 @@ namespace build2
             ver = test (cli);
 
             if (ver.empty ())
+            {
               conf = false;
+              new_cfg = true;
+            }
             else
             {
-              auto p (config::required (rs, "config.cli", cli));
-              assert (p.second && cast<path> (p.first) == cli);
+              auto l (lookup_config (new_cfg, rs, "config.cli", cli));
+              assert (new_cfg && cast<path> (l) == cli);
             }
-
-            nv = true;
           }
         }
         else
         {
-          auto p (config::required (rs, "config.cli", cli));
-
-          cli = cast<path> (p.first);
+          cli = cast<path> (lookup_config (new_cfg, rs, "config.cli", cli));
           ver = test (cli);
 
           if (ver.empty ())
             throw failed (); // Diagnostics already issued.
-
-          nv = p.second;
         }
 
         string checksum;
@@ -250,13 +251,13 @@ namespace build2
           // Note that we are unconfigured so that we don't keep re-testing
           // this on each run.
           //
-          nv = config::unconfigured (rs, "cli", true) || nv;
+          new_cfg = config::unconfigured (rs, "cli", true) || new_cfg;
         }
 
-        // If this is a new value (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
+        // If this is a configuration with new values, then print the report
+        // at verbosity level 2 and up (-v).
         //
-        if (verb >= (nv ? 2 : 3))
+        if (verb >= (new_cfg ? 2 : 3))
         {
           diag_record dr (text);
           dr << "cli " << project (rs) << '@' << rs << '\n';
@@ -286,7 +287,7 @@ namespace build2
         // semantics and some of its tricky aspects.
         //
         bs.assign ("cli.options") += cast_null<strings> (
-          config::optional (rs, "config.cli.options"));
+          lookup_config (rs, "config.cli.options", nullptr));
       }
 
       return conf;

@@ -17,9 +17,9 @@ namespace build2
   namespace config
   {
     pair<lookup, bool>
-    omitted (scope& rs, const variable& var)
+    lookup_config_impl (scope& rs, const variable& var)
     {
-      // This is a stripped-down version of the required()'s twisted logic.
+      // This is a stripped-down version of the default value case.
 
       pair<lookup, size_t> org (rs.find_original (var));
 
@@ -50,19 +50,8 @@ namespace build2
       return pair<lookup, bool> (l, n);
     }
 
-    lookup
-    optional (scope& rs, const variable& var)
-    {
-      save_variable (rs, var);
-
-      auto l (rs[var]);
-      return l.defined ()
-        ? l
-        : lookup (rs.assign (var), var, rs); // NULL.
-    }
-
     bool
-    specified (scope& rs, const string& n)
+    specified_config (scope& rs, const string& n)
     {
       // Search all outer scopes for any value in this namespace.
       //

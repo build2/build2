@@ -244,8 +244,9 @@ namespace build2
       //
       load_module (rs, rs, "cc.core.guess", loc);
 
-      // Configure.
+      // Configuration.
       //
+      using config::lookup_config;
 
       // Adjust module priority (compiler).
       //
@@ -261,21 +262,21 @@ namespace build2
       //
       //
       rs.assign ("cc.poptions") += cast_null<strings> (
-        config::optional (rs, "config.cc.poptions"));
+        lookup_config (rs, "config.cc.poptions", nullptr));
 
       rs.assign ("cc.coptions") += cast_null<strings> (
-        config::optional (rs, "config.cc.coptions"));
+        lookup_config (rs, "config.cc.coptions", nullptr));
 
       rs.assign ("cc.loptions") += cast_null<strings> (
-        config::optional (rs, "config.cc.loptions"));
+        lookup_config (rs, "config.cc.loptions", nullptr));
 
       rs.assign ("cc.aoptions") += cast_null<strings> (
-        config::optional (rs, "config.cc.aoptions"));
+        lookup_config (rs, "config.cc.aoptions", nullptr));
 
       rs.assign ("cc.libs") += cast_null<strings> (
-        config::optional (rs, "config.cc.libs"));
+        lookup_config (rs, "config.cc.libs", nullptr));
 
-      if (lookup l = config::omitted (rs, "config.cc.reprocess").first)
+      if (lookup l = lookup_config (rs, "config.cc.reprocess"))
         rs.assign ("cc.reprocess") = *l;
 
       // Load the bin.config module.

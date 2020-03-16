@@ -63,11 +63,13 @@ namespace build2
         vn += var;
         const variable& vr (rs.var_pool ().insert<CT> (move (vn), true));
 
+        using config::lookup_config;
+
         l = dv != nullptr
-          ? config::required (rs, vr, *dv, override).first
+          ? lookup_config (rs, vr, *dv, 0 /* save_flags */, override)
           : (global
-             ? config::optional (rs, vr)
-             : config::omitted (rs, vr).first);
+             ? lookup_config (rs, vr, nullptr)
+             : lookup_config (rs, vr));
       }
 
       if (global)
@@ -237,8 +239,10 @@ namespace build2
       //
       {
         using build2::path;
+        using config::lookup_config;
+        using config::specified_config;
 
-        bool s (config::specified (rs, "install"));
+        bool s (specified_config (rs, "install"));
 
         // Adjust module priority so that the (numerous) config.install.*
         // values are saved at the end of config.build.
@@ -280,7 +284,7 @@ namespace build2
 
           if (s)
           {
-            if (lookup l = config::optional (rs, cvar))
+            if (lookup l = lookup_config (rs, cvar, nullptr))
               v = cast<dir_path> (l); // Strip abs_dir_path.
           }
         }

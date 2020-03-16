@@ -111,7 +111,10 @@ namespace build2
       // must be explicitly specified or we will complain if and when
       // we try to dist.
       //
-      bool s (config::specified (rs, "dist"));
+      using config::lookup_config;
+      using config::specified_config;
+
+      bool s (specified_config (rs, "dist"));
 
       // Adjust module priority so that the config.dist.* values are saved at
       // the end of config.build.
@@ -126,7 +129,7 @@ namespace build2
 
         if (s)
         {
-          if (lookup l = config::optional (rs, "config.dist.root"))
+          if (lookup l = lookup_config (rs, "config.dist.root", nullptr))
             v = cast<dir_path> (l); // Strip abs_dir_path.
         }
       }
@@ -138,9 +141,9 @@ namespace build2
 
         if (s)
         {
-          if (lookup l = config::required (rs,
-                                           "config.dist.cmd",
-                                           path ("install")).first)
+          if (lookup l = lookup_config (rs,
+                                        "config.dist.cmd",
+                                        path ("install")))
             v = run_search (cast<path> (l), true);
         }
       }
@@ -154,10 +157,10 @@ namespace build2
 
         if (s)
         {
-          if (lookup l = config::optional (rs, "config.dist.archives"))
+          if (lookup l = lookup_config (rs, "config.dist.archives", nullptr))
             a = *l;
 
-          if (lookup l = config::optional (rs, "config.dist.checksums"))
+          if (lookup l = lookup_config (rs, "config.dist.checksums", nullptr))
           {
             c = *l;
 
@@ -173,7 +176,7 @@ namespace build2
       //
       // Omit it from the configuration unless specified.
       //
-      config::omitted (rs, "config.dist.uncommitted");
+      lookup_config (rs, "config.dist.uncommitted");
 
       return true;
     }

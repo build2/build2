@@ -160,11 +160,9 @@ namespace build2
       //
       load_module (rs, rs, "bin.vars", loc);
 
-      // Configure.
+      // Configuration.
       //
-      using config::required;
-      using config::optional;
-      using config::omitted;
+      using config::lookup_config;
 
       // Adjust module priority (binutils).
       //
@@ -185,7 +183,7 @@ namespace build2
       {
         value& v (rs.assign ("bin.lib"));
         if (!v)
-          v = *required (rs, "config.bin.lib", "both").first;
+          v = *lookup_config (rs, "config.bin.lib", "both");
       }
 
       // config.bin.exe.lib
@@ -193,7 +191,7 @@ namespace build2
       {
         value& v (rs.assign ("bin.exe.lib"));
         if (!v)
-          v = *required (rs, "config.bin.exe.lib", exe_lib).first;
+          v = *lookup_config (rs, "config.bin.exe.lib", exe_lib);
       }
 
       // config.bin.liba.lib
@@ -201,7 +199,7 @@ namespace build2
       {
         value& v (rs.assign ("bin.liba.lib"));
         if (!v)
-          v = *required (rs, "config.bin.liba.lib", liba_lib).first;
+          v = *lookup_config (rs, "config.bin.liba.lib", liba_lib);
       }
 
       // config.bin.libs.lib
@@ -209,7 +207,7 @@ namespace build2
       {
         value& v (rs.assign ("bin.libs.lib"));
         if (!v)
-          v = *required (rs, "config.bin.libs.lib", libs_lib).first;
+          v = *lookup_config (rs, "config.bin.libs.lib", libs_lib);
       }
 
       // config.bin.rpath[_link]
@@ -218,10 +216,10 @@ namespace build2
       // any.
       //
       rs.assign ("bin.rpath") += cast_null<dir_paths> (
-        optional (rs, "config.bin.rpath"));
+        lookup_config (rs, "config.bin.rpath", nullptr));
 
       rs.assign ("bin.rpath_link") += cast_null<dir_paths> (
-        optional (rs, "config.bin.rpath_link"));
+        lookup_config (rs, "config.bin.rpath_link", nullptr));
 
       // config.bin.rpath[_link].auto
       //
@@ -229,12 +227,12 @@ namespace build2
         lookup l;
 
         rs.assign ("bin.rpath.auto") =
-          (l = omitted (rs, "config.bin.rpath.auto").first)
+          (l = lookup_config (rs, "config.bin.rpath.auto"))
           ? cast<bool> (l)
           : true;
 
         rs.assign ("bin.rpath_link.auto") =
-          (l = omitted (rs, "config.bin.rpath_link.auto").first)
+          (l = lookup_config (rs, "config.bin.rpath_link.auto"))
           ? cast<bool> (l)
           : true;
       }
@@ -246,12 +244,12 @@ namespace build2
       // that might have been specified before loading the module.
       //
       {
-        lookup p (omitted (rs, "config.bin.prefix").first);
-        lookup s (omitted (rs, "config.bin.suffix").first);
+        lookup p (lookup_config (rs, "config.bin.prefix"));
+        lookup s (lookup_config (rs, "config.bin.suffix"));
 
         auto set = [&rs] (const char* bv, const char* cv, lookup l)
         {
-          if (lookup o = omitted (rs, cv).first)
+          if (lookup o = lookup_config (rs, cv))
             l = o;
 
           if (l)
@@ -267,7 +265,7 @@ namespace build2
 
       if (first)
       {
-        bool new_val (false); // Set any new values?
+        bool new_cfg (false); // Any new configuration values?
 
         // config.bin.target
         //
@@ -277,14 +275,15 @@ namespace build2
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (omitted (rs, var));
-          lookup l (p.first);
+          lookup l (lookup_config (new_cfg, rs, var));
 
           // Then see if there is a config hint (e.g., from the cc module).
           //
           bool hint (false);
           if (!l)
           {
+            // Note: new_cfg is false for a hinted value.
+            //
             if (auto hl = extra.hints[var])
             {
               l = hl;
@@ -342,8 +341,6 @@ namespace build2
             fail << "unable to parse binutils target '" << s << "': " << e <<
               info << "consider using the --config-sub option";
           }
-
-          new_val = new_val || p.second; // False for a hinted value.
         }
 
         // config.bin.pattern
@@ -354,13 +351,14 @@ namespace build2
           // We first see if the value was specified via the configuration
           // mechanism.
           //
-          auto p (omitted (rs, var));
-          lookup l (p.first);
+          lookup l (lookup_config (new_cfg, rs, var));
 
           // Then see if there is a config hint (e.g., from the C++ module).
           //
           if (!l)
           {
+            // Note: new_cfg is false for a hinted value.
+            //
             if (auto hl = extra.hints[var])
               l = hl;
           }
@@ -382,14 +380,13 @@ namespace build2
             }
 
             rs.assign<string> ("bin.pattern") = s;
-            new_val = new_val || p.second; // False for a hinted value.
           }
         }
 
-        // If we set any new values (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
+        // If this is a configuration with new values, then print the report
+        // at verbosity level 2 and up (-v).
         //
-        if (verb >= (new_val ? 2 : 3))
+        if (verb >= (new_cfg ? 2 : 3))
         {
           diag_record dr (text);
 
@@ -587,10 +584,14 @@ namespace build2
         vp.insert<path>         ("config.bin.ranlib", true);
       }
 
-      // Configure.
+      // Configuration.
       //
       if (first)
       {
+        using config::lookup_config;
+
+        bool new_cfg (false); // Any new configuration values?
+
         // config.bin.ar
         // config.bin.ranlib
         //
@@ -619,31 +620,28 @@ namespace build2
         // changes, say, the C++ compiler (which hinted the pattern), then
         // ar will automatically change as well.
         //
-        auto ap (
-          config::required (
-            rs,
-            "config.bin.ar",
-            path (apply_pattern (ar_d, pat.pattern)),
-            false,
-            config::save_default_commented));
+        const path& ar (
+          cast<path> (
+            lookup_config (new_cfg,
+                           rs,
+                           "config.bin.ar",
+                           path (apply_pattern (ar_d, pat.pattern)),
+                           config::save_default_commented)));
 
-        auto rp (
-          config::required (
-            rs,
-            "config.bin.ranlib",
-            nullptr,
-            false,
-            config::save_default_commented));
-
-        const path& ar (cast<path> (ap.first));
-        const path* ranlib (cast_null<path> (rp.first));
+        const path* ranlib (
+          cast_null<path> (
+            lookup_config (new_cfg,
+                           rs,
+                           "config.bin.ranlib",
+                           nullptr,
+                           config::save_default_commented)));
 
         ar_info ari (guess_ar (ar, ranlib, pat.paths));
 
-        // If this is a new value (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
+        // If this is a configuration with new values, then print the report
+        // at verbosity level 2 and up (-v).
         //
-        if (verb >= (ap.second || rp.second ? 2 : 3))
+        if (verb >= (new_cfg ? 2 : 3))
         {
           diag_record dr (text);
 
@@ -750,10 +748,14 @@ namespace build2
         vp.insert<path>         ("config.bin.ld", true);
       }
 
-      // Configure.
+      // Configuration.
       //
       if (first)
       {
+        using config::lookup_config;
+
+        bool new_cfg (false); // Any new configuration values?
+
         // config.bin.ld
         //
         // Use the target to decide on the default ld name.
@@ -765,21 +767,20 @@ namespace build2
         //
         pattern_paths pat (lookup_pattern (rs));
 
-        auto p (
-          config::required (
-            rs,
-            "config.bin.ld",
-            path (apply_pattern (ld_d, pat.pattern)),
-            false,
-            config::save_default_commented));
+        const path& ld (
+          cast<path> (
+            lookup_config (new_cfg,
+                           rs,
+                           "config.bin.ld",
+                           path (apply_pattern (ld_d, pat.pattern)),
+                           config::save_default_commented)));
 
-        const path& ld (cast<path> (p.first));
         ld_info ldi (guess_ld (ld, pat.paths));
 
-        // If this is a new value (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
+        // If this is a configuration with new values, then print the report
+        // at verbosity level 2 and up (-v).
         //
-        if (verb >= (p.second ? 2 : 3))
+        if (verb >= (new_cfg ? 2 : 3))
         {
           diag_record dr (text);
 
@@ -883,10 +884,14 @@ namespace build2
         vp.insert<path>         ("config.bin.rc", true);
       }
 
-      // Configure.
+      // Configuration.
       //
       if (first)
       {
+        using config::lookup_config;
+
+        bool new_cfg (false); // Any new configuration values?
+
         // config.bin.rc
         //
         // Use the target to decide on the default rc name.
@@ -898,21 +903,20 @@ namespace build2
         //
         pattern_paths pat (lookup_pattern (rs));
 
-        auto p (
-          config::required (
-            rs,
-            "config.bin.rc",
-            path (apply_pattern (rc_d, pat.pattern)),
-            false,
-            config::save_default_commented));
+        const path& rc (
+          cast<path> (
+            lookup_config (new_cfg,
+                           rs,
+                           "config.bin.rc",
+                           path (apply_pattern (rc_d, pat.pattern)),
+                           config::save_default_commented)));
 
-        const path& rc (cast<path> (p.first));
         rc_info rci (guess_rc (rc, pat.paths));
 
-        // If this is a new value (e.g., we are configuring), then print the
-        // report at verbosity level 2 and up (-v).
+        // If this is a configuration with new values, then print the report
+        // at verbosity level 2 and up (-v).
         //
-        if (verb >= (p.second ? 2 : 3))
+        if (verb >= (new_cfg ? 2 : 3))
         {
           text << "bin.rc " << project (rs) << '@' << rs << '\n'
                << "  rc         " << rci.path << '\n'

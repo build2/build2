@@ -48,6 +48,10 @@ namespace build2
       const variable& config_c_coptions (vp["config.cc.coptions"]);
       const variable& config_c_loptions (vp["config.cc.loptions"]);
 
+      // Configuration.
+      //
+      using config::lookup_config;
+
       // config.x
       //
       strings mode;
@@ -56,9 +60,9 @@ namespace build2
         // default value every time will be a waste. So try without a default
         // first.
         //
-        auto p (config::omitted (rs, config_x));
+        lookup l (lookup_config (new_config, rs, config_x));
 
-        if (!p.first)
+        if (!l)
         {
           // If there is a config.x value for one of the modules that can hint
           // us the toolchain, load it's .guess module. This makes sure that
@@ -113,17 +117,16 @@ namespace build2
           // user changes the source of the pattern/mode, this one will get
           // updated as well.
           //
-          p = config::required (
-            rs,
-            config_x,
-            move (d),
-            false,
-            cc_loaded ? config::save_default_commented : 0);
+          l = lookup_config (new_config,
+                             rs,
+                             config_x,
+                             move (d),
+                             cc_loaded ? config::save_default_commented : 0);
         }
 
         // Split the value into the compiler path and mode.
         //
-        const strings& v (cast<strings> (*p.first));
+        const strings& v (cast<strings> (l));
 
         path xc;
         {
@@ -145,9 +148,9 @@ namespace build2
         //
         x_info = &build2::cc::guess (
           x, x_lang, move (xc),
-          cast_null<string> (config::omitted (rs, config_x_id).first),
-          cast_null<string> (config::omitted (rs, config_x_version).first),
-          cast_null<string> (config::omitted (rs, config_x_target).first),
+          cast_null<string> (lookup_config (rs, config_x_id)),
+          cast_null<string> (lookup_config (rs, config_x_version)),
+          cast_null<string> (lookup_config (rs, config_x_target)),
           mode,
           cast_null<strings> (rs[config_c_poptions]),
           cast_null<strings> (rs[config_x_poptions]),
@@ -155,8 +158,6 @@ namespace build2
           cast_null<strings> (rs[config_x_coptions]),
           cast_null<strings> (rs[config_c_loptions]),
           cast_null<strings> (rs[config_x_loptions]));
-
-        new_ = p.second;
       }
 
       const compiler_info& xi (*x_info);
@@ -338,6 +339,10 @@ namespace build2
       const compiler_info& xi (*x_info);
       const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
+      // Configuration.
+      //
+      using config::lookup_config;
+
       // config.x.{p,c,l}options
       // config.x.libs
       //
@@ -365,24 +370,24 @@ namespace build2
       // x.coptions += <overriding options> # Note: '+='.
       //
       rs.assign (x_poptions) += cast_null<strings> (
-        config::optional (rs, config_x_poptions));
+        lookup_config (rs, config_x_poptions, nullptr));
 
       rs.assign (x_coptions) += cast_null<strings> (
-        config::optional (rs, config_x_coptions));
+        lookup_config (rs, config_x_coptions, nullptr));
 
       rs.assign (x_loptions) += cast_null<strings> (
-        config::optional (rs, config_x_loptions));
+        lookup_config (rs, config_x_loptions, nullptr));
 
       rs.assign (x_aoptions) += cast_null<strings> (
-        config::optional (rs, config_x_aoptions));
+        lookup_config (rs, config_x_aoptions, nullptr));
 
       rs.assign (x_libs) += cast_null<strings> (
-        config::optional (rs, config_x_libs));
+        lookup_config (rs, config_x_libs, nullptr));
 
       // config.x.std overrides x.std
       //
       {
-        lookup l (config::omitted (rs, config_x_std).first);
+        lookup l (lookup_config (rs, config_x_std));
 
         const string* v;
         if (l.defined ())
@@ -407,7 +412,7 @@ namespace build2
       //
       if (x_translatable_headers != nullptr)
       {
-        lookup l (config::omitted (rs, *config_x_translatable_headers).first);
+        lookup l (lookup_config (rs, *config_x_translatable_headers));
 
         // @@ MODHDR: if(modules) ?
         //
@@ -533,10 +538,10 @@ namespace build2
       }
 #endif
 
-      // If this is a new value (e.g., we are configuring), then print the
-      // report at verbosity level 2 and up (-v).
+      // If this is a configuration with new values, then print the report
+      // at verbosity level 2 and up (-v).
       //
-      if (verb >= (new_ ? 2 : 3))
+      if (verb >= (new_config ? 2 : 3))
       {
         const strings& mode (cast<strings> (rs[x_mode]));
 

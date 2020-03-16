@@ -140,8 +140,9 @@ namespace build2
 
       auto& m (extra.module_as<module> ());
 
-      // Configure.
+      // Configuration.
       //
+      using config::lookup_config;
 
       // Adjust module priority so that the config.test.* values are saved at
       // the end of config.build.
@@ -150,7 +151,7 @@ namespace build2
 
       // config.test
       //
-      if (lookup l = config::omitted (rs, m.config_test).first)
+      if (lookup l = lookup_config (rs, m.config_test))
       {
         // Figure out which root scope it came from.
         //
@@ -166,7 +167,7 @@ namespace build2
 
       // config.test.output
       //
-      if (lookup l = config::omitted (rs, m.config_test_output).first)
+      if (lookup l = lookup_config (rs, m.config_test_output))
       {
         const name_pair& p (cast<name_pair> (l));
 

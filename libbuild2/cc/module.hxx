@@ -66,6 +66,8 @@ namespace build2
       size_t sys_lib_dirs_extra;
       size_t sys_inc_dirs_extra;
 
+      bool new_config = false; // See guess() and init() for details.
+
     private:
       // Defined in gcc.cxx.
       //
@@ -82,9 +84,6 @@ namespace build2
 
       pair<dir_paths, size_t>
       msvc_library_search_dirs (const process_path&, scope&) const;
-
-    private:
-      bool new_; // See guess() and init() for details.
     };
 
     class LIBBUILD2_CC_SYMEXPORT module: public build2::module,

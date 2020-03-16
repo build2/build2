@@ -77,116 +77,184 @@ namespace build2
         config_save_module (rs, module, prio);
     }
 
-    // Set, if necessary, a required config.* variable.
+    // Lookup a config.* variable value and, if the value is defined, mark it
+    // as saved.
+    //
+    // The second version in addition sets the new_value argument to true if
+    // the value is "new" (but not to false; so it can be used to accumulate
+    // the result from multiple calls). A value is considered new if it was
+    // set to the default value (inherited or not, including overrides). We
+    // also treat command line overrides (inherited or not) as new. In this
+    // case new means either the default value was inherited or it was
+    // overridden. This flag is usually used to test that the new value is
+    // valid, print the configuration report, etc.
+    //
+    // Unlike the rest of the lookup_config() versions, this one leaves the
+    // unspecified value as undefined rather than setting it to a default
+    // value. This can be useful when we don't have a default value or if we
+    // want the mentioning of the variable to be omitted from persistent
+    // storage (e.g., a config file) if the default value is used.
+    //
+    // @@ Should we pass flags and interpret save_null_omitted to treat null
+    //    as undefined? Sounds logical.
+    //
+    lookup
+    lookup_config (scope& rs, const variable&);
+
+    lookup
+    lookup_config (bool& new_value, scope& rs, const variable&);
+
+    // Note that the variable is expected to have already been entered.
+    //
+    inline lookup
+    lookup_config (scope& rs, const string& var)
+    {
+      return lookup_config (rs, rs.ctx.var_pool[var]);
+    }
+
+    inline lookup
+    lookup_config (bool& new_value, scope& rs, const string& var)
+    {
+      return lookup_config (new_value, rs, rs.ctx.var_pool[var]);
+    }
+
+    // Lookup a config.* variable value and, if the value is undefined, set it
+    // to the default. Always mark it as saved.
+    //
+    // If the default value is nullptr, then the unspecified value is set to
+    // NULL which can be used to distinguish between the "not yet configured",
+    // "configured as unspecified", and "configures as empty" cases which can
+    // have different semantics if the value is merged into a non-config.*
+    // variable. This default value is traditionally used for "optional"
+    // values such as command line options.
+    //
+    // The value is returned as lookup (even though it is always defined
+    // though potentially as NULL) in order to pass along its location (could
+    // be used to detect inheritance, etc).
+    //
+    // The second version in addition sets the new_value argument as described
+    // above. Note, however, that if the save_default_commented flag is
+    // specified, then the default value is never considered "new" since for
+    // such variables absence of a value means it is the default value.
     //
     // If override is true and the variable doesn't come from this root scope
     // or from the command line (i.e., it is inherited from the amalgamation),
     // then its value is "overridden" to the default value on this root scope.
-    // See save_variable() for more information on save_flags.
-    //
-    // Return the reference to the value as well as the indication of whether
-    // the value is "new", that is, it was set to the default value (inherited
-    // or not, including overrides). We also treat command line overrides
-    // (inherited or not) as new. This flag is usually used to test that the
-    // new value is valid, print report, etc. We return the value as lookup
-    // (always defined) to pass along its location (could be used to detect
-    // inheritance, etc).
-    //
-    // Note also that if save_flags has save_default_commented, then a default
-    // value is never considered "new" since for such variables absence of a
-    // value means the default value.
     //
     // @@ Should save_null_omitted be interpreted to treat null as undefined?
     //    Sounds logical.
     //
     template <typename T>
-    pair<lookup, bool>
-    required (scope& rs,
-              const variable&,
-              T&& default_value,
-              bool override = false,
-              uint64_t save_flags = 0);
+    lookup
+    lookup_config (scope& rs,
+                   const variable&,
+                   T&& default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false);
+
+    template <typename T>
+    lookup
+    lookup_config (bool& new_value,
+                   scope& rs,
+                   const variable&,
+                   T&& default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false);
+
+    inline lookup
+    lookup_config (scope& rs,
+                   const variable& var,
+                   const char* default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false)
+    {
+      return lookup_config (
+        rs, var, string (default_value), save_flags, override);
+    }
+
+    inline lookup
+    lookup_config (bool& new_value,
+                   scope& rs,
+                   const variable& var,
+                   const char* default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false)
+    {
+      return lookup_config (
+        new_value, rs, var, string (default_value), save_flags, override);
+    }
 
     // Note that the variable is expected to have already been entered.
     //
     template <typename T>
-    inline pair<lookup, bool>
-    required (scope& rs,
-              const string& var,
-              T&& default_value,
-              bool override = false,
-              uint64_t save_flags = 0)
-    {
-      return required (rs,
-                       rs.ctx.var_pool[var],
-                       std::forward<T> (default_value), // VC14
-                       override,
-                       save_flags);
-    }
-
-    inline pair<lookup, bool>
-    required (scope& rs,
-              const string& var,
-              const char* default_value,
-              bool override = false,
-              uint64_t save_flags = 0)
-    {
-      return required (rs, var, string (default_value), override, save_flags);
-    }
-
-    // As above, but leave the unspecified value as undefined rather than
-    // setting it to the default value.
-    //
-    // This can be useful when we don't have a default value but may figure
-    // out some fallback. See config.bin.target for an example.
-    //
-    LIBBUILD2_SYMEXPORT pair<lookup, bool>
-    omitted (scope& rs, const variable&);
-
-    // Note that the variable is expected to have already been entered.
-    //
-    inline pair<lookup, bool>
-    omitted (scope& rs, const string& var)
-    {
-      return omitted (rs, rs.ctx.var_pool[var]);
-    }
-
-    // Set, if necessary, an optional config.* variable. In particular, an
-    // unspecified variable is set to NULL which is used to distinguish
-    // between the "configured as unspecified" and "not yet configured" cases.
-    //
-    // Return the value (as always defined lookup), which can be NULL.
-    //
-    // @@ Rename since clashes with the optional class template.
-    //
-    // @@ Does it make sense to return the new indicator here as well,
-    //    for consistency/generality.
-    //
-    LIBBUILD2_SYMEXPORT lookup
-    optional (scope& rs, const variable&);
-
-    // Note that the variable is expected to have already been registered.
-    //
     inline lookup
-    optional (scope& rs, const string& var)
+    lookup_config (scope& rs,
+                   const string& var,
+                   T&& default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false)
     {
-      return optional (rs, rs.ctx.var_pool[var]);
+      return lookup_config (rs,
+                            rs.ctx.var_pool[var],
+                            std::forward<T> (default_value), // VC14
+                            save_flags,
+                            override);
     }
 
-    // Check whether there are any variables specified from the config
+    template <typename T>
+    inline lookup
+    lookup_config (bool& new_value,
+                   scope& rs,
+                   const string& var,
+                   T&& default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false)
+    {
+      return lookup_config (new_value,
+                            rs,
+                            rs.ctx.var_pool[var],
+                            std::forward<T> (default_value), // VC14
+                            save_flags,
+                            override);
+    }
+
+    inline lookup
+    lookup_config (scope& rs,
+                   const string& var,
+                   const char* default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false)
+    {
+      return lookup_config (
+        rs, var, string (default_value), save_flags, override);
+    }
+
+    inline lookup
+    lookup_config (bool& new_value,
+                   scope& rs,
+                   const string& var,
+                   const char* default_value,
+                   uint64_t save_flags = 0,
+                   bool override = false)
+    {
+      return lookup_config (
+        new_value, rs, var, string (default_value), save_flags, override);
+    }
+
+    // Check whether there are any variables specified from the config.<name>
     // namespace. The idea is that we can check if there are any, say,
-    // config.install.* values. If there are none, then we can assume
-    // this functionality is not (yet) used and omit writing a whole
-    // bunch of NULL config.install.* values to the config.build file.
-    // We call it omitted/delayed configuration.
+    // config.install.* values. If there are none, then we can assume this
+    // functionality is not (yet) used and omit writing a whole bunch of NULL
+    // config.install.* values to the config.build file.  We call this
+    // omitted/delayed configuration.
     //
-    // Note that this function detects and ignores the special
-    // config.*.configured variable which may be used by a module to
-    // "remember" that it is unconfigured (e.g., in order to avoid re-
-    // running the tests, etc).
+    // Note that this function detects and ignores special config.* variables
+    // (such as config.*.configured) which may be used by a module to remember
+    // that it is unconfigured (e.g., in order to avoid re-running the tests,
+    // etc; see below).
     //
     LIBBUILD2_SYMEXPORT bool
-    specified (scope& rs, const string& var);
+    specified_config (scope& rs, const string& var);
 
     // Check if there is a false config.*.configured value. This mechanism can
     // be used to "remember" that the module is left unconfigured in order to
@@ -204,6 +272,7 @@ namespace build2
   }
 }
 
+#include <libbuild2/config/utility.ixx>
 #include <libbuild2/config/utility.txx>
 
 #endif // LIBBUILD2_CONFIG_UTILITY_HXX
