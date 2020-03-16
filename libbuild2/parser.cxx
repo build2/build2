@@ -5748,11 +5748,11 @@ namespace build2
       pair<lookup, size_t> r (p->vars[var], 1);
 
       if (!r.first.defined ())
-        r = t->find_original (var);
+        r = t->lookup_original (var);
 
       return var.overrides == nullptr
         ? r.first
-        : t->base_scope ().find_override (var, move (r), true).first;
+        : t->base_scope ().lookup_override (var, move (r), true).first;
     }
 
     if (t != nullptr)

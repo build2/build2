@@ -18,7 +18,7 @@ namespace build2
 
       save_variable (rs, var, sflags);
 
-      pair<lookup, size_t> org (rs.find_original (var));
+      pair<lookup, size_t> org (rs.lookup_original (var));
 
       bool n (false); // New flag.
       lookup l (org.first);
@@ -71,7 +71,7 @@ namespace build2
 
       if (var.overrides != nullptr)
       {
-        pair<lookup, size_t> ovr (rs.find_override (var, move (org)));
+        pair<lookup, size_t> ovr (rs.lookup_override (var, move (org)));
 
         if (l != ovr.first) // Overriden?
         {

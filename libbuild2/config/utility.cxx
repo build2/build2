@@ -21,7 +21,7 @@ namespace build2
     {
       // This is a stripped-down version of the default value case.
 
-      pair<lookup, size_t> org (rs.find_original (var));
+      pair<lookup, size_t> org (rs.lookup_original (var));
 
       bool n (false); // New flag.
       lookup l (org.first);
@@ -33,7 +33,7 @@ namespace build2
 
       if (var.overrides != nullptr)
       {
-        pair<lookup, size_t> ovr (rs.find_override (var, move (org)));
+        pair<lookup, size_t> ovr (rs.lookup_override (var, move (org)));
 
         if (l != ovr.first) // Overriden?
         {
@@ -64,7 +64,7 @@ namespace build2
       const variable& vns (rs.var_pool ().insert ("config." + n));
       for (scope* s (&rs); s != nullptr; s = s->parent_scope ())
       {
-        for (auto p (s->vars.find_namespace (vns));
+        for (auto p (s->vars.lookup_namespace (vns));
              p.first != p.second;
              ++p.first)
         {

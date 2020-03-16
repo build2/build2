@@ -77,14 +77,14 @@ namespace build2
   value& prerequisite::
   append (const variable& var, const target_type& t)
   {
-    if (value* r = vars.find_to_modify (var).first)
+    if (value* r = vars.lookup_to_modify (var).first)
       return *r;
 
     value& r (assign (var)); // NULL.
 
     // Note: pretty similar logic to target::append().
     //
-    lookup l (t.find_original (var).first);
+    lookup l (t.lookup_original (var).first);
 
     if (l.defined ())
       r = *l; // Copy value (and type) from the target/outer scope.

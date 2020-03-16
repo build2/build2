@@ -95,64 +95,66 @@ namespace build2
     // scope, do it on the the variables map directly (and note that there
     // will be no overrides).
     //
-    lookup
+    using lookup_type = build2::lookup;
+
+    lookup_type
     operator[] (const variable& var) const
     {
-      return find (var).first;
+      return lookup (var).first;
     }
 
-    lookup
+    lookup_type
     operator[] (const variable* var) const // For cached variables.
     {
       assert (var != nullptr);
       return operator[] (*var);
     }
 
-    lookup
+    lookup_type
     operator[] (const string& name) const
     {
       const variable* var (ctx.var_pool.find (name));
-      return var != nullptr ? operator[] (*var) : lookup ();
+      return var != nullptr ? operator[] (*var) : lookup_type ();
     }
 
     // As above, but include target type/pattern-specific variables.
     //
-    lookup
-    find (const variable& var, const target_key& tk) const
+    lookup_type
+    lookup (const variable& var, const target_key& tk) const
     {
-      return find (var, tk.type, tk.name).first;
+      return lookup (var, tk.type, tk.name).first;
     }
 
-    lookup
-    find (const variable& var, const target_type& tt, const string& tn) const
+    lookup_type
+    lookup (const variable& var, const target_type& tt, const string& tn) const
     {
-      return find (var, &tt, &tn).first;
+      return lookup (var, &tt, &tn).first;
     }
 
-    pair<lookup, size_t>
-    find (const variable& var,
-          const target_type* tt = nullptr,
-          const string* tn = nullptr) const
+    pair<lookup_type, size_t>
+    lookup (const variable& var,
+            const target_type* tt = nullptr,
+            const string* tn = nullptr) const
     {
-      auto p (find_original (var, tt, tn));
-      return var.overrides == nullptr ? p : find_override (var, move (p));
+      auto p (lookup_original (var, tt, tn));
+      return var.overrides == nullptr ? p : lookup_override (var, move (p));
     }
 
     // Implementation details (used by scope target lookup). The start_depth
     // can be used to skip a number of initial lookups.
     //
-    pair<lookup, size_t>
-    find_original (
+    pair<lookup_type, size_t>
+    lookup_original (
       const variable&,
       const target_type* tt = nullptr, const string* tn = nullptr,
       const target_type* gt = nullptr, const string* gn = nullptr,
       size_t start_depth = 1) const;
 
-    pair<lookup, size_t>
-    find_override (const variable&,
-                   pair<lookup, size_t> original,
-                   bool target = false,
-                   bool rule = false) const;
+    pair<lookup_type, size_t>
+    lookup_override (const variable&,
+                     pair<lookup_type, size_t> original,
+                     bool target = false,
+                     bool rule = false) const;
 
     // Return a value suitable for assignment (or append if you only want to
     // append to the value from this scope). If the value does not exist in

@@ -218,7 +218,7 @@ namespace build2
         //
         auto& vp (ctx.var_pool);
 
-        for (auto p (rs.vars.find_namespace (*vp.find ("config")));
+        for (auto p (rs.vars.lookup_namespace (*vp.find ("config")));
              p.first != p.second;
              ++p.first)
         {
@@ -260,7 +260,7 @@ namespace build2
               {
                 lookup l {v, *var, rs.vars};
                 pair<lookup, size_t> org {l, 1 /* depth */};
-                pair<lookup, size_t> ovr (rs.find_override (*var, org));
+                pair<lookup, size_t> ovr (rs.lookup_override (*var, org));
 
                 if (org.first != ovr.first)
                   continue;
@@ -295,10 +295,10 @@ namespace build2
           {
             const variable& var (sv.var);
 
-            pair<lookup, size_t> org (rs.find_original (var));
+            pair<lookup, size_t> org (rs.lookup_original (var));
             pair<lookup, size_t> ovr (var.overrides == nullptr
                                       ? org
-                                      : rs.find_override (var, org));
+                                      : rs.lookup_override (var, org));
             const lookup& l (ovr.first);
 
             // We definitely write values that are set on our root scope or

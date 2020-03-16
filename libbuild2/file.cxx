@@ -547,7 +547,7 @@ namespace build2
       temp_scope tmp (ctx.global_scope.rw ());
       p.parse_variable (l, tmp, var, tt);
 
-      value* v (tmp.vars.find_to_modify (var).first);
+      value* v (tmp.vars.lookup_to_modify (var).first);
       assert (v != nullptr);
 
       // Steal the value, the scope is going away.

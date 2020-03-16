@@ -13,21 +13,21 @@ namespace build2
   // scope
   //
   pair<lookup, size_t> scope::
-  find_original (const variable& var,
-                 const target_type* tt, const string* tn,
-                 const target_type* gt, const string* gn,
-                 size_t start_d) const
+  lookup_original (const variable& var,
+                   const target_type* tt, const string* tn,
+                   const target_type* gt, const string* gn,
+                   size_t start_d) const
   {
     assert (tt != nullptr || var.visibility != variable_visibility::target);
 
     size_t d (0);
 
     if (var.visibility == variable_visibility::prereq)
-      return make_pair (lookup (), d);
+      return make_pair (lookup_type (), d);
 
     // Process target type/pattern-specific prepend/append values.
     //
-    auto pre_app = [&var, this] (lookup& l,
+    auto pre_app = [&var, this] (lookup_type& l,
                                  const scope* s,
                                  const target_type* tt, const string* tn,
                                  const target_type* gt, const string* gn)
@@ -44,7 +44,7 @@ namespace build2
       // group, then we shouldn't be looking for stem in the target's
       // variables. In other words, once we "jump" to group, we stay there.
       //
-      lookup stem (s->find_original (var, tt, tn, gt, gn, 2).first);
+      lookup_type stem (s->lookup_original (var, tt, tn, gt, gn, 2).first);
 
       // Check the cache.
       //
@@ -114,7 +114,7 @@ namespace build2
         {
           if (f)
           {
-            lookup l (s->target_vars.find (*tt, *tn, var));
+            lookup_type l (s->target_vars.find (*tt, *tn, var));
 
             if (l.defined ())
             {
@@ -132,7 +132,7 @@ namespace build2
         {
           if (f && gt != nullptr)
           {
-            lookup l (s->target_vars.find (*gt, *gn, var));
+            lookup_type l (s->target_vars.find (*gt, *gn, var));
 
             if (l.defined ())
             {
@@ -150,9 +150,9 @@ namespace build2
       //
       if (++d >= start_d && var.visibility != variable_visibility::target)
       {
-        auto p (s->vars.find (var));
+        auto p (s->vars.lookup (var));
         if (p.first != nullptr)
-          return make_pair (lookup (*p.first, p.second, s->vars), d);
+          return make_pair (lookup_type (*p.first, p.second, s->vars), d);
       }
 
       switch (var.visibility)
@@ -172,14 +172,14 @@ namespace build2
       }
     }
 
-    return make_pair (lookup (), size_t (~0));
+    return make_pair (lookup_type (), size_t (~0));
   }
 
   pair<lookup, size_t> scope::
-  find_override (const variable& var,
-                 pair<lookup, size_t> original,
-                 bool target,
-                 bool rule) const
+  lookup_override (const variable& var,
+                   pair<lookup_type, size_t> original,
+                   bool target,
+                   bool rule) const
   {
     assert (!rule || target); // Rule-specific is target-specific.
 
@@ -193,7 +193,7 @@ namespace build2
     //
     assert (var.overrides != nullptr);
 
-    const lookup& orig (original.first);
+    const lookup_type& orig (original.first);
     size_t orig_depth (original.second);
 
     // The first step is to find out where our cache will reside. After some
@@ -272,21 +272,21 @@ namespace build2
     // Return the override value if present in scope s and (optionally) of
     // the specified kind (__override, __prefix, etc).
     //
-    auto find = [&s, &var] (const variable* o,
-                            const char* k = nullptr) -> lookup
+    auto lookup = [&s, &var] (const variable* o,
+                              const char* k = nullptr) -> lookup_type
     {
       if (k != nullptr && !o->override (k))
-        return lookup ();
+        return lookup_type ();
 
       // Note: using the original as storage variable.
       //
-      return lookup (s->vars.find (*o).first, &var, &s->vars);
+      return lookup_type (s->vars.lookup (*o).first, &var, &s->vars);
     };
 
     // Return true if a value is from this scope (either target type/pattern-
     // specific or ordinary).
     //
-    auto belongs = [&s, target] (const lookup& l) -> bool
+    auto belongs = [&s, target] (const lookup_type& l) -> bool
     {
       if (target)
       {
@@ -324,7 +324,7 @@ namespace build2
         if (inner_vars != nullptr && !applies (o, inner_vars, inner_proj))
           continue;
 
-        auto l (find (o));
+        auto l (lookup (o));
 
         if (l.defined ())
         {
@@ -360,7 +360,7 @@ namespace build2
     // suffixes and prepending prefixes. This is either the original or the
     // __override, provided it applies. We may also not have either.
     //
-    lookup stem;
+    lookup_type stem;
     size_t stem_depth (0);
     const scope* stem_proj (nullptr);
     const variable* stem_ovr (nullptr); // __override if found and applies.
@@ -410,7 +410,7 @@ namespace build2
         if (stem.defined () && !applies (o, stem.vars, stem_proj))
           continue;
 
-        auto l (find (o, "__override"));
+        auto l (lookup (o, "__override"));
 
         if (l.defined ())
         {
@@ -525,8 +525,8 @@ namespace build2
         // variable itself is typed. We also pass the original variable for
         // diagnostics.
         //
-        auto lp (find (o, "__prefix"));
-        auto ls (find (o, "__suffix"));
+        auto lp (lookup (o, "__prefix"));
+        auto ls (lookup (o, "__suffix"));
 
         if (cl)
         {
@@ -567,7 +567,7 @@ namespace build2
     // Use the location of the innermost value that contributed as the
     // location of the result.
     //
-    return make_pair (lookup (&cv, &var, vars), depth);
+    return make_pair (lookup_type (&cv, &var, vars), depth);
   }
 
   value& scope::
@@ -576,7 +576,7 @@ namespace build2
     // Note that here we want the original value without any overrides
     // applied.
     //
-    lookup l (find_original (var).first);
+    auto l (lookup_original (var).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this scope.
       return vars.modify (l); // Ok since this is original.

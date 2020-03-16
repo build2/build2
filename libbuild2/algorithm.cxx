@@ -1431,7 +1431,7 @@ namespace build2
     // stops at the project boundary).
     //
     if (!l.defined ())
-      l = ctx.global_scope.find (*ctx.var_backlink, t.key ());
+      l = ctx.global_scope.lookup (*ctx.var_backlink, t.key ());
 
     return l ? backlink_test (t, l) : nullopt;
   }

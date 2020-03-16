@@ -130,15 +130,15 @@ namespace build2
   }
 
   pair<lookup, size_t> target::
-  find_original (const variable& var, bool target_only) const
+  lookup_original (const variable& var, bool target_only) const
   {
-    pair<lookup, size_t> r (lookup (), 0);
+    pair<lookup_type, size_t> r (lookup_type (), 0);
 
     ++r.second;
     {
-      auto p (vars.find (var));
+      auto p (vars.lookup (var));
       if (p.first != nullptr)
-        r.first = lookup (*p.first, p.second, vars);
+        r.first = lookup_type (*p.first, p.second, vars);
     }
 
     const target* g (nullptr);
@@ -154,9 +154,9 @@ namespace build2
            ? nullptr
            : group->adhoc_group () ? group->group : group))
       {
-        auto p (g->vars.find (var));
+        auto p (g->vars.lookup (var));
         if (p.first != nullptr)
-          r.first = lookup (*p.first, p.second, g->vars);
+          r.first = lookup_type (*p.first, p.second, g->vars);
       }
     }
 
@@ -166,7 +166,7 @@ namespace build2
     {
       if (!target_only)
       {
-        auto p (base_scope ().find_original (
+        auto p (base_scope ().lookup_original (
                   var,
                   &type (),
                   &name,
@@ -191,7 +191,7 @@ namespace build2
     // Note that here we want the original value without any overrides
     // applied.
     //
-    lookup l (find_original (var).first);
+    auto l (lookup_original (var).first);
 
     if (l.defined () && l.belongs (*this)) // Existing var in this target.
       return vars.modify (l); // Ok since this is original.
@@ -205,22 +205,22 @@ namespace build2
   }
 
   pair<lookup, size_t> target::opstate::
-  find_original (const variable& var, bool target_only) const
+  lookup_original (const variable& var, bool target_only) const
   {
-    pair<lookup, size_t> r (lookup (), 0);
+    pair<lookup_type, size_t> r (lookup_type (), 0);
 
     ++r.second;
     {
-      auto p (vars.find (var));
+      auto p (vars.lookup (var));
       if (p.first != nullptr)
-        r.first = lookup (*p.first, p.second, vars);
+        r.first = lookup_type (*p.first, p.second, vars);
     }
 
     // Delegate to target's find_original().
     //
     if (!r.first)
     {
-      auto p (target_->find_original (var, target_only));
+      auto p (target_->lookup_original (var, target_only));
 
       r.first = move (p.first);
       r.second = r.first ? r.second + p.second : p.second;

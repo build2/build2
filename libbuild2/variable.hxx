@@ -1362,44 +1362,46 @@ namespace build2
     // Lookup. Note that variable overrides will not be applied, even if
     // set in this map.
     //
-    lookup
+    using lookup_type = build2::lookup;
+
+    lookup_type
     operator[] (const variable& var) const
     {
-      auto p (find (var));
-      return lookup (p.first, &p.second, this);
+      auto p (lookup (var));
+      return lookup_type (p.first, &p.second, this);
     }
 
-    lookup
+    lookup_type
     operator[] (const variable* var) const // For cached variables.
     {
       assert (var != nullptr);
       return operator[] (*var);
     }
 
-    lookup
+    lookup_type
     operator[] (const string& name) const
     {
       const variable* var (ctx != nullptr
                            ? ctx->var_pool.find (name)
                            : nullptr);
-      return var != nullptr ? operator[] (*var) : lookup ();
+      return var != nullptr ? operator[] (*var) : lookup_type ();
     }
 
     // If typed is false, leave the value untyped even if the variable is.
     // The second half of the pair is the storage variable.
     //
     pair<const value_data*, const variable&>
-    find (const variable&, bool typed = true) const;
+    lookup (const variable&, bool typed = true) const;
 
     pair<value_data*, const variable&>
-    find_to_modify (const variable&, bool typed = true);
+    lookup_to_modify (const variable&, bool typed = true);
 
     // Convert a lookup pointing to a value belonging to this variable map
     // to its non-const version. Note that this is only safe on the original
     // values (see find_original()).
     //
     value&
-    modify (const lookup& l)
+    modify (const lookup_type& l)
     {
       assert (l.vars == this);
       value& r (const_cast<value&> (*l.value));
@@ -1432,7 +1434,7 @@ namespace build2
     insert (const variable&, bool typed = true);
 
     pair<const_iterator, const_iterator>
-    find_namespace (const variable& ns) const
+    lookup_namespace (const variable& ns) const
     {
       auto r (m_.find_sub (ns));
       return make_pair (const_iterator (r.first,  *this),

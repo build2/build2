@@ -1387,7 +1387,7 @@ namespace build2
   const variable_map empty_variable_map (nullptr /* context */);
 
   auto variable_map::
-  find (const variable& var, bool typed) const ->
+  lookup (const variable& var, bool typed) const ->
     pair<const value_data*, const variable&>
   {
     const variable* v (&var);
@@ -1419,10 +1419,10 @@ namespace build2
   }
 
   auto variable_map::
-  find_to_modify (const variable& var, bool typed) ->
+  lookup_to_modify (const variable& var, bool typed) ->
     pair<value_data*, const variable&>
   {
-    auto p (find (var, typed));
+    auto p (lookup (var, typed));
     auto* r (const_cast<value_data*> (p.first));
 
     if (r != nullptr)
@@ -1499,7 +1499,7 @@ namespace build2
         //
         const variable_map& vm (j->second);
         {
-          auto p (vm.find (var, false));
+          auto p (vm.lookup (var, false));
           if (const variable_map::value_data* v = p.first)
           {
             // Check if this is the first access after being assigned a type.

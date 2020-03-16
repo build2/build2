@@ -102,7 +102,7 @@ namespace build2
           // The original is always from this scope/target, so depth is 1.
           //
           lookup l (
-            s.find_override (
+            s.lookup_override (
               var,
               make_pair (org, 1),
               k == variable_kind::target || k == variable_kind::rule,

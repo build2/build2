@@ -533,7 +533,7 @@ namespace build2
 
           // Note that the test variable's visibility is target.
           //
-          lookup l (find_in_buildfile ("test", false));
+          auto l (lookup_in_buildfile ("test", false));
 
           // Note that we have similar code for simple tests.
           //
@@ -608,7 +608,7 @@ namespace build2
       }
 
       lookup scope::
-      find (const variable& var) const
+      lookup (const variable& var) const
       {
         // Search script scopes until we hit the root.
         //
@@ -616,18 +616,18 @@ namespace build2
 
         do
         {
-          auto p (s->vars.find (var));
+          auto p (s->vars.lookup (var));
           if (p.first != nullptr)
-            return lookup (*p.first, p.second, s->vars);
+            return lookup_type (*p.first, p.second, s->vars);
         }
         while ((s->parent != nullptr ? (s = s->parent) : nullptr) != nullptr);
 
-        return find_in_buildfile (var.name);
+        return lookup_in_buildfile (var.name);
       }
 
 
       lookup scope::
-      find_in_buildfile (const string& n, bool target_only) const
+      lookup_in_buildfile (const string& n, bool target_only) const
       {
         // Switch to the corresponding buildfile variable. Note that we don't
         // want to insert a new variable into the pool (we might be running
@@ -637,7 +637,7 @@ namespace build2
         const variable* pvar (root.test_target.ctx.var_pool.find (n));
 
         if (pvar == nullptr)
-          return lookup ();
+          return lookup_type ();
 
         const variable& var (*pvar);
 
@@ -648,12 +648,12 @@ namespace build2
           // value. In this case, presumably the override also affects the
           // script target and we will pick it up there. A bit fuzzy.
           //
-          auto p (root.test_target.find_original (var, target_only));
+          auto p (root.test_target.lookup_original (var, target_only));
 
           if (p.first)
           {
             if (var.overrides != nullptr)
-              p = root.target_scope.find_override (var, move (p), true);
+              p = root.target_scope.lookup_override (var, move (p), true);
 
             return p.first;
           }
@@ -670,7 +670,7 @@ namespace build2
       value& scope::
       append (const variable& var)
       {
-        lookup l (find (var));
+        auto l (lookup (var));
 
         if (l.defined () && l.belongs (*this)) // Existing var in this scope.
           return vars.modify (l);
@@ -695,23 +695,23 @@ namespace build2
           s.insert (s.end (), v.begin (), v.end ());
         };
 
-        if (lookup l = find (root.test_var))
+        if (auto l = lookup (root.test_var))
           s.push_back (cast<path> (l).representation ());
 
-        if (lookup l = find (root.options_var))
+        if (auto l = lookup (root.options_var))
           append (cast<strings> (l));
 
-        if (lookup l = find (root.arguments_var))
+        if (auto l = lookup (root.arguments_var))
           append (cast<strings> (l));
 
         // Keep redirects/cleanups out of $N.
         //
         size_t n (s.size ());
 
-        if (lookup l = find (root.redirects_var))
+        if (auto l = lookup (root.redirects_var))
           append (cast<strings> (l));
 
-        if (lookup l = find (root.cleanups_var))
+        if (auto l = lookup (root.cleanups_var))
           append (cast<strings> (l));
 
         // Set the $N values if present.

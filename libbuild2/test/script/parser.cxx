@@ -3377,8 +3377,8 @@ namespace build2
         }
 
         return pvar != nullptr
-          ? scope_->find (*pvar)
-          : script_->find_in_buildfile (name);
+          ? scope_->lookup (*pvar)
+          : script_->lookup_in_buildfile (name);
       }
 
       size_t parser::

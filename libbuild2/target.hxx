@@ -393,24 +393,26 @@ namespace build2
     // only want to lookup in this target, do it on the variable map directly
     // (and note that there will be no overrides).
     //
-    lookup
+    using lookup_type = build2::lookup;
+
+    lookup_type
     operator[] (const variable& var) const
     {
-      return find (var).first;
+      return lookup (var).first;
     }
 
-    lookup
+    lookup_type
     operator[] (const variable* var) const // For cached variables.
     {
       assert (var != nullptr);
       return operator[] (*var);
     }
 
-    lookup
+    lookup_type
     operator[] (const string& name) const
     {
       const variable* var (ctx.var_pool.find (name));
-      return var != nullptr ? operator[] (*var) : lookup ();
+      return var != nullptr ? operator[] (*var) : lookup_type ();
     }
 
     // As above but also return the depth at which the value is found. The
@@ -421,20 +423,20 @@ namespace build2
     // that given two lookups from the same target, we can say which one came
     // earlier. If no value is found, then the depth is set to ~0.
     //
-    pair<lookup, size_t>
-    find (const variable& var) const
+    pair<lookup_type, size_t>
+    lookup (const variable& var) const
     {
-      auto p (find_original (var));
+      auto p (lookup_original (var));
       return var.overrides == nullptr
         ? p
-        : base_scope ().find_override (var, move (p), true);
+        : base_scope ().lookup_override (var, move (p), true);
     }
 
     // If target_only is true, then only look in target and its target group
     // without continuing in scopes.
     //
-    pair<lookup, size_t>
-    find_original (const variable&, bool target_only = false) const;
+    pair<lookup_type, size_t>
+    lookup_original (const variable&, bool target_only = false) const;
 
     // Return a value suitable for assignment. See scope for details.
     //
@@ -525,24 +527,26 @@ namespace build2
       // want to lookup in this target, do it on the variable map directly
       // (and note that there will be no overrides).
       //
-      lookup
+      using lookup_type = build2::lookup;
+
+      lookup_type
       operator[] (const variable& var) const
       {
-        return find (var).first;
+        return lookup (var).first;
       }
 
-      lookup
+      lookup_type
       operator[] (const variable* var) const // For cached variables.
       {
         assert (var != nullptr);
         return operator[] (*var);
       }
 
-      lookup
+      lookup_type
       operator[] (const string& name) const
       {
         const variable* var (target_->ctx.var_pool.find (name));
-        return var != nullptr ? operator[] (*var) : lookup ();
+        return var != nullptr ? operator[] (*var) : lookup_type ();
       }
 
       // As above but also return the depth at which the value is found. The
@@ -550,20 +554,20 @@ namespace build2
       // that is from the rule will have depth 1. That from the target - 2,
       // and so on, similar to target-specific variables.
       //
-      pair<lookup, size_t>
-      find (const variable& var) const
+      pair<lookup_type, size_t>
+      lookup (const variable& var) const
       {
-        auto p (find_original (var));
+        auto p (lookup_original (var));
         return var.overrides == nullptr
           ? p
-          : target_->base_scope ().find_override (var, move (p), true, true);
+          : target_->base_scope ().lookup_override (var, move (p), true, true);
       }
 
       // If target_only is true, then only look in target and its target group
       // without continuing in scopes.
       //
-      pair<lookup, size_t>
-      find_original (const variable&, bool target_only = false) const;
+      pair<lookup_type, size_t>
+      lookup_original (const variable&, bool target_only = false) const;
 
       // Return a value suitable for assignment. See target for details.
       //

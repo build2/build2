@@ -1311,16 +1311,16 @@ namespace build2
             lookup l (p.prerequisite.vars[var]);
 
             if (!l.defined ())
-              l = pt->find_original (var, true).first;
+              l = pt->lookup_original (var, true).first;
 
             if (!l.defined ())
             {
               bool g (pt->group != nullptr);
-              l = bs.find_original (var,
-                                    &pt->type (),
-                                    &pt->name,
-                                    (g ? &pt->group->type () : nullptr),
-                                    (g ? &pt->group->name : nullptr)).first;
+              l = bs.lookup_original (var,
+                                      &pt->type (),
+                                      &pt->name,
+                                      (g ? &pt->group->type () : nullptr),
+                                      (g ? &pt->group->name : nullptr)).first;
             }
 
             if (l ? cast<bool> (*l) : u)

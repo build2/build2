@@ -93,7 +93,7 @@ namespace build2
   {
     // Include target type/pattern-specific variables.
     //
-    if (auto l = s.find (*s.ctx.var_extension, tt, tn))
+    if (auto l = s.lookup (*s.ctx.var_extension, tt, tn))
     {
       // Help the user here and strip leading '.' from the extension.
       //

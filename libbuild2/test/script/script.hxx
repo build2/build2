@@ -369,15 +369,17 @@ namespace build2
         // and then outer buildfile scopes (including testscript-type/pattern
         // specific).
         //
-        lookup
-        find (const variable&) const;
+        using lookup_type = build2::lookup;
+
+        lookup_type
+        lookup (const variable&) const;
 
         // As above but only look for buildfile variables. If target_only is
         // false then also look in scopes of the test target (this should only
         // be done if the variable's visibility is target).
         //
-        lookup
-        find_in_buildfile (const string&, bool target_only = true) const;
+        lookup_type
+        lookup_in_buildfile (const string&, bool target_only = true) const;
 
         // Return a value suitable for assignment. If the variable does not
         // exist in this scope's map, then a new one with the NULL value is
