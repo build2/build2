@@ -117,13 +117,8 @@ namespace build2
 
     // Overload resolution.
     //
-    // Ours is pretty simple: we sort all the overloads into three ranks:
-    //
-    // 0 -- all the arguments match exactly (perfect match)
-    // 1 -- one or more arguments match via the derived-to-base conversion
-    // 2 -- one or more arguments match via the reversal to untyped
-    //
-    // More than one match of the same rank is ambiguous.
+    // See the overall function machinery description for the ranking
+    // semantics.
     //
     auto ip (map_.equal_range (name));
 

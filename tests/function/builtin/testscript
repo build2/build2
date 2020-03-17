@@ -3,6 +3,23 @@
 
 .include ../../common.testscript
 
+: defined
+:
+{
+  : true
+  :
+  $* <<EOI >'true'
+  foo = [null]
+  print $defined(foo)
+  EOI
+
+  : false
+  :
+  $* <<EOI >'false'
+  print $defined(foo)
+  EOI
+}
+
 : type
 :
 {
@@ -93,9 +110,7 @@
     <stdin>:1:8: error: unmatched call to getenv()
     /((
       info: candidate: getenv(<untyped>), qualified name builtin.getenv
-      info: candidate: getenv(string), qualified name builtin.getenv
     /)|(
-      info: candidate: getenv(string), qualified name builtin.getenv
       info: candidate: getenv(<untyped>), qualified name builtin.getenv
     /))
     EOE

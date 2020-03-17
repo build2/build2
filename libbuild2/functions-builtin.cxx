@@ -3,6 +3,7 @@
 
 #include <sstream>
 
+#include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 
@@ -10,29 +11,23 @@ using namespace std;
 
 namespace build2
 {
-  // Return NULL value if an environment variable is not set, untyped value
-  // otherwise.
-  //
-  static inline value
-  getenvvar (const string& name)
-  {
-    optional<string> v (getenv (name));
-
-    if (!v)
-      return value ();
-
-    names r;
-    r.emplace_back (to_name (move (*v)));
-    return value (move (r));
-  }
-
   void
   builtin_functions (function_map& m)
   {
     function_family f (m, "builtin");
 
-    f["type"] = [](value* v) {return v->type != nullptr ? v->type->name : "";};
+    // Note that we may want to extend the scope argument to a more general
+    // notion of "lookup context" (scope, target, prerequisite).
+    //
+    f["defined"] = [](const scope* s, names name)
+    {
+      if (s == nullptr)
+        fail << "defined() called out of scope" << endf;
 
+      return (*s)[convert<string> (move (name))].defined ();
+    };
+
+    f["type"] = [](value* v) {return v->type != nullptr ? v->type->name : "";};
     f["null"]  = [](value* v) {return v->null;};
     f["empty"] = [](value* v)  {return v->null || v->empty ();};
 
@@ -67,14 +62,19 @@ namespace build2
 
     // getenv
     //
-    f["getenv"] = [](string name)
-    {
-      return getenvvar (name);
-    };
-
+    // Return NULL if the environment variable is not set, untyped value
+    // otherwise.
+    //
     f["getenv"] = [](names name)
     {
-      return getenvvar (convert<string> (move (name)));
+      optional<string> v (getenv (convert<string> (move (name))));
+
+      if (!v)
+        return value ();
+
+      names r;
+      r.emplace_back (to_name (move (*v)));
+      return value (move (r));
     };
   }
 }

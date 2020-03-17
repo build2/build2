@@ -32,7 +32,7 @@ namespace build2
   // as arguments. There is also higher-level, more convenient support for
   // defining functions as pointers to functions (including capture-less
   // lambdas), pointers to member functions (e.g., string::size()), or
-  // pointers to data members (e.g., name::type). In this case the build2
+  // pointers to data members (e.g., name::type). In this case the buildfile
   // function types are automatically matched to C++ function types according
   // to these rules:
   //
@@ -42,6 +42,15 @@ namespace build2
   // T*          - NULL-able argument (here T can be names)
   // value*      - NULL-able any type (never NULL itself, use value::null)
   // optional<T> - optional argument (here T can be T*, names, value)
+  //
+  // The overload resolution is pretty simple: we sort all the candidates into
+  // three ranks:
+  //
+  // 0 -- all the arguments match exactly (perfect match)
+  // 1 -- one or more arguments match via the derived-to-base conversion
+  // 2 -- one or more arguments match via the reversal to untyped
+  //
+  // More than one match of the same rank is ambiguous.
   //
   // Optional arguments must be last. In case of a failure the function is
   // expected to issue diagnostics and throw failed. Note that the arguments
