@@ -1241,7 +1241,16 @@ namespace build2
           // Fall through.
 
         case mode::symbolic:  mksymlink  (p, l, d);  break;
-        case mode::hard:      mkhardlink (p, l, d);  break;
+        case mode::hard:
+          {
+            // The target can be a symlink (or a symlink chain) with a
+            // relative target that, unless the (final) symlink and the
+            // hardlink are in the same directory, will result in a dangling
+            // link.
+            //
+            mkhardlink (followsymlink (p), l, d);
+            break;
+          }
         case mode::copy:
         case mode::overwrite:
           {
@@ -1252,7 +1261,7 @@ namespace build2
               // only used to "link" a Windows DLL assembly with only files
               // inside. We also have to use hard links; see the relevant
               // comment in cc/link-rule for details. Maybe we can invent a
-              // special "assembly link" for this).
+              // special Windows-only "assembly link" for this).
               //
               dir_path fr (path_cast<dir_path> (p));
               dir_path to (path_cast<dir_path> (l));
