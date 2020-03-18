@@ -1249,6 +1249,9 @@ namespace build2
 
     // Apply pattern.
     //
+    const pattern* pa (nullptr);
+    auto pt (t); auto pv (v); auto po (o);
+
     if (pat)
     {
       if (n.find ('.') != string::npos)
@@ -1259,35 +1262,51 @@ namespace build2
         {
           if (match_pattern (n, p.prefix, p.suffix, p.multi))
           {
-            merge_pattern (p, t, v, o);
+            merge_pattern (p, pt, pv, po);
+            pa = &p;
             break;
           }
         }
       }
     }
 
-    auto p (
+    auto r (
       insert (
         variable {
           move (n),
           nullptr,
-          t,
+          pt,
           nullptr,
-          v != nullptr ? *v : variable_visibility::normal}));
+          pv != nullptr ? *pv : variable_visibility::normal}));
 
-    variable& r (p.first->second);
+    variable& var (r.first->second);
 
-    if (p.second)
-      r.aliases = &r;
+    if (r.second)
+      var.aliases = &var;
     else // Note: overridden variable will always exist.
     {
-      if (t != nullptr || v != nullptr || o != nullptr)
-        update (r, t, v, o); // Not changing the key.
-      else if (r.overrides != nullptr)
-        fail << "variable " << r.name << " cannot be overridden";
+      if (pt != nullptr || pv != nullptr || po != nullptr)
+      {
+        // This is tricky: if the pattern does not require a match, then we
+        // should re-merge it with values that came from the variable.
+        //
+        bool vo;
+        if (pa != nullptr && !pa->match)
+        {
+          pt = t != nullptr ? t : var.type;
+          pv = v != nullptr ? v : &var.visibility;
+          po = o != nullptr ? o : &(vo = (var.overrides != nullptr));
+
+          merge_pattern (*pa, pt, pv, po);
+        }
+
+        update (var, pt, pv, po); // Not changing the key.
+      }
+      else if (var.overrides != nullptr)
+        fail << "variable " << var << " cannot be overridden";
     }
 
-    return r;
+    return var;
   }
 
   const variable& variable_pool::
