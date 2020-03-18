@@ -2737,17 +2737,8 @@ namespace build2
     if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
       fail (l) << "expected variable name instead of " << ns;
 
-    string& n (ns[0].value);
-
-    //@@ OLD
-    if (n.front () == '.') // Fully qualified name.
-      n.erase (0, 1);
-    else
-    {
-      //@@ TODO: append namespace if any.
-    }
-
-    return scope_->var_pool ().insert (move (n), true /* overridable */);
+    return scope_->var_pool ().insert (move (ns[0].value),
+                                       true /* overridable */);
   }
 
   void parser::
@@ -5686,15 +5677,6 @@ namespace build2
   {
     tracer trace ("parser::lookup_variable", &path_);
 
-    // Process variable name. @@ OLD
-    //
-    if (name.front () == '.') // Fully namespace-qualified name.
-      name.erase (0, 1);
-    else
-    {
-      //@@ TODO : append namespace if any.
-    }
-
     const scope* s (nullptr);
     const target* t (nullptr);
     const prerequisite* p (nullptr);
@@ -5738,6 +5720,9 @@ namespace build2
 
     // Lookup.
     //
+    // @@ Why insert instead of find(), like in []-lookup? Also change to
+    //    const string& name.
+    //
     const variable& var (scope_->var_pool ().insert (move (name), true));
 
     if (p != nullptr)
@@ -5776,16 +5761,6 @@ namespace build2
 
       return (*s)[var];
     }
-
-    // Undefined/NULL namespace variables are not allowed.
-    //
-    // @@ TMP this isn't proving to be particularly useful.
-    //
-    // if (!l)
-    // {
-    //   if (var.name.find ('.') != string::npos)
-    //     fail (loc) << "undefined/null namespace variable " << var;
-    // }
 
     return lookup ();
   }
