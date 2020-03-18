@@ -2732,13 +2732,18 @@ namespace build2
   const variable& parser::
   parse_variable_name (names&& ns, const location& l)
   {
+    // Parse and enter a variable name for assignment (as opposed to lookup).
+
     // The list should contain a single, simple name.
     //
     if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
       fail (l) << "expected variable name instead of " << ns;
 
-    return scope_->var_pool ().insert (move (ns[0].value),
-                                       true /* overridable */);
+    // Note that the overridability can still be restricted (e.g., by a module
+    // that enters this variable or by a pattern).
+    //
+    return scope_->var_pool ().insert (
+      move (ns[0].value), true /* overridable */);
   }
 
   void parser::
@@ -2902,7 +2907,10 @@ namespace build2
       return;
 
     const location& l (a.loc);
+
     const value_type* type (nullptr);
+    optional<variable_visibility> vis;
+    optional<bool> ovr;
 
     auto print = [storage = names ()] (diag_record& dr, const value& v) mutable
     {
@@ -2943,17 +2951,23 @@ namespace build2
       }
     }
 
-    if (type != nullptr)
+    if (type != nullptr && var.type != nullptr)
     {
-      if (var.type == nullptr)
-      {
-        const bool o (true); // Allow overrides.
-        ctx.var_pool.update (const_cast<variable&> (var), type, nullptr, &o);
-      }
-      else if (var.type != type)
+      if (var.type == type)
+        type = nullptr;
+      else
         fail (l) << "changing variable " << var << " type from "
                  << var.type->name << " to " << type->name;
     }
+
+    //@@ TODO: the same for vis and ovr.
+
+    if (type || vis || ovr)
+      ctx.var_pool.update (const_cast<variable&> (var),
+                           type,
+                           vis ? &*vis : nullptr,
+                           ovr ? &*ovr : nullptr);
+
   }
 
   void parser::
@@ -5720,46 +5734,46 @@ namespace build2
 
     // Lookup.
     //
-    // @@ Why insert instead of find(), like in []-lookup? Also change to
-    //    const string& name.
-    //
-    const variable& var (scope_->var_pool ().insert (move (name), true));
-
-    if (p != nullptr)
+    if (const variable* pvar = scope_->var_pool ().find (name))
     {
-      // The lookup depth is a bit of a hack but should be harmless since
-      // unused.
-      //
-      pair<lookup, size_t> r (p->vars[var], 1);
+      auto& var (*pvar);
 
-      if (!r.first.defined ())
-        r = t->lookup_original (var);
-
-      return var.overrides == nullptr
-        ? r.first
-        : t->base_scope ().lookup_override (var, move (r), true).first;
-    }
-
-    if (t != nullptr)
-    {
-      if (var.visibility > variable_visibility::target)
+      if (p != nullptr)
       {
-        fail (loc) << "variable " << var << " has " << var.visibility
-                   << " visibility but is expanded in target context";
+        // The lookup depth is a bit of a hack but should be harmless since
+        // unused.
+        //
+        pair<lookup, size_t> r (p->vars[var], 1);
+
+        if (!r.first.defined ())
+          r = t->lookup_original (var);
+
+        return var.overrides == nullptr
+          ? r.first
+          : t->base_scope ().lookup_override (var, move (r), true).first;
       }
 
-      return (*t)[var];
-    }
-
-    if (s != nullptr)
-    {
-      if (var.visibility > variable_visibility::scope)
+      if (t != nullptr)
       {
-        fail (loc) << "variable " << var << " has " << var.visibility
-                   << " visibility but is expanded in scope context";
+        if (var.visibility > variable_visibility::target)
+        {
+          fail (loc) << "variable " << var << " has " << var.visibility
+                     << " visibility but is expanded in target context";
+        }
+
+        return (*t)[var];
       }
 
-      return (*s)[var];
+      if (s != nullptr)
+      {
+        if (var.visibility > variable_visibility::scope)
+        {
+          fail (loc) << "variable " << var << " has " << var.visibility
+                     << " visibility but is expanded in scope context";
+        }
+
+        return (*s)[var];
+      }
     }
 
     return lookup ();

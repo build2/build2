@@ -1143,7 +1143,7 @@ namespace build2
     // Check overridability (all overrides, if any, should already have
     // been entered; see context ctor for details).
     //
-    if (var.overrides != nullptr && (o == nullptr || !*o))
+    if (o != nullptr && var.overrides != nullptr && !*o)
       fail << "variable " << var.name << " cannot be overridden";
 
     bool ut (t != nullptr && var.type != t);
@@ -1285,25 +1285,23 @@ namespace build2
       var.aliases = &var;
     else // Note: overridden variable will always exist.
     {
-      if (pt != nullptr || pv != nullptr || po != nullptr)
+      // This is tricky: if the pattern does not require a match, then we
+      // should re-merge it with values that came from the variable.
+      //
+      bool vo;
+      if (pa != nullptr && !pa->match)
       {
-        // This is tricky: if the pattern does not require a match, then we
-        // should re-merge it with values that came from the variable.
-        //
-        bool vo;
-        if (pa != nullptr && !pa->match)
-        {
-          pt = t != nullptr ? t : var.type;
-          pv = v != nullptr ? v : &var.visibility;
-          po = o != nullptr ? o : &(vo = (var.overrides != nullptr));
+        pt = t != nullptr ? t : var.type;
+        pv = v != nullptr ? v : &var.visibility;
+        po = o != nullptr ? o : &(vo = true);
 
-          merge_pattern (*pa, pt, pv, po);
-        }
-
-        update (var, pt, pv, po); // Not changing the key.
+        merge_pattern (*pa, pt, pv, po);
       }
-      else if (var.overrides != nullptr)
-        fail << "variable " << var << " cannot be overridden";
+
+      if (po == nullptr) // NULL overridable falls back to false.
+        po = &(vo = false);
+
+      update (var, pt, pv, po); // Not changing the key.
     }
 
     return var;
@@ -1319,6 +1317,8 @@ namespace build2
                          &var.visibility,
                          nullptr /* override */,
                          false   /* pattern  */));
+
+    assert (a.overrides == nullptr);
 
     if (a.aliases == &a) // Not aliased yet.
     {

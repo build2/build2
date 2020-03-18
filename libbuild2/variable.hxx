@@ -1065,9 +1065,12 @@ namespace build2
     const variable*
     find (const string& name) const;
 
-    // Find existing or insert new (untyped, non-overridable, normal
-    // visibility; but may be overridden by a pattern).
+    // Find existing or insert new variable.
     //
+    // Unless specified explicitly, the variable is untyped, non-overridable,
+    // and with normal visibility but these may be overridden by a pattern.
+    // Note also that a pattern may restrict (but not relax) overridability.
+
     const variable&
     insert (string name)
     {
@@ -1083,6 +1086,9 @@ namespace build2
       return insert (move (name), nullptr, &v, nullptr);
     }
 
+    // Note that overridability can still be restricted (but not relaxed) by
+    // another call to insert or via patterns (see below).
+    //
     const variable&
     insert (string name, bool overridable)
     {
@@ -1099,14 +1105,15 @@ namespace build2
     const variable&
     insert (string name)
     {
-      return insert (move (name), &value_traits<T>::value_type);
+      return insert (
+        move (name), &value_traits<T>::value_type, nullptr, nullptr);
     }
 
     template <typename T>
     const variable&
     insert (string name, variable_visibility v)
     {
-      return insert (move (name), &value_traits<T>::value_type, &v);
+      return insert (move (name), &value_traits<T>::value_type, &v, nullptr);
     }
 
     template <typename T>
@@ -1213,18 +1220,21 @@ namespace build2
     friend class scope;
 
   private:
+    // Note that in insert() NULL overridable is interpreted as false unless
+    // overridden by a pattern while in update() NULL overridable is ignored.
+    //
     LIBBUILD2_SYMEXPORT variable&
     insert (string name,
             const value_type*,
-            const variable_visibility* = nullptr,
-            const bool* overridable = nullptr,
+            const variable_visibility*,
+            const bool* overridable,
             bool pattern = true);
 
     LIBBUILD2_SYMEXPORT void
     update (variable&,
             const value_type*,
-            const variable_visibility* = nullptr,
-            const bool* = nullptr) const;
+            const variable_visibility*,
+            const bool*) const;
 
     // Variable map.
     //
