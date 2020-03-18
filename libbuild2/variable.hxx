@@ -136,8 +136,14 @@ namespace build2
   }
 #endif
 
-  LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, variable_visibility);
+  LIBBUILD2_SYMEXPORT string
+  to_string (variable_visibility);
+
+  inline ostream&
+  operator<< (ostream& o, variable_visibility v)
+  {
+    return o << to_string (v);
+  }
 
   // variable
   //

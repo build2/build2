@@ -15,21 +15,21 @@ namespace build2
 {
   // variable_visibility
   //
-  ostream&
-  operator<< (ostream& o, variable_visibility v)
+  string
+  to_string (variable_visibility v)
   {
-    const char* s (nullptr);
+    string r;
 
     switch (v)
     {
-    case variable_visibility::normal:  s = "normal";       break;
-    case variable_visibility::project: s = "project";      break;
-    case variable_visibility::scope:   s = "scope";        break;
-    case variable_visibility::target:  s = "target";       break;
-    case variable_visibility::prereq:  s = "prerequisite"; break;
+    case variable_visibility::normal:  r = "normal";       break;
+    case variable_visibility::project: r = "project";      break;
+    case variable_visibility::scope:   r = "scope";        break;
+    case variable_visibility::target:  r = "target";       break;
+    case variable_visibility::prereq:  r = "prerequisite"; break;
     }
 
-    return o << s;
+    return r;
   }
 
   // value

@@ -27,6 +27,21 @@ namespace build2
       return (*s)[convert<string> (move (name))].defined ();
     };
 
+    // Return variable visibility if it exists and NULL otherwise.
+    //
+    f["visibility"] = [](const scope* s, names name)
+    {
+      if (s == nullptr)
+        fail << "visibility() called out of scope" << endf;
+
+      const variable* var (
+        s->ctx.var_pool.find (convert<string> (move (name))));
+
+      return (var != nullptr
+              ? optional<string> (to_string (var->visibility))
+              : nullopt);
+    };
+
     f["type"] = [](value* v) {return v->type != nullptr ? v->type->name : "";};
     f["null"]  = [](value* v) {return v->null;};
     f["empty"] = [](value* v)  {return v->null || v->empty ();};
