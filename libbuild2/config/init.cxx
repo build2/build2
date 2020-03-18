@@ -37,14 +37,20 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs;});
 
-      // Note that the config.<name>* variables belong to the module <name>.
-      // So the only "special" variables we can allocate in config.* are
-      // config.config.*, names that have been "gifted" to us by other modules
-      // (like config.version below) as well as names that we have reserved to
-      // not be valid module names (`build`). We also currently treat `import`
-      // as special.
+      // Note that the config.<name>* variables belong to the module/project
+      // <name>. So the only "special" variables we can allocate in config.**
+      // are config.config.**, names that have been "gifted" to us by other
+      // modules (like config.version below) as well as names that we have
+      // reserved to not be valid module names (`build`). We also currently
+      // treat `import` as special.
+      //
+      // NOTE: all config.** variables are by default made (via a pattern) to
+      // be overridable with global visibility. So we must override this if a
+      // different semantics is required.
       //
       auto& vp (rs.var_pool ());
+
+      const auto v_p (variable_visibility::project);
 
       // While config.config.load (see below) could theoretically be specified
       // in a buildfile, config.config.save is expected to always be specified
@@ -88,9 +94,7 @@ namespace build2
       // Use the NULL value to clear.
       //
       auto& c_p (vp.insert<vector<pair<string, string>>> (
-                   "config.config.persist",
-                   true /* ovr */,
-                   variable_visibility::project));
+                   "config.config.persist", true /* ovr */, v_p));
 
       // Only create the module if we are configuring or creating or if it was
       // requested with config.config.module (useful if we need to call
@@ -99,7 +103,7 @@ namespace build2
       // Detecting the former (configuring/creating) is a bit tricky since the
       // build2 core may not yet know if this is the case. But we know.
       //
-      auto& c_m (vp.insert<bool> ("config.config.module", false /*ovr*/));
+      auto& c_m (vp.insert<bool> ("config.config.module", false /*ovr*/, v_p));
 
       const string& mname (ctx.current_mname);
       const string& oname (ctx.current_oname);
@@ -161,8 +165,11 @@ namespace build2
       l5 ([&]{trace << "for " << rs;});
 
       auto& vp (rs.var_pool ());
+
+      const auto v_p (variable_visibility::project);
+
       auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
-      auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/));
+      auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/, v_p));
 
       // Load config.build if one exists followed by extra files specified in
       // config.config.load (we don't need to worry about disfigure since we

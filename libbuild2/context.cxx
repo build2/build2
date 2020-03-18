@@ -476,65 +476,64 @@ namespace build2
 
     // Enter builtin variables and patterns.
     //
+    const auto v_g (variable_visibility::normal); // Global.
+    const auto v_p (variable_visibility::project);
+    const auto v_t (variable_visibility::target);
+    const auto v_q (variable_visibility::prereq);
 
-    // All config.* variables are by default overridable.
+    // All config.** variables are by default overridable with global
+    // visibility.
     //
-    vp.insert_pattern ("config.**", nullopt, true, nullopt, true, false);
+    // For the config.**.configured semantics, see config::unconfigured().
+    //
+    vp.insert_pattern ("config.**", nullopt, true, v_g, true, false);
+    vp.insert_pattern<bool> ("config.**.configured", false, v_p);
 
     // file.cxx:import() (note that order is important; see insert_pattern()).
     //
-    vp.insert_pattern<abs_dir_path> (
-      "config.import.*", true, variable_visibility::normal, true);
-    vp.insert_pattern<path> (
-      "config.import.**", true, variable_visibility::normal, true);
+    vp.insert_pattern<abs_dir_path> ("config.import.*",  true, v_g, true);
+    vp.insert_pattern<path>         ("config.import.**", true, v_g, true);
 
     // module.cxx:boot/init_module().
     //
-    {
-      auto v_p (variable_visibility::project);
+    // Note that we also have the config.<module>.configured variable (see
+    // above).
+    //
+    vp.insert_pattern<bool> ("**.booted",     false /* overridable */, v_p);
+    vp.insert_pattern<bool> ("**.loaded",     false,                   v_p);
+    vp.insert_pattern<bool> ("**.configured", false,                   v_p);
 
-      vp.insert_pattern<bool> ("**.booted", false, v_p);
-      vp.insert_pattern<bool> ("**.loaded", false, v_p);
-      vp.insert_pattern<bool> ("**.configured", false, v_p);
-    }
+    var_src_root = &vp.insert<dir_path> ("src_root");
+    var_out_root = &vp.insert<dir_path> ("out_root");
+    var_src_base = &vp.insert<dir_path> ("src_base");
+    var_out_base = &vp.insert<dir_path> ("out_base");
 
-    {
-      auto v_p (variable_visibility::project);
-      auto v_t (variable_visibility::target);
-      auto v_q (variable_visibility::prereq);
+    var_forwarded = &vp.insert<bool> ("forwarded", v_p);
 
-      var_src_root = &vp.insert<dir_path> ("src_root");
-      var_out_root = &vp.insert<dir_path> ("out_root");
-      var_src_base = &vp.insert<dir_path> ("src_base");
-      var_out_base = &vp.insert<dir_path> ("out_base");
+    // Note that subprojects is not typed since the value requires
+    // pre-processing (see file.cxx).
+    //
+    var_project      = &vp.insert<project_name> ("project",      v_p);
+    var_amalgamation = &vp.insert<dir_path>     ("amalgamation", v_p);
+    var_subprojects  = &vp.insert               ("subprojects",  v_p);
+    var_version      = &vp.insert<string>       ("version",      v_p);
 
-      var_forwarded = &vp.insert<bool> ("forwarded", v_p);
+    var_project_url     = &vp.insert<string> ("project.url",     v_p);
+    var_project_summary = &vp.insert<string> ("project.summary", v_p);
 
-      // Note that subprojects is not typed since the value requires
-      // pre-processing (see file.cxx).
-      //
-      var_project      = &vp.insert<project_name> ("project",      v_p);
-      var_amalgamation = &vp.insert<dir_path>     ("amalgamation", v_p);
-      var_subprojects  = &vp.insert               ("subprojects",  v_p);
-      var_version      = &vp.insert<string>       ("version",      v_p);
+    var_import_target = &vp.insert<name> ("import.target");
 
-      var_project_url     = &vp.insert<string> ("project.url",     v_p);
-      var_project_summary = &vp.insert<string> ("project.summary", v_p);
+    var_extension = &vp.insert<string> ("extension", v_t);
+    var_clean     = &vp.insert<bool>   ("clean",    v_t);
+    var_backlink  = &vp.insert<string> ("backlink", v_t);
+    var_include   = &vp.insert<string> ("include",  v_q);
 
-      var_import_target = &vp.insert<name> ("import.target");
+    // Backlink executables and (generated) documentation by default.
+    //
+    gs.target_vars[exe::static_type]["*"].assign (var_backlink) = "true";
+    gs.target_vars[doc::static_type]["*"].assign (var_backlink) = "true";
 
-      var_extension = &vp.insert<string> ("extension", v_t);
-      var_clean     = &vp.insert<bool>   ("clean",    v_t);
-      var_backlink  = &vp.insert<string> ("backlink", v_t);
-      var_include   = &vp.insert<string> ("include",  v_q);
-
-      // Backlink executables and (generated) documentation by default.
-      //
-      gs.target_vars[exe::static_type]["*"].assign (var_backlink) = "true";
-      gs.target_vars[doc::static_type]["*"].assign (var_backlink) = "true";
-
-      var_build_meta_operation = &vp.insert<string> ("build.meta_operation");
-    }
+    var_build_meta_operation = &vp.insert<string> ("build.meta_operation");
 
     // Register builtin rules.
     //

@@ -84,7 +84,7 @@ namespace build2
     bool
     unconfigured (scope& rs, const string& n)
     {
-      // Pattern-typed in boot() as bool.
+      // Pattern-typed as bool.
       //
       const variable& var (
         rs.var_pool ().insert ("config." + n + ".configured"));
@@ -98,7 +98,7 @@ namespace build2
     bool
     unconfigured (scope& rs, const string& n, bool v)
     {
-      // Pattern-typed in boot() as bool.
+      // Pattern-typed as bool.
       //
       const variable& var (
         rs.var_pool ().insert ("config." + n + ".configured"));
