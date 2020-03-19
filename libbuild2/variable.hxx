@@ -1523,7 +1523,11 @@ namespace build2
     // then typify the cached value.
     //
     pair<value&, ulock>
-    insert (context&, K, const lookup& stem, size_t version, const variable&);
+    insert (context&,
+            K,
+            const lookup& stem,
+            size_t base_version,
+            const variable&);
 
   private:
     struct entry_type
@@ -1535,7 +1539,7 @@ namespace build2
       //
       variable_map::value_data value;
 
-      size_t version = 0; // Version on which this value is based.
+      size_t base_version = 0; // Version on which this value is based.
 
       // Location of the stem as well as the version on which this cache
       // value is based. Used to track the location and value of the stem
@@ -1548,11 +1552,11 @@ namespace build2
       //
       entry_type () = default;
       entry_type (variable_map::value_data val,
-                  size_t ver,
+                  size_t bver,
                   const variable_map* svars,
                   size_t sver)
           : value (move (val)),
-            version (ver),
+            base_version (bver),
             stem_vars (svars),
             stem_version (sver) {}
     };

@@ -33,9 +33,31 @@ namespace build2
 
       if (var.overrides != nullptr)
       {
-        pair<lookup, size_t> ovr (rs.lookup_override (var, move (org)));
+        // This is tricky: if we didn't find the original, pretend we have set
+        // the default value for the purpose of override lookup in order to
+        // have consistent semantics with the default value case (see notes in
+        // that implementation for background).
+        //
+        // In particular, this makes sure we can first do the lookup without
+        // the default value and then, if there is no value, call the version
+        // with the default value and end up with the same result if we called
+        // the default value version straight away.
+        //
+        // Note that we need to detect both when the default value is not
+        // overridden as well as when the override is based on it (e.g., via
+        // append; think config.cxx+=-m32).
+        //
+        // @@ Maybe a callback that computes the default value on demand is a
+        //    better way?
+        //
+        variable_map::value_data v; // NULL value, but must be with version.
+        if (!l.defined ())
+          org = make_pair (lookup (v, var, rs), 1); // As default value case.
 
-        if (l != ovr.first) // Overriden?
+        scope::override_info li (rs.lookup_override_info (var, move (org)));
+        pair<lookup, size_t>& ovr (li.lookup);
+
+        if (l.defined () ? l != ovr.first : !li.original) // Overriden?
         {
           // Override is always treated as new.
           //

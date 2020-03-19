@@ -175,11 +175,11 @@ namespace build2
     return make_pair (lookup_type (), size_t (~0));
   }
 
-  pair<lookup, size_t> scope::
-  lookup_override (const variable& var,
-                   pair<lookup_type, size_t> original,
-                   bool target,
-                   bool rule) const
+  auto scope::
+  lookup_override_info (const variable& var,
+                        const pair<lookup_type, size_t> original,
+                        bool target,
+                        bool rule) const -> override_info
   {
     assert (!rule || target); // Rule-specific is target-specific.
 
@@ -346,7 +346,7 @@ namespace build2
     }
 
     if (!apply)
-      return original;
+      return override_info {original, orig.defined ()};
 
     assert (inner_vars != nullptr);
 
@@ -567,7 +567,9 @@ namespace build2
     // Use the location of the innermost value that contributed as the
     // location of the result.
     //
-    return make_pair (lookup_type (&cv, &var, vars), depth);
+    return override_info {
+      make_pair (lookup_type (&cv, &var, vars), depth),
+      orig.defined () && stem == orig};
   }
 
   value& scope::

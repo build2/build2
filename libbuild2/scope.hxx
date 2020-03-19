@@ -151,10 +151,30 @@ namespace build2
       size_t start_depth = 1) const;
 
     pair<lookup_type, size_t>
-    lookup_override (const variable&,
+    lookup_override (const variable& var,
                      pair<lookup_type, size_t> original,
                      bool target = false,
-                     bool rule = false) const;
+                     bool rule = false) const
+    {
+      return lookup_override_info (var, original, target, rule).lookup;
+    }
+
+    // As above but also return an indication of whether the resulting value
+    // is/is based (e.g., via append/prepend overrides) on the original or an
+    // "outright" override. Note that it will always be false if there is no
+    // original.
+    //
+    struct override_info
+    {
+      pair<lookup_type, size_t> lookup;
+      bool original;
+    };
+
+    override_info
+    lookup_override_info (const variable&,
+                          pair<lookup_type, size_t> original,
+                          bool target = false,
+                          bool rule = false) const;
 
     // Return a value suitable for assignment (or append if you only want to
     // append to the value from this scope). If the value does not exist in

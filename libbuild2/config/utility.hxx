@@ -91,9 +91,15 @@ namespace build2
     //
     // Unlike the rest of the lookup_config() versions, this one leaves the
     // unspecified value as undefined rather than setting it to a default
-    // value. This can be useful when we don't have a default value or if we
-    // want the mentioning of the variable to be omitted from persistent
+    // value. This can be useful when we don't have a default value or in case
+    // we want the mentioning of the variable to be omitted from persistent
     // storage (e.g., a config file) if the default value is used.
+    //
+    // Note also that we can first do the lookup without the default value and
+    // then, if there is no value, call the version with the default value and
+    // end up with the same result if we called the default value version
+    // straight away. This is useful when computing the default value is
+    // expensive.
     //
     // @@ Should we pass flags and interpret save_null_omitted to treat null
     //    as undefined? Sounds logical.
@@ -135,7 +141,9 @@ namespace build2
     // The second version in addition sets the new_value argument as described
     // above. Note, however, that if the save_default_commented flag is
     // specified, then the default value is never considered "new" since for
-    // such variables absence of a value means it is the default value.
+    // such variables absence of a value means it is the default value. This
+    // flag is normally used for dynamically adjusting (e.g., hinted) default
+    // values.
     //
     // If override is true and the variable doesn't come from this root scope
     // or from the command line (i.e., it is inherited from the amalgamation),

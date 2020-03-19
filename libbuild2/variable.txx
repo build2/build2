@@ -766,7 +766,7 @@ namespace build2
   insert (context& ctx,
           K k,
           const lookup& stem,
-          size_t ver,
+          size_t bver,
           const variable& var)
   {
     using value_data = variable_map::value_data;
@@ -788,7 +788,7 @@ namespace build2
     // Cache hit.
     //
     if (i != m_.end ()                 &&
-        i->second.version == ver       &&
+        i->second.base_version == bver &&
         i->second.stem_vars == svars   &&
         i->second.stem_version == sver &&
         (var.type == nullptr || i->second.value.type == var.type))
@@ -807,7 +807,7 @@ namespace build2
 
     if (p.second)
       p = m_.emplace (move (k),
-                      entry_type {value_data (nullptr), ver, svars, sver});
+                      entry_type {value_data (nullptr), bver, svars, sver});
 
     entry_type& e (p.first->second);
 
@@ -817,14 +817,14 @@ namespace build2
       //
       e.value.version++; // New value.
     }
-    else if (e.version != ver     ||
-             e.stem_vars != svars ||
+    else if (e.base_version != bver  ||
+             e.stem_vars    != svars ||
              e.stem_version != sver)
     {
       // Cache invalidation.
       //
-      assert (e.version <= ver);
-      e.version = ver;
+      assert (e.base_version <= bver);
+      e.base_version = bver;
 
       if (e.stem_vars != svars)
         e.stem_vars = svars;
