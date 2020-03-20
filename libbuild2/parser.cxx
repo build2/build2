@@ -20,6 +20,8 @@
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
 
+#include <libbuild2/config/utility.hxx> // lookup_config
+
 using namespace std;
 using namespace butl;
 
@@ -410,6 +412,10 @@ namespace build2
         else if (n == "for")
         {
           f = &parser::parse_for;
+        }
+        else if (n == "config")
+        {
+          f = &parser::parse_config;
         }
 
         if (f != nullptr)
@@ -1640,6 +1646,134 @@ namespace build2
   }
 
   void parser::
+  parse_config (token& t, type& tt)
+  {
+    tracer trace ("parser::parse_config", &path_);
+
+    // General config format:
+    //
+    // config [<var-attrs>] <var>[?=[<val-attrs>]<default-val>]
+    //
+
+    // @@ TODO: enforce appears in root.build
+    //
+    if (root_ != scope_)
+      fail (t) << "configuration variable in non-root scope";
+
+    // We enforce the config.<project> prefix.
+    //
+    // Note that this could be a subproject and it could be unnamed (e.g., the
+    // tests subproject). The current thinking is to use hierarchical names
+    // like config.<project>.tests.remote for subprojects, similar to how we
+    // do the same for submodules (e.g., cxx.config). Of course, the
+    // subproject could also be some named third-party top-level project that
+    // we just happened to amalgamate. So what we are going to do is enforce
+    // the config[.**].<project>.** pattern where <project> is the innermost
+    // named project.
+    //
+    string proj;
+    for (auto r (root_), a (root_->strong_scope ());
+         ;
+         r = r->parent_scope ()->root_scope ())
+    {
+      const project_name& n (project (*r));
+      if (!n.empty ())
+      {
+        proj = n.variable ();
+        break;
+      }
+
+      if (r == a)
+        break;
+    }
+
+    if (proj.empty ())
+      fail (t) << "configuration variable in unnamed project";
+
+    // We are now in the normal lexing mode. Since we always have <var> we
+    // don't have to resort to manual parsing (as in import) and can just let
+    // the lexer handle `?=`.
+    //
+    next_with_attributes (t, tt);
+
+    // Get variable attributes, if any.
+    //
+    attributes_push (t, tt);
+
+    if (tt != type::word)
+      fail (t) << "expected configuration variable name instead of " << t;
+
+    string name (move (t.value));
+
+    // Enforce the variable name pattern. The simplest is to check for the
+    // config prefix and the project substring.
+    //
+    {
+      diag_record dr;
+
+      if (name.compare (0, 7, "config.") != 0)
+        dr << fail (t) << "configuration variable '" << name
+           << "' does not start with 'config.'";
+
+      if (name.find ('.' + proj + '.') == string::npos)
+        dr << fail (t) << "configuration variable '" << name
+           << "' does not include project name";
+
+      if (!dr.empty ())
+        dr << info << "expected variable name in the 'config[.**]." << proj
+           << ".**' form";
+    }
+
+    const variable& var (
+      scope_->var_pool ().insert (move (name), true /* overridable */));
+
+    apply_variable_attributes (var);
+
+    // Note that even though we are relying on the config.** variable pattern
+    // to set global visibility, let's make sure as a sanity check.
+    //
+    if (var.visibility != variable_visibility::normal)
+    {
+      fail (t) << "configuration variable " << var << " has " << var.visibility
+               << " visibility";
+    }
+
+    // We have to lookup the value whether we have the default part or not in
+    // order to mark it as saved (we would also have to do this to get the new
+    // value status if we need it).
+    //
+    using config::lookup_config;
+
+    auto l (lookup_config (*root_, var));
+
+    // See if we have the default value part.
+    //
+    next (t, tt);
+
+    if (tt != type::newline && tt != type::eos)
+    {
+      if (tt != type::default_assign)
+        fail (t) << "expected '?=' instead of " << t << " after configuration "
+                 << "variable name";
+
+      // The rest is the default value which we should parse in the value
+      // mode. But before switching check whether we need to evaluate it at
+      // all.
+      //
+      if (l.defined ())
+        skip_line (t, tt);
+      else
+      {
+        value lhs, rhs (parse_variable_value (t, tt));
+        apply_value_attributes (&var, lhs, move (rhs), type::assign);
+        lookup_config (*root_, var, move (lhs));
+      }
+    }
+
+    next_after_newline (t, tt);
+  }
+
+  void parser::
   parse_import (token& t, type& tt)
   {
     tracer trace ("parser::parse_import", &path_);
@@ -1653,7 +1787,7 @@ namespace build2
     //
     type atype; // Assignment type.
     value* val (nullptr);
-    const build2::variable* var (nullptr);
+    const variable* var (nullptr);
 
     // We are now in the normal lexing mode and here is the problem: we need
     // to switch to the value mode so that we don't treat certain characters

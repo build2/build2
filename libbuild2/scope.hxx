@@ -58,11 +58,11 @@ namespace build2
     scope*       root_scope ()       {return root_;}
     const scope* root_scope () const {return root_;}
 
-    // Root scope of a strong amalgamation of this scope or NULL if
-    // this scope is not (yet) in any (known) project. If there is
-    // no strong amalgamation, then this function returns the root
-    // scope of the project (in other words, in this case a project
-    // is treated as its own strong amalgamation).
+    // Root scope of the outermost "strong" (source-based) amalgamation of
+    // this scope or NULL if this scope is not (yet) in any (known) project.
+    // If there is no strong amalgamation, then this function returns the root
+    // scope of the project (in other words, in this case a project is treated
+    // as its own strong amalgamation).
     //
     scope*       strong_scope ();
     const scope* strong_scope () const;
@@ -491,7 +491,7 @@ namespace build2
   out_src (const dir_path& src,
            const dir_path& out_root, const dir_path& src_root);
 
-  // Return the project name or empty string if unnamed.
+  // Return the project name or empty if unnamed.
   //
   const project_name&
   project (const scope& root);

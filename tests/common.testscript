@@ -34,6 +34,8 @@ EOI
 
 test.options += --no-default-options --serial-stop --quiet
 
+# By default read stdin for the buildfile.
+#
 if ($null($buildfile) || !$buildfile)
   test.options += --buildfile -
 end

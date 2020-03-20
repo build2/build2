@@ -128,6 +128,9 @@ namespace build2
     parse_run (token&, token_type&);
 
     void
+    parse_config (token&, token_type&);
+
+    void
     parse_import (token&, token_type&);
 
     void

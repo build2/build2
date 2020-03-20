@@ -1,0 +1,164 @@
+# file      : tests/directive/config.testscript
+# license   : MIT; see accompanying LICENSE file
+
+buildfile = true
+test.arguments =
+
+: default-value
+:
+{
+  .include ../common.testscript
+
+  +cat <<EOI >+build/bootstrap.build
+    using config
+    EOI
+
+  +cat <<EOI >=build/root.build
+    config [bool] config.test.fancy ?= false
+    print ($defined(config.test.fancy) ? $config.test.fancy : undefined)
+    EOI
+
+  # This must be a single, serial test since we are sharing config.build.
+  #
+  : test
+  :
+  cat <<EOI >=buildfile;
+    ./:
+    EOI
+
+  # Unconfigured.
+  #
+  $* noop                               >'false' ;
+  $* noop      config.test.fancy=true   >'true'  ;
+
+  # Configured as default.
+  #
+  $* configure                          >'false' ;
+  cat ../build/config.build >>~/EOO/             ;
+    /.*
+    config.test.fancy = false
+    /.*
+    EOO
+  $* disfigure                                   ;
+
+  # Configured as specified.
+  #
+  $* configure config.test.fancy=true   >'true'  ;
+  $* noop                               >'true'  ;
+  $* noop      config.test.fancy=false  >'false' ;
+  $* configure config.test.fancy=false  >'false' ;
+  $* noop                               >'false' ;
+  $* configure config.test.fancy=true   >'true'  ;
+  $* disfigure                                   ;
+  $* noop                               >'false' ;
+
+  $* noop      config.test.fancy=[null] >'[null]';
+
+  $* noop      config.test.fancy=junk 2>>EOE != 0
+    error: invalid bool value 'junk' in variable config.test.fancy
+    EOE
+}
+
+: default-null
+:
+{
+  .include ../common.testscript
+
+  +cat <<EOI >+build/bootstrap.build
+    using config
+    EOI
+
+  +cat <<EOI >=build/root.build
+    config [bool] config.test.fancy ?= [null]
+    print ($defined(config.test.fancy) ? $config.test.fancy : undefined)
+    EOI
+
+  # This must be a single, serial test since we are sharing config.build.
+  #
+  : test
+  :
+  cat <<EOI >=buildfile;
+    ./:
+    EOI
+
+  # Unconfigured.
+  #
+  $* noop                               >'[null]';
+  $* noop      config.test.fancy=true   >'true'  ;
+
+  # Configured as default.
+  #
+  $* configure                          >'[null]';
+  cat ../build/config.build >>~/EOO/             ;
+    /.*
+    config.test.fancy = [null]
+    /.*
+    EOO
+  $* disfigure                                   ;
+
+  # Configured as specified.
+  #
+  $* configure config.test.fancy=true   >'true'  ;
+  $* noop                               >'true'  ;
+  $* noop      config.test.fancy=false  >'false' ;
+  $* noop      config.test.fancy=[null] >'[null]';
+  $* configure config.test.fancy=false  >'false' ;
+  $* noop                               >'false' ;
+  $* disfigure                                   ;
+  $* noop                               >'[null]';
+
+  $* noop      config.test.fancy=junk 2>>EOE != 0
+    error: invalid bool value 'junk' in variable config.test.fancy
+    EOE
+}
+
+
+: default-none
+:
+{
+  .include ../common.testscript
+
+  +cat <<EOI >+build/bootstrap.build
+    using config
+    EOI
+
+  +cat <<EOI >=build/root.build
+    config [bool] config.test.fancy
+    print ($defined(config.test.fancy) ? $config.test.fancy : undefined)
+    EOI
+
+  # This must be a single, serial test since we are sharing config.build.
+  #
+  : test
+  :
+  cat <<EOI >=buildfile;
+    ./:
+    EOI
+
+  # Unconfigured.
+  #
+  $* noop                               >'undefined' ;
+  $* noop      config.test.fancy=true   >'true'      ;
+
+  # Configured as default.
+  #
+  $* configure                          >'undefined' ;
+  sed -n -e 's/(config.test.fancy)/\1/p' ../build/config.build ;
+  $* disfigure                                       ;
+
+  # Configured as specified.
+  #
+  $* configure config.test.fancy=true   >'true'      ;
+  $* noop                               >'true'      ;
+  $* noop      config.test.fancy=false  >'false'     ;
+  $* configure config.test.fancy=false  >'false'     ;
+  $* noop                               >'false'     ;
+  $* disfigure                                       ;
+  $* noop                               >'undefined' ;
+
+  $* noop      config.test.fancy=[null] >'[null]';
+
+  $* noop      config.test.fancy=junk 2>>EOE != 0
+    error: invalid bool value 'junk' in variable config.test.fancy
+    EOE
+}
