@@ -980,10 +980,16 @@ namespace build2
       //
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
-        if (const path* p = lookup_install<path> (*m, "install"))
+        if (const file* mf = m->is_a<file> ())
         {
-          install_target (m->as<file> (), *p, tp.empty () ? 1 : 2);
-          r |= target_state::changed;
+          if (!mf->path ().empty ())
+          {
+            if (const path* p = lookup_install<path> (*mf, "install"))
+            {
+              install_target (*mf, *p, tp.empty () ? 1 : 2);
+              r |= target_state::changed;
+            }
+          }
         }
       }
 
@@ -1252,12 +1258,21 @@ namespace build2
       //
       for (const target* m (t.member); m != nullptr; m = m->member)
       {
-        if (const path* p = lookup_install<path> (*m, "install"))
-          r |= uninstall_target (
-            m->as<file> (),
-            *p,
-            tp.empty () || r != target_state::changed ? 1 : 2);
+        if (const file* mf = m->is_a<file> ())
+        {
+          if (!mf->path ().empty ())
+          {
+            if (const path* p = lookup_install<path> (*m, "install"))
+            {
+              r |= uninstall_target (
+                *mf,
+                *p,
+                tp.empty () || r != target_state::changed ? 1 : 2);
+            }
+          }
+        }
       }
+
 
       // Finally handle installable prerequisites.
       //
