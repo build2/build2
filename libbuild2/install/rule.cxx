@@ -982,7 +982,7 @@ namespace build2
       {
         if (const file* mf = m->is_a<file> ())
         {
-          if (!mf->path ().empty ())
+          if (!mf->path ().empty () && mf->mtime () != timestamp_nonexistent)
           {
             if (const path* p = lookup_install<path> (*mf, "install"))
             {
@@ -1252,7 +1252,7 @@ namespace build2
       if (!tp.empty ())
         r |= uninstall_target (t, cast<path> (t["install"]), 1);
 
-      // Then installable ad hoc group members, if any. To be anally precise
+      // Then installable ad hoc group members, if any. To be anally precise,
       // we would have to do it in reverse, but that's not easy (it's a
       // single-linked list).
       //
@@ -1260,7 +1260,7 @@ namespace build2
       {
         if (const file* mf = m->is_a<file> ())
         {
-          if (!mf->path ().empty ())
+          if (!mf->path ().empty () && mf->mtime () != timestamp_nonexistent)
           {
             if (const path* p = lookup_install<path> (*m, "install"))
             {
