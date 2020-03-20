@@ -43,8 +43,8 @@ namespace build2
     case lexer_mode::normal:
       {
         a  = true;
-        s1 = ":<>=+ $(){}#\t\n";
-        s2 = "    =         ";
+        s1 = ":<>=+? $(){}#\t\n";
+        s2 = "    ==         ";
         break;
       }
     case lexer_mode::value:
@@ -182,6 +182,8 @@ namespace build2
     // NOTE: remember to update mode(), next_eval() if adding any new special
     // characters.
 
+    // These are special in all the modes handled by this function.
+    //
     switch (c)
     {
     case '\n':
@@ -248,11 +250,10 @@ namespace build2
       }
     }
 
-    // The following characters are special in the normal, variable, and
+    // The following characters are special in the normal and
     // switch_expressions modes.
     //
     if (m == lexer_mode::normal             ||
-        m == lexer_mode::variable           ||
         m == lexer_mode::switch_expressions ||
         m == lexer_mode::case_patterns)
     {
@@ -262,9 +263,9 @@ namespace build2
       }
     }
 
-    // The following characters are special in the normal and variable modes.
+    // The following characters are special in the normal mode.
     //
-    if (m == lexer_mode::normal || m == lexer_mode::variable)
+    if (m == lexer_mode::normal)
     {
       switch (c)
       {
@@ -285,6 +286,16 @@ namespace build2
             get ();
             return make_token (type::append);
           }
+          break;
+        }
+      case '?':
+        {
+          if (peek () == '=')
+          {
+            get ();
+            return make_token (type::default_assign);
+          }
+          break;
         }
       }
     }

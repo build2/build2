@@ -2749,6 +2749,16 @@ namespace build2
   void parser::
   parse_variable (token& t, type& tt, const variable& var, type kind)
   {
+    // @@ TODO: yet unclear what should the logic be here: we could expect
+    //    the called to handle skipping or skip it here. Need to see how
+    //    everything fits.
+    //
+    // Note that here we treat default assignment (?=) the same as normal
+    // assignment expecting the caller to check whether the assignment is
+    // necessary (and skipping evaluating the value altogether otherwise).
+    //
+    assert (kind != type::default_assign);
+
     value rhs (parse_variable_value (t, tt));
 
     value& lhs (

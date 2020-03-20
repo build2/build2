@@ -41,6 +41,7 @@ namespace build2
     case token_type::assign:         os << q << '='  << q; break;
     case token_type::prepend:        os << q << "=+" << q; break;
     case token_type::append:         os << q << "+=" << q; break;
+    case token_type::default_assign: os << q << "?=" << q; break;
 
     case token_type::equal:          os << q << "==" << q; break;
     case token_type::not_equal:      os << q << "!=" << q; break;

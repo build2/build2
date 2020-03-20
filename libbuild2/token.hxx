@@ -53,6 +53,7 @@ namespace build2
       assign,          // =
       prepend,         // =+
       append,          // +=
+      default_assign,  // ?=
 
       equal,           // ==
       not_equal,       // !=

@@ -1,0 +1,36 @@
+# file      : libbuild2/lexer+normal.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = normal
+
+: assign
+:
+$* <:'x=y' >>EOO
+'x'
+=
+'y'
+EOO
+
+: append
+:
+$* <:'x+=y' >>EOO
+'x'
++=
+'y'
+EOO
+
+: prepend
+:
+$* <:'x=+y' >>EOO
+'x'
+=+
+'y'
+EOO
+
+: default-assign
+:
+$* <:'x?=y' >>EOO
+'x'
+?=
+'y'
+EOO
