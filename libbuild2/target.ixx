@@ -66,6 +66,22 @@ namespace build2
   }
 
   inline bool target::
+  matched (action a) const
+  {
+    assert (ctx.phase == run_phase::execute);
+
+    const opstate& s (state[a]);
+
+    // Note that while the target could be being executed, we should see at
+    // least offset_matched since it must have been "achieved" before the
+    // phase switch.
+    //
+    size_t c (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
+
+    return c >= offset_matched;
+  }
+
+  inline bool target::
   group_state (action a) const
   {
     // We go an extra step and short-circuit to the target state even if the
@@ -96,6 +112,7 @@ namespace build2
     const opstate& s (state[a]);
 
     // Note: already synchronized.
+    //
     size_t o (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
 
     if (o == offset_tried)

@@ -592,7 +592,13 @@ namespace build2
     opstate&       operator[] (action a)       {return state[a];}
     const opstate& operator[] (action a) const {return state[a];}
 
-    // This function should only be called during match if we have observed
+    // Return true if the target has been matched for the specified action.
+    // This function can only be called during execution.
+    //
+    bool
+    matched (action) const;
+
+    // This function can only be called during match if we have observed
     // (synchronization-wise) that this target has been matched (i.e., the
     // rule has been applied) for this action.
     //
@@ -610,8 +616,8 @@ namespace build2
     bool
     unchanged (action) const;
 
-    // This function should only be called during execution if we have
-    // observed (synchronization-wise) that this target has been executed.
+    // This function can only be called during execution if we have observed
+    // (synchronization-wise) that this target has been executed.
     //
     target_state
     executed_state (action, bool fail = true) const;
