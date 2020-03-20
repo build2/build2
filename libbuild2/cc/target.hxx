@@ -61,13 +61,14 @@ namespace build2
 
     // pkg-config file targets.
     //
-    class LIBBUILD2_CC_SYMEXPORT pc: public file
+    class LIBBUILD2_CC_SYMEXPORT pc: public file // .pc (common)
     {
     public:
       using file::file;
 
     public:
       static const target_type static_type;
+      virtual const target_type& dynamic_type () const {return static_type;}
     };
 
     class LIBBUILD2_CC_SYMEXPORT pca: public pc // .static.pc

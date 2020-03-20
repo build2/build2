@@ -1301,8 +1301,19 @@ namespace build2
 
 #endif
 
+    // If common is true, generate a "best effort" (i.e., not guaranteed to be
+    // sufficient in all cases) common .pc file by ignoring any static/shared-
+    // specific poptions and splitting loptions/libs into Libs/Libs.private.
+    // Note that if both static and shared are being installed, the common
+    // file must be generated based on the static library to get accurate
+    // Libs.private.
+    //
     void link_rule::
-    pkgconfig_save (action a, const file& l, bool la, bool binless) const
+    pkgconfig_save (action a,
+                    const file& l,
+                    bool la,
+                    bool common,
+                    bool binless) const
     {
       tracer trace (x, "pkgconfig_save");
 
@@ -1311,15 +1322,22 @@ namespace build2
       const scope& bs (l.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      auto* t (find_adhoc_member<pc> (l));
+      auto* t (find_adhoc_member<pc> (l, (common ? pc::static_type  :
+                                          la     ? pca::static_type :
+                                          /*    */ pcs::static_type)));
       assert (t != nullptr);
+
+      // This is the lib{} group if we are generating the common file and the
+      // target itself otherwise.
+      //
+      const file& g (common ? l.group->as<file> () : l);
 
       // By default we assume things go into install.{include, lib}.
       //
       using install::resolve_dir;
 
-      dir_path idir (resolve_dir (l, cast<dir_path> (l["install.include"])));
-      dir_path ldir (resolve_dir (l, cast<dir_path> (l["install.lib"])));
+      dir_path idir (resolve_dir (g, cast<dir_path> (g["install.include"])));
+      dir_path ldir (resolve_dir (g, cast<dir_path> (g["install.lib"])));
 
       const path& p (t->path ());
 
@@ -1363,9 +1381,9 @@ namespace build2
             os << "URL: " << *u << endl;
         }
 
-        auto save_poptions = [&l, &os] (const variable& var)
+        auto save_poptions = [&g, &os] (const variable& var)
         {
-          if (const strings* v = cast_null<strings> (l[var]))
+          if (const strings* v = cast_null<strings> (g[var]))
           {
             for (auto i (v->begin ()); i != v->end (); ++i)
             {
@@ -1469,11 +1487,11 @@ namespace build2
         // we still want to sort things out into Libs/Libs.private. This is
         // necessary to distinguish between interface and implementation
         // dependencies if we don't have the shared variant (see the load
-        // logic for details).
+        // logic for details). And also for the common .pc file, naturally.
         //
         //@@ TODO: would be nice to weed out duplicates. But is it always
         //   safe? Think linking archives: will have to keep duplicates in
-        //   the second position, not first. Gets even trickier with
+        //   the second position, not first. Gets even trickier with the
         //   Libs.private split.
         //
         {
@@ -1556,7 +1574,7 @@ namespace build2
           };
           vector<module> modules;
 
-          for (const target* pt: l.prerequisite_targets[a])
+          for (const target* pt: g.prerequisite_targets[a])
           {
             // @@ UTL: we need to (recursively) see through libu*{} (and
             //    also in search_modules()).

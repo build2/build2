@@ -178,7 +178,7 @@ namespace build2
       // pkg-config's .pc file generation (pkgconfig.cxx).
       //
       void
-      pkgconfig_save (action, const file&, bool, bool) const;
+      pkgconfig_save (action, const file&, bool, bool, bool) const;
 
     private:
       const string rule_id;

@@ -54,16 +54,18 @@ namespace build2
       false
     };
 
+    extern const char pc_ext[] = "pc"; // VC14 rejects constexpr.
+
     const target_type pc::static_type
     {
       "pc",
       &file::static_type,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      nullptr,
-      &target_search,
+      &target_factory<pc>,
+      &target_extension_fix<pc_ext>,
+      nullptr, /* default_extension */
+      &target_pattern_fix<pc_ext>,
+      &target_print_0_ext_verb, // Fixed extension, no use printing.
+      &file_search,
       false
     };
 

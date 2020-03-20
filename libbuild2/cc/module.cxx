@@ -776,6 +776,7 @@ namespace build2
         if (*x_hdr != &h::static_type)
           insert_hdr (h::static_type);
 
+        rs.insert_target_type<pc> ();
         rs.insert_target_type<pca> ();
         rs.insert_target_type<pcs> ();
 

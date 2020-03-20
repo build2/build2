@@ -17,6 +17,7 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/bin/rule.hxx>    // lib_rule::build_members()
 #include <libbuild2/bin/target.hxx>
 #include <libbuild2/bin/utility.hxx>
 
@@ -125,7 +126,7 @@ namespace build2
             // doing here since if there is no existing target, then there can
             // be no prerequisites.
             //
-            // Note, however, that we cannot linkup a prerequisite target
+            // Note, however, that we cannot link-up a prerequisite target
             // member to its group since we are not matching this target. As
             // result we have to do all the steps except for setting t.group
             // and pass both member and group (we also cannot query t.group
@@ -1029,21 +1030,41 @@ namespace build2
           // cleanup automagically. The actual generation happens in
           // perform_update() below.
           //
+          // Things are even trickier for the common .pc file: we only want to
+          // have it in the shared library if we are not installing static
+          // (see pkgconfig_save() for details). But we can't know it at this
+          // stage. So what we are going to do is conceptually tie the common
+          // file to the lib{} group (which does somehow feel correct) by only
+          // installing it if the lib{} group is installed. Specifically, here
+          // we will use its bin.lib to decide what will be installed and in
+          // perform_update() we will confirm that it is actually installed.
+          //
           if (ot != otype::e)
           {
-            file& pc (add_adhoc_member<file> (t,
-                                              (ot == otype::a
-                                               ? pca::static_type
-                                               : pcs::static_type)));
-
             // Note that here we always use the lib name prefix, even on
             // Windows with VC. The reason is the user needs a consistent name
             // across platforms by which they can refer to the library. This
             // is also the reason why we use the .static and .shared second-
             // level extensions rather that a./.lib and .so/.dylib/.dll.
+
+            // Note also that the order in which we are adding these members
+            // is important (see add_addhoc_member() for details).
             //
-            if (pc.path ().empty ())
-              pc.derive_path (nullptr, (p == nullptr ? "lib" : p), s);
+            if (ot == otype::a || !lib_rule::build_members (rs).a)
+            {
+              auto& pc (add_adhoc_member<pc> (t));
+
+              if (pc.path ().empty ())
+                pc.derive_path (nullptr, (p == nullptr ? "lib" : p), s);
+            }
+
+            auto& pcx (add_adhoc_member<file> (t,
+                                               (ot == otype::a
+                                                ? pca::static_type
+                                                : pcs::static_type)));
+
+            if (pcx.path ().empty ())
+              pcx.derive_path (nullptr, (p == nullptr ? "lib" : p), s);
           }
 
           // Add the Windows rpath emulating assembly directory as fsdir{}.
@@ -1984,7 +2005,26 @@ namespace build2
       // for install, we have no idea where-to things will be installed.
       //
       if (for_install && lt.library () && !lt.utility)
-        pkgconfig_save (a, t, lt.static_library (), binless);
+      {
+        bool la (lt.static_library ());
+
+        pkgconfig_save (a, t, la, false /* common */, binless);
+
+        // Generate the common .pc file if the lib{} rule is matched (see
+        // apply() for details on this two-stage logic).
+        //
+        auto* m (find_adhoc_member<pc> (t)); // Will be pca/pcs if not found.
+
+        if (!m->is_a (la ? pca::static_type : pcs::static_type))
+        {
+          if (t.group->matched (a))
+            pkgconfig_save (a, t, la, true /* common */, binless);
+          else
+            // Mark as non-existent not to confuse the install rule.
+            //
+            m->mtime (timestamp_nonexistent);
+        }
+      }
 
       // If we have no binary to build then we are done.
       //

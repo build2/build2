@@ -83,7 +83,7 @@ namespace build2
     // running serial. For the members it is also safe to set the group during
     // creation.
 
-    // obj*{} and [h]bmi*{} member factory.
+    // obj*{}, lib*{}, and [h]bmi*{} member factory.
     //
     template <typename M, typename G>
     static target*
