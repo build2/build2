@@ -278,20 +278,23 @@ namespace build2
     const_ptr<target>* mp (&t.member);
     for (; *mp != nullptr && !(*mp)->is_a (tt); mp = &(*mp)->member) ;
 
-    target& m (*mp != nullptr // Might already be there.
-               ? **mp
-               : t.ctx.targets.insert (tt,
-                                       dir,
-                                       out,
-                                       move (n),
-                                       nullopt /* ext     */,
-                                       true    /* implied */,
-                                       trace).first);
-    if (*mp == nullptr)
-    {
-      *mp = &m;
-      m.group = &t;
-    }
+    if (*mp != nullptr) // Might already be there.
+      return **mp;
+
+    pair<target&, ulock> r (
+      t.ctx.targets.insert_locked (tt,
+                                   dir,
+                                   out,
+                                   move (n),
+                                   nullopt /* ext     */,
+                                   true    /* implied */,
+                                   trace));
+
+    assert (r.second.owns_lock ());
+
+    target& m (r.first);
+    *mp = &m;
+    m.group = &t;
 
     return m;
   };
