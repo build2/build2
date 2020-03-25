@@ -1655,12 +1655,13 @@ namespace build2
     // config [<var-attrs>] <var>[?=[<val-attrs>]<default-val>]
     //
 
-    // @@ TODO: enforce appears in root.build
+    // Make sure only appears in root.build.
     //
-    if (root_ != scope_)
-      fail (t) << "configuration variable in non-root scope";
+    if (stage_ != stage::root)
+      fail (t) << "configuration variable outside of project's "
+               << root_->root_extra->root_file;
 
-    // We enforce the config.<project> prefix.
+    // Enforce the config.<project> prefix.
     //
     // Note that this could be a subproject and it could be unnamed (e.g., the
     // tests subproject). The current thinking is to use hierarchical names
@@ -1982,7 +1983,7 @@ namespace build2
 
     bool optional (t.value.back () == '?');
 
-    if (optional && boot_)
+    if (optional && stage_ == stage::boot)
       fail (t) << "optional module in bootstrap";
 
     // The rest should be a list of module names. Parse them as names in the
@@ -2035,7 +2036,7 @@ namespace build2
       {
         assert (v.empty ()); // Module versioning not yet implemented.
 
-        if (boot_)
+        if (stage_ == stage::boot)
           boot_module (*root_, n, l);
         else
           init_module (*root_, *scope_, n, l, optional);

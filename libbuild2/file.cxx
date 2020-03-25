@@ -159,8 +159,10 @@ namespace build2
     }
   }
 
+  using stage = parser::stage;
+
   static void
-  source (scope& root, scope& base, lexer& l, bool boot)
+  source (scope& root, scope& base, lexer& l, stage s)
   {
     tracer trace ("source");
 
@@ -170,7 +172,7 @@ namespace build2
     {
       l5 ([&]{trace << "sourcing " << fn;});
 
-      parser p (root.ctx, boot);
+      parser p (root.ctx, s);
       p.parse_buildfile (l, root, base);
     }
     catch (const io_error& e)
@@ -179,25 +181,25 @@ namespace build2
     }
   }
 
-  static void
+  static inline void
   source (scope& root,
           scope& base,
           istream& is,
           const path_name& in,
-          bool boot)
+          stage s)
   {
     lexer l (is, in);
-    source (root, base, l, boot);
+    source (root, base, l, s);
   }
 
   static void
-  source (scope& root, scope& base, const path& bf, bool boot)
+  source (scope& root, scope& base, const path& bf, stage s)
   {
     path_name fn (bf);
     try
     {
       ifdstream ifs;
-      return source (root, base, open_file_or_stdin (fn, ifs), fn, boot);
+      return source (root, base, open_file_or_stdin (fn, ifs), fn, s);
     }
     catch (const io_error& e)
     {
@@ -205,26 +207,8 @@ namespace build2
     }
   }
 
-  void
-  source (scope& root, scope& base, const path& bf)
-  {
-    source (root, base, bf, false);
-  }
-
-  void
-  source (scope& root, scope& base, istream& is, const path_name& in)
-  {
-    source (root, base, is, in, false /* boot */);
-  }
-
-  void
-  source (scope& root, scope& base, lexer& l)
-  {
-    source (root, base, l, false);
-  }
-
-  bool
-  source_once (scope& root, scope& base, const path& bf, scope& once)
+  static bool
+  source_once (scope& root, scope& base, const path& bf, scope& once, stage s)
   {
     tracer trace ("source_once");
 
@@ -234,8 +218,32 @@ namespace build2
       return false;
     }
 
-    source (root, base, bf, false);
+    source (root, base, bf, s);
     return true;
+  }
+
+  void
+  source (scope& root, scope& base, const path& bf)
+  {
+    source (root, base, bf, stage::rest);
+  }
+
+  void
+  source (scope& root, scope& base, istream& is, const path_name& in)
+  {
+    source (root, base, is, in, stage::rest);
+  }
+
+  void
+  source (scope& root, scope& base, lexer& l)
+  {
+    source (root, base, l, stage::rest);
+  }
+
+  bool
+  source_once (scope& root, scope& base, const path& bf, scope& once)
+  {
+    return source_once (root, base, bf, once, stage::rest);
   }
 
   // Source (once) pre-*.build (pre is true) or post-*.build (otherwise) hooks
@@ -243,7 +251,7 @@ namespace build2
   // must exist.
   //
   static void
-  source_hooks (scope& root, const dir_path& d, bool pre)
+  source_hooks (scope& root, const dir_path& d, stage s, bool pre)
   {
     // While we could have used the wildcard pattern matching functionality,
     // our needs are pretty basic and performance is quite important, so let's
@@ -278,7 +286,7 @@ namespace build2
           fail << "unable to read buildfile " << f << ": " << e;
         }
 
-        source_once (root, root, f);
+        source_once (root, root, f, root, s);
       }
     }
     catch (const system_error& e)
@@ -799,7 +807,7 @@ namespace build2
         // root scope multiple time.
         //
         if (rs.buildfiles.insert (f).second)
-          source (rs, rs, f, true /* boot */);
+          source (rs, rs, f, stage::boot);
         else
           l5 ([&]{trace << "skipping already sourced " << f;});
 
@@ -1030,7 +1038,7 @@ namespace build2
       if (root.root_extra == nullptr)
         setup_root_extra (root, altn);
 
-      source_hooks (root, d, true /* pre */);
+      source_hooks (root, d, stage::boot, true /* pre */);
     }
   }
 
@@ -1042,7 +1050,7 @@ namespace build2
     dir_path d (out_root / root.root_extra->bootstrap_dir);
 
     if (exists (d))
-      source_hooks (root, d, false /* pre */);
+      source_hooks (root, d, stage::boot, false /* pre */);
   }
 
   bool
@@ -1268,9 +1276,9 @@ namespace build2
     dir_path hd (out_root / root.root_extra->root_dir);
     bool he (exists (hd));
 
-    if (he)         source_hooks (root, hd, true /* pre */);
-    if (exists (f)) source_once  (root, root, f);
-    if (he)         source_hooks (root, hd, false /* pre */);
+    if (he)         source_hooks (root, hd, stage::root, true  /* pre */);
+    if (exists (f)) source_once  (root, root, f, root, stage::root);
+    if (he)         source_hooks (root, hd, stage::root, false /* pre */);
   }
 
   scope&

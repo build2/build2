@@ -23,12 +23,18 @@ namespace build2
   class LIBBUILD2_SYMEXPORT parser
   {
   public:
-    // If boot is true, then we are parsing bootstrap.build and modules
-    // should only be bootstrapped.
+    // The project's loading stage during which the parsing is performed.
     //
+    enum class stage
+    {
+      boot,  // Parsing bootstrap.build (or bootstrap pre/post hooks).
+      root,  // Parsing root.build (or root pre/post hooks).
+      rest   // Parsing the rest (ordinary buildfiles, command line, etc).
+    };
+
     explicit
-    parser (context& c, bool boot = false)
-      : fail ("error", &path_), ctx (c), boot_ (boot) {}
+    parser (context& c, stage s = stage::rest)
+      : fail ("error", &path_), ctx (c), stage_ (s) {}
 
     // Issue diagnostics and throw failed in case of an error.
     //
@@ -699,9 +705,9 @@ namespace build2
 
   protected:
     context& ctx;
+    stage stage_;
 
     bool pre_parse_ = false;
-    bool boot_;
 
     const path_name* path_; // Current path name.
     lexer*           lexer_;
