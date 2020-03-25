@@ -68,16 +68,19 @@ namespace build2
           {
             if (nv.name == "name")
             {
-              auto& pn (cast<project_name> (rs.vars[ctx.var_project]));
+              auto* pn (cast_null<project_name> (rs.vars[ctx.var_project]));
 
-              if (nv.value != pn.string ())
+              if (pn == nullptr)
+                fail (l) << "version module loaded in unnamed project";
+
+              if (nv.value != pn->string ())
               {
                 path bf (rs.src_path () / rs.root_extra->bootstrap_file);
                 location ml (f, nv.value_line, nv.value_column);
                 location bl (bf);
 
                 fail (ml) << "package name " << nv.value << " does not match "
-                          << "build system project name " << pn <<
+                          << "build system project name " << *pn <<
                   info (bl) << "build system project name specified here";
               }
             }
