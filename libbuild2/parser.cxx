@@ -212,6 +212,17 @@ namespace build2
   };
 
   void parser::
+  reset ()
+  {
+    pre_parse_ = false;
+    attributes_.clear ();
+    default_target_ = nullptr;
+    peeked_ = false;
+    replay_ = replay::stop;
+    replay_data_.clear ();
+  }
+
+  void parser::
   parse_buildfile (istream& is, const path_name& in, scope& root, scope& base)
   {
     lexer l (is, in);
@@ -223,12 +234,13 @@ namespace build2
   {
     path_ = &l.name ();
     lexer_ = &l;
+
     root_ = &root;
     scope_ = &base;
-    pbase_ = scope_->src_path_;
     target_ = nullptr;
     prerequisite_ = nullptr;
-    default_target_ = nullptr;
+
+    pbase_ = scope_->src_path_;
 
     enter_buildfile (*path_); // Needs scope_.
 
@@ -249,10 +261,13 @@ namespace build2
   {
     path_ = &l.name ();
     lexer_ = &l;
+
+    root_ = nullptr;
     scope_ = &s;
-    pbase_ = scope_->src_path_; // Normally NULL.
     target_ = nullptr;
     prerequisite_ = nullptr;
+
+    pbase_ = scope_->src_path_; // Normally NULL.
 
     token t;
     type tt;
@@ -268,10 +283,13 @@ namespace build2
   {
     path_ = &l.name ();
     lexer_ = &l;
+
+    root_ = nullptr;
     scope_ = &s;
-    pbase_ = b;
     target_ = nullptr;
     prerequisite_ = nullptr;
+
+    pbase_ = b;
 
     token t;
     type tt;
@@ -1968,9 +1986,9 @@ namespace build2
     if (val.type != nullptr)
       untypify (val);
 
-    export_value_ = move (val).as<names> ();
+    export_value = move (val).as<names> ();
 
-    if (export_value_.empty ())
+    if (export_value.empty ())
       fail (l) << "empty value in export";
 
     next_after_newline (t, tt);
@@ -3675,7 +3693,7 @@ namespace build2
     bool has (tt == type::lsbrace);
 
     if (!pre_parse_)
-      attributes_.push (attributes {has, l, {}});
+      attributes_.push_back (attributes {has, l, {}});
 
     if (!has)
       return make_pair (false, l);
@@ -3727,7 +3745,7 @@ namespace build2
         }
 
         if (!pre_parse_)
-          attributes_.top ().ats.emplace_back (move (n), move (v));
+          attributes_.back ().ats.emplace_back (move (n), move (v));
 
         if (tt == type::comma)
           next (t, tt);
@@ -5592,17 +5610,19 @@ namespace build2
   buildspec parser::
   parse_buildspec (istream& is, const path_name& in)
   {
-    path_ = &in;
-
     // We do "effective escaping" and only for ['"\$(] (basically what's
     // necessary inside a double-quoted literal plus the single quote).
     //
+    path_ = &in;
     lexer l (is, *path_, 1 /* line */, "\'\"\\$(");
     lexer_ = &l;
-    scope_ = root_ = &ctx.global_scope.rw ();
-    pbase_ = &work; // Use current working directory.
+
+    root_ = &ctx.global_scope.rw ();
+    scope_ = root_;
     target_ = nullptr;
     prerequisite_ = nullptr;
+
+    pbase_ = &work; // Use current working directory.
 
     // Turn on the buildspec mode/pairs recognition with '@' as the pair
     // separator (e.g., src_root/@out_root/exe{foo bar}).

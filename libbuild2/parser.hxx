@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_PARSER_HXX
 #define LIBBUILD2_PARSER_HXX
 
-#include <stack>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -60,8 +58,21 @@ namespace build2
     parse_export_stub (istream& is, const path_name& name, scope& r, scope& b)
     {
       parse_buildfile (is, name, r, b);
-      return move (export_value_);
+      return move (export_value);
     }
+
+    // The above functions may be called again on the same parser instance
+    // after a reset.
+    //
+    void
+    reset ();
+
+    // Ad hoc parsing results for some cases.
+    //
+    // Note that these are not touched by reset().
+    //
+  public:
+    names export_value;
 
     // Recursive descent parser.
     //
@@ -246,13 +257,13 @@ namespace build2
     attributes_pop ()
     {
       assert (!pre_parse_);
-      attributes r (move (attributes_.top ()));
-      attributes_.pop ();
+      attributes r (move (attributes_.back ()));
+      attributes_.pop_back ();
       return r;
     }
 
     attributes&
-    attributes_top () {return attributes_.top ();}
+    attributes_top () {return attributes_.back ();}
 
     // Source a stream optionnaly entering it as a buildfile and performing
     // the default target processing.
@@ -703,6 +714,10 @@ namespace build2
   protected:
     const fail_mark fail;
 
+    // Parser state.
+    //
+    // NOTE: remember to update reset() if adding anything here.
+    //
   protected:
     context& ctx;
     stage stage_;
@@ -719,10 +734,9 @@ namespace build2
 
     const dir_path* pbase_ = nullptr; // Current pattern base directory.
 
-    std::stack<attributes> attributes_;
+    small_vector<attributes, 2> attributes_;
 
-    target* default_target_;
-    names export_value_;
+    target* default_target_ = nullptr;
 
     replay_token peek_;
     bool peeked_ = false;
