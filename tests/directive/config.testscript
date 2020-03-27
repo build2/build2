@@ -162,3 +162,67 @@ test.arguments =
     error: invalid bool value 'junk' in variable config.test.fancy
     EOE
 }
+
+: report
+:
+{
+  .include ../common.testscript
+
+  +cat <<EOI >+build/bootstrap.build
+    using config
+    EOI
+
+  +cat <<EOI >=build/root.build
+    config [bool]                              config.test.a
+    config [bool]                              config.test.b ?= false
+    config [bool,    config.report=false]      config.test.c ?= true
+    config [strings, config.report=multiline]  config.test.d ?= 1 2 3
+    config [string,  config.report.variable=e] config.test.e ?= abc
+    config [         config.report]            f
+    config [bool]                              config.test.n ?= [null]
+
+    e = "'$config.test.e'"
+    f = ($config.test.b || $config.test.c)
+
+    EOI
+
+  # This must be a single, serial test since we are sharing config.build.
+  #
+  : test
+  :
+  cat <<EOI >=buildfile;
+    ./:
+    EOI
+
+  # Unconfigured.
+  #
+  $* noop -v 2>>~/EOO/;
+    /config test@.+/
+      b          false
+      d
+        1
+        2
+        3
+      e          'abc'
+      f          true
+      n          [null]
+    EOO
+
+  # Configured.
+  #
+  $* configure config.test.a=true config.test.e=xyz config.test.n=true;
+  $* noop -v;
+  $* noop -V 2>>~/EOO/;
+    /config test@.+/
+      a          true
+      b          false
+      d
+        1
+        2
+        3
+      e          'xyz'
+      f          true
+      n          true
+    EOO
+  $* disfigure
+}

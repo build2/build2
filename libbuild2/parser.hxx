@@ -72,7 +72,14 @@ namespace build2
     // Note that these are not touched by reset().
     //
   public:
+    // export directive result.
+    //
     names export_value;
+
+    // config directive result.
+    //
+    vector<pair<lookup, string>> config_report; // Config value and format.
+    bool config_report_new = false;             // One of values is new.
 
     // Recursive descent parser.
     //
@@ -231,24 +238,28 @@ namespace build2
     // In this example we only apply the value attributes after evaluating
     // the context, which has its own attributes.
     //
-    struct attributes
+    struct attribute
     {
-      bool has;                                 // Has attributes flag.
-      location loc;                             // Start location.
-      small_vector<pair<string, value>, 1> ats; // Attributes.
-
-      explicit operator bool () const {return has;}
+      string        name;
+      build2::value value;
     };
 
-    // Push a new entry into the attributes_ stack. If the next token is '['
-    // parse the attribute sequence until ']' storing the result in the new
-    // stack entry and setting the 'has' flag (unless the attribute list is
-    // empty). Then get the next token and, if standalone is false, verify
-    // it is not newline/eos (i.e., there is something after it). Return the
-    // indication of whether there are any attributes and their location.
+    struct attributes: small_vector<attribute, 1>
+    {
+      location loc; // Start location.
+
+      explicit
+      attributes (location l): loc (move (l)) {}
+    };
+
+    // Push a new entry into the attributes_ stack. If the next token is `[`
+    // then parse the attribute sequence until ']' storing the result in the
+    // new stack entry. Then get the next token and, if standalone is false,
+    // verify it is not newline/eos (i.e., there is something after it).
+    // Return the indication of whether we have seen `[` (even if it's the
+    // `[]` empty list) and its location.
     //
-    // Note that during pre-parsing nothing is pushed into the stack and
-    // the returned attributes object indicates there are no attributes.
+    // Note that during pre-parsing nothing is pushed into the stack.
     //
     pair<bool, location>
     attributes_push (token&, token_type&, bool standalone = false);

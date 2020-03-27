@@ -496,6 +496,12 @@ namespace build2
   const project_name&
   project (const scope& root);
 
+  // Return the name of the first innermost named project in the strong
+  // amalgamation chain or empty if all are unnamed.
+  //
+  const project_name&
+  named_project (const scope& root);
+
   // Temporary scope. The idea is to be able to create a temporary scope in
   // order not to change the variables in the current scope. Such a scope is
   // not entered in to the scope map. As a result it can only be used as a

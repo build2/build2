@@ -84,8 +84,8 @@ namespace build2
     // the value is "new" (but not to false; so it can be used to accumulate
     // the result from multiple calls). A value is considered new if it was
     // set to the default value (inherited or not, including overrides). We
-    // also treat command line overrides (inherited or not) as new. In this
-    // case new means either the default value was inherited or it was
+    // also treat command line overrides (inherited or not) as new. For this
+    // version new means either the default value was inherited or it was
     // overridden. This flag is usually used to test that the new value is
     // valid, print the configuration report, etc.
     //

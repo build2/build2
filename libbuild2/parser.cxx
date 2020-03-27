@@ -1691,23 +1691,14 @@ namespace build2
     // named project.
     //
     string proj;
-    for (auto r (root_), a (root_->strong_scope ());
-         ;
-         r = r->parent_scope ()->root_scope ())
     {
-      const project_name& n (project (*r));
-      if (!n.empty ())
-      {
-        proj = n.variable ();
-        break;
-      }
+      const project_name& n (named_project (*root_));
 
-      if (r == a)
-        break;
+      if (n.empty ())
+        fail (t) << "configuration variable in unnamed project";
+
+      proj = n.variable ();
     }
-
-    if (proj.empty ())
-      fail (t) << "configuration variable in unnamed project";
 
     // We are now in the normal lexing mode. Since we always have <var> we
     // don't have to resort to manual parsing (as in import) and can just let
@@ -1715,77 +1706,187 @@ namespace build2
     //
     next_with_attributes (t, tt);
 
-    // Get variable attributes, if any.
+    // Get variable attributes, if any, and deal with the special config.*
+    // attributes. Since currently they can only appear in the config
+    // directive, we handle them in an ad hoc manner.
     //
     attributes_push (t, tt);
+    attributes& as (attributes_top ());
+
+    optional<string> report;
+    string report_var;
+
+    for (auto i (as.begin ()); i != as.end (); )
+    {
+      if (i->name == "config.report")
+      {
+        try
+        {
+          string v (i->value ? convert<string> (move (i->value)) : "true");
+
+          if (v == "true"  ||
+              v == "false" ||
+              v == "multiline")
+            report = move (v);
+          else
+            throw invalid_argument (
+              "expected 'false' or format name instead of '" + v + "'");
+        }
+        catch (const invalid_argument& e)
+        {
+          fail << "invalid " << i->name << " attribute value: " << e;
+        }
+      }
+      else if (i->name == "config.report.variable")
+      {
+        try
+        {
+          report_var = convert<string> (move (i->value));
+        }
+        catch (const invalid_argument& e)
+        {
+          fail << "invalid " << i->name << " attribute value: " << e;
+        }
+      }
+      else
+      {
+        ++i;
+        continue;
+      }
+
+      i = as.erase (i);
+    }
 
     if (tt != type::word)
       fail (t) << "expected configuration variable name instead of " << t;
 
     string name (move (t.value));
 
-    // Enforce the variable name pattern. The simplest is to check for the
-    // config prefix and the project substring.
+    // As a way to print custom (discovered, computed, etc) configuration
+    // information we allow specifying a non config.* variable provided it is
+    // explicitly marked with the config.report attribute.
     //
+    bool new_val (false);
+    lookup l;
+
+    if (report            &&
+        report != "false" &&
+        name.compare (0, 7, "config.") != 0)
     {
-      diag_record dr;
+      if (!as.empty ())
+        fail (t) << "unexpected attributes for report-only variable";
 
-      if (name.compare (0, 7, "config.") != 0)
-        dr << fail (t) << "configuration variable '" << name
-           << "' does not start with 'config.'";
+      attributes_pop ();
 
-      if (name.find ('.' + proj + '.') == string::npos)
-        dr << fail (t) << "configuration variable '" << name
-           << "' does not include project name";
-
-      if (!dr.empty ())
-        dr << info << "expected variable name in the 'config[.**]." << proj
-           << ".**' form";
-    }
-
-    const variable& var (
-      scope_->var_pool ().insert (move (name), true /* overridable */));
-
-    apply_variable_attributes (var);
-
-    // Note that even though we are relying on the config.** variable pattern
-    // to set global visibility, let's make sure as a sanity check.
-    //
-    if (var.visibility != variable_visibility::normal)
-    {
-      fail (t) << "configuration variable " << var << " has " << var.visibility
-               << " visibility";
-    }
-
-    // We have to lookup the value whether we have the default part or not in
-    // order to mark it as saved (we would also have to do this to get the new
-    // value status if we need it).
-    //
-    using config::lookup_config;
-
-    auto l (lookup_config (*root_, var));
-
-    // See if we have the default value part.
-    //
-    next (t, tt);
-
-    if (tt != type::newline && tt != type::eos)
-    {
-      if (tt != type::default_assign)
-        fail (t) << "expected '?=' instead of " << t << " after configuration "
-                 << "variable name";
-
-      // The rest is the default value which we should parse in the value
-      // mode. But before switching check whether we need to evaluate it at
-      // all.
+      // Reduce to the config.report.variable-like situation.
       //
-      if (l.defined ())
-        skip_line (t, tt);
-      else
+      // What should new_val be? If it's based on a config.* variable (for
+      // example, some paths extracted from a tool), then it's natural for
+      // that variable to control newness. And if it's not based on any
+      // config.* variable, then whether it's always new or never new is a
+      // philosophical question. In either case it doesn't seem useful for it
+      // to unconditionally force reporting at level 2.
+      //
+      report_var = move (name);
+
+      next (t, tt); // We shouldn't have the default value part.
+    }
+    else
+    {
+      if (!report)
+        report = "true"; // Default is to report.
+
+      // Enforce the variable name pattern. The simplest is to check for the
+      // config prefix and the project substring.
+      //
       {
-        value lhs, rhs (parse_variable_value (t, tt));
-        apply_value_attributes (&var, lhs, move (rhs), type::assign);
-        lookup_config (*root_, var, move (lhs));
+        diag_record dr;
+
+        if (name.compare (0, 7, "config.") != 0)
+          dr << fail (t) << "configuration variable '" << name
+             << "' does not start with 'config.'";
+
+        if (name.find ('.' + proj + '.') == string::npos)
+          dr << fail (t) << "configuration variable '" << name
+             << "' does not include project name";
+
+        if (!dr.empty ())
+          dr << info << "expected variable name in the 'config[.**]." << proj
+             << ".**' form";
+      }
+
+      const variable& var (
+        scope_->var_pool ().insert (move (name), true /* overridable */));
+
+      apply_variable_attributes (var);
+
+      // Note that even though we are relying on the config.** variable
+      // pattern to set global visibility, let's make sure as a sanity check.
+      //
+      if (var.visibility != variable_visibility::normal)
+      {
+        fail (t) << "configuration variable " << var << " has "
+                 << var.visibility << " visibility";
+      }
+
+      // We have to lookup the value whether we have the default part or not
+      // in order to mark it as saved. We also have to do this to get the new
+      // value status.
+      //
+      using config::lookup_config;
+
+      l = lookup_config (new_val, *root_, var);
+
+      // See if we have the default value part.
+      //
+      next (t, tt);
+
+      if (tt != type::newline && tt != type::eos)
+      {
+        if (tt != type::default_assign)
+          fail (t) << "expected '?=' instead of " << t << " after "
+                   << "configuration variable name";
+
+        // The rest is the default value which we should parse in the value
+        // mode. But before switching check whether we need to evaluate it at
+        // all.
+        //
+        if (l.defined ())
+          skip_line (t, tt);
+        else
+        {
+          value lhs, rhs (parse_variable_value (t, tt));
+          apply_value_attributes (&var, lhs, move (rhs), type::assign);
+          l = lookup_config (new_val, *root_, var, move (lhs));
+        }
+      }
+    }
+
+    // We will be printing the report at either level 2 (-v) or 3 (-V)
+    // depending on the final value of config_report_new.
+    //
+    // Note that for the config_report_new calculation we only incorporate
+    // variables that we are actually reporting.
+    //
+    if (*report != "false" && verb >= 2)
+    {
+      // We don't want to lookup the report variable value here since it's
+      // most likely not set yet.
+      //
+      if (!report_var.empty ())
+      {
+        // In a somewhat hackish way we pass the variable in an undefined
+        // lookup.
+        //
+        l = lookup ();
+        l.var = &root_->var_pool ().insert (
+          move (report_var), true /* overridable */);
+      }
+
+      if (l.var != nullptr)
+      {
+        config_report.push_back (make_pair (l, move (*report)));
+        config_report_new = config_report_new || new_val;
       }
     }
 
@@ -3064,12 +3165,12 @@ namespace build2
   void parser::
   apply_variable_attributes (const variable& var)
   {
-    attributes a (attributes_pop ());
+    attributes as (attributes_pop ());
 
-    if (!a)
+    if (as.empty ())
       return;
 
-    const location& l (a.loc);
+    const location& l (as.loc);
 
     const value_type* type (nullptr);
     optional<variable_visibility> vis;
@@ -3081,15 +3182,15 @@ namespace build2
       to_stream (dr.os, reverse (v, storage), true /* quote */, '@');
     };
 
-    for (auto& p: a.ats)
+    for (auto& p: as)
     {
-      string& k (p.first);
-      value& v (p.second);
+      string& n (p.name);
+      value& v (p.value);
 
-      if (const value_type* t = map_type (k))
+      if (const value_type* t = map_type (n))
       {
         if (type != nullptr && t != type)
-          fail (l) << "multiple variable types: " << k << ", " << type->name;
+          fail (l) << "multiple variable types: " << n << ", " << type->name;
 
         type = t;
         // Fall through.
@@ -3097,7 +3198,7 @@ namespace build2
       else
       {
         diag_record dr (fail (l));
-        dr << "unknown variable attribute " << k;
+        dr << "unknown variable attribute " << n;
 
         if (!v.null)
         {
@@ -3109,7 +3210,7 @@ namespace build2
       if (!v.null)
       {
         diag_record dr (fail (l));
-        dr << "unexpected value for attribute " << k << ": ";
+        dr << "unexpected value for attribute " << n << ": ";
         print (dr, v);
       }
     }
@@ -3139,8 +3240,8 @@ namespace build2
                           value&& rhs,
                           type kind)
   {
-    attributes a (attributes_pop ());
-    const location& l (a.loc);
+    attributes as (attributes_pop ());
+    const location& l (as.loc);
 
     // Essentially this is an attribute-augmented assign/append/prepend.
     //
@@ -3153,12 +3254,12 @@ namespace build2
       to_stream (dr.os, reverse (v, storage), true /* quote */, '@');
     };
 
-    for (auto& p: a.ats)
+    for (auto& p: as)
     {
-      string& k (p.first);
-      value& v (p.second);
+      string& n (p.name);
+      value& v (p.value);
 
-      if (k == "null")
+      if (n == "null")
       {
         if (rhs && !rhs.empty ()) // Note: null means we had an expansion.
           fail (l) << "value with null attribute";
@@ -3166,10 +3267,10 @@ namespace build2
         null = true;
         // Fall through.
       }
-      else if (const value_type* t = map_type (k))
+      else if (const value_type* t = map_type (n))
       {
         if (type != nullptr && t != type)
-          fail (l) << "multiple value types: " << k << ", " << type->name;
+          fail (l) << "multiple value types: " << n << ", " << type->name;
 
         type = t;
         // Fall through.
@@ -3177,7 +3278,7 @@ namespace build2
       else
       {
         diag_record dr (fail (l));
-        dr << "unknown value attribute " << k;
+        dr << "unknown value attribute " << n;
 
         if (!v.null)
         {
@@ -3189,7 +3290,7 @@ namespace build2
       if (!v.null)
       {
         diag_record dr (fail (l));
-        dr << "unexpected value for attribute " << k << ": ";
+        dr << "unexpected value for attribute " << n << ": ";
         print (dr, v);
       }
     }
@@ -3627,7 +3728,7 @@ namespace build2
 
       // Process attributes if any.
       //
-      if (!at.first)
+      if (attributes_top ().empty ())
       {
         attributes_pop ();
         return v;
@@ -3693,7 +3794,7 @@ namespace build2
     bool has (tt == type::lsbrace);
 
     if (!pre_parse_)
-      attributes_.push_back (attributes {has, l, {}});
+      attributes_.push_back (attributes (l));
 
     if (!has)
       return make_pair (false, l);
@@ -3701,7 +3802,7 @@ namespace build2
     mode (lexer_mode::attributes);
     next (t, tt);
 
-    if ((has = (tt != type::rsbrace)))
+    if (tt != type::rsbrace)
     {
       do
       {
@@ -3745,7 +3846,7 @@ namespace build2
         }
 
         if (!pre_parse_)
-          attributes_.back ().ats.emplace_back (move (n), move (v));
+          attributes_.back ().push_back (attribute {move (n), move (v)});
 
         if (tt == type::comma)
           next (t, tt);

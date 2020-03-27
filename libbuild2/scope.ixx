@@ -94,4 +94,22 @@ namespace build2
     auto l (rs[rs.ctx.var_project]);
     return l ? cast<project_name> (l) : empty_project_name;
   }
+
+  inline const project_name&
+  named_project (const scope& rs)
+  {
+    for (auto r (&rs), a (rs.strong_scope ());
+         ;
+         r = r->parent_scope ()->root_scope ())
+    {
+      const project_name& n (project (*r));
+      if (!n.empty ())
+        return n;
+
+      if (r == a)
+        break;
+    }
+
+    return empty_project_name;
+  }
 }

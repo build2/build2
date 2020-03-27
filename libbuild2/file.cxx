@@ -3,6 +3,8 @@
 
 #include <libbuild2/file.hxx>
 
+#include <iomanip> // left, setw()
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -1297,6 +1299,72 @@ namespace build2
     if (he) {source_hooks (p, root, hd, true  /* pre */); p.reset ();}
     if (fe) {source_once (p, root, root, f, root);}
     if (he) {p.reset (); source_hooks (p, root, hd, false /* pre */);}
+
+    // Print the project configuration report, similar to how we do it in
+    // build system modules.
+    //
+    if (!p.config_report.empty () && verb >= (p.config_report_new ? 2 : 3))
+    {
+      const project_name& proj (named_project (root)); // Must be there.
+
+      // @@ TODO/MAYBE:
+      //
+      // - Should we be printing NULL values?
+      //
+
+      // Use the special `config` module name (which doesn't have its own
+      // report) for project configuration.
+      //
+      diag_record dr (text);
+      dr << "config " << proj << '@' << root;
+
+      // Printing the whole variable name would add too much noise with all
+      // the repetitive config.<project>. So we are only going to print the
+      // part after <project> (see parser::parse_config() for details).
+      //
+      string stem ('.' + proj.variable () + '.');
+
+      names storage;
+      for (const pair<lookup, string>& lf: p.config_report)
+      {
+        lookup l (lf.first);
+        const string& f (lf.second);
+
+        // If the report variable has been overriden, now is the time to
+        // lookup its value.
+        //
+        string n;
+        if (l.value == nullptr)
+        {
+          n = l.var->name; // Use the name as is.
+          l = root[*l.var];
+        }
+        else
+        {
+          size_t p (l.var->name.find (stem)); // Must be there.
+          n = string (l.var->name, p + stem.size ());
+        }
+
+        dr << "\n  ";
+
+        if (const value& v = *l)
+        {
+          storage.clear ();
+          auto ns (reverse (v, storage));
+
+          if (f == "multiline")
+          {
+            dr << n;
+            for (auto& n: ns)
+              dr << "\n    " << n;
+          }
+          else
+            dr << left << setw (10) << n << ' ' << ns;
+        }
+        else
+          dr << left << setw (10) << n << " [null]";
+      }
+    }
   }
 
   scope&
