@@ -1769,8 +1769,8 @@ namespace build2
     bool new_val (false);
     lookup l;
 
-    if (report            &&
-        report != "false" &&
+    if (report             &&
+        *report != "false" &&
         name.compare (0, 7, "config.") != 0)
     {
       if (!as.empty ())
