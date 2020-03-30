@@ -12,6 +12,7 @@
 //
 // End prologue.
 
+#include <list>
 #include <deque>
 #include <iosfwd>
 #include <string>
@@ -341,6 +342,19 @@ namespace build2
       virtual void
       skip ();
 
+      // Return the file path if the peeked at argument came from a file and
+      // the empty string otherwise. The reference is guaranteed to be valid
+      // till the end of the scanner lifetime.
+      //
+      const std::string&
+      peek_file ();
+
+      // Return the 1-based line number if the peeked at argument came from
+      // a file and zero otherwise.
+      //
+      std::size_t
+      peek_line ();
+
       private:
       const option_info*
       find (const char*) const;
@@ -355,7 +369,15 @@ namespace build2
       const option_info* options_;
       std::size_t options_count_;
 
-      std::deque<std::string> args_;
+      struct arg
+      {
+        std::string value;
+        const std::string* file;
+        std::size_t line;
+      };
+
+      std::deque<arg> args_;
+      std::list<std::string> files_;
 
       // Circular buffer of two arguments.
       //
@@ -365,6 +387,7 @@ namespace build2
       bool skip_;
 
       static int zero_argc_;
+      static std::string empty_string_;
     };
 
     template <typename X>

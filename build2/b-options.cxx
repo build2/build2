@@ -217,6 +217,7 @@ namespace build2
     // argv_file_scanner
     //
     int argv_file_scanner::zero_argc_ = 0;
+    std::string argv_file_scanner::empty_string_;
 
     bool argv_file_scanner::
     more ()
@@ -290,7 +291,25 @@ namespace build2
       if (!more ())
         throw eos_reached ();
 
-      return args_.empty () ? base::peek () : args_.front ().c_str ();
+      return args_.empty () ? base::peek () : args_.front ().value.c_str ();
+    }
+
+    const std::string& argv_file_scanner::
+    peek_file ()
+    {
+      if (!more ())
+        throw eos_reached ();
+
+      return args_.empty () ? empty_string_ : *args_.front ().file;
+    }
+
+    std::size_t argv_file_scanner::
+    peek_line ()
+    {
+      if (!more ())
+        throw eos_reached ();
+
+      return args_.empty () ? 0 : args_.front ().line;
     }
 
     const char* argv_file_scanner::
@@ -303,7 +322,7 @@ namespace build2
         return base::next ();
       else
       {
-        hold_[i_ == 0 ? ++i_ : --i_].swap (args_.front ());
+        hold_[i_ == 0 ? ++i_ : --i_].swap (args_.front ().value);
         args_.pop_front ();
         return hold_[i_].c_str ();
       }
@@ -341,7 +360,12 @@ namespace build2
       if (!is.is_open ())
         throw file_io_failure (file);
 
-      while (!is.eof ())
+      files_.push_back (file);
+
+      arg a;
+      a.file = &*files_.rbegin ();
+
+      for (a.line = 1; !is.eof (); ++a.line)
       {
         string line;
         getline (is, line);
@@ -448,10 +472,12 @@ namespace build2
             continue;
           }
 
-          args_.push_back (s1);
+          a.value = s1;
+          args_.push_back (a);
         }
 
-        args_.push_back (s2);
+        a.value = s2;
+        args_.push_back (a);
       }
     }
 
