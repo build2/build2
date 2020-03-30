@@ -91,13 +91,13 @@ namespace build2
 
       // Feature flags.
       //
-      auto enter = [&rs] (const char* v) -> const variable&
-      {
-        return rs.var_pool ().insert<bool> (v, variable_visibility::project);
-      };
+      auto& vp (rs.var_pool ());
 
-      //bool concepts (false); auto& v_c (enter ("cxx.features.concepts"));
-      bool modules (false); auto& v_m (enter ("cxx.features.modules"));
+      //bool concepts (false);
+      //auto& v_c (vp.insert<bool> ("cxx.features.concepts"));
+
+      bool modules (false);
+      auto& v_m (vp.insert<bool> ("cxx.features.modules"));
 
       // NOTE: see also module sidebuild subproject if changing anything about
       // modules here.
@@ -403,20 +403,18 @@ namespace build2
 
         hinters,
 
-        // Note: some overridable, some not.
-        //
         // NOTE: remember to update documentation if changing anything here.
         //
-        vp.insert<strings> ("config.cxx",          true),
-        vp.insert<string>  ("config.cxx.id",       true),
-        vp.insert<string>  ("config.cxx.version",  true),
-        vp.insert<string>  ("config.cxx.target",   true),
-        vp.insert<string>  ("config.cxx.std",      true),
-        vp.insert<strings> ("config.cxx.poptions", true),
-        vp.insert<strings> ("config.cxx.coptions", true),
-        vp.insert<strings> ("config.cxx.loptions", true),
-        vp.insert<strings> ("config.cxx.aoptions", true),
-        vp.insert<strings> ("config.cxx.libs",     true),
+        vp.insert<strings> ("config.cxx"),
+        vp.insert<string>  ("config.cxx.id"),
+        vp.insert<string>  ("config.cxx.version"),
+        vp.insert<string>  ("config.cxx.target"),
+        vp.insert<string>  ("config.cxx.std"),
+        vp.insert<strings> ("config.cxx.poptions"),
+        vp.insert<strings> ("config.cxx.coptions"),
+        vp.insert<strings> ("config.cxx.loptions"),
+        vp.insert<strings> ("config.cxx.aoptions"),
+        vp.insert<strings> ("config.cxx.libs"),
 
         // List of translatable headers. Inclusions of such headers are
         // translated to the corresponding header unit imports.
@@ -427,14 +425,14 @@ namespace build2
         // opposed to -I) header search paths. Note also that all entries must
         // be specified before loading the cxx module.
         //
-        &vp.insert<strings> ("config.cxx.translatable_headers", true),
+        &vp.insert<strings> ("config.cxx.translatable_headers"),
 
         vp.insert<process_path> ("cxx.path"),
         vp.insert<strings>      ("cxx.mode"),
         vp.insert<dir_paths>    ("cxx.sys_lib_dirs"),
         vp.insert<dir_paths>    ("cxx.sys_inc_dirs"),
 
-        vp.insert<string>   ("cxx.std", variable_visibility::project),
+        vp.insert<string>   ("cxx.std"),
 
         vp.insert<strings>  ("cxx.poptions"),
         vp.insert<strings>  ("cxx.coptions"),
@@ -602,8 +600,7 @@ namespace build2
       bool symexport (false);
       if (modules)
       {
-        auto& var (vp.insert<bool> ("cxx.features.symexport",
-                                    variable_visibility::project));
+        auto& var (vp.insert<bool> ("cxx.features.symexport"));
         symexport = cast_false<bool> (rs[var]);
         cm.x_symexport = &var;
       }

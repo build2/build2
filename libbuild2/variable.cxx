@@ -22,7 +22,7 @@ namespace build2
 
     switch (v)
     {
-    case variable_visibility::normal:  r = "normal";       break;
+    case variable_visibility::global:  r = "global";       break;
     case variable_visibility::project: r = "project";      break;
     case variable_visibility::scope:   r = "scope";        break;
     case variable_visibility::target:  r = "target";       break;
@@ -1161,14 +1161,34 @@ namespace build2
       var.type = t;
     }
 
-    // Change visibility? While this might at first seem like a bad idea,
-    // it can happen that the variable lookup happens before any values
-    // were set, in which case the variable will be entered with the
-    // default visibility.
+    // Change visibility? While this might at first seem like a bad idea, it
+    // can happen that the variable lookup happens before any values were set
+    // in which case the variable will be entered with the default (project)
+    // visibility.
+    //
+    // For example, a buildfile, for some reason, could reference a target-
+    // specific variable (say, test) before loading a module (say, test) that
+    // sets this visibility. While strictly speaking we could have potentially
+    // already made a lookup using the wrong visibility, presumably this
+    // should be harmless.
+    //
+    // @@ But consider a situation where this test is set on scope prior to
+    //    loading the module: now this value will effectively be unreachable
+    //    without any diagnostics. So maybe we should try to clean this up.
+    //    But we will need proper diagnostics instead of assert (which means
+    //    we would probably need to track the location where the variable
+    //    was first entered).
+    //
+    // Note also that this won't work well for global visibility since we only
+    // allow restrictions. The thinking is that global visibility is special
+    // and requiring special arrangements (like variable patterns, similar to
+    // how we've done it for config.*) is reasonable. In fact, it feels like
+    // only the build system core should be allowed to use global visibility
+    // (see the context ctor for details).
     //
     if (uv)
     {
-      assert (var.visibility == variable_visibility::normal); // Default.
+      assert (*v > var.visibility);
       var.visibility = *v;
     }
   }
@@ -1219,7 +1239,14 @@ namespace build2
       if (v == nullptr)
         v = &*p.visibility;
       else if (p.match)
-        assert (*v == *p.visibility);
+      {
+        // Allow the pattern to restrict but not relax.
+        //
+        if (*p.visibility > *v)
+          v = &*p.visibility;
+        else
+          assert (*v == *p.visibility);
+      }
     }
 
     if (p.overridable)
@@ -1277,7 +1304,7 @@ namespace build2
           nullptr,
           pt,
           nullptr,
-          pv != nullptr ? *pv : variable_visibility::normal}));
+          pv != nullptr ? *pv : variable_visibility::project}));
 
     variable& var (r.first->second);
 

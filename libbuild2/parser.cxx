@@ -1823,7 +1823,7 @@ namespace build2
       // Note that even though we are relying on the config.** variable
       // pattern to set global visibility, let's make sure as a sanity check.
       //
-      if (var.visibility != variable_visibility::normal)
+      if (var.visibility != variable_visibility::global)
       {
         fail (t) << "configuration variable " << var << " has "
                  << var.visibility << " visibility";
@@ -3224,7 +3224,8 @@ namespace build2
                  << var.type->name << " to " << type->name;
     }
 
-    //@@ TODO: the same for vis and ovr.
+    //@@ TODO: the same checks for vis and ovr (when we have the corresponding
+    //         attributes).
 
     if (type || vis || ovr)
       ctx.var_pool.update (const_cast<variable&> (var),

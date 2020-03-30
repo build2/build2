@@ -74,7 +74,7 @@ namespace build2
       //
       load_module (rs, rs, "bin.vars", loc);
 
-      // Enter variables. Note: some overridable, some not.
+      // Enter variables.
       //
       auto& vp (rs.var_pool ());
 
@@ -82,11 +82,11 @@ namespace build2
 
       // NOTE: remember to update documentation if changing anything here.
       //
-      vp.insert<strings> ("config.cc.poptions", true);
-      vp.insert<strings> ("config.cc.coptions", true);
-      vp.insert<strings> ("config.cc.loptions", true);
-      vp.insert<strings> ("config.cc.aoptions", true);
-      vp.insert<strings> ("config.cc.libs",     true);
+      vp.insert<strings> ("config.cc.poptions");
+      vp.insert<strings> ("config.cc.coptions");
+      vp.insert<strings> ("config.cc.loptions");
+      vp.insert<strings> ("config.cc.aoptions");
+      vp.insert<strings> ("config.cc.libs");
 
       vp.insert<strings> ("cc.poptions");
       vp.insert<strings> ("cc.coptions");
@@ -101,11 +101,11 @@ namespace build2
 
       // Hint variables (not overridable).
       //
-      vp.insert<string>         ("config.cc.id");
-      vp.insert<string>         ("config.cc.hinter"); // Hinting module.
-      vp.insert<string>         ("config.cc.pattern");
-      vp.insert<strings>        ("config.cc.mode");
-      vp.insert<target_triplet> ("config.cc.target");
+      vp.insert<string>         ("config.cc.id",      false);
+      vp.insert<string>         ("config.cc.hinter",  false); // Hinting module.
+      vp.insert<string>         ("config.cc.pattern", false);
+      vp.insert<strings>        ("config.cc.mode",    false);
+      vp.insert<target_triplet> ("config.cc.target",  false);
 
       // Compiler runtime and C standard library.
       //
@@ -137,7 +137,7 @@ namespace build2
 
       // Ability to disable using preprocessed output for compilation.
       //
-      vp.insert<bool> ("config.cc.reprocess", true);
+      vp.insert<bool> ("config.cc.reprocess");
       vp.insert<bool> ("cc.reprocess");
 
       // Register scope operation callback.

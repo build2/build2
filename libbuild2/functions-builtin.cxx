@@ -27,7 +27,7 @@ namespace build2
       return (*s)[convert<string> (move (name))].defined ();
     };
 
-    // Return variable visibility if it exists and NULL otherwise.
+    // Return variable visibility if it has been entered and NULL otherwise.
     //
     f["visibility"] = [](const scope* s, names name)
     {

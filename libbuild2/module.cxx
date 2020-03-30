@@ -571,7 +571,7 @@ namespace build2
       }
     }
 
-    // Note: pattern-typed in context ctor as project-visibility variables of
+    // Note: pattern-typed in context ctor as project visibility variables of
     // type bool.
     //
     // We call the variable 'loaded' rather than 'inited' because it is

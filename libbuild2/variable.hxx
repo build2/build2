@@ -98,10 +98,10 @@ namespace build2
   //
   enum class variable_visibility: uint8_t
   {
-    // Note that the search for target type/pattern-specific terminates at
-    // the project boundary.
+    // Note that the search for target type/pattern-specific variables always
+    // terminates at the project boundary but includes the global scope.
     //
-    normal,  // All outer scopes.
+    global,  // All outer scopes.
     project, // This project (no outer projects).
     scope,   // This scope (no outer scopes).
     target,  // Target and target type/pattern-specific.
@@ -192,8 +192,8 @@ namespace build2
   // context ctor before any other variables. Project wide overrides are
   // entered in main(). Overriding happens in scope::find_override().
   //
-  // NULL type and normal visibility are the defaults and can be overridden by
-  // "tighter" values.
+  // Untyped (NULL type) and project visibility are the defaults but can be
+  // overridden by "tighter" values.
   //
   struct variable
   {
@@ -1068,8 +1068,10 @@ namespace build2
     // Find existing or insert new variable.
     //
     // Unless specified explicitly, the variable is untyped, non-overridable,
-    // and with normal visibility but these may be overridden by a pattern.
-    // Note also that a pattern may restrict (but not relax) overridability.
+    // and with project visibility but these may be overridden by a pattern.
+    //
+    // Note also that a pattern and later insertions may restrict (but not
+    // relax) visibility and overridability.
 
     const variable&
     insert (string name)
@@ -1077,18 +1079,12 @@ namespace build2
       return insert (move (name), nullptr, nullptr, nullptr);
     }
 
-    // Insert or override (type/visibility). Note that by default the
-    // variable is not overridable.
-    //
     const variable&
     insert (string name, variable_visibility v)
     {
       return insert (move (name), nullptr, &v, nullptr);
     }
 
-    // Note that overridability can still be restricted (but not relaxed) by
-    // another call to insert or via patterns (see below).
-    //
     const variable&
     insert (string name, bool overridable)
     {
@@ -1149,19 +1145,19 @@ namespace build2
     LIBBUILD2_SYMEXPORT const variable&
     insert_alias (const variable& var, string name);
 
-    // Insert a variable pattern. Any variable that matches this pattern
-    // will have the specified type, visibility, and overridability. If
-    // match is true, then individual insertions of the matching variable
-    // must match the specified type/visibility/overridability. Otherwise,
-    // individual insertions can provide alternative values and the pattern
-    // values are a fallback (if you specify false you better be very clear
-    // about what you are trying to achieve).
+    // Insert a variable pattern. Any variable that matches this pattern will
+    // have the specified type, visibility, and overridability. If match is
+    // true, then individual insertions of the matching variable must match
+    // the specified type/visibility/overridability. Otherwise, individual
+    // insertions can provide alternative values and the pattern values are a
+    // fallback (if you specify false you better be very clear about what you
+    // are trying to achieve).
     //
-    // The pattern must be in the form [<prefix>.](*|**)[.<suffix>] where
-    // '*' matches single component stems (i.e., 'foo' but not 'foo.bar')
-    // and '**' matches single and multi-component stems. Note that only
-    // multi-component variables are considered for pattern matching (so
-    // just '*' won't match anything).
+    // The pattern must be in the form [<prefix>.](*|**)[.<suffix>] where '*'
+    // matches single component stems (i.e., 'foo' but not 'foo.bar') and '**'
+    // matches single and multi-component stems. Note that only multi-
+    // component variables are considered for pattern matching (so just '*'
+    // won't match anything).
     //
     // The patterns are matched in the more-specific-first order where the
     // pattern is considered more specific if it has a greater sum of its

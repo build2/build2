@@ -163,20 +163,18 @@ namespace build2
 
         hinters,
 
-        // Note: some overridable, some not.
-        //
         // NOTE: remember to update documentation if changing anything here.
         //
-        vp.insert<strings> ("config.c",          true),
-        vp.insert<string>  ("config.c.id",       true),
-        vp.insert<string>  ("config.c.version",  true),
-        vp.insert<string>  ("config.c.target",   true),
-        vp.insert<string>  ("config.c.std",      true),
-        vp.insert<strings> ("config.c.poptions", true),
-        vp.insert<strings> ("config.c.coptions", true),
-        vp.insert<strings> ("config.c.loptions", true),
-        vp.insert<strings> ("config.c.aoptions", true),
-        vp.insert<strings> ("config.c.libs",     true),
+        vp.insert<strings> ("config.c"),
+        vp.insert<string>  ("config.c.id"),
+        vp.insert<string>  ("config.c.version"),
+        vp.insert<string>  ("config.c.target"),
+        vp.insert<string>  ("config.c.std"),
+        vp.insert<strings> ("config.c.poptions"),
+        vp.insert<strings> ("config.c.coptions"),
+        vp.insert<strings> ("config.c.loptions"),
+        vp.insert<strings> ("config.c.aoptions"),
+        vp.insert<strings> ("config.c.libs"),
         nullptr          /* config.c.translatable_headers */,
 
         vp.insert<process_path> ("c.path"),
@@ -184,7 +182,7 @@ namespace build2
         vp.insert<dir_paths>    ("c.sys_lib_dirs"),
         vp.insert<dir_paths>    ("c.sys_inc_dirs"),
 
-        vp.insert<string>       ("c.std", variable_visibility::project),
+        vp.insert<string>       ("c.std"),
 
         vp.insert<strings>      ("c.poptions"),
         vp.insert<strings>      ("c.coptions"),

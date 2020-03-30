@@ -124,44 +124,49 @@ namespace build2
     // may reference these things.
     //
     scope& gs (global_scope.rw ());
-
-    gs.assign<dir_path> ("build.work") = work;
-    gs.assign<dir_path> ("build.home") = home;
-
-    // Build system driver process path.
-    //
-    gs.assign<process_path> ("build.path") =
-      process_path (nullptr, // Will be filled by value assignment.
-                    path (argv0.recall_string ()),
-                    path (argv0.effect));
-
-    // Build system import path for modules. We only set it for the
-    // development build.
-    //
-    var_import_build2 = &vp.insert<abs_dir_path> ("import.build2");
-
-    if (!build_installed)
     {
-#ifdef BUILD2_IMPORT_PATH
-      gs.assign (var_import_build2) = abs_dir_path (BUILD2_IMPORT_PATH);
-#endif
-    }
+      const auto v_g (variable_visibility::global);
 
-    // Build system verbosity level.
-    //
-    gs.assign<uint64_t> ("build.verbosity") = verb;
-
-    // Build system version (similar to what we do in the version module
-    // except here we don't include package epoch/revision).
-    //
-    {
-      const standard_version& v (build_version);
-
+      // Any variable assigned on the global scope should natually have the
+      // global visibility.
+      //
       auto set = [&gs, &vp] (const char* var, auto val)
       {
         using T = decltype (val);
-        gs.assign (vp.insert<T> (var)) = move (val);
+        value& v (gs.assign (vp.insert<T> (var, variable_visibility::global)));
+        v = move (val);
       };
+
+      set ("build.work", work);
+      set ("build.home", home);
+
+      // Build system driver process path.
+      //
+      set ("build.path",
+           process_path (nullptr, // Will be filled by value assignment.
+                         path (argv0.recall_string ()),
+                         path (argv0.effect)));
+
+      // Build system import path for modules. We only set it for the
+      // development build.
+      //
+      var_import_build2 = &vp.insert<abs_dir_path> ("import.build2", v_g);
+
+      if (!build_installed)
+      {
+#ifdef BUILD2_IMPORT_PATH
+        gs.assign (var_import_build2) = abs_dir_path (BUILD2_IMPORT_PATH);
+#endif
+      }
+
+      // Build system verbosity level.
+      //
+      set ("build.verbosity", uint64_t (verb));
+
+      // Build system version (similar to what we do in the version module
+      // except here we don't include package epoch/revision).
+      //
+      const standard_version& v (build_version);
 
       // Note: here we assume epoch will always be 1 and therefore omit the
       //       project_ prefix in a few places.
@@ -201,16 +206,15 @@ namespace build2
       // not re-package things during the queued-to-public transition.
       //
       set ("build.version.stage", LIBBUILD2_STAGE);
-    }
 
-    // Enter the host information. Rather than jumping through hoops like
-    // config.guess, for now we are just going to use the compiler target we
-    // were built with. While it is not as precise (for example, a binary
-    // built for i686 might be running on x86_64), it is good enough of an
-    // approximation/fallback since most of the time we are interested in just
-    // the target class (e.g., linux, windows, macos).
-    //
-    {
+      // Enter the host information. Rather than jumping through hoops like
+      // config.guess, for now we are just going to use the compiler target we
+      // were built with. While it is not as precise (for example, a binary
+      // built for i686 might be running on x86_64), it is good enough of an
+      // approximation/fallback since most of the time we are interested in
+      // just the target class (e.g., linux, windows, macos).
+      //
+
       // Did the user ask us to use config.guess?
       //
       string orig (config_guess
@@ -231,19 +235,22 @@ namespace build2
         // Also enter as build.host.{cpu,vendor,system,version,class} for
         // convenience of access.
         //
-        gs.assign<string> ("build.host.cpu")     = t.cpu;
-        gs.assign<string> ("build.host.vendor")  = t.vendor;
-        gs.assign<string> ("build.host.system")  = t.system;
-        gs.assign<string> ("build.host.version") = t.version;
-        gs.assign<string> ("build.host.class")   = t.class_;
+        set ("build.host.cpu",     t.cpu);
+        set ("build.host.vendor",  t.vendor);
+        set ("build.host.system",  t.system);
+        set ("build.host.version", t.version);
+        set ("build.host.class",   t.class_);
 
-        gs.assign<target_triplet> ("build.host") = move (t);
+        set ("build.host", move (t));
       }
       catch (const invalid_argument& e)
       {
         fail << "unable to parse build host '" << orig << "': " << e <<
           info << "consider using the --config-guess option";
       }
+
+      var_build_meta_operation =
+        &vp.insert<string> ("build.meta_operation", v_g);
     }
 
     // Register builtin target types.
@@ -269,6 +276,39 @@ namespace build2
         auto& tt (t.insert<buildfile> ());
         t.insert_file ("buildfile", tt);
       }
+    }
+
+    // Enter builtin variable patterns.
+    //
+    // Note that we must do this prior to entering overrides below.
+    //
+    {
+      const auto v_g (variable_visibility::global);
+      const auto v_p (variable_visibility::project);
+
+      // All config.** variables are overridable with global visibility.
+      //
+      // For the config.**.configured semantics, see config::unconfigured().
+      //
+      // Note that some config.config.* variables have project visibility thus
+      // the match argument is false.
+      //
+      vp.insert_pattern ("config.**", nullopt, true, v_g, true, false);
+      vp.insert_pattern<bool> ("config.**.configured", false, v_p);
+
+      // file.cxx:import() (note: order is important; see insert_pattern()).
+      //
+      vp.insert_pattern<abs_dir_path> ("config.import.*",  true, v_g, true);
+      vp.insert_pattern<path>         ("config.import.**", true, v_g, true);
+
+      // module.cxx:boot/init_module().
+      //
+      // Note that we also have the config.<module>.configured variable (see
+      // above).
+      //
+      vp.insert_pattern<bool> ("**.booted",     false /* overridable */, v_p);
+      vp.insert_pattern<bool> ("**.loaded",     false,                   v_p);
+      vp.insert_pattern<bool> ("**.configured", false,                   v_p);
     }
 
     // Parse and enter the command line variables. We do it before entering
@@ -400,14 +440,18 @@ namespace build2
       if (c == '!' && dir)
         fail << "scope-qualified global override of variable " << n;
 
-      variable& var (const_cast<variable&> (
-                       vp.insert (n, true /* overridable */)));
+      // Pre-enter the main variable. Note that we rely on all the overridable
+      // variables with global visibility to be known (either entered or
+      // handled via a pettern) at this stage.
+      //
+      variable& var (
+        const_cast<variable&> (vp.insert (n, true /* overridable */)));
 
       const variable* o;
       {
         variable_visibility v (c == '/' ? variable_visibility::scope   :
                                c == '%' ? variable_visibility::project :
-                               variable_visibility::normal);
+                               variable_visibility::global);
 
         const char* k (tt == token_type::assign ? "__override" :
                        tt == token_type::append ? "__suffix" : "__prefix");
@@ -474,52 +518,28 @@ namespace build2
         data_->global_var_overrides.push_back (s);
     }
 
-    // Enter builtin variables and patterns.
+    // Enter builtin variables.
     //
-    const auto v_g (variable_visibility::normal); // Global.
-    const auto v_p (variable_visibility::project);
     const auto v_t (variable_visibility::target);
     const auto v_q (variable_visibility::prereq);
-
-    // All config.** variables are by default overridable with global
-    // visibility.
-    //
-    // For the config.**.configured semantics, see config::unconfigured().
-    //
-    vp.insert_pattern ("config.**", nullopt, true, v_g, true, false);
-    vp.insert_pattern<bool> ("config.**.configured", false, v_p);
-
-    // file.cxx:import() (note that order is important; see insert_pattern()).
-    //
-    vp.insert_pattern<abs_dir_path> ("config.import.*",  true, v_g, true);
-    vp.insert_pattern<path>         ("config.import.**", true, v_g, true);
-
-    // module.cxx:boot/init_module().
-    //
-    // Note that we also have the config.<module>.configured variable (see
-    // above).
-    //
-    vp.insert_pattern<bool> ("**.booted",     false /* overridable */, v_p);
-    vp.insert_pattern<bool> ("**.loaded",     false,                   v_p);
-    vp.insert_pattern<bool> ("**.configured", false,                   v_p);
 
     var_src_root = &vp.insert<dir_path> ("src_root");
     var_out_root = &vp.insert<dir_path> ("out_root");
     var_src_base = &vp.insert<dir_path> ("src_base");
     var_out_base = &vp.insert<dir_path> ("out_base");
 
-    var_forwarded = &vp.insert<bool> ("forwarded", v_p);
+    var_forwarded = &vp.insert<bool> ("forwarded");
 
     // Note that subprojects is not typed since the value requires
     // pre-processing (see file.cxx).
     //
-    var_project      = &vp.insert<project_name> ("project",      v_p);
-    var_amalgamation = &vp.insert<dir_path>     ("amalgamation", v_p);
-    var_subprojects  = &vp.insert               ("subprojects",  v_p);
-    var_version      = &vp.insert<string>       ("version",      v_p);
+    var_project      = &vp.insert<project_name> ("project");
+    var_amalgamation = &vp.insert<dir_path>     ("amalgamation");
+    var_subprojects  = &vp.insert               ("subprojects");
+    var_version      = &vp.insert<string>       ("version");
 
-    var_project_url     = &vp.insert<string> ("project.url",     v_p);
-    var_project_summary = &vp.insert<string> ("project.summary", v_p);
+    var_project_url     = &vp.insert<string> ("project.url");
+    var_project_summary = &vp.insert<string> ("project.summary");
 
     var_import_target = &vp.insert<name> ("import.target");
 
@@ -532,8 +552,6 @@ namespace build2
     //
     gs.target_vars[exe::static_type]["*"].assign (var_backlink) = "true";
     gs.target_vars[doc::static_type]["*"].assign (var_backlink) = "true";
-
-    var_build_meta_operation = &vp.insert<string> ("build.meta_operation");
 
     // Register builtin rules.
     //

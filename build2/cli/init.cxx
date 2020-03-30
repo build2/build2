@@ -41,13 +41,11 @@ namespace build2
       {
         auto& vp (rs.var_pool ());
 
-        // Note: some overridable, some not.
+        // The special config.cli=false value is recognized as an explicit
+        // request to leave the module unconfigured.
         //
-        // The config.cli=false is recognized as an explicit request to leave
-        // the module unconfigured.
-        //
-        vp.insert<path>    ("config.cli",         true);
-        vp.insert<strings> ("config.cli.options", true);
+        vp.insert<path>    ("config.cli");
+        vp.insert<strings> ("config.cli.options");
 
         //@@ TODO: split version into componets (it is stdver).
         //

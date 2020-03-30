@@ -1422,7 +1422,7 @@ main (int argc, char* argv[])
 
             for (const variable_override& o: ctx->var_overrides)
             {
-              if (o.ovr.visibility != variable_visibility::normal)
+              if (o.ovr.visibility != variable_visibility::global)
                 continue;
 
               // If we have a directory, enter the scope, similar to how we do
@@ -1445,7 +1445,7 @@ main (int argc, char* argv[])
             {
               // Ours is either project (%foo) or scope (/foo).
               //
-              if (o.ovr.visibility == variable_visibility::normal)
+              if (o.ovr.visibility == variable_visibility::global)
                 continue;
 
               scope& s (o.dir

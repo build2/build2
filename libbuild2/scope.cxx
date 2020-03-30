@@ -164,7 +164,7 @@ namespace build2
       case variable_visibility::project:
         s = s->root () ? nullptr : s->parent_scope ();
         break;
-      case variable_visibility::normal:
+      case variable_visibility::global:
         s = s->parent_scope ();
         break;
       case variable_visibility::prereq:
@@ -259,7 +259,7 @@ namespace build2
 
         break;
       }
-      case variable_visibility::normal:
+      case variable_visibility::global:
         break;
       case variable_visibility::target:
       case variable_visibility::prereq:

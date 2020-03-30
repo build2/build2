@@ -38,8 +38,6 @@ namespace build2
       //
       auto& vp (rs.var_pool ());
 
-      // Note: some overridable, some not.
-      //
       // config.dist.archives is a list of archive extensions (e.g., zip,
       // tar.gz) that can be optionally prefixed with a directory. If it is
       // relative, then it is prefixed with config.dist.root. Otherwise, the
@@ -51,15 +49,15 @@ namespace build2
       // absent, then the checksum file is written into the same directory as
       // the corresponding archive.
       //
-      vp.insert<abs_dir_path> ("config.dist.root",      true);
-      vp.insert<paths>        ("config.dist.archives",  true);
-      vp.insert<paths>        ("config.dist.checksums", true);
-      vp.insert<path>         ("config.dist.cmd",       true);
+      vp.insert<abs_dir_path> ("config.dist.root");
+      vp.insert<paths>        ("config.dist.archives");
+      vp.insert<paths>        ("config.dist.checksums");
+      vp.insert<path>         ("config.dist.cmd");
 
       // Allow distribution of uncommitted projects. This is enforced by the
       // version module.
       //
-      vp.insert<bool> ("config.dist.uncommitted", true);
+      vp.insert<bool> ("config.dist.uncommitted");
 
       vp.insert<dir_path>     ("dist.root");
       vp.insert<process_path> ("dist.cmd");
@@ -71,8 +69,7 @@ namespace build2
 
       // Project's package name.
       //
-      auto& v_d_p (
-        vp.insert<string> ("dist.package", variable_visibility::project));
+      auto& v_d_p (vp.insert<string> ("dist.package"));
 
       // Create the module.
       //

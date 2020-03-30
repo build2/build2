@@ -52,8 +52,6 @@ namespace build2
 
       if (spec)
       {
-        // Note: overridable.
-        //
         vn = "config.install";
         if (!global)
         {
@@ -61,7 +59,7 @@ namespace build2
           vn += name;
         }
         vn += var;
-        const variable& vr (rs.var_pool ().insert<CT> (move (vn), true));
+        const variable& vr (rs.var_pool ().insert<CT> (move (vn)));
 
         using config::lookup_config;
 
@@ -75,8 +73,6 @@ namespace build2
       if (global)
         return;
 
-      // Note: not overridable.
-      //
       vn = "install.";
       vn += name;
       vn += var;
@@ -196,18 +192,16 @@ namespace build2
       // Note that the set_dir() calls below enter some more.
       //
       {
-        // Note: not overridable.
-        //
         // The install variable is a path, not dir_path, since it can be used
         // to both specify the target directory (to install with the same file
         // name) or target file (to install with a different name). And the
         // way we distinguish between the two is via the presence/absence of
         // the trailing directory separator.
         //
-        vp.insert<path>   ("install",         variable_visibility::target);
-        vp.insert<bool>   ("for_install",     variable_visibility::prereq);
-        vp.insert<string> ("install.mode",    variable_visibility::project);
-        vp.insert<bool>   ("install.subdirs", variable_visibility::project);
+        vp.insert<path>   ("install",     variable_visibility::target);
+        vp.insert<bool>   ("for_install", variable_visibility::prereq);
+        vp.insert<string> ("install.mode");
+        vp.insert<bool>   ("install.subdirs");
       }
 
       // Register our rules.
@@ -278,7 +272,7 @@ namespace build2
         //
         {
           auto& var  (vp.insert<dir_path>     (       "install.chroot"));
-          auto& cvar (vp.insert<abs_dir_path> ("config.install.chroot", true));
+          auto& cvar (vp.insert<abs_dir_path> ("config.install.chroot"));
 
           value& v (rs.assign (var));
 

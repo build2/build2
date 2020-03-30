@@ -46,25 +46,23 @@ namespace build2
         //
         // Specified as <target>@<path-id> pairs with both sides being
         // optional. The variable is untyped (we want a list of name-pairs),
-        // overridable, and inheritable. The target is relative (in essence a
-        // prerequisite) which is resolved from the (root) scope where the
-        // config.test value is defined.
+        // overridable, and with global visibiility. The target is relative
+        // (in essence a prerequisite) which is resolved from the (root) scope
+        // where the config.test value is defined.
         //
-        vp.insert ("config.test", true),
+        vp.insert ("config.test"),
 
         // Test working directory before/after cleanup (see Testscript spec
         // for semantics).
         //
-        vp.insert<name_pair> ("config.test.output", true),
+        vp.insert<name_pair> ("config.test.output"),
 
         // The test variable is a name which can be a path (with the
         // true/false special values) or a target name.
         //
-        // Note: none are overridable.
-        //
-        vp.insert<name>    ("test",           variable_visibility::target),
-        vp.insert<strings> ("test.options",   variable_visibility::project),
-        vp.insert<strings> ("test.arguments", variable_visibility::project),
+        vp.insert<name>    ("test", variable_visibility::target),
+        vp.insert<strings> ("test.options"),
+        vp.insert<strings> ("test.arguments"),
 
         // Prerequisite-specific.
         //
@@ -93,7 +91,7 @@ namespace build2
 
         // Test target platform.
         //
-        vp.insert<target_triplet> ("test.target", variable_visibility::project)
+        vp.insert<target_triplet> ("test.target")
       };
 
       // This one is used by other modules/rules.
@@ -102,8 +100,8 @@ namespace build2
 
       // These are only used in testscript.
       //
-      vp.insert<strings> ("test.redirects", variable_visibility::project);
-      vp.insert<strings> ("test.cleanups",  variable_visibility::project);
+      vp.insert<strings> ("test.redirects");
+      vp.insert<strings> ("test.cleanups");
 
       // Unless already set, default test.target to build.host. Note that it
       // can still be overriden by the user, e.g., in root.build.

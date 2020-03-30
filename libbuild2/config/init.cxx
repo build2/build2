@@ -44,12 +44,12 @@ namespace build2
       // reserved to not be valid module names (`build`). We also currently
       // treat `import` as special.
       //
+      auto& vp (rs.var_pool ());
+
       // NOTE: all config.** variables are by default made (via a pattern) to
       // be overridable with global visibility. So we must override this if a
       // different semantics is required.
       //
-      auto& vp (rs.var_pool ());
-
       const auto v_p (variable_visibility::project);
 
       // While config.config.load (see below) could theoretically be specified
@@ -166,6 +166,8 @@ namespace build2
 
       auto& vp (rs.var_pool ());
 
+      // Note: config.* is pattern-typed to global visibility.
+      //
       const auto v_p (variable_visibility::project);
 
       auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));

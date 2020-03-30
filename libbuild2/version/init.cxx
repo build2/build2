@@ -226,17 +226,13 @@ namespace build2
       // Note also that we have "gifted" the config.version variable name to
       // the config module.
       //
-      auto& vp (rs.var_pool ());
-
-      auto set = [&vp, &rs] (const char* var, auto val)
+      auto set = [&rs] (auto var, auto val)
       {
-        using T = decltype (val);
-        auto& v (vp.insert<T> (var, variable_visibility::project));
-        rs.assign (v) = move (val);
+        rs.assign (var, move (val));
       };
 
-      if (!sum.empty ()) rs.assign (ctx.var_project_summary) = move (sum);
-      if (!url.empty ()) rs.assign (ctx.var_project_url)     = move (url);
+      if (!sum.empty ()) set (ctx.var_project_summary, move (sum));
+      if (!url.empty ()) set (ctx.var_project_url,     move (url));
 
       set ("version", v.string ());  // Project version (var_version).
 

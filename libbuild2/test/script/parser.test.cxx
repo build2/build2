@@ -206,8 +206,7 @@ namespace build2
 
           value& v (
             tt.assign (
-              ctx.var_pool.rw ().insert<target_triplet> (
-                "test.target", variable_visibility::project)));
+              ctx.var_pool.rw ().insert<target_triplet> ("test.target")));
 
           v = cast<target_triplet> (ctx.global_scope["build.host"]);
 

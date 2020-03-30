@@ -50,45 +50,42 @@ namespace build2
 
       assert (first);
 
-      // Enter variables. Note: some overridable, some not.
+      // Enter variables.
       //
       // Target is a string and not target_triplet because it can be
       // specified by the user.
       //
       auto& vp (rs.var_pool ());
 
-      const auto vis_tgt (variable_visibility::target);
-      const auto vis_prj (variable_visibility::project);
-
-      vp.insert<string>    ("config.bin.target",   true);
-      vp.insert<string>    ("config.bin.pattern",  true);
+      vp.insert<string>    ("config.bin.target");
+      vp.insert<string>    ("config.bin.pattern");
 
       // Library types to build.
       //
-      vp.insert<string>    ("config.bin.lib",      true);
+      vp.insert<string>    ("config.bin.lib");
 
       // Library types to use (in priority order).
       //
-      vp.insert<strings>   ("config.bin.exe.lib",  true);
-      vp.insert<strings>   ("config.bin.liba.lib", true);
-      vp.insert<strings>   ("config.bin.libs.lib", true);
+      vp.insert<strings>   ("config.bin.exe.lib");
+      vp.insert<strings>   ("config.bin.liba.lib");
+      vp.insert<strings>   ("config.bin.libs.lib");
 
       // The rpath[_link].auto flag controls automatic rpath behavior, for
       // example, addition of rpaths for prerequisite libraries (see the cc
       // module for an example). Default is true.
       //
-      vp.insert<dir_paths> ("config.bin.rpath",      true);
-      vp.insert<bool>      ("config.bin.rpath.auto", true);
+      vp.insert<dir_paths> ("config.bin.rpath");
+      vp.insert<bool>      ("config.bin.rpath.auto");
 
-      vp.insert<dir_paths> ("config.bin.rpath_link",      true);
-      vp.insert<bool>      ("config.bin.rpath_link.auto", true);
+      vp.insert<dir_paths> ("config.bin.rpath_link");
+      vp.insert<bool>      ("config.bin.rpath_link.auto");
 
-      vp.insert<string>    ("config.bin.prefix", true);
-      vp.insert<string>    ("config.bin.suffix", true);
-      vp.insert<string>    ("config.bin.lib.prefix", true);
-      vp.insert<string>    ("config.bin.lib.suffix", true);
-      vp.insert<string>    ("config.bin.exe.prefix", true);
-      vp.insert<string>    ("config.bin.exe.suffix", true);
+      vp.insert<string>    ("config.bin.prefix");
+      vp.insert<string>    ("config.bin.suffix");
+      vp.insert<string>    ("config.bin.lib.prefix");
+      vp.insert<string>    ("config.bin.lib.suffix");
+      vp.insert<string>    ("config.bin.exe.prefix");
+      vp.insert<string>    ("config.bin.exe.suffix");
 
       vp.insert<string>    ("bin.lib");
 
@@ -102,7 +99,7 @@ namespace build2
       vp.insert<dir_paths> ("bin.rpath_link");
       vp.insert<bool>      ("bin.rpath_link.auto");
 
-      // Link whole archive. Note: non-overridable with target visibility.
+      // Link whole archive. Note: with target visibility.
       //
       // The lookup semantics is as follows: we first look for a prerequisite-
       // specific value, then for a target-specific value in the library being
@@ -118,7 +115,7 @@ namespace build2
       //
       // If unspecified, defaults to false for liba{} and to true for libu*{}.
       //
-      vp.insert<bool>      ("bin.whole", vis_tgt);
+      vp.insert<bool>      ("bin.whole", variable_visibility::target);
 
       vp.insert<string>    ("bin.exe.prefix");
       vp.insert<string>    ("bin.exe.suffix");
@@ -131,11 +128,11 @@ namespace build2
       // only used for platform-independent versions (for platforms-specific
       // versions we can always derive the pattern automatically).
       //
-      vp.insert<string> ("bin.lib.load_suffix", vis_prj);
-      vp.insert<string> ("bin.lib.load_suffix_pattern", vis_prj);
+      vp.insert<string> ("bin.lib.load_suffix");
+      vp.insert<string> ("bin.lib.load_suffix_pattern");
 
-      vp.insert<map<string, string>> ("bin.lib.version", vis_prj);
-      vp.insert<string>              ("bin.lib.version_pattern", vis_prj);
+      vp.insert<map<string, string>> ("bin.lib.version");
+      vp.insert<string>              ("bin.lib.version_pattern");
 
       return true;
     }
@@ -580,8 +577,8 @@ namespace build2
         vp.insert<process_path> ("bin.ar.path");
         vp.insert<process_path> ("bin.ranlib.path");
 
-        vp.insert<path>         ("config.bin.ar", true);
-        vp.insert<path>         ("config.bin.ranlib", true);
+        vp.insert<path>         ("config.bin.ar");
+        vp.insert<path>         ("config.bin.ranlib");
       }
 
       // Configuration.
@@ -745,7 +742,7 @@ namespace build2
         auto& vp (rs.var_pool ());
 
         vp.insert<process_path> ("bin.ld.path");
-        vp.insert<path>         ("config.bin.ld", true);
+        vp.insert<path>         ("config.bin.ld");
       }
 
       // Configuration.
@@ -881,7 +878,7 @@ namespace build2
         auto& vp (rs.var_pool ());
 
         vp.insert<process_path> ("bin.rc.path");
-        vp.insert<path>         ("config.bin.rc", true);
+        vp.insert<path>         ("config.bin.rc");
       }
 
       // Configuration.

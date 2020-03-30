@@ -187,13 +187,15 @@ namespace build2
     value&
     assign (const variable* var) {return vars.assign (var);} // For cached.
 
+    // Assign an untyped non-overridable variable with project visibility.
+    //
     value&
     assign (string name)
     {
       return assign (var_pool ().insert (move (name)));
     }
 
-    // Assign a typed non-overridable variable with normal visibility.
+    // As above, but assign a typed variable.
     //
     template <typename T>
     value&
@@ -207,6 +209,22 @@ namespace build2
     assign (string name, T&& val)
     {
       value& v (assign<T> (move (name)) = forward<T> (val));
+      return v.as<T> ();
+    }
+
+    template <typename T>
+    T&
+    assign (const variable& var, T&& val)
+    {
+      value& v (assign (var) = forward<T> (val));
+      return v.as<T> ();
+    }
+
+    template <typename T>
+    T&
+    assign (const variable* var, T&& val)
+    {
+      value& v (assign (var) = forward<T> (val));
       return v.as<T> ();
     }
 

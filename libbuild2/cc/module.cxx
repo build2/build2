@@ -78,7 +78,7 @@ namespace build2
 
               // Must be the same as in module's init().
               //
-              const variable& v (vp.insert<strings> ("config." + m, true));
+              const variable& v (vp.insert<strings> ("config." + m));
 
               if (rs[v].defined ())
               {
@@ -358,8 +358,11 @@ namespace build2
       // @@ There are actually two cases to this issue:
       //
       //    1. The module is loaded in the outer project (e.g., tests inside a
-      //       project). It feels like this should be handled with project-
-      //       specific variable visibility.
+      //       project). It feels like this should be handled with project
+      //       variable visibility. And now it is with the project being the
+      //       default. Note that this is the reason we don't need any of this
+      //       for the project configuration: there the config.* variables are
+      //       always set on the project root.
       //
       //    2. The module is loaded in the outer scope within the same
       //       project. We are currently thinking whether we should even
