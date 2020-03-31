@@ -1885,7 +1885,24 @@ namespace build2
 
       if (l.var != nullptr)
       {
-        config_report.push_back (make_pair (l, move (*report)));
+        auto r (make_pair (l, move (*report)));
+
+        // If we have a duplicate, update it (it could be useful to have
+        // multiple config directives to "probe" the value before calculating
+        // the default; see lookup_config() for details).
+        //
+        auto i (find_if (config_report.begin (),
+                         config_report.end (),
+                         [&l] (const pair<lookup, string>& p)
+                         {
+                           return p.first.var == l.var;
+                         }));
+
+        if (i == config_report.end ())
+          config_report.push_back (move (r));
+        else
+          *i = move (r);
+
         config_report_new = config_report_new || new_val;
       }
     }

@@ -99,7 +99,8 @@ namespace build2
     // then, if there is no value, call the version with the default value and
     // end up with the same result if we called the default value version
     // straight away. This is useful when computing the default value is
-    // expensive.
+    // expensive. It is also ok to call both versions multiple times provided
+    // the flags are the same.
     //
     // @@ Should we pass flags and interpret save_null_omitted to treat null
     //    as undefined? Sounds logical.

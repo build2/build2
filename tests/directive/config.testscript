@@ -180,6 +180,8 @@ test.arguments =
     config [string,  config.report.variable=e] config.test.e ?= abc
     config [         config.report]            f
     config [bool]                              config.test.n ?= [null]
+    config [bool]                              config.test.p
+    config [bool]                              config.test.p ?= true
 
     e = "'$config.test.e'"
     f = ($config.test.b || $config.test.c)
@@ -206,11 +208,16 @@ test.arguments =
       e          'abc'
       f          true
       n          [null]
+      p          true
     EOO
 
   # Configured.
   #
-  $* configure config.test.a=true config.test.e=xyz config.test.n=true;
+  $* configure          \
+     config.test.a=true \
+     config.test.e=xyz  \
+     config.test.n=true \
+     config.test.p=false;
   $* noop -v;
   $* noop -V 2>>~/EOO/;
     /config test@.+/
@@ -223,6 +230,7 @@ test.arguments =
       e          'xyz'
       f          true
       n          true
+      p          false
     EOO
   $* disfigure
 }
