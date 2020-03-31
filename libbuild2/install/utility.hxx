@@ -18,12 +18,14 @@ namespace build2
   {
     // Set install path, mode for a target type.
     //
+    // Note: should only be called if the install module is loaded.
+    //
     inline void
     install_path (scope& s, const target_type& tt, dir_path d)
     {
       auto r (
         s.target_vars[tt]["*"].insert (
-          s.var_pool ().insert ("install")));
+          *s.var_pool ().find ("install")));
 
       if (r.second) // Already set by the user?
         r.first.get () = path_cast<path> (move (d));
@@ -41,7 +43,7 @@ namespace build2
     {
       auto r (
         s.target_vars[tt]["*"].insert (
-          s.var_pool ().insert ("install.mode")));
+          *s.var_pool ().find ("install.mode")));
 
       if (r.second) // Already set by the user?
         r.first.get () = move (m);
