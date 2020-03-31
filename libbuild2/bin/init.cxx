@@ -849,8 +849,12 @@ namespace build2
       if (lid == "msvc")
       {
         const target_type& pdb (bs.derive_target_type<file> ("pdb").first);
-        install_path (bs, pdb, dir_path ("bin")); // Goes to install.bin
-        install_mode (bs, pdb, "644");            // But not executable.
+
+        if (cast_false<bool> (rs["install.loaded"]))
+        {
+          install_path (bs, pdb, dir_path ("bin")); // Goes to install.bin
+          install_mode (bs, pdb, "644");            // But not executable.
+        }
       }
 
       return true;
