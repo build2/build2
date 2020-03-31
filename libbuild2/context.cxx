@@ -280,36 +280,19 @@ namespace build2
 
     // Enter builtin variable patterns.
     //
-    // Note that we must do this prior to entering overrides below.
+    // Note that we must do global visibility prior to entering overrides
+    // below but they cannot be typed. So it's a careful dance.
     //
-    {
-      const auto v_g (variable_visibility::global);
-      const auto v_p (variable_visibility::project);
+    const auto v_g (variable_visibility::global);
 
-      // All config.** variables are overridable with global visibility.
-      //
-      // For the config.**.configured semantics, see config::unconfigured().
-      //
-      // Note that some config.config.* variables have project visibility thus
-      // the match argument is false.
-      //
-      vp.insert_pattern ("config.**", nullopt, true, v_g, true, false);
-      vp.insert_pattern<bool> ("config.**.configured", false, v_p);
-
-      // file.cxx:import() (note: order is important; see insert_pattern()).
-      //
-      vp.insert_pattern<abs_dir_path> ("config.import.*",  true, v_g, true);
-      vp.insert_pattern<path>         ("config.import.**", true, v_g, true);
-
-      // module.cxx:boot/init_module().
-      //
-      // Note that we also have the config.<module>.configured variable (see
-      // above).
-      //
-      vp.insert_pattern<bool> ("**.booted",     false /* overridable */, v_p);
-      vp.insert_pattern<bool> ("**.loaded",     false,                   v_p);
-      vp.insert_pattern<bool> ("**.configured", false,                   v_p);
-    }
+    // All config.** variables are overridable with global visibility.
+    //
+    // For the config.**.configured semantics, see config::unconfigured().
+    //
+    // Note that some config.config.* variables have project visibility thus
+    // the match argument is false.
+    //
+    vp.insert_pattern ("config.**", nullopt, true, v_g, true, false);
 
     // Parse and enter the command line variables. We do it before entering
     // any other variables so that all the variables that are overriden are
@@ -518,10 +501,30 @@ namespace build2
         data_->global_var_overrides.push_back (s);
     }
 
-    // Enter builtin variables.
+    // Enter remaining variable patterns and builtin variables.
     //
+    const auto v_p (variable_visibility::project);
     const auto v_t (variable_visibility::target);
     const auto v_q (variable_visibility::prereq);
+
+    vp.insert_pattern<bool> ("config.**.configured", false, v_p);
+
+    // file.cxx:import() (note: order is important; see insert_pattern()).
+    //
+    // Note that if any are overriden, they are "pre-typed" by the config.**
+    // pattern above and we just "add" the types.
+    //
+    vp.insert_pattern<abs_dir_path> ("config.import.*",  true, v_g, true);
+    vp.insert_pattern<path>         ("config.import.**", true, v_g, true);
+
+    // module.cxx:boot/init_module().
+    //
+    // Note that we also have the config.<module>.configured variable (see
+    // above).
+    //
+    vp.insert_pattern<bool> ("**.booted",     false /* overridable */, v_p);
+    vp.insert_pattern<bool> ("**.loaded",     false,                   v_p);
+    vp.insert_pattern<bool> ("**.configured", false,                   v_p);
 
     var_src_root = &vp.insert<dir_path> ("src_root");
     var_out_root = &vp.insert<dir_path> ("out_root");
