@@ -555,6 +555,9 @@ namespace build2
     //                containing the unmatched lines and line replacements
     //                seperated with newlines.
     //
+    // Note that if format_no_copy is specified, unmatched lines are not
+    // copied either.
+    //
     f[".replace_lines"] = [](value s,
                              string re,
                              string fmt,

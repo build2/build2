@@ -89,7 +89,7 @@ namespace build2
             }
           }
 
-          // If cc.core.config is already loaded then use its toolchain id,
+          // If cc.core.guess is already loaded then use its toolchain id,
           // (optional) pattern, and mode to guess an appropriate default
           // (e.g., for {gcc, *-4.9 -m64} we will get g++-4.9 -m64).
           //

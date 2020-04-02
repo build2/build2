@@ -142,8 +142,11 @@ namespace build2
       return true; // Initialize first (load config.build).
     }
 
+    // host-config.cxx.in
+    //
 #ifndef BUILD2_BOOTSTRAP
-    extern const char host_config[]; // host-config.cxx.in
+    extern const char host_config[];
+    extern const char build2_config[];
 #endif
 
     bool
@@ -251,12 +254,12 @@ namespace build2
 
             if (s[0] != '~')
               load_config_file (f, l);
-            else if (s == "~host")
+            else if (s == "~host" || s == "~build2")
             {
 #ifdef BUILD2_BOOTSTRAP
               assert (false);
 #else
-              istringstream is (host_config);
+              istringstream is (s[1] == 'h' ? host_config : build2_config);
               load_config (is, path_name (s), l);
 #endif
             }

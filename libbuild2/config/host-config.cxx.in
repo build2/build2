@@ -8,5 +8,6 @@ namespace build2
     // This is a raw string literal, in case you are unfamiliar.
     //
     extern const char host_config[] = R"###($host_config$)###";
+    extern const char build2_config[] = R"###($build2_config$)###";
   }
 }
