@@ -146,6 +146,15 @@
         print $regex.replace_lines($v, '(.*)\.cxx', '\1.hxx')
         EOI
 
+      : no-copy
+      :
+      $* <<EOI >'foo.hxx'
+        v = "foo.cxx
+        bar.txt"
+
+        print $regex.replace_lines($v, '(.*)\.cxx', '\1.hxx', format_no_copy)
+        EOI
+
       : null-fmt
       :
       $* <<EOI >'bar.txt'
@@ -172,6 +181,17 @@
         foo.hxx
         bar.txt
         EOO
+
+      : no-copy
+      :
+      $* <<EOI >'bar.hxx'
+        v = "foo.cxx
+        bar.txt"
+
+        print $regex.replace_lines($v, \
+                                   '(.*)\.txt', '\1.hxx', \
+                                   format_no_copy return_lines)
+        EOI
 
       : null-fmt
       :

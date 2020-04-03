@@ -275,6 +275,7 @@ namespace build2
       is.exceptions (istringstream::badbit);
 
       const string& efmt (fmt ? *fmt : "");
+      bool no_copy ((fl.second & regex_constants::format_no_copy) != 0);
 
       for (string l; !eof (getline (is, l)); )
       {
@@ -282,9 +283,10 @@ namespace build2
         string& s (rr.first);
 
         // Skip the empty replacement for a matched line if the format is
-        // absent.
+        // absent and an unmatched line if the format_no_copy flag is
+        // specified.
         //
-        if (!fmt && rr.second && s.empty ())
+        if (rr.second ? !fmt && s.empty () : no_copy)
           continue;
 
         if (!rls)
@@ -553,7 +555,7 @@ namespace build2
     //
     // return_lines - return the simple name (rather than a name list)
     //                containing the unmatched lines and line replacements
-    //                seperated with newlines.
+    //                separated with newlines.
     //
     // Note that if format_no_copy is specified, unmatched lines are not
     // copied either.
