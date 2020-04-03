@@ -65,10 +65,12 @@ config/cxx{host-config}: config/in{host-config}
     [null],                                             \
     return_lines)
 
-  host_config = $regex.replace_lines(             \
-    $build2_config,                               \
-    '^ *config\.(c[. ]|cxx[. ]|cc[.]|bin[.]).*$', \
-    '$&',                                         \
+  # Also preserve blank lines between groups of options.
+  #
+  host_config = $regex.replace_lines(                \
+    $build2_config,                                  \
+    '^( *config\.(c[. ]|cxx[. ]|cc[.]|bin[.]).*|)$', \
+    '$&',                                            \
     format_no_copy return_lines)
 }
 
