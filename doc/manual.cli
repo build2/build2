@@ -565,15 +565,15 @@ summary: hello C++ executable
 \
 
 The \c{config} module provides support for persistent configurations. While
-project configuration is a large topic that we will discuss in detail later,
-in a nutshell \c{build2} support for configuration is an integral part of the
-build system with the same mechanisms available to the build system core,
-modules, and your projects. However, without \c{config}, the configuration
-information is \i{transient}. That is, whatever configuration information was
-automatically discovered or that you have supplied on the command line is
-discarded after each build system invocation. With the \c{config} module,
-however, we can \i{configure} a project to make the configuration
-\i{persistent}. We will see an example of this shortly.
+build configuration is a large topic that we will be discussing in more detail
+later, in a nutshell \c{build2} support for configuration is an integral part
+of the build system with the same mechanisms available to the build system
+core, modules, and your projects. However, without \c{config}, the
+configuration information is \i{transient}. That is, whatever configuration
+information was automatically discovered or that you have supplied on the
+command line is discarded after each build system invocation. With the
+\c{config} module, however, we can \i{configure} a project to make the
+configuration \i{persistent}. We will see an example of this shortly.
 
 Next up are the \c{test}, \c{install}, and \c{dist} modules. As their names
 suggest, they provide support for testing, installation and preparation of
@@ -583,9 +583,11 @@ operations, and the \c{dist} module defines the \c{dist}
 (meta-)operation. Again, we will try them out in a moment.
 
 Moving on, the \c{root.build} file is optional though most projects will have
-it. This is the place where we normally establish project-wide settings as
-well as load build system modules that provide support for the languages/tools
-that we use. Here is what it could look like for our \c{hello} example:
+it. This is the place where we define project's configuration knobs (subject
+of \l{#proj-config Project Configuration}), establish project-wide settings,
+as well as load build system modules that provide support for the
+languages/tools that we use. Here is what it could look like for our \c{hello}
+example:
 
 \
 cxx.std = latest
@@ -1391,7 +1393,7 @@ if ($c.target.class != 'windows')
   c.libs += -lpthread  # only C
 \
 
-Additionally, as we will see in \l{#intro-operations-config Configuration},
+Additionally, as we will see in \l{#intro-operations-config Configuring},
 there are also the \c{config.cc.*}, \c{config.c.*}, and \c{config.cxx.*} sets
 which are used by the users of our projects to provide external configuration.
 The initial values of the \c{cc.*}, \c{c.*}, and \c{cxx.*} variables are taken
@@ -1620,11 +1622,11 @@ Other than \c{version}, all the modules we load define new operations. Let's
 examine each of them starting with \c{config}.
 
 
-\h2#intro-operations-config|Configuration|
+\h2#intro-operations-config|Configuring|
 
 As mentioned briefly earlier, the \c{config} module provides support for
 persisting configurations by having us \i{configure} our projects. At first it
-may feel natural to call \c{configure} another operation. There is, however, a
+may feel natural to call \c{configure} an operation. There is, however, a
 conceptual problem: we don't really configure a target. And, perhaps after
 some meditation, it should become clear that what we are really doing is
 configuring operations on targets. For example, configuring updating a C++
@@ -2102,7 +2104,7 @@ For details on the unit test support implementation see \l{#intro-unit-test
 Implementing Unit Testing}.|
 
 
-\h2#intro-operations-install|Installation|
+\h2#intro-operations-install|Installing|
 
 The \c{install} module defines the \c{install} and \c{uninstall} operations.
 As the name suggests, this module provides support for project installation.
@@ -2287,7 +2289,7 @@ header would have been installed as
 \c{.../include/libhello/details/utility.hxx}.
 
 
-\h2#intro-operations-dist|Distribution|
+\h2#intro-operations-dist|Distributing|
 
 The last module that we load in our \c{bootstrap.build} is \c{dist} which
 provides support for the preparation of distributions and defines the \c{dist}
@@ -3063,7 +3065,7 @@ libhello/
 \
 
 And we want to build them with several compilers, let's say GCC and Clang. As
-we have already seen in \l{#intro-operations-config Configuration}, we can
+we have already seen in \l{#intro-operations-config Configuring}, we can
 configure several out of source builds for each compiler, for example:
 
 \
@@ -4334,6 +4336,509 @@ statistics which can be useful for pin-pointing the bottlenecks. There are
 also a number of options for tuning the build system's performance, such as,
 the number of jobs to perform in parallel, the stack size, queue depths, etc.
 See the \l{b(1)} man pages for details.
+
+
+\h1#proj-config|Project Configuration|
+
+As discussed in the introduction (specifically, \l{#intro-proj-struct Project
+Structure}) support for build configurations is an integral part of the build
+system with the same mechanism used by the build system core (for example,
+for project importation via the \c{config.import.*} variables), by the build
+system modules (for example, for supplying compile options such as
+\c{config.cxx.coptions}), as well as by our projects to provide any
+project-specific configurability. Project configuration is the topic of this
+chapter.
+
+But before we delve into the technical details, let's discuss the overall need
+for project configurability. While it may seem that making ones project more
+configurable is always a good idea, there are costs: by having a choice we
+increase the complexity and open the door for potential incompatibility.
+Specifically, we may end up with two projects in the same build needing a
+shared dependency with incompatible configurations.
+
+\N|While some languages, such as Rust, support having multiple
+differently-configured projects in the same build, this is not something that
+is often done in C/C++. This ability is also not without its drawbacks, most
+notably code bloat.|
+
+As a result, our recommendation is to strive for simplicity and avoid
+configurability whenever possible. For example, there is a common desire to
+make certain functionality optional in order not to make the user pay for
+things they don't need. This, however, is often better addressed either by
+always providing the optional functionality if it's fairly small or by
+factoring it into a separate project if it's substantial. If a configuration
+knob is to be provided, it should have a sensible default with a bias for
+simplicity and compatibility rather than the optimal result. For example, in
+the optional functionality case, the default should probably be to provide it.
+
+
+As discussed in the introduction, the central part of the build configuration
+functionality are the \i{configuration variables}. They are automatically
+treated as overridable with global visibility and persisted by the \c{config}
+module (see \l{#intro-operations-config Configuring} for details).
+
+By (enforced) convention configuration, variables start with \c{config.}, for
+example, \c{config.import.libhello}. In case of a build system module, the
+second component in its configuration variables should be the module name, for
+example, \c{config.cxx}, \c{config.cxx.coptions}. Similarly, project-specific
+configuration variables should have the project name as their second
+component, for example, \c{config.libhello.fancy}.
+
+\N|More precisely, a project configuration variable must match the
+\c{config[.**].<project>.**} pattern where additional components may be
+present after \c{config.} in case of subprojects. Overall, the recommendation
+is to use hierarchical names, such as \c{config.libcurl.tests.remote} for
+subprojects, similar to build system submodules.
+
+If a build system module for a tool (such as a source code generator) and the
+tool itself share a name, then they may need to coordinate their configuration
+variable names in order to avoid clashes.
+
+The build system core reserves \c{build} and \c{import} as the second
+component in configuration variables as well as \c{configured} as the third
+and further components.|
+
+
+\h#proj-config-directive|\c{config} Directive|
+
+To define a project configuration variable we place the \c{config} directive
+into the project's \c{build/root.build} file (see \l{#intro-proj-struct
+Project Structure}). For example:
+
+
+\
+config [bool]   config.libhello.fancy    ?= false
+config [string] config.libhello.greeting ?= 'Hello'
+\
+
+\N|The irony does not escape us: these configuration knobs are exactly of the
+kind that we advocate against. However, finding reasonable example of
+build-time configurability in a \i{\"Hello, World!\"} library is not easy. In
+fact, it probably shouldn't have any. So, for this chapter, do as we say, not
+as we do.|
+
+Similar to \c{import} (see \l{#intro-import Target Importation}), it is a
+special kind of variable assignment. Let's examine all its parts in turn.
+
+First comes the optional list of variable attributes inside \c{[\ ]}. The only
+attribute that we have in the above example is the variable type, \c{bool} and
+\c{string}, respectively. It is generally a good idea to assign static types to
+configuration variables because their values will be specified by the users of
+our project and the more automatic validation we provide the better. For
+example, this is what happens if we misspell the value of the \c{fancy}
+variable:
+
+\
+$ b configure config.libhello.fancy=fals
+error: invalid bool value 'fals' in variable config.libhello.fancy
+\
+
+After the attribute list we have the variable name. As mentioned above, the
+\c{config} directive will validate that it matches the
+\c{config[.**].<project>.**} pattern (with one exception discussed in
+\l{#proj-config-report Configuration Report}).
+
+Finally, after the variable name comes optional default value. Note that
+unlike normal variables, default assignment (\c{?=}) is the only valid
+form of assignment in the \c{config} directive.
+
+The semantics of the \c{config} directive is as follows: First an overridable
+variable is entered with the specified name, type (if any), and global
+visibility. Then, if the variable is undefined and the default value is
+specified, it is assigned the default value. After this, if the variable is
+defined (either as user-defined or default), it is marked for persistence.
+Finally, a defined variable is also marked for reporting as discussed in
+\l{#proj-config-report Configuration Report}. Note that if the variable
+is user-defined, then the default value is not evaluated.
+
+Note also that if the configuration value is not specified by the user and you
+haven't provided the default, the variable will be undefined, not \c{null},
+and, as a result, omitted from the persistent configuration
+(\c{build/config.build} file). However, \c{null} is a valid default value:
+
+\
+config [string] config.libhello.fallback_name ?= [null]
+\
+
+A common approach for representing an enum-like value is to use \c{string} as
+a type and pattern matching for validation. In fact, validation and
+propagation can often be combined. For example, if our library needed to use a
+database for some reason, we could handle it like this:
+
+\
+config [string] config.libhello.database ?= [null]
+
+using cxx
+
+switch $config.libhello.database
+{
+  case [null]
+  {
+    # No database in use.
+  }
+  case 'sqlite'
+  {
+    cxx.poptions += -DLIBHELLO_WITH_SQLITE
+  }
+  case 'pgsql'
+  {
+    cxx.poptions += -DLIBHELLO_WITH_PGSQL
+  }
+  default
+  {
+    fail \"invalid config.libhello.database value \
+'$config.libhello.database'\"
+  }
+}
+\
+
+While it is generally a good idea to provide a sensible default for all your
+configuration variables, if you need to force the user to specify its value
+explicitly, this can be achieved with an extra check. For example:
+
+\
+config [string] config.libhello.database
+
+if! $defined(config.libhello.database)
+  fail 'config.libhello.database must be specified'
+\
+
+And if you want to also disallow \c{null} values, then the above check should
+be rewritten as follows: \N{An undefined variable expands into a \c{null}
+value.}
+
+\
+if ($config.libhello.database == [null])
+  fail 'config.libhello.database must be specified'
+\
+
+Other than assigning the default value via the \c{config} directive,
+configuration variables should not be modified in the project's
+\c{buildfiles}. Instead, if further processing of the configuration value is
+necessary, we should assign the configuration value to a different,
+non-\c{config.*}, variable and modify that. The two situations where this is
+commonly required are post-processing the configuration value to be more
+suitable for use in \c{buildfiles} as well as further customization of
+configuration values.
+
+As an example of the first situation, let's say we need to translate the
+database identifiers specified by the user:
+
+\
+config [string] config.libhello.database ?= [null]
+
+switch $config.libhello.database
+{
+  case [null]
+    database = [null]
+
+  case 'sqlite'
+    database = 'SQLITE'
+
+  case 'pgsql'
+    database = 'PGSQL'
+
+  case 'mysql'
+  case 'mariadb'
+    database = 'MYSQL'
+
+  default
+    fail \"...\"
+  }
+}
+
+using cxx
+
+if ($database != [null])
+  cxx.poptions += \"-DLIBHELLO_WITH_$database\"
+\
+
+For the second situation, the typical pattern looks like this:
+
+\
+config [strings] config.libhello.options
+
+options  = # Overridable options go here.
+options += $config.libhello.options
+options += # Non-overridable options go here.
+\
+
+That is, assuming that the subsequently specified options (for example,
+command line options) override any previously specified, we first set default
+\c{buildfile} options that are allowed to be overridden by the configuration
+values, then append any such options, and finish off by appending any
+\c{buildfile} options that should always be in effect.
+
+As a concrete example of this approach, let's say we want to make the warning
+levels of our project configurable (likely a bad idea; also ignores compiler
+differences):
+
+\
+config [strings] config.libhello.woptions
+
+woptions  = -Wall -Wextra
+woptions += $config.libhello.woptions
+woptions += -Werror
+
+using cxx
+
+cxx.coptions += $woptions
+\
+
+With this arrangement, the users of our project can customize the warning
+levels but cannot disable the treatment of warnings as errors. For example:
+
+\
+$ b -v config.libhello.woptions=-Wno-extra
+g++ ... -Wall -Wextra -Wno-extra -Werror ...
+\
+
+While we have already seen some examples of how to propagate the configuration
+values to our source code, this topic is discussed further in
+\l{#proj-config-propag Configuration Propagation}.
+
+
+\h#proj-config-report|Configuration Report|
+
+
+\h#proj-config-propag|Configuration Propagation|
+
+Using configuration values in our \c{buildfiles} is straightforward: they are
+like any other \c{buildfile} variables and we can access them directly. For
+example, this is how we could provide optional functionality in our library by
+conditionally including certain source files: \N{See \l{#intro-if-else
+Conditions (\c{if-else})} for why you should not use \c{if} to implement
+this.}
+
+\
+# build/root.build
+
+config [strings] config.libhello.io ?= true
+\
+
+\
+# libhello/buildfile
+
+lib{hello}: {hxx ixx txx cxx}{** -version -hello-io} hxx{version}
+lib{hello}: {hxx cxx}{hello-io}: include = $config.libhello.io
+\
+
+However, it is often required to propagate the configuration information to
+our source code. In fact, we have already seen one way to do it: we can
+pass this information via preprocessor macros defined on the compiler's
+command line. For example:
+
+\
+# build/root.build
+
+config [bool]   config.libhello.fancy    ?= false
+config [string] config.libhello.greeting ?= 'Hello'
+\
+
+\
+# libhello/buildfile
+
+if $config.libhello.fancy
+  cxx.poptions += -DLIBHELLO_FANCY
+
+cxx.poptions += \"-DLIBHELLO_GREETING=\\\"$config.libhello.greeting\\\"\"
+\
+
+\
+// lihello/hello.cxx
+
+void say_hello (ostream& o, const string& n)
+{
+#ifdef LIBHELLO_FANCY
+  // TODO: something fancy.
+#else
+  o << LIBHELLO_GREETING \", \" << n << '!' << endl;
+#endif
+}
+\
+
+We can even export certain configuration information this way to our library's
+users (see \l{#intro-lib Library Exportation and Versioning} for details):
+
+\
+# libhello/buildfile
+
+# Export options.
+#
+if $config.libhello.fancy
+  lib{hello}: cxx.export.poptions += -DLIBHELLO_FANCY
+\
+
+This mechanism is simple and works well across compilers so there is no reason
+not to use it when the number of configuration values passed and their size is
+small. However, it can quickly get unwieldy as these numbers grow. For such
+cases, it may make sense to save this information into a separate
+auto-generated source file with the help of the \l{#module-in \c{in}} module,
+similar to how we do it for the version header.
+
+The often-used arrangement is to generate a header file and include it into
+source files that need access to the configuration information. Historically,
+this was a C header full of macros called \c{config.h}. However, for C++
+projects, there is no reason not to make it a C++ header and use modern C++
+features instead of macros if desired. Which is what we will do here.
+
+As an example of this approach, let's convert the above command line-based
+implementation to use the configuration header. We will continue using macros
+as a start (or in case this is a C project) and try more modern techniques
+later. The \c{build/root.build} file is unchanged except for loading the
+\c{in} module:
+
+\
+# build/root.build
+
+config [bool]   config.libhello.fancy    ?= false
+config [string] config.libhello.greeting ?= 'Hello'
+
+using in
+\
+
+The \c{libhello/config.hxx.in} file is new:
+
+\
+// libhello/config.hxx.in
+
+#pragma once
+
+#define LIBHELLO_FANCY    $config.libhello.fancy$
+#define LIBHELLO_GREETING \"$config.libhello.greeting$\"
+\
+
+As you can see, we can reference our configuration variables directly in the
+\c{config.hxx.in} substitutions (see \l{#module-in \c{in} Module} for details
+on how this works). The rest is changed as follows:
+
+\
+# libhello/buildfile
+
+lib{hello}: {hxx ixx txx cxx}{** -version -config} hxx{version config}
+hxx{config}: in{config}
+\
+
+\
+// lihello/hello.cxx
+
+#include <libhello/config.hxx>
+
+void say_hello (ostream& o, const string& n)
+{
+#if LIBHELLO_FANCY
+  // TODO: something fancy.
+#else
+  o << LIBHELLO_GREETING \", \" << n << '!' << endl;
+#endif
+}
+\
+
+\N|With this setup, the way to export configuration information to our
+library's users is to install the configuration header, similar to how we do
+it for the version header.|
+
+Now that the macro-based version is working, let's see how we can take
+advantage of modern C++ features to hopefully improve on some of their
+drawbacks. As a first step, we can replace the \c{LIBHELLO_FANCY} macro with a
+compile-time constant and use \c{if\ constexpr} instead of \c{#ifdef} in our
+implementation:
+
+\
+// libhello/config.hxx.in
+
+namespace hello
+{
+  inline constexpr bool fancy = $config.libhello.fancy$;
+}
+\
+
+\
+// lihello/hello.cxx
+
+#include <libhello/config.hxx>
+
+void say_hello (ostream& o, const string& n)
+{
+  if constexpr (fancy)
+  {
+    // TODO: something fancy.
+  }
+  else
+    o << LIBHELLO_GREETING \", \" << n << '!' << endl;
+}
+\
+
+\N|Note that with \c{if\ constexpr} the branch not taken must still be valid,
+parsable code. This is both one of the main benefits of using it instead of
+\c{#if} (the code we are not using is still guaranteed to be syntactically
+correct) as well as its main drawbacks (it cannot be used, for example, for
+platform-specific code without extra efforts, such as shims, etc).|
+
+Next, we can do the same for \c{LIBHELLO_GREETING}:
+
+\
+// libhello/config.hxx.in
+
+namespace hello
+{
+  inline constexpr char greeting[] = \"$config.libhello.greeting$\";
+}
+\
+
+\
+// lihello/hello.cxx
+
+#include <libhello/config.hxx>
+
+void say_hello (ostream& o, const string& n)
+{
+  if constexpr (fancy)
+  {
+    // TODO: something fancy.
+  }
+  else
+    o << greeting << \", \" << n << '!' << endl;
+}
+\
+
+\N|Note that for \c{greeting} we can achieve the same result without using
+inline variables or \c{constexpr} and which would be usable in older C++ and
+even C. All we have to do is add the \c{config.cxx.in} source file next to
+our header with the definition of the \c{greeting} variable. For example:
+
+\
+// libhello/config.hxx.in
+
+namespace hello
+{
+  extern const char greeting[];
+}
+\
+
+\
+// libhello/config.cxx.in
+
+#include <libhello/config.hxx>
+
+namespace hello
+{
+  const char greeting[] = \"$config.libhello.greeting$\";
+}
+\
+
+\
+# libhello/buildfile
+
+lib{hello}: {hxx ixx txx cxx}{** -config} {hxx cxx}{config}
+hxx{config}: in{config}
+cxx{config}: in{config}
+\
+
+As this also shows, the \c{in} module can produce as many auto-generated
+source files as we need. For example, we could use this to split the
+configuration header into two, one public and installed while the other
+private.|
 
 
 \h1#attributes|Attributes|
