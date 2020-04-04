@@ -1309,7 +1309,8 @@ namespace build2
 
       // @@ TODO/MAYBE:
       //
-      // - Should we be printing NULL values?
+      // - Should we be printing NULL values? Maybe make this configurable?
+      // - Quoted printing format (single/double)?
       //
 
       // Use the special `config` module name (which doesn't have its own
