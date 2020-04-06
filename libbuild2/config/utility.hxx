@@ -97,7 +97,7 @@ namespace build2
     //
     // Note also that we can first do the lookup without the default value and
     // then, if there is no value, call the version with the default value and
-    // end up with the same result if we called the default value version
+    // end up with the same result as if we called the default value version
     // straight away. This is useful when computing the default value is
     // expensive. It is also ok to call both versions multiple times provided
     // the flags are the same.

@@ -583,9 +583,9 @@ operations, and the \c{dist} module defines the \c{dist}
 (meta-)operation. Again, we will try them out in a moment.
 
 Moving on, the \c{root.build} file is optional though most projects will have
-it. This is the place where we define project's configuration knobs (subject
-of \l{#proj-config Project Configuration}), establish project-wide settings,
-as well as load build system modules that provide support for the
+it. This is the place where we define project's configuration variables
+(subject of \l{#proj-config Project Configuration}), establish project-wide
+settings, as well as load build system modules that provide support for the
 languages/tools that we use. Here is what it could look like for our \c{hello}
 example:
 
@@ -4367,7 +4367,7 @@ make certain functionality optional in order not to make the user pay for
 things they don't need. This, however, is often better addressed either by
 always providing the optional functionality if it's fairly small or by
 factoring it into a separate project if it's substantial. If a configuration
-knob is to be provided, it should have a sensible default with a bias for
+value is to be provided, it should have a sensible default with a bias for
 simplicity and compatibility rather than the optimal result. For example, in
 the optional functionality case, the default should probably be to provide it.
 
@@ -4377,7 +4377,7 @@ functionality are the \i{configuration variables}. They are automatically
 treated as overridable with global visibility and persisted by the \c{config}
 module (see \l{#intro-operations-config Configuring} for details).
 
-By (enforced) convention configuration, variables start with \c{config.}, for
+By (enforced) convention, configuration variables start with \c{config.}, for
 example, \c{config.import.libhello}. In case of a build system module, the
 second component in its configuration variables should be the module name, for
 example, \c{config.cxx}, \c{config.cxx.coptions}. Similarly, project-specific
@@ -4411,8 +4411,8 @@ config [bool]   config.libhello.fancy    ?= false
 config [string] config.libhello.greeting ?= 'Hello'
 \
 
-\N|The irony does not escape us: these configuration knobs are exactly of the
-kind that we advocate against. However, finding reasonable example of
+\N|The irony does not escape us: these configuration variables are exactly of
+the kind that we advocate against. However, finding reasonable example of
 build-time configurability in a \i{\"Hello, World!\"} library is not easy. In
 fact, it probably shouldn't have any. So, for this chapter, do as we say, not
 as we do.|
@@ -4422,11 +4422,11 @@ special kind of variable assignment. Let's examine all its parts in turn.
 
 First comes the optional list of variable attributes inside \c{[\ ]}. The only
 attribute that we have in the above example is the variable type, \c{bool} and
-\c{string}, respectively. It is generally a good idea to assign static types to
-configuration variables because their values will be specified by the users of
-our project and the more automatic validation we provide the better. For
-example, this is what happens if we misspell the value of the \c{fancy}
-variable:
+\c{string}, respectively. It is generally a good idea to assign static types
+to configuration variables because their values will be specified by the users
+of our project and the more automatic validation we provide the better (see
+\l{#variables Variables} for the list of available types). For example, this
+is what happens if we misspell the value of the \c{fancy} variable:
 
 \
 $ b configure config.libhello.fancy=fals
@@ -4454,7 +4454,8 @@ is user-defined, then the default value is not evaluated.
 Note also that if the configuration value is not specified by the user and you
 haven't provided the default, the variable will be undefined, not \c{null},
 and, as a result, omitted from the persistent configuration
-(\c{build/config.build} file). However, \c{null} is a valid default value:
+(\c{build/config.build} file). However, \c{null} is a valid default value. It
+is is traditionally used for \i{optional} configuration values. For example:
 
 \
 config [string] config.libhello.fallback_name ?= [null]
@@ -4510,6 +4511,25 @@ value.}
 \
 if ($config.libhello.database == [null])
   fail 'config.libhello.database must be specified'
+\
+
+If computing the default value is expensive or requires elaborate logic, then
+handling of a configuration variable can be broken down into two steps along
+these lines:
+
+\
+config [string] config.libhello.greeting
+
+if! $defined(config.libhello.greeting)
+{
+  greeting = ... # Calculate default value.
+
+  if ($greeting == [null])
+    fail \"unable to calculate default greeting, specify manually \
+with config.libhello.greeting\"
+
+  config config.libhello.greeting ?= $greeting
+}
 \
 
 Other than assigning the default value via the \c{config} directive,
@@ -4599,6 +4619,116 @@ values to our source code, this topic is discussed further in
 
 
 \h#proj-config-report|Configuration Report|
+
+As mentioned above, one of the effects of the \c{config} directive is to mark
+a defined configuration variable for reporting. The project configuration
+report is printed automatically at the sufficiently high verbosity level along
+with the build system module configuration. For example (some of the \c{cxx}
+module configuration is omitted for brevity):
+
+\
+$ b config.libhello.greeting=Hey -v
+cxx libhello@/tmp/libhello/
+  cxx        g++@/usr/bin/g++
+  id         gcc
+  version    9.1.0
+  ...
+config libhello@/tmp/libhello/
+  fancy      false
+  greeting   Hey
+\
+
+\N|The configuration report is printed immediately after loading the project's
+\c{build/root.build} file. It is always printed at verbosity level \c{3}
+(\c{-V}) or higher. It is also printed at verbosity level \c{2} (\c{-v}) if
+any of the reported configuration variables have a \i{new} value. A value is
+considered new if it was set to default or was overridden on the command
+line.|
+
+The project configuration report header (the first line) starts with the
+special \c{config} module name (the \c{config} module itself does not have a
+report) followed by the project name and its \c{out_root} path. After the
+header come configuration variables with the \c{config.<project>} prefix
+removed. The configuration report for each variable can be customized using a
+number of \c{config.report*} attributes.
+
+The \c{config.report} attribute controls whether the variable is included into
+the report and, if so, the format to print its value in. For example, this is
+how we can exclude a variable from the report:
+
+\
+config [bool, config.report=false] config.libhello.selftest ?= false
+\
+
+While we would normally want to include all our configuration variables into a
+report, if some of them are internal and not meant to be used by the users of
+our project, it probably makes sense to exclude them.
+
+The only currently supported alternative printing format is \c{multiline}
+which prints a value that is a list one element per line. \N{Other printing
+formats may be supported in the future.} For example:
+
+\
+config [dir_paths, config.report=multiline] config.libhello.search_dirs
+\
+
+\
+$ b config.libhello.search_dirs=\"/etc/default /etc\" -v
+config libhello@/tmp/libhello/
+  search_dirs
+    /etc/default/
+    /etc/
+\
+
+The \c{config.report} attribute can also be used to include a non-\c{config.*}
+variable into a report. This is primarily useful for configuration values
+that are always discovered automatically but that are still useful to report
+for troubleshooting. Here is a realistic example:
+
+\
+using cxx
+
+# Determine the GCC plugin directory.
+#
+if ($cxx.id == 'gcc')
+{
+  plugin_dir = [dir_path] $process.run($cxx.path -print-file-name=plugin)
+
+  # If plugin support is disabled, then -print-file-name will print
+  # the name we have passed (the real plugin directory will always
+  # be absolute).
+  #
+  if (\"$plugin_dir\" == plugin)
+    fail \"$recall($cxx.path) does not support plugins\"
+
+  config [config.report] plugin_dir
+}
+\
+
+\N|This is the only situation where a variable that does not match the
+\c{config[.**].<project>.**} pattern is allowed in the \c{config} directive.
+Note also that a value of such a variable is never considered new.|
+
+Note that this mechanism should not be used to report configuration values
+that require post-processing because of the loss of the new value status
+(unless you are reporting both the original and post-processed values).
+Instead, there is the \c{config.report.variable} attribute to specify an
+alternative variable to use for the report. For example:
+
+\
+config [strings, config.report.variable=woptions] \
+  config.libhello.woptions
+
+woptions  = -Wall -Wextra
+woptions += $config.libhello.woptions
+woptions += -Werror
+\
+
+\
+$ b config.libhello.woptions=-Wno-extra -v
+config libhello@/tmp/libhello/
+  woptions   -Wall -Wextra -Wno-extra -Werror
+\
 
 
 \h#proj-config-propag|Configuration Propagation|
@@ -5080,6 +5210,30 @@ name). Project-qualified names are never considered to be patterns.
 \h1#variables|Variables|
 
 \N{This chapter is a work in progress and is incomplete.}
+
+The following variable/value types can currently be used in \c{buildfiles}:
+
+\
+bool
+
+uint64
+uint64s
+
+string
+strings
+
+path
+paths
+dir_path
+dir_paths
+
+name
+names
+name_pair
+
+project_name
+target_triplet
+\
 
 Note that while expansions in the target and prerequisite-specific assignments
 happen in the corresponding target and prerequisite contexts, respectively,
