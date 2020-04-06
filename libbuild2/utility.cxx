@@ -219,7 +219,7 @@ namespace build2
     assert (args[0] == pe.path->recall_string ());
 
     if (verb >= verbosity)
-      print_process (args, 0);
+      print_process (pe, args, 0);
 
     return process (
       *pe.path,

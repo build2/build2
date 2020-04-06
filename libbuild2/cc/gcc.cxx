@@ -101,14 +101,35 @@ namespace build2
       args.push_back ("-");
       args.push_back (nullptr);
 
+      process_env env (xc);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
       if (verb >= 3)
-        print_process (args);
+        print_process (env, args);
 
       try
       {
+        //@@ TODO: why don't we use run_start() here? Because it's unable to
+        //   open pipe for stderr and we need to change it first, for example,
+        //   making the err parameter a file descriptor rather than a flag.
+        //
+
         // Open pipe to stderr, redirect stdin and stdout to /dev/null.
         //
-        process pr (xc, args.data (), -2, -2, -1);
+        process pr (xc,
+                    args.data (),
+                    -2,     /* stdin */
+                    -2,     /* stdout */
+                    -1,     /* stderr */
+                    nullptr /* cwd */,
+                    env.vars);
 
         try
         {
@@ -237,12 +258,22 @@ namespace build2
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);
 
+      process_env env (xc);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
       if (verb >= 3)
-        print_process (args);
+        print_process (env, args);
 
       // Open pipe to stdout.
       //
-      process pr (run_start (xc,
+      process pr (run_start (env,
                              args,
                              0, /* stdin */
                              -1 /* stdout */));
@@ -316,7 +347,5 @@ namespace build2
 
       return make_pair (move (r), rn);
     }
-
-
   }
 }

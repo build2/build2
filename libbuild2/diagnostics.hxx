@@ -32,13 +32,15 @@ namespace build2
   // nameN arg arg ... nullptr nullptr
   //
   LIBBUILD2_SYMEXPORT void
-  print_process (diag_record&, const char* const* args, size_t n = 0);
+  print_process (diag_record&,
+                 const char* const* args, size_t n = 0);
 
   LIBBUILD2_SYMEXPORT void
   print_process (const char* const* args, size_t n = 0);
 
   inline void
-  print_process (diag_record& dr, const cstrings& args, size_t n = 0)
+  print_process (diag_record& dr,
+                 const cstrings& args, size_t n = 0)
   {
     print_process (dr, args.data (), n != 0 ? n : args.size ());
   }
@@ -47,6 +49,28 @@ namespace build2
   print_process (const cstrings& args, size_t n = 0)
   {
     print_process (args.data (), n != 0 ? n : args.size ());
+  }
+
+  // As above but with process_env.
+  //
+  LIBBUILD2_SYMEXPORT void
+  print_process (diag_record&,
+                 const process_env&, const char* const* args, size_t n = 0);
+
+  LIBBUILD2_SYMEXPORT void
+  print_process (const process_env&, const char* const* args, size_t n = 0);
+
+  inline void
+  print_process (diag_record& dr,
+                 const process_env& pe, const cstrings& args, size_t n = 0)
+  {
+    print_process (dr, pe, args.data (), n != 0 ? n : args.size ());
+  }
+
+  inline void
+  print_process (const process_env& pe, const cstrings& args, size_t n = 0)
+  {
+    print_process (pe, args.data (), n != 0 ? n : args.size ());
   }
 
   // Program verbosity level (-v/--verbose plus --silent).

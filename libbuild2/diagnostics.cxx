@@ -49,14 +49,32 @@ namespace build2
   void
   print_process (const char* const* args, size_t n)
   {
-    diag_record r (text);
-    print_process (r, args, n);
+    diag_record dr (text);
+    print_process (dr, args, n);
   }
 
   void
-  print_process (diag_record& r, const char* const* args, size_t n)
+  print_process (diag_record& dr,
+                 const char* const* args, size_t n)
   {
-    r << butl::process_args {args, n};
+    dr << butl::process_args {args, n};
+  }
+
+  void
+  print_process (const process_env& pe, const char* const* args, size_t n)
+  {
+    diag_record dr (text);
+    print_process (dr, pe, args, n);
+  }
+
+  void
+  print_process (diag_record& dr,
+                 const process_env& pe, const char* const* args, size_t n)
+  {
+    if (pe.env ())
+      dr << pe << ' ';
+
+    dr << butl::process_args {args, n};
   }
 
   // Diagnostics stack.

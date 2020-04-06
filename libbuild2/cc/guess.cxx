@@ -941,16 +941,25 @@ namespace build2
       args.push_back (nullptr); // Placeholder for the option.
       args.push_back (nullptr);
 
-      auto run = [&cs, &xp, &args] (const char* o,
-                                    auto&& f,
-                                    const char* const* env = nullptr,
-                                    bool checksum = false) -> guess_result
+      process_env env (xp);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
+      auto run = [&cs, &env, &args] (const char* o,
+                                     auto&& f,
+                                     bool checksum = false) -> guess_result
       {
         args[args.size () - 2] = o;
 
         return build2::run<guess_result> (
           3                          /* verbosity */,
-          process_env (xp, env),
+          env,
           args.data (),
           forward<decltype(f)> (f),
           false                      /* error */,
@@ -1070,7 +1079,7 @@ namespace build2
         // (e.g., via LC_ALL), then the compiler signature will most likely
         // change as well because of the translated text.
         //
-        r = run ("-v", f, nullptr /* env */, true /* checksum */);
+        r = run ("-v", f, true /* checksum */);
 
         if (r.empty ())
         {
@@ -1183,9 +1192,9 @@ namespace build2
         //
         // This is also the reason why we don't pass the mode options.
         //
-        const char* env[] = {"CL=", "_CL_=", nullptr};
+        const char* evars[] = {"CL=", "_CL_=", nullptr};
 
-        r = build2::run<guess_result> (3, process_env (xp, env), f, false);
+        r = build2::run<guess_result> (3, process_env (xp, evars), f, false);
 
         if (r.empty ())
         {
@@ -1807,7 +1816,8 @@ namespace build2
         args.push_back (nullptr);
 
         // The output of both -print-multiarch and -dumpmachine is a single
-        // line containing just the target triplet.
+        // line containing just the target triplet. We don't expect any
+        // localization so no need for LC_ALL.
         //
         auto f = [] (string& l, bool) {return move (l);};
 
@@ -2287,7 +2297,8 @@ namespace build2
         args.push_back (nullptr);
 
         // The output of -dumpmachine is a single line containing just the
-        // target triplet.
+        // target triplet. Again, we don't expect any localization so no need
+        // for LC_ALL.
         //
         auto f = [] (string& l, bool) {return move (l);};
         t = run<string> (3, xp, args.data (), f, false);
@@ -2520,8 +2531,15 @@ namespace build2
       // Intel(R) C Intel(R) 64 Compiler for applications running on Intel(R) MIC Architecture, Version 16.0.2.181 Build 20160204
       //
       // We should probably also assume the language words can be translated
-      // and even rearranged.
+      // and even rearranged. Thus pass LC_ALL=C.
       //
+      process_env env (xp);
+
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
       auto f = [] (string& l, bool)
       {
         return l.compare (0, 5, "Intel") == 0 && (l[5] == '(' || l[5] == ' ')
@@ -2538,7 +2556,7 @@ namespace build2
         //
         // @@ TODO: running without the mode options.
         //
-        s = run<string> (3, xp, "-V", f, false);
+        s = run<string> (3, env, "-V", f, false);
 
         if (s.empty ())
           fail << "unable to extract signature from " << xc << " -V output";
@@ -2664,7 +2682,7 @@ namespace build2
 
         // The -V output is sent to STDERR.
         //
-        t = run<string> (3, xp, args.data (), f, false);
+        t = run<string> (3, env, args.data (), f, false);
 
         if (t.empty ())
           fail << "unable to extract target architecture from " << xc
@@ -2708,6 +2726,8 @@ namespace build2
         // architecture on which we are running), who knows what will happen
         // in the future. So instead we are going to use -dumpmachine and
         // substitute the CPU.
+        //
+        // Note: no localication expected so running without LC_ALL.
         //
         // @@ TODO: running without the mode options.
         //
