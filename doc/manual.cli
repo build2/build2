@@ -4371,18 +4371,98 @@ value is to be provided, it should have a sensible default with a bias for
 simplicity and compatibility rather than the optimal result. For example, in
 the optional functionality case, the default should probably be to provide it.
 
+\N|The \c{build2} build system currently provides no support for
+\c{autoconf}-style probing of the build environment in order to automatically
+discover available libraries, functions, features, etc.
+
+The main reason for omitting this support is the fundamental ambiguity and the
+resulting brittleness of such probing due to the reliance on compiler, linker,
+or test execution failures. Specifically, in many such tests it is impossible
+for build system to distinguish between the missing feature, the broken test,
+and the mis-configured build environment situations. This leads to requiring a
+user intervention in the best case and to a mis-configured build in the
+worst. Other issues with this approach include portability, speed (compiling
+and linking take time), as well as limited applicability during
+cross-compilation (specifically, inability to run tests).
+
+As a result, we recommend using build-time, \i{expectation-based}
+configuration where your project expects a feature to be available if certain
+conditions are met. Examples of such conditions at source code level include
+C++ feature test macros, platform macros, runtime library macros, compiler
+macros, etc., with the build system modules exposing some of the same
+information via variables to allow making similar decisions in
+\c{buildfiles}. Another alternative is to automatically adapt to missing
+features using more advanced techniques such as C++ SFINAE. And where none of
+this is possible, delegate the decision to the user via a configuration value.
+Our experience with \c{build2} as well as those of other large cross-platform
+projects such as Boost shows that this is a viable strategy.
+
+Having said that, \c{build2} does provide the ability to extract configuration
+information from the environment (\c{$getenv()} function) or other tools
+(\c{$process.run*()} family of functions). Note, however, that for this to work
+reliably there should be no ambiguity between the \"no configuration
+available\" case (if such a case is possible) and the \"something went
+wrong\" case. We show a realistic example of this in \l{#proj-config-report
+Configuration Report} where we extract the plugin directory from GCC
+which may have been configured without plugin support.|
 
 As discussed in the introduction, the central part of the build configuration
 functionality are the \i{configuration variables}. They are automatically
 treated as overridable with global visibility and persisted by the \c{config}
-module (see \l{#intro-operations-config Configuring} for details).
+module (see \l{#intro-operations-config Configuring} for details). The
+following example, based on the \c{libhello} project from the introduction,
+provides an overview of the project configuration functionality with the
+remainder of the chapter providing the detailed explanation of all the
+parts shown as well as the alternative approaches.
+
+\
+libhello/
+├── build/
+│   ├── root.build
+│   └── ...
+├── libhello/
+│   ├── hello.cxx
+│   ├── buildfile
+│   └── ...
+└── ...
+\
+
+\
+# build/root.build
+
+config [string] config.libhello.greeting ?= 'Hello'
+\
+
+\
+# libhello/buildfile
+
+cxx.poptions += \"-DLIBHELLO_GREETING=\\\"$config.libhello.greeting\\\"\"
+\
+
+\
+// lihello/hello.cxx
+
+void say_hello (ostream& o, const string& n)
+{
+  o << LIBHELLO_GREETING \", \" << n << '!' << endl;
+}
+\
+
+\
+$ b configure config.libhello.greeting=Hi -v
+config libhello@/tmp/libhello/
+  greeting   Hi
+
+$ b -v
+g++ ... -DLIBHELLO_GREETING=\"Hi\" ...
+\
 
 By (enforced) convention, configuration variables start with \c{config.}, for
 example, \c{config.import.libhello}. In case of a build system module, the
 second component in its configuration variables should be the module name, for
 example, \c{config.cxx}, \c{config.cxx.coptions}. Similarly, project-specific
 configuration variables should have the project name as their second
-component, for example, \c{config.libhello.fancy}.
+component, for example, \c{config.libhello.greeting}.
 
 \N|More precisely, a project configuration variable must match the
 \c{config[.**].<project>.**} pattern where additional components may be
@@ -4846,7 +4926,11 @@ on how this works). The rest is changed as follows:
 # libhello/buildfile
 
 lib{hello}: {hxx ixx txx cxx}{** -version -config} hxx{version config}
+
 hxx{config}: in{config}
+{
+  install = false
+}
 \
 
 \
@@ -4865,8 +4949,8 @@ void say_hello (ostream& o, const string& n)
 \
 
 \N|With this setup, the way to export configuration information to our
-library's users is to install the configuration header, similar to how we do
-it for the version header.|
+library's users is to make the configuration header public and install it,
+similar to how we do it for the version header.|
 
 Now that the macro-based version is working, let's see how we can take
 advantage of modern C++ features to hopefully improve on some of their
@@ -4961,7 +5045,12 @@ namespace hello
 # libhello/buildfile
 
 lib{hello}: {hxx ixx txx cxx}{** -config} {hxx cxx}{config}
+
 hxx{config}: in{config}
+{
+  install = false
+}
+
 cxx{config}: in{config}
 \
 
