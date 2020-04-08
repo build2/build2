@@ -4385,7 +4385,7 @@ Configuration Report} where we extract the GCC plugin directory while dealing
 with the possibility of it Bunin configured without plugin support.|
 
 Before we delve into the technical details, let's discuss the overall need for
-project configurability. While it may seem that making ones project more
+project configurability. While it may seem that making one's project more
 user-configurable is always a good idea, there are costs: by having a choice
 we increase the complexity and open the door for potential incompatibility.
 Specifically, we may end up with two projects in the same build needing a
@@ -4480,7 +4480,7 @@ variable names in order to avoid clashes.
 
 The build system core reserves \c{build} and \c{import} as the second
 component in configuration variables as well as \c{configured} as the third
-and further components.|
+and subsequent components.|
 
 
 \h#proj-config-directive|\c{config} Directive|
@@ -4496,7 +4496,7 @@ config [string] config.libhello.greeting ?= 'Hello'
 \
 
 \N|The irony does not escape us: these configuration variables are exactly of
-the kind that we advocate against. However, finding reasonable example of
+the kind that we advocate against. However, finding a reasonable example of
 build-time configurability in a \i{\"Hello, World!\"} library is not easy. In
 fact, it probably shouldn't have any. So, for this chapter, do as we say, not
 as we do.|
@@ -4522,9 +4522,9 @@ After the attribute list we have the variable name. The \c{config} directive
 will validate that it matches the \c{config[.**].<project>.**} pattern (with
 one exception discussed in \l{#proj-config-report Configuration Report}).
 
-Finally, after the variable name comes optional default value. Note that
-unlike normal variables, default value assignment (\c{?=}) is the only valid
-form of assignment in the \c{config} directive.
+Finally, after the variable name comes the optional default value. Note that
+unlike normal variables, the default value assignment (\c{?=}) is the only
+valid form of assignment in the \c{config} directive.
 
 The semantics of the \c{config} directive is as follows: First an overridable
 variable is entered with the specified name, type (if any), and global
@@ -4539,7 +4539,7 @@ Note also that if the configuration value is not specified by the user and you
 haven't provided the default, the variable will be undefined, not \c{null},
 and, as a result, omitted from the persistent configuration
 (\c{build/config.build} file). However, \c{null} is a valid default value. It
-is is traditionally used for \i{optional} configuration values. For example:
+is traditionally used for \i{optional} configuration values. For example:
 
 \
 config [string] config.libhello.fallback_name ?= [null]
@@ -4598,8 +4598,8 @@ if ($config.libhello.database == [null])
 \
 
 If computing the default value is expensive or requires elaborate logic, then
-handling of a configuration variable can be broken down into two steps along
-these lines:
+the handling of a configuration variable can be broken down into two steps
+along these lines:
 
 \
 config [string] config.libhello.greeting
@@ -4709,7 +4709,7 @@ this topic is discussed further in
 
 One of the effects of the \c{config} directive is to mark a defined
 configuration variable for reporting. The project configuration report is
-printed automatically at the sufficiently high verbosity level along with the
+printed automatically at a sufficiently high verbosity level along with the
 build system module configuration. For example (some of the \c{cxx} module
 configuration is omitted for brevity):
 
@@ -4994,7 +4994,7 @@ void say_hello (ostream& o, const string& n)
 \N|Note that with \c{if\ constexpr} the branch not taken must still be valid,
 parsable code. This is both one of the main benefits of using it instead of
 \c{#if} (the code we are not using is still guaranteed to be syntactically
-correct) as well as its main drawbacks (it cannot be used, for example, for
+correct) as well as its main drawback (it cannot be used, for example, for
 platform-specific code without extra efforts, such as providing shims for
 missing declarations, etc).|
 
