@@ -1305,7 +1305,7 @@ namespace build2
     //
     if (!p.config_report.empty () && verb >= (p.config_report_new ? 2 : 3))
     {
-      const project_name& proj (named_project (root)); // Must be there.
+      const project_name& proj (named_project (root)); // Can be empty.
 
       // @@ TODO/MAYBE:
       //
@@ -1323,7 +1323,14 @@ namespace build2
       // the repetitive config.<project>. So we are only going to print the
       // part after <project> (see parser::parse_config() for details).
       //
-      string stem ('.' + proj.variable () + '.');
+      // But if there is no named project, then we print everything after
+      // config. This feels right since there could be zero identifiable
+      // information about the project in the header line. For example:
+      //
+      // config @/tmp/tests
+      //   libhello.tests.remote true
+      //
+      string stem (!proj.empty () ? '.' + proj.variable () + '.' : string ());
 
       names storage;
       for (const pair<lookup, string>& lf: p.config_report)
@@ -1342,8 +1349,10 @@ namespace build2
         }
         else
         {
-          size_t p (l.var->name.find (stem)); // Must be there.
-          n = string (l.var->name, p + stem.size ());
+          size_t p (!stem.empty ()
+                    ? l.var->name.find (stem) + stem.size ()
+                    : 7); // "config."
+          n = string (l.var->name, p);
         }
 
         dr << "\n  ";

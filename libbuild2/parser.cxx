@@ -1690,14 +1690,29 @@ namespace build2
     // the config[.**].<project>.** pattern where <project> is the innermost
     // named project.
     //
+    // Note that we currently don't allow just the config.<project> name even
+    // though this is used quite liberally in build system modules. Allowing
+    // this will complicate the logic (and documentation) a bit and there are
+    // no obvious use-cases. On the other hand, for tools that could be used
+    // during the build (say yacc), such a variable would most likely be used
+    // to specify its location (say config.yacc) . So let's "reserve" it for
+    // now.
+    //
+    // What should we do if there is no named project? We used to fail but
+    // there are valid cases where this can happen, for example, a standalone
+    // build of an unnamed tests subproject in order to test an installed
+    // library. Doing anything fuzzy like requiring at least a four-component
+    // name in this case is probably not worth the trouble: it's possible the
+    // subproject needs some configuration values from it amalgamation (in
+    // which case it will be duplicating them in its root.build file). So
+    // for now we allow this trusting the user knows what they are doing.
+    //
     string proj;
     {
       const project_name& n (named_project (*root_));
 
-      if (n.empty ())
-        fail (t) << "configuration variable in unnamed project";
-
-      proj = n.variable ();
+      if (!n.empty ())
+        proj = n.variable ();
     }
 
     // We are now in the normal lexing mode. Since we always have <var> we
@@ -1806,13 +1821,16 @@ namespace build2
           dr << fail (t) << "configuration variable '" << name
              << "' does not start with 'config.'";
 
-        if (name.find ('.' + proj + '.') == string::npos)
-          dr << fail (t) << "configuration variable '" << name
-             << "' does not include project name";
+        if (!proj.empty ())
+        {
+          if (name.find ('.' + proj + '.') == string::npos)
+            dr << fail (t) << "configuration variable '" << name
+               << "' does not include project name";
+        }
 
         if (!dr.empty ())
-          dr << info << "expected variable name in the 'config[.**]." << proj
-             << ".**' form";
+          dr << info << "expected variable name in the 'config[.**]."
+             << (proj.empty () ? "<project>" : proj.c_str ()) << ".**' form";
       }
 
       const variable& var (
