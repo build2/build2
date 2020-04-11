@@ -95,6 +95,21 @@ namespace build2
                         ? search (*rl, paths, "config.bin.ranlib")
                         : process_path ());
 
+      // We should probably assume the utility output language words can be
+      // translated and even rearranged. Thus pass LC_ALL=C.
+      //
+      process_env are (arp);
+      process_env rle (rlp);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      are.vars = evars;
+      rle.vars = evars;
+#endif
+
       // Binutils, LLVM, and FreeBSD ar/ranlib all recognize the --version
       // option. While Microsoft's lib.exe doesn't support --version, it only
       // issues a warning and exits with zero status, printing its usual
@@ -188,7 +203,7 @@ namespace build2
         // (yes, it goes to stdout) but that seems harmless.
         //
         sha256 cs;
-        arr = run<guess_result> (3, arp, "--version", f, false, false, &cs);
+        arr = run<guess_result> (3, are, "--version", f, false, false, &cs);
 
         if (!arr.empty ())
           arr.checksum = cs.string ();
@@ -211,7 +226,7 @@ namespace build2
         // Redirect STDERR to STDOUT and ignore exit status.
         //
         sha256 cs;
-        arr = run<guess_result> (3, arp, f, false, true, &cs);
+        arr = run<guess_result> (3, are, f, false, true, &cs);
 
         if (!arr.empty ())
         {
@@ -254,7 +269,7 @@ namespace build2
           };
 
           sha256 cs;
-          rlr = run<guess_result> (3, rlp, "--version", f, false, false, &cs);
+          rlr = run<guess_result> (3, rle, "--version", f, false, false, &cs);
 
           if (!rlr.empty ())
             rlr.checksum = cs.string ();
@@ -274,7 +289,7 @@ namespace build2
           // Redirect STDERR to STDOUT and ignore exit status.
           //
           sha256 cs;
-          rlr = run<guess_result> (3, rlp, f, false, true, &cs);
+          rlr = run<guess_result> (3, rle, f, false, true, &cs);
 
           if (!rlr.empty ())
           {
@@ -308,6 +323,19 @@ namespace build2
       guess_result r;
 
       process_path pp (search (ld, paths, "config.bin.ld"));
+
+      // We should probably assume the utility output language words can be
+      // translated and even rearranged. Thus pass LC_ALL=C.
+      //
+      process_env env (pp);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
 
       // Binutils ld recognizes the --version option. Microsoft's link.exe
       // doesn't support --version (nor any other way to get the version
@@ -384,7 +412,7 @@ namespace build2
         // but that seems harmless.
         //
         sha256 cs;
-        r = run<guess_result> (3, pp, "--version", f, false, true, &cs);
+        r = run<guess_result> (3, env, "--version", f, false, true, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -415,7 +443,7 @@ namespace build2
         };
 
         sha256 cs;
-        r = run<guess_result> (3, pp, "-v", f, false, false, &cs);
+        r = run<guess_result> (3, env, "-v", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -442,7 +470,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (3, pp, "-version", f, false, false, &cs);
+        r = run<guess_result> (3, env, "-version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -468,6 +496,19 @@ namespace build2
 
       process_path pp (search (rc, paths, "config.bin.rc"));
 
+      // We should probably assume the utility output language words can be
+      // translated and even rearranged. Thus pass LC_ALL=C.
+      //
+      process_env env (pp);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
       // Binutils windres recognizes the --version option.
       //
       // Version extraction is a @@ TODO.
@@ -487,7 +528,7 @@ namespace build2
         // option.
         //
         sha256 cs;
-        r = run<guess_result> (3, pp, "--version", f, false, false, &cs);
+        r = run<guess_result> (3, env, "--version", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();
@@ -520,7 +561,7 @@ namespace build2
         };
 
         sha256 cs;
-        r = run<guess_result> (3, pp, "/?", f, false, false, &cs);
+        r = run<guess_result> (3, env, "/?", f, false, false, &cs);
 
         if (!r.empty ())
           r.checksum = cs.string ();

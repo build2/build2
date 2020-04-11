@@ -935,7 +935,6 @@ namespace build2
       // Note that we suppress all the compiler errors because we may be
       // trying an unsupported option (but still consider the exit code).
       //
-      //
       cstrings args {xp.recall_string ()};
       append_options (args, x_mo);
       args.push_back (nullptr); // Placeholder for the option.
