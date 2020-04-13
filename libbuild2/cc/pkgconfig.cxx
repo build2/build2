@@ -499,13 +499,13 @@ namespace build2
     //
 #ifndef BUILD2_BOOTSTRAP
 
-    // Iterate over pkgconf directories that correspond to the specified
-    // library directory, passing them to the callback function for as long as
-    // it returns false (not found). Return true if the callback returned
+    // Derive pkgconf search directories from the specified library search
+    // directory passing them to the callback function for as long as it
+    // returns false (e.g., not found). Return true if the callback returned
     // true.
     //
     bool common::
-    pkgconfig_search (const dir_path& d, const pkgconfig_callback& f) const
+    pkgconfig_derive (const dir_path& d, const pkgconfig_callback& f) const
     {
       dir_path pd (d);
 
@@ -519,7 +519,17 @@ namespace build2
 
       // Platform-specific locations.
       //
-      if (tsys == "freebsd")
+      if (tsys == "linux-gnu")
+      {
+        // On Linux (at least on Debain and Fedora) .pc files for header-only
+        // libraries often go to /usr/share/pkgconfig/.
+        //
+        (((pd = d) /= "..") /= "share") /= "pkgconfig";
+
+        if (exists (pd) && f (move (pd)))
+          return true;
+      }
+      else if (tsys == "freebsd")
       {
         // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
         //
@@ -623,7 +633,7 @@ namespace build2
 
       pair<path, path> r;
 
-      if (pkgconfig_search (libd, check))
+      if (pkgconfig_derive (libd, check))
       {
         r.first  = move (d.a);
         r.second = move (d.s);
@@ -1205,9 +1215,9 @@ namespace build2
         return false;
       };
 
-      pkgconfig_search (libd, add_pc_dir);
-      for (const dir_path& d: top_usrd) pkgconfig_search (d, add_pc_dir);
-      for (const dir_path& d: top_sysd) pkgconfig_search (d, add_pc_dir);
+      pkgconfig_derive (libd, add_pc_dir);
+      for (const dir_path& d: top_usrd) pkgconfig_derive (d, add_pc_dir);
+      for (const dir_path& d: top_sysd) pkgconfig_derive (d, add_pc_dir);
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())

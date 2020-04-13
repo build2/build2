@@ -354,7 +354,7 @@ namespace build2
       using pkgconfig_callback = function<bool (dir_path&& d)>;
 
       bool
-      pkgconfig_search (const dir_path&, const pkgconfig_callback&) const;
+      pkgconfig_derive (const dir_path&, const pkgconfig_callback&) const;
 
       pair<path, path>
       pkgconfig_search (const dir_path&,
