@@ -1,6 +1,8 @@
 // file      : libbuild2/depdb.ixx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#include <libbuild2/diagnostics.hxx>
+
 namespace build2
 {
   inline depdb_base::
@@ -16,7 +18,14 @@ namespace build2
   flush ()
   {
     if (state_ == state::write)
+    try
+    {
       os_.flush ();
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to flush " << path << ": " << e;
+    }
   }
 
   inline bool depdb::
