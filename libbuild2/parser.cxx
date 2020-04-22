@@ -4296,6 +4296,10 @@ namespace build2
       {
         v += '.';
         v += *e;
+
+        if (path_pattern (*e))
+          fail (l) << "extension pattern in '" << v << "' (" << what
+                   << " extension patterns are not yet supported)";
       }
 
       try
