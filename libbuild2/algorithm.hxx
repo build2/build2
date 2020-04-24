@@ -423,6 +423,13 @@ namespace build2
   const target*
   resolve_group (action, const target&);
 
+  // Inject a target as a "prerequisite target" (note: not a prerequisite) of
+  // another target. Specifically, first match the prerequisite target and
+  // then add it to the back of the dependent target's prerequisite_targets.
+  //
+  void
+  inject (action, target&, const target& prereq);
+
   // Inject dependency on the target's directory fsdir{}, unless it is in the
   // src tree or is outside of any project (say, for example, an installation
   // directory). If the parent argument is true, then inject the parent

@@ -476,6 +476,13 @@ namespace build2
     return t.group;
   }
 
+  inline void
+  inject (action a, target& t, const target& p)
+  {
+    match (a, p);
+    t.prerequisite_targets[a].emplace_back (&p);
+  }
+
   LIBBUILD2_SYMEXPORT void
   match_prerequisites (action, target&, const match_search&, const scope*);
 
