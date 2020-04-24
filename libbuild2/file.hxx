@@ -67,6 +67,15 @@ namespace build2
   LIBBUILD2_SYMEXPORT pair<dir_path, bool>
   find_out_root (const dir_path&, optional<bool>& altn);
 
+  // Project's loading stage during which the parsing is performed.
+  //
+  enum class load_stage
+  {
+    boot,  // Loading bootstrap.build (or bootstrap pre/post hooks).
+    root,  // Loading root.build (or root pre/post hooks).
+    rest   // Loading the rest (ordinary buildfiles, command line, etc).
+  };
+
   // If buildfile is '-', then read from STDIN.
   //
   LIBBUILD2_SYMEXPORT void
@@ -82,7 +91,7 @@ namespace build2
   // stdin that requires parse_variable()).
   //
   LIBBUILD2_SYMEXPORT void
-  source (scope& root, scope& base, lexer&);
+  source (scope& root, scope& base, lexer&, load_stage = load_stage::rest);
 
   // As above but first check if this buildfile has already been sourced for
   // the base scope. Return false if the file has already been sourced.
@@ -115,13 +124,14 @@ namespace build2
               const dir_path& out_base,
               const dir_path& src_base);
 
-  // Return a scope for the specified directory (first). Note that switching
-  // to this scope might also involve switch to a new root scope (second) if
-  // the new scope is in another project. If the new scope is not in any
-  // project, then NULL is returned in second.
+  // Return a scope for the specified directory (first). If project is true
+  // then switching to this scope might also involve switch to a new root
+  // scope (second) if the new scope is in another project. If project is
+  // false or the new scope is not in any project, then NULL is returned in
+  // second.
   //
   LIBBUILD2_SYMEXPORT pair<scope&, scope*>
-  switch_scope (scope& root, const dir_path&);
+  switch_scope (scope& root, const dir_path&, bool project = true);
 
   // Bootstrap and optionally load an ad hoc (sub)project (i.e., the kind that
   // is not discovered and loaded automatically by bootstrap/load functions

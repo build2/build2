@@ -239,9 +239,9 @@ namespace build2
   }
 
   void
-  source (scope& root, scope& base, lexer& l)
+  source (scope& root, scope& base, lexer& l, load_stage s)
   {
-    parser p (root.ctx);
+    parser p (root.ctx, s);
     source (p, root, base, l);
   }
 
@@ -412,16 +412,17 @@ namespace build2
   }
 
   pair<scope&, scope*>
-  switch_scope (scope& root, const dir_path& p)
+  switch_scope (scope& root, const dir_path& p, bool proj)
   {
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
     auto i (root.ctx.scopes.rw (root).insert (p));
     scope& base (i->second);
-    scope* rs (base.root_scope ());
 
-    if (rs != nullptr)
+    scope* rs (nullptr);
+
+    if (proj && (rs = base.root_scope ()) != nullptr)
     {
       // Path p can be src_base or out_base. Figure out which one it is.
       //
@@ -536,7 +537,8 @@ namespace build2
     //   prevent multiple sourcing. We handle it here but we still need
     //   something like source_once (once [scope] source) in buildfiles.
     //
-    source_once (root, root, f);
+    parser p (root.ctx, load_stage::boot);
+    source_once (p, root, root, f, root);
   }
 
   pair<value, bool>
@@ -814,7 +816,7 @@ namespace build2
         //
         if (rs.buildfiles.insert (f).second)
         {
-          parser p (rs.ctx, parser::stage::boot);
+          parser p (rs.ctx, load_stage::boot);
           source (p, rs, rs, f);
         }
         else
@@ -1047,7 +1049,7 @@ namespace build2
       if (root.root_extra == nullptr)
         setup_root_extra (root, altn);
 
-      parser p (root.ctx, parser::stage::boot);
+      parser p (root.ctx, load_stage::boot);
       source_hooks (p, root, d, true /* pre */);
     }
   }
@@ -1061,7 +1063,7 @@ namespace build2
 
     if (exists (d))
     {
-      parser p (root.ctx, parser::stage::boot);
+      parser p (root.ctx, load_stage::boot);
       source_hooks (p, root, d, false /* pre */);
     }
   }
@@ -1294,7 +1296,7 @@ namespace build2
 
     // Reuse the parser to accumulate the configuration variable information.
     //
-    parser p (root.ctx, parser::stage::root);
+    parser p (root.ctx, load_stage::root);
 
     if (he) {source_hooks (p, root, hd, true  /* pre */); p.reset ();}
     if (fe) {source_once (p, root, root, f, root);}

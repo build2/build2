@@ -9,6 +9,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/spec.hxx>
+#include <libbuild2/file.hxx>
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/token.hxx>
 #include <libbuild2/variable.hxx>
@@ -21,14 +22,7 @@ namespace build2
   class LIBBUILD2_SYMEXPORT parser
   {
   public:
-    // The project's loading stage during which the parsing is performed.
-    //
-    enum class stage
-    {
-      boot,  // Parsing bootstrap.build (or bootstrap pre/post hooks).
-      root,  // Parsing root.build (or root pre/post hooks).
-      rest   // Parsing the rest (ordinary buildfiles, command line, etc).
-    };
+    using stage = load_stage;
 
     explicit
     parser (context& c, stage s = stage::rest)

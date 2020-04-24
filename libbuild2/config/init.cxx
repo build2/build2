@@ -215,7 +215,10 @@ namespace build2
             info << "consider reconfiguring " << project (rs) << '@'
                    << rs.out_path ();
 
-        source (rs, rs, lex);
+        // Treat it as continuation of bootstrap to avoid project switching
+        // (see switch_scope() for details).
+        //
+        source (rs, rs, lex, load_stage::boot);
       };
 
       auto load_config_file = [&load_config] (const path& f, const location& l)

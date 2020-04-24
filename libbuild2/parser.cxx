@@ -10,7 +10,6 @@
 #include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/dump.hxx>
-#include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/module.hxx>
 #include <libbuild2/target.hxx>
@@ -1435,7 +1434,7 @@ namespace build2
   {
     tracer trace ("parser::parse_include", &path_);
 
-    if (root_->src_path_ == nullptr)
+    if (stage_ == stage::boot)
       fail (t) << "inclusion during bootstrap";
 
     // The rest should be a list of buildfiles. Parse them as names in the
@@ -1933,7 +1932,7 @@ namespace build2
   {
     tracer trace ("parser::parse_import", &path_);
 
-    if (root_->src_path_ == nullptr)
+    if (stage_ == stage::boot)
       fail (t) << "import during bootstrap";
 
     // General import format:
@@ -6090,11 +6089,20 @@ namespace build2
   {
     tracer trace ("parser::switch_scope", &path_);
 
-    auto p (build2::switch_scope (*root_, d));
+    // Switching the project during bootstrap can result in bizarre nesting
+    // with unexpected loading order (e.g., config.build are loaded from inner
+    // to outter rather than the expected reverse). On the other hand, it can
+    // be handy to assign a variable for a nested scope in config.build. So
+    // for this stage we are going to switch the scope without switching the
+    // project expecting the user to know what they are doing.
+    //
+    bool proj (stage_ != stage::boot);
+
+    auto p (build2::switch_scope (*root_, d, proj));
     scope_ = &p.first;
     pbase_ = scope_->src_path_ != nullptr ? scope_->src_path_ : &d;
 
-    if (p.second != root_)
+    if (proj && p.second != root_)
     {
       root_ = p.second;
       l5 ([&]
