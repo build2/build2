@@ -187,31 +187,6 @@ namespace build2
     value&
     assign (const variable* var) {return vars.assign (var);} // For cached.
 
-    // Assign an untyped non-overridable variable with project visibility.
-    //
-    value&
-    assign (string name)
-    {
-      return assign (var_pool ().insert (move (name)));
-    }
-
-    // As above, but assign a typed variable.
-    //
-    template <typename T>
-    value&
-    assign (string name)
-    {
-      return vars.assign (var_pool ().insert<T> (move (name)));
-    }
-
-    template <typename T>
-    T&
-    assign (string name, T&& val)
-    {
-      value& v (assign<T> (move (name)) = forward<T> (val));
-      return v.as<T> ();
-    }
-
     template <typename T>
     T&
     assign (const variable& var, T&& val)
@@ -228,14 +203,52 @@ namespace build2
       return v.as<T> ();
     }
 
-    // Return a value suitable for appending. If the variable does not
-    // exist in this scope's map, then outer scopes are searched for
-    // the same variable. If found then a new variable with the found
-    // value is added to this scope and returned. Otherwise this
-    // function proceeds as assign().
+    // Assign an untyped non-overridable variable with project visibility.
+    //
+    value&
+    assign (string name)
+    {
+      return assign (var_pool ().insert (move (name)));
+    }
+
+    // As above, but assign a typed variable (note: variable type must be
+    // specified explicitly).
+    //
+    template <typename V>
+    value&
+    assign (string name)
+    {
+      return vars.assign (var_pool ().insert<V> (move (name)));
+    }
+
+    template <typename V, typename T>
+    V&
+    assign (string name, T&& val)
+    {
+      value& v (assign<V> (move (name)) = forward<T> (val));
+      return v.as<V> ();
+    }
+
+    // Return a value suitable for appending. If the variable does not exist
+    // in this scope's map, then outer scopes are searched for the same
+    // variable. If found then a new variable with the found value is added to
+    // this scope and returned. Otherwise this function proceeds as assign().
     //
     value&
     append (const variable&);
+
+    value&
+    append (string name)
+    {
+      return append (var_pool ().insert (move (name)));
+    }
+
+    template <typename V>
+    value&
+    append (string name)
+    {
+      return append (var_pool ().insert<V> (move (name)));
+    }
 
     // Target type/pattern-specific variables.
     //
