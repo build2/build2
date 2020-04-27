@@ -101,6 +101,9 @@ namespace build2
                    const scope&,
                    const dir_path& out = dir_path ());
 
+  LIBBUILD2_SYMEXPORT const target*
+  search_existing (const names&, const scope&);
+
   // Target match lock: a non-const target reference and the target::offset_*
   // state that has already been "achieved". Note that target::task_count
   // itself is set to busy for the duration or the lock. While at it we also

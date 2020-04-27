@@ -112,6 +112,8 @@ namespace build2
     assert (s.ctx.phase == run_phase::match ||
             s.ctx.phase == run_phase::execute);
 
+    // See also scope::find_prerequisite_key().
+    //
     name n (cn);
     auto rp (s.find_target_type (n, location ()));
     const target_type* tt (rp.first);
@@ -137,6 +139,20 @@ namespace build2
     return q
       ? import_existing (s.ctx, pk)
       : search_existing_target (s.ctx, pk);
+  }
+
+  const target*
+  search_existing (const names& ns, const scope& s)
+  {
+    if (size_t n = ns.size ())
+    {
+      if (n == (ns[0].pair ? 2 : 1))
+      {
+        return search_existing (ns[0], s, n == 1 ? dir_path () : ns[1].dir);
+      }
+    }
+
+    fail << "invalid target name: " << ns << endf;
   }
 
   // target_lock
