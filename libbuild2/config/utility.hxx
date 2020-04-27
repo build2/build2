@@ -250,11 +250,53 @@ namespace build2
         new_value, rs, var, string (default_value), save_flags, override);
     }
 
+    // Helper functions for assigning/appending config.x.y value to x.y,
+    // essentially:
+    //
+    // rs.assign (var) =  lookup_config (rs, "config." + var, default_value);
+    // rs.append (var) += lookup_config (rs, "config." + var, default_value);
+    //
+    template <typename V, typename T>
+    inline const V*
+    assign_config (scope& rs, scope& bs, string var, T&& default_value)
+    {
+      const V* cv (
+        cast_null<V> (
+          lookup_config (rs,
+                         rs.var_pool ().insert<V> ("config." + var),
+                         std::forward<T> (default_value)))); // VC14
+
+      value& v (bs.assign<V> (move (var)));
+
+      if (cv != nullptr)
+        v = *cv;
+
+      return v.null ? nullptr : &v.as<V> ();
+    }
+
+    template <typename V, typename T>
+    inline const V*
+    append_config (scope& rs, scope& bs, string var, T&& default_value)
+    {
+      const V* cv (
+        cast_null<V> (
+          lookup_config (rs,
+                         rs.var_pool ().insert<V> ("config." + var),
+                         std::forward<T> (default_value)))); // VC14
+
+      value& v (bs.append<V> (move (var)));
+
+      if (cv != nullptr)
+        v += *cv;
+
+      return v.null ? nullptr : &v.as<V> ();
+    }
+
     // Check whether there are any variables specified from the config.<name>
     // namespace. The idea is that we can check if there are any, say,
     // config.install.* values. If there are none, then we can assume this
     // functionality is not (yet) used and omit writing a whole bunch of NULL
-    // config.install.* values to the config.build file.  We call this
+    // config.install.* values to the config.build file. We call this
     // omitted/delayed configuration.
     //
     // Note that this function detects and ignores special config.* variables
