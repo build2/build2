@@ -1553,7 +1553,7 @@ namespace build2
 
         // Process error, fall through.
       }
-      catch (const io_error& e)
+      catch (const io_error&)
       {
         // IO error (or process error), fall through.
       }

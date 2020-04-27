@@ -30,6 +30,12 @@ namespace build2
       e != nullptr ? optional<string> (*e) : nullopt};
   }
 
+  inline names target::
+  as_name () const
+  {
+    return key ().as_name ();
+  }
+
   inline auto target::
   prerequisites () const -> const prerequisites_type&
   {
@@ -557,5 +563,27 @@ namespace build2
   load_mtime () const
   {
     return mtime_target::load_mtime (path ());
+  }
+
+  // exe
+  //
+  inline auto exe::
+  process_path () const -> process_path_type
+  {
+    // It's unfortunate we have to return by value but hopefully the
+    // compiler will see through it. Note also that returning empty
+    // process path if path is empty.
+    //
+    return process_path_.empty ()
+      ? process_path_type (path ().string ().c_str (),
+                           path_type (),
+                           path_type ())
+      : process_path_type (process_path_, false /* init */);
+  }
+
+  inline void exe::
+  process_path (process_path_type p)
+  {
+    process_path_ = move (p);
   }
 }

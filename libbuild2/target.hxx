@@ -306,10 +306,7 @@ namespace build2
     key () const;
 
     names
-    as_name () const
-    {
-      return key ().as_name ();
-    }
+    as_name () const;
 
     // Scoping.
     //
@@ -1737,27 +1734,13 @@ namespace build2
     // instead of the absolute one in diagnostics.
     //
     process_path_type
-    process_path () const
-    {
-      // It's unfortunate we have to return by value but hopefully the
-      // compiler will see through it. Note also that returning empty
-      // process path if path is empty.
-      //
-      return process_path_.empty ()
-        ? process_path_type (path ().string ().c_str (),
-                             path_type (),
-                             path_type ())
-        : process_path_type (process_path_, false /* init */);
-    }
+    process_path () const;
 
     // Note that setting the custom process path is not MT-safe and must be
     // done while holding the insertion lock.
     //
     void
-    process_path (process_path_type p)
-    {
-      process_path_ = move (p);
-    }
+    process_path (process_path_type);
 
   public:
     static const target_type static_type;
