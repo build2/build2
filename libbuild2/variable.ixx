@@ -101,6 +101,22 @@ namespace build2
     return *this;
   }
 
+  inline value& value::
+  operator= (names v)
+  {
+    assert (type == nullptr);
+    assign (move (v), nullptr);
+    return *this;
+  }
+
+  inline value& value::
+  operator+= (names v)
+  {
+    assert (type == nullptr);
+    append (move (v), nullptr);
+    return *this;
+  }
+
   inline void value::
   assign (name&& n, const variable* var)
   {

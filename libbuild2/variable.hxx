@@ -344,6 +344,9 @@ namespace build2
     template <typename T> value& operator= (T);
     template <typename T> value& operator+= (T);
 
+    value& operator= (names);
+    value& operator+= (names);
+
     template <typename T> value& operator= (T* v) {
       return v != nullptr ? *this = *v : *this = nullptr;}
 
@@ -360,7 +363,6 @@ namespace build2
     void assign  (name&&, const variable*);  // Shortcut for single name.
     void append  (names&&, const variable*);
     void prepend (names&&, const variable*);
-
 
     // Implementation details, don't use directly except in representation
     // type implementations.
