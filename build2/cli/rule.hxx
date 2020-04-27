@@ -13,12 +13,20 @@ namespace build2
 {
   namespace cli
   {
+    // Cached data shared between rules and the module.
+    //
+    struct data
+    {
+      const exe&    ctgt; // CLI compiler target.
+      const string& csum; // CLI compiler checksum.
+    };
+
     // @@ Redo as two separate rules?
     //
-    class compile_rule: public rule
+    class compile_rule: public rule, virtual data
     {
     public:
-      compile_rule () {}
+      compile_rule (data&& d): data (move (d)) {}
 
       virtual bool
       match (action, target&, const string&) const override;
@@ -26,8 +34,8 @@ namespace build2
       virtual recipe
       apply (action, target&) const override;
 
-      static target_state
-      perform_update (action, const target&);
+      target_state
+      perform_update (action, const target&) const;
     };
   }
 }

@@ -33,11 +33,17 @@ namespace build2
     void
     parse_buildfile (istream&,
                      const path_name&,
-                     scope& root,
-                     scope& base);
+                     scope* root,
+                     scope& base,
+                     target* = nullptr,
+                     prerequisite* = nullptr);
 
     void
-    parse_buildfile (lexer&, scope& root, scope& base);
+    parse_buildfile (lexer&,
+                     scope* root,
+                     scope& base,
+                     target* = nullptr,
+                     prerequisite* = nullptr);
 
     buildspec
     parse_buildspec (istream&, const path_name&);
@@ -51,7 +57,7 @@ namespace build2
     names
     parse_export_stub (istream& is, const path_name& name, scope& r, scope& b)
     {
-      parse_buildfile (is, name, r, b);
+      parse_buildfile (is, name, &r, b);
       return move (export_value);
     }
 
@@ -99,7 +105,9 @@ namespace build2
     parse_clause (token&, token_type&, bool one = false);
 
     void
-    parse_variable_block (token&, token_type&, const target_type*, string);
+    parse_variable_block (token&, token_type&,
+                          const target_type* = nullptr,
+                          string = string ());
 
     // Ad hoc target names inside < ... >.
     //
@@ -270,14 +278,14 @@ namespace build2
     attributes&
     attributes_top () {return attributes_.back ();}
 
-    // Source a stream optionnaly entering it as a buildfile and performing
-    // the default target processing.
+    // Source a stream optionnaly performing the default target processing.
+    // If the specified path name has a real path, then also enter it as a
+    // buildfile.
     //
     void
     source (istream&,
             const path_name&,
             const location&,
-            bool enter,
             bool default_target);
 
     // The what argument is used in diagnostics (e.g., "expected <what>
@@ -494,7 +502,7 @@ namespace build2
     // Enter buildfile as a target.
     //
     void
-    enter_buildfile (const path_name&);
+    enter_buildfile (const path&);
 
     // Lexer.
     //

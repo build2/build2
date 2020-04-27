@@ -50,6 +50,10 @@ namespace build2
     name (dir_path d, string t, string v)
         : dir (move (d)), type (move (t)), value (move (v)) {}
 
+    name (string p, dir_path d, string t, string v)
+        : proj (project_name (move (p))), dir (move (d)), type (move (t)),
+          value (move (v)) {}
+
     name (optional<project_name> p, dir_path d, string t, string v)
         : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)) {}
 

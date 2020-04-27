@@ -2666,17 +2666,17 @@ library to be able to use it. They also need to know where to find its
 headers, which other libraries to link, etc. This information is carried in a
 set of target-specific \c{cxx.export.*} variables that parallel the \c{cxx.*}
 set and that together with the library's prerequisites constitute the
-\i{library meta-information protocol}. Every time a source file that depends
-on a library is compiled or a binary is linked, this information is
-automatically extracted by the compile and link rules from the library
-dependency chain, recursively. And when the library is installed, this
-information is carried over to its \c{pkg-config(1)} file.
+\i{library metadata protocol}. Every time a source file that depends on a
+library is compiled or a binary is linked, this information is automatically
+extracted by the compile and link rules from the library dependency chain,
+recursively. And when the library is installed, this information is carried
+over to its \c{pkg-config(1)} file.
 
 \N|Similar to the \c{c.*} and \c{cc.*} sets discussed earlier, there are also
 \c{c.export.*} and \c{cc.export.*} sets.|
 
-Here are the parts relevant to the library meta-information protocol in the
-above \c{buildfile}:
+Here are the parts relevant to the library metadata protocol in the above
+\c{buildfile}:
 
 \
 int_libs = # Interface dependencies.
@@ -2773,7 +2773,7 @@ Note also that this only applies to shared libraries. In case of static
 libraries, both interface and implementation dependencies are always linked,
 recursively.|
 
-The remaining lines in the library meta-information fragment are:
+The remaining lines in the library metadata fragment are:
 
 \
 lib{hello}:
@@ -4365,7 +4365,7 @@ cross-compilation (specifically, inability to run tests).
 
 As a result, we recommend using \i{expectation-based} configuration where your
 project assumes a feature to be available if certain conditions are
-met. Examples of such conditions at the source code level include C++ feature
+met. Examples of such conditions at the source code level include feature
 test macros, platform macros, runtime library macros, compiler macros, etc.,
 with the build system modules exposing some of the same information via
 variables to allow making similar decisions in \c{buildfiles}. Another
@@ -4476,7 +4476,10 @@ subprojects, similar to build system submodules.
 
 If a build system module for a tool (such as a source code generator) and the
 tool itself share a name, then they may need to coordinate their configuration
-variable names in order to avoid clashes.
+variable names in order to avoid clashes. Note also that when importing an
+executable target in the \c{<project>%exe{<project>\}} form, the
+\c{config.<project>} variable is treated as an alias for
+\c{config.import.<project>.<project>.exe}.
 
 The build system core reserves \c{build} and \c{import} as the second
 component in configuration variables as well as \c{configured} as the third

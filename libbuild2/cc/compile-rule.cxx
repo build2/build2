@@ -696,8 +696,8 @@ namespace build2
           continue;
 
         // A dependency on a library is there so that we can get its
-        // *.export.poptions, modules, etc. This is the library
-        // meta-information protocol. See also append_lib_options().
+        // *.export.poptions, modules, etc. This is the library metadata
+        // protocol. See also append_lib_options().
         //
         if (pi == include_type::normal &&
             (p.is_a<libx> () ||
@@ -4871,7 +4871,7 @@ namespace build2
       //
       // For (direct) library prerequisites, check their prerequisite bmi{}s
       // (which should be searched and matched with module names discovered;
-      // see the library meta-information protocol for details).
+      // see the library metadata protocol for details).
       //
       // For our own bmi{} prerequisites, checking if each (better) matches
       // any of the imports.

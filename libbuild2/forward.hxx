@@ -55,10 +55,13 @@ namespace build2
   class include_type;
   struct prerequisite_member;
 
+  // <libbuild2/prerequisite-key.hxx>
+  //
+  class prerequisite_key;
+
   // <libbuild2/prerequisite.hxx>
   //
   class prerequisite;
-  class prerequisite_key;
 
   // <libbuild2/rule.hxx>
   //

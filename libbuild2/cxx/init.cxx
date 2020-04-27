@@ -382,7 +382,7 @@ namespace build2
 
       // We only support root loading (which means there can only be one).
       //
-      if (&rs != &bs)
+      if (rs != bs)
         fail (loc) << "cxx.guess module must be loaded in project root";
 
       // Load cc.core.vars so that we can cache all the cc.* variables.
@@ -540,7 +540,7 @@ namespace build2
 
       // We only support root loading (which means there can only be one).
       //
-      if (&rs != &bs)
+      if (rs != bs)
         fail (loc) << "cxx.config module must be loaded in project root";
 
       // Load cxx.guess and share its module instance as ours.
@@ -585,7 +585,7 @@ namespace build2
 
       // We only support root loading (which means there can only be one).
       //
-      if (&rs != &bs)
+      if (rs != bs)
         fail (loc) << "cxx module must be loaded in project root";
 
       // Load cxx.config.

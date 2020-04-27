@@ -5,9 +5,6 @@
 
 #include <libbuild2/context.hxx>
 
-using namespace std;
-using namespace butl;
-
 namespace build2
 {
   namespace cli

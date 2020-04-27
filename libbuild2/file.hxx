@@ -11,6 +11,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
 #include <libbuild2/variable.hxx> // list_value
 
 #include <libbuild2/export.hxx>
@@ -241,36 +242,189 @@ namespace build2
   // that (or failed to find anything usable), it calls the standard
   // prerequisite search() function which sees this is a project-qualified
   // prerequisite and goes straight to the second phase of import. Here,
-  // currently, we simply fail but in the future this will be the place where
-  // we can call custom "last resort" import hooks. For example, we can hook a
-  // package manager that will say, "Hey, dude, I see you are trying to import
-  // foo and I see there is a package foo available in repository bar. Wanna,
-  // like, download and use it or something?"
+  // currently, we only have special handling of exe{} targets (search in
+  // PATH) simply failing for the rest. But in the future this coud be the
+  // place where we could call custom "last resort" import hooks. For example,
+  // we can hook a package manager that will say, "Hey, dude, I see you are
+  // trying to import foo and I see there is a package foo available in
+  // repository bar. Wanna, like, download and use it or something?" Though
+  // the latest thoughts indicate this is probably a bad idea (implicitness,
+  // complexity, etc).
+  //
+  // More specifically, we have the following kinds of import (tried in this
+  // order):
+  //
+  // ad hoc
+  //
+  //  The target is imported by specifying its path directly with
+  //  config.import.<proj>.<name>[.<type>]. For example, this can be
+  //  used to import an installed target.
+  //
+  //
+  // normal
+  //
+  //  The target is imported from a project that was either specified with
+  //  config.import.<proj> or was found via the subproject search. This also
+  //  loads the target's dependency information.
+  //
+  //
+  // rule-specific
+  //
+  //  The target was imported in a rule-specific manner (e.g., a library was
+  //  found in the compiler's search paths).
+  //
+  //
+  // fallback/default
+  //
+  //  The target was found by the second phase of import (e.g., an executable
+  //  was found in PATH).
+
+  // Import phase 1. Return the imported target(s) as well as the kind of
+  // import that was performed with `fallback` indicating it was not found.
+  //
+  // If second is `fallback`, then first contains the original, project-
+  // qualified target. If second is `adhoc`, first may still contain a
+  // project-qualified target (which may or may not be the same as the
+  // original; see the config.import.<proj>.<name>[.<type>] logic for details)
+  // in which case it should still be passed to import phase 2.
+  //
+  // If phase2 is true then the phase 2 is performed right away (we call it
+  // immediate import). Note that if optional is true, phase2 must be true as
+  // well (and thus there is no rule-specific logic for optional imports). In
+  // case of optional, empty names value is retuned if nothing was found.
+  //
+  // If metadata is true, then load the target metadata. In this case phase2
+  // must be true as well.
   //
   // Note also that we return names rather than a single name: while normally
   // it will be a single target name, it can be an out-qualified pair (if
   // someone wants to return a source target) but it can also be a non-target
   // since we don't restrict what users can import/export.
   //
-  LIBBUILD2_SYMEXPORT names
-  import (scope& base, name, const location&);
+  // Finally, note that import is (and should be kept) idempotent or, more
+  // precisely, "accumulatively idempotent" in that additional steps may be
+  // performed (phase 2, loading of the metadata) unless already done.
+  //
+  enum class import_kind {adhoc, normal, fallback};
 
-  LIBBUILD2_SYMEXPORT pair<name, dir_path>
-  import_search (scope& base, name, const location&, bool subproj = true);
+  LIBBUILD2_SYMEXPORT pair<names, import_kind>
+  import (scope& base,
+          name,
+          bool phase2,
+          bool optional,
+          bool metadata,
+          const location&);
 
-  LIBBUILD2_SYMEXPORT pair<names, const scope&>
-  import_load (context&, pair<name, dir_path>, const location&);
-
+  // Import phase 2.
+  //
   const target&
   import (context&, const prerequisite_key&);
 
-  // As above but only imports as an already existing target. Unlike the above
-  // version, this one can be called during the execute phase.
+  // As above but import the target "here and now" without waiting for phase 2
+  // (and thus omitting any rule-specific logic). This version of import is,
+  // for example, used by build system modules to perform an implicit import
+  // of the corresponding tool.
+  //
+  // If phase2 is false, then the second phase's fallback/default logic is
+  // only invoked if the import was ad hoc (i.e., a relative path was
+  // specified via config.import.<proj>.<name>[.<type>]) with NULL returned
+  // otherwise.
+  //
+  // If phase2 is true and optional is true, then NULL is returned instead of
+  // failing if phase 2 could not find anything.
+  //
+  // If metadata is true, then load the target metadata. In this case phase2
+  // must be true as well.
+  //
+  // The what argument specifies what triggered the import (for example,
+  // "module load") and is used in diagnostics.
+  //
+  // This function also returns the kind of import that was performed.
+  //
+  pair<const target*, import_kind>
+  import_direct (scope& base,
+                 name,
+                 bool phase2,
+                 bool optional,
+                 bool metadata,
+                 const location&,
+                 const char* what = "import");
+
+  // As above but also return (in new_value) an indication of whether this
+  // import is based on a new config.* value. See config::lookup_config() for
+  // details. Note that a phase 2 fallback/default logic is not considered new
+  // (though this can be easily adjusted based on import kind).
+  //
+  LIBBUILD2_SYMEXPORT pair<const target*, import_kind>
+  import_direct (bool& new_value,
+                 scope& base,
+                 name,
+                 bool phase2,
+                 bool optional,
+                 bool metadata,
+                 const location&,
+                 const char* what = "import");
+
+
+  template <typename T>
+  pair<const T*, import_kind>
+  import_direct (scope&,
+                 name, bool, bool, bool,
+                 const location&, const char* = "import");
+
+  template <typename T>
+  pair<const T*, import_kind>
+  import_direct (bool&,
+                 scope&,
+                 name,
+                 bool, bool, bool,
+                 const location&, const char* = "import");
+
+  // Print import_direct<exe>() result either as a target for a normal import
+  // or as a process path for ad hoc and fallback imports. Normally used in
+  // build system modules to print the configuration report.
+  //
+  LIBBUILD2_SYMEXPORT ostream&
+  operator<< (ostream&, const pair<const exe*, import_kind>&);
+
+  // As import phase 2 but only imports as an already existing target. But
+  // unlike it, this function can be called during the execute phase.
   //
   // Note: similar to search_existing().
   //
   const target*
   import_existing (context&, const prerequisite_key&);
+
+  // Lower-level components of phase 1 (see implementation for details).
+  //
+  pair<name, optional<dir_path>>
+  import_search (scope& base,
+                 name,
+                 bool optional_,
+                 const optional<string>& metadata, // False or metadata key.
+                 bool subprojects,
+                 const location&,
+                 const char* what = "import");
+
+  // As above but also return (in new_value) an indication of whether this
+  // import is based on a new config.* value. See config::lookup_config()
+  // for details.
+  //
+  LIBBUILD2_SYMEXPORT pair<name, optional<dir_path>>
+  import_search (bool& new_value,
+                 scope& base,
+                 name,
+                 bool optional_,
+                 const optional<string>& metadata,
+                 bool subprojects,
+                 const location&,
+                 const char* what = "import");
+
+  LIBBUILD2_SYMEXPORT pair<names, const scope&>
+  import_load (context&,
+               pair<name, optional<dir_path>>,
+               bool metadata,
+               const location&);
 
   // Create a build system project in the specified directory.
   //

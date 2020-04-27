@@ -19,7 +19,7 @@ namespace build2
 {
   // Light-weight (by being shallow-pointing) target key.
   //
-  class target_key
+  class LIBBUILD2_SYMEXPORT target_key
   {
   public:
     const target_type* const type;
@@ -31,6 +31,11 @@ namespace build2
     template <typename T>
     bool is_a () const {return type->is_a<T> ();}
     bool is_a (const target_type& tt) const {return type->is_a (tt);}
+
+    // Return the target name or a pair of names if out-qualified.
+    //
+    names
+    as_name () const;
   };
 
   inline bool

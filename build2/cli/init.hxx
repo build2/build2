@@ -17,8 +17,9 @@ namespace build2
     //
     // Submodules:
     //
-    // `cli.config` -- registers variables.
-    // `cli`        -- loads cli.config and registers target types and rules.
+    // `cli.guess`  -- set variables describing the compiler.
+    // `cli.config` -- load `cli.guess` and set the rest of the variables.
+    // `cli`        -- load `cli.config` and register targets and rules.
     //
     extern "C" const module_functions*
     build2_cli_load ();

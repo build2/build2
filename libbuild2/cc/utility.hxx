@@ -41,10 +41,10 @@ namespace build2
     //
     // The reason we pass scope and not the target is because this function is
     // called not only for exe/lib but also for obj as part of the library
-    // meta-information protocol implementation. Normally the bin.*.lib values
-    // will be project-wide. With this scheme they can be customized on the
-    // per-directory basis but not per-target which means all exe/lib in the
-    // same directory have to have the same link order.
+    // metadata protocol implementation. Normally the bin.*.lib values will be
+    // project-wide. With this scheme they can be customized on the per-
+    // directory basis but not per-target which means all exe/lib in the same
+    // directory have to have the same link order.
     //
     lorder
     link_order (const scope& base, otype);

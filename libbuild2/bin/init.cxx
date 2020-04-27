@@ -150,7 +150,7 @@ namespace build2
 
       // We only support root loading (which means there can only be one).
       //
-      if (&rs != &bs)
+      if (rs != bs)
         fail (loc) << "bin.config module must be loaded in project root";
 
       // Load bin.vars.

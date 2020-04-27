@@ -138,7 +138,7 @@ namespace build2
   class LIBBUILD2_SYMEXPORT target
   {
   public:
-    // Context this scope belongs to.
+    // Context this target belongs to.
     //
     context& ctx;
 
@@ -304,6 +304,12 @@ namespace build2
     //
     target_key
     key () const;
+
+    names
+    as_name () const
+    {
+      return key ().as_name ();
+    }
 
     // Scoping.
     //
@@ -763,6 +769,15 @@ namespace build2
 
     virtual const target_type& dynamic_type () const = 0;
     static const target_type static_type;
+
+    // RW access.
+    //
+    target&
+    rw () const
+    {
+      assert (ctx.phase == run_phase::load);
+      return const_cast<target&> (*this);
+    }
 
   public:
     // Split the name leaf into target name (in place) and extension
@@ -1529,8 +1544,15 @@ namespace build2
     //
     // An empty path may signify special unknown/undetermined/unreal location
     // (for example, a binless library or an installed import library -- we
-    // know the DLL is there, just not exactly where). In this case you would
-    // also normally set its mtime.
+    // know the DLL is there, just not exactly where). In this case you could
+    // also set its mtime to timestamp_unreal (but don't have to, if a real
+    // timestamp can be derived, for example, the from the import library in
+    // the DLL case above).
+    //
+    // Note, however, that a target with timestamp_unreal does not have to
+    // have an empty path. One consequence of this arrangement (assigned path
+    // with unreal timestamp) is that the timestamp of such a target when used
+    // as a prerequisite won't affect the dependent's target out-of-date-ness.
     //
     // We used to return a pointer to properly distinguish between not set and
     // empty but that proved too tedious to work with. So now we return empty
@@ -1705,9 +1727,44 @@ namespace build2
   public:
     using file::file;
 
+    using process_path_type = build2::process_path;
+
+    // Return the process path of this executable target. Normally it will be
+    // the absolute path returned by path() but can also be something custom
+    // if, for example, the target was found via a PATH search (see import for
+    // details). The idea is to use this path if we need to execute the target
+    // in which case, for the above example, we will see a short (recall) path
+    // instead of the absolute one in diagnostics.
+    //
+    process_path_type
+    process_path () const
+    {
+      // It's unfortunate we have to return by value but hopefully the
+      // compiler will see through it. Note also that returning empty
+      // process path if path is empty.
+      //
+      return process_path_.empty ()
+        ? process_path_type (path ().string ().c_str (),
+                             path_type (),
+                             path_type ())
+        : process_path_type (process_path_, false /* init */);
+    }
+
+    // Note that setting the custom process path is not MT-safe and must be
+    // done while holding the insertion lock.
+    //
+    void
+    process_path (process_path_type p)
+    {
+      process_path_ = move (p);
+    }
+
   public:
     static const target_type static_type;
     virtual const target_type& dynamic_type () const {return static_type;}
+
+  private:
+    process_path_type process_path_;
   };
 
   class LIBBUILD2_SYMEXPORT buildfile: public file

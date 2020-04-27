@@ -19,6 +19,7 @@
 #include <libbuild2/target-key.hxx>
 #include <libbuild2/target-type.hxx>
 #include <libbuild2/target-state.hxx>
+#include <libbuild2/prerequisite-key.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -330,6 +331,20 @@ namespace build2
     target_key
     find_target_key (names&, const location&) const;
 
+    // Similar to the find_target_type() but does not complete relative
+    // directories.
+    //
+    pair<const target_type&, optional<string>>
+    find_prerequisite_type (name&, name&, const location&) const;
+
+    // As above, but return a prerequisite key.
+    //
+    prerequisite_key
+    find_prerequisite_key (name&, name&, const location&) const;
+
+    prerequisite_key
+    find_prerequisite_key (names&, const location&) const;
+
     // Dynamically derive a new target type from an existing one. Return the
     // reference to the target type and an indicator of whether it was
     // actually created.
@@ -496,6 +511,12 @@ namespace build2
     scope* strong_ = nullptr; // Only set on root scopes.
                               // NULL means no strong amalgamtion.
   };
+
+  inline bool
+  operator== (const scope& x, const scope& y) { return &x == &y; }
+
+  inline bool
+  operator!= (const scope& x, const scope& y) { return !(x == y); }
 
   inline ostream&
   operator<< (ostream& os, const scope& s)

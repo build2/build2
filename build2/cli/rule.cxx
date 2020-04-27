@@ -13,9 +13,6 @@
 
 #include <build2/cli/target.hxx>
 
-using namespace std;
-using namespace butl;
-
 namespace build2
 {
   namespace cli
@@ -166,11 +163,17 @@ namespace build2
         //
         match_prerequisite_members (a, t);
 
-        //@@ TODO: inject dependency on exe{cli}.
+        // For update inject dependency on the CLI compiler target.
+        //
+        if (a == perform_update_id)
+          inject (a, t, ctgt);
 
         switch (a)
         {
-        case perform_update_id: return &perform_update;
+        case perform_update_id: return [this] (action a, const target& t)
+          {
+            return perform_update (a, t);
+          };
         case perform_clean_id:  return &perform_clean_group_depdb;
         default:                return noop_recipe; // Configure/dist update.
         }
@@ -206,7 +209,7 @@ namespace build2
     }
 
     target_state compile_rule::
-    perform_update (action a, const target& xt)
+    perform_update (action a, const target& xt) const
     {
       tracer trace ("cli::compile_rule::perform_update");
 
@@ -215,7 +218,6 @@ namespace build2
       // timestamp, depdb, etc.
       //
       const cli_cxx& t (xt.as<cli_cxx> ());
-      const scope& rs (t.root_scope ());
       const path& tp (t.h->path ());
 
       // Update prerequisites and determine if any relevant ones render us
@@ -242,7 +244,7 @@ namespace build2
 
         // Then the compiler checksum.
         //
-        if (dd.expect (cast<string> (rs["cli.checksum"])) != nullptr)
+        if (dd.expect (csum) != nullptr)
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
 
         // Then the options checksum.
@@ -277,9 +279,8 @@ namespace build2
       path relo (relative (t.dir));
       path rels (relative (s.path ()));
 
-      const process_path& cli (cast<process_path> (rs["cli.path"]));
-
-      cstrings args {cli.recall_string ()};
+      const process_path& pp (ctgt.process_path ());
+      cstrings args {pp.recall_string ()};
 
       // See if we need to pass --output-{prefix,suffix}
       //
@@ -323,7 +324,7 @@ namespace build2
 
       if (!t.ctx.dry_run)
       {
-        run (cli, args);
+        run (pp, args);
         dd.check_mtime (tp);
       }
 

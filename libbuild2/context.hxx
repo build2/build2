@@ -352,6 +352,11 @@ namespace build2
     //
     const variable* var_import_build2;
     const variable* var_import_target;
+    const variable* var_import_metadata;
+
+    // export.*
+    //
+    const variable* var_export_metadata;
 
     // [string] target visibility
     //

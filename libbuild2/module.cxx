@@ -147,18 +147,32 @@ namespace build2
     // (remember, if it's top-level, then it must be in an isolated
     // configuration).
     //
-    pair<name, dir_path> ir (
+    pair<name, optional<dir_path>> ir (
       import_search (bs,
                      name (proj, dir_path (), "libs", "build2-" + mod),
-                     loc,
-                     nested /* subprojects */));
+                     opt,
+                     nullopt  /* metadata    */,
+                     nested   /* subprojects */,
+                     loc));
 
-    if (!ir.second.empty ())
+    if (ir.first.empty ())
     {
+      assert (opt);
+      return nullptr;
+    }
+
+    if (ir.second)
+    {
+      // What if a module is specified with config.import.<mod>.<lib>.libs?
+      // Note that this could still be a project-qualified target.
+      //
+      if (ir.second->empty ())
+        fail (loc) << "direct module target importation not yet supported";
+
       // We found the module as a target in a project. Now we need to update
       // the target (which will also give us the shared library path).
       //
-      l5 ([&]{trace << "found " << ir.first << " in " << ir.second;});
+      l5 ([&]{trace << "found " << ir.first << " in " << *ir.second;});
 
       // Create the build context if necessary.
       //
@@ -215,7 +229,8 @@ namespace build2
 
       // Load the imported project in the module context.
       //
-      pair<names, const scope&> lr (import_load (ctx, move (ir), loc));
+      pair<names, const scope&> lr (
+        import_load (ctx, move (ir), false /* metadata */, loc));
 
       l5 ([&]{trace << "loaded " << lr.first;});
 
@@ -638,7 +653,7 @@ namespace build2
   // Note that it would have been nice to keep these inline but we need the
   // definition of scope for the variable lookup.
   //
-  bool
+  const shared_ptr<module>*
   load_module (scope& rs,
                scope& bs,
                const string& name,
@@ -646,8 +661,18 @@ namespace build2
                bool opt,
                const variable_map& hints)
   {
-    return cast_false<bool> (bs[name + ".loaded"]) ||
-      init_module (rs, bs, name, loc, opt, hints);
+    if (cast_false<bool> (bs[name + ".loaded"]))
+    {
+      if (cast_false<bool> (bs[name + ".configured"]))
+        return &rs.root_extra->modules.find (name)->second.module;
+    }
+    else
+    {
+      if (module_state* ms = init_module (rs, bs, name, loc, opt, hints))
+        return &ms->module;
+    }
+
+    return nullptr;
   }
 
   const shared_ptr<module>&
@@ -657,6 +682,9 @@ namespace build2
                const location& loc,
                const variable_map& hints)
   {
+    //@@ TODO: shouldn't we also check for configured? What if the previous
+    //   attempt to load it was optional?
+
     return cast_false<bool> (bs[name + ".loaded"])
       ? rs.root_extra->modules.find (name)->second.module
       : init_module (rs, bs, name, loc, false /* optional */, hints)->module;

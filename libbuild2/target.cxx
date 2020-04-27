@@ -42,6 +42,27 @@ namespace build2
     return false;
   }
 
+  // target_key
+  //
+  names target_key::
+  as_name () const
+  {
+    names r;
+
+    string v (*name);
+    target::combine_name (v, ext, false /* @@ TODO: what to do? */);
+
+    r.push_back (build2::name (*dir, type->name, move (v)));
+
+    if (!out->empty ())
+    {
+      r.front ().pair = '@';
+      r.push_back (build2::name (*out));
+    }
+
+    return r;
+  }
+
   // target_state
   //
   static const char* const target_state_[] =

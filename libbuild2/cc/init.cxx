@@ -399,7 +399,7 @@ namespace build2
 
       // We only support root loading (which means there can only be one).
       //
-      if (&rs != &bs)
+      if (rs != bs)
         fail (loc) << m << " module must be loaded in project root";
 
       // We want to order the loading to match what user specified on the

@@ -5,7 +5,6 @@
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
-#include <libbuild2/prerequisite.hxx>
 
 namespace build2
 {

@@ -465,20 +465,8 @@ namespace build2
       {
         // This is import.
         //
-        name n (cn);
-        auto rp (s.find_target_type (n, location ())); // Note: changes name.
-        const target_type* tt (rp.first);
-        optional<string>& ext (rp.second);
-
-        if (tt == nullptr)
-          fail << "unknown target type '" << n.type << "' in library " << n;
-
-        // @@ OUT: for now we assume out is undetermined, just like in
-        // search (name, scope).
-        //
-        dir_path out;
-
-        prerequisite_key pk {n.proj, {tt, &n.dir, &out, &n.value, ext}, &s};
+        name n (cn), o; // Note: find_prerequisite_key() changes name.
+        prerequisite_key pk (s.find_prerequisite_key (n, o, location ()));
         xt = search_library_existing (a, sysd, usrd, pk);
 
         if (xt == nullptr)

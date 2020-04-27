@@ -222,37 +222,53 @@ namespace build2
   }
 
   void parser::
-  parse_buildfile (istream& is, const path_name& in, scope& root, scope& base)
+  parse_buildfile (istream& is,
+                   const path_name& in,
+                   scope* root,
+                   scope& base,
+                   target* tgt,
+                   prerequisite* prq)
   {
     lexer l (is, in);
-    parse_buildfile (l, root, base);
+    parse_buildfile (l, root, base, tgt, prq);
   }
 
   void parser::
-  parse_buildfile (lexer& l, scope& root, scope& base)
+  parse_buildfile (lexer& l,
+                   scope* root,
+                   scope& base,
+                   target* tgt,
+                   prerequisite* prq)
   {
     path_ = &l.name ();
     lexer_ = &l;
 
-    root_ = &root;
+    root_ = root;
     scope_ = &base;
-    target_ = nullptr;
-    prerequisite_ = nullptr;
+    target_ = tgt;
+    prerequisite_ = prq;
 
     pbase_ = scope_->src_path_;
 
-    enter_buildfile (*path_); // Needs scope_.
+    if (path_->path != nullptr)
+      enter_buildfile (*path_->path); // Note: needs scope_.
 
     token t;
     type tt;
     next (t, tt);
 
-    parse_clause (t, tt);
+    if (target_ != nullptr || prerequisite_ != nullptr)
+    {
+      parse_variable_block (t, tt);
+    }
+    else
+    {
+      parse_clause (t, tt);
+      process_default_target (t);
+    }
 
     if (tt != type::eos)
       fail (t) << "unexpected " << t;
-
-    process_default_target (t);
   }
 
   token parser::
@@ -385,7 +401,9 @@ namespace build2
         {
           f = &parser::parse_run;
         }
-        else if (n == "import")
+        else if (n == "import"  ||
+                 n == "import?" ||
+                 n == "import!")
         {
           f = &parser::parse_import;
         }
@@ -892,7 +910,7 @@ namespace build2
     // NULL, then this is a target type/pattern-specific block.
     //
     // enter: first token of first line in the block (normal lexer mode)
-    // leave: rcbrace
+    // leave: rcbrace or eos
     //
     // This is a more restricted variant of parse_clause() that only allows
     // variable assignments.
@@ -1098,6 +1116,8 @@ namespace build2
       //
       name n (tt != type::colon ? move (pn) : pn);
 
+      // See also scope::find_prerequisite_key().
+      //
       auto rp (scope_->find_target_type (n, ploc));
       const target_type* tt (rp.first);
       optional<string>& e (rp.second);
@@ -1210,7 +1230,7 @@ namespace build2
                     {
                       next (t, tt); // First token inside the block.
 
-                      parse_variable_block (t, tt, nullptr, string ());
+                      parse_variable_block (t, tt);
 
                       if (tt != type::rcbrace)
                         fail (t) << "expected '}' instead of " << t;
@@ -1318,7 +1338,7 @@ namespace build2
                     {
                       next (t, tt); // First token inside the block.
 
-                      parse_variable_block (t, tt, nullptr, string ());
+                      parse_variable_block (t, tt);
 
                       if (tt != type::rcbrace)
                         fail (t) << "expected '}' instead of " << t;
@@ -1333,18 +1353,14 @@ namespace build2
   }
 
   void parser::
-  source (istream& is,
-          const path_name& in,
-          const location& loc,
-          bool enter,
-          bool deft)
+  source (istream& is, const path_name& in, const location& loc, bool deft)
   {
     tracer trace ("parser::source", &path_);
 
     l5 ([&]{trace (loc) << "entering " << in;});
 
-    if (enter)
-      enter_buildfile (in);
+    if (in.path != nullptr)
+      enter_buildfile (*in.path);
 
     const path_name* op (path_);
     path_ = &in;
@@ -1417,7 +1433,6 @@ namespace build2
         source (ifs,
                 path_name (p),
                 get_location (t),
-                true  /* enter */,
                 false /* default_target */);
       }
       catch (const io_error& e)
@@ -1558,8 +1573,7 @@ namespace build2
         source (ifs,
                 path_name (p),
                 get_location (t),
-                true  /* enter */,
-                true  /* default_target */);
+                true /* default_target */);
       }
       catch (const io_error& e)
       {
@@ -1642,7 +1656,6 @@ namespace build2
         source (is,
                 path_name ("<stdout>"),
                 l,
-                false /* enter */,
                 false /* default_target */);
       }
 
@@ -1689,13 +1702,10 @@ namespace build2
     // the config[.**].<project>.** pattern where <project> is the innermost
     // named project.
     //
-    // Note that we currently don't allow just the config.<project> name even
-    // though this is used quite liberally in build system modules. Allowing
-    // this will complicate the logic (and documentation) a bit and there are
-    // no obvious use-cases. On the other hand, for tools that could be used
-    // during the build (say yacc), such a variable would most likely be used
-    // to specify its location (say config.yacc) . So let's "reserve" it for
-    // now.
+    // Note that we also allow just the config.<project> name which can be
+    // used by tools (such as source code generators) that use themselves in
+    // their own build. This is a bit of an advanced/experimental setup so
+    // we leave this undocumented for now.
     //
     // What should we do if there is no named project? We used to fail but
     // there are valid cases where this can happen, for example, a standalone
@@ -1788,7 +1798,7 @@ namespace build2
         name.compare (0, 7, "config.") != 0)
     {
       if (!as.empty ())
-        fail (t) << "unexpected attributes for report-only variable";
+        fail (as.loc) << "unexpected attributes for report-only variable";
 
       attributes_pop ();
 
@@ -1822,9 +1832,15 @@ namespace build2
 
         if (!proj.empty ())
         {
-          if (name.find ('.' + proj + '.') == string::npos)
+          size_t p (name.find ('.' + proj));
+
+          if (p == string::npos                        ||
+              ((p += proj.size () + 1) != name.size () && // config.<proj>
+               name[p] != '.'))                           // config.<proj>.
+          {
             dr << fail (t) << "configuration variable '" << name
                << "' does not include project name";
+          }
         }
 
         if (!dr.empty ())
@@ -1937,8 +1953,11 @@ namespace build2
 
     // General import format:
     //
-    // import [<var>=](<project>|<project>/<target>])+
+    // import[?!] [<attrs>] [<var>=](<project>|<project>%<target>])+
     //
+    bool opt (t.value.back () == '?');
+    bool ph2 (opt || t.value.back () == '!');
+
     type atype; // Assignment type.
     value* val (nullptr);
     const variable* var (nullptr);
@@ -1950,13 +1969,38 @@ namespace build2
     // switch to the value mode, get the first token, and then re-parse it
     // manually looking for =/=+/+=.
     //
+    // Note that if we ever wanted to support value attributes, that would be
+    // non-trivial.
+    //
     mode (lexer_mode::value, '@');
     next_with_attributes (t, tt);
 
-    // Get variable attributes, if any (note that here we will go into a
-    // nested value mode with a different pair character).
+    // Get variable (or value) attributes, if any, and deal with the special
+    // metadata attribute. Since currently it can only appear in the import
+    // directive, we handle it in an ad hoc manner.
     //
-    auto at (attributes_push (t, tt));
+    attributes_push (t, tt);
+    attributes& as (attributes_top ());
+
+    bool meta (false);
+    for (auto i (as.begin ()); i != as.end (); )
+    {
+      if (i->name == "metadata")
+      {
+        if (!ph2)
+          fail (as.loc) << "loading metadata requires immediate import" <<
+            info << "consider using the import! directive instead";
+
+        meta = true;
+      }
+      else
+      {
+        ++i;
+        continue;
+      }
+
+      i = as.erase (i);
+    }
 
     const location vloc (get_location (t));
 
@@ -1964,8 +2008,9 @@ namespace build2
     {
       // Split the token into the variable name and value at position (p) of
       // '=', taking into account leading/trailing '+'. The variable name is
-      // returned while the token is set to value. If the resulting token
-      // value is empty, get the next token. Also set assignment type (at).
+      // returned while the token is set to the value part. If the resulting
+      // token value is empty, get the next token. Also set assignment type
+      // (at).
       //
       auto split = [&atype, &t, &tt, this] (size_t p) -> string
       {
@@ -2042,10 +2087,10 @@ namespace build2
     }
     else
     {
-      if (at.first)
-        fail (at.second) << "attributes without variable";
-      else
-        attributes_pop ();
+      if (!as.empty ())
+        fail (as.loc) << "attributes without variable";
+
+      attributes_pop ();
     }
 
     // The rest should be a list of projects and/or targets. Parse them as
@@ -2064,19 +2109,27 @@ namespace build2
 
       // import() will check the name, if required.
       //
-      names r (import (*scope_, move (n), l));
+      names r (import (*scope_, move (n), ph2, opt, meta, l).first);
 
       if (val != nullptr)
       {
-        if (atype == type::assign)
+        if (r.empty ()) // Optional not found.
         {
-          val->assign (move (r), var);
-          atype = type::append; // Append subsequent values.
+          if (atype == type::assign)
+            *val = nullptr;
         }
-        else if (atype == type::prepend)
-          val->prepend (move (r), var);
         else
-          val->append (move (r), var);
+        {
+          if (atype == type::assign)
+            val->assign (move (r), var);
+          else if (atype == type::prepend)
+            val->prepend (move (r), var);
+          else
+            val->append (move (r), var);
+        }
+
+        if (atype == type::assign)
+          atype = type::append; // Append subsequent values.
       }
     }
 
@@ -6170,11 +6223,10 @@ namespace build2
   }
 
   void parser::
-  enter_buildfile (const path_name& pn)
+  enter_buildfile (const path& p)
   {
     tracer trace ("parser::enter_buildfile", &path_);
 
-    const path& p (pn.path != nullptr ? *pn.path : path ());
     dir_path d (p.directory ()); // Empty for a path name with the NULL path.
 
     // Figure out if we need out.
@@ -6190,8 +6242,8 @@ namespace build2
     ctx.targets.insert<buildfile> (
       move (d),
       move (out),
-      pn.name ? *pn.name : p.leaf ().base ().string (),
-      p.extension (),                                   // Always specified.
+      p.leaf ().base ().string (),
+      p.extension (), // Always specified.
       trace);
   }
 

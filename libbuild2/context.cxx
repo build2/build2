@@ -544,7 +544,10 @@ namespace build2
     var_project_url     = &vp.insert<string> ("project.url");
     var_project_summary = &vp.insert<string> ("project.summary");
 
-    var_import_target = &vp.insert<name> ("import.target");
+    var_import_target   = &vp.insert<name>     ("import.target");
+    var_import_metadata = &vp.insert<uint64_t> ("import.metadata");
+
+    var_export_metadata = &vp.insert<uint64_t> ("export.metadata", v_t);
 
     var_extension = &vp.insert<string> ("extension", v_t);
     var_clean     = &vp.insert<bool>   ("clean",    v_t);

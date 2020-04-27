@@ -738,7 +738,7 @@ namespace build2
     auto r (find_target_type (n, loc));
 
     if (r.first == nullptr)
-      fail (loc) << "unknown target type " << n.type;
+      fail (loc) << "unknown target type " << n.type << " in " << n;
 
     bool src (n.pair); // If out-qualified, then it is from src.
     if (src)
@@ -784,18 +784,52 @@ namespace build2
       if (n == (ns[0].pair ? 2 : 1))
       {
         name dummy;
-        target_key r (find_target_key (ns[0], n == 1 ? dummy : ns[1], loc));
-
-        return target_key {
-          r.type,
-          r.dir,
-          n == 1 ? &empty_dir_path : r.out,
-          r.name,
-          move (r.ext)};
+        return find_target_key (ns[0], n == 1 ? dummy : ns[1], loc);
       }
     }
 
     fail (loc) << "invalid target name: " << ns << endf;
+  }
+
+  pair<const target_type&, optional<string>> scope::
+  find_prerequisite_type (name& n, name& o, const location& loc) const
+  {
+    auto r (find_target_type (n, loc));
+
+    if (r.first == nullptr)
+      fail (loc) << "unknown target type " << n.type << " in " << n;
+
+    if (n.pair) // If out-qualified, then it is from src.
+    {
+      assert (n.pair == '@');
+
+      if (!o.directory ())
+        fail (loc) << "expected directory after '@'";
+    }
+
+    if (!n.dir.empty ())
+      n.dir.normalize (false, true); // Current dir collapses to an empty one.
+
+    if (!o.dir.empty ())
+      o.dir.normalize (false, true); // Ditto.
+
+    return pair<const target_type&, optional<string>> (
+      *r.first, move (r.second));
+  }
+
+  prerequisite_key scope::
+  find_prerequisite_key (names& ns, const location& loc) const
+  {
+    if (size_t n = ns.size ())
+    {
+      if (n == (ns[0].pair ? 2 : 1))
+      {
+        name dummy;
+        return find_prerequisite_key (ns[0], n == 1 ? dummy : ns[1], loc);
+      }
+    }
+
+    fail (loc) << "invalid prerequisite name: " << ns << endf;
   }
 
   static target*

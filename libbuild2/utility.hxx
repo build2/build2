@@ -579,7 +579,7 @@ namespace build2
   void
   append_options (sha256&, T&, const char*);
 
-  // As above but from the strings value directly.
+  // As above but from the lookup directly.
   //
   LIBBUILD2_SYMEXPORT void
   append_options (cstrings&, const lookup&, const char* excl = nullptr);
@@ -590,6 +590,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT void
   append_options (sha256&, const lookup&);
 
+  // As above but from the strings value directly.
+  //
   void
   append_options (cstrings&, const strings&, const char* excl = nullptr);
 

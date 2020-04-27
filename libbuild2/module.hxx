@@ -170,9 +170,18 @@ namespace build2
 
   // A wrapper over init_module() to use from other modules that incorporates
   // the <name>.loaded variable check (use init_module() directly to sidestep
-  // this check).
+  // this check). Return a pointer to the pointer to the module instance if it
+  // was both successfully loaded and configured and NULL otherwise (so can be
+  // used as bool).
   //
-  LIBBUILD2_SYMEXPORT bool
+  // Note also that NULL can be returned even of optional is false which
+  // happens if the requested module has already been loaded but failed to
+  // configure. The function could have issued diagnostics but the caller can
+  // normally provide additional information.
+  //
+  // Note: for non-optional modules use the versions below.
+  //
+  LIBBUILD2_SYMEXPORT const shared_ptr<module>*
   load_module (scope& root,
                scope& base,
                const string& name,

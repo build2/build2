@@ -311,6 +311,20 @@ namespace build2
     // be used to "remember" that the module is left unconfigured in order to
     // avoid re-running the tests, etc.
     //
+    // @@ This functionality is WIP/unused and still has a number of issues:
+    //
+    // - This seems to be a subset of a bigger problem of caching discovered
+    //   configuration results. In fact, what we do in the configured case,
+    //   for example in the cc module (multiple path extraction runs, etc), is
+    //   a lot more expensive.
+    //
+    // - The current semantics does not work well for the case where, say, the
+    //   missing tool has appeared in PATH and can now be used via the default
+    //   configuration. In fact, even reconfiguring will not help without a
+    //   "nudge" (e.g., config.<tool>=<tool>). So maybe this value should be
+    //   ignored during configuration? See the "Tool importation: unconfigured
+    //   state" page for more notes.
+    //
     LIBBUILD2_SYMEXPORT bool
     unconfigured (scope& rs, const string& var);
 

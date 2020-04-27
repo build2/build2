@@ -4,19 +4,20 @@
 #include <libbuild2/file.hxx>
 
 #include <iomanip> // left, setw()
+#include <sstream>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/filesystem.hxx>
-#include <libbuild2/prerequisite.hxx>
 #include <libbuild2/diagnostics.hxx>
+#include <libbuild2/prerequisite-key.hxx>
 
 #include <libbuild2/token.hxx>
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/parser.hxx>
 
-#include <libbuild2/config/utility.hxx> // save_variable()
+#include <libbuild2/config/utility.hxx> // lookup_config()
 
 using namespace std;
 using namespace butl;
@@ -25,6 +26,9 @@ namespace build2
 {
   // Standard and alternative build file/directory naming schemes.
   //
+
+  // build:
+
   const dir_path std_build_dir     ("build");
   const dir_path std_root_dir      (dir_path (std_build_dir) /= "root");
   const dir_path std_bootstrap_dir (dir_path (std_build_dir) /= "bootstrap");
@@ -39,7 +43,7 @@ namespace build2
   const path   std_buildfile_file   ("buildfile");
   const path   std_buildignore_file (".buildignore");
 
-  //
+  // build2:
 
   const dir_path alt_build_dir     ("build2");
   const dir_path alt_root_dir      (dir_path (alt_build_dir) /= "root");
@@ -171,7 +175,7 @@ namespace build2
     try
     {
       l5 ([&]{trace << "sourcing " << fn;});
-      p.parse_buildfile (l, root, base);
+      p.parse_buildfile (l, &root, base);
     }
     catch (const io_error& e)
     {
@@ -1417,8 +1421,221 @@ namespace build2
     return rs;
   }
 
-  pair<name, dir_path>
-  import_search (scope& ibase, name target, const location& loc, bool subp)
+  // Find or insert a target based on the file path.
+  //
+  static const target*
+  find_target (tracer& trace, context& ctx,
+               const target_type& tt, const path& p)
+  {
+    const target* t (
+      ctx.targets.find (tt,
+                        p.directory (),
+                        dir_path (),
+                        p.leaf ().base ().string (),
+                        p.extension (),
+                        trace));
+
+    if (t != nullptr)
+    {
+      if (const file* f = t->is_a<file> ())
+        assert (f->path () == p);
+    }
+
+    return t;
+  }
+
+  static pair<target&, ulock>
+  insert_target (tracer& trace, context& ctx,
+                 const target_type& tt, path p)
+  {
+    auto r (
+      ctx.targets.insert_locked (tt,
+                                 p.directory (),
+                                 dir_path (),    // No out (not in project).
+                                 p.leaf ().base ().string (),
+                                 p.extension (), // Always specified.
+                                 true /* implied */,
+                                 trace));
+
+    if (const file* f = r.first.is_a<file> ())
+      f->path (move (p));
+
+    return r;
+  }
+
+  // Extract metadata for an executable target by executing it with the
+  // --build2-metadata option. In case of an error, issue diagnostics and fail
+  // if opt is false and return nullopt if it's true.
+  //
+  // Note that loading of the metadata is split into two steps, extraction and
+  // parsing, because extraction also serves as validation that the executable
+  // is runnable, what we expected, etc. In other words, we sometimes do the
+  // extraction without parsing. In this light it would have been more
+  // efficient for extract to return the running process with a pipe rather
+  // than the extracted data. But this would complicate the code quite a bit
+  // plus we don't expect the data to be large, typically.
+  //
+  // Also note that we do not check the export.metadata here leaving it to
+  // the caller to do for both this case and export stub.
+  //
+  static optional<string>
+  extract_metadata (const process_path& pp,
+                    const string& key,
+                    bool opt,
+                    const location& loc)
+  {
+    // Note: to ease handling (think patching third-party code) we will always
+    // specify the --build2-metadata option in this single-argument form.
+    //
+    const char* args[] {pp.recall_string (), "--build2-metadata=1", nullptr};
+
+    // @@ TODO This needs some more thinking/clarification. Specifically, what
+    //    does it mean "x not found/not ours"? Is it just not found in PATH?
+    //    That plus was not able to execute (e.g., some shared libraries
+    //    missing)? That plus abnormal termination? That plus x that we found
+    //    is something else?
+    //
+    //    Specifically, at least on Linux, when a shared library is not found,
+    //    it appears exec() issues the diagnostics and calls exit(127) (that
+    //    is, exec() does not return). So this is a normal termination with a
+    //    peculiar exit code.
+    //
+    //    Overall, it feels like we should only silently ignore the "not
+    //    found" and "not ours" cases since for all others the result is
+    //    ambigous: it could be "ours" but just broken and the user expects
+    //    us to use it but we silently ignored it. But then the same can be
+    //    said about the "not ours" case: the user expected us to find "ours"
+    //    but we didn't and silently ignored it.
+    //
+    try
+    {
+      // Note: not using run_*() functions since need to be able to suppress
+      // all errors, including inability to exec.
+      //
+      if (verb >= 3)
+        print_process (args);
+
+      process pr (pp,
+                  args,
+                  -2           /* stdin  to /dev/null                 */,
+                  -1           /* stdout to pipe                      */,
+                  opt ? -2 : 2 /* stderr to /dev/null or pass-through */);
+
+      try
+      {
+        ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
+        string r;
+        getline (is, r, '\0'); // Will fail if there is no data.
+        is.close (); // Detect errors.
+
+        if (pr.wait ())
+        {
+          // Check the signature line. It should be in the following form:
+          //
+          // # build2 buildfile <key>
+          //
+          // This makes sure we don't treat bogus output as metadata and also
+          // will allow us to support other formats (say, JSON) in the future.
+          // Note that we won't be able to add more options since trying them
+          // will be expensive.
+          //
+          if (r.compare (0,
+                         20 + key.size (),
+                         "# build2 buildfile " + key + '\n') == 0)
+            return r;
+
+          if (!opt)
+            error (loc) << "invalid metadata signature in " << args[0]
+                        << " output";
+
+          goto fail;
+        }
+
+        // Process error, fall through.
+      }
+      catch (const io_error& e)
+      {
+        // IO error (or process error), fall through.
+      }
+
+      // Deal with process or IO error.
+      //
+      if (pr.wait ())
+      {
+        if (!opt)
+          error (loc) << "unable to read metadata from " << args[0];
+      }
+      else
+      {
+        // The child process presumably issued diagnostics but if it didn't,
+        // the result will be very confusing. So let's issue something
+        // generic for good measure.
+        //
+        if (!opt)
+          error (loc) << "unable to extract metadata from " << args[0];
+      }
+
+      goto fail;
+    }
+    catch (const process_error& e)
+    {
+      if (!opt)
+        error (loc) << "unable to execute " << args[0] << ": " << e;
+
+      if (e.child)
+        exit (1);
+
+      goto fail;
+    }
+
+    fail:
+
+    if (opt)
+      return nullopt;
+    else
+      throw failed ();
+  }
+
+  static void
+  parse_metadata (target& t, const string& md, const location& loc)
+  {
+    istringstream is (md);
+    path_name in ("<metadata>");
+
+    auto df = make_diag_frame (
+      [&t, &loc] (const diag_record& dr)
+      {
+        dr << info (loc) << "while loading metadata for " << t;
+      });
+
+    parser p (t.ctx);
+    p.parse_buildfile (is, in,
+                       nullptr /* root */,
+                       t.base_scope ().rw (), // Load phase.
+                       &t);
+  }
+
+  // Return the processed target name as well as the project directory, if
+  // any.
+  //
+  // Absent project directory means nothing importable for this target was
+  // found (and the returned target name is the same as the original). Empty
+  // project directory means the target was found in an ad hoc manner, outside
+  // of any project (in which case it may still be qualified; see
+  // config.import.<proj>.<name>[.<type>]).
+  //
+  // Return empty name if an ad hoc import resulted in a NULL target (only
+  // allowed if optional is true).
+  //
+  pair<name, optional<dir_path>>
+  import_search (bool& new_value,
+                 scope& ibase,
+                 name tgt,
+                 bool opt,
+                 const optional<string>& meta,
+                 bool subp,
+                 const location& loc,
+                 const char* what)
   {
     tracer trace ("import_search");
 
@@ -1426,24 +1643,24 @@ namespace build2
     // short and sweet: we simply return it as empty-project-qualified and
     // let someone else (e.g., a rule) take a stab at it.
     //
-    if (target.unqualified ())
+    if (tgt.unqualified ())
     {
-      target.proj = project_name ();
-      return make_pair (move (target), dir_path ());
+      tgt.proj = project_name ();
+      return make_pair (move (tgt), optional<dir_path> ());
     }
 
     context& ctx (ibase.ctx);
 
     // Otherwise, get the project name and convert the target to unqualified.
     //
-    project_name proj (move (*target.proj));
-    target.proj = nullopt;
+    project_name proj (move (*tgt.proj));
+    tgt.proj = nullopt;
 
     scope& iroot (*ibase.root_scope ());
 
     // Figure out the imported project's out_root.
     //
-    dir_path out_root;
+    optional<dir_path> out_root;
 
     // First try the config.import.* mechanism. The idea is that if the user
     // explicitly told us the project's location, then we should prefer that
@@ -1452,95 +1669,208 @@ namespace build2
     //
     auto& vp (iroot.var_pool ());
 
+    using config::lookup_config;
+
     for (;;) // Break-out loop.
     {
-      string n ("config.import." + proj.variable ());
+      string projv (proj.variable ());
+      string n ("config.import." + projv);
 
-      auto skip = [&target, &proj, &trace] ()
+      // Skip import phase 1.
+      //
+      auto skip = [&tgt, &proj, &trace] ()
       {
-        target.proj = move (proj);
-        l5 ([&]{trace << "skipping " << target;});
-        return make_pair (move (target), dir_path ());
+        tgt.proj = move (proj);
+        l5 ([&]{trace << "skipping " << tgt;});
+        return make_pair (move (tgt), optional<dir_path> ());
       };
 
-      // config.import.<proj>
+      // Add hoc import.
       //
-      {
-        // Note: pattern-typed in context ctor as an overridable variable of
-        // type abs_dir_path (path auto-completion).
-        //
-        const variable& var (vp.insert (n));
-
-        if (auto l = iroot[var])
-        {
-          out_root = cast<dir_path> (l);      // Normalized and actualized.
-
-          // Mark as part of config.
-          //
-          config::save_variable (iroot, var);
-
-          // Empty config.import.* value means don't look in subprojects or
-          // amalgamations and go straight to the rule-specific import (e.g.,
-          // to use system-installed).
-          //
-          if (out_root.empty ())
-            return skip ();
-
-          break;
-        }
-      }
-
       // config.import.<proj>.<name>.<type>
       // config.import.<proj>.<name>
       //
       // For example: config.import.build2.b.exe=/opt/build2/bin/b
       //
-      if (!target.value.empty ())
+      // If <type> is exe and <proj> and <name> are the same, then we also
+      // recognize the special config.<proj> (tool importation; we could
+      // also handle the case where <proj> is not the same as <name> via
+      // the config.<proj>.<name> variable). For backwards-compatibility
+      // reasons, it takes precedence over config.import.
+      //
+      // Note: see import phase 2 diagnostics if changing anything here.
+      //
+      // @@ How will this work for snake-case targets, say libs{build2-foo}?
+      //    As well as for dot-separated target types, say, cli.cxx{}?
+      //
+      // @@ This duality has a nasty side-effect: if we have config.<proj>
+      //    configured, then specifying config.<proj>.import has no effect
+      //    (see also a note below on priority just among these options).
+      //
+      //    Some ideas on how to resolve this include: using lookup depth,
+      //    using override info, and using the "new value" status. All of
+      //    these undoubtfully will complicate this logic (i.e., we will have
+      //    to lookup all of them and then decide which one "wins").
+      //
+      if (!tgt.value.empty ())
       {
-        auto lookup = [&iroot, &vp, &loc] (string name) -> path
+        // Return NULL if not found and empty path if NULL. For executable
+        // targets (exe is true), also treat the special `false` value as
+        // NULL.
+        //
+        auto lookup = [&new_value, &iroot, opt, &loc, what] (
+          const variable& var, bool exe) -> const path*
         {
-          // Note: pattern-typed in context ctor as an overridable variable of
-          // type path.
-          //
-          const variable& var (vp.insert (move (name)));
+          auto l (lookup_config (new_value, iroot, var));
 
-          path r;
-          if (auto l = iroot[var])
+          if (l.defined ())
           {
-            r = cast<path> (l);
+            const path* p (cast_null<path> (l));
 
-            if (r.empty ())
-              fail (loc) << "empty path in " << var.name;
+            if (p != nullptr)
+            {
+              if (p->empty ())
+                fail (loc) << "empty path in " << var;
 
-            config::save_variable (iroot, var);
+              if (!exe || p->to_directory () || p->string () != "false")
+                return p;
+            }
+
+            if (!opt)
+              fail (loc) << (p == nullptr ? "null" : "false") << " in "
+                         << var << " for non-optional " << what;
+
+            return &empty_path;
           }
 
-          return r;
+          return nullptr;
         };
 
-        // First try .<name>.<type>, then just .<name>.
+        // First try config.<proj>, then import.<name>.<type>, and finally
+        // just import.<name>.
         //
-        path p;
-        if (target.typed ())
-          p = lookup (n + '.' + target.value + '.' + target.type);
+        // @@ What should we do if several of them are specified? For example,
+        //    one is inherited from amalgamation while the other is specified
+        //    on the project's root? We could pick the one with the least
+        //    lookup depth. On the other hand, we expect people to stick with
+        //    the config.<proj> notation for tools (since it's a lot easier to
+        //    type) so let's not complicate things for the time being.
+        //
+        //    Another alternative would be to see which one is new.
+        //
+        const path* p (nullptr);
 
-        if (p.empty ())
-          p = lookup (n + '.' + target.value);
-
-        if (!p.empty ())
+        if (tgt.typed ())
         {
-          // If the path is relative, then keep it project-qualified assuming
-          // import phase 2 knows what to do with it. Think:
-          //
-          // config.import.build2.b=b-boot
-          //
-          if (p.relative ())
-            target.proj = move (proj);
+          bool e (tgt.type == "exe");
 
-          target.dir = p.directory ();
-          target.value = p.leaf ().string ();
+          // The config.import.* vars are pattern-typed in context ctor as an
+          // overridable variable of type path. The config.<proj> we have to
+          // type manually.
+          //
+          if (e && (projv == tgt.value || proj == tgt.value))
+            p = lookup (vp.insert<path> ("config." + projv), e);
 
-          return make_pair (move (target), dir_path ());
+          if (p == nullptr)
+            p = lookup (vp.insert (n + '.' + tgt.value + '.' + tgt.type), e);
+        }
+
+        if (p == nullptr)
+          p = lookup (vp.insert (n + '.' + tgt.value), false);
+
+        if (p != nullptr)
+        {
+          if (p->empty ())
+            tgt = name (); // NULL
+          else
+          {
+            tgt.dir = p->directory ();
+            tgt.value = p->leaf ().string ();
+
+            // If the path is relative, then keep it project-qualified
+            // assuming import phase 2 knows what to do with it. Think:
+            //
+            // config.import.build2.b=b-boot
+            //
+            // @@ Maybe we should still complete it if it's not simple? After
+            //    all, this is a path, do we want interpretations other than
+            //    relative to CWD? Maybe we do, who knows. Doesn't seem to
+            //    harm anything at the moment.
+            //
+            // Why not call import phase 2 directly here? Well, one good
+            // reason would be to allow for rule-specific import resolution.
+            //
+            if (p->relative ())
+              tgt.proj = move (proj);
+            else
+            {
+              // Enter the target and assign its path (this will most commonly
+              // be some out of project file).
+              //
+              // @@ Should we check that the file actually exists (and cache
+              //    the extracted timestamp)? Or just let things take their
+              //    natural course?
+              //
+              name n (tgt);
+              auto r (ibase.find_target_type (n, loc));
+
+              if (r.first == nullptr)
+                fail (loc) << "unknown target type " << n.type << " in " << n;
+
+              // Note: not using the extension extracted by find_target_type()
+              // to be consistent with import phase 2.
+              //
+              target& t (insert_target (trace, ctx, *r.first, *p).first);
+
+              // Load the metadata, similar to import phase 2.
+              //
+              if (meta)
+              {
+                if (exe* e = t.is_a<exe> ())
+                {
+                  if (!e->vars[ctx.var_export_metadata].defined ())
+                  {
+                    parse_metadata (*e,
+                                    *extract_metadata (e->process_path (),
+                                                       *meta,
+                                                       false /* optional */,
+                                                       loc),
+                                    loc);
+                  }
+                }
+              }
+            }
+          }
+
+          return make_pair (move (tgt), optional<dir_path> (dir_path ()));
+        }
+      }
+
+      // Normal import.
+      //
+      // config.import.<proj>
+      //
+      // Note: see import phase 2 diagnostics if changing anything here.
+      //
+      {
+        // Note: pattern-typed in context ctor as an overridable variable of
+        // type abs_dir_path (path auto-completion).
+        //
+        auto l (lookup_config (new_value, iroot, vp.insert (n)));
+
+        if (l.defined ())
+        {
+          const dir_path* d (cast_null<dir_path> (l));
+
+          // Empty/NULL config.import.* value means don't look in subprojects
+          // or amalgamations and go straight to the rule-specific import
+          // (e.g., to use system-installed).
+          //
+          if (d == nullptr || d->empty ())
+            return skip ();
+
+          out_root = *d; // Normalized and actualized.
+          break;
         }
       }
 
@@ -1560,7 +1890,7 @@ namespace build2
         {
           out_root = cast<dir_path> (l);
 
-          if (out_root.empty ())
+          if (out_root->empty ())
             return skip ();
 
           break;
@@ -1609,22 +1939,27 @@ namespace build2
     // Add the qualification back to the target (import_load() will remove it
     // again).
     //
-    target.proj = move (proj);
+    tgt.proj = move (proj);
 
-    return make_pair (move (target), move (out_root));
+    return make_pair (move (tgt), move (out_root));
   }
 
   pair<names, const scope&>
-  import_load (context& ctx, pair<name, dir_path> x, const location& loc)
+  import_load (context& ctx,
+               pair<name, optional<dir_path>> x,
+               bool meta,
+               const location& loc)
   {
     tracer trace ("import_load");
 
-    name target (move (x.first));
-    dir_path out_root (move (x.second));
+    assert (x.second);
 
-    assert (target.proj);
-    project_name proj (move (*target.proj));
-    target.proj = nullopt;
+    name tgt (move (x.first));
+    dir_path out_root (move (*x.second));
+
+    assert (tgt.proj);
+    project_name proj (move (*tgt.proj));
+    tgt.proj = nullopt;
 
     // Bootstrap the imported root scope. This is pretty similar to what we do
     // in main() except that here we don't try to guess src_root.
@@ -1746,14 +2081,26 @@ namespace build2
     ts.assign (ctx.var_out_root) = move (out_root);
     ts.assign (ctx.var_src_root) = move (src_root);
 
-    // Also pass the target being imported in the import.target variable.
+    // Pass the target being imported in import.target.
     //
     {
       value& v (ts.assign (ctx.var_import_target));
 
-      if (!target.empty ()) // Otherwise leave NULL.
-        v = target; // Can't move (need for diagnostics below).
+      if (!tgt.empty ()) // Otherwise leave NULL.
+        v = tgt; // Can't move (need for diagnostics below).
     }
+
+    // Pass the metadata compatibility version in import.metadata.
+    //
+    // This serves both as an indication that the metadata is required (can be
+    // useful, for example, in cases where it is expensive to calculate) as
+    // well as the maximum version we recognize. The exporter may return it in
+    // any version up to and including this maximum. And it may return it even
+    // if not requested (but only in version 1). The exporter should also set
+    // the returned version as the target-specific export.metadata variable.
+    //
+    if (meta)
+      ts.assign (ctx.var_import_metadata) = uint64_t (1);
 
     // Load the export stub. Note that it is loaded in the context
     // of the importing project, not the imported one. The export
@@ -1778,8 +2125,8 @@ namespace build2
       // If there were no export directive executed in an export stub, assume
       // the target is not exported.
       //
-      if (v.empty () && !target.empty ())
-        fail (loc) << "target " << target << " is not exported by project "
+      if (v.empty () && !tgt.empty ())
+        fail (loc) << "target " << tgt << " is not exported by project "
                    << proj;
 
       return pair<names, const scope&> (move (v), *root);
@@ -1790,31 +2137,103 @@ namespace build2
     }
   }
 
-  names
-  import (scope& base, name target, const location& loc)
+  pair<names, import_kind>
+  import (scope& base,
+          name tgt,
+          bool ph2,
+          bool opt,
+          bool metadata,
+          const location& loc)
   {
     tracer trace ("import");
 
-    l5 ([&]{trace << target << " from " << base;});
+    l5 ([&]{trace << tgt << " from " << base;});
 
-    pair<name, dir_path> r (import_search (base, move (target), loc));
+    assert ((!opt || ph2) && (!metadata || ph2));
 
-    // If we couldn't find the project, return to let someone else (e.g., a
-    // rule) take a stab at it.
+    context& ctx (base.ctx);
+    assert (ctx.phase == run_phase::load);
+
+    // If metadata is requested, delegate to import_direct() which will lookup
+    // the target and verify the metadata was loaded.
     //
-    if (r.second.empty ())
+    if (metadata)
     {
-      l5 ([&]{trace << "postponing " << r.first;});
-      return names {move (r.first)};
+      pair<const target*, import_kind> r (
+        import_direct (base, move (tgt), ph2, opt, metadata, loc));
+
+      return make_pair (r.first != nullptr ? r.first->as_name () : names {},
+                        r.second);
     }
 
-    return import_load (base.ctx, move (r), loc).first;
+    // Save the original target name as metadata key.
+    //
+    auto meta (metadata ? optional<string> (tgt.value) : nullopt);
+
+    pair<name, optional<dir_path>> r (
+      import_search (base, move (tgt), opt, meta, true /* subpproj */, loc));
+
+    // If there is no project, we are either done or go straight to phase 2.
+    //
+    if (!r.second || r.second->empty ())
+    {
+      names ns;
+
+      if (r.first.empty ())
+      {
+        assert (opt); // NULL
+      }
+      else
+      {
+        ns.push_back (move (r.first));
+
+        // If the target is still qualified, it is either phase 2 now or we
+        // return it as is to let someone else (e.g., a rule, import phase 2)
+        // take a stab at it later.
+        //
+        if (ns.back ().qualified ())
+        {
+          if (ph2)
+          {
+            // This is tricky: we only want the optional semantics for the
+            // fallback case.
+            //
+            if (const target* t = import (ctx,
+                                          base.find_prerequisite_key (ns, loc),
+                                          opt && !r.second  /* optional */,
+                                          meta,
+                                          false             /* existing */,
+                                          loc))
+              ns = t->as_name ();
+            else
+              ns.clear (); // NULL
+          }
+          else
+            l5 ([&]{trace << "postponing " << r.first;});
+        }
+      }
+
+      return make_pair (
+        move (ns),
+        r.second.has_value () ? import_kind::adhoc : import_kind::fallback);
+    }
+
+    return make_pair (
+      import_load (base.ctx, move (r), metadata, loc).first,
+      import_kind::normal);
   }
 
   const target*
-  import (context& ctx, const prerequisite_key& pk, bool existing)
+  import (context& ctx,
+          const prerequisite_key& pk,
+          bool opt,
+          const optional<string>& meta,
+          bool exist,
+          const location& loc)
   {
     tracer trace ("import");
+
+    assert (!meta || !exist);
 
     assert (pk.proj);
     const project_name& proj (*pk.proj);
@@ -1826,7 +2245,7 @@ namespace build2
 
     // Try to find the executable in PATH (or CWD if relative).
     //
-    if (tt.is_a<exe> ())
+    for (; tt.is_a<exe> (); ) // Breakout loop.
     {
       path n (*tk.dir);
       n /= *tk.name;
@@ -1836,61 +2255,216 @@ namespace build2
         n += *tk.ext;
       }
 
-      // Only search in PATH (or CWD).
+      // Only search in PATH (or CWD if not simple).
       //
-      process_path pp (process::try_path_search (n, true, dir_path (), true));
+      process_path pp (
+        process::try_path_search (n,
+                                  false       /* init */,
+                                  dir_path () /* fallback */,
+                                  true        /* path_only */));
+      if (pp.empty ())
+        break;
 
-      if (!pp.empty ())
+      const path& p (pp.effect);
+      assert (!p.empty ()); // We searched for a relative path.
+
+      if (exist) // Note: then meta is false.
       {
-        path& p (pp.effect);
-        assert (!p.empty ()); // We searched for a simple name.
-
-        const exe* t (
-          !existing
-          ? &ctx.targets.insert<exe> (tt,
-                                      p.directory (),
-                                      dir_path (),    // No out (not in project).
-                                      p.leaf ().base ().string (),
-                                      p.extension (), // Always specified.
-                                      trace)
-          : ctx.targets.find<exe> (tt,
-                                   p.directory (),
-                                   dir_path (),
-                                   p.leaf ().base ().string (),
-                                   p.extension (),
-                                   trace));
-
-        if (t != nullptr)
-        {
-          if (!existing)
-            t->path (move (p));
-          else
-            assert (t->path () == p);
-
+        if (const target* t = find_target (trace, ctx, tt, p))
           return t;
+
+        break;
+      }
+
+      // Try hard to avoid re-extracting the metadata (think of a tool that is
+      // used by multiple projects in an amalgamation).
+      //
+      optional<string> md;
+      optional<const target*> t;
+      if (meta)
+      {
+        t = find_target (trace, ctx, tt, p);
+
+        if (*t != nullptr && (*t)->vars[ctx.var_export_metadata].defined ())
+          return *t; // We've got all we need.
+
+        if (!(md = extract_metadata (pp, *meta, opt, loc)))
+          break;
+      }
+
+      if (!t || *t == nullptr)
+      {
+        pair<target&, ulock> r (insert_target (trace, ctx, tt, p));
+        t = &r.first;
+
+        // Cache the process path if we've created the target (it's possible
+        // that the same target will be imported via different paths, e.g., as
+        // a simple name via PATH search and as an absolute path in which case
+        // the first import will determine the path).
+        //
+        if (r.second.owns_lock ())
+        {
+          r.first.as<exe> ().process_path (move (pp));
+          r.second.unlock ();
         }
       }
+
+      // Save the metadata. Note that this happens during the load phase and
+      // so MT-safe.
+      //
+      if (meta)
+        parse_metadata ((*t)->rw (), *md, loc);
+
+      return *t;
     }
 
-    if (existing)
+    if (opt || exist)
       return nullptr;
 
-    // @@ We no longer have location. This is especially bad for the
-    //    empty case, i.e., where do I need to specify the project
-    //    name)? Looks like the only way to do this is to keep location
-    //    in name and then in prerequisite. Perhaps one day...
-    //
     diag_record dr;
-    dr << fail << "unable to import target " << pk;
+    dr << fail (loc) << "unable to import target " << pk;
 
     if (proj.empty ())
       dr << info << "consider adding its installation location" <<
         info << "or explicitly specify its project name";
     else
-      dr << info << "use config.import." << proj.variable ()
-         << " command line variable to specify its project out_root";
+    {
+      string projv (proj.variable ());
+
+      // Suggest normal import.
+      //
+      dr << info << "use config.import." << projv << " configuration variable "
+         << "to specify its project out_root";
+
+      // Suggest ad hoc import.
+      //
+      string v (tt.is_a<exe> () && (projv == *tk.name || proj == *tk.name)
+                ? "config." + projv
+                : "config.import." + projv + '.' + *tk.name + '.' + tt.name);
+
+      dr << info << "or use " << v << " configuration variable to specify its "
+         << "path";
+    }
 
     dr << endf;
+  }
+
+  pair<const target*, import_kind>
+  import_direct (bool& new_value,
+                 scope& base,
+                 name tgt,
+                 bool ph2,
+                 bool opt,
+                 bool metadata,
+                 const location& loc,
+                 const char* what)
+  {
+    // This is like normal import() except we return the target rather than
+    // its name.
+    //
+    tracer trace ("import_direct");
+
+    l5 ([&]{trace << tgt << " from " << base << " for " << what;});
+
+    assert ((!opt || ph2) && (!metadata || ph2));
+
+    context& ctx (base.ctx);
+    assert (ctx.phase == run_phase::load);
+
+    auto meta (metadata ? optional<string> (tgt.value) : nullopt);
+
+    names ns;
+    import_kind k;
+    const target* t (nullptr);
+
+    pair<name, optional<dir_path>> r (
+      import_search (new_value,
+                     base,
+                     move (tgt),
+                     opt,
+                     meta,
+                     true /* subpproj */,
+                     loc,
+                     what));
+
+    // If there is no project, we are either done or go straight to phase 2.
+    //
+    if (!r.second || r.second->empty ())
+    {
+      k = r.second.has_value () ? import_kind::adhoc : import_kind::fallback;
+
+      if (r.first.empty ())
+      {
+        assert (opt);
+        return make_pair (t, k); // NULL
+      }
+      else if (r.first.qualified ())
+      {
+        if (ph2)
+        {
+          names ns {move (r.first)};
+
+          // This is tricky: we only want the optional semantics for the
+          // fallback case.
+          //
+          t = import (ctx,
+                      base.find_prerequisite_key (ns, loc),
+                      opt && !r.second,
+                      meta,
+                      false /* existing */,
+                      loc);
+        }
+
+        if (t == nullptr)
+          return make_pair (t, k); // NULL
+
+        // Otherwise fall through.
+      }
+      else
+        ns.push_back (move (r.first)); // And fall through.
+    }
+    else
+    {
+      k = import_kind::normal;
+      ns = import_load (base.ctx, move (r), metadata, loc).first;
+    }
+
+    if (t == nullptr)
+    {
+      // Similar logic to perform's search().
+      //
+      target_key tk (base.find_target_key (ns, loc));
+      t = ctx.targets.find (tk, trace);
+      if (t == nullptr)
+        fail (loc) << "unknown imported target " << tk;
+    }
+
+    if (meta)
+    {
+      if (auto* v = cast_null<uint64_t> (t->vars[ctx.var_export_metadata]))
+      {
+        if (*v != 1)
+          fail (loc) << "unexpected metadata version " << *v
+                     << " in imported target " << *t;
+      }
+      else
+        fail (loc) << "no metadata for imported target " << *t;
+    }
+
+    return make_pair (t, k);
+  }
+
+  ostream&
+  operator<< (ostream& o, const pair<const exe*, import_kind>& p)
+  {
+    assert (p.first != nullptr);
+
+    if (p.second == import_kind::normal)
+      o << *p.first;
+    else
+      o << p.first->process_path ();
+
+    return o;
   }
 
   void
