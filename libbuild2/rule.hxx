@@ -29,6 +29,11 @@ namespace build2
 
     virtual recipe
     apply (action, target&) const = 0;
+
+    rule () = default;
+
+    rule (const rule&) = delete;
+    rule& operator= (const rule&) = delete;
   };
 
   // Fallback rule that only matches if the file exists. It will also match
