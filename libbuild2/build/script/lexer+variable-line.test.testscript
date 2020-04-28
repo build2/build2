@@ -1,0 +1,12 @@
+# file      : libbuild2/build/script/lexer+variable-line.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = variable-line
+
+: basic
+:
+$* <"a 'b c'" >>EOO
+'a'
+'b c'
+<newline>
+EOO

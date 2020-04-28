@@ -20,17 +20,18 @@
 
 namespace build2
 {
-  // Context-dependent lexing mode. Quoted modes are internal and should not
-  // be set explicitly. In the value mode we don't treat certain characters
-  // (e.g., `+`, `=`) as special so that we can use them in the variable
-  // values, e.g., `foo = g++`. In contrast, in the variable mode, we restrict
-  // certain character (e.g., `/`) from appearing in the name. The values mode
-  // is like value but recogizes `,` as special (used in contexts where we
-  // need to list multiple values). The attributes/attribute_value modes are
-  // like values where each value is potentially a variable assignment; they
-  // don't treat `{` and `}` as special (so we cannot have name groups in
-  // attributes) as well as recognizes `=` and `]`. The eval mode is used in
-  // the evaluation context.
+  // Context-dependent lexing mode.
+  //
+  // Quoted modes are internal and should not be set explicitly. In the value
+  // mode we don't treat certain characters (e.g., `+`, `=`) as special so
+  // that we can use them in the variable values, e.g., `foo = g++`. In
+  // contrast, in the variable mode, we restrict certain character (e.g., `/`)
+  // from appearing in the name. The values mode is like value but recogizes
+  // `,` as special (used in contexts where we need to list multiple
+  // values). The attributes/attribute_value modes are like values where each
+  // value is potentially a variable assignment; they don't treat `{` and `}`
+  // as special (so we cannot have name groups in attributes) as well as
+  // recognizes `=` and `]`. The eval mode is used in the evaluation context.
   //
   // A number of modes are "derived" from the value/values mode by recognizing
   // a few extra characters:
@@ -42,10 +43,22 @@ namespace build2
   // split words separated by the pair character (to disable pairs one can
   // pass `\0` as a pair character).
   //
+  // The normal mode recognizes `%` and `{{...` at the beginning of the line
+  // as special. The cmdvar mode is like normal but does not treat these
+  // character sequences as special.
+  //
+  // Finally, the foreign mode reads everything until encountering a line that
+  // contains nothing (besides whitespaces) other than the closing multi-
+  // curly-brace (`}}...`) (or eos) returning the contents as the word token
+  // followed by the multi_rcbrace (or eos). In a way it is similar to the
+  // single-quote mode. The number of closing braces to expect is passed as
+  // mode data.
+  //
   // The alternative modes must be set manually. The value/values and derived
   // modes automatically expires after the end of the line. The attribute mode
   // expires after the closing `]`. The variable mode expires after the word
-  // token. And the eval mode expires after the closing `)`.
+  // token. The eval mode expires after the closing `)`. And the foreign mode
+  // expires after the closing braces.
   //
   // Note that normally it is only safe to switch mode when the current token
   // is not quoted (or, more generally, when you are not in the double-quoted
@@ -70,6 +83,7 @@ namespace build2
     enum
     {
       normal = base_type::value_next,
+      cmdvar,
       variable,
       value,
       values,
@@ -80,6 +94,7 @@ namespace build2
       eval,
       single_quoted,
       double_quoted,
+      foreign,
       buildspec,
 
       value_next
@@ -91,7 +106,7 @@ namespace build2
   };
 
   class LIBBUILD2_SYMEXPORT lexer:
-    public butl::char_scanner<butl::utf8_validator>
+    public butl::char_scanner<butl::utf8_validator, 2>
   {
   public:
     // If escape is not NULL then only escape sequences with characters from
@@ -116,7 +131,8 @@ namespace build2
     virtual void
     mode (lexer_mode,
           char pair_separator = '\0',
-          optional<const char*> escapes = nullopt);
+          optional<const char*> escapes = nullopt,
+          uintptr_t data = 0);
 
     // Enable attributes recognition for the next token.
     //
@@ -157,7 +173,10 @@ namespace build2
   protected:
     struct state
     {
-      lexer_mode mode;
+      lexer_mode      mode;
+      uintptr_t       data;
+      optional<token> hold;
+
       bool       attributes;
 
       char sep_pair;
@@ -183,17 +202,22 @@ namespace build2
     token
     next_quoted ();
 
+    token
+    next_foreign ();
+
     // Lex a word assuming current is the top state (which may already have
     // been "expired" from the top).
     //
     virtual token
     word (state current, bool separated);
 
-    // Return true if we have seen any spaces. Skipped empty lines
-    // don't count. In other words, we are only interested in spaces
-    // that are on the same line as the following non-space character.
+    // Return true in first if we have seen any spaces. Skipped empty lines
+    // don't count. In other words, we are only interested in spaces that are
+    // on the same line as the following non-space character. Return true in
+    // second if we have started skipping spaces from column 1 (note that
+    // if this mode does not skip spaces, then second will always be false).
     //
-    bool
+    pair<bool, bool>
     skip_spaces ();
 
     // Diagnostics.
@@ -232,7 +256,7 @@ namespace build2
 namespace butl // ADL
 {
   inline build2::location
-  get_location (const butl::char_scanner<butl::utf8_validator>::xchar& c,
+  get_location (const butl::char_scanner<butl::utf8_validator, 2>::xchar& c,
                 const void* data)
   {
     using namespace build2;

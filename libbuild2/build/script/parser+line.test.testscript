@@ -1,0 +1,72 @@
+# file      : libbuild2/build/script/parser+line.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.options += -d
+
+: command
+:
+$* <<EOF >>EOF
+  foo >| 2>- &a &?b
+  foo >=c 2>~/error:.*/ &!c
+  foo >>:/~%EOS%
+  %.*
+  abc
+  %xyz.*%
+  EOS
+  EOF
+
+: if-else
+:
+$* <<EOF >>EOF
+  if foo
+    bar
+  elif fox
+    if fix
+      baz
+    end
+    biz
+  end
+  if! foo
+    bar
+  elif! fox
+    baz
+  end
+  EOF
+
+: quoting
+:
+$* <<EOI >>EOO
+  foo 'bar' "baz" '' ""
+  "$foo"
+  "foo$"
+  "fo"o
+  "foo"\"
+  "foo\\"
+  "foo\"<"
+  fo\"o
+  fo\\o
+  fo\<o
+  "fo<o"
+  'fo\"o'
+  f"oo" "ba"r
+  f"oo" 'ba'r
+  "fo"'o'
+  'foo b"ar baz'
+  EOI
+  foo 'bar' "baz" '' ""
+  "$foo"
+  "foo$"
+  "foo"
+  "foo\""
+  "foo\\"
+  "foo\"<"
+  fo\"o
+  fo\\o
+  fo\<o
+  "fo<o"
+  'fo\"o'
+  "foo bar"
+  "foo" 'bar'
+  "foo"
+  'foo b"ar baz'
+  EOO

@@ -152,6 +152,8 @@ endif
 # Note: list nested subdirectories first (used in clean).
 #
 libbuild2_sub := \
+script           \
+build/script     \
 config           \
 dist             \
 test/script      \

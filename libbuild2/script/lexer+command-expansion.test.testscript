@@ -1,4 +1,4 @@
-# file      : libbuild2/test/script/lexer+command-expansion.test.testscript
+# file      : libbuild2/script/lexer+command-expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
 test.arguments = command-expansion
@@ -113,17 +113,37 @@ test.arguments = command-expansion
   {
     : newline
     :
-    $* <:"0<a b" >>EOO
+    $* <:"0<<<=a b" >>EOO
     '0'
-    <
+    <<<=
     'a b'
     EOO
 
     : no-newline
     :
-    $* <:"0<:a b" >>EOO
+    $* <:"0<<<=:a b" >>EOO
     '0'
-    <:
+    <<<=:
+    'a b'
+    EOO
+  }
+
+  : in-alias
+  :
+  {
+    : newline
+    :
+    $* <:"0<<<a b" >>EOO
+    '0'
+    <<<
+    'a b'
+    EOO
+
+    : no-newline
+    :
+    $* <:"0<<<:a b" >>EOO
+    '0'
+    <<<:
     'a b'
     EOO
   }
@@ -133,17 +153,17 @@ test.arguments = command-expansion
   {
     : newline
     :
-    $* <:"1>a b" >>EOO
+    $* <:"1>>>?a b" >>EOO
     '1'
-    >
+    >>>?
     'a b'
     EOO
 
     : no-newline
     :
-    $* <:"1>:a b" >>EOO
+    $* <:"1>>>?:a b" >>EOO
     '1'
-    >:
+    >>>?:
     'a b'
     EOO
   }
@@ -153,6 +173,26 @@ test.arguments = command-expansion
 :
 {
   : in
+  :
+  {
+    : newline
+    :
+    $* <:"0<<=E O I" >>EOO
+    '0'
+    <<=
+    'E O I'
+    EOO
+
+    : no-newline
+    :
+    $* <:"0<<=:E O I" >>EOO
+    '0'
+    <<=:
+    'E O I'
+    EOO
+  }
+
+  : in-alias
   :
   {
     : newline
@@ -177,17 +217,17 @@ test.arguments = command-expansion
   {
     : newline
     :
-    $* <:"1>>E O O" >>EOO
+    $* <:"1>>?E O O" >>EOO
     '1'
-    >>
+    >>?
     'E O O'
     EOO
 
     : no-newline
     :
-    $* <:"1>>:E O O" >>EOO
+    $* <:"1>>?:E O O" >>EOO
     '1'
-    >>:
+    >>?:
     'E O O'
     EOO
   }
@@ -198,9 +238,17 @@ test.arguments = command-expansion
 {
   : in
   :
-  $* <:"0<<<a b" >>EOO
+  $* <:"0<=a b" >>EOO
   '0'
-  <<<
+  <=
+  'a b'
+  EOO
+
+  : in-alias
+  :
+  $* <:"0<a b" >>EOO
+  '0'
+  <
   'a b'
   EOO
 
@@ -212,6 +260,14 @@ test.arguments = command-expansion
   'a b'
   EOO
 
+ : out-alias
+  :
+  $* <:"1>a b" >>EOO
+  '1'
+  >
+  'a b'
+  EOO
+
   : out-app
   :
   $* <:"1>+a b" >>EOO
@@ -219,7 +275,25 @@ test.arguments = command-expansion
   >+
   'a b'
   EOO
+
+  : out-app-alias
+  :
+  $* <:"1>>a b" >>EOO
+  '1'
+  >>
+  'a b'
+  EOO
 }
+
+: no-out-alias
+:
+$* <:"1>>>a b" >>EOO
+'1'
+>>
+>
+'a b'
+EOO
+
 
 : cleanup
 :

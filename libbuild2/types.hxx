@@ -230,6 +230,7 @@ namespace build2
   using butl::path_name_view;
   using butl::path_name_value;
   using butl::dir_path;
+  using butl::dir_name_view;
   using butl::path_cast;
   using butl::basic_path;
   using butl::invalid_path;
@@ -347,6 +348,12 @@ namespace build2
     location (uint64_t l, uint64_t c): line (l), column (c) {}
   };
 
+  // Print in the <file>:<line>:<column> form with 0 lines/columns not
+  // printed. Nothing is printed for an empty location.
+  //
+  ostream&
+  operator<< (ostream&, const location&);
+
   // Similar (and implicit-convertible) to the above but stores a copy of the
   // path.
   //
@@ -371,7 +378,6 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, run_phase); // utility.cxx
-
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in

@@ -3,6 +3,27 @@
 
 namespace build2
 {
+  // location
+  //
+  inline ostream&
+  operator<< (ostream& o, const location& l)
+  {
+    if (!l.empty ())
+    {
+      o << l.file;
+
+      if (l.line != 0)
+      {
+        o << ':' << l.line;
+
+        if (l.column != 0)
+          o << ':' << l.column;
+      }
+    }
+
+    return o;
+  }
+
   // Note that in the constructors we cannot pass the file data member to the
   // base class constructor as it is not initialized yet (and so its base
   // path/name pointers are not initialized). Thus, we initialize the path

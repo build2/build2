@@ -1,0 +1,525 @@
+# file      : libbuild2/build/script/parser+redirect.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# @@ Add tests for redirects other than trace, here-*, file and merge.
+# @@ Does it make sense to split into separate files - one per redirect type?
+#
+
+: trace
+:
+{
+  $* <'cmd >!'  >'cmd >!'  : out
+  $* <'cmd 2>!' >'cmd 2>!' : err
+}
+
+: str
+:
+{
+  : literal
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd <<<=/foo >>>?/bar 2>>>?/baz
+    EOI
+    cmd <<<=/foo >>>?/bar 2>>>?/baz
+    EOO
+  }
+
+  : regex
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd >>>?/~%foo% 2>>>?/~%bar%
+    EOI
+    cmd >>>?/~%foo% 2>>>?/~%bar%
+    EOO
+  }
+}
+
+: doc
+:
+{
+  : literal
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd <<=/EOI_ >>?/EOO_ 2>>?/EOE_
+    foo
+    EOI_
+    bar
+    EOO_
+    baz
+    EOE_
+    EOI
+    cmd <<=/EOI_ >>?/EOO_ 2>>?/EOE_
+    foo
+    EOI_
+    bar
+    EOO_
+    baz
+    EOE_
+    EOO
+
+    : sharing
+    :
+    {
+      : in-out
+      :
+      $* <<EOI >>EOO
+      cmd <<=:/EOF >>?:/EOF
+      foo
+      EOF
+      EOI
+      cmd <<=:/EOF >>?:/EOF
+      foo
+      EOF
+      EOO
+
+      : in-alias-out
+      :
+      $* <<EOI >>EOO
+      cmd <<:/EOF >>?:/EOF
+      foo
+      EOF
+      EOI
+      cmd <<:/EOF >>?:/EOF
+      foo
+      EOF
+      EOO
+
+      : out-in-alias
+      :
+      $* <<EOI >>EOO
+      cmd >>?:/EOF <<:/EOF
+      foo
+      EOF
+      EOI
+      cmd <<:/EOF >>?:/EOF
+      foo
+      EOF
+      EOO
+
+      : different
+      :
+      {
+        : modifiers
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd <<=:/EOF >>?:EOF
+        foo
+        EOF
+        EOI
+        buildfile:11:18: error: different modifiers for shared here-document 'EOF'
+        EOE
+
+        : quoting
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd <<=EOF >>?"EOF"
+        foo
+        EOF
+        EOI
+        buildfile:11:15: error: different quoting for shared here-document 'EOF'
+        EOE
+      }
+    }
+  }
+
+  : regex
+  :
+  {
+    : portable-path
+    :
+    $* <<EOI >>EOO
+    cmd >>?/~%EOF% 2>>?/~%EOE%
+    foo
+    EOF
+    bar
+    EOE
+    EOI
+    cmd >>?/~%EOF% 2>>?/~%EOE%
+    foo
+    EOF
+    bar
+    EOE
+    EOO
+
+    : sharing
+    :
+    {
+      : in-out
+      :
+      $* <<EOI >>EOO
+      cmd >>?~/EOF/ 2>>?~/EOF/
+      foo
+      EOF
+      EOI
+      cmd >>?~/EOF/ 2>>?~/EOF/
+      foo
+      EOF
+      EOO
+
+      : different
+      :
+      {
+        : introducers
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd >>?~/EOF/ 2>>?~%EOF%
+        foo
+        EOF
+        EOI
+        buildfile:11:20: error: different introducers for shared here-document regex 'EOF'
+        EOE
+
+        : flags
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd >>?~/EOF/ 2>>?~/EOF/i
+        foo
+        EOF
+        EOI
+        buildfile:11:20: error: different global flags for shared here-document regex 'EOF'
+        EOE
+      }
+    }
+  }
+
+  : overriding
+  :
+  {
+    : literal
+    :
+    {
+      : with
+      :
+      {
+        : string
+        :
+        $* <<EOI >>EOO
+        cmd >>?EOF >>>?bar
+        foo
+        EOF
+        EOI
+        cmd >>>?bar
+        EOO
+
+        : regex
+        :
+        $* <<EOI >>EOO
+        cmd >>?FOO >>?~/BAR/
+        foo
+        FOO
+        bar
+        BAR
+        EOI
+        cmd >>?~/BAR/
+        bar
+        BAR
+        EOO
+
+        : self
+        :
+        $* <<EOI >>EOO
+        cmd >>EOF >>EOF
+        foo
+        EOF
+        EOI
+        cmd >>EOF
+        foo
+        EOF
+        EOO
+
+        : different-modifiers
+        :
+        $* <<EOI 2>>EOE != 0
+        cmd >>?EOF >>?/EOF
+        foo
+        EOF
+        EOI
+        buildfile:11:16: error: different modifiers for shared here-document 'EOF'
+        EOE
+      }
+    }
+
+    : shared
+    :
+    {
+      : after-sharing
+      :
+      $* <<EOI >>EOO
+      cmd >>EOF 2>>EOF >bar
+      foo
+      EOF
+      EOI
+      cmd >bar 2>>EOF
+      foo
+      EOF
+      EOO
+
+      : before-sharing
+      :
+      $* <<EOI >>EOO
+      cmd >>EOF >bar 2>>EOF
+      foo
+      EOF
+      EOI
+      cmd >bar 2>>EOF
+      foo
+      EOF
+      EOO
+    }
+  }
+}
+
+: file
+:
+{
+  : cmp
+  :
+  $* <<EOI >>EOO
+  cmd 0<=a 1>?b 2>?c
+  EOI
+  cmd <=a >?b 2>?c
+  EOO
+
+  : write
+  :
+  $* <<EOI >>EOO
+  cmd 1>=b 2>+c
+  EOI
+  cmd >=b 2>+c
+  EOO
+
+  : quote
+  :
+  $* <<EOI >>EOO
+  cmd 0<="a f" 1>="b f" 2>+"c f"
+  EOI
+  cmd <='a f' >='b f' 2>+'c f'
+  EOO
+
+  : in
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <=
+    EOI
+    buildfile:11:7: error: missing stdin file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <=""
+    EOI
+    buildfile:11:7: error: empty stdin redirect path
+    EOE
+  }
+
+  : in-alias
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <
+    EOI
+    buildfile:11:6: error: missing stdin file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <""
+    EOI
+    buildfile:11:6: error: empty stdin redirect path
+    EOE
+  }
+
+  : out
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >=
+    EOI
+    buildfile:11:7: error: missing stdout file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >=""
+    EOI
+    buildfile:11:7: error: empty stdout redirect path
+    EOE
+  }
+
+  : out-alias
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >
+    EOI
+    buildfile:11:6: error: missing stdout file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >""
+    EOI
+    buildfile:11:6: error: empty stdout redirect path
+    EOE
+  }
+
+  : err
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>=
+    EOI
+    buildfile:11:8: error: missing stderr file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>=""
+    EOI
+    buildfile:11:8: error: empty stderr redirect path
+    EOE
+  }
+
+  : err-alias
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>
+    EOI
+    buildfile:11:7: error: missing stderr file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>""
+    EOI
+    buildfile:11:7: error: empty stderr redirect path
+    EOE
+  }
+}
+
+: merge
+{
+  : out
+  :
+  {
+    : err
+    :
+    $* <<EOI >>EOO
+    cmd 1>&2
+    EOI
+    cmd >&2
+    EOO
+
+    : no-mutual
+    :
+    $* <<EOI >>EOO
+    cmd 1>&2 2>&1 2>a
+    EOI
+    cmd >&2 2>a
+    EOO
+
+    : not-descriptor
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 1>&a
+    EOI
+    buildfile:11:8: error: stdout merge redirect file descriptor must be 2
+    EOE
+
+    : self
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 1>&1
+    EOI
+    buildfile:11:8: error: stdout merge redirect file descriptor must be 2
+    EOE
+
+    : missed
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 1>&
+    EOI
+    buildfile:11:8: error: missing stdout file descriptor
+    EOE
+  }
+
+  : err
+  {
+    : out
+    :
+    $* <<EOI >>EOO
+    cmd 2>&1
+    EOI
+    cmd 2>&1
+    EOO
+
+    : no-mutual
+    :
+    $* <<EOI >>EOO
+    cmd 1>&2 2>&1 >a
+    EOI
+    cmd >a 2>&1
+    EOO
+
+    : not-descriptor
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 2>&a
+    EOI
+    buildfile:11:8: error: stderr merge redirect file descriptor must be 1
+    EOE
+
+    : self
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 2>&2
+    EOI
+    buildfile:11:8: error: stderr merge redirect file descriptor must be 1
+    EOE
+
+    : missed
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd 2>&
+    EOI
+    buildfile:11:8: error: missing stderr file descriptor
+    EOE
+  }
+
+  : mutual
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd 1>&2 2>&1
+  EOI
+  buildfile:11:14: error: stdout and stderr redirected to each other
+  EOE
+}

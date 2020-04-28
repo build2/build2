@@ -1,0 +1,272 @@
+# file      : libbuild2/build/script/parser+here-document.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: end-marker
+:
+{
+  : missing-newline
+  :
+  $* <'cmd <<=' 2>>EOE != 0
+  buildfile:11:8: error: expected here-document end marker
+  EOE
+
+  : missing-newline-alias
+  :
+  $* <'cmd <<' 2>>EOE != 0
+  buildfile:11:7: error: expected here-document end marker
+  EOE
+
+  : missing-exit
+  :
+  $* <'cmd <<= != 0' 2>>EOE != 0
+  buildfile:11:9: error: expected here-document end marker
+  EOE
+
+  : missing-exit-alias
+  :
+  $* <'cmd << != 0' 2>>EOE != 0
+  buildfile:11:8: error: expected here-document end marker
+  EOE
+
+  : missing-empty
+  :
+  $* <'cmd <<=""' 2>>EOE != 0
+  buildfile:11:8: error: expected here-document end marker
+  EOE
+
+  : missing-empty-alias
+  :
+  $* <'cmd <<""' 2>>EOE != 0
+  buildfile:11:7: error: expected here-document end marker
+  EOE
+
+  : unseparated-expansion
+  :
+  $* <'cmd <<=FOO$foo' 2>>EOE != 0
+  buildfile:11:11: error: here-document end marker must be literal
+  EOE
+
+  : unseparated-expansion-alias
+  :
+  $* <'cmd <<FOO$foo' 2>>EOE != 0
+  buildfile:11:10: error: here-document end marker must be literal
+  EOE
+
+  : quoted-single-partial
+  :
+  $* <"cmd <<=F'O'O" 2>>EOE != 0
+  buildfile:11:8: error: partially-quoted here-document end marker
+  EOE
+
+  : quoted-double-partial
+  :
+  $* <'cmd <<="FO"O' 2>>EOE != 0
+  buildfile:11:8: error: partially-quoted here-document end marker
+  EOE
+
+  : quoted-mixed
+  :
+  $* <"cmd <<=\"FO\"'O'" 2>>EOE != 0
+  buildfile:11:8: error: partially-quoted here-document end marker
+  EOE
+
+  : unseparated
+  :
+  $* <<EOI >>EOO
+  cmd <<=EOF!=0
+  foo
+  EOF
+  EOI
+  cmd <<=EOF != 0
+  foo
+  EOF
+  EOO
+
+  : unseparated-alias
+  :
+  $* <<EOI >>EOO
+  cmd <<EOF!=0
+  foo
+  EOF
+  EOI
+  cmd <<EOF != 0
+  foo
+  EOF
+  EOO
+
+  : quoted-single
+  :
+  $* <<EOI >>EOO
+  cmd <<='EOF'
+  foo
+  EOF
+  EOI
+  cmd <<=EOF
+  foo
+  EOF
+  EOO
+
+  : quoted-single-alias
+  :
+  $* <<EOI >>EOO
+  cmd <<'EOF'
+  foo
+  EOF
+  EOI
+  cmd <<EOF
+  foo
+  EOF
+  EOO
+
+  : quoted-double
+  :
+  $* <<EOI >>EOO
+  cmd <<="EOF"
+  foo
+  EOF
+  EOI
+  cmd <<=EOF
+  foo
+  EOF
+  EOO
+
+  : quoted-double-alias
+  :
+  $* <<EOI >>EOO
+  cmd <<"EOF"
+  foo
+  EOF
+  EOI
+  cmd <<EOF
+  foo
+  EOF
+  EOO
+}
+
+: indent
+:
+{
+  : basic
+  :
+  $* <<EOI >>EOO
+  cmd <<=EOF
+    foo
+     bar
+         baz
+    EOF
+  EOI
+  cmd <<=EOF
+  foo
+   bar
+       baz
+  EOF
+  EOO
+
+  : blank
+  :
+  $* <<EOI >>EOO
+  cmd <<=EOF
+    foo
+
+
+    bar
+    EOF
+  EOI
+  cmd <<=EOF
+  foo
+
+
+  bar
+  EOF
+  EOO
+
+  : non-ws-prefix
+  :
+  $* <<EOI >>EOO
+  cmd <<=EOF
+   x EOF
+  EOF
+  EOI
+  cmd <<=EOF
+   x EOF
+  EOF
+  EOO
+
+  : whole-token
+  : Test the case where the indentation is a whole token
+  :
+  $* <<EOI >>EOO
+  x = foo bar
+  cmd <<="EOF"
+    $x
+    EOF
+  EOI
+  cmd <<=EOF
+  foo bar
+  EOF
+  EOO
+
+  : long-line
+  : Test the case where the line contains multiple tokens
+  :
+  $* <<EOI >>EOO
+  x = foo
+  cmd <<="EOF"
+     $x bar $x
+    EOF
+  EOI
+  cmd <<=EOF
+   foo bar foo
+  EOF
+  EOO
+
+  : unindented
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd <<=EOF
+   bar
+    EOF
+  EOI
+  buildfile:12:1: error: unindented here-document line
+  EOE
+}
+
+: blank
+:
+$* <<EOI >>EOO
+cmd <<=EOF
+
+foo
+
+bar
+
+EOF
+EOI
+cmd <<=EOF
+
+foo
+
+bar
+
+EOF
+EOO
+
+: quote
+:
+: Note: they are still recognized in eval contexts.
+:
+$* <<EOI >>EOO
+cmd <<="EOF"
+'single'
+"double"
+b'o't"h"
+('single' "double")
+EOF
+EOI
+cmd <<=EOF
+'single'
+"double"
+b'o't"h"
+single double
+EOF
+EOO

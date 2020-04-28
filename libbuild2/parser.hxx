@@ -26,7 +26,9 @@ namespace build2
 
     explicit
     parser (context& c, stage s = stage::rest)
-      : fail ("error", &path_), ctx (c), stage_ (s) {}
+      : fail ("error", &path_), info ("info", &path_),
+        ctx (c),
+        stage_ (s) {}
 
     // Issue diagnostics and throw failed in case of an error.
     //
@@ -108,6 +110,11 @@ namespace build2
     parse_variable_block (token&, token_type&,
                           const target_type* = nullptr,
                           string = string ());
+
+    void
+    parse_recipe (token&, token_type&,
+                  const token&,
+                  small_vector<shared_ptr<adhoc_rule>, 1>&);
 
     // Ad hoc target names inside < ... >.
     //
@@ -245,6 +252,9 @@ namespace build2
       string        name;
       build2::value value;
     };
+
+    friend ostream&
+    operator<< (ostream&, const attribute&);
 
     struct attributes: small_vector<attribute, 1>
     {
@@ -479,6 +489,12 @@ namespace build2
     // If qual is not empty, then its pair member should indicate the kind
     // of qualification: ':' -- target, '/' -- scope.
     //
+    // Note that this function is called even during pre-parse with the result
+    // unused. In this case a valid name will only be provided for variables
+    // with literal names (for example, $x, $(x)). For computed variables (for
+    // example, $($x ?  X : Y)) it will be empty (along with qual, which can
+    // only be non-empty for a computed variable).
+    //
     virtual lookup
     lookup_variable (name&& qual, string&& name, const location&);
 
@@ -525,8 +541,14 @@ namespace build2
 
     // If the current token is newline, then get the next token. Otherwise,
     // fail unless the current token is eos (i.e., optional newline at the end
-    // of stream). If the after argument is not \0, use it in diagnostics as
-    // the token after which the newline was expectd.
+    // of stream). Use the after token in diagnostics as the token after which
+    // the newline was expected.
+    //
+    token_type
+    next_after_newline (token&, token_type&, const token& after);
+
+    // As above but the after argument is a single-character token. If it is
+    // \0, then it is ignored.
     //
     token_type
     next_after_newline (token&, token_type&, char after = '\0');
@@ -568,10 +590,10 @@ namespace build2
     }
 
     void
-    mode (lexer_mode m, char ps = '\0')
+    mode (lexer_mode m, char ps = '\0', uintptr_t d = 0)
     {
       if (replay_ != replay::play)
-        lexer_->mode (m, ps);
+        lexer_->mode (m, ps, nullopt, d);
       else
         // As a sanity check, make sure the mode matches the next token. Note
         // that we don't check the attributes flags or the pair separator
@@ -612,8 +634,10 @@ namespace build2
     // with the lexer directly (e.g., the keyword() test). Replays also cannot
     // nest. For now we don't enforce any of this.
     //
-    // Note also that the peeked token is not part of the replay, until it
-    // is "got".
+    // Note also that the peeked token is not part of the replay until it is
+    // "got". In particular, this means that we cannot peek past the replay
+    // sequence (since we will get the peeked token as the first token of
+    // the replay).
     //
     void
     replay_save ()
@@ -628,6 +652,8 @@ namespace build2
       assert ((replay_ == replay::save && !replay_data_.empty ()) ||
               (replay_ == replay::play && replay_i_ == replay_data_.size ()));
 
+      assert (!peeked_);
+
       if (replay_ == replay::save)
         replay_path_ = path_; // Save old path.
 
@@ -638,6 +664,8 @@ namespace build2
     void
     replay_stop ()
     {
+      assert (!peeked_);
+
       if (replay_ == replay::play)
         path_ = replay_path_; // Restore old path.
 
@@ -726,6 +754,7 @@ namespace build2
     //
   protected:
     const fail_mark fail;
+    const basic_mark info;
 
     // Parser state.
     //

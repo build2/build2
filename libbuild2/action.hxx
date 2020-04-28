@@ -11,11 +11,11 @@
 
 namespace build2
 {
-  // While we are using uint8_t for the meta/operation ids, we assume
-  // that each is limited to 4 bits (max 128 entries) so that we can
-  // store the combined action id in uint8_t as well. This makes our
-  // life easier when it comes to defining switch labels for action
-  // ids (no need to mess with endian-ness).
+  // While we are using uint8_t for the meta/operation ids, we assume that
+  // each is limited to 4 bits (max 15 entries @@ this is probably too low) so
+  // that we can store the combined action id in uint8_t as well. This makes
+  // our life easier when it comes to defining switch labels for action ids
+  // (no need to mess with endian-ness).
   //
   // Note that 0 is not a valid meta/operation/action id.
   //
@@ -61,6 +61,8 @@ namespace build2
   {
     action (): inner_id (0), outer_id (0) {} // Invalid action.
 
+    action (action_id a): action (a >> 4, a & 0xF) {}
+
     // If this is not a nested operation, then outer should be 0.
     //
     action (meta_operation_id m, operation_id inner, operation_id outer = 0)
@@ -103,6 +105,11 @@ namespace build2
   inline bool
   operator!= (action x, action y) {return !(x == y);}
 
+  inline bool operator== (action x, action_id y) {return x == action (y);}
+  inline bool operator!= (action x, action_id y) {return x != action (y);}
+  inline bool operator== (action_id x, action y) {return action (x) == y;}
+  inline bool operator!= (action_id x, action y) {return action (x) == y;}
+
   bool operator>  (action, action) = delete;
   bool operator<  (action, action) = delete;
   bool operator>= (action, action) = delete;
@@ -140,6 +147,8 @@ namespace build2
 
   // Id constants for build-in and pre-defined meta/operations.
   //
+  // Note: currently max 15 (see above).
+  //
   const meta_operation_id noop_id      = 1; // nomop?
   const meta_operation_id perform_id   = 2;
   const meta_operation_id configure_id = 3;
@@ -151,6 +160,8 @@ namespace build2
   // The default operation is a special marker that can be used to indicate
   // that no operation was explicitly specified by the user. If adding
   // something here remember to update the man page.
+  //
+  // Note: currently max 15 (see above).
   //
   const operation_id default_id            = 1; // Shall be first.
   const operation_id update_id             = 2; // Shall be second.

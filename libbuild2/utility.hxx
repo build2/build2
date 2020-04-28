@@ -73,6 +73,7 @@ namespace build2
   using butl::trim;
   using butl::next_word;
   using butl::sanitize_identifier;
+  using butl::sanitize_strlit;
 
   using butl::make_guard;
   using butl::make_exception_guard;

@@ -44,11 +44,9 @@ namespace build2
 
   // target_key
   //
-  names target_key::
-  as_name () const
+  void target_key::
+  as_name (names& r) const
   {
-    names r;
-
     string v (*name);
     target::combine_name (v, ext, false /* @@ TODO: what to do? */);
 
@@ -56,11 +54,9 @@ namespace build2
 
     if (!out->empty ())
     {
-      r.front ().pair = '@';
+      r.back ().pair = '@';
       r.push_back (build2::name (*out));
     }
-
-    return r;
   }
 
   // target_state
@@ -964,8 +960,8 @@ namespace build2
         phase_switch ps (t.ctx, run_phase::load);
 
         // This is subtle: while we were fussing around another thread may
-        // have loaded the buildfile. So re-test now that we are in exclusive
-        // phase.
+        // have loaded the buildfile. So re-test now that we are in an
+        // exclusive phase.
         //
         if (e == nullptr)
           e = search_existing_target (t.ctx, pk);

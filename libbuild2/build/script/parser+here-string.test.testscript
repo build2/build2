@@ -1,0 +1,34 @@
+# file      : libbuild2/build/script/parser+here-string.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: empty
+:
+$* <<EOI >>EOO
+cmd <<<=""
+EOI
+cmd <<<=''
+EOO
+
+: empty-nn
+:
+$* <<EOI >>EOO
+cmd <<<=:""
+EOI
+cmd <<<=:''
+EOO
+
+: empty-alias
+:
+$* <<EOI >>EOO
+cmd <<<""
+EOI
+cmd <<<''
+EOO
+
+: empty-nn-alias
+:
+$* <<EOI >>EOO
+cmd <<<:""
+EOI
+cmd <<<:''
+EOO

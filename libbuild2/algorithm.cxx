@@ -318,12 +318,55 @@ namespace build2
   // Return the matching rule or NULL if no match and try_match is true.
   //
   const rule_match*
-  match_impl (action a, target& t, const rule* skip, bool try_match)
+  match_rule (action a, target& t, const rule* skip, bool try_match)
   {
+    // First check for an ad hoc recipe.
+    //
+    if (!t.adhoc_recipes.empty ())
+    {
+      auto df = make_diag_frame (
+        [a, &t](const diag_record& dr)
+        {
+          if (verb != 0)
+            dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
+        });
+
+      // @@ TODO:
+      //
+      // If action is Y-for-X, how would we distinguish between X and Y-for-X?
+      // See match_rule() for the hairy details. We could start with
+      // supporting just the inner case. Or we could try to just match an
+      // inner rule by default? I think need a clear use-case to see what's
+      // the correct semantics.
+
+      auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
+      auto i (find_if (b, e,
+                       [a, &t] (const adhoc_recipe& r)
+                       {
+                         return r.action == a &&
+                           r.rule->match (a, t, string () /* hint */, nullopt);
+                       }));
+
+      if (i == e)
+        i = find_if (b, e,
+                     [a, &t] (const adhoc_recipe& r)
+                     {
+                       return r.action != a &&
+                         r.rule->match (a, t, string () /* hint */, r.action);
+                     });
+      if (i != e)
+        return &i->rule->rule_match;
+    }
+
     // If this is an outer operation (Y-for-X), then we look for rules
-    // registered for the outer id (X). Note that we still pass the original
-    // action to the rule's match() function so that it can distinguish
-    // between a pre/post operation (Y-for-X) and the actual operation (X).
+    // registered for the outer id (X; yes, it's really outer). Note that we
+    // still pass the original action to the rule's match() function so that
+    // it can distinguish between a pre/post operation (Y-for-X) and the
+    // actual operation (X).
+    //
+    // If you are then wondering how would a rule for Y ever match in case of
+    // Y-for-X, the answer is via a rule that matches for X and then, in case
+    // of Y-for-X, matches an inner rule for just Y (see match_inner()).
     //
     meta_operation_id mo (a.meta_operation ());
     operation_id o (a.inner () ? a.operation () : a.outer_operation ());
@@ -561,7 +604,7 @@ namespace build2
           t.prerequisite_targets[a].clear ();
           if (a.inner ()) t.clear_data ();
 
-          const rule_match* r (match_impl (a, t, nullptr, try_match));
+          const rule_match* r (match_rule (a, t, nullptr, try_match));
 
           assert (l.offset != target::offset_tried); // Should have failed.
 
@@ -972,8 +1015,11 @@ namespace build2
 
     if (r != nullptr)
     {
+      // Make it ad hoc so that it doesn't end up in prerequisite_targets
+      // after execution.
+      //
       match (a, *r);
-      t.prerequisite_targets[a].emplace_back (r);
+      t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
     }
 
     return r;

@@ -3,6 +3,7 @@
 
 #include <libbuild2/dump.hxx>
 
+#include <libbuild2/rule.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -213,7 +214,90 @@ namespace build2
 
     os << ind << t << ':';
 
-    // First print target/rule-specific variables, if any.
+    // First check if this is the simple case where we can print everything
+    // as a single declaration.
+    //
+    const prerequisites& ps (t.prerequisites ());
+    bool simple (true);
+    for (const prerequisite& p: ps)
+    {
+      if (!p.vars.empty ()) // Has prerequisite-specific vars.
+      {
+        simple = false;
+        break;
+      }
+    }
+
+    // If the target has been matched to a rule, we also print resolved
+    // prerequisite targets.
+    //
+    // Note: running serial and task_count is 0 before any operation has
+    // started.
+    //
+    const prerequisite_targets* pts (nullptr);
+    {
+      action inner; // @@ Only for the inner part of the action currently.
+
+      if (size_t c = t[inner].task_count.load (memory_order_relaxed))
+      {
+        if (c == t.ctx.count_applied () || c == t.ctx.count_executed ())
+        {
+          pts = &t.prerequisite_targets[inner];
+
+          bool f (false);
+          for (const target* pt: *pts)
+          {
+            if (pt != nullptr)
+            {
+              f = true;
+              break;
+            }
+          }
+
+          if (!f)
+            pts = nullptr;
+        }
+      }
+    }
+
+    auto print_pts = [&os, &ps, pts] ()
+    {
+      for (const target* pt: *pts)
+      {
+        if (pt != nullptr)
+          os << ' ' << *pt;
+      }
+
+      // Only omit '|' if we have no prerequisites nor targets.
+      //
+      if (!ps.empty ())
+      {
+        os << " |";
+        return true;
+      }
+
+      return false;
+    };
+
+    if (simple)
+    {
+      if (pts != nullptr)
+        print_pts ();
+
+      for (const prerequisite& p: ps)
+      {
+        // Print it as a target if one has been cached.
+        //
+        if (const target* t = p.target.load (memory_order_relaxed)) // Serial.
+          os << ' ' << *t;
+        else
+          os << ' ' << p;
+      }
+    }
+
+    bool used (false); // Target header has been used.
+
+    // Print target/rule-specific variables, if any.
     //
     {
       bool tv (!t.vars.empty ());
@@ -258,87 +342,78 @@ namespace build2
         if (rel)
           stream_verb (os, nsv);
 
-        os << endl
-           << ind << t << ':';
+        used = true;
       }
     }
 
-    bool used (false); // Target header has been used to display prerequisites.
-
-    // If the target has been matched to a rule, first print resolved
-    // prerequisite targets.
+    // Then ad hoc recipes, if any.
     //
-    // Note: running serial and task_count is 0 before any operation has
-    // started.
-    //
-    action inner; // @@ Only for the inner part of the action currently.
-
-    if (size_t c = t[inner].task_count.load (memory_order_relaxed))
+    if (!t.adhoc_recipes.empty ())
     {
-      if (c == t.ctx.count_applied () || c == t.ctx.count_executed ())
+      for (const adhoc_recipe r: t.adhoc_recipes)
       {
-        bool f (false);
-        for (const target* pt: t.prerequisite_targets[inner])
-        {
-          if (pt == nullptr) // Skipped.
-            continue;
-
-          os << ' ' << *pt;
-          f = true;
-        }
-
-        // Only omit '|' if we have no prerequisites nor targets.
-        //
-        if (f || !t.prerequisites ().empty ())
-        {
-          os << " |";
-          used = true;
-        }
+        os << endl;
+        r.rule->dump (os, ind); // @@ TODO: pass action(s).
       }
+
+      used = true;
     }
 
-    // Print prerequisites. Those that have prerequisite-specific variables
-    // have to be printed as a separate dependency.
-    //
-    const prerequisites& ps (t.prerequisites ());
-    for (auto i (ps.begin ()), e (ps.end ()); i != e; )
+    if (!simple)
     {
-      const prerequisite& p (*i++);
-      bool ps (!p.vars.empty ()); // Has prerequisite-specific vars.
-
-      if (ps && used) // If it has been used, get a new header.
+      if (used)
+      {
         os << endl
            << ind << t << ':';
 
-      // Print it as a target if one has been cached.
+        used = false;
+      }
+
+      if (pts != nullptr)
+        used = print_pts () || used;
+
+      // Print prerequisites. Those that have prerequisite-specific variables
+      // have to be printed as a separate dependency.
       //
-      if (const target* t = p.target.load (memory_order_relaxed)) // Serial.
-        os << ' ' << *t;
-      else
-        os << ' ' << p;
-
-      if (ps)
+      for (auto i (ps.begin ()), e (ps.end ()); i != e; )
       {
-        if (rel)
-          stream_verb (os, osv); // We want variable values in full.
+        const prerequisite& p (*i++);
+        bool ps (!p.vars.empty ()); // Has prerequisite-specific vars.
 
-        os << ':' << endl
-           << ind << '{';
-        ind += "  ";
-        dump_variables (os, ind, p.vars, s, variable_kind::prerequisite);
-        ind.resize (ind.size () - 2);
-        os << endl
-           << ind << '}';
-
-        if (rel)
-          stream_verb (os, nsv);
-
-        if (i != e) // If we have another, get a new header.
+        if (ps && used) // If it has been used, get a new header.
           os << endl
              << ind << t << ':';
-      }
 
-      used = !ps;
+        // Print it as a target if one has been cached.
+        //
+        if (const target* t = p.target.load (memory_order_relaxed)) // Serial.
+          os << ' ' << *t;
+        else
+          os << ' ' << p;
+
+        if (ps)
+        {
+          if (rel)
+            stream_verb (os, osv); // We want variable values in full.
+
+          os << ':' << endl
+             << ind << '{';
+          ind += "  ";
+          dump_variables (os, ind, p.vars, s, variable_kind::prerequisite);
+          ind.resize (ind.size () - 2);
+          os << endl
+             << ind << '}';
+
+          if (rel)
+            stream_verb (os, nsv);
+
+          if (i != e) // If we have another, get a new header.
+            os << endl
+               << ind << t << ':';
+        }
+
+        used = !ps;
+      }
     }
 
     if (rel)

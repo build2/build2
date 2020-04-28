@@ -5247,6 +5247,8 @@ namespace build2
     dir_path compile_rule::
     find_modules_sidebuild (const scope& rs) const
     {
+      context& ctx (rs.ctx);
+
       // First figure out where we are going to build. We want to avoid
       // multiple sidebuilds so the outermost scope that has loaded the
       // cc.config module and that is within our amalgmantion seems like a
@@ -5284,18 +5286,18 @@ namespace build2
                    modules_sidebuild_dir /=
                    x);
 
-      const scope* ps (&rs.ctx.scopes.find (pd));
+      const scope* ps (&ctx.scopes.find (pd));
 
       if (ps->out_path () != pd)
       {
         // Switch the phase to load then create and load the subproject.
         //
-        phase_switch phs (rs.ctx, run_phase::load);
+        phase_switch phs (ctx, run_phase::load);
 
         // Re-test again now that we are in exclusive phase (another thread
         // could have already created and loaded the subproject).
         //
-        ps = &rs.ctx.scopes.find (pd);
+        ps = &ctx.scopes.find (pd);
 
         if (ps->out_path () != pd)
         {
@@ -5322,15 +5324,13 @@ namespace build2
               {string (x) + '.'},             /* root_modules */
               "",                             /* root_post */
               nullopt,                        /* config_module */
+              nullopt,                        /* config_file */
               false,                          /* buildfile */
               "the cc module",
               2);                             /* verbosity */
           }
 
-          ps = &load_project (as->rw () /* lock */,
-                              pd,
-                              pd,
-                              false /* forwarded */);
+          ps = &load_project (ctx, pd, pd, false /* forwarded */);
         }
       }
 

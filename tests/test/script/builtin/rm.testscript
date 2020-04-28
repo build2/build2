@@ -11,7 +11,7 @@
   : Removing scope directory fails.
   :
   $c <<EOI && $b
-    rm -r ./ 2>"rm: '$~' contains test working directory '$~'" == 1
+    rm -r ./ 2>/"rm: 'test/1/' contains test working directory 'test/1/'" == 1
     EOI
 }
 
@@ -28,8 +28,8 @@
     : Removing path outside the testscript working directory fails.
     :
     $c <<EOI && $b
-      rm ../../a/b/c 2>>/~%EOE% == 1
-      %rm: '.+/path/outside-scope/fail/a/b/c' is out of working directory '.+/path/outside-scope/fail/test'%
+      rm ../../a/b/c 2>>/EOE == 1
+      rm: 'a/b/c' is out of working directory 'test/'
       EOE
       EOI
 

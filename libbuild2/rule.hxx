@@ -12,6 +12,8 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/recipe.hxx>
 
+#include <libbuild2/build/script/script.hxx>
+
 #include <libbuild2/export.hxx>
 
 namespace build2
@@ -22,7 +24,7 @@ namespace build2
   //
   // Note: match() is only called once but may not be followed by apply().
   //
-  class rule
+  class LIBBUILD2_SYMEXPORT rule
   {
   public:
     virtual bool
@@ -32,6 +34,9 @@ namespace build2
     apply (action, target&) const = 0;
 
     rule () = default;
+
+    virtual
+    ~rule ();
 
     rule (const rule&) = delete;
     rule& operator= (const rule&) = delete;
@@ -107,6 +112,141 @@ namespace build2
 
     noop_rule () {}
     static const noop_rule instance;
+  };
+
+  // Ad hoc rule.
+  //
+  // Note: not exported
+  //
+  class adhoc_rule: public rule
+  {
+  public:
+    location_value loc;     // Buildfile location of the recipe.
+    size_t         braces;  // Number of braces in multi-brace tokens.
+
+    adhoc_rule (const location& l, size_t b)
+      : loc (l),
+        braces (b),
+        rule_match ("adhoc", static_cast<const rule&> (*this)) {}
+
+  public:
+    // Some of the operations come in compensating pairs, such as update and
+    // clean, install and uninstall. An ad hoc rule implementation may choose
+    // to provide a fallback implementation of a compensating operation if it
+    // is providing the other half (passed in the fallback argument).
+    //
+    // The default implementation calls rule::match() if fallback is absent
+    // and returns false if fallback is present. So an implementation that
+    // doesn't care about this semantics can implement the straight rule
+    // interface.
+    //
+    virtual bool
+    match (action, target&, const string&, optional<action> fallback) const;
+
+    virtual bool
+    match (action, target&, const string&) const override;
+
+    virtual void
+    dump (ostream&, string& indentation) const = 0;
+
+    // Implementation details.
+    //
+  public:
+    build2::rule_match rule_match;
+
+    static const dir_path recipes_build_dir;
+
+    // Scope operation callback that cleans up ad hoc recipe builds.
+    //
+    static target_state
+    clean_recipes_build (action, const scope&, const dir&);
+  };
+
+  // Ad hoc script rule.
+  //
+  // Note: not exported and should not be used directly (i.e., registered).
+  //
+  class adhoc_script_rule: public adhoc_rule
+  {
+  public:
+    virtual bool
+    match (action, target&, const string&, optional<action>) const override;
+
+    virtual recipe
+    apply (action, target&) const override;
+
+    target_state
+    perform_update_file (action, const target&) const;
+
+    target_state
+    default_action (action, const target&) const;
+
+    virtual void
+    dump (ostream&, string&) const override;
+
+    using script_type = build::script::script;
+
+    adhoc_script_rule (optional<string> d, const location& l, size_t b)
+      : adhoc_rule (l, b), diag (move (d)) {}
+
+  public:
+    const optional<string> diag;     // Command name for low-verbosity diag.
+    string                 checksum; // Script text hashsum.
+    script_type            script;
+
+  };
+
+  // Ad hoc C++ rule.
+  //
+  // Note: exported but should not be used directly (i.e., registered).
+  //
+  class LIBBUILD2_SYMEXPORT cxx_rule: public rule
+  {
+  public:
+
+    // A robust recipe may want to incorporate the recipe_state into its
+    // up-to-date decision as if the recipe library was a prerequisite (it
+    // cannot be injected as a real prerequisite since it's from a different
+    // build context).
+    //
+    const location     recipe_loc;   // Buildfile location of the recipe.
+    const target_state recipe_state; // State of recipe library target.
+
+    cxx_rule (const location& l, target_state s)
+      : recipe_loc (l), recipe_state (s) {}
+
+    // Return true by default.
+    //
+    virtual bool
+    match (action, target&, const string&) const override;
+  };
+
+  // Note: not exported.
+  //
+  class adhoc_cxx_rule: public adhoc_rule
+  {
+  public:
+    virtual bool
+    match (action, target&, const string&) const override;
+
+    virtual recipe
+    apply (action, target&) const override;
+
+    virtual void
+    dump (ostream&, string&) const override;
+
+    adhoc_cxx_rule (string c, const location& l, size_t b)
+      : adhoc_rule (l, b), code (move (c)), impl (nullptr) {}
+
+    virtual
+    ~adhoc_cxx_rule () override;
+
+  public:
+    // Note that this recipe (rule instance) can be shared between multiple
+    // targets which could all be matched in parallel.
+    //
+    const string              code;
+    mutable atomic<cxx_rule*> impl;
   };
 }
 

@@ -264,6 +264,9 @@ namespace build2
     names
     as_name () const;
 
+    void
+    as_name (names&) const;
+
     // Scoping.
     //
    public:
@@ -409,6 +412,11 @@ namespace build2
     //
     value&
     append (const variable&);
+
+    // Ad hoc recipes.
+    //
+  public:
+    vector<adhoc_recipe> adhoc_recipes;
 
     // Target operation state.
     //
@@ -577,6 +585,9 @@ namespace build2
 
     // This function can only be called during execution if we have observed
     // (synchronization-wise) that this target has been executed.
+    //
+    // It can also be called during the serial load phase (but make sure you
+    // understand what you are doing).
     //
     target_state
     executed_state (action, bool fail = true) const;

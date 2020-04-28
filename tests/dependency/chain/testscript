@@ -3,7 +3,7 @@
 
 .include ../../common.testscript
 
-: basic
+: basics
 :
 $* <<EOI 2>>/~%EOE%
 ./: dir{x}: dir{a}

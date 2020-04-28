@@ -13,7 +13,6 @@
 
 namespace build2
 {
-
   // Token type.
   //
   // A line consists of a sequence of words separated by separators and
@@ -36,6 +35,7 @@ namespace build2
       colon,           // :
       dollar,          // $
       question,        // ?
+      percent,         // %
       comma,           // ,
 
       lparen,          // (
@@ -43,6 +43,9 @@ namespace build2
 
       lcbrace,         // {
       rcbrace,         // }
+
+      multi_lcbrace,   // {{... (value contains the braces)
+      multi_rcbrace,   // }}... (value contains the braces)
 
       lsbrace,         // [
       rsbrace,         // ]
@@ -85,20 +88,37 @@ namespace build2
 
   class token;
 
+  enum class print_mode
+  {
+    // Print eos, newline, and pair separator in the <name> form and other
+    // tokens as literals, single-quoting the word token.
+    //
+    normal,
+
+    // Same as normal but all literals are quoted.
+    //
+    diagnostics,
+
+    // Print all tokens as literals with newline represented as '\n' and eos
+    // as an empty string.
+    //
+    raw
+  };
+
   LIBBUILD2_SYMEXPORT void
-  token_printer (ostream&, const token&, bool);
+  token_printer (ostream&, const token&, print_mode);
 
   class token
   {
   public:
-    using printer_type = void (ostream&, const token&, bool diag);
+    using printer_type = void (ostream&, const token&, print_mode);
 
     token_type type;
     bool separated; // Whitespace-separated from the previous token.
 
     // Quoting can be complete, where the token starts and ends with the quote
     // characters and quoting is contiguous or partial where only some part(s)
-    // of the token are quoted or quoting continus to the next token.
+    // of the token are quoted or quoting continues to the next token.
     //
     quote_type qtype;
     bool qcomp;
@@ -146,7 +166,25 @@ namespace build2
   // Output the token value in a format suitable for diagnostics.
   //
   inline ostream&
-  operator<< (ostream& o, const token& t) {t.printer (o, t, true); return o;}
+  operator<< (ostream& o, const token& t)
+  {
+    t.printer (o, t, print_mode::diagnostics);
+    return o;
+  }
+
+  // Note: these are currently only used for sanity checks.
+  //
+  inline bool
+  operator== (const token& x, const token& y)
+  {
+    return x.type == y.type && x.value == y.value;
+  }
+
+  inline bool
+  operator!= (const token& x, const token& y)
+  {
+    return !(x == y);
+  }
 
   // Context-dependent lexing (see lexer_mode for details).
   //

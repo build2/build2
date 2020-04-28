@@ -36,6 +36,12 @@ namespace build2
     return key ().as_name ();
   }
 
+  inline void target::
+  as_name (names& r) const
+  {
+    return key ().as_name (r);
+  }
+
   inline auto target::
   prerequisites () const -> const prerequisites_type&
   {
@@ -114,8 +120,6 @@ namespace build2
   inline pair<bool, target_state> target::
   matched_state_impl (action a) const
   {
-    assert (ctx.phase == run_phase::match);
-
     // Note that the "tried" state is "final".
     //
     const opstate& s (state[a]);
@@ -138,13 +142,14 @@ namespace build2
   inline target_state target::
   executed_state_impl (action a) const
   {
-    assert (ctx.phase == run_phase::execute);
     return (group_state (a) ? group->state : state)[a].state;
   }
 
   inline target_state target::
   matched_state (action a, bool fail) const
   {
+    assert (ctx.phase == run_phase::match);
+
     // Note that the target could be being asynchronously re-matched.
     //
     pair<bool, target_state> r (matched_state_impl (a));
@@ -158,6 +163,8 @@ namespace build2
   inline pair<bool, target_state> target::
   try_matched_state (action a, bool fail) const
   {
+    assert (ctx.phase == run_phase::match);
+
     pair<bool, target_state> r (matched_state_impl (a));
 
     if (fail && r.first && r.second == target_state::failed)
@@ -169,6 +176,8 @@ namespace build2
   inline target_state target::
   executed_state (action a, bool fail) const
   {
+    assert (ctx.phase == run_phase::execute || ctx.phase == run_phase::load);
+
     target_state r (executed_state_impl (a));
 
     if (fail && r == target_state::failed)
@@ -193,6 +202,8 @@ namespace build2
   inline bool target::
   unchanged (action a) const
   {
+    assert (ctx.phase == run_phase::match);
+
     return matched_state_impl (a).second == target_state::unchanged;
   }
 

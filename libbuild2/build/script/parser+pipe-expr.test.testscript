@@ -1,0 +1,132 @@
+# file      : libbuild2/build/script/parser+pipe-expr.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: pipe
+:
+$* <<EOI >>EOO
+cmd1 | cmd2|cmd3
+EOI
+cmd1 | cmd2 | cmd3
+EOO
+
+: log
+:
+$* <<EOI >>EOO
+cmd1 || cmd2&&cmd3
+EOI
+cmd1 || cmd2 && cmd3
+EOO
+
+: pipe-log
+:
+$* <<EOI >>EOO
+cmd1 | cmd2 && cmd3 | cmd4
+EOI
+cmd1 | cmd2 && cmd3 | cmd4
+EOO
+
+: exit
+:
+$* <<EOI >>EOO
+cmd1|cmd2==1&&cmd3!=0|cmd4
+EOI
+cmd1 | cmd2 == 1 && cmd3 != 0 | cmd4
+EOO
+
+: here-doc
+:
+$* <<EOI >>EOO
+cmd1 <<=EOI1 | cmd2 >>?EOO2 && cmd3 <<=EOI3 2>&1 | cmd4 2>>?EOE4 >>?EOO4
+input
+one
+EOI1
+ouput
+two
+EOO2
+input
+three
+EOI3
+error
+four
+EOE4
+output
+four
+EOO4
+EOI
+cmd1 <<=EOI1 | cmd2 >>?EOO2 && cmd3 <<=EOI3 2>&1 | cmd4 >>?EOO4 2>>?EOE4
+input
+one
+EOI1
+ouput
+two
+EOO2
+input
+three
+EOI3
+output
+four
+EOO4
+error
+four
+EOE4
+EOO
+
+: leading
+:
+$* <<EOI 2>>EOE != 0
+| cmd
+EOI
+buildfile:11:1: error: missing program
+EOE
+
+: trailing
+:
+$* <<EOI 2>>EOE != 0
+cmd &&
+EOI
+buildfile:11:7: error: missing program
+EOE
+
+: redirected
+:
+{
+  : input
+  :
+  {
+    : first
+    :
+    $* <<EOI >>EOO
+    cmd1 <foo | cmd2
+    EOI
+    cmd1 <foo | cmd2
+    EOO
+
+    : non-first
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd1 | cmd2 <foo
+    EOI
+    buildfile:11:13: error: stdin is both piped and redirected
+    EOE
+  }
+
+  : output
+  :
+  {
+    : last
+    :
+    $* <<EOI >>EOO
+    cmd1 | cmd2 >foo
+    EOI
+    cmd1 | cmd2 >foo
+    EOO
+
+    : non-last
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd1 >foo | cmd2
+    EOI
+    buildfile:11:11: error: stdout is both redirected and piped
+    EOE
+  }
+}

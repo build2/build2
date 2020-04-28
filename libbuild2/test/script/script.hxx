@@ -12,9 +12,9 @@
 
 #include <libbuild2/variable.hxx>
 
-#include <libbuild2/test/target.hxx>
+#include <libbuild2/script/script.hxx>
 
-#include <libbuild2/test/script/token.hxx> // replay_tokens
+#include <libbuild2/test/target.hxx>
 
 namespace build2
 {
@@ -22,295 +22,14 @@ namespace build2
   {
     namespace script
     {
+      using build2::script::line;
+      using build2::script::lines;
+      using build2::script::redirect;
+      using build2::script::redirect_type;
+      using build2::script::line_type;
+      using build2::script::command_expr;
+
       class parser; // Required by VC for 'friend class parser' declaration.
-
-      // Pre-parse representation.
-      //
-
-      enum class line_type
-      {
-        var,
-        cmd,
-        cmd_if,
-        cmd_ifn,
-        cmd_elif,
-        cmd_elifn,
-        cmd_else,
-        cmd_end
-      };
-
-      ostream&
-      operator<< (ostream&, line_type);
-
-      struct line
-      {
-        line_type type;
-        replay_tokens tokens;
-
-        union
-        {
-          const variable* var; // Pre-entered for line_type::var.
-        };
-      };
-
-      // Most of the time we will have just one line (test command).
-      //
-      using lines = small_vector<line, 1>;
-
-      // Parse object model.
-      //
-
-      // redirect
-      //
-      enum class redirect_type
-      {
-        none,
-        pass,
-        null,
-        trace,
-        merge,
-        here_str_literal,
-        here_str_regex,
-        here_doc_literal,
-        here_doc_regex,
-        here_doc_ref,     // Reference to here_doc literal or regex.
-        file,
-      };
-
-      // Pre-parsed (but not instantiated) regex lines. The idea here is that
-      // we should be able to re-create their (more or less) exact text
-      // representation for diagnostics but also instantiate without any
-      // re-parsing.
-      //
-      struct regex_line
-      {
-        // If regex is true, then value is the regex expression. Otherwise, it
-        // is a literal. Note that special characters can be present in both
-        // cases. For example, //+ is a regex, while /+ is a literal, both
-        // with '+' as a special character. Flags are only valid for regex.
-        // Literals falls apart into textual (has no special characters) and
-        // special (has just special characters instead) ones. For example
-        // foo is a textual literal, while /.+ is a special one. Note that
-        // literal must not have value and special both non-empty.
-        //
-        bool regex;
-
-        string value;
-        string flags;
-        string special;
-
-        uint64_t line;
-        uint64_t column;
-
-        // Create regex with optional special characters.
-        //
-        regex_line (uint64_t l, uint64_t c,
-                    string v, string f, string s = string ())
-            : regex (true),
-              value (move (v)),
-              flags (move (f)),
-              special (move (s)),
-              line (l),
-              column (c) {}
-
-        // Create a literal, either text or special.
-        //
-        regex_line (uint64_t l, uint64_t c, string v, bool s)
-            : regex (false),
-              value (s ? string () : move (v)),
-              special (s ? move (v) : string ()),
-              line (l),
-              column (c) {}
-      };
-
-      struct regex_lines
-      {
-        char intro;   // Introducer character.
-        string flags; // Global flags (here-document).
-
-        small_vector<regex_line, 8> lines;
-      };
-
-      // Output file redirect mode.
-      //
-      enum class redirect_fmode
-      {
-        compare,
-        overwrite,
-        append
-      };
-
-      struct redirect
-      {
-        redirect_type type;
-
-        struct file_type
-        {
-          using path_type = build2::path;
-          path_type path;
-          redirect_fmode mode; // Meaningless for input redirect.
-        };
-
-        union
-        {
-          int         fd;    // Merge-to descriptor.
-          string      str;   // Note: with trailing newline, if requested.
-          regex_lines regex; // Note: with trailing blank, if requested.
-          file_type   file;
-          reference_wrapper<const redirect> ref; // Note: no chains.
-        };
-
-        string modifiers;   // Redirect modifiers.
-        string end;         // Here-document end marker (no regex intro/flags).
-        uint64_t end_line;  // Here-document end marker location.
-        uint64_t end_column;
-
-        // Create redirect of a type other than reference.
-        //
-        explicit
-        redirect (redirect_type = redirect_type::none);
-
-        // Create redirect of the reference type.
-        //
-        redirect (redirect_type t, const redirect& r)
-            : type (redirect_type::here_doc_ref), ref (r)
-        {
-          // There is no support (and need) for reference chains.
-          //
-          assert (t == redirect_type::here_doc_ref &&
-                  r.type != redirect_type::here_doc_ref);
-        }
-
-        // Move constuctible/assignable-only type.
-        //
-        redirect (redirect&&);
-        redirect& operator= (redirect&&);
-
-        ~redirect ();
-
-        const redirect&
-        effective () const noexcept
-        {
-          return type == redirect_type::here_doc_ref ? ref.get () : *this;
-        }
-      };
-
-      // cleanup
-      //
-      enum class cleanup_type
-      {
-        always, // &foo  - cleanup, fail if does not exist.
-        maybe,  // &?foo - cleanup, ignore if does not exist.
-        never   // &!foo - don’t cleanup, ignore if doesn’t exist.
-      };
-
-      // File or directory to be automatically cleaned up at the end of the
-      // scope. If the path ends with a trailing slash, then it is assumed to
-      // be a directory, otherwise -- a file. A directory that is about to be
-      // cleaned up must be empty.
-      //
-      // The last component in the path may contain a wildcard that have the
-      // following semantics:
-      //
-      // dir/*   - remove all immediate files
-      // dir/*/  - remove all immediate sub-directories (must be empty)
-      // dir/**  - remove all files recursively
-      // dir/**/ - remove all sub-directories recursively (must be empty)
-      // dir/*** - remove directory dir with all files and sub-directories
-      //           recursively
-      //
-      struct cleanup
-      {
-        cleanup_type type;
-        build2::path path;
-      };
-      using cleanups = vector<cleanup>;
-
-      // command_exit
-      //
-      enum class exit_comparison {eq, ne};
-
-      struct command_exit
-      {
-        // C/C++ don't apply constraints on program exit code other than it
-        // being of type int.
-        //
-        // POSIX specifies that only the least significant 8 bits shall be
-        // available from wait() and waitpid(); the full value shall be
-        // available from waitid() (read more at _Exit, _exit Open Group
-        // spec).
-        //
-        // While the Linux man page for waitid() doesn't mention any
-        // deviations from the standard, the FreeBSD implementation (as of
-        // version 11.0) only returns 8 bits like the other wait*() calls.
-        //
-        // Windows supports 32-bit exit codes.
-        //
-        // Note that in shells some exit values can have special meaning so
-        // using them can be a source of confusion. For bash values in the
-        // [126, 255] range are such a special ones (see Appendix E, "Exit
-        // Codes With Special Meanings" in the Advanced Bash-Scripting Guide).
-        //
-        exit_comparison comparison;
-        uint8_t code;
-      };
-
-      // command
-      //
-      struct command
-      {
-        path program;
-        strings arguments;
-
-        redirect in;
-        redirect out;
-        redirect err;
-
-        script::cleanups cleanups;
-
-        command_exit exit {exit_comparison::eq, 0};
-      };
-
-      enum class command_to_stream: uint16_t
-      {
-        header   = 0x01,
-        here_doc = 0x02,              // Note: printed on a new line.
-        all      = header | here_doc
-      };
-
-      void
-      to_stream (ostream&, const command&, command_to_stream);
-
-      ostream&
-      operator<< (ostream&, const command&);
-
-      // command_pipe
-      //
-      using command_pipe = vector<command>;
-
-      void
-      to_stream (ostream&, const command_pipe&, command_to_stream);
-
-      ostream&
-      operator<< (ostream&, const command_pipe&);
-
-      // command_expr
-      //
-      enum class expr_operator {log_or, log_and};
-
-      struct expr_term
-      {
-        expr_operator op;  // OR-ed to an implied false for the first term.
-        command_pipe pipe;
-      };
-
-      using command_expr = vector<expr_term>;
-
-      void
-      to_stream (ostream&, const command_expr&, command_to_stream);
-
-      ostream&
-      operator<< (ostream&, const command_expr&);
 
       // command_type
       //
@@ -335,31 +54,54 @@ namespace build2
       //
       class script;
 
-      enum class scope_state {unknown, passed, failed};
-
-      class scope
+      class scope_base // Make sure certain things are initialized early.
       {
       public:
-        scope* const parent; // NULL for the root (script) scope.
-        script&      root;   // Self for the root (script) scope.
-
-        // The chain of if-else scope alternatives. See also if_cond_ below.
-        //
-        unique_ptr<scope> if_chain;
+        script& root; // Self for the root (script) scope.
 
         // Note that if we pass the variable name as a string, then it will
         // be looked up in the wrong pool.
         //
         variable_map vars;
 
+      protected:
+        scope_base (script&);
+
+        const dir_path*
+        wd_path () const;
+
+        const target_triplet&
+        test_tt () const;
+      };
+
+      enum class scope_state {unknown, passed, failed};
+
+      class scope: public scope_base, public build2::script::environment
+      {
+      public:
+        scope* const parent; // NULL for the root (script) scope.
+
+        // The chain of if-else scope alternatives. See also if_cond_ below.
+        //
+        unique_ptr<scope> if_chain;
+
         const path& id_path;     // Id path ($@, relative in POSIX form).
-        const dir_path& wd_path; // Working dir ($~, absolute and normalized).
 
         optional<description> desc;
 
         scope_state state = scope_state::unknown;
-        test::script::cleanups cleanups;
-        paths special_cleanups;
+
+        void
+        set_variable (string&& name,
+                      names&&,
+                      const string& attrs,
+                      const location&) override;
+
+        // Noop since the temporary directory is a working directory and so
+        // is created before the scope commands execution.
+        //
+        virtual void
+        create_temp_dir () override {assert (false);};
 
         // Variables.
         //
@@ -382,17 +124,18 @@ namespace build2
         lookup_in_buildfile (const string&, bool target_only = true) const;
 
         // Return a value suitable for assignment. If the variable does not
-        // exist in this scope's map, then a new one with the NULL value is
-        // added and returned. Otherwise the existing value is returned.
+        // exist in this scope's variable map, then a new one with the NULL
+        // value is added and returned. Otherwise the existing value is
+        // returned.
         //
         value&
         assign (const variable& var) {return vars.assign (var);}
 
         // Return a value suitable for append/prepend. If the variable does
-        // not exist in this scope's map, then outer scopes are searched for
-        // the same variable. If found then a new variable with the found
-        // value is added to this scope and returned. Otherwise this function
-        // proceeds as assign() above.
+        // not exist in this scope's variable map, then outer scopes are
+        // searched for the same variable. If found then a new variable with
+        // the found value is added to this scope and returned. Otherwise this
+        // function proceeds as assign() above.
         //
         value&
         append (const variable&);
@@ -401,27 +144,6 @@ namespace build2
         //
         void
         reset_special ();
-
-        // Cleanup.
-        //
-      public:
-        // Register a cleanup. If the cleanup is explicit, then override the
-        // cleanup type if this path is already registered. Ignore implicit
-        // registration of a path outside script working directory.
-        //
-        void
-        clean (cleanup, bool implicit);
-
-        // Register cleanup of a special file. Such files are created to
-        // maintain testscript machinery and must be removed first, not to
-        // interfere with the user-defined wildcard cleanups.
-        //
-        void
-        clean_special (path p);
-
-      public:
-        virtual
-        ~scope () = default;
 
       protected:
         scope (const string& id, scope* parent, script& root);
@@ -566,7 +288,5 @@ namespace build2
     }
   }
 }
-
-#include <libbuild2/test/script/script.ixx>
 
 #endif // LIBBUILD2_TEST_SCRIPT_SCRIPT_HXX

@@ -545,7 +545,7 @@ complete picture:
 \
 $* 'World' >'Hello, World!' : command-name
 
-$* 'John' 'Jane' >EOO       : command-names
+$* 'John' 'Jane' >>EOO      : command-names
 Hello, Jane!
 Hello, John!
 EOO
@@ -943,7 +943,7 @@ Alternatively, we can use an absolute path:
 \
 
 Inside the scope working directory filesystem names that start with \c{stdin},
-\c{stdout}, \c{stderr}, as well as, \c{cmd-} are reserved.
+\c{stdout}, and \c{stderr} are reserved.
 
 To execute a test scope its commands (including variable assignments) are
 executed sequentially and in the order specified. If any of the commands
@@ -1536,9 +1536,9 @@ stderr: '2'(out-redirect)
 
 in-redirect:  '<-'|\
               '<|'|\
-              '<'{':'?'/'?} <text>|\
-              '<<'{':'?'/'?} <here-end>|\
-              '<<<' <file>
+              ('<='|'<<<') <file>|\
+              ('<<='|'<<'){':'?'/'?} <here-end>|\
+              ('<<<='|'<'){':'?'/'?} <text>
 
 out-redirect: '>-'|\
               '>|'|\
@@ -1546,9 +1546,9 @@ out-redirect: '>-'|\
               '>=' <file>|\
               '>+' <file>|\
               '>&' ('1'|'2')|\
-              '>'{':'?'/'?}'~'? <text>|\
-              '>>'{':'?'/'?}'~'? <here-end>|\
-              '>>>' <file>
+              ('>?'|'>>>') <file>|\
+              ('>>?'|'>>'){':'?'/'?}'~'? <here-end>|\
+              ('>>>?'|'>'){':'?'/'?}'~'? <text>
 
 here-document:
   *<text>
@@ -1866,9 +1866,9 @@ $* a1>-
 \
 in-redirect:  '<-'|\
               '<|'|\
-              '<'{':'?'/'?} <text>|\
-              '<<'{':'?'/'?} <here-end>|\
-              '<<<' <file>
+              ('<='|'<<<') <file>|\
+              ('<<='|'<<'){':'?'/'?} <here-end>|\
+              ('<<<='|'<'){':'?'/'?} <text>
 \
 
 The \c{stdin} data can come from a pipe, here-string (\c{<}), here-document
@@ -1905,9 +1905,9 @@ out-redirect: '>-'|\
               '>=' <file>|\
               '>+' <file>|\
               '>&' ('1'|'2')|\
-              '>'{':'?'/'?}'~'? <text>|\
-              '>>'{':'?'/'?}'~'? <here-end>|\
-              '>>>' <file>
+              ('>?'|'>>>') <file>|\
+              ('>>?'|'>>'){':'?'/'?}'~'? <here-end>|\
+              ('>>>?'|'>'){':'?'/'?}'~'? <text>
 \
 
 The \c{stdout} and \c{stderr} data can go to a pipe (\c{stdout} only), file

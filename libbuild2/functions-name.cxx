@@ -4,6 +4,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx>
 
 using namespace std;
 
@@ -14,7 +15,7 @@ namespace build2
   // out of scope). See scope::find_target_type() for details.
   //
   static pair<name, optional<string>>
-  to_target (const scope* s, name&& n)
+  to_target_name (const scope* s, name&& n)
   {
     optional<string> e;
 
@@ -31,74 +32,129 @@ namespace build2
     return make_pair (move (n), move (e));
   }
 
+  static const target&
+  to_target (const scope& s, name&& n, name&& o)
+  {
+    if (const target* r = search_existing (n, s, o.dir))
+      return *r;
+
+    fail << "target "
+         << (n.pair ? names {move (n), move (o)} : names {move (n)})
+         << " not found" << endf;
+  }
+
   void
   name_functions (function_map& m)
   {
-    function_family f (m, "name");
-
     // These functions treat a name as a target/prerequisite name.
     //
     // While on one hand it feels like calling them target.name(), etc., would
     // have been more appropriate, on the other hand they can also be called
     // on prerequisite names. They also won't always return the same result as
     // if we were interrogating an actual target (e.g., the directory may be
-    // relative).
+    // relative). Plus we now have functions that can only be called on
+    // targets (see below).
     //
-    f["name"] = [](const scope* s, name n)
+    function_family fn (m, "name");
+
+    fn["name"] = [](const scope* s, name n)
     {
-      return to_target (s, move (n)).first.value;
+      return to_target_name (s, move (n)).first.value;
     };
-    f["name"] = [](const scope* s, names ns)
+    fn["name"] = [](const scope* s, names ns)
     {
-      return to_target (s, convert<name> (move (ns))).first.value;
+      return to_target_name (s, convert<name> (move (ns))).first.value;
     };
 
     // Note: returns NULL if extension is unspecified (default) and empty if
     // specified as no extension.
     //
-    f["extension"] = [](const scope* s, name n)
+    fn["extension"] = [](const scope* s, name n)
     {
-      return to_target (s, move (n)).second;
+      return to_target_name (s, move (n)).second;
     };
-    f["extension"] = [](const scope* s, names ns)
+    fn["extension"] = [](const scope* s, names ns)
     {
-      return to_target (s, convert<name> (move (ns))).second;
-    };
-
-    f["directory"] = [](const scope* s, name n)
-    {
-      return to_target (s, move (n)).first.dir;
-    };
-    f["directory"] = [](const scope* s, names ns)
-    {
-      return to_target (s, convert<name> (move (ns))).first.dir;
+      return to_target_name (s, convert<name> (move (ns))).second;
     };
 
-    f["target_type"] = [](const scope* s, name n)
+    fn["directory"] = [](const scope* s, name n)
     {
-      return to_target (s, move (n)).first.type;
+      return to_target_name (s, move (n)).first.dir;
     };
-    f["target_type"] = [](const scope* s, names ns)
+    fn["directory"] = [](const scope* s, names ns)
     {
-      return to_target (s, convert<name> (move (ns))).first.type;
+      return to_target_name (s, convert<name> (move (ns))).first.dir;
+    };
+
+    fn["target_type"] = [](const scope* s, name n)
+    {
+      return to_target_name (s, move (n)).first.type;
+    };
+    fn["target_type"] = [](const scope* s, names ns)
+    {
+      return to_target_name (s, convert<name> (move (ns))).first.type;
     };
 
     // Note: returns NULL if no project specified.
     //
-    f["project"] = [](const scope* s, name n)
+    fn["project"] = [](const scope* s, name n)
     {
-      return to_target (s, move (n)).first.proj;
+      return to_target_name (s, move (n)).first.proj;
     };
-    f["project"] = [](const scope* s, names ns)
+    fn["project"] = [](const scope* s, names ns)
     {
-      return to_target (s, convert<name> (move (ns))).first.proj;
+      return to_target_name (s, convert<name> (move (ns))).first.proj;
+    };
+
+    // Functions that can be called only on real targets.
+    //
+    function_family ft (m, "target");
+
+    fn["path"] = [](const scope* s, names ns)
+    {
+      if (s == nullptr)
+        fail << "target.path() called out of scope" << endf;
+
+      // Most of the time we will have a single target so optimize for that.
+      //
+      small_vector<path, 1> r;
+
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
+      {
+        name& n (*i), o;
+        const target& t (to_target (*s, move (n), move (n.pair ? *++i : o)));
+
+        if (const auto* pt = t.is_a<path_target> ())
+        {
+          const path& p (pt->path ());
+
+          if (&p != &empty_path)
+            r.push_back (p);
+          else
+            fail << "target " << t << " path is not assigned";
+        }
+        else
+          fail << "target " << t << " is not path-based";
+      }
+
+      // We want the result to be path if we were given a single target and
+      // paths if multiple (or zero). The problem is, we cannot distinguish it
+      // based on the argument type (e.g., name vs names) since passing an
+      // out-qualified single target requires two names.
+      //
+      if (r.size () == 1)
+        return value (move (r[0]));
+
+      return value (paths (make_move_iterator (r.begin ()),
+                           make_move_iterator (r.end ())));
     };
 
     // Name-specific overloads from builtins.
     //
-    function_family b (m, "builtin");
+    function_family fb (m, "builtin");
 
-    b[".concat"] = [](dir_path d, name n)
+    fb[".concat"] = [](dir_path d, name n)
     {
       d /= n.dir;
       n.dir = move (d);

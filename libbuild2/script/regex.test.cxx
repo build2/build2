@@ -1,13 +1,13 @@
-// file      : libbuild2/test/script/regex.test.cxx -*- C++ -*-
+// file      : libbuild2/script/regex.test.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
 #include <regex>
 #include <type_traits> // is_*
 
-#include <libbuild2/test/script/regex.hxx>
+#include <libbuild2/script/regex.hxx>
 
 using namespace std;
-using namespace build2::test::script::regex;
+using namespace build2::script::regex;
 
 int
 main ()
@@ -18,7 +18,7 @@ main ()
   using cf = char_flags;
   using cr = char_regex;
 
-  init (); // Initializes the testscript regex global state.
+  init (); // Initializes the script regex global state.
 
   // Test line_char.
   //

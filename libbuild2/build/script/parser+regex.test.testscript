@@ -1,0 +1,225 @@
+# file      : libbuild2/build/script/parser+regex.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: here-string
+:
+{
+  : stdout
+  :
+  {
+    : missed
+    :
+    $* <'cmd >>>?~' 2>>EOE != 0
+    buildfile:11:10: error: missing stdout here-string regex
+    EOE
+
+    : no-introducer
+    :
+    $* <'cmd >>>?~""' 2>>EOE != 0
+    buildfile:11:10: error: no introducer character in stdout regex redirect
+    EOE
+
+    : no-term-introducer
+    :
+    $* <'cmd >>>?~/' 2>>EOE != 0
+    buildfile:11:10: error: no closing introducer character in stdout regex redirect
+    EOE
+
+    : portable-path-introducer
+    :
+    $* <'cmd >>>?/~/foo/' 2>>EOE != 0
+    buildfile:11:11: error: portable path modifier and '/' introducer in stdout regex redirect
+    EOE
+
+    : empty
+    :
+    $* <'cmd >>>?~//' 2>>EOE != 0
+    buildfile:11:10: error: stdout regex redirect is empty
+    EOE
+
+    : no-flags
+    :
+    $* <'cmd >>>?~/fo*/' >'cmd >>>?~/fo*/'
+
+    : idot
+    :
+    $* <'cmd >>>?~/fo*/d' >'cmd >>>?~/fo*/d'
+
+    : icase
+    :
+    $* <'cmd >>>?~/fo*/i' >'cmd >>>?~/fo*/i'
+
+    : invalid-flags1
+    :
+    $* <'cmd >>>?~/foo/z' 2>>EOE != 0
+    buildfile:11:10: error: junk at the end of stdout regex redirect
+    EOE
+
+    : invalid-flags2
+    :
+    $* <'cmd >>>?~/foo/iz' 2>>EOE != 0
+    buildfile:11:10: error: junk at the end of stdout regex redirect
+    EOE
+
+    : no-newline
+    :
+    $* <'cmd >>>?:~/fo*/' >'cmd >>>?:~/fo*/'
+  }
+
+  : stderr
+  :
+  {
+    : missed
+    :
+    $* <'cmd 2>>>?~' 2>>EOE != 0
+    buildfile:11:11: error: missing stderr here-string regex
+    EOE
+
+    : no-introducer
+    :
+    : Note that there is no need to reproduce all the errors as for stdout.
+    : All we need is to make sure that the proper description is passed to
+    : the parse_regex() function.
+    :
+    $* <'cmd 2>>>?~""' 2>>EOE != 0
+    buildfile:11:11: error: no introducer character in stderr regex redirect
+    EOE
+  }
+
+  : modifier-last
+  :
+  $* <'cmd >>>?~/x' 2>>EOE != 0
+  buildfile:11:10: error: no closing introducer character in stdout regex redirect
+  EOE
+}
+
+: here-doc
+:
+{
+  : stdout
+  :
+  {
+    : missed
+    :
+    $* <'cmd >>?~' 2>>EOE != 0
+    buildfile:11:9: error: expected here-document regex end marker
+    EOE
+
+    : portable-path-introducer
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>?/~/EOO/
+    foo
+    EOO
+    EOI
+    buildfile:11:5: error: portable path modifier and '/' introducer in here-document regex end marker
+    EOE
+
+    : unterminated-line-char
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>?~/EOO/
+    /
+    EOO
+    EOI
+    buildfile:12:1: error: no syntax line characters
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE != 0
+    cmd >>?:~/EOO/
+    EOO
+    EOI
+    buildfile:12:1: error: empty here-document regex
+    EOE
+
+    : no-flags
+    :
+    $* <<EOI >>EOO
+    cmd 2>>?~/EOE/
+    foo
+    /?
+    /foo/
+    /foo/*
+    /foo/i
+    /foo/i*
+
+    //
+    //*
+    EOE
+    EOI
+    cmd 2>>?~/EOE/
+    foo
+    /?
+    /foo/
+    /foo/*
+    /foo/i
+    /foo/i*
+
+    //
+    //*
+    EOE
+    EOO
+
+    : no-newline-str
+    :
+    $* <'cmd >>>?:~/fo*/' >'cmd >>>?:~/fo*/'
+
+    : no-newline-doc
+    :
+    $* <<EOI >>EOO
+    cmd 2>>?:~/EOE/
+    foo
+    EOE
+    EOI
+    cmd 2>>?:~/EOE/
+    foo
+    EOE
+    EOO
+
+    : end-marker-restore
+    :
+    {
+      : idot
+      :
+      $* <<EOI >>EOO
+      cmd 2>>?~/EOE/d
+      foo
+      EOE
+      EOI
+      cmd 2>>?~/EOE/d
+      foo
+      EOE
+      EOO
+
+      : icase
+      :
+      $* <<EOI >>EOO
+      cmd 2>>?~/EOE/i
+      foo
+      EOE
+      EOI
+      cmd 2>>?~/EOE/i
+      foo
+      EOE
+      EOO
+    }
+  }
+
+  : stderr
+  :
+  {
+    : missed
+    :
+    $* <'cmd 2>>?~' 2>>EOE != 0
+    buildfile:11:10: error: expected here-document regex end marker
+    EOE
+  }
+
+  : modifier-last
+  :
+  $* <'cmd >>?~:/FOO/' 2>>EOE != 0
+  buildfile:11:5: error: no closing introducer character in here-document regex end marker
+  EOE
+}

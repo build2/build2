@@ -14,7 +14,10 @@ namespace build2
   pair<pair<char, char>, bool> lexer::
   peek_chars ()
   {
-    sep_ = skip_spaces ();
+    auto p (skip_spaces ());
+    assert (!p.second);
+    sep_ = p.first;
+
     char r[2] = {'\0', '\0'};
 
     xchar c0 (peek ());
@@ -34,7 +37,7 @@ namespace build2
   }
 
   void lexer::
-  mode (lexer_mode m, char ps, optional<const char*> esc)
+  mode (lexer_mode m, char ps, optional<const char*> esc, uintptr_t data)
   {
     bool a (false); // attributes
 
@@ -54,7 +57,11 @@ namespace build2
     switch (m)
     {
     case lexer_mode::normal:
+    case lexer_mode::cmdvar:
       {
+        // Note: `%` is only recognized at the beginning of the line so it
+        // should not be included here.
+        //
         a  = true;
         s1 = ":<>=+? $(){}#\t\n";
         s2 = "    ==         ";
@@ -121,10 +128,16 @@ namespace build2
         n = false;
         break;
       }
+    case lexer_mode::foreign:
+      assert (data > 1);
+      // Fall through.
     case lexer_mode::single_quoted:
     case lexer_mode::double_quoted:
-      s = false;
-      // Fall through.
+      {
+        assert (ps == '\0');
+        s = false;
+        break;
+      }
     case lexer_mode::variable:
       {
         // These are handled in an ad hoc way in word().
@@ -134,7 +147,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, a, ps, s, n, q, *esc, s1, s2});
+    state_.push (state {m, data, nullopt, a, ps, s, n, q, *esc, s1, s2});
   }
 
   token lexer::
@@ -148,6 +161,7 @@ namespace build2
     switch (m)
     {
     case lexer_mode::normal:
+    case lexer_mode::cmdvar:
     case lexer_mode::value:
     case lexer_mode::values:
     case lexer_mode::switch_expressions:
@@ -158,10 +172,13 @@ namespace build2
     case lexer_mode::buildspec:     break;
     case lexer_mode::eval:          return next_eval ();
     case lexer_mode::double_quoted: return next_quoted ();
+    case lexer_mode::foreign:       return next_foreign ();
     default:                        assert (false); // Unhandled custom mode.
     }
 
-    bool sep (skip_spaces ());
+    pair<bool, bool> skip (skip_spaces ());
+    bool sep (skip.first);    // Separated from a previous character.
+    bool first (skip.second); // First non-whitespace character of a line.
 
     xchar c (get ());
     uint64_t ln (c.line), cn (c.column);
@@ -209,7 +226,8 @@ namespace build2
             m == lexer_mode::case_patterns)
           state_.pop ();
 
-        // Re-enable attributes in the normal mode.
+        // Re-enable attributes in the normal mode (should never be needed in
+        // cmdvar).
         //
         if (state_.top ().mode == lexer_mode::normal)
           state_.top ().attributes = true;
@@ -227,6 +245,32 @@ namespace build2
           sep = true;
 
         return make_token (type::lparen);
+      }
+    }
+
+    // Line-leading tokens in the normal mode.
+    //
+    // Note: must come before any other (e.g., `{`) tests below.
+    //
+    if (m == lexer_mode::normal && first)
+    {
+      switch (c)
+      {
+      case '%': return make_token (type::percent);
+      case '{':
+        {
+          string v;
+          while (peek () == '{')
+            v += get ();
+
+          if (!v.empty ())
+          {
+            v += '{';
+            return make_token (type::multi_lcbrace, move (v));
+          }
+
+          break;
+        }
       }
     }
 
@@ -267,6 +311,7 @@ namespace build2
     // switch_expressions modes.
     //
     if (m == lexer_mode::normal             ||
+        m == lexer_mode::cmdvar             ||
         m == lexer_mode::switch_expressions ||
         m == lexer_mode::case_patterns)
     {
@@ -278,7 +323,8 @@ namespace build2
 
     // The following characters are special in the normal mode.
     //
-    if (m == lexer_mode::normal)
+    if (m == lexer_mode::normal ||
+        m == lexer_mode::cmdvar)
     {
       switch (c)
       {
@@ -315,7 +361,8 @@ namespace build2
 
     // The following characters are special in the normal mode.
     //
-    if (m == lexer_mode::normal)
+    if (m == lexer_mode::normal ||
+        m == lexer_mode::cmdvar)
     {
       switch (c)
       {
@@ -361,7 +408,7 @@ namespace build2
     // This mode is quite a bit like the value mode when it comes to special
     // characters, except that we have some of our own.
 
-    bool sep (skip_spaces ());
+    bool sep (skip_spaces ().first);
     xchar c (get ());
 
     if (eos (c))
@@ -482,6 +529,99 @@ namespace build2
     //
     unget (c);
     return word (state_.top (), false);
+  }
+
+  token lexer::
+  next_foreign ()
+  {
+    state& st (state_.top ());
+
+    if (st.hold)
+    {
+      token r (move (*st.hold));
+      state_.pop (); // Expire foreign mode.
+      return r;
+    }
+
+    auto count (state_.top ().data); // Number of closing braces to expect.
+
+    xchar c (get ()); // First character of first line after `{{...`.
+    uint64_t ln (c.line), cn (c.column);
+
+    string lexeme;
+    for (bool first (true); !eos (c); c = get ())
+    {
+      // If this is the first character of a line, recognize closing braces.
+      //
+      if (first)
+      {
+        first = false;
+
+        // If this turns not to be the closing braces, we need to add any
+        // characters we have extracted to lexeme. Instead of saving these
+        // characters in a temporary we speculatively add them to the lexeme
+        // but then chop them off if this turned out to be the closing braces.
+        //
+        size_t chop (lexeme.size ());
+
+        // Skip leading whitespaces, if any.
+        //
+        for (; c == ' ' || c == '\t'; c = get ())
+          lexeme += c;
+
+        uint64_t bln (c.line), bcn (c.column); // Position of first `}`.
+
+        // Count braces.
+        //
+        auto i (count);
+        for (; c == '}'; c = get ())
+        {
+          lexeme += c;
+
+          if (--i == 0)
+            break;
+        }
+
+        if (i == 0) // Got enough braces.
+        {
+          // Make sure there are only whitespaces/comments after. Note that
+          // now we must start peeking since newline is not "ours".
+          //
+          for (c = peek (); c == ' ' || c == '\t'; c = peek ())
+            lexeme += get ();
+
+          if (c == '\n' || c == '#' || eos (c))
+          {
+            st.hold = token (type::multi_rcbrace,
+                             string (count, '}'),
+                             false, quote_type::unquoted, false,
+                             bln, bcn,
+                             token_printer);
+
+            lexeme.resize (chop);
+            return token (move (lexeme),
+                          false, quote_type::unquoted, false,
+                          ln, cn);
+          }
+
+          get (); // And fall through (not eos).
+        }
+        else
+        {
+          if (eos (c))
+            break;
+
+          // Fall through.
+        }
+      }
+
+      if (c == '\n')
+        first = true;
+
+      lexeme += c;
+    }
+
+    return token (type::eos, false, c.line, c.column, token_printer);
   }
 
   token lexer::
@@ -728,7 +868,7 @@ namespace build2
     return token (move (lexeme), sep, qtype, qcomp, ln, cn);
   }
 
-  bool lexer::
+  pair<bool, bool> lexer::
   skip_spaces ()
   {
     bool r (sep_);
@@ -739,7 +879,7 @@ namespace build2
     // In some special modes we don't skip spaces.
     //
     if (!s.sep_space)
-      return r;
+      return make_pair (r, false);
 
     xchar c (peek ());
     bool start (c.column == 1);
@@ -758,6 +898,8 @@ namespace build2
         {
           // In some modes we treat newlines as ordinary spaces.
           //
+          // Note that in this case we don't adjust start.
+          //
           if (!s.sep_newline)
           {
             r = true;
@@ -772,7 +914,7 @@ namespace build2
             break;
           }
 
-          return r;
+          return make_pair (r, start);
         }
       case '#':
         {
@@ -833,12 +975,12 @@ namespace build2
         }
         // Fall through.
       default:
-        return r; // Not a space.
+        return make_pair (r, start); // Not a space.
       }
 
       get ();
     }
 
-    return r;
+    return make_pair (r, start);
   }
 }

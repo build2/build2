@@ -1,0 +1,41 @@
+# file      : libbuild2/build/script/parser+variable.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: assignment
+:
+$* <<EOI >>EOO
+a = b
+echo $a
+EOI
+echo b
+EOO
+
+: primary-target
+:
+$* <<EOI >>EOO
+echo $name($>)
+EOI
+echo driver
+EOO
+
+: no-newline
+:
+$* <:'echo a' 2>>EOE != 0
+buildfile:11:7: error: expected newline instead of <end of file>
+EOE
+
+: set-primary-target
+:
+$* <<EOI 2>>EOE != 0
+> = a
+EOI
+buildfile:11:1: error: missing program
+EOE
+
+: empty-name
+:
+$* <<EOI 2>>EOE != 0
+= b
+EOI
+buildfile:11:1: error: missing variable name
+EOE

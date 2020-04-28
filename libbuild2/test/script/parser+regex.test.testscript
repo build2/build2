@@ -162,9 +162,12 @@
     EOE
     EOO
 
-    : no-newline
+    : no-newline-str
     :
     $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
+
+    : no-newline-doc
+    :
     $* <<EOI >>EOO
     cmd 2>>:~/EOE/
     foo

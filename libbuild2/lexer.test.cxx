@@ -1,6 +1,7 @@
 // file      : libbuild2/lexer.test.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#include <cstdlib> // strtoul()
 #include <cassert>
 #include <iostream>
 
@@ -14,13 +15,15 @@ using namespace std;
 
 namespace build2
 {
-  // Usage: argv[0] [-q] [<lexer-mode>]
+  // Usage: argv[0] [-q] [<lexer-mode>[=<data>]]
   //
   int
   main (int argc, char* argv[])
   {
     bool quote (false);
+
     lexer_mode m (lexer_mode::normal);
+    uintptr_t d (0);
 
     for (int i (1); i != argc; ++i)
     {
@@ -36,7 +39,12 @@ namespace build2
         else if (a == "attributes") m = lexer_mode::attributes;
         else if (a == "eval")       m = lexer_mode::eval;
         else if (a == "buildspec")  m = lexer_mode::buildspec;
-        else                       assert (false);
+        else if (a.compare (0, 8, "foreign=") == 0)
+        {
+          m = lexer_mode::foreign;
+          d = strtoul (a.c_str () + 8, nullptr, 10);
+        }
+        else                        assert (false);
         break;
       }
     }
@@ -51,7 +59,7 @@ namespace build2
       lexer l (cin, in);
 
       if (m != lexer_mode::normal)
-        l.mode (m);
+        l.mode (m, '\0', nullopt, d);
 
       // No use printing eos since we will either get it or loop forever.
       //
@@ -62,7 +70,7 @@ namespace build2
 
         // Print each token on a separate line without quoting operators.
         //
-        t.printer (cout, t, false);
+        t.printer (cout, t, print_mode::normal);
 
         if (quote)
         {
