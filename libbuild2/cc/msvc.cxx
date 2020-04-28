@@ -585,7 +585,7 @@ namespace build2
           {
             if (l.owns_lock ())
             {
-              s->member = i; // We are first.
+              s->adhoc_member = i; // We are first.
               l.unlock ();
             }
             else

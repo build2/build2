@@ -271,7 +271,7 @@ namespace build2
   group_prerequisites (const target& t)
       : t_ (t),
         g_ (t_.group == nullptr                 ||
-            t_.group->member != nullptr         || // Ad hoc group member.
+            t_.group->adhoc_member != nullptr   || // Ad hoc group member.
             t_.group->prerequisites ().empty ()
             ? nullptr : t_.group)
   {
@@ -345,7 +345,7 @@ namespace build2
     // An ad hoc group member cannot be used as a prerequisite (use the whole
     // group instead).
     //
-    assert (!member->adhoc_member ());
+    assert (!member->adhoc_group_member ());
 
     return prerequisite_type (*member);
   }
@@ -384,7 +384,7 @@ namespace build2
   operator++ () -> iterator&
   {
     if (k_ != nullptr) // Iterating over an ad hoc group.
-      k_ = k_->member;
+      k_ = k_->adhoc_member;
 
     if (k_ == nullptr && g_.count != 0) // Iterating over a normal group.
     {
@@ -418,7 +418,7 @@ namespace build2
                      ? j_ != 0 ? g_.members[j_ - 1] : nullptr
                      : i_->target.load (memory_order_consume));
 
-    if (t != nullptr && t->member != nullptr)
+    if (t != nullptr && t->adhoc_member != nullptr)
       k_ = t; // Increment that follows will make it t->member.
     else
     {
@@ -447,7 +447,7 @@ namespace build2
     {
       // Skip until the last element (next increment will reach the end).
       //
-      for (; k_->member != nullptr; k_ = k_->member) ;
+      for (; k_->adhoc_member != nullptr; k_ = k_->adhoc_member) ;
     }
     else
     {
@@ -464,7 +464,7 @@ namespace build2
   group () const
   {
     return
-      k_ != nullptr ? k_->member != nullptr                  : /* ad hoc   */
+      k_ != nullptr ? k_->adhoc_member != nullptr            : /* ad hoc   */
       g_.count != 0 ? g_.members != nullptr && j_ < g_.count : /* explicit */
       false;
   }

@@ -291,8 +291,8 @@ namespace build2
   {
     tracer trace ("add_adhoc_member");
 
-    const_ptr<target>* mp (&t.member);
-    for (; *mp != nullptr && !(*mp)->is_a (tt); mp = &(*mp)->member) ;
+    const_ptr<target>* mp (&t.adhoc_member);
+    for (; *mp != nullptr && !(*mp)->is_a (tt); mp = &(*mp)->adhoc_member) ;
 
     if (*mp != nullptr) // Might already be there.
       return **mp;
@@ -497,7 +497,7 @@ namespace build2
 
     // Intercept and handle matching an ad hoc group member.
     //
-    if (t.adhoc_member ())
+    if (t.adhoc_group_member ())
     {
       assert (!step);
 
@@ -1486,7 +1486,9 @@ namespace build2
 
     // Then ad hoc group file/fsdir members, if any.
     //
-    for (const target* mt (t.member); mt != nullptr; mt = mt->member)
+    for (const target* mt (t.adhoc_member);
+         mt != nullptr;
+         mt = mt->adhoc_member)
     {
       const path* p (nullptr);
 
@@ -2194,7 +2196,9 @@ namespace build2
 
     // Now clean the ad hoc group file members, if any.
     //
-    for (const target* m (ft.member); m != nullptr; m = m->member)
+    for (const target* m (ft.adhoc_member);
+         m != nullptr;
+         m = m->adhoc_member)
     {
       const file* mf (m->is_a<file> ());
       const path* mp (mf != nullptr ? &mf->path () : nullptr);

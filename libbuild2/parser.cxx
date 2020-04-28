@@ -999,8 +999,8 @@ namespace build2
       // Add as an ad hoc member at the end of the chain skipping duplicates.
       //
       {
-        const_ptr<target>* mp (&target_->member);
-        for (; *mp != nullptr; mp = &(*mp)->member)
+        const_ptr<target>* mp (&target_->adhoc_member);
+        for (; *mp != nullptr; mp = &(*mp)->adhoc_member)
         {
           if (*mp == &at)
           {

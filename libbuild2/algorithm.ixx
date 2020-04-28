@@ -249,16 +249,16 @@ namespace build2
   inline target*
   find_adhoc_member (target& g, const target_type& tt)
   {
-    target* m (g.member);
-    for (; m != nullptr && !m->is_a (tt); m = m->member) ;
+    target* m (g.adhoc_member);
+    for (; m != nullptr && !m->is_a (tt); m = m->adhoc_member) ;
     return m;
   }
 
   inline const target*
   find_adhoc_member (const target& g, const target_type& tt)
   {
-    const target* m (g.member);
-    for (; m != nullptr && !m->is_a (tt); m = m->member) ;
+    const target* m (g.adhoc_member);
+    for (; m != nullptr && !m->is_a (tt); m = m->adhoc_member) ;
     return m;
   }
 

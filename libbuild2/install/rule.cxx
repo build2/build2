@@ -978,7 +978,9 @@ namespace build2
 
       // Then installable ad hoc group members, if any.
       //
-      for (const target* m (t.member); m != nullptr; m = m->member)
+      for (const target* m (t.adhoc_member);
+           m != nullptr;
+           m = m->adhoc_member)
       {
         if (const file* mf = m->is_a<file> ())
         {
@@ -1256,7 +1258,9 @@ namespace build2
       // we would have to do it in reverse, but that's not easy (it's a
       // single-linked list).
       //
-      for (const target* m (t.member); m != nullptr; m = m->member)
+      for (const target* m (t.adhoc_member);
+           m != nullptr;
+           m = m->adhoc_member)
       {
         if (const file* mf = m->is_a<file> ())
         {

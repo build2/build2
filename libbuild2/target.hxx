@@ -231,21 +231,21 @@ namespace build2
     // Use add_adhoc_member(), find_adhoc_member() from algorithms to manage
     // ad hoc members.
     //
-    const_ptr<target> member = nullptr;
+    const_ptr<target> adhoc_member = nullptr;
 
     bool
     adhoc_group () const
     {
       // An ad hoc group can be a member of a normal group.
       //
-      return member != nullptr &&
-        (group == nullptr || group->member == nullptr);
+      return adhoc_member != nullptr &&
+        (group == nullptr || group->adhoc_member == nullptr);
     }
 
     bool
-    adhoc_member () const
+    adhoc_group_member () const
     {
-      return group != nullptr && group->member != nullptr;
+      return group != nullptr && group->adhoc_member != nullptr;
     }
 
   public:
