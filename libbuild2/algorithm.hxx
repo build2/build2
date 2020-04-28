@@ -10,6 +10,7 @@
 
 #include <libbuild2/action.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/recipe.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -673,11 +674,17 @@ namespace build2
   LIBBUILD2_SYMEXPORT target_state
   noop_action (action, const target&);
 
-  // Default action implementation which forwards to the prerequisites.
-  // Use default_recipe instead of using this function directly.
+  // Default action implementation which forwards to the prerequisites.  Use
+  // default_recipe instead of using this function directly.
   //
   LIBBUILD2_SYMEXPORT target_state
   default_action (action, const target&);
+
+  // Group action which calls the group's recipe. Use group_recipe instead of
+  // using this function directly.
+  //
+  LIBBUILD2_SYMEXPORT target_state
+  group_action (action, const target&);
 
   // Standard perform(clean) action implementation for the file target
   // (or derived).

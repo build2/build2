@@ -82,13 +82,6 @@ namespace build2
     return os << target_state_[static_cast<uint8_t> (ts)];
   }
 
-  // recipe
-  //
-  const recipe empty_recipe;
-  const recipe noop_recipe (&noop_action);
-  const recipe default_recipe (&default_action);
-  const recipe group_recipe (&group_action);
-
   // target
   //
   const target::prerequisites_type target::empty_prerequisites_;

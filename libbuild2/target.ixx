@@ -87,6 +87,9 @@ namespace build2
     return c >= offset_matched;
   }
 
+  LIBBUILD2_SYMEXPORT target_state
+  group_action (action, const target&); // <libbuild2/algorithm.hxx>
+
   inline bool target::
   group_state (action a) const
   {

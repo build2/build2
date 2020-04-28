@@ -40,9 +40,10 @@ namespace build2
   // it via rule/recipe override but that didn't end up well, to put it
   // mildly). While the outer operation normally "directs" the inner, inner
   // rules can still be matched/executed directly, without outer's involvement
-  // (e.g., because of other inner rules). A typical implementation of an
-  // outer rule either returns noop or delegates to the inner rule. In
-  // particular, it should not replace or override the inner's logic.
+  // (e.g., because of dependencies in other inner rules). A typical
+  // implementation of an outer rule either returns noop or delegates to the
+  // inner rule. In particular, it should not replace or override the inner's
+  // logic.
   //
   // While most of the relevant target state is duplicated, certain things are
   // shared among the inner/outer rules, such as the target data pad and the

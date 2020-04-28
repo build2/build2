@@ -10,6 +10,7 @@
 
 #include <libbuild2/action.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/recipe.hxx>
 
 #include <libbuild2/export.hxx>
 
