@@ -305,4 +305,28 @@ namespace build2
   }
 
   const noop_rule noop_rule::instance;
+
+  // adhoc_rule
+  //
+  bool adhoc_rule::
+  match (action a, target& t, const string&) const
+  {
+    // @@ Should we be looking for outer/inner and then just inner, like in
+    //    rule match? See match_rule() for the normal rule semantics.
+    //
+    auto i (find_if (t.adhoc_recipes.begin (),
+                     t.adhoc_recipes.end (),
+                     [a] (const adhoc_recipe& r) {return r.action == a;}));
+
+    return i != t.adhoc_recipes.end ();
+  }
+
+  recipe adhoc_rule::
+  apply (action, target&) const
+  {
+    return empty_recipe;
+  }
+
+  const adhoc_rule adhoc_rule::instance;
+  const rule_match adhoc_rule::match_instance {"adhoc", adhoc_rule::instance};
 }

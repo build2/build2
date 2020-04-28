@@ -410,6 +410,11 @@ namespace build2
     value&
     append (const variable&);
 
+    // Ad hoc recipes.
+    //
+  public:
+    vector<adhoc_recipe> adhoc_recipes;
+
     // Target operation state.
     //
   public:

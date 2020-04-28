@@ -48,6 +48,14 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern const recipe noop_recipe;
   LIBBUILD2_SYMEXPORT extern const recipe default_recipe;
   LIBBUILD2_SYMEXPORT extern const recipe group_recipe;
+
+  // Ad hoc recipe.
+  //
+  struct adhoc_recipe
+  {
+    build2::action action;
+  };
+
 }
 
 #endif // LIBBUILD2_RECIPE_HXX

@@ -108,6 +108,24 @@ namespace build2
     noop_rule () {}
     static const noop_rule instance;
   };
+
+  // Ad hoc recipe rule.
+  //
+  // Note: should not be used directly (e.g., registered, etc).
+  //
+  class LIBBUILD2_SYMEXPORT adhoc_rule: public rule
+  {
+  public:
+    virtual bool
+    match (action, target&, const string&) const override;
+
+    virtual recipe
+    apply (action, target&) const override;
+
+    adhoc_rule () {}
+    static const adhoc_rule instance;
+    static const rule_match match_instance;
+  };
 }
 
 #endif // LIBBUILD2_RULE_HXX
