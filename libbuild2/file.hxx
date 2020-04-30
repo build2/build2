@@ -158,9 +158,10 @@ namespace build2
   LIBBUILD2_SYMEXPORT dir_path
   bootstrap_fwd (context&, const dir_path& src_root, optional<bool>& altn);
 
-  // Bootstrap the project's root scope, the out part.
+  // Bootstrap the project's root scope, the out part. Return the src_root
+  // variable value (which can be NULL).
   //
-  LIBBUILD2_SYMEXPORT void
+  LIBBUILD2_SYMEXPORT value&
   bootstrap_out (scope& root, optional<bool>& altn);
 
   // Bootstrap the project's root scope, the src part. Return true if we

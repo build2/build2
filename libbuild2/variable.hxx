@@ -460,8 +460,8 @@ namespace build2
   // for diagnostics.
   //
   template <typename T>
-  void typify        (value&, const variable*);
-  void typify        (value&, const value_type&, const variable*);
+  void typify (value&, const variable*);
+  void typify (value&, const value_type&, const variable*);
 
   LIBBUILD2_SYMEXPORT void
   typify_atomic (context&, value&, const value_type&, const variable*);

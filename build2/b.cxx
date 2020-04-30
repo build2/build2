@@ -1021,11 +1021,9 @@ main (int argc, char* argv[])
 
           if (!bstrapped)
           {
-            bootstrap_out (rs, altn);
-
             // See if the bootstrap process set/changed src_root.
             //
-            value& v (rs.assign (ctx->var_src_root));
+            value& v (bootstrap_out (rs, altn));
 
             if (v)
             {

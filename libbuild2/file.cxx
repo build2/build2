@@ -129,6 +129,8 @@ namespace build2
   dir_path
   find_src_root (const dir_path& b, optional<bool>& altn)
   {
+    assert (b.absolute ());
+
     for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
       if (is_src_root (d, altn))
@@ -141,6 +143,8 @@ namespace build2
   pair<dir_path, bool>
   find_out_root (const dir_path& b, optional<bool>& altn)
   {
+    assert (b.absolute ());
+
     for (dir_path d (b); !d.root () && d != home; d = d.directory ())
     {
       bool s;
@@ -474,14 +478,12 @@ namespace build2
     if (!p.second)
       fail << "variable out_root expected as first line in " << f;
 
-    try
-    {
-      return convert<dir_path> (move (p.first));
-    }
-    catch (const invalid_argument& e)
-    {
-      fail << "invalid out_root value in " << f << ": " << e << endf;
-    }
+    auto r (convert<dir_path> (move (p.first)));
+
+    if (r.relative ())
+      fail << "relative path in out_root value in " << f;
+
+    return r;
   }
 
   static void
@@ -523,26 +525,45 @@ namespace build2
     root.insert_operation (clean_id,   op_clean);
   }
 
-  void
+  value&
   bootstrap_out (scope& root, optional<bool>& altn)
   {
+    context& ctx (root.ctx);
     const dir_path& out_root (root.out_path ());
 
     path f (exists (out_root, std_src_root_file, alt_src_root_file, altn));
 
-    if (f.empty ())
-      return;
+    if (!f.empty ())
+    {
+      if (root.root_extra == nullptr)
+        setup_root_extra (root, altn);
 
-    if (root.root_extra == nullptr)
-      setup_root_extra (root, altn);
+      //@@ TODO: if bootstrap files can source other bootstrap files (for
+      //   example, as a way to express dependecies), then we need a way to
+      //   prevent multiple sourcing. We handle it here but we still need
+      //   something like source_once (once [scope] source) in buildfiles.
+      //
+      parser p (ctx, load_stage::boot);
+      source_once (p, root, root, f, root);
+    }
 
-    //@@ TODO: if bootstrap files can source other bootstrap files (for
-    //   example, as a way to express dependecies), then we need a way to
-    //   prevent multiple sourcing. We handle it here but we still need
-    //   something like source_once (once [scope] source) in buildfiles.
-    //
-    parser p (root.ctx, load_stage::boot);
-    source_once (p, root, root, f, root);
+    value& v (root.assign (ctx.var_src_root));
+
+    if (!f.empty ())
+    {
+      // Verify the value set by src-root.build is sensible.
+      //
+      // Note: keeping diagnostics consistent with bootstrap_fwd() and
+      // find_project_name().
+      //
+      if (!v)
+        fail << "variable src_root expected as first line in " << f;
+
+      if (cast<dir_path> (v).relative ())
+        fail << "relative path in src_root value in " << f;
+    }
+
+    return v;
   }
 
   pair<value, bool>
@@ -670,6 +691,9 @@ namespace build2
 
           if (!p.second)
             fail << "variable src_root expected as first line in " << f;
+
+          if (cast<dir_path> (p.first).relative ())
+            fail << "relative path in src_root value in " << f;
 
           src_root_v = move (p.first);
           remap_src_root (ctx, src_root_v); // Remap if inside old_src_root.
@@ -1138,9 +1162,7 @@ namespace build2
     optional<bool> altn;
     if (!bstrapped)
     {
-      bootstrap_out (rs, altn); // #3 happens here (or it can be #1).
-
-      value& v (rs.assign (ctx.var_src_root));
+      value& v (bootstrap_out (rs, altn)); // #3 happens here (or it can be #1)
 
       if (!v)
       {
@@ -1203,9 +1225,7 @@ namespace build2
         optional<bool> altn;
         if (!bootstrapped (rs))
         {
-          bootstrap_out (rs, altn);
-
-          value& v (rs.assign (ctx.var_src_root));
+          value& v (bootstrap_out (rs, altn));
 
           if (!v)
           {
@@ -1995,18 +2015,17 @@ namespace build2
 
       if (!bstrapped)
       {
-        bootstrap_out (*root, altn);
+        value& v (bootstrap_out (*root, altn));
 
         // Check that the bootstrap process set src_root.
         //
-        auto l (root->vars[*ctx.var_src_root]);
-        if (l)
+        if (v)
         {
           // Note that unlike main() here we fail hard. The idea is that if
           // the project we are importing is misconfigured, then it should be
           // fixed first.
           //
-          const dir_path& p (cast<dir_path> (l));
+          const dir_path& p (cast<dir_path> (v));
 
           if (!src_root.empty () && p != src_root)
             fail (loc) << "configured src_root " << p << " does not match "
@@ -2019,7 +2038,7 @@ namespace build2
         setup_root (*root,
                     (top
                      ? fwd
-                     : forwarded (*proot, out_root, l->as<dir_path> (), altn)));
+                     : forwarded (*proot, out_root, v.as<dir_path> (), altn)));
 
         bootstrap_pre (*root, altn);
         bootstrap_src (*root, altn);
