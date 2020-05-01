@@ -341,6 +341,10 @@ namespace build2
     // it can distinguish between a pre/post operation (Y-for-X) and the
     // actual operation (X).
     //
+    // If you are then wondering how would a rule for Y ever match in case of
+    // Y-for-X, the answer is via a rule that matches for X and then, in case
+    // of Y-for-X, matches an inner rule for just Y (see match_inner()).
+    //
     meta_operation_id mo (a.meta_operation ());
     operation_id o (a.inner () ? a.operation () : a.outer_operation ());
 

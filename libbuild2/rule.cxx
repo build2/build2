@@ -308,23 +308,89 @@ namespace build2
 
   // adhoc_rule
   //
-  bool adhoc_rule::
-  match (action a, target& t, const string&) const
+  static inline const adhoc_recipe*
+  find_recipe (action a, target& t)
   {
-    // @@ Should we be looking for outer/inner and then just inner, like in
-    //    rule match? See match_rule() for the normal rule semantics.
-    //
     auto i (find_if (t.adhoc_recipes.begin (),
                      t.adhoc_recipes.end (),
                      [a] (const adhoc_recipe& r) {return r.action == a;}));
 
-    return i != t.adhoc_recipes.end ();
+    return i != t.adhoc_recipes.end () ? &*i : nullptr;
+  }
+
+  bool adhoc_rule::
+  match (action a, target& t, const string&) const
+  {
+    // TODO:
+    //
+    // @@ If action is Y-for-X, how would we distinguish between X and
+    //    Y-for-X? See match_rule() for the hairy details. We could start with
+    //    supporting just the inner case. Or we could try to just match an
+    //    inner rule by default? I think need a clear use-case to see what's
+    //    the correct semantics.
+
+    if (find_recipe (a, t))
+      return true;
+
+    // If this is clean for a file target and we have a recipe for update,
+    // then we will supply the standard clean.
+    //
+    if (a == perform_clean_id &&
+        t.is_a<file> ()       &&
+        find_recipe (action (perform_id, update_id), t))
+      return true;
+
+    return false;
   }
 
   recipe adhoc_rule::
-  apply (action, target&) const
+  apply (action a, target& t) const
   {
-    return empty_recipe;
+    // Derive file names for the target and its ad hoc group members, if any.
+    //
+    for (target* m (&t); m != nullptr; m = m->adhoc_member)
+    {
+      if (auto* p = m->is_a<path_target> ())
+        p->derive_path ();
+    }
+
+    // Inject dependency on the output directory.
+    //
+    // We do it always instead of only if one of the targets is path-based in
+    // case the recipe creates temporary files or some such.
+    //
+    inject_fsdir (a, t);
+
+    // Match prerequisites.
+    //
+    match_prerequisite_members (a, t);
+
+    // For update inject dependency on the tool target.
+    //
+    // @@ We could see that it's a target and do it but not sure if we should
+    //    bother. We dropped this idea of implicit targets in tests. Maybe we
+    //    should verify path assigned, like we do there? I think we will have
+    //    to.
+    //
+    // if (a == perform_update_id)
+    //  inject (a, t, tgt);
+
+    if (const adhoc_recipe* r = find_recipe (a, t))
+    {
+      // @@ Perhaps we should have different implementations for file-based
+      // targets (depdb, timestamp, etc) and non.
+      //
+      return [r] (action a, const target& t)
+      {
+        // @@ TODO
+        text << t << ' ' << a << ' ' << r;
+        return target_state::unchanged;
+      };
+    }
+
+    // Otherwise this should be the standard clean.
+    //
+    return &perform_clean_depdb;
   }
 
   const adhoc_rule adhoc_rule::instance;

@@ -222,7 +222,8 @@ namespace build2
 
       // Update prerequisites and determine if any relevant ones render us
       // out-of-date. Note that currently we treat all the prerequisites as
-      // potentially affecting the result (think prologues/epilogues, etc).
+      // potentially affecting the result (think prologues/epilogues, CLI
+      // compiler target itself, etc).
       //
       timestamp mt (t.load_mtime (tp));
       auto pr (execute_prerequisites<cli> (a, t, mt));
