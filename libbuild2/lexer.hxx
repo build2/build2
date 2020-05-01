@@ -142,12 +142,17 @@ namespace build2
     virtual token
     next ();
 
-    // Peek at the first character of the next token. Return the character
-    // or '\0' if the next token will be eos. Also return an indicator of
-    // whether the next token will be separated.
+    // Peek at the first two characters of the next token(s). Return the
+    // characters or '\0' if either would be eos. Also return an indicator of
+    // whether the next token would be separated. Note: cannot be used to peek
+    // at the first character of a line.
     //
-    pair<char, bool>
-    peek_char ();
+    // Note also that it assumes that the current mode and the potential new
+    // mode in which these characters will actually be parsed use the same
+    // whitespace separation (the sep_space and sep_newline values).
+    //
+    pair<pair<char, char>, bool>
+    peek_chars ();
 
   protected:
     struct state

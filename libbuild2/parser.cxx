@@ -5747,7 +5747,7 @@ namespace build2
     //
     // - it is not quoted [so a keyword can always be escaped] and
     // - next token is '\n' (or eos) or '(' [so if(...) will work] or
-    // - next token is separated and is not '=', '=+', or '+=' [which
+    // - next token is separated and is not '=', '=+', '+=', or '?=' [which
     //   means a "directive trailer" can never start with one of them].
     //
     // See tests/keyword.
@@ -5757,15 +5757,23 @@ namespace build2
       // We cannot peek at the whole token here since it might have to be
       // lexed in a different mode. So peek at its first character.
       //
-      pair<char, bool> p (lexer_->peek_char ());
-      char c (p.first);
+      pair<pair<char, char>, bool> p (lexer_->peek_chars ());
+      char c0 (p.first.first);
+      char c1 (p.first.second);
 
-      // @@ Just checking for leading '+' is not sufficient, for example:
+      // Note that just checking for leading '+'/'?' is not sufficient, for
+      // example:
       //
       // print +foo
       //
-      return c == '\n' || c == '\0' || c == '(' ||
-        (p.second && c != '=' && c != '+');
+      // So wepeek at one more character since what we expect next ('=') can't
+      // be whitespace-separated.
+      //
+      return c0 == '\n' || c0 == '\0' || c0 == '(' ||
+        (p.second                 &&
+         c0 != '='                &&
+         (c0 != '+' || c1 != '=') &&
+         (c0 != '?' || c1 != '='));
     }
 
     return false;

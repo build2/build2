@@ -1,0 +1,23 @@
+# file      : tests/directive/assert.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test overall directive parsing.
+#
+
+.include ../common.testscript
+
+: assign
+: Test differentiation with variable assignment.
+:
+{
+  # Note: ? is expanded as pattern.
+
+  $* <'print +foo' >'+foo' : plus
+  $* <'print ?foo' >''     : ques
+
+  $* <'print + foo' >'+ foo' : plus-ws-eq
+  $* <'print ? foo' >'foo'   : ques-ws-eq
+
+  $* <'print +' >'+' : plus-only
+  $* <'print ?' >''  : ques-only
+}

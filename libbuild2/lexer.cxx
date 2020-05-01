@@ -11,12 +11,26 @@ namespace build2
 {
   using type = token_type;
 
-  pair<char, bool> lexer::
-  peek_char ()
+  pair<pair<char, char>, bool> lexer::
+  peek_chars ()
   {
     sep_ = skip_spaces ();
-    xchar c (peek ());
-    return make_pair (eos (c) ? '\0' : char (c), sep_);
+    char r[2] = {'\0', '\0'};
+
+    xchar c0 (peek ());
+    if (!eos (c0))
+    {
+      get (c0);
+      r[0] = c0;
+
+      xchar c1 (peek ());
+      if (!eos (c1))
+        r[1] = c1;
+
+      unget (c0);
+    }
+
+    return make_pair (make_pair (r[0], r[1]), sep_);
   }
 
   void lexer::
@@ -30,7 +44,6 @@ namespace build2
     bool s (true); // space
     bool n (true); // newline
     bool q (true); // quotes
-
 
     if (!esc)
     {
