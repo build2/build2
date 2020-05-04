@@ -122,6 +122,9 @@ namespace build2
     virtual recipe
     apply (action, target&) const override;
 
+    static target_state
+    perform_update (action, const target&, const adhoc_recipe&);
+
     adhoc_rule () {}
     static const adhoc_rule instance;
     static const rule_match match_instance;

@@ -379,18 +379,154 @@ namespace build2
     {
       // @@ Perhaps we should have different implementations for file-based
       // targets (depdb, timestamp, etc) and non.
-      //
-      return [r] (action a, const target& t)
+
+      switch (a)
       {
-        // @@ TODO
-        text << t << ' ' << a << ' ' << r;
-        return target_state::unchanged;
-      };
+      case perform_update_id: return [r] (action a, const target& t)
+        {
+          return perform_update (a, t, *r);
+        };
+      default:                return [r] (action a, const target& t)
+        {
+          // @@ TODO
+          text << t << ' ' << a << ' ' << r;
+          return target_state::unchanged;
+        };
+      }
+    }
+    else
+    {
+      // Otherwise this should be the standard clean.
+      //
+      return &perform_clean_depdb;
+    }
+  }
+
+  target_state adhoc_rule::
+  perform_update (action, const target&, const adhoc_recipe&)
+  {
+    tracer trace ("adhoc_rule::perform_update");
+
+#if 0
+    // The rule has been matched which means the members should be resolved
+    // and paths assigned. We use the header file as our "target path" for
+    // timestamp, depdb, etc.
+    //
+    const cli_cxx& t (xt.as<cli_cxx> ());
+    const path& tp (t.h->path ());
+
+    // Update prerequisites and determine if any relevant ones render us
+    // out-of-date. Note that currently we treat all the prerequisites as
+    // potentially affecting the result (think prologues/epilogues, CLI
+    // compiler target itself, etc).
+    //
+    timestamp mt (t.load_mtime (tp));
+    auto pr (execute_prerequisites<cli> (a, t, mt));
+
+    bool update (!pr.first);
+    target_state ts (update ? target_state::changed : *pr.first);
+
+    const cli& s (pr.second);
+
+    // We use depdb to track changes to the .cli file name, options,
+    // compiler, etc.
+    //
+    depdb dd (tp + ".d");
+    {
+      // First should come the rule name/version.
+      //
+      if (dd.expect ("cli.compile 1") != nullptr)
+        l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+      // Then the compiler checksum.
+      //
+      if (dd.expect (csum) != nullptr)
+        l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+
+      // Then the options checksum.
+      //
+      sha256 cs;
+      append_options (cs, t, "cli.options");
+
+      if (dd.expect (cs.string ()) != nullptr)
+        l4 ([&]{trace << "options mismatch forcing update of " << t;});
+
+      // Finally the .cli input file.
+      //
+      if (dd.expect (s.path ()) != nullptr)
+        l4 ([&]{trace << "input file mismatch forcing update of " << t;});
     }
 
-    // Otherwise this should be the standard clean.
+    // Update if depdb mismatch.
     //
-    return &perform_clean_depdb;
+    if (dd.writing () || dd.mtime > mt)
+      update = true;
+
+    dd.close ();
+
+    // If nothing changed, then we are done.
+    //
+    if (!update)
+      return ts;
+
+    // Translate paths to relative (to working directory). This results in
+    // easier to read diagnostics.
+    //
+    path relo (relative (t.dir));
+    path rels (relative (s.path ()));
+
+    const process_path& pp (ctgt.process_path ());
+    cstrings args {pp.recall_string ()};
+
+    // See if we need to pass --output-{prefix,suffix}
+    //
+    string prefix, suffix;
+    match_stem (t.name, s.name, &prefix, &suffix);
+
+    if (!prefix.empty ())
+    {
+      args.push_back ("--output-prefix");
+      args.push_back (prefix.c_str ());
+    }
+
+    if (!suffix.empty ())
+    {
+      args.push_back ("--output-suffix");
+      args.push_back (suffix.c_str ());
+    }
+
+    // See if we need to pass any --?xx-suffix options.
+    //
+    append_extension (args, *t.h, "--hxx-suffix", "hxx");
+    append_extension (args, *t.c, "--cxx-suffix", "cxx");
+    if (t.i != nullptr)
+      append_extension (args, *t.i, "--ixx-suffix", "ixx");
+
+    append_options (args, t, "cli.options");
+
+    if (!relo.empty ())
+    {
+      args.push_back ("-o");
+      args.push_back (relo.string ().c_str ());
+    }
+
+    args.push_back (rels.string ().c_str ());
+    args.push_back (nullptr);
+
+    if (verb >= 2)
+      print_process (args);
+    else if (verb)
+      text << "cli " << s;
+
+    if (!t.ctx.dry_run)
+    {
+      run (pp, args);
+      dd.check_mtime (tp);
+    }
+
+    t.mtime (system_clock::now ());
+#endif
+    return target_state::changed;
   }
 
   const adhoc_rule adhoc_rule::instance;
