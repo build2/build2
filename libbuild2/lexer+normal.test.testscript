@@ -34,3 +34,39 @@ $* <:'x?=y' >>EOO
 ?=
 'y'
 EOO
+
+: percent
+: Leading percent sign recognition.
+:
+{
+  : first
+  :
+  $* <:'%%' >>EOO
+  %
+  '%'
+  EOO
+
+  : space
+  :
+  $* <:'  %%' >>EOO
+   %
+  '%'
+  EOO
+
+  : newline
+  :
+  $* <<EOI >>EOO
+
+    %%
+  EOI
+   %
+  '%'
+  <newline>
+  EOO
+
+  : non-token
+  :
+  $* <:'x%' >>EOO
+  'x%'
+  EOO
+}

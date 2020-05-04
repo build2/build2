@@ -174,7 +174,7 @@ namespace build2
       token lexer::
       next_line ()
       {
-        bool sep (skip_spaces ());
+        bool sep (skip_spaces ().first);
 
         xchar c (get ());
         uint64_t ln (c.line), cn (c.column);

@@ -20,17 +20,18 @@
 
 namespace build2
 {
-  // Context-dependent lexing mode. Quoted modes are internal and should not
-  // be set explicitly. In the value mode we don't treat certain characters
-  // (e.g., `+`, `=`) as special so that we can use them in the variable
-  // values, e.g., `foo = g++`. In contrast, in the variable mode, we restrict
-  // certain character (e.g., `/`) from appearing in the name. The values mode
-  // is like value but recogizes `,` as special (used in contexts where we
-  // need to list multiple values). The attributes/attribute_value modes are
-  // like values where each value is potentially a variable assignment; they
-  // don't treat `{` and `}` as special (so we cannot have name groups in
-  // attributes) as well as recognizes `=` and `]`. The eval mode is used in
-  // the evaluation context.
+  // Context-dependent lexing mode.
+  //
+  // Quoted modes are internal and should not be set explicitly. In the value
+  // mode we don't treat certain characters (e.g., `+`, `=`) as special so
+  // that we can use them in the variable values, e.g., `foo = g++`. In
+  // contrast, in the variable mode, we restrict certain character (e.g., `/`)
+  // from appearing in the name. The values mode is like value but recogizes
+  // `,` as special (used in contexts where we need to list multiple
+  // values). The attributes/attribute_value modes are like values where each
+  // value is potentially a variable assignment; they don't treat `{` and `}`
+  // as special (so we cannot have name groups in attributes) as well as
+  // recognizes `=` and `]`. The eval mode is used in the evaluation context.
   //
   // A number of modes are "derived" from the value/values mode by recognizing
   // a few extra characters:
@@ -41,6 +42,9 @@ namespace build2
   // Note that the normal, value/values and derived, as well as eval modes
   // split words separated by the pair character (to disable pairs one can
   // pass `\0` as a pair character).
+  //
+  // The normal mode recognizes `%` at the beginning of the line as special.
+  // The cmdvar mode is like normal but does not treat `%` as special.
   //
   // The alternative modes must be set manually. The value/values and derived
   // modes automatically expires after the end of the line. The attribute mode
@@ -70,6 +74,7 @@ namespace build2
     enum
     {
       normal = base_type::value_next,
+      cmdvar,
       variable,
       value,
       values,
@@ -189,11 +194,13 @@ namespace build2
     virtual token
     word (state current, bool separated);
 
-    // Return true if we have seen any spaces. Skipped empty lines
-    // don't count. In other words, we are only interested in spaces
-    // that are on the same line as the following non-space character.
+    // Return true in first if we have seen any spaces. Skipped empty lines
+    // don't count. In other words, we are only interested in spaces that are
+    // on the same line as the following non-space character. Return true in
+    // second if we have started skipping spaces from column 1 (note that
+    // if this mode does not skip spaces, then second will always be false).
     //
-    bool
+    pair<bool, bool>
     skip_spaces ();
 
     // Diagnostics.

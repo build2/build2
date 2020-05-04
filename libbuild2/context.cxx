@@ -340,8 +340,10 @@ namespace build2
       // And so the first token should be a word which can be either a
       // variable name (potentially with the directory qualification) or just
       // the directory, in which case it should be followed by another word
-      // (unqualified variable name).
+      // (unqualified variable name). To avoid treating any of the visibility
+      // modifiers as special we use the cmdvar mode.
       //
+      l.mode (lexer_mode::cmdvar);
       token t (l.next ());
 
       optional<dir_path> dir;

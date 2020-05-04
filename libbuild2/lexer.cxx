@@ -14,7 +14,10 @@ namespace build2
   pair<pair<char, char>, bool> lexer::
   peek_chars ()
   {
-    sep_ = skip_spaces ();
+    auto p (skip_spaces ());
+    assert (!p.second);
+    sep_ = p.first;
+
     char r[2] = {'\0', '\0'};
 
     xchar c0 (peek ());
@@ -54,7 +57,11 @@ namespace build2
     switch (m)
     {
     case lexer_mode::normal:
+    case lexer_mode::cmdvar:
       {
+        // Note: `%` is only recognized at the beginning of the line so it
+        // should not be included here.
+        //
         a  = true;
         s1 = ":<>=+? $(){}#\t\n";
         s2 = "    ==         ";
@@ -148,6 +155,7 @@ namespace build2
     switch (m)
     {
     case lexer_mode::normal:
+    case lexer_mode::cmdvar:
     case lexer_mode::value:
     case lexer_mode::values:
     case lexer_mode::switch_expressions:
@@ -161,7 +169,9 @@ namespace build2
     default:                        assert (false); // Unhandled custom mode.
     }
 
-    bool sep (skip_spaces ());
+    pair<bool, bool> skip (skip_spaces ());
+    bool sep (skip.first);    // Separated from a previous character.
+    bool first (skip.second); // First non-whitespace character of a line.
 
     xchar c (get ());
     uint64_t ln (c.line), cn (c.column);
@@ -209,7 +219,8 @@ namespace build2
             m == lexer_mode::case_patterns)
           state_.pop ();
 
-        // Re-enable attributes in the normal mode.
+        // Re-enable attributes in the normal mode (should never be needed in
+        // cmdvar).
         //
         if (state_.top ().mode == lexer_mode::normal)
           state_.top ().attributes = true;
@@ -227,6 +238,14 @@ namespace build2
           sep = true;
 
         return make_token (type::lparen);
+      }
+    }
+
+    if (m == lexer_mode::normal && first)
+    {
+      switch (c)
+      {
+      case '%': return make_token (type::percent);
       }
     }
 
@@ -267,6 +286,7 @@ namespace build2
     // switch_expressions modes.
     //
     if (m == lexer_mode::normal             ||
+        m == lexer_mode::cmdvar             ||
         m == lexer_mode::switch_expressions ||
         m == lexer_mode::case_patterns)
     {
@@ -278,7 +298,8 @@ namespace build2
 
     // The following characters are special in the normal mode.
     //
-    if (m == lexer_mode::normal)
+    if (m == lexer_mode::normal ||
+        m == lexer_mode::cmdvar)
     {
       switch (c)
       {
@@ -315,7 +336,8 @@ namespace build2
 
     // The following characters are special in the normal mode.
     //
-    if (m == lexer_mode::normal)
+    if (m == lexer_mode::normal ||
+        m == lexer_mode::cmdvar)
     {
       switch (c)
       {
@@ -361,7 +383,7 @@ namespace build2
     // This mode is quite a bit like the value mode when it comes to special
     // characters, except that we have some of our own.
 
-    bool sep (skip_spaces ());
+    bool sep (skip_spaces ().first);
     xchar c (get ());
 
     if (eos (c))
@@ -728,7 +750,7 @@ namespace build2
     return token (move (lexeme), sep, qtype, qcomp, ln, cn);
   }
 
-  bool lexer::
+  pair<bool, bool> lexer::
   skip_spaces ()
   {
     bool r (sep_);
@@ -739,7 +761,7 @@ namespace build2
     // In some special modes we don't skip spaces.
     //
     if (!s.sep_space)
-      return r;
+      return make_pair (r, false);
 
     xchar c (peek ());
     bool start (c.column == 1);
@@ -758,6 +780,8 @@ namespace build2
         {
           // In some modes we treat newlines as ordinary spaces.
           //
+          // Note that in this case we don't adjust start.
+          //
           if (!s.sep_newline)
           {
             r = true;
@@ -772,7 +796,7 @@ namespace build2
             break;
           }
 
-          return r;
+          return make_pair (r, start);
         }
       case '#':
         {
@@ -833,12 +857,12 @@ namespace build2
         }
         // Fall through.
       default:
-        return r; // Not a space.
+        return make_pair (r, start); // Not a space.
       }
 
       get ();
     }
 
-    return r;
+    return make_pair (r, start);
   }
 }

@@ -24,6 +24,7 @@ namespace build2
     case token_type::colon:          os << q << ':'  << q; break;
     case token_type::dollar:         os << q << '$'  << q; break;
     case token_type::question:       os << q << '?'  << q; break;
+    case token_type::percent:        os << q << '%'  << q; break;
     case token_type::comma:          os << q << ','  << q; break;
 
     case token_type::lparen:         os << q << '('  << q; break;

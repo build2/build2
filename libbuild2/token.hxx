@@ -36,6 +36,7 @@ namespace build2
       colon,           // :
       dollar,          // $
       question,        // ?
+      percent,         // %
       comma,           // ,
 
       lparen,          // (

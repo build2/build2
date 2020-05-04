@@ -335,6 +335,11 @@ namespace build2
 
     while (tt != type::eos && !(one && parsed))
     {
+      // Issue better diagnostics for stray `%`.
+      //
+      if (tt == type::percent)
+        fail (t) << "recipe without target";
+
       // Extract attributes if any.
       //
       assert (attributes_.empty ());
