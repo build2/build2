@@ -663,7 +663,9 @@ namespace build2
 
           // Output doesn't match the regex. We save the regex to file for
           // troubleshooting regardless of whether we print the diagnostics or
-          // not.
+          // not. We, however, register it for cleanup in the later case (the
+          // expression may still succeed, we can be evaluating the if
+          // condition, etc).
           //
           path rp (save_regex ());
 
@@ -680,6 +682,8 @@ namespace build2
             //
             print_file (d, op, ll);
           }
+          else
+            sp.clean_special (rp);
 
           // Fall through (to return false).
           //
