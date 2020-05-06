@@ -138,7 +138,7 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (state {m, data, a, ps, s, n, q, *esc, s1, s2});
+        state_.push (state {m, data, nullopt, a, ps, s, n, q, *esc, s1, s2});
       }
 
       token lexer::

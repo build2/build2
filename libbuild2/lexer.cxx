@@ -128,10 +128,16 @@ namespace build2
         n = false;
         break;
       }
+    case lexer_mode::foreign:
+      assert (data > 1);
+      // Fall through.
     case lexer_mode::single_quoted:
     case lexer_mode::double_quoted:
-      s = false;
-      // Fall through.
+      {
+        assert (ps == '\0');
+        s = false;
+        break;
+      }
     case lexer_mode::variable:
       {
         // These are handled in an ad hoc way in word().
@@ -141,7 +147,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, data, a, ps, s, n, q, *esc, s1, s2});
+    state_.push (state {m, data, nullopt, a, ps, s, n, q, *esc, s1, s2});
   }
 
   token lexer::
@@ -166,6 +172,7 @@ namespace build2
     case lexer_mode::buildspec:     break;
     case lexer_mode::eval:          return next_eval ();
     case lexer_mode::double_quoted: return next_quoted ();
+    case lexer_mode::foreign:       return next_foreign ();
     default:                        assert (false); // Unhandled custom mode.
     }
 
@@ -241,11 +248,29 @@ namespace build2
       }
     }
 
+    // Line-leading tokens in the normal mode.
+    //
+    // Note: must come before any other (e.g., `{`) tests below.
+    //
     if (m == lexer_mode::normal && first)
     {
       switch (c)
       {
       case '%': return make_token (type::percent);
+      case '{':
+        {
+          string v;
+          while (peek () == '{')
+            v += get ();
+
+          if (!v.empty ())
+          {
+            v += '{';
+            return make_token (type::multi_lcbrace, move (v));
+          }
+
+          break;
+        }
       }
     }
 
@@ -504,6 +529,99 @@ namespace build2
     //
     unget (c);
     return word (state_.top (), false);
+  }
+
+  token lexer::
+  next_foreign ()
+  {
+    state& st (state_.top ());
+
+    if (st.hold)
+    {
+      token r (move (*st.hold));
+      state_.pop (); // Expire foreign mode.
+      return r;
+    }
+
+    auto count (state_.top ().data); // Number of closing braces to expect.
+
+    xchar c (get ()); // First character of first line after `{{...`.
+    uint64_t ln (c.line), cn (c.column);
+
+    string lexeme;
+    for (bool first (true); !eos (c); c = get ())
+    {
+      // If this is the first character of a line, recognize closing braces.
+      //
+      if (first)
+      {
+        first = false;
+
+        // If this turns not to be the closing braces, we need to add any
+        // characters we have extracted to lexeme. Instead of saving these
+        // characters in a temporary we speculatively add them to the lexeme
+        // but then chop them off if this turned out to be the closing braces.
+        //
+        size_t chop (lexeme.size ());
+
+        // Skip leading whitespaces, if any.
+        //
+        for (; c == ' ' || c == '\t'; c = get ())
+          lexeme += c;
+
+        uint64_t bln (c.line), bcn (c.column); // Position of first `}`.
+
+        // Count braces.
+        //
+        auto i (count);
+        for (; c == '}'; c = get ())
+        {
+          lexeme += c;
+
+          if (--i == 0)
+            break;
+        }
+
+        if (i == 0) // Got enough braces.
+        {
+          // Make sure there are only whitespaces/comments after. Note that
+          // now we must start peeking since newline is not "ours".
+          //
+          for (c = peek (); c == ' ' || c == '\t'; c = peek ())
+            lexeme += get ();
+
+          if (c == '\n' || c == '#' || eos (c))
+          {
+            st.hold = token (type::multi_rcbrace,
+                             string (count, '}'),
+                             false, quote_type::unquoted, false,
+                             bln, bcn,
+                             token_printer);
+
+            lexeme.resize (chop);
+            return token (move (lexeme),
+                          false, quote_type::unquoted, false,
+                          ln, cn);
+          }
+
+          get (); // And fall through (not eos).
+        }
+        else
+        {
+          if (eos (c))
+            break;
+
+          // Fall through.
+        }
+      }
+
+      if (c == '\n')
+        first = true;
+
+      lexeme += c;
+    }
+
+    return token (type::eos, false, c.line, c.column, token_printer);
   }
 
   token lexer::

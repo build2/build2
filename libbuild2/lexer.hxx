@@ -43,13 +43,22 @@ namespace build2
   // split words separated by the pair character (to disable pairs one can
   // pass `\0` as a pair character).
   //
-  // The normal mode recognizes `%` at the beginning of the line as special.
-  // The cmdvar mode is like normal but does not treat `%` as special.
+  // The normal mode recognizes `%` and `{{...` at the beginning of the line
+  // as special. The cmdvar mode is like normal but does not treat these
+  // character sequences as special.
+  //
+  // Finally, the foreign mode reads everything until encountering a line that
+  // contains nothing (besides whitespaces) other than the closing multi-
+  // curly-brace (`}}...`) (or eos) returning the contents as the word token
+  // followed by the multi_rcbrace (or eos). In a way it is similar to the
+  // single-quote mode. The number of closing braces to expect is passed as
+  // mode data.
   //
   // The alternative modes must be set manually. The value/values and derived
   // modes automatically expires after the end of the line. The attribute mode
   // expires after the closing `]`. The variable mode expires after the word
-  // token. And the eval mode expires after the closing `)`.
+  // token. The eval mode expires after the closing `)`. And the foreign mode
+  // expires after the closing braces.
   //
   // Note that normally it is only safe to switch mode when the current token
   // is not quoted (or, more generally, when you are not in the double-quoted
@@ -85,6 +94,7 @@ namespace build2
       eval,
       single_quoted,
       double_quoted,
+      foreign,
       buildspec,
 
       value_next
@@ -163,8 +173,10 @@ namespace build2
   protected:
     struct state
     {
-      lexer_mode mode;
-      uintptr_t  data;
+      lexer_mode      mode;
+      uintptr_t       data;
+      optional<token> hold;
+
       bool       attributes;
 
       char sep_pair;
@@ -189,6 +201,9 @@ namespace build2
 
     token
     next_quoted ();
+
+    token
+    next_foreign ();
 
     // Lex a word assuming current is the top state (which may already have
     // been "expired" from the top).

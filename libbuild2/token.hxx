@@ -45,6 +45,9 @@ namespace build2
       lcbrace,         // {
       rcbrace,         // }
 
+      multi_lcbrace,   // {{... (value contains the braces)
+      multi_rcbrace,   // }}... (value contains the braces)
+
       lsbrace,         // [
       rsbrace,         // ]
 

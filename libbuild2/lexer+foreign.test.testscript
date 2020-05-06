@@ -1,0 +1,96 @@
+# file      : libbuild2/lexer+foreign.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.arguments = foreign=2
+
+: basics
+:
+$* <<EOI >>EOO
+echo foo
+}}
+EOI
+'echo foo
+'
+}}
+<newline>
+EOO
+
+: empty
+:
+$* <<EOI >>EOO
+}}
+EOI
+''
+}}
+<newline>
+EOO
+
+: braces
+:
+$* <<EOI >>EOO
+}
+}}}
+{{}}
+}} }
+}}
+EOI
+'}
+}}}
+{{}}
+}} }
+'
+}}
+<newline>
+EOO
+
+: whitespaces
+:
+$* <'	 }} 	' >>EOO # Note: there are TABs.
+''
+}}
+<newline>
+EOO
+
+: comment
+:
+$* <'}} # comment' >>EOO
+''
+}}
+<newline>
+EOO
+
+: eos
+:
+$* <:'}}' >>EOO
+''
+}}
+EOO
+
+: missing
+: Note that we get eos right away (i.e., there is no word token).
+:
+$* <<EOI
+}
+}}}
+{{}}
+}} }
+}
+EOI
+
+: three
+:
+{
+  test.arguments = foreign=3
+
+  : basic
+  :
+  $* <<EOI >>EOO
+    echo foo
+  }}}
+  EOI
+  '  echo foo
+  '
+  }}}
+  <newline>
+  EOO
+}

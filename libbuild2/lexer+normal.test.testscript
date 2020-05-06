@@ -70,3 +70,21 @@ EOO
   'x%'
   EOO
 }
+
+: multi-lcbrace
+: Leading multi-curly-brace recognition.
+:
+{
+  : two
+  :
+  $* <:'{{' >>EOO
+  {{
+  EOO
+
+  : three
+  :
+  $* <:'{{{c++' >>EOO
+  {{{
+  'c++'
+  EOO
+}
