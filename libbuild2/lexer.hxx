@@ -121,7 +121,8 @@ namespace build2
     virtual void
     mode (lexer_mode,
           char pair_separator = '\0',
-          optional<const char*> escapes = nullopt);
+          optional<const char*> escapes = nullopt,
+          uintptr_t data = 0);
 
     // Enable attributes recognition for the next token.
     //
@@ -163,6 +164,7 @@ namespace build2
     struct state
     {
       lexer_mode mode;
+      uintptr_t  data;
       bool       attributes;
 
       char sep_pair;

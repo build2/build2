@@ -37,7 +37,7 @@ namespace build2
   }
 
   void lexer::
-  mode (lexer_mode m, char ps, optional<const char*> esc)
+  mode (lexer_mode m, char ps, optional<const char*> esc, uintptr_t data)
   {
     bool a (false); // attributes
 
@@ -141,7 +141,7 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, a, ps, s, n, q, *esc, s1, s2});
+    state_.push (state {m, data, a, ps, s, n, q, *esc, s1, s2});
   }
 
   token lexer::

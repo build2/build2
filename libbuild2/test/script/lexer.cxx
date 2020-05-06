@@ -16,7 +16,7 @@ namespace build2
       using type = token_type;
 
       void lexer::
-      mode (base_mode m, char ps, optional<const char*> esc)
+      mode (base_mode m, char ps, optional<const char*> esc, uintptr_t data)
       {
         bool a (false); // attributes
 
@@ -138,7 +138,7 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (state {m, a, ps, s, n, q, *esc, s1, s2});
+        state_.push (state {m, data, a, ps, s, n, q, *esc, s1, s2});
       }
 
       token lexer::
