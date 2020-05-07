@@ -77,43 +77,6 @@ namespace build2
             s2 = "       ";
             break;
           }
-
-        case lexer_mode::command_expansion:
-          {
-            // Note that whitespaces are not word separators in this mode.
-            //
-            s1 = "|&<>";
-            s2 = "    ";
-            s = false;
-            break;
-          }
-        case lexer_mode::here_line_single:
-          {
-            // This one is like a single-quoted string except it treats
-            // newlines as a separator. We also treat quotes as literals.
-            //
-            // Note that it might be tempting to enable line continuation
-            // escapes. However, we will then have to also enable escaping of
-            // the backslash, which makes it a lot less tempting.
-            //
-            s1 = "\n";
-            s2 = " ";
-            esc = ""; // Disable escape sequences.
-            s = false;
-            q = false;
-            break;
-          }
-        case lexer_mode::here_line_double:
-          {
-            // This one is like a double-quoted string except it treats
-            // newlines as a separator. We also treat quotes as literals.
-            //
-            s1 = "$(\n";
-            s2 = "   ";
-            s = false;
-            q = false;
-            break;
-          }
         case lexer_mode::description_line:
           {
             // This one is like a single-quoted string and has an ad hoc
@@ -152,17 +115,12 @@ namespace build2
         case lexer_mode::first_token:
         case lexer_mode::second_token:
         case lexer_mode::variable_line:
-        case lexer_mode::command_expansion:
-        case lexer_mode::here_line_single:
-        case lexer_mode::here_line_double:
           r = next_line ();
           break;
         case lexer_mode::description_line:
           r = next_description ();
           break;
-        default:
-          r = base_lexer::next ();
-          break;
+        default: return base_lexer::next ();
         }
 
         if (r.qtype != quote_type::unquoted)
@@ -182,38 +140,9 @@ namespace build2
         state st (state_.top ()); // Make copy (see first/second_token).
         lexer_mode m (st.mode);
 
-        auto make_token = [&sep, &m, ln, cn] (type t, string v = string ())
+        auto make_token = [&sep, ln, cn] (type t)
         {
-          bool q (m == lexer_mode::here_line_double);
-
-          return token (t, move (v), sep,
-                        (q ? quote_type::double_ : quote_type::unquoted), q,
-                        ln, cn,
-                        token_printer);
-        };
-
-        auto make_token_with_modifiers =
-          [&make_token, this] (type t,
-                               const char* mods,           // To recorgnize.
-                               const char* stop = nullptr) // To stop after.
-        {
-          string v;
-          if (mods != nullptr)
-          {
-            for (xchar p (peek ());
-                 (strchr (mods, p) != nullptr &&      // Modifier.
-                  strchr (v.c_str (), p) == nullptr); // Not already seen.
-                 p = peek ())
-            {
-              get ();
-              v += p;
-
-              if (stop != nullptr && strchr (stop, p) != nullptr)
-                break;
-            }
-          }
-
-          return make_token (t, move (v));
+          return token (t, sep, ln, cn, token_printer);
         };
 
         // Handle attributes (do it first to make sure the flag is cleared
@@ -240,32 +169,23 @@ namespace build2
 
         // NOTE: remember to update mode() if adding new special characters.
 
-        if (m != lexer_mode::command_expansion)
+        switch (c)
         {
-          switch (c)
+        case '\n':
           {
-          case '\n':
-            {
-              // Expire variable value mode at the end of the line.
-              //
-              if (m == lexer_mode::variable_line)
-                state_.pop ();
-
-              sep = true; // Treat newline as always separated.
-              return make_token (type::newline);
-            }
-          }
-        }
-
-        if (m != lexer_mode::here_line_single)
-        {
-          switch (c)
-          {
-            // Variable expansion, function call, and evaluation context.
+            // Expire variable value mode at the end of the line.
             //
-          case '$': return make_token (type::dollar);
-          case '(': return make_token (type::lparen);
+            if (m == lexer_mode::variable_line)
+              state_.pop ();
+
+            sep = true; // Treat newline as always separated.
+            return make_token (type::newline);
           }
+
+          // Variable expansion, function call, and evaluation context.
+          //
+        case '$': return make_token (type::dollar);
+        case '(': return make_token (type::lparen);
         }
 
         // Line separators.
@@ -313,133 +233,14 @@ namespace build2
           }
         }
 
-        // Command operators/separators.
+        // Command operators.
         //
         if (m == lexer_mode::command_line ||
             m == lexer_mode::first_token  ||
-            m == lexer_mode::second_token ||
-            m == lexer_mode::command_expansion)
+            m == lexer_mode::second_token)
         {
-          switch (c)
-          {
-            // |, ||
-            //
-          case '|':
-            {
-              if (peek () == '|')
-              {
-                get ();
-                return make_token (type::log_or);
-              }
-              else
-                return make_token (type::pipe);
-            }
-            // &, &&
-            //
-          case '&':
-            {
-              xchar p (peek ());
-
-              if (p == '&')
-              {
-                get ();
-                return make_token (type::log_and);
-              }
-
-              // These modifiers are mutually exclusive so stop after seeing
-              // either one.
-              //
-              return make_token_with_modifiers (type::clean, "!?", "!?");
-            }
-            // <
-            //
-          case '<':
-            {
-              type r (type::in_str);
-              xchar p (peek ());
-
-              if (p == '|' || p == '-' || p == '<')
-              {
-                get ();
-
-                switch (p)
-                {
-                case '|': return make_token (type::in_pass);
-                case '-': return make_token (type::in_null);
-                case '<':
-                  {
-                    r = type::in_doc;
-                    p = peek ();
-
-                    if (p == '<')
-                    {
-                      get ();
-                      r = type::in_file;
-                    }
-                    break;
-                  }
-                }
-              }
-
-              // Handle modifiers.
-              //
-              const char* mods (nullptr);
-              switch (r)
-              {
-              case type::in_str:
-              case type::in_doc: mods = ":/"; break;
-              }
-
-              return make_token_with_modifiers (r, mods);
-            }
-            // >
-            //
-          case '>':
-            {
-              type r (type::out_str);
-              xchar p (peek ());
-
-              if (p == '|' || p == '-' || p == '!' || p == '&' ||
-                  p == '=' || p == '+' || p == '>')
-              {
-                get ();
-
-                switch (p)
-                {
-                case '|': return make_token (type::out_pass);
-                case '-': return make_token (type::out_null);
-                case '!': return make_token (type::out_trace);
-                case '&': return make_token (type::out_merge);
-                case '=': return make_token (type::out_file_ovr);
-                case '+': return make_token (type::out_file_app);
-                case '>':
-                  {
-                    r = type::out_doc;
-                    p = peek ();
-
-                    if (p == '>')
-                    {
-                      get ();
-                      r = type::out_file_cmp;
-                    }
-                    break;
-                  }
-                }
-              }
-
-              // Handle modifiers.
-              //
-              const char* mods (nullptr);
-              const char* stop (nullptr);
-              switch (r)
-              {
-              case type::out_str:
-              case type::out_doc:  mods = ":/~"; stop = "~"; break;
-              }
-
-              return make_token_with_modifiers (r, mods, stop);
-            }
-          }
+          if (optional<token> t = next_cmd_op (c, sep, m))
+            return move (*t);
         }
 
         // Dot, plus/minus, and left/right curly braces.

@@ -7,7 +7,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/lexer.hxx>
+#include <libbuild2/script/lexer.hxx>
 
 #include <libbuild2/test/script/token.hxx>
 
@@ -17,9 +17,9 @@ namespace build2
   {
     namespace script
     {
-      struct lexer_mode: build2::lexer_mode
+      struct lexer_mode: build2::script::lexer_mode
       {
-        using base_type = build2::lexer_mode;
+        using base_type = build2::script::lexer_mode;
 
         enum
         {
@@ -27,22 +27,18 @@ namespace build2
           first_token,     // Expires at the end of the token.
           second_token,    // Expires at the end of the token.
           variable_line,   // Expires at the end of the line.
-          command_expansion,
-          here_line_single,
-          here_line_double,
           description_line // Expires at the end of the line.
         };
 
         lexer_mode () = default;
         lexer_mode (value_type v): base_type (v) {}
-        lexer_mode (base_type v): base_type (v) {}
+        lexer_mode (build2::lexer_mode v): base_type (v) {}
       };
 
-      class lexer: public build2::lexer
+      class lexer: public build2::script::lexer
       {
       public:
-        using base_lexer = build2::lexer;
-        using base_mode = build2::lexer_mode;
+        using base_lexer = build2::script::lexer;
 
         // Note that neither the name nor escape arguments are copied.
         //
@@ -58,23 +54,15 @@ namespace build2
         }
 
         virtual void
-        mode (base_mode,
+        mode (build2::lexer_mode,
               char = '\0',
               optional<const char*> = nullopt,
               uintptr_t = 0) override;
 
-        // Number of quoted (double or single) tokens since last reset.
-        //
-        size_t
-        quoted () const {return quoted_;}
-
-        void
-        reset_quoted (size_t q) {quoted_ = q;}
-
         virtual token
         next () override;
 
-      protected:
+      private:
         token
         next_line ();
 
@@ -83,9 +71,6 @@ namespace build2
 
         virtual token
         word (state, bool) override;
-
-      protected:
-        size_t quoted_;
       };
     }
   }

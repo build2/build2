@@ -13,7 +13,6 @@
 
 namespace build2
 {
-
   // Token type.
   //
   // A line consists of a sequence of words separated by separators and
@@ -102,7 +101,7 @@ namespace build2
 
     // Quoting can be complete, where the token starts and ends with the quote
     // characters and quoting is contiguous or partial where only some part(s)
-    // of the token are quoted or quoting continus to the next token.
+    // of the token are quoted or quoting continues to the next token.
     //
     quote_type qtype;
     bool qcomp;

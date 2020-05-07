@@ -93,6 +93,7 @@ rem
 set "src=build2"
 
 set "src=%src% libbuild2"
+set "src=%src% libbuild2\script"
 set "src=%src% libbuild2\config"
 set "src=%src% libbuild2\dist"
 set "src=%src% libbuild2\test"

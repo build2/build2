@@ -32,9 +32,6 @@ namespace build2
           else if (s == "first-token")       m = lexer_mode::first_token;
           else if (s == "second-token")      m = lexer_mode::second_token;
           else if (s == "variable-line")     m = lexer_mode::variable_line;
-          else if (s == "command-expansion") m = lexer_mode::command_expansion;
-          else if (s == "here-line-single")  m = lexer_mode::here_line_single;
-          else if (s == "here-line-double")  m = lexer_mode::here_line_double;
           else if (s == "description-line")  m = lexer_mode::description_line;
           else if (s == "variable")          m = lexer_mode::variable;
           else                               assert (false);
@@ -46,14 +43,10 @@ namespace build2
 
           // Some modes auto-expire so we need something underneath.
           //
-          bool u (m == lexer_mode::first_token      ||
-                  m == lexer_mode::second_token     ||
-                  m == lexer_mode::variable_line    ||
-                  m == lexer_mode::description_line ||
-                  m == lexer_mode::variable);
+          bool u (m != lexer_mode::command_line);
 
           path_name in ("<stdin>");
-          lexer l (cin, in, u ? lexer_mode::command_line : m);
+          lexer l (cin, in, lexer_mode::command_line);
           if (u)
             l.mode (m);
 

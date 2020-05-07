@@ -8,6 +8,8 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/algorithm.hxx>
 
+#include <libbuild2/script/parser.hxx> // parser::apply_value_attributes()
+
 using namespace std;
 
 namespace build2
@@ -16,414 +18,54 @@ namespace build2
   {
     namespace script
     {
-      ostream&
-      operator<< (ostream& o, line_type lt)
-      {
-        const char* s (nullptr);
-
-        switch (lt)
-        {
-        case line_type::var:       s = "variable"; break;
-        case line_type::cmd:       s = "command";  break;
-        case line_type::cmd_if:    s = "'if'";     break;
-        case line_type::cmd_ifn:   s = "'if!'";    break;
-        case line_type::cmd_elif:  s = "'elif'";   break;
-        case line_type::cmd_elifn: s = "'elif!'";  break;
-        case line_type::cmd_else:  s = "'else'";   break;
-        case line_type::cmd_end:   s = "'end'";    break;
-        }
-
-        return o << s;
-      }
-
-      // Quote if empty or contains spaces or any of the special characters.
-      // Note that we use single quotes since double quotes still allow
-      // expansion.
+      // scope_base
       //
-      // @@ What if it contains single quotes?
-      //
-      static void
-      to_stream_q (ostream& o, const string& s)
+      scope_base::
+      scope_base (script& s)
+          : root (s),
+            vars (s.test_target.ctx, false /* global */)
       {
-        if (s.empty () || s.find_first_of (" |&<>=\\\"") != string::npos)
-          o << '\'' << s << '\'';
-        else
-          o << s;
-      };
-
-      void
-      to_stream (ostream& o, const command& c, command_to_stream m)
-      {
-        auto print_path = [&o] (const path& p)
-        {
-          using build2::operator<<;
-
-          ostringstream s;
-          stream_verb (s, stream_verb (o));
-          s << p;
-
-          to_stream_q (o, s.str ());
-        };
-
-        auto print_redirect =
-          [&o, print_path] (const redirect& r, const char* prefix)
-        {
-          o << ' ' << prefix;
-
-          size_t n (string::traits_type::length (prefix));
-          assert (n > 0);
-
-          char d (prefix[n - 1]); // Redirect direction.
-
-          switch (r.type)
-          {
-          case redirect_type::none:  assert (false);   break;
-          case redirect_type::pass:  o << '|';         break;
-          case redirect_type::null:  o << '-';         break;
-          case redirect_type::trace: o << '!';         break;
-          case redirect_type::merge: o << '&' << r.fd; break;
-
-          case redirect_type::here_str_literal:
-          case redirect_type::here_doc_literal:
-            {
-              bool doc (r.type == redirect_type::here_doc_literal);
-
-              // For here-document add another '>' or '<'. Note that here end
-              // marker never needs to be quoted.
-              //
-              if (doc)
-                o << d;
-
-              o << r.modifiers;
-
-              if (doc)
-                o << r.end;
-              else
-              {
-                const string& v (r.str);
-                to_stream_q (o,
-                             r.modifiers.find (':') == string::npos
-                             ? string (v, 0, v.size () - 1) // Strip newline.
-                             : v);
-              }
-
-              break;
-            }
-
-          case redirect_type::here_str_regex:
-          case redirect_type::here_doc_regex:
-            {
-              bool doc (r.type == redirect_type::here_doc_regex);
-
-              // For here-document add another '>' or '<'. Note that here end
-              // marker never needs to be quoted.
-              //
-              if (doc)
-                o << d;
-
-              o << r.modifiers;
-
-              const regex_lines& re (r.regex);
-
-              if (doc)
-                o << re.intro + r.end + re.intro + re.flags;
-              else
-              {
-                assert (!re.lines.empty ()); // Regex can't be empty.
-
-                regex_line l (re.lines[0]);
-                to_stream_q (o, re.intro + l.value + re.intro + l.flags);
-              }
-
-              break;
-            }
-
-          case redirect_type::file:
-            {
-              // For stdin or stdout-comparison redirect add '>>' or '<<' (and
-              // so make it '<<<' or '>>>'). Otherwise add '+' or '=' (and so
-              // make it '>+' or '>=').
-              //
-              if (d == '<' || r.file.mode == redirect_fmode::compare)
-                o << d << d;
-              else
-                o << (r.file.mode == redirect_fmode::append ? '+' : '=');
-
-              print_path (r.file.path);
-              break;
-            }
-
-          case redirect_type::here_doc_ref: assert (false); break;
-          }
-        };
-
-        auto print_doc = [&o] (const redirect& r)
-        {
-          o << endl;
-
-          if (r.type == redirect_type::here_doc_literal)
-            o << r.str;
-          else
-          {
-            assert (r.type == redirect_type::here_doc_regex);
-
-            const regex_lines& rl (r.regex);
-
-            for (auto b (rl.lines.cbegin ()), i (b), e (rl.lines.cend ());
-                 i != e; ++i)
-            {
-              if (i != b)
-                o << endl;
-
-              const regex_line& l (*i);
-
-              if (l.regex)                  // Regex (possibly empty),
-                o << rl.intro << l.value << rl.intro << l.flags;
-              else if (!l.special.empty ()) // Special literal.
-                o << rl.intro;
-              else                          // Textual literal.
-                o << l.value;
-
-              o << l.special;
-            }
-          }
-
-          o << (r.modifiers.find (':') == string::npos ? "" : "\n") << r.end;
-        };
-
-        if ((m & command_to_stream::header) == command_to_stream::header)
-        {
-          // Program.
-          //
-          to_stream_q (o, c.program.string ());
-
-          // Arguments.
-          //
-          for (const string& a: c.arguments)
-          {
-            o << ' ';
-            to_stream_q (o, a);
-          }
-
-          // Redirects.
-          //
-          if (c.in.effective ().type  != redirect_type::none)
-            print_redirect (c.in.effective (), "<");
-
-          if (c.out.effective ().type != redirect_type::none)
-            print_redirect (c.out.effective (),  ">");
-
-          if (c.err.effective ().type != redirect_type::none)
-            print_redirect (c.err.effective (), "2>");
-
-          for (const auto& p: c.cleanups)
-          {
-            o << " &";
-
-            if (p.type != cleanup_type::always)
-              o << (p.type == cleanup_type::maybe ? '?' : '!');
-
-            print_path (p.path);
-          }
-
-          if (c.exit.comparison != exit_comparison::eq || c.exit.code != 0)
-          {
-            switch (c.exit.comparison)
-            {
-            case exit_comparison::eq: o << " == "; break;
-            case exit_comparison::ne: o << " != "; break;
-            }
-
-            o << static_cast<uint16_t> (c.exit.code);
-          }
-        }
-
-        if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
-        {
-          // Here-documents.
-          //
-          if (c.in.type == redirect_type::here_doc_literal ||
-              c.in.type == redirect_type::here_doc_regex)
-            print_doc (c.in);
-
-          if (c.out.type == redirect_type::here_doc_literal ||
-              c.out.type == redirect_type::here_doc_regex)
-            print_doc (c.out);
-
-          if (c.err.type == redirect_type::here_doc_literal ||
-              c.err.type == redirect_type::here_doc_regex)
-            print_doc (c.err);
-        }
+        vars.assign (root.wd_var) = dir_path ();
       }
 
-      void
-      to_stream (ostream& o, const command_pipe& p, command_to_stream m)
+      const dir_path& scope_base::
+      wd_path () const
       {
-        if ((m & command_to_stream::header) == command_to_stream::header)
-        {
-          for (auto b (p.begin ()), i (b); i != p.end (); ++i)
-          {
-            if (i != b)
-              o << " | ";
-
-            to_stream (o, *i, command_to_stream::header);
-          }
-        }
-
-        if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
-        {
-          for (const command& c: p)
-            to_stream (o, c, command_to_stream::here_doc);
-        }
+        return cast<dir_path> (vars [root.wd_var]);
       }
 
-      void
-      to_stream (ostream& o, const command_expr& e, command_to_stream m)
+      const target_triplet& scope_base::
+      test_tt () const
       {
-        if ((m & command_to_stream::header) == command_to_stream::header)
-        {
-          for (auto b (e.begin ()), i (b); i != e.end (); ++i)
-          {
-            if (i != b)
-            {
-              switch (i->op)
-              {
-              case expr_operator::log_or:  o << " || "; break;
-              case expr_operator::log_and: o << " && "; break;
-              }
-            }
+        if (auto r =
+            cast_null<target_triplet> (root.test_target["test.target"]))
+          return *r;
 
-            to_stream (o, i->pipe, command_to_stream::header);
-          }
-        }
-
-        if ((m & command_to_stream::here_doc) == command_to_stream::here_doc)
-        {
-          for (const expr_term& t: e)
-            to_stream (o, t.pipe, command_to_stream::here_doc);
-        }
-      }
-
-      // redirect
-      //
-      redirect::
-      redirect (redirect_type t)
-          : type (t)
-      {
-        switch (type)
-        {
-        case redirect_type::none:
-        case redirect_type::pass:
-        case redirect_type::null:
-        case redirect_type::trace:
-        case redirect_type::merge: break;
-
-        case redirect_type::here_str_literal:
-        case redirect_type::here_doc_literal: new (&str) string (); break;
-
-        case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex:
-          {
-            new (&regex) regex_lines ();
-            break;
-          }
-
-        case redirect_type::file: new (&file) file_type (); break;
-
-        case redirect_type::here_doc_ref: assert (false); break;
-        }
-      }
-
-      redirect::
-      redirect (redirect&& r)
-          : type (r.type),
-            modifiers (move (r.modifiers)),
-            end (move (r.end)),
-            end_line (r.end_line),
-            end_column (r.end_column)
-      {
-        switch (type)
-        {
-        case redirect_type::none:
-        case redirect_type::pass:
-        case redirect_type::null:
-        case redirect_type::trace: break;
-
-        case redirect_type::merge: fd = r.fd; break;
-
-        case redirect_type::here_str_literal:
-        case redirect_type::here_doc_literal:
-          {
-            new (&str) string (move (r.str));
-            break;
-          }
-        case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex:
-          {
-            new (&regex) regex_lines (move (r.regex));
-            break;
-          }
-        case redirect_type::file:
-          {
-            new (&file) file_type (move (r.file));
-            break;
-          }
-        case redirect_type::here_doc_ref:
-          {
-            new (&ref) reference_wrapper<const redirect> (r.ref);
-            break;
-          }
-        }
-      }
-
-      redirect::
-      ~redirect ()
-      {
-        switch (type)
-        {
-        case redirect_type::none:
-        case redirect_type::pass:
-        case redirect_type::null:
-        case redirect_type::trace:
-        case redirect_type::merge: break;
-
-        case redirect_type::here_str_literal:
-        case redirect_type::here_doc_literal: str.~string (); break;
-
-        case redirect_type::here_str_regex:
-        case redirect_type::here_doc_regex: regex.~regex_lines (); break;
-
-        case redirect_type::file: file.~file_type (); break;
-
-        case redirect_type::here_doc_ref:
-          {
-            ref.~reference_wrapper<const redirect> ();
-            break;
-          }
-        }
-      }
-
-      redirect& redirect::
-      operator= (redirect&& r)
-      {
-        if (this != &r)
-        {
-          this->~redirect ();
-          new (this) redirect (move (r)); // Assume noexcept move-constructor.
-        }
-        return *this;
+        // We set it to default value in init() so it can only be NULL if the
+        // user resets it.
+        //
+        fail << "invalid test.target value" << endf;
       }
 
       // scope
       //
+      static const string wd_name ("test working directory");
+      static const string sd_name ("working directory");
+
       scope::
       scope (const string& id, scope* p, script& r)
-          : parent (p),
-            root (r),
-            vars (r.test_target.ctx, false /* global */),
-            id_path (cast<path> (assign (root.id_var) = path ())),
-            wd_path (cast<dir_path> (assign (root.wd_var) = dir_path ()))
-
+          : scope_base (r),
+            //
+            // Note that root.work_dir is not yet constructed if we are
+            // creating the root scope (p is NULL). Also note that
+            // root.test_target is always constructed to date.
+            //
+            environment (root.test_target.ctx,
+                         test_tt (),
+                         wd_path (), wd_name,
+                         p != nullptr ? root.work_dir : wd_path (), sd_name),
+            parent (p),
+            id_path (cast<path> (assign (root.id_var) = path ()))
       {
         // Construct the id_path as a string to ensure POSIX form. In fact,
         // the only reason we keep it as a path is to be able to easily get id
@@ -443,38 +85,40 @@ namespace build2
         // (handled in an ad hoc way).
         //
         if (p != nullptr)
-          const_cast<dir_path&> (wd_path) = dir_path (p->wd_path) /= id;
+          const_cast<dir_path&> (work_dir) = dir_path (p->work_dir) /= id;
       }
 
       void scope::
-      clean (cleanup c, bool implicit)
+      set_variable (string&& nm, names&& val, const string& attrs)
       {
-        using std::find; // Hidden by scope::find().
+        // Set the variable value and attributes. Note that we need to aquire
+        // unique lock before potentially changing the script's variable
+        // pool. The obtained variable reference can safelly be used with no
+        // locking as the variable pool is an associative container
+        // (underneath) and we are only adding new variables into it.
+        //
+        ulock ul (root.var_pool_mutex);
+        const variable& var (root.var_pool.insert (move (nm)));
+        ul.unlock ();
 
-        assert (!implicit || c.type == cleanup_type::always);
+        value& lhs (assign (var));
 
-        const path& p (c.path);
-        if (!p.sub (root.wd_path))
+        // If there are no attributes specified then the variable assignment
+        // is straightforward. Otherwise we will use the build2 parser helper
+        // function.
+        //
+        if (attrs.empty ())
+          lhs.assign (move (val), &var);
+        else
         {
-          if (implicit)
-            return;
-          else
-            assert (false); // Error so should have been checked.
+          build2::script::parser p (context);
+          p.apply_value_attributes (&var,
+                                    lhs,
+                                    value (move (val)),
+                                    attrs,
+                                    token_type::assign,
+                                    path_name ("<attributes>"));
         }
-
-        auto pr = [&p] (const cleanup& v) -> bool {return v.path == p;};
-        auto i (find_if (cleanups.begin (), cleanups.end (), pr));
-
-        if (i == cleanups.end ())
-          cleanups.emplace_back (move (c));
-        else if (!implicit)
-          i->type = c.type;
-      }
-
-      void scope::
-      clean_special (path p)
-      {
-        special_cleanups.emplace_back (move (p));
       }
 
       // script_base
@@ -523,7 +167,7 @@ namespace build2
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
         // for root is just the id which is empty if st is 'testscript').
         //
-        const_cast<dir_path&> (wd_path) = dir_path (rwd) /= id_path.string ();
+        const_cast<dir_path&> (work_dir) = dir_path (rwd) /= id_path.string ();
 
         // Set the test variable at the script level. We do it even if it's
         // set in the buildfile since they use different types.
@@ -625,7 +269,6 @@ namespace build2
         return lookup_in_buildfile (var.name);
       }
 
-
       lookup scope::
       lookup_in_buildfile (const string& n, bool target_only) const
       {
@@ -634,7 +277,7 @@ namespace build2
         // in parallel). Plus, if there is no such variable, then we cannot
         // possibly find any value.
         //
-        const variable* pvar (root.test_target.ctx.var_pool.find (n));
+        const variable* pvar (context.var_pool.find (n));
 
         if (pvar == nullptr)
           return lookup_type ();

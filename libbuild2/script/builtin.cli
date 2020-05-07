@@ -1,4 +1,4 @@
-// file      : libbuild2/test/script/builtin.cli
+// file      : libbuild2/script/builtin.cli
 // license   : MIT; see accompanying LICENSE file
 
 // Note that options in this file are undocumented because we generate neither
@@ -7,19 +7,15 @@
 //
 namespace build2
 {
-  namespace test
+  namespace script
   {
-    namespace script
+    // Pseudo-builtin options.
+    //
+    class set_options
     {
-      // Pseudo-builtin options.
-      //
-
-      class set_options
-      {
-        bool --exact|-e;
-        bool --newline|-n;
-        bool --whitespace|-w;
-      };
-    }
+      bool --exact|-e;
+      bool --newline|-n;
+      bool --whitespace|-w;
+    };
   }
 }

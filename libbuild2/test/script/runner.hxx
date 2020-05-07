@@ -7,6 +7,8 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/script/run.hxx> // exit
+
 #include <libbuild2/test/script/script.hxx>
 
 namespace build2
@@ -17,18 +19,7 @@ namespace build2
 
     namespace script
     {
-      // An exception that can be thrown by a runner to exit the scope (for
-      // example, as a result of executing the exit builtin). The status
-      // indicates whether the scope should be considered to have succeeded
-      // or failed.
-      //
-      struct exit_scope
-      {
-        bool status;
-
-        explicit
-        exit_scope (bool s): status (s) {}
-      };
+      using exit_scope = build2::script::exit;
 
       class runner
       {

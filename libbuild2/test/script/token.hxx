@@ -7,7 +7,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/token.hxx>
+#include <libbuild2/script/token.hxx>
 
 namespace build2
 {
@@ -15,9 +15,9 @@ namespace build2
   {
     namespace script
     {
-      struct token_type: build2::token_type
+      struct token_type: build2::script::token_type
       {
-        using base_type = build2::token_type;
+        using base_type = build2::script::token_type;
 
         enum
         {
@@ -28,31 +28,12 @@ namespace build2
           dot,                          // .
 
           plus,                         // +
-          minus,                        // -
-
-          pipe,                         // |
-          clean,                        // &{?!}   (modifiers in value)
-
-          in_pass,                      // <|
-          in_null,                      // <-
-          in_str,                       // <{:}    (modifiers in value)
-          in_doc,                       // <<{:}   (modifiers in value)
-          in_file,                      // <<<
-
-          out_pass,                     // >|
-          out_null,                     // >-
-          out_trace,                    // >!
-          out_merge,                    // >&
-          out_str,                      // >{:~}   (modifiers in value)
-          out_doc,                      // >>{:~}  (modifiers in value)
-          out_file_cmp,                 // >>>
-          out_file_ovr,                 // >=
-          out_file_app                  // >+
+          minus                         // -
         };
 
         token_type () = default;
         token_type (value_type v): base_type (v) {}
-        token_type (base_type v): base_type (v) {}
+        token_type (build2::token_type v): base_type (v) {}
       };
 
       void

@@ -150,7 +150,7 @@ b += --no-column
     : dir
     :
     $c <'$* -d a/b' && $b 2>>/EOE != 0
-    testscript:1: error: registered for cleanup directory test/1/ is not empty
+    testscript:1: error: working directory test/1/ is not empty
     a/
       info: test id: 1
     EOE
@@ -346,7 +346,7 @@ EOI
 : Test an implicit cleanup being overwritten with the explicit one,
 :
 $c <'$* -o foo >=a &!a' && $b 2>>/EOE != 0
-testscript:1: error: registered for cleanup directory test/1/ is not empty
+testscript:1: error: working directory test/1/ is not empty
 a
   info: test id: 1
 EOE
@@ -359,7 +359,7 @@ $c <<EOO && $b 2>>/EOE != 0
 $* &!a;
 $* -o foo >=a
 EOO
-testscript:2: error: registered for cleanup directory test/1/ is not empty
+testscript:2: error: working directory test/1/ is not empty
 a
   info: test id: 1
 EOE
