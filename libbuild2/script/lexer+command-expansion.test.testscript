@@ -1,4 +1,4 @@
-# file      : libbuild2/test/script/lexer+command-expansion.test.testscript
+# file      : libbuild2/script/lexer+command-expansion.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
 test.arguments = command-expansion

@@ -22,5 +22,5 @@ EOO
 $* <<EOI 2>>EOE != 0
 cmd != 1 <"foo"
 EOI
-testscript:1:10: error: unexpected '<' after command exit status
+testscript:1:10: error: expected newline instead of '<'
 EOE

@@ -1,0 +1,19 @@
+# file      : libbuild2/test/script/parser+variable.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: assignment
+:
+$* <<EOI >>EOO
+a = b
+echo $a
+EOI
+echo b
+EOO
+
+: empty-name
+:
+$* <<EOI 2>>EOE != 0
+= b
+EOI
+testscript:1:1: error: missing variable name
+EOE
