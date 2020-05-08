@@ -109,28 +109,76 @@ namespace build2
     static const noop_rule instance;
   };
 
-  // Ad hoc recipe rule.
+  // Ad hoc rule.
+  //
+  class LIBBUILD2_SYMEXPORT adhoc_rule: rule
+  {
+  public:
+    using location_type = build2::location;
+
+    // Diagnostics-related information.
+    //
+    path_name_value buildfile; // Buildfile of recipe.
+    location_type   location;  // Buildfile location of recipe.
+    size_t          braces;    // Number of braces in multi-brace tokens.
+
+    build2::rule_match rule_match;
+
+    adhoc_rule (const location_type& l, size_t b)
+      : buildfile (l.file), location (buildfile, l.line, l.column), braces (b),
+        rule_match ("adhoc", *this) {}
+
+  public:
+    // Some of the operations come in compensating pairs, sush as update and
+    // clean, install and uninstall. An ad hoc rule implementation may choose
+    // to provide a fallback implementation of a compensating operation if it
+    // is providing the other half (passed in the fallback argument).
+    //
+    // The default implementation calls rule::match() if fallback is absent
+    // and returns false if fallback is present. So an implementation that
+    // doesn't care about this semantics can implement the straight rule
+    // interface.
+    //
+    virtual bool
+    match (action, target&, const string&, optional<action> fallback) const;
+
+    virtual bool
+    match (action, target&, const string&) const override;
+
+    virtual void
+    dump (ostream&, const string& indentation) const = 0;
+  };
+
+  // Ad hoc script rule.
   //
   // Note: should not be used directly (i.e., registered).
   //
-  class LIBBUILD2_SYMEXPORT adhoc_rule: public rule
+  class LIBBUILD2_SYMEXPORT adhoc_script_rule: public adhoc_rule
   {
   public:
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&, const string&, optional<action>) const override;
 
     virtual recipe
     apply (action, target&) const override;
 
-    static target_state
-    perform_update_file (action, const target&, const adhoc_recipe&);
+    target_state
+    perform_update_file (action, const target&) const;
 
-    static target_state
-    default_action (action, const target&, const adhoc_recipe&);
+    target_state
+    default_action (action, const target&) const;
 
-    adhoc_rule () {}
-    static const adhoc_rule instance;
-    static const rule_match match_instance;
+    virtual void
+    dump (ostream&, const string&) const override;
+
+    adhoc_script_rule (string s,
+                       optional<string> d,
+                       const location_type& l, size_t b)
+        : adhoc_rule (l, b), script (move (s)), diag (move (d)) {}
+
+  public:
+    string           script;
+    optional<string> diag;   // Command name for low-verbosity diagnostics.
   };
 }
 

@@ -98,11 +98,6 @@ namespace build2
   recipe file_rule::
   apply (action a, target& t) const
   {
-    /*
-      @@ outer
-      return noop_recipe;
-    */
-
     // Update triggers the update of this target's prerequisites so it would
     // seem natural that we should also trigger their cleanup. However, this
     // possibility is rather theoretical so until we see a real use-case for
@@ -309,42 +304,72 @@ namespace build2
 
   // adhoc_rule
   //
-  static inline const adhoc_recipe*
-  find_recipe (action a, target& t)
+  bool adhoc_rule::
+  match (action a, target& t, const string& h, optional<action> fallback) const
   {
-    auto i (find_if (t.adhoc_recipes.begin (),
-                     t.adhoc_recipes.end (),
-                     [a] (const adhoc_recipe& r) {return r.action == a;}));
-
-    return i != t.adhoc_recipes.end () ? &*i : nullptr;
+    return !fallback && match (a, t, h);
   }
 
   bool adhoc_rule::
-  match (action a, target& t, const string&) const
+  match (action, target&, const string&) const
   {
-    // TODO:
-    //
-    // @@ If action is Y-for-X, how would we distinguish between X and
-    //    Y-for-X? See match_rule() for the hairy details. We could start with
-    //    supporting just the inner case. Or we could try to just match an
-    //    inner rule by default? I think need a clear use-case to see what's
-    //    the correct semantics.
-
-    if (find_recipe (a, t))
-      return true;
-
-    // If this is clean for a file target and we have a recipe for update,
-    // then we will supply the standard clean.
-    //
-    if (a == perform_clean_id &&
-        t.is_a<file> ()       &&
-        find_recipe (action (perform_id, update_id), t))
-      return true;
-
-    return false;
+    return true;
   }
 
-  recipe adhoc_rule::
+  // adhoc_script_rule
+  //
+  void adhoc_script_rule::
+  dump (ostream& os, const string& ind) const
+  {
+    // @@ TODO: indentation is multi-line recipes is off (would need to insert
+    //          indentation after every newline). Maybe if we pre-parse them?
+    //
+
+    // Do we need the header?
+    //
+    if (diag)
+    {
+      os << ind << '%';
+
+      if (diag)
+      {
+        os << " [";
+        os << "diag="; to_stream (os, name (*diag), true /* quote */, '@');
+        os << ']';
+      }
+
+      os << endl;
+    }
+
+    os << ind << string (braces, '{') << endl
+       << ind << script
+       << ind << string (braces, '}');
+  }
+
+  bool adhoc_script_rule::
+  match (action a, target& t, const string&, optional<action> fb) const
+  {
+    if (!fb)
+      ;
+    // If this is clean for a file target and we are supplying the update,
+    // then we will also supply the standard clean.
+    //
+    else if (a   == perform_clean_id  &&
+             *fb == perform_update_id &&
+             t.is_a<file> ())
+      ;
+    else
+      return false;
+
+    // It's unfortunate we have to resort to this but we need to remember this
+    // in apply().
+    //
+    t.data (fb.has_value ());
+
+    return true;
+  }
+
+  recipe adhoc_script_rule::
   apply (action a, target& t) const
   {
     // Derive file names for the target and its ad hoc group members, if any.
@@ -366,6 +391,11 @@ namespace build2
     //
     match_prerequisite_members (a, t);
 
+    // See if we are providing the standard clean as a fallback.
+    //
+    if (t.data<bool> ())
+      return &perform_clean_depdb;
+
     // For update inject dependency on the tool target(s).
     //
     // @@ We could see that it's a target and do it but not sure if we should
@@ -376,33 +406,24 @@ namespace build2
     // if (a == perform_update_id)
     //  inject (a, t, tgt);
 
-    if (const adhoc_recipe* ar = find_recipe (a, t))
+    if (a == perform_update_id && t.is_a<file> ())
     {
-      if (a == perform_update_id && t.is_a<file> ())
+      return [this] (action a, const target& t)
       {
-        return [ar] (action a, const target& t)
-        {
-          return perform_update_file (a, t, *ar);
-        };
-      }
-      else
-      {
-        return [ar] (action a, const target& t)
-        {
-          return default_action (a, t, *ar);
-        };
-      }
+        return perform_update_file (a, t);
+      };
     }
     else
     {
-      // Otherwise this should be the standard clean.
-      //
-      return &perform_clean_depdb;
+      return [this] (action a, const target& t)
+      {
+        return default_action (a, t);
+      };
     }
   }
 
-  target_state adhoc_rule::
-  perform_update_file (action a, const target& xt, const adhoc_recipe& ar)
+  target_state adhoc_script_rule::
+  perform_update_file (action a, const target& xt) const
   {
     tracer trace ("adhoc_rule::perform_update_file");
 
@@ -445,7 +466,7 @@ namespace build2
       //          It feels like we need a special execute mode that instead
       //          of executing hashes the commands.
       //
-      if (dd.expect (sha256 (ar.script).string ()) != nullptr)
+      if (dd.expect (sha256 (script).string ()) != nullptr)
         l4 ([&]{trace << "recipe change forcing update of " << t;});
     }
 
@@ -467,7 +488,7 @@ namespace build2
 
       //print_process (args);
 
-      text << trim (string (ar.script));
+      text << trim (string (script));
     }
     else if (verb)
     {
@@ -483,7 +504,7 @@ namespace build2
       //   (including tools)?
       //
 
-      text << (ar.diag ? ar.diag->c_str () : "adhoc") << ' ' << t;
+      text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
     }
 
     if (!t.ctx.dry_run)
@@ -498,8 +519,8 @@ namespace build2
     return target_state::changed;
   }
 
-  target_state adhoc_rule::
-  default_action (action a, const target& t, const adhoc_recipe& ar)
+  target_state adhoc_script_rule::
+  default_action (action a, const target& t) const
   {
     tracer trace ("adhoc_rule::default_action");
 
@@ -511,13 +532,13 @@ namespace build2
 
       //print_process (args);
 
-      text << trim (string (ar.script));
+      text << trim (string (script));
     }
     else if (verb)
     {
       // @@ TODO: as above
 
-      text << (ar.diag ? ar.diag->c_str () : "adhoc") << ' ' << t;
+      text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
     }
 
     if (!t.ctx.dry_run)
@@ -528,7 +549,4 @@ namespace build2
 
     return target_state::changed;
   }
-
-  const adhoc_rule adhoc_rule::instance;
-  const rule_match adhoc_rule::match_instance {"adhoc", adhoc_rule::instance};
 }

@@ -3,6 +3,7 @@
 
 #include <libbuild2/dump.hxx>
 
+#include <libbuild2/rule.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -351,30 +352,8 @@ namespace build2
     {
       for (const adhoc_recipe r: t.adhoc_recipes)
       {
-        // @@ TODO: indentation is multi-line recipes is off (would need to
-        //          insert indentation after every newline).
-        //
         os << endl;
-
-        // Do we need the header?
-        //
-        if (r.diag)
-        {
-          os << ind << '%';
-
-          if (r.diag)
-          {
-            os << " [";
-            os << "diag="; to_stream (os, name (*r.diag), true /*quote*/, '@');
-            os << ']';
-          }
-
-          os << endl;
-        }
-
-        os << ind << string (r.braces, '{') << endl
-           << ind << r.script
-           << ind << string (r.braces, '}');
+        r.rule->dump (os, ind); // @@ TODO: pass action(s).
       }
 
       used = true;

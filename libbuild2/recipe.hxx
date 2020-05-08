@@ -51,29 +51,17 @@ namespace build2
 
   // Ad hoc recipe.
   //
+  // A recipe is a fragment of a rule so we handle ad hoc recipies by
+  // "completing" them to rules.
+  //
+  class adhoc_rule;
+
   struct adhoc_recipe
   {
-    using action_type = build2::action;
-    using location_type = build2::location;
-
-    action_type      action;
-    string           script;
-    optional<string> diag;   // Command name for low-verbosity diagnostics.
-
-    // Diagnostics-related information.
+    // @@ TODO: maybe we should have a small vector of actions (for dump).
     //
-    path_name_value file;    // Buildfile of recipe.
-    location_type location;  // Buildfile location of recipe.
-    size_t braces;           // Number of braces in multi-brace tokens.
-
-    adhoc_recipe (action_type a,
-                  string s,
-                  optional<string> d,
-                  const location_type& l, size_t b)
-        : action (a),
-          script (move (s)),
-          diag (move (d)),
-          file (l.file), location (file, l.line, l.column), braces (b) {}
+    build2::action         action;
+    shared_ptr<adhoc_rule> rule;
   };
 }
 

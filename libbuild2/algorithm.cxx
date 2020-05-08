@@ -331,8 +331,31 @@ namespace build2
             dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
         });
 
-      if (adhoc_rule::instance.match (a, t, string () /* hint */))
-        return &adhoc_rule::match_instance;
+      // @@ TODO:
+      //
+      // If action is Y-for-X, how would we distinguish between X and Y-for-X?
+      // See match_rule() for the hairy details. We could start with
+      // supporting just the inner case. Or we could try to just match an
+      // inner rule by default? I think need a clear use-case to see what's
+      // the correct semantics.
+
+      auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
+      auto i (find_if (b, e,
+                       [a, &t] (const adhoc_recipe& r)
+                       {
+                         return r.action == a &&
+                           r.rule->match (a, t, string () /* hint */, nullopt);
+                       }));
+
+      if (i == e)
+        i = find_if (b, e,
+                     [a, &t] (const adhoc_recipe& r)
+                     {
+                       return r.action != a &&
+                         r.rule->match (a, t, string () /* hint */, r.action);
+                     });
+      if (i != e)
+        return &i->rule->rule_match;
     }
 
     // If this is an outer operation (Y-for-X), then we look for rules

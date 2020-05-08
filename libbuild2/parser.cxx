@@ -9,6 +9,7 @@
 #include <libbutl/filesystem.mxx>   // path_search
 #include <libbutl/path-pattern.mxx>
 
+#include <libbuild2/rule.hxx>
 #include <libbuild2/dump.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/module.hxx>
@@ -1086,13 +1087,18 @@ namespace build2
         fail (t) << "unterminated recipe block" <<
           info (st) << "recipe block starts here" << endf;
 
+      // @@ TODO: we need to reuse the same rules for all the targets! Kill
+      //    me now.
+      //
+      shared_ptr<adhoc_rule> ar (
+        new adhoc_script_rule (move (t.value),
+                               move (diag),
+                               get_location (st),
+                               st.value.size ()));
+
       action a (perform_id, update_id);
 
-      target_->adhoc_recipes.emplace_back (a,
-                                           move (t.value),
-                                           move (diag),
-                                           get_location (st),
-                                           st.value.size ());
+      target_->adhoc_recipes.push_back (adhoc_recipe {a, move (ar)});
 
       next (t, tt);
       assert (tt == type::multi_rcbrace);
