@@ -2292,7 +2292,7 @@ namespace build2
                   //   testscript:2:5: info: while parsing string '1>&a'
                   //
                   auto df = make_diag_frame (
-                    [s, &l](const diag_record& dr)
+                    [this, s, &l](const diag_record& dr)
                     {
                       dr << info (l) << "while parsing string '" << s << "'";
                     });

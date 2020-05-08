@@ -1,0 +1,291 @@
+# file      : tests/dependency/recipe/testscript
+# license   : MIT; see accompanying LICENSE file
+
+.include ../../common.testscript
+
+: basics
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+{{
+  cmd
+}}
+dump alias{x}
+EOI
+<stdin>:5:1: dump:
+%  .+/alias\{x\}:%
+  {{
+    cmd
+  }}
+EOE
+
+: basics-replay
+:
+$* <<EOI 2>>/~%EOE%
+alias{x y}:
+{{
+  cmd
+}}
+dump alias{y}
+EOI
+<stdin>:5:1: dump:
+%  .+/alias\{y\}:%
+  {{
+    cmd
+  }}
+EOE
+
+: basics-header
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+%
+{{
+  cmd
+}}
+dump alias{x}
+EOI
+<stdin>:6:1: dump:
+%  .+/alias\{x\}:%
+  {{
+    cmd
+  }}
+EOE
+
+: basics-header-replay
+:
+$* <<EOI 2>>/~%EOE%
+alias{x y}:
+%
+{{
+  cmd
+}}
+dump alias{y}
+EOI
+<stdin>:6:1: dump:
+%  .+/alias\{y\}:%
+  {{
+    cmd
+  }}
+EOE
+
+: with-vars
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+{
+  var = x
+}
+{{
+  cmd
+}}
+dump alias{x}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{x\}:%
+  {
+    var = x
+  }
+  {{
+    cmd
+  }}
+EOE
+
+: with-vars-replay
+:
+$* <<EOI 2>>/~%EOE%
+alias{x y}:
+{
+  var = x
+}
+{{
+  cmd
+}}
+dump alias{y}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{y\}:%
+  {
+    var = x
+  }
+  {{
+    cmd
+  }}
+EOE
+
+: with-vars-header
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+{
+  var = x
+}
+%
+{{
+  cmd
+}}
+dump alias{x}
+EOI
+<stdin>:9:1: dump:
+%  .+/alias\{x\}:%
+  {
+    var = x
+  }
+  {{
+    cmd
+  }}
+EOE
+
+: chain
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+{{
+  cmd1
+}}
+{{{
+  cmd2
+}}}
+dump alias{x}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{x\}:%
+  {{
+    cmd1
+  }}
+  {{{
+    cmd2
+  }}}
+EOE
+
+: chain-replay
+:
+$* <<EOI 2>>/~%EOE%
+alias{x y}:
+{{
+  cmd1
+}}
+{{{
+  cmd2
+}}}
+dump alias{y}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{y\}:%
+  {{
+    cmd1
+  }}
+  {{{
+    cmd2
+  }}}
+EOE
+
+: chain-header
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+
+{{
+  cmd1
+}}
+
+%
+{{{
+  cmd2
+}}}
+dump alias{x}
+EOI
+<stdin>:11:1: dump:
+%  .+/alias\{x\}:%
+  {{
+    cmd1
+  }}
+  {{{
+    cmd2
+  }}}
+EOE
+
+: chain-header-replay
+:
+$* <<EOI 2>>/~%EOE%
+alias{x y}:
+
+{{
+  cmd1
+}}
+
+%
+{{{
+  cmd2
+}}}
+dump alias{y}
+EOI
+<stdin>:11:1: dump:
+%  .+/alias\{y\}:%
+  {{
+    cmd1
+  }}
+  {{{
+    cmd2
+  }}}
+EOE
+
+: unterminated
+:
+$* <<EOI 2>>EOE != 0
+alias{x}:
+{{{
+  cmd
+}}
+EOI
+<stdin>:5:1: error: unterminated recipe block
+  <stdin>:2:1: info: recipe block starts here
+EOE
+
+: header-attribute
+:
+$* <<EOI 2>>/~!EOE!
+alias{x}:
+% [diag=gen]
+{{
+  cmd
+}}
+dump alias{x}
+EOI
+<stdin>:6:1: dump:
+!  .+/alias\{x\}:!
+  % [diag=gen]
+  {{
+    cmd
+  }}
+EOE
+
+: header-attribute-replay
+:
+$* <<EOI 2>>/~!EOE!
+alias{x y}:
+% [diag=gen]
+{{
+  cmd
+}}
+dump alias{y}
+EOI
+<stdin>:6:1: dump:
+!  .+/alias\{y\}:!
+  % [diag=gen]
+  {{
+    cmd
+  }}
+EOE
+
+: header-missing-block
+:
+$* <<EOI 2>>EOE != 0
+alias{x}:
+%
+{
+  cmd
+}
+EOI
+<stdin>:3:1: error: expected recipe block instead of '{'
+EOE

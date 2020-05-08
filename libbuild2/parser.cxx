@@ -28,6 +28,21 @@ namespace build2
 {
   using type = token_type;
 
+  ostream&
+  operator<< (ostream& o, const parser::attribute& a)
+  {
+    o << a.name;
+
+    if (!a.value.null)
+    {
+      o << '=';
+      names storage;
+      to_stream (o, reverse (a.value, storage), true /* quote */, '@');
+    }
+
+    return o;
+  }
+
   class parser::enter_scope
   {
   public:
@@ -506,7 +521,8 @@ namespace build2
           // exactly that would mean is unclear. One potentially useful
           // semantics would be the ability to specify attributes for ad hoc
           // members though the fact that the primary target is listed first
-          // would make it rather unintuitive.
+          // would make it rather unintuitive. Maybe attributes that change
+          // the group semantics itself?
           //
           next_with_attributes (t, tt);
 
@@ -598,9 +614,11 @@ namespace build2
         //
         // void (token& t, type& tt, const target_type* type, string pat)
         //
-        auto for_each = [this, &trace,
-                         &t, &tt,
-                         &ns, &nloc, &ans] (auto&& f)
+        // Note that the target and its ad hoc members are inserted implied
+        // but this flag can be cleared and default_target logic applied if
+        // appropriate.
+        //
+        auto for_each = [this, &trace, &t, &tt, &ns, &nloc, &ans] (auto&& f)
         {
           // Note: watch out for an out-qualified single target (two names).
           //
@@ -679,30 +697,64 @@ namespace build2
 
         if (tt == type::newline)
         {
-          // See if this is a target block.
+          // See if this is a target-specific variable and/or recipe block.
           //
           // Note that we cannot just let parse_dependency() handle this case
           // because we can have (a mixture of) target type/patterns.
           //
-          if (next (t, tt) == type::lcbrace && peek () == type::newline)
+          // @@ This might change once we support ad hoc rules (where we may
+          // have prerequisites for a pattern; but perhaps this should be
+          // handled separately since the parse_dependency() is already too
+          // complex and there will be no chains in this case).
+          //
+          next (t, tt);
+          if (tt == type::percent       ||
+              tt == type::multi_lcbrace ||
+              (tt == type::lcbrace && peek () == type::newline))
           {
-            next (t, tt); // Newline.
+            token st (t); // Save start token.
 
-            // Parse the block for each target.
+            // Parse the block(s) for each target.
             //
-            for_each ([this] (token& t, type& tt,
-                              const target_type* type, string pat)
-                      {
-                        next (t, tt); // First token inside the block.
+            // Note that because we have to peek past the closing brace(s) to
+            // see whether there is a/another recipe block, we have to make
+            // that token part of the replay (we cannot peek past the replay
+            // sequence).
+            //
+            auto parse = [this, &st] (token& t, type& tt,
+                                      const target_type* type, string pat)
+            {
+              token rt; // Recipe start token.
 
-                        parse_variable_block (t, tt, type, move (pat));
+              // The variable block, if any, should be first.
+              //
+              if (st.type == type::lcbrace)
+              {
+                next (t, tt); // Newline.
+                next (t, tt); // First token inside the variable block.
+                parse_variable_block (t, tt, type, move (pat));
 
-                        if (tt != type::rcbrace)
-                          fail (t) << "expected '}' instead of " << t;
-                      });
+                if (tt != type::rcbrace)
+                  fail (t) << "expected '}' instead of " << t;
 
-            next (t, tt);                    // Presumably newline after '}'.
-            next_after_newline (t, tt, '}'); // Should be on its own line.
+                next (t, tt);                    // Newline.
+                next_after_newline (t, tt, '}'); // Should be on its own line.
+
+                if (tt != type::percent && tt != type::multi_lcbrace)
+                  return;
+
+                rt = t;
+              }
+              else
+                rt = st;
+
+              if (type != nullptr)
+                fail (rt) << "recipe in target type/pattern";
+
+              parse_recipe (t, tt, rt);
+            };
+
+            for_each (parse);
           }
           else
           {
@@ -767,7 +819,7 @@ namespace build2
           next_after_newline (t, tt);
         }
         // Dependency declaration potentially followed by a chain and/or a
-        // prerequisite-specific variable assignment/block.
+        // target/prerequisite-specific variable assignment/block.
         //
         else
         {
@@ -955,6 +1007,101 @@ namespace build2
         fail (t) << "expected newline instead of " << t;
 
       next (t, tt);
+    }
+  }
+
+  void parser::
+  parse_recipe (token& t, type& tt, const token& start)
+  {
+    // Parse a recipe chain.
+    //
+    // % [<attrs>]
+    // {{
+    //   ...
+    // }}
+    //
+    // enter: percent or openining multi-curly-brace
+    // leave: token past newline after last closing multi-curly-brace
+    //
+
+    // If we have a recipe, the target is not implied.
+    //
+    if (target_->implied)
+    {
+      for (target* m (target_); m != nullptr; m = m->adhoc_member)
+        m->implied = false;
+
+      if (default_target_ == nullptr)
+        default_target_ = target_;
+    }
+
+    for (token st (start);; st = t)
+    {
+      optional<string> diag;
+
+      if (st.type == type::percent)
+      {
+        next_with_attributes (t, tt);
+        attributes_push (t, tt, true /* standalone */);
+
+        // Get variable (or value) attributes, if any, and deal with the special
+        // metadata attribute. Since currently it can only appear in the import
+        // directive, we handle it in an ad hoc manner.
+        //
+        attributes& as (attributes_top ());
+        for (attribute& a: as)
+        {
+          const string& n (a.name);
+
+          if (n == "diag")
+          {
+            try
+            {
+              diag = convert<string> (move (a.value));
+            }
+            catch (const invalid_argument& e)
+            {
+              fail (as.loc) << "invalid " << n << " attribute value: " << e;
+            }
+          }
+          else
+            fail (as.loc) << "unknown recipe attribute " << a;
+        }
+
+        attributes_pop ();
+
+        next_after_newline (t, tt, '%');
+
+        if (tt != type::multi_lcbrace)
+          fail (t) << "expected recipe block instead of " << t;
+
+        st = t; // And fall through.
+      }
+
+      next (t, tt);                   // Newline after {{.
+      mode (lexer_mode::foreign, '\0', st.value.size ());
+      next_after_newline (t, tt, st); // Should be on its own line.
+
+      if (tt != type::word)
+        fail (t) << "unterminated recipe block" <<
+          info (st) << "recipe block starts here" << endf;
+
+      action a (perform_id, update_id);
+
+      target_->adhoc_recipes.emplace_back (a,
+                                           move (t.value),
+                                           move (diag),
+                                           get_location (st),
+                                           st.value.size ());
+
+      next (t, tt);
+      assert (tt == type::multi_rcbrace);
+
+      next (t, tt);                          // Newline.
+      next_after_newline (t, tt, token (t)); // Should be on its own line.
+
+      if (tt != type::percent && tt != type::multi_lcbrace)
+        break;
     }
   }
 
@@ -1653,7 +1800,7 @@ namespace build2
       //
       {
         auto df = make_diag_frame (
-          [&args, &l](const diag_record& dr)
+          [this, &args, &l](const diag_record& dr)
           {
             dr << info (l) << "while parsing " << args[0] << " output";
           });
@@ -1763,7 +1910,7 @@ namespace build2
         }
         catch (const invalid_argument& e)
         {
-          fail << "invalid " << i->name << " attribute value: " << e;
+          fail (as.loc) << "invalid " << i->name << " attribute value: " << e;
         }
       }
       else if (i->name == "config.report.variable")
@@ -1774,7 +1921,7 @@ namespace build2
         }
         catch (const invalid_argument& e)
         {
-          fail << "invalid " << i->name << " attribute value: " << e;
+          fail (as.loc) << "invalid " << i->name << " attribute value: " << e;
         }
       }
       else
@@ -3268,16 +3415,10 @@ namespace build2
     optional<variable_visibility> vis;
     optional<bool> ovr;
 
-    auto print = [storage = names ()] (diag_record& dr, const value& v) mutable
+    for (auto& a: as)
     {
-      storage.clear ();
-      to_stream (dr.os, reverse (v, storage), true /* quote */, '@');
-    };
-
-    for (auto& p: as)
-    {
-      string& n (p.name);
-      value& v (p.value);
+      string& n (a.name);
+      value& v (a.value);
 
       if (const value_type* t = map_type (n))
       {
@@ -3288,23 +3429,10 @@ namespace build2
         // Fall through.
       }
       else
-      {
-        diag_record dr (fail (l));
-        dr << "unknown variable attribute " << n;
-
-        if (!v.null)
-        {
-          dr << '=';
-          print (dr, v);
-        }
-      }
+        fail (l) << "unknown variable attribute " << a;
 
       if (!v.null)
-      {
-        diag_record dr (fail (l));
-        dr << "unexpected value for attribute " << n << ": ";
-        print (dr, v);
-      }
+        fail (l) << "unexpected value in attribute " << a;
     }
 
     if (type != nullptr && var.type != nullptr)
@@ -3341,16 +3469,10 @@ namespace build2
     bool null (false);
     const value_type* type (nullptr);
 
-    auto print = [storage = names ()] (diag_record& dr, const value& v) mutable
+    for (auto& a: as)
     {
-      storage.clear ();
-      to_stream (dr.os, reverse (v, storage), true /* quote */, '@');
-    };
-
-    for (auto& p: as)
-    {
-      string& n (p.name);
-      value& v (p.value);
+      string& n (a.name);
+      value& v (a.value);
 
       if (n == "null")
       {
@@ -3369,23 +3491,10 @@ namespace build2
         // Fall through.
       }
       else
-      {
-        diag_record dr (fail (l));
-        dr << "unknown value attribute " << n;
-
-        if (!v.null)
-        {
-          dr << '=';
-          print (dr, v);
-        }
-      }
+        fail (l) << "unknown value attribute " << a;
 
       if (!v.null)
-      {
-        diag_record dr (fail (l));
-        dr << "unexpected value for attribute " << n << ": ";
-        print (dr, v);
-      }
+        fail (l) << "unexpected value in attribute " << a;
     }
 
     // When do we set the type and when do we keep the original? This gets
@@ -4712,7 +4821,7 @@ namespace build2
           // Print the location information in case the function fails.
           //
           auto df = make_diag_frame (
-            [&loc, l, r] (const diag_record& dr)
+            [this, &loc, l, r] (const diag_record& dr)
             {
               dr << info (loc) << "while concatenating " << l << " to " << r;
               dr << info << "use quoting to force untyped concatenation";
@@ -5512,7 +5621,7 @@ namespace build2
               // Print the location information in case the function fails.
               //
               auto df = make_diag_frame (
-                [&loc, t] (const diag_record& dr)
+                [this, &loc, t] (const diag_record& dr)
                 {
                   dr << info (loc) << "while converting " << t << " to string";
                 });
@@ -6321,6 +6430,20 @@ namespace build2
 
       if (a != nullptr)
         dr << " after " << a;
+    }
+
+    return tt;
+  }
+
+  inline type parser::
+  next_after_newline (token& t, type& tt, const token& a)
+  {
+    if (tt == type::newline)
+      next (t, tt);
+    else if (tt != type::eos)
+    {
+      diag_record dr (fail (t));
+      dr << "expected newline instead of " << t << " after " << a;
     }
 
     return tt;

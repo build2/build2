@@ -152,6 +152,20 @@ namespace build2
   inline ostream&
   operator<< (ostream& o, const token& t) {t.printer (o, t, true); return o;}
 
+  // Note: these are currently only used for sanity checks.
+  //
+  inline bool
+  operator== (const token& x, const token& y)
+  {
+    return x.type == y.type && x.value == y.value;
+  }
+
+  inline bool
+  operator!= (const token& x, const token& y)
+  {
+    return !(x == y);
+  }
+
   // Context-dependent lexing (see lexer_mode for details).
   //
   struct lexer_mode_base

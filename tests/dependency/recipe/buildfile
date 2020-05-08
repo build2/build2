@@ -1,0 +1,4 @@
+# file      : tests/dependency/recipe/buildfile
+# license   : MIT; see accompanying LICENSE file
+
+./: testscript $b

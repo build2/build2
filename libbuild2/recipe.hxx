@@ -53,9 +53,28 @@ namespace build2
   //
   struct adhoc_recipe
   {
-    build2::action action;
-  };
+    using action_type = build2::action;
+    using location_type = build2::location;
 
+    action_type      action;
+    string           recipe;
+    optional<string> diag;   // Command name for low-verbosity diagnostics.
+
+    // Diagnostics-related information.
+    //
+    path_name_value file;    // Buildfile of recipe.
+    location_type location;  // Buildfile location of recipe.
+    size_t braces;           // Number of braces in multi-brace tokens.
+
+    adhoc_recipe (action_type a,
+                  string r,
+                  optional<string> d,
+                  const location_type& l, size_t b)
+        : action (a),
+          recipe (move (r)),
+          diag (move (d)),
+          file (l.file), location (file, l.line, l.column), braces (b) {}
+  };
 }
 
 #endif // LIBBUILD2_RECIPE_HXX
