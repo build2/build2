@@ -3,6 +3,7 @@
 
 #include <libbuild2/rule.hxx>
 
+#include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -365,7 +366,7 @@ namespace build2
     //
     match_prerequisite_members (a, t);
 
-    // For update inject dependency on the tool target.
+    // For update inject dependency on the tool target(s).
     //
     // @@ We could see that it's a target and do it but not sure if we should
     //    bother. We dropped this idea of implicit targets in tests. Maybe we
@@ -375,22 +376,20 @@ namespace build2
     // if (a == perform_update_id)
     //  inject (a, t, tgt);
 
-    if (const adhoc_recipe* r = find_recipe (a, t))
+    if (const adhoc_recipe* ar = find_recipe (a, t))
     {
-      // @@ Perhaps we should have different implementations for file-based
-      // targets (depdb, timestamp, etc) and non.
-
-      switch (a)
+      if (a == perform_update_id && t.is_a<file> ())
       {
-      case perform_update_id: return [r] (action a, const target& t)
+        return [ar] (action a, const target& t)
         {
-          return perform_update (a, t, *r);
+          return perform_update_file (a, t, *ar);
         };
-      default:                return [r] (action a, const target& t)
+      }
+      else
+      {
+        return [ar] (action a, const target& t)
         {
-          // @@ TODO
-          text << t << ' ' << a << ' ' << r;
-          return target_state::unchanged;
+          return default_action (a, t, *ar);
         };
       }
     }
@@ -403,58 +402,51 @@ namespace build2
   }
 
   target_state adhoc_rule::
-  perform_update (action, const target&, const adhoc_recipe&)
+  perform_update_file (action a, const target& xt, const adhoc_recipe& ar)
   {
-    tracer trace ("adhoc_rule::perform_update");
+    tracer trace ("adhoc_rule::perform_update_file");
 
-#if 0
-    // The rule has been matched which means the members should be resolved
-    // and paths assigned. We use the header file as our "target path" for
-    // timestamp, depdb, etc.
+    const file& t (xt.as<file> ());
+    const path& tp (t.path ());
+
+    // Update prerequisites and determine if any of them render this target
+    // out-of-date.
     //
-    const cli_cxx& t (xt.as<cli_cxx> ());
-    const path& tp (t.h->path ());
+    timestamp mt (t.load_mtime ());
+    optional<target_state> ps (execute_prerequisites (a, t, mt));
 
-    // Update prerequisites and determine if any relevant ones render us
-    // out-of-date. Note that currently we treat all the prerequisites as
-    // potentially affecting the result (think prologues/epilogues, CLI
-    // compiler target itself, etc).
-    //
-    timestamp mt (t.load_mtime (tp));
-    auto pr (execute_prerequisites<cli> (a, t, mt));
+    bool update (!ps);
 
-    bool update (!pr.first);
-    target_state ts (update ? target_state::changed : *pr.first);
-
-    const cli& s (pr.second);
-
-    // We use depdb to track changes to the .cli file name, options,
-    // compiler, etc.
+    // We use depdb to track changes to the script itself, input file names,
+    // tools, etc.
     //
     depdb dd (tp + ".d");
     {
       // First should come the rule name/version.
       //
-      if (dd.expect ("cli.compile 1") != nullptr)
+      if (dd.expect ("adhoc 1") != nullptr)
         l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
-      // Then the compiler checksum.
+      // Then the tool checksums.
       //
-      if (dd.expect (csum) != nullptr)
-        l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
-
-      // Then the options checksum.
+      // @@ TODO: obtain checksums of all the targets used as commands in
+      //          the script.
       //
-      sha256 cs;
-      append_options (cs, t, "cli.options");
+      //if (dd.expect (csum) != nullptr)
+      //  l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
 
-      if (dd.expect (cs.string ()) != nullptr)
-        l4 ([&]{trace << "options mismatch forcing update of " << t;});
-
-      // Finally the .cli input file.
+      // Then the script checksum.
       //
-      if (dd.expect (s.path ()) != nullptr)
-        l4 ([&]{trace << "input file mismatch forcing update of " << t;});
+      // @@ TODO: for now we hash the unexpanded text but it should be
+      //          expanded. This will take care of all the relevant input
+      //          file name changes as well as any other variables the
+      //          script may reference.
+      //
+      //          It feels like we need a special execute mode that instead
+      //          of executing hashes the commands.
+      //
+      if (dd.expect (sha256 (ar.script).string ()) != nullptr)
+        l4 ([&]{trace << "recipe change forcing update of " << t;});
     }
 
     // Update if depdb mismatch.
@@ -467,65 +459,73 @@ namespace build2
     // If nothing changed, then we are done.
     //
     if (!update)
-      return ts;
-
-    // Translate paths to relative (to working directory). This results in
-    // easier to read diagnostics.
-    //
-    path relo (relative (t.dir));
-    path rels (relative (s.path ()));
-
-    const process_path& pp (ctgt.process_path ());
-    cstrings args {pp.recall_string ()};
-
-    // See if we need to pass --output-{prefix,suffix}
-    //
-    string prefix, suffix;
-    match_stem (t.name, s.name, &prefix, &suffix);
-
-    if (!prefix.empty ())
-    {
-      args.push_back ("--output-prefix");
-      args.push_back (prefix.c_str ());
-    }
-
-    if (!suffix.empty ())
-    {
-      args.push_back ("--output-suffix");
-      args.push_back (suffix.c_str ());
-    }
-
-    // See if we need to pass any --?xx-suffix options.
-    //
-    append_extension (args, *t.h, "--hxx-suffix", "hxx");
-    append_extension (args, *t.c, "--cxx-suffix", "cxx");
-    if (t.i != nullptr)
-      append_extension (args, *t.i, "--ixx-suffix", "ixx");
-
-    append_options (args, t, "cli.options");
-
-    if (!relo.empty ())
-    {
-      args.push_back ("-o");
-      args.push_back (relo.string ().c_str ());
-    }
-
-    args.push_back (rels.string ().c_str ());
-    args.push_back (nullptr);
+      return *ps;
 
     if (verb >= 2)
-      print_process (args);
+    {
+      //@@ TODO
+
+      //print_process (args);
+
+      text << trim (string (ar.script));
+    }
     else if (verb)
-      text << "cli " << s;
+    {
+      // @@ TODO:
+      //
+      // - derive diag if absent (should probably do in match?)
+      //
+      // - we are printing target, not source (like in most other places)
+      //
+      // - printing of ad hoc target group (the {hxx cxx}{foo} idea)
+      //
+      // - if we are printing prerequisites, should we print all of them
+      //   (including tools)?
+      //
+
+      text << (ar.diag ? ar.diag->c_str () : "adhoc") << ' ' << t;
+    }
 
     if (!t.ctx.dry_run)
     {
-      run (pp, args);
+      // @@ TODO
+      //
+      touch (t.ctx, tp, true, verb_never);
       dd.check_mtime (tp);
     }
 
     t.mtime (system_clock::now ());
-#endif
+    return target_state::changed;
+  }
+
+  target_state adhoc_rule::
+  default_action (action a, const target& t, const adhoc_recipe& ar)
+  {
+    tracer trace ("adhoc_rule::default_action");
+
+    execute_prerequisites (a, t);
+
+    if (verb >= 2)
+    {
+      //@@ TODO
+
+      //print_process (args);
+
+      text << trim (string (ar.script));
+    }
+    else if (verb)
+    {
+      // @@ TODO: as above
+
+      text << (ar.diag ? ar.diag->c_str () : "adhoc") << ' ' << t;
+    }
+
+    if (!t.ctx.dry_run)
+    {
+      // @@ TODO
+      //
+    }
+
     return target_state::changed;
   }
 

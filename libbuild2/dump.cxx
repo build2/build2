@@ -373,7 +373,7 @@ namespace build2
         }
 
         os << ind << string (r.braces, '{') << endl
-           << ind << r.recipe
+           << ind << r.script
            << ind << string (r.braces, '}');
       }
 

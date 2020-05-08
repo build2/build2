@@ -57,7 +57,7 @@ namespace build2
     using location_type = build2::location;
 
     action_type      action;
-    string           recipe;
+    string           script;
     optional<string> diag;   // Command name for low-verbosity diagnostics.
 
     // Diagnostics-related information.
@@ -67,11 +67,11 @@ namespace build2
     size_t braces;           // Number of braces in multi-brace tokens.
 
     adhoc_recipe (action_type a,
-                  string r,
+                  string s,
                   optional<string> d,
                   const location_type& l, size_t b)
         : action (a),
-          recipe (move (r)),
+          script (move (s)),
           diag (move (d)),
           file (l.file), location (file, l.line, l.column), braces (b) {}
   };

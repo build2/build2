@@ -111,7 +111,7 @@ namespace build2
 
   // Ad hoc recipe rule.
   //
-  // Note: should not be used directly (e.g., registered, etc).
+  // Note: should not be used directly (i.e., registered).
   //
   class LIBBUILD2_SYMEXPORT adhoc_rule: public rule
   {
@@ -123,7 +123,10 @@ namespace build2
     apply (action, target&) const override;
 
     static target_state
-    perform_update (action, const target&, const adhoc_recipe&);
+    perform_update_file (action, const target&, const adhoc_recipe&);
+
+    static target_state
+    default_action (action, const target&, const adhoc_recipe&);
 
     adhoc_rule () {}
     static const adhoc_rule instance;
