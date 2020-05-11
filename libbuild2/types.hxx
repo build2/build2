@@ -313,8 +313,9 @@ namespace build2
 
   // Diagnostics location.
   //
-  // Note that location maintains a shallow reference to path/path_name. Zero
-  // lines or columns are not printed.
+  // Note that location maintains a shallow reference to path/path_name (use
+  // location_value if you need the deep copy semantics). Zero lines or
+  // columns are not printed.
   //
   class location
   {
@@ -356,7 +357,6 @@ namespace build2
 
     location_value ();
 
-    explicit
     location_value (const location&);
 
     location_value (location_value&&);

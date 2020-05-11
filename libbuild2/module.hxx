@@ -127,7 +127,7 @@ namespace build2
     bool first; // True if the boot'ed module must be init'ed first.
     module_init_function* init;
     shared_ptr<build2::module> module;
-    const location loc; // Boot location.
+    location_value loc; // Boot location.
   };
 
   struct module_map: std::map<string, module_state>
