@@ -654,6 +654,9 @@ namespace build2
     // @@ Need to unlock phase while waiting.
     if (impl == nullptr)
     {
+      using create_function = cxx_rule* (const location&);
+      using load_function = create_function* ();
+
       dir_path pd (rs.out_path () /
                    rs.root_extra->build_dir /
                    recipes_build_dir /= id);
@@ -727,14 +730,46 @@ namespace build2
           //
           ofs << "namespace build2"                                     << '\n'
               << "{"                                                    << '\n'
-              << "class rule_" << id << ": public cxx_rule"             << '\n'
-              << "{"                                                    << '\n'
-              << "public:"                                              << '\n';
+              << '\n';
 
-          // Inherit base constructor. This way the user may provide their
-          // own but don't have to.
+          // If we want the user to be able to supply a custom constuctor,
+          // then we have to give the class a predictable name (i.e., we
+          // cannot use id as part of its name) and put it into an anonymous
+          // namespace. One clever idea is to call the class `constructor` but
+          // the name could also be used for a custom destructor (still could
+          // work) or for name qualification (would definitely look bizarre).
+          //
+          // In this light the most natural name is probable `rule`. The issue
+          // is we already have this name in the build2 namespace (and its our
+          // indirect base). In fact, any name that we choose could in the
+          // future conflict with something in that namespace so maybe it
+          // makes sense to bite the bullet and pick a name that is least
+          // likely to be used by the user directly (can always use cxx_rule
+          // instead).
+          //
+          ofs << "namespace"                                            << '\n'
+              << "{"                                                    << '\n'
+              << "class rule: public cxx_rule"                          << '\n'
+              << "{"                                                    << '\n'
+              << "public:"                                              << '\n'
+              << '\n';
+
+          // Inherit base constructor. This way the user may provide their own
+          // but don't have to.
           //
           ofs << "  using cxx_rule::cxx_rule;"                          << '\n'
+              << '\n';
+
+          // An extern "C" function cannot throw which can happen in case of a
+          // user-defined constructor. So we need an extra level of
+          // indirection. We incorporate id to make sure it doesn't conflict
+          // with anything user-defined.
+          //
+          ofs << "  static cxx_rule*"                                   << '\n'
+              << "  create_" << id << " (const location& l)"            << '\n'
+              << "  {"                                                  << '\n'
+              << "    return new rule (l);"                             << '\n'
+              << "  }"                                                  << '\n'
               << '\n';
 
           // Use the #line directive to point diagnostics to the code in the
@@ -754,18 +789,27 @@ namespace build2
           //
           ofs << code
               << "};"                                                   << '\n'
+              << '\n';
+
+          // Add an alias that we can use unambiguously in the load function.
+          //
+          ofs << "using rule_" << id << " = rule;"                      << '\n'
               << "}"                                                    << '\n'
               << '\n';
 
+          // Entry point.
+          //
           ofs << "extern \"C\""                                         << '\n'
               << "#ifdef _WIN32"                                        << '\n'
               << "__declspec(dllexport)"                                << '\n'
               << "#endif"                                               << '\n'
-              << "build2::cxx_rule*"                                    << '\n'
-              << sym << " (const build2::location* l)"                  << '\n'
+              << "cxx_rule* (*" << sym << " ()) (const location&)"      << '\n'
               << "{"                                                    << '\n'
-              << "return new build2::rule_" << id << " (*l);"           << '\n'
-              << "}"                                                    << '\n';
+              << "  return &rule_" << id << "::create_" << id << ";"    << '\n'
+              << "}"                                                    << '\n'
+              << '\n';
+
+          ofs << "}"                                                    << '\n';
 
           ofs.close ();
 
@@ -827,6 +871,8 @@ namespace build2
       string err;
       pair<void*, void*> hs (load_module_library (lib, sym, err));
 
+      // These normally shouldn't happen unless something is seriously broken.
+      //
       if (hs.first == nullptr)
         fail (loc) << "unable to load recipe library " << lib << ": " << err;
 
@@ -834,11 +880,19 @@ namespace build2
         fail (loc) << "unable to lookup " << sym << " in recipe library "
                    << lib << ": " << err;
 
-      // @@ TODO: this function cannot throw (extern C).
-      //
-      auto f (function_cast<cxx_rule* (*) (const location*)> (hs.second));
+      {
+        auto df = make_diag_frame (
+          [this](const diag_record& dr)
+          {
+            if (verb != 0)
+              dr << info (loc) << "while initializing ad hoc recipe";
+          });
 
-      impl.reset (f (&loc));
+        load_function* lf (function_cast<load_function*> (hs.second));
+        create_function* cf (lf ());
+
+        impl.reset (cf (loc));
+      }
     }
 
     return impl->match (a, t, hint);
