@@ -305,6 +305,8 @@ namespace build2
 
   // adhoc_rule
   //
+  const dir_path adhoc_rule::recipes_build_dir ("recipes.out");
+
   bool adhoc_rule::
   match (action a, target& t, const string& h, optional<action> fallback) const
   {
@@ -315,6 +317,35 @@ namespace build2
   match (action, target&, const string&) const
   {
     return true;
+  }
+
+  // Scope operation callback that cleans up recipe builds.
+  //
+  target_state adhoc_rule::
+  clean_recipes_build (action, const scope& rs, const dir&)
+  {
+    context& ctx (rs.ctx);
+
+    const dir_path& out_root (rs.out_path ());
+
+    dir_path d (out_root / rs.root_extra->build_dir / recipes_build_dir);
+
+    if (exists (d))
+    {
+      if (rmdir_r (ctx, d))
+      {
+        // Clean up build/ if it also became empty (e.g., in case of a build
+        // with a transient configuration).
+        //
+        d = out_root / rs.root_extra->build_dir;
+        if (empty (d))
+          rmdir (ctx, d);
+
+        return target_state::changed;
+      }
+    }
+
+    return target_state::unchanged;
   }
 
   // adhoc_script_rule
@@ -571,8 +602,6 @@ namespace build2
        << ind << code
        << ind << string (braces, '}');
   }
-
-  static const dir_path recipes_build_dir ("recipes.out");
 
   // From module.cxx.
   //

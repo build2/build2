@@ -144,6 +144,13 @@ namespace build2
     //
   public:
     build2::rule_match rule_match;
+
+    static const dir_path recipes_build_dir;
+
+    // Scope operation callback that cleans up ad hoc recipe builds.
+    //
+    static target_state
+    clean_recipes_build (action, const scope&, const dir&);
   };
 
   // Ad hoc script rule.

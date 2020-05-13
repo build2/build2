@@ -142,9 +142,9 @@ namespace build2
 
       // Register scope operation callback.
       //
-      // It feels natural to do clean up sidebuilds as a post operation but
-      // that prevents the (otherwise-empty) out root directory to be cleaned
-      // up (via the standard fsdir{} chain).
+      // It feels natural to clean up sidebuilds as a post operation but that
+      // prevents the (otherwise-empty) out root directory to be cleaned up
+      // (via the standard fsdir{} chain).
       //
       rs.operation_callbacks.emplace (
         perform_clean_id,

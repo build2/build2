@@ -1021,8 +1021,11 @@ namespace build2
     //   ...
     // }}
     //
-    // enter: percent or openining multi-curly-brace
+    // enter: start is percent or openining multi-curly-brace
     // leave: token past newline after last closing multi-curly-brace
+
+    if (stage_ == stage::boot)
+      fail (t) << "ad hoc recipe specified during bootstrap";
 
     // If we have a recipe, the target is not implied.
     //
@@ -1034,6 +1037,10 @@ namespace build2
       if (default_target_ == nullptr)
         default_target_ = target_;
     }
+
+    // True if seen a recipe that requires cleanup.
+    //
+    bool clean (false);
 
     for (token st (start);; st = t)
     {
@@ -1113,12 +1120,17 @@ namespace build2
       location loc (get_location (st));
 
       if (!lang)
+      {
         ar.reset (new adhoc_script_rule (move (t.value),
                                          move (diag),
                                          loc,
                                          st.value.size ()));
+      }
       else if (*lang == "c++")
+      {
         ar.reset (new adhoc_cxx_rule (move (t.value), loc, st.value.size ()));
+        clean = true;
+      }
       else
         fail (lloc) << "unknown recipe language '" << *lang << "'";
 
@@ -1133,6 +1145,35 @@ namespace build2
 
       if (tt != type::percent && tt != type::multi_lcbrace)
         break;
+    }
+
+    // If we have a recipe that needs cleanup, register an operation callback
+    // for this project unless it has already been done.
+    //
+    if (clean)
+    {
+      action a (perform_id, clean_id);
+      auto f (&adhoc_rule::clean_recipes_build);
+
+      // First check if we have already done this.
+      //
+      auto p (root_->operation_callbacks.equal_range (a));
+      for (; p.first != p.second; ++p.first)
+      {
+        auto t (
+          p.first->second.pre.target<scope::operation_callback::callback*> ());
+
+        if (t != nullptr && *t == f)
+          break;
+      }
+
+      // It feels natural to clean up recipe builds as a post operation but
+      // that prevents the (otherwise-empty) out root directory to be cleaned
+      // up (via the standard fsdir{} chain).
+      //
+      if (p.first == p.second)
+        root_->operation_callbacks.emplace (
+          a, scope::operation_callback {f, nullptr /*post*/});
     }
   }
 
