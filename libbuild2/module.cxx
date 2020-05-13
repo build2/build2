@@ -63,6 +63,177 @@ namespace build2
       mod);
   }
 
+  // Note: also used by ad hoc recipes thus not static.
+  //
+  void
+  create_module_context (context& ctx, const location& loc, const char* what)
+  {
+    assert (ctx.module_context == nullptr);
+
+    if (!ctx.module_context_storage)
+      fail (loc) << "unable to update " << what <<
+        info << "updating of " << what << "s is disabled";
+
+    assert (*ctx.module_context_storage == nullptr);
+
+    // Since we are using the same scheduler, it makes sense to reuse the
+    // same global mutexes. Also disable nested module context for good
+    // measure.
+    //
+    ctx.module_context_storage->reset (
+      new context (ctx.sched,
+                   ctx.mutexes,
+                   false,                    /* match_only */
+                   false,                    /* dry_run */
+                   ctx.keep_going,
+                   ctx.global_var_overrides, /* cmd_vars */
+                   nullopt));                /* module_context */
+
+    // We use the same context for building any nested modules that might be
+    // required while building modules.
+    //
+    ctx.module_context = ctx.module_context_storage->get ();
+    ctx.module_context->module_context = ctx.module_context;
+
+    // Setup the context to perform update. In a sense we have a long-running
+    // perform meta-operation batch (indefinite, in fact, since we never call
+    // the meta-operation's *_post() callbacks) in which we periodically
+    // execute the update operation.
+    //
+    if (mo_perform.meta_operation_pre != nullptr)
+      mo_perform.meta_operation_pre ({} /* parameters */, loc);
+
+    ctx.module_context->current_meta_operation (mo_perform);
+
+    if (mo_perform.operation_pre != nullptr)
+      mo_perform.operation_pre ({} /* parameters */, update_id);
+
+    ctx.module_context->current_operation (op_update);
+  }
+
+  // Note: also used by ad hoc recipes thus not static.
+  //
+  const target&
+  update_in_module_context (context& ctx, const scope& rs, names tgt,
+                            const location& loc, const path& bf,
+                            const char* what, const char* name)
+  {
+    action_targets tgs;
+    {
+      action a (perform_id, update_id);
+
+      // Cutoff the existing diagnostics stack and push our own entry.
+      //
+      diag_frame::stack_guard diag_cutoff (nullptr);
+
+      auto df = make_diag_frame (
+        [&loc, what, name] (const diag_record& dr)
+        {
+          dr << info (loc) << "while " << what;
+
+          if (name != nullptr)
+            dr << ' ' << name;
+        });
+
+      // Un-tune the scheduler.
+      //
+      // Note that we can only do this if we are running serially because
+      // otherwise we cannot guarantee the scheduler is idle (we could have
+      // waiting threads from the outer context). This is fine for now since
+      // the only two tuning level we use are serial and full concurrency
+      // (turns out currently we don't really need this: we will always be
+      // called during load or match phases and we always do parallel match;
+      // but let's keep it in case things change).
+      //
+      auto sched_tune (ctx.sched.serial ()
+                       ? scheduler::tune_guard (ctx.sched, 0)
+                       : scheduler::tune_guard ());
+
+      // Remap verbosity level 0 to 1 unless we were requested to be silent.
+      // Failed that, we may have long periods of seemingly nothing happening
+      // while we quietly update the module, which may look like things have
+      // hung up.
+      //
+      // @@ CTX: modifying global verbosity level won't work if we have
+      //         multiple top-level contexts running in parallel.
+      //
+      auto verbg = make_guard (
+        [z = !silent && verb == 0 ? (verb = 1, true) : false] ()
+        {
+          if (z)
+            verb = 0;
+        });
+
+      // Note that for now we suppress progress since it would clash with
+      // the progress of what we are already doing (maybe in the future we
+      // can do save/restore but then we would need some sort of
+      // diagnostics that we have switched to another task).
+      //
+      mo_perform.search  ({},      /* parameters */
+                          rs,      /* root scope */
+                          rs,      /* base scope */
+                          bf,      /* buildfile */
+                          rs.find_target_key (tgt, loc),
+                          loc,
+                          tgs);
+
+      mo_perform.match   ({},      /* parameters */
+                          a,
+                          tgs,
+                          1,       /* diag (failures only) */
+                          false    /* progress */);
+
+      mo_perform.execute ({},      /* parameters */
+                          a,
+                          tgs,
+                          1,       /* diag (failures only) */
+                          false    /* progress */);
+    }
+
+    assert (tgs.size () == 1);
+    return tgs[0].as<target> ();
+  }
+
+  // Note: also used by ad hoc recipes thus not static.
+  //
+  pair<void* /* handle */, void* /* symbol */>
+  load_module_library (const path& lib, const string& sym, string& err)
+  {
+    // Note that we don't unload our modules since it's not clear what would
+    // the benefit be.
+    //
+    void* h (nullptr);
+    void* s (nullptr);
+
+#ifndef _WIN32
+    // Use RTLD_NOW instead of RTLD_LAZY to both speed things up (we are going
+    // to use this module now) and to detect any symbol mismatches.
+    //
+    if ((h = dlopen (lib.string ().c_str (), RTLD_NOW | RTLD_GLOBAL)))
+    {
+      s = dlsym (h, sym.c_str ());
+
+      if (s == nullptr)
+        err = dlerror ();
+    }
+    else
+      err = dlerror ();
+#else
+    if (HMODULE m = LoadLibrary (lib.string ().c_str ()))
+    {
+      h = static_cast<void*> (m);
+      s = function_cast<void*> (GetProcAddress (m, sym.c_str ()));
+
+      if (s == nullptr)
+        err = win32::last_error_msg ();
+    }
+    else
+      err = win32::last_error_msg ();
+#endif
+
+    return make_pair (h, s);
+  }
+
   static module_load_function*
   import_module (scope& bs,
                  const string& mod,
@@ -177,47 +348,7 @@ namespace build2
       // Create the build context if necessary.
       //
       if (ctx.module_context == nullptr)
-      {
-        if (!ctx.module_context_storage)
-          fail (loc) << "unable to update build system module " << mod <<
-            info << "updating of build system modules is disabled";
-
-        assert (*ctx.module_context_storage == nullptr);
-
-        // Since we are using the same scheduler, it makes sense to reuse the
-        // same global mutexes. Also disable nested module context for good
-        // measure.
-        //
-        ctx.module_context_storage->reset (
-          new context (ctx.sched,
-                       ctx.mutexes,
-                       false,                    /* match_only */
-                       false,                    /* dry_run */
-                       ctx.keep_going,
-                       ctx.global_var_overrides, /* cmd_vars */
-                       nullopt));                /* module_context */
-
-        // We use the same context for building any nested modules that
-        // might be required while building modules.
-        //
-        ctx.module_context = ctx.module_context_storage->get ();
-        ctx.module_context->module_context = ctx.module_context;
-
-        // Setup the context to perform update. In a sense we have a long-
-        // running perform meta-operation batch (indefinite, in fact, since we
-        // never call the meta-operation's *_post() callbacks) in which we
-        // periodically execute the update operation.
-        //
-        if (mo_perform.meta_operation_pre != nullptr)
-          mo_perform.meta_operation_pre ({} /* parameters */, loc);
-
-        ctx.module_context->current_meta_operation (mo_perform);
-
-        if (mo_perform.operation_pre != nullptr)
-          mo_perform.operation_pre ({} /* parameters */, update_id);
-
-        ctx.module_context->current_operation (op_update);
-      }
+        create_module_context (ctx, loc, "build system module");
 
       // Inherit loaded_modules lock from the outer context.
       //
@@ -234,7 +365,7 @@ namespace build2
 
       l5 ([&]{trace << "loaded " << lr.first;});
 
-      // When happens next depends on whether this is a top-level or nested
+      // What happens next depends on whether this is a top-level or nested
       // module update.
       //
       if (nested)
@@ -249,77 +380,10 @@ namespace build2
       {
         const scope& rs (lr.second);
 
-        action_targets tgs;
-        action a (perform_id, update_id);
-
-        {
-          // Cutoff the existing diagnostics stack and push our own entry.
-          //
-          diag_frame::stack_guard diag_cutoff (nullptr);
-
-          auto df = make_diag_frame (
-            [&loc, &mod] (const diag_record& dr)
-            {
-              dr << info (loc) << "while loading build system module " << mod;
-            });
-
-          // Un-tune the scheduler.
-          //
-          // Note that we can only do this if we are running serially because
-          // otherwise we cannot guarantee the scheduler is idle (we could
-          // have waiting threads from the outer context). This is fine for
-          // now since the only two tuning level we use are serial and full
-          // concurrency (turns out currently we don't really need this: we
-          // will always be called during load or match phases and we always
-          // do parallel match; but let's keep it in case things change).
-          //
-          auto sched_tune (ctx.sched.serial ()
-                           ? scheduler::tune_guard (ctx.sched, 0)
-                           : scheduler::tune_guard ());
-
-          // Remap verbosity level 0 to 1 unless we were requested to be
-          // silent. Failed that, we may have long periods of seemingly
-          // nothing happening while we quietly update the module, which
-          // may look like things have hung up.
-          //
-          // @@ CTX: modifying global verbosity level won't work if we have
-          //         multiple top-level contexts running in parallel.
-          //
-          auto verbg = make_guard (
-            [z = !silent && verb == 0 ? (verb = 1, true) : false] ()
-            {
-              if (z)
-                verb = 0;
-            });
-
-          // Note that for now we suppress progress since it would clash with
-          // the progress of what we are already doing (maybe in the future we
-          // can do save/restore but then we would need some sort of
-          // diagnostics that we have switched to another task).
-          //
-          mo_perform.search  ({},      /* parameters */
-                              rs,      /* root scope */
-                              rs,      /* base scope */
-                              path (), /* buildfile */
-                              rs.find_target_key (lr.first, loc),
-                              loc,
-                              tgs);
-
-          mo_perform.match   ({},      /* parameters */
-                              a,
-                              tgs,
-                              1,       /* diag (failures only) */
-                              false    /* progress */);
-
-          mo_perform.execute ({},      /* parameters */
-                              a,
-                              tgs,
-                              1,       /* diag (failures only) */
-                              false    /* progress */);
-        }
-
-        assert (tgs.size () == 1);
-        const target& l (tgs[0].as<target> ());
+        const target& l (
+          update_in_module_context (
+            ctx, rs, move (lr.first),
+            loc, path (), "loading build system module", mod.c_str ()));
 
         if (!l.is_a ("libs"))
           fail (loc) << "wrong export from build system module " << mod;
@@ -364,53 +428,30 @@ namespace build2
     //
     string sym (sanitize_identifier ("build2_" + mod + "_load"));
 
-    // Note that we don't unload our modules since it's not clear what would
-    // the benefit be.
-    //
-    diag_record dr;
+    string err;
+    pair<void*, void*> hs (load_module_library (lib, sym, err));
 
-#ifndef _WIN32
-    // Use RTLD_NOW instead of RTLD_LAZY to both speed things up (we are going
-    // to use this module now) and to detect any symbol mismatches.
-    //
-    if (void* h = dlopen (lib.string ().c_str (), RTLD_NOW | RTLD_GLOBAL))
+    if (hs.first != nullptr)
     {
-      r = function_cast<module_load_function*> (dlsym (h, sym.c_str ()));
-
       // I don't think we should ignore this even if the module is optional.
       //
-      if (r == nullptr)
+      if (hs.second == nullptr)
         fail (loc) << "unable to lookup " << sym << " in build system module "
-                   << mod << " (" << lib << "): " << dlerror ();
+                   << mod << " (" << lib << "): " << err;
+
+      r = function_cast<module_load_function*> (hs.second);
     }
     else if (!opt)
-      dr << fail (loc) << "unable to load build system module " << mod
-         << " (" << lib << "): " << dlerror ();
-    else
-      l5 ([&]{trace << "unable to load " << lib << ": " << dlerror ();});
-#else
-    if (HMODULE h = LoadLibrary (lib.string ().c_str ()))
     {
-      r = function_cast<module_load_function*> (
-        GetProcAddress (h, sym.c_str ()));
-
-      if (r == nullptr)
-        fail (loc) << "unable to lookup " << sym << " in build system module "
-                   << mod << " (" << lib << "): " << win32::last_error_msg ();
+      // Add import suggestion similar to import phase 2.
+      //
+      fail (loc) << "unable to load build system module " << mod << " ("
+                 << lib << "): " << err <<
+        info     << "use config.import." << proj.variable () << " command "
+                 << "line variable to specify its project out_root";
     }
-    else if (!opt)
-      dr << fail (loc) << "unable to load build system module " << mod
-         << " (" << lib << "): " << win32::last_error_msg ();
     else
-      l5 ([&]{trace << "unable to load " << lib << ": "
-                    << win32::last_error_msg ();});
-#endif
-
-    // Add a suggestion similar to import phase 2.
-    //
-    if (!dr.empty ())
-      dr << info << "use config.import." << proj.variable () << " command "
-         << "line variable to specify its project out_root" << endf;
+      l5 ([&]{trace << "unable to load " << lib << ": " << err;});
 
 #endif // BUILD2_BOOTSTRAP
 

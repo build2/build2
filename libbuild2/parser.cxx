@@ -1017,13 +1017,12 @@ namespace build2
     // Parse a recipe chain.
     //
     // % [<attrs>]
-    // {{
+    // {{ [<lang>]
     //   ...
     // }}
     //
     // enter: percent or openining multi-curly-brace
     // leave: token past newline after last closing multi-curly-brace
-    //
 
     // If we have a recipe, the target is not implied.
     //
@@ -1045,15 +1044,17 @@ namespace build2
         next_with_attributes (t, tt);
         attributes_push (t, tt, true /* standalone */);
 
-        // Get variable (or value) attributes, if any, and deal with the special
-        // metadata attribute. Since currently it can only appear in the import
-        // directive, we handle it in an ad hoc manner.
+        // Get variable (or value) attributes, if any, and deal with the
+        // special metadata attribute. Since currently it can only appear in
+        // the import directive, we handle it in an ad hoc manner.
         //
         attributes& as (attributes_top ());
         for (attribute& a: as)
         {
           const string& n (a.name);
 
+          // @@ TODO: diag is script-specific, pass as attributes to rule?
+          //
           if (n == "diag")
           {
             try
@@ -1079,7 +1080,19 @@ namespace build2
         st = t; // And fall through.
       }
 
-      next (t, tt);                   // Newline after {{.
+      optional<string> lang;
+      location lloc;
+      if (next (t, tt) == type::newline)
+        ;
+      else if (tt == type::word)
+      {
+        lang = t.value;
+        lloc = get_location (t);
+        next (t, tt); // Newline after <lang>.
+      }
+      else
+        fail (t) << "expected recipe language instead of " << t;
+
       mode (lexer_mode::foreign, '\0', st.value.size ());
       next_after_newline (t, tt, st); // Should be on its own line.
 
@@ -1090,14 +1103,26 @@ namespace build2
       // @@ TODO: we need to reuse the same rules for all the targets! Kill
       //    me now.
       //
-      shared_ptr<adhoc_rule> ar (
-        new adhoc_script_rule (move (t.value),
-                               move (diag),
-                               get_location (st),
-                               st.value.size ()));
+      shared_ptr<adhoc_rule> ar;
+
+      // Note that this is always the location of the opening multi-curly-
+      // brace, whether we have the header or not. This is relied upon by the
+      // rule implementations (e.g., to calculate the first line of the recipe
+      // code).
+      //
+      location loc (get_location (st));
+
+      if (!lang)
+        ar.reset (new adhoc_script_rule (move (t.value),
+                                         move (diag),
+                                         loc,
+                                         st.value.size ()));
+      else if (*lang == "c++")
+        ar.reset (new adhoc_cxx_rule (move (t.value), loc, st.value.size ()));
+      else
+        fail (lloc) << "unknown recipe language '" << *lang << "'";
 
       action a (perform_id, update_id);
-
       target_->adhoc_recipes.push_back (adhoc_recipe {a, move (ar)});
 
       next (t, tt);

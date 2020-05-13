@@ -114,22 +114,14 @@ namespace build2
   class LIBBUILD2_SYMEXPORT adhoc_rule: rule
   {
   public:
-    using location_type = build2::location;
+    location_value loc;     // Buildfile location of the recipe.
+    size_t         braces;  // Number of braces in multi-brace tokens.
 
-    // Diagnostics-related information.
-    //
-    path_name_value buildfile; // Buildfile of recipe.
-    location_type   location;  // Buildfile location of recipe.
-    size_t          braces;    // Number of braces in multi-brace tokens.
-
-    build2::rule_match rule_match;
-
-    adhoc_rule (const location_type& l, size_t b)
-      : buildfile (l.file), location (buildfile, l.line, l.column), braces (b),
-        rule_match ("adhoc", *this) {}
+    adhoc_rule (const location& l, size_t b)
+      : loc (l), braces (b), rule_match ("adhoc", *this) {}
 
   public:
-    // Some of the operations come in compensating pairs, sush as update and
+    // Some of the operations come in compensating pairs, such as update and
     // clean, install and uninstall. An ad hoc rule implementation may choose
     // to provide a fallback implementation of a compensating operation if it
     // is providing the other half (passed in the fallback argument).
@@ -147,6 +139,11 @@ namespace build2
 
     virtual void
     dump (ostream&, const string& indentation) const = 0;
+
+    // Implementation details.
+    //
+  public:
+    build2::rule_match rule_match;
   };
 
   // Ad hoc script rule.
@@ -171,14 +168,52 @@ namespace build2
     virtual void
     dump (ostream&, const string&) const override;
 
-    adhoc_script_rule (string s,
+    adhoc_script_rule (string c,
                        optional<string> d,
-                       const location_type& l, size_t b)
-        : adhoc_rule (l, b), script (move (s)), diag (move (d)) {}
+                       const location& l, size_t b)
+      : adhoc_rule (l, b), code (move (c)), diag (move (d)) {}
 
   public:
-    string           script;
-    optional<string> diag;   // Command name for low-verbosity diagnostics.
+    string           code;
+    optional<string> diag;  // Command name for low-verbosity diagnostics.
+  };
+
+  // Ad hoc C++ rule.
+  //
+  // Note: should not be used directly (i.e., registered).
+  //
+  class LIBBUILD2_SYMEXPORT cxx_rule: public rule
+  {
+  public:
+    const location loc; // Buildfile location of the recipe.
+
+    explicit
+    cxx_rule (const location& l): loc (l) {}
+
+    // Return true by default.
+    //
+    virtual bool
+    match (action, target&, const string&) const override;
+  };
+
+  class LIBBUILD2_SYMEXPORT adhoc_cxx_rule: public adhoc_rule
+  {
+  public:
+    virtual bool
+    match (action, target&, const string&) const override;
+
+    virtual recipe
+    apply (action, target&) const override;
+
+    virtual void
+    dump (ostream&, const string&) const override;
+
+    adhoc_cxx_rule (string c, const location& l, size_t b)
+      : adhoc_rule (l, b), code (move (c)) {}
+
+  public:
+    string                       code;
+    mutable unique_ptr<cxx_rule> impl;
   };
 }
 

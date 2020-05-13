@@ -964,8 +964,8 @@ namespace build2
         phase_switch ps (t.ctx, run_phase::load);
 
         // This is subtle: while we were fussing around another thread may
-        // have loaded the buildfile. So re-test now that we are in exclusive
-        // phase.
+        // have loaded the buildfile. So re-test now that we are in an
+        // exclusive phase.
         //
         if (e == nullptr)
           e = search_existing_target (t.ctx, pk);

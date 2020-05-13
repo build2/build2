@@ -69,6 +69,22 @@ EOI
   }}
 EOE
 
+: basics-lang
+:
+$* <<EOI 2>>/~%EOE%
+alias{x}:
+{{ c++
+  void f ();
+}}
+dump alias{x}
+EOI
+<stdin>:5:1: dump:
+%  .+/alias\{x\}:%
+  {{ c++
+    void f ();
+  }}
+EOE
+
 : with-vars
 :
 $* <<EOI 2>>/~%EOE%
@@ -240,6 +256,17 @@ alias{x}:
 EOI
 <stdin>:5:1: error: unterminated recipe block
   <stdin>:2:1: info: recipe block starts here
+EOE
+
+: expected-lang
+:
+$* <<EOI 2>>EOE != 0
+alias{x}:
+{{ $lang
+  cmd
+}}
+EOI
+<stdin>:2:4: error: expected recipe language instead of '$'
 EOE
 
 : header-attribute

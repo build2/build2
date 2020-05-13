@@ -1103,8 +1103,7 @@ namespace build2
       // this information is stored). So what we are going to do is bootstrap
       // the newly created project, similar to the way main() does it.
       //
-      scope& gs (ctx.global_scope.rw ());
-      scope& rs (load_project (gs, d, d, false /* fwd */, false /* load */));
+      scope& rs (load_project (ctx, d, d, false /* fwd */, false /* load */));
 
       // Add the default config.config.persist value unless there is a custom
       // one (specified as a command line override).
@@ -1223,6 +1222,7 @@ namespace build2
                           rmod,
                           "",                 /* root_post */
                           string ("config"),  /* config_module */
+                          nullopt,            /* config_file */
                           true,               /* buildfile */
                           "the create meta-operation");
 

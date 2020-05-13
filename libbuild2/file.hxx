@@ -106,11 +106,10 @@ namespace build2
   source_once (scope& root, scope& base, const path&, scope& once);
 
   // Create project's root scope. Only set the src_root variable if the passed
-  // src_root value is not empty. The scope argument is only used for context
-  // and as a proof of lock.
+  // src_root value is not empty.
   //
   LIBBUILD2_SYMEXPORT scope_map::iterator
-  create_root (scope&, const dir_path& out_root, const dir_path& src_root);
+  create_root (context&, const dir_path& out_root, const dir_path& src_root);
 
   // Setup root scope. Note that it assumes the src_root variable has already
   // been set.
@@ -142,10 +141,8 @@ namespace build2
   // loaded and currently we do not add the newly loaded subproject to the
   // outer project's subprojects map.
   //
-  // The scope argument is only used as proof of lock.
-  //
   LIBBUILD2_SYMEXPORT scope&
-  load_project (scope&,
+  load_project (context&,
                 const dir_path& out_root,
                 const dir_path& src_root,
                 bool forwarded,
@@ -441,6 +438,7 @@ namespace build2
     const strings& root_modules,           // Root modules.
     const string&  root_post,              // Extra root.build text.
     const optional<string>& config_module, // Config module to load.
+    const optional<string>& config_file,   // Ad hoc config.build contents.
     bool buildfile,                        // Create root buildfile.
     const char* who,                       // Who is creating it.
     uint16_t verbosity = 1);               // Diagnostic verbosity.

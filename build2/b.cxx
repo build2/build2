@@ -1015,7 +1015,7 @@ main (int argc, char* argv[])
           // use to the bootstrap files (other than src-root.build, which,
           // BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (create_root (gs, out_root, src_root)->second);
+          scope& rs (create_root (*ctx, out_root, src_root)->second);
 
           bool bstrapped (bootstrapped (rs));
 

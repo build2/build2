@@ -3,6 +3,7 @@
 
 #include <libbuild2/rule.hxx>
 
+#include <libbuild2/file.hxx>
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
@@ -342,7 +343,7 @@ namespace build2
     }
 
     os << ind << string (braces, '{') << endl
-       << ind << script
+       << ind << code
        << ind << string (braces, '}');
   }
 
@@ -466,7 +467,7 @@ namespace build2
       //          It feels like we need a special execute mode that instead
       //          of executing hashes the commands.
       //
-      if (dd.expect (sha256 (script).string ()) != nullptr)
+      if (dd.expect (sha256 (code).string ()) != nullptr)
         l4 ([&]{trace << "recipe change forcing update of " << t;});
     }
 
@@ -488,7 +489,7 @@ namespace build2
 
       //print_process (args);
 
-      text << trim (string (script));
+      text << trim (string (code));
     }
     else if (verb)
     {
@@ -532,7 +533,7 @@ namespace build2
 
       //print_process (args);
 
-      text << trim (string (script));
+      text << trim (string (code));
     }
     else if (verb)
     {
@@ -548,5 +549,275 @@ namespace build2
     }
 
     return target_state::changed;
+  }
+
+  // cxx_rule
+  //
+  bool cxx_rule::
+  match (action, target&, const string&) const
+  {
+    return true;
+  }
+
+  // adhoc_cxx_rule
+  //
+  void adhoc_cxx_rule::
+  dump (ostream& os, const string& ind) const
+  {
+    // @@ TODO: indentation is multi-line recipes is off (would need to insert
+    //          indentation after every newline).
+    //
+    os << ind << string (braces, '{') << " c++" << endl
+       << ind << code
+       << ind << string (braces, '}');
+  }
+
+  static const dir_path recipes_build_dir ("recipes.out");
+
+  // From module.cxx.
+  //
+  void
+  create_module_context (context&, const location&, const char* what);
+
+  const target&
+  update_in_module_context (context&, const scope&, names tgt,
+                            const location&, const path& bf,
+                            const char* what, const char* name);
+
+  pair<void*, void*>
+  load_module_library (const path& lib, const string& sym, string& err);
+
+  bool adhoc_cxx_rule::
+  match (action a, target& t, const string& hint) const
+  {
+    tracer trace ("adhoc_cxx_rule::match");
+
+    context& ctx (t.ctx);
+    const scope& rs (t.root_scope ());
+
+    // The plan is to reduce this to the build system module case as much as
+    // possible. Specifically, we switch to the load phase, create a module-
+    // like library with the recipe text as a rule implementation, then build
+    // and load it.
+    //
+    // Since the recipe can be shared among multiple targets, several threads
+    // can all be trying to do this in parallel.
+
+    // The only way to guarantee that the name of our module matches its
+    // implementation is to based the name on the implementation hash.
+    //
+    // Unfortunately, this means we will be creating a new project (and
+    // leaving behind the old one as garbage) for every change to the
+    // recipe. On the other hand, if the recipe is moved around unchanged, we
+    // will reuse the same project. In fact, two different recipes (e.g., in
+    // different buildfiles) with the same text will share the project.
+    //
+    // @@ Shouldn't we also include buildfile path and line seeing that we
+    //    add them as #line? Or can we do something clever for this case
+    //    (i.e., if update is successful, then this information is no longer
+    //    necessary, unless update is caused by something external, like
+    //    change of compiler). Also location in comment. Why not just
+    //    overwrite the source file every time we compile it, to KISS?
+    //
+    string id (sha256 (code).abbreviated_string (12));
+
+    // @@ TODO: locking.
+    // @@ Need to unlock phase while waiting.
+    if (impl == nullptr)
+    {
+      dir_path pd (rs.out_path () /
+                   rs.root_extra->build_dir /
+                   recipes_build_dir /= id);
+
+      string sym ("load_" + id);
+
+      // Switch the phase to load.
+      //
+      phase_switch ps (ctx, run_phase::load);
+
+      optional<bool> altn (false); // Standard naming scheme.
+      if (!is_src_root (pd, altn))
+      {
+        const uint16_t verbosity (3);
+
+        // Write ad hoc config.build that loads the ~build2 configuration.
+        // This way the configuration will be always in sync with ~build2 and
+        // we can update the recipe manually (e.g., for debugging).
+        //
+        create_project (
+          pd,
+          dir_path (),                             /* amalgamation */
+          {},                                      /* boot_modules */
+          "cxx.std = latest",                      /* root_pre */
+          {"cxx."},                                /* root_modules */
+          "",                                      /* root_post */
+          string ("config"),                       /* config_module */
+          string ("config.config.load = ~build2"), /* config_file */
+          false,                                   /* buildfile */
+          "build2 core",                           /* who */
+          verbosity);                              /* verbosity */
+
+        path f;
+
+        try
+        {
+          ofdstream ofs;
+
+          // Write source file.
+          //
+          f = path (pd / "rule.cxx");
+
+          if (verb >= verbosity)
+            text << (verb >= 2 ? "cat >" : "save ") << f;
+
+          ofs.open (f);
+
+          ofs << "// " << loc << endl
+              << endl;
+
+          // Include every header that can plausibly be needed by a rule.
+          //
+          ofs << "#include <libbuild2/types.hxx>"                       << '\n'
+              << "#include <libbuild2/forward.hxx>"                     << '\n'
+              << "#include <libbuild2/utility.hxx>"                     << '\n'
+              << '\n'
+              << "#include <libbuild2/file.hxx>"                        << '\n'
+              << "#include <libbuild2/rule.hxx>"                        << '\n'
+              << "#include <libbuild2/depdb.hxx>"                       << '\n'
+              << "#include <libbuild2/scope.hxx>"                       << '\n'
+              << "#include <libbuild2/target.hxx>"                      << '\n'
+              << "#include <libbuild2/context.hxx>"                     << '\n'
+              << "#include <libbuild2/variable.hxx>"                    << '\n'
+              << "#include <libbuild2/algorithm.hxx>"                   << '\n'
+              << "#include <libbuild2/filesystem.hxx>"                  << '\n'
+              << "#include <libbuild2/diagnostics.hxx>"                 << '\n'
+              << '\n';
+
+          // Normally the recipe code will have one level of indentation so
+          // let's not indent the namespace level to match.
+          //
+          ofs << "namespace build2"                                     << '\n'
+              << "{"                                                    << '\n'
+              << "class rule_" << id << ": public cxx_rule"             << '\n'
+              << "{"                                                    << '\n'
+              << "public:"                                              << '\n';
+
+          // Inherit base constructor. This way the user may provide their
+          // own but don't have to.
+          //
+          ofs << "  using cxx_rule::cxx_rule;"                          << '\n'
+              << '\n';
+
+          // Use the #line directive to point diagnostics to the code in the
+          // buildfile. Note that there is no easy way to restore things to
+          // point back to the source file (other than another #line with a
+          // line and a file). Seeing that we don't have much after, let's not
+          // bother for now. Note that the code start from the next line thus
+          // +1.
+          //
+          // @@ TODO: need to escape backslashes in path.
+          //
+          if (!loc.file.path.empty ())
+            ofs << "#line " << loc.line + 1 << " \"" <<
+              loc.file.path.string () << '"'                            << '\n';
+
+          // Note that the code always includes trailing newline.
+          //
+          ofs << code
+              << "};"                                                   << '\n'
+              << "}"                                                    << '\n'
+              << '\n';
+
+          ofs << "extern \"C\""                                         << '\n'
+              << "#ifdef _WIN32"                                        << '\n'
+              << "__declspec(dllexport)"                                << '\n'
+              << "#endif"                                               << '\n'
+              << "build2::cxx_rule*"                                    << '\n'
+              << sym << " (const build2::location* l)"                  << '\n'
+              << "{"                                                    << '\n'
+              << "return new build2::rule_" << id << " (*l);"           << '\n'
+              << "}"                                                    << '\n';
+
+          ofs.close ();
+
+          // Write buildfile.
+          //
+          f = path (pd / std_buildfile_file);
+
+          if (verb >= verbosity)
+            text << (verb >= 2 ? "cat >" : "save ") << f;
+
+          ofs.open (f);
+
+          ofs << "import imp_libs += build2%lib{build2}"                << '\n'
+              << "libs{" << id << "}: cxx{rule} $imp_libs"              << '\n';
+
+          ofs.close ();
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to write to " << f << ": " << e;
+        }
+      }
+
+      const target* l;
+      {
+        bool nested (ctx.module_context == &ctx);
+
+        // Create the build context if necessary.
+        //
+        if (ctx.module_context == nullptr)
+          create_module_context (ctx, loc, "ad hoc recipe");
+
+        // "Switch" to the module context.
+        //
+        context& ctx (*t.ctx.module_context);
+
+        // Load the project in the module context.
+        //
+        path bf (pd / std_buildfile_file);
+        scope& rs (load_project (ctx, pd, pd, false /* forwarded */));
+        source (rs, rs, bf);
+
+        if (nested)
+        {
+          // @@ TODO: we probably want to make this work.
+
+          fail (loc) << "nested ad hoc recipe updates not yet supported" << endf;
+        }
+        else
+        {
+          l = &update_in_module_context (
+            ctx, rs, names {name (pd, "libs", id)},
+            loc, bf, "updating ad hoc recipe", nullptr);
+        }
+      }
+
+      const path& lib (l->as<file> ().path ());
+
+      string err;
+      pair<void*, void*> hs (load_module_library (lib, sym, err));
+
+      if (hs.first == nullptr)
+        fail (loc) << "unable to load recipe library " << lib << ": " << err;
+
+      if (hs.second == nullptr)
+        fail (loc) << "unable to lookup " << sym << " in recipe library "
+                   << lib << ": " << err;
+
+      // @@ TODO: this function cannot throw (extern C).
+      //
+      auto f (function_cast<cxx_rule* (*) (const location*)> (hs.second));
+
+      impl.reset (f (&loc));
+    }
+
+    return impl->match (a, t, hint);
+  }
+
+  recipe adhoc_cxx_rule::
+  apply (action a, target& t) const
+  {
+    return impl->apply (a, t);
   }
 }
