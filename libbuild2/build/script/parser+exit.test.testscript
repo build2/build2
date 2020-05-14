@@ -1,0 +1,26 @@
+# file      : libbuild2/build/script/parser+exit.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: eq
+:
+$* <<EOI >>EOO
+cmd == 1
+EOI
+cmd == 1
+EOO
+
+: ne
+:
+$* <<EOI >>EOO
+cmd!=1
+EOI
+cmd != 1
+EOO
+
+: end
+:
+$* <<EOI 2>>EOE != 0
+cmd != 1 <"foo"
+EOI
+buildfile:11:10: error: expected newline instead of '<'
+EOE

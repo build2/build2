@@ -30,6 +30,8 @@ lib{build2}: libul{build2}:                                            \
 libul{build2}: script/{hxx ixx txx cxx}{** -*-options -**.test...} \
                script/{hxx ixx cxx}{builtin-options}
 
+libul{build2}: build/{hxx ixx txx cxx}{** -**.test...}
+
 # Note that this won't work in libul{} since it's not installed.
 #
 lib{build2}: cxx{utility-installed}:   for_install = true
@@ -108,6 +110,7 @@ exe{*.test}:
 
 for t:         cxx{ *.test...} \
         script/cxx{**.test...} \
+         build/cxx{**.test...} \
         config/cxx{**.test...} \
           dist/cxx{**.test...} \
        install/cxx{**.test...} \

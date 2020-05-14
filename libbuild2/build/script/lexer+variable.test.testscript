@@ -1,0 +1,25 @@
+# file      : libbuild2/build/script/lexer+variable.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test handling custom variable names ($*, $~, $NN).
+#
+test.arguments = variable
+
+: primary-target
+:
+{
+  : only
+  :
+  $* <">" >>EOO
+  '>'
+  <newline>
+  EOO
+
+  : followed
+  :
+  $* <">abc" >>EOO
+  '>'
+  'abc'
+  <newline>
+  EOO
+}

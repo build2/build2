@@ -153,6 +153,7 @@ endif
 #
 libbuild2_sub := \
 script           \
+build/script     \
 config           \
 dist             \
 test/script      \

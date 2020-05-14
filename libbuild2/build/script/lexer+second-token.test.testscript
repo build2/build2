@@ -1,0 +1,53 @@
+# file      : libbuild2/build/script/lexer+second-token.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Note: this mode auto-expires after each token.
+#
+test.arguments = second-token
+
+: assign
+:
+$* <"=foo" >>EOO
+=
+'foo'
+<newline>
+EOO
+
+: append
+:
+$* <"+= foo" >>EOO
++=
+'foo'
+<newline>
+EOO
+
+: prepend
+:
+$* <" =+ foo" >>EOO
+=+
+'foo'
+<newline>
+EOO
+
+: assign-leading
+:
+$* <"foo=bar" >>EOO
+'foo=bar'
+<newline>
+EOO
+
+: append-leading
+:
+$* <"foo+= bar" >>EOO
+'foo+='
+'bar'
+<newline>
+EOO
+
+: prepend-leading
+:
+$* <"foo =+bar" >>EOO
+'foo'
+'=+bar'
+<newline>
+EOO
