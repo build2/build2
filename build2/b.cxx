@@ -1395,9 +1395,9 @@ main (int argc, char* argv[])
             trace << "  out_root:     " << out_root;
             trace << "  src_root:     " << src_root;
             trace << "  forwarded:    " << (forwarded ? "true" : "false");
-            if (auto l = rs.vars[ctx->var_amalgamation])
+            if (const dir_path* a = *rs.root_extra->amalgamation)
             {
-              trace << "  amalgamation: " << cast<dir_path> (l);
+              trace << "  amalgamation: " << *a;
               trace << "  strong scope: " << *rs.strong_scope ();
               trace << "  weak scope:   " << *rs.weak_scope ();
             }

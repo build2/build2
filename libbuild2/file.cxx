@@ -494,6 +494,7 @@ namespace build2
 
     root.root_extra.reset (
       new scope::root_extra_type {
+        nullopt /* amalgamation */,
         a,
         a ? alt_build_ext        : std_build_ext,
         a ? alt_build_dir        : std_build_dir,
@@ -567,15 +568,29 @@ namespace build2
   }
 
   pair<value, bool>
-  extract_variable (context& ctx, lexer& l, const variable& var)
+  extract_variable (context& ctx, lexer& l, const variable& var, size_t n)
   {
     const path_name& fn (l.name ());
 
     try
     {
       token t (l.next ());
-      token_type tt;
 
+      // Skip the requested number of lines.
+      //
+      while (--n != 0)
+      {
+        for (; t.type != token_type::eos; t = l.next ())
+        {
+          if (t.type == token_type::newline)
+          {
+            t = l.next ();
+            break;
+          }
+        }
+      }
+
+      token_type tt;
       if (t.type != token_type::word || t.value != var.name ||
           ((tt = l.next ().type) != token_type::assign &&
            tt != token_type::prepend &&
@@ -603,22 +618,23 @@ namespace build2
 
   pair<value, bool>
   extract_variable (context& ctx,
-                    istream& is,
-                    const path& bf,
-                    const variable& var)
+                    istream& is, const path& bf,
+                    const variable& var, size_t n)
   {
     path_name in (bf);
     lexer l (is, in);
-    return extract_variable (ctx, l, var);
+    return extract_variable (ctx, l, var, n);
   }
 
   pair<value, bool>
-  extract_variable (context& ctx, const path& bf, const variable& var)
+  extract_variable (context& ctx,
+                    const path& bf,
+                    const variable& var, size_t n)
   {
     try
     {
       ifdstream ifs (bf);
-      return extract_variable (ctx, ifs, bf, var);
+      return extract_variable (ctx, ifs, bf, var, n);
     }
     catch (const io_error& e)
     {
@@ -715,8 +731,8 @@ namespace build2
       auto p (extract_variable (ctx, f, *ctx.var_project));
 
       if (!p.second)
-        fail << "variable " << ctx.var_project->name << " expected "
-             << "as a first line in " << f;
+        fail << "variable " << *ctx.var_project << " expected as a first "
+             << "line in " << f;
 
       name = cast<project_name> (move (p.first));
     }
@@ -817,44 +833,68 @@ namespace build2
 
     context& ctx (rs.ctx);
 
-    bool r (false);
-
     const dir_path& out_root (rs.out_path ());
     const dir_path& src_root (rs.src_path ());
 
+    path bf (exists (src_root, std_bootstrap_file, alt_bootstrap_file, altn));
+
+    if (rs.root_extra == nullptr)
     {
-      path f (exists (src_root, std_bootstrap_file, alt_bootstrap_file, altn));
+      // If nothing so far has indicated the naming, assume standard.
+      //
+      if (!altn)
+        altn = false;
 
-      if (rs.root_extra == nullptr)
-      {
-        // If nothing so far has indicated the naming, assume standard.
-        //
-        if (!altn)
-          altn = false;
-
-        setup_root_extra (rs, altn);
-      }
-
-      if (!f.empty ())
-      {
-        // We assume that bootstrap out cannot load this file explicitly. It
-        // feels wrong to allow this since that makes the whole bootstrap
-        // process hard to reason about. But we may try to bootstrap the same
-        // root scope multiple time.
-        //
-        if (rs.buildfiles.insert (f).second)
-        {
-          parser p (rs.ctx, load_stage::boot);
-          source (p, rs, rs, f);
-        }
-        else
-          l5 ([&]{trace << "skipping already sourced " << f;});
-
-        r = true;
-      }
+      setup_root_extra (rs, altn);
     }
 
-    // See if we are a part of an amalgamation. There are two key players: the
+    bool r (true);
+    if (bf.empty ())
+    {
+      r = false;
+    }
+    // We assume that bootstrap out cannot load this file explicitly. It
+    // feels wrong to allow this since that makes the whole bootstrap
+    // process hard to reason about. But we may try to bootstrap the same
+    // root scope multiple time.
+    //
+    else if (rs.buildfiles.insert (bf).second)
+    {
+      // Deal with the empty amalgamation variable (which indicates that
+      // amalgamating this project is disabled). We go through all this
+      // trouble of extracting its value manually (and thus requiring its
+      // assignment, if any, to be the second line in bootstrap.build, after
+      // project assignment) in order to have the logical amalgamation view
+      // during bootstrap (note that the bootstrap pre hooks will still see
+      // physical amalgamation).
+      //
+      auto ap (extract_variable (ctx, bf, *ctx.var_amalgamation, 2));
+
+      if (ap.second && (ap.first.null || ap.first.empty ()))
+        rs.root_extra->amalgamation = nullptr;
+
+      {
+        parser p (rs.ctx, load_stage::boot);
+        source (p, rs, rs, bf);
+      }
+
+      // Detect and diagnose the case where the amalgamation variable is not
+      // the second line.
+      //
+      if (!ap.second && rs.vars[ctx.var_amalgamation].defined ())
+      {
+        fail << "variable " << *ctx.var_amalgamation << " expected as a "
+             << "second line in " << bf;
+      }
+    }
+    else
+    {
+      // Here we assume amalgamation has been dealt with.
+      //
+      l5 ([&]{trace << "skipping already sourced " << bf;});
+    }
+
+    // Finish dealing with the amalgamation. There are two key players: the
     // outer root scope which may already be present (i.e., we were loaded as
     // part of an amalgamation) and the amalgamation variable that may or may
     // not be set by the user (in bootstrap.build) or by an earlier call to
@@ -877,17 +917,20 @@ namespace build2
         const dir_path& ad (ars->out_path ());
         dir_path rd (ad.relative (out_root));
 
-        // If we already have the amalgamation variable set, verify
-        // that aroot matches its value.
+        // If we already have the amalgamation variable set, verify that aroot
+        // matches its value.
         //
         if (!rp.second)
         {
+          /* @@ TMP
           if (!v)
           {
             fail << out_root << " cannot be amalgamated" <<
               info << "amalgamated by " << ad;
           }
           else
+          */
+          if (v)
           {
             const dir_path& vd (cast<dir_path> (v));
 
@@ -909,10 +952,9 @@ namespace build2
       }
       else if (rp.second)
       {
-        // If there is no outer root and the amalgamation variable
-        // hasn't been set, then we need to check if any of the
-        // outer directories is a project's out_root. If so, then
-        // that's our amalgamation.
+        // If there is no outer root and the amalgamation variable hasn't been
+        // set, then we need to check if any of the outer directories is a
+        // project's out_root. If so, then that's our amalgamation.
         //
         optional<bool> altn;
         const dir_path& ad (find_out_root (out_root.directory (), altn).first);
@@ -923,7 +965,18 @@ namespace build2
           l5 ([&]{trace << out_root << " amalgamated as " << rd;});
           v = move (rd);
         }
+        //@@ else: the value will be NULL and amalgamation will be disabled.
+        //         We could omit setting it in root_extra... But maybe this is
+        //         correct: we don't want to load half of the project as
+        //         amalgamated and the other half as not, would we now?
+
       }
+      // @@ else if (v): shouldn't we try to bootstrap a project in the
+      //                 user-specified directory? Though this case is not
+      //                 used outside of some controlled cases (like module
+      //                 sidebuilds).
+
+      rs.root_extra->amalgamation = cast_null<dir_path> (v);
     }
 
     // See if we have any subprojects. In a sense, this is the other
@@ -1198,6 +1251,8 @@ namespace build2
 
     // Check if we are strongly amalgamated by this outer root scope.
     //
+    // Note that we won't end up here if we are not amalgamatable.
+    //
     if (root.src_path ().sub (rs.src_path ()))
       root.strong_ = rs.strong_scope (); // Itself or some outer scope.
   }
@@ -1248,10 +1303,17 @@ namespace build2
             rs.assign (ctx.var_forwarded) = true; // Only upgrade (see main()).
         }
 
+        //@@ TODO: what if subproject has amalgamation disabled? Can we have a
+        //         subproject that disables our attempt to amalgamate it (see
+        //         amalgamatable() call below).
+
         // Check if we strongly amalgamated this inner root scope.
         //
-        if (rs.src_path ().sub (root.src_path ()))
-          rs.strong_ = root.strong_scope (); // Itself or some outer scope.
+        if (rs.amalgamatable ())
+        {
+          if (rs.src_path ().sub (root.src_path ()))
+            rs.strong_ = root.strong_scope (); // Itself or some outer scope.
+        }
 
         // See if there are more inner roots.
         //

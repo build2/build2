@@ -5,9 +5,52 @@ namespace build2
 {
   // scope
   //
+  inline bool scope::
+  root () const
+  {
+    return root_ == this;
+  }
+
+  inline bool scope::
+  amalgamatable () const
+  {
+    return (root_extra == nullptr ||
+            !root_extra->amalgamation ||
+            *root_extra->amalgamation != nullptr);
+  }
+
+  inline scope* scope::
+  parent_scope ()
+  {
+    // If this is a root scope and amalgamation is disabled, "jump" straight
+    // to the global scope.
+    //
+    return root () && !amalgamatable () ? &global_scope () : parent_;
+  }
+
+  inline const scope* scope::
+  parent_scope () const
+  {
+    return root () && !amalgamatable () ? &global_scope () : parent_;
+  }
+
+  inline scope* scope::
+  root_scope ()
+  {
+    return root_;
+  }
+
+  inline const scope* scope::
+  root_scope () const
+  {
+    return root_;
+  }
+
   inline scope* scope::
   strong_scope ()
   {
+    // We naturally assume strong_ is not set for non-amalgamatable projects.
+    //
     return root_ != nullptr
       ? root_->strong_ != nullptr ? root_->strong_ : root_
       : nullptr;
@@ -26,7 +69,9 @@ namespace build2
   {
     scope* r (root_);
     if (r != nullptr)
-      for (; r->parent_->root_ != nullptr; r = r->parent_->root_) ;
+      for (;
+           r->amalgamatable () && r->parent_->root_ != nullptr;
+           r = r->parent_->root_) ;
     return r;
   }
 
@@ -35,7 +80,9 @@ namespace build2
   {
     const scope* r (root_);
     if (r != nullptr)
-      for (; r->parent_->root_ != nullptr; r = r->parent_->root_) ;
+      for (;
+           r->amalgamatable () && r->parent_->root_ != nullptr;
+           r = r->parent_->root_) ;
     return r;
   }
 
@@ -44,9 +91,12 @@ namespace build2
   {
     // Scan the parent root scope chain looking for this scope.
     //
-    for (const scope* pr (&r); (pr = pr->parent_->root_) != nullptr; )
+    for (const scope* pr (&r);
+         pr->amalgamatable () && (pr = pr->parent_->root_) != nullptr; )
+    {
       if (pr == this)
         return true;
+    }
 
     return false;
   }

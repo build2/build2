@@ -46,18 +46,21 @@ namespace build2
     const dir_path* src_path_ = nullptr;
 
     bool
-    root () const {return root_ == this;}
+    root () const;
 
-    scope*       parent_scope ()       {return parent_;}
-    const scope* parent_scope () const {return parent_;}
+    // Note that the *_scope() functions reaturn "logical" parent/root/etc
+    // scopes, taking into account the project's var_amalgamation value.
+
+    scope*       parent_scope ();
+    const scope* parent_scope () const;
 
     // Root scope of this scope or NULL if this scope is not (yet) in any
     // (known) project. Note that if the scope itself is root, then this
     // function return this. To get to the outer root, query the root scope of
     // the parent.
     //
-    scope*       root_scope ()       {return root_;}
-    const scope* root_scope () const {return root_;}
+    scope*       root_scope ();
+    const scope* root_scope () const;
 
     // Root scope of the outermost "strong" (source-based) amalgamation of
     // this scope or NULL if this scope is not (yet) in any (known) project.
@@ -413,6 +416,11 @@ namespace build2
   public:
     struct root_extra_type
     {
+      // This project's amalgamation (var_amalgamation value). Absent means it
+      // is not yet determined. NULL means amalgamation is disabled.
+      //
+      optional<const dir_path*> amalgamation;
+
       bool altn; // True if using alternative build file/directory naming.
 
       // Build file/directory naming scheme used by this project.
@@ -506,6 +514,14 @@ namespace build2
     scope (context& c, bool global)
       : ctx (c), vars (c, global), target_vars (c, global) {}
 
+    // Return true if this root scope can be amalgamated.
+    //
+    bool
+    amalgamatable () const;
+
+    // Note that these values represent "physical" scoping relationships not
+    // taking into account the project's var_amalgamation value.
+    //
     scope* parent_;
     scope* root_;
     scope* strong_ = nullptr; // Only set on root scopes.

@@ -213,24 +213,27 @@ namespace build2
   load_root (scope& root);
 
   // Extract the specified variable value from a buildfile. It is expected to
-  // be the first non-comment line and not to rely on any variable expansion
-  // other than those from the global scope or any variable overrides. Return
-  // an indication of whether the variable was found.
+  // be the n'th non-blank/comment line and not to rely on any variable
+  // expansions other than those from the global scope or any variable
+  // overrides. Return in second an indication of whether the variable was
+  // found.
   //
   LIBBUILD2_SYMEXPORT pair<value, bool>
-  extract_variable (context&, const path&, const variable&);
+  extract_variable (context&, const path&, const variable&, size_t n = 1);
 
-  // As above, but extract from a stream. The name argument is used for
+  // As above, but extract from a stream. The path argument is used for
   // diagnostics.
   //
   LIBBUILD2_SYMEXPORT pair<value, bool>
-  extract_variable (context&, istream&, const path& name, const variable&);
+  extract_variable (context&,
+                    istream&, const path&,
+                    const variable&, size_t = 1);
 
   // As above, but extract from a lexer (this could be useful for extracting
   // from stdin).
   //
   LIBBUILD2_SYMEXPORT pair<value, bool>
-  extract_variable (context&, lexer&, const variable&);
+  extract_variable (context&, lexer&, const variable&, size_t = 1);
 
   // Import has two phases: the first is triggered by the import directive in
   // the buildfile. It will try to find and load the project. Failed that, it

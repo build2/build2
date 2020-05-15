@@ -400,6 +400,11 @@ namespace build2
 
     // Nested scopes of which we are an immediate parent.
     //
+    // Note that because we use the logical (rather than physical) parent, we
+    // will be printing the logical scope hierarchy (i.e., a project with
+    // disabled amalgamation will be printed directly inside the global
+    // scope).
+    //
     for (auto e (p.ctx.scopes.end ());
          i != e && i->second.parent_scope () == &p; )
     {

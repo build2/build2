@@ -202,12 +202,10 @@ namespace build2
 
         if (inherit)
         {
-          if (auto l = rs.vars[ctx.var_amalgamation])
+          if (const dir_path* a = *rs.root_extra->amalgamation)
           {
-            const dir_path& d (cast<dir_path> (l));
-
             os << endl
-               << "# Base configuration inherited from " << d << endl
+               << "# Base configuration inherited from " << *a << endl
                << "#" << endl;
           }
         }
