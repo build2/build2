@@ -66,14 +66,9 @@ namespace build2
   // Note: also used by ad hoc recipes thus not static.
   //
   void
-  create_module_context (context& ctx, const location& loc, const char* what)
+  create_module_context (context& ctx, const location& loc)
   {
     assert (ctx.module_context == nullptr);
-
-    if (!ctx.module_context_storage)
-      fail (loc) << "unable to update " << what <<
-        info << "updating of " << what << "s is disabled";
-
     assert (*ctx.module_context_storage == nullptr);
 
     // Since we are using the same scheduler, it makes sense to reuse the
@@ -98,7 +93,11 @@ namespace build2
     // Setup the context to perform update. In a sense we have a long-running
     // perform meta-operation batch (indefinite, in fact, since we never call
     // the meta-operation's *_post() callbacks) in which we periodically
-    // execute the update operation.
+    // execute update operations.
+    //
+    // Note that we perform each build in a separate update operation. Failed
+    // that, if the same target is update twice (which may happen with ad hoc
+    // recipes) we will see the old state.
     //
     if (mo_perform.meta_operation_pre != nullptr)
       mo_perform.meta_operation_pre ({} /* parameters */, loc);
@@ -107,88 +106,74 @@ namespace build2
 
     if (mo_perform.operation_pre != nullptr)
       mo_perform.operation_pre ({} /* parameters */, update_id);
-
-    ctx.module_context->current_operation (op_update);
   }
 
   // Note: also used by ad hoc recipes thus not static.
   //
   const target&
   update_in_module_context (context& ctx, const scope& rs, names tgt,
-                            const location& loc, const path& bf,
-                            const char* what, const char* name)
+                            const location& loc, const path& bf)
   {
+    // New update operation.
+    //
+    ctx.module_context->current_operation (op_update);
+
+    // Un-tune the scheduler.
+    //
+    // Note that we can only do this if we are running serially because
+    // otherwise we cannot guarantee the scheduler is idle (we could have
+    // waiting threads from the outer context). This is fine for now since the
+    // only two tuning level we use are serial and full concurrency (turns out
+    // currently we don't really need this: we will always be called during
+    // load or match phases and we always do parallel match; but let's keep it
+    // in case things change).
+    //
+    auto sched_tune (ctx.sched.serial ()
+                     ? scheduler::tune_guard (ctx.sched, 0)
+                     : scheduler::tune_guard ());
+
+    // Remap verbosity level 0 to 1 unless we were requested to be silent.
+    // Failed that, we may have long periods of seemingly nothing happening
+    // while we quietly update the module, which may look like things have
+    // hung up.
+    //
+    // @@ CTX: modifying global verbosity level won't work if we have multiple
+    //         top-level contexts running in parallel.
+    //
+    auto verbg = make_guard (
+      [z = !silent && verb == 0 ? (verb = 1, true) : false] ()
+      {
+        if (z)
+          verb = 0;
+      });
+
+    // Note that for now we suppress progress since it would clash with the
+    // progress of what we are already doing (maybe in the future we can do
+    // save/restore but then we would need some sort of diagnostics that we
+    // have switched to another task).
+    //
+    action a (perform_update_id);
     action_targets tgs;
-    {
-      action a (perform_id, update_id);
 
-      // Cutoff the existing diagnostics stack and push our own entry.
-      //
-      diag_frame::stack_guard diag_cutoff (nullptr);
+    mo_perform.search  ({},      /* parameters */
+                        rs,      /* root scope */
+                        rs,      /* base scope */
+                        bf,      /* buildfile */
+                        rs.find_target_key (tgt, loc),
+                        loc,
+                        tgs);
 
-      auto df = make_diag_frame (
-        [&loc, what, name] (const diag_record& dr)
-        {
-          dr << info (loc) << "while " << what;
+    mo_perform.match   ({},      /* parameters */
+                        a,
+                        tgs,
+                        1,       /* diag (failures only) */
+                        false    /* progress */);
 
-          if (name != nullptr)
-            dr << ' ' << name;
-        });
-
-      // Un-tune the scheduler.
-      //
-      // Note that we can only do this if we are running serially because
-      // otherwise we cannot guarantee the scheduler is idle (we could have
-      // waiting threads from the outer context). This is fine for now since
-      // the only two tuning level we use are serial and full concurrency
-      // (turns out currently we don't really need this: we will always be
-      // called during load or match phases and we always do parallel match;
-      // but let's keep it in case things change).
-      //
-      auto sched_tune (ctx.sched.serial ()
-                       ? scheduler::tune_guard (ctx.sched, 0)
-                       : scheduler::tune_guard ());
-
-      // Remap verbosity level 0 to 1 unless we were requested to be silent.
-      // Failed that, we may have long periods of seemingly nothing happening
-      // while we quietly update the module, which may look like things have
-      // hung up.
-      //
-      // @@ CTX: modifying global verbosity level won't work if we have
-      //         multiple top-level contexts running in parallel.
-      //
-      auto verbg = make_guard (
-        [z = !silent && verb == 0 ? (verb = 1, true) : false] ()
-        {
-          if (z)
-            verb = 0;
-        });
-
-      // Note that for now we suppress progress since it would clash with
-      // the progress of what we are already doing (maybe in the future we
-      // can do save/restore but then we would need some sort of
-      // diagnostics that we have switched to another task).
-      //
-      mo_perform.search  ({},      /* parameters */
-                          rs,      /* root scope */
-                          rs,      /* base scope */
-                          bf,      /* buildfile */
-                          rs.find_target_key (tgt, loc),
-                          loc,
-                          tgs);
-
-      mo_perform.match   ({},      /* parameters */
-                          a,
-                          tgs,
-                          1,       /* diag (failures only) */
-                          false    /* progress */);
-
-      mo_perform.execute ({},      /* parameters */
-                          a,
-                          tgs,
-                          1,       /* diag (failures only) */
-                          false    /* progress */);
-    }
+    mo_perform.execute ({},      /* parameters */
+                        a,
+                        tgs,
+                        1,       /* diag (failures only) */
+                        false    /* progress */);
 
     assert (tgs.size () == 1);
     return tgs[0].as<target> ();
@@ -348,7 +333,13 @@ namespace build2
       // Create the build context if necessary.
       //
       if (ctx.module_context == nullptr)
-        create_module_context (ctx, loc, "build system module");
+      {
+        if (!ctx.module_context_storage)
+          fail (loc) << "unable to update build system module " << mod <<
+            info << "building of build system modules is disabled";
+
+        create_module_context (ctx, loc);
+      }
 
       // Inherit loaded_modules lock from the outer context.
       //
@@ -378,17 +369,27 @@ namespace build2
       }
       else
       {
-        const scope& rs (lr.second);
+        const target* l;
+        {
+          // Cutoff the existing diagnostics stack and push our own entry.
+          //
+          diag_frame::stack_guard diag_cutoff (nullptr);
 
-        const target& l (
-          update_in_module_context (
-            ctx, rs, move (lr.first),
-            loc, path (), "loading build system module", mod.c_str ()));
+          auto df = make_diag_frame (
+            [&loc, &mod] (const diag_record& dr)
+            {
+              dr << info (loc) << "while loading build system module " << mod;
+            });
 
-        if (!l.is_a ("libs"))
+          l = &update_in_module_context (
+            ctx, lr.second, move (lr.first),
+            loc, path ());
+        }
+
+        if (!l->is_a ("libs"))
           fail (loc) << "wrong export from build system module " << mod;
 
-        lib = l.as<file> ().path ();
+        lib = l->as<file> ().path ();
 
         l5 ([&]{trace << "updated " << lib;});
       }

@@ -17,6 +17,13 @@ using namespace butl;
 
 namespace build2
 {
+  // rule (vtable)
+  //
+  rule::
+  ~rule ()
+  {
+  }
+
   // file_rule
   //
   // Note that this rule is special. It is the last, fallback rule. If
@@ -592,6 +599,12 @@ namespace build2
 
   // adhoc_cxx_rule
   //
+  adhoc_cxx_rule::
+  ~adhoc_cxx_rule ()
+  {
+    delete impl.load (memory_order_relaxed); // Serial execution.
+  }
+
   void adhoc_cxx_rule::
   dump (ostream& os, const string& ind) const
   {
@@ -606,12 +619,11 @@ namespace build2
   // From module.cxx.
   //
   void
-  create_module_context (context&, const location&, const char* what);
+  create_module_context (context&, const location&);
 
   const target&
   update_in_module_context (context&, const scope&, names tgt,
-                            const location&, const path& bf,
-                            const char* what, const char* name);
+                            const location&, const path& bf);
 
   pair<void*, void*>
   load_module_library (const path& lib, const string& sym, string& err);
@@ -650,10 +662,21 @@ namespace build2
     //
     string id (sha256 (code).abbreviated_string (12));
 
-    // @@ TODO: locking.
-    // @@ Need to unlock phase while waiting.
-    if (impl == nullptr)
+    // We use the relaxed memory order because any change must go through the
+    // serial load phase. In other words, all we need here is atomicity with
+    // ordering/visibility provided by the phase mutex.
+    //
+    cxx_rule* impl (this->impl.load (memory_order_relaxed));
+
+    while (impl == nullptr) // Breakout loop.
     {
+      // Switch the phase to (serial) load and re-check.
+      //
+      phase_switch ps (ctx, run_phase::load);
+
+      if ((impl = this->impl.load (memory_order_relaxed)) != nullptr)
+        break;
+
       using create_function = cxx_rule* (const location&);
       using load_function = create_function* ();
 
@@ -662,10 +685,6 @@ namespace build2
                    recipes_build_dir /= id);
 
       string sym ("load_" + id);
-
-      // Switch the phase to load.
-      //
-      phase_switch ps (ctx, run_phase::load);
 
       optional<bool> altn (false); // Standard naming scheme.
       if (!is_src_root (pd, altn))
@@ -734,7 +753,7 @@ namespace build2
 
           // If we want the user to be able to supply a custom constuctor,
           // then we have to give the class a predictable name (i.e., we
-          // cannot use id as part of its name) and put it into an anonymous
+          // cannot use id as part of its name) and put it into an unnamed
           // namespace. One clever idea is to call the class `constructor` but
           // the name could also be used for a custom destructor (still could
           // work) or for name qualification (would definitely look bizarre).
@@ -833,14 +852,22 @@ namespace build2
         }
       }
 
-      const target* l;
+      // Update the library target in the module context.
+      //
+      const target* l (nullptr);
       {
         bool nested (ctx.module_context == &ctx);
 
         // Create the build context if necessary.
         //
         if (ctx.module_context == nullptr)
-          create_module_context (ctx, loc, "ad hoc recipe");
+        {
+          if (!ctx.module_context_storage)
+            fail (loc) << "unable to update ad hoc recipe for target " << t <<
+              info << "building of ad hoc recipes is disabled";
+
+          create_module_context (ctx, loc);
+        }
 
         // "Switch" to the module context.
         //
@@ -848,26 +875,63 @@ namespace build2
 
         // Load the project in the module context.
         //
+        // Note that it's possible it has already been loaded (see above about
+        // the id calculation).
+        //
         path bf (pd / std_buildfile_file);
         scope& rs (load_project (ctx, pd, pd, false /* forwarded */));
-        source (rs, rs, bf);
 
-        if (nested)
+        // If the project has already been loaded then, as an optimization,
+        // check if the target has already been updated (this will make a
+        // difference we if we have identical recipes in several buildfiles).
+        //
+        if (!source_once (rs, rs, bf))
         {
-          // @@ TODO: we probably want to make this work.
+          const target_type* tt (rs.find_target_type ("libs"));
+          assert (tt != nullptr);
 
-          fail (loc) << "nested ad hoc recipe updates not yet supported" << endf;
+          l = ctx.targets.find (*tt, pd, dir_path () /* out */, id);
+          assert (l != nullptr);
+
+          if (l->executed_state (perform_update_id) == target_state::unknown)
+            l = nullptr;
         }
-        else
+
+        if (l == nullptr)
         {
-          l = &update_in_module_context (
-            ctx, rs, names {name (pd, "libs", id)},
-            loc, bf, "updating ad hoc recipe", nullptr);
+          if (nested)
+          {
+            // @@ TODO: we probably want to make this work.
+
+            fail (loc) << "nested ad hoc recipe updates not yet supported";
+          }
+          else
+          {
+            // Cutoff the existing diagnostics stack and push our own entry.
+            //
+            diag_frame::stack_guard diag_cutoff (nullptr);
+
+            auto df = make_diag_frame (
+              [this, &t] (const diag_record& dr)
+              {
+                dr << info (loc) << "while updating ad hoc recipe for target "
+                   << t;
+              });
+
+            l = &update_in_module_context (
+              ctx, rs, names {name (pd, "libs", id)},
+              loc, bf);
+          }
         }
       }
 
+      // Load the library.
+      //
       const path& lib (l->as<file> ().path ());
 
+      // Note again that it's possible the library has already been loaded
+      // (see above about the id calculation).
+      //
       string err;
       pair<void*, void*> hs (load_module_library (lib, sym, err));
 
@@ -891,7 +955,8 @@ namespace build2
         load_function* lf (function_cast<load_function*> (hs.second));
         create_function* cf (lf ());
 
-        impl.reset (cf (loc));
+        impl = cf (loc);
+        this->impl.store (impl, memory_order_relaxed); // Still in load phase.
       }
     }
 
@@ -901,6 +966,6 @@ namespace build2
   recipe adhoc_cxx_rule::
   apply (action a, target& t) const
   {
-    return impl->apply (a, t);
+    return impl.load (memory_order_relaxed)->apply (a, t);
   }
 }

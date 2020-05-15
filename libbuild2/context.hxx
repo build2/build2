@@ -553,9 +553,17 @@ namespace build2
   // Assuming we have a lock on the current phase, temporarily switch to a
   // new phase and switch back on destruction.
   //
+  // The second constructor can be used for a switch with an intermittent
+  // unlock:
+  //
+  // phase_unlock pu;
+  // phase_lock pl;
+  // phase_switch ps (move (pu), move (pl));
+  //
   struct LIBBUILD2_SYMEXPORT phase_switch
   {
-    explicit phase_switch (context&, run_phase);
+    phase_switch (context&, run_phase);
+    phase_switch (phase_unlock&&, phase_lock&&);
     ~phase_switch () noexcept (false);
 
     run_phase old_phase, new_phase;

@@ -22,7 +22,7 @@ namespace build2
   //
   // Note: match() is only called once but may not be followed by apply().
   //
-  class rule
+  class LIBBUILD2_SYMEXPORT rule
   {
   public:
     virtual bool
@@ -32,6 +32,9 @@ namespace build2
     apply (action, target&) const = 0;
 
     rule () = default;
+
+    virtual
+    ~rule ();
 
     rule (const rule&) = delete;
     rule& operator= (const rule&) = delete;
@@ -216,11 +219,17 @@ namespace build2
     dump (ostream&, const string&) const override;
 
     adhoc_cxx_rule (string c, const location& l, size_t b)
-      : adhoc_rule (l, b), code (move (c)) {}
+      : adhoc_rule (l, b), code (move (c)), impl (nullptr) {}
+
+    virtual
+    ~adhoc_cxx_rule () override;
 
   public:
-    string                       code;
-    mutable unique_ptr<cxx_rule> impl;
+    // Note that this recipe (rule instance) can be shared between multiple
+    // targets which could all be matched in parallel.
+    //
+    const string              code;
+    mutable atomic<cxx_rule*> impl;
   };
 }
 

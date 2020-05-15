@@ -722,8 +722,12 @@ namespace build2
             // that token part of the replay (we cannot peek past the replay
             // sequence).
             //
-            auto parse = [this, &st] (token& t, type& tt,
-                                      const target_type* type, string pat)
+            auto parse = [
+              this,
+              &st,
+              recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
+              (token& t, type& tt,
+               const target_type* type, string pat) mutable
             {
               token rt; // Recipe start token.
 
@@ -752,7 +756,7 @@ namespace build2
               if (type != nullptr)
                 fail (rt) << "recipe in target type/pattern";
 
-              parse_recipe (t, tt, rt);
+              parse_recipe (t, tt, rt, recipes);
             };
 
             for_each (parse);
@@ -1012,7 +1016,9 @@ namespace build2
   }
 
   void parser::
-  parse_recipe (token& t, type& tt, const token& start)
+  parse_recipe (token& t, type& tt,
+                const token& start,
+                small_vector<shared_ptr<adhoc_rule>, 1>& recipes)
   {
     // Parse a recipe chain.
     //
@@ -1038,11 +1044,11 @@ namespace build2
         default_target_ = target_;
     }
 
-    // True if seen a recipe that requires cleanup.
-    //
-    bool clean (false);
+    bool first (recipes.empty ()); // First target.
+    bool clean (false);            // Seen a recipe that requires cleanup.
 
-    for (token st (start);; st = t)
+    token st (start);
+    for (size_t i (0);; st = t, ++i)
     {
       optional<string> diag;
 
@@ -1111,31 +1117,37 @@ namespace build2
       //    me now.
       //
       shared_ptr<adhoc_rule> ar;
-
-      // Note that this is always the location of the opening multi-curly-
-      // brace, whether we have the header or not. This is relied upon by the
-      // rule implementations (e.g., to calculate the first line of the recipe
-      // code).
-      //
-      location loc (get_location (st));
-
-      if (!lang)
+      if (first)
       {
-        ar.reset (new adhoc_script_rule (move (t.value),
-                                         move (diag),
-                                         loc,
-                                         st.value.size ()));
-      }
-      else if (*lang == "c++")
-      {
-        ar.reset (new adhoc_cxx_rule (move (t.value), loc, st.value.size ()));
-        clean = true;
+        // Note that this is always the location of the opening multi-curly-
+        // brace, whether we have the header or not. This is relied upon by
+        // the rule implementations (e.g., to calculate the first line of the
+        // recipe code).
+        //
+        location loc (get_location (st));
+
+        if (!lang)
+        {
+          ar.reset (new adhoc_script_rule (move (t.value),
+                                           move (diag),
+                                           loc,
+                                           st.value.size ()));
+        }
+        else if (*lang == "c++")
+        {
+          ar.reset (new adhoc_cxx_rule (move (t.value), loc, st.value.size ()));
+          clean = true;
+        }
+        else
+          fail (lloc) << "unknown recipe language '" << *lang << "'";
+
+        recipes.push_back (ar);
       }
       else
-        fail (lloc) << "unknown recipe language '" << *lang << "'";
+        ar = recipes[i];
 
-      action a (perform_id, update_id);
-      target_->adhoc_recipes.push_back (adhoc_recipe {a, move (ar)});
+      target_->adhoc_recipes.push_back (
+        adhoc_recipe {perform_update_id, move (ar)});
 
       next (t, tt);
       assert (tt == type::multi_rcbrace);
@@ -1152,7 +1164,7 @@ namespace build2
     //
     if (clean)
     {
-      action a (perform_id, clean_id);
+      action a (perform_clean_id);
       auto f (&adhoc_rule::clean_recipes_build);
 
       // First check if we have already done this.

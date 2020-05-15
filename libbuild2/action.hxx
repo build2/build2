@@ -61,6 +61,8 @@ namespace build2
   {
     action (): inner_id (0), outer_id (0) {} // Invalid action.
 
+    action (action_id a): action (a >> 4, a & 0xF) {}
+
     // If this is not a nested operation, then outer should be 0.
     //
     action (meta_operation_id m, operation_id inner, operation_id outer = 0)
@@ -102,6 +104,11 @@ namespace build2
 
   inline bool
   operator!= (action x, action y) {return !(x == y);}
+
+  inline bool operator== (action x, action_id y) {return x == action (y);}
+  inline bool operator!= (action x, action_id y) {return x != action (y);}
+  inline bool operator== (action_id x, action y) {return action (x) == y;}
+  inline bool operator!= (action_id x, action y) {return action (x) == y;}
 
   bool operator>  (action, action) = delete;
   bool operator<  (action, action) = delete;

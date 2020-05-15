@@ -894,6 +894,14 @@ namespace build2
   }
 
   phase_switch::
+  phase_switch (phase_unlock&& u, phase_lock&& l)
+      : old_phase (u.l->phase), new_phase (l.phase)
+  {
+    phase_lock_instance = u.l; // Disarms phase_lock
+    u.l = nullptr;             // Disarms phase_unlock
+  }
+
+  phase_switch::
   ~phase_switch () noexcept (false)
   {
     phase_lock* pl (phase_lock_instance);

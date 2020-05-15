@@ -319,7 +319,7 @@ namespace build2
 
         ctx.current_operation (op_update, nullptr, false /* diag_noise */);
 
-        action a (perform_id, update_id);
+        action a (perform_update_id);
 
         mo_perform.match   (params, a, files,
                             1    /* diag (failures only) */,
