@@ -363,7 +363,7 @@ namespace build2
       {
         // This could be initial or exclusive load.
         //
-        // @@ TODO
+        // @@ TODO: see the ad hoc recipe case as a reference.
         //
         fail (loc) << "nested build system module updates not yet supported";
       }

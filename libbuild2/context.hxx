@@ -428,7 +428,7 @@ namespace build2
     //
     const loaded_modules_lock* modules_lock;
 
-    // Nested context for updating build system modules.
+    // Nested context for updating build system modules and ad hoc recipes.
     //
     // Note that such a context itself should normally have modules_context
     // setup to point to itself (see import_module() for details).
@@ -438,9 +438,10 @@ namespace build2
 
   public:
     // If module_context is absent, then automatic updating of build system
-    // modules is disabled. If it is NULL, then the context will be created
-    // lazily if and when necessary. Otherwise, it should be a properly setup
-    // context (including, normally, a self-reference in modules_context).
+    // modules and ad hoc recipes is disabled. If it is NULL, then the context
+    // will be created lazily if and when necessary. Otherwise, it should be a
+    // properly setup context (including, normally, a self-reference in
+    // modules_context).
     //
     explicit
     context (scheduler&,

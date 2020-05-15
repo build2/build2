@@ -855,6 +855,7 @@ namespace build2
       // Update the library target in the module context.
       //
       const target* l (nullptr);
+      do // Breakout loop.
       {
         bool nested (ctx.module_context == &ctx);
 
@@ -881,49 +882,69 @@ namespace build2
         path bf (pd / std_buildfile_file);
         scope& rs (load_project (ctx, pd, pd, false /* forwarded */));
 
+        auto find_target = [&ctx, &rs, &pd, &id] ()
+        {
+          const target_type* tt (rs.find_target_type ("libs"));
+          assert (tt != nullptr);
+
+          const target* t (
+            ctx.targets.find (*tt, pd, dir_path () /* out */, id));
+          assert (t != nullptr);
+
+          return t;
+        };
+
         // If the project has already been loaded then, as an optimization,
         // check if the target has already been updated (this will make a
         // difference we if we have identical recipes in several buildfiles).
         //
         if (!source_once (rs, rs, bf))
         {
-          const target_type* tt (rs.find_target_type ("libs"));
-          assert (tt != nullptr);
+          l = find_target ();
 
-          l = ctx.targets.find (*tt, pd, dir_path () /* out */, id);
-          assert (l != nullptr);
-
-          if (l->executed_state (perform_update_id) == target_state::unknown)
-            l = nullptr;
+          if (l->executed_state (perform_update_id) != target_state::unknown)
+            break;
         }
 
-        if (l == nullptr)
+        if (nested)
         {
-          if (nested)
+          // This means there is a perform update action already in progress
+          // in this context. So we are going to switch the phase and
+          // perform direct match and update (similar how we do this for
+          // generated headers).
+          //
+          // Note that since neither match nor execute are serial phases, it
+          // means other targets in this context can be matched and executed
+          // in paralellel with us.
+          //
+          if (l == nullptr)
+            l = find_target ();
+
+          phase_switch mp (ctx, run_phase::match);
+          if (build2::match (perform_update_id, *l) != target_state::unchanged)
           {
-            // @@ TODO: we probably want to make this work.
-
-            fail (loc) << "nested ad hoc recipe updates not yet supported";
-          }
-          else
-          {
-            // Cutoff the existing diagnostics stack and push our own entry.
-            //
-            diag_frame::stack_guard diag_cutoff (nullptr);
-
-            auto df = make_diag_frame (
-              [this, &t] (const diag_record& dr)
-              {
-                dr << info (loc) << "while updating ad hoc recipe for target "
-                   << t;
-              });
-
-            l = &update_in_module_context (
-              ctx, rs, names {name (pd, "libs", id)},
-              loc, bf);
+            phase_switch ep (ctx, run_phase::execute);
+            execute (a, *l);
           }
         }
-      }
+        else
+        {
+          // Cutoff the existing diagnostics stack and push our own entry.
+          //
+          diag_frame::stack_guard diag_cutoff (nullptr);
+
+          auto df = make_diag_frame (
+            [this, &t] (const diag_record& dr)
+            {
+              dr << info (loc) << "while updating ad hoc recipe for target "
+                 << t;
+            });
+
+          l = &update_in_module_context (
+            ctx, rs, names {name (pd, "libs", id)},
+            loc, bf);
+        }
+      } while (false);
 
       // Load the library.
       //
