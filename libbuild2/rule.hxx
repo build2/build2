@@ -121,7 +121,9 @@ namespace build2
     size_t         braces;  // Number of braces in multi-brace tokens.
 
     adhoc_rule (const location& l, size_t b)
-      : loc (l), braces (b), rule_match ("adhoc", *this) {}
+      : loc (l),
+        braces (b),
+        rule_match ("adhoc", static_cast<const rule&> (*this)) {}
 
   public:
     // Some of the operations come in compensating pairs, such as update and
