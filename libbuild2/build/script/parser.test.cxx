@@ -67,7 +67,10 @@ namespace build2
         bool line_;
       };
 
-      // Usage: argv[0] [-l]
+      // Usages:
+      //
+      // argv[0] [-l]
+      // argv[0] -d
       //
       int
       main (int argc, char* argv[])
@@ -86,6 +89,7 @@ namespace build2
         context ctx (sched, mutexes);
 
         bool line (false);
+        bool dump (false);
 
         for (int i (1); i != argc; ++i)
         {
@@ -93,9 +97,13 @@ namespace build2
 
           if (a == "-l")
             line = true;
+          else if (a == "-d")
+            dump = true;
           else
             assert (false);
         }
+
+        assert (!dump || !line);
 
         try
         {
@@ -123,9 +131,14 @@ namespace build2
           parser p (ctx);
           p.pre_parse (cin, nm, 11 /* line */, s);
 
-          environment e (s, tt);
-          print_runner r (line);
-          p.execute (e, r);
+          if (!dump)
+          {
+            environment e (s, tt);
+            print_runner r (line);
+            p.execute (e, r);
+          }
+          else
+            build2::script::dump (cout, "", s.lines);
         }
         catch (const failed&)
         {

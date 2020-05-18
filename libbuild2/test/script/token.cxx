@@ -12,11 +12,11 @@ namespace build2
     namespace script
     {
       void
-      token_printer (ostream& os, const token& t, bool d)
+      token_printer (ostream& os, const token& t, print_mode m)
       {
         // Only quote non-name tokens for diagnostics.
         //
-        const char* q (d ? "'" : "");
+        const char* q (m == print_mode::diagnostics ? "'" : "");
 
         switch (t.type)
         {
@@ -27,7 +27,7 @@ namespace build2
         case token_type::plus:  os << q << '+' << q; break;
         case token_type::minus: os << q << '-' << q; break;
 
-        default: build2::script::token_printer (os, t, d);
+        default: build2::script::token_printer (os, t, m);
         }
       }
     }

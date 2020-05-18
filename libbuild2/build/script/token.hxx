@@ -28,7 +28,7 @@ namespace build2
       };
 
       void
-      token_printer (ostream&, const token&, bool);
+      token_printer (ostream&, const token&, print_mode);
     }
   }
 }

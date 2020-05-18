@@ -1,0 +1,39 @@
+# file      : libbuild2/build/script/parser+line.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.options += -d
+
+#\
+: if-else
+:
+$* <<EOI >|
+  if foo
+    bar
+  elif fox
+    baz
+  end
+  if! foo
+    bar
+  elif! fox
+    baz
+  end
+  EOI
+
+: command
+:
+$* <<EOI >|
+  foo >| 2>- &a &?b
+  foo >=c 2>~/error:.*/ &!c
+  foo >>:/~%EOF%
+  %.*
+  abc
+  %xyz.*%
+  EOF
+  EOI
+
+: quoting
+:
+$* <<EOI >|
+  foo 'bar' "baz" '' ""
+  EOI
+#\

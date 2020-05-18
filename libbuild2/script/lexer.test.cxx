@@ -45,7 +45,7 @@ namespace build2
         {
           // Print each token on a separate line without quoting operators.
           //
-          t.printer (cout, t, false);
+          t.printer (cout, t, print_mode::normal);
           cout << endl;
         }
       }

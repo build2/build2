@@ -12,11 +12,11 @@ namespace build2
     namespace script
     {
       void
-      token_printer (ostream& os, const token& t, bool d)
+      token_printer (ostream& os, const token& t, print_mode m)
       {
         // No build script-specific tokens so far.
         //
-        build2::script::token_printer (os, t, d);
+        build2::script::token_printer (os, t, m);
       }
     }
   }
