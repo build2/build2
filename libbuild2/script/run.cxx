@@ -439,34 +439,34 @@ namespace build2
         // the program output doesn't match.
         //
         auto save_regex = [&op, &rl, &rd, &ll, &line] () -> path
+        {
+          path rp (op + ".regex");
+
+          // Encode here-document regex global flags if present as a file
+          // name suffix. For example if icase and idot flags are specified
+          // the name will look like:
+          //
+          // stdout.regex-di
+          //
+          if (rd.type == redirect_type::here_doc_regex && !rl.flags.empty ())
+            rp += '-' + rl.flags;
+
+          // Note that if would be more efficient to directly write chunks
+          // to file rather than to compose a string first. Hower we don't
+          // bother (about performance) for the sake of the code as we
+          // already failed.
+          //
+          string s;
+          for (auto b (rl.lines.cbegin ()), i (b), e (rl.lines.cend ());
+               i != e; ++i)
           {
-            path rp (op + ".regex");
+            if (i != b) s += '\n';
+            s += line (*i);
+          }
 
-            // Encode here-document regex global flags if present as a file
-            // name suffix. For example if icase and idot flags are specified
-            // the name will look like:
-            //
-            // stdout.regex-di
-            //
-            if (rd.type == redirect_type::here_doc_regex && !rl.flags.empty ())
-              rp += '-' + rl.flags;
-
-            // Note that if would be more efficient to directly write chunks
-            // to file rather than to compose a string first. Hower we don't
-            // bother (about performance) for the sake of the code as we
-            // already failed.
-            //
-            string s;
-            for (auto b (rl.lines.cbegin ()), i (b), e (rl.lines.cend ());
-                 i != e; ++i)
-            {
-              if (i != b) s += '\n';
-              s += line (*i);
-            }
-
-            save (rp, s, ll);
-            return rp;
-          };
+          save (rp, s, ll);
+          return rp;
+        };
 
         // Finally create regex line string.
         //

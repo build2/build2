@@ -37,6 +37,9 @@ namespace build2
         location end_loc;
       };
 
+      //@@ Does environment need script? Can't we just pass it to parser along
+      //   with environment.
+      //
       class environment: public build2::script::environment
       {
       public:

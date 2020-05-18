@@ -30,6 +30,9 @@ namespace build2
       public:
         parser (context& c): build2::script::parser (c) {}
 
+        // Note that the returned script object references the passed path
+        // name.
+        //
         script
         pre_parse (istream&, const path_name&, uint64_t line);
 

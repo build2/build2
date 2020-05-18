@@ -1128,17 +1128,12 @@ namespace build2
 
         if (!lang)
         {
-          using build::script::parser;
-          using build::script::script;
+          auto* asr (new adhoc_script_rule (move (diag), loc, st.value.size ()));
+          ar.reset (asr);
 
-          parser p (ctx);
           istringstream is (move (t.value));
-          script s (p.pre_parse (is, path_name (loc.file), loc.line + 1));
-
-          ar.reset (new adhoc_script_rule (move (s),
-                                           move (diag),
-                                           loc,
-                                           st.value.size ()));
+          build::script::parser p (ctx);
+          asr->script = p.pre_parse (is, asr->loc.file, loc.line + 1);
         }
         else if (*lang == "c++")
         {

@@ -12,6 +12,9 @@
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/build/script/parser.hxx>
+#include <libbuild2/build/script/runner.hxx>
+
 using namespace std;
 using namespace butl;
 
@@ -464,6 +467,8 @@ namespace build2
   {
     tracer trace ("adhoc_rule::perform_update_file");
 
+    context& ctx (xt.ctx);
+
     const file& t (xt.as<file> ());
     const path& tp (t.path ());
 
@@ -542,11 +547,11 @@ namespace build2
       text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
     }
 
-    if (!t.ctx.dry_run)
+    if (!ctx.dry_run)
     {
       // @@ TODO
       //
-      touch (t.ctx, tp, true, verb_never);
+      touch (ctx, tp, true, verb_never);
       dd.check_mtime (tp);
     }
 
@@ -559,25 +564,34 @@ namespace build2
   {
     tracer trace ("adhoc_rule::default_action");
 
+    context& ctx (t.ctx);
+
     execute_prerequisites (a, t);
 
-    if (verb >= 2)
-    {
-      //@@ TODO
-
-      //print_process (args);
-    }
-    else if (verb)
+    if (verb == 1)
     {
       // @@ TODO: as above
 
       text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
     }
 
-    if (!t.ctx.dry_run)
+    if (!ctx.dry_run || verb >= 2)
     {
-      // @@ TODO
-      //
+      build::script::parser p (ctx);
+      build::script::environment e (script, t);
+
+      if (!ctx.dry_run)
+      {
+        build::script::default_runner r;
+        p.execute (e, r);
+      }
+      else
+      {
+        //@@ TODO:
+        //
+        //build::script::print_runner r;
+        //p.execute (e, r);
+      }
     }
 
     return target_state::changed;

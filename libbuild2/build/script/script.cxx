@@ -33,12 +33,15 @@ namespace build2
         // Set the $> variable.
         //
         {
-          value& v (assign (var_pool.insert<path> (">")));
+          //@@ TODO
+          //
+          value& v (assign (var_pool.insert<string> (">")));
 
           if (auto* t = pt.is_a<path_target> ())
-            v = t->path ();
+            v = t->path ().string ();
           else
-            fail << "target " << pt << " is not path-based";
+            //fail << "target " << pt << " is not path-based";
+            v = pt.name; //@@ TMP
         }
       }
 

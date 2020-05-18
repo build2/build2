@@ -29,8 +29,8 @@ namespace build2
            size_t li,
            const location& ll)
       {
-        if (verb >= 3)
-          text << ":  " << expr;
+        if (verb >= 2)
+          text << expr;
 
         build2::script::run (env, expr, li, ll);
       }
@@ -40,8 +40,8 @@ namespace build2
               const command_expr& expr,
               size_t li, const location& ll)
       {
-        if (verb >= 3)
-          text << ": ?" << expr;
+        if (verb >= 2)
+          text << expr;
 
         return build2::script::run_if (env, expr, li, ll);
       }
