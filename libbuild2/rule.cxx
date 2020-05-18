@@ -686,45 +686,48 @@ namespace build2
 
       string sym ("load_" + id);
 
-      optional<bool> altn (false); // Standard naming scheme.
-      if (!is_src_root (pd, altn))
+      // Update the project is necessary.
+      //
+      path of;
+      try
       {
         const uint16_t verbosity (3);
 
-        // Write ad hoc config.build that loads the ~build2 configuration.
-        // This way the configuration will be always in sync with ~build2 and
-        // we can update the recipe manually (e.g., for debugging).
-        //
-        create_project (
-          pd,
-          dir_path (),                             /* amalgamation */
-          {},                                      /* boot_modules */
-          "cxx.std = latest",                      /* root_pre */
-          {"cxx."},                                /* root_modules */
-          "",                                      /* root_post */
-          string ("config"),                       /* config_module */
-          string ("config.config.load = ~build2"), /* config_file */
-          false,                                   /* buildfile */
-          "build2 core",                           /* who */
-          verbosity);                              /* verbosity */
+        ofdstream ofs;
 
-        path f;
-
-        try
+        optional<bool> altn (false); // Standard naming scheme.
+        if (!is_src_root (pd, altn))
         {
-          ofdstream ofs;
 
-          // Write source file.
+          // Write ad hoc config.build that loads the ~build2 configuration.
+          // This way the configuration will be always in sync with ~build2
+          // and we can update the recipe manually (e.g., for debugging).
           //
-          f = path (pd / "rule.cxx");
+          create_project (
+            pd,
+            dir_path (),                             /* amalgamation */
+            {},                                      /* boot_modules */
+            "cxx.std = latest",                      /* root_pre */
+            {"cxx."},                                /* root_modules */
+            "",                                      /* root_post */
+            string ("config"),                       /* config_module */
+            string ("config.config.load = ~build2"), /* config_file */
+            false,                                   /* buildfile */
+            "build2 core",                           /* who */
+            verbosity);                              /* verbosity */
+
+
+          // Write the rule source file.
+          //
+          of = path (pd / "rule.cxx");
 
           if (verb >= verbosity)
-            text << (verb >= 2 ? "cat >" : "save ") << f;
+            text << (verb >= 2 ? "cat >" : "save ") << of;
 
-          ofs.open (f);
+          ofs.open (of);
 
-          ofs << "// " << loc << endl
-              << endl;
+          ofs << "#include \"location.hxx\""                            << '\n'
+              << '\n';
 
           // Include every header that can plausibly be needed by a rule.
           //
@@ -795,14 +798,9 @@ namespace build2
           // buildfile. Note that there is no easy way to restore things to
           // point back to the source file (other than another #line with a
           // line and a file). Seeing that we don't have much after, let's not
-          // bother for now. Note that the code start from the next line thus
-          // +1.
+          // bother for now.
           //
-          // @@ TODO: need to escape backslashes in path.
-          //
-          if (!loc.file.path.empty ())
-            ofs << "#line " << loc.line + 1 << " \"" <<
-              loc.file.path.string () << '"'                            << '\n';
+          ofs << "#line RECIPE_LINE RECIPE_FILE"                        << '\n';
 
           // Note that the code always includes trailing newline.
           //
@@ -832,24 +830,61 @@ namespace build2
 
           ofs.close ();
 
+
           // Write buildfile.
           //
-          f = path (pd / std_buildfile_file);
+          of = path (pd / std_buildfile_file);
 
           if (verb >= verbosity)
-            text << (verb >= 2 ? "cat >" : "save ") << f;
+            text << (verb >= 2 ? "cat >" : "save ") << of;
 
-          ofs.open (f);
+          ofs.open (of);
 
           ofs << "import imp_libs += build2%lib{build2}"                << '\n'
-              << "libs{" << id << "}: cxx{rule} $imp_libs"              << '\n';
+              << "libs{" << id << "}: cxx{rule} hxx{location} $imp_libs"<< '\n';
 
           ofs.close ();
         }
-        catch (const io_error& e)
+
+        // Create/update the recipe location header.
+        //
+        // For update, preserve the file timestamp in order not to render the
+        // recipe out of date.
+        //
+        of = path (pd / "location.hxx");
+
+        entry_time et (file_time (of));
+
+        if (verb >= verbosity)
+          text << (verb >= 2 ? "cat >" : "save ") << of;
+
+        ofs.open (of);
+
+        // Recipe file and line for the #line directive above. Note that the
+        // code starts from the next line thus +1. We also need to escape
+        // backslashes (Windows paths).
+        //
         {
-          fail << "unable to write to " << f << ": " << e;
+          const string& f (!loc.file.path.empty ()
+                           ? loc.file.path.string ()
+                           : loc.file.name ? *loc.file.name : string ());
+
+          ofs << "#define RECIPE_FILE \"" << sanitize_strlit (f) << '"' << '\n'
+              << "#define RECIPE_LINE "   << loc.line + 1               << '\n';
         }
+
+        ofs.close ();
+
+        if (et.modification != timestamp_nonexistent)
+          file_time (of, et);
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to write to " << of << ": " << e;
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to get/set timestamp for " << of << ": " << e;
       }
 
       // Update the library target in the module context.

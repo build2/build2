@@ -2145,22 +2145,8 @@ namespace build2
                   // 1 is resource ID, 24 is RT_MANIFEST. We also need to
                   // escape Windows path backslashes.
                   //
-                  os << "1 24 \"";
-
-                  const string& s (mf.string ());
-                  for (size_t i (0), j;; i = j + 1)
-                  {
-                    j = s.find ('\\', i);
-                    os.write (s.c_str () + i,
-                              (j == string::npos ? s.size () : j) - i);
-
-                    if (j == string::npos)
-                      break;
-
-                    os.write ("\\\\", 2);
-                  }
-
-                  os << "\"" << endl;
+                  os << "1 24 \"" << sanitize_strlit (mf.string ()) << '"'
+                     << endl;
 
                   os.close ();
                   rm.cancel ();
@@ -3035,14 +3021,14 @@ namespace build2
       auto_rmfile trm;
       string targ;
       {
-        // Calculate the would-be command line length similar to how process'
-        // implementation does it.
-        //
         auto quote = [s = string ()] (const char* a) mutable -> const char*
         {
           return process::quote_argument (a, s);
         };
 
+        // Calculate the would-be command line length similar to how process'
+        // implementation does it.
+        //
         size_t n (0);
         for (const char* a: args)
         {
