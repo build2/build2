@@ -23,27 +23,18 @@ namespace build2
       using build2::script::command_expr;
 
       // Once parsed, the script can be executed in multiple threads with the
-      // state (variable values, etc) maintained by the environment object.
+      // state (variable values, etc) maintained in the environment object.
       //
       class script
       {
       public:
+        // Note that the variables are not pre-entered into a pool during the
+        // parsing phase, so the line variable pointers are NULL.
+        //
         build2::script::lines lines;
-
-        variable_pool var_pool;
-        mutable shared_mutex var_pool_mutex;
-
-        const variable& primary_target_var; // $>
 
         location start_loc;
         location end_loc;
-
-        script ();
-
-        script (script&&) = delete;
-        script (const script&) = delete;
-        script& operator= (script&&) = delete;
-        script& operator= (const script&) = delete;
       };
 
       class environment: public build2::script::environment
@@ -58,13 +49,16 @@ namespace build2
 
       public:
         const build::script::script& script;
+        const target& primary_target;
+
+        // Script-local variable pool.
+        //
+        variable_pool var_pool;
 
         // Note that if we pass the variable name as a string, then it will
         // be looked up in the wrong pool.
         //
         variable_map vars;
-
-        const target& primary_target;
 
         virtual void
         set_variable (string&& name, names&&, const string& attrs) override;

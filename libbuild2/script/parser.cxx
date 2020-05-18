@@ -3,6 +3,7 @@
 
 #include <libbuild2/script/parser.hxx>
 
+#include <libbuild2/variable.hxx>
 #include <libbuild2/script/run.hxx>   // exit
 #include <libbuild2/script/lexer.hxx>
 
@@ -1716,7 +1717,8 @@ namespace build2
                 const function<exec_set_function>& exec_set,
                 const function<exec_cmd_function>& exec_cmd,
                 const function<exec_if_function>& exec_if,
-                size_t& li)
+                size_t& li,
+                variable_pool* var_pool)
     {
       try
       {
@@ -1743,7 +1745,20 @@ namespace build2
           {
           case line_type::var:
             {
-              exec_set (*ln.var, t, tt, ll);
+              // Enter the variable into the pool if this is not done during
+              // the script parsing. Note that in this case the pool is
+              // expected to be provided.
+              //
+              const variable* var (ln.var);
+
+              if (var == nullptr)
+              {
+                assert (var_pool != nullptr);
+
+                var = &var_pool->insert (t.value);
+              }
+
+              exec_set (*var, t, tt, ll);
 
               replay_stop ();
               break;
@@ -1861,7 +1876,10 @@ namespace build2
                 // Next if-else.
                 //
                 lines::const_iterator j (next (i, false, false));
-                if (!exec_lines (i + 1, j, exec_set, exec_cmd, exec_if, li))
+                if (!exec_lines (i + 1, j,
+                                 exec_set, exec_cmd, exec_if,
+                                 li,
+                                 var_pool))
                   return false;
 
                 i = j->type == line_type::cmd_end ? j : next (j, true, true);

@@ -95,14 +95,12 @@ namespace build2
             // Check if we are trying to modify any of the special variables
             // ($>).
             //
-            string& n (t.value);
+            if (t.value == ">")
+              fail (t) << "attempt to set '" << t.value << "' variable";
 
-            if (n == ">")
-              fail (t) << "attempt to set '" << n << "' variable";
-
-            // Pre-enter the variable.
+            // We don't pre-enter variables.
             //
-            ln.var = &script_->var_pool.insert (move (n));
+            ln.var = nullptr;
 
             next (t, tt); // Assignment kind.
 
@@ -317,7 +315,8 @@ namespace build2
 
         exec_lines (s.lines.begin (), s.lines.end (),
                     exec_set, exec_cmd, exec_if,
-                    li);
+                    li,
+                    &environment_->var_pool);
 
         runner_->leave (*environment_, s.end_loc);
       }

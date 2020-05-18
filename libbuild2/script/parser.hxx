@@ -146,12 +146,18 @@ namespace build2
                                       size_t li,
                                       const location&);
 
+      // If a parser implementation doesn't pre-enter variables into a pool
+      // during the pre-parsing phase, then they are entered during the
+      // execution phase and so the variable pool must be provided. Note that
+      // in this case the variable pool insertions are not MT-safe.
+      //
       bool
       exec_lines (lines::const_iterator b, lines::const_iterator e,
                   const function<exec_set_function>&,
                   const function<exec_cmd_function>&,
                   const function<exec_if_function>&,
-                  size_t& li);
+                  size_t& li,
+                  variable_pool* = nullptr);
 
       // Set lexer pointers for both the current and the base classes.
       //

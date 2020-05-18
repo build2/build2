@@ -15,14 +15,6 @@ namespace build2
   {
     namespace script
     {
-      // script
-      //
-      script::
-      script ()
-          : primary_target_var (var_pool.insert<path> (">"))
-      {
-      }
-
       // environment
       //
       static const string wd_name ("current directory");
@@ -35,13 +27,13 @@ namespace build2
               work,
               wd_name),
             script (s),
-            vars (context, false /* global */),
-            primary_target (pt)
+            primary_target (pt),
+            vars (context, false /* global */)
       {
         // Set the $> variable.
         //
         {
-          value& v (assign (s.primary_target_var));
+          value& v (assign (var_pool.insert<path> (">")));
 
           if (auto* t = pt.is_a<path_target> ())
             v = t->path ();
@@ -53,19 +45,9 @@ namespace build2
       void environment::
       set_variable (string&& nm, names&& val, const string& attrs)
       {
-        // Set the variable value and attributes. Note that we need to aquire
-        // unique lock before potentially changing the script's variable
-        // pool. The obtained variable reference can safelly be used with no
-        // locking as the variable pool is an associative container
-        // (underneath) and we are only adding new variables into it.
+        // Set the variable value and attributes.
         //
-        ulock ul (script.var_pool_mutex);
-
-        const variable& var (
-          const_cast<build::script::script&> (script).var_pool.
-          insert (move (nm)));
-
-        ul.unlock ();
+        const variable& var (var_pool.insert (move (nm)));
 
         value& lhs (assign (var));
 
@@ -100,23 +82,12 @@ namespace build2
       lookup environment::
       lookup (const string& name) const
       {
-        // Every variable that is ever set in a script has been pre-entered
-        // during pre-parse or introduced with the set builtin during
-        // execution. Which means that if one is not found in the script pool
-        // then it can only possibly be set in the buildfile.
+        // Every variable that is ever set in a script has been added during
+        // variable line execution or introduced with the set builtin. Which
+        // means that if one is not found in the environment pool then it can
+        // only possibly be set in the buildfile.
         //
-        // Note that we need to acquire the variable pool lock. The pool can
-        // be changed from multiple threads by the set builtin. The obtained
-        // variable pointer can safelly be used with no locking as the
-        // variable pool is an associative container (underneath) and we are
-        // only adding new variables into it.
-        //
-        const variable* pvar (nullptr);
-
-        slock sl (script.var_pool_mutex);
-        pvar = script.var_pool.find (name);
-        sl.unlock ();
-
+        const variable* pvar (var_pool.find (name));
         return pvar != nullptr ? lookup (*pvar) : lookup_in_buildfile (name);
       }
 
