@@ -20,8 +20,8 @@ namespace build2
       // Pre-parse.
       //
 
-      void parser::
-      pre_parse (istream& is, const path_name& pn, uint64_t line, script& s)
+      script parser::
+      pre_parse (istream& is, const path_name& pn, uint64_t line)
       {
         path_ = &pn;
 
@@ -30,17 +30,20 @@ namespace build2
         lexer l (is, *path_, line, lexer_mode::command_line);
         set_lexer (&l);
 
+        script s;
         script_ = &s;
         runner_ = nullptr;
         environment_ = nullptr;
 
-        script_->start_loc = location (*path_, line, 1);
+        s.start_loc = location (*path_, line, 1);
 
         token t (pre_parse_script ());
 
         assert (t.type == type::eos);
 
-        script_->end_loc = get_location (t);
+        s.end_loc = get_location (t);
+
+        return s;
       }
 
       token parser::

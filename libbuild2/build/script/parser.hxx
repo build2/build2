@@ -30,8 +30,8 @@ namespace build2
       public:
         parser (context& c): build2::script::parser (c) {}
 
-        void
-        pre_parse (istream&, const path_name&, uint64_t line, script&);
+        script
+        pre_parse (istream&, const path_name&, uint64_t line);
 
         // Recursive descent parser.
         //

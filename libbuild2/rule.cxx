@@ -358,12 +358,8 @@ namespace build2
   // adhoc_script_rule
   //
   void adhoc_script_rule::
-  dump (ostream& os, const string& ind) const
+  dump (ostream& os, string& ind) const
   {
-    // @@ TODO: indentation is multi-line recipes is off (would need to insert
-    //          indentation after every newline). Maybe if we pre-parse them?
-    //
-
     // Do we need the header?
     //
     if (diag)
@@ -380,9 +376,11 @@ namespace build2
       os << endl;
     }
 
-    os << ind << string (braces, '{') << endl
-       << ind << code
-       << ind << string (braces, '}');
+    os << ind << string (braces, '{') << endl;
+    ind += "  ";
+    script::dump (os, ind, script.lines);
+    ind.resize (ind.size () - 2);
+    os << ind << string (braces, '}');
   }
 
   bool adhoc_script_rule::
@@ -505,8 +503,8 @@ namespace build2
       //          It feels like we need a special execute mode that instead
       //          of executing hashes the commands.
       //
-      if (dd.expect (sha256 (code).string ()) != nullptr)
-        l4 ([&]{trace << "recipe change forcing update of " << t;});
+      //if (dd.expect (sha256 (code).string ()) != nullptr)
+      //  l4 ([&]{trace << "recipe change forcing update of " << t;});
     }
 
     // Update if depdb mismatch.
@@ -526,8 +524,6 @@ namespace build2
       //@@ TODO
 
       //print_process (args);
-
-      text << trim (string (code));
     }
     else if (verb)
     {
@@ -570,8 +566,6 @@ namespace build2
       //@@ TODO
 
       //print_process (args);
-
-      text << trim (string (code));
     }
     else if (verb)
     {
@@ -606,7 +600,7 @@ namespace build2
   }
 
   void adhoc_cxx_rule::
-  dump (ostream& os, const string& ind) const
+  dump (ostream& os, string& ind) const
   {
     // @@ TODO: indentation is multi-line recipes is off (would need to insert
     //          indentation after every newline).

@@ -20,6 +20,9 @@
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
 
+#include <libbuild2/build/script/parser.hxx>
+#include <libbuild2/build/script/script.hxx>
+
 #include <libbuild2/config/utility.hxx> // lookup_config
 
 using namespace std;
@@ -1113,9 +1116,6 @@ namespace build2
         fail (t) << "unterminated recipe block" <<
           info (st) << "recipe block starts here" << endf;
 
-      // @@ TODO: we need to reuse the same rules for all the targets! Kill
-      //    me now.
-      //
       shared_ptr<adhoc_rule> ar;
       if (first)
       {
@@ -1128,7 +1128,14 @@ namespace build2
 
         if (!lang)
         {
-          ar.reset (new adhoc_script_rule (move (t.value),
+          using build::script::parser;
+          using build::script::script;
+
+          parser p (ctx);
+          istringstream is (move (t.value));
+          script s (p.pre_parse (is, path_name (loc.file), loc.line + 1));
+
+          ar.reset (new adhoc_script_rule (move (s),
                                            move (diag),
                                            loc,
                                            st.value.size ()));

@@ -12,6 +12,8 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/recipe.hxx>
 
+#include <libbuild2/build/script/script.hxx>
+
 #include <libbuild2/export.hxx>
 
 namespace build2
@@ -143,7 +145,7 @@ namespace build2
     match (action, target&, const string&) const override;
 
     virtual void
-    dump (ostream&, const string& indentation) const = 0;
+    dump (ostream&, string& indentation) const = 0;
 
     // Implementation details.
     //
@@ -178,16 +180,18 @@ namespace build2
     default_action (action, const target&) const;
 
     virtual void
-    dump (ostream&, const string&) const override;
+    dump (ostream&, string&) const override;
 
-    adhoc_script_rule (string c,
+    using script_type = build::script::script;
+
+    adhoc_script_rule (script_type&& s,
                        optional<string> d,
                        const location& l, size_t b)
-      : adhoc_rule (l, b), code (move (c)), diag (move (d)) {}
+      : adhoc_rule (l, b), script (move (s)), diag (move (d)) {}
 
   public:
-    string           code;
-    optional<string> diag;  // Command name for low-verbosity diagnostics.
+    const script_type      script;
+    const optional<string> diag;   // Command name for low-verbosity diag.
   };
 
   // Ad hoc C++ rule.
@@ -218,7 +222,7 @@ namespace build2
     apply (action, target&) const override;
 
     virtual void
-    dump (ostream&, const string&) const override;
+    dump (ostream&, string&) const override;
 
     adhoc_cxx_rule (string c, const location& l, size_t b)
       : adhoc_rule (l, b), code (move (c)), impl (nullptr) {}
