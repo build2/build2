@@ -48,6 +48,9 @@ namespace build2
     //
     using lines = small_vector<line, 1>;
 
+    void
+    dump (ostream&, const string& ind, const lines&);
+
     // Parse object model.
     //
 

@@ -33,6 +33,74 @@ namespace build2
       return o << s;
     }
 
+    void
+    dump (ostream& os, const string& ind, const lines& ls)
+    {
+      for (const line& l: ls)
+      {
+        os << ind;
+
+        // @@ Should be across lines?
+        //
+        // We will consider mixed quoting as a double quoting since the
+        // information is lost and we won't be able to restore the token
+        // original representation.
+        //
+//        char qseq ('\0'); // Can be used as bool.
+
+        for (const replay_token& rt: l.tokens)
+        {
+          const token& t (rt.token);
+
+          // Left and right quotes (can be used as bool).
+          //
+          char lq ('\0');
+          char rq ('\0');
+
+          /*
+          if (t.qtype != quote_type::unquoted)
+          {
+            auto quote = [&t] ()
+            {
+              return t.qtype == quote_type::single ? '\'' : '"';
+            }
+
+            if (t.qcomp) // Complete quoting.
+            {
+              // If we are inside quoted token sequence then we do noting.
+              // Otherwise we just quote the token not starting a sequence.
+              //
+              if (!qseq)
+              {
+                lq = quote ();
+                rq = lq;
+              }
+            }
+            else         // Partial quoting.
+            {
+              if (!qseq)
+                lq =
+
+            }
+          }
+          */
+          // @@ Add 2 spaces indentation for if block contents.
+
+          if (t.separated                   &&
+              t.type != token_type::newline &&
+              &rt != &l.tokens[0])             // Not first in the line.
+            os << ' ';
+
+          if (lq) os << lq;
+          t.printer (os, t, print_mode::raw);
+          if (rq) os << rq;
+
+//          prev_qcomp = t.qcomp;
+//          prev_qtype = t.qtype;
+        }
+      }
+    }
+
     // Quote if empty or contains spaces or any of the special characters.
     // Note that we use single quotes since double quotes still allow
     // expansion.
