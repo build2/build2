@@ -272,14 +272,17 @@ namespace build2
 
         // Redirects.
         //
-        if (c.in.effective ().type  != redirect_type::none)
-          print_redirect (c.in.effective (), "<");
+        // Print the none redirect (no data allowed) if/when the respective
+        // syntax is invened.
+        //
+        if (c.in && c.in->effective ().type != redirect_type::none)
+          print_redirect (c.in->effective (), "<");
 
-        if (c.out.effective ().type != redirect_type::none)
-          print_redirect (c.out.effective (),  ">");
+        if (c.out && c.out->effective ().type != redirect_type::none)
+          print_redirect (c.out->effective (), ">");
 
-        if (c.err.effective ().type != redirect_type::none)
-          print_redirect (c.err.effective (), "2>");
+        if (c.err && c.err->effective ().type != redirect_type::none)
+          print_redirect (c.err->effective (), "2>");
 
         for (const auto& p: c.cleanups)
         {
@@ -307,17 +310,20 @@ namespace build2
       {
         // Here-documents.
         //
-        if (c.in.type == redirect_type::here_doc_literal ||
-            c.in.type == redirect_type::here_doc_regex)
-          print_doc (c.in);
+        if (c.in &&
+            (c.in->type == redirect_type::here_doc_literal ||
+             c.in->type == redirect_type::here_doc_regex))
+          print_doc (*c.in);
 
-        if (c.out.type == redirect_type::here_doc_literal ||
-            c.out.type == redirect_type::here_doc_regex)
-          print_doc (c.out);
+        if (c.out &&
+            (c.out->type == redirect_type::here_doc_literal ||
+             c.out->type == redirect_type::here_doc_regex))
+          print_doc (*c.out);
 
-        if (c.err.type == redirect_type::here_doc_literal ||
-            c.err.type == redirect_type::here_doc_regex)
-          print_doc (c.err);
+        if (c.err &&
+            (c.err->type == redirect_type::here_doc_literal ||
+             c.err->type == redirect_type::here_doc_regex))
+          print_doc (*c.err);
       }
     }
 
@@ -400,7 +406,7 @@ namespace build2
     }
 
     redirect::
-    redirect (redirect&& r)
+    redirect (redirect&& r) noexcept
         : type (r.type),
           modifiers (move (r.modifiers)),
           end (move (r.end)),
@@ -441,6 +447,17 @@ namespace build2
       }
     }
 
+    redirect& redirect::
+    operator= (redirect&& r) noexcept
+    {
+      if (this != &r)
+      {
+        this->~redirect ();
+        new (this) redirect (move (r)); // Assume noexcept move-constructor.
+      }
+      return *this;
+    }
+
     redirect::
     ~redirect ()
     {
@@ -468,14 +485,53 @@ namespace build2
       }
     }
 
+    redirect::
+    redirect (const redirect& r)
+        : type (r.type),
+          modifiers (r.modifiers),
+          end (r.end),
+          end_line (r.end_line),
+          end_column (r.end_column)
+    {
+      switch (type)
+      {
+      case redirect_type::none:
+      case redirect_type::pass:
+      case redirect_type::null:
+      case redirect_type::trace: break;
+
+      case redirect_type::merge: fd = r.fd; break;
+
+      case redirect_type::here_str_literal:
+      case redirect_type::here_doc_literal:
+        {
+          new (&str) string (r.str);
+          break;
+        }
+      case redirect_type::here_str_regex:
+      case redirect_type::here_doc_regex:
+        {
+          new (&regex) regex_lines (r.regex);
+          break;
+        }
+      case redirect_type::file:
+        {
+          new (&file) file_type (r.file);
+          break;
+        }
+      case redirect_type::here_doc_ref:
+        {
+          new (&ref) reference_wrapper<const redirect> (r.ref);
+          break;
+        }
+      }
+    }
+
     redirect& redirect::
-    operator= (redirect&& r)
+    operator= (const redirect& r)
     {
       if (this != &r)
-      {
-        this->~redirect ();
-        new (this) redirect (move (r)); // Assume noexcept move-constructor.
-      }
+        *this = redirect (r); // Reduce to move-assignment.
       return *this;
     }
 

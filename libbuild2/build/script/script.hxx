@@ -20,10 +20,18 @@ namespace build2
     {
       using build2::script::line;
       using build2::script::line_type;
+      using build2::script::redirect;
+      using build2::script::redirect_type;
       using build2::script::command_expr;
 
-      // Once parsed, the script can be executed in multiple threads with the
-      // state (variable values, etc) maintained in the environment object.
+      // Notes:
+      //
+      // - Once parsed, the script can be executed in multiple threads with
+      //   the state (variable values, etc) maintained in the environment
+      //   object.
+      //
+      // - The default script command redirects semantics is none for stdin,
+      //   merge into stderr for stdout, and pass for stderr.
       //
       class script
       {

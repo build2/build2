@@ -58,7 +58,14 @@ namespace build2
     //
     enum class redirect_type
     {
+      // No data is allowed to be read or written.
+      //
+      // Note that redirect of this type cannot be currently specified on the
+      // script command line and can only be set via the environment object
+      // as a default redirect (see below).
+      //
       none,
+
       pass,
       null,
       trace,
@@ -162,7 +169,7 @@ namespace build2
       // Create redirect of a type other than reference.
       //
       explicit
-      redirect (redirect_type = redirect_type::none);
+      redirect (redirect_type);
 
       // Create redirect of the reference type.
       //
@@ -175,10 +182,27 @@ namespace build2
                 r.type != redirect_type::here_doc_ref);
       }
 
-      // Move constuctible/assignable-only type.
+      // Create redirect of the merge type.
       //
-      redirect (redirect&&);
-      redirect& operator= (redirect&&);
+      // Note that it's the caller's responsibility to make sure that the file
+      // descriptor is valid for this redirect (2 for stdout, etc).
+      //
+      redirect (redirect_type t, int f)
+          : type (redirect_type::merge), fd (f)
+      {
+        assert (t == redirect_type::merge && (f == 1 || f == 2));
+      }
+
+      redirect (redirect&&) noexcept;
+      redirect& operator= (redirect&&) noexcept;
+
+      // Note that defining optional movable-only redirects in the command
+      // class make the older C++ compilers (GCC 4.9, Clang 4, VC 15) fail to
+      // compile the command vector manipulating code. Thus, we make the
+      // redirect class copyable to workaround the issue.
+      //
+      redirect (const redirect&);
+      redirect& operator= (const redirect&);
 
       ~redirect ();
 
@@ -256,9 +280,9 @@ namespace build2
       path program;
       strings arguments;
 
-      redirect in;
-      redirect out;
-      redirect err;
+      optional<redirect> in;
+      optional<redirect> out;
+      optional<redirect> err;
 
       script::cleanups cleanups;
 
@@ -336,16 +360,31 @@ namespace build2
       const string& work_dir_name;
       const string& sandbox_dir_name;
 
+      // Process streams default redirects.
+      //
+      // If a stream redirect is not specified on the script command line,
+      // then the respective redirect data member will be used.
+      //
+      const redirect in;
+      const redirect out;
+      const redirect err;
+
       environment (build2::context& ctx,
                    const target_triplet& pt,
                    const dir_path& wd, const string& wn,
-                   const dir_path& sd, const string& sn)
+                   const dir_path& sd, const string& sn,
+                   redirect&& i = redirect (redirect_type::pass),
+                   redirect&& o = redirect (redirect_type::pass),
+                   redirect&& e = redirect (redirect_type::pass))
           : context (ctx),
             platform (pt),
             work_dir (wd),
             sandbox_dir (sd),
             work_dir_name (wn),
-            sandbox_dir_name (sn)
+            sandbox_dir_name (sn),
+            in (move (i)),
+            out (move (o)),
+            err (move (e))
       {
       }
 
@@ -353,8 +392,15 @@ namespace build2
       //
       environment (build2::context& ctx,
                    const target_triplet& pt,
-                   const dir_path& wd, const string& wn)
-          : environment (ctx, pt, wd, wn, empty_dir_path, empty_string)
+                   const dir_path& wd, const string& wn,
+                   redirect&& i = redirect (redirect_type::pass),
+                   redirect&& o = redirect (redirect_type::pass),
+                   redirect&& e = redirect (redirect_type::pass))
+          : environment (ctx,
+                         pt,
+                         wd, wn,
+                         empty_dir_path, empty_string,
+                         move (i), move (o), move (e))
       {
       }
 

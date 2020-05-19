@@ -25,7 +25,10 @@ namespace build2
               pt.ctx,
               cast<target_triplet> (pt.ctx.global_scope["build.host"]),
               work,
-              wd_name),
+              wd_name,
+              redirect (redirect_type::none),
+              redirect (redirect_type::merge, 2),
+              redirect (redirect_type::pass)),
             script (s),
             primary_target (pt),
             vars (context, false /* global */)

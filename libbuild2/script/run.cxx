@@ -873,9 +873,6 @@ namespace build2
         env.clean ({cl.type, move (np)}, false);
       }
 
-      const redirect& in  (c.in.effective ());
-      const redirect& out (c.out.effective ());
-      const redirect& err (c.err.effective ());
       bool eq (c.exit.comparison == exit_comparison::eq);
 
       // If stdin file descriptor is not open then this is the first pipeline
@@ -887,6 +884,25 @@ namespace build2
       bool last (nc == ec);
 
       const string& program (c.program.string ());
+
+      const redirect& in ((c.in ? *c.in : env.in).effective ());
+
+      const redirect* out (!last
+                           ? nullptr // stdout is piped.
+                           : &(c.out ? *c.out : env.out).effective ());
+
+      const redirect& err ((c.err ? *c.err : env.err).effective ());
+
+      auto process_args = [&c] () -> cstrings
+      {
+        cstrings args {c.program.string ().c_str ()};
+
+        for (const auto& a: c.arguments)
+          args.push_back (a.c_str ());
+
+        args.push_back (nullptr);
+        return args;
+      };
 
       // Prior to opening file descriptors for command input/output
       // redirects let's check if the command is the exit builtin. Being a
@@ -914,13 +930,13 @@ namespace build2
         if (!first || !last)
           fail (ll) << "exit builtin must be the only pipe command";
 
-        if (in.type != redirect_type::none)
+        if (c.in)
           fail (ll) << "exit builtin stdin cannot be redirected";
 
-        if (out.type != redirect_type::none)
+        if (c.out)
           fail (ll) << "exit builtin stdout cannot be redirected";
 
-        if (err.type != redirect_type::none)
+        if (c.err)
           fail (ll) << "exit builtin stderr cannot be redirected";
 
         // We can't make sure that there is no exit code check. Let's, at
@@ -928,6 +944,9 @@ namespace build2
         //
         if (eq != (c.exit.code == 0))
           fail (ll) << "exit builtin exit code cannot be non-zero";
+
+        if (verb >= 2)
+          print_process (process_args ());
 
         exit_builtin (c.arguments, ll); // Throws exit exception.
       }
@@ -963,7 +982,7 @@ namespace build2
       path isp;
 
       if (!first)
-        assert (in.type == redirect_type::none); // No redirect expected.
+        assert (!c.in); // No redirect expected.
       else
       {
         // Open a file for passing to the command stdin.
@@ -997,7 +1016,6 @@ namespace build2
 
             break;
           }
-
         case redirect_type::none:
           // Somehow need to make sure that the child process doesn't read
           // from stdin. That is tricky to do in a portable way. Here we
@@ -1020,7 +1038,6 @@ namespace build2
             ifd = open_null ();
             break;
           }
-
         case redirect_type::file:
           {
             isp = normalize (in.file.path, env, ll);
@@ -1028,7 +1045,6 @@ namespace build2
             open_stdin ();
             break;
           }
-
         case redirect_type::here_str_literal:
         case redirect_type::here_doc_literal:
           {
@@ -1071,14 +1087,17 @@ namespace build2
         if (!last)
           fail (ll) << "set builtin must be the last pipe command";
 
-        if (out.type != redirect_type::none)
+        if (c.out)
           fail (ll) << "set builtin stdout cannot be redirected";
 
-        if (err.type != redirect_type::none)
+        if (c.err)
           fail (ll) << "set builtin stderr cannot be redirected";
 
         if (eq != (c.exit.code == 0))
           fail (ll) << "set builtin exit code cannot be non-zero";
+
+        if (verb >= 2)
+          print_process (process_args ());
 
         set_builtin (env, c.arguments, move (ifd), ll);
         return true;
@@ -1200,10 +1219,10 @@ namespace build2
       //    "tightening".
       //
       if (last)
-        ofd.out = open (out, 1, osp);
+        ofd.out = open (*out, 1, osp);
       else
       {
-        assert (out.type == redirect_type::none); // No redirect expected.
+        assert (!c.out); // No redirect expected.
         ofd = open_pipe ();
       }
 
@@ -1212,7 +1231,7 @@ namespace build2
 
       // Merge standard streams.
       //
-      bool mo (out.type == redirect_type::merge);
+      bool mo (out != nullptr && out->type == redirect_type::merge);
       if (mo || err.type == redirect_type::merge)
       {
         auto_fd& self  (mo ? ofd.out : efd);
@@ -1238,17 +1257,6 @@ namespace build2
       builtin_function* bf (builtins.find (program));
 
       bool success;
-
-      auto process_args = [&c] () -> cstrings
-        {
-          cstrings args {c.program.string ().c_str ()};
-
-          for (const auto& a: c.arguments)
-            args.push_back (a.c_str ());
-
-          args.push_back (nullptr);
-          return args;
-        };
 
       if (bf != nullptr)
       {
@@ -1654,7 +1662,7 @@ namespace build2
         success =
           check_output (pr, esp, isp, err, ll, env, diag, "stderr") &&
           (!last ||
-           check_output (pr, osp, isp, out, ll, env, diag, "stdout"));
+           check_output (pr, osp, isp, *out, ll, env, diag, "stdout"));
 
       return success;
     }

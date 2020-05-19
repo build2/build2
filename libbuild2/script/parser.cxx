@@ -114,11 +114,11 @@ namespace build2
       //
       auto check_command = [&c, this] (const location& l, bool last)
       {
-        if (c.out.type == redirect_type::merge &&
-            c.err.type == redirect_type::merge)
+        if (c.out && c.out->type == redirect_type::merge &&
+            c.err && c.err->type == redirect_type::merge)
           fail (l) << "stdout and stderr redirected to each other";
 
-        if (!last && c.out.type != redirect_type::none)
+        if (!last && c.out)
           fail (l) << "stdout is both redirected and piped";
       };
 
@@ -176,33 +176,41 @@ namespace build2
       auto add_word = [&c, &p, &mod, &check_regex_mod, this] (
         string&& w, const location& l)
       {
-        auto add_merge = [&l, this] (redirect& r, const string& w, int fd)
+        auto add_merge = [&l, this] (optional<redirect>& r,
+                                     const string& w,
+                                     int fd)
         {
+          assert (r); // Must already be present.
+
           try
           {
             size_t n;
             if (stoi (w, &n) == fd && n == w.size ())
             {
-              r.fd = fd;
+              r->fd = fd;
               return;
             }
           }
           catch (const exception&) {} // Fall through.
 
           fail (l) << (fd == 1 ? "stderr" : "stdout") << " merge redirect "
-          << "file descriptor must be " << fd;
+                   << "file descriptor must be " << fd;
         };
 
-        auto add_here_str = [] (redirect& r, string&& w)
+        auto add_here_str = [] (optional<redirect>& r, string&& w)
         {
-          if (r.modifiers.find (':') == string::npos)
+          assert (r); // Must already be present.
+
+          if (r->modifiers.find (':') == string::npos)
             w += '\n';
-          r.str = move (w);
+          r->str = move (w);
         };
 
         auto add_here_str_regex = [&l, &check_regex_mod] (
-          redirect& r, int fd, string&& w)
+          optional<redirect>& r, int fd, string&& w)
         {
+          assert (r); // Must already be present.
+
           const char* what (nullptr);
           switch (fd)
           {
@@ -210,11 +218,11 @@ namespace build2
           case 2: what = "stderr regex redirect"; break;
           }
 
-          check_regex_mod (r.modifiers, w, l, what);
+          check_regex_mod (r->modifiers, w, l, what);
 
           regex_parts rp (parse_regex (w, l, what));
 
-          regex_lines& re (r.regex);
+          regex_lines& re (r->regex);
           re.intro = rp.intro;
 
           re.lines.emplace_back (
@@ -225,7 +233,7 @@ namespace build2
           // Note that the position is synthetic, but that's ok as we don't
           // expect any diagnostics to refer this line.
           //
-          if (r.modifiers.find (':') == string::npos)
+          if (r->modifiers.find (':') == string::npos)
             re.lines.emplace_back (l.line, l.column, string (), false);
         };
 
@@ -249,8 +257,12 @@ namespace build2
           }
         };
 
-        auto add_file = [&parse_path] (redirect& r, int fd, string&& w)
+        auto add_file = [&parse_path] (optional<redirect>& r,
+                                       int fd,
+                                       string&& w)
         {
+          assert (r); // Must already be present.
+
           const char* what (nullptr);
           switch (fd)
           {
@@ -259,7 +271,7 @@ namespace build2
           case 2: what = "stderr redirect path"; break;
           }
 
-          r.file.path = parse_path (move (w), what);
+          r->file.path = parse_path (move (w), what);
         };
 
         switch (p)
@@ -442,6 +454,9 @@ namespace build2
 
         mod = move (t.value);
 
+        // Handle the none redirect (no data allowed) in the switch construct
+        // if/when the respective syntax is invented.
+        //
         redirect_type rt (redirect_type::none);
         switch (tt)
         {
@@ -487,19 +502,30 @@ namespace build2
         case type::out_file_app: rt = redirect_type::file; break;
         }
 
-        redirect& r (fd == 0 ? c.in : fd == 1 ? c.out : c.err);
-        redirect_type overriden (r.type);
+        optional<redirect>& r (fd == 0 ? c.in  :
+                               fd == 1 ? c.out :
+                                         c.err);
+
+        optional<redirect_type> overriden;
+
+        if (r)
+          overriden = r->type;
 
         r = redirect (rt);
 
         // Don't move as still may be used for pending here-document end
         // marker processing.
         //
-        r.modifiers = mod;
+        r->modifiers = mod;
 
         switch (rt)
         {
         case redirect_type::none:
+          // Remove the assertion if/when the none redirect syntax is
+          // invented.
+          //
+          assert (false);
+          // Fall through.
         case redirect_type::pass:
         case redirect_type::null:
         case redirect_type::trace:
@@ -554,11 +580,9 @@ namespace build2
 
           // Also sets for stdin, but this is harmless.
           //
-          r.file.mode = tt == type::out_file_ovr
-            ? redirect_fmode::overwrite
-            : (tt == type::out_file_app
-               ? redirect_fmode::append
-               : redirect_fmode::compare);
+          r->file.mode = tt == type::out_file_ovr ? redirect_fmode::overwrite :
+                         tt == type::out_file_app ? redirect_fmode::append    :
+                                                    redirect_fmode::compare;
 
           break;
 
@@ -569,8 +593,9 @@ namespace build2
         // to this command redirect from the corresponding here_doc object.
         //
         if (!pre_parse_ &&
-            (overriden == redirect_type::here_doc_literal ||
-             overriden == redirect_type::here_doc_regex))
+            overriden &&
+            (*overriden == redirect_type::here_doc_literal ||
+             *overriden == redirect_type::here_doc_regex))
         {
           size_t e (expr.size () - 1);
           size_t p (expr.back ().pipe.size ());
@@ -1251,25 +1276,30 @@ namespace build2
           auto i (h.redirects.cbegin ());
 
           command& c (p.first[i->expr].pipe[i->pipe]);
-          redirect& r (i->fd == 0 ? c.in : i->fd == 1 ? c.out : c.err);
+
+          optional<redirect>& r (i->fd == 0 ? c.in  :
+                                 i->fd == 1 ? c.out :
+                                              c.err);
+
+          assert (r); // Must be present since it is referred.
 
           if (v.re)
           {
-            assert (r.type == redirect_type::here_doc_regex);
+            assert (r->type == redirect_type::here_doc_regex);
 
-            r.regex = move (v.regex);
-            r.regex.flags = move (h.regex_flags);
+            r->regex = move (v.regex);
+            r->regex.flags = move (h.regex_flags);
           }
           else
           {
-            assert (r.type == redirect_type::here_doc_literal);
+            assert (r->type == redirect_type::here_doc_literal);
 
-            r.str = move (v.str);
+            r->str = move (v.str);
           }
 
-          r.end        = move (h.end);
-          r.end_line   = v.end_line;
-          r.end_column = v.end_column;
+          r->end        = move (h.end);
+          r->end_line   = v.end_line;
+          r->end_column = v.end_column;
 
           // Note that our references cannot be invalidated because the
           // command_expr/command-pipe vectors already contain all their
@@ -1280,7 +1310,7 @@ namespace build2
             command& c (p.first[i->expr].pipe[i->pipe]);
 
             (i->fd == 0 ? c.in : i->fd == 1 ? c.out : c.err) =
-              redirect (redirect_type::here_doc_ref, r);
+              redirect (redirect_type::here_doc_ref, *r);
           }
         }
 

@@ -63,7 +63,10 @@ namespace build2
             environment (root.test_target.ctx,
                          test_tt (),
                          wd_path (), wd_name,
-                         p != nullptr ? root.work_dir : wd_path (), sd_name),
+                         p != nullptr ? root.work_dir : wd_path (), sd_name,
+                         redirect (redirect_type::none),
+                         redirect (redirect_type::none),
+                         redirect (redirect_type::none)),
             parent (p),
             id_path (cast<path> (assign (root.id_var) = path ()))
       {
