@@ -52,7 +52,7 @@ namespace build2
       class environment: public build2::script::environment
       {
       public:
-        environment (const script&, const target& primary_target);
+        environment (const target& primary_target);
 
         environment (environment&&) = delete;
         environment (const environment&) = delete;
@@ -60,7 +60,6 @@ namespace build2
         environment& operator= (const environment&) = delete;
 
       public:
-        const build::script::script& script;
         const target& primary_target;
 
         // Script-local variable pool.

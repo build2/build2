@@ -578,9 +578,9 @@ namespace build2
     if (!ctx.dry_run || verb >= 2)
     {
       build::script::parser p (ctx);
-      build::script::environment e (script, t);
+      build::script::environment e (t);
       build::script::default_runner r;
-      p.execute (e, r);
+      p.execute (script, e, r);
     }
 
     return target_state::changed;

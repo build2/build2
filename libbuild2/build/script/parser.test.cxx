@@ -131,9 +131,9 @@ namespace build2
 
           if (!dump)
           {
-            environment e (s, tt);
+            environment e (tt);
             print_runner r (line);
-            p.execute (e, r);
+            p.execute (s, e, r);
           }
           else
             build2::script::dump (cout, "", s.lines);

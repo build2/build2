@@ -240,7 +240,7 @@ namespace build2
       //
 
       void parser::
-      execute (environment& e, runner& r)
+      execute (const script& s, environment& e, runner& r)
       {
         path_ = nullptr; // Set by replays.
 
@@ -248,7 +248,7 @@ namespace build2
 
         set_lexer (nullptr);
 
-        script_ = nullptr;
+        script_ = const_cast<script*> (&s);
         runner_ = &r;
         environment_ = &e;
 
@@ -258,7 +258,7 @@ namespace build2
       void parser::
       exec_script ()
       {
-        const script& s (environment_->script);
+        const script& s (*script_);
 
         runner_->enter (*environment_, s.start_loc);
 

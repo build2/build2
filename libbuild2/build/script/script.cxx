@@ -20,7 +20,7 @@ namespace build2
       static const string wd_name ("current directory");
 
       environment::
-      environment (const build::script::script& s, const target& pt)
+      environment (const target& pt)
           : build2::script::environment (
               pt.ctx,
               cast<target_triplet> (pt.ctx.global_scope["build.host"]),
@@ -29,7 +29,6 @@ namespace build2
               redirect (redirect_type::none),
               redirect (redirect_type::merge, 2),
               redirect (redirect_type::pass)),
-            script (s),
             primary_target (pt),
             vars (context, false /* global */)
       {
