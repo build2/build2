@@ -667,7 +667,7 @@ namespace build2
       if ((impl = this->impl.load (memory_order_relaxed)) != nullptr)
         break;
 
-      using create_function = cxx_rule* (const location&);
+      using create_function = cxx_rule* (const location&, target_state);
       using load_function = create_function* ();
 
       // The only way to guarantee that the name of our module matches its
@@ -888,9 +888,9 @@ namespace build2
         // user-defined.
         //
         ofs << "  static cxx_rule*"                                     << '\n'
-            << "  create_" << id << " (const location& l)"              << '\n'
+            << "  create_" << id << " (const location& l, target_state s)" << '\n'
             << "  {"                                                    << '\n'
-            << "    return new rule (l);"                               << '\n'
+            << "    return new rule (l, s);"                            << '\n'
             << "  }"                                                    << '\n'
             << '\n';
 
@@ -920,7 +920,7 @@ namespace build2
             << "#ifdef _WIN32"                                          << '\n'
             << "__declspec(dllexport)"                                  << '\n'
             << "#endif"                                                 << '\n'
-            << "cxx_rule* (*" << sym << " ()) (const location&)"        << '\n'
+            << "cxx_rule* (*" << sym << " ()) (const location&, target_state)" << '\n'
             << "{"                                                      << '\n'
             << "  return &rule_" << id << "::create_" << id << ";"      << '\n'
             << "}"                                                      << '\n'
@@ -1098,7 +1098,7 @@ namespace build2
         load_function* lf (function_cast<load_function*> (hs.second));
         create_function* cf (lf ());
 
-        impl = cf (loc);
+        impl = cf (loc, l->executed_state (perform_update_id));
         this->impl.store (impl, memory_order_relaxed); // Still in load phase.
       }
     }

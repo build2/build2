@@ -199,10 +199,17 @@ namespace build2
   class LIBBUILD2_SYMEXPORT cxx_rule: public rule
   {
   public:
-    const location loc; // Buildfile location of the recipe.
 
-    explicit
-    cxx_rule (const location& l): loc (l) {}
+    // A robust recipe may want to incorporate the recipe_state into its
+    // up-to-date decision as if the recipe library was a prerequisite (it
+    // cannot be injected as a real prerequisite since it's from a different
+    // build context).
+    //
+    const location     recipe_loc;   // Buildfile location of the recipe.
+    const target_state recipe_state; // State of recipe library target.
+
+    cxx_rule (const location& l, target_state s)
+      : recipe_loc (l), recipe_state (s) {}
 
     // Return true by default.
     //
