@@ -579,19 +579,8 @@ namespace build2
     {
       build::script::parser p (ctx);
       build::script::environment e (script, t);
-
-      if (!ctx.dry_run)
-      {
-        build::script::default_runner r;
-        p.execute (e, r);
-      }
-      else
-      {
-        //@@ TODO:
-        //
-        //build::script::print_runner r;
-        //p.execute (e, r);
-      }
+      build::script::default_runner r;
+      p.execute (e, r);
     }
 
     return target_state::changed;
