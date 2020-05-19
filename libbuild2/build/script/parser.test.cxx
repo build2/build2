@@ -125,11 +125,9 @@ namespace build2
 
           // Parse and run.
           //
-          path_name nm ("buildfile");
-
-          script s;
           parser p (ctx);
-          p.pre_parse (cin, nm, 11 /* line */, s);
+          path_name nm ("buildfile");
+          script s (p.pre_parse (cin, nm, 11 /* line */));
 
           if (!dump)
           {
