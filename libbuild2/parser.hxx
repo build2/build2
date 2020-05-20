@@ -489,6 +489,12 @@ namespace build2
     // If qual is not empty, then its pair member should indicate the kind
     // of qualification: ':' -- target, '/' -- scope.
     //
+    // Note that this function is called even during pre-parse with the result
+    // unused. In this case a valid name will only be provided for variables
+    // with literal names (for example, $x, $(x)). For computed variables (for
+    // example, $($x ?  X : Y)) it will be empty (along with qual, which can
+    // only be non-empty for a computed variable).
+    //
     virtual lookup
     lookup_variable (name&& qual, string&& name, const location&);
 

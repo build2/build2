@@ -327,7 +327,8 @@ namespace build2
       lookup parser::
       lookup_variable (name&& qual, string&& name, const location& loc)
       {
-        assert (!pre_parse_);
+        if (pre_parse_)
+          return lookup ();
 
         if (!qual.empty ())
           fail (loc) << "qualified variable name";

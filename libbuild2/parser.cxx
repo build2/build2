@@ -3702,11 +3702,8 @@ namespace build2
   values parser::
   parse_eval (token& t, type& tt, pattern_mode pmode)
   {
-    // enter: lparen
-    // leave: rparen
-
-    mode (lexer_mode::eval, '@'); // Auto-expires at rparen.
-    next_with_attributes (t, tt);
+    // enter: token after lparen (lexed in the eval mode with attributes).
+    // leave: rparen             (eval mode auto-expires at rparen).
 
     if (tt == type::rparen)
       return values ();
@@ -5522,56 +5519,72 @@ namespace build2
             ; // Leave the name empty to fail below.
           else if (tt == type::word)
           {
-            if (!pre_parse_)
-              name = move (t.value);
+            name = move (t.value);
           }
           else if (tt == type::lparen)
           {
             expire_mode ();
-            values vs (parse_eval (t, tt, pmode)); //@@ OUT will parse @-pair and do well?
+            mode (lexer_mode::eval, '@');
+            next_with_attributes (t, tt);
 
-            if (!pre_parse_)
+            // Handle the $(x) case ad hoc. We do it this way in order to get
+            // the variable name even during pre-parse. It should also be
+            // faster.
+            //
+            if (tt == type::word && peek () == type::rparen)
             {
-              if (vs.size () != 1)
-                fail (loc) << "expected single variable/function name";
-
-              value& v (vs[0]);
-
-              if (!v)
-                fail (loc) << "null variable/function name";
-
-              names storage;
-              vector_view<build2::name> ns (reverse (v, storage)); // Movable.
-              size_t n (ns.size ());
-
-              // We cannot handle scope-qualification in the eval context as
-              // we do for target-qualification (see eval-qual) since then we
-              // would be treating all paths as qualified variables. So we
-              // have to do it here.
+              name = move (t.value);
+              next (t, tt); // Get `)`.
+            }
+            else
+            {
+              //@@ OUT will parse @-pair and do well?
               //
-              if      (n == 2 && ns[0].pair == ':')   // $(foo: x)
+              values vs (parse_eval (t, tt, pmode));
+
+              if (!pre_parse_)
               {
-                qual = move (ns[0]);
+                if (vs.size () != 1)
+                  fail (loc) << "expected single variable/function name";
 
-                if (qual.empty ())
-                  fail (loc) << "empty variable/function qualification";
+                value& v (vs[0]);
+
+                if (!v)
+                  fail (loc) << "null variable/function name";
+
+                names storage;
+                vector_view<build2::name> ns (reverse (v, storage)); // Movable.
+                size_t n (ns.size ());
+
+                // We cannot handle scope-qualification in the eval context as
+                // we do for target-qualification (see eval-qual) since then
+                // we would be treating all paths as qualified variables. So
+                // we have to do it here.
+                //
+                if      (n == 2 && ns[0].pair == ':')   // $(foo: x)
+                {
+                  qual = move (ns[0]);
+
+                  if (qual.empty ())
+                    fail (loc) << "empty variable/function qualification";
+                }
+                else if (n == 2 && ns[0].directory ())  // $(foo/ x)
+                {
+                  qual = move (ns[0]);
+                  qual.pair = '/';
+                }
+                else if (n > 1)
+                  fail (loc) << "expected variable/function name instead of '"
+                             << ns << "'";
+
+                // Note: checked for empty below.
+                //
+                if (!ns[n - 1].simple ())
+                  fail (loc) << "expected variable/function name instead of '"
+                             << ns[n - 1] << "'";
+
+                name = move (ns[n - 1].value);
               }
-              else if (n == 2 && ns[0].directory ())  // $(foo/ x)
-              {
-                qual = move (ns[0]);
-                qual.pair = '/';
-              }
-              else if (n > 1)
-                fail (loc) << "expected variable/function name instead of '"
-                           << ns << "'";
-
-              // Note: checked for empty below.
-              //
-              if (!ns[n - 1].simple ())
-                fail (loc) << "expected variable/function name instead of '"
-                           << ns[n - 1] << "'";
-
-              name = move (ns[n - 1].value);
             }
           }
           else
@@ -5592,8 +5605,9 @@ namespace build2
           {
             // Function call.
             //
-
             next (t, tt); // Get '('.
+            mode (lexer_mode::eval, '@');
+            next_with_attributes (t, tt);
 
             // @@ Should we use (target/scope) qualification (of name) as the
             // context in which to call the function? Hm, interesting...
@@ -5613,11 +5627,10 @@ namespace build2
           {
             // Variable expansion.
             //
+            lookup l (lookup_variable (move (qual), move (name), loc));
 
             if (pre_parse_)
               continue; // As if empty value.
-
-            lookup l (lookup_variable (move (qual), move (name), loc));
 
             if (l.defined ())
               result = l.value; // Otherwise leave as NULL result_data.
@@ -5629,8 +5642,10 @@ namespace build2
         {
           // Context evaluation.
           //
-
           loc = get_location (t);
+          mode (lexer_mode::eval, '@');
+          next_with_attributes (t, tt);
+
           values vs (parse_eval (t, tt, pmode));
           tt = peek ();
 
@@ -6266,6 +6281,9 @@ namespace build2
   lookup parser::
   lookup_variable (name&& qual, string&& name, const location& loc)
   {
+    if (pre_parse_)
+      return lookup ();
+
     tracer trace ("parser::lookup_variable", &path_);
 
     const scope* s (nullptr);
