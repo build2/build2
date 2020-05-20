@@ -113,6 +113,18 @@ namespace build2
   LIBBUILD2_SYMEXPORT string
   to_string (const name&);
 
+  template <typename T>
+  inline void
+  to_checksum (T& cs, const name& n)
+  {
+    if (n.proj)
+      cs.append (n.proj->string ());
+    cs.append (n.dir.string ());
+    cs.append (n.type);
+    cs.append (n.value);
+    cs.append (n.pair);
+  }
+
   // Store a string in a name in a reversible way. If the string ends with a
   // trailing directory separator then it is stored as a directory, otherwise
   // as a simple name.

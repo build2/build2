@@ -5,8 +5,6 @@
 
 #include <sstream>
 
-#include <libbuild2/algorithm.hxx> // find_if()
-
 using namespace std;
 
 namespace build2

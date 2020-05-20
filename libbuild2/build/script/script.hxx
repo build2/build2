@@ -40,7 +40,19 @@ namespace build2
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
-        build2::script::lines lines;
+        build2::script::lines   lines;
+
+        // Referenced ordinary (non-special) variables.
+        //
+        // Used for the script semantics change tracking. The variable list is
+        // filled during the pre-parsing phase and is checked against during
+        // the execution phase. If during execution some non-script-local
+        // variable is not found in the list (may happen for a computed name),
+        // then the execution fails since the script semantics may not be
+        // properly tracked (the variable value change will not trigger the
+        // target rebuild).
+        //
+        small_vector<string, 1> vars;
 
         location start_loc;
         location end_loc;

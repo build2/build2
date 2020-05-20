@@ -16,6 +16,12 @@ namespace build2
     {
       using type = token_type;
 
+      static inline bool
+      special_variable (const string& name)
+      {
+        return name == ">" || name == "<";
+      }
+
       //
       // Pre-parse.
       //
@@ -96,9 +102,9 @@ namespace build2
         case line_type::var:
           {
             // Check if we are trying to modify any of the special variables
-            // ($>).
+            // ($>, $<).
             //
-            if (t.value == ">")
+            if (special_variable (t.value))
               fail (t) << "attempt to set '" << t.value << "' variable";
 
             // We don't pre-enter variables.
@@ -327,13 +333,41 @@ namespace build2
       lookup parser::
       lookup_variable (name&& qual, string&& name, const location& loc)
       {
+        // In the pre-parse mode collect the referenced variable names for the
+        // script semantics change tracking.
+        //
         if (pre_parse_)
+        {
+          // Add the variable name skipping special variables and suppressing
+          // duplicates.
+          //
+          if (!name.empty () && !special_variable (name))
+          {
+            auto& vars (script_->vars);
+
+            if (find (vars.begin (), vars.end (), name) == vars.end ())
+              vars.push_back (move (name));
+          }
+
           return lookup ();
+        }
 
         if (!qual.empty ())
           fail (loc) << "qualified variable name";
 
-        return environment_->lookup (name);
+        lookup r (environment_->lookup (name));
+
+        // Fail if non-script-local variable with an untracked name.
+        //
+        if (r.defined () && !r.belongs (*environment_))
+        {
+          const auto& vars (script_->vars);
+
+          if (find (vars.begin (), vars.end (), name) == vars.end ())
+            fail (loc) << "use of untracked variable '" << name << "'";
+        }
+
+        return r;
       }
     }
   }

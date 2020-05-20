@@ -490,26 +490,69 @@ namespace build2
       if (dd.expect ("adhoc 1") != nullptr)
         l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
-      // Then the tool checksums.
+      // Then the script checksum.
+      //
+      // Ideally, to detect changes to the script semantics, we would hash the
+      // text with all the variables expanded but without executing any
+      // commands. In practice, this is easier said than done (think the set
+      // builtin that receives output of a command that modifies the
+      // filesystem).
+      //
+      // So as the next best thing we are going to hash the unexpanded text as
+      // well as values of all the variables expanded in it (which we get as a
+      // side effect of pre-parsing the script). This approach has a number of
+      // drawbacks:
+      //
+      // - We can't handle computed variable names (e.g., $($x ? X : Y)).
+      //
+      // - We may "overhash" by including variables that are actually
+      //   script-local.
+      //
+      if (dd.expect (checksum) != nullptr)
+        l4 ([&]{trace << "recipe text change forcing update of " << t;});
+
+      // For each variable hash its name, undefined/null/non-null indicator,
+      // and the value if non-null.
+      //
+      {
+        sha256 cs;
+        names storage;
+
+        for (const string& n: script.vars)
+        {
+          cs.append (n);
+
+          lookup l;
+
+          if (const variable* var = ctx.var_pool.find (n))
+            l = t[var];
+
+          cs.append (!l.defined () ? '\x1' : l->null ? '\x2' : '\x3');
+
+          if (l)
+          {
+            storage.clear ();
+            names_view ns (reverse (*l, storage));
+
+            for (const name& n: ns)
+              to_checksum (cs, n);
+          }
+        }
+
+        //@@ TODO (later): hash special variables values (targets,
+        //                 prerequisites).
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "recipe variable change forcing update of " << t;});
+      }
+
+      // Then the tools checksums.
       //
       // @@ TODO: obtain checksums of all the targets used as commands in
       //          the script.
       //
       //if (dd.expect (csum) != nullptr)
       //  l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
-
-      // Then the script checksum.
-      //
-      // @@ TODO: for now we hash the unexpanded text but it should be
-      //          expanded. This will take care of all the relevant input
-      //          file name changes as well as any other variables the
-      //          script may reference.
-      //
-      //          It feels like we need a special execute mode that instead
-      //          of executing hashes the commands.
-      //
-      //if (dd.expect (sha256 (code).string ()) != nullptr)
-      //  l4 ([&]{trace << "recipe change forcing update of " << t;});
     }
 
     // Update if depdb mismatch.

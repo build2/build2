@@ -188,8 +188,10 @@ namespace build2
       : adhoc_rule (l, b), diag (move (d)) {}
 
   public:
-    const optional<string> diag;   // Command name for low-verbosity diag.
+    const optional<string> diag;     // Command name for low-verbosity diag.
+    string                 checksum; // Script text hashsum.
     script_type            script;
+
   };
 
   // Ad hoc C++ rule.
