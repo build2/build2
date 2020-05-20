@@ -47,8 +47,10 @@ EOO
 }
 
 : part
+:
 {
   : quoted
+  :
   {
     : start
     : Token start already quoted

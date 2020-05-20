@@ -11,6 +11,7 @@
 #include <libbuild2/context.hxx>
 #include <libbuild2/scheduler.hxx>
 
+#include <libbuild2/build/script/script.hxx> // line
 #include <libbuild2/build/script/parser.hxx>
 #include <libbuild2/build/script/runner.hxx>
 
@@ -71,6 +72,7 @@ namespace build2
       //
       // argv[0] [-l]
       // argv[0] -d
+      // argv[0] -p
       //
       // In the first form read the script from stdin and trace the script
       // execution to stdout using the custom print runner.
@@ -78,16 +80,52 @@ namespace build2
       // In the second form read the script from stdin, parse it and dump the
       // resulting lines to stdout.
       //
+      // In the third form read the script from stdin, parse it and print
+      // line tokens quoting information to stdout.
+      //
       // -l
       //    Print the script line number for each executed expression.
       //
       // -d
       //    Dump the parsed script to sdout.
       //
+      // -p
+      //    Print the parsed script tokens quoting information to sdout. If a
+      //    token is quoted follow its representation with its quoting
+      //    information in the [<quoting>/<completeness>] form, where:
+      //
+      //    <quoting>      := 'S' | 'D' | 'M'
+      //    <completeness> := 'C' | 'P'
+      //
       int
       main (int argc, char* argv[])
       {
         tracer trace ("main");
+
+        enum class mode
+        {
+          run,
+          dump,
+          print
+        } m (mode::run);
+
+        bool print_line (false);
+
+        for (int i (1); i != argc; ++i)
+        {
+          string a (argv[i]);
+
+          if (a == "-l")
+            print_line = true;
+          else if (a == "-d")
+            m = mode::dump;
+          else if (a == "-p")
+            m = mode::print;
+          else
+            assert (false);
+        }
+
+        assert (m == mode::run || !print_line);
 
         // Fake build system driver, default verbosity.
         //
@@ -99,23 +137,6 @@ namespace build2
         scheduler sched (1);
         global_mutexes mutexes (1);
         context ctx (sched, mutexes);
-
-        bool line (false);
-        bool dump (false);
-
-        for (int i (1); i != argc; ++i)
-        {
-          string a (argv[i]);
-
-          if (a == "-l")
-            line = true;
-          else if (a == "-d")
-            dump = true;
-          else
-            assert (false);
-        }
-
-        assert (!dump || !line);
 
         try
         {
@@ -141,14 +162,49 @@ namespace build2
           path_name nm ("buildfile");
           script s (p.pre_parse (cin, nm, 11 /* line */));
 
-          if (!dump)
+          switch (m)
           {
-            environment e (tt);
-            print_runner r (line);
-            p.execute (s, e, r);
+          case mode::run:
+            {
+              environment e (tt);
+              print_runner r (print_line);
+              p.execute (s, e, r);
+              break;
+            }
+          case mode::dump:
+            {
+              dump (cout, "", s.lines);
+              break;
+            }
+          case mode::print:
+            {
+              for (const line& l: s.lines)
+              {
+                for (const replay_token& rt: l.tokens)
+                {
+                  if (&rt != &l.tokens[0])
+                    cout << ' ';
+
+                  const token& t (rt.token);
+                  cout << t;
+
+                  char q ('\0');
+                  switch (t.qtype)
+                  {
+                  case quote_type::single:   q = 'S'; break;
+                  case quote_type::double_:  q = 'D'; break;
+                  case quote_type::mixed:    q = 'M'; break;
+                  case quote_type::unquoted:          break;
+                  }
+
+                  if (q != '\0')
+                    cout << " [" << q << (t.qcomp ? "/C" : "/P") << ']';
+                }
+              }
+
+              cout << endl;
+            }
           }
-          else
-            build2::script::dump (cout, "", s.lines);
         }
         catch (const failed&)
         {

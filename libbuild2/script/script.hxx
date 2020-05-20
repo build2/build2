@@ -48,6 +48,12 @@ namespace build2
     //
     using lines = small_vector<line, 1>;
 
+    // Print the script lines, trying to reproduce their original (non-
+    // expanded) representation.
+    //
+    // Note that the exact spacing and partial quoting may not be restored due
+    // to the information loss.
+    //
     LIBBUILD2_SYMEXPORT void
     dump (ostream&, const string& ind, const lines&);
 

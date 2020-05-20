@@ -4,6 +4,7 @@
 #include <libbuild2/script/script.hxx>
 
 #include <sstream>
+#include <cstring> // strchr()
 
 using namespace std;
 
@@ -34,82 +35,173 @@ namespace build2
     void
     dump (ostream& os, const string& ind, const lines& ls)
     {
+      // For each line print its tokens literal representation trying to
+      // reproduce the quoting. Consider mixed quoting as double quoting
+      // since the information is lost.
+      //
+      // Also additionally indent the if-branch lines.
+      //
+      string if_ind;
+
       for (const line& l: ls)
       {
-        os << ind;
+        // Before printing indentation, decrease it if the else or end line is
+        // reached.
+        //
+        switch (l.type)
+        {
+        case line_type::cmd_elif:
+        case line_type::cmd_elifn:
+        case line_type::cmd_else:
+        case line_type::cmd_end:
+          {
+            size_t n (if_ind.size ());
+            assert (n >= 2);
+            if_ind.resize (n - 2);
+            break;
+          }
+        default: break;
+        }
 
-        // @@ Should be across lines?
+        // Print indentations.
         //
-        // We will consider mixed quoting as a double quoting since the
-        // information is lost and we won't be able to restore the token
-        // original representation.
+        os << ind << if_ind;
+
+        // After printing indentation, increase it for if/else branch.
         //
-        char qseq ('\0'); // Can be used as bool.
+        switch (l.type)
+        {
+        case line_type::cmd_if:
+        case line_type::cmd_ifn:
+        case line_type::cmd_elif:
+        case line_type::cmd_elifn:
+        case line_type::cmd_else:  if_ind += "  "; break;
+        default: break;
+        }
+
+        // '"' or '\'' if we are inside the quoted token sequence and '\0'
+        // otherwise. Thus, can be used as bool.
+        //
+        char qseq ('\0');
 
         for (const replay_token& rt: l.tokens)
         {
           const token& t (rt.token);
 
-          // Left and right quotes (can be used as bool).
+          // '"' or '\'' if the token is quoted and '\0' otherwise. Thus,
+          // can be used as bool.
+          //
+          char qtok ('\0');
+
+          switch (t.qtype)
+          {
+          case quote_type::unquoted: qtok = '\0'; break;
+          case quote_type::single:   qtok = '\''; break;
+          case quote_type::mixed:
+          case quote_type::double_:  qtok = '"';  break;
+          }
+
+          // If being inside a quoted token sequence we have reached a token
+          // quoted differently or the newline, then we probably made a
+          // mistake misinterpreting some previous partially quoted token, for
+          // example f"oo" as "foo. If that's the case, all we can do is to
+          // end the sequence adding the trailing quote.
+          //
+          // Note that a token inside the quoted sequence may well be
+          // unquoted, so for example "$foo" is lexed as:
+          //
+          //   token  quoting  complete  notes
+          //   ''     "        no
+          //   $      "        yes
+          //   'foo'                     Unquoted since lexed in variable mode.
+          //   ''     "        no
+          //   \n
+          //
+          if (qseq &&
+              ((qtok && qtok != qseq) || t.type == token_type::newline))
+          {
+            os << qseq;
+            qseq = '\0';
+          }
+
+          // Left and right token quotes (can be used as bool).
           //
           char lq ('\0');
           char rq ('\0');
 
-          if (t.qtype != quote_type::unquoted)
+          // If the token is quoted, then determine if/which quotes should be
+          // present on its sides and track the quoted token sequence.
+          //
+          if (qtok)
           {
-            auto quote = [&t] ()
+            if (t.qcomp) // Complete token quoting.
             {
-              return t.qtype == quote_type::single ? '\'' : '"';
-            };
-
-            if (t.qcomp) // Complete quoting.
-            {
-              // If we are inside quoted token sequence then we do noting.
-              // Otherwise we just quote the current token not starting a
+              // If we are inside a quoted token sequence then do noting.
+              // Otherwise just quote the current token not starting a
               // sequence.
               //
               if (!qseq)
               {
-                lq = quote ();
-                rq = lq;
+                lq = qtok;
+                rq = qtok;
               }
             }
-            else         // Partial quoting.
+            else         // Partial token quoting.
             {
               // Note that we can not always reproduce the original tokens
-              // representation for partial quoting. For example, the
-              // following two tokens are lexed into the identical token
-              // objects:
+              // representation for partial quoting. For example, the two
+              // following tokens are lexed into the identical token objects:
               //
               // "foo
               // f"oo"
               //
-              if (!qseq)
+              // We will always assume that the partially quoted token either
+              // starts or ends the quoted token sequence. Sometimes this ends
+              // up unexpectedly, but seems there is not much we can do:
+              //
+              // f"oo" "ba"r  ->  "foo bar"
+              //
+              if (!qseq)     // Start quoted sequence.
               {
-                lq = quote ();
-                qseq = lq;
+                lq = qtok;
+                qseq = qtok;
               }
-              else
+              else           // End quoted sequence.
               {
-                rq = quote ();
+                rq = qtok;
                 qseq = '\0';
               }
             }
           }
 
-          // @@ Add 2 spaces indentation for if block contents.
-
+          // Print the space character prior to the separated token, unless
+          // it is a first like token or the newline.
+          //
           if (t.separated                   &&
               t.type != token_type::newline &&
-              &rt != &l.tokens[0])             // Not first in the line.
+              &rt != &l.tokens[0])
             os << ' ';
 
-          if (lq) os << lq;
-          t.printer (os, t, print_mode::raw);
-          if (rq) os << rq;
+          if (lq) os << lq; // Print the left quote, if required.
 
-//          prev_qcomp = t.qcomp;
-//          prev_qtype = t.qtype;
+          // Escape the special characters, unless the token in not a word or
+          // is single-quoted. Note that the special character set depends on
+          // whether the word is double-quoted or unquoted.
+          //
+          if (t.type == token_type::word && qtok != '\'')
+          {
+            for (char c: t.value)
+            {
+              if (strchr (qtok ? "\\\"" : "|&<>=\\\"", c) != nullptr)
+                os << '\\';
+
+              os << c;
+            }
+          }
+          else
+            t.printer (os, t, print_mode::raw);
+
+          if (rq) os << rq; // Print the right quote, if required.
         }
       }
     }
