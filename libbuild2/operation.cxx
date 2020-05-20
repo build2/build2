@@ -373,9 +373,12 @@ namespace build2
 
     // Print skip count if not zero. Note that we print it regardless of the
     // diag level since this is essentially a "summary" of all the commands
-    // that we did not (and, in fact, used to originally) print.
+    // that we did not (and, in fact, used to originally) print. However, we
+    // do suppress it if no progress was requested: conceptually, it feels
+    // like part of the progress report and real usage suggests this as well
+    // (e.g., when building modules/recipes in a nested context).
     //
-    if (verb != 0)
+    if (prog && verb != 0)
     {
       if (size_t s = ctx.skip_count.load (memory_order_relaxed))
       {
