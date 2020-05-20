@@ -50,6 +50,12 @@ namespace build2
         leave (environment&, const location&) = 0;
       };
 
+      // Run command expressions.
+      //
+      // In dry-run mode don't run the expressions unless they are if-
+      // conditions or execute the set or exit builtins, but prints them at
+      // verbosity level 2 and up.
+      //
       class default_runner: public runner
       {
       public:

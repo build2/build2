@@ -32,21 +32,19 @@ namespace build2
         if (verb >= 3)
           text << ":  " << expr;
 
-        // Run the expression if we are not in the dry run mode or if it
-        // executes the set builtin and print the expression otherwise, unless
-        // it is already printed or the verbosity level is lower than 2.
-        //
-        // @@ Should we also run expressions that execute the exit builtin in
-        //    the dry run mode?
+        // Run the expression if we are not in the dry-run mode or if it
+        // executes the set or exit builtin and just print the expression
+        // otherwise at verbosity level 2 and up.
         //
         if (!env.context.dry_run ||
             find_if (expr.begin (), expr.end (),
                      [] (const expr_term& et)
                      {
-                       return et.pipe.back ().program.string () == "set";
+                       const string& p (et.pipe.back ().program.string ());
+                       return p == "set" || p == "exit";
                      }) != expr.end ())
           build2::script::run (env, expr, li, ll);
-        else if (verb == 2)
+        else if (verb >= 2)
           text << expr;
       }
 
