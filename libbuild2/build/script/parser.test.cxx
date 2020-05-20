@@ -72,6 +72,18 @@ namespace build2
       // argv[0] [-l]
       // argv[0] -d
       //
+      // In the first form read the script from stdin and trace the script
+      // execution to stdout using the custom print runner.
+      //
+      // In the second form read the script from stdin, parse it and dump the
+      // resulting lines to stdout.
+      //
+      // -l
+      //    Print the script line number for each executed expression.
+      //
+      // -d
+      //    Dump the parsed script to sdout.
+      //
       int
       main (int argc, char* argv[])
       {

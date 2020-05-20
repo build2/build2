@@ -37,3 +37,12 @@ $* <<EOI >|
   foo 'bar' "baz" '' ""
   EOI
 #\
+
+#\
+  libbuild2/lexer+quoting.test.testscript
+
+  : tmp
+  :
+    $* <'f"oo" "foo$"'
+
+#\

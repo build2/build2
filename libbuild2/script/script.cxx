@@ -46,7 +46,7 @@ namespace build2
         // information is lost and we won't be able to restore the token
         // original representation.
         //
-//        char qseq ('\0'); // Can be used as bool.
+        char qseq ('\0'); // Can be used as bool.
 
         for (const replay_token& rt: l.tokens)
         {
@@ -57,18 +57,18 @@ namespace build2
           char lq ('\0');
           char rq ('\0');
 
-          /*
           if (t.qtype != quote_type::unquoted)
           {
             auto quote = [&t] ()
             {
               return t.qtype == quote_type::single ? '\'' : '"';
-            }
+            };
 
             if (t.qcomp) // Complete quoting.
             {
               // If we are inside quoted token sequence then we do noting.
-              // Otherwise we just quote the token not starting a sequence.
+              // Otherwise we just quote the current token not starting a
+              // sequence.
               //
               if (!qseq)
               {
@@ -78,12 +78,27 @@ namespace build2
             }
             else         // Partial quoting.
             {
+              // Note that we can not always reproduce the original tokens
+              // representation for partial quoting. For example, the
+              // following two tokens are lexed into the identical token
+              // objects:
+              //
+              // "foo
+              // f"oo"
+              //
               if (!qseq)
-                lq =
-
+              {
+                lq = quote ();
+                qseq = lq;
+              }
+              else
+              {
+                rq = quote ();
+                qseq = '\0';
+              }
             }
           }
-          */
+
           // @@ Add 2 spaces indentation for if block contents.
 
           if (t.separated                   &&
