@@ -9,6 +9,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/variable.hxx>
+#include <libbuild2/filesystem.hxx> // auto_rmdir
 
 #include <libbuild2/script/script.hxx>
 
@@ -58,9 +59,6 @@ namespace build2
         location end_loc;
       };
 
-      //@@ Does environment need script? Can't we just pass it to parser along
-      //   with environment.
-      //
       class environment: public build2::script::environment
       {
       public:
@@ -82,6 +80,16 @@ namespace build2
         // be looked up in the wrong pool.
         //
         variable_map vars;
+
+        // Temporary directory for the script run (see build2::script::
+        // environment::temp_dir for details).
+        //
+        // Currently this directory is removed regardless of the script
+        // execution success or failure. Later, to ease the troubleshooting,
+        // we may invent the build2 option suppressing the directory removal
+        // on failure.
+        //
+        auto_rmdir temp_dir;
 
         virtual void
         set_variable (string&& name, names&&, const string& attrs) override;

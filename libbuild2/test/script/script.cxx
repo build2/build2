@@ -64,6 +64,7 @@ namespace build2
                          test_tt (),
                          wd_path (), wd_name,
                          p != nullptr ? root.work_dir : wd_path (), sd_name,
+                         wd_path (), true /* temp_dir_keep */,
                          redirect (redirect_type::none),
                          redirect (redirect_type::none),
                          redirect (redirect_type::none)),

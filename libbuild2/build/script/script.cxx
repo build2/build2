@@ -24,8 +24,8 @@ namespace build2
           : build2::script::environment (
               pt.ctx,
               cast<target_triplet> (pt.ctx.global_scope["build.host"]),
-              work,
-              wd_name,
+              work, wd_name,
+              temp_dir.path, false /* temp_dir_keep */,
               redirect (redirect_type::none),
               redirect (redirect_type::merge, 2),
               redirect (redirect_type::pass)),

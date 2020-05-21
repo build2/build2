@@ -353,6 +353,7 @@ namespace build2
       // an absolute path.
       //
       const dir_path& work_dir;
+      const string&   work_dir_name; // Directory name for diagnostics.
 
       // If non-empty, then any attempt to remove or move a filesystem entry
       // outside this directory using an explicit cleanup or the rm/mv
@@ -360,11 +361,18 @@ namespace build2
       // specified for the builtin. Must be an absolute path, unless is empty.
       //
       const dir_path& sandbox_dir;
+      const string&   sandbox_dir_name; // Directory name for diagnostics.
 
-      // Directory names for diagnostics.
+      // Used by the script running machinery to create special files in it.
+      // Must be an absolute path.
       //
-      const string& work_dir_name;
-      const string& sandbox_dir_name;
+      const dir_path& temp_dir;
+
+      // The temporary directory will not be removed on the script failure,
+      // which allows the script running machinery to refer to the special
+      // files in the diagnostics.
+      //
+      const bool temp_dir_keep;
 
       // Process streams default redirects.
       //
@@ -379,15 +387,18 @@ namespace build2
                    const target_triplet& pt,
                    const dir_path& wd, const string& wn,
                    const dir_path& sd, const string& sn,
+                   const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
           : context (ctx),
             platform (pt),
             work_dir (wd),
-            sandbox_dir (sd),
             work_dir_name (wn),
+            sandbox_dir (sd),
             sandbox_dir_name (sn),
+            temp_dir (td),
+            temp_dir_keep (tk),
             in (move (i)),
             out (move (o)),
             err (move (e))
@@ -399,6 +410,7 @@ namespace build2
       environment (build2::context& ctx,
                    const target_triplet& pt,
                    const dir_path& wd, const string& wn,
+                   const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
@@ -406,6 +418,7 @@ namespace build2
                          pt,
                          wd, wn,
                          empty_dir_path, empty_string,
+                         td, tk,
                          move (i), move (o), move (e))
       {
       }
@@ -425,7 +438,8 @@ namespace build2
 
       // Register cleanup of a special file. Such files are created to
       // maintain the script running machinery and must be removed first, not
-      // to interfere with the user-defined wildcard cleanups.
+      // to interfere with the user-defined wildcard cleanups if the working
+      // and temporary directories are the same.
       //
       void
       clean_special (path);

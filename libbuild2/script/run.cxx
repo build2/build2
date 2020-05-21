@@ -25,12 +25,12 @@ namespace build2
   namespace script
   {
     // Normalize a path. Also make the relative path absolute using the
-    // environment's working directory unless it is already absolute.
+    // specified directory unless it is already absolute.
     //
     static path
-    normalize (path p, environment& env, const location& l)
+    normalize (path p, const dir_path& d, const location& l)
     {
-      path r (p.absolute () ? move (p) : env.work_dir / move (p));
+      path r (p.absolute () ? move (p) : d / move (p));
 
       try
       {
@@ -178,6 +178,15 @@ namespace build2
       return r;
     }
 
+    // Return true if a path is not under the script temporary directory or
+    // this directory will not be removed on failure.
+    //
+    static inline bool
+    avail_on_failure (const path& p, const environment& env)
+    {
+      return env.temp_dir_keep || !p.sub (env.temp_dir);
+    }
+
     // Check if the script command output matches the expected result
     // (redirect value). Noop for redirect types other than none, here_*.
     //
@@ -191,19 +200,22 @@ namespace build2
                   bool diag,
                   const char* what)
     {
-      auto input_info = [&ip, &ll] (diag_record& d)
+      auto input_info = [&ip, &ll, &env] (diag_record& d)
       {
-        if (non_empty (ip, ll))
+        if (non_empty (ip, ll) && avail_on_failure (ip, env))
           d << info << "stdin: " << ip;
       };
 
-      auto output_info = [&what, &ll] (diag_record& d,
-                                       const path& p,
-                                       const char* prefix = "",
-                                       const char* suffix = "")
+      auto output_info = [&what, &ll, &env] (diag_record& d,
+                                             const path& p,
+                                             const char* prefix = "",
+                                             const char* suffix = "")
       {
         if (non_empty (p, ll))
-          d << info << prefix << what << suffix << ": " << p;
+        {
+          if (avail_on_failure (p, env))
+            d << info << prefix << what << suffix << ": " << p;
+        }
         else
           d << info << prefix << what << suffix << " is empty";
       };
@@ -220,8 +232,10 @@ namespace build2
         if (diag)
         {
           diag_record d (error (ll));
-          d << pr << " unexpectedly writes to " << what <<
-            info << what << ": " << op;
+          d << pr << " unexpectedly writes to " << what;
+
+          if (avail_on_failure (op, env))
+            d << info << what << ": " << op;
 
           input_info (d);
 
@@ -246,7 +260,7 @@ namespace build2
         path eop;
 
         if (rd.type == redirect_type::file)
-          eop = normalize (rd.file.path, env, ll);
+          eop = normalize (rd.file.path, env.work_dir, ll);
         else
         {
           eop = path (op + ".orig");
@@ -263,7 +277,17 @@ namespace build2
         path dp ("diff");
         process_path pp (run_search (dp, true));
 
-        cstrings args {pp.recall_string (), "-u"};
+        cstrings args {pp.recall_string ()};
+
+        // If both files being compared won't be available on failure, then
+        // instruct diff not to print the file paths. It seems that the only
+        // way to achieve this is to abandon the output unified format in the
+        // favor of the minimal output, which normally is still informative
+        // enough for the troubleshooting (contains the difference line
+        // numbers, etc).
+        //
+        if (avail_on_failure (eop, env) || avail_on_failure (op, env))
+          args.push_back ("-u");
 
         // Ignore Windows newline fluff if that's what we are running on.
         //
@@ -317,6 +341,8 @@ namespace build2
             diag_record d (fail (ll));
             print_process (d, args);
             d << " " << pe;
+
+            print_file (d, ep, ll);
           }
 
           // Output doesn't match the expected result.
@@ -568,7 +594,11 @@ namespace build2
           //
           d << "invalid " << what << " regex redirect" << e;
 
-          output_info (d, save_regex (), "", " regex");
+          // It would be a waste to save the regex into the file just to
+          // remove it.
+          //
+          if (env.temp_dir_keep)
+            output_info (d, save_regex (), "", " regex");
         }
 
         // Parse the output into the literal line string.
@@ -621,13 +651,17 @@ namespace build2
         if (regex_match (ls, regex)) // Doesn't throw.
           return true;
 
-        // Output doesn't match the regex. We save the regex to file for
-        // troubleshooting regardless of whether we print the diagnostics or
-        // not. We, however, register it for cleanup in the later case (the
-        // expression may still succeed, we can be evaluating the if
-        // condition, etc).
+        // Output doesn't match the regex.
         //
-        path rp (save_regex ());
+        // Unless the temporary directory is removed on failure, we save the
+        // regex to file for troubleshooting regardless of whether we print
+        // the diagnostics or not. We, however, register it for cleanup in the
+        // later case (the expression may still succeed, we can be evaluating
+        // the if condition, etc).
+        //
+        optional<path> rp;
+        if (env.temp_dir_keep)
+          rp = save_regex ();
 
         if (diag)
         {
@@ -635,15 +669,18 @@ namespace build2
           d << pr << " " << what << " doesn't match regex";
 
           output_info (d, op);
-          output_info (d, rp, "", " regex");
+
+          if (rp)
+            output_info (d, *rp, "", " regex");
+
           input_info  (d);
 
           // Print cached output.
           //
           print_file (d, op, ll);
         }
-        else
-          env.clean_special (rp);
+        else if (rp)
+          env.clean_special (*rp);
 
         // Fall through (to return false).
         //
@@ -856,7 +893,7 @@ namespace build2
       for (const auto& cl: c.cleanups)
       {
         const path& p (cl.path);
-        path np (normalize (p, env, ll));
+        path np (normalize (p, env.work_dir, ll));
 
         const string& ls (np.leaf ().string ());
         bool wc (ls == "*" || ls == "**" || ls == "***");
@@ -973,7 +1010,7 @@ namespace build2
         if (ci > 0)
           p += "-" + to_string (ci);
 
-        return normalize (move (p), env, ll);
+        return normalize (move (p), env.temp_dir, ll);
       };
 
       // If this is the first pipeline command, then open stdin descriptor
@@ -1040,7 +1077,7 @@ namespace build2
           }
         case redirect_type::file:
           {
-            isp = normalize (in.file.path, env, ll);
+            isp = normalize (in.file.path, env.work_dir, ll);
 
             open_stdin ();
             break;
@@ -1155,7 +1192,7 @@ namespace build2
             //
             p = r.file.mode == redirect_fmode::compare
               ? std_path (what)
-              : normalize (r.file.path, env, ll);
+              : normalize (r.file.path, env.work_dir, ll);
 
             m |= r.file.mode == redirect_fmode::append
               ? fdopen_mode::at_end
@@ -1520,10 +1557,10 @@ namespace build2
           if (p.relative ())
           {
             auto program = [&p, &args] (path pp)
-              {
-                p = move (pp);
-                args[0] = p.string ().c_str ();
-              };
+            {
+              p = move (pp);
+              args[0] = p.string ().c_str ();
+            };
 
             if (p.simple ())
             {
@@ -1636,13 +1673,13 @@ namespace build2
             assert (false);
         }
 
-        if (non_empty (esp, ll))
+        if (non_empty (esp, ll) && avail_on_failure (esp, env))
           d << info << "stderr: " << esp;
 
-        if (non_empty (osp, ll))
+        if (non_empty (osp, ll) && avail_on_failure (osp, env))
           d << info << "stdout: " << osp;
 
-        if (non_empty (isp, ll))
+        if (non_empty (isp, ll) && avail_on_failure (isp, env))
           d << info << "stdin: " << isp;
 
         // Print cached stderr.
