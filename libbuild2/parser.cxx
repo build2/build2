@@ -3568,6 +3568,8 @@ namespace build2
     if (tt != type::question)
       return lhs;
 
+    location ql (get_location (t));
+
     // Use the pre-parse mechanism to implement short-circuit.
     //
     bool pp (pre_parse_);
@@ -3577,7 +3579,12 @@ namespace build2
     {
       q = pp ? true : convert<bool> (move (lhs));
     }
-    catch (const invalid_argument& e) { fail (l) << e << endf; }
+    catch (const invalid_argument& e)
+    {
+      fail (l)    << e <<
+        info (ql) << "use the '\\?' escape sequence if this is a wildcard "
+                  << "pattern" << endf;
+    }
 
     if (!pp)
       pre_parse_ = !q; // Short-circuit middle?
@@ -3587,7 +3594,11 @@ namespace build2
     value mhs (parse_eval_ternary (t, tt, pmode));
 
     if (tt != type::colon)
-      fail (t) << "expected ':' instead of " << t;
+    {
+      fail (t)    << "expected ':' instead of " << t <<
+        info (ql) << "use the '\\?' escape sequence if this is a wildcard "
+                  << "pattern" << endf;
+    }
 
     if (!pp)
       pre_parse_ = q; // Short-circuit right?
