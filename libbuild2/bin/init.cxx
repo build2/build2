@@ -1,4 +1,4 @@
-// file      : build2/bin/init.cxx -*- C++ -*-
+// file      : libbuild2/bin/init.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
 #include <libbuild2/bin/init.hxx>

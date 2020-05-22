@@ -1,4 +1,4 @@
-// file      : build2/cc/common.hxx -*- C++ -*-
+// file      : libbuild2/cc/common.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
 #ifndef LIBBUILD2_CC_COMMON_HXX
@@ -381,5 +381,7 @@ namespace build2
     };
   }
 }
+
+#include <libbuild2/cc/common.hxx>
 
 #endif // LIBBUILD2_CC_COMMON_HXX

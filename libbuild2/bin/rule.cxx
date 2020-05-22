@@ -1,4 +1,4 @@
-// file      : build2/bin/rule.cxx -*- C++ -*-
+// file      : libbuild2/bin/rule.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
 #include <libbuild2/bin/rule.hxx>
