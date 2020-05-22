@@ -235,44 +235,56 @@ namespace build2
         to_stream_q (o, s.str ());
       };
 
-      auto print_redirect = [&o, print_path] (const redirect& r,
-                                              const char* prefix)
+      auto print_redirect = [&o, print_path] (const redirect& r, int fd)
       {
-        o << ' ' << prefix;
+        const redirect& er (r.effective ());
 
-        size_t n (string::traits_type::length (prefix));
-        assert (n > 0);
+        // Print the none redirect (no data allowed) if/when the respective
+        // syntax is invented.
+        //
+        if (er.type == redirect_type::none)
+          return;
 
-        char d (prefix[n - 1]); // Redirect direction.
+        o << ' ';
 
-        switch (r.type)
+        // Print the redirect file descriptor.
+        //
+        if (fd == 2)
+          o << fd;
+
+        // Print the redirect original representation and the modifiers, if
+        // present.
+        //
+        r.token.printer (o, r.token, print_mode::raw);
+
+        // Print the rest of the redirect (file path, etc).
+        //
+        switch (er.type)
         {
-        case redirect_type::none:  assert (false);   break;
-        case redirect_type::pass:  o << '|';         break;
-        case redirect_type::null:  o << '-';         break;
-        case redirect_type::trace: o << '!';         break;
-        case redirect_type::merge: o << '&' << r.fd; break;
+        case redirect_type::none:         assert (false); break;
+        case redirect_type::here_doc_ref: assert (false); break;
+
+        case redirect_type::pass:
+        case redirect_type::null:
+        case redirect_type::trace:             break;
+        case redirect_type::merge: o << er.fd; break;
+
+        case redirect_type::file:
+          {
+            print_path (er.file.path);
+            break;
+          }
 
         case redirect_type::here_str_literal:
         case redirect_type::here_doc_literal:
           {
-            bool doc (r.type == redirect_type::here_doc_literal);
-
-            // For here-document add another '>' or '<'. Note that here end
-            // marker never needs to be quoted.
-            //
-            if (doc)
-              o << d;
-
-            o << r.modifiers;
-
-            if (doc)
-              o << r.end;
+            if (er.type == redirect_type::here_doc_literal)
+              o << er.end;
             else
             {
-              const string& v (r.str);
+              const string& v (er.str);
               to_stream_q (o,
-                           r.modifiers.find (':') == string::npos
+                           er.modifiers ().find (':') == string::npos
                            ? string (v, 0, v.size () - 1) // Strip newline.
                            : v);
             }
@@ -283,20 +295,10 @@ namespace build2
         case redirect_type::here_str_regex:
         case redirect_type::here_doc_regex:
           {
-            bool doc (r.type == redirect_type::here_doc_regex);
+            const regex_lines& re (er.regex);
 
-            // For here-document add another '>' or '<'. Note that here end
-            // marker never needs to be quoted.
-            //
-            if (doc)
-              o << d;
-
-            o << r.modifiers;
-
-            const regex_lines& re (r.regex);
-
-            if (doc)
-              o << re.intro + r.end + re.intro + re.flags;
+            if (er.type == redirect_type::here_doc_regex)
+              o << re.intro + er.end + re.intro + re.flags;
             else
             {
               assert (!re.lines.empty ()); // Regex can't be empty.
@@ -307,23 +309,6 @@ namespace build2
 
             break;
           }
-
-        case redirect_type::file:
-          {
-            // For stdin or stdout-comparison redirect add '>>' or '<<' (and
-            // so make it '<<<' or '>>>'). Otherwise add '+' or '=' (and so
-            // make it '>+' or '>=').
-            //
-            if (d == '<' || r.file.mode == redirect_fmode::compare)
-              o << d << d;
-            else
-              o << (r.file.mode == redirect_fmode::append ? '+' : '=');
-
-            print_path (r.file.path);
-            break;
-          }
-
-        case redirect_type::here_doc_ref: assert (false); break;
         }
       };
 
@@ -358,7 +343,7 @@ namespace build2
           }
         }
 
-        o << (r.modifiers.find (':') == string::npos ? "" : "\n") << r.end;
+        o << (r.modifiers ().find (':') == string::npos ? "" : "\n") << r.end;
       };
 
       if ((m & command_to_stream::header) == command_to_stream::header)
@@ -377,17 +362,14 @@ namespace build2
 
         // Redirects.
         //
-        // Print the none redirect (no data allowed) if/when the respective
-        // syntax is invened.
-        //
-        if (c.in && c.in->effective ().type != redirect_type::none)
-          print_redirect (c.in->effective (), "<");
+        if (c.in)
+          print_redirect (*c.in, 0);
 
-        if (c.out && c.out->effective ().type != redirect_type::none)
-          print_redirect (c.out->effective (), ">");
+        if (c.out)
+          print_redirect (*c.out, 1);
 
-        if (c.err && c.err->effective ().type != redirect_type::none)
-          print_redirect (c.err->effective (), "2>");
+        if (c.err)
+          print_redirect (*c.err, 2);
 
         for (const auto& p: c.cleanups)
         {
@@ -513,7 +495,7 @@ namespace build2
     redirect::
     redirect (redirect&& r) noexcept
         : type (r.type),
-          modifiers (move (r.modifiers)),
+          token (move (r.token)),
           end (move (r.end)),
           end_line (r.end_line),
           end_column (r.end_column)
@@ -593,7 +575,7 @@ namespace build2
     redirect::
     redirect (const redirect& r)
         : type (r.type),
-          modifiers (r.modifiers),
+          token (r.token),
           end (r.end),
           end_line (r.end_line),
           end_column (r.end_column)

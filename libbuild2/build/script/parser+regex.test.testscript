@@ -9,61 +9,61 @@
   {
     : missed
     :
-    $* <'cmd >~' 2>>EOE != 0
-    buildfile:11:7: error: missing stdout here-string regex
+    $* <'cmd >>>?~' 2>>EOE != 0
+    buildfile:11:10: error: missing stdout here-string regex
     EOE
 
     : no-introducer
     :
-    $* <'cmd >~""' 2>>EOE != 0
-    buildfile:11:7: error: no introducer character in stdout regex redirect
+    $* <'cmd >>>?~""' 2>>EOE != 0
+    buildfile:11:10: error: no introducer character in stdout regex redirect
     EOE
 
     : no-term-introducer
     :
-    $* <'cmd >~/' 2>>EOE != 0
-    buildfile:11:7: error: no closing introducer character in stdout regex redirect
+    $* <'cmd >>>?~/' 2>>EOE != 0
+    buildfile:11:10: error: no closing introducer character in stdout regex redirect
     EOE
 
     : portable-path-introducer
     :
-    $* <'cmd >/~/foo/' 2>>EOE != 0
-    buildfile:11:8: error: portable path modifier and '/' introducer in stdout regex redirect
+    $* <'cmd >>>?/~/foo/' 2>>EOE != 0
+    buildfile:11:11: error: portable path modifier and '/' introducer in stdout regex redirect
     EOE
 
     : empty
     :
-    $* <'cmd >~//' 2>>EOE != 0
-    buildfile:11:7: error: stdout regex redirect is empty
+    $* <'cmd >>>?~//' 2>>EOE != 0
+    buildfile:11:10: error: stdout regex redirect is empty
     EOE
 
     : no-flags
     :
-    $* <'cmd >~/fo*/' >'cmd >~/fo*/'
+    $* <'cmd >>>?~/fo*/' >'cmd >>>?~/fo*/'
 
     : idot
     :
-    $* <'cmd >~/fo*/d' >'cmd >~/fo*/d'
+    $* <'cmd >>>?~/fo*/d' >'cmd >>>?~/fo*/d'
 
     : icase
     :
-    $* <'cmd >~/fo*/i' >'cmd >~/fo*/i'
+    $* <'cmd >>>?~/fo*/i' >'cmd >>>?~/fo*/i'
 
     : invalid-flags1
     :
-    $* <'cmd >~/foo/z' 2>>EOE != 0
-    buildfile:11:7: error: junk at the end of stdout regex redirect
+    $* <'cmd >>>?~/foo/z' 2>>EOE != 0
+    buildfile:11:10: error: junk at the end of stdout regex redirect
     EOE
 
     : invalid-flags2
     :
-    $* <'cmd >~/foo/iz' 2>>EOE != 0
-    buildfile:11:7: error: junk at the end of stdout regex redirect
+    $* <'cmd >>>?~/foo/iz' 2>>EOE != 0
+    buildfile:11:10: error: junk at the end of stdout regex redirect
     EOE
 
     : no-newline
     :
-    $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
+    $* <'cmd >>>?:~/fo*/' >'cmd >>>?:~/fo*/'
   }
 
   : stderr
@@ -71,8 +71,8 @@
   {
     : missed
     :
-    $* <'cmd 2>~' 2>>EOE != 0
-    buildfile:11:8: error: missing stderr here-string regex
+    $* <'cmd 2>>>?~' 2>>EOE != 0
+    buildfile:11:11: error: missing stderr here-string regex
     EOE
 
     : no-introducer
@@ -81,15 +81,15 @@
     : All we need is to make sure that the proper description is passed to
     : the parse_regex() function.
     :
-    $* <'cmd 2>~""' 2>>EOE != 0
-    buildfile:11:8: error: no introducer character in stderr regex redirect
+    $* <'cmd 2>>>?~""' 2>>EOE != 0
+    buildfile:11:11: error: no introducer character in stderr regex redirect
     EOE
   }
 
   : modifier-last
   :
-  $* <'cmd >~/x' 2>>EOE != 0
-  buildfile:11:7: error: no closing introducer character in stdout regex redirect
+  $* <'cmd >>>?~/x' 2>>EOE != 0
+  buildfile:11:10: error: no closing introducer character in stdout regex redirect
   EOE
 }
 
@@ -101,14 +101,14 @@
   {
     : missed
     :
-    $* <'cmd >>~' 2>>EOE != 0
-    buildfile:11:8: error: expected here-document regex end marker
+    $* <'cmd >>?~' 2>>EOE != 0
+    buildfile:11:9: error: expected here-document regex end marker
     EOE
 
     : portable-path-introducer
     :
     $* <<EOI 2>>EOE != 0
-    cmd >>/~/EOO/
+    cmd >>?/~/EOO/
     foo
     EOO
     EOI
@@ -118,7 +118,7 @@
     : unterminated-line-char
     :
     $* <<EOI 2>>EOE != 0
-    cmd >>~/EOO/
+    cmd >>?~/EOO/
     /
     EOO
     EOI
@@ -128,7 +128,7 @@
     : empty
     :
     $* <<EOI 2>>EOE != 0
-    cmd >>:~/EOO/
+    cmd >>?:~/EOO/
     EOO
     EOI
     buildfile:12:1: error: empty here-document regex
@@ -137,7 +137,7 @@
     : no-flags
     :
     $* <<EOI >>EOO
-    cmd 2>>~/EOE/
+    cmd 2>>?~/EOE/
     foo
     /?
     /foo/
@@ -149,7 +149,7 @@
     //*
     EOE
     EOI
-    cmd 2>>~/EOE/
+    cmd 2>>?~/EOE/
     foo
     /?
     /foo/
@@ -162,15 +162,18 @@
     EOE
     EOO
 
-    : no-newline
+    : no-newline-str
     :
-    $* <'cmd >:~/fo*/' >'cmd >:~/fo*/'
+    $* <'cmd >>>?:~/fo*/' >'cmd >>>?:~/fo*/'
+
+    : no-newline-doc
+    :
     $* <<EOI >>EOO
-    cmd 2>>:~/EOE/
+    cmd 2>>?:~/EOE/
     foo
     EOE
     EOI
-    cmd 2>>:~/EOE/
+    cmd 2>>?:~/EOE/
     foo
     EOE
     EOO
@@ -181,11 +184,11 @@
       : idot
       :
       $* <<EOI >>EOO
-      cmd 2>>~/EOE/d
+      cmd 2>>?~/EOE/d
       foo
       EOE
       EOI
-      cmd 2>>~/EOE/d
+      cmd 2>>?~/EOE/d
       foo
       EOE
       EOO
@@ -193,11 +196,11 @@
       : icase
       :
       $* <<EOI >>EOO
-      cmd 2>>~/EOE/i
+      cmd 2>>?~/EOE/i
       foo
       EOE
       EOI
-      cmd 2>>~/EOE/i
+      cmd 2>>?~/EOE/i
       foo
       EOE
       EOO
@@ -209,14 +212,14 @@
   {
     : missed
     :
-    $* <'cmd 2>>~' 2>>EOE != 0
-    buildfile:11:9: error: expected here-document regex end marker
+    $* <'cmd 2>>?~' 2>>EOE != 0
+    buildfile:11:10: error: expected here-document regex end marker
     EOE
   }
 
   : modifier-last
   :
-  $* <'cmd >>~:/FOO/' 2>>EOE != 0
+  $* <'cmd >>?~:/FOO/' 2>>EOE != 0
   buildfile:11:5: error: no closing introducer character in here-document regex end marker
   EOE
 }

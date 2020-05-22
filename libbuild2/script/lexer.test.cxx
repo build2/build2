@@ -37,7 +37,17 @@ namespace build2
         cin.exceptions (istream::failbit | istream::badbit);
 
         path_name in ("<stdin>");
-        lexer l (cin, in, m);
+
+        using type = token_type;
+
+        redirect_aliases ra {type (type::in_file),
+                             type (type::in_doc),
+                             type (type::in_str),
+                             type (type::out_file_ovr),
+                             type (type::out_file_app),
+                             nullopt};
+
+        lexer l (cin, in, m, ra);
 
         // No use printing eos since we will either get it or loop forever.
         //

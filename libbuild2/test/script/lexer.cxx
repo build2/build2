@@ -15,6 +15,14 @@ namespace build2
     {
       using type = token_type;
 
+      build2::script::redirect_aliases lexer::redirect_aliases {
+        type (type::in_str),
+        type (type::in_doc),
+        type (type::in_file),
+        type (type::out_str),
+        type (type::out_doc),
+        type (type::out_file_cmp)};
+
       void lexer::
       mode (base_mode m, char ps, optional<const char*> esc, uintptr_t data)
       {
@@ -239,7 +247,7 @@ namespace build2
             m == lexer_mode::first_token  ||
             m == lexer_mode::second_token)
         {
-          if (optional<token> t = next_cmd_op (c, sep, m))
+          if (optional<token> t = next_cmd_op (c, sep))
             return move (*t);
         }
 

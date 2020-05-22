@@ -141,7 +141,7 @@ namespace build2
             pair<command_expr, here_docs> p;
 
             if (lt != line_type::cmd_else && lt != line_type::cmd_end)
-              p = parse_command_expr (t, tt);
+              p = parse_command_expr (t, tt, lexer::redirect_aliases);
 
             if (tt != type::newline)
               fail (t) << "expected newline instead of " << t;
@@ -232,7 +232,9 @@ namespace build2
         //
         assert (!pre_parse_);
 
-        pair<command_expr, here_docs> p (parse_command_expr (t, tt));
+        pair<command_expr, here_docs> p (
+          parse_command_expr (t, tt, lexer::redirect_aliases));
+
         assert (tt == type::newline);
 
         parse_here_documents (t, tt, p);

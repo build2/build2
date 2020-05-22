@@ -8,7 +8,7 @@
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/token.hxx>    // replay_tokens
+#include <libbuild2/token.hxx>
 #include <libbuild2/variable.hxx>
 
 namespace build2
@@ -54,7 +54,7 @@ namespace build2
     // Note that the exact spacing and partial quoting may not be restored due
     // to the information loss.
     //
-    LIBBUILD2_SYMEXPORT void
+    void
     dump (ostream&, const string& ind, const lines&);
 
     // Parse object model.
@@ -167,7 +167,10 @@ namespace build2
         reference_wrapper<const redirect> ref; // Note: no chains.
       };
 
-      string modifiers;   // Redirect modifiers.
+      // Modifiers and the original representation (potentially an alias).
+      //
+      build2::token token;
+
       string end;         // Here-document end marker (no regex intro/flags).
       uint64_t end_line;  // Here-document end marker location.
       uint64_t end_column;
@@ -179,8 +182,10 @@ namespace build2
 
       // Create redirect of the reference type.
       //
-      redirect (redirect_type t, const redirect& r)
-          : type (redirect_type::here_doc_ref), ref (r)
+      redirect (redirect_type t, const redirect& r, build2::token tk)
+          : type (redirect_type::here_doc_ref),
+            ref (r),
+            token (move (tk))
       {
         // There is no support (and need) for reference chains.
         //
@@ -216,6 +221,12 @@ namespace build2
       effective () const noexcept
       {
         return type == redirect_type::here_doc_ref ? ref.get () : *this;
+      }
+
+      const string&
+      modifiers () const noexcept
+      {
+        return token.value;
       }
     };
 

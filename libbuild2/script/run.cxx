@@ -266,7 +266,7 @@ namespace build2
           eop = path (op + ".orig");
 
           save (eop,
-                transform (rd.str, false /* regex */, rd.modifiers, env),
+                transform (rd.str, false /* regex */, rd.modifiers (), env),
                 ll);
 
           env.clean_special (eop);
@@ -432,14 +432,14 @@ namespace build2
           if (l.regex)                  // Regex (possibly empty),
           {
             r += rl.intro;
-            r += transform (l.value, true /* regex */, rd.modifiers, env);
+            r += transform (l.value, true /* regex */, rd.modifiers (), env);
             r += rl.intro;
             r += l.flags;
           }
           else if (!l.special.empty ()) // Special literal.
             r += rl.intro;
           else                          // Textual literal.
-            r += transform (l.value, false /* regex */, rd.modifiers, env);
+            r += transform (l.value, false /* regex */, rd.modifiers (), env);
 
           r += l.special;
           return r;
@@ -517,7 +517,7 @@ namespace build2
               {
                 string s (transform (l.value,
                                      true /* regex */,
-                                     rd.modifiers,
+                                     rd.modifiers (),
                                      env));
 
                 c = line_char (
@@ -556,7 +556,8 @@ namespace build2
             //
             rls += line_char (transform (l.value,
                                          false /* regex */,
-                                         rd.modifiers, env),
+                                         rd.modifiers (),
+                                         env),
                               pool);
           }
 
@@ -1091,7 +1092,7 @@ namespace build2
             isp = std_path ("stdin");
 
             save (isp,
-                  transform (in.str, false /* regex */, in.modifiers, env),
+                  transform (in.str, false /* regex */, in.modifiers (), env),
                   ll);
 
             env.clean_special (isp);

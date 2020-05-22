@@ -22,23 +22,33 @@ namespace build2
         // NOTE: remember to update token_printer()!
 
         pipe = base_type::value_next, // |
-        clean,                        // &{?!}    (modifiers in value)
+        clean,                        // &{?!}     (modifiers in value)
 
         in_pass,                      // <|
         in_null,                      // <-
-        in_str,                       // <{:/}    (modifiers in value)
-        in_doc,                       // <<{:/}   (modifiers in value)
-        in_file,                      // <<<
+        in_file,                      // <=
+        in_doc,                       // <<={:/}   (modifiers in value)
+        in_str,                       // <<<={:/}  (modifiers in value)
 
         out_pass,                     // >|
         out_null,                     // >-
         out_trace,                    // >!
         out_merge,                    // >&
-        out_str,                      // >{:/~}   (modifiers in value)
-        out_doc,                      // >>{:/~}  (modifiers in value)
-        out_file_cmp,                 // >>>
         out_file_ovr,                 // >=
         out_file_app,                 // >+
+        out_file_cmp,                 // >?
+        out_doc,                      // >>?{:/~}  (modifiers in value)
+        out_str,                      // >>>?{:/~} (modifiers in value)
+
+        // The modifiers are in the token value, if the redirect the alias
+        // resolves to supports the modifiers.
+        //
+        in_l,                         // <
+        in_ll,                        // <<
+        in_lll,                       // <<<
+        out_g,                        // >
+        out_gg,                       // >>
+        out_ggg,                      // >>>
 
         value_next
       };

@@ -49,7 +49,7 @@
     : portable-path
     :
     $* <<EOI >>EOO
-    cmd <</EOI_ >/EOO_ 2>/EOE_
+    cmd <</EOI_ >>/EOO_ 2>>/EOE_
     foo
     EOI_
     bar
@@ -57,7 +57,7 @@
     baz
     EOE_
     EOI
-    cmd <</EOI_ >/EOO_ 2>/EOE_
+    cmd <</EOI_ >>/EOO_ 2>>/EOE_
     foo
     EOI_
     bar
@@ -113,13 +113,13 @@
     : portable-path
     :
     $* <<EOI >>EOO
-    cmd >/~%EOF% 2>/~%EOE%
+    cmd >>/~%EOF% 2>>/~%EOE%
     foo
     EOF
     bar
     EOE
     EOI
-    cmd >/~%EOF% 2>/~%EOE%
+    cmd >>/~%EOF% 2>>/~%EOE%
     foo
     EOF
     bar

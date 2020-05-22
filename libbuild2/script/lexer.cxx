@@ -165,7 +165,7 @@ namespace build2
       //
       if (m == lexer_mode::command_expansion)
       {
-        if (optional<token> t = next_cmd_op (c, sep, m))
+        if (optional<token> t = next_cmd_op (c, sep))
           return move (*t);
       }
 
@@ -176,14 +176,12 @@ namespace build2
     }
 
     optional<token> lexer::
-    next_cmd_op (const xchar& c, bool sep, lexer_mode m)
+    next_cmd_op (const xchar& c, bool sep)
     {
-      auto make_token = [&sep, &m, &c] (type t, string v = string ())
+      auto make_token = [&sep, &c] (type t, string v = string ())
       {
-        bool q (m == lexer_mode::here_line_double);
-
         return token (t, move (v), sep,
-                      (q ? quote_type::double_ : quote_type::unquoted), q,
+                      quote_type::unquoted, false,
                       c.line, c.column,
                       token_printer);
       };
@@ -247,89 +245,183 @@ namespace build2
         //
       case '<':
         {
-          type r (type::in_str);
+          optional<type> r;
           xchar p (peek ());
 
-          if (p == '|' || p == '-' || p == '<')
+          if (p == '|' || p == '-' || p == '=' || p == '<') // <| <- <= <<
           {
-            get ();
+            xchar c (get ());
 
             switch (p)
             {
-            case '|': return make_token (type::in_pass);
-            case '-': return make_token (type::in_null);
-            case '<':
+            case '|': return make_token (type::in_pass);    // <|
+            case '-': return make_token (type::in_null);    // <-
+            case '=': return make_token (type::in_file);    // <=
+            case '<':                                       // <<
               {
-                r = type::in_doc;
                 p = peek ();
 
-                if (p == '<')
+                if (p == '=' || p == '<')                   // <<= <<<
                 {
-                  get ();
-                  r = type::in_file;
+                  xchar c (get ());
+
+                  switch (p)
+                  {
+                  case '=':
+                    {
+                      r = type::in_doc;                     // <<=
+                      break;
+                    }
+                  case '<':
+                    {
+                      p = peek ();
+
+                      if (p == '=')
+                      {
+                        get ();
+                        r = type::in_str;                   // <<<=
+                      }
+
+                      if (!r && redirect_aliases.lll)
+                        r = type::in_lll;                   // <<<
+
+                      // We can still end up with the << or < redirect alias,
+                      // if any of them is present.
+                      //
+                      if (!r)
+                        unget (c);
+                    }
+
+                    break;
+                  }
                 }
+
+                if (!r && redirect_aliases.ll)
+                  r = type::in_ll;                          // <<
+
+                // We can still end up with the < redirect alias, if it is
+                // present.
+                //
+                if (!r)
+                  unget (c);
+
                 break;
               }
             }
           }
 
+          if (!r && redirect_aliases.l)
+            r = type::in_l;                                 // <
+
+          if (!r)
+            return nullopt;
+
           // Handle modifiers.
           //
           const char* mods (nullptr);
-          switch (r)
+
+          switch (redirect_aliases.resolve (*r))
           {
           case type::in_str:
           case type::in_doc: mods = ":/"; break;
           }
 
-          return make_token_with_modifiers (r, mods);
+          token t (make_token_with_modifiers (*r, mods));
+
+          return t;
         }
         // >
         //
       case '>':
         {
-          type r (type::out_str);
+          optional<type> r;
           xchar p (peek ());
 
-          if (p == '|' || p == '-' || p == '!' || p == '&' ||
-              p == '=' || p == '+' || p == '>')
+          if (p == '|' || p == '-' || p == '!' || p == '&' || // >| >- >! >&
+              p == '=' || p == '+' || p == '?' || p == '>')   // >= >+ >? >>
           {
-            get ();
+            xchar c (get ());
 
             switch (p)
             {
-            case '|': return make_token (type::out_pass);
-            case '-': return make_token (type::out_null);
-            case '!': return make_token (type::out_trace);
-            case '&': return make_token (type::out_merge);
-            case '=': return make_token (type::out_file_ovr);
-            case '+': return make_token (type::out_file_app);
-            case '>':
+            case '|': return make_token (type::out_pass);     // >|
+            case '-': return make_token (type::out_null);     // >-
+            case '!': return make_token (type::out_trace);    // >!
+            case '&': return make_token (type::out_merge);    // >&
+            case '=': return make_token (type::out_file_ovr); // >=
+            case '+': return make_token (type::out_file_app); // >+
+            case '?': return make_token (type::out_file_cmp); // >?
+            case '>':                                         // >>
               {
-                r = type::out_doc;
                 p = peek ();
 
-                if (p == '>')
+                if (p == '?' || p == '>')                     // >>? >>>
                 {
-                  get ();
-                  r = type::out_file_cmp;
+                  xchar c (get ());
+
+                  switch (p)
+                  {
+                  case '?':
+                    {
+                      r = type::out_doc;                       // >>?
+                      break;
+                    }
+                  case '>':
+                    {
+                      p = peek ();
+
+                      if (p == '?')
+                      {
+                        get ();
+                        r = type::out_str;                     // >>>?
+                      }
+
+                      if (!r && redirect_aliases.ggg)
+                        r = type::out_ggg;                     // >>>
+
+                      // We can still end up with the >> or > redirect alias,
+                      // if any of themis present.
+                      //
+                      if (!r)
+                        unget (c);
+                    }
+
+                    break;
+                  }
                 }
+
+                if (!r && redirect_aliases.gg)
+                  r = type::out_gg;                          // >>
+
+                // We can still end up with the > redirect alias, if it is
+                // present.
+                //
+                if (!r)
+                  unget (c);
+
                 break;
               }
             }
           }
 
+          if (!r && redirect_aliases.g)
+            r = type::out_g;                                 // >
+
+          if (!r)
+            return nullopt;
+
           // Handle modifiers.
           //
           const char* mods (nullptr);
           const char* stop (nullptr);
-          switch (r)
+
+          switch (redirect_aliases.resolve (*r))
           {
           case type::out_str:
           case type::out_doc: mods = ":/~"; stop = "~"; break;
           }
 
-          return make_token_with_modifiers (r, mods, stop);
+          return make_token_with_modifiers (*r, mods, stop);
         }
       }
 

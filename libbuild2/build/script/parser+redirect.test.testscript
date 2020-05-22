@@ -21,9 +21,9 @@
     : portable-path
     :
     $* <<EOI >>EOO
-    cmd </foo >/bar 2>/baz
+    cmd <<<=/foo >>>?/bar 2>>>?/baz
     EOI
-    cmd </foo >/bar 2>/baz
+    cmd <<<=/foo >>>?/bar 2>>>?/baz
     EOO
   }
 
@@ -33,9 +33,9 @@
     : portable-path
     :
     $* <<EOI >>EOO
-    cmd >/~%foo% 2>/~%bar%
+    cmd >>>?/~%foo% 2>>>?/~%bar%
     EOI
-    cmd >/~%foo% 2>/~%bar%
+    cmd >>>?/~%foo% 2>>>?/~%bar%
     EOO
   }
 }
@@ -49,7 +49,7 @@
     : portable-path
     :
     $* <<EOI >>EOO
-    cmd <</EOI_ >/EOO_ 2>/EOE_
+    cmd <<=/EOI_ >>?/EOO_ 2>>?/EOE_
     foo
     EOI_
     bar
@@ -57,7 +57,7 @@
     baz
     EOE_
     EOI
-    cmd <</EOI_ >/EOO_ 2>/EOE_
+    cmd <<=/EOI_ >>?/EOO_ 2>>?/EOE_
     foo
     EOI_
     bar
@@ -72,11 +72,35 @@
       : in-out
       :
       $* <<EOI >>EOO
-      cmd <<:/EOF >>:/EOF
+      cmd <<=:/EOF >>?:/EOF
       foo
       EOF
       EOI
-      cmd <<:/EOF >>:/EOF
+      cmd <<=:/EOF >>?:/EOF
+      foo
+      EOF
+      EOO
+
+      : in-alias-out
+      :
+      $* <<EOI >>EOO
+      cmd <<:/EOF >>?:/EOF
+      foo
+      EOF
+      EOI
+      cmd <<:/EOF >>?:/EOF
+      foo
+      EOF
+      EOO
+
+      : out-in-alias
+      :
+      $* <<EOI >>EOO
+      cmd >>?:/EOF <<:/EOF
+      foo
+      EOF
+      EOI
+      cmd <<:/EOF >>?:/EOF
       foo
       EOF
       EOO
@@ -87,21 +111,21 @@
         : modifiers
         :
         $* <<EOI 2>>EOE != 0
-        cmd <<:/EOF >>:EOF
+        cmd <<=:/EOF >>?:EOF
         foo
         EOF
         EOI
-        buildfile:11:16: error: different modifiers for shared here-document 'EOF'
+        buildfile:11:18: error: different modifiers for shared here-document 'EOF'
         EOE
 
         : quoting
         :
         $* <<EOI 2>>EOE != 0
-        cmd <<EOF >>"EOF"
+        cmd <<=EOF >>?"EOF"
         foo
         EOF
         EOI
-        buildfile:11:13: error: different quoting for shared here-document 'EOF'
+        buildfile:11:15: error: different quoting for shared here-document 'EOF'
         EOE
       }
     }
@@ -113,13 +137,13 @@
     : portable-path
     :
     $* <<EOI >>EOO
-    cmd >/~%EOF% 2>/~%EOE%
+    cmd >>?/~%EOF% 2>>?/~%EOE%
     foo
     EOF
     bar
     EOE
     EOI
-    cmd >/~%EOF% 2>/~%EOE%
+    cmd >>?/~%EOF% 2>>?/~%EOE%
     foo
     EOF
     bar
@@ -132,11 +156,11 @@
       : in-out
       :
       $* <<EOI >>EOO
-      cmd >>~/EOF/ 2>>~/EOF/
+      cmd >>?~/EOF/ 2>>?~/EOF/
       foo
       EOF
       EOI
-      cmd >>~/EOF/ 2>>~/EOF/
+      cmd >>?~/EOF/ 2>>?~/EOF/
       foo
       EOF
       EOO
@@ -147,21 +171,21 @@
         : introducers
         :
         $* <<EOI 2>>EOE != 0
-        cmd >>~/EOF/ 2>>~%EOF%
+        cmd >>?~/EOF/ 2>>?~%EOF%
         foo
         EOF
         EOI
-        buildfile:11:18: error: different introducers for shared here-document regex 'EOF'
+        buildfile:11:20: error: different introducers for shared here-document regex 'EOF'
         EOE
 
         : flags
         :
         $* <<EOI 2>>EOE != 0
-        cmd >>~/EOF/ 2>>~/EOF/i
+        cmd >>?~/EOF/ 2>>?~/EOF/i
         foo
         EOF
         EOI
-        buildfile:11:18: error: different global flags for shared here-document regex 'EOF'
+        buildfile:11:20: error: different global flags for shared here-document regex 'EOF'
         EOE
       }
     }
@@ -179,23 +203,23 @@
         : string
         :
         $* <<EOI >>EOO
-        cmd >>EOF >bar
+        cmd >>?EOF >>>?bar
         foo
         EOF
         EOI
-        cmd >bar
+        cmd >>>?bar
         EOO
 
         : regex
         :
         $* <<EOI >>EOO
-        cmd >>FOO >>~/BAR/
+        cmd >>?FOO >>?~/BAR/
         foo
         FOO
         bar
         BAR
         EOI
-        cmd >>~/BAR/
+        cmd >>?~/BAR/
         bar
         BAR
         EOO
@@ -215,11 +239,11 @@
         : different-modifiers
         :
         $* <<EOI 2>>EOE != 0
-        cmd >>EOF >>/EOF
+        cmd >>?EOF >>?/EOF
         foo
         EOF
         EOI
-        buildfile:11:14: error: different modifiers for shared here-document 'EOF'
+        buildfile:11:16: error: different modifiers for shared here-document 'EOF'
         EOE
       }
     }
@@ -260,9 +284,9 @@
   : cmp
   :
   $* <<EOI >>EOO
-  cmd 0<<<a 1>>>b 2>>>c
+  cmd 0<=a 1>?b 2>?c
   EOI
-  cmd <<<a >>>b 2>>>c
+  cmd <=a >?b 2>?c
   EOO
 
   : write
@@ -276,9 +300,9 @@
   : quote
   :
   $* <<EOI >>EOO
-  cmd 0<<<"a f" 1>="b f" 2>+"c f"
+  cmd 0<="a f" 1>="b f" 2>+"c f"
   EOI
-  cmd <<<'a f' >='b f' 2>+'c f'
+  cmd <='a f' >='b f' 2>+'c f'
   EOO
 
   : in
@@ -287,17 +311,37 @@
     : missed
     :
     $* <<EOI 2>>EOE !=0
-    cmd <<<
+    cmd <=
     EOI
-    buildfile:11:8: error: missing stdin file
+    buildfile:11:7: error: missing stdin file
     EOE
 
     : empty
     :
     $* <<EOI 2>>EOE !=0
-    cmd <<<""
+    cmd <=""
     EOI
-    buildfile:11:8: error: empty stdin redirect path
+    buildfile:11:7: error: empty stdin redirect path
+    EOE
+  }
+
+  : in-alias
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <
+    EOI
+    buildfile:11:6: error: missing stdin file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd <""
+    EOI
+    buildfile:11:6: error: empty stdin redirect path
     EOE
   }
 
@@ -321,6 +365,26 @@
     EOE
   }
 
+  : out-alias
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >
+    EOI
+    buildfile:11:6: error: missing stdout file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd >""
+    EOI
+    buildfile:11:6: error: empty stdout redirect path
+    EOE
+  }
+
   : err
   :
   {
@@ -338,6 +402,26 @@
     cmd 2>=""
     EOI
     buildfile:11:8: error: empty stderr redirect path
+    EOE
+  }
+
+  : err-alias
+  :
+  {
+    : missed
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>
+    EOI
+    buildfile:11:7: error: missing stderr file
+    EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE !=0
+    cmd 2>""
+    EOI
+    buildfile:11:7: error: empty stderr redirect path
     EOE
   }
 }

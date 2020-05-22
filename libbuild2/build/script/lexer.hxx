@@ -48,7 +48,8 @@ namespace build2
                const char* escapes = nullptr)
             : base_lexer (is, name, line,
                           nullptr /* escapes */,
-                          false   /* set_mode */)
+                          false   /* set_mode */,
+                          redirect_aliases)
         {
           mode (m, '\0', escapes);
         }
@@ -61,6 +62,9 @@ namespace build2
 
         virtual token
         next () override;
+
+      public:
+        static redirect_aliases_type redirect_aliases;
 
       private:
         token

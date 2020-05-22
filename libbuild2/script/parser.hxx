@@ -12,6 +12,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/script/token.hxx>
+#include <libbuild2/script/lexer.hxx>  // redirect_aliases
 #include <libbuild2/script/script.hxx>
 
 namespace build2
@@ -86,7 +87,7 @@ namespace build2
       using here_docs = vector<here_doc>;
 
       pair<command_expr, here_docs>
-      parse_command_expr (token&, token_type&);
+      parse_command_expr (token&, token_type&, const redirect_aliases&);
 
       command_exit
       parse_command_exit (token&, token_type&);

@@ -48,8 +48,8 @@ namespace build2
     auto lexer::
     peek (bool e) -> xchar
     {
-      if (unget_)
-        return ungetc_;
+      if (ungetn_ != 0)
+        return ungetb_[ungetn_ - 1];
 
       if (unpeek_)
         return unpeekc_;
@@ -98,11 +98,8 @@ namespace build2
     inline auto lexer::
     get (bool e) -> xchar
     {
-      if (unget_)
-      {
-        unget_ = false;
-        return ungetc_;
-      }
+      if (ungetn_ != 0)
+        return ungetb_[--ungetn_];
       else
       {
         xchar c (peek (e));
@@ -117,7 +114,7 @@ namespace build2
       // Increment the logical line similar to how base will increment the
       // physical (the column counts are the same).
       //
-      if (log_line_ && c == '\n' && !unget_)
+      if (log_line_ && c == '\n' && ungetn_ == 0)
         ++*log_line_;
 
       base::get (c);

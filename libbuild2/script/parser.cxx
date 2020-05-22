@@ -97,7 +97,8 @@ namespace build2
     }
 
     pair<command_expr, parser::here_docs> parser::
-    parse_command_expr (token& t, type& tt)
+    parse_command_expr (token& t, type& tt,
+                        const redirect_aliases& ra)
     {
       // enter: first token of the command line
       // leave: <newline> or unknown token
@@ -201,7 +202,7 @@ namespace build2
         {
           assert (r); // Must already be present.
 
-          if (r->modifiers.find (':') == string::npos)
+          if (r->modifiers ().find (':') == string::npos)
             w += '\n';
           r->str = move (w);
         };
@@ -218,7 +219,7 @@ namespace build2
           case 2: what = "stderr regex redirect"; break;
           }
 
-          check_regex_mod (r->modifiers, w, l, what);
+          check_regex_mod (r->modifiers (), w, l, what);
 
           regex_parts rp (parse_regex (w, l, what));
 
@@ -233,7 +234,7 @@ namespace build2
           // Note that the position is synthetic, but that's ok as we don't
           // expect any diagnostics to refer this line.
           //
-          if (r->modifiers.find (':') == string::npos)
+          if (r->modifiers ().find (':') == string::npos)
             re.lines.emplace_back (l.line, l.column, string (), false);
         };
 
@@ -382,9 +383,24 @@ namespace build2
 
       // Parse the redirect operator.
       //
-      auto parse_redirect =
-        [&c, &expr, &p, &mod, &hd, this] (token& t, const location& l)
+      // If the token type is the redirect alias then tt must contain the type
+      // the alias resolves to and the token type otherwise. Note that this
+      // argument defines the redirect semantics. Also note that the token is
+      // saved into the redirect to keep the modifiers and the original
+      // representation.
+      //
+      auto parse_redirect = [&c, &expr, &p, &mod, &hd, this]
+                            (token&& t, type tt, const location& l)
       {
+        // The redirect alias token type must be resolved.
+        //
+        assert (tt != type::in_l   &&
+                tt != type::in_ll  &&
+                tt != type::in_lll &&
+                tt != type::out_g  &&
+                tt != type::out_gg &&
+                tt != type::out_ggg);
+
         // Our semantics is the last redirect seen takes effect.
         //
         assert (p == pending::none && mod.empty ());
@@ -414,8 +430,6 @@ namespace build2
 
           c.arguments.pop_back ();
         }
-
-        type tt (t.type);
 
         // Validate/set default file descriptor.
         //
@@ -452,7 +466,9 @@ namespace build2
           }
         }
 
-        mod = move (t.value);
+        // Don't move as we will save the token into the redirect object.
+        //
+        mod = t.value;
 
         // Handle the none redirect (no data allowed) in the switch construct
         // if/when the respective syntax is invented.
@@ -516,7 +532,7 @@ namespace build2
         // Don't move as still may be used for pending here-document end
         // marker processing.
         //
-        r->modifiers = mod;
+        r->token = move (t);
 
         switch (rt)
         {
@@ -640,6 +656,8 @@ namespace build2
 
       for (bool done (false); !done; l = get_location (t))
       {
+        tt = ra.resolve (tt);
+
         switch (tt)
         {
         case type::newline:
@@ -878,7 +896,7 @@ namespace build2
             case type::out_file_ovr:
             case type::out_file_app:
               {
-                parse_redirect (t, l);
+                parse_redirect (move (t), tt, l);
                 break;
               }
 
@@ -1053,11 +1071,11 @@ namespace build2
                 // args = 'x=\"foo bar\"'
                 // cmd $args               # cmd x="foo bar"
                 //
-
                 istringstream is (s);
                 path_name in ("<string>");
                 lexer lex (is, in,
                            lexer_mode::command_expansion,
+                           ra,
                            "\'\"\\");
 
                 // Treat the first "sub-token" as always separated from what
@@ -1075,7 +1093,7 @@ namespace build2
 
                 for (; t.type != type::eos; t = lex.next ())
                 {
-                  type tt (t.type);
+                  type tt (ra.resolve (t.type));
                   l = build2::get_location (t, in);
 
                   // Re-lexing double-quotes will recognize $, ( inside as
@@ -1155,7 +1173,7 @@ namespace build2
                   case type::out_file_ovr:
                   case type::out_file_app:
                     {
-                      parse_redirect (t, l);
+                      parse_redirect (move (t), tt, l);
                       break;
                     }
 
@@ -1309,8 +1327,17 @@ namespace build2
           {
             command& c (p.first[i->expr].pipe[i->pipe]);
 
-            (i->fd == 0 ? c.in : i->fd == 1 ? c.out : c.err) =
-              redirect (redirect_type::here_doc_ref, *r);
+            optional<redirect>& ir (i->fd == 0 ? c.in  :
+                                    i->fd == 1 ? c.out :
+                                                 c.err);
+
+            // Must be present since it is referenced by here-doc.
+            //
+            assert (ir);
+
+            // Note: preserve the original representation.
+            //
+            ir = redirect (redirect_type::here_doc_ref, *r, move (ir->token));
           }
         }
 
@@ -1660,6 +1687,8 @@ namespace build2
       build2::parser::lexer_ = l;
     }
 
+    static redirect_aliases no_redirect_aliases;
+
     void parser::
     apply_value_attributes (const variable* var,
                             value& lhs,
@@ -1671,7 +1700,12 @@ namespace build2
       path_ = &name;
 
       istringstream is (attributes);
-      lexer l (is, name, lexer_mode::attributes);
+
+      // Note that the redirect alias information is not used in the
+      // attributes lexer mode.
+      //
+      lexer l (is, name, lexer_mode::attributes, no_redirect_aliases);
+
       set_lexer (&l);
 
       token t;

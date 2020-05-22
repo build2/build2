@@ -4,15 +4,31 @@
 : empty
 :
 $* <<EOI >>EOO
-cmd <""
+cmd <<<=""
 EOI
-cmd <''
+cmd <<<=''
 EOO
 
 : empty-nn
 :
 $* <<EOI >>EOO
-cmd <:""
+cmd <<<=:""
 EOI
-cmd <:''
+cmd <<<=:''
+EOO
+
+: empty-alias
+:
+$* <<EOI >>EOO
+cmd <<<""
+EOI
+cmd <<<''
+EOO
+
+: empty-nn-alias
+:
+$* <<EOI >>EOO
+cmd <<<:""
+EOI
+cmd <<<:''
 EOO

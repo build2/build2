@@ -47,24 +47,36 @@ test.arguments = command-line
 
   : str
   :
-  $* <"cmd <a 1>b" >>EOO
+  $* <"cmd <<<=a 1>>>?b" >>EOO
   'cmd'
-  <
+  <<<=
   'a'
   '1'
-  >
+  >>>?
   'b'
   <newline>
   EOO
 
   : str-nn
   :
-  $* <"cmd <:a 1>:b" >>EOO
+  $* <"cmd <<<=:a 1>>>?:b" >>EOO
   'cmd'
-  <:
+  <<<=:
   'a'
   '1'
-  >:
+  >>>?:
+  'b'
+  <newline>
+  EOO
+
+  : str-nn-alias
+  :
+  $* <"cmd <<<:a 1>>>?:b" >>EOO
+  'cmd'
+  <<<:
+  'a'
+  '1'
+  >>>?:
   'b'
   <newline>
   EOO
@@ -83,26 +95,26 @@ test.arguments = command-line
 
   : doc-nn
   :
-  $* <"cmd <<:EOI 1>>:EOO" >>EOO
+  $* <"cmd <<:EOI 1>>?:EOO" >>EOO
   'cmd'
   <<:
   'EOI'
   '1'
-  >>:
+  >>?:
   'EOO'
   <newline>
   EOO
 
   : file-cmp
   :
-  $* <"cmd <<<in >>>out 2>>>err" >>EOO
+  $* <"cmd <=in >?out 2>?err" >>EOO
   'cmd'
-  <<<
+  <=
   'in'
-  >>>
+  >?
   'out'
   '2'
-  >>>
+  >?
   'err'
   <newline>
   EOO

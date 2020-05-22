@@ -428,7 +428,7 @@ namespace build2
             pair<command_expr, here_docs> p;
 
             if (lt != line_type::cmd_else && lt != line_type::cmd_end)
-              p = parse_command_expr (t, tt);
+              p = parse_command_expr (t, tt, lexer::redirect_aliases);
 
             // Colon and semicolon are only valid in test command lines and
             // after 'end' in if-else. Note that we still recognize them
@@ -1248,7 +1248,8 @@ namespace build2
 
         // Note: this one is only used during execution.
 
-        pair<command_expr, here_docs> p (parse_command_expr (t, tt));
+        pair<command_expr, here_docs> p (
+          parse_command_expr (t, tt, lexer::redirect_aliases));
 
         switch (tt)
         {
