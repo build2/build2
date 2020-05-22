@@ -124,8 +124,8 @@ namespace build2
     //
     function_impl* const impl;
 
-    // Auxiliary data storage. Note that it is assumed to be POD (no
-    // destructors, bitwise copy, etc).
+    // Auxiliary data storage. Note that it is expected to be trivially
+    // copyable and destructible.
     //
     std::aligned_storage<sizeof (void*) * 3>::type data;
     static const size_t data_size = sizeof (decltype (data));
@@ -144,14 +144,21 @@ namespace build2
                        D d)
         : function_overload (an, mi, ma, move (ts), im)
     {
-      // std::is_pod appears to be broken in VC16 and also in GCC up to
-      // 5 (pointers to members).
+      static_assert (sizeof (D) <= data_size, "insufficient space for data");
+
+      // These tests appear to be broken in VC16 and also in GCC up to 5 for
+      // pointers to members.
       //
-#if !((defined(_MSC_VER) && _MSC_VER < 2000) || \
+#if !((defined(_MSC_VER) && _MSC_VER < 2000) ||                       \
       (defined(__GNUC__) && !defined(__clang__) && __GNUC__ <= 5))
-      static_assert (std::is_pod<D>::value, "type is not POD");
+
+      static_assert (std::is_trivially_copyable<D>::value,
+                     "data is not trivially copyable");
+
+      static_assert (std::is_trivially_destructible<D>::value,
+                     "data is not trivially destructible");
 #endif
-      static_assert (sizeof (D) <= data_size, "insufficient space");
+
       new (&data) D (move (d));
     }
   };

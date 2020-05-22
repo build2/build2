@@ -2,7 +2,7 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <regex>
-#include <type_traits> // is_pod, is_array
+#include <type_traits> // is_*
 
 #include <libbuild2/test/script/regex.hxx>
 
@@ -23,7 +23,9 @@ main ()
   // Test line_char.
   //
   {
-    static_assert (is_pod<lc>::value && !is_array<lc>::value,
+    static_assert (is_trivial<lc>::value         &&
+                   is_standard_layout<lc>::value &&
+                   !is_array<lc>::value,
                    "line_char must be char-like");
 
     // Zero-initialed line_char should be the null-char as required by
