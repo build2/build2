@@ -382,6 +382,6 @@ namespace build2
   }
 }
 
-#include <libbuild2/cc/common.hxx>
+#include <libbuild2/cc/common.txx>
 
 #endif // LIBBUILD2_CC_COMMON_HXX
