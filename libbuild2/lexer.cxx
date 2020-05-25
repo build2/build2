@@ -39,7 +39,7 @@ namespace build2
   void lexer::
   mode (lexer_mode m, char ps, optional<const char*> esc, uintptr_t data)
   {
-    bool a (false); // attributes
+    bool lsb (false); // Enable `[` recognition.
 
     const char* s1 (nullptr);
     const char* s2 (nullptr);
@@ -62,9 +62,9 @@ namespace build2
         // Note: `%` is only recognized at the beginning of the line so it
         // should not be included here.
         //
-        a  = true;
         s1 = ":<>=+? $(){}#\t\n";
         s2 = "    ==         ";
+        lsb  = true;
         break;
       }
     case lexer_mode::value:
@@ -101,6 +101,12 @@ namespace build2
       {
         s1 = " $(),]#\t\n";
         s2 = "         ";
+        break;
+      }
+    case lexer_mode::subscript:
+      {
+        s1 = " $()]#\t\n";
+        s2 = "        ";
         break;
       }
     case lexer_mode::eval:
@@ -147,7 +153,8 @@ namespace build2
     default: assert (false); // Unhandled custom mode.
     }
 
-    state_.push (state {m, data, nullopt, a, ps, s, n, q, *esc, s1, s2});
+    state_.push (
+      state {m, data, nullopt, lsb, false, ps, s, n, q, *esc, s1, s2});
   }
 
   token lexer::
@@ -168,6 +175,7 @@ namespace build2
     case lexer_mode::case_patterns:
     case lexer_mode::attributes:
     case lexer_mode::attribute_value:
+    case lexer_mode::subscript:
     case lexer_mode::variable:
     case lexer_mode::buildspec:     break;
     case lexer_mode::eval:          return next_eval ();
@@ -190,14 +198,14 @@ namespace build2
                     ln, cn, token_printer);
     };
 
-    // Handle attributes (do it first to make sure the flag is cleared
-    // regardless of what we return).
+    // Handle `[` (do it first to make sure the flag is cleared regardless of
+    // what we return).
     //
-    if (st.attributes)
+    if (st.lsbrace)
     {
-      st.attributes = false;
+      st.lsbrace = false;
 
-      if (c == '[')
+      if (c == '[' && (!st.lsbrace_unsep || !sep))
         return make_token (type::lsbrace);
     }
 
@@ -226,11 +234,15 @@ namespace build2
             m == lexer_mode::case_patterns)
           state_.pop ();
 
-        // Re-enable attributes in the normal mode (should never be needed in
-        // cmdvar).
+        // Re-enable `[` recognition (attributes) in the normal mode (should
+        // never be needed in cmdvar).
         //
-        if (state_.top ().mode == lexer_mode::normal)
-          state_.top ().attributes = true;
+        state& st (state_.top ());
+        if (st.mode == lexer_mode::normal)
+        {
+          st.lsbrace = true;
+          st.lsbrace_unsep = false;
+        }
 
         sep = true; // Treat newline as always separated.
         return make_token (type::newline);
@@ -274,9 +286,12 @@ namespace build2
       }
     }
 
-    // The following characters are special in all modes except attributes.
+    // The following characters are special in all modes except attributes
+    // and subscript.
     //
-    if (m != lexer_mode::attributes && m != lexer_mode::attribute_value)
+    if (m != lexer_mode::attributes      &&
+        m != lexer_mode::attribute_value &&
+        m != lexer_mode::subscript)
     {
       switch (c)
       {
@@ -295,13 +310,15 @@ namespace build2
       }
     }
 
-    if (m == lexer_mode::attributes || m == lexer_mode::attribute_value)
+    if (m == lexer_mode::attributes      ||
+        m == lexer_mode::attribute_value ||
+        m == lexer_mode::subscript)
     {
       switch (c)
       {
       case ']':
         {
-          state_.pop (); // Expire the attributes mode after closing `]`.
+          state_.pop (); // Expire the mode after closing `]`.
           return make_token (type::rsbrace);
         }
       }
@@ -425,14 +442,14 @@ namespace build2
                     ln, cn, token_printer);
     };
 
-    // Handle attributes (do it first to make sure the flag is cleared
-    // regardless of what we return).
+    // Handle `[` (do it first to make sure the flag is cleared regardless of
+    // what we return).
     //
-    if (st.attributes)
+    if (st.lsbrace)
     {
-      st.attributes = false;
+      st.lsbrace = false;
 
-      if (c == '[')
+      if (c == '[' && (!st.lsbrace_unsep || !sep))
         return make_token (type::lsbrace);
     }
 

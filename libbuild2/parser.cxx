@@ -4204,8 +4204,9 @@ namespace build2
                               tt == type::dollar ||
                               tt == type::lparen ||
                               tt == type::lcbrace))
-      fail (t) << "whitespace required after attributes" <<
-        info << "use the '\\[' escape sequence if this is a wildcard pattern";
+      fail (t)   << "whitespace required after attributes" <<
+        info (l) << "use the '\\[' escape sequence if this is a wildcard "
+                 << "pattern";
 
     return make_pair (has, l);
   }
@@ -5520,7 +5521,7 @@ namespace build2
         continue;
       }
 
-      // Variable expansion, function call, or eval context.
+      // Expanions: variable expansion, function call, or eval context.
       //
       if (tt == type::dollar || tt == type::lparen)
       {
@@ -5532,6 +5533,11 @@ namespace build2
         const value* result (&result_data);
         const char* what; // Variable, function, or evaluation context.
         bool quoted (t.qtype != quote_type::unquoted);
+
+        // We only recognize value subscripts inside eval contexts due to the
+        // ambiguity with wildcard patterns (consider: $x[123].txt).
+        //
+        bool sub (mode () == lexer_mode::eval);
 
         if (tt == type::dollar)
         {
@@ -5625,9 +5631,10 @@ namespace build2
           if (!pre_parse_ && name.empty ())
             fail (loc) << "empty variable/function name";
 
-          // Figure out whether this is a variable expansion or a function
-          // call.
+          // Figure out whether this is a variable expansion with potential
+          // subscript or a function call.
           //
+          if (sub) enable_subscript ();
           tt = peek ();
 
           // Note that we require function call opening paren to be
@@ -5645,15 +5652,17 @@ namespace build2
             // context in which to call the function? Hm, interesting...
             //
             values args (parse_eval (t, tt, pmode));
-            tt = peek ();
 
-            if (pre_parse_)
-              continue; // As if empty result.
+            if (sub) enable_subscript ();
+            tt = peek ();
 
             // Note that we "move" args to call().
             //
-            result_data = ctx.functions.call (scope_, name, args, loc);
-            what = "function call";
+            if (!pre_parse_)
+            {
+              result_data = ctx.functions.call (scope_, name, args, loc);
+              what = "function call";
+            }
           }
           else
           {
@@ -5661,42 +5670,124 @@ namespace build2
             //
             lookup l (lookup_variable (move (qual), move (name), loc));
 
-            if (pre_parse_)
-              continue; // As if empty value.
+            if (!pre_parse_)
+            {
+              if (l.defined ())
+                result = l.value; // Otherwise leave as NULL result_data.
 
-            if (l.defined ())
-              result = l.value; // Otherwise leave as NULL result_data.
-
-            what = "variable expansion";
+              what = "variable expansion";
+            }
           }
         }
         else
         {
-          // Context evaluation.
+          // Evaluation context.
           //
           loc = get_location (t);
           mode (lexer_mode::eval, '@');
           next_with_attributes (t, tt);
 
           values vs (parse_eval (t, tt, pmode));
+
+          if (sub) enable_subscript ();
           tt = peek ();
 
-          if (pre_parse_)
-            continue; // As if empty result.
-
-          switch (vs.size ())
+          if (!pre_parse_)
           {
-          case 0:  result_data = value (names ()); break;
-          case 1:  result_data = move (vs[0]); break;
-          default: fail (loc) << "expected single value";
-          }
+            switch (vs.size ())
+            {
+            case 0:  result_data = value (names ()); break;
+            case 1:  result_data = move (vs[0]); break;
+            default: fail (loc) << "expected single value";
+            }
 
-          what = "context evaluation";
+            what = "context evaluation";
+          }
         }
 
-        // We never end up here during pre-parsing.
+        // Handle value subscript.
         //
-        assert (!pre_parse_);
+        if (tt == type::lsbrace)
+        {
+          location bl (get_location (t));
+          next (t, tt); // `[`
+          mode (lexer_mode::subscript, '\0' /* pair */);
+          next (t, tt);
+
+          location l (get_location (t));
+          value v (
+            tt != type::rsbrace
+            ? parse_value (t, tt, pattern_mode::ignore, "value subscript")
+            : value (names ()));
+
+          if (tt != type::rsbrace)
+          {
+            // Note: wildcard pattern should have `]` as well so no escaping
+            // suggestion.
+            //
+            fail (t) << "expected ']' instead of " << t;
+          }
+
+          if (!pre_parse_)
+          {
+            uint64_t j;
+            try
+            {
+              j = convert<uint64_t> (move (v));
+            }
+            catch (const invalid_argument& e)
+            {
+              fail (l)    << "invalid value subscript: " << e <<
+                info (bl) << "use the '\\[' escape sequence if this is a "
+                          << "wildcard pattern";
+            }
+
+            // Similar to expanding an undefined variable, we return NULL if
+            // the index is out of bounds.
+            //
+            // Note that result may or may not point to result_data.
+            //
+            if (result->type == nullptr)
+            {
+              const names& ns (result->as<names> ());
+
+              // Pair-aware subscript.
+              //
+              names r;
+              for (auto i (ns.begin ()); i != ns.end (); ++i, --j)
+              {
+                if (j == 0)
+                {
+                  r.push_back (*i);
+                  if (i->pair)
+                    r.push_back (*++i);
+                  break;
+                }
+
+                if (i->pair)
+                  ++i;
+              }
+
+              result_data = r.empty () ? value () : value (move (r));
+            }
+            else
+            {
+              // @@ TODO: we would want to return a value with element type.
+              //
+              //result_data = ...
+              fail (l)    << "typed value subscript not yet supported" <<
+                info (bl) << "use the '\\[' escape sequence if this is a "
+                          << "wildcard pattern";
+            }
+
+            result = &result_data;
+          }
+
+          tt = peek ();
+        }
+
+        if (pre_parse_)
+          continue; // As if empty result.
 
         // Should we accumulate? If the buffer is not empty, then we continue
         // accumulating (the case where we are separated should have been

@@ -27,8 +27,6 @@ namespace build2
             optional<const char*> esc,
             uintptr_t data)
       {
-        bool a (false); // attributes
-
         const char* s1 (nullptr);
         const char* s2 (nullptr);
 
@@ -88,7 +86,8 @@ namespace build2
         }
 
         assert (ps == '\0');
-        state_.push (state {m, data, nullopt, a, ps, s, n, q, *esc, s1, s2});
+        state_.push (
+          state {m, data, nullopt, false, false, ps, s, n, q, *esc, s1, s2});
       }
 
       token lexer::
@@ -129,16 +128,16 @@ namespace build2
           return token (t, sep, ln, cn, token_printer);
         };
 
-        // Handle attributes (do it first to make sure the flag is cleared
-        // regardless of what we return).
+        // Handle `[` (do it first to make sure the flag is cleared regardless
+        // of what we return).
         //
-        if (st.attributes)
+        if (st.lsbrace)
         {
           assert (m == lexer_mode::variable_line);
 
-          state_.top ().attributes = false;
+          state_.top ().lsbrace = false; // Note: st is a copy.
 
-          if (c == '[')
+          if (c == '[' && (!st.lsbrace_unsep || !sep))
             return make_token (type::lsbrace);
         }
 

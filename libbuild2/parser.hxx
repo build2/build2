@@ -619,7 +619,14 @@ namespace build2
     enable_attributes ()
     {
       if (replay_ != replay::play)
-        lexer_->enable_attributes ();
+        lexer_->enable_lsbrace ();
+    }
+
+    void
+    enable_subscript ()
+    {
+      if (replay_ != replay::play)
+        lexer_->enable_lsbrace (true /* unseparated */);
     }
 
     void

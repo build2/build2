@@ -1,0 +1,97 @@
+# file      : tests/expansion/subscript.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test subscript expansion.
+
+.include ../common.testscript
+
+: basics
+:
+$* <<EOI >>EOO
+x = zero one two three
+y = zero@one two@three
+i = 2
+
+print ($x[1])
+print ($x[4])
+print (($x)[1])
+print (($x)[4])
+print ($identity($x)[1])
+print ($identity($x)[4])
+
+print
+
+print ($y[1])
+print ($y[4])
+print (($y)[1])
+print (($y)[4])
+print ($identity($y)[1])
+print ($identity($y)[4])
+
+print
+
+print ($x[$i])
+
+EOI
+one
+[null]
+one
+[null]
+one
+[null]
+
+two@three
+[null]
+two@three
+[null]
+two@three
+[null]
+
+two
+EOO
+
+: unseparated
+:
+$* <<EOI >>EOO
+x = zero one
+print ($x [1])
+EOI
+zero one
+EOO
+
+: escape
+:
+$* <<EOI >>EOO
+x = zero
+print ($x\[abc])
+EOI
+EOO
+
+: preparse
+:
+$* <<EOI >>EOO
+x = zero one two three
+print (true ? $x[1] : $x[])
+EOI
+one
+EOO
+
+: missing-rsbrace
+:
+$* <'print ($x[1)' 2>>EOE != 0
+<stdin>:1:12: error: expected ']' instead of ')'
+EOE
+
+: invalid-subscript
+:
+$* <'print ($x[1a])' 2>>EOE != 0
+<stdin>:1:11: error: invalid value subscript: invalid uint64 value: '1a'
+  <stdin>:1:9: info: use the '\[' escape sequence if this is a wildcard pattern
+EOE
+
+: empty-subscript
+:
+$* <'print ($x[])' 2>>EOE != 0
+<stdin>:1:11: error: invalid value subscript: invalid uint64 value: empty
+  <stdin>:1:9: info: use the '\[' escape sequence if this is a wildcard pattern
+EOE
