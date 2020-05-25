@@ -363,7 +363,7 @@ namespace build2
       // using the rm or mv builtins will fail the script execution. Must be
       // an absolute path.
       //
-      const dir_path& work_dir;
+      const dir_path& work_dir; // @@ dir_path_name
       const string&   work_dir_name; // Directory name for diagnostics.
 
       // If non-empty, then any attempt to remove or move a filesystem entry
@@ -371,7 +371,7 @@ namespace build2
       // builtins will fail the script execution, unless the --force option is
       // specified for the builtin. Must be an absolute path, unless is empty.
       //
-      const dir_path& sandbox_dir;
+      const dir_path& sandbox_dir; // @@ dir_path_name
       const string&   sandbox_dir_name; // Directory name for diagnostics.
 
       // Used by the script running machinery to create special files in it.

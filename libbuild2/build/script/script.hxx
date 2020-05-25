@@ -81,13 +81,20 @@ namespace build2
         //
         variable_map vars;
 
-        // Temporary directory for the script run (see build2::script::
-        // environment::temp_dir for details).
+        // Temporary directory for the script run.
         //
         // Currently this directory is removed regardless of the script
-        // execution success or failure. Later, to ease the troubleshooting,
-        // we may invent the build2 option suppressing the directory removal
-        // on failure.
+        // execution success or failure. Later, to help with troubleshooting,
+        // we may invent an option that suppresses the removal of temporary
+        // files in general.
+        //
+        // This directory is available to the user via the $~ special
+        // variable. Note, however, that the following filesystem entry
+        // prefixes are reserved:
+        //
+        // stdin*
+        // stdout*
+        // stderr*
         //
         auto_rmdir temp_dir;
 

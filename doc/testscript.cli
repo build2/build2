@@ -943,7 +943,7 @@ Alternatively, we can use an absolute path:
 \
 
 Inside the scope working directory filesystem names that start with \c{stdin},
-\c{stdout}, \c{stderr}, as well as, \c{cmd-} are reserved.
+\c{stdout}, and \c{stderr}.
 
 To execute a test scope its commands (including variable assignments) are
 executed sequentially and in the order specified. If any of the commands
