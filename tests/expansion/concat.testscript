@@ -1,4 +1,4 @@
-# file      : tests/expansion/type.testscript
+# file      : tests/expansion/concat.testscript
 # license   : MIT; see accompanying LICENSE file
 
 # Test concatenated expansion.

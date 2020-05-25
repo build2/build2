@@ -31,7 +31,9 @@ namespace build2
   // values). The attributes/attribute_value modes are like values where each
   // value is potentially a variable assignment; they don't treat `{` and `}`
   // as special (so we cannot have name groups in attributes) as well as
-  // recognizes `=` and `]`. The eval mode is used in the evaluation context.
+  // recognizes `=` and `]`. The subscript mode is like value but doesn't
+  // treat `{` and `}` as special and recognizes `]`. The eval mode is used in
+  // the evaluation context.
   //
   // A number of modes are "derived" from the value/values mode by recognizing
   // a few extra characters:
@@ -55,10 +57,10 @@ namespace build2
   // mode data.
   //
   // The alternative modes must be set manually. The value/values and derived
-  // modes automatically expires after the end of the line. The attribute mode
-  // expires after the closing `]`. The variable mode expires after the word
-  // token. The eval mode expires after the closing `)`. And the foreign mode
-  // expires after the closing braces.
+  // modes automatically expires after the end of the line. The attribute and
+  // subscript modes expires after the closing `]`. The variable mode expires
+  // after the word token. The eval mode expires after the closing `)`. And
+  // the foreign mode expires after the closing braces.
   //
   // Note that normally it is only safe to switch mode when the current token
   // is not quoted (or, more generally, when you are not in the double-quoted
@@ -66,13 +68,13 @@ namespace build2
   // variable name mode). Failed that your mode (which now will be the top of
   // the mode stack) will prevent proper recognition of the closing quote.
   //
-  // Finally, attributes recognition (the `[` token) cuts across most of the
-  // modes and is handled with a flag. In the normal mode it is automatically
-  // set at the beginning and after each newline. In all other modes it must
-  // be explicitly set at points where attributes are recognized. In all the
-  // cases it is automatically reset after lexing the next token (whether `[`
-  // or not).
-  //
+  // The `[` token is used for attributes (where it cuts across most of the
+  // modes) as well as for value subscript (where it is only recognized after
+  // expansions). It is handled with a flag. In the normal mode it is
+  // automatically set at the beginning and after each newline. In all other
+  // modes it must be explicitly set at points where attribute/subscript is
+  // recognized. In all the cases it is automatically reset after lexing the
+  // next token (whether `[` or not).
 
   // Extendable/inheritable enum-like class.
   //
@@ -91,6 +93,7 @@ namespace build2
       switch_expressions,
       attributes,
       attribute_value,
+      subscript,
       eval,
       single_quoted,
       double_quoted,
@@ -134,10 +137,14 @@ namespace build2
           optional<const char*> escapes = nullopt,
           uintptr_t data = 0);
 
-    // Enable attributes recognition for the next token.
+    // Enable `[` recognition for the next token.
     //
     void
-    enable_attributes () {state_.top ().attributes = true;}
+    enable_lsbrace (bool unsep = false)
+    {
+      state_.top ().lsbrace = true;
+      state_.top ().lsbrace_unsep = unsep;
+    }
 
     // Expire the current mode early.
     //
@@ -177,7 +184,8 @@ namespace build2
       uintptr_t       data;
       optional<token> hold;
 
-      bool       attributes;
+      bool lsbrace;       // Recognize `[`.
+      bool lsbrace_unsep; // Recognize it only if unseparated.
 
       char sep_pair;
       bool sep_space;    // Are whitespaces separators (see skip_spaces())?

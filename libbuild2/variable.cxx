@@ -491,7 +491,13 @@ namespace build2
       {
         // May throw invalid_argument or out_of_range.
         //
-        return stoull (n.value);
+        size_t i;
+        uint64_t r (stoull (n.value, &i));
+
+        if (i == n.value.size ())
+          return r;
+
+        // Fall through.
       }
       catch (const std::exception&)
       {
