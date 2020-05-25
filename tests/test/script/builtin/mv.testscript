@@ -21,8 +21,8 @@
       : Moving path outside the testscript working directory fails.
       :
       $c <<EOI && $b
-        mv ../../a/b/c ./c 2>>/~%EOE% == 1
-        %mv: '.+/fail/a/b/c' is out of working directory '.+/fail/test'%
+        mv ../../a/b/c ./c 2>>/EOE == 1
+        mv: 'a/b/c' is out of working directory 'test/'
         EOE
         EOI
 
@@ -84,14 +84,14 @@
       : src
       :
       $c <<EOI && $b
-        mv $~ b 2>"mv: '$~' contains test working directory '$~'" != 0
+        mv $~ b 2>/"mv: 'test/1/' contains test working directory 'test/1/'" != 0
         EOI
 
       : dst
       :
       $c <<EOI && $b
         mkdir a;
-        mv a "$~" 2>"mv: '$~' contains test working directory '$~'" != 0
+        mv a "$~" 2>/"mv: 'test/1' contains test working directory 'test/1/'" != 0
         EOI
     }
 

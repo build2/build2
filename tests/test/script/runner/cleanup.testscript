@@ -56,7 +56,7 @@ b += --no-column
   : Test explicit cleanup of a file out of the testscript working directory.
   :
   $c <'$* &../../a' && $b 2>>/EOE != 0
-  testscript:1: error: file cleanup ../../a is out of working directory test/
+  testscript:1: error: file cleanup ../../a is out of working directory 'test/'
     info: test id: 1
   EOE
 
@@ -116,7 +116,7 @@ b += --no-column
   : Test cleanup of a directory out of the testscript working directory.
   :
   $c <'$* &../../a/' && $b 2>>/EOE != 0
-  testscript:1: error: directory cleanup ../../a/ is out of working directory test/
+  testscript:1: error: directory cleanup ../../a/ is out of working directory 'test/'
     info: test id: 1
   EOE
 
@@ -150,7 +150,7 @@ b += --no-column
     : dir
     :
     $c <'$* -d a/b' && $b 2>>/EOE != 0
-    testscript:1: error: working directory test/1/ is not empty
+    testscript:1: error: test working directory 'test/1/' is not empty
     a/
       info: test id: 1
     EOE
@@ -220,7 +220,7 @@ b += --no-column
       : Test cleanup of a wildcard out of the testscript working directory.
       :
       $c <'$* &../../a/***' && $b 2>>/EOE != 0
-      testscript:1: error: wildcard cleanup ../../a/*** is out of working directory test/
+      testscript:1: error: wildcard cleanup ../../a/*** is out of working directory 'test/'
         info: test id: 1
       EOE
 
@@ -346,7 +346,7 @@ EOI
 : Test an implicit cleanup being overwritten with the explicit one,
 :
 $c <'$* -o foo >=a &!a' && $b 2>>/EOE != 0
-testscript:1: error: working directory test/1/ is not empty
+testscript:1: error: test working directory 'test/1/' is not empty
 a
   info: test id: 1
 EOE
@@ -359,7 +359,7 @@ $c <<EOO && $b 2>>/EOE != 0
 $* &!a;
 $* -o foo >=a
 EOO
-testscript:2: error: working directory test/1/ is not empty
+testscript:2: error: test working directory 'test/1/' is not empty
 a
   info: test id: 1
 EOE

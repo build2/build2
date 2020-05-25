@@ -56,6 +56,19 @@ namespace build2
     //
     void
     print_dir (diag_record&, const dir_path&, const location&);
+
+    // Return the quoted path representation with the preserved trailing
+    // directory separator. The path is relative if the verbosity level is
+    // less than 3.
+    //
+    string
+    diag_path (const path&);
+
+    // Same as above, but prepends the path with a name, if present. The path
+    // must be not NULL.
+    //
+    string
+    diag_path (const dir_name_view&);
   }
 }
 

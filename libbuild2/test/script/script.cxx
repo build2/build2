@@ -28,10 +28,10 @@ namespace build2
         vars.assign (root.wd_var) = dir_path ();
       }
 
-      const dir_path& scope_base::
+      const dir_path* scope_base::
       wd_path () const
       {
-        return cast<dir_path> (vars [root.wd_var]);
+        return &cast<dir_path> (vars[root.wd_var]);
       }
 
       const target_triplet& scope_base::
@@ -49,8 +49,8 @@ namespace build2
 
       // scope
       //
-      static const string wd_name ("test working directory");
-      static const string sd_name ("working directory");
+      static const optional<string> wd_name ("test working directory");
+      static const optional<string> sd_name ("working directory");
 
       scope::
       scope (const string& id, scope* p, script& r)
@@ -62,9 +62,11 @@ namespace build2
             //
             environment (root.test_target.ctx,
                          test_tt (),
-                         wd_path (), wd_name,
-                         p != nullptr ? root.work_dir : wd_path (), sd_name,
-                         wd_path (), true /* temp_dir_keep */,
+                         dir_name_view (wd_path (), &wd_name),
+                         dir_name_view (
+                           p != nullptr ? root.work_dir.path : wd_path (),
+                           &sd_name),
+                         *wd_path (), true /* temp_dir_keep */,
                          redirect (redirect_type::none),
                          redirect (redirect_type::none),
                          redirect (redirect_type::none)),
@@ -89,7 +91,8 @@ namespace build2
         // (handled in an ad hoc way).
         //
         if (p != nullptr)
-          const_cast<dir_path&> (work_dir) = dir_path (p->work_dir) /= id;
+          const_cast<dir_path&> (*work_dir.path) =
+            dir_path (*p->work_dir.path) /= id;
       }
 
       void scope::
@@ -171,7 +174,8 @@ namespace build2
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
         // for root is just the id which is empty if st is 'testscript').
         //
-        const_cast<dir_path&> (work_dir) = dir_path (rwd) /= id_path.string ();
+        const_cast<dir_path&> (*work_dir.path) =
+          dir_path (rwd) /= id_path.string ();
 
         // Set the test variable at the script level. We do it even if it's
         // set in the buildfile since they use different types.

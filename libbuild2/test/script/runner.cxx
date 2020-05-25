@@ -13,6 +13,8 @@ namespace build2
   {
     namespace script
     {
+      using namespace build2::script;
+
       bool default_runner::
       test (scope& s) const
       {
@@ -49,20 +51,20 @@ namespace build2
           sp.parent == nullptr
           ? mkdir_buildignore (
             ctx,
-            sp.work_dir,
+            *sp.work_dir.path,
             sp.root.target_scope.root_scope ()->root_extra->buildignore_file,
             2)
-          : mkdir (sp.work_dir, 2));
+          : mkdir (*sp.work_dir.path, 2));
 
         if (r == mkdir_status::already_exists)
-          fail << "working directory " << sp.work_dir << " already exists" <<
+          fail << diag_path (sp.work_dir) << " already exists" <<
             info << "are tests stomping on each other's feet?";
 
         // We don't change the current directory here but indicate that the
         // scope test commands will be executed in that directory.
         //
         if (verb >= 2)
-          text << "cd " << sp.work_dir;
+          text << "cd " << *sp.work_dir.path;
       }
 
       void default_runner::
@@ -88,22 +90,23 @@ namespace build2
           rmdir_status r (
             sp.parent == nullptr
             ?  rmdir_buildignore (ctx,
-                                  sp.work_dir,
+                                  *sp.work_dir.path,
                                   sp.root.target_scope.root_scope ()->
                                     root_extra->buildignore_file,
                                   2)
-            : rmdir (ctx, sp.work_dir, 2));
+            : rmdir (ctx, *sp.work_dir.path, 2));
 
           if (r != rmdir_status::success)
           {
             diag_record dr (fail (ll));
-            dr << "working directory " << sp.work_dir
+
+            dr << diag_path (sp.work_dir)
                << (r == rmdir_status::not_exist
                    ? " does not exist"
                    : " is not empty");
 
             if (r == rmdir_status::not_empty)
-              build2::script::print_dir (dr, sp.work_dir, ll);
+              print_dir (dr, *sp.work_dir.path, ll);
           }
         }
 
@@ -112,8 +115,8 @@ namespace build2
         //
         if (verb >= 2)
           text << "cd " << (sp.parent != nullptr
-                            ? sp.parent->work_dir
-                            : sp.work_dir.directory ());
+                            ? *sp.parent->work_dir.path
+                            : sp.work_dir.path->directory ());
       }
 
       void default_runner::

@@ -67,7 +67,7 @@ namespace build2
       protected:
         scope_base (script&);
 
-        const dir_path&
+        const dir_path*
         wd_path () const;
 
         const target_triplet&

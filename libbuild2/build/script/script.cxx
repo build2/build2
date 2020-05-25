@@ -17,14 +17,14 @@ namespace build2
     {
       // environment
       //
-      static const string wd_name ("current directory");
+      static const optional<string> wd_name ("current directory");
 
       environment::
       environment (action a, const target_type& t)
           : build2::script::environment (
               t.ctx,
               cast<target_triplet> (t.ctx.global_scope["build.host"]),
-              work, wd_name,
+              dir_name_view (&work, &wd_name),
               temp_dir.path, false /* temp_dir_keep */,
               redirect (redirect_type::none),
               redirect (redirect_type::merge, 2),

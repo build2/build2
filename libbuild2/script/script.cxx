@@ -633,7 +633,7 @@ namespace build2
 
       const path& p (c.path);
 
-      if (!sandbox_dir.empty () && !p.sub (sandbox_dir))
+      if (sandbox_dir.path != nullptr && !p.sub (*sandbox_dir.path))
       {
         if (implicit)
           return;

@@ -24,6 +24,35 @@ namespace build2
 {
   namespace script
   {
+    string
+    diag_path (const path& d)
+    {
+      string r ("'");
+
+      r += stream_verb_map ().path < 1
+           ? diag_relative (d)
+           : d.representation ();
+
+      r += '\'';
+      return r;
+    }
+
+    string
+    diag_path (const dir_name_view& dn)
+    {
+      string r;
+      if (dn.name != nullptr && *dn.name)
+      {
+        r += **dn.name;
+        r += ' ';
+      }
+
+      assert (dn.path != nullptr);
+
+      r += diag_path (*dn.path);
+      return r;
+    }
+
     // Normalize a path. Also make the relative path absolute using the
     // specified directory unless it is already absolute.
     //
@@ -260,7 +289,7 @@ namespace build2
         path eop;
 
         if (rd.type == redirect_type::file)
-          eop = normalize (rd.file.path, env.work_dir, ll);
+          eop = normalize (rd.file.path, *env.work_dir.path, ll);
         else
         {
           eop = path (op + ".orig");
@@ -894,19 +923,19 @@ namespace build2
       for (const auto& cl: c.cleanups)
       {
         const path& p (cl.path);
-        path np (normalize (p, env.work_dir, ll));
+        path np (normalize (p, *env.work_dir.path, ll));
 
         const string& ls (np.leaf ().string ());
         bool wc (ls == "*" || ls == "**" || ls == "***");
         const path& cp (wc ? np.directory () : np);
-        const dir_path& sd (env.sandbox_dir);
+        const dir_path* sd (env.sandbox_dir.path);
 
-        if (!sd.empty () && !cp.sub (sd))
+        if (sd != nullptr && !cp.sub (*sd))
           fail (ll) << (wc                ? "wildcard"  :
                         p.to_directory () ? "directory" :
                                             "file")
                     << " cleanup " << p << " is out of "
-                    << env.sandbox_dir_name << " " << sd;
+                    << diag_path (env.sandbox_dir);
 
         env.clean ({cl.type, move (np)}, false);
       }
@@ -993,6 +1022,8 @@ namespace build2
       //
       auto std_path = [&env, &ci, &li, &ll] (const char* n) -> path
       {
+        using std::to_string;
+
         path p (n);
 
         // 0 if belongs to a single-line script, otherwise is the command line
@@ -1078,7 +1109,7 @@ namespace build2
           }
         case redirect_type::file:
           {
-            isp = normalize (in.file.path, env.work_dir, ll);
+            isp = normalize (in.file.path, *env.work_dir.path, ll);
 
             open_stdin ();
             break;
@@ -1193,7 +1224,7 @@ namespace build2
             //
             p = r.file.mode == redirect_fmode::compare
               ? std_path (what)
-              : normalize (r.file.path, env.work_dir, ll);
+              : normalize (r.file.path, *env.work_dir.path, ll);
 
             m |= r.file.mode == redirect_fmode::append
               ? fdopen_mode::at_end
@@ -1378,21 +1409,20 @@ namespace build2
 
             if (pre)
             {
-              const dir_path& wd (env.work_dir);
-              const dir_path& sd (env.sandbox_dir);
+              const dir_path& wd (*env.work_dir.path);
+              const dir_path* sd (env.sandbox_dir.path);
 
               auto fail = [] (const string& d) {throw runtime_error (d);};
 
-              if (!sd.empty () && !from.sub (sd) && !force)
-                fail ("'" + from.representation () +
-                      "' is out of " + env.sandbox_dir_name + " '" +
-                      sd.string () + "'");
+              if (sd != nullptr && !from.sub (*sd) && !force)
+                fail (diag_path (from) + " is out of " +
+                      diag_path (env.sandbox_dir));
 
               auto check_wd = [&wd, &env, fail] (const path& p)
               {
                 if (wd.sub (path_cast<dir_path> (p)))
-                  fail ("'" + p.string () + "' contains " +
-                        env.work_dir_name + " '" + wd.string () + "'");
+                  fail (diag_path (p) + " contains " +
+                        diag_path (env.work_dir));
               };
 
               check_wd (from);
@@ -1404,7 +1434,7 @@ namespace build2
               //
               if (cln->enabled)
                 cln->move = !butl::entry_exists (to) &&
-                            (sd.empty () || to.sub (sd));
+                            (sd == nullptr || to.sub (*sd));
             }
             else if (cln->enabled)
             {
@@ -1469,20 +1499,18 @@ namespace build2
           {
             if (pre)
             {
-              const dir_path& wd (env.work_dir);
-              const dir_path& sd (env.sandbox_dir);
+              const dir_path& wd (*env.work_dir.path);
+              const dir_path* sd (env.sandbox_dir.path);
 
               auto fail = [] (const string& d) {throw runtime_error (d);};
 
-              if (!sd.empty () && !p.sub (sd) && !force)
-                fail ("'" + p.representation () +
-                      "' is out of " + env.sandbox_dir_name + " '" +
-                      sd.string () + "'");
+              if (sd != nullptr && !p.sub (*sd) && !force)
+                fail (diag_path (p) + " is out of " +
+                      diag_path (env.sandbox_dir));
 
               if (wd.sub (path_cast<dir_path> (p)))
-                fail ("'" + p.string () +
-                      "' contains " + env.work_dir_name +
-                      " '" + wd.string () + "'");
+                fail (diag_path (p) + " contains " +
+                      diag_path (env.work_dir));
             }
           },
 
@@ -1520,7 +1548,7 @@ namespace build2
           builtin b (bf (r,
                          c.arguments,
                          move (ifd), move (ofd.out), move (efd),
-                         env.work_dir,
+                         *env.work_dir.path,
                          bcs));
 
           success = run_pipe (env,
@@ -1573,7 +1601,7 @@ namespace build2
                 program (path (s, 1, s.size () - 1));
             }
             else
-              program (env.work_dir / p);
+              program (*env.work_dir.path / p);
           }
         }
         catch (const invalid_path& e)
@@ -1594,7 +1622,7 @@ namespace build2
             pp,
             args.data (),
             {ifd.get (), -1}, process::pipe (ofd), {-1, efd.get ()},
-            env.work_dir.string ().c_str ());
+            env.work_dir.path->string ().c_str ());
 
           ifd.reset ();
           ofd.out.reset ();
@@ -1783,7 +1811,7 @@ namespace build2
     clean (environment& env, const location& ll)
     {
       context& ctx (env.context);
-      const dir_path& wdir (env.work_dir);
+      const dir_path& wdir (*env.work_dir.path);
 
       // Note that we operate with normalized paths here.
       //

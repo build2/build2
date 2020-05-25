@@ -363,16 +363,14 @@ namespace build2
       // using the rm or mv builtins will fail the script execution. Must be
       // an absolute path.
       //
-      const dir_path& work_dir; // @@ dir_path_name
-      const string&   work_dir_name; // Directory name for diagnostics.
+      const dir_name_view work_dir;
 
-      // If non-empty, then any attempt to remove or move a filesystem entry
-      // outside this directory using an explicit cleanup or the rm/mv
+      // If path is not NULL, then any attempt to remove or move a filesystem
+      // entry outside this directory using an explicit cleanup or the rm/mv
       // builtins will fail the script execution, unless the --force option is
-      // specified for the builtin. Must be an absolute path, unless is empty.
+      // specified for the builtin. Must be an absolute path, unless is NULL.
       //
-      const dir_path& sandbox_dir; // @@ dir_path_name
-      const string&   sandbox_dir_name; // Directory name for diagnostics.
+      const dir_name_view sandbox_dir;
 
       // Used by the script running machinery to create special files in it.
       // Must be an absolute path.
@@ -396,8 +394,8 @@ namespace build2
 
       environment (build2::context& ctx,
                    const target_triplet& pt,
-                   const dir_path& wd, const string& wn,
-                   const dir_path& sd, const string& sn,
+                   const dir_name_view& wd,
+                   const dir_name_view& sd,
                    const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
@@ -405,9 +403,7 @@ namespace build2
           : context (ctx),
             platform (pt),
             work_dir (wd),
-            work_dir_name (wn),
             sandbox_dir (sd),
-            sandbox_dir_name (sn),
             temp_dir (td),
             temp_dir_keep (tk),
             in (move (i)),
@@ -420,15 +416,15 @@ namespace build2
       //
       environment (build2::context& ctx,
                    const target_triplet& pt,
-                   const dir_path& wd, const string& wn,
+                   const dir_name_view& wd,
                    const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
           : environment (ctx,
                          pt,
-                         wd, wn,
-                         empty_dir_path, empty_string,
+                         wd,
+                         dir_name_view (),
                          td, tk,
                          move (i), move (o), move (e))
       {

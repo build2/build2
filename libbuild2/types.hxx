@@ -230,6 +230,7 @@ namespace build2
   using butl::path_name_view;
   using butl::path_name_value;
   using butl::dir_path;
+  using butl::dir_name_view;
   using butl::path_cast;
   using butl::basic_path;
   using butl::invalid_path;
@@ -377,7 +378,6 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, run_phase); // utility.cxx
-
 }
 
 // In order to be found (via ADL) these have to be either in std:: or in
