@@ -20,30 +20,46 @@ namespace build2
       static const string wd_name ("current directory");
 
       environment::
-      environment (const target& pt)
+      environment (action a, const target_type& t)
           : build2::script::environment (
-              pt.ctx,
-              cast<target_triplet> (pt.ctx.global_scope["build.host"]),
+              t.ctx,
+              cast<target_triplet> (t.ctx.global_scope["build.host"]),
               work, wd_name,
               temp_dir.path, false /* temp_dir_keep */,
               redirect (redirect_type::none),
               redirect (redirect_type::merge, 2),
               redirect (redirect_type::pass)),
-            primary_target (pt),
+            target (t),
             vars (context, false /* global */)
       {
-        // Set the $> variable.
+        // Set special variables.
         //
         {
-          //@@ TODO
+          // $>
           //
-          value& v (assign (var_pool.insert<string> (">")));
+          names ns;
+          for (const target_type* m (&t); m != nullptr; m = m->adhoc_member)
+            m->as_name (ns);
 
-          if (auto* t = pt.is_a<path_target> ())
-            v = t->path ().string ();
-          else
-            //fail << "target " << pt << " is not path-based";
-            v = pt.name; //@@ TMP
+          assign (var_pool.insert (">")) = move (ns);
+        }
+
+        {
+          // $<
+          //
+          // Note that at this stage (after execute_prerequisites()) ad hoc
+          // prerequisites are no longer in prerequisite_targets which means
+          // they won't end up in $< either. While at first thought ad hoc
+          // prerequisites in ad hoc recipes don't seem to make much sense,
+          // they could be handy to exclude certain preresquisites from $<
+          // while still treating them as such.
+          //
+          names ns;
+          for (const target_type* pt: t.prerequisite_targets[a])
+            if (pt != nullptr)
+              pt->as_name (ns);
+
+          assign (var_pool.insert ("<")) = move (ns);
         }
       }
 
@@ -109,7 +125,7 @@ namespace build2
         if (pvar == nullptr)
           return lookup_type ();
 
-        return primary_target[*pvar];
+        return target[*pvar];
       }
 
       value& environment::

@@ -248,13 +248,20 @@ namespace build2
       //
 
       void parser::
-      execute (const script& s, environment& e, runner& r)
+      execute (const scope& rs, const scope& bs,
+               environment& e, const script& s, runner& r)
       {
         path_ = nullptr; // Set by replays.
 
         pre_parse_ = false;
 
         set_lexer (nullptr);
+
+        // The script shouldn't be able to modify the scopes.
+        //
+        root_ = const_cast<scope*> (&rs);
+        scope_ = const_cast<scope*> (&bs);
+        pbase_ = scope_->src_path_;
 
         script_ = const_cast<script*> (&s);
         runner_ = &r;

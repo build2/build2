@@ -480,8 +480,8 @@ namespace build2
 
     bool update (!ps);
 
-    // We use depdb to track changes to the script itself, input file names,
-    // tools, etc.
+    // We use depdb to track changes to the script itself, input/output file
+    // names, tools, etc.
     //
     depdb dd (tp + ".d");
     {
@@ -508,11 +508,17 @@ namespace build2
       // - We may "overhash" by including variables that are actually
       //   script-local.
       //
+      // - There are functions like $install.resolve() with result based on
+      //   external (to the script) information.
+      //
       if (dd.expect (checksum) != nullptr)
         l4 ([&]{trace << "recipe text change forcing update of " << t;});
 
       // For each variable hash its name, undefined/null/non-null indicator,
       // and the value if non-null.
+      //
+      // Note that this excludes the special $< and $> variables which we
+      // handle below.
       //
       {
         sha256 cs;
@@ -539,11 +545,48 @@ namespace build2
           }
         }
 
-        //@@ TODO (later): hash special variables values (targets,
-        //                 prerequisites).
-
         if (dd.expect (cs.string ()) != nullptr)
           l4 ([&]{trace << "recipe variable change forcing update of " << t;});
+      }
+
+      // Target and prerequisite sets ($> and $<).
+      //
+      // How should we hash them? We could hash them as target names (i.e.,
+      // the same as the $>/< content) or as paths (only for path-based
+      // targets). While names feel more general, they are also more expensive
+      // to compute. And for path-based targets, path is generally a good
+      // proxy for the target name. Since the bulk of the ad hoc recipes will
+      // presumably be operating exclusively on path-based targets, let's do
+      // it both ways.
+      //
+      {
+        auto hash = [ns = names ()] (sha256& cs, const target& t) mutable
+        {
+          if (const path_target* pt = t.is_a<path_target> ())
+            cs.append (pt->path ().string ());
+          else
+          {
+            ns.clear ();
+            t.as_name (ns);
+            for (const name& n: ns)
+              to_checksum (cs, n);
+          }
+        };
+
+        sha256 tcs;
+        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          hash (tcs, *m);
+
+        if (dd.expect (tcs.string ()) != nullptr)
+          l4 ([&]{trace << "target set change forcing update of " << t;});
+
+        sha256 pcs;
+        for (const target* pt: t.prerequisite_targets[a])
+          if (pt != nullptr)
+            hash (pcs, *pt);
+
+        if (dd.expect (pcs.string ()) != nullptr)
+          l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
       }
 
       // Then the tools checksums.
@@ -567,13 +610,7 @@ namespace build2
     if (!update)
       return *ps;
 
-    if (verb >= 2)
-    {
-      //@@ TODO
-
-      //print_process (args);
-    }
-    else if (verb)
+    if (verb == 1)
     {
       // @@ TODO:
       //
@@ -590,12 +627,17 @@ namespace build2
       text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
     }
 
-    if (!ctx.dry_run)
+    if (!ctx.dry_run || verb >= 2)
     {
-      // @@ TODO
-      //
-      touch (ctx, tp, true, verb_never);
-      dd.check_mtime (tp);
+      const scope& bs (t.base_scope ());
+
+      build::script::environment e (a, t);
+      build::script::parser p (ctx);
+      build::script::default_runner r;
+      p.execute (*bs.root_scope (), bs, e, script, r);
+
+      if (!ctx.dry_run)
+        dd.check_mtime (tp);
     }
 
     t.mtime (system_clock::now ());
@@ -620,10 +662,12 @@ namespace build2
 
     if (!ctx.dry_run || verb >= 2)
     {
+      const scope& bs (t.base_scope ());
+
+      build::script::environment e (a, t);
       build::script::parser p (ctx);
-      build::script::environment e (t);
       build::script::default_runner r;
-      p.execute (script, e, r);
+      p.execute (*bs.root_scope (), bs, e, script, r);
     }
 
     return target_state::changed;

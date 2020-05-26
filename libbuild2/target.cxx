@@ -44,11 +44,9 @@ namespace build2
 
   // target_key
   //
-  names target_key::
-  as_name () const
+  void target_key::
+  as_name (names& r) const
   {
-    names r;
-
     string v (*name);
     target::combine_name (v, ext, false /* @@ TODO: what to do? */);
 
@@ -56,11 +54,9 @@ namespace build2
 
     if (!out->empty ())
     {
-      r.front ().pair = '@';
+      r.back ().pair = '@';
       r.push_back (build2::name (*out));
     }
-
-    return r;
   }
 
   // target_state

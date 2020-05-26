@@ -115,17 +115,18 @@ namespace build2
         lookup_in_buildfile (const string&, bool target_only = true) const;
 
         // Return a value suitable for assignment. If the variable does not
-        // exist in this scope's map, then a new one with the NULL value is
-        // added and returned. Otherwise the existing value is returned.
+        // exist in this scope's variable map, then a new one with the NULL
+        // value is added and returned. Otherwise the existing value is
+        // returned.
         //
         value&
         assign (const variable& var) {return vars.assign (var);}
 
         // Return a value suitable for append/prepend. If the variable does
-        // not exist in this scope's map, then outer scopes are searched for
-        // the same variable. If found then a new variable with the found
-        // value is added to this scope and returned. Otherwise this function
-        // proceeds as assign() above.
+        // not exist in this scope's variable map, then outer scopes are
+        // searched for the same variable. If found then a new variable with
+        // the found value is added to this scope and returned. Otherwise this
+        // function proceeds as assign() above.
         //
         value&
         append (const variable&);

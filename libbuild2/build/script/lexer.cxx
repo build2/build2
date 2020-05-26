@@ -242,14 +242,19 @@ namespace build2
       {
         lexer_mode m (st.mode);
 
-        // Customized implementation that handles special variable names ($>).
+        // Customized implementation that handles special variable names ($>,
+        // $<).
+        //
+        // @@ TODO: $(<), $(>): feels like this will have to somehow be
+        //          handled at the top-level lexer level. Maybe provide a
+        //          string of one-char special variable names as state::data?
         //
         if (m != lexer_mode::variable)
           return base_lexer::word (st, sep);
 
         xchar c (peek ());
 
-        if (c != '>')
+        if (c != '>' && c != '<')
           return base_lexer::word (st, sep);
 
         get ();

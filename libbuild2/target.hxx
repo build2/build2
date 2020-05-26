@@ -264,6 +264,9 @@ namespace build2
     names
     as_name () const;
 
+    void
+    as_name (names&) const;
+
     // Scoping.
     //
    public:

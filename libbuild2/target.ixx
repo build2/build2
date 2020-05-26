@@ -36,6 +36,12 @@ namespace build2
     return key ().as_name ();
   }
 
+  inline void target::
+  as_name (names& r) const
+  {
+    return key ().as_name (r);
+  }
+
   inline auto target::
   prerequisites () const -> const prerequisites_type&
   {

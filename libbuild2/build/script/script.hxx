@@ -62,7 +62,9 @@ namespace build2
       class environment: public build2::script::environment
       {
       public:
-        environment (const target& primary_target);
+        using target_type = build2::target;
+
+        environment (action, const target_type&);
 
         environment (environment&&) = delete;
         environment (const environment&) = delete;
@@ -70,7 +72,7 @@ namespace build2
         environment& operator= (const environment&) = delete;
 
       public:
-        const target& primary_target;
+        const target_type& target;
 
         // Script-local variable pool.
         //
@@ -121,17 +123,18 @@ namespace build2
         lookup_in_buildfile (const string&) const;
 
         // Return a value suitable for assignment. If the variable does not
-        // exist in this environment's map, then a new one with the NULL value
-        // is added and returned. Otherwise the existing value is returned.
+        // exist in this environment's variable map, then a new one with the
+        // NULL value is added and returned. Otherwise the existing value is
+        // returned.
         //
         value&
         assign (const variable& var) {return vars.assign (var);}
 
         // Return a value suitable for append/prepend. If the variable does
-        // not exist in this environment's map, then outer scopes are searched
-        // for the same variable. If found then a new variable with the found
-        // value is added to the environment and returned. Otherwise this
-        // function proceeds as assign() above.
+        // not exist in this environment's variable map, then outer scopes are
+        // searched for the same variable. If found then a new variable with
+        // the found value is added to the environment and returned. Otherwise
+        // this function proceeds as assign() above.
         //
         value&
         append (const variable&);

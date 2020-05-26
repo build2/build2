@@ -166,9 +166,9 @@ namespace build2
           {
           case mode::run:
             {
-              environment e (tt);
+              environment e (perform_update_id, tt);
               print_runner r (print_line);
-              p.execute (s, e, r);
+              p.execute (ctx.global_scope, ctx.global_scope, e, s, r);
               break;
             }
           case mode::dump:

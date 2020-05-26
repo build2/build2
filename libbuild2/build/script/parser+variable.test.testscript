@@ -13,7 +13,7 @@ EOO
 : primary-target
 :
 $* <<EOI >>EOO
-echo $>
+echo $name($>)
 EOI
 echo driver
 EOO

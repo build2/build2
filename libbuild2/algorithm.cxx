@@ -1015,8 +1015,11 @@ namespace build2
 
     if (r != nullptr)
     {
+      // Make it ad hoc so that it doesn't end up in prerequisite_targets
+      // after execution.
+      //
       match (a, *r);
-      t.prerequisite_targets[a].emplace_back (r);
+      t.prerequisite_targets[a].emplace_back (r, include_type::adhoc);
     }
 
     return r;

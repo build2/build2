@@ -32,10 +32,18 @@ namespace build2
     bool is_a () const {return type->is_a<T> ();}
     bool is_a (const target_type& tt) const {return type->is_a (tt);}
 
-    // Return the target name or a pair of names if out-qualified.
+    // Append/return the target name or a pair of names if out-qualified.
     //
+    void
+    as_name (names&) const;
+
     names
-    as_name () const;
+    as_name () const
+    {
+      names r;
+      as_name (r);
+      return r;
+    }
   };
 
   inline bool

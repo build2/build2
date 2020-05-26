@@ -68,7 +68,8 @@ namespace build2
         //
       public:
         void
-        execute (const script&, environment&, runner&);
+        execute (const scope& root, const scope& base,
+                 environment&, const script&, runner&);
 
       protected:
         void

@@ -5,6 +5,7 @@
 
 #include <libbutl/filesystem.mxx>
 
+#include <libbuild2/target.hxx>
 #include <libbuild2/script/run.hxx>
 
 using namespace butl;
@@ -75,6 +76,24 @@ namespace build2
       void default_runner::
       leave (environment& env, const location& ll)
       {
+        // Drop cleanups of target paths.
+        //
+        for (auto i (env.cleanups.begin ()); i != env.cleanups.end (); )
+        {
+          const target* m (&env.target);
+          for (; m != nullptr; m = m->adhoc_member)
+          {
+            if (const path_target* pm = m->is_a<path_target> ())
+              if (i->path == pm->path ())
+                break;
+          }
+
+          if (m != nullptr)
+            i = env.cleanups.erase (i);
+          else
+            ++i;
+        }
+
         clean (env, ll);
 
         // Note that since the temporary directory may only contain special
