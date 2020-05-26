@@ -243,7 +243,7 @@ namespace build2
         lexer_mode m (st.mode);
 
         // Customized implementation that handles special variable names ($>,
-        // $<).
+        // $<, $~).
         //
         // @@ TODO: $(<), $(>): feels like this will have to somehow be
         //          handled at the top-level lexer level. Maybe provide a
@@ -254,7 +254,7 @@ namespace build2
 
         xchar c (peek ());
 
-        if (c != '>' && c != '<')
+        if (c != '>' && c != '<' && c != '~')
           return base_lexer::word (st, sep);
 
         get ();

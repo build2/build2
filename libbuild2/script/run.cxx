@@ -53,6 +53,18 @@ namespace build2
       return r;
     }
 
+    // Return the environment temporary directory, creating it if it doesn't
+    // exist.
+    //
+    static inline const dir_path&
+    temp_dir (environment& env)
+    {
+      if (env.temp_dir.empty ())
+        env.create_temp_dir ();
+
+      return env.temp_dir;
+    }
+
     // Normalize a path. Also make the relative path absolute using the
     // specified directory unless it is already absolute.
     //
@@ -207,13 +219,16 @@ namespace build2
       return r;
     }
 
-    // Return true if a path is not under the script temporary directory or
-    // this directory will not be removed on failure.
+    // Return true if the script temporary directory is not created yet (and
+    // so cannot contain any path), a path is not under the temporary
+    // directory or this directory will not be removed on failure.
     //
     static inline bool
     avail_on_failure (const path& p, const environment& env)
     {
-      return env.temp_dir_keep || !p.sub (env.temp_dir);
+      return env.temp_dir.empty () ||
+             env.temp_dir_keep     ||
+             !p.sub (env.temp_dir);
     }
 
     // Check if the script command output matches the expected result
@@ -849,26 +864,10 @@ namespace build2
 
         cin.close ();
 
-        // If there is an error in the attributes string, our diagnostics
-        // will look like this:
-        //
-        // <attributes>:1:1 error: unknown value attribute x
-        //   script:10:1 info: while parsing attributes '[x]'
-        //
-        // Note that the attributes parsing error is the only reason for a
-        // failure.
-        //
-        auto df = make_diag_frame (
-          [ats, &ll](const diag_record& dr)
-          {
-            assert (ats != nullptr);
-
-            dr << info (ll) << "while parsing attributes '" << *ats << "'";
-          });
-
         env.set_variable (move (vname),
                           move (ns),
-                          ats != nullptr ? *ats : empty_string);
+                          ats != nullptr ? *ats : empty_string,
+                          ll);
       }
       catch (const io_error& e)
       {
@@ -1042,7 +1041,7 @@ namespace build2
         if (ci > 0)
           p += "-" + to_string (ci);
 
-        return normalize (move (p), env.temp_dir, ll);
+        return normalize (move (p), temp_dir (env), ll);
       };
 
       // If this is the first pipeline command, then open stdin descriptor

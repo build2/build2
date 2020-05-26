@@ -58,12 +58,6 @@ namespace build2
         command_expr
         parse_command_line (token&, token_type&);
 
-        // Workaround for GCC 4.9 that fails to compile the base class
-        // protected member function call from a lambda defined in the derived
-        // class.
-        //
-        using build2::parser::apply_value_attributes;
-
         // Execute. Issue diagnostics and throw failed in case of an error.
         //
       public:
@@ -74,6 +68,12 @@ namespace build2
       protected:
         void
         exec_script ();
+
+        // Helpers.
+        //
+      public:
+        static bool
+        special_variable (const string&) noexcept;
 
         // Customization hooks.
         //

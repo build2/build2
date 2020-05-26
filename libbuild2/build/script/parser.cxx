@@ -16,12 +16,6 @@ namespace build2
     {
       using type = token_type;
 
-      static inline bool
-      special_variable (const string& name)
-      {
-        return name == ">" || name == "<";
-      }
-
       //
       // Pre-parse.
       //
@@ -101,11 +95,11 @@ namespace build2
         {
         case line_type::var:
           {
-            // Check if we are trying to modify any of the special variables
-            // ($>, $<).
+            // Check if we are trying to modify any of the special variables.
             //
             if (special_variable (t.value))
-              fail (t) << "attempt to set '" << t.value << "' variable";
+              fail (t) << "attempt to set '" << t.value << "' special "
+                       << "variable";
 
             // We don't pre-enter variables.
             //
@@ -275,6 +269,9 @@ namespace build2
       {
         const script& s (*script_);
 
+        if (s.temp_dir)
+          environment_->create_temp_dir ();
+
         runner_->enter (*environment_, s.start_loc);
 
         // Note that we rely on "small function object" optimization for the
@@ -339,6 +336,14 @@ namespace build2
         runner_->leave (*environment_, s.end_loc);
       }
 
+      // When add a special variable don't forget to update lexer::word().
+      //
+      bool parser::
+      special_variable (const string& n) noexcept
+      {
+        return n == ">" || n == "<" || n == "~";
+      }
+
       lookup parser::
       lookup_variable (name&& qual, string&& name, const location& loc)
       {
@@ -348,9 +353,15 @@ namespace build2
         if (pre_parse_)
         {
           // Add the variable name skipping special variables and suppressing
-          // duplicates.
+          // duplicates. While at it, check if the script temporary directory
+          // is referenced and set the flag, if that's the case.
           //
-          if (!name.empty () && !special_variable (name))
+          if (special_variable (name))
+          {
+            if (name == "~")
+              script_->temp_dir = true;
+          }
+          else if (!name.empty ())
           {
             auto& vars (script_->vars);
 

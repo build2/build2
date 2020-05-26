@@ -8,7 +8,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/algorithm.hxx>
 
-#include <libbuild2/script/parser.hxx> // parser::apply_value_attributes()
+#include <libbuild2/test/script/parser.hxx>
 
 using namespace std;
 
@@ -96,8 +96,16 @@ namespace build2
       }
 
       void scope::
-      set_variable (string&& nm, names&& val, const string& attrs)
+      set_variable (string&& nm,
+                    names&& val,
+                    const string& attrs,
+                    const location& ll)
       {
+        // Check if we are trying to modify any of the special variables.
+        //
+        if (parser::special_variable (nm))
+          fail (ll) << "attempt to set '" << nm << "' variable directly";
+
         // Set the variable value and attributes. Note that we need to aquire
         // unique lock before potentially changing the script's variable
         // pool. The obtained variable reference can safelly be used with no
@@ -118,7 +126,22 @@ namespace build2
           lhs.assign (move (val), &var);
         else
         {
-          build2::script::parser p (context);
+          // If there is an error in the attributes string, our diagnostics
+          // will look like this:
+          //
+          // <attributes>:1:1 error: unknown value attribute x
+          //   testscript:10:1 info: while parsing attributes '[x]'
+          //
+          // Note that the attributes parsing error is the only reason for a
+          // failure.
+          //
+          auto df = make_diag_frame (
+            [attrs, &ll](const diag_record& dr)
+            {
+              dr << info (ll) << "while parsing attributes '" << attrs << "'";
+            });
+
+          parser p (context);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),

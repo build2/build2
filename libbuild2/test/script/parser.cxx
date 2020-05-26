@@ -389,7 +389,7 @@ namespace build2
             //
             string& n (t.value);
 
-            if (n == "*" || n == "~" || n == "@" || digit (n))
+            if (special_variable (n))
               fail (t) << "attempt to set '" << n << "' variable directly";
 
             // Pre-enter the variables now while we are executing serially.
@@ -1597,6 +1597,14 @@ namespace build2
       //
       // The rest.
       //
+
+      // When add a special variable don't forget to update lexer::word().
+      //
+      bool parser::
+      special_variable (const string& n) noexcept
+      {
+        return n == "*" || n == "~" || n == "@" || digit (n);
+      }
 
       lookup parser::
       lookup_variable (name&& qual, string&& name, const location& loc)

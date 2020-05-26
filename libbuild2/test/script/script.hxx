@@ -91,8 +91,17 @@ namespace build2
 
         scope_state state = scope_state::unknown;
 
+        void
+        set_variable (string&& name,
+                      names&&,
+                      const string& attrs,
+                      const location&) override;
+
+        // Noop since the temporary directory is a working directory and so
+        // is created before the scope commands execution.
+        //
         virtual void
-        set_variable (string&& name, names&&, const string& attrs) override;
+        create_temp_dir () override {assert (false);};
 
         // Variables.
         //

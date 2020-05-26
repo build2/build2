@@ -373,7 +373,9 @@ namespace build2
       const dir_name_view sandbox_dir;
 
       // Used by the script running machinery to create special files in it.
-      // Must be an absolute path.
+      // Must be an absolute path, unless empty. Can be empty until the
+      // create_temp_dir() function call, which can be used for the create-on-
+      // demand strategy implementation.
       //
       const dir_path& temp_dir;
 
@@ -454,10 +456,17 @@ namespace build2
     public:
       // Set variable value with optional (non-empty) attributes.
       //
-      // Note: see also parser::lookup_variable().
+      virtual void
+      set_variable (string&& name,
+                    names&&,
+                    const string& attrs,
+                    const location&) = 0;
+
+      // Create the temporary directory and set the temp_dir reference target
+      // to its path. Must only be called if temp_dir is empty.
       //
       virtual void
-      set_variable (string&& name, names&&, const string& attrs) = 0;
+      create_temp_dir () = 0;
 
     public:
       virtual

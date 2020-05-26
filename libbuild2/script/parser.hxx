@@ -40,6 +40,8 @@ namespace build2
                               token_type assign_kind,
                               const path_name&); // For diagnostics.
 
+      using build2::parser::apply_value_attributes;
+
       // Commonly used parsing functions. Issue diagnostics and throw failed
       // in case of an error.
       //

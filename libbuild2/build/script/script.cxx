@@ -3,9 +3,11 @@
 
 #include <libbuild2/build/script/script.hxx>
 
+#include <libbutl/filesystem.mxx>
+
 #include <libbuild2/target.hxx>
 
-#include <libbuild2/script/parser.hxx>
+#include <libbuild2/build/script/parser.hxx>
 
 using namespace std;
 
@@ -32,7 +34,9 @@ namespace build2
             target (t),
             vars (context, false /* global */)
       {
-        // Set special variables.
+        // Set special variables. Note that the $~ variable is set later and
+        // only if the temporary directory is required for the script
+        // execution (see create_temp_dir() for details).
         //
         {
           // $>
@@ -64,8 +68,76 @@ namespace build2
       }
 
       void environment::
-      set_variable (string&& nm, names&& val, const string& attrs)
+      create_temp_dir ()
       {
+        // Create the temporary directory for this run regardless of the
+        // dry-run mode, since some commands still can be executed (see run()
+        // for details). This is also the reason why we are not using the
+        // build2 filesystem API that considers the dry-run mode.
+        //
+        // Note that the directory auto-removal is active.
+        //
+        dir_path& td (temp_dir.path);
+
+        assert (td.empty ()); // Must be called once.
+
+        try
+        {
+          td = dir_path::temp_path ("buildscript");
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to obtain temporary directory for buildscript "
+               << "execution" << e;
+        }
+
+        mkdir_status r;
+
+        try
+        {
+          r = try_mkdir (td);
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to create temporary directory '" << td << "': "
+               << e << endf;
+        }
+
+        // Note that the temporary directory can potentially stay after some
+        // abnormally terminated script run. Clean it up and reuse if that's
+        // the case.
+        //
+        if (r == mkdir_status::already_exists)
+        try
+        {
+          butl::rmdir_r (td, false /* dir */);
+        }
+        catch (const system_error& e)
+        {
+          fail << "unable to cleanup temporary directory '" << td << "': "
+               << e;
+        }
+
+        // Set the $~ special variable.
+        //
+        value& v (assign (var_pool.insert<dir_path> ("~")));
+        v = td;
+
+        if (verb >= 3)
+          text << "mkdir " << td;
+      }
+
+      void environment::
+      set_variable (string&& nm,
+                    names&& val,
+                    const string& attrs,
+                    const location& ll)
+      {
+        // Check if we are trying to modify any of the special variables.
+        //
+        if (parser::special_variable (nm))
+          fail (ll) << "attempt to set '" << nm << "' special variable";
+
         // Set the variable value and attributes.
         //
         const variable& var (var_pool.insert (move (nm)));
@@ -80,7 +152,22 @@ namespace build2
           lhs.assign (move (val), &var);
         else
         {
-          build2::script::parser p (context);
+          // If there is an error in the attributes string, our diagnostics
+          // will look like this:
+          //
+          // <attributes>:1:1 error: unknown value attribute x
+          //   buildfile:10:1 info: while parsing attributes '[x]'
+          //
+          // Note that the attributes parsing error is the only reason for a
+          // failure.
+          //
+          auto df = make_diag_frame (
+            [attrs, &ll](const diag_record& dr)
+            {
+              dr << info (ll) << "while parsing attributes '" << attrs << "'";
+            });
+
+          parser p (context);
           p.apply_value_attributes (&var,
                                     lhs,
                                     value (move (val)),

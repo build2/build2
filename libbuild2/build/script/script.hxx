@@ -41,7 +41,7 @@ namespace build2
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
-        build2::script::lines   lines;
+        build2::script::lines lines;
 
         // Referenced ordinary (non-special) variables.
         //
@@ -54,6 +54,10 @@ namespace build2
         // target rebuild).
         //
         small_vector<string, 1> vars;
+
+        // True if script references the $~ special variable.
+        //
+        bool temp_dir = false;
 
         location start_loc;
         location end_loc;
@@ -101,7 +105,15 @@ namespace build2
         auto_rmdir temp_dir;
 
         virtual void
-        set_variable (string&& name, names&&, const string& attrs) override;
+        set_variable (string&& name,
+                      names&&,
+                      const string& attrs,
+                      const location&) override;
+
+        // Create the temporary directory and set the $~ variable.
+        //
+        virtual void
+        create_temp_dir () override;
 
         // Variables.
         //
