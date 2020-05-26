@@ -37,7 +37,6 @@ namespace build2
       class script
       {
       public:
-
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //

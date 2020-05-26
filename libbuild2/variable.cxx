@@ -1083,6 +1083,8 @@ namespace build2
 
       const string& k ((i++)->value);
 
+      // NOTE: see also build::script::parser::parse_program().
+      //
       if (k == "name")
       {
         if (!i->simple ())

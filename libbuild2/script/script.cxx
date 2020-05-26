@@ -350,7 +350,7 @@ namespace build2
       {
         // Program.
         //
-        to_stream_q (o, c.program.string ());
+        to_stream_q (o, c.program.recall_string ());
 
         // Arguments.
         //

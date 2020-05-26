@@ -3,10 +3,15 @@
 
 #include <libbuild2/build/script/parser.hxx>
 
+#include <libbutl/builtin.mxx>
+
+#include <libbuild2/algorithm.hxx>
+
 #include <libbuild2/build/script/lexer.hxx>
 #include <libbuild2/build/script/runner.hxx>
 
 using namespace std;
+using namespace butl;
 
 namespace build2
 {
@@ -21,8 +26,9 @@ namespace build2
       //
 
       script parser::
-      pre_parse (istream& is, const path_name& pn, uint64_t line,
-                 optional<string> diag)
+      pre_parse (const target& tg,
+                 istream& is, const path_name& pn, uint64_t line,
+                 optional<string> diag_name, const location& diag_loc)
       {
         path_ = &pn;
 
@@ -31,12 +37,24 @@ namespace build2
         lexer l (is, *path_, line, lexer_mode::command_line);
         set_lexer (&l);
 
-        script s;
-        s.diag = move (diag);
+        // The script shouldn't be able to modify the target/scopes.
+        //
+        target_ = const_cast<target*> (&tg);
+        scope_  = const_cast<scope*> (&tg.base_scope ());
+        root_   = scope_->root_scope ();
 
+        pbase_  = scope_->src_path_;
+
+        script s;
         script_ = &s;
         runner_ = nullptr;
         environment_ = nullptr;
+
+        if (diag_name)
+        {
+          diag = make_pair (move (*diag_name), diag_loc);
+          diag_weight = 4;
+        }
 
         s.start_loc = location (*path_, line, 1);
 
@@ -45,6 +63,36 @@ namespace build2
         assert (t.type == type::eos);
 
         s.end_loc = get_location (t);
+
+        // Diagnose absent/ambigous script name.
+        //
+        {
+          diag_record dr;
+
+          if (!diag)
+          {
+            dr << fail (s.start_loc)
+               << "unable to deduce low-verbosity script diagnostics name";
+          }
+          else if (diag2)
+          {
+            dr << fail (s.start_loc)
+               << "low-verbosity script diagnostics name is ambiguous" <<
+              info (diag->second) << "could be '" << diag->first << "'" <<
+              info (diag2->second) << "could be '" << diag2->first << "'";
+          }
+
+          if (!dr.empty ())
+          {
+            dr << info << "consider specifying it explicitly with the 'diag' "
+               << "recipe attribute";
+
+            dr << info << "or provide custom low-verbosity diagnostics with "
+               << "the 'diag' builtin";
+          }
+        }
+
+        s.diag = move (diag->first);
 
         return s;
       }
@@ -150,16 +198,26 @@ namespace build2
 
         assert (tt == type::newline);
 
-        ln.type = lt;
-        ln.tokens = replay_data ();
-        script_->lines.push_back (move (ln));
+        //@@ TODO: we need to make sure special builtin is the first command.
 
-        if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+        // Save the script line, unless this is a special builtin (indicated
+        // by the replay::stop mode).
+        //
+        if (replay_ == replay::save)
         {
-          tt = peek (lexer_mode::first_token);
+          ln.type = lt;
+          ln.tokens = replay_data ();
+          script_->lines.push_back (move (ln));
 
-          pre_parse_if_else (t, tt);
+          if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+          {
+            tt = peek (lexer_mode::first_token);
+
+            pre_parse_if_else (t, tt);
+          }
         }
+        else
+          assert (replay_ == replay::stop && lt == line_type::cmd);
       }
 
       void parser::
@@ -244,6 +302,333 @@ namespace build2
       // Execute.
       //
 
+      optional<process_path> parser::
+      parse_program (token& t, build2::script::token_type& tt, names& ns)
+      {
+        const location l (get_location (t));
+
+        // Set the current script name if it is not set or its weight is less
+        // than the new name weight, skipping names with the zero weight. If
+        // the weight is the same but the name is different then record this
+        // ambiguity, unless one is already recorded. This ambiguity will be
+        // reported at the end of the script pre-parsing, unless discarded by
+        // the name with a greater weight.
+        //
+        auto set_diag = [&l, this] (string d, uint8_t w)
+        {
+          if (diag_weight < w)
+          {
+            diag        = make_pair (move (d), l);
+            diag_weight = w;
+            diag2       = nullopt;
+          }
+          else if (w != 0 && w == diag_weight && d != diag->first && !diag2)
+            diag2 = make_pair (move (d), l);
+        };
+
+        // Handle special builtins.
+        //
+        if (pre_parse_)
+        {
+          if (tt == type::word && t.value == "diag")
+          {
+            // @@ Redo the diag directive handling (save line separately and
+            //    execute later, before script execution).
+            //
+            if (diag_weight == 4)
+            {
+              fail (script_->start_loc)
+                << "low-verbosity script diagnostics name is ambiguous" <<
+                info (diag->second) << "could be '" << diag->first << "'" <<
+                info (l) << "could be '<name>'";
+            }
+
+            set_diag ("<name>", 4);
+
+            build2::script::parser::parse_program (t, tt, ns);
+            replay_stop ();
+
+            return nullopt;
+          }
+        }
+
+        auto suggest_diag = [this] (const diag_record& dr)
+        {
+          dr << info << "consider specifying it explicitly with "
+             << "the 'diag' recipe attribute";
+
+          dr << info << "or provide custom low-verbosity diagnostics "
+             << " with the 'diag' builtin";
+        };
+
+        parse_names_result pr;
+        {
+          // During pre-parse, if the script name is not set manually, we
+          // suspend pre-parse, parse the command names for real and try to
+          // deduce the script name from the result. Otherwise, we continue to
+          // pre-parse and bail out after parsing the names.
+          //
+          // Note that the later is not just an optimization since expansion
+          // that wouldn't fail during execution may fail in this special
+          // mode, for example:
+          //
+          // ...
+          // {{
+          //    x = true
+          //    ba($x ? r : z)
+          // }}
+          //
+          // v = a b
+          // ...
+          // {{
+          //    v = o
+          //    fo$v
+          // }}
+          //
+          // This is also the reason why we add a diag frame.
+          //
+          if (pre_parse_ && diag_weight != 4)
+          {
+            pre_parse_ = false; // Make parse_names() perform expansions.
+            pre_parse_suspended_ = true;
+          }
+
+          auto df = make_diag_frame (
+            [&l, &suggest_diag, this] (const diag_record& dr)
+            {
+              if (pre_parse_suspended_)
+              {
+                dr << info (l) << "while deducing low-verbosity script "
+                   << "diagnostics name";
+
+                suggest_diag (dr);
+              }
+            });
+
+          pr = parse_names (t, tt,
+                            ns,
+                            pattern_mode::ignore,
+                            true /* chunk */,
+                            "command line",
+                            nullptr);
+
+          if (pre_parse_suspended_)
+          {
+            pre_parse_suspended_ = false;
+            pre_parse_ = true;
+          }
+
+          if (pre_parse_ && diag_weight == 4)
+            return nullopt;
+        }
+
+        // Try to translate names into a process path, unless there is nothing
+        // to translate.
+        //
+        // We only end up here in the pre-parse mode if we are still searching
+        // for the script name.
+        //
+        if (!pr.not_null || ns.empty ())
+        {
+          if (pre_parse_)
+          {
+            diag_record dr (fail (l));
+            dr << "unable to deduce low-verbosity script diagnostics name";
+            suggest_diag (dr);
+          }
+
+          return nullopt;
+        }
+
+        // We have to handle process_path[_ex] and executable target. The
+        // process_path[_ex] we may have to recognize syntactically because
+        // of the loss of type, for example:
+        //
+        // c = $cxx.path --version
+        //
+        // {{
+        //    $c ...
+        // }}
+        //
+        // This is further complicated by the fact that the first name in
+        // process_path[_ex] may or may not be a pair (it's not a pair if
+        // recall and effective paths are the same). If it's not a pair and we
+        // are dealing with process_path, then we don't need to do anything
+        // extra -- it will just be treated as normal program path. However,
+        // if it's process_path_ex, then we may end up with something along
+        // these lines:
+        //
+        // /usr/bin/g++ name@c++ checksum@deadbeef --version
+        //
+        // Which is a bit harder to recognize syntactically. So what we are
+        // going to do is have a separate first pass which reduces the
+        // syntactic cases to the typed ones.
+        //
+        names pp_ns;
+        if (pr.type == &value_traits<process_path>::value_type ||
+            pr.type == &value_traits<process_path_ex>::value_type)
+        {
+          pp_ns = move (ns);
+          ns.clear ();
+        }
+        else if (ns[0].file ())
+        {
+          // Find the end of the value.
+          //
+          auto b (ns.begin ()), i (b), e (ns.end ());
+          for (i += i->pair ? 2 : 1; i != e && i->pair; i += 2)
+          {
+            if (!i->simple () ||
+                (i->value != "name" && i->value != "checksum"))
+              break;
+          }
+
+          if (b->pair || i != b + 1) // First is a pair or pairs after.
+          {
+            pp_ns.insert (pp_ns.end (),
+                          make_move_iterator (b), make_move_iterator (i));
+
+            ns.erase (b, i);
+
+            pr.type = i != b + 1
+                      ? &value_traits<process_path_ex>::value_type
+                      : &value_traits<process_path>::value_type;
+          }
+        }
+
+        // Handle process_path[_ex], for example:
+        //
+        // {{
+        //    $cxx.path ...
+        // }}
+        //
+        if (pr.type == &value_traits<process_path>::value_type)
+        {
+          auto pp (convert<process_path> (move (pp_ns)));
+
+          if (pre_parse_)
+          {
+            diag_record dr (fail (l));
+            dr << "unable to deduce low-verbosity script diagnostics name "
+               << "from process path " << pp;
+            suggest_diag (dr);
+          }
+          else
+            return optional<process_path> (move (pp));
+        }
+        else if (pr.type == &value_traits<process_path_ex>::value_type)
+        {
+          auto pp (convert<process_path_ex> (move (pp_ns)));
+
+          if (pre_parse_)
+          {
+            if (pp.name)
+            {
+              set_diag (move (*pp.name), 3);
+              return nullopt;
+            }
+
+            diag_record dr (fail (l));
+            dr << "unable to deduce low-verbosity script diagnostics name "
+               << "from process path " << pp;
+            suggest_diag (dr);
+          }
+          else
+            return optional<process_path> (move (pp));
+        }
+        //
+        // Handle the executable target, for example:
+        //
+        // import! [metadata] cli = cli%exe{cli}
+        // ...
+        // {{
+        //    $cli ...
+        // }}
+        //
+        else if (!ns[0].simple ())
+        {
+          if (const target* t = search_existing (
+                ns[0], *scope_, ns[0].pair ? ns[1].dir : empty_dir_path))
+          {
+            if (const auto* et = t->is_a<exe> ())
+            {
+              if (pre_parse_)
+              {
+                if (auto* n = et->lookup_metadata<string> ("name"))
+                {
+                  set_diag (*n, 3);
+                  return nullopt;
+                }
+                // Fall through.
+              }
+              else
+              {
+                process_path pp (et->process_path ());
+
+                if (pp.empty ())
+                  fail (l) << "target " << *et << " is out of date" <<
+                    info << "consider specifying it as a prerequisite of "
+                           << environment_->target;
+
+                ns.erase (ns.begin (), ns.begin () + (ns[0].pair ? 2 : 1));
+                return optional<process_path> (move (pp));
+              }
+            }
+
+            if (pre_parse_)
+            {
+              diag_record dr (fail (l));
+              dr << "unable to deduce low-verbosity script diagnostics name "
+                 << "from target " << *t;
+              suggest_diag (dr);
+            }
+          }
+
+          if (pre_parse_)
+          {
+            diag_record dr (fail (l));
+            dr << "unable to deduce low-verbosity script diagnostics name "
+               << "from " << ns;
+            suggest_diag (dr);
+          }
+          else
+            return nullopt;
+        }
+        else if (pre_parse_)
+        {
+          // If we are here, the name is simple and is not part of a pair.
+          //
+          string& v (ns[0].value);
+
+          // Try to interpret the name as a builtin.
+          //
+          const builtin_info* bi (builtins.find (v));
+
+          if (bi != nullptr)
+          {
+            set_diag (move (v), bi->weight);
+            return nullopt;
+          }
+          //
+          // Try to interpret the name as a pseudo-builtin.
+          //
+          // Note that both of them has the zero weight and cannot be picked
+          // up as a script name.
+          //
+          else if (v == "set" || v == "exit")
+          {
+            return nullopt;
+          }
+
+          diag_record dr (fail (l));
+          dr << "unable to deduce low-verbosity script diagnostics name "
+             << "for program " << ns[0];
+          suggest_diag (dr);
+        }
+
+        return nullopt;
+      }
+
       void parser::
       execute (const scope& rs, const scope& bs,
                environment& e, const script& s, runner& r)
@@ -255,6 +640,10 @@ namespace build2
         set_lexer (nullptr);
 
         // The script shouldn't be able to modify the scopes.
+        //
+        // Note that for now we don't set target_ since it's not clear what
+        // it could be used for (we need scope_ for calling functions such as
+        // $target.path()).
         //
         root_ = const_cast<scope*> (&rs);
         scope_ = const_cast<scope*> (&bs);
@@ -350,8 +739,10 @@ namespace build2
         // In the pre-parse mode collect the referenced variable names for the
         // script semantics change tracking.
         //
-        if (pre_parse_)
+        if (pre_parse_ || pre_parse_suspended_)
         {
+          lookup r;
+
           // Add the variable name skipping special variables and suppressing
           // duplicates. While at it, check if the script temporary directory
           // is referenced and set the flag, if that's the case.
@@ -363,13 +754,21 @@ namespace build2
           }
           else if (!name.empty ())
           {
+            if (pre_parse_suspended_)
+            {
+              const variable* pvar (scope_->ctx.var_pool.find (name));
+
+              if (pvar != nullptr)
+                r = (*target_)[*pvar];
+            }
+
             auto& vars (script_->vars);
 
             if (find (vars.begin (), vars.end (), name) == vars.end ())
               vars.push_back (move (name));
           }
 
-          return lookup ();
+          return r;
         }
 
         if (!qual.empty ())

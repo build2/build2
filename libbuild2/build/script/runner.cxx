@@ -61,14 +61,14 @@ namespace build2
 
           try
           {
-            // Note that the temporary directory must be empty to date.
+            // Note that the temporary directory must be empty.
             //
             rmdir_status r (try_rmdir (td));
 
             if (r != rmdir_status::success)
             {
               // While there can be no fault of the script being currently
-              // executed let's add the location anyway to ease the
+              // executed let's add the location anyway to help with
               // troubleshooting. And let's stick to that principle down the
               // road.
               //
@@ -110,8 +110,10 @@ namespace build2
             find_if (expr.begin (), expr.end (),
                      [] (const expr_term& et)
                      {
-                       const string& p (et.pipe.back ().program.string ());
-                       return p == "set" || p == "exit";
+                       const process_path& p (et.pipe.back ().program);
+                       return p.initial == nullptr &&
+                              (p.recall.string () == "set" ||
+                               p.recall.string () == "exit");
                      }) != expr.end ())
           build2::script::run (env, expr, li, ll);
         else if (verb >= 2)

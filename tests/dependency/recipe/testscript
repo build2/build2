@@ -11,14 +11,15 @@
 $* <<EOI 2>>/~%EOE%
 alias{x}: alias{z}
 {{
-  cmd
+  echo
 }}
 dump alias{x}
 EOI
 <stdin>:5:1: dump:
 %  .+/alias\{x\}: .+/:alias\{z\}%
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -27,14 +28,15 @@ EOE
 $* <<EOI 2>>/~%EOE%
 alias{x y}: alias{z}
 {{
-  cmd
+  echo
 }}
 dump alias{y}
 EOI
 <stdin>:5:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -44,14 +46,15 @@ $* <<EOI 2>>/~%EOE%
 alias{x}:
 %
 {{
-  cmd
+  echo
 }}
 dump alias{x}
 EOI
 <stdin>:6:1: dump:
 %  .+/alias\{x\}:%
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -61,14 +64,15 @@ $* <<EOI 2>>/~%EOE%
 alias{x y}:
 %
 {{
-  cmd
+  echo
 }}
 dump alias{y}
 EOI
 <stdin>:6:1: dump:
 %  .+/alias\{y\}:%
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -96,7 +100,7 @@ alias{x}:
   var = x
 }
 {{
-  cmd
+  echo
 }}
 dump alias{x}
 EOI
@@ -105,8 +109,9 @@ EOI
   {
     var = x
   }
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -118,7 +123,7 @@ alias{x y}: alias{z}
   var = x
 }
 {{
-  cmd
+  echo
 }}
 dump alias{y}
 EOI
@@ -127,8 +132,9 @@ EOI
   {
     var = x
   }
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -141,7 +147,7 @@ alias{x}: alias{z}
 }
 %
 {{
-  cmd
+  echo
 }}
 dump alias{x}
 EOI
@@ -150,8 +156,9 @@ EOI
   {
     var = x
   }
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -164,7 +171,7 @@ alias{x y}:
 }
 %
 {{
-  cmd
+  echo
 }}
 dump alias{y}
 EOI
@@ -173,8 +180,9 @@ EOI
   {
     var = x
   }
+  % [diag=echo]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -183,20 +191,22 @@ EOE
 $* <<EOI 2>>/~%EOE%
 alias{x}:
 {{
-  cmd1
+  echo
 }}
 {{{
-  cmd2
+  cat
 }}}
 dump alias{x}
 EOI
 <stdin>:8:1: dump:
 %  .+/alias\{x\}:%
+  % [diag=echo]
   {{
-    cmd1
+    echo
   }}
+  % [diag=cat]
   {{{
-    cmd2
+    cat
   }}}
 EOE
 
@@ -205,20 +215,22 @@ EOE
 $* <<EOI 2>>/~%EOE%
 alias{x y}: alias{z}
 {{
-  cmd1
+  echo
 }}
 {{{
-  cmd2
+  cat
 }}}
 dump alias{y}
 EOI
 <stdin>:8:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
+  % [diag=echo]
   {{
-    cmd1
+    echo
   }}
+  % [diag=cat]
   {{{
-    cmd2
+    cat
   }}}
 EOE
 
@@ -228,22 +240,24 @@ $* <<EOI 2>>/~%EOE%
 alias{x}: alias{z}
 
 {{
-  cmd1
+  echo
 }}
 
 %
 {{{
-  cmd2
+  cat
 }}}
 dump alias{x}
 EOI
 <stdin>:11:1: dump:
 %  .+/alias\{x\}: .+/:alias\{z\}%
+  % [diag=echo]
   {{
-    cmd1
+    echo
   }}
+  % [diag=cat]
   {{{
-    cmd2
+    cat
   }}}
 EOE
 
@@ -253,22 +267,24 @@ $* <<EOI 2>>/~%EOE%
 alias{x y}:
 
 {{
-  cmd1
+  echo
 }}
 
 %
 {{{
-  cmd2
+  cat
 }}}
 dump alias{y}
 EOI
 <stdin>:11:1: dump:
 %  .+/alias\{y\}:%
+  % [diag=echo]
   {{
-    cmd1
+    echo
   }}
+  % [diag=cat]
   {{{
-    cmd2
+    cat
   }}}
 EOE
 
@@ -277,7 +293,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 alias{x}:
 {{{
-  cmd
+  echo
 }}
 EOI
 <stdin>:5:1: error: unterminated recipe block
@@ -289,7 +305,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 alias{x}:
 {{ $lang
-  cmd
+  echo
 }}
 EOI
 <stdin>:2:4: error: expected recipe language instead of '$'
@@ -301,7 +317,7 @@ $* <<EOI 2>>/~!EOE!
 alias{x}:
 % [diag=gen]
 {{
-  cmd
+  echo
 }}
 dump alias{x}
 EOI
@@ -309,7 +325,7 @@ EOI
 !  .+/alias\{x\}:!
   % [diag=gen]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -319,7 +335,7 @@ $* <<EOI 2>>/~!EOE!
 alias{x y}:
 % [diag=gen]
 {{
-  cmd
+  echo
 }}
 dump alias{y}
 EOI
@@ -327,7 +343,7 @@ EOI
 !  .+/alias\{y\}:!
   % [diag=gen]
   {{
-    cmd
+    echo
   }}
 EOE
 
@@ -337,8 +353,250 @@ $* <<EOI 2>>EOE != 0
 alias{x}:
 %
 {
-  cmd
+  echo
 }
 EOI
 <stdin>:3:1: error: expected recipe block instead of '{'
 EOE
+
+: diag
+:
+{
+  : builtins
+  :
+  {
+    : weight-0
+    :
+    $* <<EOI 2>>EOE != 0
+      alias{x}:
+      {{
+
+        exit
+      }}
+      dump alias{x}
+      EOI
+      <stdin>:3:1: error: unable to deduce low-verbosity script diagnostics name
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
+      EOE
+
+    : weight-1
+    :
+    $* <<EOI 2>>~%EOE%
+      alias{x}:
+      {{
+        true
+        rm b
+      }}
+      dump alias{x}
+      EOI
+      %.{2}
+        % [diag=rm]
+      %.{4}
+      EOE
+
+    : weight-2
+    :
+    $* <<EOI 2>>~%EOE%
+      alias{x}:
+      {{
+        rm a
+        echo a
+      }}
+      dump alias{x}
+      EOI
+      %.{2}
+        % [diag=echo]
+      %.{4}
+      EOE
+
+    : ambiguity
+    :
+    $* <<EOI 2>>EOE != 0
+      alias{x}:
+      {{
+        echo a
+        cat b
+      }}
+      dump alias{x}
+      EOI
+      <stdin>:3:1: error: low-verbosity script diagnostics name is ambiguous
+        <stdin>:3:3: info: could be 'echo'
+        <stdin>:4:3: info: could be 'cat'
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
+      EOE
+  }
+
+  : process-path-ex
+  :
+  {
+    config_cxx = config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
+
+    mkdir build;
+    cat <<EOI >=build/bootstrap.build;
+      project = test
+      amalgamation =
+      subprojects =
+
+      using config
+      EOI
+
+    cat <<EOI >=build/root.build;
+      using cxx
+      EOI
+
+    $* $config_cxx <<EOI 2>>~%EOE%
+      c = $cxx.path --version
+      alias{x}:
+      {{
+        $c
+      }}
+      dump alias{x}
+      EOI
+      %.{2}
+        % [diag=c++]
+      %.{3}
+      EOE
+  }
+
+  : unrecognized
+  :
+  {
+    : expansion-failure
+    :
+    $* <<EOI 2>>EOE != 0
+      alias{x}:
+      {{
+         x = true
+         ech($x ? o : a)
+      }}
+      dump alias{x}
+      EOI
+      <stdin>:4:8: error: invalid bool value: null
+        <stdin>:4:11: info: use the '\?' escape sequence if this is a wildcard pattern
+        <stdin>:4:4: info: while deducing low-verbosity script diagnostics name
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+      EOE
+
+    : empty
+    :
+    $* <<EOI 2>>EOE != 0
+      alias{x}:
+      {{
+        foo = bar
+        $foo
+      }}
+      dump alias{x}
+      EOI
+      <stdin>:4:3: error: unable to deduce low-verbosity script diagnostics name
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+      EOE
+
+    : process-path-typed
+    :
+    $* <<EOI 2>>~%EOE% != 0
+      alias{x}:
+      {{
+         $build.path --version
+      }}
+      dump alias{x}
+      EOI
+      %<stdin>:3:4: error: unable to deduce low-verbosity script diagnostics name from process path .+%
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+      EOE
+
+    : process-path-syntactic
+    :
+    $* <<EOI 2>>~%EOE% != 0
+      b = $build.path
+      alias{x}:
+      {{
+         $b --version
+      }}
+      dump alias{x}
+      EOI
+      %<stdin>:4:4: error: unable to deduce low-verbosity script diagnostics name from process path .+%
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+      EOE
+
+    : target-no-name
+    :
+    : Disable when cross-testing for the sake of simplicity.
+    :
+    if ($test.target == $build.host)
+    {
+      $* <<EOI 2>>/~%EOE% != 0
+        import! b = build2%exe{b}
+
+        alias{x}: $b
+        {{
+          $b --version
+        }}
+        dump alias{x}
+        EOI
+        %<stdin>:5:3: error: unable to deduce low-verbosity script diagnostics name from target .+/exe\{b\}%
+          info: consider specifying it explicitly with the 'diag' recipe attribute
+          info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+        EOE
+    }
+
+    : program
+    :
+    $* <<EOI 2>>~%EOE% != 0
+      alias{x}:
+      {{
+        echo a
+        foo
+      }}
+      dump alias{x}
+      EOI
+      <stdin>:4:3: error: unable to deduce low-verbosity script diagnostics name for program foo
+        info: consider specifying it explicitly with the 'diag' recipe attribute
+        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+      EOE
+  }
+
+  : manual
+  :
+  {
+    : attribute
+    :
+    $* <<EOI 2>>~%EOE%
+      alias{x}:
+        % [diag=foo]
+      {{
+        rm a
+        echo b | set c
+        bar
+      }}
+      dump alias{x}
+      EOI
+      %.{2}
+        % [diag=foo]
+      %.{5}
+      EOE
+
+    : diag
+    :
+    $* <<EOI 2>>~%EOE%
+      v = a b
+      alias{x}:
+      {{
+        rm a
+        echo b | set c
+        diag bar
+        fo$v
+      }}
+      dump alias{x}
+      EOI
+      %.{2}
+        % [diag=<name>]
+      %.{5}
+      EOE
+  }
+}

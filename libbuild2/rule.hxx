@@ -134,7 +134,7 @@ namespace build2
     // therefore requires cleanup.
     //
     virtual bool
-    recipe_text (context&, string&&, attributes&) = 0;
+    recipe_text (context&, const target&, string&&, attributes&) = 0;
 
   public:
     // Some of the operations come in compensating pairs, such as update and
@@ -194,7 +194,7 @@ namespace build2
     adhoc_script_rule (const location& l, size_t b): adhoc_rule (l, b) {}
 
     virtual bool
-    recipe_text (context&, string&&, attributes&) override;
+    recipe_text (context&, const target&, string&&, attributes&) override;
 
   public:
     using script_type = build::script::script;
@@ -251,7 +251,7 @@ namespace build2
     adhoc_cxx_rule (const location&, size_t, uint64_t version);
 
     virtual bool
-    recipe_text (context&, string&& t, attributes&) override;
+    recipe_text (context&, const target&, string&& t, attributes&) override;
 
     virtual
     ~adhoc_cxx_rule () override;

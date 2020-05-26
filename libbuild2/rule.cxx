@@ -365,7 +365,7 @@ namespace build2
   // adhoc_script_rule
   //
   bool adhoc_script_rule::
-  recipe_text (context& ctx, string&& t, attributes& as)
+  recipe_text (context& ctx, const target& tg, string&& t, attributes& as)
   {
     // Handle and erase recipe-specific attributes.
     //
@@ -397,7 +397,10 @@ namespace build2
 
     istringstream is (move (t));
     build::script::parser p (ctx);
-    script = p.pre_parse (is, loc.file, loc.line + 1, move (diag));
+
+    script = p.pre_parse (tg,
+                          is, loc.file, loc.line + 1,
+                          move (diag), as.loc);
 
     return false;
   }
@@ -545,17 +548,9 @@ namespace build2
       {
         if (auto* e = pt->is_a<exe> ())
         {
-          if (auto* ns = cast_null<names> (e->vars[ctx.var_export_metadata]))
+          if (auto* c = e->lookup_metadata<string> ("checksum"))
           {
-            // Metadata variable prefix is in the second name.
-            //
-            assert (ns->size () == 2 && (*ns)[1].simple ());
-
-            if (auto* c = cast_null<string> (
-                  e->vars[(*ns)[1].value + ".checksum"]))
-            {
-              prog_cs.append (*c);
-            }
+            prog_cs.append (*c);
           }
         }
       }
@@ -778,7 +773,7 @@ namespace build2
   }
 
   bool adhoc_cxx_rule::
-  recipe_text (context&, string&& t, attributes&)
+  recipe_text (context&, const target&, string&& t, attributes&)
   {
     code = move (t);
     return true;

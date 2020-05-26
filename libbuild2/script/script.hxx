@@ -294,7 +294,12 @@ namespace build2
     //
     struct command
     {
-      path program;
+      // We use NULL initial as an indication that the path stored in recall
+      // is a program name that still needs to be resolved into the builtin
+      // function or the process path.
+      //
+      process_path program;
+
       strings arguments;
 
       optional<redirect> in;

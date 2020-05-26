@@ -123,7 +123,7 @@ namespace build2
 
           cout << endl;
 
-          return e.back ().pipe.back ().program.string () == "true";
+          return e.back ().pipe.back ().program.recall.string () == "true";
         }
 
         virtual void

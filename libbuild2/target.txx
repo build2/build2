@@ -179,4 +179,22 @@ namespace build2
     t.prerequisites (move (ps));
     return &t;
   }
+
+  // exe
+  //
+  template <typename T>
+  const T* exe::
+  lookup_metadata (const char* var) const
+  {
+    if (auto* ns = cast_null<names> (vars[ctx.var_export_metadata]))
+    {
+      // Metadata variable prefix is in the second name.
+      //
+      assert (ns->size () == 2 && (*ns)[1].simple ());
+
+      return cast_null<T> (vars[(*ns)[1].value + '.' + var]);
+    }
+
+    return nullptr;
+  }
 }

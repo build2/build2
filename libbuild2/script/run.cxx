@@ -102,7 +102,7 @@ namespace build2
       catch (const io_error& e)
       {
         // While there can be no fault of the script command being currently
-        // executed let's add the location anyway to ease the
+        // executed let's add the location anyway to help with
         // troubleshooting. And let's stick to that principle down the road.
         //
         fail (ll) << "unable to read " << p << ": " << e << endf;
@@ -949,7 +949,14 @@ namespace build2
       command_pipe::const_iterator nc (bc + 1);
       bool last (nc == ec);
 
-      const string& program (c.program.string ());
+      // True if the process path is not pre-searched and the program path
+      // still needs to be resolved.
+      //
+      bool resolve (c.program.initial == nullptr);
+
+      // Program name that may require resolution.
+      //
+      const string& program (c.program.recall.string ());
 
       const redirect& in ((c.in ? *c.in : env.in).effective ());
 
@@ -961,7 +968,7 @@ namespace build2
 
       auto process_args = [&c] () -> cstrings
       {
-        cstrings args {c.program.string ().c_str ()};
+        cstrings args {c.program.recall_string ()};
 
         for (const auto& a: c.arguments)
           args.push_back (a.c_str ());
@@ -982,7 +989,7 @@ namespace build2
       // specify any redirects or exit code check sounds like a right thing
       // to do.
       //
-      if (program == "exit")
+      if (resolve && program == "exit")
       {
         // In case the builtin is erroneously pipelined from the other
         // command, we will close stdin gracefully (reading out the stream
@@ -1150,7 +1157,7 @@ namespace build2
       // that. Checking that the user didn't specify any meaningless
       // redirects or exit code check sounds as a right thing to do.
       //
-      if (program == "set")
+      if (resolve && program == "set")
       {
         if (!last)
           fail (ll) << "set builtin must be the last pipe command";
@@ -1322,11 +1329,13 @@ namespace build2
       assert (ofd.out.get () != -1 && efd.get () != -1);
 
       optional<process_exit> exit;
-      builtin_function* bf (builtins.find (program));
+      const builtin_info* bi (resolve
+                              ? builtins.find (program)
+                              : nullptr);
 
       bool success;
 
-      if (bf != nullptr)
+      if (bi != nullptr && bi->function != nullptr)
       {
         // Execute the builtin.
         //
@@ -1544,11 +1553,11 @@ namespace build2
         try
         {
           uint8_t r; // Storage.
-          builtin b (bf (r,
-                         c.arguments,
-                         move (ifd), move (ofd.out), move (efd),
-                         *env.work_dir.path,
-                         bcs));
+          builtin b (bi->function (r,
+                                   c.arguments,
+                                   move (ifd), move (ofd.out), move (efd),
+                                   *env.work_dir.path,
+                                   bcs));
 
           success = run_pipe (env,
                               nc,
@@ -1570,14 +1579,15 @@ namespace build2
         //
         cstrings args (process_args ());
 
-        // Resolve the relative not simple program path against the script's
-        // working directory. The simple one will be left for the process
-        // path search machinery. Also strip the potential leading `^`,
-        // indicating that this is an external program rather than a
-        // builtin.
+        // If the process path is not pre-searched then resolve the relative
+        // non-simple program path against the script's working directory. The
+        // simple one will be left for the process path search machinery. Also
+        // strip the potential leading `^` (indicates that this is an external
+        // program rather than a builtin).
         //
         path p;
 
+        if (resolve)
         try
         {
           p = path (args[0]);
@@ -1610,7 +1620,9 @@ namespace build2
 
         try
         {
-          process_path pp (process::path_search (args[0]));
+          process_path pp (resolve
+                           ? process::path_search (args[0])
+                           : process_path ());
 
           // Note: the builtin-escaping character '^' is not printed.
           //
@@ -1618,7 +1630,7 @@ namespace build2
             print_process (args);
 
           process pr (
-            pp,
+            resolve ? pp : c.program,
             args.data (),
             {ifd.get (), -1}, process::pipe (ofd), {-1, efd.get ()},
             env.work_dir.path->string ().c_str ());
@@ -1656,7 +1668,11 @@ namespace build2
       if (!success)
         return false;
 
-      const path& pr (c.program);
+      // Use the program path for diagnostics (print relative, etc).
+      //
+      const path& pr (resolve
+                      ? c.program.recall
+                      : path (c.program.recall_string ())); // Can't throw.
 
       // If there is no valid exit code available by whatever reason then we
       // print the proper diagnostics, dump stderr (if cached and not too

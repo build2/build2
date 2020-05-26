@@ -162,14 +162,42 @@ namespace build2
                   size_t& li,
                   variable_pool* = nullptr);
 
+      // Customization hooks.
+      //
+    protected:
+      // Parse the command's leading name chunk.
+      //
+      // During the execution phase try to parse and translate the leading
+      // names into the process path and return nullopt if choose not to do
+      // so, leaving it to the parser to handle. Also return in the last
+      // argument uninterpreted names, if any.
+      //
+      // The default implementation always returns nullopt. The derived parser
+      // can provide an override that can, for example, handle process path
+      // values, executable targets, etc.
+      //
+      // Note that normally it makes sense to leave simple unpaired names for
+      // the parser to handle, unless there is a good reason not to (e.g.,
+      // it's a special builtin or some such). Such names may contain
+      // something that requires re-lexing, for example `foo|bar`, which won't
+      // be easy to translate but which are handled by the parser.
+      //
+      // During the pre-parsing phase the returned process path and names
+      // (that must still be parsed) are discarded. The main purpose of the
+      // call is to allow implementations to perform static script analysis,
+      // recognize and execute certain directives, or some such.
+      //
+      virtual optional<process_path>
+      parse_program (token&, token_type&, names&);
+
       // Set lexer pointers for both the current and the base classes.
       //
     protected:
       void
       set_lexer (lexer*);
 
-      // Number of quoted tokens since last reset. Note that this includes
-      // the peeked token, if any.
+      // Number of quoted tokens since last reset. Note that this includes the
+      // peeked token, if any.
       //
     protected:
       size_t

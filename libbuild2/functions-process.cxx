@@ -93,8 +93,8 @@ namespace build2
     return value (move (r));
   }
 
-  // Return the builtin function pointer if this is a call to a builtin and
-  // NULL otherwise.
+  // Return the builtin function pointer if this is a call to an internal
+  // builtin and NULL otherwise.
   //
   static builtin_function*
   builtin (const names& args)
@@ -106,7 +106,8 @@ namespace build2
     if (!nm.simple () || nm.pair)
       return nullptr;
 
-    return builtins.find (nm.value);
+    const builtin_info* r (builtins.find (nm.value));
+    return r != nullptr ? r->function : nullptr;
   }
 
   // Return the builtin name and its arguments. The builtin function is only

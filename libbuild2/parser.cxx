@@ -1187,7 +1187,7 @@ namespace build2
         {
           if (d.first)
           {
-            if (ar->recipe_text (ctx, move (t.value), d.as))
+            if (ar->recipe_text (ctx, *target_, move (t.value), d.as))
               d.clean = true;
 
             // Verify we have no unhandled attributes.
@@ -5862,7 +5862,7 @@ namespace build2
             {
               fail (l)    << "invalid value subscript: " << e <<
                 info (bl) << "use the '\\[' escape sequence if this is a "
-                          << "wildcard pattern";
+                          << "wildcard pattern" << endf;
             }
 
             // Similar to expanding an undefined variable, we return NULL if

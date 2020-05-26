@@ -1711,6 +1711,12 @@ namespace build2
     void
     process_path (process_path_type);
 
+    // Lookup metadata variable (see {import,export}.metadata).
+    //
+    template <typename T>
+    const T*
+    lookup_metadata (const char* var) const;
+
   public:
     static const target_type static_type;
     virtual const target_type& dynamic_type () const {return static_type;}

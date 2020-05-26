@@ -38,7 +38,7 @@ $* <<EOF >>EOF
 $* <<EOI >>EOO
   foo 'bar' "baz" '' ""
   "$foo"
-  "foo$"
+  "foo$bar"
   "fo"o
   "foo"\"
   "foo\\"
@@ -55,7 +55,7 @@ $* <<EOI >>EOO
   EOI
   foo 'bar' "baz" '' ""
   "$foo"
-  "foo$"
+  "foo$bar"
   "foo"
   "foo\""
   "foo\\"

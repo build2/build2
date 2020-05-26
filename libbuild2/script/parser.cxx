@@ -96,6 +96,19 @@ namespace build2
       return regex_parts (string (s, 1, rn), s[0], string (s, fp, p - fp));
     }
 
+    optional<process_path> parser::
+    parse_program (token& t, type& tt, names& ns)
+    {
+      parse_names (t, tt,
+                   ns,
+                   pattern_mode::ignore,
+                   true /* chunk */,
+                   "command line",
+                   nullptr);
+
+      return nullopt;
+    }
+
     pair<command_expr, parser::here_docs> parser::
     parse_command_expr (token& t, type& tt,
                         const redirect_aliases& ra)
@@ -279,7 +292,9 @@ namespace build2
         {
         case pending::none: c.arguments.push_back (move (w)); break;
         case pending::program:
-          c.program = parse_path (move (w), "program path");
+          c.program = process_path (nullptr /* initial */,
+                                    parse_path (move (w), "program path"),
+                                    path () /* effect */);
           break;
 
         case pending::out_merge: add_merge (c.out, w, 2); break;
@@ -726,12 +741,20 @@ namespace build2
           {
             if (pre_parse_)
             {
-              // The only things we need to handle here are the here-document
-              // and here-document regex end markers since we need to know
-              // how many of them to pre-parse after the command.
+              // The only things we need to handle here are the tokens that
+              // introduce the next command, since we handle the command
+              // leading name chunks specially, and the here-document and
+              // here-document regex end markers, since we need to know how
+              // many of them to pre-parse after the command.
               //
               switch (tt)
               {
+              case type::pipe:
+              case type::log_or:
+              case type::log_and:
+                p = pending::program;
+                break;
+
               case type::in_doc:
               case type::out_doc:
                 mod = move (t.value);
@@ -994,23 +1017,53 @@ namespace build2
               }
             }
 
-            // Parse the next chunk as simple names to get expansion, etc.
-            // Note that we do it in the chunking mode to detect whether
-            // anything in each chunk is quoted.
+            // Parse the next chunk as names to get expansion, etc. Note that
+            // we do it in the chunking mode to detect whether anything in
+            // each chunk is quoted. If we are waiting for the command
+            // program, then delegate the parsing to the derived parser, so it
+            // can translate complex program names (targets, process_paths)
+            // during execution and perform some static analysis during
+            // pre-parsing.
             //
             // @@ PAT: should we support pattern expansion? This is even
             // fuzzier than the variable case above. Though this is the
             // shell semantics. Think what happens when we do rm *.txt?
             //
             reset_quoted (t);
-            parse_names (t, tt,
-                         ns,
-                         pattern_mode::ignore,
-                         true,
-                         "command line",
-                         nullptr);
 
-            if (pre_parse_) // Nothing else to do if we are pre-parsing.
+            if (p == pending::program)
+            {
+              optional<process_path> pp (parse_program (t, tt, ns));
+
+              // During pre-parsing we are not interested in the
+              // parse_program() call result, so just discard the potentially
+              // unhandled program chunk names.
+              //
+              if (!pre_parse_)
+              {
+                if (pp)
+                {
+                  c.program = move (*pp);
+                  p = pending::none;
+                }
+              }
+              else
+              {
+                ns.clear ();
+                p = pending::none;
+              }
+            }
+            else
+              parse_names (t, tt,
+                           ns,
+                           pattern_mode::ignore,
+                           true /* chunk */,
+                           "command line",
+                           nullptr);
+
+            // Nothing else to do if we are pre-parsing.
+            //
+            if (pre_parse_)
               break;
 
             // Process what we got. Determine whether anything inside was

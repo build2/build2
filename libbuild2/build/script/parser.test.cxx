@@ -58,7 +58,7 @@ namespace build2
 
           cout << endl;
 
-          return e.back ().pipe.back ().program.string () == "true";
+          return e.back ().pipe.back ().program.recall.string () == "true";
         }
 
         virtual void
@@ -160,7 +160,12 @@ namespace build2
           //
           parser p (ctx);
           path_name nm ("buildfile");
-          script s (p.pre_parse (cin, nm, 11 /* line */, nullopt));
+
+          script s (p.pre_parse (tt,
+                                 cin, nm,
+                                 11 /* line */,
+                                 string ("test"),
+                                 location (nm, 10)));
 
           switch (m)
           {
