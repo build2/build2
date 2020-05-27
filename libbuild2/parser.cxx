@@ -701,7 +701,7 @@ namespace build2
 
         if (tt == type::newline)
         {
-          // See if this is a target-specific variable and/or recipe block.
+          // See if this is a target-specific variable and/or recipe block(s).
           //
           // Note that we cannot just let parse_dependency() handle this case
           // because we can have (a mixture of) target type/patterns.
@@ -716,8 +716,6 @@ namespace build2
               tt == type::multi_lcbrace ||
               (tt == type::lcbrace && peek () == type::newline))
           {
-            token st (t); // Save start token.
-
             // Parse the block(s) for each target.
             //
             // Note that because we have to peek past the closing brace(s) to
@@ -725,9 +723,11 @@ namespace build2
             // that token part of the replay (we cannot peek past the replay
             // sequence).
             //
+            // Note: similar code to the version in parse_dependency().
+            //
             auto parse = [
               this,
-              &st,
+              st = token (t), // Save start token (will be gone on replay).
               recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
               (token& t, type& tt,
                const target_type* type, string pat) mutable
@@ -782,7 +782,7 @@ namespace build2
 
         // Target-specific variable assignment or dependency declaration,
         // including a dependency chain and/or prerequisite-specific variable
-        // assignment.
+        // assignment and/or recipe block(s).
         //
         auto at (attributes_push (t, tt));
 
@@ -795,6 +795,10 @@ namespace build2
         names pns (parse_names (t, tt, pattern_mode::expand));
 
         // Target-specific variable assignment.
+        //
+        // Note that neither here nor in parse_dependency() below we allow
+        // specifying recipes following a target-specified variable assignment
+        // (but we do allow them following a target-specific variable block).
         //
         if (tt == type::assign || tt == type::prepend || tt == type::append)
         {
@@ -827,7 +831,8 @@ namespace build2
           next_after_newline (t, tt);
         }
         // Dependency declaration potentially followed by a chain and/or a
-        // target/prerequisite-specific variable assignment/block.
+        // target/prerequisite-specific variable assignment/block and/or
+        // recipe block(s).
         //
         else
         {
@@ -1323,9 +1328,9 @@ namespace build2
                     bool chain)
   {
     // Parse a dependency chain and/or a target/prerequisite-specific variable
-    // assignment/block. Return true if the following block (if any) has been
-    // "claimed" (the block "belongs" to targets/prerequisites before the last
-    // colon).
+    // assignment/block and/or recipe block(s). Return true if the following
+    // block(s) (if any) have been "claimed", meaning they "belong" to
+    // targets/prerequisites before the last colon.
     //
     // enter: colon (anything else is not handled)
     // leave: - first token on the next line           if returning true
@@ -1403,7 +1408,8 @@ namespace build2
     // each target (for_each_p).
     //
     // We handle multiple targets and/or prerequisites by replaying the tokens
-    // (see the target-specific case for details). The function signature is:
+    // (see the target-specific case comments for details). The function
+    // signature is:
     //
     // void (token& t, type& tt)
     //
@@ -1449,9 +1455,9 @@ namespace build2
     };
 
     // Do we have a dependency chain and/or prerequisite-specific variable
-    // assignment? If not, check for the target-specific variable block unless
-    // this is a chained call (in which case the block, if any, "belongs" to
-    // prerequisites).
+    // assignment? If not, check for the target-specific variable block and/or
+    // recipe block(s) unless this is a chained call (in which case the block,
+    // if any, "belongs" to prerequisites).
     //
     if (tt != type::colon)
     {
@@ -1460,24 +1466,48 @@ namespace build2
 
       next_after_newline (t, tt); // Must be a newline then.
 
-      if (tt == type::lcbrace && peek () == type::newline)
+      if (tt == type::percent       ||
+          tt == type::multi_lcbrace ||
+          (tt == type::lcbrace && peek () == type::newline))
       {
-        next (t, tt); // Newline.
-
-        // Parse the block for each target.
+        // Parse the block(s) for each target.
         //
-        for_each_t ([this] (token& t, token_type& tt)
-                    {
-                      next (t, tt); // First token inside the block.
+        // Note: similar code to the version in parse_clause().
+        //
+        auto parse = [
+          this,
+          st = token (t), // Save start token (will be gone on replay).
+          recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
+          (token& t, type& tt) mutable
+        {
+          token rt; // Recipe start token.
 
-                      parse_variable_block (t, tt);
+          // The variable block, if any, should be first.
+          //
+          if (st.type == type::lcbrace)
+          {
+            next (t, tt); // Newline.
+            next (t, tt); // First token inside the variable block.
+            parse_variable_block (t, tt);
 
-                      if (tt != type::rcbrace)
-                        fail (t) << "expected '}' instead of " << t;
-                    });
+            if (tt != type::rcbrace)
+              fail (t) << "expected '}' instead of " << t;
 
-        next (t, tt);                    // Presumably newline after '}'.
-        next_after_newline (t, tt, '}'); // Should be on its own line.
+            next (t, tt);                    // Newline.
+            next_after_newline (t, tt, '}'); // Should be on its own line.
+
+            if (tt != type::percent && tt != type::multi_lcbrace)
+              return;
+
+            rt = t;
+          }
+          else
+            rt = st;
+
+          parse_recipe (t, tt, rt, recipes);
+        };
+
+        for_each_t (parse);
       }
 
       return true; // Claimed or isn't any.
