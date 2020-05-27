@@ -14,7 +14,7 @@ namespace build2
       void
       token_printer (ostream& os, const token& t, print_mode m)
       {
-        // No build script-specific tokens so far.
+        // No buildscript-specific tokens so far.
         //
         build2::script::token_printer (os, t, m);
       }

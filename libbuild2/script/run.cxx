@@ -192,7 +192,7 @@ namespace build2
 
       // For targets other than Windows leave the string intact.
       //
-      if (env.platform.class_ != "windows")
+      if (env.host.class_ != "windows")
         return s;
 
       // Convert forward slashes to Windows path separators (escape for
@@ -335,7 +335,7 @@ namespace build2
 
         // Ignore Windows newline fluff if that's what we are running on.
         //
-        if (env.platform.class_ == "windows")
+        if (env.host.class_ == "windows")
           args.push_back ("--strip-trailing-cr");
 
         args.push_back (eop.string ().c_str ());

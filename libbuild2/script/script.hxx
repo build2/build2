@@ -15,7 +15,7 @@ namespace build2
 {
   namespace script
   {
-    // Pre-parse representation.
+    // Pre-parsed representation.
     //
 
     enum class line_type
@@ -207,10 +207,10 @@ namespace build2
       redirect (redirect&&) noexcept;
       redirect& operator= (redirect&&) noexcept;
 
-      // Note that defining optional movable-only redirects in the command
-      // class make the older C++ compilers (GCC 4.9, Clang 4, VC 15) fail to
-      // compile the command vector manipulating code. Thus, we make the
-      // redirect class copyable to workaround the issue.
+      // @@ Defining optional movable-only redirects in the command class make
+      // the older C++ compilers (GCC 4.9, Clang 4, VC 15) fail to compile the
+      // command vector manipulating code. Thus, we make the redirect class
+      // copyable to workaround the issue.
       //
       redirect (const redirect&);
       redirect& operator= (const redirect&);
@@ -354,80 +354,71 @@ namespace build2
     public:
       build2::context& context;
 
-      // A platform the script-executed programs run at.
+      // The platform script programs run on.
       //
-      const target_triplet& platform;
+      const target_triplet& host;
 
-      // Used as the builtin/process CWD and to complete relative paths. Any
-      // attempt to remove or move this directory (or its parent directory)
-      // using the rm or mv builtins will fail the script execution. Must be
-      // an absolute path.
+      // The work directory is used as the builtin/process CWD and to complete
+      // relative paths. Any attempt to remove or move this directory (or its
+      // parent directory) using the rm or mv builtins will fail. Must be an
+      // absolute path.
       //
       const dir_name_view work_dir;
 
-      // If path is not NULL, then any attempt to remove or move a filesystem
-      // entry outside this directory using an explicit cleanup or the rm/mv
-      // builtins will fail the script execution, unless the --force option is
-      // specified for the builtin. Must be an absolute path, unless is NULL.
+      // If the sanbox directory is not NULL, then any attempt to remove or
+      // move a filesystem entry outside this directory using an explicit
+      // cleanup or the rm/mv builtins will fail, unless the --force option is
+      // specified for the builtin. Must be an absolute path.
       //
       const dir_name_view sandbox_dir;
 
-      // Used by the script running machinery to create special files in it.
-      // Must be an absolute path, unless empty. Can be empty until the
-      // create_temp_dir() function call, which can be used for the create-on-
-      // demand strategy implementation.
+      // The temporary directory is used by the script running machinery to
+      // create special files. Must be an absolute path, unless empty. Can be
+      // empty until the create_temp_dir() function call, which can be used
+      // for creating this directory on demand.
       //
       const dir_path& temp_dir;
 
-      // The temporary directory will not be removed on the script failure,
-      // which allows the script running machinery to refer to the special
-      // files in the diagnostics.
+      // If true, the temporary directory will not be removed on the script
+      // failure. In particular, this allows the script running machinery to
+      // refer to the special files in diagnostics.
       //
       const bool temp_dir_keep;
 
-      // Process streams default redirects.
+      // Default process streams redirects.
       //
       // If a stream redirect is not specified on the script command line,
-      // then the respective redirect data member will be used.
+      // then the respective redirect data member will be used as the default.
       //
       const redirect in;
       const redirect out;
       const redirect err;
 
       environment (build2::context& ctx,
-                   const target_triplet& pt,
+                   const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_name_view& sd,
                    const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
-          : context (ctx),
-            platform (pt),
-            work_dir (wd),
-            sandbox_dir (sd),
-            temp_dir (td),
-            temp_dir_keep (tk),
-            in (move (i)),
-            out (move (o)),
-            err (move (e))
+          : context (ctx), host (h),
+            work_dir (wd), sandbox_dir (sd), temp_dir (td), temp_dir_keep (tk),
+            in (move (i)), out (move (o)), err (move (e))
       {
       }
 
       // Create environment without the sandbox.
       //
       environment (build2::context& ctx,
-                   const target_triplet& pt,
+                   const target_triplet& h,
                    const dir_name_view& wd,
                    const dir_path& td, bool tk,
                    redirect&& i = redirect (redirect_type::pass),
                    redirect&& o = redirect (redirect_type::pass),
                    redirect&& e = redirect (redirect_type::pass))
-          : environment (ctx,
-                         pt,
-                         wd,
-                         dir_name_view (),
-                         td, tk,
+          : environment (ctx, h,
+                         wd, dir_name_view (), td, tk,
                          move (i), move (o), move (e))
       {
       }

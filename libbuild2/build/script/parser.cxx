@@ -269,9 +269,6 @@ namespace build2
       {
         const script& s (*script_);
 
-        if (s.temp_dir)
-          environment_->create_temp_dir ();
-
         runner_->enter (*environment_, s.start_loc);
 
         // Note that we rely on "small function object" optimization for the

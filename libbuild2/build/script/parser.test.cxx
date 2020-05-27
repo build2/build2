@@ -166,7 +166,7 @@ namespace build2
           {
           case mode::run:
             {
-              environment e (perform_update_id, tt);
+              environment e (perform_update_id, tt, false /* temp_dir */);
               print_runner r (print_line);
               p.execute (ctx.global_scope, ctx.global_scope, e, s, r);
               break;

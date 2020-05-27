@@ -631,7 +631,7 @@ namespace build2
     {
       const scope& bs (t.base_scope ());
 
-      build::script::environment e (a, t);
+      build::script::environment e (a, t, script.temp_dir);
       build::script::parser p (ctx);
       build::script::default_runner r;
       p.execute (*bs.root_scope (), bs, e, script, r);
@@ -664,7 +664,7 @@ namespace build2
     {
       const scope& bs (t.base_scope ());
 
-      build::script::environment e (a, t);
+      build::script::environment e (a, t, script.temp_dir);
       build::script::parser p (ctx);
       build::script::default_runner r;
       p.execute (*bs.root_scope (), bs, e, script, r);

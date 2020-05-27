@@ -22,7 +22,7 @@ namespace build2
       static const optional<string> wd_name ("current directory");
 
       environment::
-      environment (action a, const target_type& t)
+      environment (action a, const target_type& t, bool temp)
           : build2::script::environment (
               t.ctx,
               cast<target_triplet> (t.ctx.global_scope["build.host"]),
@@ -34,9 +34,7 @@ namespace build2
             target (t),
             vars (context, false /* global */)
       {
-        // Set special variables. Note that the $~ variable is set later and
-        // only if the temporary directory is required for the script
-        // execution (see create_temp_dir() for details).
+        // Set special variables.
         //
         {
           // $>
@@ -64,6 +62,14 @@ namespace build2
               pt->as_name (ns);
 
           assign (var_pool.insert ("<")) = move (ns);
+        }
+
+        // Set the $~ special variable.
+        //
+        if (temp)
+        {
+          create_temp_dir ();
+          assign (var_pool.insert<dir_path> ("~")) = temp_dir.path;
         }
       }
 
@@ -117,11 +123,6 @@ namespace build2
           fail << "unable to cleanup temporary directory '" << td << "': "
                << e;
         }
-
-        // Set the $~ special variable.
-        //
-        value& v (assign (var_pool.insert<dir_path> ("~")));
-        v = td;
 
         if (verb >= 3)
           text << "mkdir " << td;

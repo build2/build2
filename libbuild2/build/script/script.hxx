@@ -29,11 +29,10 @@ namespace build2
       // Notes:
       //
       // - Once parsed, the script can be executed in multiple threads with
-      //   the state (variable values, etc) maintained in the environment
-      //   object.
+      //   the state (variable values, etc) maintained in the environment.
       //
-      // - The default script command redirects semantics is none for stdin,
-      //   merge into stderr for stdout, and pass for stderr.
+      // - The default script command redirects semantics is 'none' for stdin,
+      //   'merge' into stderr for stdout, and 'pass' for stderr.
       //
       class script
       {
@@ -53,7 +52,7 @@ namespace build2
         // properly tracked (the variable value change will not trigger the
         // target rebuild).
         //
-        small_vector<string, 1> vars;
+        small_vector<string, 2> vars; // 2 for command and options.
 
         // True if script references the $~ special variable.
         //
@@ -68,7 +67,7 @@ namespace build2
       public:
         using target_type = build2::target;
 
-        environment (action, const target_type&);
+        environment (action, const target_type&, bool temp_dir);
 
         environment (environment&&) = delete;
         environment (const environment&) = delete;
@@ -76,15 +75,16 @@ namespace build2
         environment& operator= (const environment&) = delete;
 
       public:
+        // Primary target this environment is for.
+        //
         const target_type& target;
 
-        // Script-local variable pool.
+        // Script-local variable pool and map.
+        //
+        // Note that if we lookup the variable by passing name as a string,
+        // then it will be looked up in the wrong pool.
         //
         variable_pool var_pool;
-
-        // Note that if we pass the variable name as a string, then it will
-        // be looked up in the wrong pool.
-        //
         variable_map vars;
 
         // Temporary directory for the script run.
@@ -110,8 +110,6 @@ namespace build2
                       const string& attrs,
                       const location&) override;
 
-        // Create the temporary directory and set the $~ variable.
-        //
         virtual void
         create_temp_dir () override;
 

@@ -33,7 +33,8 @@ namespace build2
       lexer_mode (base_type v): base_type (v) {}
     };
 
-    // Redirects the <, <<, <<<, >, >>, and >>> aliases resolve to.
+    // Actual redirects (as tokens) for the the <, <<, <<<, and >, >>, >>>
+    // aliases.
     //
     struct redirect_aliases
     {
@@ -44,9 +45,10 @@ namespace build2
       optional<token_type> gg;  // >>
       optional<token_type> ggg; // >>>
 
-      // If the token type is a redirect alias then return the token type
-      // it resolves to and the passed type otherwise. It's the caller's
-      // responsibility to make sure that the corresponding alias is present.
+      // If the token type is a redirect alias then return the token type it
+      // resolves to and the passed token type otherwise. Note that it's the
+      // caller's responsibility to make sure that the corresponding alias is
+      // present (normally by not recognizing absent aliases as tokens).
       //
       token_type
       resolve (token_type t) const noexcept

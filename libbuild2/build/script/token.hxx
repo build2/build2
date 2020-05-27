@@ -19,7 +19,7 @@ namespace build2
       {
         using base_type = build2::script::token_type;
 
-        // No build script-specific tokens so far.
+        // No buildscript-specific tokens so far.
         //
 
         token_type () = default;
