@@ -111,7 +111,7 @@ namespace build2
     //
     function_family ft (m, "target");
 
-    fn["path"] = [](const scope* s, names ns)
+    ft["path"] = [](const scope* s, names ns)
     {
       if (s == nullptr)
         fail << "target.path() called out of scope";
