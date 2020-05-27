@@ -116,7 +116,9 @@ namespace build2
 
   // Ad hoc rule.
   //
-  class LIBBUILD2_SYMEXPORT adhoc_rule: rule
+  // Note: not exported
+  //
+  class adhoc_rule: public rule
   {
   public:
     location_value loc;     // Buildfile location of the recipe.
@@ -162,9 +164,9 @@ namespace build2
 
   // Ad hoc script rule.
   //
-  // Note: should not be used directly (i.e., registered).
+  // Note: not exported and should not be used directly (i.e., registered).
   //
-  class LIBBUILD2_SYMEXPORT adhoc_script_rule: public adhoc_rule
+  class adhoc_script_rule: public adhoc_rule
   {
   public:
     virtual bool
@@ -196,7 +198,7 @@ namespace build2
 
   // Ad hoc C++ rule.
   //
-  // Note: should not be used directly (i.e., registered).
+  // Note: exported but should not be used directly (i.e., registered).
   //
   class LIBBUILD2_SYMEXPORT cxx_rule: public rule
   {
@@ -219,7 +221,9 @@ namespace build2
     match (action, target&, const string&) const override;
   };
 
-  class LIBBUILD2_SYMEXPORT adhoc_cxx_rule: public adhoc_rule
+  // Note: not exported.
+  //
+  class adhoc_cxx_rule: public adhoc_rule
   {
   public:
     virtual bool
