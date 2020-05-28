@@ -80,7 +80,6 @@ namespace build2
   inline const target*
   import_existing (context& ctx, const prerequisite_key& pk)
   {
-    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
     return import (ctx, pk, false, nullopt, true, location ());
   }
 }

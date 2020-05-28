@@ -23,7 +23,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target&
   search (const target&, const prerequisite&);
 
-  // As above but only search for an already existing target.
+  // As above but only search for an already existing target. Note that unlike
+  // the above, this version can be called during the execute phase.
   //
   LIBBUILD2_SYMEXPORT const target*
   search_existing (const prerequisite&);
@@ -38,6 +39,9 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target&
   search (const target&, const prerequisite_key&);
 
+  // Note that unlike the above version, this one can be called during the
+  // load and execute phases.
+  //
   LIBBUILD2_SYMEXPORT const target*
   search_existing (context&, const prerequisite_key&);
 
@@ -94,8 +98,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target&
   search (const target&, name, const scope&);
 
-  // Unlike the above version, this one can be called during the execute
-  // phase. Return NULL for unknown target types.
+  // Return NULL for unknown target types. Note that unlike the above version,
+  // these ones can be called during the load and execute phases.
   //
   LIBBUILD2_SYMEXPORT const target*
   search_existing (const name&,

@@ -389,7 +389,8 @@ namespace build2
   operator<< (ostream&, const pair<const exe*, import_kind>&);
 
   // As import phase 2 but only imports as an already existing target. But
-  // unlike it, this function can be called during the execute phase.
+  // unlike it, this function can be called during the load and execute
+  // phases.
   //
   // Note: similar to search_existing().
   //

@@ -71,8 +71,6 @@ namespace build2
   const target*
   search_existing (context& ctx, const prerequisite_key& pk)
   {
-    assert (ctx.phase == run_phase::match || ctx.phase == run_phase::execute);
-
     return pk.proj
       ? import_existing (ctx, pk)
       : search_existing_target (ctx, pk);
@@ -109,9 +107,6 @@ namespace build2
   const target*
   search_existing (const name& cn, const scope& s, const dir_path& out)
   {
-    assert (s.ctx.phase == run_phase::match ||
-            s.ctx.phase == run_phase::execute);
-
     // See also scope::find_prerequisite_key().
     //
     name n (cn);
