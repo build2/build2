@@ -308,9 +308,10 @@ namespace build2
             std::string vstr (ov, (p != std::string::npos ? p + 1 : ov.size ()));
 
             int ac (2);
-            char* av[] = 
+            char* av[] =
             {
-              const_cast<char*> (o), 0
+              const_cast<char*> (o),
+              0
             };
 
             bool dummy;
@@ -455,17 +456,17 @@ namespace build2
     {
       _cli_set_options_map_init ()
       {
-        _cli_set_options_map_["--exact"] = 
+        _cli_set_options_map_["--exact"] =
         &::build2::script::cli::thunk< set_options, bool, &set_options::exact_ >;
-        _cli_set_options_map_["-e"] = 
+        _cli_set_options_map_["-e"] =
         &::build2::script::cli::thunk< set_options, bool, &set_options::exact_ >;
-        _cli_set_options_map_["--newline"] = 
+        _cli_set_options_map_["--newline"] =
         &::build2::script::cli::thunk< set_options, bool, &set_options::newline_ >;
-        _cli_set_options_map_["-n"] = 
+        _cli_set_options_map_["-n"] =
         &::build2::script::cli::thunk< set_options, bool, &set_options::newline_ >;
-        _cli_set_options_map_["--whitespace"] = 
+        _cli_set_options_map_["--whitespace"] =
         &::build2::script::cli::thunk< set_options, bool, &set_options::whitespace_ >;
-        _cli_set_options_map_["-w"] = 
+        _cli_set_options_map_["-w"] =
         &::build2::script::cli::thunk< set_options, bool, &set_options::whitespace_ >;
       }
     };
@@ -578,7 +579,7 @@ namespace build2
                   cf[2] = '\0';
 
                   int ac (1);
-                  char* av[] = 
+                  char* av[] =
                   {
                     cf
                   };
