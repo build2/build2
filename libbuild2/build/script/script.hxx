@@ -37,6 +37,7 @@ namespace build2
       class script
       {
       public:
+
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
@@ -57,6 +58,10 @@ namespace build2
         // True if script references the $~ special variable.
         //
         bool temp_dir = false;
+
+        // Command name for low-verbosity diagnostics.
+        //
+        optional<string> diag;
 
         location start_loc;
         location end_loc;

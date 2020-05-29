@@ -365,14 +365,18 @@ namespace build2
   {
     // Do we need the header?
     //
-    if (diag)
+    // @@ TODO: for now we dump it as an attribute whether it was specified or
+    //    derived from the script. Maybe that's ok?
+    //
+    if (script.diag)
     {
       os << ind << '%';
 
-      if (diag)
+      if (script.diag)
       {
         os << " [";
-        os << "diag="; to_stream (os, name (*diag), true /* quote */, '@');
+        os << "diag=";
+        to_stream (os, name (*script.diag), true /* quote */, '@');
         os << ']';
       }
 
@@ -612,7 +616,7 @@ namespace build2
 
     if (verb == 1)
     {
-      // @@ TODO:
+      // @@ TODO (and below):
       //
       // - derive diag if absent (should probably do in match?)
       //
@@ -624,7 +628,7 @@ namespace build2
       //   (including tools)?
       //
 
-      text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
+      text << (script.diag ? script.diag->c_str () : "adhoc") << ' ' << t;
     }
 
     if (!ctx.dry_run || verb >= 2)
@@ -657,7 +661,7 @@ namespace build2
     {
       // @@ TODO: as above
 
-      text << (diag ? diag->c_str () : "adhoc") << ' ' << t;
+      text << (script.diag ? script.diag->c_str () : "adhoc") << ' ' << t;
     }
 
     if (!ctx.dry_run || verb >= 2)

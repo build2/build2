@@ -34,7 +34,8 @@ namespace build2
         // name.
         //
         script
-        pre_parse (istream&, const path_name&, uint64_t line);
+        pre_parse (istream&, const path_name&, uint64_t line,
+                   optional<string> diag);
 
         // Recursive descent parser.
         //

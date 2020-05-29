@@ -186,14 +186,11 @@ namespace build2
 
     using script_type = build::script::script;
 
-    adhoc_script_rule (optional<string> d, const location& l, size_t b)
-      : adhoc_rule (l, b), diag (move (d)) {}
+    adhoc_script_rule (const location& l, size_t b): adhoc_rule (l, b) {}
 
   public:
-    const optional<string> diag;     // Command name for low-verbosity diag.
-    string                 checksum; // Script text hashsum.
-    script_type            script;
-
+    script_type script;
+    string      checksum; // Script text hashsum.
   };
 
   // Ad hoc C++ rule.

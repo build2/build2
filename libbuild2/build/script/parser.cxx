@@ -21,7 +21,8 @@ namespace build2
       //
 
       script parser::
-      pre_parse (istream& is, const path_name& pn, uint64_t line)
+      pre_parse (istream& is, const path_name& pn, uint64_t line,
+                 optional<string> diag)
       {
         path_ = &pn;
 
@@ -31,6 +32,8 @@ namespace build2
         set_lexer (&l);
 
         script s;
+        s.diag = move (diag);
+
         script_ = &s;
         runner_ = nullptr;
         environment_ = nullptr;

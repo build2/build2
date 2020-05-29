@@ -1169,15 +1169,15 @@ namespace build2
                 i = d.as.erase (i);
               }
 
-              auto* asr (new adhoc_script_rule (
-                           move (diag), loc, st.value.size ()));
+              auto* asr (new adhoc_script_rule (loc, st.value.size ()));
               ar.reset (asr);
 
               asr->checksum = sha256 (t.value).string ();
 
               istringstream is (move (t.value));
               build::script::parser p (ctx);
-              asr->script = p.pre_parse (is, asr->loc.file, loc.line + 1);
+              asr->script = p.pre_parse (
+                is, asr->loc.file, loc.line + 1, move (diag));
             }
             //
             // C++
