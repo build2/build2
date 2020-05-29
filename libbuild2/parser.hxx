@@ -107,6 +107,9 @@ namespace build2
     parse_clause (token&, token_type&, bool one = false);
 
     void
+    parse_clause_block (token& t, token_type& tt, bool, const string&);
+
+    void
     parse_variable_block (token&, token_type&,
                           const target_type* = nullptr,
                           string = string ());
@@ -179,7 +182,19 @@ namespace build2
     parse_if_else (token&, token_type&);
 
     void
+    parse_if_else (token&, token_type&,
+                   bool,
+                   const function<void (
+                     token&, token_type&, bool, const string&)>&);
+
+    void
     parse_switch (token&, token_type&);
+
+    void
+    parse_switch (token&, token_type&,
+                  bool,
+                  const function<void (
+                    token&, token_type&, bool, const string&)>&);
 
     void
     parse_for (token&, token_type&);
@@ -261,7 +276,7 @@ namespace build2
       location loc; // Start location.
 
       explicit
-      attributes (location l): loc (move (l)) {}
+      attributes (location l = {}): loc (move (l)) {}
     };
 
     // Push a new entry into the attributes_ stack. If the next token is `[`

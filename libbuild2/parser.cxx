@@ -391,7 +391,7 @@ namespace build2
         void (parser::*f) (token&, type&) = nullptr;
 
         // @@ Is this the only place where some of these are valid? Probably
-        // also in the var namespace?
+        // also in the var block?
         //
         if (n == "assert" ||
             n == "assert!")
@@ -973,6 +973,25 @@ namespace build2
   }
 
   void parser::
+  parse_clause_block (token& t, type& tt, bool skip, const string& k)
+  {
+    next (t, tt); // Get newline.
+    next (t, tt); // First token inside the block.
+
+    if (skip)
+      skip_block (t, tt);
+    else
+      parse_clause (t, tt);
+
+    if (tt != type::rcbrace)
+      fail (t) << "expected name or '}' instead of " << t
+               << " at the end of " << k << "-block";
+
+    next (t, tt);                    // Presumably newline after '}'.
+    next_after_newline (t, tt, '}'); // Should be on its own line.
+  }
+
+  void parser::
   parse_variable_block (token& t, type& tt,
                         const target_type* type, string pat)
   {
@@ -1031,6 +1050,7 @@ namespace build2
     // Parse a recipe chain.
     //
     // % [<attrs>]
+    // [if|switch ...]
     // {{ [<lang>]
     //   ...
     // }}
@@ -1052,120 +1072,202 @@ namespace build2
         default_target_ = target_;
     }
 
-    bool first (recipes.empty ()); // First target.
-    bool clean (false);            // Seen a recipe that requires cleanup.
+    bool first (replay_ != replay::play); // First target.
+    bool clean (false);                   // Seen recipe that requires cleanup.
 
-    token st (start);
-    for (size_t i (0);; st = t, ++i)
+    t = start; tt = t.type;
+    for (size_t i (0); tt == type::percent || tt == type::multi_lcbrace; ++i)
     {
-      optional<string> diag;
+      recipes.push_back (nullptr); // For missing else/default (see below).
 
-      if (st.type == type::percent)
+      attributes as;
+      struct data
+      {
+        small_vector<shared_ptr<adhoc_rule>, 1>& recipes;
+        bool                                     first;
+        bool&                                    clean;
+        size_t                                   i;
+        attributes&                              as;
+      } d {recipes, first, clean, i, as};
+
+      // Note that this function must be called at most once per iteration.
+      //
+      auto parse_block = [this, &d] (token& t, type& tt,
+                                     bool skip,
+                                     const string& kind)
+      {
+        token st (t); // Save block start token.
+
+        optional<string> lang;
+        location lloc;
+        if (next (t, tt) == type::newline)
+          ;
+        else if (tt == type::word)
+        {
+          lang = t.value;
+          lloc = get_location (t);
+          next (t, tt); // Newline after <lang>.
+        }
+        else
+          fail (t) << "expected recipe language instead of " << t;
+
+        mode (lexer_mode::foreign, '\0', st.value.size ());
+        next_after_newline (t, tt, st); // Should be on its own line.
+
+        if (tt != type::word)
+        {
+          diag_record dr;
+
+          dr << fail (t) << "unterminated recipe ";
+          if (kind.empty ()) dr << "block"; else dr << kind << "-block";
+
+          dr << info (st) << "recipe ";
+          if (kind.empty ()) dr << "block"; else dr << kind << "-block";
+          dr << " starts here" << endf;
+        }
+
+        if (!skip)
+        {
+          shared_ptr<adhoc_rule> ar;
+          if (d.first)
+          {
+            // Note that this is always the location of the opening multi-
+            // curly-brace, whether we have the header or not. This is relied
+            // upon by the rule implementations (e.g., to calculate the first
+            // line of the recipe code).
+            //
+            location loc (get_location (st));
+
+            // Buildscript
+            //
+            if (!lang)
+            {
+              // Handle and erase recipe-specific attributes.
+              //
+              optional<string> diag;
+              for (auto i (d.as.begin ()); i != d.as.end (); )
+              {
+                attribute& a (*i);
+                const string& n (a.name);
+
+                if (n == "diag")
+                try
+                {
+                  diag = convert<string> (move (a.value));
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (d.as.loc) << "invalid " << n << " attribute value: "
+                                  << e;
+                }
+                else
+                {
+                  ++i;
+                  continue;
+                }
+
+                i = d.as.erase (i);
+              }
+
+              auto* asr (new adhoc_script_rule (
+                           move (diag), loc, st.value.size ()));
+              ar.reset (asr);
+
+              asr->checksum = sha256 (t.value).string ();
+
+              istringstream is (move (t.value));
+              build::script::parser p (ctx);
+              asr->script = p.pre_parse (is, asr->loc.file, loc.line + 1);
+            }
+            //
+            // C++
+            //
+            else if (*lang == "c++")
+            {
+              ar.reset (new adhoc_cxx_rule (
+                          move (t.value), loc, st.value.size ()));
+              d.clean = true;
+            }
+            else
+              fail (lloc) << "unknown recipe language '" << *lang << "'";
+
+            // Verify we have no unhandled attributes.
+            //
+            for (attribute& a: d.as)
+              fail (d.as.loc) << "unknown recipe attribute " << a << endf;
+
+            assert (d.recipes[d.i] == nullptr);
+            d.recipes[d.i] = ar;
+          }
+          else
+          {
+            assert (d.recipes[d.i] != nullptr);
+            ar = d.recipes[d.i];
+          }
+
+          target_->adhoc_recipes.push_back (
+            adhoc_recipe {perform_update_id, move (ar)});
+        }
+
+        next (t, tt);
+        assert (tt == type::multi_rcbrace);
+
+        next (t, tt);                          // Newline.
+        next_after_newline (t, tt, token (t)); // Should be on its own line.
+      };
+
+      if (tt == type::percent)
       {
         next_with_attributes (t, tt);
         attributes_push (t, tt, true /* standalone */);
 
-        // Get variable (or value) attributes, if any, and deal with the
-        // special metadata attribute. Since currently it can only appear in
-        // the import directive, we handle it in an ad hoc manner.
+        // Handle recipe attributes. We divide them into common and recipe
+        // language-specific.
         //
-        attributes& as (attributes_top ());
-        for (attribute& a: as)
-        {
-          const string& n (a.name);
-
-          // @@ TODO: diag is script-specific, pass as attributes to rule?
-          //
-          if (n == "diag")
-          {
-            try
-            {
-              diag = convert<string> (move (a.value));
-            }
-            catch (const invalid_argument& e)
-            {
-              fail (as.loc) << "invalid " << n << " attribute value: " << e;
-            }
-          }
-          else
-            fail (as.loc) << "unknown recipe attribute " << a;
-        }
-
+        // TODO: handle and erase common attributes if/when we have any.
+        //
+        as = move (attributes_top ());
         attributes_pop ();
 
         next_after_newline (t, tt, '%');
 
+        // See if this is if-else or switch.
+        //
+        // We want the keyword test similar to parse_clause() but we cannot do
+        // it if replaying. So we skip it with understanding that if it's not
+        // a keywords, then it would have been an error while saving and we
+        // would have never actual gotten to replay in this case.
+        //
+        if (tt == type::word && (!first || keyword (t)))
+        {
+          const string& n (t.value);
+
+          // Note that we may have if without else and switch without default.
+          // We treat such cases as if no recipe was specified (this can be
+          // handy if we want to provide a custom recipe but only on certain
+          // platforms or some such).
+
+          if (n == "if")
+          {
+            parse_if_else (t, tt, true /* multi */, parse_block);
+            continue;
+          }
+          else if (n == "switch")
+          {
+            parse_switch (t, tt, true /* multi */, parse_block);
+            continue;
+          }
+
+          // Fall through.
+        }
+
         if (tt != type::multi_lcbrace)
           fail (t) << "expected recipe block instead of " << t;
 
-        st = t; // And fall through.
+        // Fall through.
       }
 
-      optional<string> lang;
-      location lloc;
-      if (next (t, tt) == type::newline)
-        ;
-      else if (tt == type::word)
-      {
-        lang = t.value;
-        lloc = get_location (t);
-        next (t, tt); // Newline after <lang>.
-      }
-      else
-        fail (t) << "expected recipe language instead of " << t;
-
-      mode (lexer_mode::foreign, '\0', st.value.size ());
-      next_after_newline (t, tt, st); // Should be on its own line.
-
-      if (tt != type::word)
-        fail (t) << "unterminated recipe block" <<
-          info (st) << "recipe block starts here" << endf;
-
-      shared_ptr<adhoc_rule> ar;
-      if (first)
-      {
-        // Note that this is always the location of the opening multi-curly-
-        // brace, whether we have the header or not. This is relied upon by
-        // the rule implementations (e.g., to calculate the first line of the
-        // recipe code).
-        //
-        location loc (get_location (st));
-
-        if (!lang)
-        {
-          auto* asr (new adhoc_script_rule (move (diag), loc, st.value.size ()));
-          ar.reset (asr);
-
-          asr->checksum = sha256 (t.value).string ();
-
-          istringstream is (move (t.value));
-          build::script::parser p (ctx);
-          asr->script = p.pre_parse (is, asr->loc.file, loc.line + 1);
-        }
-        else if (*lang == "c++")
-        {
-          ar.reset (new adhoc_cxx_rule (move (t.value), loc, st.value.size ()));
-          clean = true;
-        }
-        else
-          fail (lloc) << "unknown recipe language '" << *lang << "'";
-
-        recipes.push_back (ar);
-      }
-      else
-        ar = recipes[i];
-
-      target_->adhoc_recipes.push_back (
-        adhoc_recipe {perform_update_id, move (ar)});
-
-      next (t, tt);
-      assert (tt == type::multi_rcbrace);
-
-      next (t, tt);                          // Newline.
-      next_after_newline (t, tt, token (t)); // Should be on its own line.
-
-      if (tt != type::percent && tt != type::multi_lcbrace)
-        break;
+      parse_block (t, tt, false /* skip */, "" /* kind */);
     }
 
     // If we have a recipe that needs cleanup, register an operation callback
@@ -2568,6 +2670,20 @@ namespace build2
   void parser::
   parse_if_else (token& t, type& tt)
   {
+    parse_if_else (t, tt,
+                   false /* multi */,
+                   [this] (token& t, type& tt, bool s, const string& k)
+                   {
+                     return parse_clause_block (t, tt, s, k);
+                   });
+  }
+
+  void parser::
+  parse_if_else (token& t, type& tt,
+                 bool multi,
+                 const function<void (
+                   token&, type&, bool, const string&)>& parse_block)
+  {
     // Handle the whole if-else chain. See tests/if-else.
     //
     bool taken (false); // One of the branches has been taken.
@@ -2633,8 +2749,8 @@ namespace build2
         fail (t) << "expected newline instead of " << t << " after " << k
                  << (k != "else" ? "-expression" : "");
 
-      // This can be a block or a single line. The block part is a bit
-      // tricky, consider:
+      // This can be a block (single or multi-curly) or a single line. The
+      // single-curly block is a bit tricky, consider:
       //
       // else
       //   {hxx cxx}{options}: install = false
@@ -2643,27 +2759,15 @@ namespace build2
       //
       // Note: identical code in parse_switch().
       //
-      if (next (t, tt) == type::lcbrace && peek () == type::newline)
+      next (t, tt);
+      if (multi
+          ? (tt == type::multi_lcbrace)
+          : (tt == type::lcbrace && peek () == type::newline))
       {
-        next (t, tt); // Get newline.
-        next (t, tt);
-
-        if (take)
-        {
-          parse_clause (t, tt);
-          taken = true;
-        }
-        else
-          skip_block (t, tt);
-
-        if (tt != type::rcbrace)
-          fail (t) << "expected name or '}' instead of " << t
-                   << " at the end of " << k << "-block";
-
-        next (t, tt);                    // Presumably newline after '}'.
-        next_after_newline (t, tt, '}'); // Should be on its own line.
+        parse_block (t, tt, !take, k);
+        taken = taken || take;
       }
-      else
+      else if (!multi) // No lines in multi-curly if-else.
       {
         if (take)
         {
@@ -2680,10 +2784,19 @@ namespace build2
             next (t, tt);
         }
       }
+      else
+        fail (t) << "expected " << k << "-block instead of " << t;
 
       // See if we have another el* keyword.
       //
-      if (k != "else" && tt == type::word && keyword (t))
+      // Note that we cannot do the keyword test if we are replaying. So we
+      // skip it with the understanding that if it's not a keywords, then we
+      // wouldn't have gotten here on the reply (see parse_recipe() for
+      // details).
+      //
+      if (k != "else"      &&
+          tt == type::word &&
+          (replay_ == replay::play || keyword (t)))
       {
         const string& n (t.value);
 
@@ -2697,6 +2810,20 @@ namespace build2
 
   void parser::
   parse_switch (token& t, type& tt)
+  {
+    parse_switch (t, tt,
+                  false /* multi */,
+                  [this] (token& t, type& tt, bool s, const string& k)
+                  {
+                    return parse_clause_block (t, tt, s, k);
+                  });
+  }
+
+  void parser::
+  parse_switch (token& t, type& tt,
+                bool multi,
+                const function<void (
+                  token&, type&, bool, const string&)>& parse_block)
   {
     // switch <value> [: <func> [<arg>]] [, <value>...]
     // {
@@ -2789,7 +2916,23 @@ namespace build2
 
     auto special = [&seen_default, this] (const token& t, const type& tt)
     {
-      if (tt == type::word && keyword (t))
+      // Note that we cannot do the keyword test if we are replaying. So we
+      // skip it with the understanding that if it's not a keywords, then we
+      // wouldn't have gotten here on the reply (see parse_recipe() for
+      // details). Note that this appears to mean that replay cannot be used
+      // if we allow lines, only blocks. Consider:
+      //
+      // case ...
+      //  case = x
+      //
+      // (We don't seem to have the same problem with if-else because there we
+      // always expect one line for if/else.)
+      //
+      // Idea: maybe we could save the result of the keyword test in a token
+      // to be replayed? (For example, if we ever decided to allow if-else and
+      // switch in variable blocks.)
+      //
+      if (tt == type::word && (replay_ == replay::play || keyword (t)))
       {
         if (t.value == "case")
         {
@@ -2971,30 +3114,17 @@ namespace build2
         while (special (t, tt));
       }
 
-      // Otherwise this must be a block or a single line (the same logic as in
-      // if-else).
+      // Otherwise this must be a block (single or multi-curly) or a single
+      // line (the same logic as in if-else).
       //
-      if (tt == type::lcbrace && peek () == type::newline)
+      if (multi
+          ? (tt == type::multi_lcbrace)
+          : (tt == type::lcbrace && peek () == type::newline))
       {
-        next (t, tt); // Get newline.
-        next (t, tt);
-
-        if (take)
-        {
-          parse_clause (t, tt);
-          taken = true;
-        }
-        else
-          skip_block (t, tt);
-
-        if (tt != type::rcbrace)
-          fail (t) << "expected name or '}' instead of " << t
-                   << " at the end of " << k << "-block";
-
-        next (t, tt);                    // Presumably newline after '}'.
-        next_after_newline (t, tt, '}'); // Should be on its own line.
+        parse_block (t, tt, !take, k);
+        taken = taken || take;
       }
-      else
+      else if (!multi) // No lines in multi-curly if-else.
       {
         if (take)
         {
@@ -3011,6 +3141,8 @@ namespace build2
             next (t, tt);
         }
       }
+      else
+        fail (t) << "expected " << k << "-block instead of " << t;
     }
 
     if (tt != type::rcbrace)
@@ -6086,7 +6218,7 @@ namespace build2
   bool parser::
   keyword (const token& t)
   {
-    assert (replay_ == replay::stop); // Can't be used in a replay.
+    assert (replay_ != replay::play); // Can't be used in a replay.
     assert (t.type == type::word);
 
     // The goal here is to allow using keywords as variable names and
