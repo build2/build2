@@ -540,7 +540,7 @@ namespace build2
     //
     var_project      = &vp.insert<project_name> ("project");
     var_amalgamation = &vp.insert<dir_path>     ("amalgamation");
-    var_subprojects  = &vp.insert               ("subprojects");
+    var_subprojects  = &vp.insert               ("subprojects"); // Untyped.
     var_version      = &vp.insert<string>       ("version");
 
     var_project_url     = &vp.insert<string> ("project.url");
@@ -549,7 +549,7 @@ namespace build2
     var_import_target   = &vp.insert<name>     ("import.target");
     var_import_metadata = &vp.insert<uint64_t> ("import.metadata");
 
-    var_export_metadata = &vp.insert<uint64_t> ("export.metadata", v_t);
+    var_export_metadata = &vp.insert ("export.metadata", v_t); // Untyped.
 
     var_extension = &vp.insert<string> ("extension", v_t);
     var_clean     = &vp.insert<bool>   ("clean",    v_t);

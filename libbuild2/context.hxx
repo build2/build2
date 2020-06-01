@@ -348,14 +348,36 @@ namespace build2
     //
     const variable* var_project_summary;
 
-    // import.*
+    // import.* and export.*
     //
     const variable* var_import_build2;
     const variable* var_import_target;
-    const variable* var_import_metadata;
 
-    // export.*
+    // The import.metadata variable and the --build2-metadata option are used
+    // to pass the metadata compatibility version.
     //
+    // This serves both as an indication that the metadata is required (can be
+    // useful, for example, in cases where it is expensive to calculate) as
+    // well as the maximum version we recognize. The exporter may return it in
+    // any version up to and including this maximum. And it may return it even
+    // if not requested (but only in version 1). The exporter should also set
+    // the returned version as the target-specific export.metadata variable.
+    //
+    // The export.metadata value should start with the version optionally
+    // followed by the metadata variable prefix (for example, cli in
+    // cli.version). If the variable prefix is missing, it is assumed to be
+    // the target name as imported.
+    //
+    // The following metadata variable names have pre-defined meaning:
+    //
+    //   <var-prefix>.name = [string]      # Stable name for diagnostics.
+    //   <var-prefix>.version = [string]   # Version for diagnostics.
+    //   <var-prefix>.checksum = [string]  # Checksum for change tracking.
+    //
+    // If the <var-prefix>.name variable is missing, it is set to the target
+    // name as imported.
+    //
+    const variable* var_import_metadata;
     const variable* var_export_metadata;
 
     // [string] target visibility

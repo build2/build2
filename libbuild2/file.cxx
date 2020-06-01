@@ -2173,13 +2173,6 @@ namespace build2
 
     // Pass the metadata compatibility version in import.metadata.
     //
-    // This serves both as an indication that the metadata is required (can be
-    // useful, for example, in cases where it is expensive to calculate) as
-    // well as the maximum version we recognize. The exporter may return it in
-    // any version up to and including this maximum. And it may return it even
-    // if not requested (but only in version 1). The exporter should also set
-    // the returned version as the target-specific export.metadata variable.
-    //
     if (meta)
       ts.assign (ctx.var_import_metadata) = uint64_t (1);
 
@@ -2456,7 +2449,7 @@ namespace build2
 
     names ns;
     import_kind k;
-    const target* t (nullptr);
+    const target* pt (nullptr);
 
     pair<name, optional<dir_path>> r (
       import_search (new_value,
@@ -2477,7 +2470,7 @@ namespace build2
       if (r.first.empty ())
       {
         assert (opt);
-        return make_pair (t, k); // NULL
+        return make_pair (pt, k); // NULL
       }
       else if (r.first.qualified ())
       {
@@ -2488,16 +2481,16 @@ namespace build2
           // This is tricky: we only want the optional semantics for the
           // fallback case.
           //
-          t = import (ctx,
-                      base.find_prerequisite_key (ns, loc),
-                      opt && !r.second,
-                      meta,
-                      false /* existing */,
-                      loc);
+          pt = import (ctx,
+                       base.find_prerequisite_key (ns, loc),
+                       opt && !r.second,
+                       meta,
+                       false /* existing */,
+                       loc);
         }
 
-        if (t == nullptr)
-          return make_pair (t, k); // NULL
+        if (pt == nullptr)
+          return make_pair (pt, k); // NULL
 
         // Otherwise fall through.
       }
@@ -2510,29 +2503,86 @@ namespace build2
       ns = import_load (base.ctx, move (r), metadata, loc).first;
     }
 
-    if (t == nullptr)
+    if (pt == nullptr)
     {
       // Similar logic to perform's search().
       //
       target_key tk (base.find_target_key (ns, loc));
-      t = ctx.targets.find (tk, trace);
-      if (t == nullptr)
+      pt = ctx.targets.find (tk, trace);
+      if (pt == nullptr)
         fail (loc) << "unknown imported target " << tk;
     }
 
+    target& t (pt->rw ()); // Load phase.
+
     if (meta)
     {
-      if (auto* v = cast_null<uint64_t> (t->vars[ctx.var_export_metadata]))
+      // The export.metadata value should start with the version optionally
+      // followed by the metadata variable prefix. If the variable prefix is
+      // missing, set it to the metadata key (i.e., target name as imported)
+      // by default.
+      //
+      value& v (t.assign (*ctx.var_export_metadata));
+      if (v && !v.empty ())
       {
-        if (*v != 1)
-          fail (loc) << "unexpected metadata version " << *v
-                     << " in imported target " << *t;
+        names& ns (cast<names> (v));
+
+        // First verify the version.
+        //
+        uint64_t ver;
+        try
+        {
+          // Note: does not change the passed name.
+          //
+          ver = value_traits<uint64_t>::convert (
+            move (ns[0]), ns[0].pair ? &ns[1] : nullptr);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (loc) << "invalid metadata version in imported target " << t
+                     << ": " << e;
+        }
+
+        if (ver != 1)
+          fail (loc) << "unexpected metadata version " << ver
+                     << " in imported target " << t;
+
+        // Next see if we have the metadata variable prefix.
+        //
+        switch (ns.size ())
+        {
+        case 1:
+          {
+            ns.push_back (name (*meta));
+            break;
+          }
+        case 2:
+          {
+            if (ns[1].simple ())
+              break;
+          }
+          // Fall through.
+        default:
+          {
+            fail (loc) << "invalid metadata variable prefix in imported "
+                       << "target " << t;
+          }
+        }
+
+        // See if we have the stable program name in the <var-prefix>.name
+        // variable. If its missing, set it to the metadata key (i.e., target
+        // name as imported) by default.
+        //
+        auto& vp (ctx.var_pool.rw ()); // Load phase.
+        value& nv (t.assign (vp.insert (ns[1].value + ".name")));
+        if (!nv)
+          nv = *meta;
       }
       else
-        fail (loc) << "no metadata for imported target " << *t;
+        fail (loc) << "no metadata for imported target " << t;
     }
 
-    return make_pair (t, k);
+    return make_pair (pt, k);
   }
 
   ostream&
