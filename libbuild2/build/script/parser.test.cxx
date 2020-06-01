@@ -160,7 +160,7 @@ namespace build2
           //
           parser p (ctx);
           path_name nm ("buildfile");
-          script s (p.pre_parse (cin, nm, 11 /* line */));
+          script s (p.pre_parse (cin, nm, 11 /* line */, nullopt));
 
           switch (m)
           {
