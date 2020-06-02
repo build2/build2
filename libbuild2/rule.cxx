@@ -440,16 +440,6 @@ namespace build2
     if (t.data<bool> ())
       return &perform_clean_depdb;
 
-    // For update inject dependency on the tool target(s).
-    //
-    // @@ We could see that it's a target and do it but not sure if we should
-    //    bother. We dropped this idea of implicit targets in tests. Maybe we
-    //    should verify path assigned, like we do there? I think we will have
-    //    to.
-    //
-    // if (a == perform_update_id)
-    //  inject (a, t, tgt);
-
     if (a == perform_update_id && t.is_a<file> ())
     {
       return [this] (action a, const target& t)
@@ -475,6 +465,59 @@ namespace build2
 
     const file& t (xt.as<file> ());
     const path& tp (t.path ());
+
+    // The script can reference a program in one of four ways:
+    //
+    // 1. As an (imported) target (e.g., $cli)
+    //
+    // 2. As a process_path_ex (e.g., $cxx.path).
+    //
+    // 3. As a builtin (e.g., sed)
+    //
+    // 4. As a program path/name.
+    //
+    // When it comes to change tracking, there is nothing we can do for (4)
+    // and there is nothing to do for (3) (assuming builtin semantics is
+    // stable/backwards-compatible). The (2) case is handled automatically by
+    // hashing all the variable values referenced by the script (see below),
+    // which in case of process_path_ex includes the checksum, if available.
+    //
+    // This leaves the (1) case, which itself splits into two sub-cases: the
+    // target comes with the dependency information (e.g., imported from a
+    // project via an export stub) or it does not (e.g., imported as
+    // installed). We don't need to do anything extra for the first sub-case
+    // since the target's state/mtime can be relied upon like any other
+    // prerequisite. Which cannot be said about the second sub-case, where we
+    // reply on checksum that may be included as part of the target metadata.
+    //
+    // So what we are going to do here is hash checksum metadata of every
+    // executable prerequisite target that has it. We do it before executing
+    // in order to include ad hoc prerequisites (which feels like the right
+    // thing to do; the user may mark tools as ad hoc in order to omit them
+    // from $<).
+    //
+    sha256 prog_cs;
+    for (const target* pt: t.prerequisite_targets[a])
+    {
+      if (pt != nullptr)
+      {
+        if (auto* e = pt->is_a<exe> ())
+        {
+          if (auto* ns = cast_null<names> (e->vars[ctx.var_export_metadata]))
+          {
+            // Metadata variable prefix is in the second name.
+            //
+            assert (ns->size () == 2 && (*ns)[1].simple ());
+
+            if (auto* c = cast_null<string> (
+                  e->vars[(*ns)[1].value + ".checksum"]))
+            {
+              prog_cs.append (*c);
+            }
+          }
+        }
+      }
+    }
 
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
@@ -593,13 +636,10 @@ namespace build2
           l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
       }
 
-      // Then the tools checksums.
+      // Finally the programs checksum.
       //
-      // @@ TODO: obtain checksums of all the targets used as commands in
-      //          the script.
-      //
-      //if (dd.expect (csum) != nullptr)
-      //  l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+      if (dd.expect (prog_cs.string ()) != nullptr)
+        l4 ([&]{trace << "program checksum change forcing update of " << t;});
     }
 
     // Update if depdb mismatch.
