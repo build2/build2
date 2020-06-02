@@ -839,7 +839,7 @@ namespace build2
     return name_pair (move (n), r != nullptr ? move (*r) : name ());
   }
 
-  void
+  static void
   name_pair_assign (value& v, names&& ns, const variable* var)
   {
     using traits = value_traits<name_pair>;
@@ -911,8 +911,9 @@ namespace build2
 
   // process_path value
   //
-  process_path value_traits<process_path>::
-  convert (name&& n, name* r)
+  template <typename T>
+  static T
+  process_path_convert (name&& n, name* r, const char* what)
   {
     if (                   n.untyped () &&  n.unqualified () &&  !n.empty () &&
         (r == nullptr || (r->untyped () && r->unqualified () && !r->empty ())))
@@ -933,15 +934,21 @@ namespace build2
           ep /= r->value;
       }
 
-      process_path pp (nullptr, move (rp), move (ep));
+      T pp (nullptr, move (rp), move (ep));
       pp.initial = pp.recall.string ().c_str ();
       return pp;
     }
 
-    throw_invalid_argument (n, r, "process_path");
+    throw_invalid_argument (n, r, what);
   }
 
-  void
+  process_path value_traits<process_path>::
+  convert (name&& n, name* r)
+  {
+    return process_path_convert<process_path> (move (n), r, "process_path");
+  }
+
+  static void
   process_path_assign (value& v, names&& ns, const variable* var)
   {
     using traits = value_traits<process_path>;
@@ -969,23 +976,24 @@ namespace build2
       dr << " in variable " << var->name;
   }
 
-  void
+  template <typename T>
+  static void
   process_path_copy_ctor (value& l, const value& r, bool m)
   {
-    const auto& rhs (r.as<process_path> ());
+    const auto& rhs (r.as<T> ());
 
     if (m)
-      new (&l.data_) process_path (move (const_cast<process_path&> (rhs)));
+      new (&l.data_) T (move (const_cast<T&> (rhs)));
     else
     {
       auto& lhs (
-        *new (&l.data_) process_path (
+        *new (&l.data_) T (
           nullptr, path (rhs.recall), path (rhs.effect)));
       lhs.initial = lhs.recall.string ().c_str ();
     }
   }
 
-  void
+  static void
   process_path_copy_assign (value& l, const value& r, bool m)
   {
     auto& lhs (l.as<process_path> ());
@@ -1001,26 +1009,31 @@ namespace build2
     }
   }
 
+  static void
+  process_path_reverse_impl (const process_path& x, names& s)
+  {
+    s.push_back (name (x.recall.directory (),
+                       string (),
+                       x.recall.leaf ().string ()));
+
+    if (!x.effect.empty ())
+    {
+      s.back ().pair = '@';
+      s.push_back (name (x.effect.directory (),
+                         string (),
+                         x.effect.leaf ().string ()));
+    }
+  }
+
   static names_view
   process_path_reverse (const value& v, names& s)
   {
-    const process_path& x (v.as<process_path> ());
+    const auto& x (v.as<process_path> ());
 
     if (!x.empty ())
     {
       s.reserve (x.effect.empty () ? 1 : 2);
-
-      s.push_back (name (x.recall.directory (),
-                         string (),
-                         x.recall.leaf ().string ()));
-
-      if (!x.effect.empty ())
-      {
-        s.back ().pair = '@';
-        s.push_back (name (x.effect.directory (),
-                           string (),
-                           x.effect.leaf ().string ()));
-      }
+      process_path_reverse_impl (x, s);
     }
 
     return s;
@@ -1035,7 +1048,7 @@ namespace build2
     nullptr,                         // No base.
     nullptr,                         // No element.
     &default_dtor<process_path>,
-    &process_path_copy_ctor,
+    &process_path_copy_ctor<process_path>,
     &process_path_copy_assign,
     &process_path_assign,
     nullptr,                         // Append not supported.
@@ -1044,6 +1057,165 @@ namespace build2
     nullptr,                         // No cast (cast data_ directly).
     &simple_compare<process_path>,
     &default_empty<process_path>
+  };
+
+  // process_path_ex value
+  //
+  process_path_ex value_traits<process_path_ex>::
+  convert (names&& ns)
+  {
+    if (ns.empty ())
+      return process_path_ex ();
+
+    bool p (ns[0].pair);
+
+    process_path_ex pp (
+      process_path_convert<process_path_ex> (
+        move (ns[0]), p ? &ns[1] : nullptr, "process_path_ex"));
+
+    for (auto i (ns.begin () + (p ? 2 : 1)); i != ns.end (); ++i)
+    {
+      if (!i->pair)
+        throw invalid_argument ("non-pair in process_path_ex value");
+
+      if (!i->simple ())
+        throw_invalid_argument (*i, nullptr, "process_path_ex");
+
+      const string& k ((i++)->value);
+
+      if (k == "name")
+      {
+        if (!i->simple ())
+          throw_invalid_argument (*i, nullptr, "process_path_ex name");
+
+        pp.name = move (i->value);
+      }
+      else if (k == "checksum")
+      {
+        if (!i->simple ())
+          throw_invalid_argument (*i, nullptr, "process_path_ex checksum");
+
+        pp.checksum = move (i->value);
+      }
+      else
+        throw invalid_argument (
+          "unknown key '" + k + "' in process_path_ex value");
+    }
+
+    return pp;
+  }
+
+  static void
+  process_path_ex_assign (value& v, names&& ns, const variable* var)
+  {
+    using traits = value_traits<process_path_ex>;
+
+    try
+    {
+      traits::assign (v, traits::convert (move (ns)));
+    }
+    catch (const invalid_argument& e)
+    {
+      // Note: ns is not guaranteed to be valid.
+      //
+      diag_record dr (fail);
+      dr << "invalid process_path_ex value";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << ": " << e;
+    }
+  }
+
+  static void
+  process_path_ex_copy_ex (value& l, const value& r, bool m)
+  {
+    auto& lhs (l.as<process_path_ex> ());
+
+    if (m)
+    {
+      const auto& rhs (const_cast<value&> (r).as<process_path_ex> ());
+
+      lhs.name = move (rhs.name);
+      lhs.checksum = move (rhs.checksum);
+    }
+    else
+    {
+      const auto& rhs (r.as<process_path_ex> ());
+
+      lhs.name = rhs.name;
+      lhs.checksum = rhs.checksum;
+    }
+  }
+
+  static void
+  process_path_ex_copy_ctor (value& l, const value& r, bool m)
+  {
+    process_path_copy_ctor<process_path_ex> (l, r, m);
+
+    if (!m)
+      process_path_ex_copy_ex (l, r, false);
+  }
+
+  static void
+  process_path_ex_copy_assign (value& l, const value& r, bool m)
+  {
+    process_path_copy_assign (l, r, m);
+    process_path_ex_copy_ex (l, r, m);
+  }
+
+  static names_view
+  process_path_ex_reverse (const value& v, names& s)
+  {
+    const auto& x (v.as<process_path_ex> ());
+
+    if (!x.empty ())
+    {
+      s.reserve ((x.effect.empty () ? 1 : 2) +
+                 (x.name ? 2 : 0)            +
+                 (x.checksum ? 2 : 0));
+
+      process_path_reverse_impl (x, s);
+
+      if (x.name)
+      {
+        s.push_back (name ("name"));
+        s.back ().pair = '@';
+        s.push_back (name (*x.name));
+      }
+
+      if (x.checksum)
+      {
+        s.push_back (name ("checksum"));
+        s.back ().pair = '@';
+        s.push_back (name (*x.checksum));
+      }
+    }
+
+    return s;
+  }
+
+  const char* const value_traits<process_path_ex>::type_name =
+    "process_path_ex";
+
+  const value_type value_traits<process_path_ex>::value_type
+  {
+    type_name,
+    sizeof (process_path_ex),
+    &value_traits<                   // Base (assuming direct cast works
+      process_path>::value_type,     // for both).
+    nullptr,                         // No element.
+    &default_dtor<process_path_ex>,
+    &process_path_ex_copy_ctor,
+    &process_path_ex_copy_assign,
+    &process_path_ex_assign,
+    nullptr,                         // Append not supported.
+    nullptr,                         // Prepend not supported.
+    &process_path_ex_reverse,
+    nullptr,                         // No cast (cast data_ directly).
+    &simple_compare<process_path>,   // For now compare as process_path.
+    &default_empty<process_path_ex>
   };
 
   // target_triplet value

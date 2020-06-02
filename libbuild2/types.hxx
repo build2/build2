@@ -283,6 +283,30 @@ namespace build2
   using butl::process_path;
   using butl::process_error;
 
+  // Extended process_path with additional information.
+  //
+  // See also {import,export}.metadata.
+  //
+  struct process_path_ex: process_path
+  {
+    optional<string> name;     // Stable name for diagnostics.
+    optional<string> checksum; // Checksum for change tracking.
+
+    using process_path::process_path;
+
+    process_path_ex (const process_path& p, string n, optional<string> c = {})
+        : process_path (p, false /* init */),
+          name (std::move (n)),
+          checksum (std::move (c)) {}
+
+    process_path_ex (process_path&& p, string n, optional<string> c = {})
+        : process_path (std::move (p)),
+          name (std::move (n)),
+          checksum (std::move (c)) {}
+
+    process_path_ex () = default;
+  };
+
   // <libbutl/fdstream.mxx>
   //
   using butl::auto_fd;

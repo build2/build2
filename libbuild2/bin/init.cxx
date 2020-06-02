@@ -574,11 +574,8 @@ namespace build2
       {
         auto& vp (rs.var_pool ());
 
-        vp.insert<process_path> ("bin.ar.path");
-        vp.insert<process_path> ("bin.ranlib.path");
-
-        vp.insert<path>         ("config.bin.ar");
-        vp.insert<path>         ("config.bin.ranlib");
+        vp.insert<path> ("config.bin.ar");
+        vp.insert<path> ("config.bin.ranlib");
       }
 
       // Configuration.
@@ -672,7 +669,8 @@ namespace build2
           }
         }
 
-        rs.assign<process_path> ("bin.ar.path")      = move (ari.ar_path);
+        rs.assign<process_path_ex> ("bin.ar.path")   =
+          process_path_ex (move (ari.ar_path), "ar", ari.ar_checksum);
         rs.assign<string>       ("bin.ar.id")        = move (ari.ar_id);
         rs.assign<string>       ("bin.ar.signature") = move (ari.ar_signature);
         rs.assign<string>       ("bin.ar.checksum")  = move (ari.ar_checksum);
@@ -689,8 +687,12 @@ namespace build2
 
         if (ranlib != nullptr)
         {
-          rs.assign<process_path> ("bin.ranlib.path") = move (ari.ranlib_path);
-          rs.assign<string>       ("bin.ranlib.id")   = move (ari.ranlib_id);
+          rs.assign<process_path_ex> ("bin.ranlib.path")   =
+            process_path_ex (move (ari.ranlib_path),
+                             "ranlib",
+                             ari.ranlib_checksum);
+          rs.assign<string>       ("bin.ranlib.id")        =
+            move (ari.ranlib_id);
           rs.assign<string>       ("bin.ranlib.signature") =
             move (ari.ranlib_signature);
           rs.assign<string>       ("bin.ranlib.checksum") =
@@ -741,8 +743,7 @@ namespace build2
       {
         auto& vp (rs.var_pool ());
 
-        vp.insert<process_path> ("bin.ld.path");
-        vp.insert<path>         ("config.bin.ld");
+        vp.insert<path> ("config.bin.ld");
       }
 
       // Configuration.
@@ -804,7 +805,8 @@ namespace build2
              << "  checksum   " << ldi.checksum;
         }
 
-        rs.assign<process_path> ("bin.ld.path")      = move (ldi.path);
+        rs.assign<process_path_ex> ("bin.ld.path")   =
+          process_path_ex (move (ldi.path), "ld", ldi.checksum);
         rs.assign<string>       ("bin.ld.id")        = move (ldi.id);
         rs.assign<string>       ("bin.ld.signature") = move (ldi.signature);
         rs.assign<string>       ("bin.ld.checksum")  = move (ldi.checksum);
@@ -881,8 +883,7 @@ namespace build2
       {
         auto& vp (rs.var_pool ());
 
-        vp.insert<process_path> ("bin.rc.path");
-        vp.insert<path>         ("config.bin.rc");
+        vp.insert<path> ("config.bin.rc");
       }
 
       // Configuration.
@@ -926,7 +927,8 @@ namespace build2
                << "  checksum   " << rci.checksum;
         }
 
-        rs.assign<process_path> ("bin.rc.path")      = move (rci.path);
+        rs.assign<process_path_ex> ("bin.rc.path")   =
+          process_path_ex (move (rci.path), "rc", rci.checksum);
         rs.assign<string>       ("bin.rc.id")        = move (rci.id);
         rs.assign<string>       ("bin.rc.signature") = move (rci.signature);
         rs.assign<string>       ("bin.rc.checksum")  = move (rci.checksum);

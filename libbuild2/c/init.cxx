@@ -177,10 +177,10 @@ namespace build2
         vp.insert<strings> ("config.c.libs"),
         nullptr          /* config.c.translatable_headers */,
 
-        vp.insert<process_path> ("c.path"),
-        vp.insert<strings>      ("c.mode"),
-        vp.insert<dir_paths>    ("c.sys_lib_dirs"),
-        vp.insert<dir_paths>    ("c.sys_inc_dirs"),
+        vp.insert<process_path_ex> ("c.path"),
+        vp.insert<strings>         ("c.mode"),
+        vp.insert<dir_paths>       ("c.sys_lib_dirs"),
+        vp.insert<dir_paths>       ("c.sys_inc_dirs"),
 
         vp.insert<string>       ("c.std"),
 

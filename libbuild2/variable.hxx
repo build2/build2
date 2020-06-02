@@ -881,13 +881,33 @@ namespace build2
     static_assert (sizeof (process_path) <= value::size_,
                    "insufficient space");
 
-    // This one is represented as a @-pair of names. As a result it cannot
-    // be stored in a container.
+    // Represented as a @-pair of names. As a result it cannot be stored in a
+    // container.
     //
     static process_path convert (name&&, name*);
     static void assign (value&, process_path&&);
     static int compare (const process_path&, const process_path&);
     static bool empty (const process_path& x) {return x.empty ();}
+
+    static const bool empty_value = true;
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+  // process_path_ex
+  //
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<process_path_ex>
+  {
+    static_assert (sizeof (process_path_ex) <= value::size_,
+                   "insufficient space");
+
+    // Represented as a @-pair of names corresponding to process_path followed
+    // by the name@ and checksum@ pairs. So it's a container-like.
+    //
+    static process_path_ex convert (names&&);
+    static void assign (value&, process_path_ex&&);
+    static bool empty (const process_path_ex& x) {return x.empty ();}
 
     static const bool empty_value = true;
     static const char* const type_name;

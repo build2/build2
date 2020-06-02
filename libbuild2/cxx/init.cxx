@@ -427,10 +427,10 @@ namespace build2
         //
         &vp.insert<strings> ("config.cxx.translatable_headers"),
 
-        vp.insert<process_path> ("cxx.path"),
-        vp.insert<strings>      ("cxx.mode"),
-        vp.insert<dir_paths>    ("cxx.sys_lib_dirs"),
-        vp.insert<dir_paths>    ("cxx.sys_inc_dirs"),
+        vp.insert<process_path_ex> ("cxx.path"),
+        vp.insert<strings>         ("cxx.mode"),
+        vp.insert<dir_paths>       ("cxx.sys_lib_dirs"),
+        vp.insert<dir_paths>       ("cxx.sys_inc_dirs"),
 
         vp.insert<string>   ("cxx.std"),
 

@@ -377,6 +377,8 @@ namespace build2
     // If the <var-prefix>.name variable is missing, it is set to the target
     // name as imported.
     //
+    // See also process_path_ex.
+    //
     const variable* var_import_metadata;
     const variable* var_export_metadata;
 

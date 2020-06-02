@@ -614,7 +614,7 @@ namespace build2
   inline void value_traits<process_path>::
   assign (value& v, process_path&& x)
   {
-    // Convert the value to its "self-sufficient" form.
+    // Convert the value to its "self-sufficient" form (see also below).
     //
     if (x.recall.empty ())
       x.recall = path (x.initial);
@@ -636,6 +636,24 @@ namespace build2
       r = x.effect.compare (y.effect);
 
     return r;
+  }
+
+  // process_path_ex value
+  //
+  inline void value_traits<process_path_ex>::
+  assign (value& v, process_path_ex&& x)
+  {
+    // Convert the value to its "self-sufficient" form (see also above).
+    //
+    if (x.recall.empty ())
+      x.recall = path (x.initial);
+
+    x.initial = x.recall.string ().c_str ();
+
+    if (v)
+      v.as<process_path_ex> () = move (x);
+    else
+      new (&v.data_) process_path_ex (move (x));
   }
 
   // target_triplet value
