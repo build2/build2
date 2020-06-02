@@ -1684,7 +1684,9 @@ namespace build2
     virtual const target_type& dynamic_type () const {return static_type;}
   };
 
-  // Executable file.
+  // Executable file (not necessarily binary, though we do fallback to the
+  // host machine executable extension in certain cases; see the default
+  // extension derivation for details).
   //
   class LIBBUILD2_SYMEXPORT exe: public file
   {

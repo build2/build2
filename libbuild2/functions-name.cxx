@@ -114,7 +114,7 @@ namespace build2
     fn["path"] = [](const scope* s, names ns)
     {
       if (s == nullptr)
-        fail << "target.path() called out of scope" << endf;
+        fail << "target.path() called out of scope";
 
       // Most of the time we will have a single target so optimize for that.
       //
@@ -148,6 +148,34 @@ namespace build2
 
       return value (paths (make_move_iterator (r.begin ()),
                            make_move_iterator (r.end ())));
+    };
+
+    // This one can only be called on a single target since we don't support
+    // containers of process_path's (though we probably could).
+    //
+    fn["process_path"] = [](const scope* s, names ns)
+    {
+      if (s == nullptr)
+        fail << "target.process_path() called out of scope";
+
+      if (ns.empty () || ns.size () != (ns[0].pair ? 2 : 1))
+        fail << "target.process_path() expects single target";
+
+      name o;
+      const target& t (
+        to_target (*s, move (ns[0]), move (ns[0].pair ? ns[1] : o)));
+
+      if (const auto* et = t.is_a<exe> ())
+      {
+        process_path r (et->process_path ());
+
+        if (r.empty ())
+          fail << "target " << t << " path is not assigned";
+
+        return r;
+      }
+      else
+        fail << "target " << t << " is not process_path-based" << endf;
     };
 
     // Name-specific overloads from builtins.

@@ -1073,7 +1073,7 @@ namespace build2
                         bool search)
   {
     // If we are searching for an executable that is not a target, then use
-    // the build machine executable extension. Otherwise, if this is a target,
+    // the host machine executable extension. Otherwise, if this is a target,
     // then we expect the rule to supply the target machine extension. But if
     // it doesn't, then fallback to no extension (e.g., a script).
     //
