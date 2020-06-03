@@ -3,6 +3,8 @@
 
 #include <libbuild2/rule.hxx>
 
+#include <sstream>
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
@@ -11,6 +13,8 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
+
+#include <libbuild2/parser.hxx> // attributes
 
 #include <libbuild2/build/script/parser.hxx>
 #include <libbuild2/build/script/runner.hxx>
@@ -360,6 +364,44 @@ namespace build2
 
   // adhoc_script_rule
   //
+  bool adhoc_script_rule::
+  recipe_text (context& ctx, string&& t, attributes& as)
+  {
+    // Handle and erase recipe-specific attributes.
+    //
+    optional<string> diag;
+    for (auto i (as.begin ()); i != as.end (); )
+    {
+      attribute& a (*i);
+      const string& n (a.name);
+
+      if (n == "diag")
+      try
+      {
+        diag = convert<string> (move (a.value));
+      }
+      catch (const invalid_argument& e)
+      {
+        fail (as.loc) << "invalid " << n << " attribute value: " << e;
+      }
+      else
+      {
+        ++i;
+        continue;
+      }
+
+      i = as.erase (i);
+    }
+
+    checksum = sha256 (t).string ();
+
+    istringstream is (move (t));
+    build::script::parser p (ctx);
+    script = p.pre_parse (is, loc.file, loc.line + 1, move (diag));
+
+    return false;
+  }
+
   void adhoc_script_rule::
   dump (ostream& os, string& ind) const
   {

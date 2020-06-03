@@ -19,6 +19,23 @@
 
 namespace build2
 {
+  struct attribute
+  {
+    string        name;
+    build2::value value;
+  };
+
+  ostream&
+  operator<< (ostream&, const attribute&);
+
+  struct attributes: small_vector<attribute, 1>
+  {
+    location loc; // Start location.
+
+    explicit
+    attributes (location l = {}): loc (move (l)) {}
+  };
+
   class LIBBUILD2_SYMEXPORT parser
   {
   public:
@@ -261,23 +278,6 @@ namespace build2
     //
     // In this example we only apply the value attributes after evaluating
     // the context, which has its own attributes.
-    //
-    struct attribute
-    {
-      string        name;
-      build2::value value;
-    };
-
-    friend ostream&
-    operator<< (ostream&, const attribute&);
-
-    struct attributes: small_vector<attribute, 1>
-    {
-      location loc; // Start location.
-
-      explicit
-      attributes (location l = {}): loc (move (l)) {}
-    };
 
     // Push a new entry into the attributes_ stack. If the next token is `[`
     // then parse the attribute sequence until ']' storing the result in the

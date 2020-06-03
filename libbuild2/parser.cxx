@@ -20,9 +20,6 @@
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
 
-#include <libbuild2/build/script/parser.hxx>
-#include <libbuild2/build/script/script.hxx>
-
 #include <libbuild2/config/utility.hxx> // lookup_config
 
 using namespace std;
@@ -33,7 +30,7 @@ namespace build2
   using type = token_type;
 
   ostream&
-  operator<< (ostream& o, const parser::attribute& a)
+  operator<< (ostream& o, const attribute& a)
   {
     o << a.name;
 
@@ -1111,6 +1108,47 @@ namespace build2
         else
           fail (t) << "expected recipe language instead of " << t;
 
+        shared_ptr<adhoc_rule> ar;
+        if (!skip)
+        {
+          if (d.first)
+          {
+            // Note that this is always the location of the opening multi-
+            // curly-brace, whether we have the header or not. This is relied
+            // upon by the rule implementations (e.g., to calculate the first
+            // line of the recipe code).
+            //
+            location loc (get_location (st));
+
+            if (!lang)
+            {
+              // Buildscript
+              //
+              ar.reset (new adhoc_script_rule (loc, st.value.size ()));
+            }
+            else if (*lang == "c++")
+            {
+              // C++
+              //
+              ar.reset (new adhoc_cxx_rule (loc, st.value.size ()));
+            }
+            else
+              fail (lloc) << "unknown recipe language '" << *lang << "'";
+
+            assert (d.recipes[d.i] == nullptr);
+            d.recipes[d.i] = ar;
+          }
+          else
+          {
+            skip_line (t, tt);
+
+            assert (d.recipes[d.i] != nullptr);
+            ar = d.recipes[d.i];
+          }
+        }
+        else
+          skip_line (t, tt);
+
         mode (lexer_mode::foreign, '\0', st.value.size ());
         next_after_newline (t, tt, st); // Should be on its own line.
 
@@ -1128,81 +1166,15 @@ namespace build2
 
         if (!skip)
         {
-          shared_ptr<adhoc_rule> ar;
           if (d.first)
           {
-            // Note that this is always the location of the opening multi-
-            // curly-brace, whether we have the header or not. This is relied
-            // upon by the rule implementations (e.g., to calculate the first
-            // line of the recipe code).
-            //
-            location loc (get_location (st));
-
-            // Buildscript
-            //
-            if (!lang)
-            {
-              // Handle and erase recipe-specific attributes.
-              //
-              optional<string> diag;
-              for (auto i (d.as.begin ()); i != d.as.end (); )
-              {
-                attribute& a (*i);
-                const string& n (a.name);
-
-                if (n == "diag")
-                try
-                {
-                  diag = convert<string> (move (a.value));
-                }
-                catch (const invalid_argument& e)
-                {
-                  fail (d.as.loc) << "invalid " << n << " attribute value: "
-                                  << e;
-                }
-                else
-                {
-                  ++i;
-                  continue;
-                }
-
-                i = d.as.erase (i);
-              }
-
-              auto* asr (new adhoc_script_rule (loc, st.value.size ()));
-              ar.reset (asr);
-
-              asr->checksum = sha256 (t.value).string ();
-
-              istringstream is (move (t.value));
-              build::script::parser p (ctx);
-              asr->script = p.pre_parse (
-                is, asr->loc.file, loc.line + 1, move (diag));
-            }
-            //
-            // C++
-            //
-            else if (*lang == "c++")
-            {
-              ar.reset (new adhoc_cxx_rule (
-                          move (t.value), loc, st.value.size ()));
+            if (ar->recipe_text (ctx, move (t.value), d.as))
               d.clean = true;
-            }
-            else
-              fail (lloc) << "unknown recipe language '" << *lang << "'";
 
             // Verify we have no unhandled attributes.
             //
             for (attribute& a: d.as)
               fail (d.as.loc) << "unknown recipe attribute " << a << endf;
-
-            assert (d.recipes[d.i] == nullptr);
-            d.recipes[d.i] = ar;
-          }
-          else
-          {
-            assert (d.recipes[d.i] != nullptr);
-            ar = d.recipes[d.i];
           }
 
           target_->adhoc_recipes.push_back (

@@ -70,6 +70,11 @@ namespace build2
   // <libbuild2/context.hxx>
   //
   class context;
+
+  // <libbuild2/parser.hxx>
+  //
+  struct attribute;
+  struct attributes;
 }
 
 #endif // LIBBUILD2_FORWARD_HXX

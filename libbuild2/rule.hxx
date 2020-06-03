@@ -116,7 +116,7 @@ namespace build2
 
   // Ad hoc rule.
   //
-  // Note: not exported
+  // Note: not exported.
   //
   class adhoc_rule: public rule
   {
@@ -128,6 +128,13 @@ namespace build2
       : loc (l),
         braces (b),
         rule_match ("adhoc", static_cast<const rule&> (*this)) {}
+
+    // Set the rule text, handle any recipe-specific attributes, and return
+    // true if the recipe builds anything in the build/recipes/ directory and
+    // therefore requires cleanup.
+    //
+    virtual bool
+    recipe_text (context&, string&&, attributes&) = 0;
 
   public:
     // Some of the operations come in compensating pairs, such as update and
@@ -184,13 +191,16 @@ namespace build2
     virtual void
     dump (ostream&, string&) const override;
 
-    using script_type = build::script::script;
-
     adhoc_script_rule (const location& l, size_t b): adhoc_rule (l, b) {}
 
+    virtual bool
+    recipe_text (context&, string&&, attributes&) override;
+
   public:
+    using script_type = build::script::script;
+
     script_type script;
-    string      checksum; // Script text hashsum.
+    string      checksum; // Script text hash.
   };
 
   // Ad hoc C++ rule.
@@ -200,7 +210,6 @@ namespace build2
   class LIBBUILD2_SYMEXPORT cxx_rule: public rule
   {
   public:
-
     // A robust recipe may want to incorporate the recipe_state into its
     // up-to-date decision as if the recipe library was a prerequisite (it
     // cannot be injected as a real prerequisite since it's from a different
@@ -232,8 +241,15 @@ namespace build2
     virtual void
     dump (ostream&, string&) const override;
 
-    adhoc_cxx_rule (string c, const location& l, size_t b)
-      : adhoc_rule (l, b), code (move (c)), impl (nullptr) {}
+    adhoc_cxx_rule (const location& l, size_t b)
+        : adhoc_rule (l, b), impl (nullptr) {}
+
+    virtual bool
+    recipe_text (context&, string&& t, attributes&) override
+    {
+      code = move (t);
+      return true;
+    }
 
     virtual
     ~adhoc_cxx_rule () override;
@@ -242,7 +258,7 @@ namespace build2
     // Note that this recipe (rule instance) can be shared between multiple
     // targets which could all be matched in parallel.
     //
-    const string              code;
+    string                    code;
     mutable atomic<cxx_rule*> impl;
   };
 }
