@@ -210,19 +210,39 @@ namespace build2
     if (args.empty () || args[0].empty ())
       fail << "executable name expected in process." << fn << "()";
 
-    process_path pp;
+    optional<process_path> pp;
+
     try
     {
       size_t erase;
 
-      // This can be a process_path (pair) or just a path.
+      // This can be a process_path (pair), process_path_ex (process_path
+      // followed by the name@ and checksum@ pairs), or just a path.
       //
-      if (args[0].pair)
+      // First, check if the arguments begin with a process_path[_ex] and, if
+      // that's the case, only use the leading name/pair to create the process
+      // path, discarding the meta-information.
+      //
+      if (args[0].file ())
       {
-        pp = convert<process_path> (move (args[0]), move (args[1]));
-        erase = 2;
+        // Find the end of the process_path[_ex] value.
+        //
+        auto b (args.begin ());
+        auto i (value_traits<process_path_ex>::find_end (args));
+
+        if (b->pair || i != b + 1) // First is a pair or pairs after.
+        {
+          pp = convert<process_path> (
+            names (make_move_iterator (b),
+                   make_move_iterator (b + (b->pair ? 2 : 1))));
+
+          erase = i - b;
+        }
       }
-      else
+
+      // Fallback to a path, if this is not a process path.
+      //
+      if (!pp)
       {
         // Strip the builtin-escaping '^' character, if present.
         //
@@ -254,7 +274,7 @@ namespace build2
       fail << "invalid process." << fn << "() executable path: " << e;
     }
 
-    return pair<process_path, strings> (move (pp),
+    return pair<process_path, strings> (move (*pp),
                                         program_args (move (args), fn));
   }
 

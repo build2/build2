@@ -475,18 +475,12 @@ namespace build2
         {
           // Find the end of the value.
           //
-          auto b (ns.begin ()), i (b), e (ns.end ());
-          for (i += i->pair ? 2 : 1; i != e && i->pair; i += 2)
-          {
-            if (!i->simple () ||
-                (i->value != "name" && i->value != "checksum"))
-              break;
-          }
+          auto b (ns.begin ());
+          auto i (value_traits<process_path_ex>::find_end (ns));
 
           if (b->pair || i != b + 1) // First is a pair or pairs after.
           {
-            pp_ns.insert (pp_ns.end (),
-                          make_move_iterator (b), make_move_iterator (i));
+            pp_ns = names (make_move_iterator (b), make_move_iterator (i));
 
             ns.erase (b, i);
 

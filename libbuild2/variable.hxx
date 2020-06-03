@@ -881,8 +881,8 @@ namespace build2
     static_assert (sizeof (process_path) <= value::size_,
                    "insufficient space");
 
-    // Represented as a @-pair of names. As a result it cannot be stored in a
-    // container.
+    // Represented as a potential @-pair of name(s). As a result it cannot be
+    // stored in a container.
     //
     static process_path convert (name&&, name*);
     static void assign (value&, process_path&&);
@@ -902,8 +902,9 @@ namespace build2
     static_assert (sizeof (process_path_ex) <= value::size_,
                    "insufficient space");
 
-    // Represented as a @-pair of names corresponding to process_path followed
-    // by the name@ and checksum@ pairs. So it's a container-like.
+    // Represented as a potential @-pair of name(s) corresponding to
+    // process_path followed by the name@ and checksum@ pairs. So it's a
+    // container-like.
     //
     static process_path_ex convert (names&&);
     static void assign (value&, process_path_ex&&);
@@ -912,6 +913,11 @@ namespace build2
     static const bool empty_value = true;
     static const char* const type_name;
     static const build2::value_type value_type;
+
+    // Find the end of the process_path_ex value representation assuming
+    // the first name or name pair is the process_path representation.
+    //
+    static names::iterator find_end (names&);
   };
 
   // target_triplet

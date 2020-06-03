@@ -1083,7 +1083,7 @@ namespace build2
 
       const string& k ((i++)->value);
 
-      // NOTE: see also build::script::parser::parse_program().
+      // NOTE: see also find_end() below.
       //
       if (k == "name")
       {
@@ -1105,6 +1105,19 @@ namespace build2
     }
 
     return pp;
+  }
+
+  names::iterator value_traits<process_path_ex>::
+  find_end (names& ns)
+  {
+    auto b (ns.begin ()), i (b), e (ns.end ());
+    for (i += i->pair ? 2 : 1; i != e && i->pair; i += 2)
+    {
+      if (!i->simple () || (i->value != "name" && i->value != "checksum"))
+        break;
+    }
+
+    return i;
   }
 
   static void
