@@ -93,6 +93,14 @@ namespace build2
         untyped () && !dir.empty () && value.empty ();
     }
 
+    // File path-like (only optional directory and non-empty value).
+    //
+    bool
+    file (bool ignore_qual = false) const
+    {
+      return (ignore_qual || unqualified ()) && untyped () && !value.empty ();
+    }
+
     int
     compare (const name&) const;
   };
