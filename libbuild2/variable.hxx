@@ -1330,7 +1330,7 @@ namespace butl
   struct compare_prefix<std::reference_wrapper<const build2::variable>>:
     compare_prefix<std::string>
   {
-    typedef compare_prefix<std::string> base;
+    using base = compare_prefix<std::string>;
 
     explicit
     compare_prefix (char d): base (d) {}

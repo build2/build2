@@ -1499,7 +1499,7 @@ namespace build2
   public:
     using mtime_target::mtime_target;
 
-    typedef build2::path path_type;
+    using path_type = build2::path;
 
     // Target path is an "atomic consistent cash". That is, it can be set at
     // any time (including on a const instance) but any subsequent updates

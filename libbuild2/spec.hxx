@@ -16,7 +16,7 @@ namespace build2
 {
   struct targetspec
   {
-    typedef build2::name name_type;
+    using name_type = build2::name;
 
     explicit
     targetspec (name_type n): name (move (n)) {}
@@ -52,7 +52,7 @@ namespace build2
     values params;
   };
 
-  typedef vector<metaopspec> buildspec;
+  using buildspec = vector<metaopspec>;
 
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const targetspec&);

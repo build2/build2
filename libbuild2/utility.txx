@@ -34,7 +34,7 @@ namespace build2
   basic_path<char, K>
   relative (const basic_path<char, K>& p)
   {
-    typedef basic_path<char, K> path;
+    using path = basic_path<char, K>;
 
     const dir_path& b (*relative_base);
 
