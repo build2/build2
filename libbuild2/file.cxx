@@ -1520,7 +1520,12 @@ namespace build2
     if (t != nullptr)
     {
       if (const file* f = t->is_a<file> ())
+      {
+        // Note that this can happen if we import the same target via two
+        // different ways (e.g., installed and via an export stub).
+        //
         assert (f->path () == p);
+      }
     }
 
     return t;
