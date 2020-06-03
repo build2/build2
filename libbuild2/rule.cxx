@@ -413,15 +413,15 @@ namespace build2
     // @@ TODO: for now we dump it as an attribute whether it was specified or
     //    derived from the script. Maybe that's ok?
     //
-    if (script.diag)
+    if (script.diag_name)
     {
       os << ind << '%';
 
-      if (script.diag)
+      if (script.diag_name)
       {
         os << " [";
         os << "diag=";
-        to_stream (os, name (*script.diag), true /* quote */, '@');
+        to_stream (os, name (*script.diag_name), true /* quote */, '@');
         os << ']';
       }
 
@@ -691,34 +691,43 @@ namespace build2
     if (!update)
       return *ps;
 
-    if (verb == 1)
-    {
-      // @@ TODO (and below):
-      //
-      // - derive diag if absent (should probably do in match?)
-      //
-      // - we are printing target, not source (like in most other places)
-      //
-      // - printing of ad hoc target group (the {hxx cxx}{foo} idea)
-      //
-      // - if we are printing prerequisites, should we print all of them
-      //   (including tools)?
-      //
-
-      text << (script.diag ? script.diag->c_str () : "adhoc") << ' ' << t;
-    }
-
-    if (!ctx.dry_run || verb >= 2)
+    if (!ctx.dry_run || verb != 0)
     {
       const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       build::script::environment e (a, t, script.temp_dir);
       build::script::parser p (ctx);
-      build::script::default_runner r;
-      p.execute (*bs.root_scope (), bs, e, script, r);
 
-      if (!ctx.dry_run)
-        dd.check_mtime (tp);
+      if (verb == 1)
+      {
+        if (script.diag_line)
+        {
+          text << p.execute_special (rs, bs, e, *script.diag_line);
+        }
+        else
+        {
+          // @@ TODO (and below):
+          //
+          // - we are printing target, not source (like in most other places)
+          //
+          // - printing of ad hoc target group (the {hxx cxx}{foo} idea)
+          //
+          // - if we are printing prerequisites, should we print all of them
+          //   (including tools)?
+          //
+          text << *script.diag_name << ' ' << t;
+        }
+      }
+
+      if (!ctx.dry_run || verb >= 2)
+      {
+        build::script::default_runner r;
+        p.execute (rs, bs, e, script, r);
+
+        if (!ctx.dry_run)
+          dd.check_mtime (tp);
+      }
     }
 
     t.mtime (system_clock::now ());
@@ -734,21 +743,33 @@ namespace build2
 
     execute_prerequisites (a, t);
 
-    if (verb == 1)
-    {
-      // @@ TODO: as above
-
-      text << (script.diag ? script.diag->c_str () : "adhoc") << ' ' << t;
-    }
-
-    if (!ctx.dry_run || verb >= 2)
+    if (!ctx.dry_run || verb != 0)
     {
       const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       build::script::environment e (a, t, script.temp_dir);
       build::script::parser p (ctx);
-      build::script::default_runner r;
-      p.execute (*bs.root_scope (), bs, e, script, r);
+
+      if (verb == 1)
+      {
+        if (script.diag_line)
+        {
+          text << p.execute_special (rs, bs, e, *script.diag_line);
+        }
+        else
+        {
+          // @@ TODO: as above
+          //
+          text << *script.diag_name << ' ' << t;
+        }
+      }
+
+      if (!ctx.dry_run || verb >= 2)
+      {
+        build::script::default_runner r;
+        p.execute (rs, bs, e, script, r);
+      }
     }
 
     return target_state::changed;

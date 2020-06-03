@@ -1,0 +1,57 @@
+# file      : libbuild2/build/script/parser+diag.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.options += -g
+
+: name
+:
+$* test <<EOI >>EOO
+  echo abc
+  EOI
+  name: test
+  EOO
+
+: name-deduce
+:
+$* <<EOI >>EOO
+  echo abc
+  EOI
+  name: echo
+  EOO
+
+: diag
+:
+$* <<EOI >>~%EOO%
+  echo abc
+  cat abc
+  diag abc '==>' $>
+  cp abc xyz
+  EOI
+  %diag: abc ==> .+file\{driver\.\}%
+  EOO
+
+: ambiguity
+:
+{
+: name
+:
+  $* test <<EOI 2>>EOE != 0
+    echo abc
+    diag xyz
+    EOI
+    buildfile:12:1: error: both low-verbosity script diagnostics name and 'diag' builtin call
+      buildfile:10: info: script name specified here
+    EOE
+
+  : diag
+  :
+  $* <<EOI 2>>EOE != 0
+    echo abc
+    diag abc
+    cat abc
+    diag xyz
+    EOI
+    buildfile:14:1: error: multiple 'diag' builtin calls
+      buildfile:12:1: info: previous call is here
+    EOE
+}

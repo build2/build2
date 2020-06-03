@@ -28,7 +28,7 @@ namespace build2
       script parser::
       pre_parse (const target& tg,
                  istream& is, const path_name& pn, uint64_t line,
-                 optional<string> diag_name, const location& diag_loc)
+                 optional<string> diag, const location& diag_loc)
       {
         path_ = &pn;
 
@@ -50,9 +50,9 @@ namespace build2
         runner_ = nullptr;
         environment_ = nullptr;
 
-        if (diag_name)
+        if (diag)
         {
-          diag = make_pair (move (*diag_name), diag_loc);
+          diag_name   = make_pair (move (*diag), diag_loc);
           diag_weight = 4;
         }
 
@@ -69,17 +69,21 @@ namespace build2
         {
           diag_record dr;
 
-          if (!diag)
+          if (!diag_name && !diag_line)
           {
             dr << fail (s.start_loc)
                << "unable to deduce low-verbosity script diagnostics name";
           }
-          else if (diag2)
+          else if (diag_name2)
           {
+            assert (diag_name);
+
             dr << fail (s.start_loc)
                << "low-verbosity script diagnostics name is ambiguous" <<
-              info (diag->second) << "could be '" << diag->first << "'" <<
-              info (diag2->second) << "could be '" << diag2->first << "'";
+              info (diag_name->second) << "could be '" << diag_name->first
+               << "'" <<
+              info (diag_name2->second) << "could be '" << diag_name2->first
+               << "'";
           }
 
           if (!dr.empty ())
@@ -92,7 +96,12 @@ namespace build2
           }
         }
 
-        s.diag = move (diag->first);
+        assert (diag_name.has_value () != diag_line.has_value ());
+
+        if (diag_name)
+          s.diag_name = move (diag_name->first);
+        else
+          s.diag_line = move (diag_line->first);
 
         return s;
       }
@@ -140,6 +149,8 @@ namespace build2
         //
         line_type lt (
           pre_parse_line_start (t, tt, lexer_mode::second_token));
+
+        save_line_ = nullptr;
 
         line ln;
         switch (lt)
@@ -198,26 +209,20 @@ namespace build2
 
         assert (tt == type::newline);
 
-        //@@ TODO: we need to make sure special builtin is the first command.
+        ln.type = lt;
+        ln.tokens = replay_data ();
 
-        // Save the script line, unless this is a special builtin (indicated
-        // by the replay::stop mode).
-        //
-        if (replay_ == replay::save)
-        {
-          ln.type = lt;
-          ln.tokens = replay_data ();
+        if (save_line_ != nullptr)
+          *save_line_ = move (ln);
+        else
           script_->lines.push_back (move (ln));
 
-          if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
-          {
-            tt = peek (lexer_mode::first_token);
+        if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+        {
+          tt = peek (lexer_mode::first_token);
 
-            pre_parse_if_else (t, tt);
-          }
+          pre_parse_if_else (t, tt);
         }
-        else
-          assert (replay_ == replay::stop && lt == line_type::cmd);
       }
 
       void parser::
@@ -303,7 +308,9 @@ namespace build2
       //
 
       optional<process_path> parser::
-      parse_program (token& t, build2::script::token_type& tt, names& ns)
+      parse_program (token& t, build2::script::token_type& tt,
+                     bool first,
+                     names& ns)
       {
         const location l (get_location (t));
 
@@ -318,37 +325,57 @@ namespace build2
         {
           if (diag_weight < w)
           {
-            diag        = make_pair (move (d), l);
+            diag_name   = make_pair (move (d), l);
             diag_weight = w;
-            diag2       = nullopt;
+            diag_name2  = nullopt;
           }
-          else if (w != 0 && w == diag_weight && d != diag->first && !diag2)
-            diag2 = make_pair (move (d), l);
+          else if (w != 0                &&
+                   w == diag_weight      &&
+                   d != diag_name->first &&
+                   !diag_name2)
+            diag_name2 = make_pair (move (d), l);
         };
 
         // Handle special builtins.
         //
-        if (pre_parse_)
+        if (pre_parse_ && first && tt == type::word)
         {
-          if (tt == type::word && t.value == "diag")
+          if (t.value == "diag")
           {
-            // @@ Redo the diag directive handling (save line separately and
-            //    execute later, before script execution).
+            // Check for ambiguity.
             //
             if (diag_weight == 4)
             {
-              fail (script_->start_loc)
-                << "low-verbosity script diagnostics name is ambiguous" <<
-                info (diag->second) << "could be '" << diag->first << "'" <<
-                info (l) << "could be '<name>'";
+              if (diag_name) // Script name.
+              {
+                fail (l) << "both low-verbosity script diagnostics name "
+                         << "and 'diag' builtin call" <<
+                  info (diag_name->second) << "script name specified here";
+              }
+              else           // Custom diagnostics.
+              {
+                assert (diag_line);
+
+                fail (l) << "multiple 'diag' builtin calls" <<
+                  info (diag_line->second) << "previous call is here";
+              }
             }
 
-            set_diag ("<name>", 4);
+            // Instruct the parser to save the diag builtin line separately
+            // from the script lines, when it is fully parsed. Note that it
+            // will be executed prior to the script execution to obtain the
+            // custom diagnostics.
+            //
+            diag_line  = make_pair (line (), l);
+            save_line_ = &diag_line->first;
+            diag_weight  = 4;
 
-            build2::script::parser::parse_program (t, tt, ns);
-            replay_stop ();
+            diag_name  = nullopt;
+            diag_name2 = nullopt;
 
-            return nullopt;
+            // Parse the leading chunk and bail out.
+            //
+            return build2::script::parser::parse_program (t, tt, first, ns);
           }
         }
 
@@ -717,6 +744,55 @@ namespace build2
                     &environment_->var_pool);
 
         runner_->leave (*environment_, s.end_loc);
+      }
+
+      names parser::
+      execute_special (const scope& rs, const scope& bs,
+                       environment& e,
+                       const line& ln,
+                       bool omit_builtin)
+      {
+        path_ = nullptr; // Set by replays.
+
+        pre_parse_ = false;
+
+        set_lexer (nullptr);
+
+        // The script shouldn't be able to modify the scopes.
+        //
+        // Note that for now we don't set target_ since it's not clear what
+        // it could be used for (we need scope_ for calling functions such as
+        // $target.path()).
+        //
+        root_ = const_cast<scope*> (&rs);
+        scope_ = const_cast<scope*> (&bs);
+        pbase_ = scope_->src_path_;
+
+        script_ = nullptr;
+        runner_ = nullptr;
+        environment_ = &e;
+
+        // Copy the tokens and start playing.
+        //
+        replay_data (replay_tokens (ln.tokens));
+
+        token t;
+        build2::script::token_type tt;
+        next (t, tt);
+
+        if (omit_builtin)
+        {
+          assert (tt != type::newline && tt != type::eos);
+
+          next (t, tt);
+        }
+
+        names r (tt != type::newline && tt != type::eos
+                 ? parse_names (t, tt, pattern_mode::expand)
+                 : names ());
+
+        replay_stop ();
+        return r;
       }
 
       // When add a special variable don't forget to update lexer::word().

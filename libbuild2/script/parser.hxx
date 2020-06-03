@@ -165,7 +165,8 @@ namespace build2
       // Customization hooks.
       //
     protected:
-      // Parse the command's leading name chunk.
+      // Parse the command's leading name chunk. The argument first is true if
+      // this is the first command in the line.
       //
       // During the execution phase try to parse and translate the leading
       // names into the process path and return nullopt if choose not to do
@@ -188,7 +189,7 @@ namespace build2
       // recognize and execute certain directives, or some such.
       //
       virtual optional<process_path>
-      parse_program (token&, token_type&, names&);
+      parse_program (token&, token_type&, bool first, names&);
 
       // Set lexer pointers for both the current and the base classes.
       //

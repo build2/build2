@@ -214,7 +214,7 @@ namespace build2
 
     try
     {
-      size_t erase;
+      size_t erase (0);
 
       // This can be a process_path (pair), process_path_ex (process_path
       // followed by the name@ and checksum@ pairs), or just a path.

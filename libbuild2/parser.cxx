@@ -1146,7 +1146,8 @@ namespace build2
               }
               catch (const invalid_argument& e)
               {
-                fail (nloc) << "invalid c++ recipe version value: " << e;
+                fail (nloc) << "invalid c++ recipe version value: " << e
+                            << endf;
               }
 
               ar.reset (new adhoc_cxx_rule (loc, st.value.size (), v));

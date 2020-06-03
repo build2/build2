@@ -97,7 +97,7 @@ namespace build2
     }
 
     optional<process_path> parser::
-    parse_program (token& t, type& tt, names& ns)
+    parse_program (token& t, type& tt, bool, names& ns)
     {
       parse_names (t, tt,
                    ns,
@@ -153,8 +153,7 @@ namespace build2
         // Handles empty regex properly.
         //
         if (mod.find ('/') != string::npos && re[0] == '/')
-          fail (l) << "portable path modifier and '/' introducer in "
-                   << what;
+          fail (l) << "portable path modifier and '/' introducer in " << what;
       };
 
       // Pending positions where the next word should go.
@@ -162,7 +161,8 @@ namespace build2
       enum class pending
       {
         none,
-        program,
+        program_first,
+        program_next,
         in_string,
         in_document,
         in_file,
@@ -180,7 +180,7 @@ namespace build2
         err_file,
         clean
       };
-      pending p (pending::program);
+      pending p (pending::program_first);
       string mod;   // Modifiers for pending in_* and out_* positions.
       here_docs hd; // Expected here-documents.
 
@@ -291,7 +291,8 @@ namespace build2
         switch (p)
         {
         case pending::none: c.arguments.push_back (move (w)); break;
-        case pending::program:
+        case pending::program_first:
+        case pending::program_next:
           c.program = process_path (nullptr /* initial */,
                                     parse_path (move (w), "program path"),
                                     path () /* effect */);
@@ -355,20 +356,21 @@ namespace build2
 
         switch (p)
         {
-        case pending::none:                                            break;
-        case pending::program:      what = "program";                  break;
-        case pending::in_string:    what = "stdin here-string";        break;
-        case pending::in_document:  what = "stdin here-document end";  break;
-        case pending::in_file:      what = "stdin file";               break;
-        case pending::out_merge:    what = "stdout file descriptor";   break;
-        case pending::out_string:   what = "stdout here-string";       break;
-        case pending::out_document: what = "stdout here-document end"; break;
-        case pending::out_file:     what = "stdout file";              break;
-        case pending::err_merge:    what = "stderr file descriptor";   break;
-        case pending::err_string:   what = "stderr here-string";       break;
-        case pending::err_document: what = "stderr here-document end"; break;
-        case pending::err_file:     what = "stderr file";              break;
-        case pending::clean:        what = "cleanup path";             break;
+        case pending::none:                                             break;
+        case pending::program_first:
+        case pending::program_next:  what = "program";                  break;
+        case pending::in_string:     what = "stdin here-string";        break;
+        case pending::in_document:   what = "stdin here-document end";  break;
+        case pending::in_file:       what = "stdin file";               break;
+        case pending::out_merge:     what = "stdout file descriptor";   break;
+        case pending::out_string:    what = "stdout here-string";       break;
+        case pending::out_document:  what = "stdout here-document end"; break;
+        case pending::out_file:      what = "stdout file";              break;
+        case pending::err_merge:     what = "stderr file descriptor";   break;
+        case pending::err_string:    what = "stderr here-string";       break;
+        case pending::err_document:  what = "stderr here-document end"; break;
+        case pending::err_file:      what = "stderr file";              break;
+        case pending::clean:         what = "cleanup path";             break;
 
         case pending::out_str_regex:
           {
@@ -752,7 +754,7 @@ namespace build2
               case type::pipe:
               case type::log_or:
               case type::log_and:
-                p = pending::program;
+                p = pending::program_next;
                 break;
 
               case type::in_doc:
@@ -886,7 +888,7 @@ namespace build2
                 expr.back ().pipe.push_back (move (c));
 
                 c = command ();
-                p = pending::program;
+                p = pending::program_next;
 
                 if (tt != type::pipe)
                 {
@@ -1031,9 +1033,10 @@ namespace build2
             //
             reset_quoted (t);
 
-            if (p == pending::program)
+            if (p == pending::program_first || p == pending::program_next)
             {
-              optional<process_path> pp (parse_program (t, tt, ns));
+              optional<process_path> pp (
+                parse_program (t, tt, p == pending::program_first, ns));
 
               // During pre-parsing we are not interested in the
               // parse_program() call result, so just discard the potentially
@@ -1195,7 +1198,7 @@ namespace build2
                       expr.back ().pipe.push_back (move (c));
 
                       c = command ();
-                      p = pending::program;
+                      p = pending::program_next;
 
                       if (tt != type::pipe)
                       {

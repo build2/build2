@@ -58,9 +58,11 @@ namespace build2
         //
         bool temp_dir = false;
 
-        // Command name for low-verbosity diagnostics.
+        // Command name for low-verbosity diagnostics and custom low-verbosity
+        // diagnostics line. Note: cannot be both.
         //
-        optional<string> diag;
+        optional<string> diag_name;
+        optional<line>   diag_line;
 
         location start_loc;
         location end_loc;

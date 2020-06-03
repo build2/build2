@@ -594,9 +594,10 @@ EOE
       }}
       dump alias{x}
       EOI
-      %.{2}
-        % [diag=<name>]
-      %.{5}
+      %.
+      %  .+alias\{x\}:%
+        {{
+      %.{4}
       EOE
   }
 }

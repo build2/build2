@@ -73,6 +73,7 @@ namespace build2
       // argv[0] [-l]
       // argv[0] -d
       // argv[0] -p
+      // argv[0] -g [<diag-name>]
       //
       // In the first form read the script from stdin and trace the script
       // execution to stdout using the custom print runner.
@@ -82,6 +83,11 @@ namespace build2
       //
       // In the third form read the script from stdin, parse it and print
       // line tokens quoting information to stdout.
+      //
+      // In the forth form read the script from stdin, parse it and print the
+      // low-verbosity script diagnostics name or custom low-verbosity
+      // diagnostics to stdout. If the script doesn't deduce any of them, then
+      // print the diagnostics and exit with non-zero code.
       //
       // -l
       //    Print the script line number for each executed expression.
@@ -97,6 +103,10 @@ namespace build2
       //    <quoting>      := 'S' | 'D' | 'M'
       //    <completeness> := 'C' | 'P'
       //
+      // -g
+      //    Dump the low-verbosity script diagnostics name or custom
+      //    low-verbosity diagnostics to stdout.
+      //
       int
       main (int argc, char* argv[])
       {
@@ -106,10 +116,12 @@ namespace build2
         {
           run,
           dump,
-          print
+          print,
+          diag
         } m (mode::run);
 
         bool print_line (false);
+        optional<string> diag_name;
 
         for (int i (1); i != argc; ++i)
         {
@@ -121,11 +133,22 @@ namespace build2
             m = mode::dump;
           else if (a == "-p")
             m = mode::print;
+          else if (a == "-g")
+            m = mode::diag;
           else
+          {
+            if (m == mode::diag)
+            {
+              diag_name = move (a);
+              break;
+            }
+
             assert (false);
+          }
         }
 
-        assert (m == mode::run || !print_line);
+        assert (!print_line || m == mode::run);
+        assert (!diag_name  || m == mode::diag);
 
         // Fake build system driver, default verbosity.
         //
@@ -164,7 +187,9 @@ namespace build2
           script s (p.pre_parse (tt,
                                  cin, nm,
                                  11 /* line */,
-                                 string ("test"),
+                                 (m != mode::diag
+                                  ? optional<string> ("test")
+                                  : move (diag_name)),
                                  location (nm, 10)));
 
           switch (m)
@@ -174,6 +199,26 @@ namespace build2
               environment e (perform_update_id, tt, false /* temp_dir */);
               print_runner r (print_line);
               p.execute (ctx.global_scope, ctx.global_scope, e, s, r);
+              break;
+            }
+          case mode::diag:
+            {
+              if (s.diag_name)
+              {
+                cout << "name: " << *s.diag_name << endl;
+              }
+              else
+              {
+                assert (s.diag_line);
+
+                environment e (perform_update_id, tt, false /* temp_dir */);
+
+                cout << "diag: " << p.execute_special (ctx.global_scope,
+                                                       ctx.global_scope,
+                                                       e,
+                                                       *s.diag_line) << endl;
+              }
+
               break;
             }
           case mode::dump:
