@@ -76,14 +76,14 @@ EOE
 :
 $* <<EOI 2>>/~%EOE%
 alias{x}:
-{{ c++
+{{ c++ 1
   void f ();
 }}
 dump alias{x}
 EOI
 <stdin>:5:1: dump:
 %  .+/alias\{x\}:%
-  {{ c++
+  {{ c++ 1
     void f ();
   }}
 EOE

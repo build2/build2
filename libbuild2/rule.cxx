@@ -759,9 +759,9 @@ namespace build2
     return target_state::changed;
   }
 
-  // cxx_rule
+  // cxx_rule_v1
   //
-  bool cxx_rule::
+  bool cxx_rule_v1::
   match (action, target&, const string&) const
   {
     return true;
@@ -769,6 +769,21 @@ namespace build2
 
   // adhoc_cxx_rule
   //
+  adhoc_cxx_rule::
+  adhoc_cxx_rule (const location& l, size_t b, uint64_t v)
+      : adhoc_rule (l, b), version (v), impl (nullptr)
+  {
+    if (v != 1)
+      fail (l) << "unsupported c++ recipe version " << v;
+  }
+
+  bool adhoc_cxx_rule::
+  recipe_text (context&, string&& t, attributes&)
+  {
+    code = move (t);
+    return true;
+  }
+
   adhoc_cxx_rule::
   ~adhoc_cxx_rule ()
   {
@@ -781,7 +796,7 @@ namespace build2
     // @@ TODO: indentation is multi-line recipes is off (would need to insert
     //          indentation after every newline).
     //
-    os << ind << string (braces, '{') << " c++" << endl
+    os << ind << string (braces, '{') << " c++ " << version << endl
        << ind << code
        << ind << string (braces, '}');
   }
@@ -829,7 +844,7 @@ namespace build2
       if ((impl = this->impl.load (memory_order_relaxed)) != nullptr)
         break;
 
-      using create_function = cxx_rule* (const location&, target_state);
+      using create_function = cxx_rule_v1* (const location&, target_state);
       using load_function = create_function* ();
 
       // The only way to guarantee that the name of our module matches its
@@ -945,7 +960,7 @@ namespace build2
                         ? loc.file.path.string ()
                         : loc.file.name ? *loc.file.name : string ());
 
-      const string psig ("# c++ 1");
+      const string psig ("# c++ " + to_string (version));
       const string lsig ("// " + lf + ':' + to_string (loc.line));
 
       // Check whether we need to (re)create the project.
@@ -994,6 +1009,8 @@ namespace build2
 
         // Include every header that can plausibly be needed by a rule.
         //
+        // @@ TMP: any new headers to add? [Keep this note for review.]
+        //
         ofs << "#include <libbuild2/types.hxx>"                         << '\n'
             << "#include <libbuild2/forward.hxx>"                       << '\n'
             << "#include <libbuild2/utility.hxx>"                       << '\n'
@@ -1033,7 +1050,7 @@ namespace build2
         //
         ofs << "namespace"                                              << '\n'
             << "{"                                                      << '\n'
-            << "class rule: public cxx_rule"                            << '\n'
+            << "class rule: public cxx_rule_v1"                         << '\n'
             << "{"                                                      << '\n'
             << "public:"                                                << '\n'
             << '\n';
@@ -1041,7 +1058,7 @@ namespace build2
         // Inherit base constructor. This way the user may provide their own
         // but don't have to.
         //
-        ofs << "  using cxx_rule::cxx_rule;"                            << '\n'
+        ofs << "  using cxx_rule_v1::cxx_rule_v1;"                      << '\n'
             << '\n';
 
         // An extern "C" function cannot throw which can happen in case of a
@@ -1049,7 +1066,7 @@ namespace build2
         // We incorporate id to make sure it doesn't conflict with anything
         // user-defined.
         //
-        ofs << "  static cxx_rule*"                                     << '\n'
+        ofs << "  static cxx_rule_v1*"                                  << '\n'
             << "  create_" << id << " (const location& l, target_state s)" << '\n'
             << "  {"                                                    << '\n'
             << "    return new rule (l, s);"                            << '\n'
@@ -1082,7 +1099,7 @@ namespace build2
             << "#ifdef _WIN32"                                          << '\n'
             << "__declspec(dllexport)"                                  << '\n'
             << "#endif"                                                 << '\n'
-            << "cxx_rule* (*" << sym << " ()) (const location&, target_state)" << '\n'
+            << "cxx_rule_v1* (*" << sym << " ()) (const location&, target_state)" << '\n'
             << "{"                                                      << '\n'
             << "  return &rule_" << id << "::create_" << id << ";"      << '\n'
             << "}"                                                      << '\n'

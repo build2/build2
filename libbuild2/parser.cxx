@@ -1048,7 +1048,7 @@ namespace build2
     //
     // % [<attrs>]
     // [if|switch ...]
-    // {{ [<lang>]
+    // {{ [<lang> ...]
     //   ...
     // }}
     //
@@ -1130,7 +1130,26 @@ namespace build2
             {
               // C++
               //
-              ar.reset (new adhoc_cxx_rule (loc, st.value.size ()));
+
+              // Parse recipe version.
+              //
+              if (tt == type::newline || tt == type::eos)
+                fail (t) << "expected c++ recipe version instead of " << t;
+
+              location nloc (get_location (t));
+              names ns (parse_names (t, tt, pattern_mode::ignore));
+
+              uint64_t v;
+              try
+              {
+                v = convert<uint64_t> (move (ns));
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (nloc) << "invalid c++ recipe version value: " << e;
+              }
+
+              ar.reset (new adhoc_cxx_rule (loc, st.value.size (), v));
             }
             else
               fail (lloc) << "unknown recipe language '" << *lang << "'";

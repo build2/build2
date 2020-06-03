@@ -209,6 +209,13 @@ namespace build2
   //
   class LIBBUILD2_SYMEXPORT cxx_rule: public rule
   {
+    // For now this class is provided purely as an alias for rule in case the
+    // implementation (which is also called rule) needs to refer to something
+    // in its base.
+  };
+
+  class LIBBUILD2_SYMEXPORT cxx_rule_v1: public cxx_rule
+  {
   public:
     // A robust recipe may want to incorporate the recipe_state into its
     // up-to-date decision as if the recipe library was a prerequisite (it
@@ -218,7 +225,7 @@ namespace build2
     const location     recipe_loc;   // Buildfile location of the recipe.
     const target_state recipe_state; // State of recipe library target.
 
-    cxx_rule (const location& l, target_state s)
+    cxx_rule_v1 (const location& l, target_state s)
       : recipe_loc (l), recipe_state (s) {}
 
     // Return true by default.
@@ -241,15 +248,10 @@ namespace build2
     virtual void
     dump (ostream&, string&) const override;
 
-    adhoc_cxx_rule (const location& l, size_t b)
-        : adhoc_rule (l, b), impl (nullptr) {}
+    adhoc_cxx_rule (const location&, size_t, uint64_t version);
 
     virtual bool
-    recipe_text (context&, string&& t, attributes&) override
-    {
-      code = move (t);
-      return true;
-    }
+    recipe_text (context&, string&& t, attributes&) override;
 
     virtual
     ~adhoc_cxx_rule () override;
@@ -258,6 +260,7 @@ namespace build2
     // Note that this recipe (rule instance) can be shared between multiple
     // targets which could all be matched in parallel.
     //
+    uint64_t                  version;
     string                    code;
     mutable atomic<cxx_rule*> impl;
   };
