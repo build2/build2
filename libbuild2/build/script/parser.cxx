@@ -52,8 +52,8 @@ namespace build2
 
         if (diag)
         {
-          diag_name   = make_pair (move (*diag), diag_loc);
-          diag_weight = 4;
+          diag_name_   = make_pair (move (*diag), diag_loc);
+          diag_weight_ = 4;
         }
 
         s.start_loc = location (*path_, line, 1);
@@ -69,20 +69,20 @@ namespace build2
         {
           diag_record dr;
 
-          if (!diag_name && !diag_line)
+          if (!diag_name_ && !diag_line_)
           {
             dr << fail (s.start_loc)
                << "unable to deduce low-verbosity script diagnostics name";
           }
-          else if (diag_name2)
+          else if (diag_name2_)
           {
-            assert (diag_name);
+            assert (diag_name_);
 
             dr << fail (s.start_loc)
                << "low-verbosity script diagnostics name is ambiguous" <<
-              info (diag_name->second) << "could be '" << diag_name->first
+              info (diag_name_->second) << "could be '" << diag_name_->first
                << "'" <<
-              info (diag_name2->second) << "could be '" << diag_name2->first
+              info (diag_name2_->second) << "could be '" << diag_name2_->first
                << "'";
           }
 
@@ -96,12 +96,19 @@ namespace build2
           }
         }
 
-        assert (diag_name.has_value () != diag_line.has_value ());
+        // Save the script name or custom diagnostics line.
+        //
+        assert (diag_name_.has_value () != diag_line_.has_value ());
 
-        if (diag_name)
-          s.diag_name = move (diag_name->first);
+        if (diag_name_)
+          s.diag_name = move (diag_name_->first);
         else
-          s.diag_line = move (diag_line->first);
+          s.diag_line = move (diag_line_->first);
+
+        // Save the custom dependency change tracking lines, if present.
+        //
+        s.depdb_clear = depdb_clear_.has_value ();
+        s.depdb_lines = move (depdb_lines_);
 
         return s;
       }
@@ -150,9 +157,13 @@ namespace build2
         line_type lt (
           pre_parse_line_start (t, tt, lexer_mode::second_token));
 
-        save_line_ = nullptr;
-
         line ln;
+
+        // Indicates that the parsed line should by default be appended to the
+        // script.
+        //
+        save_line_ = &ln;
+
         switch (lt)
         {
         case line_type::var:
@@ -213,9 +224,12 @@ namespace build2
         ln.tokens = replay_data ();
 
         if (save_line_ != nullptr)
-          *save_line_ = move (ln);
-        else
-          script_->lines.push_back (move (ln));
+        {
+          if (save_line_ == &ln)
+            script_->lines.push_back (move (ln));
+          else
+            *save_line_ = move (ln);
+        }
 
         if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
         {
@@ -323,41 +337,46 @@ namespace build2
         //
         auto set_diag = [&l, this] (string d, uint8_t w)
         {
-          if (diag_weight < w)
+          if (diag_weight_ < w)
           {
-            diag_name   = make_pair (move (d), l);
-            diag_weight = w;
-            diag_name2  = nullopt;
+            diag_name_   = make_pair (move (d), l);
+            diag_weight_ = w;
+            diag_name2_  = nullopt;
           }
-          else if (w != 0                &&
-                   w == diag_weight      &&
-                   d != diag_name->first &&
-                   !diag_name2)
-            diag_name2 = make_pair (move (d), l);
+          else if (w != 0                 &&
+                   w == diag_weight_      &&
+                   d != diag_name_->first &&
+                   !diag_name2_)
+            diag_name2_ = make_pair (move (d), l);
         };
 
         // Handle special builtins.
         //
+        // NOTE: update line dumping (script.cxx:dump()) if adding a special
+        // builtin.
+        //
         if (pre_parse_ && first && tt == type::word)
         {
-          if (t.value == "diag")
+          const string& v (t.value);
+
+          if (v == "diag")
           {
             // Check for ambiguity.
             //
-            if (diag_weight == 4)
+            if (diag_weight_ == 4)
             {
-              if (diag_name) // Script name.
+              if (diag_name_) // Script name.
               {
                 fail (l) << "both low-verbosity script diagnostics name "
                          << "and 'diag' builtin call" <<
-                  info (diag_name->second) << "script name specified here";
+                  info (diag_name_->second) << "script name specified here";
               }
               else           // Custom diagnostics.
               {
-                assert (diag_line);
+                assert (diag_line_);
 
                 fail (l) << "multiple 'diag' builtin calls" <<
-                  info (diag_line->second) << "previous call is here";
+                  info (diag_line_->second) << "previous call is here";
               }
             }
 
@@ -366,16 +385,73 @@ namespace build2
             // will be executed prior to the script execution to obtain the
             // custom diagnostics.
             //
-            diag_line  = make_pair (line (), l);
-            save_line_ = &diag_line->first;
-            diag_weight  = 4;
+            diag_line_   = make_pair (line (), l);
+            save_line_   = &diag_line_->first;
+            diag_weight_ = 4;
 
-            diag_name  = nullopt;
-            diag_name2 = nullopt;
+            diag_name_  = nullopt;
+            diag_name2_ = nullopt;
 
-            // Parse the leading chunk and bail out.
+            // Note that the rest of the line contains the builtin argument to
+            // be printed, thus we parse it in the value lexer mode.
             //
-            return build2::script::parser::parse_program (t, tt, first, ns);
+            mode (lexer_mode::value);
+            parse_names (t, tt, pattern_mode::ignore);
+            return nullopt;
+          }
+          else if (v == "depdb")
+          {
+            // Note that the rest of the line contains the builtin command
+            // name, potentially followed by the arguments to be
+            // hashed/saved. Thus, we parse it in the value lexer mode.
+            //
+            mode (lexer_mode::value);
+
+            // Obtain and validate the depdb builtin command name.
+            //
+            next (t, tt);
+
+            if (tt != type::word ||
+                (v != "clear" && v != "hash" && v != "string"))
+            {
+              fail (get_location (t))
+                << "expected 'depdb' builtin command instead of " << t;
+            }
+
+            if (v == "clear")
+            {
+              // Make sure the clear depdb command comes first.
+              //
+              if (depdb_clear_)
+                fail (l) << "multiple 'depdb clear' builtin calls" <<
+                  info (*depdb_clear_) << "previous call is here";
+
+              if (!depdb_lines_.empty ())
+                fail (l) << "'depdb clear' should be the first 'depdb' "
+                         << "builtin call" <<
+                  info (depdb_lines_[0].tokens[0].location ())
+                         << "first 'depdb' call is here";
+
+              // Save the builtin location and cancel the line saving.
+              //
+              depdb_clear_ = l;
+              save_line_   = nullptr;
+            }
+            else
+            {
+              // Instruct the parser to save the depdb builtin line separately
+              // from the script lines, when it is fully parsed. Note that the
+              // builtin command arguments will be validated during execution,
+              // when expanded.
+              //
+              depdb_lines_.push_back (line ());
+              save_line_ = &depdb_lines_.back ();
+            }
+
+            // Parse the rest of the line and bail out.
+            //
+            parse_names (t, tt, pattern_mode::ignore);
+            return nullopt;
           }
         }
 
@@ -414,7 +490,7 @@ namespace build2
           //
           // This is also the reason why we add a diag frame.
           //
-          if (pre_parse_ && diag_weight != 4)
+          if (pre_parse_ && diag_weight_ != 4)
           {
             pre_parse_ = false; // Make parse_names() perform expansions.
             pre_parse_suspended_ = true;
@@ -445,7 +521,7 @@ namespace build2
             pre_parse_ = true;
           }
 
-          if (pre_parse_ && diag_weight == 4)
+          if (pre_parse_ && diag_weight_ == 4)
             return nullopt;
         }
 

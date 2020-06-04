@@ -57,6 +57,12 @@ namespace build2
     void
     dump (ostream&, const string& ind, const lines&);
 
+    // As above but print a single line and without the trailing newline token
+    // by default.
+    //
+    void
+    dump (ostream&, const line&, bool newline = false);
+
     // Parse object model.
     //
 

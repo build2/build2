@@ -1264,7 +1264,7 @@ namespace build2
                   // Calling operation_pre() to translate doesn't feel
                   // appropriate here.
                   //
-                  fail (l) << "default operation in recipe action";
+                  fail (l) << "default operation in recipe action" << endf;
               }
               else
                 oi = ctx.operation_table.find (o.name);

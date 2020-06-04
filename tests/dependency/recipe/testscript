@@ -629,6 +629,7 @@ EOE
       %  .+alias\{x\}:%
         % perform(update)
         {{
+          diag bar
       %.{4}
       EOE
   }

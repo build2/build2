@@ -24,10 +24,10 @@ $* <<EOI >>EOO
 $* <<EOI >>~%EOO%
   echo abc
   cat abc
-  diag abc '==>' $>
-  cp abc xyz
+  diag copy >= $>
+  cp <- $>
   EOI
-  %diag: abc ==> .+file\{driver\.\}%
+  %diag: copy >= .+file\{driver\.\}%
   EOO
 
 : ambiguity

@@ -141,13 +141,29 @@ namespace build2
         // builtin after the script name or after another diag builtin) is
         // reported as ambiguity.
         //
-        // At the end of pre-parsing either diag_name or diag_line (but not
+        // At the end of pre-parsing either diag_name_ or diag_line_ (but not
         // both) are present.
         //
-        optional<pair<string, location>> diag_name;
-        optional<pair<string, location>> diag_name2; // Ambiguous script name.
-        optional<pair<line, location>>   diag_line;
-        uint8_t                          diag_weight = 0;
+        optional<pair<string, location>> diag_name_;
+        optional<pair<string, location>> diag_name2_; // Ambiguous script name.
+        optional<pair<line, location>>   diag_line_;
+        uint8_t                          diag_weight_ = 0;
+
+        // Custom dependency change tracking.
+        //
+        // The depdb builtin can be used to change the default dependency
+        // change tracking:
+        //
+        // depdb clear         - Cancels the default variables, targets, and
+        //                       prerequisites change tracking. Can only be
+        //                       the first depdb builtin call.
+        //
+        // depdb hash <args>  - Track the argument list change as a hash.
+        //
+        // depdb string <arg> - Track the argument (single) change as string.
+        //
+        optional<location> depdb_clear_; // 'depdb clear' location if any.
+        lines              depdb_lines_; // Note: excludes 'depdb clear'.
 
         // True during pre-parsing when the pre-parse mode is temporarily
         // suspended to perform expansion.
@@ -156,10 +172,12 @@ namespace build2
 
         // The alternative location where the next line should be saved.
         //
-        // It is set to NULL before the script line get parsed, indicating
-        // that the line should by default be appended to the script. However,
+        // Before the script line gets parsed, it is set to a temporary value
+        // that will by default be appended to the script. However,
         // parse_program() can point it to a different location where the line
-        // should be saved instead (e.g., diag_line, etc).
+        // should be saved instead (e.g., diag_line_, etc) or set it to NULL
+        // if the line is handled in an ad-hoc way and should be dropped
+        // (e.g., depdb_clear_, etc).
         //
         line* save_line_;
 

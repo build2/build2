@@ -20,6 +20,7 @@ namespace build2
     namespace script
     {
       using build2::script::line;
+      using build2::script::lines;
       using build2::script::line_type;
       using build2::script::redirect;
       using build2::script::redirect_type;
@@ -37,10 +38,12 @@ namespace build2
       class script
       {
       public:
+        using lines_type = build::script::lines;
+
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
-        build2::script::lines lines;
+        lines_type lines;
 
         // Referenced ordinary (non-special) variables.
         //
@@ -59,10 +62,17 @@ namespace build2
         bool temp_dir = false;
 
         // Command name for low-verbosity diagnostics and custom low-verbosity
-        // diagnostics line. Note: cannot be both.
+        // diagnostics line. Note: cannot be both (see the script parser for
+        // details).
         //
         optional<string> diag_name;
         optional<line>   diag_line;
+
+        // The script's custom dependency change tracking lines (see the
+        // script parser for details).
+        //
+        bool       depdb_clear;
+        lines_type depdb_lines;
 
         location start_loc;
         location end_loc;

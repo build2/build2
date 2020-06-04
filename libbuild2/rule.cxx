@@ -430,6 +430,17 @@ namespace build2
   {
     os << ind << string (braces, '{') << endl;
     ind += "  ";
+
+    if (script.depdb_clear)
+      os << ind << "depdb clear" << endl;
+
+    script::dump (os, ind, script.depdb_lines);
+
+    if (script.diag_line)
+    {
+      os << ind; script::dump (os, *script.diag_line, true /* newline */);
+    }
+
     script::dump (os, ind, script.lines);
     ind.resize (ind.size () - 2);
     os << ind << string (braces, '}');
@@ -504,7 +515,7 @@ namespace build2
   target_state adhoc_script_rule::
   perform_update_file (action a, const target& xt) const
   {
-    tracer trace ("adhoc_rule::perform_update_file");
+    tracer trace ("adhoc_script_rule::perform_update_file");
 
     context& ctx (xt.ctx);
 
@@ -539,18 +550,22 @@ namespace build2
     // executable prerequisite target that has it. We do it before executing
     // in order to include ad hoc prerequisites (which feels like the right
     // thing to do; the user may mark tools as ad hoc in order to omit them
-    // from $<).
+    // from $<). Note, however, that this is only required if the script
+    // doesn't track the dependency changes itself.
     //
     sha256 prog_cs;
-    for (const target* pt: t.prerequisite_targets[a])
+    if (!script.depdb_clear)
     {
-      if (pt != nullptr)
+      for (const target* pt: t.prerequisite_targets[a])
       {
-        if (auto* e = pt->is_a<exe> ())
+        if (pt != nullptr)
         {
-          if (auto* c = e->lookup_metadata<string> ("checksum"))
+          if (auto* e = pt->is_a<exe> ())
           {
-            prog_cs.append (*c);
+            if (auto* c = e->lookup_metadata<string> ("checksum"))
+            {
+              prog_cs.append (*c);
+            }
           }
         }
       }
@@ -568,115 +583,192 @@ namespace build2
     // names, tools, etc.
     //
     depdb dd (tp + ".d");
+
+    // First should come the rule name/version.
+    //
+    if (dd.expect ("adhoc 1") != nullptr)
+      l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+    // Then the script checksum.
+    //
+    // Ideally, to detect changes to the script semantics, we would hash the
+    // text with all the variables expanded but without executing any
+    // commands. In practice, this is easier said than done (think the set
+    // builtin that receives output of a command that modifies the
+    // filesystem).
+    //
+    // So as the next best thing we are going to hash the unexpanded text as
+    // well as values of all the variables expanded in it (which we get as a
+    // side effect of pre-parsing the script). This approach has a number of
+    // drawbacks:
+    //
+    // - We can't handle computed variable names (e.g., $($x ? X : Y)).
+    //
+    // - We may "overhash" by including variables that are actually
+    //   script-local.
+    //
+    // - There are functions like $install.resolve() with result based on
+    //   external (to the script) information.
+    //
+    if (dd.expect (checksum) != nullptr)
+      l4 ([&]{trace << "recipe text change forcing update of " << t;});
+
+    // Track the variables, targets, and prerequisites changes, unless the
+    // script doesn't track the dependency changes itself.
+    //
+
+    // For each variable hash its name, undefined/null/non-null indicator,
+    // and the value if non-null.
+    //
+    // Note that this excludes the special $< and $> variables which we
+    // handle below.
+    //
+    if (!script.depdb_clear)
     {
-      // First should come the rule name/version.
-      //
-      if (dd.expect ("adhoc 1") != nullptr)
-        l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+      sha256 cs;
+      names storage;
 
-      // Then the script checksum.
-      //
-      // Ideally, to detect changes to the script semantics, we would hash the
-      // text with all the variables expanded but without executing any
-      // commands. In practice, this is easier said than done (think the set
-      // builtin that receives output of a command that modifies the
-      // filesystem).
-      //
-      // So as the next best thing we are going to hash the unexpanded text as
-      // well as values of all the variables expanded in it (which we get as a
-      // side effect of pre-parsing the script). This approach has a number of
-      // drawbacks:
-      //
-      // - We can't handle computed variable names (e.g., $($x ? X : Y)).
-      //
-      // - We may "overhash" by including variables that are actually
-      //   script-local.
-      //
-      // - There are functions like $install.resolve() with result based on
-      //   external (to the script) information.
-      //
-      if (dd.expect (checksum) != nullptr)
-        l4 ([&]{trace << "recipe text change forcing update of " << t;});
-
-      // For each variable hash its name, undefined/null/non-null indicator,
-      // and the value if non-null.
-      //
-      // Note that this excludes the special $< and $> variables which we
-      // handle below.
-      //
+      for (const string& n: script.vars)
       {
-        sha256 cs;
-        names storage;
+        cs.append (n);
 
-        for (const string& n: script.vars)
+        lookup l;
+
+        if (const variable* var = ctx.var_pool.find (n))
+          l = t[var];
+
+        cs.append (!l.defined () ? '\x1' : l->null ? '\x2' : '\x3');
+
+        if (l)
         {
-          cs.append (n);
+          storage.clear ();
+          names_view ns (reverse (*l, storage));
 
-          lookup l;
-
-          if (const variable* var = ctx.var_pool.find (n))
-            l = t[var];
-
-          cs.append (!l.defined () ? '\x1' : l->null ? '\x2' : '\x3');
-
-          if (l)
-          {
-            storage.clear ();
-            names_view ns (reverse (*l, storage));
-
-            for (const name& n: ns)
-              to_checksum (cs, n);
-          }
+          for (const name& n: ns)
+            to_checksum (cs, n);
         }
-
-        if (dd.expect (cs.string ()) != nullptr)
-          l4 ([&]{trace << "recipe variable change forcing update of " << t;});
       }
 
-      // Target and prerequisite sets ($> and $<).
-      //
-      // How should we hash them? We could hash them as target names (i.e.,
-      // the same as the $>/< content) or as paths (only for path-based
-      // targets). While names feel more general, they are also more expensive
-      // to compute. And for path-based targets, path is generally a good
-      // proxy for the target name. Since the bulk of the ad hoc recipes will
-      // presumably be operating exclusively on path-based targets, let's do
-      // it both ways.
-      //
+      if (dd.expect (cs.string ()) != nullptr)
+        l4 ([&]{trace << "recipe variable change forcing update of " << t;});
+    }
+
+    // Target and prerequisite sets ($> and $<).
+    //
+    // How should we hash them? We could hash them as target names (i.e., the
+    // same as the $>/< content) or as paths (only for path-based targets).
+    // While names feel more general, they are also more expensive to compute.
+    // And for path-based targets, path is generally a good proxy for the
+    // target name. Since the bulk of the ad hoc recipes will presumably be
+    // operating exclusively on path-based targets, let's do it both ways.
+    //
+    if (!script.depdb_clear)
+    {
+      auto hash = [ns = names ()] (sha256& cs, const target& t) mutable
       {
-        auto hash = [ns = names ()] (sha256& cs, const target& t) mutable
+        if (const path_target* pt = t.is_a<path_target> ())
+          cs.append (pt->path ().string ());
+        else
         {
-          if (const path_target* pt = t.is_a<path_target> ())
-            cs.append (pt->path ().string ());
-          else
-          {
-            ns.clear ();
-            t.as_name (ns);
-            for (const name& n: ns)
-              to_checksum (cs, n);
-          }
-        };
+          ns.clear ();
+          t.as_name (ns);
+          for (const name& n: ns)
+            to_checksum (cs, n);
+        }
+      };
 
-        sha256 tcs;
-        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-          hash (tcs, *m);
+      sha256 tcs;
+      for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+        hash (tcs, *m);
 
-        if (dd.expect (tcs.string ()) != nullptr)
-          l4 ([&]{trace << "target set change forcing update of " << t;});
+      if (dd.expect (tcs.string ()) != nullptr)
+        l4 ([&]{trace << "target set change forcing update of " << t;});
 
-        sha256 pcs;
-        for (const target* pt: t.prerequisite_targets[a])
-          if (pt != nullptr)
-            hash (pcs, *pt);
+      sha256 pcs;
+      for (const target* pt: t.prerequisite_targets[a])
+        if (pt != nullptr)
+          hash (pcs, *pt);
 
-        if (dd.expect (pcs.string ()) != nullptr)
-          l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
-      }
+      if (dd.expect (pcs.string ()) != nullptr)
+        l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
+    }
 
-      // Finally the programs checksum.
-      //
+    // Finally the programs checksum.
+    //
+    if (!script.depdb_clear)
+    {
       if (dd.expect (prog_cs.string ()) != nullptr)
         l4 ([&]{trace << "program checksum change forcing update of " << t;});
+    }
+
+    const scope* bs (nullptr);
+    const scope* rs (nullptr);
+
+    // Execute the custom dependency change tracking commands, if present.
+    //
+    if (!script.depdb_lines.empty ())
+    {
+      bs = &t.base_scope ();
+      rs = bs->root_scope ();
+
+      // While it would have been nice to reuse the environment for both
+      // dependency tracking and execution, there are complications (creating
+      // temporary directory, etc).
+      //
+      build::script::environment e (a, t, false /* temp_dir */);
+      build::script::parser p (ctx);
+
+      for (const script::line& l: script.depdb_lines)
+      {
+        names ns (p.execute_special (*rs, *bs, e, l));
+
+        // These should have been enforced during pre-parsing.
+        //
+        assert (!ns.empty ());         //         <cmd> ... <newline>
+        assert (l.tokens.size () > 2); // 'depdb' <cmd> ... <newline>
+
+        const string& cmd (ns[0].value);
+
+        location loc (l.tokens[0].location ());
+
+        if (cmd == "hash")
+        {
+          sha256 cs;
+          for (auto i (ns.begin () + 1); i != ns.end (); ++i) // Skip <cmd>.
+            to_checksum (cs, *i);
+
+          if (dd.expect (cs.string ()) != nullptr)
+            l4 ([&] {
+                diag_record dr (trace);
+                dr << "'depdb hash' argument change forcing update of " << t <<
+                  info (loc); script::dump (dr.os, l);
+              });
+        }
+        else if (cmd == "string")
+        {
+          string s;
+          try
+          {
+            s = convert<string> (names (move_iterator (ns.begin () + 1),
+                                        move_iterator (ns.end ())));
+          }
+          catch (const invalid_argument& e)
+          {
+            fail (l.tokens[2].location ())
+              << "invalid 'depdb string' argument: " << e;
+          }
+
+          if (dd.expect (s) != nullptr)
+            l4 ([&] {
+                diag_record dr (trace);
+                dr << "'depdb string' argument change forcing update of "
+                   << t <<
+                  info (loc); script::dump (dr.os, l);
+              });
+        }
+        else
+          assert (false);
+      }
     }
 
     // Update if depdb mismatch.
@@ -693,8 +785,11 @@ namespace build2
 
     if (!ctx.dry_run || verb != 0)
     {
-      const scope& bs (t.base_scope ());
-      const scope& rs (*bs.root_scope ());
+      if (bs == nullptr)
+      {
+        bs = &t.base_scope ();
+        rs = bs->root_scope ();
+      }
 
       build::script::environment e (a, t, script.temp_dir);
       build::script::parser p (ctx);
@@ -703,7 +798,7 @@ namespace build2
       {
         if (script.diag_line)
         {
-          text << p.execute_special (rs, bs, e, *script.diag_line);
+          text << p.execute_special (*rs, *bs, e, *script.diag_line);
         }
         else
         {
@@ -723,7 +818,7 @@ namespace build2
       if (!ctx.dry_run || verb >= 2)
       {
         build::script::default_runner r;
-        p.execute (rs, bs, e, script, r);
+        p.execute (*rs, *bs, e, script, r);
 
         if (!ctx.dry_run)
           dd.check_mtime (tp);
@@ -737,7 +832,7 @@ namespace build2
   target_state adhoc_script_rule::
   default_action (action a, const target& t) const
   {
-    tracer trace ("adhoc_rule::default_action");
+    tracer trace ("adhoc_script_rule::default_action");
 
     context& ctx (t.ctx);
 

@@ -70,3 +70,9 @@ $* <<EOI >>EOO
   "foo"
   'foo b"ar baz'
   EOO
+
+: no-newline
+:
+$* <:'foo' 2>>EOE != 0
+  buildfile:11:4: error: expected newline instead of <end of file>
+  EOE
