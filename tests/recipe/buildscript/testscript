@@ -1,0 +1,96 @@
+# file      : tests/recipe/buildscript/testscript
+# license   : MIT; see accompanying LICENSE file
+
++mkdir build
++cat <<EOI >=build/bootstrap.build
+  project = test
+  amalgamation =
+  subprojects =
+
+  using config
+  using test
+  EOI
+
++cat <<EOI >=build/root.build
+  using cxx
+  EOI
+
+test.options += config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
+
+: update
+:
+{
+  echo 'bar' >=bar;
+
+  cat <<EOI >=buildfile;
+    ./: foo
+
+    foo: bar
+    {{
+      cp $path($<) $path($>)
+    }}
+    EOI
+
+  $* 2>'cp file{foo}';
+
+  cat <<<foo >'bar';
+
+  # While at it, make sure there is no rebuild.
+  #
+  $* 2>/'info: dir{./} is up to date';
+
+  $* clean 2>-
+}
+
+: clean
+:
+{
+  echo 'bar' >=bar;
+
+  cat <<EOI >=buildfile;
+    ./: foo
+
+    foo: bar
+    {{
+      cp $path($<) $path($>)
+    }}
+    % [diag=clean] clean
+    {{
+      t = $path($>)
+      rm $t $(t).d
+    }}
+    EOI
+
+  $* 2>-;
+
+  # Rely on the cleanup machinery to verify that the build output files are
+  # removed.
+  #
+  $* clean 2>'clean file{foo}'
+}
+
+: test
+:
+{
+  echo 'bar' >=bar;
+
+  cat <<EOI >=buildfile;
+    ./: foo
+
+    foo: bar
+    {{
+      cp $path($<) $path($>)
+    }}
+    % [diag=test] test
+    {{
+      cat <$path($<) >?$path($>)
+    }}
+    EOI
+
+  $* test 2>>EOE;
+    cp file{foo}
+    test file{foo}
+    EOE
+
+  $* clean 2>-
+}
