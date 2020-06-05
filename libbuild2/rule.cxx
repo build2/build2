@@ -786,8 +786,8 @@ namespace build2
   // adhoc_cxx_rule
   //
   adhoc_cxx_rule::
-  adhoc_cxx_rule (const location& l, size_t b, uint64_t v)
-      : adhoc_rule (l, b), version (v), impl (nullptr)
+  adhoc_cxx_rule (const location& l, size_t b, uint64_t v, optional<string> s)
+      : adhoc_rule (l, b), version (v), separator (move (s)), impl (nullptr)
   {
     if (v != 1)
       fail (l) << "unsupported c++ recipe version " << v;
@@ -905,6 +905,7 @@ namespace build2
       {
         sha256 cs;
         cs.append ("c++");
+        cs.append (separator ? *separator : "");
         cs.append (code);
         id = cs.abbreviated_string (12);
       }
@@ -946,6 +947,72 @@ namespace build2
         {
           fail << "unable to access " << f << ": " << e << endf;
         }
+      };
+
+      // Calculate (and cache) the global/local fragments split.
+      //
+      struct fragments
+      {
+        size_t   global_p; // Start position.
+        size_t   global_n; // Length (0 if no global fragment).
+        location global_l; // Position.
+
+        size_t   local_p;
+        size_t   local_n;
+        location local_l;
+      };
+
+      auto split = [this, f = optional<fragments> ()] () mutable ->
+        const fragments&
+      {
+        if (f)
+          return *f;
+
+        // Note that the code starts from the next line thus +1.
+        //
+        location gl (loc.file, loc.line + 1, 1);
+
+        if (!separator)
+        {
+          f = fragments {0, 0, location (), 0, code.size (), gl};
+          return *f;
+        }
+
+        // Iterate over lines (keeping track of the current line) looking
+        // for the separator.
+        //
+        uint64_t l (gl.line);
+        for (size_t b (0), e (b), n (code.size ()); b < n; b = e + 1, l++)
+        {
+          if ((e = code.find ('\n', b)) == string::npos)
+            e = n;
+
+          // Trim the line.
+          //
+          size_t tb (b), te (e);
+          auto ws = [] (char c) {return c == ' ' || c == '\t' || c == '\r';};
+          for (; tb != te && ws (code[tb    ]); ++tb) ;
+          for (; te != tb && ws (code[te - 1]); --te) ;
+
+          // text << "'" << string (code, tb, te - tb) << "'";
+
+          if (code.compare (tb, te - tb, *separator) == 0)
+          {
+            // End the global fragment at the previous newline and start the
+            // local fragment at the beginning of the next line.
+            //
+            location ll (loc.file, l + 1, 1);
+
+            if (++e >= n)
+              fail (ll) << "empty c++ recipe local fragment";
+
+            f = fragments {0, b, gl, e, n - e, ll};
+            return *f;
+          }
+        }
+
+        fail (loc) << "c++ recipe fragment separator '" << *separator
+                   << "' not found" << endf;
       };
 
       bool nested (ctx.module_context == &ctx);
@@ -993,6 +1060,8 @@ namespace build2
       if (create)
       try
       {
+        const fragments& frag (split ());
+
         // Write ad hoc config.build that loads the ~build2 configuration.
         // This way the configuration will be always in sync with ~build2
         // and we can update the recipe manually (e.g., for debugging).
@@ -1043,6 +1112,21 @@ namespace build2
             << "#include <libbuild2/diagnostics.hxx>"                   << '\n'
             << '\n';
 
+        // Write the global fragment, if any. Note that it always includes the
+        // trailing newline.
+        //
+        if (frag.global_n != 0)
+        {
+          // Use the #line directive to point diagnostics to the code in the
+          // buildfile. Note that there is no easy way to restore things to
+          // point back to the source file (other than another #line with a
+          // line and a file). Let's not bother for now.
+          //
+          ofs << "#line RECIPE_GLOBAL_LINE RECIPE_FILE"                 << '\n';
+          ofs.write (code.c_str () + frag.global_p, frag.global_n);
+          ofs << '\n';
+        }
+
         // Normally the recipe code will have one level of indentation so
         // let's not indent the namespace level to match.
         //
@@ -1090,17 +1174,14 @@ namespace build2
             << '\n';
 
         // Use the #line directive to point diagnostics to the code in the
-        // buildfile. Note that there is no easy way to restore things to
-        // point back to the source file (other than another #line with a line
-        // and a file). Seeing that we don't have much after, let's not bother
-        // for now.
+        // buildfile similar to the global fragment above.
         //
-        ofs << "#line RECIPE_LINE RECIPE_FILE"                          << '\n';
+        ofs << "#line RECIPE_LOCAL_LINE RECIPE_FILE"                    << '\n';
 
-        // Note that the code always includes trailing newline.
+        // Note that the local fragment always includes the trailing newline.
         //
-        ofs << code
-            << "};"                                                     << '\n'
+        ofs.write (code.c_str () + frag.local_p, frag.local_n);
+        ofs << "};"                                                     << '\n'
             << '\n';
 
         // Add an alias that we can use unambiguously in the load function.
@@ -1193,6 +1274,8 @@ namespace build2
         if (!check_sig (of, lsig))
         try
         {
+          const fragments& frag (split ());
+
           entry_time et (file_time (of));
 
           if (verb >= verbosity)
@@ -1200,12 +1283,15 @@ namespace build2
 
           ofs.open (of);
 
-          // Recipe file and line for the #line directive above. Note that the
-          // code starts from the next line thus +1. We also need to escape
-          // backslashes (Windows paths).
+          // Recipe file and line for the #line directive above. We also need
+          // to escape backslashes (Windows paths).
           //
-          ofs << "#define RECIPE_FILE \"" << sanitize_strlit (lf) << '"'<< '\n'
-              << "#define RECIPE_LINE "   << loc.line + 1               << '\n'
+          ofs << "#define RECIPE_FILE \"" << sanitize_strlit (lf) << '"'<< '\n';
+
+          if (frag.global_n != 0)
+            ofs << "#define RECIPE_GLOBAL_LINE " << frag.global_l.line  << '\n';
+
+          ofs << "#define RECIPE_LOCAL_LINE " << frag.local_l.line      << '\n'
               << '\n'
               << lsig                                                   << '\n';
 

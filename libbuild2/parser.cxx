@@ -1103,6 +1103,10 @@ namespace build2
 
         optional<string> lang;
         location lloc;
+
+        // Use value mode to minimize the number of special characters.
+        //
+        mode (lexer_mode::value, '@');
         if (next (t, tt) == type::newline)
           ;
         else if (tt == type::word)
@@ -1132,12 +1136,12 @@ namespace build2
               //
               ar.reset (new adhoc_script_rule (loc, st.value.size ()));
             }
-            else if (*lang == "c++")
+            else if (icasecmp (*lang, "c++") == 0)
             {
               // C++
               //
 
-              // Parse recipe version.
+              // Parse recipe version and optional fragment separator.
               //
               if (tt == type::newline || tt == type::eos)
                 fail (t) << "expected c++ recipe version instead of " << t;
@@ -1145,18 +1149,42 @@ namespace build2
               location nloc (get_location (t));
               names ns (parse_names (t, tt, pattern_mode::ignore));
 
-              uint64_t v;
+              uint64_t ver;
               try
               {
-                v = convert<uint64_t> (move (ns));
+                if (ns.empty ())
+                  throw invalid_argument ("empty");
+
+                if (ns[0].pair)
+                  throw invalid_argument ("pair in value");
+
+                ver = convert<uint64_t> (move (ns[0]));
               }
               catch (const invalid_argument& e)
               {
-                fail (nloc) << "invalid c++ recipe version value: " << e
+                fail (nloc) << "invalid c++ recipe version: " << e << endf;
+              }
+
+              optional<string> sep;
+              if (ns.size () != 1)
+              try
+              {
+                if (ns.size () != 2)
+                  throw invalid_argument ("multiple names");
+
+                sep = convert<string> (move (ns[1]));
+
+                if (sep->empty ())
+                  throw invalid_argument ("empty");
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (nloc) << "invalid c++ recipe fragment separator: " << e
                             << endf;
               }
 
-              ar.reset (new adhoc_cxx_rule (loc, st.value.size (), v));
+              ar.reset (
+                new adhoc_cxx_rule (loc, st.value.size (), ver, move (sep)));
             }
             else
               fail (lloc) << "unknown recipe language '" << *lang << "'";

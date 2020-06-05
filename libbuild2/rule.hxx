@@ -253,7 +253,9 @@ namespace build2
     virtual recipe
     apply (action, target&) const override;
 
-    adhoc_cxx_rule (const location&, size_t, uint64_t version);
+    adhoc_cxx_rule (const location&, size_t,
+                    uint64_t ver,
+                    optional<string> sep);
 
     virtual bool
     recipe_text (context&, const target&, string&& t, attributes&) override;
@@ -269,6 +271,7 @@ namespace build2
     // targets which could all be matched in parallel.
     //
     uint64_t                  version;
+    optional<string>          separator;
     string                    code;
     mutable atomic<cxx_rule*> impl;
   };
