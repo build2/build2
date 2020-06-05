@@ -335,20 +335,32 @@ namespace build2
       // the correct semantics.
 
       auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
-      auto i (find_if (b, e,
-                       [a, &t] (const adhoc_recipe& r)
-                       {
-                         return r.action == a &&
-                           r.rule->match (a, t, string () /* hint */, nullopt);
-                       }));
+      auto i (find_if (
+                b, e,
+                [a, &t] (const adhoc_recipe& r)
+                {
+                  auto& as (r.actions);
+                  return (find (as.begin (), as.end (), a) != as.end () &&
+                          r.rule->match (a, t, string () /* hint */, nullopt));
+                }));
 
       if (i == e)
-        i = find_if (b, e,
-                     [a, &t] (const adhoc_recipe& r)
-                     {
-                       return r.action != a &&
-                         r.rule->match (a, t, string () /* hint */, r.action);
-                     });
+        i = find_if (
+          b, e,
+          [a, &t] (const adhoc_recipe& r)
+          {
+            // See the adhoc_rule::match() documentation for details.
+            //
+            auto& as (r.actions);
+            if (find (as.begin (), as.end (), a) == as.end ())
+            {
+              for (auto ra: as)
+                if (r.rule->match (a, t, string () /* hint */, ra))
+                  return true;
+            }
+            return false;
+          });
+
       if (i != e)
         return &i->rule->rule_match;
     }

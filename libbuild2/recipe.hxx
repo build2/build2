@@ -58,10 +58,8 @@ namespace build2
 
   struct adhoc_recipe
   {
-    // @@ TODO: maybe we should have a small vector of actions (for dump).
-    //
-    build2::action         action;
-    shared_ptr<adhoc_rule> rule;
+    small_vector<action, 1> actions;
+    shared_ptr<adhoc_rule>  rule;
   };
 }
 

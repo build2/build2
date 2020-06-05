@@ -125,13 +125,13 @@ namespace build2
         //
         // 2. Recognizes comma.
         //
-        // 3. Treat newline as an ordinary space.
-        //
-        // Also note that we don't have buildspec attributes.
+        // Note that because we use this mode for both the command line
+        // buildspec and ad hoc recipe actions, we control the recognition of
+        // newlines as tokens via the auxiliary data.
         //
         s1 = " $(){},\t\n";
         s2 = "         ";
-        n = false;
+        n = (data != 0);
         break;
       }
     case lexer_mode::foreign:

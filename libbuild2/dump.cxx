@@ -350,10 +350,21 @@ namespace build2
     //
     if (!t.adhoc_recipes.empty ())
     {
+      auto& re (*s.root_scope ()->root_extra);
+
       for (const adhoc_recipe r: t.adhoc_recipes)
       {
+        os << endl
+           << ind << '%';
+
+        r.rule->dump_attributes (os);
+
+        for (action a: r.actions)
+          os << ' ' << re.meta_operations[a.meta_operation ()]->name <<
+            '(' << re.operations[a.operation ()]->name << ')';
+
         os << endl;
-        r.rule->dump (os, ind); // @@ TODO: pass action(s).
+        r.rule->dump_text (os, ind);
       }
 
       used = true;

@@ -4,11 +4,11 @@
 #include <libbuild2/config/operation.hxx>
 
 #include <libbuild2/file.hxx>
-#include <libbuild2/spec.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/algorithm.hxx>
+#include <libbuild2/buildspec.hxx>  // opspec
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 

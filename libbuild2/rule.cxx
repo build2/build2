@@ -333,6 +333,11 @@ namespace build2
     return true;
   }
 
+  void adhoc_rule::
+  dump_attributes (ostream&) const
+  {
+  }
+
   // Scope operation callback that cleans up recipe builds.
   //
   target_state adhoc_rule::
@@ -406,28 +411,23 @@ namespace build2
   }
 
   void adhoc_script_rule::
-  dump (ostream& os, string& ind) const
+  dump_attributes (ostream& os) const
   {
-    // Do we need the header?
-    //
-    // @@ TODO: for now we dump it as an attribute whether it was specified or
-    //    derived from the script. Maybe that's ok?
+    // For now we dump it as an attribute whether it was specified or derived
+    // from the script. Maybe that's ok (we use this in tests)?
     //
     if (script.diag_name)
     {
-      os << ind << '%';
-
-      if (script.diag_name)
-      {
-        os << " [";
-        os << "diag=";
-        to_stream (os, name (*script.diag_name), true /* quote */, '@');
-        os << ']';
-      }
-
-      os << endl;
+      os << " [";
+      os << "diag=";
+      to_stream (os, name (*script.diag_name), true /* quote */, '@');
+      os << ']';
     }
+  }
 
+  void adhoc_script_rule::
+  dump_text (ostream& os, string& ind) const
+  {
     os << ind << string (braces, '{') << endl;
     ind += "  ";
     script::dump (os, ind, script.lines);
@@ -807,7 +807,7 @@ namespace build2
   }
 
   void adhoc_cxx_rule::
-  dump (ostream& os, string& ind) const
+  dump_text (ostream& os, string& ind) const
   {
     // @@ TODO: indentation is multi-line recipes is off (would need to insert
     //          indentation after every newline).

@@ -48,8 +48,9 @@ namespace build2
      omitted, then it defaults to \cb{perform}. If <operation> is omitted,
      then it defaults to the default operation for this meta-operation. For
      \cb{perform} it is \cb{update}. Finally, if <target> is omitted, then it
-     defaults to the current working directory. Some operations and
-     meta-operations may take additional <parameters>. For example:
+     defaults to the current working directory. A meta-operation on operation
+     is called an \i{action}. Some operations and meta-operations may take
+     additional <parameters>. For example:
 
      \
      $ b                       # perform(update(./))

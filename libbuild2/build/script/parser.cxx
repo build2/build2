@@ -385,7 +385,7 @@ namespace build2
              << "the 'diag' recipe attribute";
 
           dr << info << "or provide custom low-verbosity diagnostics "
-             << " with the 'diag' builtin";
+             << "with the 'diag' builtin";
         };
 
         parse_names_result pr;

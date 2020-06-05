@@ -153,8 +153,13 @@ namespace build2
     virtual bool
     match (action, target&, const string&) const override;
 
+    // Dump support.
+    //
     virtual void
-    dump (ostream&, string& indentation) const = 0;
+    dump_attributes (ostream&) const;
+
+    virtual void
+    dump_text (ostream&, string& indentation) const = 0;
 
     // Implementation details.
     //
@@ -188,13 +193,16 @@ namespace build2
     target_state
     default_action (action, const target&) const;
 
-    virtual void
-    dump (ostream&, string&) const override;
-
     adhoc_script_rule (const location& l, size_t b): adhoc_rule (l, b) {}
 
     virtual bool
     recipe_text (context&, const target&, string&&, attributes&) override;
+
+    virtual void
+    dump_attributes (ostream&) const override;
+
+    virtual void
+    dump_text (ostream&, string&) const override;
 
   public:
     using script_type = build::script::script;
@@ -245,9 +253,6 @@ namespace build2
     virtual recipe
     apply (action, target&) const override;
 
-    virtual void
-    dump (ostream&, string&) const override;
-
     adhoc_cxx_rule (const location&, size_t, uint64_t version);
 
     virtual bool
@@ -255,6 +260,9 @@ namespace build2
 
     virtual
     ~adhoc_cxx_rule () override;
+
+    virtual void
+    dump_text (ostream&, string&) const override;
 
   public:
     // Note that this recipe (rule instance) can be shared between multiple

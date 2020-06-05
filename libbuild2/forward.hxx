@@ -14,7 +14,7 @@ namespace build2
   //
   struct action;
 
-  // <libbuild2/spec.hxx>
+  // <libbuild2/buildspec.hxx>
   //
   struct opspec;
 

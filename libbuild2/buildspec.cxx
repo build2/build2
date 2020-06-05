@@ -1,7 +1,7 @@
-// file      : libbuild2/spec.cxx -*- C++ -*-
+// file      : libbuild2/buildspec.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/spec.hxx>
+#include <libbuild2/buildspec.hxx>
 
 #include <libbuild2/diagnostics.hxx>
 

@@ -1046,11 +1046,12 @@ namespace build2
   {
     // Parse a recipe chain.
     //
-    // % [<attrs>]
+    // % [<attrs>] [<buildspec>]
     // [if|switch ...]
     // {{ [<lang> ...]
     //   ...
     // }}
+    // ...
     //
     // enter: start is percent or openining multi-curly-brace
     // leave: token past newline after last closing multi-curly-brace
@@ -1078,6 +1079,9 @@ namespace build2
       recipes.push_back (nullptr); // For missing else/default (see below).
 
       attributes as;
+      buildspec bs;
+      location bsloc;
+
       struct data
       {
         small_vector<shared_ptr<adhoc_rule>, 1>& recipes;
@@ -1085,7 +1089,9 @@ namespace build2
         bool&                                    clean;
         size_t                                   i;
         attributes&                              as;
-      } d {recipes, first, clean, i, as};
+        buildspec&                               bs;
+        const location&                          bsloc;
+      } d {recipes, first, clean, i, as, bs, bsloc};
 
       // Note that this function must be called at most once per iteration.
       //
@@ -1197,8 +1203,74 @@ namespace build2
               fail (d.as.loc) << "unknown recipe attribute " << a << endf;
           }
 
-          target_->adhoc_recipes.push_back (
-            adhoc_recipe {perform_update_id, move (ar)});
+          auto& ars (target_->adhoc_recipes);
+          ars.push_back (adhoc_recipe {{}, move (ar)});
+
+          // Translate each buildspec entry into action and add it into the
+          // target's ad hoc recipes entry.
+          //
+          const location& l (d.bsloc);
+
+          for (metaopspec& m: d.bs)
+          {
+            meta_operation_id mi (ctx.meta_operation_table.find (m.name));
+
+            if (mi == 0)
+              fail (l) << "unknown meta-operation " << m.name;
+
+            const meta_operation_info* mf (
+              root_->root_extra->meta_operations[mi]);
+
+            if (mf == nullptr)
+              fail (l) << "target " << *target_ << " does not support meta-"
+                       << "operation " << ctx.meta_operation_table[mi].name;
+
+            for (opspec& o: m)
+            {
+              operation_id oi;
+              if (o.name.empty ())
+              {
+                if (mf->operation_pre == nullptr)
+                  oi = update_id;
+                else
+                  // Calling operation_pre() to translate doesn't feel
+                  // appropriate here.
+                  //
+                  fail (l) << "default operation in recipe action";
+              }
+              else
+                oi = ctx.operation_table.find (o.name);
+
+              if (oi == 0)
+                fail (l) << "unknown operation " << o.name;
+
+              const operation_info* of (root_->root_extra->operations[oi]);
+
+              if (of == nullptr)
+                fail (l) << "target " << *target_ << " does not support "
+                         << "operation " << ctx.operation_table[oi];
+
+              // Note: for now always inner (see match_rule() for details).
+              //
+              action a (mi, oi);
+
+              // Check for duplicates.
+              //
+              if (find_if (
+                    ars.begin (), ars.end (),
+                    [a] (const adhoc_recipe& r)
+                    {
+                      auto& as (r.actions);
+                      return find (as.begin (), as.end (), a) != as.end ();
+                    }) != ars.end ())
+              {
+                fail (l) << "duplicate recipe for " << mf->name << '('
+                         << of->name << ')';
+              }
+
+              ars.back ().actions.push_back (a);
+            }
+          }
         }
 
         next (t, tt);
@@ -1210,6 +1282,11 @@ namespace build2
 
       if (tt == type::percent)
       {
+        // Similar code to parse_buildspec() except here we recognize
+        // attributes and newlines.
+        //
+        mode (lexer_mode::buildspec, '@', 1 /* recognize newline */);
+
         next_with_attributes (t, tt);
         attributes_push (t, tt, true /* standalone */);
 
@@ -1221,7 +1298,36 @@ namespace build2
         as = move (attributes_top ());
         attributes_pop ();
 
-        next_after_newline (t, tt, '%');
+        // Handle the buildspec.
+        //
+        // @@ TODO: diagnostics is a bit off ("operation or target").
+        //
+        if (tt != type::newline && tt != type::eos)
+        {
+          const location& l (bsloc = get_location (t));
+          bs = parse_buildspec_clause (t, tt);
+
+          // Verify we have no targets and assign default meta-operations.
+          //
+          // Note that here we don't bother with lifting operations to meta-
+          // operations like we do in the driver (this seems unlikely to be a
+          // pain point).
+          //
+          for (metaopspec& m: bs)
+          {
+            for (opspec& o: m)
+            {
+              if (!o.empty ())
+                fail (l) << "target in recipe action";
+            }
+
+            if (m.name.empty ())
+              m.name = "perform";
+          }
+        }
+
+        expire_mode ();
+        next_after_newline (t, tt, "recipe action");
 
         // See if this is if-else or switch.
         //
@@ -1257,6 +1363,14 @@ namespace build2
           fail (t) << "expected recipe block instead of " << t;
 
         // Fall through.
+      }
+
+      // Default is perform(update).
+      //
+      if (bs.empty ())
+      {
+        bs.push_back (metaopspec ("perform"));
+        bs.back ().push_back (opspec ("update"));
       }
 
       parse_block (t, tt, false /* skip */, "" /* kind */);
@@ -6308,7 +6422,7 @@ namespace build2
     next (t, tt);
 
     buildspec r (tt != type::eos
-                 ? parse_buildspec_clause (t, tt, 0)
+                 ? parse_buildspec_clause (t, tt)
                  : buildspec ());
 
     if (tt != type::eos)
@@ -6437,8 +6551,8 @@ namespace build2
           }
         }
 
-        // No nested meta-operations means we should have a single
-        // metaopspec object with empty meta-operation name.
+        // No nested meta-operations means we should have a single metaopspec
+        // object with empty meta-operation name.
         //
         assert (nbs.size () == 1);
         const metaopspec& nmo (nbs.back ());

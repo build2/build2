@@ -1,8 +1,8 @@
-// file      : libbuild2/spec.hxx -*- C++ -*-
+// file      : libbuild2/buildspec.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef LIBBUILD2_SPEC_HXX
-#define LIBBUILD2_SPEC_HXX
+#ifndef LIBBUILD2_BUILDSPEC_HXX
+#define LIBBUILD2_BUILDSPEC_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -34,7 +34,7 @@ namespace build2
     bool forwarded = false;
   };
 
-  struct opspec: vector<targetspec>
+  struct opspec: small_vector<targetspec, 1>
   {
     opspec () = default;
     opspec (string n): name (move (n)) {}
@@ -43,7 +43,7 @@ namespace build2
     values params;
   };
 
-  struct metaopspec: vector<opspec>
+  struct metaopspec: small_vector<opspec, 1>
   {
     metaopspec () = default;
     metaopspec (string n): name (move (n)) {}
@@ -52,7 +52,7 @@ namespace build2
     values params;
   };
 
-  using buildspec = vector<metaopspec>;
+  using buildspec = small_vector<metaopspec, 1>;
 
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const targetspec&);
@@ -67,4 +67,4 @@ namespace build2
   operator<< (ostream&, const buildspec&);
 }
 
-#endif // LIBBUILD2_SPEC_HXX
+#endif // LIBBUILD2_BUILDSPEC_HXX

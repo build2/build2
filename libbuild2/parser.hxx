@@ -8,11 +8,11 @@
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/spec.hxx>
 #include <libbuild2/file.hxx>
 #include <libbuild2/lexer.hxx>
 #include <libbuild2/token.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/buildspec.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/export.hxx>
@@ -496,7 +496,7 @@ namespace build2
     // Buildspec.
     //
     buildspec
-    parse_buildspec_clause (token&, token_type&, size_t);
+    parse_buildspec_clause (token&, token_type&, size_t = 0);
 
     // Customization hooks.
     //

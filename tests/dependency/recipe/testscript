@@ -17,7 +17,7 @@ dump alias{x}
 EOI
 <stdin>:5:1: dump:
 %  .+/alias\{x\}: .+/:alias\{z\}%
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
@@ -34,7 +34,7 @@ dump alias{y}
 EOI
 <stdin>:5:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
@@ -44,7 +44,7 @@ EOE
 :
 $* <<EOI 2>>/~%EOE%
 alias{x}:
-%
+% update clean
 {{
   echo
 }}
@@ -52,7 +52,7 @@ dump alias{x}
 EOI
 <stdin>:6:1: dump:
 %  .+/alias\{x\}:%
-  % [diag=echo]
+  % [diag=echo] perform(update) perform(clean)
   {{
     echo
   }}
@@ -62,7 +62,7 @@ EOE
 :
 $* <<EOI 2>>/~%EOE%
 alias{x y}:
-%
+% perform(update clean)
 {{
   echo
 }}
@@ -70,7 +70,7 @@ dump alias{y}
 EOI
 <stdin>:6:1: dump:
 %  .+/alias\{y\}:%
-  % [diag=echo]
+  % [diag=echo] perform(update) perform(clean)
   {{
     echo
   }}
@@ -87,6 +87,7 @@ dump alias{x}
 EOI
 <stdin>:5:1: dump:
 %  .+/alias\{x\}:%
+  % perform(update)
   {{ c++ 1
     void f ();
   }}
@@ -109,7 +110,7 @@ EOI
   {
     var = x
   }
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
@@ -132,7 +133,7 @@ EOI
   {
     var = x
   }
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
@@ -145,7 +146,7 @@ alias{x}: alias{z}
 {
   var = x
 }
-%
+% perform(update)
 {{
   echo
 }}
@@ -156,7 +157,7 @@ EOI
   {
     var = x
   }
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
@@ -169,7 +170,7 @@ alias{x y}:
 {
   var = x
 }
-%
+% perform(update)
 {{
   echo
 }}
@@ -180,7 +181,7 @@ EOI
   {
     var = x
   }
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
@@ -193,18 +194,19 @@ alias{x}:
 {{
   echo
 }}
+% clean
 {{{
   cat
 }}}
 dump alias{x}
 EOI
-<stdin>:8:1: dump:
+<stdin>:9:1: dump:
 %  .+/alias\{x\}:%
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
-  % [diag=cat]
+  % [diag=cat] perform(clean)
   {{{
     cat
   }}}
@@ -217,18 +219,19 @@ alias{x y}: alias{z}
 {{
   echo
 }}
+% clean
 {{{
   cat
 }}}
 dump alias{y}
 EOI
-<stdin>:8:1: dump:
+<stdin>:9:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
-  % [diag=echo]
+  % [diag=echo] perform(update)
   {{
     echo
   }}
-  % [diag=cat]
+  % [diag=cat] perform(clean)
   {{{
     cat
   }}}
@@ -238,12 +241,12 @@ EOE
 :
 $* <<EOI 2>>/~%EOE%
 alias{x}: alias{z}
-
+% clean
 {{
   echo
 }}
 
-%
+% update
 {{{
   cat
 }}}
@@ -251,11 +254,11 @@ dump alias{x}
 EOI
 <stdin>:11:1: dump:
 %  .+/alias\{x\}: .+/:alias\{z\}%
-  % [diag=echo]
+  % [diag=echo] perform(clean)
   {{
     echo
   }}
-  % [diag=cat]
+  % [diag=cat] perform(update)
   {{{
     cat
   }}}
@@ -266,23 +269,24 @@ EOE
 $* <<EOI 2>>/~%EOE%
 alias{x y}:
 
+% clean
 {{
   echo
 }}
 
-%
+% update
 {{{
   cat
 }}}
 dump alias{y}
 EOI
-<stdin>:11:1: dump:
+<stdin>:12:1: dump:
 %  .+/alias\{y\}:%
-  % [diag=echo]
+  % [diag=echo] perform(clean)
   {{
     echo
   }}
-  % [diag=cat]
+  % [diag=cat] perform(update)
   {{{
     cat
   }}}
@@ -323,7 +327,7 @@ dump alias{x}
 EOI
 <stdin>:6:1: dump:
 !  .+/alias\{x\}:!
-  % [diag=gen]
+  % [diag=gen] perform(update)
   {{
     echo
   }}
@@ -341,7 +345,7 @@ dump alias{y}
 EOI
 <stdin>:6:1: dump:
 !  .+/alias\{y\}:!
-  % [diag=gen]
+  % [diag=gen] perform(update)
   {{
     echo
   }}
@@ -357,6 +361,33 @@ alias{x}:
 }
 EOI
 <stdin>:3:1: error: expected recipe block instead of '{'
+EOE
+
+: duplicate-action-single
+:
+$* <<EOI 2>>EOE != 0
+alias{x}:
+% update perform(update)
+{{
+  echo
+}}
+EOI
+<stdin>:2:3: error: duplicate recipe for perform(update)
+EOE
+
+: duplicate-action-multiple
+:
+$* <<EOI 2>>EOE != 0
+alias{x}:
+{{
+  echo
+}}
+% perform(update)
+{{
+  echo
+}}
+EOI
+<stdin>:5:3: error: duplicate recipe for perform(update)
 EOE
 
 : diag
@@ -391,7 +422,7 @@ EOE
       dump alias{x}
       EOI
       %.{2}
-        % [diag=rm]
+        % [diag=rm] perform(update)
       %.{4}
       EOE
 
@@ -406,7 +437,7 @@ EOE
       dump alias{x}
       EOI
       %.{2}
-        % [diag=echo]
+        % [diag=echo] perform(update)
       %.{4}
       EOE
 
@@ -455,7 +486,7 @@ EOE
       dump alias{x}
       EOI
       %.{2}
-        % [diag=c++]
+        % [diag=c++] perform(update)
       %.{3}
       EOE
   }
@@ -477,7 +508,7 @@ EOE
         <stdin>:4:11: info: use the '\?' escape sequence if this is a wildcard pattern
         <stdin>:4:4: info: while deducing low-verbosity script diagnostics name
         info: consider specifying it explicitly with the 'diag' recipe attribute
-        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
 
     : empty
@@ -492,7 +523,7 @@ EOE
       EOI
       <stdin>:4:3: error: unable to deduce low-verbosity script diagnostics name
         info: consider specifying it explicitly with the 'diag' recipe attribute
-        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
 
     : process-path-typed
@@ -506,7 +537,7 @@ EOE
       EOI
       %<stdin>:3:4: error: unable to deduce low-verbosity script diagnostics name from process path .+%
         info: consider specifying it explicitly with the 'diag' recipe attribute
-        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
 
     : process-path-syntactic
@@ -521,7 +552,7 @@ EOE
       EOI
       %<stdin>:4:4: error: unable to deduce low-verbosity script diagnostics name from process path .+%
         info: consider specifying it explicitly with the 'diag' recipe attribute
-        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
 
     : target-no-name
@@ -541,7 +572,7 @@ EOE
         EOI
         %<stdin>:5:3: error: unable to deduce low-verbosity script diagnostics name from target .+/exe\{b\}%
           info: consider specifying it explicitly with the 'diag' recipe attribute
-          info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+          info: or provide custom low-verbosity diagnostics with the 'diag' builtin
         EOE
     }
 
@@ -557,7 +588,7 @@ EOE
       EOI
       <stdin>:4:3: error: unable to deduce low-verbosity script diagnostics name for program foo
         info: consider specifying it explicitly with the 'diag' recipe attribute
-        info: or provide custom low-verbosity diagnostics  with the 'diag' builtin
+        info: or provide custom low-verbosity diagnostics with the 'diag' builtin
       EOE
   }
 
@@ -577,7 +608,7 @@ EOE
       dump alias{x}
       EOI
       %.{2}
-        % [diag=foo]
+        % [diag=foo] perform(update)
       %.{5}
       EOE
 
@@ -596,6 +627,7 @@ EOE
       EOI
       %.
       %  .+alias\{x\}:%
+        % perform(update)
         {{
       %.{4}
       EOE
