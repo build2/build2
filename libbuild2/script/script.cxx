@@ -163,7 +163,7 @@ namespace build2
         //
         if (t.type == token_type::word &&
             qtok != '\''               &&
-            prev_tt != token_type::dollar)
+            (!prev_tt || *prev_tt != token_type::dollar))
         {
           for (char c: t.value)
           {

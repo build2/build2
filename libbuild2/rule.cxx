@@ -841,8 +841,8 @@ namespace build2
           string s;
           try
           {
-            s = convert<string> (names (move_iterator (ns.begin () + 1),
-                                        move_iterator (ns.end ())));
+            s = convert<string> (names (make_move_iterator (ns.begin () + 1),
+                                        make_move_iterator (ns.end ())));
           }
           catch (const invalid_argument& e)
           {
