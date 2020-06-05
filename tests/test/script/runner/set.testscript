@@ -34,7 +34,7 @@
   : status
   :
   $c <'set foo == 1' && $b 2>>EOE != 0
-  testscript:1:1: error: set builtin exit code cannot be non-zero
+  testscript:1:1: error: set builtin exit code cannot be checked
     info: test id: 1
   EOE
 }

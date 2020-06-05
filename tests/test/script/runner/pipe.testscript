@@ -16,7 +16,7 @@ $c <'$* -o foo | cat >foo' && $b     : process-to-builtin
   : exit-code
   :
   $c <'$* -o foo -s 1 | $* -i 1 >foo -s 2' && $b 2>>/~%EOE% != 0
-  %testscript:1:1: error: .+ exit code 2 != 0%
+  %testscript:1:1: error: .+ exited with code 2%
     info: stdout: test/1/stdout-2
     info: test id: 1
   EOE

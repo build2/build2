@@ -406,15 +406,15 @@ namespace build2
           print_path (p.path);
         }
 
-        if (c.exit.comparison != exit_comparison::eq || c.exit.code != 0)
+        if (c.exit)
         {
-          switch (c.exit.comparison)
+          switch (c.exit->comparison)
           {
           case exit_comparison::eq: o << " == "; break;
           case exit_comparison::ne: o << " != "; break;
           }
 
-          o << static_cast<uint16_t> (c.exit.code);
+          o << static_cast<uint16_t> (c.exit->code);
         }
       }
 

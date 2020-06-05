@@ -314,7 +314,9 @@ namespace build2
 
       script::cleanups cleanups;
 
-      command_exit exit {exit_comparison::eq, 0};
+      // If nullopt, then the command is expected to succeed (0 exit code).
+      //
+      optional<command_exit> exit;
     };
 
     enum class command_to_stream: uint16_t

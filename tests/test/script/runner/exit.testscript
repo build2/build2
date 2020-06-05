@@ -54,7 +54,7 @@ empty_id = ''
   : exit-code
   :
   $c <'exit != 0' && $b 2>>EOE != 0
-  testscript:1:1: error: exit builtin exit code cannot be non-zero
+  testscript:1:1: error: exit builtin exit code cannot be checked
     info: test id: 1
   EOE
 }

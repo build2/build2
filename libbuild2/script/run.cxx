@@ -939,8 +939,6 @@ namespace build2
         env.clean ({cl.type, move (np)}, false);
       }
 
-      bool eq (c.exit.comparison == exit_comparison::eq);
-
       // If stdin file descriptor is not open then this is the first pipeline
       // command.
       //
@@ -1012,11 +1010,8 @@ namespace build2
         if (c.err)
           fail (ll) << "exit builtin stderr cannot be redirected";
 
-        // We can't make sure that there is no exit code check. Let's, at
-        // least, check that non-zero code is not expected.
-        //
-        if (eq != (c.exit.code == 0))
-          fail (ll) << "exit builtin exit code cannot be non-zero";
+        if (c.exit)
+          fail (ll) << "exit builtin exit code cannot be checked";
 
         if (verb >= 2)
           print_process (process_args ());
@@ -1168,8 +1163,8 @@ namespace build2
         if (c.err)
           fail (ll) << "set builtin stderr cannot be redirected";
 
-        if (eq != (c.exit.code == 0))
-          fail (ll) << "set builtin exit code cannot be non-zero";
+        if (c.exit)
+          fail (ll) << "set builtin exit code cannot be checked";
 
         if (verb >= 2)
           print_process (process_args ());
@@ -1677,8 +1672,7 @@ namespace build2
       // If there is no valid exit code available by whatever reason then we
       // print the proper diagnostics, dump stderr (if cached and not too
       // large) and fail the whole script. Otherwise if the exit code is not
-      // correct then we print diagnostics if requested and fail the
-      // pipeline.
+      // correct then we print diagnostics if requested and fail the pipeline.
       //
       bool valid (exit->normal ());
 
@@ -1690,7 +1684,11 @@ namespace build2
         valid = exit->code () < 256;
 #endif
 
-      success = valid && eq == (exit->code () == c.exit.code);
+      exit_comparison cmp (c.exit ? c.exit->comparison : exit_comparison::eq);
+      uint16_t        exc (c.exit ? c.exit->code       : 0);
+
+      success = valid &&
+                (cmp == exit_comparison::eq) == (exc == exit->code ());
 
       if (!valid || (!success && diag))
       {
@@ -1710,8 +1708,13 @@ namespace build2
           else if (!success)
           {
             if (diag)
-              d << pr << " exit code " << ec << (eq ? " != " : " == ")
-                << static_cast<uint16_t> (c.exit.code);
+            {
+              if (c.exit)
+                d << pr << " exit code " << ec
+                  << (cmp == exit_comparison::eq ? " != " : " == ") << exc;
+              else
+                d << pr << " exited with code " << ec;
+            }
           }
           else
             assert (false);
