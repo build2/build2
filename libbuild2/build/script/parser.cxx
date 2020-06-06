@@ -353,7 +353,8 @@ namespace build2
         // Handle special builtins.
         //
         // NOTE: update line dumping (script.cxx:dump()) if adding a special
-        // builtin.
+        // builtin. Also review the non-script-local variables tracking while
+        // executing a single line in lookup_variable().
         //
         if (pre_parse_ && first && tt == type::word)
         {
@@ -432,10 +433,13 @@ namespace build2
                   info (depdb_lines_[0].tokens[0].location ())
                          << "first 'depdb' call is here";
 
-              // Save the builtin location and cancel the line saving.
+              // Save the builtin location, cancel the line saving, and clear
+              // the referenced variable list, since it won't be used.
               //
               depdb_clear_ = l;
               save_line_   = nullptr;
+
+              script_->vars.clear ();
             }
             else
             {
@@ -890,8 +894,10 @@ namespace build2
           lookup r;
 
           // Add the variable name skipping special variables and suppressing
-          // duplicates. While at it, check if the script temporary directory
-          // is referenced and set the flag, if that's the case.
+          // duplicates, unless the default variables change tracking is
+          // canceled with `depdb clear`. While at it, check if the script
+          // temporary directory is referenced and set the flag, if that's the
+          // case.
           //
           if (special_variable (name))
           {
@@ -908,10 +914,13 @@ namespace build2
                 r = (*target_)[*pvar];
             }
 
-            auto& vars (script_->vars);
+            if (!depdb_clear_)
+            {
+              auto& vars (script_->vars);
 
-            if (find (vars.begin (), vars.end (), name) == vars.end ())
-              vars.push_back (move (name));
+              if (find (vars.begin (), vars.end (), name) == vars.end ())
+                vars.push_back (move (name));
+            }
           }
 
           return r;
@@ -924,12 +933,27 @@ namespace build2
 
         // Fail if non-script-local variable with an untracked name.
         //
-        if (r.defined () && !r.belongs (*environment_))
+        // Note that we don't check for untracked variables when executing a
+        // single line with execute_special() (script_ is NULL), since the
+        // diag builtin argument change (which can be affected by such a
+        // variable expansion) doesn't affect the script semantics and the
+        // depdb argument is specifically used for the script semantics change
+        // tracking. We also omit this check it the depdb builtin is used in
+        // the script, assuming that such variables are tracked manually, if
+        // required.
+        //
+        if (script_ != nullptr    &&
+            !script_->depdb_clear &&
+            !script_->depdb_lines.empty ())
         {
-          const auto& vars (script_->vars);
+          if (r.defined () && !r.belongs (*environment_))
+          {
+            const auto& vars (script_->vars);
 
-          if (find (vars.begin (), vars.end (), name) == vars.end ())
-            fail (loc) << "use of untracked variable '" << name << "'";
+            if (find (vars.begin (), vars.end (), name) == vars.end ())
+              fail (loc) << "use of untracked variable '" << name << "'" <<
+                info << "use the 'depdb' builtin to manually track it";
+          }
         }
 
         return r;
