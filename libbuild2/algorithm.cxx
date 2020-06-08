@@ -2059,12 +2059,7 @@ namespace build2
         //
         if (const mtime_target* mpt = pt.is_a<mtime_target> ())
         {
-          timestamp mp (mpt->mtime ());
-
-          // The same logic as in mtime_target::newer() (but avoids a call to
-          // state()).
-          //
-          if (mt < mp || (mt == mp && s == target_state::changed))
+          if (mpt->newer (mt, s))
             e = true;
         }
         else

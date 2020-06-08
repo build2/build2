@@ -534,60 +534,152 @@ namespace build2
     const file& t (xt.as<file> ());
     const path& tp (t.path ());
 
-    // The script can reference a program in one of four ways:
+    // How should we hash target and prerequisite sets ($> and $<)? We could
+    // hash them as target names (i.e., the same as the $>/< content) or as
+    // paths (only for path-based targets). While names feel more general,
+    // they are also more expensive to compute. And for path-based targets,
+    // path is generally a good proxy for the target name. Since the bulk of
+    // the ad hoc recipes will presumably be operating exclusively on
+    // path-based targets, let's do it both ways.
     //
-    // 1. As an (imported) target (e.g., $cli)
-    //
-    // 2. As a process_path_ex (e.g., $cxx.path).
-    //
-    // 3. As a builtin (e.g., sed)
-    //
-    // 4. As a program path/name.
-    //
-    // When it comes to change tracking, there is nothing we can do for (4)
-    // and there is nothing to do for (3) (assuming builtin semantics is
-    // stable/backwards-compatible). The (2) case is handled automatically by
-    // hashing all the variable values referenced by the script (see below),
-    // which in case of process_path_ex includes the checksum, if available.
-    //
-    // This leaves the (1) case, which itself splits into two sub-cases: the
-    // target comes with the dependency information (e.g., imported from a
-    // project via an export stub) or it does not (e.g., imported as
-    // installed). We don't need to do anything extra for the first sub-case
-    // since the target's state/mtime can be relied upon like any other
-    // prerequisite. Which cannot be said about the second sub-case, where we
-    // reply on checksum that may be included as part of the target metadata.
-    //
-    // So what we are going to do here is hash checksum metadata of every
-    // executable prerequisite target that has it. We do it before executing
-    // in order to include ad hoc prerequisites (which feels like the right
-    // thing to do; the user may mark tools as ad hoc in order to omit them
-    // from $<). Note, however, that this is only required if the script
-    // doesn't track the dependency changes itself.
-    //
-    sha256 prog_cs;
-    if (!script.depdb_clear)
+    auto hash_target = [ns = names ()] (sha256& cs, const target& t) mutable
     {
-      for (const target* pt: t.prerequisite_targets[a])
+      if (const path_target* pt = t.is_a<path_target> ())
+        cs.append (pt->path ().string ());
+      else
       {
-        if (pt != nullptr)
-        {
-          if (auto* e = pt->is_a<exe> ())
-          {
-            if (auto* c = e->lookup_metadata<string> ("checksum"))
-            {
-              prog_cs.append (*c);
-            }
-          }
-        }
+        ns.clear ();
+        t.as_name (ns);
+        for (const name& n: ns)
+          to_checksum (cs, n);
       }
-    }
+    };
 
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
     //
     timestamp mt (t.load_mtime ());
-    optional<target_state> ps (execute_prerequisites (a, t, mt));
+    optional<target_state> ps;
+
+    sha256 pcs, ecs;
+    {
+      // This is essentially ps=execute_prerequisites(a, t, mt) which we
+      // cannot use because we need to see ad hoc prerequisites.
+      //
+      size_t busy (ctx.count_busy ());
+      size_t exec (ctx.count_executed ());
+
+      target_state rs (target_state::unchanged);
+
+      wait_guard wg (ctx, busy, t[a].task_count);
+
+      for (const target*& pt: t.prerequisite_targets[a])
+      {
+        if (pt == nullptr) // Skipped.
+          continue;
+
+        target_state s (execute_async (a, *pt, busy, t[a].task_count));
+
+        if (s == target_state::postponed)
+        {
+          rs |= s;
+          pt = nullptr;
+        }
+      }
+
+      wg.wait ();
+
+      bool e (mt == timestamp_nonexistent);
+      for (prerequisite_target& p: t.prerequisite_targets[a])
+      {
+        if (p == nullptr)
+          continue;
+
+        const target& pt (*p.target);
+
+        const auto& tc (pt[a].task_count);
+        if (tc.load (memory_order_acquire) >= busy)
+          ctx.sched.wait (exec, tc, scheduler::work_none);
+
+        target_state s (pt.executed_state (a));
+        rs |= s;
+
+        // Compare our timestamp to this prerequisite's.
+        //
+        if (!e)
+        {
+          // If this is an mtime-based target, then compare timestamps.
+          //
+          if (const mtime_target* mpt = pt.is_a<mtime_target> ())
+          {
+            if (mpt->newer (mt, s))
+              e = true;
+          }
+          else
+          {
+            // Otherwise we assume the prerequisite is newer if it was
+            // changed.
+            //
+            if (s == target_state::changed)
+              e = true;
+          }
+        }
+
+        if (p.adhoc)
+          p.target = nullptr; // Blank out.
+
+        // As part of this loop calculate checksums that need to include ad
+        // hoc prerequisites (unless the script tracks changes itself).
+        //
+        if (script.depdb_clear)
+          continue;
+
+        hash_target (pcs, pt);
+
+        // The script can reference a program in one of four ways:
+        //
+        // 1. As an (imported) target (e.g., $cli)
+        //
+        // 2. As a process_path_ex (e.g., $cxx.path).
+        //
+        // 3. As a builtin (e.g., sed)
+        //
+        // 4. As a program path/name.
+        //
+        // When it comes to change tracking, there is nothing we can do for
+        // (4) and there is nothing to do for (3) (assuming builtin semantics
+        // is stable/backwards-compatible). The (2) case is handled
+        // automatically by hashing all the variable values referenced by the
+        // script (see below), which in case of process_path_ex includes the
+        // checksum, if available.
+        //
+        // This leaves the (1) case, which itself splits into two sub-cases:
+        // the target comes with the dependency information (e.g., imported
+        // from a project via an export stub) or it does not (e.g., imported
+        // as installed). We don't need to do anything extra for the first
+        // sub-case since the target's state/mtime can be relied upon like any
+        // other prerequisite. Which cannot be said about the second sub-case,
+        // where we reply on checksum that may be included as part of the
+        // target metadata.
+        //
+        // So what we are going to do is hash checksum metadata of every
+        // executable prerequisite target that has it (we do it here in order
+        // to include ad hoc prerequisites, which feels like the right thing
+        // to do; the user may mark tools as ad hoc in order to omit them from
+        // $<).
+        //
+        if (auto* e = pt.is_a<exe> ())
+        {
+          if (auto* c = e->lookup_metadata<string> ("checksum"))
+          {
+            ecs.append (*c);
+          }
+        }
+      }
+
+      if (!e)
+        ps = rs;
+    }
 
     bool update (!ps);
 
@@ -598,7 +690,7 @@ namespace build2
 
     // First should come the rule name/version.
     //
-    if (dd.expect ("adhoc 1") != nullptr)
+    if (dd.expect ("<ad hoc buildscript recipe> 1") != nullptr)
       l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
     // Then the script checksum.
@@ -667,13 +759,6 @@ namespace build2
 
     // Target and prerequisite sets ($> and $<).
     //
-    // How should we hash them? We could hash them as target names (i.e., the
-    // same as the $>/< content) or as paths (only for path-based targets).
-    // While names feel more general, they are also more expensive to compute.
-    // And for path-based targets, path is generally a good proxy for the
-    // target name. Since the bulk of the ad hoc recipes will presumably be
-    // operating exclusively on path-based targets, let's do it both ways.
-    //
     if (!script.depdb_clear)
     {
       auto hash = [ns = names ()] (sha256& cs, const target& t) mutable
@@ -691,15 +776,10 @@ namespace build2
 
       sha256 tcs;
       for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-        hash (tcs, *m);
+        hash_target (tcs, *m);
 
       if (dd.expect (tcs.string ()) != nullptr)
         l4 ([&]{trace << "target set change forcing update of " << t;});
-
-      sha256 pcs;
-      for (const target* pt: t.prerequisite_targets[a])
-        if (pt != nullptr)
-          hash (pcs, *pt);
 
       if (dd.expect (pcs.string ()) != nullptr)
         l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
@@ -709,7 +789,7 @@ namespace build2
     //
     if (!script.depdb_clear)
     {
-      if (dd.expect (prog_cs.string ()) != nullptr)
+      if (dd.expect (ecs.string ()) != nullptr)
         l4 ([&]{trace << "program checksum change forcing update of " << t;});
     }
 

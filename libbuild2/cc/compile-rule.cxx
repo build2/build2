@@ -554,7 +554,7 @@ namespace build2
           return true;
         }
         else
-          return ts != timestamp_unknown ? pt->newer (ts) : false;
+          return ts != timestamp_unknown ? pt->newer (ts, ns) : false;
       }
     }
 

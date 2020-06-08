@@ -1463,6 +1463,11 @@ namespace build2
     bool
     newer (timestamp) const;
 
+    // As above but for cases where the state is already queried.
+    //
+    bool
+    newer (timestamp, target_state) const;
+
   public:
     static const target_type static_type;
 
