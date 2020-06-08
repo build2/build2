@@ -115,6 +115,8 @@ namespace build2
   bool operator>= (action, action) = delete;
   bool operator<= (action, action) = delete;
 
+  // Note: prints in numeric form (mostly used in tracing).
+  //
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, action); // operation.cxx
 

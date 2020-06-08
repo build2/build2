@@ -472,12 +472,24 @@ namespace build2
   recipe adhoc_script_rule::
   apply (action a, target& t) const
   {
+    // If this is an outer operation (e.g., update-for-test), then delegate to
+    // the inner.
+    //
+    if (a.outer ())
+    {
+      match_inner (a, t);
+      return execute_inner;
+    }
+
     // Derive file names for the target and its ad hoc group members, if any.
     //
-    for (target* m (&t); m != nullptr; m = m->adhoc_member)
+    if (a == perform_update_id || a == perform_clean_id)
     {
-      if (auto* p = m->is_a<path_target> ())
-        p->derive_path ();
+      for (target* m (&t); m != nullptr; m = m->adhoc_member)
+      {
+        if (auto* p = m->is_a<path_target> ())
+          p->derive_path ();
+      }
     }
 
     // Inject dependency on the output directory.
