@@ -357,6 +357,10 @@ namespace build2
     // information for some platforms.
     //
     timestamp t_mt (build2::mtime (t));
+
+    if (t_mt == timestamp_nonexistent)
+      fail << "target file " << t << " does not exist at the end of recipe";
+
     timestamp d_mt (build2::mtime (path));
 
     if (d_mt > t_mt)
@@ -384,6 +388,10 @@ namespace build2
     using build2::mtime;
 
     timestamp t_mt (mtime (t));
+
+    if (t_mt == timestamp_nonexistent)
+      fail << "target file " << t << " does not exist at the end of recipe";
+
     timestamp d_mt (mtime (d));
 
     if (d_mt > t_mt)
