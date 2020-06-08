@@ -97,8 +97,13 @@ namespace build2
 
         // Script-local variable pool and map.
         //
-        // Note that if we lookup the variable by passing name as a string,
-        // then it will be looked up in the wrong pool.
+        // Note that it may be tempting to reuse the rule-specific variables
+        // for this but they should no be modified during execution (i.e.,
+        // they are for intra-rule communication; perhaps we could have a
+        // special builtin that sets such variables during match).
+        //
+        // Note also that if we lookup the variable by passing name as a
+        // string, then it will be looked up in the wrong pool.
         //
         variable_pool var_pool;
         variable_map vars;
@@ -134,6 +139,9 @@ namespace build2
       public:
         // Lookup the variable starting from this environment, then the
         // primary target, and then outer buildfile scopes.
+        //
+        // Note that we currently skip rule-specific variables since the rule
+        // that runs this script doesn't set any.
         //
         using lookup_type = build2::lookup;
 
