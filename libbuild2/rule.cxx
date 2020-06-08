@@ -894,7 +894,10 @@ namespace build2
   //
   adhoc_cxx_rule::
   adhoc_cxx_rule (const location& l, size_t b, uint64_t v, optional<string> s)
-      : adhoc_rule (l, b), version (v), separator (move (s)), impl (nullptr)
+      : adhoc_rule ("<ad hoc c++ recipe>", l, b),
+        version (v),
+        separator (move (s)),
+        impl (nullptr)
   {
     if (v != 1)
       fail (l) << "unsupported c++ recipe version " << v;

@@ -124,10 +124,10 @@ namespace build2
     location_value loc;     // Buildfile location of the recipe.
     size_t         braces;  // Number of braces in multi-brace tokens.
 
-    adhoc_rule (const location& l, size_t b)
+    adhoc_rule (const char* name, const location& l, size_t b)
       : loc (l),
         braces (b),
-        rule_match ("adhoc", static_cast<const rule&> (*this)) {}
+        rule_match (name, static_cast<const rule&> (*this)) {}
 
     // Set the rule text, handle any recipe-specific attributes, and return
     // true if the recipe builds anything in the build/recipes/ directory and
@@ -164,6 +164,11 @@ namespace build2
     // Implementation details.
     //
   public:
+    // The name in rule_match is used as a hint and as a name in diagnostics.
+    // The former does not apply to us (but will apply to ad hoc rules) while
+    // latter does. As a result, we use special-looking "<ad hoc X recipe>"
+    // names.
+    //
     build2::rule_match rule_match;
 
     static const dir_path recipes_build_dir;
@@ -193,7 +198,8 @@ namespace build2
     target_state
     default_action (action, const target&) const;
 
-    adhoc_script_rule (const location& l, size_t b): adhoc_rule (l, b) {}
+    adhoc_script_rule (const location& l, size_t b)
+        : adhoc_rule ("<ad hoc buildscript recipe>", l, b) {}
 
     virtual bool
     recipe_text (context&, const target&, string&&, attributes&) override;

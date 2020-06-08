@@ -195,7 +195,7 @@ namespace build2
     // would be much easier and more consistent to make these extra files
     // proper targets.
     //
-    // So to support this requirement we have "ad hoc" groups. The idea is
+    // So to support this requirement we have ad hoc groups. The idea is
     // that any target can be turned either by a user's declaration in a
     // buildfile or by the rule that matches it into an ad hoc group by
     // chaining several targets together.
