@@ -181,6 +181,16 @@ namespace build2
         //
         line* save_line_;
 
+        // The if-else nesting level (and in the future for other flow
+        // control constructs).
+        //
+        // Maintained during pre-parsing and is incremented when the cmd_if or
+        // cmd_ifn lines are encountered, which in particular means that it is
+        // already incremented by the time the if-condition expression is
+        // pre-parsed. Decremented when the cmd_end line is encountered.
+        //
+        size_t level_ = 0;
+
         // Execute state.
         //
         runner* runner_;

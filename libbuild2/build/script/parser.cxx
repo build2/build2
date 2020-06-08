@@ -202,6 +202,12 @@ namespace build2
         case line_type::cmd_if:
         case line_type::cmd_ifn:
           next (t, tt); // Skip to start of command.
+
+          if (lt == line_type::cmd_if || lt == line_type::cmd_ifn)
+            ++level_;
+          else if (lt == line_type::cmd_end)
+            --level_;
+
           // Fall through.
         case line_type::cmd:
           {
@@ -356,12 +362,26 @@ namespace build2
         // builtin. Also review the non-script-local variables tracking while
         // executing a single line in lookup_variable().
         //
-        if (pre_parse_ && first && tt == type::word)
+        if (pre_parse_ && tt == type::word)
         {
           const string& v (t.value);
 
+          // Verify that the special builtin is not called inside an improper
+          // context (flow control construct or complex expression).
+          //
+          auto verify = [first, &v, &l, this] ()
+          {
+            if (level_ != 0)
+              fail (l) << "'" << v << "' call inside flow control construct";
+
+            if (!first)
+              fail (l) << "'" << v << "' call must be the only command";
+          };
+
           if (v == "diag")
           {
+            verify ();
+
             // Check for ambiguity.
             //
             if (diag_weight_ == 4)
@@ -402,6 +422,8 @@ namespace build2
           }
           else if (v == "depdb")
           {
+            verify ();
+
             // Note that the rest of the line contains the builtin command
             // name, potentially followed by the arguments to be
             // hashed/saved. Thus, we parse it in the value lexer mode.
