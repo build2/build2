@@ -2362,6 +2362,35 @@ directories that are inside the script working directory are automatically
 registered for cleanup.
 
 
+\h#builtins-date|\c{date}|
+
+\
+date [-u] [+<format>]
+\
+
+Print the local time or, if the \c{-u} option is specified, the Coordinated
+Universal Time (UTC) in the specified format.
+
+The optional \i{format} argument is the \c{std::put_time()} C++11
+manipulator's format string that in addition supports the nanoseconds
+specifier in the form \c{\b{%[}\i{<d>}\b{N]}} where \ci{<d>} is the optional
+single delimiter character, for example \c{.}. If the nanoseconds part is 0,
+then it is not printed (nor the delimiter character). Otherwise, the
+nanoseconds part is padded to 9 characters with leading zeros.
+
+Note that this builtin's format specifier set is a superset of the POSIX
+\c{date} utility.
+
+If the \i{format} argument is not specified, then
+\c{%a\ %b\ %e\ %H:%M:%S\ %Z\ %Y} is used by default.
+
+\dl|
+
+\li|\n\c{-u|--utc}
+
+  Print Coordinated Universal Time (UTC).||
+
+
 \h#builtins-diff|\c{diff}|
 
 \
