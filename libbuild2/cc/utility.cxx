@@ -19,7 +19,9 @@ namespace build2
     using namespace bin;
 
     const dir_path module_dir ("cc");
-    const dir_path modules_sidebuild_dir (dir_path (module_dir) /= "modules");
+    const dir_path module_build_dir (dir_path (module_dir) /= "build");
+    const dir_path module_build_modules_dir (
+      dir_path (module_build_dir) /= "modules");
 
     lorder
     link_order (const scope& bs, otype ot)

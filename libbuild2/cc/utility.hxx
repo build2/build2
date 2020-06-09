@@ -19,10 +19,11 @@ namespace build2
   {
     // To form the complete path do:
     //
-    //   root.out_path () / root.root_extra->build_dir / module_dir
+    //   root.out_path () / root.root_extra->build_dir / X_dir
     //
-    extern const dir_path module_dir;             // cc/
-    extern const dir_path modules_sidebuild_dir;  // cc/modules/
+    extern const dir_path module_dir;               // cc/
+    extern const dir_path module_build_dir;         // cc/build/
+    extern const dir_path module_build_modules_dir; // cc/build/modules/
 
     // Compile output type.
     //

@@ -5283,7 +5283,7 @@ namespace build2
       //
       dir_path pd (as->out_path () /
                    as->root_extra->build_dir /
-                   modules_sidebuild_dir /=
+                   module_build_modules_dir /=
                    x);
 
       const scope* ps (&ctx.scopes.find (pd));
