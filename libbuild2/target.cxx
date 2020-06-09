@@ -47,15 +47,21 @@ namespace build2
   void target_key::
   as_name (names& r) const
   {
-    string v (*name);
-    target::combine_name (v, ext, false /* @@ TODO: what to do? */);
+    string v;
+    if (!name->empty ())
+    {
+      v = *name;
+      target::combine_name (v, ext, false /* @@ TODO: what to do? */);
+    }
+    else
+      assert (!ext);
 
-    r.push_back (build2::name (*dir, type->name, move (v)));
+    r.emplace_back (*dir, type->name, move (v));
 
     if (!out->empty ())
     {
       r.back ().pair = '@';
-      r.push_back (build2::name (*out));
+      r.emplace_back (*out);
     }
   }
 
