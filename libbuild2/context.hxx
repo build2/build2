@@ -363,10 +363,8 @@ namespace build2
     // if not requested (but only in version 1). The exporter should also set
     // the returned version as the target-specific export.metadata variable.
     //
-    // The export.metadata value should start with the version optionally
-    // followed by the metadata variable prefix (for example, cli in
-    // cli.version). If the variable prefix is missing, it is assumed to be
-    // the target name as imported.
+    // The export.metadata value should start with the version followed by the
+    // metadata variable prefix (for example, cli in cli.version).
     //
     // The following metadata variable names have pre-defined meaning:
     //

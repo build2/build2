@@ -2522,15 +2522,13 @@ namespace build2
 
     if (meta)
     {
-      // The export.metadata value should start with the version optionally
-      // followed by the metadata variable prefix. If the variable prefix is
-      // missing, set it to the metadata key (i.e., target name as imported)
-      // by default.
+      // The export.metadata value should start with the version followed by
+      // the metadata variable prefix.
       //
-      value& v (t.assign (*ctx.var_export_metadata));
-      if (v && !v.empty ())
+      lookup l (t.vars[ctx.var_export_metadata]);
+      if (l && !l->empty ())
       {
-        names& ns (cast<names> (v));
+        const names& ns (cast<names> (l));
 
         // First verify the version.
         //
@@ -2540,7 +2538,7 @@ namespace build2
           // Note: does not change the passed name.
           //
           ver = value_traits<uint64_t>::convert (
-            move (ns[0]), ns[0].pair ? &ns[1] : nullptr);
+            ns[0], ns[0].pair ? &ns[1] : nullptr);
         }
         catch (const invalid_argument& e)
         {
@@ -2552,27 +2550,11 @@ namespace build2
           fail (loc) << "unexpected metadata version " << ver
                      << " in imported target " << t;
 
-        // Next see if we have the metadata variable prefix.
+        // Next verify the metadata variable prefix.
         //
-        switch (ns.size ())
-        {
-        case 1:
-          {
-            ns.push_back (name (*meta));
-            break;
-          }
-        case 2:
-          {
-            if (ns[1].simple ())
-              break;
-          }
-          // Fall through.
-        default:
-          {
-            fail (loc) << "invalid metadata variable prefix in imported "
-                       << "target " << t;
-          }
-        }
+        if (ns.size () != 2 || !ns[1].simple ())
+          fail (loc) << "invalid metadata variable prefix in imported "
+                     << "target " << t;
 
         // See if we have the stable program name in the <var-prefix>.name
         // variable. If its missing, set it to the metadata key (i.e., target

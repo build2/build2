@@ -483,11 +483,8 @@ namespace build2
   // uint64_t value
   //
   uint64_t value_traits<uint64_t>::
-  convert (name&& n, name* r)
+  convert (const name& n, const name* r)
   {
-    // Note: in some places we reply on this function not
-    //       changing the passed name.
-    //
     if (r == nullptr && n.simple ())
     {
       try

@@ -188,9 +188,10 @@ namespace build2
   {
     if (auto* ns = cast_null<names> (vars[ctx.var_export_metadata]))
     {
-      // Metadata variable prefix is in the second name.
+      // Metadata variable prefix must be in the second name.
       //
-      assert (ns->size () == 2 && (*ns)[1].simple ());
+      if (ns->size () < 2 || !(*ns)[1].simple ())
+        fail << "invalid metadata variable prefix in target " << *this;
 
       return cast_null<T> (vars[(*ns)[1].value + '.' + var]);
     }

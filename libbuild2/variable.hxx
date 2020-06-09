@@ -715,7 +715,10 @@ namespace build2
   {
     static_assert (sizeof (uint64_t) <= value::size_, "insufficient space");
 
-    static uint64_t convert (name&&, name*);
+    // Note: in some places we rely on the convert() function not changing
+    //       the passed names thus we make them const.
+    //
+    static uint64_t convert (const name&, const name*);
     static void assign (value&, uint64_t);
     static void append (value&, uint64_t); // ADD.
     static name reverse (uint64_t x) {return name (to_string (x));}
