@@ -1260,6 +1260,10 @@ namespace build2
   // map. The key's hash ignores the extension, so the hash will stay stable
   // across extension updates.
   //
+  // @@ TODO: we currently do not detect ambiguity if there are multiple merge
+  //    candidates for a no-extension key. We could probably do it using the
+  //    unordered_map::bucket() API.
+  //
   // Note also that once the extension is specified, it becomes immutable.
   //
   class LIBBUILD2_SYMEXPORT target_set

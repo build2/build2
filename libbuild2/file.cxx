@@ -1729,15 +1729,18 @@ namespace build2
   {
     tracer trace ("import_search");
 
-    // If there is no project specified for this target, then our run will be
-    // short and sweet: we simply return it as empty-project-qualified and
-    // let someone else (e.g., a rule) take a stab at it.
+    // Note: in the future the plan is to turn this into project-local import.
     //
     if (tgt.unqualified ())
-    {
-      tgt.proj = project_name ();
+      fail (loc) << "importation of an unqualified target " << tgt <<
+        info     << "use empty project qualification to import a target "
+                 << "without a project";
+
+    // If the project name is empty then we simply return it as is to let
+    // someone else (e.g., a rule, import phase 2) take a stab at it.
+    //
+    if (tgt.proj->empty ())
       return make_pair (move (tgt), optional<dir_path> ());
-    }
 
     context& ctx (ibase.ctx);
 
