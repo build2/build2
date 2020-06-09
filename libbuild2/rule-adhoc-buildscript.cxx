@@ -413,19 +413,6 @@ namespace build2
     //
     if (!script.depdb_clear)
     {
-      auto hash = [ns = names ()] (sha256& cs, const target& t) mutable
-      {
-        if (const path_target* pt = t.is_a<path_target> ())
-          cs.append (pt->path ().string ());
-        else
-        {
-          ns.clear ();
-          t.as_name (ns);
-          for (const name& n: ns)
-            to_checksum (cs, n);
-        }
-      };
-
       sha256 tcs;
       for (const target* m (&t); m != nullptr; m = m->adhoc_member)
         hash_target (tcs, *m);
