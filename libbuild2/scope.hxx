@@ -430,8 +430,9 @@ namespace build2
       const path&     buildfile_file;   // buildfile    or  build2file
       const path&     buildignore_file; // buildignore  or  build2ignore
 
-      const dir_path& root_dir;       // build[2]/root/
-      const dir_path& bootstrap_dir;  // build[2]/bootstrap/
+      const dir_path& root_dir;        // build[2]/root/
+      const dir_path& bootstrap_dir;   // build[2]/bootstrap/
+      const dir_path& build_build_dir; // build[2]/build/
 
       const path&     bootstrap_file; // build[2]/bootstrap.build[2]
       const path&     root_file;      // build[2]/root.build[2]

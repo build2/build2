@@ -310,7 +310,7 @@ namespace build2
 
   // adhoc_rule
   //
-  const dir_path adhoc_rule::recipes_build_dir ("recipes.out");
+  const dir_path adhoc_rule::recipes_build_dir ("recipes");
 
   bool adhoc_rule::
   match (action a, target& t, const string& h, optional<action> fallback) const
@@ -338,18 +338,26 @@ namespace build2
 
     const dir_path& out_root (rs.out_path ());
 
-    dir_path d (out_root / rs.root_extra->build_dir / recipes_build_dir);
+    dir_path d (out_root / rs.root_extra->build_build_dir / recipes_build_dir);
 
     if (exists (d))
     {
       if (rmdir_r (ctx, d))
       {
-        // Clean up build/ if it also became empty (e.g., in case of a build
-        // with a transient configuration).
+        // Clean up build/build/ if it also became empty.
         //
-        d = out_root / rs.root_extra->build_dir;
+        d = out_root / rs.root_extra->build_build_dir;
         if (empty (d))
-          rmdir (ctx, d);
+        {
+          rmdir (ctx, d, 2);
+
+          // Clean up build/ if it also became empty (e.g., in case of a build
+          // with a transient configuration).
+          //
+          d = out_root / rs.root_extra->build_dir;
+          if (empty (d))
+            rmdir (ctx, d, 2);
+        }
 
         return target_state::changed;
       }

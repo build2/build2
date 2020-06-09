@@ -155,7 +155,7 @@ namespace build2
       }
 
       dir_path pd (rs.out_path () /
-                   rs.root_extra->build_dir /
+                   rs.root_extra->build_build_dir /
                    recipes_build_dir /= id);
 
       path bf (pd / std_buildfile_file);

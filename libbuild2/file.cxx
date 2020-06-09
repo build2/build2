@@ -30,9 +30,10 @@ namespace build2
 
   // build:
 
-  const dir_path std_build_dir     ("build");
-  const dir_path std_root_dir      (dir_path (std_build_dir) /= "root");
-  const dir_path std_bootstrap_dir (dir_path (std_build_dir) /= "bootstrap");
+  const dir_path std_build_dir       ("build");
+  const dir_path std_root_dir        (dir_path (std_build_dir) /= "root");
+  const dir_path std_bootstrap_dir   (dir_path (std_build_dir) /= "bootstrap");
+  const dir_path std_build_build_dir (dir_path (std_build_dir) /= "build");
 
   const path std_root_file      (std_build_dir     / "root.build");
   const path std_bootstrap_file (std_build_dir     / "bootstrap.build");
@@ -46,9 +47,10 @@ namespace build2
 
   // build2:
 
-  const dir_path alt_build_dir     ("build2");
-  const dir_path alt_root_dir      (dir_path (alt_build_dir) /= "root");
-  const dir_path alt_bootstrap_dir (dir_path (alt_build_dir) /= "bootstrap");
+  const dir_path alt_build_dir       ("build2");
+  const dir_path alt_root_dir        (dir_path (alt_build_dir) /= "root");
+  const dir_path alt_bootstrap_dir   (dir_path (alt_build_dir) /= "bootstrap");
+  const dir_path alt_build_build_dir (dir_path (alt_build_dir) /= "build");
 
   const path alt_root_file      (alt_build_dir     / "root.build2");
   const path alt_bootstrap_file (alt_build_dir     / "bootstrap.build2");
@@ -503,6 +505,7 @@ namespace build2
         a ? alt_buildignore_file : std_buildignore_file,
         a ? alt_root_dir         : std_root_dir,
         a ? alt_bootstrap_dir    : std_bootstrap_dir,
+        a ? alt_build_build_dir  : std_build_build_dir,
         a ? alt_bootstrap_file   : std_bootstrap_file,
         a ? alt_root_file        : std_root_file,
         a ? alt_export_file      : std_export_file,
