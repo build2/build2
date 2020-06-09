@@ -20,6 +20,9 @@
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
 
+#include <libbuild2/rule-adhoc-cxx.hxx>
+#include <libbuild2/rule-adhoc-buildscript.hxx>
+
 #include <libbuild2/config/utility.hxx> // lookup_config
 
 using namespace std;
@@ -1134,7 +1137,7 @@ namespace build2
             {
               // Buildscript
               //
-              ar.reset (new adhoc_script_rule (loc, st.value.size ()));
+              ar.reset (new adhoc_buildscript_rule (loc, st.value.size ()));
             }
             else if (icasecmp (*lang, "c++") == 0)
             {

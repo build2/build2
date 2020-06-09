@@ -12,8 +12,6 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/recipe.hxx>
 
-#include <libbuild2/build/script/script.hxx>
-
 #include <libbuild2/export.hxx>
 
 namespace build2
@@ -177,109 +175,6 @@ namespace build2
     //
     static target_state
     clean_recipes_build (action, const scope&, const dir&);
-  };
-
-  // Ad hoc script rule.
-  //
-  // Note: not exported and should not be used directly (i.e., registered).
-  //
-  class adhoc_script_rule: public adhoc_rule
-  {
-  public:
-    virtual bool
-    match (action, target&, const string&, optional<action>) const override;
-
-    virtual recipe
-    apply (action, target&) const override;
-
-    target_state
-    perform_update_file (action, const target&) const;
-
-    target_state
-    default_action (action, const target&) const;
-
-    adhoc_script_rule (const location& l, size_t b)
-        : adhoc_rule ("<ad hoc buildscript recipe>", l, b) {}
-
-    virtual bool
-    recipe_text (context&, const target&, string&&, attributes&) override;
-
-    virtual void
-    dump_attributes (ostream&) const override;
-
-    virtual void
-    dump_text (ostream&, string&) const override;
-
-  public:
-    using script_type = build::script::script;
-
-    script_type script;
-    string      checksum; // Script text hash.
-  };
-
-  // Ad hoc C++ rule.
-  //
-  // Note: exported but should not be used directly (i.e., registered).
-  //
-  class LIBBUILD2_SYMEXPORT cxx_rule: public rule
-  {
-    // For now this class is provided purely as an alias for rule in case the
-    // implementation (which is also called rule) needs to refer to something
-    // in its base.
-  };
-
-  class LIBBUILD2_SYMEXPORT cxx_rule_v1: public cxx_rule
-  {
-  public:
-    // A robust recipe may want to incorporate the recipe_state into its
-    // up-to-date decision as if the recipe library was a prerequisite (it
-    // cannot be injected as a real prerequisite since it's from a different
-    // build context).
-    //
-    const location     recipe_loc;   // Buildfile location of the recipe.
-    const target_state recipe_state; // State of recipe library target.
-
-    cxx_rule_v1 (const location& l, target_state s)
-      : recipe_loc (l), recipe_state (s) {}
-
-    // Return true by default.
-    //
-    virtual bool
-    match (action, target&, const string&) const override;
-  };
-
-  // Note: not exported.
-  //
-  class adhoc_cxx_rule: public adhoc_rule
-  {
-  public:
-    virtual bool
-    match (action, target&, const string&) const override;
-
-    virtual recipe
-    apply (action, target&) const override;
-
-    adhoc_cxx_rule (const location&, size_t,
-                    uint64_t ver,
-                    optional<string> sep);
-
-    virtual bool
-    recipe_text (context&, const target&, string&& t, attributes&) override;
-
-    virtual
-    ~adhoc_cxx_rule () override;
-
-    virtual void
-    dump_text (ostream&, string&) const override;
-
-  public:
-    // Note that this recipe (rule instance) can be shared between multiple
-    // targets which could all be matched in parallel.
-    //
-    uint64_t                  version;
-    optional<string>          separator;
-    string                    code;
-    mutable atomic<cxx_rule*> impl;
   };
 }
 
