@@ -1536,9 +1536,9 @@ stderr: '2'(out-redirect)
 
 in-redirect:  '<-'|\
               '<|'|\
-              ('<='|'<<<') <file>|\
-              ('<<='|'<<'){':'?'/'?} <here-end>|\
-              ('<<<='|'<'){':'?'/'?} <text>
+              ('<<<'|'<=') <file>|\
+              ('<<'|'<<='){':'?'/'?} <here-end>|\
+              ('<'|'<<<='){':'?'/'?} <text>
 
 out-redirect: '>-'|\
               '>|'|\
@@ -1546,9 +1546,9 @@ out-redirect: '>-'|\
               '>=' <file>|\
               '>+' <file>|\
               '>&' ('1'|'2')|\
-              ('>?'|'>>>') <file>|\
-              ('>>?'|'>>'){':'?'/'?}'~'? <here-end>|\
-              ('>>>?'|'>'){':'?'/'?}'~'? <text>
+              ('>>>'|'>?') <file>|\
+              ('>>'|'>>?'){':'?'/'?}'~'? <here-end>|\
+              ('>'|'>>>?'){':'?'/'?}'~'? <text>
 
 here-document:
   *<text>
@@ -1866,9 +1866,9 @@ $* a1>-
 \
 in-redirect:  '<-'|\
               '<|'|\
-              ('<='|'<<<') <file>|\
-              ('<<='|'<<'){':'?'/'?} <here-end>|\
-              ('<<<='|'<'){':'?'/'?} <text>
+              ('<<<'|'<=') <file>|\
+              ('<<'|'<<='){':'?'/'?} <here-end>|\
+              ('<'|'<<<='){':'?'/'?} <text>
 \
 
 The \c{stdin} data can come from a pipe, here-string (\c{<}), here-document
@@ -1878,6 +1878,20 @@ specified and the test tries to read from \c{stdin}, it is considered to have
 failed (unexpected input). However, whether this is detected and diagnosed is
 implementation-defined. To allow reading from the default \c{stdin} (for
 instance, if the test is really an example), the \c{<|} redirect is used.
+
+\N|The \c{<=}, \c{<<=}, and \c{<<<=} redirects are a stable syntax across
+various \c{build2} scripting language flavors (Testscript, Buildscript,
+etc). While the \c{<}, \c{<<}, and \c{<<<} redirects are their Testscript
+aliases with the mapping chosen to be more convenient for this flavor of the
+scripting language. This mapping is as follows:
+
+\
+<    <<<=  here-string
+<<   <<=   here-document
+<<<  <=    file
+\
+
+|
 
 Here-string and here-document redirects may specify the following redirect
 modifiers:
@@ -1905,9 +1919,9 @@ out-redirect: '>-'|\
               '>=' <file>|\
               '>+' <file>|\
               '>&' ('1'|'2')|\
-              ('>?'|'>>>') <file>|\
-              ('>>?'|'>>'){':'?'/'?}'~'? <here-end>|\
-              ('>>>?'|'>'){':'?'/'?}'~'? <text>
+              ('>>>'|'>?') <file>|\
+              ('>>'|'>>?'){':'?'/'?}'~'? <here-end>|\
+              ('>'|'>>>?'){':'?'/'?}'~'? <text>
 \
 
 The \c{stdout} and \c{stderr} data can go to a pipe (\c{stdout} only), file
@@ -1918,6 +1932,20 @@ and a redirect is an error. A test that tries to write to an un-redirected
 stream (either \c{stdout} or \c{stderr}) is considered to have failed
 (unexpected output). To allow writing to the default \c{stdout} or \c{stderr}
 (for instance, if the test is really an example), the \c{>|} redirect is used.
+
+\N|The \c{>?}, \c{>>?}, and \c{>>>?} redirects are a stable syntax across
+various \c{build2} scripting language flavors (Testscript, Buildscript,
+etc). While the \c{>}, \c{>>}, and \c{>>>} redirects are their Testscript
+aliases with the mapping chosen to be more convenient for this flavor of the
+scripting language. This mapping is as follows:
+
+\
+>    >>>?  here-string comparison
+>>   >>?   here-document comparison
+>>>  >?    file contents comparison
+\
+
+|
 
 The \c{>!} redirect acts like \c{>-} if the build system verbosity level is
 below 2 and as \c{>|} otherwise. It is normally used to ignore diagnostics (as
