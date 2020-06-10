@@ -6016,7 +6016,9 @@ namespace build2
             //
             // Note that result may or may not point to result_data.
             //
-            if (result->type == nullptr)
+            if (result->null)
+              result_data = value ();
+            else if (result->type == nullptr)
             {
               const names& ns (result->as<names> ());
 
