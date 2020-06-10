@@ -519,13 +519,6 @@ namespace build2
   }
 
   inline bool mtime_target::
-  newer (timestamp mt) const
-  {
-    assert (ctx.phase == run_phase::execute);
-    return newer (mt, executed_state_impl (action () /* inner */));
-  }
-
-  inline bool mtime_target::
   newer (timestamp mt, target_state s) const
   {
     timestamp mp (mtime ());
@@ -536,6 +529,13 @@ namespace build2
     // changed on this run.
     //
     return mt < mp || (mt == mp && s == target_state::changed);
+  }
+
+  inline bool mtime_target::
+  newer (timestamp mt) const
+  {
+    assert (ctx.phase == run_phase::execute);
+    return newer (mt, executed_state_impl (action () /* inner */));
   }
 
   // path_target
