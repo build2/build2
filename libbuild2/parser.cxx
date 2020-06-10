@@ -1356,6 +1356,13 @@ namespace build2
               m.name = "perform";
           }
         }
+        else
+        {
+          // Default is perform(update).
+          //
+          bs.push_back (metaopspec ("perform"));
+          bs.back ().push_back (opspec ("update"));
+        }
 
         expire_mode ();
         next_after_newline (t, tt, "recipe action");
@@ -1395,11 +1402,10 @@ namespace build2
 
         // Fall through.
       }
-
-      // Default is perform(update).
-      //
-      if (bs.empty ())
+      else
       {
+        // Default is perform(update).
+        //
         bs.push_back (metaopspec ("perform"));
         bs.back ().push_back (opspec ("update"));
       }

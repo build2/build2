@@ -390,6 +390,155 @@ EOI
 <stdin>:5:3: error: duplicate recipe for perform(update)
 EOE
 
+: if-else
+:
+$* <<EOI 2>>/~%EOE%
+f = false
+alias{x}: alias{z}
+%
+if $f
+{{
+  false
+}}
+else
+{{
+  echo
+}}
+dump alias{x}
+EOI
+<stdin>:12:1: dump:
+%  .+/alias\{x\}: .+/:alias\{z\}%
+  % [diag=echo] perform(update)
+  {{
+    echo
+  }}
+EOE
+
+: if-else-replay
+:
+$* <<EOI 2>>/~%EOE%
+f = false
+alias{x y}: alias{z}
+%
+if $f
+{{
+  false
+}}
+else
+{{
+  echo
+}}
+dump alias{y}
+EOI
+<stdin>:12:1: dump:
+%  .+/alias\{y\}: .+/:alias\{z\}%
+  % [diag=echo] perform(update)
+  {{
+    echo
+  }}
+EOE
+
+: if-no-else
+:
+$* <<EOI 2>>/~%EOE%
+f = false
+alias{x}: alias{z}
+%
+if $f
+{{
+  false
+}}
+dump alias{x}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{x\}: .+/:alias\{z\}%
+EOE
+
+: switch
+:
+$* <<EOI 2>>/~%EOE%
+f = 2
+alias{x}: alias{z}
+%
+switch $f
+{
+  case 1
+  {{
+    false
+  }}
+  case 2
+  {{
+    echo
+  }}
+  default
+  {{
+    false
+  }}
+}
+dump alias{x}
+EOI
+<stdin>:19:1: dump:
+%  .+/alias\{x\}: .+/:alias\{z\}%
+  % [diag=echo] perform(update)
+  {{
+    echo
+  }}
+EOE
+
+: switch-replay
+:
+$* <<EOI 2>>/~%EOE%
+f = 2
+alias{x y}: alias{z}
+%
+switch $f
+{
+  case 1
+  {{
+    false
+  }}
+  case 2
+  {{
+    echo
+  }}
+  default
+  {{
+    false
+  }}
+}
+dump alias{y}
+EOI
+<stdin>:19:1: dump:
+%  .+/alias\{y\}: .+/:alias\{z\}%
+  % [diag=echo] perform(update)
+  {{
+    echo
+  }}
+EOE
+
+: switch-no-default
+:
+$* <<EOI 2>>/~%EOE%
+f = 2
+alias{x}: alias{z}
+%
+switch $f
+{
+  case 0
+  {{
+    false
+  }}
+  case 1
+  {{
+    echo
+  }}
+}
+dump alias{x}
+EOI
+<stdin>:15:1: dump:
+%  .+/alias\{x\}: .+/:alias\{z\}%
+EOE
+
 : diag
 :
 {
