@@ -80,7 +80,15 @@ namespace build2
           }
         default:
           {
-            base_lexer::mode (m, ps, esc);
+            // Recognize special variable names ($>, $<, $~).
+            //
+            if (m == lexer_mode::variable)
+            {
+              assert (data == 0);
+              data = reinterpret_cast<uintptr_t> ("><~");
+            }
+
+            base_lexer::mode (m, ps, esc, data);
             return;
           }
         }
@@ -234,35 +242,6 @@ namespace build2
         //
         unget (c);
         return word (st, sep);
-      }
-
-      token lexer::
-      word (state st, bool sep)
-      {
-        lexer_mode m (st.mode);
-
-        // Customized implementation that handles special variable names ($>,
-        // $<, $~).
-        //
-        // @@ TODO: $(<), $(>): feels like this will have to somehow be
-        //          handled at the top-level lexer level. Maybe provide a
-        //          string of one-char special variable names as state::data?
-        //
-        if (m != lexer_mode::variable)
-          return base_lexer::word (st, sep);
-
-        xchar c (peek ());
-
-        if (c != '>' && c != '<' && c != '~')
-          return base_lexer::word (st, sep);
-
-        get ();
-
-        state_.pop (); // Expire the variable mode.
-        return token (string (1, c),
-                      sep,
-                      quote_type::unquoted, false,
-                      c.line, c.column);
       }
     }
   }

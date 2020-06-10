@@ -92,16 +92,16 @@ namespace build2
           }
         default:
           {
-            // Make sure pair separators are only enabled where we expect
-            // them.
+            // Recognize special variable names ($*, $N, $~, $@). See also an
+            // extra check in word() below.
             //
-            // @@ Should we disable pair separators in the eval mode?
-            //
-            assert (ps == '\0' ||
-                    m == lexer_mode::eval ||
-                    m == lexer_mode::attribute_value);
+            if (m == lexer_mode::variable)
+            {
+              assert (data == 0);
+              data = reinterpret_cast<uintptr_t> ("*~@0123456789");
+            }
 
-            base_lexer::mode (m, ps, esc);
+            base_lexer::mode (m, ps, esc, data);
             return;
           }
         }
@@ -335,27 +335,21 @@ namespace build2
       {
         lexer_mode m (st.mode);
 
-        // Customized implementation that handles special variable names ($*,
-        // $N, $~, $@).
-        //
-        if (m != lexer_mode::variable)
-          return base_lexer::word (st, sep);
+        token r (base_lexer::word (st, sep));
 
-        xchar c (peek ());
+        if (m == lexer_mode::variable)
+        {
+          if (r.value.size () == 1 && digit (r.value[0])) // $N
+          {
+            xchar c (peek ());
 
-        if (c != '*' && c != '~' && c != '@' && !digit (c))
-          return base_lexer::word (st, sep);
+            if (digit (c)) // $NN
+              fail (c) << "multi-digit special variable name" <<
+                info << "use '($*[NN])' to access elements beyond 9";
+          }
+        }
 
-        get ();
-
-        if (digit (c) && digit (peek ()))
-          fail (c) << "multi-digit special variable name";
-
-        state_.pop (); // Expire the variable mode.
-        return token (string (1, c),
-                      sep,
-                      quote_type::unquoted, false,
-                      c.line, c.column);
+        return r;
       }
     }
   }

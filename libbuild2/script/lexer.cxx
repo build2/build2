@@ -78,7 +78,7 @@ namespace build2
                   m == lexer_mode::eval ||
                   m == lexer_mode::attribute_value);
 
-          base_lexer::mode (m, ps, esc);
+          base_lexer::mode (m, ps, esc, data);
           return;
         }
       }

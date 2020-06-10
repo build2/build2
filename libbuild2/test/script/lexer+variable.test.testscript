@@ -64,6 +64,7 @@ test.arguments = variable
   : multi-digit
   :
   $* <"10" 2>>EOE != 0
-  <stdin>:1:1: error: multi-digit special variable name
+  <stdin>:1:2: error: multi-digit special variable name
+    info: use '($*[NN])' to access elements beyond 9
   EOE
 }

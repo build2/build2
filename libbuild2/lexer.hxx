@@ -56,6 +56,13 @@ namespace build2
   // single-quote mode. The number of closing braces to expect is passed as
   // mode data.
   //
+  // The mode data is also used by a few other modes. The buildspec mode uses
+  // it as a boolean value to decide whether to recognize newlines as tokens.
+  // In the variable mode the mode data may be a pointer to a C string that
+  // contains a list of special one-character variable names to recognize
+  // (e.g., $<, $~, etc). Note that the parser has a special kludge to also
+  // recognize them as $(<), etc.
+  //
   // The alternative modes must be set manually. The value/values and derived
   // modes automatically expires after the end of the line. The attribute and
   // subscript modes expires after the closing `]`. The variable mode expires

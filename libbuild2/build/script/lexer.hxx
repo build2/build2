@@ -69,9 +69,6 @@ namespace build2
       private:
         token
         next_line ();
-
-        virtual token
-        word (state, bool) override;
       };
     }
   }

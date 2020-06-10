@@ -741,7 +741,19 @@ namespace build2
       //
       else if (m == lexer_mode::variable)
       {
-        if (c != '_' && !(lexeme.empty () ? alpha (c) : alnum (c)))
+        bool first (lexeme.empty ());
+
+        // Handle special variable names, if any.
+        //
+        if (first        &&
+            st.data != 0 &&
+            strchr (reinterpret_cast<const char*> (st.data), c) != nullptr)
+        {
+          get ();
+          lexeme += c;
+          done = true;
+        }
+        else if (c != '_' && !(first ? alpha (c) : alnum (c)))
         {
           if (c != '.')
             done = true;
