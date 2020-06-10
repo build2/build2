@@ -190,6 +190,8 @@ namespace build2
     void* h (nullptr);
     void* s (nullptr);
 
+#ifndef BUILD2_BOOTSTRAP
+
 #ifndef _WIN32
     // Use RTLD_NOW instead of RTLD_LAZY to both speed things up (we are going
     // to use this module now) and to detect any symbol mismatches.
@@ -215,6 +217,8 @@ namespace build2
     else
       err = win32::last_error_msg ();
 #endif
+
+#endif // BUILD2_BOOTSTRAP
 
     return make_pair (h, s);
   }
