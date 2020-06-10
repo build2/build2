@@ -206,6 +206,7 @@ namespace build2
     build2::token token;
     const path_name* file;
     lexer_mode_base mode;
+    uintptr_t       mode_data;
 
     using location_type = build2::location;
 

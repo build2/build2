@@ -611,8 +611,9 @@ namespace build2
         lexer_->mode (m, ps, nullopt, d);
       else
         // As a sanity check, make sure the mode matches the next token. Note
-        // that we don't check the attributes flags or the pair separator
-        // since they can be overridden by the lexer's mode() implementation.
+        // that we don't check the attributes flags, the pair separator, or
+        // the mode data since they can be overridden by the lexer's mode()
+        // implementation.
         //
         assert (replay_i_ != replay_data_.size () &&
                 replay_data_[replay_i_].mode == m);
@@ -627,6 +628,18 @@ namespace build2
       {
         assert (replay_i_ != replay_data_.size ());
         return replay_data_[replay_i_].mode;
+      }
+    }
+
+    uintptr_t
+    mode_data () const
+    {
+      if (replay_ != replay::play)
+        return lexer_->mode_data ();
+      else
+      {
+        assert (replay_i_ != replay_data_.size ());
+        return replay_data_[replay_i_].mode_data;
       }
     }
 
@@ -753,8 +766,12 @@ namespace build2
     replay_token
     lexer_next ()
     {
-      lexer_mode m (lexer_->mode ()); // Get it first since it may expire.
-      return replay_token {lexer_->next (), path_, m};
+      // Get these first since the mode may expire.
+      //
+      lexer_mode m (lexer_->mode ());
+      uintptr_t d (lexer_->mode_data ());
+
+      return replay_token {lexer_->next (), path_, m, d};
     }
 
     const replay_token&

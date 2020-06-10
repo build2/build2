@@ -111,6 +111,9 @@ namespace build2
       }
     case lexer_mode::eval:
       {
+        // NOTE: remember to update special() lambda in parse_names() if
+        //       adding any new single-character tokens to the eval mode.
+        //
         s1 = ":<>=!&|?, $(){}#\t\n";
         s2 = "   = &|           ";
         break;

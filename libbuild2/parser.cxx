@@ -5815,7 +5815,44 @@ namespace build2
           // token is a paren or a word, we turn it on and switch to the eval
           // mode if what we get next is a paren.
           //
+          // Also sniff out the special variables string from mode data for
+          // the ad hoc $() handling below.
+          //
           mode (lexer_mode::variable);
+
+          auto special = [s = reinterpret_cast<const char*> (mode_data ())]
+            (const token& t) -> char
+          {
+            char r ('\0');
+
+            if (s != nullptr)
+            {
+              switch (t.type)
+              {
+              case type::less:           r = '<';        break;
+              case type::greater:        r = '>';        break;
+              case type::colon:          r = ':';        break;
+              case type::dollar:         r = '$';        break;
+              case type::question:       r = '?';        break;
+              case type::comma:          r = ',';        break;
+              case type::log_not:        r = '!';        break;
+              case type::lparen:         r = '(';        break;
+              case type::rparen:         r = ')';        break;
+              case type::lcbrace:        r = '{';        break;
+              case type::rcbrace:        r = '}';        break;
+              case type::lsbrace:        r = '[';        break;
+              case type::rsbrace:        r = ']';        break;
+              case type::pair_separator: r = t.value[0]; break;
+              default:                                   break;
+              }
+
+              if (r != '\0' && strchr (s, r) == nullptr)
+                r = '\0';
+            }
+
+            return r;
+          };
+
           next (t, tt);
           loc = get_location (t);
 
@@ -5838,9 +5875,11 @@ namespace build2
             // the variable name even during pre-parse. It should also be
             // faster.
             //
-            if (tt == type::word && peek () == type::rparen)
+            char c;
+            if ((tt == type::word || (c = special (t))) &&
+                peek () == type::rparen)
             {
-              name = move (t.value);
+              name = (tt == type::word ? move (t.value) : string (1, c));
               next (t, tt); // Get `)`.
             }
             else

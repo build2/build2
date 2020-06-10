@@ -161,6 +161,9 @@ namespace build2
     lexer_mode
     mode () const {return state_.top ().mode;}
 
+    uintptr_t
+    mode_data () const {return state_.top ().data;}
+
     char
     pair_separator () const {return state_.top ().sep_pair;}
 
