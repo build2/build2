@@ -2707,7 +2707,7 @@ If the \i{attr} argument is specified, then it must contain a list of value
 attributes enclosed in \c{[]}, for example:
 
 \
-sed -s '/foo/bar/' input | set [string] x
+sed -e 's/foo/bar/' input | set [string] x
 \
 
 Note that this is also the only way to set a variable with a computed name,
