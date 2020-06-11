@@ -1,0 +1,164 @@
+# file      : tests/recipe/cxx/testscript
+# license   : MIT; see accompanying LICENSE file
+
++mkdir build
++cat <<EOI >=build/bootstrap.build
+  project = test
+  amalgamation =
+  subprojects =
+
+  using config
+  using test
+  EOI
+
++cat <<EOI >=build/root.build
+  EOI
+
++cat <<EOI >=buildfile
+  ./:
+  {{ c++ 1
+    // Dummy recipe to trigger cleanup.
+  }}
+  EOI
+
+: update-clean
+:
+{
+  echo 'bar' >=bar;
+
+  cat <<EOI >=buildfile;
+    foo: bar
+    % update clean
+    {{ c++ 1
+      recipe
+      apply (action a, target& xt) const override
+      {
+        file& t (xt.as<file> ());
+
+        t.derive_path ();
+        inject_fsdir (a, t);
+        match_prerequisite_members (a, t);
+
+        switch (a)
+        {
+        case perform_update_id:  return perform_update;
+        case perform_clean_id:   return perform_clean_depdb;
+        default: assert (false); return noop_recipe;
+        }
+      }
+
+      static target_state
+      perform_update (action a, const target& xt)
+      {
+        const file& t (xt.as<file> ());
+        const path& tp (t.path ());
+
+        timestamp mt (t.load_mtime ());
+        auto pr (execute_prerequisites<file> (a, t, mt));
+
+        bool update (!pr.first);
+        target_state r (update ? target_state::changed : *pr.first);
+
+        const file& s (pr.second);
+        const path& sp (s.path ());
+
+        depdb dd (tp + ".d");
+        dd.expect (sp);
+
+        if (dd.writing () || dd.mtime > mt)
+          update = true;
+
+        dd.close ();
+
+        if (!update)
+          return r;
+
+        if (verb == 1)
+          text << "cp " << t;
+        else if (verb >= 2)
+          text << "cp " << sp << ' ' << tp;
+
+        cpfile (sp, tp);
+        return target_state::changed;
+      }
+    }}
+    EOI
+
+  $* 2>>~%EOE%;
+    %^(c++|ld).*%+
+    cp file{foo}
+    EOE
+
+  cat <<<foo >'bar';
+
+  # While at it, make sure there is no rebuild.
+  #
+  $* 2>/'info: dir{./} is up to date';
+
+  $* clean 2>-
+}
+
+#\
+@@ TMP disabled: env BDEP_SYNC=0
+: test
+:
+{
+  echo 'bar' >=bar;
+
+  cat <<EOI >=buildfile;
+    foo: bar
+    {{
+      cp $path($<) $path($>)
+    }}
+    % test
+    {{ c++ 1 --
+
+      #include <iostream>
+
+      --
+
+      recipe
+      apply (action a, target& t) const override
+      {
+        if (a.outer ())
+        {
+          match_inner (a, t);
+          return execute_inner;
+        }
+        else
+          return perform_test;
+      }
+
+      static target_state
+      perform_test (action, const target& xt)
+      {
+        const file& t (xt.as<file> ());
+        const path& tp (t.path ());
+
+        if (verb == 1)
+          text << "test " << t;
+        else if (verb >= 2)
+          text << "cat " << tp;
+
+        ifdstream ifs (tp);
+        if (ifs.peek () != ifdstream::traits_type::eof ())
+          std::cerr << ifs.rdbuf ();
+        ifs.close ();
+
+        return target_state::changed;
+      }
+    }}
+    EOI
+
+  $* test 2>>~%EOE%;
+    %^(c++|ld).*%+
+    cp file{foo}
+    test file{foo}
+    bar
+    EOE
+
+  $* clean 2>-
+}
+#\
+
+-$* clean 2>- # Clean recipe builds.

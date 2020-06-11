@@ -12,10 +12,7 @@
   EOI
 
 +cat <<EOI >=build/root.build
-  using cxx
   EOI
-
-test.options += config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
 
 : update
 :
@@ -23,8 +20,6 @@ test.options += config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
   echo 'bar' >=bar;
 
   cat <<EOI >=buildfile;
-    ./: foo
-
     foo: bar
     {{
       cp $path($<) $path($>)
@@ -48,8 +43,6 @@ test.options += config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
   echo 'bar' >=bar;
 
   cat <<EOI >=buildfile;
-    ./: foo
-
     foo: bar
     {{
       cp $path($<) $path($>)
@@ -75,8 +68,6 @@ test.options += config.cxx=$quote($recall($cxx.path) $cxx.mode, true)
   echo 'bar' >=bar;
 
   cat <<EOI >=buildfile;
-    ./: foo
-
     foo: bar
     {{
       cp $path($<) $path($>)
