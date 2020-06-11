@@ -1143,7 +1143,10 @@ namespace build2
             {
               // C++
               //
-
+#ifdef BUILD2_BOOTSTRAP
+              fail (loc) << "ad hoc c++ recipe" <<
+                info << "running bootstrap build system";
+#else
               // Parse recipe version and optional fragment separator.
               //
               if (tt == type::newline || tt == type::eos)
@@ -1188,6 +1191,7 @@ namespace build2
 
               ar.reset (
                 new adhoc_cxx_rule (loc, st.value.size (), ver, move (sep)));
+#endif
             }
             else
               fail (lloc) << "unknown recipe language '" << *lang << "'";
