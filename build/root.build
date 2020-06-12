@@ -29,6 +29,12 @@ cxx.poptions =+ "-I$out_root" "-I$src_root"
 #
 using c.config
 
+# Imports for build2/ (or any subdirectory other than libbuild2/) should be
+# done here in order to get stable order in the host build configuration that
+# we embed into libbuild2.
+#
+import libbutl = libbutl%lib{butl}
+
 # Load the cli module but only if it's available. This way a distribution
 # that includes pre-generated files can be built without installing cli.
 # This is also the reason why we need to explicitly spell out individual

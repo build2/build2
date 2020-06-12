@@ -1,6 +1,8 @@
 # file      : libbuild2/cc/buildfile
 # license   : MIT; see accompanying LICENSE file
 
+# NOTE: shared imports should go into root.build.
+#
 include ../
 imp_libs = ../lib{build2} # Implied interface dependency.
 

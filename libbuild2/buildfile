@@ -20,8 +20,10 @@ include $bundled_modules
 # explicitly. A module should also assume that lib{butl} will always be an
 # interface dependency of lib{build2} and therefore need not be explicitly
 # imported or linked.
+
+# NOTE: shared imports should go into root.build.
 #
-import int_libs = libbutl%lib{butl}
+int_libs = $libbutl
 
 lib{build2}: libul{build2}:                                            \
   {hxx ixx txx cxx}{* -utility-*installed -config -version -*.test...} \

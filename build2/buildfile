@@ -1,7 +1,9 @@
 # file      : build2/buildfile
 # license   : MIT; see accompanying LICENSE file
 
-import libs = libbutl%lib{butl}
+# NOTE: imports should go into root.build.
+#
+libs = $libbutl
 
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
