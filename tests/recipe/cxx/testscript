@@ -85,7 +85,7 @@
     EOI
 
   $* 2>>~%EOE%;
-    %^(c++|ld).*%+
+    %^(c\+\+|ld).*%+
     cp file{foo}
     EOE
 
@@ -151,7 +151,7 @@
     EOI
 
   $* test 2>>~%EOE%;
-    %^(c++|ld).*%+
+    %^(c\+\+|ld).*%+
     cp file{foo}
     test file{foo}
     bar
