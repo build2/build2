@@ -464,6 +464,12 @@ namespace build2
         ofs << "import imp_libs += build2%lib{build2}"                  << '\n'
             << "libs{" << id << "}: cxx{rule} hxx{location} $imp_libs"  << '\n'
             << '\n'
+            << "if ($cxx.target.system == 'win32-msvc')"                << '\n'
+            << "  cxx.poptions += -D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS" << '\n'
+            << '\n'
+            << "if ($cxx.class == 'msvc')"                              << '\n'
+            << "  cxx.coptions += /wd4251 /wd4275 /wd4800"              << '\n'
+            << '\n'
             << psig                                                     << '\n';
 
         ofs.close ();
