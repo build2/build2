@@ -167,8 +167,10 @@ if ($cxx.target.class != 'windows')
 {
   libul{build2}: cxx.libs += -lpthread
 
+  # Note: only linking libdl in shared build.
+  #
   if ($cxx.target.class != "bsd")
-    libul{build2}: cxx.libs += -ldl
+    libus{build2}: cxx.libs += -ldl
 }
 
 # Export options.

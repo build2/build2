@@ -3,7 +3,7 @@
 
 #include <libbuild2/module.hxx>
 
-#ifndef BUILD2_BOOTSTRAP
+#if !defined(BUILD2_BOOTSTRAP) && !defined(LIBBUILD2_STATIC_BUILD)
 #  ifndef _WIN32
 #    include <dlfcn.h>
 #  else
@@ -181,6 +181,7 @@ namespace build2
 
   // Note: also used by ad hoc recipes thus not static.
   //
+#if !defined(BUILD2_BOOTSTRAP) && !defined(LIBBUILD2_STATIC_BUILD)
   pair<void* /* handle */, void* /* symbol */>
   load_module_library (const path& lib, const string& sym, string& err)
   {
@@ -189,8 +190,6 @@ namespace build2
     //
     void* h (nullptr);
     void* s (nullptr);
-
-#ifndef BUILD2_BOOTSTRAP
 
 #ifndef _WIN32
     // Use RTLD_NOW instead of RTLD_LAZY to both speed things up (we are going
@@ -218,17 +217,27 @@ namespace build2
       err = win32::last_error_msg ();
 #endif
 
-#endif // BUILD2_BOOTSTRAP
-
     return make_pair (h, s);
   }
+#else
+  pair<void*, void*>
+  load_module_library (const path&, const string&, string&)
+  {
+    return pair<void*, void*> (nullptr, nullptr);
+  }
+#endif
 
   static module_load_function*
-  import_module (scope& bs,
-                 const string& mod,
-                 const location& loc,
-                 bool boot,
-                 bool opt)
+  import_module (
+#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
+    scope&,
+#else
+    scope& bs,
+#endif
+    const string& mod,
+    const location& loc,
+    bool boot,
+    bool opt)
   {
     tracer trace ("import_module");
 
@@ -256,12 +265,19 @@ namespace build2
 
     module_load_function* r (nullptr);
 
-    // No dynamic loading of build system modules during bootstrap.
+    // No dynamic loading of build system modules during bootstrap or if
+    // statically-linked..
     //
-#ifdef BUILD2_BOOTSTRAP
+#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
     if (!opt)
+    {
       fail (loc) << "unknown build system module " << mod <<
+#ifdef BUILD2_BOOTSTRAP
         info << "running bootstrap build system";
+#else
+        info << "running statically-linked build system";
+#endif
+    }
 #else
     context& ctx (bs.ctx);
 
@@ -458,7 +474,7 @@ namespace build2
     else
       l5 ([&]{trace << "unable to load " << lib << ": " << err;});
 
-#endif // BUILD2_BOOTSTRAP
+#endif // BUILD2_BOOTSTRAP || LIBBUILD2_STATIC_BUILD
 
     return r;
   }
