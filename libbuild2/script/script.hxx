@@ -298,6 +298,11 @@ namespace build2
 
     // command
     //
+    // Align with butl::process_env, assuming it is not very common to (un)set
+    // more than two variables.
+    //
+    using environment_vars = small_vector<string, 2>;
+
     struct command
     {
       // We use NULL initial as an indication that the path stored in recall
@@ -306,7 +311,8 @@ namespace build2
       //
       process_path program;
 
-      strings arguments;
+      strings          arguments;
+      environment_vars variables;
 
       optional<redirect> in;
       optional<redirect> out;

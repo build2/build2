@@ -98,13 +98,16 @@ namespace build2
         //
         // During pre-parsing try to deduce the low-verbosity script
         // diagnostics name as a program/builtin name or obtain the custom
-        // low-verbosity diagnostics specified with the diag builtin. Note
-        // that the diag builtin can only appear at the beginning of the
-        // command line.
+        // low-verbosity diagnostics specified with the diag builtin. Also
+        // handle the depdb builtin calls.
+        //
+        // Note that the diag and depdb builtins can only appear at the
+        // beginning of the command line.
         //
         virtual optional<process_path>
         parse_program (token&, build2::script::token_type&,
                        bool first,
+                       bool env,
                        names&) override;
 
       protected:

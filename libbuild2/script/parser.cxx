@@ -97,7 +97,7 @@ namespace build2
     }
 
     optional<process_path> parser::
-    parse_program (token& t, type& tt, bool, names& ns)
+    parse_program (token& t, type& tt, bool, bool, names& ns)
     {
       parse_names (t, tt,
                    ns,
@@ -1019,6 +1019,18 @@ namespace build2
               }
             }
 
+            bool prog (p == pending::program_first ||
+                       p == pending::program_next);
+
+            // Check if this is the env pseudo-builtin.
+            //
+            bool env (false);
+            if (prog && tt == type::word && t.value == "env")
+            {
+              c.variables = parse_env_builtin (t, tt);
+              env = true;
+            }
+
             // Parse the next chunk as names to get expansion, etc. Note that
             // we do it in the chunking mode to detect whether anything in
             // each chunk is quoted. If we are waiting for the command
@@ -1033,10 +1045,10 @@ namespace build2
             //
             reset_quoted (t);
 
-            if (p == pending::program_first || p == pending::program_next)
+            if (prog)
             {
               optional<process_path> pp (
-                parse_program (t, tt, p == pending::program_first, ns));
+                parse_program (t, tt, p == pending::program_first, env, ns));
 
               // During pre-parsing we are not interested in the
               // parse_program() call result, so just discard the potentially
@@ -1088,7 +1100,7 @@ namespace build2
               {
                 diag_record dr (fail (l));
                 dr << "invalid string value ";
-                to_stream (dr.os, n, true); // Quote.
+                to_stream (dr.os, n, true /* quote */);
               }
 
               // If it is a quoted chunk, then we add the word as is.
@@ -1275,6 +1287,146 @@ namespace build2
       return make_pair (move (expr), move (hd));
     }
 
+    environment_vars parser::
+    parse_env_builtin (token& t, token_type& tt)
+    {
+      // enter: 'env' word token
+      // leave: first token of the program name
+
+      next (t, tt); // Skip 'env'.
+
+      // Note that the -u option and its value can belong to the different
+      // name chunks. That's why we parse the env builtin arguments in the
+      // chunking mode into the argument/location pair list up to the '--'
+      // separator and parse this list into the variable sets/unsets
+      // afterwords.
+      //
+      // Align the size with environment_vars (double because of -u <var>
+      // which is two arguments).
+      //
+      using args = small_vector<pair<string, location>, 4>;
+
+      args as;
+      names ns; // Reuse to reduce allocations.
+      while (tt != type::word || t.value != "--")
+      {
+        location l (get_location (t));
+
+        if (!start_names (tt))
+          fail (l) << "env: expected option, variable, or '--' separator "
+                   << "instead of " << t;
+
+        parse_names (t, tt,
+                     ns,
+                     pattern_mode::ignore,
+                     true /* chunk */,
+                     "env builtin argument",
+                     nullptr);
+
+        if (pre_parse_)
+          continue;
+
+        for (name& n: ns)
+        {
+          try
+          {
+            as.emplace_back (
+              value_traits<string>::convert (move (n), nullptr), l);
+          }
+          catch (const invalid_argument&)
+          {
+            diag_record dr (fail (l));
+            dr << "invalid string value ";
+            to_stream (dr.os, n, true /* quote */);
+          }
+        }
+
+        ns.clear ();
+      }
+
+      location l (get_location (t)); // '--' location.
+      next (t, tt);                  // Skip '--'.
+
+      if (tt == type::newline || tt == type::eos)
+        fail (t) << "env: expected program name instead of " << t;
+
+      // Parse the env builtin options and arguments.
+      //
+      environment_vars r;
+
+      // Note: args is empty in the pre-parse mode.
+      //
+      auto i (as.begin ()), e (as.end ());
+
+      // Parse the variable unsets (from options).
+      //
+      for (; i != e; ++i)
+      {
+        string& o (i->first);
+
+        // Bail out if the options and arguments separator is encountered.
+        //
+        if (o == "-")
+        {
+          ++i;
+          break;
+        }
+
+        // Unset the variable, adding its name to the resulting variable list.
+        //
+        auto unset = [&r, &i, this] (string&& v, const char* o)
+        {
+          if (v.empty ())
+            fail (i->second) << "env: empty value for option '" << o << "'";
+
+          if (v.find ('=') != string::npos)
+            fail (i->second) << "env: invalid value '" << v << "' for "
+                             << "option '" << o << "': contains '='";
+
+          r.push_back (move (v));
+        };
+
+        // If this is the --unset|-u option then add the variable unset and
+        // bail out to parsing the variable sets otherwise.
+        //
+        if (o == "--unset" || o == "-u")
+        {
+          if (++i == e)
+            fail (l) << "env: missing value for option '" << o << "'";
+
+          unset (move (i->first), o.c_str ());
+        }
+        else if (o.compare (0, 8, "--unset=") == 0)
+          unset (string (o, 8), "--unset");
+        else
+          break;
+      }
+
+      // Parse the variable sets (from arguments).
+      //
+      for (; i != e; ++i)
+      {
+        string& a (i->first);
+
+        // Validate the variable assignment.
+        //
+        size_t p (a.find ('='));
+
+        if (p == string::npos)
+          fail (i->second)
+            << "env: expected variable assignment instead of '" << a << "'";
+
+        if (p == 0)
+          fail (i->second) << "env: empty variable name";
+
+        // Add the variable set to the resulting list.
+        //
+        r.push_back (move (a));
+      }
+
+      return r;
+    }
+
     command_exit parser::
     parse_command_exit (token& t, type& tt)
     {
@@ -1310,7 +1462,7 @@ namespace build2
           diag_record dr;
 
           dr << fail (l) << "expected exit status instead of ";
-          to_stream (dr.os, ns, true); // Quote.
+          to_stream (dr.os, ns, true /* quote */);
 
           dr << info << "exit status is an unsigned integer less than 256";
         }

@@ -1619,16 +1619,19 @@ namespace build2
                            ? process::path_search (args[0])
                            : process_path ());
 
-          // Note: the builtin-escaping character '^' is not printed.
+          // Note that CWD and builtin-escaping character '^' are not printed.
           //
+          process_env pe (resolve ? pp : c.program, c.variables);
+
           if (verb >= 2)
-            print_process (args);
+            print_process (pe, args);
 
           process pr (
-            resolve ? pp : c.program,
+            *pe.path,
             args.data (),
             {ifd.get (), -1}, process::pipe (ofd), {-1, efd.get ()},
-            env.work_dir.path->string ().c_str ());
+            env.work_dir.path->string ().c_str (),
+            pe.vars);
 
           ifd.reset ();
           ofd.out.reset ();

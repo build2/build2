@@ -22,7 +22,6 @@ import.build2 = [null]
 import! [metadata] b = build2%exe{b}
 
 static = $($b:b.static) # True if testing statically-linked build system.
-shared = (!$static)     # For '$shared || exit' idiom.
 
 testscript{*}: test = $b
 

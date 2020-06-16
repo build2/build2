@@ -55,3 +55,39 @@ $* <<EOI >>~%EOO%
       buildfile:12:1: info: previous call is here
     EOE
 }
+
+: inside-if
+:
+$* <<EOI 2>>EOE != 0
+  if true
+    diag copy >= $>
+  fi
+  EOI
+  buildfile:12:3: error: 'diag' call inside flow control construct
+  EOE
+
+: inside-if-cond
+:
+$* <<EOI 2>>EOE != 0
+  if diag copy >= $>
+    true
+  fi
+  EOI
+  buildfile:11:4: error: 'diag' call inside flow control construct
+  EOE
+
+: second-command
+:
+$* <<EOI 2>>EOE != 0
+  true && diag copy >= $>
+  EOI
+  buildfile:11:9: error: 'diag' call must be the only command
+  EOE
+
+: via-env
+:
+$* <<EOI 2>>EOE != 0
+  env -- diag copy >= $>
+  EOI
+  buildfile:11:8: error: 'diag' call via 'env' builtin
+  EOE

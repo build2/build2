@@ -229,22 +229,57 @@ namespace build2
       }
     }
 
-    // Quote if empty or contains spaces or any of the special characters.
-    // Note that we use single quotes since double quotes still allow
-    // expansion.
+    // Quote a string unconditionally, assuming it contains some special
+    // characters.
     //
-    // @@ What if it contains single quotes?
+    // If the quote character is present in the string then it is double
+    // quoted rather than single quoted. In this case the following characters
+    // are escaped:
+    //
+    // \"
+    //
+    static void
+    to_stream_quoted (ostream& o, const char* s)
+    {
+      if (strchr (s, '\'') != nullptr)
+      {
+        o << '"';
+
+        for (; *s != '\0'; ++s)
+        {
+          // Escape characters special inside double quotes.
+          //
+          if (strchr ("\\\"", *s) != nullptr)
+            o << '\\';
+
+          o << *s;
+        }
+
+        o << '"';
+      }
+      else
+        o << '\'' << s << '\'';
+    }
+
+    static inline void
+    to_stream_quoted (ostream& o, const string& s)
+    {
+      to_stream_quoted (o, s.c_str ());
+    }
+
+    // Quote if empty or contains spaces or any of the command line special
+    // characters.
     //
     static void
     to_stream_q (ostream& o, const string& s)
     {
       // NOTE: update dump(line) if adding any new special character.
       //
-      if (s.empty () || s.find_first_of (" |&<>=\\\"") != string::npos)
-        o << '\'' << s << '\'';
+      if (s.empty () || s.find_first_of (" |&<>=\\\"'") != string::npos)
+        to_stream_quoted (o, s);
       else
         o << s;
-    };
+    }
 
     void
     to_stream (ostream& o, const command& c, command_to_stream m)
@@ -373,6 +408,87 @@ namespace build2
 
       if ((m & command_to_stream::header) == command_to_stream::header)
       {
+        // Print the env builtin arguments, if any environment variable
+        // (un)sets are present.
+        //
+        if (!c.variables.empty ())
+        {
+          o << "env";
+
+          auto b (c.variables.begin ()), i (b), e (c.variables.end ());
+
+          // Print a variable name or assignment to the stream, quoting it if
+          // necessary.
+          //
+          auto print = [&o] (const string& v, bool name)
+          {
+            size_t p (v.find_first_of (" \\\"'"));
+
+            // Print the variable name/assignment as is if it doesn't contain
+            // any special characters.
+            //
+            if (p == string::npos)
+            {
+              o << v;
+              return;
+            }
+
+            // If the variable name contains any special characters, then
+            // quote the name/assignment as a whole.
+            //
+            size_t eq;
+            if (name || (eq = v.find ('=')) > p)
+            {
+              to_stream_quoted (o, v);
+              return;
+            }
+
+            // Finally, if the variable value contains any special characters,
+            // then we quote only the value.
+            //
+            assert (eq != string::npos);
+
+            o.write (v.c_str (), eq + 1);              // Includes '='.
+            to_stream_quoted (o, v.c_str () + eq + 1);
+          };
+
+          // Variable unsets.
+          //
+          // Print the variable unsets as the -u options until a variable set
+          // is encountered (contains '=') or the end of the variable list is
+          // reached. In the former case, to avoid a potential ambiguity add
+          // the '-' separator, if there are any options.
+          //
+          // Note that we rely on the fact that unsets come first, which is
+          // guaranteed by parser::parse_env_builtin().
+          //
+          for (; i != e; ++i)
+          {
+            const string& v (*i);
+
+            if (v.find ('=') == string::npos) // Variable unset.
+            {
+              o << " -u "; print (v, true /* name*/);
+            }
+            else                              // Variable set.
+            {
+              if (i != b)
+                o << " -";
+
+              break;
+            }
+          }
+
+          // Variable sets.
+          //
+          for (; i != e; ++i)
+          {
+            o << ' '; print (*i, false /* name */);
+          }
+
+          o << " -- ";
+        }
+
         // Program.
         //
         to_stream_q (o, c.program.recall_string ());

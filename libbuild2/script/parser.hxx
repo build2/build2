@@ -129,6 +129,15 @@ namespace build2
       line_type
       pre_parse_line_start (token&, token_type&, lexer_mode);
 
+      // Parse the env pseudo-builtin arguments up to the program name. Return
+      // the list of the variables that should be unset ("name") and/or set
+      // ("name=value") in the command environment and the token/type that
+      // starts the program name. Note that the variable unsets come first, if
+      // present.
+      //
+      environment_vars
+      parse_env_builtin (token&, token_type&);
+
       // Execute.
       //
     protected:
@@ -166,7 +175,8 @@ namespace build2
       //
     protected:
       // Parse the command's leading name chunk. The argument first is true if
-      // this is the first command in the line.
+      // this is the first command in the line. The argument env is true if
+      // the command is executed via the env pseudo-builtin.
       //
       // During the execution phase try to parse and translate the leading
       // names into the process path and return nullopt if choose not to do
@@ -189,7 +199,7 @@ namespace build2
       // recognize and execute certain directives, or some such.
       //
       virtual optional<process_path>
-      parse_program (token&, token_type&, bool first, names&);
+      parse_program (token&, token_type&, bool first, bool env, names&);
 
       // Set lexer pointers for both the current and the base classes.
       //

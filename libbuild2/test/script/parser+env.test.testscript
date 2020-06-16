@@ -1,0 +1,77 @@
+# file      : libbuild2/test/script/parser+env.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: unset
+:
+{
+  $* <'env -u a -- cmd'      >'env -u a -- cmd'      : short-opt
+  $* <'env --unset a -- cmd' >'env -u a -- cmd'      : long-opt
+  $* <'env --unset=a -- cmd' >'env -u a -- cmd'      : long-opt-eq
+  $* <'env -u a -u b -- cmd' >'env -u a -u b -- cmd' : mult-opt
+  $* <'env -u "a b" -- cmd'  >"env -u 'a b' -- cmd"  : quote
+
+  : invalid-opt
+  :
+  $* <'env -w a -- cmd' 2>>EOE != 0
+    testscript:1:5: error: env: expected variable assignment instead of '-w'
+    EOE
+
+  : no-val
+  :
+  $* <'env -u -- cmd' 2>>EOE != 0
+    testscript:1:8: error: env: missing value for option '-u'
+    EOE
+
+  : empty-val
+  :
+  $* <'env --unset= -- cmd' 2>>EOE != 0
+    testscript:1:5: error: env: empty value for option '--unset'
+    EOE
+
+  : invalid-val
+  :
+  $* <'env --unset=a=b -- cmd' 2>>EOE != 0
+    testscript:1:5: error: env: invalid value 'a=b' for option '--unset': contains '='
+    EOE
+
+  : no-sep
+  :
+  $* <'env -u a cmd' 2>>EOE != 0
+    testscript:1:13: error: env: expected option, variable, or '--' separator instead of <newline>
+    EOE
+
+  $* <'env && cmd' 2>>EOE != 0
+    testscript:1:5: error: env: expected option, variable, or '--' separator instead of '&&'
+    EOE
+}
+
+: set
+:
+{
+  $* <'env a=b -- cmd'      >'env a=b -- cmd'        : var
+  $* <'env -u a b=c -- cmd' >'env -u a - b=c -- cmd' : opt-var
+  $* <'env a="b c" -- cmd'  >"env a='b c' -- cmd"    : quote
+  $* <'env "a b"=c -- cmd'  >"env 'a b=c' -- cmd"    : quote-name
+
+  : double-quote
+  :
+  $* <<EOF >>EOF
+    env a="'a\"'" -- cmd
+    EOF
+
+  : expected-assign
+  :
+  $* <'env a -- cmd' 2>>EOE != 0
+    testscript:1:5: error: env: expected variable assignment instead of 'a'
+    EOE
+}
+
+: non-first
+:
+$* <'cmd1 && env -u a b=c -- cmd2' >'cmd1 && env -u a - b=c -- cmd2'
+
+: no-cmd
+:
+$* <'env -u a --' 2>>EOE != 0
+  testscript:1:12: error: env: expected program name instead of <newline>
+  EOE

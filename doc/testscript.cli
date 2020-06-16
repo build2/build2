@@ -2426,6 +2426,34 @@ Write strings to \c{stdout} separating them with a single space and ending
 with a newline.
 
 
+\h#builtins-env|\c{env}|
+
+\
+env [-u <name>]... [-] [<name>=<value>]... -- <cmd>
+\
+
+Run a command adding/removing the variables to/from the environment.
+
+Note that \c{env} is a \i{pseudo-builtin}. In particular, its name and the
+\c{--} separator must be specified \i{literally} on the command line.
+Specifically, they must not be the result of an expansion. Also note that the
+\c{--} separator must always be present.
+
+To avoid ambiguity, the variable assignments can be separated from the options
+with the explicit \c{-} separator. In the example below the \c{--unset}
+variable is added to the environment:
+
+\
+env - --unset=FOO -- $*
+\
+
+\dl|
+
+\li|\n\c{-u|--unset <name>}
+
+  Remove the specified variable from the environment.||
+
+
 \h#builtins-exit|\c{exit}|
 
 \
@@ -2643,7 +2671,7 @@ is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
 
   Edit \i{file} in place.|
 
-\li|\n\c{-e|--expression <script>}\n
+\li|\n\c{-e|--expression <script>}
 
   Editing commands to be executed (required).||
 

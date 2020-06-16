@@ -330,6 +330,7 @@ namespace build2
       optional<process_path> parser::
       parse_program (token& t, build2::script::token_type& tt,
                      bool first,
+                     bool env,
                      names& ns)
       {
         const location l (get_location (t));
@@ -369,13 +370,16 @@ namespace build2
           // Verify that the special builtin is not called inside an improper
           // context (flow control construct or complex expression).
           //
-          auto verify = [first, &v, &l, this] ()
+          auto verify = [first, env, &v, &l, this] ()
           {
             if (level_ != 0)
               fail (l) << "'" << v << "' call inside flow control construct";
 
             if (!first)
               fail (l) << "'" << v << "' call must be the only command";
+
+            if (env)
+              fail (l) << "'" << v << "' call via 'env' builtin";
           };
 
           if (v == "diag")
