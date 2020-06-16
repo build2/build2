@@ -966,7 +966,7 @@ namespace build2
         //
         if (script_ != nullptr    &&
             !script_->depdb_clear &&
-            !script_->depdb_lines.empty ())
+            script_->depdb_lines.empty ())
         {
           if (r.defined () && !r.belongs (*environment_))
           {
