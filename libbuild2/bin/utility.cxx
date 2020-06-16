@@ -87,29 +87,14 @@ namespace build2
         group_view gv (resolve_members (a, l));
         assert (gv.members != nullptr);
 
-        lorder lo (li.order);
+        pair<otype, bool> r (
+          link_member (lmembers {l.a != nullptr, l.s != nullptr}, li.order));
 
-        bool ls (true);
-        switch (lo)
-        {
-        case lorder::a:
-        case lorder::a_s:
-          ls = false; // Fall through.
-        case lorder::s:
-        case lorder::s_a:
-          {
-            if (ls ? l.s == nullptr : l.a == nullptr)
-            {
-              if (lo == lorder::a_s || lo == lorder::s_a)
-                ls = !ls;
-              else
-                fail << (ls ? "shared" : "static") << " variant of " << l
-                     << " is not available";
-            }
-          }
-        }
+        if (!r.second)
+          fail << (r.first == otype::s ? "shared" : "static")
+               << " variant of " << l << " is not available";
 
-        return ls ? static_cast<const target*> (l.s) : l.a;
+        return r.first == otype::s ? static_cast<const target*> (l.s) : l.a;
       }
     }
 

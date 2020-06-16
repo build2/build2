@@ -6,6 +6,7 @@
 #include <map>
 
 #include <libbuild2/scope.hxx>
+#include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 #include <libbuild2/diagnostics.hxx>
 
@@ -137,6 +138,9 @@ namespace build2
       return true;
     }
 
+    void
+    functions (function_map&); // functions.cxx
+
     bool
     config_init (scope& rs,
                  scope& bs,
@@ -152,6 +156,14 @@ namespace build2
       //
       if (rs != bs)
         fail (loc) << "bin.config module must be loaded in project root";
+
+      context& ctx (rs.ctx);
+
+      // Register the bin function family if this is the first instance of the
+      // bin modules.
+      //
+      if (!function_family::defined (ctx.functions, "bin"))
+        functions (ctx.functions);
 
       // Load bin.vars.
       //
@@ -267,7 +279,7 @@ namespace build2
         // config.bin.target
         //
         {
-          const variable& var (rs.ctx.var_pool["config.bin.target"]);
+          const variable& var (ctx.var_pool["config.bin.target"]);
 
           // We first see if the value was specified via the configuration
           // mechanism.
@@ -343,7 +355,7 @@ namespace build2
         // config.bin.pattern
         //
         {
-          const variable& var (rs.ctx.var_pool["config.bin.pattern"]);
+          const variable& var (ctx.var_pool["config.bin.pattern"]);
 
           // We first see if the value was specified via the configuration
           // mechanism.

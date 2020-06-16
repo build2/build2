@@ -6,8 +6,6 @@
 
 #include <libbuild2/install/utility.hxx>
 
-using namespace std;
-
 namespace build2
 {
   namespace install

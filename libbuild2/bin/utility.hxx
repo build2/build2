@@ -19,10 +19,16 @@ namespace build2
     // @@ Here we conflate the term "link" to mean both linker output and
     //    linking of a library.
 
-    // Linker output type from binary (exe{}, lib*{}) target.
+    // Linker output type from a target (exe{}, lib*{}).
     //
     ltype
-    link_type (const target&);
+    link_type (const target_type&);
+
+    inline ltype
+    link_type (const target& t)
+    {
+      return link_type (t.type ());
+    }
 
     // Library group (lib{}) members to build according to the bin.lib value.
     //
@@ -39,12 +45,12 @@ namespace build2
     // directory have to have the same link order.
     //
     LIBBUILD2_BIN_SYMEXPORT lorder
-    link_order (const scope& base, otype);
+    link_order (const scope& bs, otype);
 
     inline linfo
-    link_info (const scope& base, otype ot)
+    link_info (const scope& bs, otype ot)
     {
-      return linfo {ot, link_order (base, ot)};
+      return linfo {ot, link_order (bs, ot)};
     }
 
     // Given the link order return the library member to link. That is, liba{}
@@ -55,6 +61,14 @@ namespace build2
     //
     LIBBUILD2_BIN_SYMEXPORT const target*
     link_member (const libx&, action, linfo, bool existing = false);
+
+    // As above but return otype::a or otype::s as well as an indication if
+    // the member is available.
+    //
+    // @@ TODO: support utility libraries (see above version).
+    //
+    pair<otype, bool>
+    link_member (lmembers, linfo);
 
     // Lookup the bin.pattern value and split it into the pattern and the
     // search paths.
