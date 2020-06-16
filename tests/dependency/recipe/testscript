@@ -708,6 +708,8 @@ EOE
     :
     : Disable when cross-testing for the sake of simplicity.
     :
+    #\
+    # @@ There is now metadata and name in exe{b}.
     if ($test.target == $build.host)
     {
       $* <<EOI 2>>/~%EOE% != 0
@@ -724,6 +726,7 @@ EOE
           info: or provide custom low-verbosity diagnostics with the 'diag' builtin
         EOE
     }
+    #\
 
     : program
     :

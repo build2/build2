@@ -260,6 +260,18 @@ namespace build2
   // options
   //
 
+  inline const uint64_t& options::
+  build2_metadata () const
+  {
+    return this->build2_metadata_;
+  }
+
+  inline bool options::
+  build2_metadata_specified () const
+  {
+    return this->build2_metadata_specified_;
+  }
+
   inline const bool& options::
   v () const
   {

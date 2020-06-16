@@ -674,7 +674,9 @@ namespace build2
 
   options::
   options ()
-  : v_ (),
+  : build2_metadata_ (),
+    build2_metadata_specified_ (false),
+    v_ (),
     V_ (),
     quiet_ (),
     silent_ (),
@@ -786,6 +788,13 @@ namespace build2
   merge (const options& a)
   {
     CLI_POTENTIALLY_UNUSED (a);
+
+    if (a.build2_metadata_specified_)
+    {
+      ::build2::cl::parser< uint64_t>::merge (
+        this->build2_metadata_, a.build2_metadata_);
+      this->build2_metadata_specified_ = true;
+    }
 
     if (a.v_)
     {
@@ -1202,6 +1211,9 @@ namespace build2
   {
     _cli_options_map_init ()
     {
+      _cli_options_map_["--build2-metadata"] =
+      &::build2::cl::thunk< options, uint64_t, &options::build2_metadata_,
+        &options::build2_metadata_specified_ >;
       _cli_options_map_["-v"] =
       &::build2::cl::thunk< options, bool, &options::v_ >;
       _cli_options_map_["-V"] =

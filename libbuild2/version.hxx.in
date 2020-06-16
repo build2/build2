@@ -28,6 +28,7 @@
 #define LIBBUILD2_VERSION       $build2.version.project_number$ULL
 #define LIBBUILD2_VERSION_STR   "$build2.version.project$"
 #define LIBBUILD2_VERSION_ID    "$build2.version.project_id$"
+#define LIBBUILD2_VERSION_FULL  "$build2.version$"
 
 #define LIBBUILD2_VERSION_MAJOR $build2.version.major$
 #define LIBBUILD2_VERSION_MINOR $build2.version.minor$

@@ -426,6 +426,51 @@ main (int argc, char* argv[])
       fail << e;
     }
 
+    // Handle --build2-metadata (see also buildfile).
+    //
+#ifndef BUILD2_BOOTSTRAP
+    if (ops.build2_metadata_specified ())
+    {
+      auto& o (cout);
+
+      // Note that the export.metadata variable should be the first non-
+      // blank/comment line.
+      //
+      o << "# build2 buildfile b" << endl
+        << "export.metadata = 1 b" << endl
+        << "b.name = [string] b" << endl
+        << "b.version = [string] '" << LIBBUILD2_VERSION_FULL << '\'' << endl
+        << "b.checksum = [string] '" << LIBBUILD2_VERSION_FULL << '\'' << endl
+        << "b.static = [bool] " <<
+#ifdef LIBBUILD2_STATIC
+        "true"
+#else
+        "false"
+#endif
+        << endl;
+
+      return 0;
+    }
+#endif
+
+    // Handle --version.
+    //
+    if (ops.version ())
+    {
+      auto& o (cout);
+
+      o << "build2 " << LIBBUILD2_VERSION_ID << endl
+        << "libbutl " << LIBBUTL_VERSION_ID << endl
+        << "host " << BUILD2_HOST_TRIPLET << endl;
+
+#ifndef BUILD2_BOOTSTRAP
+      o << "Copyright (c) " << BUILD2_COPYRIGHT << "." << endl;
+#endif
+
+      o << "This is free software released under the MIT license." << endl;
+      return 0;
+    }
+
     // Initialize the diagnostics state.
     //
     init_diag (verbosity (),
@@ -435,22 +480,6 @@ main (int argc, char* argv[])
                ops.no_line (),
                ops.no_column (),
                fdterm (stderr_fd ()));
-
-    // Handle --version.
-    //
-    if (ops.version ())
-    {
-      cout << "build2 " << LIBBUILD2_VERSION_ID << endl
-           << "libbutl " << LIBBUTL_VERSION_ID << endl
-           << "host " << BUILD2_HOST_TRIPLET << endl;
-
-#ifndef BUILD2_BOOTSTRAP
-      cout << "Copyright (c) " << BUILD2_COPYRIGHT << "." << endl;
-#endif
-
-      cout << "This is free software released under the MIT license." << endl;
-      return 0;
-    }
 
     // Handle --help.
     //

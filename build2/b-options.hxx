@@ -453,6 +453,12 @@ namespace build2
 
     // Option accessors.
     //
+    const uint64_t&
+    build2_metadata () const;
+
+    bool
+    build2_metadata_specified () const;
+
     const bool&
     v () const;
 
@@ -598,6 +604,8 @@ namespace build2
             ::build2::cl::unknown_mode argument);
 
     public:
+    uint64_t build2_metadata_;
+    bool build2_metadata_specified_;
     bool v_;
     bool V_;
     bool quiet_;

@@ -1,6 +1,10 @@
 # file      : tests/recipe/cxx/testscript
 # license   : MIT; see accompanying LICENSE file
 
+# Ad hoc C++ recipes not supported in a statically-linked build system.
+#
++$shared || exit
+
 +mkdir build
 +cat <<EOI >=build/bootstrap.build
   project = test

@@ -16,6 +16,17 @@ for m: bash bin c cc cxx in version
 
 exe{b}: {hxx ixx txx cxx}{** -b-options} {hxx ixx cxx}{b-options} $libs
 
+# Target metadata, see also --build2-metadata in b.cxx.
+#
+exe{b}:
+{
+  export.metadata = 1 b
+  b.name = [string] b
+  b.version  = $version
+  b.checksum = $version
+  b.static = ($bin.link_member(exe) == liba)
+}
+
 # Build options.
 #
 # Pass our compiler target to be used as build2 host.

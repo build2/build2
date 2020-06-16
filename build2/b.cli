@@ -389,6 +389,8 @@ namespace build2
   {
     "\h#options|OPTIONS|"
 
+    uint64_t --build2-metadata; // Leave undocumented/hidden.
+
     bool -v
     {
       "Print actual commands being executed. This options is equivalent to
