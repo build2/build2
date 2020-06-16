@@ -3,7 +3,7 @@
 
 #include <libbuild2/scheduler.hxx>
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 #  include <pthread.h>
 #  ifdef __FreeBSD__
 #    include <pthread_np.h> // pthread_attr_get_np()
@@ -617,7 +617,7 @@ namespace build2
     // particular, having a noexcept function anywhere on the exception's path
     // causes the stack trace to be truncated, at least on Linux.
     //
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 
 #ifndef LIBBUILD2_DEFAULT_STACK_SIZE
 #  define LIBBUILD2_DEFAULT_STACK_SIZE 8388608 // 8MB
@@ -664,7 +664,7 @@ namespace build2
       if (r != 0)
         throw_system_error (r);
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__NetBSD__)
       pthread_attr_t attr;
       int r (pthread_attr_init (&attr));
 
