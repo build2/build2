@@ -9,6 +9,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/bin/target.hxx>
+#include <libbuild2/bin/utility.hxx>
 
 using namespace std;
 
@@ -36,29 +37,14 @@ namespace build2
     // The whole logic is pretty much as if we had our two group members as
     // our prerequisites.
     //
-    lib_rule::members lib_rule::
-    build_members (const scope& rs)
-    {
-      const string& type (cast<string> (rs["bin.lib"]));
-
-      bool a (type == "static" || type == "both");
-      bool s (type == "shared" || type == "both");
-
-      if (!a && !s)
-        fail << "unknown library type: " << type <<
-          info << "'static', 'shared', or 'both' expected";
-
-      return members {a, s};
-    }
-
     bool lib_rule::
     match (action a, target& xt, const string&) const
     {
       lib& t (xt.as<lib> ());
 
-      members bm (a.meta_operation () != dist_id
-                  ? build_members (t.root_scope ())
-                  : members {true, true});
+      lmembers bm (a.meta_operation () != dist_id
+                   ? link_members (t.root_scope ())
+                   : lmembers {true, true});
 
       t.a = bm.a ? &search<liba> (t, t.dir, t.out, t.name) : nullptr;
       t.s = bm.s ? &search<libs> (t, t.dir, t.out, t.name) : nullptr;

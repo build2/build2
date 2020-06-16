@@ -9,10 +9,19 @@
 
 #include <libbuild2/target-type.hxx>
 
+#include <libbuild2/bin/types.hxx>
+
 namespace build2
 {
   namespace cc
   {
+    using bin::otype;
+    using bin::ltype;
+    using bin::lorder;
+    using bin::linfo;
+    using bin::lflags;
+    using bin::lflag_whole;
+
     // Translation unit information.
     //
     // We use absolute and normalized header path as the header unit module
@@ -67,22 +76,6 @@ namespace build2
       return os << (l == lang::c ? "C" : "C++");
     }
 
-    // Compile/link output type (executable, static, or shared).
-    //
-    enum class otype {e, a, s};
-
-    struct ltype
-    {
-      otype type;
-      bool  utility; // True for utility libraries.
-
-      bool executable ()     const {return type == otype::e && !utility;}
-      bool library ()        const {return type != otype::e ||  utility;}
-      bool static_library () const {return type == otype::a ||  utility;}
-      bool shared_library () const {return type == otype::s && !utility;}
-      bool member_library () const {return type != otype::e;}
-    };
-
     // Compile target types.
     //
     struct compile_target_types
@@ -91,24 +84,6 @@ namespace build2
       const target_type& bmi;
       const target_type& hbmi;
     };
-
-    // Library link order.
-    //
-    enum class lorder {a, s, a_s, s_a};
-
-    // Link information: output type and link order.
-    //
-    struct linfo
-    {
-      otype  type;
-      lorder order;
-    };
-
-    // Prerequisite link flags.
-    //
-    using lflags = uintptr_t; // To match prerequisite_target::data.
-
-    const lflags lflag_whole = 0x00000001U; // Link whole liba{}/libu*}.
   }
 }
 

@@ -1050,7 +1050,7 @@ namespace build2
             // Note also that the order in which we are adding these members
             // is important (see add_addhoc_member() for details).
             //
-            if (ot == otype::a || !lib_rule::build_members (rs).a)
+            if (ot == otype::a || !link_members (rs).a)
             {
               auto& pc (add_adhoc_member<pc> (t));
 
