@@ -1713,7 +1713,8 @@ namespace build2
       {
         // Examine tokens we have replayed since last reset.
         //
-        for (size_t i (replay_quoted_); i != replay_i_; ++i)
+        size_t ri (!peeked_ ? replay_i_ : replay_i_ - 1);
+        for (size_t i (replay_quoted_); i != ri; ++i)
           if (replay_data_[i].token.qtype != quote_type::unquoted)
             ++r;
       }
@@ -1728,7 +1729,7 @@ namespace build2
         lexer_->reset_quoted (cur.qtype != quote_type::unquoted ? 1 : 0);
       else
       {
-        replay_quoted_ = replay_i_ - 1;
+        replay_quoted_ = replay_i_ - (!peeked_ ? 1 : 2);
 
         // Must be the same token.
         //
