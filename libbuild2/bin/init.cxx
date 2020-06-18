@@ -327,7 +327,7 @@ namespace build2
             target_triplet t (s);
 
             l5 ([&]{trace << "canonical target: '" << t.string () << "'; "
-                          << "class: " << t.class_ << " source: " << s;});
+                          << "class: " << t.class_;});
 
             assert (!hint || s == t.string ());
 

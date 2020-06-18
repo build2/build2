@@ -6,7 +6,7 @@
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
 #  include <pthread.h>
 #  ifdef __FreeBSD__
-#    include <pthread_np.h> // pthread_attr_get_np()
+#    include <pthread_np.h> // pthread_attr_get_np() (in <pthread.h> on NetBSD)
 #  endif
 #endif
 
@@ -605,7 +605,7 @@ namespace build2
     // at the linking stage (see build2/buildfile). Thus neither *_STACK_SIZE
     // nor --max-stack have any effect here.
     //
-    // On Linux, FreeBSD and MacOS there is no way to change it once and for
+    // On Linux, *BSD and MacOS there is no way to change it once and for
     // all newly created threads. Thus we will use pthreads, creating threads
     // with the stack size of the current thread. This way all threads will
     // inherit the main thread's stack size (since the first helper is always

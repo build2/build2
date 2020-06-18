@@ -531,7 +531,8 @@ namespace build2
       }
       else if (tsys == "freebsd")
       {
-        // On FreeBSD .pc files go to libdata/pkgconfig/, not lib/pkgconfig/.
+        // On FreeBSD (but not NetBSD) .pc files go to libdata/pkgconfig/, not
+        // lib/pkgconfig/.
         //
         (((pd = d) /= "..") /= "libdata") /= "pkgconfig";
 

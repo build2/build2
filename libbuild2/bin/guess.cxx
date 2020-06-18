@@ -123,6 +123,11 @@ namespace build2
       // version (maybe we could run llvm-ar instead -- it seems to be always
       // around).
       //
+      // On NetBSD we get:
+      //
+      // GNU ar (NetBSD Binutils nb1) 2.31.1
+      // GNU ranlib (NetBSD Binutils nb1) 2.31.1
+      //
       {
         auto f = [&ar] (string& l, bool) -> guess_result
         {

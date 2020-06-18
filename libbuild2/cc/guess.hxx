@@ -203,6 +203,7 @@ namespace build2
       // glibc
       // msvc         (msvcrt.lib/msvcrNNN.dll)
       // freebsd
+      // netbsd
       // apple
       // newlib       (also used by Cygwin)
       // klibc

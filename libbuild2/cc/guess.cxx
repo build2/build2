@@ -261,6 +261,8 @@ namespace build2
 "     stdlib:=\"glibc\"        /* pretend to be it.                      */ \n"
 "#  elif defined(__FreeBSD__)                                               \n"
 "     stdlib:=\"freebsd\"                                                   \n"
+"#  elif defined(__NetBSD__)                                                \n"
+"     stdlib:=\"netbsd\"                                                    \n"
 "#  elif defined(__APPLE__)                                                 \n"
 "     stdlib:=\"apple\"                                                     \n"
 "#  else                                                                    \n"
@@ -2429,7 +2431,8 @@ namespace build2
         }
         else if (tt.system == "win32-msvc")  rt = "msvc";
         else if (tt.system == "linux-gnu" ||
-                 tt.system == "freebsd")     rt = "libgcc";
+                 tt.system == "freebsd"   ||
+                 tt.system == "netbsd")      rt = "libgcc";
         else /* Mac OS, etc. */              rt = "compiler-rt";
       }
 
