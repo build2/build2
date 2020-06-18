@@ -61,6 +61,24 @@ namespace build2
        << ind << string (braces, '}');
   }
 
+#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
+  bool adhoc_cxx_rule::
+  match (action, target&, const string&) const
+  {
+    // Note that we wait until match() (instead of, say, failing in the
+    // parser) to allow the presence of ad hoc C++ recipes for other
+    // operations.
+    //
+    fail (loc) << "ad hoc c++ recipe" <<
+#ifdef BUILD2_BOOTSTRAP
+      info << "running bootstrap build system" << endf;
+#else
+      info << "running statically-linked build system" << endf;
+#endif
+  }
+
+#else
+
   // From module.cxx.
   //
   void
@@ -637,6 +655,7 @@ namespace build2
 
     return impl->match (a, t, hint);
   }
+#endif // BUILD2_BOOTSTRAP || LIBBUILD2_STATIC_BUILD
 
   recipe adhoc_cxx_rule::
   apply (action a, target& t) const

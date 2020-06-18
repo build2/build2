@@ -1143,14 +1143,7 @@ namespace build2
             {
               // C++
               //
-#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
-              fail (loc) << "ad hoc c++ recipe" <<
-#ifdef BUILD2_BOOTSTRAP
-                info << "running bootstrap build system";
-#else
-                info << "running statically-linked build system";
-#endif
-#else
+
               // Parse recipe version and optional fragment separator.
               //
               if (tt == type::newline || tt == type::eos)
@@ -1195,7 +1188,6 @@ namespace build2
 
               ar.reset (
                 new adhoc_cxx_rule (loc, st.value.size (), ver, move (sep)));
-#endif // BUILD2_BOOTSTRAP || LIBBUILD2_STATIC_BUILD
             }
             else
               fail (lloc) << "unknown recipe language '" << *lang << "'";
