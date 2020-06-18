@@ -11,6 +11,12 @@ namespace build2
 {
   using type = token_type;
 
+  [[noreturn]] void lexer::
+  fail_char (const xchar& c)
+  {
+    fail (c) << ebuf_ << endf;
+  }
+
   pair<pair<char, char>, bool> lexer::
   peek_chars ()
   {

@@ -187,6 +187,23 @@ namespace build2
     pair<pair<char, char>, bool>
     peek_chars ();
 
+    // As base::get() but in case of an invalid character issue diagnostics
+    // and throw failed.
+    //
+    xchar
+    get ();
+
+    // Get previously peeked character (faster).
+    //
+    void
+    get (const xchar&);
+
+    // As base::peek() but in case of an invalid character issue diagnostics
+    // and throw failed.
+    //
+    xchar
+    peek ();
+
   protected:
     struct state
     {
@@ -243,6 +260,9 @@ namespace build2
   protected:
     fail_mark fail;
 
+    [[noreturn]] void
+    fail_char (const xchar&);
+
     // Lexer state.
     //
   protected:
@@ -266,6 +286,13 @@ namespace build2
     std::stack<state> state_;
 
     bool sep_; // True if we skipped spaces in peek().
+
+  private:
+    using base = char_scanner<butl::utf8_validator, 2>;
+
+    // Buffer for a get()/peek() potential error.
+    //
+    string ebuf_;
   };
 }
 
@@ -283,5 +310,7 @@ namespace butl // ADL
     return location (*static_cast<const path_name*> (data), c.line, c.column);
   }
 }
+
+#include <libbuild2/lexer.ixx>
 
 #endif // LIBBUILD2_LEXER_HXX

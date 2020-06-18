@@ -1,0 +1,28 @@
+# file      : libbuild2/lexer+utf8.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: valid
+:
+$* <<EOI >>EOO
+  Sommerzeit
+  Mitteleuropäische
+  EOI
+  'Sommerzeit'
+  <newline>
+  'Mitteleuropäische'
+  <newline>
+  EOO
+
+: invalid
+:
+: Here we spoil the UTF-8 sequence 'ä' by dropping its second byte.
+:
+cat <<EOI | sed -e 's/(rop.).(isc)/\1\2/' | $* >>EOO 2>>EOE != 0
+  Sommerzeit
+  Mitteleuropäische
+  EOI
+  'Sommerzeit'
+  <newline>
+  EOO
+  <stdin>:2:12: error: invalid UTF-8 sequence second byte (0x69 'i')
+  EOE
