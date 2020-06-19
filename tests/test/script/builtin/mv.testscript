@@ -34,7 +34,7 @@
       :
       $c <<EOI && $b
         mv -f ../../a/b/c ./c 2>>/~%EOE% == 1
-        %mv: unable to move entity '.+/force/a/b/c' to '.+/c': .+%
+        %mv: unable to move entry '.+/force/a/b/c' to '.+/c': .+%
         EOE
         EOI
     }
