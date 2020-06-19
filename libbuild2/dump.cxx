@@ -352,7 +352,7 @@ namespace build2
     {
       auto& re (*s.root_scope ()->root_extra);
 
-      for (const adhoc_recipe r: t.adhoc_recipes)
+      for (const adhoc_recipe& r: t.adhoc_recipes)
       {
         os << endl
            << ind << '%';
