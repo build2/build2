@@ -296,13 +296,15 @@ namespace build2
       // recognize it is to parse the if line).
       //
       // If one is true then only parse one line returning an indication of
-      // whether the line ended with a semicolon.
+      // whether the line ended with a semicolon. If if_line is true then this
+      // line can be an if-else construct flow control line (else, end, etc).
       //
       bool parser::
       pre_parse_line (token& t, type& tt,
                       optional<description>& d,
                       lines* ls,
-                      bool one)
+                      bool one,
+                      bool if_line)
       {
         // enter: next token is peeked at (type in tt)
         // leave: newline
@@ -415,12 +417,19 @@ namespace build2
 
             break;
           }
-        case line_type::cmd_if:
-        case line_type::cmd_ifn:
         case line_type::cmd_elif:
         case line_type::cmd_elifn:
         case line_type::cmd_else:
         case line_type::cmd_end:
+          {
+            if (!if_line)
+            {
+              fail (t) << lt << " without preceding 'if'";
+            }
+          }
+          // Fall through.
+        case line_type::cmd_if:
+        case line_type::cmd_ifn:
           next (t, tt); // Skip to start of command.
           // Fall through.
         case line_type::cmd:
@@ -511,7 +520,7 @@ namespace build2
           case line_type::cmd_else:
           case line_type::cmd_end:
             {
-              fail (ll) << lt << " without preceding 'if'" << endf;
+              assert (false); // Should have been failed earlier.
             }
           case line_type::cmd_if:
           case line_type::cmd_ifn:
@@ -780,7 +789,12 @@ namespace build2
           // the next iteration.
           //
           optional<description> td;
-          bool semi (pre_parse_line (t, (tt = pt), td, &ls, true));
+          bool semi (pre_parse_line (t, (tt = pt),
+                                     td,
+                                     &ls,
+                                     true /* one */,
+                                     true /* if_line */));
+
           assert (ls.size () == 1 && ls.back ().type == lt);
           assert (tt == type::newline);
 
@@ -856,7 +870,11 @@ namespace build2
           size_t i (ls.size ());
 
           optional<description> td;
-          bool semi (pre_parse_line (t, tt, td, &ls, true));
+          bool semi (pre_parse_line (t, tt,
+                                     td,
+                                     &ls,
+                                     true /* one */,
+                                     true /* if_line */));
           assert (tt == type::newline);
 
           line_type lt (ls[i].type);

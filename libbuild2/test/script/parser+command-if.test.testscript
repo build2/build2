@@ -325,6 +325,15 @@
   testscript:2:1: error: 'end' without preceding 'if'
   EOE
 
+  : without-if-semi
+  :
+  $* <<EOI 2>>EOE != 0
+  cmd;
+  end
+  EOI
+  testscript:2:1: error: 'end' without preceding 'if'
+  EOE
+
   : before
   {
     : semi

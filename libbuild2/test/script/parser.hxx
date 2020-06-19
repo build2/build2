@@ -59,7 +59,8 @@ namespace build2
         pre_parse_line (token&, token_type&,
                         optional<description>&,
                         lines* = nullptr,
-                        bool one = false);
+                        bool one = false,
+                        bool if_line = false);
 
         bool
         pre_parse_if_else (token&, token_type&,
