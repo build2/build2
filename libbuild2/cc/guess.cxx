@@ -2239,6 +2239,10 @@ namespace build2
           //
           // https://gist.github.com/yamaya/2924292
           //
+          // Specifically, we now look in the libc++'s __config file for the
+          // _LIBCPP_VERSION and use the previous version as a conservative
+          // estimate.
+          //
           // Note that this is Apple Clang version and not XCode version.
           //
           // 4.2    -> 3.2svn
@@ -2254,23 +2258,27 @@ namespace build2
           // 9.1.0  -> 5.0
           // 10.0.0 -> 6.0
           // 11.0.0 -> 7.0
+          // 11.0.3 -> 8.0
           //
           uint64_t mj (var_ver->major);
           uint64_t mi (var_ver->minor);
+          uint64_t pa (var_ver->patch);
 
-          if      (mj >= 11)            {mj = 7; mi = 0;}
-          else if (mj == 10)            {mj = 6; mi = 0;}
-          else if (mj == 9 && mi >= 1)  {mj = 5; mi = 0;}
-          else if (mj == 9)             {mj = 4; mi = 0;}
-          else if (mj == 8)             {mj = 3; mi = 9;}
-          else if (mj == 7 && mi >= 3)  {mj = 3; mi = 8;}
-          else if (mj == 7)             {mj = 3; mi = 7;}
-          else if (mj == 6 && mi >= 1)  {mj = 3; mi = 5;}
-          else if (mj == 6)             {mj = 3; mi = 4;}
-          else if (mj == 5 && mi >= 1)  {mj = 3; mi = 3;}
-          else if (mj == 5)             {mj = 3; mi = 2;}
-          else if (mj == 4 && mi >= 2)  {mj = 3; mi = 1;}
-          else                          {mj = 3; mi = 0;}
+          if      (mj >= 12)                        {mj = 8; mi = 0;}
+          else if (mj == 11 && (mi > 0 || pa >= 3)) {mj = 8; mi = 0;}
+          else if (mj == 11)                        {mj = 7; mi = 0;}
+          else if (mj == 10)                        {mj = 6; mi = 0;}
+          else if (mj == 9 && mi >= 1)              {mj = 5; mi = 0;}
+          else if (mj == 9)                         {mj = 4; mi = 0;}
+          else if (mj == 8)                         {mj = 3; mi = 9;}
+          else if (mj == 7 && mi >= 3)              {mj = 3; mi = 8;}
+          else if (mj == 7)                         {mj = 3; mi = 7;}
+          else if (mj == 6 && mi >= 1)              {mj = 3; mi = 5;}
+          else if (mj == 6)                         {mj = 3; mi = 4;}
+          else if (mj == 5 && mi >= 1)              {mj = 3; mi = 3;}
+          else if (mj == 5)                         {mj = 3; mi = 2;}
+          else if (mj == 4 && mi >= 2)              {mj = 3; mi = 1;}
+          else                                      {mj = 3; mi = 0;}
 
           ver = compiler_version {
             to_string (mj) + '.' + to_string (mi) + ".0",

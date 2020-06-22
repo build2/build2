@@ -337,9 +337,6 @@ namespace build2
             {
               // Enable starting with Clang 6.0.0.
               //
-              // Note that we are using Apple to vanilla Clang version re-map
-              // from above so may need to update things there as well.
-              //
               // Also see Clang modules support hack in cc::compile.
               //
               // @@ Clang 9 enables modules by default in C++2a. We should
