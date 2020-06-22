@@ -335,14 +335,20 @@ namespace build2
             }
           case compiler_type::clang:
             {
-              // Enable starting with Clang 6.0.0.
+              // At the time of this writing, support for C++20 modules in
+              // Clang is incomplete. And starting with Clang 9 (Apple Clang
+              // 11.0.3), they are enabled by default in the C++2a mode which
+              // breaks the way we set things up for partial preprocessing;
+              // see this post for details:
+              //
+              // http://lists.llvm.org/pipermail/cfe-dev/2019-October/063637.html
+              //
+              // As a result, for now, we only enable modules if forced with
+              // explicit cxx.features.modules=true.
               //
               // Also see Clang modules support hack in cc::compile.
               //
-              // @@ Clang 9 enables modules by default in C++2a. We should
-              //    probably reflect this in the modules value.
-              //
-              if (mj >= 6)
+              if (l)
               {
                 r.push_back ("-D__cpp_modules=201704"); // p0629r0
                 r.push_back ("-fmodules-ts");
