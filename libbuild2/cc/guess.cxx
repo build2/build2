@@ -66,7 +66,7 @@
 #endif
 
 #include <map>
-#include <cstring> // strlen(), strchr()
+#include <cstring> // strlen(), strchr(), strstr()
 
 #include <libbuild2/diagnostics.hxx>
 
@@ -766,7 +766,7 @@ namespace build2
     //
     static guess_result
     guess (const char* xm,
-           lang,
+           lang xl,
            const path& xc,
            const strings& x_mo,
            const optional<compiler_id>& xi,
@@ -1206,8 +1206,7 @@ namespace build2
 
       if (!r.empty ())
       {
-        if (pt != invalid &&
-            (pt != r.id.type || (pv && *pv != r.id.variant)))
+        if (pt != invalid && (pt != r.id.type || (pv && *pv != r.id.variant)))
         {
           l4 ([&]{trace << "compiler type guess mismatch"
                         << ", pre-guessed " << pre
@@ -1228,6 +1227,27 @@ namespace build2
       }
       else
         l4 ([&]{trace << "unable to determine compiler type of " << xc;});
+
+      // Warn if the absolute compiler path looks like a ccache wrapper.
+      //
+      // The problem with ccache is that it pretends to be real GCC (i.e.,
+      // it's --version output is indistinguishable from real GCC's) but does
+      // not handle all valid GCC modes, in particular -fdirectives-only. As a
+      // poor man's solution we check if the absolute compiler path contains
+      // any mentioning of ccache (for example, /usr/lib64/ccache/g++ on
+      // Fedora).
+      //
+      if (!r.empty ())
+      {
+        if (r.id.type == compiler_type::gcc ||
+            r.id.type == compiler_type::clang)
+        {
+          if (strstr (r.path.effect_string (), "ccache") != nullptr)
+            warn << r.path << " looks like a ccache wrapper" <<
+              info << "ccache cannot be used as a " << xl << " compiler" <<
+              info << "use config." << xm << " to override";
+        }
+      }
 
       return r;
     }
