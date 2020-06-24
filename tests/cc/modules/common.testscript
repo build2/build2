@@ -17,23 +17,8 @@ using in
 #
 cxx.std = experimental
 cxx.features.symexport = true
-cxx.features.modules = true
 
 using cxx
-
-# We forced modules but for VC we need at least 15u5 (19.12). So "unforce"
-# them in this case.
-#
-if ($cxx.id == 'msvc' && $cxx.version.major == 19 && $cxx.version.minor < 12)
-  cxx.features.modules = false
-
-# In Clang 9 modules are enabled by default in the c++2a mode and there is
-# no way to disable them. See the following post for details:
-#
-# http://lists.llvm.org/pipermail/cfe-dev/2019-October/063637.html
-#
-if ($cxx.id == 'clang' && $cxx.version.major >= 9)
-  cxx.features.modules = false
 
 hxx{*}: extension = hxx
 mxx{*}: extension = mxx
