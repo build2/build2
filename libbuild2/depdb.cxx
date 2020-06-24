@@ -311,6 +311,9 @@ namespace build2
       // descriptor. Or it might be slower since so far we've only been
       // reading.
       //
+      // Note also that utime() on Windows is a bad idea (see touch_file() for
+      // details).
+      //
       pos_ = buf_->tellg ();         // The last line is accepted.
       change (false /* truncate */); // Write end marker below.
     }

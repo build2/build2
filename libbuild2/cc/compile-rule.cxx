@@ -935,8 +935,11 @@ namespace build2
           u = dd.mtime > mt;
         }
 
+        // If updating for any of the above reasons, treat it as if doesn't
+        // exist.
+        //
         if (u)
-          mt = timestamp_nonexistent; // Treat as if it doesn't exist.
+          mt = timestamp_nonexistent;
 
         // Update prerequisite targets (normally just the source file).
         //
@@ -1026,14 +1029,14 @@ namespace build2
                 dd.write (p.second);
               }
               //
-              // Don't clear if it was forced or the checksum should not be
-              // relied upon.
+              // Don't clear the update flag if it was forced or the checksum
+              // should not be relied upon.
               //
               else if (first && !p.second.empty ())
               {
                 // Clear the update flag and set the touch flag. Unless there
-                // is no object file, of course. See also the md.mt logic
-                // below.
+                // is no (usable) object file, of course. See also the md.mt
+                // logic below.
                 //
                 if (mt != timestamp_nonexistent)
                 {
@@ -1108,7 +1111,7 @@ namespace build2
 
           // Note: trace is used in a test.
           //
-          l5 ([&]{trace << "extracting modules from " << t;});
+          l5 ([&]{trace << "extracting modules from " << src;});
 
           // Extract the module dependency information in addition to header
           // dependencies.
@@ -1191,11 +1194,11 @@ namespace build2
         // somehow need to remember two timestamps: one for checking
         // "preprocessor prerequisites" above and one for checking other
         // prerequisites (like modules) below. So what we are going to do is
-        // store the first in the target file (so we do touch it) and the
+        // "store" the first in the target file (so we do touch it) and the
         // second in depdb (which is never newer that the target).
         //
-        // Perhaps when we start keeping the partially preprocessed this will
-        // fall away? Yes, please.
+        // Perhaps when we start keeping the partially preprocessed output
+        // this will fall away? Yes, please.
         //
         md.mt = u ? timestamp_nonexistent : dd.mtime;
       }
