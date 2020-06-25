@@ -56,8 +56,12 @@ namespace build2
   inline void wait_guard::
   wait ()
   {
-    phase_unlock u (*ctx, phase);
-    ctx->sched.wait (start_count, *task_count);
+    if (task_count->load (memory_order_acquire) > start_count)
+    {
+      phase_unlock u (*ctx, phase);
+      ctx->sched.wait (start_count, *task_count);
+    }
+
     task_count = nullptr;
   }
 }
