@@ -1013,6 +1013,18 @@ namespace build2
   static_assert (std::is_trivially_destructible<prerequisite_member>::value,
                  "prerequisite_member is not trivially destructible");
 
+  inline bool
+  operator== (const prerequisite_member& x, const prerequisite_member& y)
+  {
+    return &x.prerequisite == &y.prerequisite && x.member == y.member;
+  }
+
+  inline bool
+  operator!= (const prerequisite_member& x, const prerequisite_member& y)
+  {
+    return !(x == y);
+  }
+
   inline ostream&
   operator<< (ostream& os, const prerequisite_member& pm)
   {

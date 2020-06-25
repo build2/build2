@@ -686,6 +686,9 @@ namespace build2
       //
       wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
+      target_state src_ts1, src_ts2;
+
+      size_t src_i (~0);          // Index of src target.
       size_t start (pts.size ()); // Index of the first to be added.
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -737,7 +740,9 @@ namespace build2
         else if (pi == include_type::normal &&
                  (p.is_a<bmi> ()  || p.is_a (tts.bmi) ||
                   p.is_a<hbmi> () || p.is_a (tts.hbmi)))
+        {
           continue;
+        }
         else
         {
           pt = &p.search (t);
@@ -746,11 +751,23 @@ namespace build2
             continue;
         }
 
-        match_async (a, *pt, ctx.count_busy (), t[a].task_count);
+        target_state ts (
+          match_async (a, *pt, ctx.count_busy (), t[a].task_count));
+
+        if (p == md.src)
+        {
+          src_i = pts.size ();
+          src_ts1 = ts;
+        }
+
         pts.push_back (prerequisite_target (pt, pi));
       }
 
+      size_t src_tc1 (t[a].task_count.load (memory_order_consume));
+
       wg.wait ();
+
+      size_t src_tc2 (t[a].task_count.load (memory_order_consume));
 
       // Finish matching all the targets that we have started.
       //
@@ -765,13 +782,18 @@ namespace build2
         // match in link::apply() it will be safe unless someone is building
         // an obj?{} target directory.
         //
-        if (build2::match (
-              a,
-              *pt,
-              pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ()
-              ? unmatch::safe
-              : unmatch::none))
+        pair<bool, target_state> mr (
+          build2::match (
+            a,
+            *pt,
+            pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ()
+            ? unmatch::safe
+            : unmatch::none));
+
+        if (mr.first)
           pt = nullptr; // Ignore in execute.
+        else if (i == src_i)
+          src_ts2 = mr.second;
       }
 
       // Inject additional prerequisites. We only do it when performing update
@@ -780,11 +802,7 @@ namespace build2
       //
       if (a == perform_update_id)
       {
-        // The cached prerequisite target should be the same as what is in
-        // t.prerequisite_targets since we used standard search() and match()
-        // above.
-        //
-        const file& src (*md.src.load (memory_order_relaxed)->is_a<file> ());
+        const file& src (pts[src_i]->as<file> ());
 
         // Figure out if __symexport is used. While normally it is specified
         // on the project root (which we cached), it can be overridden with
@@ -902,12 +920,21 @@ namespace build2
           // We seem to have a race condition here but can't quite put our
           // finger on it.
           //
+          // NOTE: remember to get rid of src_ts*, etc., once done.
+          //
           // assert (!p.empty ()); // Sanity check.
           if (p.empty ())
           {
+            target_state src_ts3 (src.matched_state (a, false));
+
             info << "unassigned path for target " << src <<
-              info << "target state: " << src.matched_state (a, false) <<
-              info << "is empty_path: " << (&p == &empty_path);
+              info << "is empty_path: " << (&p == &empty_path) <<
+              info << "target state 1: " << src_ts1 <<
+              info << "target state 2: " << src_ts2 <<
+              info << "target state 3: " << src_ts3 <<
+              info << "target count 1: " << src_tc1 <<
+              info << "target count 2: " << src_tc2;
+
             assert (false);
           }
 

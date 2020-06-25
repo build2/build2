@@ -287,8 +287,8 @@ namespace build2
   // If it is unmatch::unchanged then only unmatch the target if it is known
   // to be unchanged after match. If it is unmatch::safe, then unmatch the
   // target if it is safe (this includes unchanged or if we know that someone
-  // else will execute this target). Return true if unmatch succeeded. Always
-  // throw if failed.
+  // else will execute this target). Return true in first half of the pair if
+  // unmatch succeeded. Always throw if failed.
   //
   enum class unmatch {none, unchanged, safe};
 
@@ -298,7 +298,7 @@ namespace build2
   pair<bool, target_state>
   try_match (action, const target&, bool fail = true);
 
-  bool
+  pair<bool, target_state>
   match (action, const target&, unmatch);
 
   // Start asynchronous match. Return target_state::postponed if the
@@ -337,7 +337,7 @@ namespace build2
   target_state
   match_inner (action, const target&);
 
-  bool
+  pair<bool, target_state>
   match_inner (action, const target&, unmatch);
 
   // The standard prerequisite search and match implementations. They call

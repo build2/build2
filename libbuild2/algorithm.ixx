@@ -312,7 +312,7 @@ namespace build2
     return r;
   }
 
-  inline bool
+  inline pair<bool, target_state>
   match (action a, const target& t, unmatch um)
   {
     assert (t.ctx.phase == run_phase::match);
@@ -328,7 +328,7 @@ namespace build2
     case unmatch::unchanged:
       {
         if (s == target_state::unchanged)
-          return true;
+          return make_pair (true, s);
 
         break;
       }
@@ -340,14 +340,14 @@ namespace build2
         //
         if (s == target_state::unchanged                   ||
             t[a].dependents.load (memory_order_consume) != 0)
-          return true;
+          return make_pair (true, s);
 
         break;
       }
     }
 
     match_inc_dependens (a, t);
-    return false;
+    return make_pair (false, s);;
   }
 
   inline target_state
@@ -437,7 +437,7 @@ namespace build2
     return match (a.inner_action (), t);
   }
 
-  inline bool
+  inline pair<bool, target_state>
   match_inner (action a, const target& t, unmatch um)
   {
     assert (a.outer ());

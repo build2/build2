@@ -313,7 +313,7 @@ namespace build2
       //
       optional<bool> unchanged;
       if (a.operation () == update_id)
-        unchanged = match_inner (a, t, unmatch::unchanged);
+        unchanged = match_inner (a, t, unmatch::unchanged).first;
 
       auto& pts (t.prerequisite_targets[a]);
 
@@ -367,7 +367,7 @@ namespace build2
           // when updating static installable content (headers, documentation,
           // etc).
           //
-          if (build2::match (a, *pt, unmatch::unchanged))
+          if (build2::match (a, *pt, unmatch::unchanged).first)
             pt = nullptr;
         }
         else if (!try_match (a, *pt).first)
