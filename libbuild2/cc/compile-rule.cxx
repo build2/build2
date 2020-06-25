@@ -686,7 +686,7 @@ namespace build2
       //
       wait_guard wg (ctx, ctx.count_busy (), t[a].task_count, true);
 
-      target_state src_ts1, src_ts2;
+      target_state src_ts1 (target_state::unknown), src_ts2 (src_ts1);
 
       size_t src_i (~0);          // Index of src target.
       size_t start (pts.size ()); // Index of the first to be added.
