@@ -4931,7 +4931,13 @@ The \c{libhello/config.hxx.in} file is new:
 
 As you can see, we can reference our configuration variables directly in the
 \c{config.hxx.in} substitutions (see \l{#module-in \c{in} Module} for details
-on how this works). The rest is changed as follows:
+on how this works).
+
+\N|With this setup, the way to export configuration information to our
+library's users is to make the configuration header public and install it,
+similar to how we do it for the version header.|
+
+The rest is changed as follows:
 
 \
 # libhello/buildfile
@@ -4959,9 +4965,20 @@ void say_hello (ostream& o, const string& n)
 }
 \
 
-\N|With this setup, the way to export configuration information to our
-library's users is to make the configuration header public and install it,
-similar to how we do it for the version header.|
+\N|Notice that we had to replace \c{#ifdef\ LIBHELLO_FANCY} with \c{#if\
+LIBHELLO_FANCY}. If you want to continue using \c{#ifdef}, then you will need
+to make the necessary arrangements yourself (the \c{in} module is a generic
+preprocessor and does not provide any special treatment for \c{#define}). For
+example:
+
+\
+#define LIBHELLO_FANCY $config.libhello.fancy$
+#if !LIBHELLO_FANCY
+#  undef LIBHELLO_FANCY
+#endif
+\
+
+|
 
 Now that the macro-based version is working, let's see how we can take
 advantage of modern C++ features to hopefully improve on some of their
