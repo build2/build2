@@ -210,16 +210,13 @@ namespace build2
         assert (t == redirect_type::merge && (f == 1 || f == 2));
       }
 
+      // Movable-only type.
+      //
       redirect (redirect&&) noexcept;
       redirect& operator= (redirect&&) noexcept;
 
-      // @@ Defining optional movable-only redirects in the command class make
-      // the older C++ compilers (GCC 4.9, Clang 4, VC 15) fail to compile the
-      // command vector manipulating code. Thus, we make the redirect class
-      // copyable to workaround the issue.
-      //
-      redirect (const redirect&);
-      redirect& operator= (const redirect&);
+      redirect (const redirect&) = delete;
+      redirect& operator= (const redirect&) = delete;
 
       ~redirect ();
 

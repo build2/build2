@@ -712,57 +712,6 @@ namespace build2
         }
       }
     }
-
-    redirect::
-    redirect (const redirect& r)
-        : type (r.type),
-          token (r.token),
-          end (r.end),
-          end_line (r.end_line),
-          end_column (r.end_column)
-    {
-      switch (type)
-      {
-      case redirect_type::none:
-      case redirect_type::pass:
-      case redirect_type::null:
-      case redirect_type::trace: break;
-
-      case redirect_type::merge: fd = r.fd; break;
-
-      case redirect_type::here_str_literal:
-      case redirect_type::here_doc_literal:
-        {
-          new (&str) string (r.str);
-          break;
-        }
-      case redirect_type::here_str_regex:
-      case redirect_type::here_doc_regex:
-        {
-          new (&regex) regex_lines (r.regex);
-          break;
-        }
-      case redirect_type::file:
-        {
-          new (&file) file_type (r.file);
-          break;
-        }
-      case redirect_type::here_doc_ref:
-        {
-          new (&ref) reference_wrapper<const redirect> (r.ref);
-          break;
-        }
-      }
-    }
-
-    redirect& redirect::
-    operator= (const redirect& r)
-    {
-      if (this != &r)
-        *this = redirect (r); // Reduce to move-assignment.
-      return *this;
-    }
-
     // environment
     //
     void environment::
