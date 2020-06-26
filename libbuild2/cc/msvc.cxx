@@ -119,13 +119,17 @@ namespace build2
       }
     }
 
-    // Sense whether this is a diagnostics line returning the postion of the
-    // NNNN code in XNNNN and npos otherwise.
+    // Sense whether this is a diagnostics line returning in the first half of
+    // pair the position of the NNNN code in XNNNN and npos otherwise. If the
+    // first half is not npos then the second half is the start of the last
+    // path component before first `:`.
     //
-    size_t
+    // foo\bar.h: fatal error C1083: ...
+    //
+    pair<size_t, size_t>
     msvc_sense_diag (const string& l, char f)
     {
-      size_t p (l.find (':'));
+      size_t c (l.find (": ")), p (c);
 
       // Note that while the C-numbers seems to all be in the ' CNNNN:' form,
       // the D ones can be ' DNNNN :', for example:
@@ -149,7 +153,13 @@ namespace build2
         }
       }
 
-      return p;
+      if (p != string::npos)
+      {
+        c = path::traits_type::rfind_separator (l, c);
+        c = c != string::npos ? c + 1 : 0;
+      }
+
+      return make_pair (p, c);
     }
 
     // Filter cl.exe and link.exe noise.
@@ -167,7 +177,7 @@ namespace build2
         {
           diag_stream_lock () << l << endl;
 
-          if (msvc_sense_diag (l, 'D') != string::npos)
+          if (msvc_sense_diag (l, 'D').first != string::npos)
             continue;
         }
 

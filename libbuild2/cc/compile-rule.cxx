@@ -1568,9 +1568,25 @@ namespace build2
     //
     // c1xx: fatal error C1083: Cannot open source file: 's.cpp': No such
     // file or directory
+    //
+    // And it turns out C1083 is also used when we are unable to open a type
+    // library specified with #import. In this case the error looks like this
+    // (at least in VC 14, 15, and 16):
+    //
+    // ...\comdef.h: fatal error C1083: Cannot open type library file:
+    // 'l.tlb': Error loading type library/DLL.
+    //
 
-    size_t
+    pair<size_t, size_t>
     msvc_sense_diag (const string&, char); // msvc.cxx
+
+    static inline bool
+    msvc_header_c1083 (const string& l, const pair<size_t, size_t>& pr)
+    {
+      return
+        l.compare (pr.second, 5, "c1xx:")     != 0 && /* Not source file. */
+        l.compare (pr.second, 9, "comdef.h:") != 0;   /* Not type library. */
+    }
 
     // Extract the include path from the VC /showIncludes output line. Return
     // empty string if the line is not an include note or include error. Set
@@ -1584,7 +1600,9 @@ namespace build2
       //
       assert (!good_error);
 
-      size_t p (msvc_sense_diag (l, 'C'));
+      pair<size_t, size_t> pr (msvc_sense_diag (l, 'C'));
+      size_t p (pr.first);
+
       if (p == string::npos)
       {
         // Include note.
@@ -1623,8 +1641,7 @@ namespace build2
 
         return string (l, p);
       }
-      else if (l.compare (p, 4, "1083")  == 0 &&
-               l.compare (0, 5, "c1xx:") != 0 /* Not the main source file. */ )
+      else if (l.compare (p, 4, "1083") == 0 && msvc_header_c1083 (l, pr))
       {
         // Include error.
         //
@@ -3816,7 +3833,7 @@ namespace build2
                           {
                             // D8XXX are errors while D9XXX are warnings.
                             //
-                            size_t p (msvc_sense_diag (l, 'D'));
+                            size_t p (msvc_sense_diag (l, 'D').first);
                             if (p != string::npos && l[p] == '9')
                               continue;
 
@@ -4015,9 +4032,13 @@ namespace build2
                   //
                   for (; !eof (getline (is, l)); )
                   {
-                    size_t p (msvc_sense_diag (l, 'C'));
-                    if (p != string::npos && l.compare (p, 4, "1083") != 0)
+                    pair<size_t, size_t> p (msvc_sense_diag (l, 'C'));
+                    if (p.first != string::npos             &&
+                        l.compare (p.first, 4, "1083") != 0 &&
+                        msvc_header_c1083 (l, p))
+                    {
                       diag_stream_lock () << l << endl;
+                    }
                   }
                 }
 
