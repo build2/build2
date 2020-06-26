@@ -221,7 +221,7 @@ namespace build2
       //
       // First, check if the arguments begin with a process_path[_ex] and, if
       // that's the case, only use the leading name/pair to create the process
-      // path, discarding the meta-information.
+      // path, discarding the metadata.
       //
       if (args[0].file ())
       {
