@@ -150,7 +150,8 @@ namespace build2
 
     static const path cmd ("install");
 
-    static const dir_path dir_root ("root");
+    static const dir_path dir_data_root ("root");
+    static const dir_path dir_exec_root ("root");
 
     static const dir_path dir_sbin      (dir_path ("exec_root") /= "sbin");
     static const dir_path dir_bin       (dir_path ("exec_root") /= "bin");
@@ -161,9 +162,10 @@ namespace build2
     static const dir_path dir_data    (dir_path ("data_root") /= "share");
     static const dir_path dir_include (dir_path ("data_root") /= "include");
 
-    static const dir_path dir_doc  (dir_path (dir_data) /= "doc");
-    static const dir_path dir_man  (dir_path (dir_data) /= "man");
-    static const dir_path dir_man1 (dir_path ("man") /= "man1");
+    static const dir_path dir_doc   (dir_path (dir_data) /= "doc");
+    static const dir_path dir_legal ("doc");
+    static const dir_path dir_man   (dir_path (dir_data) /= "man");
+    static const dir_path dir_man1  (dir_path ("man") /= "man1");
 
     static const group_rule group_rule_ (true /* see_through_only */);
 
@@ -252,8 +254,8 @@ namespace build2
 
         set_dir (s, rs, "root",      abs_dir_path ());
 
-        set_dir (s, rs, "data_root", dir_root);
-        set_dir (s, rs, "exec_root", dir_root, false, "755");
+        set_dir (s, rs, "data_root", dir_data_root);
+        set_dir (s, rs, "exec_root", dir_exec_root, false, "755");
 
         set_dir (s, rs, "sbin",      dir_sbin);
         set_dir (s, rs, "bin",       dir_bin);
@@ -265,6 +267,7 @@ namespace build2
         set_dir (s, rs, "include",   dir_include);
 
         set_dir (s, rs, "doc",       dir_path (dir_doc) /= n, true);
+        set_dir (s, rs, "legal",     dir_legal);
         set_dir (s, rs, "man",       dir_man);
         set_dir (s, rs, "man1",      dir_man1);
 
@@ -286,10 +289,11 @@ namespace build2
 
       // Configure "installability" for built-in target types.
       //
-      install_path<exe>  (bs, dir_path ("bin"));  // Install into install.bin.
-      install_path<doc>  (bs, dir_path ("doc"));  // Install into install.doc.
-      install_path<man>  (bs, dir_path ("man"));  // Install into install.man.
-      install_path<man1> (bs, dir_path ("man1")); // Install into install.man1.
+      install_path<exe>   (bs, dir_path ("bin"));
+      install_path<doc>   (bs, dir_path ("doc"));
+      install_path<legal> (bs, dir_path ("legal"));
+      install_path<man>   (bs, dir_path ("man"));
+      install_path<man1>  (bs, dir_path ("man1"));
 
       return true;
     }

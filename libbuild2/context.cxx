@@ -264,6 +264,7 @@ namespace build2
       t.insert<fsdir> ();
       t.insert<exe>   ();
       t.insert<doc>   ();
+      t.insert<legal> ();
       t.insert<man>   ();
       t.insert<man1>  ();
 

@@ -1239,6 +1239,19 @@ namespace build2
     false
   };
 
+  const target_type legal::static_type
+  {
+    "legal",
+    &doc::static_type,
+    &target_factory<legal>,
+    &target_extension_fix<file_ext_def>, // Same as file (no extension).
+    nullptr, /* default_extension */
+    nullptr, /* pattern */               // Same as file.
+    &target_print_1_ext_verb,            // Same as file.
+    &file_search,
+    false
+  };
+
   static const char*
   man_extension (const target_key& tk, const scope*)
   {

@@ -1756,12 +1756,24 @@ namespace build2
     virtual const target_type& dynamic_type () const {return static_type;}
   };
 
-  // Common documentation file targets.
+  // Common documentation file target.
   //
   class LIBBUILD2_SYMEXPORT doc: public file
   {
   public:
     using file::file;
+
+  public:
+    static const target_type static_type;
+    virtual const target_type& dynamic_type () const {return static_type;}
+  };
+
+  // Legal files (LICENSE, AUTHORS, COPYRIGHT, etc).
+  //
+  class LIBBUILD2_SYMEXPORT legal: public doc
+  {
+  public:
+    using doc::doc;
 
   public:
     static const target_type static_type;
