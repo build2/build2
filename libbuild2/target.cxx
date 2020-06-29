@@ -1215,7 +1215,7 @@ namespace build2
 
   const target_type buildfile::static_type
   {
-    "build",
+    "buildfile",
     &file::static_type,
     &target_factory<buildfile>,
     &buildfile_target_extension,

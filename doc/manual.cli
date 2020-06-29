@@ -4190,7 +4190,7 @@ buildfile:5:1: dump:
     [dir_path] out_base = /tmp/hello/hello/
     [dir_path] src_base = /tmp/hello/hello/
 
-    build{buildfile.}:
+    buildfile{buildfile.}:
 
     exe{hello.?}: cxx{hello.?}
   }
