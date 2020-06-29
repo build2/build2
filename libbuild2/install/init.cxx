@@ -159,12 +159,13 @@ namespace build2
     static const dir_path dir_libexec   (dir_path ("exec_root") /= "libexec");
     static const dir_path dir_pkgconfig (dir_path ("lib") /= "pkgconfig");
 
-    static const dir_path dir_data    (dir_path ("data_root") /= "share");
     static const dir_path dir_include (dir_path ("data_root") /= "include");
+    static const dir_path dir_share   (dir_path ("data_root") /= "share");
+    static const dir_path dir_data    ("share");
 
-    static const dir_path dir_doc   (dir_path (dir_data) /= "doc");
+    static const dir_path dir_doc   (dir_path ("share") /= "doc");
     static const dir_path dir_legal ("doc");
-    static const dir_path dir_man   (dir_path (dir_data) /= "man");
+    static const dir_path dir_man   (dir_path ("share") /= "man");
     static const dir_path dir_man1  (dir_path ("man") /= "man1");
 
     static const group_rule group_rule_ (true /* see_through_only */);
@@ -263,8 +264,9 @@ namespace build2
         set_dir (s, rs, "libexec",   dir_path (dir_libexec) /= n, true);
         set_dir (s, rs, "pkgconfig", dir_pkgconfig, false, "644");
 
-        set_dir (s, rs, "data",      dir_path (dir_data) /= n, true);
         set_dir (s, rs, "include",   dir_include);
+        set_dir (s, rs, "share",     dir_share);
+        set_dir (s, rs, "data",      dir_path (dir_data) /= n, true);
 
         set_dir (s, rs, "doc",       dir_path (dir_doc) /= n, true);
         set_dir (s, rs, "legal",     dir_legal);

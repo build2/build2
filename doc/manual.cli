@@ -2244,12 +2244,13 @@ lib         exec_root/lib/                  config.install.lib
 libexec     exec_root/libexec/<project>/    config.install.libexec
 pkgconfig   lib/pkgconfig/                  config.install.pkgconfig
 
-data        data_root/share/<project>/      config.install.data
 include     data_root/include/              config.install.include
+share       data_root/share/                config.install.share
+data        share/<project>/                config.install.data
 
-doc         data_root/share/doc/<project>/  config.install.doc
+doc         share/doc/<project>/            config.install.doc
 legal       doc/                            config.install.legal
-man         data_root/share/man/            config.install.man
+man         share/man/                      config.install.man
 man<N>      man/man<N>/                     config.install.man<N>
 \
 
