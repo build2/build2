@@ -21,13 +21,14 @@ namespace build2
   {
     using namespace bin;
 
-    // Recursively process prerequisite libraries. If proc_impl returns false,
-    // then only process interface (*.export.libs), otherwise -- interface and
-    // implementation (prerequisite and from *.libs, unless overriden).
+    // Recursively process prerequisite libraries of the specified library. If
+    // proc_impl returns false, then only process interface (*.export.libs),
+    // otherwise -- interface and implementation (prerequisite and from
+    // *.libs, unless overriden @@???).
     //
-    // Note that here we assume that an interface library is also an
-    // implementation (since we don't use *.export.libs in static link). We
-    // currently have this restriction to make sure the target in
+    // Note that here we assume that an interface library is also always an
+    // implementation (since we don't use *.export.libs for static linking).
+    // We currently have this restriction to make sure the target in
     // *.export.libs is up-to-date (which will happen automatically if it is
     // listed as a prerequisite of this library).
     //
@@ -44,7 +45,7 @@ namespace build2
     //
     // The first argument to proc_lib is a pointer to the last element of an
     // array that contains the current library dependency chain all the way to
-    // the library passes to process_libraries(). The first element of this
+    // the library passed to process_libraries(). The first element of this
     // array is NULL.
     //
     void common::
@@ -92,8 +93,8 @@ namespace build2
 
       if (t != nullptr)
       {
-        cc = *t == "cc";
-        same = !cc && *t == x;
+        cc   = (*t == "cc");
+        same = (!cc && *t == x);
 
         // The explicit export override should be set on the liba/libs{}
         // target itself. Note also that we only check for *.libs. If one
@@ -101,8 +102,9 @@ namespace build2
         // *.libs should be set to NULL or empty (this is why we check for
         // the result being defined).
         //
+        /*
         if (impl)
-          c_e_libs = l.vars[c_export_libs]; // Override.
+          c_e_libs = l.vars[c_export_libs]; // Override. @@???
         else if (l.group != nullptr) // lib{} group.
           c_e_libs = l.group->vars[c_export_libs];
 
@@ -116,6 +118,15 @@ namespace build2
             x_e_libs = l.vars[var]; // Override.
           else if (l.group != nullptr) // lib{} group.
             x_e_libs = l.group->vars[var];
+        }
+        */
+
+        if (!impl)
+        {
+          c_e_libs = l[c_export_libs];
+
+          if (!cc)
+            x_e_libs = l[same ? x_export_libs : vp[*t + ".export.libs"]];
         }
 
         // Process options first.
@@ -134,6 +145,9 @@ namespace build2
               // Interface and implementation: as discussed above, we can have
               // two situations: overriden export or default export.
               //
+              // @@ ???
+              //
+              /*
               if (c_e_libs.defined () || x_e_libs.defined ())
               {
                 // NOTE: should this not be from l.vars rather than l? Or
@@ -142,9 +156,9 @@ namespace build2
                 //
                 proc_opt (l, *t, false, true);
                 proc_opt (l, *t, true, true);
-
               }
               else
+              */
               {
                 // For default export we use the same options as were used to
                 // build the library.
@@ -235,7 +249,7 @@ namespace build2
       // not using explicit export. Otherwise, interface dependencies come
       // from the lib{}:*.export.libs below.
       //
-      if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
+      if (impl /*&& !c_e_libs.defined () && !x_e_libs.defined ()*/)
       {
         for (const prerequisite_target& pt: l.prerequisite_targets[a])
         {
@@ -390,12 +404,16 @@ namespace build2
             // Interface and implementation: as discussed above, we can have
             // two situations: overriden export or default export.
             //
+            // @@ ???
+            //
+            /*
             if (c_e_libs.defined () || x_e_libs.defined ())
             {
               if (c_e_libs) proc_int (c_e_libs);
               if (x_e_libs) proc_int (x_e_libs);
             }
             else
+            */
             {
               // For default export we use the same options/libs as were used
               // to build the library. Since libraries in (non-export) *.libs
