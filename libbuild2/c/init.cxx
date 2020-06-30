@@ -202,11 +202,13 @@ namespace build2
         vp.insert<strings>      ("c.export.coptions"),
         vp.insert<strings>      ("c.export.loptions"),
         vp.insert<vector<name>> ("c.export.libs"),
+        vp.insert<vector<name>> ("c.export.imp_libs"),
 
         vp["cc.export.poptions"],
         vp["cc.export.coptions"],
         vp["cc.export.loptions"],
         vp["cc.export.libs"],
+        vp["cc.export.imp_libs"],
 
         vp.insert_alias (vp["cc.stdlib"], "c.stdlib"), // Same as cc.stdlib.
 

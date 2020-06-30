@@ -21,13 +21,14 @@ namespace build2
   {
     using namespace bin;
 
-    // Recursively process prerequisite libraries. If proc_impl returns false,
-    // then only process interface (*.export.libs), otherwise -- interface and
-    // implementation (prerequisite and from *.libs, unless overriden).
+    // Recursively process prerequisite libraries of the specified library. If
+    // proc_impl returns false, then only process interface (*.export.libs),
+    // otherwise -- interface and implementation (prerequisite and from
+    // *.libs, unless overriden with *.export.imp_libs).
     //
-    // Note that here we assume that an interface library is also an
-    // implementation (since we don't use *.export.libs in static link). We
-    // currently have this restriction to make sure the target in
+    // Note that here we assume that an interface library is also always an
+    // implementation (since we don't use *.export.libs for static linking).
+    // We currently have this restriction to make sure the target in
     // *.export.libs is up-to-date (which will happen automatically if it is
     // listed as a prerequisite of this library).
     //
@@ -44,7 +45,7 @@ namespace build2
     //
     // The first argument to proc_lib is a pointer to the last element of an
     // array that contains the current library dependency chain all the way to
-    // the library passes to process_libraries(). The first element of this
+    // the library passed to process_libraries(). The first element of this
     // array is NULL.
     //
     void common::
@@ -92,31 +93,26 @@ namespace build2
 
       if (t != nullptr)
       {
-        cc = *t == "cc";
-        same = !cc && *t == x;
+        cc   = (*t == "cc");
+        same = (!cc && *t == x);
 
-        // The explicit export override should be set on the liba/libs{}
-        // target itself. Note also that we only check for *.libs. If one
-        // doesn't have any libraries but needs to set, say, *.loptions, then
-        // *.libs should be set to NULL or empty (this is why we check for
-        // the result being defined).
+        // Note that we used to treat *.export.libs set on the liba/libs{}
+        // members as *.libs overrides rather than as member-specific
+        // interface dependencies. This difference in semantics proved to be
+        // surprising so now we have separate *.export.imp_libs for that.
+        // Note that in this case options come from *.export.* variables.
         //
-        if (impl)
-          c_e_libs = l.vars[c_export_libs]; // Override.
-        else if (l.group != nullptr) // lib{} group.
-          c_e_libs = l.group->vars[c_export_libs];
+        // Note also that we only check for *.*libs. If one doesn't have any
+        // libraries but needs to set, say, *.loptions, then *.*libs should be
+        // set to NULL or empty (this is why we check for the result being
+        // defined).
+        //
+        c_e_libs = l[impl ? c_export_imp_libs : c_export_libs];
 
         if (!cc)
-        {
-          const variable& var (same
-                               ? x_export_libs
-                               : vp[*t + ".export.libs"]);
-
-          if (impl)
-            x_e_libs = l.vars[var]; // Override.
-          else if (l.group != nullptr) // lib{} group.
-            x_e_libs = l.group->vars[var];
-        }
+          x_e_libs = l[same
+                       ? (impl ? x_export_imp_libs : x_export_libs)
+                       : vp[*t + (impl ? ".export.imp_libs" : ".export.libs")]];
 
         // Process options first.
         //
@@ -140,9 +136,10 @@ namespace build2
                 // perhaps we can assume non-common values will be set on
                 // libs{}/liba{}.
                 //
+                // Note: options come from *.export.* variables.
+                //
                 proc_opt (l, *t, false, true);
                 proc_opt (l, *t, true, true);
-
               }
               else
               {
@@ -233,7 +230,7 @@ namespace build2
 
       // Only go into prerequisites (implementation) if instructed and we are
       // not using explicit export. Otherwise, interface dependencies come
-      // from the lib{}:*.export.libs below.
+      // from the lib{}:*.export.imp_libs below.
       //
       if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
@@ -262,7 +259,7 @@ namespace build2
         }
       }
 
-      // Process libraries (recursively) from *.export.libs (of type names)
+      // Process libraries (recursively) from *.export.*libs (of type names)
       // handling import, etc.
       //
       // If it is not a C-common library, then it probably doesn't have any of
@@ -292,7 +289,7 @@ namespace build2
                          &proc_impl, &proc_lib, &proc_opt, chain,
                          &sysd, &usrd,
                          &find_sysd, &find_linfo, &sys_simple,
-                         &bs, a, &li, this] (const lookup& lu)
+                         &bs, a, &li, impl, this] (const lookup& lu)
         {
           const vector<name>* ns (cast_null<vector<name>> (lu));
           if (ns == nullptr || ns->empty ())
@@ -339,8 +336,10 @@ namespace build2
                 // paths.
                 //
                 if (t.mtime () == timestamp_unknown)
-                  fail << "interface dependency " << t << " is out of date" <<
-                    info << "mentioned in *.export.libs of target " << l <<
+                  fail   << (impl ? "implementation" : "interface")
+                         << " dependency " << t << " is out of date" <<
+                    info << "mentioned in *.export." << (impl ? "imp_" : "")
+                         << "libs of target " << l <<
                     info << "is it a prerequisite of " << l << "?";
               }
 
@@ -377,7 +376,7 @@ namespace build2
         // Note: the same structure as when processing options above.
         //
         // If all we know is it's a C-common library, then in both cases we
-        // only look for cc.export.libs.
+        // only look for cc.export.*libs.
         //
         if (cc)
         {

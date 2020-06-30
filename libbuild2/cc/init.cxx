@@ -108,6 +108,7 @@ namespace build2
       vp.insert<strings>      ("cc.export.coptions");
       vp.insert<strings>      ("cc.export.loptions");
       vp.insert<vector<name>> ("cc.export.libs");
+      vp.insert<vector<name>> ("cc.export.imp_libs");
 
       // Hint variables (not overridable).
       //
