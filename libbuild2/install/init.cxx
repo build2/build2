@@ -3,6 +3,8 @@
 
 #include <libbuild2/install/init.hxx>
 
+#include <libbutl/command.mxx> // command_substitute()
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/rule.hxx>
@@ -23,15 +25,71 @@ namespace build2
 {
   namespace install
   {
-    // Set install.<name>.* values based on config.install.<name>.* ones
-    // or the defaults. If none of config.install.* values were specified,
-    // then we do omitted/delayed configuration. Note that we still need
-    // to set all the install.* values to defaults, as if we had the
+    // Process an install.<name>.* value replacing the <var>-substitutions
+    // with their actual values. Note that for now we are only doing this for
+    // dir_path (install.<name> variables).
+    //
+    // The semantics of <>-substitution is inspired by our command running
+    // facility. In a nutshell, `<<` is an escape, unknown or unterminated
+    // substitution is an error.
+    //
+    //
+    template<typename T>
+    static inline T
+    proc_var (scope&, const T& val, const variable&)
+    {
+      return val;
+    }
+
+    static inline dir_path
+    proc_var (scope& rs, const dir_path& val, const variable& var)
+    {
+      if (val.string ().find ('<') == string::npos)
+        return val;
+
+      // Note: watch out for the small std::function optimization.
+      //
+      auto subst = [&rs] (const string& var, string& r)
+      {
+        if (var == "project")
+          r += project (rs).string ();
+        else
+          return false;
+
+        return true;
+      };
+
+      dir_path r;
+      for (auto i (val.begin ()); i != val.end (); ++i)
+      {
+        auto s (*i);
+
+        try
+        {
+          size_t sp (s.find ('<'));
+          r.combine (sp == string::npos
+                     ? s
+                     : command_substitute (s, sp, subst, '<', '>'),
+                     i.separator ());
+        }
+        catch (const invalid_argument& e)
+        {
+          fail << "invalid " << var << " value '" << val << "': " << e;
+        }
+      }
+
+      return r;
+    }
+
+    // Set an install.<name>.* value based on config.install.<name>.* or the
+    // default. If none of config.install.* values were specified (spec is
+    // false), then we do omitted/delayed configuration. Note that we still
+    // need to set all the install.* values to defaults, as if we had the
     // default configuration.
     //
     // If override is true, then override values that came from outer
-    // configurations. We have to do this for paths that contain the
-    // package name.
+    // configurations. We have to do this for paths that contain the project
+    // name.
     //
     // For global values we only set config.install.* variables. Non-global
     // values with NULL defaults are omitted.
@@ -83,12 +141,12 @@ namespace build2
       if (spec)
       {
         if (l)
-          v = cast<T> (l); // Strip CT to T.
+          v = proc_var (rs, cast<T> (l), vr); // Strip CT to T.
       }
       else
       {
         if (dv != nullptr)
-          v = *dv;
+          v = proc_var (rs, *dv, vr);
       }
     }
 
