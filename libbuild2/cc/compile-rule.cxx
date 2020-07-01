@@ -3863,7 +3863,23 @@ namespace build2
                       {
                         // We can't be skipping over a non-existent header.
                         //
+                        // @@ TMP: but this does seem to happen in some rare,
+                        //    hard to reproduce situations.
+#if 0
                         assert (!good_error);
+#else
+                        if (good_error)
+                        {
+                          info   << "previously existing header '" << f << "'"
+                                 << " appears to have disappeared during build" <<
+                            info << "line: " << l <<
+                            info << "skip: " << skip <<
+                            info << "please report at "
+                                 << "https://github.com/build2/build2/issues/80";
+
+                          assert (!good_error);
+                        }
+#endif
                         skip--;
                       }
                       else
