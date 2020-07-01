@@ -917,12 +917,14 @@ namespace build2
         {
           const path& p (src.path ());
 
-          // We seem to have a race condition here but can't quite put our
-          // finger on it.
+          // @@ TMP: we seem to have a race condition here but can't quite put
+          // our finger on it.
           //
           // NOTE: remember to get rid of src_ts*, etc., once done.
           //
-          // assert (!p.empty ()); // Sanity check.
+#if 0
+          assert (!p.empty ()); // Sanity check.
+#else
           if (p.empty ())
           {
             target_state src_ts3 (src.matched_state (a, false));
@@ -933,11 +935,13 @@ namespace build2
               info << "target state 2: " << src_ts2 <<
               info << "target state 3: " << src_ts3 <<
               info << "target count 1: " << src_tc1 <<
-              info << "target count 2: " << src_tc2;
+              info << "target count 2: " << src_tc2 <<
+              info << "please report at "
+                 << "https://github.com/build2/build2/issues/89";
 
-            assert (false);
+            assert (!p.empty ());
           }
-
+#endif
           if (dd.expect (p) != nullptr)
             l4 ([&]{trace << "source file mismatch forcing update of " << t;});
         }
