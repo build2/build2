@@ -36,23 +36,33 @@ namespace build2
     //
     template<typename T>
     static inline T
-    proc_var (scope&, const T& val, const variable&)
+    proc_var (const dir_path*, scope&, const T& val, const variable&)
     {
       return val;
     }
 
     static inline dir_path
-    proc_var (scope& rs, const dir_path& val, const variable& var)
+    proc_var (const dir_path* prv,
+              scope& rs,
+              const dir_path& val,
+              const variable& var)
     {
       if (val.string ().find ('<') == string::npos)
         return val;
 
       // Note: watch out for the small std::function optimization.
       //
-      auto subst = [&rs] (const string& var, string& r)
+      auto subst = [prv, &rs] (const string& var, string& r)
       {
         if (var == "project")
+        {
           r += project (rs).string ();
+        }
+        else if (var == "private")
+        {
+          if (prv != nullptr && !prv->empty ())
+            r += prv->string ();
+        }
         else
           return false;
 
@@ -62,19 +72,50 @@ namespace build2
       dir_path r;
       for (auto i (val.begin ()); i != val.end (); ++i)
       {
-        auto s (*i);
+        auto o (*i); // Original.
 
+        size_t p (o.find ('<'));
+        if (p == string::npos)
+        {
+          r.combine (o, i.separator ());
+          continue;
+        }
+
+        string s; // Substituted.
         try
         {
-          size_t sp (s.find ('<'));
-          r.combine (sp == string::npos
-                     ? s
-                     : command_substitute (s, sp, subst, '<', '>'),
-                     i.separator ());
+          s = command_substitute (o, p, subst, '<', '>');
         }
         catch (const invalid_argument& e)
         {
           fail << "invalid " << var << " value '" << val << "': " << e;
+        }
+
+        // In case of <private> the result of the substitution may have
+        // multiple path components.
+        //
+        if (path::traits_type::find_separator (s) == string::npos)
+        {
+          r.combine (s, i.separator ());
+          continue;
+        }
+
+        dir_path d;
+        try
+        {
+          d = dir_path (move (s));
+        }
+        catch (const invalid_path& e)
+        {
+          fail << "invalid path '" << e.path << "'";
+        }
+
+        // Use the substitution's separators except for the last one.
+        //
+        for (auto j (d.begin ()), e (d.end ()); j != e; )
+        {
+          auto c (*j);
+          r.combine (c, ++j != e ? j.separator () : i.separator ());
         }
       }
 
@@ -98,6 +139,7 @@ namespace build2
     template <typename T, typename CT>
     static void
     set_var (bool spec,
+             const dir_path* prv,
              scope& rs,
              const char* name,
              const char* var,
@@ -142,21 +184,22 @@ namespace build2
       if (spec)
       {
         if (l)
-          v = proc_var (rs, cast<T> (l), vr); // Strip CT to T.
+          v = proc_var (prv, rs, cast<T> (l), vr); // Strip CT to T.
       }
       else
       {
         if (dv != nullptr)
-          v = proc_var (rs, *dv, vr);
+          v = proc_var (prv, rs, *dv, vr);
       }
     }
 
     template <typename T>
     static void
     set_dir (bool s,                                  // specified
+             const dir_path* p,                       // <private>
              scope& rs,                               // root scope
              const char* n,                           // var name
-             const T& p,                              // path
+             const T& d,                              // path
              bool o = false,                          // override
              const string& fm = string (),            // file mode
              const string& dm = string (),            // dir mode
@@ -167,13 +210,13 @@ namespace build2
       bool global (*n == '\0');
 
       if (!global)
-        set_var<dir_path> (s, rs, n, "",        p.empty ()  ? nullptr : &p, o);
+        set_var<dir_path> (s, p, rs, n, "",       d.empty ()  ? nullptr : &d, o);
 
-      set_var<path>     (s, rs, n, ".cmd",      c.empty ()  ? nullptr : &c);
-      set_var<strings>  (s, rs, n, ".options",  (strings*) (nullptr));
-      set_var<string>   (s, rs, n, ".mode",     fm.empty () ? nullptr : &fm);
-      set_var<string>   (s, rs, n, ".dir_mode", dm.empty () ? nullptr : &dm);
-      set_var<string>   (s, rs, n, ".sudo",     (string*) (nullptr));
+      set_var<path>    (s, p, rs, n, ".cmd",      c.empty ()  ? nullptr : &c);
+      set_var<strings> (s, p, rs, n, ".options",  (strings*) (nullptr));
+      set_var<string>  (s, p, rs, n, ".mode",     fm.empty () ? nullptr : &fm);
+      set_var<string>  (s, p, rs, n, ".dir_mode", dm.empty () ? nullptr : &dm);
+      set_var<string>  (s, p, rs, n, ".sudo",     (string*) (nullptr));
 
       // This one doesn't have config.* value (only set in a buildfile).
       //
@@ -209,6 +252,8 @@ namespace build2
 
     static const path cmd ("install");
 
+    // Default config.install.* values.
+    //
 #define DIR(N, V) static const dir_path dir_##N (V)
 
     DIR (data_root,  dir_path ("root"));
@@ -216,15 +261,15 @@ namespace build2
 
     DIR (sbin,       dir_path ("exec_root") /= "sbin");
     DIR (bin,        dir_path ("exec_root") /= "bin");
-    DIR (lib,        dir_path ("exec_root") /= "lib");
-    DIR (libexec,   (dir_path ("exec_root") /= "libexec") /= "<project>");
+    DIR (lib,       (dir_path ("exec_root") /= "lib") /= "<private>");
+    DIR (libexec,  ((dir_path ("exec_root") /= "libexec") /= "<private>") /= "<project>");
     DIR (pkgconfig,  dir_path ("lib")       /= "pkgconfig");
 
-    DIR (include,    dir_path ("data_root") /= "include");
+    DIR (include,   (dir_path ("data_root") /= "include") /= "<private>");
     DIR (share,      dir_path ("data_root") /= "share");
-    DIR (data,       dir_path ("share")     /= "<project>");
+    DIR (data,      (dir_path ("share")     /= "<private>") /= "<project>");
 
-    DIR (doc,       (dir_path ("share")     /= "doc") /= "<project>");
+    DIR (doc,      ((dir_path ("share")     /= "doc") /= "<private>") /= "<project>");
     DIR (legal,      dir_path ("doc"));
     DIR (man,        dir_path ("share")     /= "man");
     DIR (man1,       dir_path ("man")       /= "man1");
@@ -310,29 +355,27 @@ namespace build2
         if (s)
           config::save_module (rs, "install", INT32_MAX);
 
-        // Global config.install.* values.
+        // Support for private install (aka poor man's Flatpack).
         //
-        set_dir (s, rs, "",          abs_dir_path (), false, "644", "755", cmd);
+        const dir_path* p;
+        {
+          auto& var  (vp.insert<dir_path> (       "install.private"));
+          auto& cvar (vp.insert<dir_path> ("config.install.private"));
 
-        set_dir (s, rs, "root",      abs_dir_path ());
+          value& v (rs.assign (var));
 
-        set_dir (s, rs, "data_root", dir_data_root);
-        set_dir (s, rs, "exec_root", dir_exec_root, false, "755");
+          if (s)
+          {
+            if (lookup l = lookup_config (rs, cvar, nullptr))
+              v = cast<dir_path> (l);
+          }
 
-        set_dir (s, rs, "sbin",      dir_sbin);
-        set_dir (s, rs, "bin",       dir_bin);
-        set_dir (s, rs, "lib",       dir_lib);
-        set_dir (s, rs, "libexec",   dir_libexec);
-        set_dir (s, rs, "pkgconfig", dir_pkgconfig, false, "644");
-
-        set_dir (s, rs, "include",   dir_include);
-        set_dir (s, rs, "share",     dir_share);
-        set_dir (s, rs, "data",      dir_data);
-
-        set_dir (s, rs, "doc",       dir_doc);
-        set_dir (s, rs, "legal",     dir_legal);
-        set_dir (s, rs, "man",       dir_man);
-        set_dir (s, rs, "man1",      dir_man1);
+          if ((p = cast_null<dir_path> (v)) != nullptr)
+          {
+            if (p->absolute ())
+              fail << "absolute directory " << *p << " in install.private";
+          }
+        }
 
         // Support for chroot'ed install (aka DESTDIR).
         //
@@ -348,6 +391,30 @@ namespace build2
               v = cast<dir_path> (l); // Strip abs_dir_path.
           }
         }
+
+        // Global config.install.* values.
+        //
+        set_dir (s, p, rs, "",          abs_dir_path (), false, "644", "755", cmd);
+
+        set_dir (s, p, rs, "root",      abs_dir_path ());
+
+        set_dir (s, p, rs, "data_root", dir_data_root);
+        set_dir (s, p, rs, "exec_root", dir_exec_root, false, "755");
+
+        set_dir (s, p, rs, "sbin",      dir_sbin);
+        set_dir (s, p, rs, "bin",       dir_bin);
+        set_dir (s, p, rs, "lib",       dir_lib);
+        set_dir (s, p, rs, "libexec",   dir_libexec);
+        set_dir (s, p, rs, "pkgconfig", dir_pkgconfig, false, "644");
+
+        set_dir (s, p, rs, "include",   dir_include);
+        set_dir (s, p, rs, "share",     dir_share);
+        set_dir (s, p, rs, "data",      dir_data);
+
+        set_dir (s, p, rs, "doc",       dir_doc);
+        set_dir (s, p, rs, "legal",     dir_legal);
+        set_dir (s, p, rs, "man",       dir_man);
+        set_dir (s, p, rs, "man1",      dir_man1);
       }
 
       // Configure "installability" for built-in target types.
