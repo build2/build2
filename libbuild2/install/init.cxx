@@ -88,8 +88,9 @@ namespace build2
     // default configuration.
     //
     // If override is true, then override values that came from outer
-    // configurations. We have to do this for paths that contain the project
-    // name.
+    // configurations. We had to do this for paths that contain the project
+    // name but now we use the <project> substitution. Let's keep this
+    // functionality for now in case we need it for something else.
     //
     // For global values we only set config.install.* variables. Non-global
     // values with NULL defaults are omitted.
@@ -208,23 +209,27 @@ namespace build2
 
     static const path cmd ("install");
 
-    static const dir_path dir_data_root ("root");
-    static const dir_path dir_exec_root ("root");
+#define DIR(N, V) static const dir_path dir_##N (V)
 
-    static const dir_path dir_sbin      (dir_path ("exec_root") /= "sbin");
-    static const dir_path dir_bin       (dir_path ("exec_root") /= "bin");
-    static const dir_path dir_lib       (dir_path ("exec_root") /= "lib");
-    static const dir_path dir_libexec   (dir_path ("exec_root") /= "libexec");
-    static const dir_path dir_pkgconfig (dir_path ("lib") /= "pkgconfig");
+    DIR (data_root,  dir_path ("root"));
+    DIR (exec_root,  dir_path ("root"));
 
-    static const dir_path dir_include (dir_path ("data_root") /= "include");
-    static const dir_path dir_share   (dir_path ("data_root") /= "share");
-    static const dir_path dir_data    ("share");
+    DIR (sbin,       dir_path ("exec_root") /= "sbin");
+    DIR (bin,        dir_path ("exec_root") /= "bin");
+    DIR (lib,        dir_path ("exec_root") /= "lib");
+    DIR (libexec,   (dir_path ("exec_root") /= "libexec") /= "<project>");
+    DIR (pkgconfig,  dir_path ("lib")       /= "pkgconfig");
 
-    static const dir_path dir_doc   (dir_path ("share") /= "doc");
-    static const dir_path dir_legal ("doc");
-    static const dir_path dir_man   (dir_path ("share") /= "man");
-    static const dir_path dir_man1  (dir_path ("man") /= "man1");
+    DIR (include,    dir_path ("data_root") /= "include");
+    DIR (share,      dir_path ("data_root") /= "share");
+    DIR (data,       dir_path ("share")     /= "<project>");
+
+    DIR (doc,       (dir_path ("share")     /= "doc") /= "<project>");
+    DIR (legal,      dir_path ("doc"));
+    DIR (man,        dir_path ("share")     /= "man");
+    DIR (man1,       dir_path ("man")       /= "man1");
+
+#undef DIR
 
     static const group_rule group_rule_ (true /* see_through_only */);
 
@@ -305,8 +310,6 @@ namespace build2
         if (s)
           config::save_module (rs, "install", INT32_MAX);
 
-        const string& n (project (rs).string ());
-
         // Global config.install.* values.
         //
         set_dir (s, rs, "",          abs_dir_path (), false, "644", "755", cmd);
@@ -319,14 +322,14 @@ namespace build2
         set_dir (s, rs, "sbin",      dir_sbin);
         set_dir (s, rs, "bin",       dir_bin);
         set_dir (s, rs, "lib",       dir_lib);
-        set_dir (s, rs, "libexec",   dir_path (dir_libexec) /= n, true);
+        set_dir (s, rs, "libexec",   dir_libexec);
         set_dir (s, rs, "pkgconfig", dir_pkgconfig, false, "644");
 
         set_dir (s, rs, "include",   dir_include);
         set_dir (s, rs, "share",     dir_share);
-        set_dir (s, rs, "data",      dir_path (dir_data) /= n, true);
+        set_dir (s, rs, "data",      dir_data);
 
-        set_dir (s, rs, "doc",       dir_path (dir_doc) /= n, true);
+        set_dir (s, rs, "doc",       dir_doc);
         set_dir (s, rs, "legal",     dir_legal);
         set_dir (s, rs, "man",       dir_man);
         set_dir (s, rs, "man1",      dir_man1);
