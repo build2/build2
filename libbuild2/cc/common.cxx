@@ -427,9 +427,9 @@ namespace build2
     // /tmp/libfoo/lib{foo} or ../libfoo/lib{foo}) or a project-qualified
     // relative target name (e.g., libfoo%lib{foo}).
     //
-    // Note that in case of the relative target that comes from export.libs,
+    // Note that in case of the relative target that comes from export.*libs,
     // the resolution happens relative to the base scope of the target from
-    // which this export.libs came, which is exactly what we want.
+    // which this export.*libs came, which is exactly what we want.
     //
     // Note that the scope, search paths, and the link order should all be
     // derived from the library target that mentioned this name. This way we

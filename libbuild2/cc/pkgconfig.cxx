@@ -1068,7 +1068,7 @@ namespace build2
         // Set even if empty (export override).
         //
         {
-          auto p (t.vars.insert (c_export_libs));
+          auto p (t.vars.insert (la ? c_export_imp_libs : c_export_libs));
 
           if (p.second)
             p.first.get () = move (libs);
