@@ -2,7 +2,7 @@
 # license   : MIT; see accompanying LICENSE file
 
 ./: {*/ -build/ -config/ -old-tests/}                    \
-    doc{INSTALL LICENSE AUTHORS NEWS README}             \
+    doc{INSTALL NEWS README} legal{LICENSE AUTHORS}      \
     file{INSTALL.cli bootstrap* config.guess config.sub} \
     manifest
 
