@@ -1827,9 +1827,9 @@ however, can be customized with the \c{backlink} target-specific variable.|
 
 \h2#intro-operations-test|Testing|
 
-The next module we load in \c{bootstrap.build} is \c{test} which defines the
-\c{test} operation. As the name suggests, this module provides support for
-running tests.
+The next module we load in \c{bootstrap.build} is \l{#module-test \c{test}}
+which defines the \c{test} operation. As the name suggests, this module
+provides support for running tests.
 
 There are two types of tests that we can run with the \c{test} module: simple
 and scripted.
@@ -2106,8 +2106,9 @@ Implementing Unit Testing}.|
 
 \h2#intro-operations-install|Installing|
 
-The \c{install} module defines the \c{install} and \c{uninstall} operations.
-As the name suggests, this module provides support for project installation.
+The \l{#module-install \c{install}} module defines the \c{install} and
+\c{uninstall} operations.  As the name suggests, this module provides support
+for project installation.
 
 \N|Installation in \c{build2} is modeled after UNIX-like operation systems
 though the installation directory layout is highly customizable. While
@@ -5433,6 +5434,76 @@ treated specially. It enables all the tests at and under its directory. This
 special treatment can be inhibited by specifying the target type explicitly
 (for example, \c{dir{foo/\}}).
 
+\h1#module-install|\c{install} Module|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+The \c{install} module provides support for installing and uninstalling
+projects.
+
+As briefly discussed in the \l{#intro-operations-install Installing} section
+of the Introduction, the \c{install} module defines the following standard
+installation locations:
+
+\
+name        default                                 config.* override
+----        -------                                 -----------------
+root                                                install.root
+
+data_root   root/                                   install.data_root
+exec_root   root/                                   install.exec_root
+
+bin         exec_root/bin/                          install.bin
+sbin        exec_root/sbin/                         install.sbin
+lib         exec_root/lib/<private>/                install.lib
+libexec     exec_root/libexec/<private>/<project>/  install.libexec
+pkgconfig   lib/pkgconfig/                          install.pkgconfig
+
+include     data_root/include/<private>/            install.include
+share       data_root/share/                        install.share
+data        share/<private>/<project>/              install.data
+
+doc         share/doc/<private>/<project>/          install.doc
+legal       doc/                                    install.legal
+man         share/man/                              install.man
+man<N>      man/man<N>/                             install.man<N>
+\
+
+The \c{<project>} and \c{<private>} substitutions in these
+\c{config.install.*} values are replaced with the project name and private
+subdirectory, respectively. If either is empty, that the corresponding
+directory component is ignored.
+
+The optional private installation subdirectory (\c{<private>}) mechanism can
+be used to hide the implementation details of a project. This is primarily
+useful when installing an executable that depends on a bunch of libraries into
+a shared location, such as \c{/usr/local/}. By hiding the libraries in the
+private subdirectory we can make sure that they will not interfere with
+anything that is already installed into such a shared location by the user
+and that any further such installations won't interfere with our executable.
+
+The private installation subdirectory is specified with the
+\c{config.install.private} variable. Its value must be a relative
+directory and may include multiple components. For example:
+
+\
+$ b install config.install.root=/usr/local/ config.install.private=hello/
+\
+
+\N|If you are relying on your system's dynamic linker defaults to
+automatically find shared libraries that are installed with your executable,
+then adding the private installation subdirectory will most definitely
+cause this to stop working. The recommended way to resolve this problem is
+to use \i{rpath}, for example:
+
+\
+$ b install                       \
+  config.install.root=/usr/local/ \
+  config.install.private=hello/   \
+  config.bin.rpath=/usr/local/lib/hello/
+\
+
+|
 
 \h1#module-version|\c{version} Module|
 
