@@ -204,13 +204,12 @@ namespace build2
 
         // Assume missing version is 0.
         //
-        auto p (extract_variable (rs.ctx, lex, c_v));
-        uint64_t v (p.second ? cast<uint64_t> (p.first) : 0);
+        optional<value> ov (extract_variable (rs.ctx, lex, c_v));
+        uint64_t v (ov ? cast<uint64_t> (*ov) : 0);
 
         if (v != module::version)
           fail (l) << "incompatible config file " << in <<
-            info << "config file version   " << v
-                   << (p.second ? "" : " (missing)") <<
+            info << "config file version   " << v << (ov ? "" : " (missing)") <<
             info << "config module version " << module::version <<
             info << "consider reconfiguring " << project (rs) << '@'
                    << rs.out_path ();
