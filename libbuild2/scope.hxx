@@ -416,6 +416,14 @@ namespace build2
   public:
     struct root_extra_type
     {
+      // This project's name (var_project value). Absent means it is not yet
+      // determined. NULL means simple project. Empty means unnamed project.
+      //
+      // Note that it is set to point to a temporary value before loading
+      // bootstrap.build and to a permanent one (from the variable) after.
+      //
+      optional<const project_name*> project;
+
       // This project's amalgamation (var_amalgamation value). Absent means it
       // is not yet determined. NULL means amalgamation is disabled.
       //
@@ -561,6 +569,10 @@ namespace build2
            const dir_path& out_root, const dir_path& src_root);
 
   // Return the project name or empty if unnamed.
+  //
+  // Note that this function and named_project() below expect the root scope
+  // to either be already bootstrapped or being src-bootstrapped (see
+  // bootstrap_src()).
   //
   const project_name&
   project (const scope& root);

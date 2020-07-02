@@ -162,8 +162,11 @@ namespace build2
   inline const project_name&
   project (const scope& rs)
   {
-    auto l (rs[rs.ctx.var_project]);
-    return l ? cast<project_name> (l) : empty_project_name;
+    assert (rs.root_extra != nullptr && rs.root_extra->project);
+
+    return *rs.root_extra->project != nullptr
+      ? **rs.root_extra->project
+      : empty_project_name;
   }
 
   inline const project_name&

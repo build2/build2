@@ -497,6 +497,7 @@ namespace build2
 
     root.root_extra.reset (
       new scope::root_extra_type {
+        nullopt /* project */,
         nullopt /* amalgamation */,
         a,
         a ? alt_build_ext        : std_build_ext,
@@ -646,8 +647,6 @@ namespace build2
     }
   }
 
-
-
   // Extract the project name from bootstrap.build.
   //
   static project_name
@@ -673,10 +672,14 @@ namespace build2
           altn = s.root_extra->altn;
         else
           assert (*altn == s.root_extra->altn);
-      }
 
-      if (lookup l = s.vars[ctx.var_project])
-        return cast<project_name> (l);
+        if (s.root_extra->project)
+        {
+          return (*s.root_extra->project != nullptr
+                  ? **s.root_extra->project
+                  : empty_project_name);
+        }
+      }
 
       src_root = s.src_path_;
     }
@@ -856,6 +859,7 @@ namespace build2
     if (bf.empty ())
     {
       r = false;
+      rs.root_extra->project = nullptr; // Simple project.
     }
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
@@ -864,6 +868,20 @@ namespace build2
     //
     else if (rs.buildfiles.insert (bf).second)
     {
+      // Extract and pre-cache the project name before loading
+      // bootstrap.build.
+      //
+      // @@ TODO: optimize by extracting both of them at once?
+      //
+      auto pp (extract_variable (ctx, bf, *ctx.var_project, 1));
+
+      if (!pp.second)
+        fail << "variable " << *ctx.var_project << " expected as a first "
+             << "line in " << bf;
+
+      const project_name pn (cast<project_name> (move (pp.first)));
+      rs.root_extra->project = &pn;
+
       // Deal with the empty amalgamation variable (which indicates that
       // amalgamating this project is disabled). We go through all this
       // trouble of extracting its value manually (and thus requiring its
@@ -881,6 +899,10 @@ namespace build2
         parser p (rs.ctx, load_stage::boot);
         source (p, rs, rs, bf);
       }
+
+      // Update to point to the variable value.
+      //
+      rs.root_extra->project = &cast<project_name> (rs.vars[ctx.var_project]);
 
       // Detect and diagnose the case where the amalgamation variable is not
       // the second line.
@@ -2001,8 +2023,7 @@ namespace build2
 
           // First check the amalgamation itself.
           //
-          if (r != &iroot &&
-              cast<project_name> (r->vars[ctx.var_project]) == proj)
+          if (r != &iroot && project (*r) == proj)
           {
             out_root = r->out_path ();
             break;
@@ -2137,7 +2158,7 @@ namespace build2
 
       // Now we know this project's name as well as all its subprojects.
       //
-      if (cast<project_name> (root->vars[ctx.var_project]) == proj)
+      if (project (*root) == proj)
         break;
 
       if (auto l = root->vars[ctx.var_subprojects])

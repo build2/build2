@@ -68,19 +68,19 @@ namespace build2
           {
             if (nv.name == "name")
             {
-              auto* pn (cast_null<project_name> (rs.vars[ctx.var_project]));
+              const project_name& pn (project (rs));
 
-              if (pn == nullptr)
+              if (pn.empty ())
                 fail (l) << "version module loaded in unnamed project";
 
-              if (nv.value != pn->string ())
+              if (nv.value != pn.string ())
               {
                 path bf (rs.src_path () / rs.root_extra->bootstrap_file);
                 location ml (f, nv.value_line, nv.value_column);
                 location bl (bf);
 
                 fail (ml) << "package name " << nv.value << " does not match "
-                          << "build system project name " << *pn <<
+                          << "build system project name " << pn <<
                   info (bl) << "build system project name specified here";
               }
             }
@@ -273,7 +273,7 @@ namespace build2
       // Create the module instance.
       //
       extra.set_module (
-        new module (cast<project_name> (rs.vars[ctx.var_project]),
+        new module (project (rs),
                     move (v),
                     committed,
                     rewritten,
@@ -297,8 +297,6 @@ namespace build2
 
       if (!first)
         fail (l) << "multiple version module initializations";
-
-      context& ctx (rs.ctx);
 
       // Load in.base (in.* variables, in{} target type).
       //
@@ -324,7 +322,9 @@ namespace build2
 
         if (!val)
         {
-          string p (cast<project_name> (rs.vars[ctx.var_project]).string ());
+          // We've already verified in boot() it is named.
+          //
+          string p (project (rs).string ());
           p += '-';
           p += v.string ();
           val = move (p);
