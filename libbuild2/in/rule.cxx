@@ -271,6 +271,14 @@ namespace build2
         what = "open"; whom = &ip;
         ifdstream ifs (ip, ifdstream::badbit);
 
+        what = "open"; whom = &tp;
+#ifdef _WIN32
+        // We don't need to worry about permissions on Windows and trying to
+        // remove the file immediately before creating it sometimes can cause
+        // open to fail with permission denied.
+        //
+        ofdstream ofs (tp);
+#else
         // See fdopen() for details (umask, etc).
         //
         permissions prm (permissions::ru | permissions::wu |
@@ -286,10 +294,10 @@ namespace build2
         //
         try_rmfile (tp, true /* ignore_error */);
 
-        what = "open"; whom = &tp;
         ofdstream ofs (fdopen (tp,
                                fdopen_mode::out | fdopen_mode::create,
                                prm));
+#endif
         auto_rmfile arm (tp);
 
         string s; // Reuse the buffer.
