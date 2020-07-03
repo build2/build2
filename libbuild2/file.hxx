@@ -161,10 +161,9 @@ namespace build2
   LIBBUILD2_SYMEXPORT value&
   bootstrap_out (scope& root, optional<bool>& altn);
 
-  // Bootstrap the project's root scope, the src part. Return true if we
-  // loaded anything (which confirms the src_root is not bogus).
+  // Bootstrap the project's root scope, the src part.
   //
-  LIBBUILD2_SYMEXPORT bool
+  LIBBUILD2_SYMEXPORT void
   bootstrap_src (scope& root, optional<bool>& altn);
 
   // Return true if this scope has already been bootstrapped, that is, the

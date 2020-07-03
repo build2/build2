@@ -444,12 +444,7 @@ namespace build2
       // do this before figuring out src_base since we may switch the root
       // project (and src_root with it).
       //
-      {
-        scope* nrs (&create_bootstrap_inner (*rs, out_base));
-
-        if (rs != nrs)
-          rs = nrs;
-      }
+      rs = &create_bootstrap_inner (*rs, out_base);
 
       // Switch to the new root scope.
       //
@@ -817,7 +812,7 @@ namespace build2
     }
   }
 
-  bool
+  void
   bootstrap_src (scope& rs, optional<bool>& altn)
   {
     tracer trace ("bootstrap_src");
@@ -839,11 +834,14 @@ namespace build2
       setup_root_extra (rs, altn);
     }
 
-    bool r (true);
-    if (bf.empty ())
+    bool simple (bf.empty ());
+
+    if (simple)
     {
-      r = false;
-      rs.root_extra->project = nullptr; // Simple project.
+      // Simple project: no name and disabled amalgamation.
+      //
+      rs.root_extra->project = nullptr;
+      rs.root_extra->amalgamation = nullptr;
     }
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
@@ -925,6 +923,7 @@ namespace build2
     //
     // Note: the amalgamation variable value is always a relative directory.
     //
+    if (!simple)
     {
       auto rp (rs.vars.insert (*ctx.var_amalgamation)); // Set NULL by default.
       value& v (rp.first);
@@ -934,40 +933,37 @@ namespace build2
 
       if (scope* ars = rs.parent_scope ()->root_scope ())
       {
-        const dir_path& ad (ars->out_path ());
-        dir_path rd (ad.relative (out_root));
-
-        // If we already have the amalgamation variable set, verify that aroot
-        // matches its value.
+        // We must not be amalgamated by a simple project.
         //
-        if (!rp.second)
+        if (!ars->root_extra->project || *ars->root_extra->project != nullptr)
         {
-          /* @@ TMP
-          if (!v)
-          {
-            fail << out_root << " cannot be amalgamated" <<
-              info << "amalgamated by " << ad;
-          }
-          else
-          */
-          if (v)
-          {
-            const dir_path& vd (cast<dir_path> (v));
+          const dir_path& ad (ars->out_path ());
+          dir_path rd (ad.relative (out_root));
 
-            if (vd != rd)
+          // If we already have the amalgamation variable set, verify that
+          // aroot matches its value.
+          //
+          if (!rp.second)
+          {
+            if (v)
             {
-              fail << "inconsistent amalgamation of " << out_root <<
-                info << "specified: " << vd <<
-                info << "actual: " << rd << " by " << ad;
+              const dir_path& vd (cast<dir_path> (v));
+
+              if (vd != rd)
+              {
+                fail << "inconsistent amalgamation of " << out_root <<
+                  info << "specified: " << vd <<
+                  info << "actual: " << rd << " by " << ad;
+              }
             }
           }
-        }
-        else
-        {
-          // Otherwise, use the outer root as our amalgamation.
-          //
-          l5 ([&]{trace << out_root << " amalgamated as " << rd;});
-          v = move (rd);
+          else
+          {
+            // Otherwise, use the outer root as our amalgamation.
+            //
+            l5 ([&]{trace << out_root << " amalgamated as " << rd;});
+            v = move (rd);
+          }
         }
       }
       else if (rp.second)
@@ -1010,6 +1006,7 @@ namespace build2
     // then we have to figure it out. When subprojects are calculated, the
     // NULL value indicates that we found no subprojects.
     //
+    if (!simple)
     {
       auto rp (rs.vars.insert (*ctx.var_subprojects)); // Set NULL by default.
       value& v (rp.first);
@@ -1127,8 +1124,6 @@ namespace build2
         }
       }
     }
-
-    return r;
   }
 
   void
