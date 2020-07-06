@@ -3259,11 +3259,17 @@ h{config}: in{config}
 }
 \
 
-In case of a dependency chain, the block applies to the set of prerequisites
-(note: \i{not targets}) before last \c{:}. For example:
+In case of a dependency chain, if the chain ends with a colon (\c{:}), then
+the block applies to the last set of prerequisites. Otherwise, it applies to
+the last set of targets. For example:
 
 \
-./: exe{test}: libue{test}: cxx{test}
+./: exe{test}: cxx{main}
+{
+  test = true        # Applies to the exe{test} target.
+}
+
+./: exe{test}: libue{test}:
 {
   bin.whole = false  # Applies to the libue{test} prerequisite.
 }

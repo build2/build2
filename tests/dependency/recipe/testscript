@@ -139,6 +139,52 @@ EOI
   }}
 EOE
 
+: with-vars-depchain
+:
+$* <<EOI 2>>/~%EOE%
+./: alias{x}: alias{y}
+{
+  var = x
+}
+{{
+  echo
+}}
+dump alias{x}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{x\}: .+/:alias\{y\}%
+  {
+    var = x
+  }
+  % [diag=echo] perform(update)
+  {{
+    echo
+  }}
+EOE
+
+: with-vars-replay-depchain
+:
+$* <<EOI 2>>/~%EOE%
+./: alias{x y}: alias{z}
+{
+  var = x
+}
+{{
+  echo
+}}
+dump alias{y}
+EOI
+<stdin>:8:1: dump:
+%  .+/alias\{y\}: .+/:alias\{z\}%
+  {
+    var = x
+  }
+  % [diag=echo] perform(update)
+  {{
+    echo
+  }}
+EOE
+
 : with-vars-header
 :
 $* <<EOI 2>>/~%EOE%

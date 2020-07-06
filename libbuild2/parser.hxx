@@ -152,12 +152,11 @@ namespace build2
     small_vector<reference_wrapper<target>, 1>
     enter_targets (names&&, const location&, adhoc_names&&, size_t);
 
-    bool
+    void
     parse_dependency (token&, token_type&,
                       names&&, const location&,
                       adhoc_names&&,
-                      names&&, const location&,
-                      bool = false);
+                      names&&, const location&);
 
     void
     parse_assert (token&, token_type&);

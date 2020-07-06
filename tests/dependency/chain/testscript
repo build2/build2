@@ -36,3 +36,52 @@ EOI
 
 %  .+/dir\{y/\}: .+:dir\{a/\} .+:dir\{b/\}%
 EOE
+
+: var-prereq
+:
+$* <<EOI 2>>/~%EOE%
+./: dir{x}: dir{a}: x = y
+dump dir{x}
+EOI
+<stdin>:2:1: dump:
+%  .+/dir\{x/\}: .+:dir\{a/\}:%
+  {
+    x = y
+  }
+EOE
+
+: var-prereq-block
+:
+$* <<EOI 2>>/~%EOE%
+./: dir{x}: dir{a}:
+{
+  x = y
+  z = x
+}
+dump dir{x}
+EOI
+<stdin>:6:1: dump:
+%  .+/dir\{x/\}: .+:dir\{a/\}:%
+  {
+    x = y
+    z = x
+  }
+EOE
+
+: var-target-block
+:
+$* <<EOI 2>>/~%EOE%
+./: dir{x}: dir{a}
+{
+  x = y
+  z = x
+}
+dump dir{x}
+EOI
+<stdin>:6:1: dump:
+%  .+/dir\{x/\}: .+:dir\{a/\}%
+  {
+    x = y
+    z = x
+  }
+EOE

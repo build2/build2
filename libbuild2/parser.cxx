@@ -706,8 +706,18 @@ namespace build2
           // Note that we cannot just let parse_dependency() handle this case
           // because we can have (a mixture of) target type/patterns.
           //
-          // @@ This might change once we support ad hoc rules (where we may
-          // have prerequisites for a pattern; but perhaps this should be
+          // Also, it handles the exception to the rule that if a dependency
+          // declaration ends with a colon, then the variable assignment/block
+          // that follows is for the prerequisite. Compare:
+          //
+          // foo: x = y         foo: fox: x = y
+          // bar:               bar: baz:
+          // {                  {
+          //   x = y              x = y
+          // }                  }
+          //
+          // @@ This might change a bit once we support ad hoc rules (where we
+          // may have prerequisites for a pattern; but perhaps this should be
           // handled separately since the parse_dependency() is already too
           // complex and there will be no chains in this case).
           //
@@ -808,6 +818,9 @@ namespace build2
           const variable& var (parse_variable_name (move (pns), ploc));
           apply_variable_attributes (var);
 
+          // If variable visibility ends before, then it doesn't make sense
+          // to assign it in this context.
+          //
           if (var.visibility > variable_visibility::target)
           {
             fail (nloc) << "variable " << var << " has " << var.visibility
@@ -841,11 +854,10 @@ namespace build2
           else
             attributes_pop ();
 
-          bool r (parse_dependency (t, tt,
-                                    move (ns), nloc,
-                                    move (ans),
-                                    move (pns), ploc));
-          assert (r); // Block must have been claimed.
+          parse_dependency (t, tt,
+                            move (ns), nloc,
+                            move (ans),
+                            move (pns), ploc);
         }
 
         continue;
@@ -899,7 +911,7 @@ namespace build2
         const variable& var (parse_variable_name (move (ns), nloc));
         apply_variable_attributes (var);
 
-        if (var.visibility >= variable_visibility::target)
+        if (var.visibility > variable_visibility::scope)
         {
           diag_record dr (fail (nloc));
 
@@ -1021,7 +1033,7 @@ namespace build2
       const variable& var (parse_variable_name (move (ns), nloc));
       apply_variable_attributes (var);
 
-      if (prerequisite_ != nullptr                   &&
+      if (prerequisite_ == nullptr                   &&
           var.visibility > variable_visibility::target)
       {
         fail (t) << "variable " << var << " has " << var.visibility
@@ -1565,30 +1577,17 @@ namespace build2
     return tgs;
   }
 
-  bool parser::
+  void parser::
   parse_dependency (token& t, token_type& tt,
                     names&& tns, const location& tloc, // Target names.
                     adhoc_names&& ans,                 // Ad hoc target names.
-                    names&& pns, const location& ploc, // Prereq names.
-                    bool chain)
+                    names&& pns, const location& ploc) // Prereq names.
   {
     // Parse a dependency chain and/or a target/prerequisite-specific variable
-    // assignment/block and/or recipe block(s). Return true if the following
-    // block(s) (if any) have been "claimed", meaning they "belong" to
-    // targets/prerequisites before the last colon.
+    // assignment/block and/or recipe block(s).
     //
-    // enter: colon (anything else is not handled)
-    // leave: - first token on the next line           if returning true
-    //        - newline (presumably, must be verified) if returning false
-    //
-    // Note that top-level call (with chain == false) is expected to always
-    // return true.
-    //
-    // This dual-return "complication" is necessary to handle non-block cases
-    // like this:
-    //
-    // foo: bar
-    // {hxx ixx}: install = true
+    // enter: colon or newline (latter only in recursive calls)
+    // leave: - first token on the next line
     //
     tracer trace ("parser::parse_dependency", &path_);
 
@@ -1700,17 +1699,18 @@ namespace build2
     };
 
     // Do we have a dependency chain and/or prerequisite-specific variable
-    // assignment? If not, check for the target-specific variable block and/or
-    // recipe block(s) unless this is a chained call (in which case the block,
-    // if any, "belongs" to prerequisites).
+    // assignment/block? If not, check for the target-specific variable block
+    // and/or recipe block(s).
     //
     if (tt != type::colon)
     {
-      if (chain)
-        return false;
-
       next_after_newline (t, tt); // Must be a newline then.
 
+      // Note: watch out for non-block cases like this:
+      //
+      // foo: bar
+      // {hxx ixx}: install = true
+      //
       if (tt == type::percent       ||
           tt == type::multi_lcbrace ||
           (tt == type::lcbrace && peek () == type::newline))
@@ -1755,7 +1755,7 @@ namespace build2
         for_each_t (parse);
       }
 
-      return true; // Claimed or isn't any.
+      return;
     }
 
     // What should we do if there are no prerequisites (for example, because
@@ -1773,97 +1773,113 @@ namespace build2
 
     auto at (attributes_push (t, tt));
 
-    // @@ PAT: currently we pattern-expand prerequisite-specific vars.
+    // If we are here, then this can be one of three things:
     //
-    const location loc (get_location (t));
-    names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, pattern_mode::expand)
-              : names ());
-
-    // Prerequisite-specific variable assignment.
+    // 1. A prerequisite-specific variable bloc:
     //
-    if (tt == type::assign || tt == type::prepend || tt == type::append)
+    //    foo: bar:
+    //    {
+    //      x = y
+    //    }
+    //
+    // 2. A prerequisite-specific variable asignment:
+    //
+    //    foo: bar: x = y
+    //
+    // 3. A further dependency chain :
+    //
+    //    foo: bar: baz ...
+    //
+    if (tt == type::newline || tt == type::eos)
     {
-      type at (tt);
+      attributes_pop (); // Must be none since can't be standalone.
 
-      const variable& var (parse_variable_name (move (ns), loc));
-      apply_variable_attributes (var);
+      // There must be a block.
+      //
+      if (next_after_newline (t, tt) != type::lcbrace)
+        fail (t) << "expected '{' instead of " << t;
 
-      // Parse the assignment for each prerequisites of each target.
-      //
-      for_each_p ([this, &var, at] (token& t, token_type& tt)
-                {
-                  parse_variable (t, tt, var, at);
-                });
+      if (next (t, tt) != type::newline)
+        fail (t) << "expected newline after '{'";
 
-      // Pretend that we have claimed the block to cause an error if there is
-      // one. Failed that, the following would result in a valid (target-
-      // specific) block:
+      // Parse the block for each prerequisites of each target.
       //
-      // foo: bar: x = y
-      // {
-      //   ...
-      // }
-      //
-      next_after_newline (t, tt);
-      return true;
+      for_each_p ([this] (token& t, token_type& tt)
+                  {
+                    next (t, tt); // First token inside the block.
+
+                    parse_variable_block (t, tt);
+
+                    if (tt != type::rcbrace)
+                      fail (t) << "expected '}' instead of " << t;
+                  });
+
+      next (t, tt);                    // Presumably newline after '}'.
+      next_after_newline (t, tt, '}'); // Should be on its own line.
     }
-    //
-    // Dependency chain.
-    //
     else
     {
-      if (at.first)
-        fail (at.second) << "attributes before prerequisites";
-      else
-        attributes_pop ();
-
-      // Note that we could have "pre-resolved" these prerequisites to actual
-      // targets or, at least, made their directories absolute. We don't do it
-      // for ease of documentation: with the current semantics we can just say
-      // that the dependency chain is equivalent to specifying each dependency
-      // separately.
+      // @@ PAT: currently we pattern-expand prerequisite-specific vars.
       //
-      // Also note that supporting ad hoc target group specification in chains
-      // will be complicated. For example, what if prerequisites that have ad
-      // hoc targets don't end up being chained? Do we just silently drop
-      // them? Also, these are prerequsites first that happened to be reused
-      // as target names so perhaps it is the right thing not to support,
-      // conceptually.
-      //
-      if (parse_dependency (t, tt,
-                            names (pns), ploc,           // Note: can't move.
-                            {} /* ad hoc target name */,
-                            move (ns), loc,
-                            true /* chain */))
-        return true;
+      const location loc (get_location (t));
+      names ns (parse_names (t, tt, pattern_mode::expand));
 
-      // Claim the block (if any) for these prerequisites if it hasn't been
-      // claimed by the inner ones.
+      // Prerequisite-specific variable assignment.
       //
-      next_after_newline (t, tt); // Must be a newline.
-
-      if (tt == type::lcbrace && peek () == type::newline)
+      if (tt == type::assign || tt == type::prepend || tt == type::append)
       {
-        next (t, tt); // Newline.
+        type at (tt);
 
-        // Parse the block for each prerequisites of each target.
+        const variable& var (parse_variable_name (move (ns), loc));
+        apply_variable_attributes (var);
+
+        // Parse the assignment for each prerequisites of each target.
         //
-        for_each_p ([this] (token& t, token_type& tt)
+        for_each_p ([this, &var, at] (token& t, token_type& tt)
                     {
-                      next (t, tt); // First token inside the block.
-
-                      parse_variable_block (t, tt);
-
-                      if (tt != type::rcbrace)
-                        fail (t) << "expected '}' instead of " << t;
+                      parse_variable (t, tt, var, at);
                     });
 
-        next (t, tt);                    // Presumably newline after '}'.
-        next_after_newline (t, tt, '}'); // Should be on its own line.
-      }
+        next_after_newline (t, tt);
 
-      return true; // Claimed or isn't any.
+        // Check we don't also have a variable block:
+        //
+        // foo: bar: x = y
+        // {
+        //   ...
+        // }
+        //
+        if (tt == type::lcbrace && peek () == type::newline)
+          fail (t) << "variable assignment block after variable assignment";
+      }
+      //
+      // Dependency chain.
+      //
+      else
+      {
+        if (at.first)
+          fail (at.second) << "attributes before prerequisites";
+        else
+          attributes_pop ();
+
+        // Note that we could have "pre-resolved" these prerequisites to
+        // actual targets or, at least, made their directories absolute. We
+        // don't do it for ease of documentation: with the current semantics
+        // we just say that the dependency chain is equivalent to specifying
+        // each dependency separately.
+        //
+        // Also note that supporting ad hoc target group specification in
+        // chains will be complicated. For example, what if prerequisites that
+        // have ad hoc targets don't end up being chained? Do we just silently
+        // drop them? Also, these are prerequsites first that happened to be
+        // reused as target names so perhaps it is the right thing not to
+        // support, conceptually.
+        //
+        parse_dependency (t, tt,
+                          move (pns), ploc,
+                          {} /* ad hoc target name */,
+                          move (ns), loc);
+      }
     }
   }
 
@@ -2590,7 +2606,7 @@ namespace build2
     {
       apply_variable_attributes (*var);
 
-      if (var->visibility >= variable_visibility::target)
+      if (var->visibility > variable_visibility::scope)
       {
         fail (vloc) << "variable " << *var << " has " << var->visibility
                     << " visibility but is assigned in import";
@@ -3323,7 +3339,7 @@ namespace build2
     const variable& var (parse_variable_name (move (vns), vloc));
     apply_variable_attributes (var);
 
-    if (var.visibility >= variable_visibility::target)
+    if (var.visibility > variable_visibility::scope)
     {
       fail (vloc) << "variable " << var << " has " << var.visibility
                   << " visibility but is assigned in for-loop";
