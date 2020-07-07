@@ -2229,7 +2229,7 @@ namespace build2
       tracer trace (x, "compile_rule::enter_header");
 
       // Find or maybe insert the target. The directory is only moved from if
-      // insert is true.
+      // insert is true. Note that it must be normalized.
       //
       auto find = [&trace, &t, this] (dir_path&& d,
                                       path&& f,
@@ -2419,7 +2419,10 @@ namespace build2
 
             if (i != pfx_map->end ())
             {
-              const dir_path& pd (i->second.directory);
+              // Note: value in pfx_map is not necessarily canonical.
+              //
+              dir_path pd (i->second.directory);
+              pd.canonicalize ();
 
               l4 ([&]{trace << "prefix '" << d << "' mapped to " << pd;});
 
@@ -2532,10 +2535,13 @@ namespace build2
             if (i != so_map.end ())
             {
               // Ok, there is an out tree for this headers. Remap to a path
-              // from the out tree and see if there is a target for it.
+              // from the out tree and see if there is a target for it. Note
+              // that the value in so_map is not necessarily canonical.
               //
               dir_path d (i->second);
               d /= f.leaf (i->first).directory ();
+              d.canonicalize ();
+
               pt = find (move (d), f.leaf (), false); // d is not moved from.
 
               if (pt != nullptr)
