@@ -179,7 +179,7 @@ namespace build2
     //
     const target* group = nullptr;
 
-    // What has been described above is a "explicit" group. That is, there is
+    // What has been described above is an "explicit" group. That is, there is
     // a dedicated target type that explicitly serves as a group and there is
     // an explicit mechanism for discovering the group's members.
     //
@@ -195,10 +195,10 @@ namespace build2
     // would be much easier and more consistent to make these extra files
     // proper targets.
     //
-    // So to support this requirement we have ad hoc groups. The idea is
-    // that any target can be turned either by a user's declaration in a
-    // buildfile or by the rule that matches it into an ad hoc group by
-    // chaining several targets together.
+    // So to support this requirement we have ad hoc groups. The idea is that
+    // any target can be turned either by a user's declaration in a buildfile
+    // or by the rule that matches it into an ad hoc group by chaining several
+    // targets together.
     //
     // Ad hoc groups have a more restricted semantics compared to the normal
     // groups. In particular:

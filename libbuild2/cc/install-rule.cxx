@@ -82,15 +82,26 @@ namespace build2
       // Note that if they come from a group, then we assume the entire
       // group is not to be installed.
       //
+      // We also skip sources since they may "pull" a header if they are a
+      // member of an ad hoc group.
+      //
+      auto header_source = [this] (const auto& p)
+      {
+        return (x_header (p)   ||
+                p.is_a (x_src) ||
+                (x_mod != nullptr && p.is_a (*x_mod)));
+      };
+
       if (t.is_a<exe> ())
       {
-        if (x_header (p))
+        if (header_source (p))
           pt = nullptr;
         else if (p.type.see_through)
         {
           for (i.enter_group (); i.group (); )
           {
-            if (x_header (*++i))
+            ++i; // Note that we have to iterate until the end of the group.
+            if (pt != nullptr && header_source (*i))
               pt = nullptr;
           }
         }
@@ -300,15 +311,23 @@ namespace build2
       if (pt == nullptr)
         return pt;
 
+      auto header_source = [this] (const auto& p)
+      {
+        return (x_header (p)   ||
+                p.is_a (x_src) ||
+                (x_mod != nullptr && p.is_a (*x_mod)));
+      };
+
       if (t.is_a<libue> ())
       {
-        if (x_header (p))
+        if (header_source (p))
           pt = nullptr;
         else if (p.type.see_through)
         {
           for (i.enter_group (); i.group (); )
           {
-            if (x_header (*++i))
+            ++i;
+            if (pt != nullptr && header_source (*i))
               pt = nullptr;
           }
         }
