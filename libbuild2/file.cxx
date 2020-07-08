@@ -437,7 +437,7 @@ namespace build2
     {
       // Path p can be src_base or out_base. Figure out which one it is.
       //
-      dir_path out_base (p.sub (rs->out_path ()) ? p : src_out (p, *rs));
+      dir_path out_base (p.sub (rs->out_path ()) ? p : out_src (p, *rs));
 
       // Create and bootstrap root scope(s) of subproject(s) that this scope
       // may belong to. If any were created, load them. Note that we need to
