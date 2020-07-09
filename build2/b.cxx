@@ -1047,6 +1047,16 @@ main (int argc, char* argv[])
             //
             bootstrap_pre (rs, altn);
             bootstrap_src (rs, altn);
+
+            // If this is a simple project, then implicitly load the test and
+            // install modules.
+            //
+            if (rs.root_extra->project == nullptr)
+            {
+              boot_module (rs, "test", location ());
+              boot_module (rs, "install", location ());
+            }
+
             // bootstrap_post() delayed until after create_bootstrap_outer().
           }
           else
