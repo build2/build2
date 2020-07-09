@@ -664,10 +664,6 @@ namespace build2
     explicit
     scope_map (context& c): ctx (c) {}
 
-    // Entities that can access bypassing the lock proof.
-    //
-    friend int main (int, char*[]);
-
     LIBBUILD2_SYMEXPORT scope&
     find (const dir_path&);
 
