@@ -87,7 +87,7 @@ namespace build2
     // Load the buildfile unless it is implied.
     //
     if (!bf.empty ())
-      source_once (root, base, bf, root);
+      source_once (root, base, bf);
   }
 
   void

@@ -2625,16 +2625,21 @@ namespace build2
     }
 
     // The rest should be a list of projects and/or targets. Parse them as
-    // names to get variable expansion and directory prefixes. Note: doesn't
-    // make sense to expand patterns (what's the base directory?)
+    // names to get variable expansion and directory prefixes.
+    //
+    // Note: that we expant patterns for the ad hoc import case:
+    //
+    // import sub = */
     //
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, pattern_mode::ignore)
+              ? parse_names (t, tt, pattern_mode::expand)
               : names ());
 
     for (name& n: ns)
     {
+      // @@ Could this be an out-qualified ad hoc import?
+      //
       if (n.pair)
         fail (l) << "unexpected pair in import";
 

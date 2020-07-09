@@ -8,7 +8,7 @@ namespace build2
   inline bool
   source_once (scope& root, scope& base, const path& bf)
   {
-    return source_once (root, base, bf, base);
+    return source_once (root, base, bf, root);
   }
 
   inline pair<name, optional<dir_path>>

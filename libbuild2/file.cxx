@@ -158,6 +158,104 @@ namespace build2
     return make_pair (dir_path (), false);
   }
 
+  optional<path>
+  find_buildfile (const dir_path& sd,
+                  const dir_path& root,
+                  optional<bool>& altn,
+                  const path& n)
+  {
+    if (n.string () == "-")
+      return n;
+
+    path f;
+    dir_path p;
+
+    for (;;)
+    {
+      const dir_path& d (p.empty () ? sd : p.directory ());
+
+      // Note that we don't attempt to derive the project's naming scheme
+      // from the buildfile name specified by the user.
+      //
+      bool e;
+      if (!n.empty () || altn)
+      {
+        f = d / (!n.empty () ? n : (*altn
+                                    ? alt_buildfile_file
+                                    : std_buildfile_file));
+        e = exists (f);
+      }
+      else
+      {
+        // Note: this case seems to be only needed for simple projects.
+        //
+
+        // Check the alternative name first since it is more specific.
+        //
+        f = d / alt_buildfile_file;
+
+        if ((e = exists (f)))
+          altn = true;
+        else
+        {
+          f = d / std_buildfile_file;
+
+          if ((e = exists (f)))
+            altn = false;
+        }
+      }
+
+      if (e)
+        return f;
+
+      p = f.directory ();
+      if (p == root)
+        break;
+    }
+
+    return nullopt;
+  }
+
+  optional<path>
+  find_plausible_buildfile (const name& tgt,
+                            const scope& rs,
+                            const dir_path& src_base,
+                            const dir_path& src_root,
+                            optional<bool>& altn,
+                            const path& name)
+  {
+    // If we cannot find the buildfile in this directory, then try our luck
+    // with the nearest outer buildfile, in case our target is defined there
+    // (common with non-intrusive project conversions where everything is
+    // built from a single root buildfile).
+    //
+    // The directory target case is ambigous since it can also be the implied
+    // buildfile. The heuristics that we use is to check whether the implied
+    // buildfile is plausible: there is a subdirectory with a buildfile.
+    // Checking for plausability feels expensive since we have to recursively
+    // traverse the directory tree. Note, however, that if the answer is
+    // positive, then shortly after we will be traversing this tree anyway and
+    // presumably this time getting the data from the cash (we don't really
+    // care about the negative answer since this is a degenerate case).
+    //
+    optional<path> bf;
+
+    // If the target is a directory and the implied buildfile is plausible,
+    // then assume that. Otherwise, search for an outer buildfile.
+    //
+    if ((tgt.directory () || tgt.type == "dir") &&
+        exists (src_base)                       &&
+        dir::check_implied (rs, src_base))
+      bf = path (); // Leave empty.
+    else
+    {
+      if (src_base != src_root)
+        bf = find_buildfile (src_base.directory (), src_root, altn, name);
+    }
+
+    return bf;
+  }
+
   // Remap the src_root variable value if it is inside old_src_root.
   //
   static inline void
@@ -1740,18 +1838,53 @@ namespace build2
   {
     tracer trace ("import_search");
 
-    // Note: in the future the plan is to turn this into project-local import.
+    // Depending on the target, we have four cases:
+    //
+    // 1. Ad hoc import: target is unqualified and is either absolute or is a
+    //    directory.
+    //
+    //    Note: if one needs a project-local import of a relative directory
+    //    (e.g., because they don't know where it is), then they will have to
+    //    specify it with an explicit dir{} target type.
+    //
+    // 2. Project-local import: target is unqualified.
+    //
+    //    Note: this is still a TODO.
+    //
+    // 3. Project-less import: target is empty-qualified.
+    //
+    // 4. Normal import.
     //
     if (tgt.unqualified ())
-      fail (loc) << "importation of an unqualified target " << tgt <<
-        info     << "use empty project qualification to import a target "
-                 << "without a project";
+    {
+      if (tgt.directory () && tgt.relative ())
+        tgt.dir = ibase.src_path () / tgt.dir;
+
+      if (tgt.absolute ())
+      {
+        // Actualize the directory to be analogous to the config.import.<proj>
+        // case (which is of abs_dir_path type).
+        //
+        tgt.dir.normalize (true /* actualize */);
+        return make_pair (move (tgt), optional<dir_path> (tgt.dir));
+      }
+      else
+        fail (loc) << "importation of an unqualified target " << tgt <<
+          info     << "use empty project qualification to import a target "
+                   << "without a project";
+    }
 
     // If the project name is empty then we simply return it as is to let
     // someone else (e.g., a rule, import phase 2) take a stab at it.
     //
     if (tgt.proj->empty ())
       return make_pair (move (tgt), optional<dir_path> ());
+
+    // Specifying an absolute directory in any import other than ad hoc and
+    // maybe project-less does not make sense.
+    //
+    if (tgt.absolute ())
+      fail (loc) << "absolute directory in imported target " << tgt;
 
     context& ctx (ibase.ctx);
 
@@ -2055,23 +2188,34 @@ namespace build2
   {
     tracer trace ("import_load");
 
+    // We end up here in two cases: Ad hoc import, in which case name is
+    // unqualified and absolute and path is a base, not necessarily root. And
+    // normal import, in which case name must be project-qualified and path is
+    // a root.
+    //
     assert (x.second);
-
     name tgt (move (x.first));
-    dir_path out_root (move (*x.second));
+    optional<project_name> proj;
 
-    assert (tgt.proj);
-    project_name proj (move (*tgt.proj));
-    tgt.proj = nullopt;
+    if (tgt.qualified ())
+    {
+      assert (tgt.proj);
+
+      proj = move (*tgt.proj);
+      tgt.proj = nullopt;
+    }
+    else
+      assert (tgt.absolute ());
 
     // Bootstrap the imported root scope. This is pretty similar to what we do
     // in main() except that here we don't try to guess src_root.
     //
-    // The user can also specify the out_root of the amalgamation that contains
-    // our project. For now we only consider top-level sub-projects.
+    // For the normal import the user can also specify the out_root of the
+    // amalgamation that contains our project. For now we only consider
+    // top-level sub-projects.
     //
     scope* root;
-    dir_path src_root;
+    dir_path out_root, src_root;
 
     // See if this is a forwarded configuration. For top-level project we want
     // to use the same logic as in main() while for inner subprojects -- as in
@@ -2079,11 +2223,31 @@ namespace build2
     //
     bool fwd (false);
     optional<bool> altn;
-    if (is_src_root (out_root, altn))
     {
-      src_root = move (out_root);
-      out_root = bootstrap_fwd (ctx, src_root, altn);
-      fwd = (src_root != out_root);
+      bool src;
+      if (proj)
+      {
+        out_root = move (*x.second);
+        src = is_src_root (out_root, altn);
+      }
+      else
+      {
+        // For ad hoc import, find our root.
+        //
+        pair<dir_path, bool> p (find_out_root (*x.second, altn));
+        out_root = move (p.first);
+        src = p.second;
+
+        if (out_root.empty ())
+          fail (loc) << "no project for imported target " << tgt;
+      }
+
+      if (src)
+      {
+        src_root = move (out_root);
+        out_root = bootstrap_fwd (ctx, src_root, altn);
+        fwd = (src_root != out_root);
+      }
     }
 
     for (const scope* proot (nullptr); ; proot = root)
@@ -2113,8 +2277,15 @@ namespace build2
                        << "discovered " << src_root;
         }
         else
-          fail (loc) << "unable to determine src_root for imported " << proj <<
-            info << "consider configuring " << out_root;
+        {
+          diag_record dr;
+          dr << fail (loc) << "unable to determine src_root for imported ";
+          if (proj)
+            dr << *proj;
+          else
+            dr << out_root;
+          dr << info << "consider configuring " << out_root;
+        }
 
         setup_root (*root,
                     (top
@@ -2145,15 +2316,20 @@ namespace build2
           bootstrap_post (*root);
       }
 
+      // If this is ad hoc import, then we are done.
+      //
+      if (!proj)
+        break;
+
       // Now we know this project's name as well as all its subprojects.
       //
-      if (project (*root) == proj)
+      if (project (*root) == *proj)
         break;
 
       if (auto l = root->vars[ctx.var_subprojects])
       {
         const auto& m (cast<subprojects> (l));
-        auto i (m.find (proj));
+        auto i (m.find (*proj));
 
         if (i != m.end ())
         {
@@ -2165,70 +2341,122 @@ namespace build2
         }
       }
 
-      fail (loc) << out_root << " is not out_root for " << proj;
+      fail (loc) << out_root << " is not out_root for " << *proj;
     }
 
     // Load the imported root scope.
     //
     load_root (*root);
 
-    scope& gs (ctx.global_scope.rw ());
-
-    // Use a temporary scope so that the export stub doesn't mess anything up.
+    // If this is a normal import, then we go through the export stub.
     //
-    temp_scope ts (gs);
-
-    // "Pass" the imported project's roots to the stub.
-    //
-    ts.assign (ctx.var_out_root) = move (out_root);
-    ts.assign (ctx.var_src_root) = move (src_root);
-
-    // Pass the target being imported in import.target.
-    //
+    if (proj)
     {
-      value& v (ts.assign (ctx.var_import_target));
+      scope& gs (ctx.global_scope.rw ());
 
-      if (!tgt.empty ()) // Otherwise leave NULL.
-        v = tgt; // Can't move (need for diagnostics below).
-    }
-
-    // Pass the metadata compatibility version in import.metadata.
-    //
-    if (meta)
-      ts.assign (ctx.var_import_metadata) = uint64_t (1);
-
-    // Load the export stub. Note that it is loaded in the context
-    // of the importing project, not the imported one. The export
-    // stub will normally switch to the imported root scope at some
-    // point.
-    //
-    path es (root->src_path () / root->root_extra->export_file);
-
-    try
-    {
-      ifdstream ifs (es);
-
-      l5 ([&]{trace << "importing " << es;});
-
-      // @@ Should we verify these are all unqualified names? Or maybe
-      // there is a use-case for the export stub to return a qualified
-      // name?
+      // Use a temporary scope so that the export stub doesn't mess anything
+      // up.
       //
-      parser p (ctx);
-      names v (p.parse_export_stub (ifs, path_name (es), gs, ts));
+      temp_scope ts (gs);
 
-      // If there were no export directive executed in an export stub, assume
-      // the target is not exported.
+      // "Pass" the imported project's roots to the stub.
       //
-      if (v.empty () && !tgt.empty ())
-        fail (loc) << "target " << tgt << " is not exported by project "
-                   << proj;
+      ts.assign (ctx.var_out_root) = move (out_root);
+      ts.assign (ctx.var_src_root) = move (src_root);
 
-      return pair<names, const scope&> (move (v), *root);
+      // Pass the target being imported in import.target.
+      //
+      {
+        value& v (ts.assign (ctx.var_import_target));
+
+        if (!tgt.empty ()) // Otherwise leave NULL.
+          v = tgt; // Can't move (need for diagnostics below).
+      }
+
+      // Pass the metadata compatibility version in import.metadata.
+      //
+      if (meta)
+        ts.assign (ctx.var_import_metadata) = uint64_t (1);
+
+      // Load the export stub. Note that it is loaded in the context of the
+      // importing project, not the imported one. The export stub will
+      // normally switch to the imported root scope at some point.
+      //
+      path es (root->src_path () / root->root_extra->export_file);
+
+      try
+      {
+        ifdstream ifs (es);
+
+        l5 ([&]{trace << "importing " << es;});
+
+        // @@ Should we verify these are all unqualified names? Or maybe there
+        // is a use-case for the export stub to return a qualified name?
+        //
+        parser p (ctx);
+        names v (p.parse_export_stub (ifs, path_name (es), gs, ts));
+
+        // If there were no export directive executed in an export stub,
+        // assume the target is not exported.
+        //
+        if (v.empty () && !tgt.empty ())
+          fail (loc) << "target " << tgt << " is not exported by project "
+                     << *proj;
+
+        return pair<names, const scope&> (move (v), *root);
+      }
+      catch (const io_error& e)
+      {
+        fail (loc) << "unable to read buildfile " << es << ": " << e << endf;
+      }
     }
-    catch (const io_error& e)
+    else
     {
-      fail (loc) << "unable to read buildfile " << es << ": " << e << endf;
+      // In case of an ad hoc import we need to load a buildfile that can
+      // plausibly define this target. We use the same hairy semantics as in
+      // main() (and where one should refer for details).
+      //
+      const dir_path& src_root (root->src_path ());
+      dir_path src_base (x.second->sub (src_root)
+                         ? move (*x.second)
+                         : src_out (*x.second, *root));
+
+      optional<path> bf (find_buildfile (src_base, src_base, altn));
+
+      if (!bf)
+      {
+        bf = find_plausible_buildfile (tgt, *root,
+                                       src_base, src_root,
+                                       altn);
+        if (!bf)
+          fail << "no buildfile in " << src_base << " or parent directories "
+               << "for imported target " << tgt;
+
+        if (!bf->empty ())
+          src_base = bf->directory ();
+      }
+
+      // Load the buildfile unless it is implied.
+      //
+      if (!bf->empty ())
+      {
+        // The same logic as in operation's load().
+        //
+        dir_path out_base (out_src (src_base, *root));
+
+        auto i (ctx.scopes.rw (*root).insert (out_base));
+        scope& base (setup_base (i, move (out_base), move (src_base)));
+
+        source_once (*root, base, *bf);
+      }
+
+      // If this is forwarded src, then remap the target to out (will need to
+      // adjust this if/when we allow out-qualification).
+      //
+      if (fwd)
+        tgt.dir = out_src (tgt.dir, *root);
+
+      return pair<names, const scope&> (names {move (tgt)}, *root);
     }
   }
 
@@ -2313,9 +2541,12 @@ namespace build2
         r.second.has_value () ? import_kind::adhoc : import_kind::fallback);
     }
 
-    return make_pair (
-      import_load (base.ctx, move (r), metadata, loc).first,
-      import_kind::normal);
+    import_kind k (r.first.absolute ()
+                   ? import_kind::adhoc
+                   : import_kind::normal);
+
+    return make_pair (import_load (base.ctx, move (r), metadata, loc).first,
+                      k);
   }
 
   const target*
@@ -2520,7 +2751,7 @@ namespace build2
     }
     else
     {
-      k = import_kind::normal;
+      k = r.first.absolute () ? import_kind::adhoc : import_kind::normal;
       ns = import_load (base.ctx, move (r), metadata, loc).first;
     }
 

@@ -101,6 +101,18 @@ namespace build2
       return (ignore_qual || unqualified ()) && untyped () && !value.empty ();
     }
 
+    bool
+    absolute () const
+    {
+      return !dir.empty () && dir.absolute ();
+    }
+
+    bool
+    relative () const
+    {
+      return dir.empty () || dir.relative ();
+    }
+
     int
     compare (const name&) const;
   };

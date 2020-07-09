@@ -68,6 +68,28 @@ namespace build2
   LIBBUILD2_SYMEXPORT pair<dir_path, bool>
   find_out_root (const dir_path&, optional<bool>& altn);
 
+  // Look for a buildfile starting from the specified directory and continuing
+  // in the parent directories until root. Return nullopt if not found.
+  //
+  LIBBUILD2_SYMEXPORT optional<path>
+  find_buildfile (const dir_path& base,
+                  const dir_path& root,
+                  optional<bool>& altn,
+                  const path& name = {});
+
+  // If the buildfile cannot be found in the target's directory itself, then
+  // this function can be used to try and find a nearest buildfile that could
+  // plausibly define this target. Return nullopt if not found and empty path
+  // if the implied buildfile in the target's directory should be assumed.
+  //
+  LIBBUILD2_SYMEXPORT optional<path>
+  find_plausible_buildfile (const name& tgt,
+                            const scope& rs,
+                            const dir_path& src_base,
+                            const dir_path& src_root,
+                            optional<bool>& altn,
+                            const path& name = {});
+
   // Project's loading stage during which the parsing is performed.
   //
   enum class load_stage
@@ -95,7 +117,7 @@ namespace build2
   source (scope& root, scope& base, lexer&, load_stage = load_stage::rest);
 
   // As above but first check if this buildfile has already been sourced for
-  // the base scope. Return false if the file has already been sourced.
+  // the root scope. Return false if the file has already been sourced.
   //
   bool
   source_once (scope& root, scope& base, const path&);
@@ -253,9 +275,14 @@ namespace build2
   //
   // ad hoc
   //
-  //  The target is imported by specifying its path directly with
-  //  config.import.<proj>.<name>[.<type>]. For example, this can be
-  //  used to import an installed target.
+  //  The target is imported by having its path specifed directly with
+  //  config.import.<proj>.<name>[.<type>]. For example, this can be used to
+  //  import an installed target.
+  //
+  //  Note that this is also the kind assigned to an import that uses an
+  //  unqualified absolute target name or a relative directory (which we also
+  //  call ad hoc; in a sense it's the same thing, just the path is hardcoded
+  //  directly in the buildfile).
   //
   //
   // normal

@@ -928,93 +928,89 @@ namespace build2
     //
     // ./: */
     //
+    const scope& s (*pk.scope);
     const dir_path& d (*pk.tk.dir);
 
-    // We only do this for relative paths.
+    // Note: this code is a custom version of parser::parse_include().
+
+    // Calculate the new out_base. If the directory is absolute then we assume
+    // it is already normalized.
     //
-    if (d.relative ())
+    dir_path out_base (d.relative ()
+                       ? (s.out_path () / d).normalize ()
+                       : d);
+
+    // In our world modifications to the scope structure during search & match
+    // should be "pure append" in the sense that they should not affect any
+    // existing targets that have already been searched & matched.
+    //
+    // A straightforward way to enforce this is to not allow any existing
+    // targets to be inside any newly created scopes (except, perhaps for the
+    // directory target itself which we know hasn't been searched yet). This,
+    // however, is not that straightforward to implement: we would need to
+    // keep a directory prefix map for all the targets (e.g., in target_set).
+    // Also, a buildfile could load from a directory that is not a
+    // subdirectory of out_base. So for now we just assume that this is so.
+    // And so it is.
+    //
+    bool retest (false);
+
+    assert (t.ctx.phase == run_phase::match);
     {
-      // Note: this code is a custom version of parser::parse_include().
-
-      const scope& s (*pk.scope);
-
-      // Calculate the new out_base.
+      // Switch the phase to load.
       //
-      dir_path out_base (s.out_path () / d);
-      out_base.normalize ();
+      phase_switch ps (t.ctx, run_phase::load);
 
-      // In our world modifications to the scope structure during search &
-      // match should be "pure append" in the sense that they should not
-      // affect any existing targets that have already been searched &
-      // matched.
+      // This is subtle: while we were fussing around another thread may have
+      // loaded the buildfile. So re-test now that we are in an exclusive
+      // phase.
       //
-      // A straightforward way to enforce this is to not allow any existing
-      // targets to be inside any newly created scopes (except, perhaps for
-      // the directory target itself which we know hasn't been searched yet).
-      // This, however, is not that straightforward to implement: we would
-      // need to keep a directory prefix map for all the targets (e.g., in
-      // target_set). Also, a buildfile could load from a directory that is
-      // not a subdirectory of out_base. So for now we just assume that this
-      // is so. And so it is.
-      //
-      bool retest (false);
+      if (e == nullptr)
+        e = search_existing_target (t.ctx, pk);
 
-      assert (t.ctx.phase == run_phase::match);
+      if (e != nullptr && !e->implied)
+        retest = true;
+      else
       {
-        // Switch the phase to load.
+        // Ok, no luck, switch the scope.
         //
-        phase_switch ps (t.ctx, run_phase::load);
+        pair<scope&, scope*> sp (
+          switch_scope (*s.rw ().root_scope (), out_base));
 
-        // This is subtle: while we were fussing around another thread may
-        // have loaded the buildfile. So re-test now that we are in an
-        // exclusive phase.
-        //
-        if (e == nullptr)
-          e = search_existing_target (t.ctx, pk);
-
-        if (e != nullptr && !e->implied)
-          retest = true;
-        else
+        if (sp.second != nullptr) // Ignore scopes out of any project.
         {
-          // Ok, no luck, switch the scope.
-          //
-          pair<scope&, scope*> sp (
-            switch_scope (*s.rw ().root_scope (), out_base));
+          scope& base (sp.first);
+          scope& root (*sp.second);
 
-          if (sp.second != nullptr) // Ignore scopes out of any project.
+          const dir_path& src_base (base.src_path ());
+
+          path bf (src_base / root.root_extra->buildfile_file);
+
+          if (exists (bf))
           {
-            scope& base (sp.first);
-            scope& root (*sp.second);
-
-            const dir_path& src_base (base.src_path ());
-
-            path bf (src_base / root.root_extra->buildfile_file);
-
-            if (exists (bf))
-            {
-              l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
-              retest = source_once (root, base, bf, root);
-            }
-            else if (exists (src_base))
-            {
-              e = dir::search_implied (base, pk, trace);
-              retest = (e != nullptr);
-            }
+            l5 ([&]{trace << "loading buildfile " << bf << " for " << pk;});
+            retest = source_once (root, base, bf);
+          }
+          else if (exists (src_base))
+          {
+            e = dir::search_implied (base, pk, trace);
+            retest = (e != nullptr);
           }
         }
       }
-      assert (t.ctx.phase == run_phase::match);
+    }
 
-      // If we loaded/implied the buildfile, examine the target again.
-      //
-      if (retest)
-      {
-        if (e == nullptr)
-          e = search_existing_target (t.ctx, pk);
+    assert (t.ctx.phase == run_phase::match);
 
-        if (e != nullptr && !e->implied)
-          return e;
-      }
+    // If we loaded/implied the buildfile, examine the target again.
+    //
+    if (retest)
+    {
+      if (e == nullptr)
+        e = search_existing_target (t.ctx, pk);
+
+      if (e != nullptr && !e->implied)
+        return e;
     }
 
     fail << "no explicit target for " << pk << endf;
