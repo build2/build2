@@ -63,8 +63,7 @@ namespace build2
     const target* alias_rule::
     filter (action, const target& t, const prerequisite& p) const
     {
-      const target& pt (search (t, p));
-      return pt.in (t.weak_scope ()) ? &pt : nullptr;
+      return &search (t, p);
     }
 
     recipe alias_rule::

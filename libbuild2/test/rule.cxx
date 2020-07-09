@@ -97,7 +97,15 @@ namespace build2
         // no project at all (e.g., installed). Also, generally, not testing
         // stuff that's not ours seems right.
         //
-        match_prerequisites (a, t, t.root_scope ());
+        // At least that was the thinking until we've added support for ad hoc
+        // importation and the ability to "pull" other project's targets in a
+        // "glue" kind of project. Also, on the other hand to the above
+        // reasoning, it is unlikely a "foreign" target is listed as a
+        // prerequisite of an alias unintentionally. For example, an alias is
+        // unlikely to depend on an installed header or library. So now we
+        // allow this.
+        //
+        match_prerequisites (a, t);
       }
 
       size_t pass_n (pts.size ()); // Number of pass-through prerequisites.
