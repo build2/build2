@@ -334,6 +334,12 @@ namespace build2
 
         bs.insert_rule<target> (perform_install_id,   "install.file", gr);
         bs.insert_rule<target> (perform_uninstall_id, "uninstall.file", gr);
+
+        // Register the fallback file rule for the update-for-install
+        // operation, similar to update.
+        //
+        rs.global_scope ().insert_rule<mtime_target> (
+          perform_install_id, "file", file_rule::instance);
      }
 
       // Configuration.

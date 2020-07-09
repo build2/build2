@@ -208,8 +208,18 @@ namespace build2
       {
         default_rule& dr (m);
 
-        rs.insert_rule<target> (perform_test_id, "test", dr);
-        rs.insert_rule<alias>  (perform_test_id, "test", dr);
+        // Note: register for mtime_target to take priority over the fallback
+        // rule below.
+        //
+        rs.insert_rule<target>       (perform_test_id, "test", dr);
+        rs.insert_rule<mtime_target> (perform_test_id, "test", dr);
+        rs.insert_rule<alias>        (perform_test_id, "test", dr);
+
+        // Register the fallback file rule for the update-for-test operation,
+        // similar to update.
+        //
+        rs.global_scope ().insert_rule<mtime_target> (
+          perform_test_id, "file", file_rule::instance);
       }
 
       return true;
