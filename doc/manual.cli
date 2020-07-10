@@ -110,8 +110,8 @@ int main ()
 While this very basic program hardly resembles what most software projects
 look like today, it is useful for introducing key build system concepts
 without getting overwhelmed. In this spirit we will also use the \c{build2}
-\i{simple project} structure, which, similarly, should not be used for
-anything but quick sketches.
+\i{simple project} structure, which, similarly, should only be used for
+basic needs.
 
 To turn our \c{hello/} directory into a simple project all we need to do
 is add a \c{buildfile}:
@@ -428,19 +428,29 @@ And that's about all there is to our \c{hello} example. To summarize, we've
 seen that to build a simple project we need a single \c{buildfile} which
 itself doesn't contain much more than a dependency declaration for what we
 want to build. But we've also mentioned that simple projects are only really
-meant for quick sketches. So let's convert our \c{hello} example to the
-\i{standard project} structure which is what we will be using for most of our
-real development.
+meant for basics. So let's convert our \c{hello} example to the \i{standard
+project} structure which is what we will be using for most of our real
+development.
 
 \N|Simple projects have so many restrictions and limitations that they are
 hardly usable for anything but, well, \i{really} simple projects.
+
 Specifically, such projects cannot be imported by other projects nor can they
-use build system modules that require bootstrapping. This includes \c{test},
-\c{install}, \c{dist}, and \c{config} modules. And without the \c{config}
-module there is no support for persistent configurations. As a result, you
-should only use a simple project if you are happy to always build in the
-source directory and with the default build configuration or willing to
-specify the output directory and/or custom configuration on every invocation.|
+use build system modules that require bootstrapping. Notably, this includes
+the \c{dist} and \c{config} modules (the \c{test} and \c{install} modules are
+loaded implicitly). And without the \c{config} module there is no support for
+persistent configurations.
+
+As a result, you should only use a simple project if you are happy to always
+build in the source directory and with the default build configuration or
+willing to specify the output directory and/or custom configuration on every
+invocation. In other words, expect an experience similar to a plain
+\c{Makefile}.
+
+One notable example where simple projects are handy is a \i{glue
+\c{buildfiles}} that \"pulls\" together several other projects, usually for
+convenience of development. See \l{#intro-import Target Importation} for
+details.|
 
 
 \h#intro-proj-struct|Project Structure|
@@ -2629,6 +2639,74 @@ noticeable in more complex projects with a large number of components.
 name. Note that the target must still be exported in the project's export
 stub. In other words, project-local importation use the same mechanism as the
 normal import.|
+
+Another special type of importation is \i{ad hoc importation}. It is triggered
+if the target being imported has no project name and is either absolute or is
+a relative directory (in which case it is interpreted as relative to the
+importing scope). Semantically this is similar a normal import but with the
+location of the project being imported hard-coded into the \c{buildfile}.
+While this would be a bad idea in most case, sometimes we may want to create a
+special \i{glue \c{buildfile}} that \"pulls\" together several projects,
+usually for convenience of development.
+
+One typical case that calls for such a glue \c{buildfile} is a multi-package
+project. For example, we may have a \c{hello} project (in a more general
+sense, as in a version control repository) that contains the \c{libhello}
+library and \c{hello} executable packages (which are independent build system
+projects):
+
+\
+hello/
+├── .git/
+├── hello/
+│   ├── build/
+│   │   └── ...
+│   ├── hello/
+│   │   └── ...
+│   ├── buildfile
+│   └── manifest
+└── libhello/
+    ├── build/
+    │   └── ...
+    ├── libhello/
+    │   └── ...
+    ├── buildfile
+    └── manifest
+\
+
+Notice that the root of this repository is not a build system project and we
+cannot, for example, just run the build system driver without any arguments to
+update all the packages. Instead we have to list them explicitly:
+
+\
+$ b hello/ libhello/
+\
+
+And that's inconvenient. To overcome this shortcoming we can turn the
+repository root into a simple build system project by adding a glue
+\c{buildfile} that imports (using ad hoc importation) and builds all the
+packages:
+
+\
+import pkgs = */
+
+./: $pkgs
+\
+
+\N|Unlike other import types, ad hoc importation does not rely (or require) an
+export stub. Instead, it directly loads a \c{buildfile} that could plausibly
+declare the target being imported.
+
+In the unlikely event of a project-local importation of a directory target,
+it will have to be spelled with an explicit \c{dir{\}} target type, for
+example:
+
+\
+import d = dir{tests/}
+\
+
+|
+
 
 \h#intro-lib|Library Exportation and Versioning|
 
