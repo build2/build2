@@ -343,8 +343,9 @@ namespace build2
   // The standard prerequisite search and match implementations. They call
   // search() (unless a custom is provided) and then match() (unless custom
   // returned NULL) for each prerequisite in a loop omitting out of project
-  // prerequisites for the clean operation. If this target is a member of a
-  // group, then first do this to the group's prerequisites.
+  // prerequisites for the clean operation unless the target is an alias. If
+  // the target is a member of a group, then first do this to the group's
+  // prerequisites.
   //
   using match_search = function<
     prerequisite_target (action,

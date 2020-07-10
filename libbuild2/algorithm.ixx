@@ -498,14 +498,16 @@ namespace build2
       a,
       t,
       ms,
-      (a.operation () != clean_id ? nullptr : &t.root_scope ()));
+      (a.operation () != clean_id || t.is_a<alias> ()
+       ? nullptr
+       : &t.root_scope ()));
   }
 
   inline void
   match_prerequisite_members (action a, target& t,
                               const match_search_member& msm)
   {
-    if (a.operation () != clean_id)
+    if (a.operation () != clean_id || t.is_a<alias> ())
       match_prerequisite_members (a, t, msm, nullptr);
     else
     {
