@@ -339,7 +339,7 @@ namespace build2
         // operation, similar to update.
         //
         rs.global_scope ().insert_rule<mtime_target> (
-          perform_install_id, "file", file_rule::instance);
+          perform_install_id, "install.file", file_rule::instance);
      }
 
       // Configuration.

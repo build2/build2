@@ -64,12 +64,13 @@ namespace build2
   // allocation for the common cases since most rules will be registered
   // for perform, at least on non-root scopes.
   //
+  // Note: duplicate insertions (e.g., to global scope rule map) are ignored.
+  //
   // @@ Redo using small_vector?
   //
   class rule_map
   {
   public:
-
     template <typename T>
     void
     insert (action_id a, const char* hint, const rule& r)

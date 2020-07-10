@@ -219,7 +219,7 @@ namespace build2
         // similar to update.
         //
         rs.global_scope ().insert_rule<mtime_target> (
-          perform_test_id, "file", file_rule::instance);
+          perform_test_id, "test.file", file_rule::instance);
       }
 
       return true;
