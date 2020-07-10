@@ -1051,7 +1051,7 @@ main (int argc, char* argv[])
             // If this is a simple project, then implicitly load the test and
             // install modules.
             //
-            if (rs.root_extra->project == nullptr)
+            if (*rs.root_extra->project == nullptr)
             {
               boot_module (rs, "test", location ());
               boot_module (rs, "install", location ());
