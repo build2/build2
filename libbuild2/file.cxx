@@ -1838,6 +1838,9 @@ namespace build2
   {
     tracer trace ("import_search");
 
+    context& ctx (ibase.ctx);
+    scope& iroot (*ibase.root_scope ());
+
     // Depending on the target, we have four cases:
     //
     // 1. Ad hoc import: target is unqualified and is either absolute or is a
@@ -1847,9 +1850,8 @@ namespace build2
     //    (e.g., because they don't know where it is), then they will have to
     //    specify it with an explicit dir{} target type.
     //
-    // 2. Project-local import: target is unqualified.
-    //
-    //    Note: this is still a TODO.
+    // 2. Project-local import: target is unqualified or the project name is
+    //    the same as the importing project's.
     //
     // 3. Project-less import: target is empty-qualified.
     //
@@ -1869,9 +1871,19 @@ namespace build2
         return make_pair (move (tgt), optional<dir_path> (tgt.dir));
       }
       else
-        fail (loc) << "importation of an unqualified target " << tgt <<
-          info     << "use empty project qualification to import a target "
-                   << "without a project";
+      {
+        // Project-local import.
+        //
+        const project_name& pn (project (iroot));
+
+        if (pn.empty ())
+          fail (loc) << "project-local importation of target " << tgt
+                     << " from an unnamed project";
+
+        tgt.proj = pn;
+
+        return make_pair (move (tgt), optional<dir_path> (iroot.out_path ()));
+      }
     }
 
     // If the project name is empty then we simply return it as is to let
@@ -1886,14 +1898,10 @@ namespace build2
     if (tgt.absolute ())
       fail (loc) << "absolute directory in imported target " << tgt;
 
-    context& ctx (ibase.ctx);
-
-    // Otherwise, get the project name and convert the target to unqualified.
+    // Get the project name and convert the target to unqualified.
     //
     project_name proj (move (*tgt.proj));
     tgt.proj = nullopt;
-
-    scope& iroot (*ibase.root_scope ());
 
     // Figure out the imported project's out_root.
     //

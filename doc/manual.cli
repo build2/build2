@@ -2601,6 +2601,34 @@ If no \c{export} directive is executed in an export stub then the build system
 assumes that the target is not exported by the project and issues appropriate
 diagnostics.|
 
+Let's revisit the executable \c{buildfile} with which we started this section.
+Recall that it is for an executable that depends on a library which resides
+in the same project:
+
+\
+include ../libhello/ # Include lib{hello}.
+
+exe{hello}: {hxx cxx}{**} ../libhello/lib{hello}
+\
+
+If \c{lib{hello\}} is exported by this project, then instead of manually
+including its \c{buildfile} we can use \i{project-local importation}:
+
+\
+import lib = lib{hello}
+
+exe{hello}: {hxx cxx}{**} $lib
+\
+
+The main advantage of project-local importation over inclusion is the ability
+to move things around without having to adjust locations in multiple places
+(the only place we need to do it is the export stub). This advantage becomes
+noticeable in more complex projects with a large number of components.
+
+\N|An import is project-local if the target being imported has no project
+name. Note that the target must still be exported in the project's export
+stub. In other words, project-local importation use the same mechanism as the
+normal import.|
 
 \h#intro-lib|Library Exportation and Versioning|
 
