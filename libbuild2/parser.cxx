@@ -20,8 +20,8 @@
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
 
-#include <libbuild2/rule-adhoc-cxx.hxx>
-#include <libbuild2/rule-adhoc-buildscript.hxx>
+#include <libbuild2/adhoc-rule-cxx.hxx>
+#include <libbuild2/adhoc-rule-buildscript.hxx>
 
 #include <libbuild2/config/utility.hxx> // lookup_config
 

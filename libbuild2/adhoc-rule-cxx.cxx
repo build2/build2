@@ -1,7 +1,7 @@
-// file      : libbuild2/rule-adhoc-cxx.cxx -*- C++ -*-
+// file      : libbuild2/adhoc-rule-cxx.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/rule-adhoc-cxx.hxx>
+#include <libbuild2/adhoc-rule-cxx.hxx>
 
 #include <libbutl/filesystem.mxx> // file_time()
 
@@ -372,7 +372,7 @@ namespace build2
             << "#include <libbuild2/algorithm.hxx>"                     << '\n'
             << "#include <libbuild2/filesystem.hxx>"                    << '\n'
             << "#include <libbuild2/diagnostics.hxx>"                   << '\n'
-            << "#include <libbuild2/rule-adhoc-cxx.hxx>"                << '\n'
+            << "#include <libbuild2/adhoc-rule-cxx.hxx>"                << '\n'
             << '\n';
 
         // Write the global fragment, if any. Note that it always includes the

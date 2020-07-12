@@ -1,8 +1,8 @@
-// file      : libbuild2/rule-adhoc-cxx.hxx -*- C++ -*-
+// file      : libbuild2/adhoc-rule-cxx.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef LIBBUILD2_RULE_ADHOC_CXX_HXX
-#define LIBBUILD2_RULE_ADHOC_CXX_HXX
+#ifndef LIBBUILD2_ADHOC_RULE_CXX_HXX
+#define LIBBUILD2_ADHOC_RULE_CXX_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -80,4 +80,4 @@ namespace build2
   };
 }
 
-#endif // LIBBUILD2_RULE_ADHOC_CXX_HXX
+#endif // LIBBUILD2_ADHOC_RULE_CXX_HXX

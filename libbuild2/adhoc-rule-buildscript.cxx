@@ -1,7 +1,7 @@
-// file      : libbuild2/rule-adhoc-buildscript.cxx -*- C++ -*-
+// file      : libbuild2/adhoc-rule-buildscript.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/rule-adhoc-buildscript.hxx>
+#include <libbuild2/adhoc-rule-buildscript.hxx>
 
 #include <sstream>
 

@@ -1,8 +1,8 @@
-// file      : libbuild2/rule-adhoc-buildscript.hxx -*- C++ -*-
+// file      : libbuild2/adhoc-rule-buildscript.hxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#ifndef LIBBUILD2_RULE_ADHOC_BUILDSCRIPT_HXX
-#define LIBBUILD2_RULE_ADHOC_BUILDSCRIPT_HXX
+#ifndef LIBBUILD2_ADHOC_RULE_BUILDSCRIPT_HXX
+#define LIBBUILD2_ADHOC_RULE_BUILDSCRIPT_HXX
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -53,4 +53,4 @@ namespace build2
   };
 }
 
-#endif // LIBBUILD2_RULE_ADHOC_BUILDSCRIPT_HXX
+#endif // LIBBUILD2_ADHOC_RULE_BUILDSCRIPT_HXX
