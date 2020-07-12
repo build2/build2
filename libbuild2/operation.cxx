@@ -553,7 +553,7 @@ namespace build2
         << "src_root: "     << cast<dir_path> (rs[ctx.var_src_root]) << endl
         << "out_root: "     << cast<dir_path> (rs[ctx.var_out_root]) << endl
         << "amalgamation: " << (*rs.root_extra->amalgamation != nullptr ? **rs.root_extra->amalgamation : empty_dir_path) << endl
-        << "subprojects: "  << cast_empty<subprojects> (rs[ctx.var_subprojects]) << endl
+        << "subprojects: "  << (*rs.root_extra->subprojects != nullptr ? **rs.root_extra->subprojects : subprojects ()) << endl
         << "operations:";      print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
         << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl;
     }

@@ -27,6 +27,11 @@ namespace build2
 {
   class dir;
 
+  using subprojects = std::map<project_name, dir_path>;
+
+  LIBBUILD2_SYMEXPORT ostream&
+  operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
+
   class LIBBUILD2_SYMEXPORT scope
   {
   public:
@@ -428,6 +433,12 @@ namespace build2
       // is not yet determined. NULL means amalgamation is disabled.
       //
       optional<const dir_path*> amalgamation;
+
+      // This project's subprojects (var_subprojects value). Absent means it
+      // is not yet determined (happens at the end of bootstrap_src()). NULL
+      // means there are no subprojects.
+      //
+      optional<const build2::subprojects*> subprojects;
 
       bool altn; // True if using alternative build file/directory naming.
 

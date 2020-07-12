@@ -1103,9 +1103,9 @@ main (int argc, char* argv[])
           // Note that the subprojects variable has already been processed
           // and converted to a map by the bootstrap_src() call above.
           //
-          if (auto l = rs.vars[ctx->var_subprojects])
+          if (const subprojects* ps = *rs.root_extra->subprojects)
           {
-            for (const auto& p: cast<subprojects> (l))
+            for (const auto& p: *ps)
             {
               if (out_base.sub (out_root / p.second))
                 fail << tn << " is in a subproject of " << out_root <<

@@ -592,9 +592,9 @@ namespace build2
 
       // Configure subprojects that have been loaded.
       //
-      if (auto l = rs.vars[ctx.var_subprojects])
+      if (const subprojects* ps = *rs.root_extra->subprojects)
       {
-        for (auto p: cast<subprojects> (l))
+        for (auto p: *ps)
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
@@ -633,9 +633,9 @@ namespace build2
       // Configure subprojects. Since we don't load buildfiles if configuring
       // a forward, we do it for all known subprojects.
       //
-      if (auto l = rs.vars[ctx.var_subprojects])
+      if (const subprojects* ps = *rs.root_extra->subprojects)
       {
-        for (auto p: cast<subprojects> (l))
+        for (auto p: *ps)
         {
           dir_path out_nroot (out_root / p.second);
           const scope& nrs (ctx.scopes.find (out_nroot));
@@ -860,9 +860,9 @@ namespace build2
       // Disfigure subprojects. Since we don't load buildfiles during
       // disfigure, we do it for all known subprojects.
       //
-      if (auto l = rs.vars[ctx.var_subprojects])
+      if (const subprojects* ps = *rs.root_extra->subprojects)
       {
-        for (auto p: cast<subprojects> (l))
+        for (auto p: *ps)
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
@@ -962,9 +962,9 @@ namespace build2
 
       bool r (false);
 
-      if (auto l = rs.vars[ctx.var_subprojects])
+      if (const subprojects* ps = *rs.root_extra->subprojects)
       {
-        for (auto p: cast<subprojects> (l))
+        for (auto p: *ps)
         {
           dir_path out_nroot (out_root / p.second);
           const scope& nrs (ctx.scopes.find (out_nroot));

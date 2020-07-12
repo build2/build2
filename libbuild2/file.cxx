@@ -62,24 +62,6 @@ namespace build2
   const path   alt_buildfile_file   ("build2file");
   const path   alt_buildignore_file (".build2ignore");
 
-  ostream&
-  operator<< (ostream& os, const subprojects& sps)
-  {
-    for (auto b (sps.begin ()), i (b); os && i != sps.end (); ++i)
-    {
-      // See find_subprojects() for details.
-      //
-      const project_name& n (
-        path::traits_type::is_separator (i->first.string ().back ())
-        ? empty_project_name
-        : i->first);
-
-      os << (i != b ? " " : "") << n << '@' << i->second;
-    }
-
-    return os;
-  }
-
   // Check if the standard/alternative file/directory exists, returning empty
   // path if it does not.
   //
@@ -592,6 +574,7 @@ namespace build2
       new scope::root_extra_type {
         nullopt /* project */,
         nullopt /* amalgamation */,
+        nullopt /* subprojects */,
         a,
         a ? alt_build_ext        : std_build_ext,
         a ? alt_build_dir        : std_build_dir,
@@ -936,10 +919,12 @@ namespace build2
 
     if (simple)
     {
-      // Simple project: no name and disabled amalgamation.
+      // Simple project: no name, disabled amalgamation, no subprojects.
       //
       rs.root_extra->project = nullptr;
       rs.root_extra->amalgamation = nullptr;
+      rs.root_extra->subprojects = nullptr;
+
     }
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
@@ -1221,6 +1206,8 @@ namespace build2
           v = move (sps);
         }
       }
+
+      rs.root_extra->subprojects = cast_null<subprojects> (v);
     }
   }
 
@@ -1265,12 +1252,10 @@ namespace build2
   bool
   bootstrapped (scope& rs)
   {
-    // Use the subprojects variable set by bootstrap_src() as an indicator.
-    // It should either be NULL or typed (so we assume that the user will
-    // never set it to NULL).
+    // Use the subprojects value cached at the end of bootstrap_src() as an
+    // indicator.
     //
-    auto l (rs.vars[rs.ctx.var_subprojects]);
-    return l.defined () && (l->null || l->type != nullptr);
+    return rs.root_extra != nullptr && rs.root_extra->subprojects;
   }
 
   // Return true if the inner/outer project (identified by out/src_root) of
@@ -1377,9 +1362,9 @@ namespace build2
 
     scope* r (&root);
 
-    if (auto l = root.vars[ctx.var_subprojects])
+    if (const subprojects* ps = *root.root_extra->subprojects)
     {
-      for (const auto& p: cast<subprojects> (l))
+      for (const auto& p: *ps)
       {
         dir_path out_root (root.out_path () / p.second);
 
@@ -2159,12 +2144,10 @@ namespace build2
             break;
           }
 
-          if (auto l = r->vars[ctx.var_subprojects])
+          if (const subprojects* ps = *r->root_extra->subprojects)
           {
-            const auto& m (cast<subprojects> (l));
-            auto i (m.find (proj));
-
-            if (i != m.end ())
+            auto i (ps->find (proj));
+            if (i != ps->end ())
             {
               const dir_path& d ((*i).second);
               out_root = r->out_path () / d;
@@ -2334,12 +2317,11 @@ namespace build2
       if (project (*root) == *proj)
         break;
 
-      if (auto l = root->vars[ctx.var_subprojects])
+      if (const subprojects* ps = *root->root_extra->subprojects)
       {
-        const auto& m (cast<subprojects> (l));
-        auto i (m.find (*proj));
+        auto i (ps->find (*proj));
 
-        if (i != m.end ())
+        if (i != ps->end ())
         {
           const dir_path& d ((*i).second);
           altn = nullopt;

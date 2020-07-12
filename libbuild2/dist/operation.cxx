@@ -232,9 +232,9 @@ namespace build2
 
       // The same for subprojects that have been loaded.
       //
-      if (auto l = rs->vars[ctx.var_subprojects])
+      if (const subprojects* ps = *rs->root_extra->subprojects)
       {
-        for (auto p: cast<subprojects> (l))
+        for (auto p: *ps)
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
@@ -373,9 +373,9 @@ namespace build2
         const scope* srs (rs);
         const module::callbacks* cbs (&mod.callbacks_);
 
-        if (auto l = rs->vars[ctx.var_subprojects])
+        if (const subprojects* ps = *rs->root_extra->subprojects)
         {
-          for (auto p: cast<subprojects> (l))
+          for (auto p: *ps)
           {
             const dir_path& pd (p.second);
             if (dl.sub (pd))

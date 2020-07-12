@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_FILE_HXX
 #define LIBBUILD2_FILE_HXX
 
-#include <map>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -19,11 +17,6 @@
 namespace build2
 {
   class lexer;
-
-  using subprojects = std::map<project_name, dir_path>;
-
-  LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
 
   LIBBUILD2_SYMEXPORT extern const dir_path std_build_dir;  // build/
 

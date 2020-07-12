@@ -10,6 +10,24 @@ using namespace std;
 
 namespace build2
 {
+  ostream&
+  operator<< (ostream& os, const subprojects& sps)
+  {
+    for (auto b (sps.begin ()), i (b); os && i != sps.end (); ++i)
+    {
+      // See find_subprojects() for details.
+      //
+      const project_name& n (
+        path::traits_type::is_separator (i->first.string ().back ())
+        ? empty_project_name
+        : i->first);
+
+      os << (i != b ? " " : "") << n << '@' << i->second;
+    }
+
+    return os;
+  }
+
   // scope
   //
   pair<lookup, size_t> scope::
