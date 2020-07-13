@@ -3546,6 +3546,17 @@ Note also that the name semantics was carefully tuned to be \i{reversible} to
 its syntactic representation for common non-name values, such as paths,
 command line options, etc., that are usually found in \c{buildfiles}.|
 
+To get to individual elements of a list, an expansion can be followed by a
+subscript. Note that subscripts are only recognize inside evaluation contexts
+and there should be no space between the expansion and \c{[}. For example:
+
+\
+x = foo bar
+
+info ($x[0])                                # foo
+info ($regex.split('foo bar', ' ', '')[1])  # bar
+\
+
 Names are split into a list at whitespace boundaries with certain other
 characters treated as syntax rather than as part of the value. Here are
 a few example:
@@ -5261,13 +5272,14 @@ specification for details.|
 
 Note that some wildcard characters may have special meaning in certain
 contexts. For instance, \c{[} at the beginning of a value will be interpreted
-as the start of the attribute list while \c{?} in the eval context is part of
-the ternary operator. In such cases the wildcard character will have to be
-escaped, for example:
+as the start of the attribute list while \c{?} and \c{[} in the eval context
+are part of the ternary operator and value subscript, respectively. In such
+cases the wildcard character will need to be escaped, for example:
 
 \
 x = \[1-9]-foo.txt
 y = (foo.\?xx)
+z = ($foo\[123].txt)
 \
 
 If a pattern ends with a directory separator, then it only matches
