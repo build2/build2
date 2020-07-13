@@ -37,6 +37,7 @@ namespace build2
       question,        // ?
       percent,         // %
       comma,           // ,
+      backtick,        // `
 
       lparen,          // (
       rparen,          // )

@@ -53,6 +53,7 @@ namespace build2
     case token_type::question:       os << q << '?'     << q; break;
     case token_type::percent:        os << q << '%'     << q; break;
     case token_type::comma:          os << q << ','     << q; break;
+    case token_type::backtick:       os << q << '`'     << q; break;
 
     case token_type::lparen:         os << q << '('     << q; break;
     case token_type::rparen:         os << q << ')'     << q; break;
@@ -80,6 +81,8 @@ namespace build2
     case token_type::greater:        os << q << '>'     << q; break;
     case token_type::less_equal:     os << q << "<="    << q; break;
     case token_type::greater_equal:  os << q << ">="    << q; break;
+
+    case token_type::bit_or:         os << q << '|'     << q; break;
 
     case token_type::log_or:         os << q << "||"    << q; break;
     case token_type::log_and:        os << q << "&&"    << q; break;

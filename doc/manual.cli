@@ -3465,7 +3465,11 @@ Note that \c{?:} (ternary operator) and \c{!} (logical not) are
 right-associative. Unlike C++, all the comparison operators have the same
 precedence. A qualified name cannot be combined with any other operator
 (including ternary) unless enclosed in parentheses. The \c{eval} option in the
-\c{eval-value} production shall contain a single value only (no commas).|
+\c{eval-value} production shall contain a single value only (no commas).
+
+Additionally, the \c{`} (backtick) and \c{|} (bitwise or) tokens are reserved
+for future support of arithmetic evaluation contexts and evaluation pipelines,
+respectively.|
 
 A function call starts with \c{$} followed by its name and an eval context
 listing its arguments. Note that there is no space between the name and

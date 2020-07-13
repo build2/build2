@@ -120,8 +120,8 @@ namespace build2
         // NOTE: remember to update special() lambda in parse_names() if
         //       adding any new single-character tokens to the eval mode.
         //
-        s1 = ":<>=!&|?, $(){}#\t\n";
-        s2 = "   = &|           ";
+        s1 = ":<>=!&|?,` $(){}#\t\n";
+        s2 = "   = &             ";
         break;
       }
     case lexer_mode::buildspec:
@@ -478,6 +478,7 @@ namespace build2
     case '$': return make_token (type::dollar);
     case '?': return make_token (type::question);
     case ',': return make_token (type::comma);
+    case '`': return make_token (type::backtick);
     case '(': return make_token (type::lparen);
     case ')':
       {
@@ -498,7 +499,7 @@ namespace build2
         type r (type::eos);
         switch (c)
         {
-        case '|': if (p == '|') r = type::log_or; break;
+        case '|': r = (p == '|' ? type::log_or : type::bit_or); break;
         case '&': if (p == '&') r = type::log_and; break;
 
         case '<': r = (p == '=' ? type::less_equal : type::less); break;
@@ -514,6 +515,7 @@ namespace build2
 
         switch (r)
         {
+        case type::bit_or:
         case type::less:
         case type::greater:
         case type::log_not: break;

@@ -4038,6 +4038,12 @@ namespace build2
 
     values r (parse_eval_comma (t, tt, pmode, true));
 
+    if (tt == type::backtick) // @@ TMP
+      fail (t) << "arithmetic evaluation context not yet supported";
+
+    if (tt == type::bit_or) // @@ TMP
+      fail (t) << "evaluation pipeline not yet supported";
+
     if (tt != type::rparen)
       fail (t) << "unexpected " << t; // E.g., stray ':'.
 
@@ -5862,6 +5868,8 @@ namespace build2
               case type::dollar:         r = '$';        break;
               case type::question:       r = '?';        break;
               case type::comma:          r = ',';        break;
+              case type::backtick:       r = '`';        break;
+              case type::bit_or:         r = '|';        break;
               case type::log_not:        r = '!';        break;
               case type::lparen:         r = '(';        break;
               case type::rparen:         r = ')';        break;
