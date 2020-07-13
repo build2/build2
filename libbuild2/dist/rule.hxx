@@ -23,7 +23,7 @@ namespace build2
     // bin::lib_rule for an example). Note that in the latter case the rule
     // should "see" all its members for the dist case.
     //
-    class rule: public build2::rule
+    class rule: public simple_rule
     {
     public:
       rule () {}

@@ -36,7 +36,7 @@ namespace build2
       size_t copied;   // First copied-over bmi*{}, 0 if none.
     };
 
-    class LIBBUILD2_CC_SYMEXPORT compile_rule: public rule, virtual common
+    class LIBBUILD2_CC_SYMEXPORT compile_rule: public simple_rule, virtual common
     {
     public:
       compile_rule (data&&);

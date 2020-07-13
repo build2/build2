@@ -18,7 +18,7 @@ namespace build2
     // "Fail rule" for obj{}, [h]bmi{}, and libu{} that issues diagnostics if
     // someone tries to build any of these groups directly.
     //
-    class fail_rule: public rule
+    class fail_rule: public simple_rule
     {
     public:
       fail_rule () {}
@@ -32,7 +32,7 @@ namespace build2
 
     // Pass-through to group members rule, similar to alias.
     //
-    class LIBBUILD2_BIN_SYMEXPORT lib_rule: public rule
+    class LIBBUILD2_BIN_SYMEXPORT lib_rule: public simple_rule
     {
     public:
       lib_rule () {}

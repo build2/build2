@@ -18,7 +18,7 @@ namespace build2
   //
   // Note: exported but should not be used directly (i.e., registered).
   //
-  class LIBBUILD2_SYMEXPORT cxx_rule: public rule
+  class LIBBUILD2_SYMEXPORT cxx_rule: public simple_rule
   {
     // For now this class is provided purely as an alias for rule in case the
     // implementation (which is also called rule) needs to refer to something

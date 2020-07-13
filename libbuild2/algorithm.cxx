@@ -450,7 +450,8 @@ namespace build2
                        << diag_do (a, t);
                 });
 
-              if (!ru.match (a, t, hint))
+              rule::match_extra me;
+              if (!ru.match (a, t, hint, me))
                 continue;
             }
 
@@ -479,7 +480,8 @@ namespace build2
                 //
                 // @@ Can't we temporarily swap things out in target?
                 //
-                if (!ru1.match (a, t, hint))
+                rule::match_extra me1;
+                if (!ru1.match (a, t, hint, me1))
                   continue;
               }
 
@@ -527,7 +529,8 @@ namespace build2
              << diag_do (a, t);
       });
 
-    return r.second.get ().apply (a, t);
+    rule::match_extra me;
+    return r.second.get ().apply (a, t, me);
   }
 
   // If step is true then perform only one step of the match/apply sequence.

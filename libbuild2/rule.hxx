@@ -16,20 +16,30 @@
 
 namespace build2
 {
+  // Rule interface (see also simple_rule below for a simplified version).
+  //
   // Once a rule is registered (for a scope), it is treated as immutable. If
   // you need to modify some state (e.g., counters or some such), then make
-  // sure it is MT-safe.
+  // sure things are MT-safe.
   //
   // Note: match() is only called once but may not be followed by apply().
   //
   class LIBBUILD2_SYMEXPORT rule
   {
   public:
+    // The match_extra argument is used to pass additional information that is
+    // only needed by some rule implementations. It is also a way for us to
+    // later pass more information without breaking source compatibility.
+    //
+    struct match_extra
+    {
+    };
+
     virtual bool
-    match (action, target&, const string& hint) const = 0;
+    match (action, target&, const string& hint, match_extra&) const = 0;
 
     virtual recipe
-    apply (action, target&) const = 0;
+    apply (action, target&, match_extra&) const = 0;
 
     rule () = default;
 
@@ -40,10 +50,28 @@ namespace build2
     rule& operator= (const rule&) = delete;
   };
 
+  // Simplified interface for rules that don't care about the extras.
+  //
+  class LIBBUILD2_SYMEXPORT simple_rule: public rule
+  {
+  public:
+    virtual bool
+    match (action, target&, const string& hint) const = 0;
+
+    virtual recipe
+    apply (action, target&) const = 0;
+
+    virtual bool
+    match (action, target&, const string&, match_extra&) const override;
+
+    virtual recipe
+    apply (action, target&, match_extra&) const override;
+  };
+
   // Fallback rule that only matches if the file exists. It will also match
   // an mtime_target provided it has a set timestamp.
   //
-  class LIBBUILD2_SYMEXPORT file_rule: public rule
+  class LIBBUILD2_SYMEXPORT file_rule: public simple_rule
   {
   public:
     virtual bool
@@ -56,7 +84,7 @@ namespace build2
     static const file_rule instance;
   };
 
-  class LIBBUILD2_SYMEXPORT alias_rule: public rule
+  class LIBBUILD2_SYMEXPORT alias_rule: public simple_rule
   {
   public:
     virtual bool
@@ -72,7 +100,7 @@ namespace build2
   // Note that this rule ignores the dry_run flag; see mkdir() in filesystem
   // for the rationale.
   //
-  class LIBBUILD2_SYMEXPORT fsdir_rule: public rule
+  class LIBBUILD2_SYMEXPORT fsdir_rule: public simple_rule
   {
   public:
     virtual bool
@@ -99,7 +127,7 @@ namespace build2
 
   // Fallback rule that always matches and does nothing.
   //
-  class LIBBUILD2_SYMEXPORT noop_rule: public rule
+  class LIBBUILD2_SYMEXPORT noop_rule: public simple_rule
   {
   public:
     virtual bool
@@ -116,7 +144,7 @@ namespace build2
   //
   // Note: not exported.
   //
-  class adhoc_rule: public rule
+  class adhoc_rule: public simple_rule
   {
   public:
     location_value loc;     // Buildfile location of the recipe.

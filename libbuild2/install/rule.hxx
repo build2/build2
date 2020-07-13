@@ -18,7 +18,7 @@ namespace build2
 {
   namespace install
   {
-    class LIBBUILD2_SYMEXPORT alias_rule: public rule
+    class LIBBUILD2_SYMEXPORT alias_rule: public simple_rule
     {
     public:
       virtual bool
@@ -46,7 +46,7 @@ namespace build2
       static const alias_rule instance;
     };
 
-    class fsdir_rule: public rule
+    class fsdir_rule: public simple_rule
     {
     public:
       virtual bool
@@ -95,7 +95,7 @@ namespace build2
 
     struct install_dir;
 
-    class LIBBUILD2_SYMEXPORT file_rule: public rule
+    class LIBBUILD2_SYMEXPORT file_rule: public simple_rule
     {
     public:
       virtual bool

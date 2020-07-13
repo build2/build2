@@ -23,7 +23,7 @@ namespace build2
 
     // @@ Redo as two separate rules?
     //
-    class compile_rule: public rule, virtual data
+    class compile_rule: public simple_rule, virtual data
     {
     public:
       compile_rule (data&& d): data (move (d)) {}

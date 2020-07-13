@@ -23,7 +23,7 @@ namespace build2
     // Note also that currently this rule ignores the dry-run mode (see
     // perform_update() for the rationale).
     //
-    class LIBBUILD2_IN_SYMEXPORT rule: public build2::rule
+    class LIBBUILD2_IN_SYMEXPORT rule: public simple_rule
     {
     public:
       // The rule id is used to form the rule name/version entry in depdb. The

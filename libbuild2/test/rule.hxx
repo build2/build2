@@ -16,7 +16,7 @@ namespace build2
 {
   namespace test
   {
-    class rule: public build2::rule, protected virtual common
+    class rule: public simple_rule, protected virtual common
     {
     public:
       virtual bool

@@ -22,6 +22,20 @@ namespace build2
   {
   }
 
+  // simple_rule
+  //
+  bool simple_rule::
+  match (action a, target& t, const string& h, match_extra&) const
+  {
+    return match (a, t, h);
+  }
+
+  recipe simple_rule::
+  apply (action a, target& t, match_extra&) const
+  {
+    return apply (a, t);
+  }
+
   // file_rule
   //
   // Note that this rule is special. It is the last, fallback rule. If

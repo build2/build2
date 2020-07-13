@@ -20,7 +20,7 @@ namespace build2
 {
   namespace cc
   {
-    class LIBBUILD2_CC_SYMEXPORT link_rule: public rule, virtual common
+    class LIBBUILD2_CC_SYMEXPORT link_rule: public simple_rule, virtual common
     {
     public:
       link_rule (data&&);
