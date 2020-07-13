@@ -2723,9 +2723,9 @@ namespace build2
   {
     tracer trace ("parser::parse_using", &path_);
 
-    bool optional (t.value.back () == '?');
+    bool opt (t.value.back () == '?');
 
-    if (optional && stage_ == stage::boot)
+    if (opt && stage_ == stage::boot)
       fail (t) << "optional module in bootstrap";
 
     // The rest should be a list of module names. Parse them as names in the
@@ -2741,7 +2741,7 @@ namespace build2
     for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
       string n;
-      standard_version v;
+      optional<standard_version> v;
 
       if (!i->simple ())
         fail (l) << "expected module name instead of " << *i;
@@ -2769,19 +2769,20 @@ namespace build2
       //
       if (n == "build")
       {
-        standard_version_constraint c (move (v), false, nullopt, true); // >=
-
-        if (!v.empty ())
+        if (v)
+        {
+          standard_version_constraint c (move (v), false, nullopt, true); // >=
           check_build_version (c, l);
+        }
       }
       else
       {
-        assert (v.empty ()); // Module versioning not yet implemented.
+        assert (!v); // Module versioning not yet implemented.
 
         if (stage_ == stage::boot)
           boot_module (*root_, n, l);
         else
-          init_module (*root_, *scope_, n, l, optional);
+          init_module (*root_, *scope_, n, l, opt);
       }
     }
 
