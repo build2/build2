@@ -77,7 +77,6 @@ namespace build2
       // line are factored into the output.
       //
       cstrings args {xc.recall_string ()};
-      append_options (args, tstd);
       append_options (args, rs, x_mode);
 
       // Compile as.
@@ -253,7 +252,6 @@ namespace build2
       size_t rn (r.size ());
 
       cstrings args {xc.recall_string ()};
-      append_options (args, tstd);
       append_options (args, rs, x_mode);
       args.push_back ("-print-search-dirs");
       args.push_back (nullptr);

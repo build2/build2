@@ -37,23 +37,23 @@ namespace build2
       explicit
       config_module (config_data&& d): cc::config_module (move (d)) {}
 
-      virtual strings
+      virtual void
       translate_std (const compiler_info&,
                      const target_triplet&,
                      scope&,
+                     strings&,
                      const string*) const override;
     };
 
     using cc::module;
 
-    strings config_module::
+    void config_module::
     translate_std (const compiler_info& ci,
                    const target_triplet& tt,
                    scope& rs,
+                   strings& mode,
                    const string* v) const
     {
-      strings r;
-
       compiler_type ct (ci.id.type);
       compiler_class cl (ci.class_);
       uint64_t mj (ci.version.major);
@@ -103,6 +103,11 @@ namespace build2
       // modules here.
 
       string o;
+
+      auto prepend = [&mode, i = mode.begin ()] (string o) mutable
+      {
+        i = mode.insert (i, move (o)) + 1;
+      };
 
       switch (cl)
       {
@@ -182,7 +187,7 @@ namespace build2
           }
 
           if (!o.empty ())
-            r.push_back (move (o));
+            prepend (move (o));
 
           break;
         }
@@ -257,7 +262,7 @@ namespace build2
           }
 
           if (!o.empty ())
-            r.push_back (move (o));
+            prepend (move (o));
 
           break;
         }
@@ -275,7 +280,7 @@ namespace build2
             // the experimenters to enjoy.
             //
             if (mj > 19 || (mj == 19 && mi >= 12))
-              r.push_back ("/permissive-");
+              prepend ("/permissive-");
 
             break;
           }
@@ -301,14 +306,14 @@ namespace build2
               //
               if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 12)))
               {
-                r.push_back (
+                prepend (
                   mj > 19  || mi >= 24     ?
                   "/D__cpp_modules=201810" : // p1103 (merged modules)
                   mj == 19 || mi >= 12     ?
                   "/D__cpp_modules=201704" : // p0629r0 (export module M;)
                   "/D__cpp_modules=201703"); // n4647   (       module M;)
 
-                r.push_back ("/experimental:module");
+                prepend ("/experimental:module");
                 modules = true;
               }
               break;
@@ -328,7 +333,7 @@ namespace build2
                 // Currently defines __cpp_modules=201810 which is said to
                 // correspond to p1103 (merged modules).
                 //
-                r.push_back ("-fmodules-ts");
+                prepend ("-fmodules-ts");
                 modules = true;
               }
               break;
@@ -350,8 +355,8 @@ namespace build2
               //
               if (l)
               {
-                r.push_back ("-D__cpp_modules=201704"); // p0629r0
-                r.push_back ("-fmodules-ts");
+                prepend ("-D__cpp_modules=201704"); // p0629r0
+                mode.push_back ("-fmodules-ts"); // For the hack to work.
                 modules = true;
               }
               break;
@@ -364,8 +369,6 @@ namespace build2
 
       rs.assign (v_m) = modules;
       //rs.assign (v_c) = concepts;
-
-      return r;
     }
 
     static const char* const hinters[] = {"c", nullptr};
@@ -626,8 +629,6 @@ namespace build2
         cast<process_path>   (rs[cm.x_path]),
         cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
-
-        cm.tstd,
 
         modules,
         symexport,

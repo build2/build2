@@ -389,6 +389,7 @@ namespace build2
 
       // config.x.std overrides x.std
       //
+      strings& mode (cast<strings> (rs.assign (x_mode))); // Set by guess.
       {
         lookup l (lookup_config (rs, config_x_std));
 
@@ -401,9 +402,10 @@ namespace build2
         else
           v = cast_null<string> (rs[x_std]);
 
-        // Translate x_std value (if any) to the compiler option(s) (if any).
+        // Translate x_std value (if any) to the compiler option(s) (if any)
+        // and fold them into the compiler mode.
         //
-        tstd = translate_std (xi, tt, rs, v);
+        translate_std (xi, tt, rs, mode, v);
       }
 
       // config.x.translatable_header
@@ -546,8 +548,6 @@ namespace build2
       //
       if (verb >= (new_config ? 2 : 3))
       {
-        const strings& mode (cast<strings> (rs[x_mode]));
-
         diag_record dr (text);
 
         {
@@ -607,12 +607,6 @@ namespace build2
 
           if (!x_stdlib.alias (c_stdlib))
             dr << "\n  c stdlib   " << xi.c_stdlib;
-        }
-
-        if (!tstd.empty ())
-        {
-          dr << "\n  std       "; // One less space.
-          for (const string& o: tstd) dr << ' ' << o;
         }
 
         if (!xi.pattern.empty ()) // Note: bin_pattern printed by bin

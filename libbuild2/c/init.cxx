@@ -36,23 +36,23 @@ namespace build2
       explicit
       config_module (config_data&& d): cc::config_module (move (d)) {}
 
-      virtual strings
+      virtual void
       translate_std (const compiler_info&,
                      const target_triplet&,
                      scope&,
+                     strings&,
                      const string*) const override;
     };
 
     using cc::module;
 
-    strings config_module::
+    void config_module::
     translate_std (const compiler_info& ci,
                    const target_triplet&,
                    scope& rs,
+                   strings& mode,
                    const string* v) const
     {
-      strings r;
-
       switch (ci.class_)
       {
       case compiler_class::msvc:
@@ -116,13 +116,11 @@ namespace build2
             else if (*v == "90") o += "c90";
             else o += *v; // In case the user specifies `gnuNN` or some such.
 
-            r.push_back (move (o));
+            mode.insert (mode.begin (), move (o));
           }
           break;
         }
       }
-
-      return r;
     }
 
     static const char* const hinters[] = {"cxx", nullptr};
@@ -339,8 +337,6 @@ namespace build2
         cast<process_path>   (rs[cm.x_path]),
         cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
-
-        cm.tstd,
 
         false, // No C modules yet.
         false, // No __symexport support since no modules.

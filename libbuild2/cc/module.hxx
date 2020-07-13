@@ -44,16 +44,16 @@ namespace build2
       init (scope&, const location&, const variable_map&);
 
       // Translate the x.std value (if any) to the standard-selecting
-      // option(s) (if any). May also check/set x.features.* variables on the
-      // root scope.
+      // option(s) (if any) and fold them (normally by pre-pending) into the
+      // compiler mode options. This function may also check/set x.features.*
+      // variables on the root scope.
       //
-      virtual strings
+      virtual void
       translate_std (const compiler_info&,
                      const target_triplet&,
                      scope&,
+                     strings&,
                      const string*) const = 0;
-
-      strings tstd;
 
       const compiler_info* x_info;
 

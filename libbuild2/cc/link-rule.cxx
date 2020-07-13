@@ -2346,7 +2346,6 @@ namespace build2
         {
           append_options (args, t, c_coptions);
           append_options (args, t, x_coptions);
-          append_options (args, tstd);
         }
 
         // Note that these come in the reverse order of coptions since the

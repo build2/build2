@@ -893,7 +893,6 @@ namespace build2
 
           append_options (cs, t, c_coptions);
           append_options (cs, t, x_coptions);
-          append_options (cs, tstd);
 
           if (ot == otype::s)
           {
@@ -3057,8 +3056,6 @@ namespace build2
 
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
-          append_options (args, tstd,
-                          tstd.size () - (modules && clang ? 1 : 0));
 
           switch (cclass)
           {
@@ -3127,7 +3124,8 @@ namespace build2
                 }
               }
 
-              append_options (args, cmode);
+              append_options (args, cmode,
+                              cmode.size () - (modules && clang ? 1 : 0));
               append_sys_inc_options (args); // Extra system header dirs (last).
 
               // Setup the dynamic module mapper if needed.
@@ -4312,8 +4310,6 @@ namespace build2
 
           append_options (args, t, c_coptions, werror);
           append_options (args, t, x_coptions, werror);
-          append_options (args, tstd,
-                          tstd.size () - (modules && clang ? 1 : 0));
 
           append_header_options (env, args, header_args, a, t, md, dd);
 
@@ -4359,7 +4355,8 @@ namespace build2
                 }
               }
 
-              append_options (args, cmode);
+              append_options (args, cmode,
+                              cmode.size () - (modules && clang ? 1 : 0));
               append_sys_inc_options (args);
 
               args.push_back ("-E");
@@ -5916,7 +5913,6 @@ namespace build2
 
       append_options (args, t, c_coptions);
       append_options (args, t, x_coptions);
-      append_options (args, tstd);
 
       string out, out1;                    // Output options storage.
       small_vector<string, 2> header_args; // Header unit options storage.
