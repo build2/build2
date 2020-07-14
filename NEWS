@@ -1,3 +1,272 @@
+Version 0.13.0
+
+  * Support for project-specific configuration.
+
+    A project can now use the new config directive to define config.*
+    variables similar to the build system core and modules. For example:
+
+    config [bool]   config.libhello.fancy    ?= false
+    config [string] config.libhello.greeting ?= 'Hello'
+
+    These variables can then be used in buildfiles and/or propagated to the
+    source code using the command line, .in file substitution, etc. For
+    example:
+
+    if $config.libhello.fancy
+      cxx.poptions += -DLIBHELLO_FANCY
+
+    cxx.poptions += "-DLIBHELLO_GREETING=\"$config.libhello.greeting\""
+
+    See the "Project Configuration" chapter in the manual for details.
+
+  * Support for ad hoc recipes.
+
+    With ad hoc recipes we can now provide custom implementation of operations
+    (update, test, etc) for certain targets. For example:
+
+    hxx{config}: hxx{config-linux}:   include = ($cxx.target.class == 'linux')
+    hxx{config}: hxx{config-windows}: include = ($cxx.target.class == 'windows')
+    hxx{config}: hxx{config-macos}:   include = ($cxx.target.class == 'macos')
+    hxx{config}:
+    {{
+      cp $path($<) $path($>)
+    }}
+
+    Another, more elaborate example:
+
+    import! xxd = xxd%exe{xxd}
+
+    <{hxx cxx}{foo}>: file{foo.bin} $xxd
+    {{
+      diag xxd ($<[0])
+
+      i = $path($<[0]) # Input.
+      h = $path($>[0]) # Output header.
+      s = $path($>[1]) # Output source.
+      n = $name($<[0]) # Array name.
+
+      # Get the position of the last byte (in hex).
+      #
+      $xxd -s -1 -l 1 $i | sed -n -e 's/^([0-9]+):.*$/\1/p' - | set pos
+
+      # Write header and source.
+      #
+      echo "#pragma once"                         >$h
+      echo "extern const char $n[0x$pos + 1];"   >>$h
+      echo "extern const char $n[0x$pos + 1]= {"  >$s
+      $xxd -i <$i                                >>$s
+      echo '};'                                  >>$s
+    }}
+
+    Note that in both examples, the utilities (cp, echo, and sed) are builtins
+    which means these recipes are portable. See the Testscript manual for the
+    list of available builtins.
+
+    Ad hoc recipes can also be used to customize a part of the build chain
+    handled by rules. For example, in embedded systems development it is often
+    required to perform a custom link step:
+
+    obje{foo}: cxx{foo}
+    obje{bar}: cxx{bar}
+    exe{ld}: obje{ld ld1}
+    {{
+      diag ld $>
+      $cxx.path $cc.loptions $cxx.loptions $cxx.mode -o $path($>) $path($<) \
+        $cxx.libs $cc.libs
+    }}
+
+    While the above recipes are for the update operation, ad hoc recipes can
+    be used for other operations, such as test. For example:
+
+    exe{hello}: cxx{hello}
+    % test
+    {{
+      diag test $>
+      $> 'World' >>>?'Hello, World!'
+    }}
+
+    The above recipes are written in a shell-like language called Buildscript
+    that has similar semantics to Testscript tests. Another language that can
+    be used to write recipes is C++. For example:
+
+    ./:
+    {{ c++ 1
+
+      recipe
+      apply (action, target& t) const override
+      {
+        text (recipe_loc) << "Hello, " << t;
+        return noop_recipe;
+      }
+    }}
+
+    In this release support for ad hoc recipe is at the "technology preview"
+    stage. In particular, there is no documentation and are known rough edges,
+    especially around diagnostics.
+
+  * Support for project-local importation.
+
+    An import without a project name is now treated as importation from the
+    same project. For example, given the libhello project that exports the
+    lib{hello} target, a buildfile for an executable in the same project
+    instead of doing something like this:
+
+    include ../libhello/
+    exe{hello}: ../libhello/lib{hello}
+
+    Can now do this:
+
+    import lib = lib{hello}
+    exe{hello}: $lib
+
+    Note that the target in project-local importation must still be exported
+    in the project's export stub. In other words, project-local importation
+    goes through the same mechanism as normal import.
+
+  * Support for ad hoc importation and "glue buildfiles".
+
+    If the target being imported has no project name and is either absolute or
+    is a relative directory, then this is treated as ad hoc importation.
+    Semantically it is similar to a normal import but with the location of the
+    project being imported hard-coded into the buildfile.
+
+    This type of import can be used to create a special "glue buildfile" that
+    "pulls" together several projects, usually for convenience of development.
+    One typical case that calls for such a glue buildfile is a multi-package
+    project. To be able to invoke the build system driver directly in the
+    project root, we can add a glue buildfile that imports and builds all the
+    packages:
+
+    import pkgs = */
+    ./: $pkgs
+
+    See the "Target Importation" section in the manual for details.
+
+  * Support for value subscripts.
+
+    A value subscript is only recognized in evaluation contexts (due to
+    ambiguity with wildcard patterns; consider: $x[123].txt) and should be
+    unseparated from the previous token. For example:
+
+    x = ($y[1])
+    x = (($f ? $y : $z)[1])
+    x = ($identity($y)[$z])
+
+  * New legal{} target type and config.install.legal variable.
+
+    This allows separation of legal files (LICENSE, AUTHORS, etc) from other
+    documentation. For example:
+
+    ./: ... doc{README} legal{LICENSE}
+
+    $ b install ... config.install.legal=/usr/share/licenses/hello/
+
+  * Support for <var>-substitutions in config.install.* values.
+
+    The currently recognized variable names are <project> and <private> which
+    are substituted with the project name and private subdirectory,
+    respectively. This can be used along these lines:
+
+    $ b config.install.libexec='exec_root/lib/<project>/' install
+
+    The private installation subdirectory can be used to hide the
+    implementation details of a project. This is primarily useful when
+    installing an executable that depends on a bunch of libraries into a
+    shared location, such as /usr/local/. For example:
+
+    $ b config.install.private=foo install
+
+    See the "Install Module" chapter in the manual for details.
+
+  * The $process.run*() functions now recognize a number of portable builtins.
+    Refer to the Testscript manual for the list and details.
+
+  * New $defined(<variable>) and $visibility(<variable>) functions.
+
+  * New $target.process_path() function analogous to $target.path().
+
+  * New $bin.link_member() function.
+
+    Given a linker output target type ("exe", "lib[as]", or "libu[eas]") this
+    function returns the target type of lib{} group member ("liba" or "libs")
+    that will be picked when linking a lib{} group to this target type.
+
+  * New scripting builtins: date, env.
+
+  * New variable block applicability semantics in dependency chains.
+
+    Before the block used to apply to the set of prerequisites before the last
+    colon. This turned out to be counterintuitive and not very useful since
+    prerequisite-specific variables are less common than target-specific.
+
+    The new rule is if the chain ends with the colon, then the block applies
+    to the last set of prerequisites. Otherwise, it applies to the last set of
+    targets. For example:
+
+    ./: exe{test}: cxx{main}
+    {
+      test = true        # Applies to the exe{test} target.
+    }
+
+    ./: exe{test}: libue{test}:
+    {
+      bin.whole = false  # Applies to the libue{test} prerequisite.
+    }
+
+  * Test and install modules are now implicitly loaded for simple projects.
+
+    While these can be useful on their own, this also makes the test and
+    install operations available in simple projects, which is handy for "glue"
+    projects that "pull" (using ad hoc import) a bunch of other projects.
+
+  * The translated {c,cxx}.std options are now folded into the compiler mode
+    options. This makes them accessible from ad hoc recipes.
+
+  * Common pkg-config .pc file in addition to static/shared-specific.
+
+    The common .pc file is produced by ignoring any static/shared-specific
+    poptions and splitting loptions/libs into Libs/Libs.private.
+
+    It is "best effort", in a sense that it's not guaranteed to be sufficient
+    in all cases, but it will probably cover the majority of cases, even on
+    Windows, thanks to automatic dllimport'ing of functions.
+
+  * The ~host configuration now only contains the cc and bin modules
+    configuration.
+
+    Also added the ~build2 configuration that contains everything (except
+    config.dist.*) to be used for build system modules.
+
+  * Reworked tool importation support.
+
+    Specifically, now config.<tool> (like config.cli) is handled by the import
+    machinery (it is like a shorter alias for config.import.<tool>.<tool>.exe
+    that we already had).
+
+    This also adds support for uniform tool metadata extraction that is
+    handled by the import machinery. As a result, a tool that follows the
+    "build2 way" can be imported with metadata by the buildfile and/or
+    corresponding module without any tool-specific code or brittleness
+    associated with parsing --version or similar outputs. See the cli
+    tool/module for details.
+
+    Finally, two new flavors of the import directive are now supported:
+    import! triggers immediate importation skipping any rule-specific logic
+    while import? is optional import (analogous to using?). Note that optional
+    import is always immediate. There is also the import-specific metadata
+    attribute which can be specified for these two import flavors in order to
+    trigger metadata importation. For example:
+
+    import? [metadata] cli = cli%exe{cli}
+
+    if ($cli != [null])
+      info "cli version $($cli:cli.version)"
+
+  * Reserved backtick (`) and bit-or (|) in evaluation context for future use.
+
+    Specifically, they are reserved for future support of arithmetic
+    evaluation contexts and evaluation pipelines, respectively.
+
 Version 0.12.0
 
   * Support for dynamically-buildable/loadable build system modules.
