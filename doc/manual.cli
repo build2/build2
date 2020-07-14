@@ -3575,9 +3575,21 @@ well as \c{[]} but only in certain contexts (see \l{#attributes Attributes}
 for details). If instead we need these characters to appear literally as part
 of the value, then we either have to \i{escape} or \i{quote} them.
 
-\N|Additionally, \c{*?[} will be treated as wildcards in name patterns. Note
-that this treatment can only be inhibited with quoting and not escaping. See
-\l{#name-patterns Name Patterns} for details.|
+\N|Additionally, \c{*?[} will be treated as wildcards in name patterns (see
+\l{#name-patterns Name Patterns} for details). Note that this treatment can
+only be inhibited with quoting and not escaping.
+
+While name patterns are recognized inside evaluation contexts, in certain
+cases the \c{?[} characters are treated as part of the ternary operator and
+value subscript, respectively. In such case, to be treat as wildcards rather
+than as syntax, these characters have to be escaped, for example:
+
+\
+x = (foo.\?xx)
+y = ($foo\[123].txt)
+\
+
+|
 
 To escape a special character, we prefix it with a backslash (\c{\\}; to
 specify a literal backslash double it). For example:
