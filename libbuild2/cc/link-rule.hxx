@@ -49,6 +49,8 @@ namespace build2
       target_state
       perform_clean (action, const target&) const;
 
+      using simple_rule::match; // To make Clang happy.
+
     private:
       friend class install_rule;
       friend class libux_install_rule;

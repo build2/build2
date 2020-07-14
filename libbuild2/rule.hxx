@@ -179,6 +179,8 @@ namespace build2
     virtual bool
     match (action, target&, const string&) const override;
 
+    using simple_rule::match; // To make Clang happy.
+
     // Dump support.
     //
     virtual void
