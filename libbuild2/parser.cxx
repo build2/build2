@@ -2765,9 +2765,9 @@ namespace build2
         fail (l) << "invalid module version '" << i->value << "': " << e;
       }
 
-      // Handle the special 'build' module.
+      // Handle the special 'build' and 'build2' modules.
       //
-      if (n == "build")
+      if (n == "build2" || n == "build")
       {
         if (v)
         {
