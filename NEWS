@@ -2,7 +2,7 @@ Version 0.13.0
 
   * Support for project-specific configuration.
 
-    A project can now use the config directive to define config.<porject>.*
+    A project can now use the config directive to define config.<project>.*
     variables, similar to the build system core and modules. For example:
 
     config [bool]   config.libhello.fancy    ?= false
@@ -107,8 +107,8 @@ Version 0.13.0
     }}
 
     Note that in this release support for ad hoc recipe is at the "technology
-    preview" stage. In particular, there is no documentation and are known
-    rough edges.
+    preview" stage. In particular, there is no documentation and there might
+    be some rough edges.
 
   * Support for project-local importation.
 
@@ -197,20 +197,21 @@ Version 0.13.0
   * New $bin.link_member() function.
 
     Given a linker output target type (exe, lib[as], or libu[eas]) this
-    function returns the target type of lib{} group member (liba or libs) that
-    will be picked when linking a lib{} group to this target type.
+    function returns the target type of the lib{} group member (liba or libs)
+    that will be picked when linking a lib{} group to this target type.
 
   * New scripting builtins: date, env.
 
   * New variable block applicability semantics in dependency chains.
 
-    Prior the block used to apply to the set of prerequisites before the last
-    colon. This turned out to be counterintuitive and not very useful since
-    prerequisite-specific variables are less common than target-specific.
+    Previously the block used to apply to the set of prerequisites before the
+    last colon. This turned out to be counterintuitive and not very useful
+    since prerequisite-specific variables are less common than target-
+    specific ones.
 
-    The new rule is as follows: if the chain ends with the colon, then the
-    block applies to the last set of prerequisites. Otherwise, it applies to
-    the last set of targets. For example:
+    The new rule is as follows: if the chain ends with a colon, then the block
+    applies to the last set of prerequisites. Otherwise, it applies to the
+    last set of targets. For example:
 
     ./: exe{test}: cxx{main}
     {
@@ -226,7 +227,8 @@ Version 0.13.0
 
     While these can be useful on their own, this also makes the test and
     install operations available in simple projects, which is handy for "glue
-    buildfiles" that "pull" (using ad hoc import) a bunch of other projects.
+    buildfiles" that "pull" (using ad hoc import) a bunch of other projects
+    together.
 
   * The translated {c,cxx}.std options are now folded into the compiler mode
     options ({c,cxx}.mode). This makes them accessible from ad hoc recipes.
