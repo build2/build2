@@ -74,11 +74,12 @@ Version 0.13.0
 
     obje{foo}: cxx{foo}
     obje{bar}: cxx{bar}
-    exe{ld}: obje{ld ld1}
+
+    <exe{test} file{test.map}>: obje{foo bar}
     {{
-      diag ld $>
-      $cxx.path $cc.loptions $cxx.loptions $cxx.mode -o $path($>) $path($<) \
-        $cxx.libs $cc.libs
+      diag ld ($>[0])
+      $cxx.path $cc.loptions $cxx.loptions $cxx.mode -o $path($>[0]) \
+        "-Wl,-Map=$path($>[1])" $path($<) $cxx.libs $cc.libs
     }}
 
     While the above examples are all for the update operation, ad hoc recipes
@@ -106,7 +107,7 @@ Version 0.13.0
       }
     }}
 
-    Note that in this release support for ad hoc recipe is at the "technology
+    Note that in this release support for ad hoc recipes is at the "technology
     preview" stage. In particular, there is no documentation and there might
     be some rough edges.
 
