@@ -56,6 +56,8 @@ namespace build2
 
       const variable& x_path;         // Compiler process path.
       const variable& x_mode;         // Compiler mode options.
+      const variable& x_c_path;       // Compiler path as configured.
+      const variable& x_c_mode;       // Compiler mode as configured.
       const variable& x_sys_lib_dirs; // System library search directories.
       const variable& x_sys_inc_dirs; // System header search directories.
 

@@ -435,6 +435,8 @@ namespace build2
 
         vp.insert<process_path_ex> ("cxx.path"),
         vp.insert<strings>         ("cxx.mode"),
+        vp.insert<path>            ("cxx.config.path"),
+        vp.insert<strings>         ("cxx.config.mode"),
         vp.insert<dir_paths>       ("cxx.sys_lib_dirs"),
         vp.insert<dir_paths>       ("cxx.sys_inc_dirs"),
 

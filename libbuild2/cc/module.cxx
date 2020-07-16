@@ -140,11 +140,17 @@ namespace build2
 
         mode.assign (++v.begin (), v.end ());
 
+        // Save original path/mode in *.config.path/mode.
+        //
+        rs.assign (x_c_path) = xc;
+        rs.assign (x_c_mode) = mode;
+
         // Figure out which compiler we are dealing with, its target, etc.
         //
         // Note that we could allow guess() to modify mode to support
         // imaginary options (such as /MACHINE for cl.exe). Though it's not
-        // clear what cc.mode would contain (original or modified).
+        // clear what cc.mode would contain (original or modified). Note that
+        // we are now folding *.std options into mode options.
         //
         x_info = &build2::cc::guess (
           x, x_lang, move (xc),

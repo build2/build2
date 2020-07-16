@@ -230,6 +230,7 @@ Version 0.13.0
 
   * The translated {c,cxx}.std options are now folded into the compiler mode
     options ({c,cxx}.mode). This makes them accessible from ad hoc recipes.
+    The original mode/path are available in {c,cxx}.config.mode/path.
 
   * Generation of a common pkg-config .pc file in addition to static/shared-
     specific.

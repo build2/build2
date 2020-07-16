@@ -185,18 +185,18 @@ namespace build2
 
       // config.cc.{id,hinter}
       //
+      // These values must be hinted.
+      //
       {
-        // These values must be hinted.
-        //
         rs.assign<string> ("cc.id") = cast<string> (h["config.cc.id"]);
         rs.assign<string> ("cc.hinter") = cast<string> (h["config.cc.hinter"]);
       }
 
       // config.cc.target
       //
+      // This value must be hinted.
+      //
       {
-        // This value must be hinted.
-        //
         const auto& t (cast<target_triplet> (h["config.cc.target"]));
 
         // Also enter as cc.target.{cpu,vendor,system,version,class} for
@@ -213,18 +213,18 @@ namespace build2
 
       // config.cc.pattern
       //
+      // This value could be hinted. Note that the hints may not be the same.
+      //
       {
-        // This value could be hinted.
-        //
         rs.assign<string> ("cc.pattern") =
           cast_empty<string> (h["config.cc.pattern"]);
       }
 
       // config.cc.mode
       //
+      // This value could be hinted. Note that the hints may not be the same.
+      //
       {
-        // This value could be hinted.
-        //
         rs.assign<strings> ("cc.mode") =
           cast_empty<strings> (h["config.cc.mode"]);
       }
