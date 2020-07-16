@@ -775,15 +775,22 @@ hello/
 inclusion scheme where each header is prefixed with its project name. It also
 has a predictable name where users can expect to find our project's source
 code. Finally, this layout prevents clutter in the project's root directory
-which usually contains various other files. See \l{intro#structure-canonical
-Canonical Project Structure} for more information.
+which usually contains various other files. See \l{intro#proj-struct Canonical
+Project Structure} for details.
+
+Note, however, that this layout is not mandatory and \c{build2} is flexible
+enough to support various arrangements used in today's C and C++ projects.
+Furthermore, the \l{bdep-new(1)} command provides a number of customization
+options and chances are you will be able to create your preferred layout
+automatically. See \l{bdep-new.xhtml#src-layout SOURCE LAYOUT} for more
+information and examples.
 
 Note also that while we can name our header and source files however we like
-(but, again, see \l{intro#structure-canonical Canonical Project Structure} for
-some sensible guidelines), C++ module interface files need to embed a
-sufficient amount of the module name suffix in their names to unambiguously
-resolve all the modules within a project. See \l{#cxx-modules-build
-Building Modules} for details.|
+(but, again, see \l{intro#proj-struct Canonical Project Structure} for some
+sensible guidelines), C++ module interface files need to embed a sufficient
+amount of the module name suffix in their names to unambiguously resolve all
+the modules within a project. See \l{#cxx-modules-build Building Modules} for
+details.|
 
 The source subdirectory \c{buildfile} is identical to the simple project's
 minus the parts moved to \c{root.build}:
@@ -854,7 +861,7 @@ Speaking of libraries, let's see what the standard project structure looks
 like for one, using \c{libhello} created by \l{bdep-new(1)} as an example:
 
 \
-$ bdep new --no-init -t lib libhello
+$ bdep new --no-init -l c++ -t lib libhello
 
 $ tree libhello/
 libhello/
@@ -882,6 +889,17 @@ contents of the root files (\c{bootstrap.build}, \c{root.build}, root
 contents of the project's source subdirectory, \c{libhello/}, look quite a bit
 different. We will examine all of these differences in the coming sections, as
 we learn more about the build system.
+
+\N|Again, this layout is not mandatory and \l{bdep-new(1)} can create a number
+of alternative library structures. For example, if you prefer the
+\c{include/src} split, try:
+
+\
+$ bdep new --no-init -l c++ -t lib,split libhello
+\
+
+See \l{bdep-new.xhtml#src-layout SOURCE LAYOUT} for more examples.|
+
 
 \N|The standard project structure is not type (executable, library, etc) or
 even language specific. In fact, the same project can contain multiple
@@ -1356,9 +1374,9 @@ values end up in the \c{=+} and \c{+=} results is to imagine the new value
 taking the position of \c{=} and the existing value \- of \c{+}.|
 
 The above \c{buildfile} allows us to include our headers using the project's
-name as a prefix, inline with the \l{intro#structure-canonical Canonical
-Project Structure} guidelines. For example, if we added the \c{utility.hxx}
-header to our \c{hello} project, we would include it like this:
+name as a prefix, inline with the \l{intro#proj-struct Canonical Project
+Structure} guidelines. For example, if we added the \c{utility.hxx} header to
+our \c{hello} project, we would include it like this:
 
 \
 #include <iostream>
@@ -2716,11 +2734,11 @@ covered in the source subdirectory \c{buildfile} in \c{libhello}. Here it is
 in its entirety:
 
 \
-int_libs = # Interface dependencies.
-imp_libs = # Implementation dependencies.
+intf_libs = # Interface dependencies.
+impl_libs = # Implementation dependencies.
 
 lib{hello}: {hxx ixx txx cxx}{** -version} hxx{version} \
-  $imp_libs $int_libs
+  $impl_libs $intf_libs
 
 # Include the generated version header into the distribution (so that
 # we don't pick up an installed one) and don't remove it when cleaning
@@ -2744,7 +2762,7 @@ objs{*}: cxx.poptions += -DLIBHELLO_SHARED_BUILD
 lib{hello}:
 {
   cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
-  cxx.export.libs = $int_libs
+  cxx.export.libs = $intf_libs
 }
 
 liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
@@ -2788,15 +2806,15 @@ Here are the parts relevant to the library metadata protocol in the above
 \c{buildfile}:
 
 \
-int_libs = # Interface dependencies.
-imp_libs = # Implementation dependencies.
+intf_libs = # Interface dependencies.
+impl_libs = # Implementation dependencies.
 
-lib{hello}: ... $imp_libs $int_libs
+lib{hello}: ... $impl_libs $intf_libs
 
 lib{hello}:
 {
   cxx.export.poptions = \"-I$out_root\" \"-I$src_root\"
-  cxx.export.libs = $int_libs
+  cxx.export.libs = $intf_libs
 }
 
 liba{hello}: cxx.export.poptions += -DLIBHELLO_STATIC
@@ -2853,8 +2871,8 @@ can safely treat it as an implementation dependency. The corresponding
 \c{import} directives in our \c{buildfile} will therefore look like this:
 
 \
-import int_libs = libformat%lib{format}
-import imp_libs = libprint%lib{print}
+import intf_libs = libformat%lib{format}
+import impl_libs = libprint%lib{print}
 \
 
 The preprocessor options (\c{poptions}) of an interface dependency must be
@@ -2865,7 +2883,7 @@ listing the interface dependencies in the \c{cxx.export.libs} variable:
 \
 lib{hello}:
 {
-  cxx.export.libs = $int_libs
+  cxx.export.libs = $intf_libs
 }
 \
 

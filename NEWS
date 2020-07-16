@@ -2,8 +2,8 @@ Version 0.13.0
 
   * Support for project-specific configuration.
 
-    A project can now use the new config directive to define config.*
-    variables similar to the build system core and modules. For example:
+    A project can now use the config directive to define config.<porject>.*
+    variables, similar to the build system core and modules. For example:
 
     config [bool]   config.libhello.fancy    ?= false
     config [string] config.libhello.greeting ?= 'Hello'
@@ -21,18 +21,20 @@ Version 0.13.0
 
   * Support for ad hoc recipes.
 
-    With ad hoc recipes we can now provide custom implementation of operations
-    (update, test, etc) for certain targets. For example:
+    With ad hoc recipes it is now possible to provide custom implementations
+    of operations (update, test, etc) for certain targets. For example, this
+    is how we can pick a config header based on the platform:
 
-    hxx{config}: hxx{config-linux}:   include = ($cxx.target.class == 'linux')
-    hxx{config}: hxx{config-windows}: include = ($cxx.target.class == 'windows')
-    hxx{config}: hxx{config-macos}:   include = ($cxx.target.class == 'macos')
+    hxx{config}: hxx{config-linux}: include = ($cxx.target.class == 'linux')
+    hxx{config}: hxx{config-win32}: include = ($cxx.target.class == 'windows')
+    hxx{config}: hxx{config-macos}: include = ($cxx.target.class == 'macos')
     hxx{config}:
     {{
       cp $path($<) $path($>)
     }}
 
-    Another, more elaborate example:
+    Another, more elaborate example that shows how to embed binary data into
+    the source code with the help of the xxd(1) utility:
 
     import! xxd = xxd%exe{xxd}
 
@@ -49,6 +51,10 @@ Version 0.13.0
       #
       $xxd -s -1 -l 1 $i | sed -n -e 's/^([0-9]+):.*$/\1/p' - | set pos
 
+      if ($empty($pos))
+        exit "unable to extract input size from xxd output"
+      end
+
       # Write header and source.
       #
       echo "#pragma once"                         >$h
@@ -62,9 +68,9 @@ Version 0.13.0
     which means these recipes are portable. See the Testscript manual for the
     list of available builtins.
 
-    Ad hoc recipes can also be used to customize a part of the build chain
-    handled by rules. For example, in embedded systems development it is often
-    required to perform a custom link step:
+    Ad hoc recipes can also be used to customize a part of the update chain
+    otherwise handled by rules. For example, in embedded systems development
+    it is often required to perform a custom link step:
 
     obje{foo}: cxx{foo}
     obje{bar}: cxx{bar}
@@ -75,8 +81,8 @@ Version 0.13.0
         $cxx.libs $cc.libs
     }}
 
-    While the above recipes are for the update operation, ad hoc recipes can
-    be used for other operations, such as test. For example:
+    While the above examples are all for the update operation, ad hoc recipes
+    can be used for other operations, such as test. For example:
 
     exe{hello}: cxx{hello}
     % test
@@ -100,9 +106,9 @@ Version 0.13.0
       }
     }}
 
-    In this release support for ad hoc recipe is at the "technology preview"
-    stage. In particular, there is no documentation and are known rough edges,
-    especially around diagnostics.
+    Note that in this release support for ad hoc recipe is at the "technology
+    preview" stage. In particular, there is no documentation and are known
+    rough edges.
 
   * Support for project-local importation.
 
@@ -114,7 +120,7 @@ Version 0.13.0
     include ../libhello/
     exe{hello}: ../libhello/lib{hello}
 
-    Can now do this:
+    Can now do:
 
     import lib = lib{hello}
     exe{hello}: $lib
@@ -123,19 +129,21 @@ Version 0.13.0
     in the project's export stub. In other words, project-local importation
     goes through the same mechanism as normal import.
 
+    See the "Target Importation" section in the manual for details.
+
   * Support for ad hoc importation and "glue buildfiles".
 
     If the target being imported has no project name and is either absolute or
     is a relative directory, then this is treated as ad hoc importation.
-    Semantically it is similar to a normal import but with the location of the
-    project being imported hard-coded into the buildfile.
+    Semantically it is similar to normal importation but with the location of
+    the project being imported hard-coded into the buildfile.
 
-    This type of import can be used to create a special "glue buildfile" that
-    "pulls" together several projects, usually for convenience of development.
-    One typical case that calls for such a glue buildfile is a multi-package
-    project. To be able to invoke the build system driver directly in the
-    project root, we can add a glue buildfile that imports and builds all the
-    packages:
+    In particular, this type of import can be used to create a special "glue
+    buildfile" that "pulls" together several projects, usually for convenience
+    of development. One typical case that calls for such a glue buildfile is a
+    multi-package project. To be able to invoke the build system directly in
+    the project root, we can add a glue buildfile that imports and builds all
+    the packages:
 
     import pkgs = */
     ./: $pkgs
@@ -159,13 +167,13 @@ Version 0.13.0
 
     ./: ... doc{README} legal{LICENSE}
 
-    $ b install ... config.install.legal=/usr/share/licenses/hello/
+    $ b install ... config.install.legal='share/licenses/<project>/'
 
   * Support for <var>-substitutions in config.install.* values.
 
     The currently recognized variable names are <project> and <private> which
-    are substituted with the project name and private subdirectory,
-    respectively. This can be used along these lines:
+    are replaced with the project name and private subdirectory, respectively.
+    This can be used along these lines:
 
     $ b config.install.libexec='exec_root/lib/<project>/' install
 
@@ -183,25 +191,26 @@ Version 0.13.0
 
   * New $defined(<variable>) and $visibility(<variable>) functions.
 
-  * New $target.process_path() function analogous to $target.path().
+  * New $target.process_path() function for exe{} targets analogous to
+    $target.path().
 
   * New $bin.link_member() function.
 
-    Given a linker output target type ("exe", "lib[as]", or "libu[eas]") this
-    function returns the target type of lib{} group member ("liba" or "libs")
-    that will be picked when linking a lib{} group to this target type.
+    Given a linker output target type (exe, lib[as], or libu[eas]) this
+    function returns the target type of lib{} group member (liba or libs) that
+    will be picked when linking a lib{} group to this target type.
 
   * New scripting builtins: date, env.
 
   * New variable block applicability semantics in dependency chains.
 
-    Before the block used to apply to the set of prerequisites before the last
+    Prior the block used to apply to the set of prerequisites before the last
     colon. This turned out to be counterintuitive and not very useful since
     prerequisite-specific variables are less common than target-specific.
 
-    The new rule is if the chain ends with the colon, then the block applies
-    to the last set of prerequisites. Otherwise, it applies to the last set of
-    targets. For example:
+    The new rule is as follows: if the chain ends with the colon, then the
+    block applies to the last set of prerequisites. Otherwise, it applies to
+    the last set of targets. For example:
 
     ./: exe{test}: cxx{main}
     {
@@ -216,13 +225,14 @@ Version 0.13.0
   * Test and install modules are now implicitly loaded for simple projects.
 
     While these can be useful on their own, this also makes the test and
-    install operations available in simple projects, which is handy for "glue"
-    projects that "pull" (using ad hoc import) a bunch of other projects.
+    install operations available in simple projects, which is handy for "glue
+    buildfiles" that "pull" (using ad hoc import) a bunch of other projects.
 
   * The translated {c,cxx}.std options are now folded into the compiler mode
-    options. This makes them accessible from ad hoc recipes.
+    options ({c,cxx}.mode). This makes them accessible from ad hoc recipes.
 
-  * Common pkg-config .pc file in addition to static/shared-specific.
+  * Generation of a common pkg-config .pc file in addition to static/shared-
+    specific.
 
     The common .pc file is produced by ignoring any static/shared-specific
     poptions and splitting loptions/libs into Libs/Libs.private.
@@ -234,21 +244,21 @@ Version 0.13.0
   * The ~host configuration now only contains the cc and bin modules
     configuration.
 
-    Also added the ~build2 configuration that contains everything (except
-    config.dist.*) to be used for build system modules.
+    There is also the new ~build2 configuration that contains everything
+    (except config.dist.*) and is meant to be used for build system modules.
 
   * Reworked tool importation support.
 
     Specifically, now config.<tool> (like config.cli) is handled by the import
-    machinery (it is like a shorter alias for config.import.<tool>.<tool>.exe
-    that we already had).
+    machinery (it is a shorter alias for config.import.<tool>.<tool>.exe that
+    we already had).
 
     This also adds support for uniform tool metadata extraction that is
     handled by the import machinery. As a result, a tool that follows the
     "build2 way" can be imported with metadata by the buildfile and/or
     corresponding module without any tool-specific code or brittleness
     associated with parsing --version or similar outputs. See the cli
-    tool/module for details.
+    tool/module for an example of how this all fits together.
 
     Finally, two new flavors of the import directive are now supported:
     import! triggers immediate importation skipping any rule-specific logic
@@ -262,10 +272,10 @@ Version 0.13.0
     if ($cli != [null])
       info "cli version $($cli:cli.version)"
 
-  * Reserved backtick (`) and bit-or (|) in evaluation context for future use.
+  * Backtick (`) and bit-or (|) are reserved in eval context for future use.
 
-    Specifically, they are reserved for future support of arithmetic
-    evaluation contexts and evaluation pipelines, respectively.
+    Specifically, they are reserved for planned support of arithmetic eval
+    contexts and evaluation pipelines, respectively.
 
 Version 0.12.0
 
