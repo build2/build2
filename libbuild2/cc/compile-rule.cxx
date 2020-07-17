@@ -5939,11 +5939,11 @@ namespace build2
           append_sys_inc_options (args); // Extra system header dirs (last).
 
         // While we want to keep the low-level build as "pure" as possible,
-        // the two misguided defaults, exceptions and runtime, just have to be
-        // fixed. Otherwise the default build is pretty much unusable. But we
-        // also make sure that the user can easily disable our defaults: if we
-        // see any relevant options explicitly specified, we take our hands
-        // off.
+        // the two misguided defaults, C++ exceptions and runtime, just have
+        // to be fixed. Otherwise the default build is pretty much unusable.
+        // But we also make sure that the user can easily disable our
+        // defaults: if we see any relevant options explicitly specified, we
+        // take our hands off.
         //
         // For C looks like no /EH* (exceptions supported but no C++ objects
         // destroyed) is a reasonable default.
@@ -6049,6 +6049,28 @@ namespace build2
           {
           case compiler_type::clang:
             {
+              // Default to the /EHsc exceptions support for C++, similar to
+              // the the MSVC case above.
+              //
+              // Note that both vanilla clang++ and clang-cl drivers add
+              // -fexceptions and -fcxx-exceptions by default. However,
+              // clang-cl also adds -fexternc-nounwind, which implements the
+              // 'c' part in /EHsc. Note that adding this option is not a mere
+              // optimization, as we have discovered through some painful
+              // experience; see Clang bug #45021.
+              //
+              // Let's also omit this option if -f[no]-exceptions is specified
+              // explicitly.
+              //
+              if (x_lang == lang::cxx)
+              {
+                if (!find_options ({"-fexceptions", "-fno-exceptions"}, args))
+                {
+                  args.push_back ("-Xclang");
+                  args.push_back ("-fexternc-nounwind");
+                }
+              }
+
               // Default to the multi-threaded DLL runtime (/MD), similar to
               // the MSVC case above.
               //
