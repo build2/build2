@@ -188,6 +188,7 @@ Version 0.13.0
     See the "Install Module" chapter in the manual for details.
 
   * The $process.run*() functions now recognize a number of portable builtins.
+
     Refer to the Testscript manual for the list and details.
 
   * New $defined(<variable>) and $visibility(<variable>) functions.
@@ -202,6 +203,8 @@ Version 0.13.0
     that will be picked when linking a lib{} group to this target type.
 
   * New scripting builtins: date, env.
+
+    Refer to the Testscript manual for details.
 
   * New variable block applicability semantics in dependency chains.
 
@@ -232,8 +235,10 @@ Version 0.13.0
     together.
 
   * The translated {c,cxx}.std options are now folded into the compiler mode
-    options ({c,cxx}.mode). This makes them accessible from ad hoc recipes.
-    The original mode/path are available in {c,cxx}.config.mode/path.
+    options ({c,cxx}.mode).
+
+    This makes them accessible from ad hoc recipes. The original mode/path are
+    available in {c,cxx}.config.mode/path.
 
   * Generation of a common pkg-config .pc file in addition to static/shared-
     specific.

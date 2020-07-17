@@ -2203,6 +2203,7 @@ $ tree /tmp/install/
 │       └── version.hxx
 ├── lib/
 │   ├── pkgconfig/
+│   │   ├── libhello.pc
 │   │   ├── libhello.shared.pc
 │   │   └── libhello.static.pc
 │   ├── libhello.a
@@ -6282,10 +6283,20 @@ If you need to link with other projects that use \c{clang-cl}, then the
 recommended approach is to discover any additional \c{cc1} options passed by
 \c{clang-cl} by comparing the \c{-v} output of a test compilation with
 \c{clang-cl} and \c{clang}/\c{clang++} and then passing them explicitly
-to \c{clang}/\c{clang++} prefixed with \c{-Xclang}. For example:
+to \c{clang}/\c{clang++}, potentially prefixed with \c{-Xclang}. For example:
 
 \
-b \"config.cxx=clang++ -Xclang -fms-volatile ...\"
+b \"config.cxx=clang++ -fms-volatile ...\"
+\
+
+Relevant additional options that are passed by \c{clang-cl} at the time of
+this writing:
+
+\
+-fno-strict-aliasing
+-fstack-protector-strong
+-fms-volatile
+-ffunction-sections
 \
 
 |
