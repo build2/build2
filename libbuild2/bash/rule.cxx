@@ -166,13 +166,10 @@ namespace build2
 
                   bash& pt (rp.first.as<bash> ());
 
-                  // Only set mtime/path on first insertion.
+                  // Only set path/mtime on first insertion.
                   //
                   if (rp.second.owns_lock ())
-                  {
-                    pt.mtime (mt);
-                    pt.path (move (ap));
-                  }
+                    pt.path_mtime (move (ap), mt);
 
                   // Save the length of the import path in auxuliary data. We
                   // use it in substitute_import() to infer the installation

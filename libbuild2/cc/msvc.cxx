@@ -528,10 +528,7 @@ namespace build2
         //
         T* t;
         common::insert_library (p.scope->ctx, t, name, d, ld, e, exist, trace);
-
-        t->mtime (mt);
-        t->path (move (f));
-
+        t->path_mtime (move (f), mt);
         return t;
       }
 
@@ -603,8 +600,7 @@ namespace build2
 
             // Presumably there is a DLL somewhere, we just don't know where.
             //
-            s->mtime (i->mtime ());
-            s->path (path ());
+            s->path_mtime (path (), i->mtime ());
           }
         }
 

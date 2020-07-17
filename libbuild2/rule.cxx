@@ -71,6 +71,9 @@ namespace build2
         // me, this file exists" situations (used, for example, for installed
         // stuff where we know it's there, just not exactly where).
         //
+        // See also path_target::path_mtime() for a potential race in this
+        // logic.
+        //
         mtime_target& mt (t.as<mtime_target> ());
 
         timestamp ts (mt.mtime ());

@@ -194,8 +194,7 @@ namespace build2
     l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << t
                   << " for prerequisite " << cpk;});
 
-    t.mtime (mt);
-    t.path (move (f));
+    t.path_mtime (move (f), mt);
 
     return &t;
   }

@@ -1460,6 +1460,9 @@ namespace build2
     // Note also that while we can cache the mtime, it may be ignored if the
     // target state is set to group (see above).
     //
+    // NOTE: if setting both path and mtime (typically during match), then use
+    // the path_target::path_mtime() function to do it in the correct order.
+    //
     void
     mtime (timestamp) const;
 
@@ -1547,12 +1550,22 @@ namespace build2
     // lock the target in some other way; see file_rule) so in this case it
     // makes sense to set the timestamp first.
     //
+    // NOTE: if setting both path and mtime (typically during match), then use
+    // the path_mtime() function to do it in the correct order.
+    //
     const path_type&
     path () const;
 
     const path_type&
     path (path_type) const;
 
+    // Set both path and mtime and in the correct order.
+    //
+    const path_type&
+    path_mtime (path_type, timestamp) const;
+
+    // Load mtime using the cached path.
+    //
     timestamp
     load_mtime () const;
 

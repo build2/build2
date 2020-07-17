@@ -651,25 +651,20 @@ namespace build2
                 else
                   assert (find_adhoc_member<libi> (*s) == i);
 
-                i->mtime (mt);
-                i->path (move (f));
-
                 // Presumably there is a DLL somewhere, we just don't know
                 // where (and its possible we might have to look for one if we
                 // decide we need to do rpath emulation for installed
                 // libraries as well). We will represent this as empty path
                 // but valid timestamp (aka "trust me, it's there").
                 //
-                s->mtime (mt);
-                s->path (empty_path);
+                i->path_mtime (move (f), mt);
+                s->path_mtime (path (), mt);
               }
             }
             else
             {
               insert_library (ctx, s, name, d, ld, se, exist, trace);
-
-              s->mtime (mt);
-              s->path (move (f));
+              s->path_mtime (move (f), mt);
             }
           }
           else if (!ext && tsys == "mingw32")
@@ -687,9 +682,7 @@ namespace build2
             if (mt != timestamp_nonexistent)
             {
               insert_library (ctx, s, name, d, ld, se, exist, trace);
-
-              s->mtime (mt);
-              s->path (move (f));
+              s->path_mtime (move (f), mt);
             }
           }
         }
@@ -712,8 +705,7 @@ namespace build2
             // as out trees.
             //
             insert_library (ctx, a, name, d, ld, ae, exist, trace);
-            a->mtime (mt);
-            a->path (move (f));
+            a->path_mtime (move (f), mt);
           }
         }
 
@@ -747,15 +739,13 @@ namespace build2
             if (na && !r.first.empty ())
             {
               insert_library (ctx, a, name, d, ld, nullopt, exist, trace);
-              a->mtime (timestamp_unreal);
-              a->path (empty_path);
+              a->path_mtime (path (), timestamp_unreal);
             }
 
             if (ns && !r.second.empty ())
             {
               insert_library (ctx, s, name, d, ld, nullopt, exist, trace);
-              s->mtime (timestamp_unreal);
-              s->path (empty_path);
+              s->path_mtime (path (), timestamp_unreal);
             }
 
             // Only keep these .pc paths if we found anything via them.

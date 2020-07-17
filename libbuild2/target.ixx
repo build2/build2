@@ -582,6 +582,21 @@ namespace build2
     return mtime_target::load_mtime (path ());
   }
 
+  inline const path& path_target::
+  path_mtime (path_type p, timestamp mt) const
+  {
+    // Because we use the presence of mtime to indicate the special "trust me,
+    // this file exists" situation, the order in which we do things is
+    // important. In particular, the fallback file_rule::match() will skip
+    // assigning the path if there is a valid timestamp. As a result, with the
+    // wrong order we may end up in a situation where the rule is matched but
+    // the path is not assigned.
+    //
+    const path_type& r (path (move (p)));
+    mtime (mt);
+    return r;
+  }
+
   // exe
   //
   inline auto exe::
