@@ -1577,6 +1577,15 @@ namespace build2
                  const char* name_suffix = nullptr,
                  const char* extra_ext = nullptr);
 
+    // As above but with the already derived (by calling derive_extension())
+    // extension.
+    //
+    const path_type&
+    derive_path_with_extension (const string& ext,
+                                const char* name_prefix = nullptr,
+                                const char* name_suffix = nullptr,
+                                const char* extra_ext = nullptr);
+
     // This version can be used to derive the path from another target's path
     // by adding another extension.
     //
@@ -1584,6 +1593,14 @@ namespace build2
     derive_path (path_type base,
                  const char* default_ext = nullptr,
                  const char* extra_ext = nullptr);
+
+    // As above but with the already derived (by calling derive_extension())
+    // extension.
+    //
+    const path_type&
+    derive_path_with_extension (path_type base,
+                                const string& ext,
+                                const char* extra_ext = nullptr);
 
     // As above but only derives (and returns) the extension (empty means no
     // extension used).

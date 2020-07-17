@@ -545,7 +545,7 @@ namespace build2
   {
     // You may be wondering why don't we spin the transition out? The reason
     // is it shouldn't matter since were we called just a moment earlier, we
-    // would have seen it.
+    // wouldn't have seen it.
     //
     return path_state_.load (memory_order_acquire) == 2 ? path_ : empty_path;
   }

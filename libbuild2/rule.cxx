@@ -94,13 +94,15 @@ namespace build2
           // derivation function to treat this as a prerequisite (just like in
           // search_existing_file()).
           //
-          if (pt->derive_extension (true) == nullptr)
+          if (const string* e = pt->derive_extension (true))
+          {
+            p = &pt->derive_path_with_extension (*e);
+          }
+          else
           {
             l4 ([&]{trace << "no default extension for target " << *pt;});
             return false;
           }
-
-          p = &pt->derive_path ();
         }
 
         ts = mtime (*p);
