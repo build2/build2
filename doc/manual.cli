@@ -6286,7 +6286,7 @@ recommended approach is to discover any additional \c{cc1} options passed by
 to \c{clang}/\c{clang++}, potentially prefixed with \c{-Xclang}. For example:
 
 \
-b \"config.cxx=clang++ -fms-volatile ...\"
+b \"config.cxx=clang++ -Xclang -fms-volatile ...\"
 \
 
 Relevant additional options that are passed by \c{clang-cl} at the time of
@@ -6295,7 +6295,7 @@ this writing:
 \
 -fno-strict-aliasing
 -fstack-protector-strong
--fms-volatile
+-Xclang -fms-volatile
 -ffunction-sections
 \
 
