@@ -172,6 +172,16 @@ if ($cxx.target.class != 'windows')
   if ($cxx.target.class != "bsd")
     libus{build2}: cxx.libs += -ldl
 }
+else
+{
+  # @@ TMP work around Clang bug #45021.
+  #
+  if ($cxx.id == 'clang' && $cxx.target.system == 'win32-msvc')
+  {
+    if ($regex.find_match($cc.coptions $cxx.coptions, '-O[23]'))
+      script/obj{run}: cxx.coptions += -O1
+  }
+}
 
 # Export options.
 #
