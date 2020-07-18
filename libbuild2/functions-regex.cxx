@@ -397,6 +397,63 @@ namespace build2
     return r;
   }
 
+  static regex::flag_type
+  parse_find_flags (optional<names>&& flags)
+  {
+    regex::flag_type r (regex::ECMAScript);
+
+    if (flags)
+    {
+      for (auto& f: *flags)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "icase")
+          r |= regex::icase;
+        else
+          throw invalid_argument ("invalid flag '" + s + "'");
+      }
+    }
+
+    return r;
+  }
+
+  // Return true if any of the list elements match the regular expression.
+  // See find_match() overloads (below) for details.
+  //
+  static bool
+  find_match (names&& s, const string& re, optional<names>&& flags)
+  {
+    regex::flag_type fl (parse_find_flags (move (flags)));
+    regex rge (parse_regex (re, fl));
+
+    for (auto& v: s)
+    {
+      if (regex_match (convert<string> (move (v)), rge))
+        return true;
+    }
+
+    return false;
+  }
+
+  // Return true if a part of any of the list elements matches the regular
+  // expression. See find_search() overloads (below) for details.
+  //
+  static bool
+  find_search (names&& s, const string& re, optional<names>&& flags)
+  {
+    regex::flag_type fl (parse_find_flags (move (flags)));
+    regex rge (parse_regex (re, fl));
+
+    for (auto& v: s)
+    {
+      if (regex_search (convert<string> (move (v)), rge))
+        return true;
+    }
+
+    return false;
+  }
+
   // Replace matched parts of list elements using the format string and
   // concatenate the transformed elements. See merge() overloads (below) for
   // details.
@@ -474,6 +531,25 @@ namespace build2
       return match (move (s), convert<string> (move (re)), move (flags));
     };
 
+    // $regex.find_match(<vals>, <pat> [, <flags>])
+    //
+    // Match list elements against the regular expression and return true if
+    // the match is found. Convert the elements to string prior to matching.
+    //
+    // The following flags are supported:
+    //
+    // icase - match ignoring case
+    //
+    f[".find_match"] = [](names s, string re, optional<names> flags)
+    {
+      return find_match (move (s), re, move (flags));
+    };
+
+    f[".find_match"] = [](names s, names re, optional<names> flags)
+    {
+      return find_match (move (s), convert<string> (move (re)), move (flags));
+    };
+
     // $regex.search(<val>, <pat> [, <flags>])
     //
     // Determine if there is a match between the regular expression and some
@@ -505,6 +581,28 @@ namespace build2
     f[".search"] = [](value s, names re, optional<names> flags)
     {
       return search (move (s), convert<string> (move (re)), move (flags));
+    };
+
+    // $regex.find_search(<vals>, <pat> [, <flags>])
+    //
+    // Determine if there is a match between the regular expression and some
+    // part of any of the list elements. Convert the elements to string prior
+    // to matching.
+    //
+    // The following flags are supported:
+    //
+    // icase - match ignoring case
+    //
+    f[".find_search"] = [](names s, string re, optional<names> flags)
+    {
+      return find_search (move (s), re, move (flags));
+    };
+
+    f[".find_search"] = [](names s, names re, optional<names> flags)
+    {
+      return find_search (move (s),
+                          convert<string> (move (re)),
+                          move (flags));
     };
 
     // $regex.replace(<val>, <pat>, <fmt> [, <flags>])

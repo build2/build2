@@ -436,6 +436,90 @@
   EOI
 }
 
+: find-match
+:
+{
+  : match
+  :
+  {
+    : string
+    :
+    $* <<EOI >'true'
+    print $regex.find_match(-g -O3, [string] '-O[23]')
+    EOI
+
+    : untyped
+    :
+    $* <<EOI >'true'
+    print $regex.find_match(-g -O3, '-O[23]')
+    EOI
+
+    : strings
+    :
+    $* <<EOI >'true'
+    print $regex.find_match([strings] -g -O3, '-O[23]')
+    EOI
+
+    : nomatch
+    :
+    $* <<EOI >'false'
+    print $regex.find_match(-g -O1, '-O[23]')
+    EOI
+  }
+
+  : flags
+  :
+  {
+    : icase
+    :
+    $* <<EOI >'true'
+    print $regex.find_match(Foo.cxx, 'f[^.]+.*', icase)
+    EOI
+  }
+}
+
+: find-search
+:
+{
+  : match
+  :
+  {
+    : string
+    :
+    $* <<EOI >'true'
+    print $regex.find_search(-g -O3, [string] '-O')
+    EOI
+
+    : untyped
+    :
+    $* <<EOI >'true'
+    print $regex.find_search(-g -O3, '-O')
+    EOI
+
+    : strings
+    :
+    $* <<EOI >'true'
+    print $regex.find_search([strings] -g -O3, '-O')
+    EOI
+
+    : nomatch
+    :
+    $* <<EOI >'false'
+    print $regex.find_search(-g, '-O')
+    EOI
+  }
+
+  : flags
+  :
+  {
+    : icase
+    :
+    $* <<EOI >'true'
+    print $regex.find_search(Foo.cxx, 'f', icase)
+    EOI
+  }
+}
+
 : merge
 :
 {

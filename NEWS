@@ -187,6 +187,8 @@ Version 0.13.0
 
     See the "Install Module" chapter in the manual for details.
 
+  * New $regex.find_{match,search}() functions that operate on lists.
+
   * The $process.run*() functions now recognize a number of portable builtins.
 
     Refer to the Testscript manual for the list and details.
