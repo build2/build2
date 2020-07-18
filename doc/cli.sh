@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 
-version=0.13.0-a.0.z
+version=0.13.0
 
 trap 'exit 1' ERR
 set -o errtrace # Trap in functions.
