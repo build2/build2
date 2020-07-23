@@ -462,7 +462,7 @@ namespace build2
 
       for (size_t p (0);;)
       {
-        size_t sp (s.find_first_of ("\\ ", p));
+        size_t sp (s.find_first_of (" \\\"'", p));
 
         if (sp != string::npos)
         {
