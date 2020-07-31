@@ -321,22 +321,43 @@ namespace build2
         path dp ("diff");
         process_path pp (run_search (dp, true));
 
-        cstrings args {pp.recall_string ()};
-
-        // If both files being compared won't be available on failure, then
-        // instruct diff not to print the file paths. It seems that the only
-        // way to achieve this is to abandon the output unified format in the
-        // favor of the minimal output, which normally is still informative
-        // enough for the troubleshooting (contains the difference line
-        // numbers, etc).
-        //
-        if (avail_on_failure (eop, env) || avail_on_failure (op, env))
-          args.push_back ("-u");
+        cstrings args {pp.recall_string (), "-u"};
 
         // Ignore Windows newline fluff if that's what we are running on.
         //
         if (env.host.class_ == "windows")
           args.push_back ("--strip-trailing-cr");
+
+        // Instruct diff not to print the file paths that won't be available
+        // on failure.
+        //
+        // It seems that the only portable way to achieve this is to abandon
+        // the output unified format in the favor of the minimal output.
+        // However, the FreeBSD's, OpenBSD's and GNU's (used on Linux, MacOS,
+        // Windows, and NetBSD) diff utilities support the -L option that
+        // allows to replace the compared file path(s) with custom string(s)
+        // in the utility output. We will use this option for both files if
+        // any of them won't be available on failure (note that we can't
+        // assign a label only for the second file).
+        //
+        // Add the -L option using the file name as its value if it won't be
+        // available on failure and its full path otherwise.
+        //
+        auto add_label = [&args, &env] (const path& p)
+        {
+          const char* s (p.string ().c_str ());
+
+          args.push_back ("-L");
+          args.push_back (avail_on_failure (p, env)
+                          ? s
+                          : path::traits_type::find_leaf (s));
+        };
+
+        if (!avail_on_failure (eop, env) || !avail_on_failure (op, env))
+        {
+          add_label (eop);
+          add_label (op);
+        }
 
         args.push_back (eop.string ().c_str ());
         args.push_back (op.string ().c_str ());

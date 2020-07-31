@@ -866,7 +866,22 @@ namespace build2
         if (cast<target_triplet> (tt[test_target]).class_ == "windows")
           args.push_back ("--strip-trailing-cr");
 
-        args.push_back (op.string ().c_str ());
+        const char* f (op.string ().c_str ());
+
+        // Note that unmatched program stdout will be referred by diff as '-'
+        // by default. Let's name it as 'stdout' for clarity and consistency
+        // with the buildscript diagnostics.
+        //
+        // Also note that the -L option is not portable but is supported by all
+        // the major implementations (see script/run.cxx for details).
+        //
+        args.push_back ("-L");
+        args.push_back (f);
+
+        args.push_back ("-L");
+        args.push_back ("stdout");
+
+        args.push_back (f);
         args.push_back ("-");
         args.push_back (nullptr);
       }
