@@ -1318,6 +1318,13 @@ namespace build2
         include_set_ = nullptr;
         scope_ = &sc;
 
+        // The script shouldn't be able to modify the scope.
+        //
+        // Note that we need it for calling functions which require the
+        // current scope, such as $target.path().
+        //
+        build2::parser::scope_ = const_cast<build2::scope*> (&s.target_scope);
+
         //@@ PAT TODO: set pbase_?
 
         exec_scope_body ();
