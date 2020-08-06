@@ -373,7 +373,7 @@ namespace build2
     //
     task_queue_depth_ = queue_depth != 0
       ? queue_depth
-      : max_active * 4;
+      : max_active * 8;
 
     queued_task_count_.store (0, memory_order_relaxed);
 
