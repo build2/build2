@@ -144,8 +144,8 @@ namespace build2
     if (collision)
       stat_wait_collisions_++;
 
-    // If we have spare active threads, then become active. Otherwise it
-    // enters the ready queue.
+    // If we have spare active threads, then become active. Otherwise we enter
+    // the ready queue.
     //
     if (external)
       external_--;
@@ -183,6 +183,36 @@ namespace build2
     using namespace chrono;
     Sleep (static_cast<DWORD> (duration_cast<milliseconds> (d).count ()));
 #endif
+  }
+
+  size_t scheduler::
+  allocate (size_t n)
+  {
+    if (max_active_ == 1) // Serial execution.
+      return 0;
+
+    lock l (mutex_);
+
+    if (active_ < max_active_)
+    {
+      size_t d (max_active_ - active_);
+      if (n == 0 || d < n)
+        n = d;
+      active_ -= n;
+      return n;
+    }
+    else
+      return 0;
+  }
+
+  void scheduler::
+  deallocate (size_t n)
+  {
+    if (max_active_ == 1) // Serial execution.
+      return;
+
+    lock l (mutex_);
+    active_ += n;
   }
 
   size_t scheduler::

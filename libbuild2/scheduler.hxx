@@ -159,6 +159,72 @@ namespace build2
     static void
     active_sleep (const duration&);
 
+    // Allocate additional active thread count to the current active thread,
+    // for example, to be "passed" to an external program:
+    //
+    // scheduler::alloc_guard ag (ctx.sched, ctx.sched.max_active () / 2);
+    // args.push_back ("-flto=" + to_string (1 + ag.n));
+    // run (args);
+    // ag.deallocate ();
+    //
+    // The allocate() function reserves up to the specified number of
+    // additional threads returning the number actually allocated (which can
+    // be less than requested, including 0). If 0 is specified, then it
+    // allocates all the currently available threads.
+    //
+    // The deallocate() function returns the specified number of previously
+    // allocated threads back to the active thread pool.
+    //
+    // Note that when the thread is deactivated (directly or indirectly via
+    // wait, phase switching, etc), the additionally allocated threads are
+    // considered to be still active (this semantics could be changed if we
+    // have a plausible scenario for where waiting, etc., with allocated
+    // threads is useful).
+    //
+    size_t
+    allocate (size_t);
+
+    void
+    deallocate (size_t);
+
+    struct alloc_guard
+    {
+      size_t n;
+
+      alloc_guard (): n (0), s_ (nullptr) {}
+      alloc_guard (scheduler& s, size_t m): n (s.allocate (m)), s_ (&s) {}
+      alloc_guard (alloc_guard&& x): n (x.n), s_ (x.s_) {x.s_ = nullptr;}
+      alloc_guard& operator= (alloc_guard&& x)
+      {
+        if (&x != this)
+        {
+          n = x.n;
+          s_ = x.s_;
+          x.s_ = nullptr;
+        }
+        return *this;
+      }
+
+      ~alloc_guard ()
+      {
+        if (s_ != nullptr && n != 0)
+          s_->deallocate (n);
+      }
+
+      void
+      deallocate ()
+      {
+        if (n != 0)
+        {
+          s_->deallocate (n);
+          n = 0;
+        }
+      }
+
+    private:
+      scheduler* s_;
+    };
+
     // Startup and shutdown.
     //
   public:
@@ -248,12 +314,15 @@ namespace build2
       size_t o_;
     };
 
-    // Return true if the scheduler is configured to run tasks serially.
+    // Return scheduler configuration.
     //
     // Note: can only be called from threads that have observed startup.
     //
     bool
     serial () const {return max_active_ == 1;}
+
+    size_t
+    max_active () const {return max_active_;}
 
     // Wait for all the helper threads to terminate. Throw system_error on
     // failure. Note that the initially active threads are not waited for.
