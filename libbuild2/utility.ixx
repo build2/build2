@@ -139,6 +139,17 @@ namespace build2
     return find_option (o, s[var], ic);
   }
 
+  template <typename I>
+  I
+  find_option (const char* o, I b, I e, bool ic)
+  {
+    for (; b != e; ++b)
+      if ((ic ? icasecmp (*b, o) : strcmp (*b, o)) == 0)
+        return b;
+
+    return e;
+  }
+
   template <typename T>
   inline bool
   find_options (const initializer_list<const char*>& os,
@@ -171,6 +182,19 @@ namespace build2
   find_option_prefix (const char* p, T& s, const char* var, bool ic)
   {
     return find_option_prefix (p, s[var], ic);
+  }
+
+  template <typename I>
+  I
+  find_option_prefix (const char* p, I rb, I re, bool ic)
+  {
+    size_t n (strlen (p));
+
+    for (; rb != re; ++rb)
+      if ((ic ? icasecmp (*rb, p, n) : strncmp (*rb, p, n)) == 0)
+        return rb;
+
+    return re;
   }
 
   template <typename T>

@@ -649,6 +649,10 @@ namespace build2
                const char* variable,
                bool ignore_case = false);
 
+  template <typename I>
+  I
+  find_option (const char* option, I begin, I end, bool ignore_case = false);
+
   LIBBUILD2_SYMEXPORT bool
   find_option (const char* option, const lookup&, bool ignore_case = false);
 
@@ -701,6 +705,10 @@ namespace build2
   template <typename T>
   const string*
   find_option_prefix (const char* prefix, T&, const char*, bool = false);
+
+  template <typename I>
+  I
+  find_option_prefix (const char* prefix, I rbegin, I rend, bool ignore_case = false);
 
   LIBBUILD2_SYMEXPORT const string*
   find_option_prefix (const char* prefix, const lookup&, bool = false);
