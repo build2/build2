@@ -139,6 +139,29 @@ namespace build2
     return find_option (o, s[var], ic);
   }
 
+  inline bool
+  compare_option (const char* o, const char* s, bool ic)
+  {
+    return s != nullptr && (ic ? icasecmp (s, o) : strcmp (s, o)) == 0;
+  }
+
+  inline bool
+  compare_option (const char* o, const string& s, bool ic)
+  {
+    return ic ? icasecmp (s, o) == 0 : s == o;
+  }
+
+  template <typename I>
+  inline I
+  find_option (const char* o, I b, I e, bool ic)
+  {
+    for (; b != e; ++b)
+      if (compare_option (o, *b, ic))
+        return b;
+
+    return e;
+  }
+
   template <typename T>
   inline bool
   find_options (const initializer_list<const char*>& os,
@@ -171,6 +194,31 @@ namespace build2
   find_option_prefix (const char* p, T& s, const char* var, bool ic)
   {
     return find_option_prefix (p, s[var], ic);
+  }
+
+  inline bool
+  compare_option_prefix (const char* p, size_t n, const char* s, bool ic)
+  {
+    return s != nullptr && (ic ? icasecmp (s, p, n) : strncmp (s, p, n)) == 0;
+  }
+
+  inline bool
+  compare_option_prefix (const char* p, size_t n, const string& s, bool ic)
+  {
+    return (ic ? icasecmp (s, p, n) : s.compare (0, n, p)) == 0;
+  }
+
+  template <typename I>
+  inline I
+  find_option_prefix (const char* p, I b, I e, bool ic)
+  {
+    size_t n (strlen (p));
+
+    for (; b != e; ++b)
+      if (compare_option_prefix (p, n, *b, ic))
+        return b;
+
+    return e;
   }
 
   template <typename T>

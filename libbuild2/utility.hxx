@@ -633,7 +633,8 @@ namespace build2
                         F&& get = [] (const string& s) {return s;});
 
   // Check if a specified option is present in the variable or value. T is
-  // either target or scope.
+  // either target or scope. For the interator version use rbegin()/rend() to
+  // search backwards.
   //
   template <typename T>
   bool
@@ -648,6 +649,10 @@ namespace build2
                T&,
                const char* variable,
                bool ignore_case = false);
+
+  template <typename I>
+  I
+  find_option (const char* option, I begin, I end, bool ignore_case = false);
 
   LIBBUILD2_SYMEXPORT bool
   find_option (const char* option, const lookup&, bool ignore_case = false);
@@ -691,8 +696,9 @@ namespace build2
 
   // As above but look for an option that has the specified prefix. Return the
   // pointer to option or NULL if not found (thus can be used as bool).
-  // Search backward (which is normall consistent with how options override
-  // each other).
+  // Search backward (which is normally consistent with how options override
+  // each other). For the interator version use rbegin()/rend() to do the
+  // same.
   //
   template <typename T>
   const string*
@@ -701,6 +707,10 @@ namespace build2
   template <typename T>
   const string*
   find_option_prefix (const char* prefix, T&, const char*, bool = false);
+
+  template <typename I>
+  I
+  find_option_prefix (const char* prefix, I begin, I end, bool = false);
 
   LIBBUILD2_SYMEXPORT const string*
   find_option_prefix (const char* prefix, const lookup&, bool = false);
