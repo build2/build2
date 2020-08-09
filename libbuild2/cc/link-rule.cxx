@@ -6,6 +6,7 @@
 #include <map>
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
+#include <string>   // to_string()
 
 #include <libbutl/filesystem.mxx> // file_exists(), path_search()
 
@@ -2991,6 +2992,47 @@ namespace build2
           try_rmfile (relt, true);
       }
 
+      // Adjust args for LTO parallelization
+      scheduler::alloc_guard ag;
+      if (!lt.static_library ())
+      {
+        switch (ctype)
+        {
+        case compiler_type::gcc:
+          {
+            cstrings::reverse_iterator args_it;
+            if (cmaj >= 10 &&
+                (args_it = find_option ("-flto=auto", args.rbegin () + 1, args.rend ()))
+                != args.rend ())
+            {
+              ag = scheduler::alloc_guard (ctx.sched, 0);
+              arg1 = "-flto=" + std::to_string (1 + ag.n);
+              *args_it = arg1.c_str ();
+            }
+
+            break;
+          }
+        case compiler_type::clang:
+          {
+            if (cmaj >= 4 && find_option ("-flto=thin", args))
+            {
+              cstrings::reverse_iterator args_it;
+              if ((args_it = find_option_prefix ("-flto-jobs=", args.rbegin () + 1, args.rend ()))
+                  == args.rend ())
+              {
+                ag = scheduler::alloc_guard (ctx.sched, 0);
+                arg1 = "-flto-jobs=" + std::to_string (1 + ag.n);
+                args.push_back (arg1.c_str ());
+              }
+            }
+            break;
+          }
+        case compiler_type::msvc:
+        case compiler_type::icc:
+          break;
+        }
+      }
+
       if (verb == 1)
         text << (lt.static_library () ? "ar " : "ld ") << t;
       else if (verb == 2)
@@ -3162,6 +3204,7 @@ namespace build2
           }
 
           run_finish (args, pr);
+          ag.deallocate ();
         }
         catch (const process_error& e)
         {
