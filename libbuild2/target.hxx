@@ -55,6 +55,14 @@ namespace build2
 
   // A view of target group members.
   //
+  // Note that the members array may have "holes" (NULL pointers) and count is
+  // the number of elements in this array (and not necessarily the number of
+  // group members).
+  //
+  // Note that members being NULL and count being 0 have different meaning:
+  // the former means group members are not known while the latter means it's
+  // an empty group.
+  //
   struct group_view
   {
     const target* const* members; // NULL means not yet known.

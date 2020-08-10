@@ -2390,8 +2390,16 @@ namespace build2
     group_view gv (g.group_members (a));
     if (gv.count != 0)
     {
-      ep = gv.members[0]->as<file> ().path () + ".d";
+      for (size_t i (0); i != gv.count; ++i)
+      {
+        if (const target* m = gv.members[i])
+        {
+          ep = m->as<file> ().path () + ".d";
+          break;
+        }
+      }
 
+      assert (!ep.empty ());
       if (rmfile (ctx, ep, 3))
         er = target_state::changed;
     }

@@ -28,11 +28,13 @@ namespace build2
         return;
       }
 
-      if (g_.count != 0) // Skip empty see through groups.
-      {
-        j_ = 1; // Start from the first group member.
+      // Skip empty see through groups.
+      //
+      for (j_ = 1; j_ <= g_.count && g_.members[j_ - 1] == nullptr; ++j_) ;
+      if (j_ <= g_.count)
         break;
-      }
+
+      g_.count = 0;
     }
     while (++i_ != r_->e_ && i_->type.see_through);
   }

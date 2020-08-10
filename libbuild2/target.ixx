@@ -399,9 +399,14 @@ namespace build2
 
     if (k_ == nullptr && g_.count != 0) // Iterating over a normal group.
     {
-      if (g_.members == nullptr || // Special case, see leave_group().
-          ++j_ > g_.count)
+      if (g_.members == nullptr) // Special case, see leave_group().
         g_.count = 0;
+      else
+      {
+        for (++j_; j_ <= g_.count && g_.members[j_ - 1] == nullptr; ++j_) ;
+        if (j_ > g_.count)
+          g_.count = 0;
+      }
     }
 
     if (k_ == nullptr && g_.count == 0) // Iterating over the range.
@@ -443,8 +448,11 @@ namespace build2
         return false;
       }
 
-      if (g_.count != 0) // Group is not empty.
-        j_ = 0; // Account for the increment that will follow.
+      // Note: 0-based to account for the increment that will follow.
+      //
+      for (j_ = 0; j_ != g_.count && g_.members[j_] == nullptr; ++j_) ;
+      if (j_ == g_.count)
+        g_.count = 0;
     }
 
     return true;
@@ -474,10 +482,21 @@ namespace build2
   inline bool prerequisite_members_range<T>::iterator::
   group () const
   {
-    return
-      k_ != nullptr ? k_->adhoc_member != nullptr            : /* ad hoc   */
-      g_.count != 0 ? g_.members != nullptr && j_ < g_.count : /* explicit */
-      false;
+    // Ad hoc.
+    //
+    if (k_ != nullptr)
+      return k_->adhoc_member;
+
+    // Explicit.
+    //
+    if (g_.count != 0 && g_.members != nullptr)
+    {
+      size_t j (j_ + 1);
+      for (; j <= g_.count && g_.members[j - 1] == nullptr; ++j) ;
+      return j <= g_.count;
+    }
+
+    return false;
   }
 
   inline auto
