@@ -198,7 +198,7 @@ namespace build2
       size_t d (max_active_ - active_);
       if (n == 0 || d < n)
         n = d;
-      active_ -= n;
+      active_ += n;
       return n;
     }
     else
@@ -212,7 +212,7 @@ namespace build2
       return;
 
     lock l (mutex_);
-    active_ += n;
+    active_ -= n;
   }
 
   size_t scheduler::
