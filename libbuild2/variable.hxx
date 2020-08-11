@@ -1159,6 +1159,15 @@ namespace build2
         move (name), &value_traits<T>::value_type, &v, &overridable);
     }
 
+    const variable&
+    insert (string name,
+            const value_type* type,
+            bool overridable,
+            variable_visibility v)
+    {
+      return insert (move (name), type, &v, &overridable);
+    }
+
     // Alias an existing variable with a new name.
     //
     // Aliasing is purely a lookup-level mechanism. That is, when variable_map
