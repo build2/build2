@@ -6,7 +6,6 @@
 #include <map>
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
-#include <string>   // to_string()
 
 #include <libbutl/filesystem.mxx> // file_exists(), path_search()
 
@@ -35,6 +34,7 @@ namespace build2
   namespace cc
   {
     using namespace bin;
+    using build2::to_string;
 
     link_rule::
     link_rule (data&& d)
@@ -2992,38 +2992,54 @@ namespace build2
           try_rmfile (relt, true);
       }
 
-      // Adjust args for LTO parallelization
-      scheduler::alloc_guard ag;
+      if (verb == 1)
+        text << (lt.static_library () ? "ar " : "ld ") << t;
+      else if (verb == 2)
+        print_process (args);
+
+      // Adjust linker parallelism.
+      //
+      string jobs_arg;
+      scheduler::alloc_guard jobs_extra;
+
       if (!lt.static_library ())
       {
         switch (ctype)
         {
         case compiler_type::gcc:
           {
-            cstrings::reverse_iterator args_it;
-            if (cmaj >= 10 &&
-                (args_it = find_option ("-flto=auto", args.rbegin () + 1, args.rend ()))
-                != args.rend ())
-            {
-              ag = scheduler::alloc_guard (ctx.sched, 0);
-              arg1 = "-flto=" + std::to_string (1 + ag.n);
-              *args_it = arg1.c_str ();
-            }
+            // Rewrite -flto=auto (available since GCC 10).
+            //
+            // By default GCC 10 splits the optimization into 128 units.
+            //
+            if (cmaj < 10)
+              break;
 
+            auto i (find_option ("-flto=auto", args.rbegin (), args.rend ()));
+            if (i != args.rend ())
+            {
+              jobs_extra = scheduler::alloc_guard (ctx.sched, 0);
+              jobs_arg = "-flto=" + to_string (1 + jobs_extra.n);
+              *i = jobs_arg.c_str ();
+            }
             break;
           }
         case compiler_type::clang:
           {
-            if (cmaj >= 4 && find_option ("-flto=thin", args))
+            // If we have -flto=thin and no explicit -flto-jobs=N (available
+            // since Clang 4), then add our own -flto-jobs value.
+            //
+            if (cmaj < 4)
+              break;
+
+            auto i (find_option_prefix ("-flto", args.rbegin (), args.rend ()));
+            if (i != args.rend ()              &&
+                strcmp (*i, "-flto=thin") == 0 &&
+                !find_option_prefix ("-flto-jobs=", args))
             {
-              cstrings::reverse_iterator args_it;
-              if ((args_it = find_option_prefix ("-flto-jobs=", args.rbegin () + 1, args.rend ()))
-                  == args.rend ())
-              {
-                ag = scheduler::alloc_guard (ctx.sched, 0);
-                arg1 = "-flto-jobs=" + std::to_string (1 + ag.n);
-                args.push_back (arg1.c_str ());
-              }
+              jobs_extra = scheduler::alloc_guard (ctx.sched, 0);
+              jobs_arg = "-flto-jobs=" + to_string (1 + jobs_extra.n);
+              args.insert (i.base (), jobs_arg.c_str ()); // After -flto=thin.
             }
             break;
           }
@@ -3032,11 +3048,6 @@ namespace build2
           break;
         }
       }
-
-      if (verb == 1)
-        text << (lt.static_library () ? "ar " : "ld ") << t;
-      else if (verb == 2)
-        print_process (args);
 
       // Do any necessary fixups to the command line to make it runnable.
       //
@@ -3204,7 +3215,7 @@ namespace build2
           }
 
           run_finish (args, pr);
-          ag.deallocate ();
+          jobs_extra.deallocate ();
         }
         catch (const process_error& e)
         {
