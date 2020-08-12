@@ -54,7 +54,7 @@ namespace build2
       target::combine_name (v, ext, false /* @@ TODO: what to do? */);
     }
     else
-      assert (!ext);
+      assert (!ext || ext->empty ()); // Unspecified or none.
 
     r.emplace_back (*dir, type->name, move (v));
 
@@ -547,7 +547,7 @@ namespace build2
         }
       }
       else
-        assert (!k.ext);
+        assert (!k.ext || k.ext->empty ()); // Unspecified or none.
     }
     else
       to_stream (os,
