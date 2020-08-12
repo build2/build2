@@ -480,6 +480,54 @@ namespace build2
     nullptr               // Never empty.
   };
 
+  // int64_t value
+  //
+  int64_t value_traits<int64_t>::
+  convert (const name& n, const name* r)
+  {
+    if (r == nullptr && n.simple ())
+    {
+      try
+      {
+        // May throw invalid_argument or out_of_range.
+        //
+        size_t i;
+        int64_t r (stoll (n.value, &i));
+
+        if (i == n.value.size ())
+          return r;
+
+        // Fall through.
+      }
+      catch (const std::exception&)
+      {
+        // Fall through.
+      }
+    }
+
+    throw_invalid_argument (n, r, "int64");
+  }
+
+  const char* const value_traits<int64_t>::type_name = "int64";
+
+  const value_type value_traits<int64_t>::value_type
+  {
+    type_name,
+    sizeof (int64_t),
+    nullptr,                          // No base.
+    nullptr,                          // No element.
+    nullptr,                          // No dtor (POD).
+    nullptr,                          // No copy_ctor (POD).
+    nullptr,                          // No copy_assign (POD).
+    &simple_assign<int64_t>,
+    &simple_append<int64_t>,
+    &simple_append<int64_t>,          // Prepend same as append.
+    &simple_reverse<int64_t>,
+    nullptr,                          // No cast (cast data_ directly).
+    nullptr,                          // No compare (compare as POD).
+    nullptr                           // Never empty.
+  };
+
   // uint64_t value
   //
   uint64_t value_traits<uint64_t>::
@@ -1759,6 +1807,7 @@ namespace build2
   template struct LIBBUILD2_DEFEXPORT value_traits<vector<name>>;
   template struct LIBBUILD2_DEFEXPORT value_traits<paths>;
   template struct LIBBUILD2_DEFEXPORT value_traits<dir_paths>;
+  template struct LIBBUILD2_DEFEXPORT value_traits<int64s>;
   template struct LIBBUILD2_DEFEXPORT value_traits<uint64s>;
 
   template struct LIBBUILD2_DEFEXPORT

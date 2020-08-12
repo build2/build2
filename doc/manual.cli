@@ -5497,6 +5497,9 @@ The following variable/value types can currently be used in \c{buildfiles}:
 \
 bool
 
+int64
+int64s
+
 uint64
 uint64s
 

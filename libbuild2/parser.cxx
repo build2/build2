@@ -3797,6 +3797,7 @@ namespace build2
 
     return
       n == "bool"           ? ptr (value_traits<bool>::value_type)           :
+      n == "int64"          ? ptr (value_traits<int64_t>::value_type)        :
       n == "uint64"         ? ptr (value_traits<uint64_t>::value_type)       :
       n == "string"         ? ptr (value_traits<string>::value_type)         :
       n == "path"           ? ptr (value_traits<path>::value_type)           :
@@ -3807,6 +3808,7 @@ namespace build2
       n == "target_triplet" ? ptr (value_traits<target_triplet>::value_type) :
       n == "project_name"   ? ptr (value_traits<project_name>::value_type)   :
 
+      n == "int64s"         ? ptr (value_traits<int64s>::value_type)         :
       n == "uint64s"        ? ptr (value_traits<uint64s>::value_type)        :
       n == "strings"        ? ptr (value_traits<strings>::value_type)        :
       n == "paths"          ? ptr (value_traits<paths>::value_type)          :

@@ -710,6 +710,30 @@ namespace build2
     static const build2::value_type value_type;
   };
 
+  // int64_t
+  //
+  template <>
+  struct LIBBUILD2_SYMEXPORT value_traits<int64_t>
+  {
+    static_assert (sizeof (int64_t) <= value::size_, "insufficient space");
+
+    // Note: in some places we rely on the convert() function not changing
+    //       the passed names thus we make them const.
+    //
+    static int64_t convert (const name&, const name*);
+    static void assign (value&, int64_t);
+    static void append (value&, int64_t); // ADD.
+    static name reverse (int64_t x) {return name (to_string (x));}
+    static int compare (int64_t, int64_t);
+    static bool empty (bool) {return false;}
+
+    static const bool empty_value = false;
+    static const char* const type_name;
+    static const build2::value_type value_type;
+  };
+
+  // uint64_t
+  //
   template <>
   struct LIBBUILD2_SYMEXPORT value_traits<uint64_t>
   {
@@ -730,9 +754,16 @@ namespace build2
     static const build2::value_type value_type;
   };
 
-  // Treat unsigned integral types as uint64. Note that bool is handled
-  // differently at an earlier stage.
+  // Treat signed/unsigned integral types as int64/uint64. Note that bool is
+  // handled differently at an earlier stage.
   //
+  template <typename T>
+  struct value_traits_specialization<T,
+                                     typename std::enable_if<
+                                       std::is_integral<T>::value &&
+                                       std::is_signed<T>::value>::type>:
+    value_traits<int64_t> {};
+
   template <typename T>
   struct value_traits_specialization<T,
                                      typename std::enable_if<
@@ -1055,6 +1086,7 @@ namespace build2
   extern template struct LIBBUILD2_DECEXPORT value_traits<vector<name>>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<paths>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<dir_paths>;
+  extern template struct LIBBUILD2_DECEXPORT value_traits<int64s>;
   extern template struct LIBBUILD2_DECEXPORT value_traits<uint64s>;
 
   extern template struct LIBBUILD2_DECEXPORT

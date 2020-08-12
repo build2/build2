@@ -368,6 +368,34 @@ namespace build2
     return l < r ? -1 : (l > r ? 1 : 0);
   }
 
+  // int64_t value
+  //
+  inline void value_traits<int64_t>::
+  assign (value& v, int64_t x)
+  {
+    if (v)
+      v.as<int64_t> () = x;
+    else
+      new (&v.data_) int64_t (x);
+  }
+
+  inline void value_traits<int64_t>::
+  append (value& v, int64_t x)
+  {
+    // ADD.
+    //
+    if (v)
+      v.as<int64_t> () += x;
+    else
+      new (&v.data_) int64_t (x);
+  }
+
+  inline int value_traits<int64_t>::
+  compare (int64_t l, int64_t r)
+  {
+    return l < r ? -1 : (l > r ? 1 : 0);
+  }
+
   // uint64_t value
   //
   inline void value_traits<uint64_t>::
