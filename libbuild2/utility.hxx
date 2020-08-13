@@ -331,9 +331,24 @@ namespace build2
   }
 
   inline void
+  run (const process_env& pe, // Implicit-constructible from process_path.
+       const char* args[])
+  {
+    process pr (run_start (pe, args, 0, 1, true));
+    run_finish (args, pr);
+  }
+
+  inline void
+  run (const process_env& pe,  // Implicit-constructible from process_path.
+       cstrings& args)
+  {
+    run (pe, args.data ());
+  }
+
+  inline void
   run (const process_path& p,
        const char* args[],
-       const dir_path& cwd = dir_path (),
+       const dir_path& cwd,
        const char* const* env = nullptr)
   {
     process pr (run_start (process_env (p, env), args, 0, 1, true, cwd));
@@ -343,7 +358,7 @@ namespace build2
   inline void
   run (const process_path& p,
        cstrings& args,
-       const dir_path& cwd = dir_path (),
+       const dir_path& cwd,
        const char* const* env = nullptr)
   {
     run (p, args.data (), cwd, env);
