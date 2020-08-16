@@ -55,7 +55,7 @@ namespace build2
                 scope& bs,
                 const location& loc,
                 bool,
-                bool optional,
+                bool opt,
                 module_init_extra& extra)
     {
       tracer trace ("cli::guess_init");
@@ -90,7 +90,7 @@ namespace build2
           rs,
           name ("cli", dir_path (), "exe", "cli"), // cli%exe{cli}
           true      /* phase2 */,
-          optional,
+          opt,
           true      /* metadata */,
           loc,
           "module load"));
@@ -150,7 +150,7 @@ namespace build2
                  scope& bs,
                  const location& loc,
                  bool,
-                 bool optional,
+                 bool opt,
                  module_init_extra& extra)
     {
       tracer trace ("cli::config_init");
@@ -163,8 +163,8 @@ namespace build2
 
       // Load cli.guess and share its module instance as ours.
       //
-      if (const shared_ptr<build2::module>* r = load_module (
-            rs, rs, "cli.guess", loc, optional, extra.hints))
+      if (optional<shared_ptr<build2::module>> r = load_module (
+            rs, rs, "cli.guess", loc, opt, extra.hints))
       {
         extra.module = *r;
       }
@@ -173,7 +173,7 @@ namespace build2
         // This can happen if someone already optionally loaded cli.guess
         // and it has failed to configure.
         //
-        if (!optional)
+        if (!opt)
           fail (loc) << "cli could not be configured" <<
             info << "re-run with -V for more information";
 
@@ -198,7 +198,7 @@ namespace build2
           scope& bs,
           const location& loc,
           bool,
-          bool optional,
+          bool opt,
           module_init_extra& extra)
     {
       tracer trace ("cli::init");
@@ -220,8 +220,8 @@ namespace build2
 
       // Load cli.config and get its module instance.
       //
-      if (const shared_ptr<build2::module>* r = load_module (
-            rs, rs, "cli.config", loc, optional, extra.hints))
+      if (optional<shared_ptr<build2::module>> r = load_module (
+            rs, rs, "cli.config", loc, opt, extra.hints))
       {
         extra.module = *r;
       }
@@ -230,7 +230,7 @@ namespace build2
         // This can happen if someone already optionally loaded cli.config
         // and it has failed to configure.
         //
-        if (!optional)
+        if (!opt)
           fail (loc) << "cli could not be configured" <<
             info << "re-run with -V for more information";
 

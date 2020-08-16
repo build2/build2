@@ -42,7 +42,7 @@ namespace build2
   //
   struct module_boot_extra
   {
-    shared_ptr<build2::module>& module; // Module instance (out).
+    shared_ptr<build2::module> module; // Module instance (out).
 
     // Convenience functions.
     //
@@ -53,9 +53,8 @@ namespace build2
     T& module_as () {assert (module); return static_cast<T&> (*module);}
   };
 
-  // Return true if the module should be initialized first (the order of
-  // initialization within the resulting two groups of modules is
-  // unspecified).
+  // Return true if the module should be initialized first (within the
+  // resulting two groups the modules are initializated in the order loaded).
   //
   using module_boot_function =
     bool (scope& root,
@@ -66,8 +65,8 @@ namespace build2
   //
   struct module_init_extra
   {
-    shared_ptr<build2::module>& module; // Module instance (in/out).
-    const variable_map&         hints;  // Configuration hints (see below).
+    shared_ptr<build2::module> module; // Module instance (in/out).
+    const variable_map&        hints;  // Configuration hints (see below).
 
     // Convenience functions.
     //
@@ -125,20 +124,37 @@ namespace build2
   {
     bool boot;  // True if the module boot'ed but not yet init'ed.
     bool first; // True if the boot'ed module must be init'ed first.
+    const string name;
     module_init_function* init;
     shared_ptr<build2::module> module;
     location_value loc; // Boot location.
   };
 
-  struct module_map: std::map<string, module_state>
+  struct module_map: vector<module_state>
   {
+    iterator
+    find (const string& name)
+    {
+      return find_if (
+        begin (), end (),
+        [&name] (const module_state& s) {return s.name == name;});
+    }
+
+    const_iterator
+    find (const string& name) const
+    {
+      return find_if (
+        begin (), end (),
+        [&name] (const module_state& s) {return s.name == name;});
+    }
+
     template <typename T>
     T*
     find_module (const string& name) const
     {
       auto i (find (name));
       return i != end ()
-        ? static_cast<T*> (i->second.module.get ())
+        ? static_cast<T*> (i->module.get ())
         : nullptr;
     }
   };
@@ -152,7 +168,8 @@ namespace build2
   // parser but also by some modules to init prerequisite modules. Return a
   // pointer to the corresponding module state if the module was both
   // successfully loaded and configured and NULL otherwise (which can only
-  // happen if optional is true). Note that the return can be used as a bool.
+  // happen if optional is true). Note that the result can be used as a bool
+  // but should not be assumed stable (vector resize).
   //
   // The config_hints variable map can be used to pass configuration hints
   // from one module to another. For example, the cxx modude may pass the
@@ -170,18 +187,18 @@ namespace build2
 
   // A wrapper over init_module() to use from other modules that incorporates
   // the <name>.loaded variable check (use init_module() directly to sidestep
-  // this check). Return a pointer to the pointer to the module instance if it
-  // was both successfully loaded and configured and NULL otherwise (so can be
-  // used as bool).
+  // this check). Return an optional pointer to the module instance that is
+  // present if the module was both successfully loaded and configured and
+  // absent otherwise (so can be used as bool).
   //
-  // Note also that NULL can be returned even of optional is false which
+  // Note also that absent can be returned even of optional is false which
   // happens if the requested module has already been loaded but failed to
   // configure. The function could have issued diagnostics but the caller can
   // normally provide additional information.
   //
   // Note: for non-optional modules use the versions below.
   //
-  LIBBUILD2_SYMEXPORT const shared_ptr<module>*
+  LIBBUILD2_SYMEXPORT optional<shared_ptr<module>>
   load_module (scope& root,
                scope& base,
                const string& name,
@@ -191,7 +208,7 @@ namespace build2
 
   // As above but always load and return a pointer to the module instance.
   //
-  LIBBUILD2_SYMEXPORT const shared_ptr<module>&
+  LIBBUILD2_SYMEXPORT shared_ptr<module>
   load_module (scope& root,
                scope& base,
                const string& name,

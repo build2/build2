@@ -1448,20 +1448,16 @@ namespace build2
 
     // Finish off initializing bootstrapped modules.
     //
-    for (auto& p: root.root_extra->modules)
+    for (auto& s: root.root_extra->modules)
     {
-      module_state& s (p.second);
-
       if (s.boot && s.first)
-        init_module (root, root, p.first, s.loc);
+        init_module (root, root, s.name, s.loc);
     }
 
-    for (auto& p: root.root_extra->modules)
+    for (auto& s: root.root_extra->modules)
     {
-      module_state& s (p.second);
-
       if (s.boot && !s.first)
-        init_module (root, root, p.first, s.loc);
+        init_module (root, root, s.name, s.loc);
     }
 
     // Load hooks and root.build.

@@ -578,12 +578,10 @@ namespace build2
 
     if (i != lm.end ())
     {
-      module_state& s (i->second);
-
       // The only valid situation here is if the module has already been
       // bootstrapped.
       //
-      assert (s.boot);
+      assert (i->boot);
       return;
     }
 
@@ -596,12 +594,22 @@ namespace build2
       fail (loc) << "build system module " << mod << " should not be loaded "
                  << "during bootstrap";
 
-    i = lm.emplace (mod,
-                    module_state {true, false, mf.init, nullptr, loc}).first;
+    lm.push_back (module_state {true, false, mod, mf.init, nullptr, loc});
+    i = lm.end () - 1;
 
     {
-      module_boot_extra extra {i->second.module};
-      i->second.first = mf.boot (rs, loc, extra);
+      module_boot_extra e;
+
+      // Note: boot() can load additional modules invalidating the iterator.
+      //
+      size_t j (i - lm.begin ());
+      bool f (mf.boot (rs, loc, e));
+      i = lm.begin () + j;
+
+      i->first = f;
+
+      if (e.module != nullptr)
+        i->module = move (e.module);
     }
 
     rs.assign (rs.var_pool ().insert (mod + ".booted")) = true;
@@ -632,14 +640,13 @@ namespace build2
           fail (loc) << "build system module " << mod << " should be loaded "
                      << "during bootstrap";
 
-        i = lm.emplace (
-          mod,
-          module_state {false, false, mf->init, nullptr, loc}).first;
+        lm.push_back (module_state {false, false, mod, mf->init, nullptr, loc});
+        i = lm.end () - 1;
       }
     }
     else
     {
-      module_state& s (i->second);
+      module_state& s (*i);
 
       if (s.boot)
       {
@@ -692,15 +699,26 @@ namespace build2
 
       if ((c = l))
       {
-        module_init_extra extra {i->second.module, hints};
-        c = i->second.init (rs, bs, loc, f, opt, extra);
+        module_init_extra e {i->module, hints};
+
+        // Note: init() can load additional modules invalidating the iterator.
+        //
+        size_t j (i - lm.begin ());
+        c = i->init (rs, bs, loc, f, opt, e);
+        i = lm.begin () + j;
+
+        if (e.module != i->module)
+        {
+          assert (i->module == nullptr);
+          i->module = move (e.module);
+        }
       }
 
       lv = l;
       cv = c;
     }
 
-    return l && c ? &i->second : nullptr;
+    return l && c ? &*i : nullptr;
   }
 
   // @@ TODO: This is a bit of a fuzzy mess:
@@ -715,7 +733,7 @@ namespace build2
   // Note that it would have been nice to keep these inline but we need the
   // definition of scope for the variable lookup.
   //
-  const shared_ptr<module>*
+  optional<shared_ptr<module>>
   load_module (scope& rs,
                scope& bs,
                const string& name,
@@ -726,18 +744,18 @@ namespace build2
     if (cast_false<bool> (bs[name + ".loaded"]))
     {
       if (cast_false<bool> (bs[name + ".configured"]))
-        return &rs.root_extra->modules.find (name)->second.module;
+        return rs.root_extra->modules.find (name)->module;
     }
     else
     {
       if (module_state* ms = init_module (rs, bs, name, loc, opt, hints))
-        return &ms->module;
+        return ms->module;
     }
 
-    return nullptr;
+    return nullopt;
   }
 
-  const shared_ptr<module>&
+  shared_ptr<module>
   load_module (scope& rs,
                scope& bs,
                const string& name,
@@ -748,7 +766,7 @@ namespace build2
     //   attempt to load it was optional?
 
     return cast_false<bool> (bs[name + ".loaded"])
-      ? rs.root_extra->modules.find (name)->second.module
+      ? rs.root_extra->modules.find (name)->module
       : init_module (rs, bs, name, loc, false /* optional */, hints)->module;
   }
 }
