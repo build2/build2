@@ -1446,17 +1446,25 @@ namespace build2
     if (scope* rs = root.parent_scope ()->root_scope ())
       load_root (*rs);
 
-    // Finish off initializing bootstrapped modules.
+    // Finish off initializing bootstrapped modules (before mode).
     //
-    for (auto& s: root.root_extra->modules)
+    // Note that init() can load additional modules invalidating iterators.
+    //
+    size_t boot_mods (root.root_extra->modules.size ());
+
+    for (size_t i (0); i != boot_mods; ++i)
     {
-      if (s.boot && s.first)
+      module_state& s (root.root_extra->modules[i]);
+
+      if (s.boot_init && *s.boot_init == module_boot_init::before_first)
         init_module (root, root, s.name, s.loc);
     }
 
-    for (auto& s: root.root_extra->modules)
+    for (size_t i (0); i != boot_mods; ++i)
     {
-      if (s.boot && !s.first)
+      module_state& s (root.root_extra->modules[i]);
+
+      if (s.boot_init && *s.boot_init == module_boot_init::before)
         init_module (root, root, s.name, s.loc);
     }
 
@@ -1481,6 +1489,16 @@ namespace build2
     if (he) {source_hooks (p, root, hd, true  /* pre */); p.reset ();}
     if (fe) {source_once (p, root, root, f, root);}
     if (he) {p.reset (); source_hooks (p, root, hd, false /* pre */);}
+
+    // Finish off initializing bootstrapped modules (after mode).
+    //
+    for (size_t i (0); i != boot_mods; ++i)
+    {
+      module_state& s (root.root_extra->modules[i]);
+
+      if (s.boot_init && *s.boot_init == module_boot_init::after)
+        init_module (root, root, s.name, s.loc);
+    }
 
     // Print the project configuration report, similar to how we do it in
     // build system modules.

@@ -30,7 +30,7 @@ namespace build2
     static const in_rule in_rule_;
     static const manifest_install_rule manifest_install_rule_;
 
-    bool
+    void
     boot (scope& rs, const location& l, module_boot_extra& extra)
     {
       tracer trace ("version::boot");
@@ -279,7 +279,9 @@ namespace build2
                     rewritten,
                     move (ds)));
 
-      return true; // Init first (dist.package, etc).
+      // Initialize first (dist.package, etc).
+      //
+      extra.init = module_boot_init::before_first;
     }
 
     static void

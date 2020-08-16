@@ -581,7 +581,7 @@ namespace build2
       // The only valid situation here is if the module has already been
       // bootstrapped.
       //
-      assert (i->boot);
+      assert (i->boot_init);
       return;
     }
 
@@ -594,22 +594,22 @@ namespace build2
       fail (loc) << "build system module " << mod << " should not be loaded "
                  << "during bootstrap";
 
-    lm.push_back (module_state {true, false, mod, mf.init, nullptr, loc});
+    lm.push_back (module_state {loc, mod, mf.init, nullptr, nullopt});
     i = lm.end () - 1;
 
     {
-      module_boot_extra e;
+      module_boot_extra e {nullptr, module_boot_init::before};
 
       // Note: boot() can load additional modules invalidating the iterator.
       //
       size_t j (i - lm.begin ());
-      bool f (mf.boot (rs, loc, e));
+      mf.boot (rs, loc, e);
       i = lm.begin () + j;
-
-      i->first = f;
 
       if (e.module != nullptr)
         i->module = move (e.module);
+
+      i->boot_init = e.init;
     }
 
     rs.assign (rs.var_pool ().insert (mod + ".booted")) = true;
@@ -640,7 +640,7 @@ namespace build2
           fail (loc) << "build system module " << mod << " should be loaded "
                      << "during bootstrap";
 
-        lm.push_back (module_state {false, false, mod, mf->init, nullptr, loc});
+        lm.push_back (module_state {loc, mod, mf->init, nullptr, nullopt});
         i = lm.end () - 1;
       }
     }
@@ -648,9 +648,9 @@ namespace build2
     {
       module_state& s (*i);
 
-      if (s.boot)
+      if (s.boot_init)
       {
-        s.boot = false;
+        s.boot_init = nullopt;
         f = true; // This is a first call to init.
       }
     }

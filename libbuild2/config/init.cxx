@@ -28,7 +28,7 @@ namespace build2
     void
     functions (function_map&); // functions.cxx
 
-    bool
+    void
     boot (scope& rs, const location&, module_boot_extra& extra)
     {
       tracer trace ("config::boot");
@@ -139,7 +139,9 @@ namespace build2
       rs.insert_meta_operation (configure_id, mo_configure);
       rs.insert_meta_operation (disfigure_id, mo_disfigure);
 
-      return true; // Initialize first (load config.build).
+      // Initialize first (load config.build).
+      //
+      extra.init = module_boot_init::before_first;
     }
 
     // host-config.cxx.in

@@ -21,7 +21,7 @@ namespace build2
 {
   namespace test
   {
-    bool
+    void
     boot (scope& rs, const location&, module_boot_extra& extra)
     {
       tracer trace ("test::boot");
@@ -112,8 +112,6 @@ namespace build2
       }
 
       extra.set_module (new module (move (d)));
-
-      return false;
     }
 
     bool

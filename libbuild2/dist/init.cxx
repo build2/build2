@@ -22,7 +22,7 @@ namespace build2
   {
     static const rule rule_;
 
-    bool
+    void
     boot (scope& rs, const location&, module_boot_extra& extra)
     {
       tracer trace ("dist::boot");
@@ -74,8 +74,6 @@ namespace build2
       // Create the module.
       //
       extra.set_module (new module (v_d_p));
-
-      return false;
     }
 
     bool

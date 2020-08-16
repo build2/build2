@@ -40,9 +40,27 @@ namespace build2
   // way for us to later pass more information without breaking source
   // compatibility.
   //
+  // By default a booted module is initialized before loading root.build.
+  //
+  // The module should specify the before_first initialization mode if it
+  // should be initialized first (within the resulting two groups the modules
+  // are initializated in the order loaded).
+  //
+  // The module should specify the after initialization mode if it should be
+  // initialized after loading root.build. Note that in this case the module
+  // is also allowed to be initialized explicitly from root.build.
+  //
+  enum class module_boot_init
+  {
+    before_first,
+    before,
+    after
+  };
+
   struct module_boot_extra
   {
     shared_ptr<build2::module> module; // Module instance (out).
+    module_boot_init           init;   // Init mode (out).
 
     // Convenience functions.
     //
@@ -53,11 +71,8 @@ namespace build2
     T& module_as () {assert (module); return static_cast<T&> (*module);}
   };
 
-  // Return true if the module should be initialized first (within the
-  // resulting two groups the modules are initializated in the order loaded).
-  //
   using module_boot_function =
-    bool (scope& root,
+    void (scope& root,
           const location&,
           module_boot_extra&);
 
@@ -122,12 +137,11 @@ namespace build2
   //
   struct module_state
   {
-    bool boot;  // True if the module boot'ed but not yet init'ed.
-    bool first; // True if the boot'ed module must be init'ed first.
+    location_value loc; // Load location.
     const string name;
     module_init_function* init;
     shared_ptr<build2::module> module;
-    location_value loc; // Boot location.
+    optional<module_boot_init> boot_init;
   };
 
   struct module_map: vector<module_state>
