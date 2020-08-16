@@ -96,35 +96,38 @@ namespace build2
       auto& c_p (vp.insert<vector<pair<string, string>>> (
                    "config.config.persist", true /* ovr */, v_p));
 
-      // Only create the module if we are configuring or creating or if it was
-      // requested with config.config.module (useful if we need to call
-      // $config.save() during other meta-operations).
+      // Only create the module if we are configuring, creating, or
+      // disfiguring or if it was requested with config.config.module (useful
+      // if we need to call $config.save() during other meta-operations).
       //
-      // Detecting the former (configuring/creating) is a bit tricky since the
-      // build2 core may not yet know if this is the case. But we know.
+      // Detecting the former (configure/disfigure/creating) is a bit tricky
+      // since the build2 core may not yet know if this is the case. But we
+      // know.
       //
       auto& c_m (vp.insert<bool> ("config.config.module", false /*ovr*/, v_p));
 
-      const string& mname (ctx.current_mname);
-      const string& oname (ctx.current_oname);
-
-      if ((                   mname == "configure" || mname == "create")  ||
-          (mname.empty () && (oname == "configure" || oname == "create")) ||
+      bool d;
+      if ((d = ctx.bootstrap_meta_operation ("disfigure")) ||
+          ctx.bootstrap_meta_operation ("configure")       ||
+          ctx.bootstrap_meta_operation ("create")          ||
           cast_false<bool> (rs.vars[c_m]))
       {
-        // Used as a variable prefix by configure_execute().
-        //
-        vp.insert ("config");
-
         auto& m (extra.set_module (new module));
 
-        // Adjust priority for the config module and import pseudo-module so
-        // that their variables come first in config.build.
-        //
-        m.save_module ("config", INT32_MIN);
-        m.save_module ("import", INT32_MIN);
+        if (!d)
+        {
+          // Used as a variable prefix by configure_execute().
+          //
+          vp.insert ("config");
 
-        m.save_variable (c_p, save_null_omitted);
+          // Adjust priority for the config module and import pseudo-module so
+          // that their variables come first in config.build.
+          //
+          m.save_module ("config", INT32_MIN);
+          m.save_module ("import", INT32_MIN);
+
+          m.save_variable (c_p, save_null_omitted);
+        }
       }
 
       // Register the config function family if this is the first instance of
@@ -319,6 +322,8 @@ namespace build2
       config_save_variable = &module::save_variable;
       config_save_module = &module::save_module;
       config_preprocess_create = &preprocess_create;
+      config_configure_post = &module::configure_post;
+      config_disfigure_pre = &module::disfigure_pre;
 
       return mod_functions;
     }

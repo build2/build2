@@ -22,13 +22,14 @@ namespace build2
   //
   // The only persistence-specific aspects of this functionality are marking
   // of the variables as to be persisted (saved, potentially with flags),
-  // establishing the module saving order (priority), and configuration
-  // creation (the create meta-operation implementation) These are accessed
-  // through the config module entry points (which are NULL for transient
-  // configurations). Note also that the exact interpretation of the save
-  // flags and module order depends on the config module implementation (which
-  // may ignore them as not applicable). An implementation may also define
-  // custom save flags (for example, accessible through the config.save
+  // establishing the module saving order (priority), configuration creation
+  // (the create meta-operation implementation), as well as configure and
+  // disfigure hooks (for example, for second-level configuration). These are
+  // accessed through the config module entry points (which are NULL for
+  // transient configurations). Note also that the exact interpretation of the
+  // save flags and module order depends on the config module implementation
+  // (which may ignore them as not applicable). An implementation may also
+  // define custom save flags (for example, accessible through the config.save
   // attribute). Such flags should start from 0x100000000.
   //
   LIBBUILD2_SYMEXPORT extern void
@@ -43,6 +44,12 @@ namespace build2
                                vector_view<opspec>&,
                                bool,
                                const location&);
+
+  LIBBUILD2_SYMEXPORT extern bool
+  (*config_configure_post) (scope&, bool (*)(action, const scope&));
+
+  LIBBUILD2_SYMEXPORT extern bool
+  (*config_disfigure_pre) (scope&, bool (*)(action, const scope&));
 
   namespace config
   {
@@ -75,6 +82,32 @@ namespace build2
     {
       if (config_save_module != nullptr)
         config_save_module (rs, module, prio);
+    }
+
+    // Post-configure and pre-disfigure hooks. Normally used to save/remove
+    // persistent state. Return true if anything has been done (used for
+    // diagnostics).
+    //
+    // The registration functions return true if the hook has been registered.
+    //
+    // Note that the hooks are called for the top-level project and all its
+    // subprojects (if registered in the subproject root scope), from outer to
+    // inner for configure and from inner to outer for disfigure. It's the
+    // responsibility of the hook implementation to handle any aggregation.
+    //
+    using configure_post_hook = bool (action, const scope&);
+    using disfigure_pre_hook  = bool (action, const scope&);
+
+    inline bool
+    configure_post (scope& rs, configure_post_hook* h)
+    {
+      return config_configure_post != nullptr && config_configure_post (rs, h);
+    }
+
+    inline bool
+    disfigure_pre (scope& rs, disfigure_pre_hook* h)
+    {
+      return config_disfigure_pre != nullptr && config_disfigure_pre (rs, h);
     }
 
     // Lookup a config.* variable value and, if the value is defined, mark it

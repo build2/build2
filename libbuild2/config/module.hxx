@@ -15,6 +15,8 @@
 #include <libbuild2/module.hxx>
 #include <libbuild2/variable.hxx>
 
+#include <libbuild2/config/utility.hxx>
+
 namespace build2
 {
   namespace config
@@ -93,6 +95,17 @@ namespace build2
         return i != saved_modules.end () &&
           i->second.find (var) != i->second.end ();
       }
+
+      // Configure/disfigure hooks.
+      //
+      static bool
+      configure_post (scope&, configure_post_hook*);
+
+      static bool
+      disfigure_pre (scope&, disfigure_pre_hook*);
+
+      small_vector<configure_post_hook*, 1> configure_post_;
+      small_vector<disfigure_pre_hook*,  1> disfigure_pre_;
 
       // Cached (during init) config.config.persist value, if defined.
       //

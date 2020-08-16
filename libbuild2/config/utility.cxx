@@ -14,6 +14,9 @@ namespace build2
                                              vector_view<opspec>&,
                                              bool,
                                              const location&);
+  bool (*config_configure_post) (scope&, bool (*)(action, const scope&));
+  bool (*config_disfigure_pre) (scope&, bool (*)(action, const scope&));
+
   namespace config
   {
     pair<lookup, bool>

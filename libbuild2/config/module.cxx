@@ -67,6 +67,30 @@ namespace build2
         m->save_module (name, prio);
     }
 
+    bool module::
+    configure_post (scope& rs, configure_post_hook* h)
+    {
+      if (module* m = rs.find_module<module> (module::name))
+      {
+        m->configure_post_.push_back (h);
+        return true;
+      }
+
+      return false;
+    }
+
+    bool module::
+    disfigure_pre (scope& rs, disfigure_pre_hook* h)
+    {
+      if (module* m = rs.find_module<module> (module::name))
+      {
+        m->disfigure_pre_.push_back (h);
+        return true;
+      }
+
+      return false;
+    }
+
     const string module::name ("config");
     const uint64_t module::version (1);
   }

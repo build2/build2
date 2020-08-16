@@ -590,6 +590,15 @@ namespace build2
         fail << "operation-specific configuration not yet supported";
       }
 
+      if (c_s == nullptr)
+      {
+        if (module* m = rs.find_module<module> (module::name))
+        {
+          for (auto hook: m->configure_post_)
+            hook (a, rs);
+        }
+      }
+
       // Configure subprojects that have been loaded.
       //
       if (const subprojects* ps = *rs.root_extra->subprojects)
@@ -892,6 +901,12 @@ namespace build2
         }
       }
 
+      if (module* m = rs.find_module<module> (module::name))
+      {
+        for (auto hook: m->disfigure_pre_)
+          r = hook (a, rs) || r;
+      }
+
       // We distinguish between a complete disfigure and operation-
       // specific.
       //
@@ -937,6 +952,7 @@ namespace build2
       }
       else
       {
+        fail << "operation-specific disfiguration not yet supported";
       }
 
       return r;

@@ -265,6 +265,16 @@ namespace build2
     const operation_info* current_inner_oif;
     const operation_info* current_outer_oif;
 
+    // Check whether this is the specified meta-operation during bootstrap
+    // (when current_mif may not be yet known).
+    //
+    bool
+    bootstrap_meta_operation (const char* mo)
+    {
+      return ((current_mname == mo  ) ||
+              (current_mname.empty () && current_oname == mo));
+    };
+
     // Current operation number (1-based) in the meta-operation batch.
     //
     size_t current_on;
