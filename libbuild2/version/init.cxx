@@ -370,25 +370,13 @@ namespace build2
       // The plan is simple: fixing up the version in a temporary file then
       // move it to the original.
       //
-      try
-      {
-        auto_rmfile t (fixup_manifest (rs.ctx,
-                                       f,
-                                       path::temp_path ("manifest"),
-                                       m.version));
+      auto_rmfile t (fixup_manifest (rs.ctx,
+                                     f,
+                                     path::temp_path ("manifest"),
+                                     m.version));
 
-        mvfile (t.path, f, (cpflags::overwrite_content |
-                            cpflags::overwrite_permissions));
-        t.cancel ();
-      }
-      catch (const io_error& e)
-      {
-        fail << "unable to overwrite " << f << ": " << e;
-      }
-      catch (const system_error& e) // EACCES, etc.
-      {
-        fail << "unable to overwrite " << f << ": " << e;
-      }
+      mvfile (t.path, f, verb_never);
+      t.cancel ();
     }
 
     static const module_functions mod_functions[] =

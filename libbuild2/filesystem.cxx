@@ -102,6 +102,27 @@ namespace build2
     return ms;
   }
 
+  void
+  mvfile (const path& f, const path& t, uint16_t v)
+  {
+    if (verb >= v)
+      text << "mv " << f << ' ' << t;
+
+    try
+    {
+      butl::mvfile (f, t, (cpflags::overwrite_content |
+                           cpflags::overwrite_permissions));
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to overwrite " << t << " with " << f << ": " << e;
+    }
+    catch (const system_error& e) // EACCES, etc.
+    {
+      fail << "unable to move " << f << " to " << t << ": " << e;
+    }
+  }
+
   fs_status<rmfile_status>
   rmsymlink (context& ctx, const path& p, bool d, uint16_t v)
   {

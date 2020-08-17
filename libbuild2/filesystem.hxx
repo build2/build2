@@ -78,6 +78,11 @@ namespace build2
   LIBBUILD2_SYMEXPORT fs_status<mkdir_status>
   mkdir_p (const dir_path&, uint16_t verbosity = 1);
 
+  // Rename a file (or file symlink) overwriting the destination if exists.
+  //
+  void
+  mvfile (const path& from, const path& to, uint16_t verbosity = 1);
+
   // Remove the file (unless dry-run) and print the standard diagnostics
   // starting from the specified verbosity level. The second argument is only
   // used in diagnostics, to print the target name. Passing the path for
