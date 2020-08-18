@@ -12,7 +12,7 @@ namespace build2
   namespace config
   {
     bool module::
-    save_variable (const variable& var, uint64_t flags)
+    save_variable (const variable& var, optional<uint64_t> flags)
     {
       const string& n (var.name);
 
@@ -39,7 +39,7 @@ namespace build2
 
       if (j != sv.end ())
       {
-        assert (j->flags == flags);
+        assert (!j->flags == !flags && (!flags || *j->flags == *flags));
         return false;
       }
 
@@ -48,7 +48,7 @@ namespace build2
     }
 
     void module::
-    save_variable (scope& rs, const variable& var, uint64_t flags)
+    save_variable (scope& rs, const variable& var, optional<uint64_t> flags)
     {
       if (module* m = rs.find_module<module> (module::name))
         m->save_variable (var, flags);

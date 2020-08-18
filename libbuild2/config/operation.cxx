@@ -236,7 +236,7 @@ namespace build2
               var->name.compare (0, 14, "config.config.") == 0)
             continue;
 
-          if (mod->saved (*var))
+          if (mod->find_variable (*var)) // Saved or unsaved.
             continue;
 
           const value& v (p.first->second);
@@ -247,7 +247,7 @@ namespace build2
                                                     true  /* unused */));
           if (r.first) // save
           {
-            mod->save_variable (*var);
+            mod->save_variable (*var, 0);
 
             if (r.second) // warn
             {
@@ -291,7 +291,11 @@ namespace build2
           bool first (true); // Separate modules with a blank line.
           for (const saved_variable& sv: svars)
           {
+            if (!sv.flags) // unsaved
+              continue;
+
             const variable& var (sv.var);
+            uint64_t flags (*sv.flags);
 
             pair<lookup, size_t> org (rs.lookup_original (var));
             pair<lookup, size_t> ovr (var.overrides == nullptr
@@ -304,7 +308,7 @@ namespace build2
             // inherited. We might also not have any value at all (see
             // unconfigured()).
             //
-            if (!l.defined () || (l->null && sv.flags & save_null_omitted))
+            if (!l.defined () || (l->null && flags & save_null_omitted))
               continue;
 
             // Handle inherited from outer scope values.
@@ -451,7 +455,7 @@ namespace build2
             //
             if ((org.first.defined () && org.first->extra) && // Default value.
                 org.first == ovr.first &&                     // Not overriden.
-                (sv.flags & save_default_commented) != 0)
+                (flags & save_default_commented) != 0)
             {
               os << '#' << n << " =" << endl;
               continue;

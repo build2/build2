@@ -25,12 +25,13 @@ namespace build2
     // config.* variables and their "save flags" (see save_variable()) that
     // are used (as opposed to just being specified) in this configuration.
     // Populated by the config utility functions (required(), optional()) and
-    // saved in the order populated.
+    // saved in the order populated. If flags are absent, then this variable
+    // was marked as "unsaved" (always transient).
     //
     struct saved_variable
     {
       reference_wrapper<const variable> var;
-      uint64_t flags;
+      optional<uint64_t> flags;
     };
 
     struct saved_variables: vector<saved_variable>
@@ -75,10 +76,10 @@ namespace build2
       // Return true if variable/module were newly inserted.
       //
       bool
-      save_variable (const variable&, uint64_t flags = 0);
+      save_variable (const variable&, optional<uint64_t> flags);
 
       static void
-      save_variable (scope&, const variable&, uint64_t);
+      save_variable (scope&, const variable&, optional<uint64_t>);
 
       bool
       save_module (const char* name, int prio = 0);
@@ -86,14 +87,18 @@ namespace build2
       static void
       save_module (scope&, const char*, int);
 
-      // Return true if the variable is already saved.
-      //
-      bool
-      saved (const variable& var)
+      const saved_variable*
+      find_variable (const variable& var)
       {
         auto i (saved_modules.find_sup (var.name));
-        return i != saved_modules.end () &&
-          i->second.find (var) != i->second.end ();
+        if (i != saved_modules.end ())
+        {
+          auto j (i->second.find (var));
+          if (j != i->second.end ())
+            return &*j;
+        }
+
+        return nullptr;
       }
 
       // Configure/disfigure hooks.

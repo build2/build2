@@ -33,7 +33,7 @@ namespace build2
   // attribute). Such flags should start from 0x100000000.
   //
   LIBBUILD2_SYMEXPORT extern void
-  (*config_save_variable) (scope&, const variable&, uint64_t);
+  (*config_save_variable) (scope&, const variable&, optional<uint64_t>);
 
   LIBBUILD2_SYMEXPORT extern void
   (*config_save_module) (scope&, const char*, int);
@@ -63,6 +63,18 @@ namespace build2
     {
       if (config_save_variable != nullptr)
         config_save_variable (rs, var, flags);
+    }
+
+    // Mark the variable as "unsaved" (always transient).
+    //
+    // Such variables are not very common and are usually used to control the
+    // process of configuration itself.
+    //
+    inline void
+    unsave_variable (scope& rs, const variable& var)
+    {
+      if (config_save_variable != nullptr)
+        config_save_variable (rs, var, nullopt);
     }
 
     // Establish module save order/priority with INT32_MIN being the highest.
