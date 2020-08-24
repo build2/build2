@@ -47,6 +47,8 @@ namespace build2
     //
     const value_type* base_type;
 
+    template <typename T> const value_type* is_a () const;
+
     // Element type, if this is a vector.
     //
     const value_type* element_type;
@@ -627,6 +629,10 @@ namespace build2
   // invalid_argument (with an appropriate message).
   //
   template <typename T> T convert (value&&);
+
+  // As above but preserving the value.
+  //
+  template <typename T> T convert (const value&);
 
   // Default implementations of the dtor/copy_ctor/copy_assing callbacks for
   // types that are stored directly in value::data_ and the provide all the

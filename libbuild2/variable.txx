@@ -55,6 +55,9 @@ namespace build2
       (n == 0 ? " value: empty" : " value: multiple names"));
   }
 
+  [[noreturn]] void
+  convert_throw (const value_type* from, const value_type& to);
+
   template <typename T>
   T
   convert (value&& v)
@@ -67,19 +70,22 @@ namespace build2
         return move (v).as<T> ();
     }
 
-    string m ("invalid ");
-    m += value_traits<T>::value_type.name;
-    m += " value: ";
+    convert_throw (v ? v.type : nullptr, value_traits<T>::value_type);
+  }
 
+  template <typename T>
+  T
+  convert (const value& v)
+  {
     if (v)
     {
-      m += "conversion from ";
-      m += v.type->name;
+      if (v.type == nullptr)
+        return convert<T> (names (v.as<names> ()));
+      else if (v.type == &value_traits<T>::value_type)
+        return v.as<T> ();
     }
-    else
-      m += "null";
 
-    throw invalid_argument (move (m));
+    convert_throw (v ? v.type : nullptr, value_traits<T>::value_type);
   }
 
   template <typename T>

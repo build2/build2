@@ -410,6 +410,24 @@ namespace build2
     v.assign (move (ns), nullptr); // Assign new data.
   }
 
+  [[noreturn]] void
+  convert_throw (const value_type* from, const value_type& to)
+  {
+    string m ("invalid ");
+    m += to.name;
+    m += " value: ";
+
+    if (from != nullptr)
+    {
+      m += "conversion from ";
+      m += from->name;
+    }
+    else
+      m += "null";
+
+    throw invalid_argument (move (m));
+  }
+
   // Throw invalid_argument for an invalid simple value.
   //
   [[noreturn]] static void

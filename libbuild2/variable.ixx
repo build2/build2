@@ -7,6 +7,19 @@
 
 namespace build2
 {
+  // value_type
+  //
+  template <typename T>
+  inline const value_type* value_type::
+  is_a () const
+  {
+    const value_type* b (this);
+    for (;
+         b != nullptr && b != &value_traits<T>::value_type;
+         b = b->base_type) ;
+    return b;
+  }
+
   // value
   //
   inline bool value::
@@ -169,10 +182,7 @@ namespace build2
     //
     // Note that here we use the value type address as type identity.
     //
-    const value_type* b (v.type);
-    for (;
-         b != nullptr && b != &value_traits<T>::value_type;
-         b = b->base_type) ;
+    const value_type* b (v.type->is_a<T> ());
     assert (b != nullptr);
 
     return *static_cast<const T*> (v.type->cast == nullptr
