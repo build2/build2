@@ -304,7 +304,7 @@ namespace build2
           // Note that all these variables have already been registered.
           //
           h.assign ("config.bin.target") =
-            cast<target_triplet> (rs["cc.target"]).string ();
+            cast<target_triplet> (rs["cc.target"]).representation ();
 
           if (auto l = extra.hints["config.bin.pattern"])
             h.assign ("config.bin.pattern") = cast<string> (l);

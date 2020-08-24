@@ -329,7 +329,7 @@ namespace build2
             l5 ([&]{trace << "canonical target: '" << t.string () << "'; "
                           << "class: " << t.class_;});
 
-            assert (!hint || s == t.string ());
+            assert (!hint || s == t.representation ());
 
             // Also enter as bin.target.{cpu,vendor,system,version,class}
             // for convenience of access.

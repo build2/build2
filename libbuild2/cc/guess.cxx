@@ -2372,7 +2372,7 @@ namespace build2
         tt.vendor = "microsoft";
         tt.system = "win32-msvc";
         tt.version = msvc_runtime_version (msvc_compiler_version (mi.msvc_ver));
-        t = tt.string ();
+        t = tt.representation ();
 
         // Add the MSVC information to the signature and checksum.
         //

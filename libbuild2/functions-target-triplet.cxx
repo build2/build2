@@ -14,6 +14,7 @@ namespace build2
     function_family f (m, "target_triplet");
 
     f["string"] = [](target_triplet t) {return t.string ();};
+    f["representation"] = [](target_triplet t) {return t.representation ();};
 
     // Target triplet-specific overloads from builtins.
     //
