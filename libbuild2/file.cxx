@@ -2666,14 +2666,18 @@ namespace build2
       dr << info << "use config.import." << projv << " configuration variable "
          << "to specify its project out_root";
 
-      // Suggest ad hoc import.
+      // Suggest ad hoc import but only if it's a path-based target (doing it
+      // for lib{} is very confusing).
       //
-      string v (tt.is_a<exe> () && (projv == *tk.name || proj == *tk.name)
-                ? "config." + projv
-                : "config.import." + projv + '.' + *tk.name + '.' + tt.name);
+      if (tt.is_a<path_target> ())
+      {
+        string v (tt.is_a<exe> () && (projv == *tk.name || proj == *tk.name)
+                  ? "config." + projv
+                  : "config.import." + projv + '.' + *tk.name + '.' + tt.name);
 
-      dr << info << "or use " << v << " configuration variable to specify its "
-         << "path";
+        dr << info << "or use " << v << " configuration variable to specify "
+           << "its path";
+      }
     }
 
     dr << endf;
