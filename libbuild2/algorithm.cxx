@@ -584,7 +584,7 @@ namespace build2
       else
         l.offset = target::offset_tried;
 
-      return r; // Group state.
+      return r; // Group state (must be consistent with matched_state()).
     }
 
     try

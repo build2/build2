@@ -442,6 +442,21 @@ namespace build2
     // haven't failed (in which case we could have bailed out early).
     //
     assert (ctx.target_count.load (memory_order_relaxed) == 0);
+
+#ifndef NDEBUG
+    if (ctx.dependency_count.load (memory_order_relaxed) != 0)
+    {
+      diag_record dr;
+      dr << info << "detected unexecuted matched targets:";
+
+      for (const auto& pt: ctx.targets)
+      {
+        const target& t (*pt);
+        if (size_t n = t[a].dependents.load (memory_order_relaxed))
+          dr << text << t << ' ' << n;
+      }
+    }
+#endif
     assert (ctx.dependency_count.load (memory_order_relaxed) == 0);
   }
 

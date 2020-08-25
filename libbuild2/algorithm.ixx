@@ -322,12 +322,17 @@ namespace build2
     if (s == target_state::failed)
       throw failed ();
 
+    // If this is a member of the group then the state we've got is that of
+    // the group, not the member, while the member has matched the group and
+    // incremented its dependency counts. As a result, we cannot rely on the
+    // unchanged state in this case.
+    //
     switch (um)
     {
     case unmatch::none: break;
     case unmatch::unchanged:
       {
-        if (s == target_state::unchanged)
+        if (s == target_state::unchanged && t.group == nullptr)
           return make_pair (true, s);
 
         break;
@@ -338,7 +343,7 @@ namespace build2
         // we never decrement this count during match so that someone else
         // cannot change their mind).
         //
-        if (s == target_state::unchanged                   ||
+        if ((s == target_state::unchanged && t.group == nullptr) ||
             t[a].dependents.load (memory_order_consume) != 0)
           return make_pair (true, s);
 
