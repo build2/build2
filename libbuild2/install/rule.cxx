@@ -496,6 +496,8 @@ namespace build2
     //
     // If target is not NULL, then also handle the subdirs logic.
     //
+    // @@ TODO: detect cycles (maybe by keeping a stack-based linked list).
+    //
     static install_dirs
     resolve (const scope& s,
              const target* t,
@@ -590,7 +592,7 @@ namespace build2
     static inline install_dirs
     resolve (const target& t, dir_path d, bool fail_unknown = true)
     {
-      return resolve (t.base_scope (), &t, d, fail_unknown);
+      return resolve (t.base_scope (), &t, move (d), fail_unknown);
     }
 
     dir_path
