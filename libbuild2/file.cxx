@@ -1450,23 +1450,21 @@ namespace build2
     //
     // Note that init() can load additional modules invalidating iterators.
     //
-    size_t boot_mods (root.root_extra->modules.size ());
-
-    for (size_t i (0); i != boot_mods; ++i)
+    auto init_modules =
+      [&root, n = root.root_extra->modules.size ()] (module_boot_init v)
     {
-      module_state& s (root.root_extra->modules[i]);
+      for (size_t i (0); i != n; ++i)
+      {
+        module_state& s (root.root_extra->modules[i]);
 
-      if (s.boot_init && *s.boot_init == module_boot_init::before_first)
-        init_module (root, root, s.name, s.loc);
-    }
+        if (s.boot_init && *s.boot_init == v)
+          init_module (root, root, s.name, s.loc);
+      }
+    };
 
-    for (size_t i (0); i != boot_mods; ++i)
-    {
-      module_state& s (root.root_extra->modules[i]);
-
-      if (s.boot_init && *s.boot_init == module_boot_init::before)
-        init_module (root, root, s.name, s.loc);
-    }
+    init_modules (module_boot_init::before_first);
+    init_modules (module_boot_init::before_second);
+    init_modules (module_boot_init::before);
 
     // Load hooks and root.build.
     //
@@ -1492,13 +1490,7 @@ namespace build2
 
     // Finish off initializing bootstrapped modules (after mode).
     //
-    for (size_t i (0); i != boot_mods; ++i)
-    {
-      module_state& s (root.root_extra->modules[i]);
-
-      if (s.boot_init && *s.boot_init == module_boot_init::after)
-        init_module (root, root, s.name, s.loc);
-    }
+    init_modules (module_boot_init::after);
 
     // Print the project configuration report, similar to how we do it in
     // build system modules.

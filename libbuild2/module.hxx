@@ -42,9 +42,11 @@ namespace build2
   //
   // By default a booted module is initialized before loading root.build.
   //
-  // The module should specify the before_first initialization mode if it
-  // should be initialized first (within the resulting two groups the modules
-  // are initializated in the order loaded).
+  // The module should specify the before_{first,second} initialization modes
+  // if it should be initialized in the first or second batch (within the
+  // resulting three groups the modules are initializated in the order
+  // loaded). The before_first mode is pretty much reserved for the config
+  // module.
   //
   // The module should specify the after initialization mode if it should be
   // initialized after loading root.build. Note that in this case the module
@@ -53,6 +55,7 @@ namespace build2
   enum class module_boot_init
   {
     before_first,
+    before_second,
     before,
     after
   };

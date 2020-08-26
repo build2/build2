@@ -279,9 +279,9 @@ namespace build2
                     rewritten,
                     move (ds)));
 
-      // Initialize first (dist.package, etc).
+      // Initialize second (dist.package, etc).
       //
-      extra.init = module_boot_init::before_first;
+      extra.init = module_boot_init::before_second;
     }
 
     static void
