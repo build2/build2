@@ -55,7 +55,7 @@ namespace build2
       (n == 0 ? " value: empty" : " value: multiple names"));
   }
 
-  [[noreturn]] void
+  [[noreturn]] LIBBUILD2_SYMEXPORT void
   convert_throw (const value_type* from, const value_type& to);
 
   template <typename T>

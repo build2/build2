@@ -80,7 +80,7 @@ namespace build2
 
   // Rename a file (or file symlink) overwriting the destination if exists.
   //
-  void
+  LIBBUILD2_SYMEXPORT void
   mvfile (const path& from, const path& to, uint16_t verbosity = 1);
 
   // Remove the file (unless dry-run) and print the standard diagnostics
