@@ -184,6 +184,8 @@ namespace build2
 
     // canonicalize
     //
+    // @@ TODO: add ability to specify alternative separator.
+    //
     f["canonicalize"] = [](path p)     {p.canonicalize (); return p;};
     f["canonicalize"] = [](dir_path p) {p.canonicalize (); return p;};
 
