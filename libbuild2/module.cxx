@@ -44,6 +44,7 @@ namespace build2
   // Sorted array of bundled modules (excluding core modules bundled with
   // libbuild2; see below).
   //
+#if !defined(BUILD2_BOOTSTRAP) && !defined(LIBBUILD2_STATIC_BUILD)
   static const char* bundled_modules[] = {
     "bash",
     "bin",
@@ -62,6 +63,7 @@ namespace build2
       bundled_modules + sizeof (bundled_modules) / sizeof (*bundled_modules),
       mod);
   }
+#endif
 
   // Note: also used by ad hoc recipes thus not static.
   //
