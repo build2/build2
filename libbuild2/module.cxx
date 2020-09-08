@@ -236,7 +236,7 @@ namespace build2
 #endif
     const string& mod,
     const location& loc,
-    bool boot,
+    bool /* boot */,
     bool opt)
   {
     tracer trace ("import_module");
@@ -249,19 +249,38 @@ namespace build2
     else if (mod == "install") return &install::build2_install_load;
     else if (mod == "test")    return &test::build2_test_load;
 
-    bool bundled (bundled_module (mod));
-
-    // Importing external modules during bootstrap is problematic: we haven't
-    // loaded config.build nor entered all the variable overrides so it's not
-    // clear what import() can do except confuse matters. So this requires
-    // more thinking.
+    // Note that importing external modules during bootstrap is problematic
+    // since we haven't loaded config.build nor entered non-global variable
+    // overrides. We used to just not support external modules that require
+    // bootstrapping but that proved to restrictive. So now we allow such
+    // modules and the following mechanisms can be used to make things work
+    // in various situations:
     //
-    if (boot && !bundled)
-    {
-      fail (loc) << "unable to load build system module " << mod <<
-        info << "loading external modules during bootstrap is not yet "
-                 << "supported";
-    }
+    // 1. Module is installed.
+    //
+    //    This covers both user-installed modules as well as the module's
+    //    *-tests in our CI setup (where we install the module next to the
+    //    build system).
+    //
+    // 2. Module is specified with global !config.import.<module> override.
+    //
+    //    This covers development (where the override can be specified in the
+    //    default options file) and could cover imports from the bpkg-managed
+    //    host configuration if we use global overrides to connect things
+    //    (which feels correct; we shouldn't have multiple host configurations
+    //    in any given build).
+    //
+    // One case that is not straightforward is using the module in testscript-
+    // generated tests (e.g., in module's *-tests). This will work in CI
+    // (installed module) and in development provided !config.import.* is
+    // specified in the default options file (and we haven't suppressed it).
+    //
+    // In fact, this is not specific to modules that require bootstrapping; we
+    // have the same config.import.* propagation problem from, say, *-tests's
+    // config.build. To make other cases work (config.import.* specified in
+    // places other than the default options file) we would have to propagate
+    // things explicitly. So for now the thinking is that one shouldn't write
+    // such tests except in controlled cases (e.g., module's *-tests).
 
     module_load_function* r (nullptr);
 
@@ -280,6 +299,8 @@ namespace build2
     }
 #else
     context& ctx (bs.ctx);
+
+    bool bundled (bundled_module (mod));
 
     // See if we can import a target for this module.
     //
