@@ -1011,7 +1011,7 @@ namespace build2
        << "\033[1m--quiet\033[0m|\033[1m-q\033[0m            Run quietly, only printing error messages in most" << ::std::endl
        << "                      contexts. In certain contexts (for example, while" << ::std::endl
        << "                      updating build system modules) this verbosity level may" << ::std::endl
-       << "                      be ignored. Use --silent\033[0m to run quietly in all contexts." << ::std::endl
+       << "                      be ignored. Use \033[1m--silent\033[0m to run quietly in all contexts." << ::std::endl
        << "                      This option is equivalent to \033[1m--verbose 0\033[0m." << ::std::endl;
 
     os << std::endl
@@ -1021,7 +1021,7 @@ namespace build2
     os << std::endl
        << "\033[1m--verbose\033[0m \033[4mlevel\033[0m       Set the diagnostics verbosity to \033[4mlevel\033[0m between 0 and 6." << ::std::endl
        << "                      Level 0 disables any non-error messages (but see the" << ::std::endl
-       << "                      difference between --quiet\033[0m and --silent\033[0m) while level 6" << ::std::endl
+       << "                      difference between \033[1m--quiet\033[0m and \033[1m--silent\033[0m) while level 6" << ::std::endl
        << "                      produces lots of information, with level 1 being the" << ::std::endl
        << "                      default. The following additional types of diagnostics" << ::std::endl
        << "                      are produced at each level:" << ::std::endl

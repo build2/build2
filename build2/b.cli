@@ -407,7 +407,7 @@ namespace build2
     {
       "Run quietly, only printing error messages in most contexts. In certain
        contexts (for example, while updating build system modules) this
-       verbosity level may be ignored. Use \c{--silent} to run quietly in all
+       verbosity level may be ignored. Use \cb{--silent} to run quietly in all
        contexts. This option is equivalent to \cb{--verbose 0}."
     }
 
@@ -421,7 +421,7 @@ namespace build2
       "<level>",
       "Set the diagnostics verbosity to <level> between 0 and 6. Level 0
        disables any non-error messages (but see the difference between
-       \c{--quiet} and \c{--silent}) while level 6 produces lots of
+       \cb{--quiet} and \cb{--silent}) while level 6 produces lots of
        information, with level 1 being the default. The following additional
        types of diagnostics are produced at each level:
 
