@@ -283,6 +283,12 @@ namespace build2
     // places other than the default options file) we would have to propagate
     // things explicitly. So for now the thinking is that one shouldn't write
     // such tests except in controlled cases (e.g., module's *-tests).
+    //
+    // And another case is the bdep-sync hook which also doesn't have the
+    // global overrides propagated to it.
+    //
+    // It does feel right to propagate global overrides to all the nested
+    // build system invocations. Maybe we should set an environment variable?
 
     module_load_function* r (nullptr);
 
