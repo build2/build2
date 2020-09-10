@@ -1529,7 +1529,8 @@ namespace build2
        << ::std::endl
        << "The default options files for the build system driver are called \033[1mb.options\033[0m and" << ::std::endl
        << "are searched for in the \033[1m.build2/\033[0m subdirectory of the home directory and in the" << ::std::endl
-       << "system directory (for example, \033[1m/etc/build2/\033[0m) if configured." << ::std::endl
+       << "system directory (for example, \033[1m/etc/build2/\033[0m) if configured. Note that besides" << ::std::endl
+       << "options these files can also contain global variable overrides." << ::std::endl
        << ::std::endl
        << "Once the search is complete, the files are loaded in the reverse order, that" << ::std::endl
        << "is, beginning from the system directory (if any), followed by the home" << ::std::endl

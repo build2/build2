@@ -342,7 +342,7 @@ main (int argc, char* argv[])
         }
 
         // Merge all the individual buildspec arguments into a single string.
-        // We wse newlines to separate arguments so that line numbers in
+        // We use newlines to separate arguments so that line numbers in
         // diagnostics signify argument numbers. Clever, huh?
         //
         if (argn != 0)
@@ -381,7 +381,9 @@ main (int argc, char* argv[])
         if (ops.default_options_specified ())
           extra = ops.default_options ();
 
-        ops = merge_default_options (
+        // Load default options files.
+        //
+        default_options<options> def_ops (
           load_default_options<options,
                                cl::argv_file_scanner,
                                cl::unknown_mode> (
@@ -400,8 +402,45 @@ main (int argc, char* argv[])
                 else
                   trace << "loading " << (r ? "remote " : "local ") << f;
               }
-            }),
-          ops);
+            },
+            true /* args */));
+
+        // Merge the default and command line options.
+        //
+        ops = merge_default_options (def_ops, ops);
+
+        // Merge the default and command line global overrides.
+        //
+        // Note that the "broken down" variable assignments occupying a single
+        // line are naturally supported.
+        //
+        cmd_vars =
+          merge_default_arguments (
+            def_ops,
+            cmd_vars,
+            [] (const default_options_entry<options>& e, const strings&)
+            {
+              path_name fn (e.file);
+
+              // Verify that all arguments are global overrides.
+              //
+              for (const string& a: e.arguments)
+              {
+                size_t p (a.find ('=', 1));
+                if (p == string::npos || a[0] != '!')
+                {
+                  diag_record dr (fail (fn));
+                  dr << "expected option or global variable override instead "
+                     << "of '" << a << "'";
+
+                  if (p != string::npos)
+                    dr << info << "prefix variable assignment with '!'";
+                }
+
+                if (p == 1 || (p == 2 && a[1] == '+')) // '!=' or '!+=' ?
+                  fail (fn) << "missing variable name in '" << a << "'";
+              }
+            });
       }
       catch (const pair<path, system_error>& e)
       {

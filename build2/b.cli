@@ -659,7 +659,8 @@ namespace build2
   The default options files for the build system driver are called
   \cb{b.options} and are searched for in the \cb{.build2/} subdirectory of the
   home directory and in the system directory (for example, \cb{/etc/build2/})
-  if configured.
+  if configured. Note that besides options these files can also contain global
+  variable overrides.
 
   Once the search is complete, the files are loaded in the reverse order, that
   is, beginning from the system directory (if any), followed by the home
