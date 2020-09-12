@@ -570,11 +570,11 @@ namespace build2
       }
     };
 
-    template <typename X>
-    struct parser<std::set<X> >
+    template <typename X, typename C>
+    struct parser<std::set<X, C> >
     {
       static void
-      parse (std::set<X>& c, bool& xs, scanner& s)
+      parse (std::set<X, C>& c, bool& xs, scanner& s)
       {
         X x;
         bool dummy;
@@ -584,17 +584,17 @@ namespace build2
       }
 
       static void
-      merge (std::set<X>& b, const std::set<X>& a)
+      merge (std::set<X, C>& b, const std::set<X, C>& a)
       {
         b.insert (a.begin (), a.end ());
       }
     };
 
-    template <typename K, typename V>
-    struct parser<std::map<K, V> >
+    template <typename K, typename V, typename C>
+    struct parser<std::map<K, V, C> >
     {
       static void
-      parse (std::map<K, V>& m, bool& xs, scanner& s)
+      parse (std::map<K, V, C>& m, bool& xs, scanner& s)
       {
         const char* o (s.next ());
 
@@ -639,9 +639,9 @@ namespace build2
       }
 
       static void
-      merge (std::map<K, V>& b, const std::map<K, V>& a)
+      merge (std::map<K, V, C>& b, const std::map<K, V, C>& a)
       {
-        for (typename std::map<K, V>::const_iterator i (a.begin ()); 
+        for (typename std::map<K, V, C>::const_iterator i (a.begin ()); 
              i != a.end (); 
              ++i)
           b[i->first] = i->second;

@@ -275,11 +275,11 @@ namespace build2
         }
       };
 
-      template <typename X>
-      struct parser<std::set<X> >
+      template <typename X, typename C>
+      struct parser<std::set<X, C> >
       {
         static void
-        parse (std::set<X>& c, bool& xs, scanner& s)
+        parse (std::set<X, C>& c, bool& xs, scanner& s)
         {
           X x;
           bool dummy;
@@ -289,11 +289,11 @@ namespace build2
         }
       };
 
-      template <typename K, typename V>
-      struct parser<std::map<K, V> >
+      template <typename K, typename V, typename C>
+      struct parser<std::map<K, V, C> >
       {
         static void
-        parse (std::map<K, V>& m, bool& xs, scanner& s)
+        parse (std::map<K, V, C>& m, bool& xs, scanner& s)
         {
           const char* o (s.next ());
 
