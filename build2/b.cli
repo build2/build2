@@ -692,5 +692,12 @@ namespace build2
   value is used to shorten paths printed in diagnostics by replacing the home
   directory with \cb{~/}. It is also made available to \cb{buildfile}'s as the
   \cb{build.home} variable.
-  "
+
+  The \cb{BUILD2_VAR_OVR} environment variable is used to propagate global
+  variable overrides to nested build system driver invocations. Its value is a
+  list of global variable assignments separated with newlines.
+
+  The \cb{BUILD2_DEF_OPT} environment variable is used to suppress loading of
+  default options files in nested build system driver invocations. Its values
+  are \cb{false} or \cb{0} to suppress and \cb{true} or \cb{1} to load."
 }

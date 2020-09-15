@@ -1559,7 +1559,15 @@ namespace build2
        << "The \033[1mHOME\033[0m environment variable is used to determine the user's home directory." << ::std::endl
        << "If it is not set, then \033[1mgetpwuid(3)\033[0m is used instead. This value is used to" << ::std::endl
        << "shorten paths printed in diagnostics by replacing the home directory with \033[1m~/\033[0m." << ::std::endl
-       << "It is also made available to \033[1mbuildfile\033[0m's as the \033[1mbuild.home\033[0m variable." << ::std::endl;
+       << "It is also made available to \033[1mbuildfile\033[0m's as the \033[1mbuild.home\033[0m variable." << ::std::endl
+       << ::std::endl
+       << "The \033[1mBUILD2_VAR_OVR\033[0m environment variable is used to propagate global variable" << ::std::endl
+       << "overrides to nested build system driver invocations. Its value is a list of" << ::std::endl
+       << "global variable assignments separated with newlines." << ::std::endl
+       << ::std::endl
+       << "The \033[1mBUILD2_DEF_OPT\033[0m environment variable is used to suppress loading of default" << ::std::endl
+       << "options files in nested build system driver invocations. Its values are \033[1mfalse\033[0m" << ::std::endl
+       << "or \033[1m0\033[0m to suppress and \033[1mtrue\033[0m or \033[1m1\033[0m to load." << ::std::endl;
 
     p = ::build2::cl::usage_para::text;
 
