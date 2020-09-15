@@ -3,6 +3,7 @@
 
 #include <libbuild2/file.hxx>
 
+#include <cerrno>
 #include <iomanip> // left, setw()
 #include <sstream>
 
@@ -1713,9 +1714,28 @@ namespace build2
 
       try
       {
-        ifdstream is (move (pr.in_ofd), fdstream_mode::skip);
+        ifdstream is (move (pr.in_ofd), ifdstream::badbit); // Note: no skip!
+
+        // What are the odds that we will run some unrelated program which
+        // will keep writing to stdout until we run out of memory reading?
+        // Apparently non-negligible (see GitHub issue #102).
+        //
         string r;
-        getline (is, r, '\0'); // Will fail if there is no data.
+        {
+          char b[1024];
+          while (!eof (is.read (b, sizeof (b))))
+          {
+            r.append (b, sizeof (b));
+            if (r.size () > 65536)
+            {
+              is.close ();
+              pr.kill ();
+              throw_generic_ios_failure (EFBIG, "output too large");
+            }
+          }
+          r.append (b, static_cast<size_t> (is.gcount ()));
+        }
+
         is.close (); // Detect errors.
 
         if (pr.wait ())
