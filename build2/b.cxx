@@ -1533,6 +1533,11 @@ main (int argc, char* argv[])
 
           // Enter project-wide (as opposed to global) variable overrides.
           //
+          // And, yes, this means non-global overrides are not visible during
+          // bootstrap. If you are wondering why, it's because the project
+          // boundaries (specifically, amalgamation) are only known after
+          // bootstrap.
+          //
           // The mildly tricky part here is to distinguish the situation where
           // we are bootstrapping the same project multiple times. The first
           // override that we set cannot already exist (because the override
