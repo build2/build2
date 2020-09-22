@@ -81,6 +81,7 @@ namespace build2
       new context (ctx.sched,
                    ctx.mutexes,
                    false,                    /* match_only */
+                   false,                    /* no_external_modules */
                    false,                    /* dry_run */
                    ctx.keep_going,
                    ctx.global_var_overrides, /* cmd_vars */
@@ -238,7 +239,11 @@ namespace build2
 #endif
     const string& mod,
     const location& loc,
-    bool /* boot */,
+#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
+    bool,
+#else
+    bool boot,
+#endif
     bool opt)
   {
     tracer trace ("import_module");
@@ -250,6 +255,26 @@ namespace build2
     else if (mod == "dist")    return &dist::build2_dist_load;
     else if (mod == "install") return &install::build2_install_load;
     else if (mod == "test")    return &test::build2_test_load;
+
+    module_load_function* r (nullptr);
+
+    // No dynamic loading of build system modules during bootstrap or if
+    // statically-linked..
+    //
+#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
+    if (!opt)
+    {
+      fail (loc) << "unknown build system module " << mod <<
+#ifdef BUILD2_BOOTSTRAP
+        info << "running bootstrap build system";
+#else
+        info << "running statically-linked build system";
+#endif
+    }
+#else
+    context& ctx (bs.ctx);
+
+    bool bundled (bundled_module (mod));
 
     // Note that importing external modules during bootstrap is problematic
     // since we haven't loaded config.build nor entered non-global variable
@@ -287,28 +312,20 @@ namespace build2
     // And another case is the bdep-sync hook which also doesn't have the
     // global overrides propagated to it.
     //
-    // It does feel right to propagate global overrides to all the nested
-    // build system invocations. Maybe we should set an environment variable?
-
-    module_load_function* r (nullptr);
-
-    // No dynamic loading of build system modules during bootstrap or if
-    // statically-linked..
+    // And it turns out the story does not end here: without an external
+    // module we cannot do info or dist. So to support this we now allow
+    // skipping of loading of external modules (for dist this is only part of
+    // the solution with the other part being the bootstrap mode). While no
+    // doubt a hack, it feels like this is the time to cut of this complexity
+    // escalation. Essentially, we are saying external module that require
+    // bootstrap must be prepared to be skipped if the project is only being
+    // bootstrapped. Note also that the fact that a module boot was skipped
+    // can be detected by checking the module's *.booted variable. In case of
+    // a skip it will be false, as opposed to true if the module was booted
+    // and undefined if the module was not mentioned.
     //
-#if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
-    if (!opt)
-    {
-      fail (loc) << "unknown build system module " << mod <<
-#ifdef BUILD2_BOOTSTRAP
-        info << "running bootstrap build system";
-#else
-        info << "running statically-linked build system";
-#endif
-    }
-#else
-    context& ctx (bs.ctx);
-
-    bool bundled (bundled_module (mod));
+    if (boot && !bundled && ctx.no_external_modules)
+      return nullptr;
 
     // See if we can import a target for this module.
     //
@@ -570,7 +587,14 @@ namespace build2
                        << mmod;
         }
         else
+        {
+          // Reduce skipped external module to optional.
+          //
+          if (boot)
+            opt = true;
+
           i = loaded_modules.emplace (move (mmod), nullptr).first;
+        }
       }
     }
 
@@ -616,23 +640,27 @@ namespace build2
 
     // Otherwise search for this module.
     //
-    const module_functions& mf (
-      *find_module (rs, mod, loc, true /* boot */, false /* optional */));
+    // Note that find_module() may return NULL in case of a skipped external
+    // module.
+    //
+    const module_functions* mf (
+      find_module (rs, mod, loc, true /* boot */, false /* optional */));
 
-    if (mf.boot == nullptr)
-      fail (loc) << "build system module " << mod << " should not be loaded "
-                 << "during bootstrap";
-
-    lm.push_back (module_state {loc, mod, mf.init, nullptr, nullopt});
-    i = lm.end () - 1;
-
+    if (mf != nullptr)
     {
+      if (mf->boot == nullptr)
+        fail (loc) << "build system module " << mod << " should not be loaded "
+                   << "during bootstrap";
+
+      lm.push_back (module_state {loc, mod, mf->init, nullptr, nullopt});
+      i = lm.end () - 1;
+
       module_boot_extra e {nullptr, module_boot_init::before};
 
       // Note: boot() can load additional modules invalidating the iterator.
       //
       size_t j (i - lm.begin ());
-      mf.boot (rs, loc, e);
+      mf->boot (rs, loc, e);
       i = lm.begin () + j;
 
       if (e.module != nullptr)
@@ -641,7 +669,7 @@ namespace build2
       i->boot_init = e.init;
     }
 
-    rs.assign (rs.var_pool ().insert (mod + ".booted")) = true;
+    rs.assign (rs.var_pool ().insert (mod + ".booted")) = (mf != nullptr);
   }
 
   module_state*

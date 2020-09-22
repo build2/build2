@@ -698,6 +698,7 @@ namespace build2
     serial_stop_ (),
     dry_run_ (),
     match_only_ (),
+    no_external_modules_ (),
     structured_result_ (),
     mtime_check_ (),
     no_mtime_check_ (),
@@ -896,6 +897,12 @@ namespace build2
     {
       ::build2::cl::parser< bool>::merge (
         this->match_only_, a.match_only_);
+    }
+
+    if (a.no_external_modules_)
+    {
+      ::build2::cl::parser< bool>::merge (
+        this->no_external_modules_, a.no_external_modules_);
     }
 
     if (a.structured_result_)
@@ -1110,6 +1117,12 @@ namespace build2
        << "                      mode is primarily useful for profiling." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--no-external-modules\033[0m Don't load external modules during project bootstrap." << ::std::endl
+       << "                      Note that this option can only be used with" << ::std::endl
+       << "                      meta-operations that do not load the project's" << ::std::endl
+       << "                      \033[1mbuildfiles\033[0m, such as \033[1minfo\033[0m." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--structured-result\033[0m   Write the result of execution in a structured form. In" << ::std::endl
        << "                      this mode, instead of printing to \033[1mSTDERR\033[0m diagnostics" << ::std::endl
        << "                      messages about the outcome of executing actions on" << ::std::endl
@@ -1267,6 +1280,8 @@ namespace build2
       &::build2::cl::thunk< options, bool, &options::dry_run_ >;
       _cli_options_map_["--match-only"] =
       &::build2::cl::thunk< options, bool, &options::match_only_ >;
+      _cli_options_map_["--no-external-modules"] =
+      &::build2::cl::thunk< options, bool, &options::no_external_modules_ >;
       _cli_options_map_["--structured-result"] =
       &::build2::cl::thunk< options, bool, &options::structured_result_ >;
       _cli_options_map_["--mtime-check"] =

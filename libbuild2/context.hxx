@@ -146,6 +146,10 @@ namespace build2
     //
     bool match_only;
 
+    // Skip booting external modules flag (see --no-external-modules).
+    //
+    bool no_external_modules;
+
     // Dry run flag (see --dry-run|-n).
     //
     // This flag is set (based on dry_run_option) only for the final execute
@@ -479,6 +483,7 @@ namespace build2
     context (scheduler&,
              global_mutexes&,
              bool match_only = false,
+             bool no_external_modules = false,
              bool dry_run = false,
              bool keep_going = true,
              const strings& cmd_vars = {},

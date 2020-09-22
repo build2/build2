@@ -535,6 +535,13 @@ namespace build2
        useful for profiling."
     }
 
+    bool --no-external-modules
+    {
+      "Don't load external modules during project bootstrap. Note that this
+       option can only be used with meta-operations that do not load the
+       project's \cb{buildfiles}, such as \cb{info}."
+    }
+
     bool --structured-result
     {
       "Write the result of execution in a structured form. In this mode,

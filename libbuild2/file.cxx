@@ -1431,6 +1431,8 @@ namespace build2
   {
     tracer trace ("load_root");
 
+    context& ctx (root.ctx);
+
     const dir_path& out_root (root.out_path ());
     const dir_path& src_root (root.src_path ());
 
@@ -1441,6 +1443,10 @@ namespace build2
 
     if (root.buildfiles.find (f) != root.buildfiles.end ())
       return;
+
+    if (ctx.no_external_modules)
+      fail << "attempt to load project " << root << " after skipped loading "
+           << "external modules";
 
     // First load outer roots, if any.
     //
@@ -1483,7 +1489,7 @@ namespace build2
 
     // Reuse the parser to accumulate the configuration variable information.
     //
-    parser p (root.ctx, load_stage::root);
+    parser p (ctx, load_stage::root);
 
     if (he) {source_hooks (p, root, hd, true  /* pre */); p.reset ();}
     if (fe) {source_once (p, root, root, f, root);}

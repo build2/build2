@@ -785,6 +785,7 @@ main (int argc, char* argv[])
       ctx.reset (new context (sched,
                               mutexes,
                               ops.match_only (),
+                              ops.no_external_modules (),
                               ops.dry_run (),
                               !ops.serial_stop () /* keep_going */,
                               cmd_vars));

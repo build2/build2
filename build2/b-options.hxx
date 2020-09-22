@@ -526,6 +526,9 @@ namespace build2
     match_only () const;
 
     const bool&
+    no_external_modules () const;
+
+    const bool&
     structured_result () const;
 
     const bool&
@@ -628,6 +631,7 @@ namespace build2
     bool serial_stop_;
     bool dry_run_;
     bool match_only_;
+    bool no_external_modules_;
     bool structured_result_;
     bool mtime_check_;
     bool no_mtime_check_;
