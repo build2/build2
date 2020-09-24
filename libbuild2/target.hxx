@@ -118,12 +118,6 @@ namespace build2
     real         // Real dependency declaration.
   };
 
-  inline bool
-  operator> (target_decl l, target_decl r)
-  {
-    return static_cast<uint8_t> (l) > static_cast<uint8_t> (r);
-  }
-
   class LIBBUILD2_SYMEXPORT target
   {
   public:
@@ -156,8 +150,8 @@ namespace build2
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
 
-    // Note that the declaration should only be upgraded during the load phase
-    // via the MT-safe target_set::insert().
+    // Note that the target declaration should only be upgraded via the MT-
+    // safe target_set::insert().
     //
     target_decl decl;
 

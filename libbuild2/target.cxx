@@ -484,12 +484,16 @@ namespace build2
       // Fall through (continue as if the first find() returned this target).
     }
 
-    if (decl > t->decl)
+    // Without resorting to something like atomic we can only upgrade the
+    // declaration to real (which is expected to only happen during the load
+    // phase).
+    //
+    if (decl == target_decl::real)
     {
-      // The decl value can only be adjusted during the load phase.
-      //
       assert (ctx.phase == run_phase::load);
-      t->decl = decl;
+
+      if (t->decl != target_decl::real)
+        t->decl = decl;
     }
 
     return pair<target&, ulock> (*t, ulock ());
