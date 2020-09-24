@@ -298,7 +298,7 @@ namespace build2
                                    out,
                                    move (n),
                                    nullopt /* ext     */,
-                                   true    /* implied */,
+                                   target_decl::implied,
                                    trace));
 
     assert (r.second.owns_lock ());
@@ -508,6 +508,55 @@ namespace build2
     {
       diag_record dr;
       dr << fail << "no rule to " << diag_do (a, t);
+
+      // Try to give some hints of the common causes.
+      //
+      switch (t.decl)
+      {
+      case target_decl::prereq_new:
+        {
+          dr << info << "target " << t << " is no declared in any buildfile";
+
+          if (t.is_a<file> ())
+            dr << info << "perhaps it is a missing source file?";
+
+          break;
+        }
+      case target_decl::prereq_file:
+        {
+          // It's an existing file so it's an unlikely case.
+          //
+          break;
+        }
+      case target_decl::implied:
+        {
+          // While the "in a buildfile" is not exactly accurate, we assume
+          // it's unlikely we will end up here in other cases.
+          //
+          dr << info << "target " << t << " is implicitly declared in a "
+             << "buildfile";
+
+          if (const scope* rs = bs.root_scope ())
+          {
+            if (t.out.empty () && rs->src_path () != rs->out_path ())
+            {
+              name n (t.as_name ()[0]);
+              n.dir.clear ();
+              dr << info << "perhaps it should be declared as being in the "
+                 << "source tree: " << n << "@./ ?";
+            }
+          }
+
+          break;
+        }
+      case target_decl::real:
+        {
+          // If we had a location, maybe it would make sense to mention this
+          // case.
+          //
+          break;
+        }
+      }
 
       if (verb < 4)
         dr << info << "re-run with --verbose=4 for more information";

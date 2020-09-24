@@ -412,7 +412,7 @@ namespace build2
                  dir_path out,
                  string name,
                  optional<string> ext,
-                 bool implied,
+                 target_decl decl,
                  tracer& trace)
   {
     target_key tk {&tt, &dir, &out, &name, move (ext)};
@@ -447,7 +447,7 @@ namespace build2
       if (p.second)
       {
         t->ext_ = &i->first.ext;
-        t->implied = implied;
+        t->decl = decl;
         t->state.inner.target_ = t;
         t->state.outer.target_ = t;
         return pair<target&, ulock> (*t, move (ul));
@@ -484,16 +484,12 @@ namespace build2
       // Fall through (continue as if the first find() returned this target).
     }
 
-    if (!implied)
+    if (decl > t->decl)
     {
-      // The implied flag can only be cleared during the load phase.
+      // The decl value can only be adjusted during the load phase.
       //
       assert (ctx.phase == run_phase::load);
-
-      // Clear the implied flag.
-      //
-      if (t->implied)
-        t->implied = false;
+      t->decl = decl;
     }
 
     return pair<target&, ulock> (*t, ulock ());
@@ -833,7 +829,7 @@ namespace build2
     //
     const target* e (search_existing_target (t.ctx, pk));
 
-    if (e == nullptr || e->implied)
+    if (e == nullptr || e->decl != target_decl::real)
       fail << "no explicit target for " << pk;
 
     return e;
@@ -928,7 +924,7 @@ namespace build2
     //
     const target* e (search_existing_target (t.ctx, pk));
 
-    if (e != nullptr && !e->implied)
+    if (e != nullptr && e->decl == target_decl::real)
       return e;
 
     // If not found (or is implied), then try to load the corresponding
@@ -977,7 +973,7 @@ namespace build2
       if (e == nullptr)
         e = search_existing_target (t.ctx, pk);
 
-      if (e != nullptr && !e->implied)
+      if (e != nullptr && e->decl == target_decl::real)
         retest = true;
       else
       {
@@ -1018,7 +1014,7 @@ namespace build2
       if (e == nullptr)
         e = search_existing_target (t.ctx, pk);
 
-      if (e != nullptr && !e->implied)
+      if (e != nullptr && e->decl == target_decl::real)
         return e;
     }
 

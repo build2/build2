@@ -5500,7 +5500,7 @@ namespace build2
                 dir_path (), // Always in the out tree.
                 move (mf),
                 nullopt,     // Use default extension.
-                true,        // Implied.
+                target_decl::implied,
                 trace));
       file& bt (static_cast<file&> (p.first));
 
@@ -5571,7 +5571,7 @@ namespace build2
                 dir_path (), // Always in the out tree.
                 move (mf),
                 nullopt,     // Use default extension.
-                true,        // Implied.
+                target_decl::implied,
                 trace));
       file& bt (static_cast<file&> (p.first));
 

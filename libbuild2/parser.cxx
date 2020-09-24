@@ -150,13 +150,14 @@ namespace build2
                    tracer& tr)
     {
       auto r (p.scope_->find_target_type (n, o, loc));
-      return p.ctx.targets.insert (r.first,         // target type
-                                   move (n.dir),
-                                   move (o.dir),
-                                   move (n.value),
-                                   move (r.second), // extension
-                                   implied,
-                                   tr).first;
+      return p.ctx.targets.insert (
+        r.first,         // target type
+        move (n.dir),
+        move (o.dir),
+        move (n.value),
+        move (r.second), // extension
+        implied ? target_decl::implied : target_decl::real,
+        tr).first;
     }
 
     // Only find.
@@ -1076,10 +1077,10 @@ namespace build2
 
     // If we have a recipe, the target is not implied.
     //
-    if (target_->implied)
+    if (target_->decl != target_decl::real)
     {
       for (target* m (target_); m != nullptr; m = m->adhoc_member)
-        m->implied = false;
+        m->decl = target_decl::real;
 
       if (default_target_ == nullptr)
         default_target_ = target_;
@@ -6894,7 +6895,7 @@ namespace build2
     target& dt (*default_target_);
 
     target* ct (
-      const_cast<target*> (                // Ok (serial execution).
+      const_cast<target*> (                    // Ok (serial execution).
         ctx.targets.find (dir::static_type,    // Explicit current dir target.
                           scope_->out_path (),
                           dir_path (),         // Out tree target.
@@ -6914,13 +6915,13 @@ namespace build2
                                 dir_path (),
                                 string (),
                                 nullopt,
-                                false,
+                                target_decl::real,
                                 trace).first;
       // Fall through.
     }
-    else if (ct->implied)
+    else if (ct->decl != target_decl::real)
     {
-      ct->implied = false;
+      ct->decl = target_decl::real;
       // Fall through.
     }
     else

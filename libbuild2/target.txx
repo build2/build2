@@ -176,7 +176,7 @@ namespace build2
                                       dir_path (),
                                       string (),
                                       nullopt,
-                                      false,
+                                      target_decl::real,
                                       trace).first);
     t.prerequisites (move (ps));
     return &t;

@@ -1660,7 +1660,7 @@ namespace build2
                                  dir_path (),    // No out (not in project).
                                  p.leaf ().base ().string (),
                                  p.extension (), // Always specified.
-                                 true /* implied */,
+                                 target_decl::implied,
                                  trace));
 
     if (const file* f = r.first.is_a<file> ())

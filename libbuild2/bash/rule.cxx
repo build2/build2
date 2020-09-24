@@ -161,7 +161,7 @@ namespace build2
                                                         dir_path () /* out */,
                                                         p.name,
                                                         ext,
-                                                        true /* implied */,
+                                                        target_decl::implied,
                                                         trace));
 
                   bash& pt (rp.first.as<bash> ());

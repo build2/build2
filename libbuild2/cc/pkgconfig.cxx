@@ -1152,7 +1152,7 @@ namespace build2
               dir_path (),
               mf.base ().string (),
               mf.extension (),
-              true, // Implied.
+              target_decl::implied,
               trace));
 
           target& mt (tl.first);

@@ -1083,7 +1083,7 @@ namespace build2
                                    dir_path (), // Out tree.
                                    "",
                                    nullopt,
-                                   true,       // Implied.
+                                   target_decl::implied,
                                    trace).first);
 
           if (verb != 0 && diag >= 2)

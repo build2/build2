@@ -183,9 +183,13 @@ namespace build2
 
     // Find or insert. Note that we are using our updated extension.
     //
-    auto r (
-      ctx.targets.insert (
-        *tk.type, move (d), move (out), *tk.name, ext, true, trace));
+    auto r (ctx.targets.insert (*tk.type,
+                                move (d),
+                                move (out),
+                                *tk.name,
+                                ext,
+                                target_decl::prereq_file,
+                                trace));
 
     // Has to be a file_target.
     //
@@ -231,7 +235,7 @@ namespace build2
                                 *tk.out,
                                 *tk.name,
                                 tk.ext,
-                                true /* implied */,
+                                target_decl::prereq_new,
                                 trace));
 
     const target& t (r.first);

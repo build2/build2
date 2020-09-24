@@ -24,7 +24,7 @@ namespace build2
                                          path_cast<dir_path> (out.effect),
                                          name,
                                          move (ext),
-                                         true, // Implied.
+                                         target_decl::implied,
                                          trace));
 
       assert (!exist || !p.second.owns_lock ());

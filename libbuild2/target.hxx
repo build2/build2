@@ -99,6 +99,31 @@ namespace build2
 
   // Target.
   //
+
+  // A target can be entered for several reasons that are useful to
+  // distinguish for diagnostics, when considering as the default
+  // target, etc.
+  //
+  // Note that the order of the enumerators is arranged so that their
+  // integral values indicate whether one "overrides" the other.
+  //
+  // @@ We have cases (like pkg-config extraction) where it should probably be
+  //    prereq_file rather than implied (also audit targets.insert<> calls).
+  //
+  enum class target_decl: uint8_t
+  {
+    prereq_new,  // Created from prerequisite (create_new_target()).
+    prereq_file, // Created from prerequisite/file (search_existing_file ()).
+    implied,     // Target-spec variable assignment, implicitly-entered, etc.
+    real         // Real dependency declaration.
+  };
+
+  inline bool
+  operator> (target_decl l, target_decl r)
+  {
+    return static_cast<uint8_t> (l) > static_cast<uint8_t> (r);
+  }
+
   class LIBBUILD2_SYMEXPORT target
   {
   public:
@@ -131,14 +156,10 @@ namespace build2
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
 
-    // A target that is not (yet) entered as part of a real dependency
-    // declaration (for example, that is entered as part of a target-specific
-    // variable assignment, dependency extraction, etc) is called implied.
+    // Note that the declaration should only be upgraded during the load phase
+    // via the MT-safe target_set::insert().
     //
-    // The implied flag should only be cleared during the load phase via the
-    // MT-safe target_set::insert().
-    //
-    bool implied;
+    target_decl decl;
 
     // Target group to which this target belongs, if any. Note that we assume
     // that the group and all its members are in the same scope (for example,
@@ -1349,7 +1370,7 @@ namespace build2
                    dir_path out,
                    string name,
                    optional<string> ext,
-                   bool implied,
+                   target_decl,
                    tracer&);
 
     pair<target&, bool>
@@ -1358,7 +1379,7 @@ namespace build2
             dir_path out,
             string name,
             optional<string> ext,
-            bool implied,
+            target_decl decl,
             tracer& t)
     {
       auto p (insert_locked (tt,
@@ -1366,7 +1387,7 @@ namespace build2
                              move (out),
                              move (name),
                              move (ext),
-                             implied,
+                             decl,
                              t));
 
       return pair<target&, bool> (p.first, p.second.owns_lock ());
@@ -1388,7 +1409,7 @@ namespace build2
                      move (out),
                      move (name),
                      move (ext),
-                     true,
+                     target_decl::implied,
                      t).first.template as<T> ();
     }
 
