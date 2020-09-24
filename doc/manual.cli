@@ -4544,7 +4544,7 @@ work reliably there should be no ambiguity between the \"no configuration
 available\" case (if such a case is possible) and the \"something went wrong\"
 case. We show a realistic example of this in \l{#proj-config-report
 Configuration Report} where we extract the GCC plugin directory while dealing
-with the possibility of it Bunin configured without plugin support.|
+with the possibility of it being configured without plugin support.|
 
 Before we delve into the technical details, let's discuss the overall need for
 project configurability. While it may seem that making one's project more
