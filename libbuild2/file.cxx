@@ -925,7 +925,6 @@ namespace build2
       rs.root_extra->project = nullptr;
       rs.root_extra->amalgamation = nullptr;
       rs.root_extra->subprojects = nullptr;
-
     }
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
@@ -1247,6 +1246,16 @@ namespace build2
     {
       parser p (root.ctx, load_stage::boot);
       source_hooks (p, root, d, false /* pre */);
+    }
+
+    // Call module's post-boot functions.
+    //
+    for (size_t i (0); i != root.root_extra->modules.size (); ++i)
+    {
+      module_state& s (root.root_extra->modules[i]);
+
+      if (s.boot_post != nullptr)
+        boot_post_module (root, s);
     }
   }
 

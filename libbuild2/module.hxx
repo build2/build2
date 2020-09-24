@@ -33,12 +33,27 @@ namespace build2
     ~module () = default;
   };
 
+  // The module_*_extra arguments in boot and init are used to pass additional
+  // information that is only used by some modules. It is also a way for us to
+  // later pass more information without breaking source compatibility.
+  //
+  struct module_common_extra
+  {
+    shared_ptr<build2::module> module; // Module instance (in/out).
+
+    // Convenience functions.
+    //
+    template <typename T>
+    T& set_module (T* p) {assert (!module); module.reset (p); return *p;}
+
+    template <typename T>
+    T& module_as () {assert (module); return static_cast<T&> (*module);}
+  };
+
   // Module boot function signature.
   //
-  // The module_*_extra arguments (here and in init below) are used to pass
-  // additional information that is only used by some modules. It is also a
-  // way for us to later pass more information without breaking source
-  // compatibility.
+  // A booted module may set the post function which will be called after
+  // booting all the modules in bootstrap.build.
   //
   // By default a booted module is initialized before loading root.build.
   //
@@ -60,18 +75,29 @@ namespace build2
     after
   };
 
-  struct module_boot_extra
+  struct module_boot_post_extra: module_common_extra
   {
-    shared_ptr<build2::module> module; // Module instance (out).
-    module_boot_init           init;   // Init mode (out).
+    module_boot_init init; // Init mode (in/out).
 
-    // Convenience functions.
-    //
-    template <typename T>
-    T& set_module (T* p) {assert (!module); module.reset (p); return *p;}
+    module_boot_post_extra (const shared_ptr<build2::module>& m,
+                            module_boot_init i)
+        : module_common_extra {m}, init (i) {} // VC14
+  };
 
-    template <typename T>
-    T& module_as () {assert (module); return static_cast<T&> (*module);}
+  using module_boot_post_function =
+    void (scope& root,
+          const location&,
+          module_boot_post_extra&);
+
+  struct module_boot_extra: module_common_extra
+  {
+    module_boot_post_function* post; // Post-boot function (out).
+    module_boot_init           init; // Init mode (out).
+
+    module_boot_extra (const shared_ptr<build2::module>& m,
+                       module_boot_post_function* p,
+                       module_boot_init i)
+        : module_common_extra {m}, post (p), init (i) {} // VC14
   };
 
   using module_boot_function =
@@ -81,18 +107,13 @@ namespace build2
 
   // Module init function signature.
   //
-  struct module_init_extra
+  struct module_init_extra: module_common_extra
   {
-    shared_ptr<build2::module> module; // Module instance (in/out).
-    const variable_map&        hints;  // Configuration hints (see below).
+    const variable_map& hints;  // Configuration hints (see below).
 
-    // Convenience functions.
-    //
-    template <typename T>
-    T& set_module (T* p) {assert (!module); module.reset (p); return *p;}
-
-    template <typename T>
-    T& module_as () {assert (module); return static_cast<T&> (*module);}
+    module_init_extra (const shared_ptr<build2::module>& m,
+                       const variable_map& h)
+        : module_common_extra {m}, hints (h) {} // VC14
   };
 
   // Return false if the module configuration (normally based on the default
@@ -142,6 +163,7 @@ namespace build2
   {
     location_value loc; // Load location.
     const string name;
+    module_boot_post_function* boot_post;
     module_init_function* init;
     shared_ptr<build2::module> module;
     optional<module_boot_init> boot_init;
@@ -180,6 +202,11 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT void
   boot_module (scope& root, const string& name, const location&);
+
+  // Post-boot the specified (as state) module.
+  //
+  LIBBUILD2_SYMEXPORT void
+  boot_post_module (scope& root, module_state&);
 
   // Init the specified module loading its library if necessary. Used by the
   // parser but also by some modules to init prerequisite modules. Return a

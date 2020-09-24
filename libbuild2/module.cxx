@@ -652,10 +652,11 @@ namespace build2
         fail (loc) << "build system module " << mod << " should not be loaded "
                    << "during bootstrap";
 
-      lm.push_back (module_state {loc, mod, mf->init, nullptr, nullopt});
+      lm.push_back (
+        module_state {loc, mod, nullptr, mf->init, nullptr, nullopt});
       i = lm.end () - 1;
 
-      module_boot_extra e {nullptr, module_boot_init::before};
+      module_boot_extra e {nullptr, nullptr, module_boot_init::before};
 
       // Note: boot() can load additional modules invalidating the iterator.
       //
@@ -666,10 +667,29 @@ namespace build2
       if (e.module != nullptr)
         i->module = move (e.module);
 
+      i->boot_post = e.post;
       i->boot_init = e.init;
     }
 
     rs.assign (rs.var_pool ().insert (mod + ".booted")) = (mf != nullptr);
+  }
+
+  void
+  boot_post_module (scope& rs, module_state& s)
+  {
+    module_boot_post_extra e {s.module, *s.boot_init};
+
+    // Note: boot_post() should be loading any additional modules.
+    //
+    s.boot_post (rs, s.loc, e);
+
+    if (e.module != s.module)
+    {
+      assert (s.module == nullptr);
+      s.module = move (e.module);
+    }
+
+    s.boot_init = e.init;
   }
 
   module_state*
@@ -697,7 +717,8 @@ namespace build2
           fail (loc) << "build system module " << mod << " should be loaded "
                      << "during bootstrap";
 
-        lm.push_back (module_state {loc, mod, mf->init, nullptr, nullopt});
+        lm.push_back (
+          module_state {loc, mod, nullptr, mf->init, nullptr, nullopt});
         i = lm.end () - 1;
       }
     }
