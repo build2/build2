@@ -76,8 +76,12 @@ namespace build2
     }
 
     bool
-    specified_config (scope& rs, const string& n)
+    specified_config (scope& rs,
+                      const string& n,
+                      initializer_list<const char*> ig)
     {
+      auto& vp (rs.var_pool ());
+
       // Search all outer scopes for any value in this namespace.
       //
       // What about "pure" overrides, i.e., those without any original values?
@@ -86,19 +90,29 @@ namespace build2
       // any original values, they will be "visible"; see find_override() for
       // details.
       //
-      const variable& vns (rs.var_pool ().insert ("config." + n));
+      const variable& ns (vp.insert ("config." + n));
       for (scope* s (&rs); s != nullptr; s = s->parent_scope ())
       {
-        for (auto p (s->vars.lookup_namespace (vns));
+        for (auto p (s->vars.lookup_namespace (ns));
              p.first != p.second;
              ++p.first)
         {
-          const variable& var (p.first->first);
+          const variable* v (&p.first->first.get ());
 
-          // Ignore config.*.configured.
+          // This can be one of the overrides (__override, __prefix, etc).
           //
-          if (var.name.size () < 11 ||
-              var.name.compare (var.name.size () - 11, 11, ".configured") != 0)
+          if (size_t n = v->override ())
+            v = vp.find (string (v->name, 0, n));
+
+          auto match_tail = [&ns, v] (const char* t)
+          {
+            return v->name.compare (ns.name.size () + 1, string::npos, t) == 0;
+          };
+
+          // Ignore config.*.configured and user-supplied names.
+          //
+          if (!match_tail ("configured") &&
+              find_if (ig.begin (), ig.end (), match_tail) == ig.end ())
             return true;
         }
       }

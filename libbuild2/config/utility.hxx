@@ -347,10 +347,20 @@ namespace build2
     // Note that this function detects and ignores special config.* variables
     // (such as config.*.configured) which may be used by a module to remember
     // that it is unconfigured (e.g., in order to avoid re-running the tests,
-    // etc; see below).
+    // etc; see below). Additional variables (e.g., unsaved) can be ignored
+    // with the third argument. If specified, it should contain the part(s)
+    // after config.<name>.
     //
     LIBBUILD2_SYMEXPORT bool
-    specified_config (scope& rs, const string& var);
+    specified_config (scope& rs,
+                      const string& var,
+                      initializer_list<const char*> ignore);
+
+    inline bool
+    specified_config (scope& rs, const string& var)
+    {
+      return specified_config (rs, var, {});
+    }
 
     // Check if there is a false config.*.configured value. This mechanism can
     // be used to "remember" that the module is left unconfigured in order to
