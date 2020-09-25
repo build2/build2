@@ -40,6 +40,9 @@ namespace build2
       // Note that if registered, the callbacks are also called (recursively)
       // in subprojects.
       //
+      // Note also that in the bootstrap distribution mode only callbacks
+      // registered during bootstrap will be called.
+      //
       using callback_func = void (const path&, const scope&, void*);
 
       void

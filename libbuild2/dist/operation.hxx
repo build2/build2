@@ -13,7 +13,8 @@ namespace build2
 {
   namespace dist
   {
-    extern const meta_operation_info mo_dist;
+    extern const meta_operation_info mo_dist_load;
+    extern const meta_operation_info mo_dist_bootstrap;
   }
 }
 

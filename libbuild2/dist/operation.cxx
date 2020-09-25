@@ -61,38 +61,101 @@ namespace build2
     dist_operation_pre (const values&, operation_id o)
     {
       if (o != default_id)
-        fail << "explicit operation specified for meta-operation dist";
+        fail << "explicit operation specified for dist meta-operation";
 
       return o;
     }
 
-    static void
-    dist_execute (const values&, action, action_targets& ts,
-                  uint16_t, bool prog)
+    // Enter the specified source file as a target of type T. The path is
+    // expected to be normalized and relative to src_root. If the third
+    // argument is false, then first check if the file exists. If the fourth
+    // argument is true, then set the target's path.
+    //
+    template <typename T>
+    static const T*
+    add_target (const scope& rs, const path& f, bool e = false, bool s = false)
     {
-      tracer trace ("dist_execute");
+      tracer trace ("dist::add_target");
 
-      // For now we assume all the targets are from the same project.
-      //
-      const target& t (ts[0].as<target> ());
-      const scope* rs (t.base_scope ().root_scope ());
+      path p (rs.src_path () / f);
+      if (e || exists (p))
+      {
+        dir_path d (p.directory ());
 
-      if (rs == nullptr)
-        fail << "out of project target " << t;
+        // Figure out if we need out.
+        //
+        dir_path out (rs.src_path () != rs.out_path ()
+                      ? out_src (d, rs)
+                      : dir_path ());
 
-      context& ctx (rs->ctx);
+        const T& t (rs.ctx.targets.insert<T> (
+                      move (d),
+                      move (out),
+                      p.leaf ().base ().string (),
+                      p.extension (),              // Specified.
+                      trace));
 
-      const dir_path& out_root (rs->out_path ());
-      const dir_path& src_root (rs->src_path ());
+        if (s)
+          t.path (move (p));
 
-      if (out_root == src_root)
-        fail << "in-tree distribution of target " << t <<
-          info << "distribution requires out-of-tree build";
+        return &t;
+      }
+
+      return nullptr;
+    }
+
+    // Recursively traverse an src_root subdirectory entering/collecting the
+    // contained files and file symlinks as the file targets and skipping
+    // entries that start with a dot. Follow directory symlinks (preserving
+    // their names) and fail on dangling symlinks.
+    //
+    static void
+    add_subdir (const scope& rs, const dir_path& sd, action_targets& files)
+    {
+      dir_path d (rs.src_path () / sd);
+
+      try
+      {
+        for (const dir_entry& e: dir_iterator (d, false /* ignore_dangling */))
+        {
+          const path& n (e.path ());
+
+          if (n.string ()[0] != '.')
+          try
+          {
+            if (e.type () == entry_type::directory) // Can throw.
+              add_subdir (rs, sd / path_cast<dir_path> (n), files);
+            else
+              files.push_back (add_target<file> (rs, sd / n, true, true));
+          }
+          catch (const system_error& e)
+          {
+            fail << "unable to stat " << (d / n) << ": " << e;
+          }
+        }
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to iterate over " << d << ": " << e;
+      }
+    }
+
+    // If tgt is NULL, then this is the bootstrap mode.
+    //
+    static void
+    dist_project (const scope& rs, const target* tgt, bool prog)
+    {
+      tracer trace ("dist::dist_project");
+
+      context& ctx (rs.ctx);
+
+      const dir_path& out_root (rs.out_path ());
+      const dir_path& src_root (rs.src_path ());
 
       // Make sure we have the necessary configuration before we get down to
       // business.
       //
-      auto l (rs->vars["dist.root"]);
+      auto l (rs.vars["dist.root"]);
 
       if (!l || l->empty ())
         fail << "unknown root distribution directory" <<
@@ -104,26 +167,14 @@ namespace build2
       //
       const dir_path& dist_root (cast<dir_path> (l));
 
-      l = rs->vars["dist.package"];
+      l = rs.vars["dist.package"];
 
       if (!l || l->empty ())
         fail << "unknown distribution package name" <<
           info << "did you forget to set dist.package?";
 
       const string& dist_package (cast<string> (l));
-      const process_path& dist_cmd (cast<process_path> (rs->vars["dist.cmd"]));
-
-      // Verify all the targets are from the same project.
-      //
-      for (const action_target& at: ts)
-      {
-        const target& t (at.as<target> ());
-
-        if (rs != t.base_scope ().root_scope ())
-          fail << "target " << t << " is from a different project" <<
-            info << "one dist meta-operation can handle one project" <<
-            info << "consider using several dist meta-operations";
-      }
+      const process_path& dist_cmd (cast<process_path> (rs.vars["dist.cmd"]));
 
       // We used to print 'dist <target>' at verbosity level 1 but that has
       // proven to be just noise. Though we still want to print something
@@ -136,204 +187,211 @@ namespace build2
       if (verb == 1)
         text << "dist " << dist_package;
 
-      // Match a rule for every operation supported by this project. Skip
-      // default_id.
-      //
-      // Note that we are not calling operation_pre/post() callbacks here
-      // since the meta operation is dist and we know what we are doing.
-      //
-      values params;
-      path_name pn ("<dist>");
-      const location loc (pn); // Dummy location.
-      {
-        auto mog = make_guard ([&ctx] () {ctx.match_only = false;});
-        ctx.match_only = true;
-
-        const operations& ops (rs->root_extra->operations);
-        for (operations::size_type id (default_id + 1); // Skip default_id.
-             id < ops.size ();
-             ++id)
-        {
-          if (const operation_info* oif = ops[id])
-          {
-            // Skip aliases (e.g., update-for-install). In fact, one can argue
-            // the default update should be sufficient since it is assumed to
-            // update all prerequisites and we no longer support ad hoc stuff
-            // like test.input. Though here we are using the dist meta-
-            // operation, not perform.
-            //
-            if (oif->id != id)
-              continue;
-
-            // Use standard (perform) match.
-            //
-            if (oif->pre != nullptr)
-            {
-              if (operation_id pid = oif->pre (params, dist_id, loc))
-              {
-                const operation_info* poif (ops[pid]);
-                ctx.current_operation (*poif, oif, false /* diag_noise */);
-                action a (dist_id, poif->id, oif->id);
-                match (params, a, ts,
-                       1     /* diag (failures only) */,
-                       false /* progress */);
-              }
-            }
-
-            ctx.current_operation (*oif, nullptr, false /* diag_noise */);
-            action a (dist_id, oif->id);
-            match (params, a, ts,
-                   1     /* diag (failures only) */,
-                   false /* progress */);
-
-            if (oif->post != nullptr)
-            {
-              if (operation_id pid = oif->post (params, dist_id))
-              {
-                const operation_info* poif (ops[pid]);
-                ctx.current_operation (*poif, oif, false /* diag_noise */);
-                action a (dist_id, poif->id, oif->id);
-                match (params, a, ts,
-                       1     /* diag (failures only) */,
-                       false /* progress */);
-              }
-            }
-          }
-        }
-      }
-
-      // Add buildfiles that are not normally loaded as part of the project,
-      // for example, the export stub. They will still be ignored on the next
-      // step if the user explicitly marked them dist=false.
-      //
-      auto add_adhoc = [&trace] (const scope& rs, const path& f)
-      {
-        path p (rs.src_path () / f);
-        if (exists (p))
-        {
-          dir_path d (p.directory ());
-
-          // Figure out if we need out.
-          //
-          dir_path out (rs.src_path () != rs.out_path ()
-                        ? out_src (d, rs)
-                        : dir_path ());
-
-          rs.ctx.targets.insert<buildfile> (
-            move (d),
-            move (out),
-            p.leaf ().base ().string (),
-            p.extension (),              // Specified.
-            trace);
-        }
-      };
-
-      add_adhoc (*rs, rs->root_extra->export_file);
-
-      // The same for subprojects that have been loaded.
-      //
-      if (const subprojects* ps = *rs->root_extra->subprojects)
-      {
-        for (auto p: *ps)
-        {
-          const dir_path& pd (p.second);
-          dir_path out_nroot (out_root / pd);
-          const scope& nrs (ctx.scopes.find (out_nroot));
-
-          if (nrs.out_path () != out_nroot) // This subproject not loaded.
-            continue;
-
-          if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
-            continue;
-
-          add_adhoc (nrs, nrs.root_extra->export_file);
-        }
-      }
-
-      // Collect the files. We want to take the snapshot of targets since
-      // updating some of them may result in more targets being entered.
-      //
-      // Note that we are not showing progress here (e.g., "N targets to
-      // distribute") since it will be useless (too fast).
+      // Get the list of files to distribute.
       //
       action_targets files;
-      const variable& dist_var (ctx.var_pool["dist"]);
 
-      for (const auto& pt: ctx.targets)
+      if (tgt != nullptr)
       {
-        file* ft (pt->is_a<file> ());
+        l5 ([&]{trace << "load dist " << rs;});
 
-        if (ft == nullptr) // Not a file.
-          continue;
-
-        if (ft->dir.sub (src_root))
+        // Match a rule for every operation supported by this project. Skip
+        // default_id.
+        //
+        // Note that we are not calling operation_pre/post() callbacks here
+        // since the meta operation is dist and we know what we are doing.
+        //
+        values params;
+        path_name pn ("<dist>");
+        const location loc (pn); // Dummy location.
         {
-          // Include unless explicitly excluded.
-          //
-          auto l ((*ft)[dist_var]);
+          action_targets ts {tgt};
 
-          if (l && !cast<bool> (l))
-            l5 ([&]{trace << "excluding " << *ft;});
-          else
-            files.push_back (ft);
+          auto mog = make_guard ([&ctx] () {ctx.match_only = false;});
+          ctx.match_only = true;
 
-          continue;
+          const operations& ops (rs.root_extra->operations);
+          for (operations::size_type id (default_id + 1); // Skip default_id.
+               id < ops.size ();
+               ++id)
+          {
+            if (const operation_info* oif = ops[id])
+            {
+              // Skip aliases (e.g., update-for-install). In fact, one can
+              // argue the default update should be sufficient since it is
+              // assumed to update all prerequisites and we no longer support
+              // ad hoc stuff like test.input. Though here we are using the
+              // dist meta-operation, not perform.
+              //
+              if (oif->id != id)
+                continue;
+
+              // Use standard (perform) match.
+              //
+              if (oif->pre != nullptr)
+              {
+                if (operation_id pid = oif->pre (params, dist_id, loc))
+                {
+                  const operation_info* poif (ops[pid]);
+                  ctx.current_operation (*poif, oif, false /* diag_noise */);
+                  action a (dist_id, poif->id, oif->id);
+                  match (params, a, ts,
+                         1     /* diag (failures only) */,
+                         false /* progress */);
+                }
+              }
+
+              ctx.current_operation (*oif, nullptr, false /* diag_noise */);
+              action a (dist_id, oif->id);
+              match (params, a, ts,
+                     1     /* diag (failures only) */,
+                     false /* progress */);
+
+              if (oif->post != nullptr)
+              {
+                if (operation_id pid = oif->post (params, dist_id))
+                {
+                  const operation_info* poif (ops[pid]);
+                  ctx.current_operation (*poif, oif, false /* diag_noise */);
+                  action a (dist_id, poif->id, oif->id);
+                  match (params, a, ts,
+                         1     /* diag (failures only) */,
+                         false /* progress */);
+                }
+              }
+            }
+          }
         }
 
-        if (ft->dir.sub (out_root))
-        {
-          // Exclude unless explicitly included.
-          //
-          auto l ((*ft)[dist_var]);
+        // Add buildfiles that are not normally loaded as part of the project,
+        // for example, the export stub. They will still be ignored on the
+        // next step if the user explicitly marked them dist=false.
+        //
+        add_target<buildfile> (rs, rs.root_extra->export_file);
 
-          if (l && cast<bool> (l))
+        // The same for subprojects that have been loaded.
+        //
+        if (const subprojects* ps = *rs.root_extra->subprojects)
+        {
+          for (auto p: *ps)
           {
-            l5 ([&]{trace << "including " << *ft;});
-            files.push_back (ft);
+            const dir_path& pd (p.second);
+            dir_path out_nroot (out_root / pd);
+            const scope& nrs (ctx.scopes.find (out_nroot));
+
+            if (nrs.out_path () != out_nroot) // This subproject not loaded.
+              continue;
+
+            if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
+              continue;
+
+            add_target<buildfile> (nrs, nrs.root_extra->export_file);
+          }
+        }
+
+        // Collect the files. We want to take the snapshot of targets since
+        // updating some of them may result in more targets being entered.
+        //
+        // Note that we are not showing progress here (e.g., "N targets to
+        // distribute") since it will be useless (too fast).
+        //
+        const variable& dist_var (ctx.var_pool["dist"]);
+
+        for (const auto& pt: ctx.targets)
+        {
+          file* ft (pt->is_a<file> ());
+
+          if (ft == nullptr) // Not a file.
+            continue;
+
+          if (ft->dir.sub (src_root))
+          {
+            // Include unless explicitly excluded.
+            //
+            auto l ((*ft)[dist_var]);
+
+            if (l && !cast<bool> (l))
+              l5 ([&]{trace << "excluding " << *ft;});
+            else
+              files.push_back (ft);
+
+            continue;
           }
 
-          continue;
+          if (ft->dir.sub (out_root))
+          {
+            // Exclude unless explicitly included.
+            //
+            auto l ((*ft)[dist_var]);
+
+            if (l && cast<bool> (l))
+            {
+              l5 ([&]{trace << "including " << *ft;});
+              files.push_back (ft);
+            }
+
+            continue;
+          }
+        }
+
+        // Make sure what we need to distribute is up to date.
+        //
+        {
+          if (mo_perform.meta_operation_pre != nullptr)
+            mo_perform.meta_operation_pre (params, loc);
+
+          // This is a hack since according to the rules we need to completely
+          // reset the state. We could have done that (i.e., saved target
+          // names and then re-searched them in the new tree) but that would
+          // just slow things down while this little cheat seems harmless
+          // (i.e., assume the dist mete-opreation is "compatible" with
+          // perform).
+          //
+          // Note also that we don't do any structured result printing.
+          //
+          size_t on (ctx.current_on);
+          ctx.current_meta_operation (mo_perform);
+          ctx.current_on = on + 1;
+
+          if (mo_perform.operation_pre != nullptr)
+            mo_perform.operation_pre (params, update_id);
+
+          ctx.current_operation (op_update, nullptr, false /* diag_noise */);
+
+          action a (perform_update_id);
+
+          mo_perform.match   (params, a, files,
+                              1    /* diag (failures only) */,
+                              prog /* progress */);
+
+          mo_perform.execute (params, a, files,
+                              1    /* diag (failures only) */,
+                              prog /* progress */);
+
+          if (mo_perform.operation_post != nullptr)
+            mo_perform.operation_post (params, update_id);
+
+          if (mo_perform.meta_operation_post != nullptr)
+            mo_perform.meta_operation_post (params);
         }
       }
-
-      // Make sure what we need to distribute is up to date.
-      //
+      else
       {
-        if (mo_perform.meta_operation_pre != nullptr)
-          mo_perform.meta_operation_pre (params, loc);
+        l5 ([&]{trace << "bootstrap dist " << rs;});
 
-        // This is a hack since according to the rules we need to completely
-        // reset the state. We could have done that (i.e., saved target names
-        // and then re-searched them in the new tree) but that would just slow
-        // things down while this little cheat seems harmless (i.e., assume
-        // the dist mete-opreation is "compatible" with perform).
+        // Recursively enter/collect file targets in src_root ignoring those
+        // that start with a dot.
         //
-        // Note also that we don't do any structured result printing.
+        // Note that, in particular, we also collect the symlinks which point
+        // outside src_root (think of third-party project packaging with the
+        // upstream git submodule at the root of the git project). Also note
+        // that we could probably exclude symlinks which point outside the VCS
+        // project (e.g., backlinks in a forwarded configuration) but that
+        // would require the user to supply this boundary (since we don't have
+        // the notion of VCS root at this level). So let's keep it simple for
+        // now.
         //
-        size_t on (ctx.current_on);
-        ctx.current_meta_operation (mo_perform);
-        ctx.current_on = on + 1;
-
-        if (mo_perform.operation_pre != nullptr)
-          mo_perform.operation_pre (params, update_id);
-
-        ctx.current_operation (op_update, nullptr, false /* diag_noise */);
-
-        action a (perform_update_id);
-
-        mo_perform.match   (params, a, files,
-                            1    /* diag (failures only) */,
-                            prog /* progress */);
-
-        mo_perform.execute (params, a, files,
-                            1    /* diag (failures only) */,
-                            prog /* progress */);
-
-        if (mo_perform.operation_post != nullptr)
-          mo_perform.operation_post (params, update_id);
-
-        if (mo_perform.meta_operation_post != nullptr)
-          mo_perform.meta_operation_post (params);
+        add_subdir (rs, dir_path (), files);
       }
 
       dir_path td (dist_root / dir_path (dist_package));
@@ -348,7 +406,7 @@ namespace build2
 
       // Copy over all the files. Apply post-processing callbacks.
       //
-      module& mod (*rs->find_module<module> (module::name));
+      module& mod (*rs.find_module<module> (module::name));
 
       prog = prog && show_progress (1 /* max_verb */);
       size_t prog_percent (0);
@@ -370,10 +428,10 @@ namespace build2
 
         // See if this file is in a subproject.
         //
-        const scope* srs (rs);
+        const scope* srs (&rs);
         const module::callbacks* cbs (&mod.callbacks_);
 
-        if (const subprojects* ps = *rs->root_extra->subprojects)
+        if (const subprojects* ps = *rs.root_extra->subprojects)
         {
           for (auto p: *ps)
           {
@@ -446,9 +504,9 @@ namespace build2
 
       // Archive and checksum if requested.
       //
-      if (lookup as = rs->vars["dist.archives"])
+      if (lookup as = rs.vars["dist.archives"])
       {
-        lookup cs (rs->vars["dist.checksums"]);
+        lookup cs (rs.vars["dist.checksums"]);
 
         // Split the dist.{archives,checksums} value into a directory and
         // extension.
@@ -485,6 +543,33 @@ namespace build2
           }
         }
       }
+    }
+
+    static void
+    dist_load_execute (const values&, action, action_targets& ts,
+                       uint16_t, bool prog)
+    {
+      // We cannot do multiple projects because we need to start with a clean
+      // set of targets.
+      //
+      if (ts.size () != 1)
+        fail << "multiple targets in dist meta-operation" <<
+          info << "one dist meta-operation can handle one project" <<
+          info << "consider using several dist meta-operations";
+
+      const target& t (ts[0].as<target> ());
+      const scope* rs (t.base_scope ().root_scope ());
+
+      if (rs == nullptr   ||
+          !t.is_a<dir> () ||
+          (rs->out_path () != t.dir && rs->src_path () != t.dir))
+        fail << "dist meta-operation target must be project root directory";
+
+      if (rs->out_path () == rs->src_path ())
+        fail << "in-tree distribution of target " << t <<
+          info << "distribution requires out-of-tree build";
+
+      dist_project (*rs, &t, prog);
     }
 
     // install -d <dir>
@@ -838,7 +923,7 @@ namespace build2
                   const prerequisite_member& p,
                   include_type i)
     {
-      tracer trace ("dist_include");
+      tracer trace ("dist::dist_include");
 
       // Override excluded to adhoc so that every source is included into the
       // distribution. Note that this should be harmless to a custom rule
@@ -854,7 +939,7 @@ namespace build2
       return i;
     }
 
-    const meta_operation_info mo_dist {
+    const meta_operation_info mo_dist_load {
       dist_id,
       "dist",
       "distribute",
@@ -867,10 +952,77 @@ namespace build2
       &load,   // normal load
       &search, // normal search
       nullptr, // no match (see dist_execute()).
-      &dist_execute,
+      &dist_load_execute,
       nullptr, // operation post
       nullptr, // meta-operation post
       &dist_include
+    };
+
+    // The bootstrap distribution mode.
+    //
+    // Note: pretty similar overall idea as the info meta-operation.
+    //
+    void
+    init_config (scope&); // init.cxx
+
+    static void
+    dist_bootstrap_load (const values&,
+                         scope& rs,
+                         const path&,
+                         const dir_path& out_base,
+                         const dir_path& src_base,
+                         const location& l)
+    {
+      if (rs.out_path () != out_base || rs.src_path () != src_base)
+        fail (l) << "dist meta-operation target must be project root directory";
+
+      setup_base (rs.ctx.scopes.rw (rs).insert (out_base), out_base, src_base);
+
+      // Also initialize the dist.* variables (needed in dist_project()).
+      //
+      init_config (rs);
+    }
+
+    void
+    dist_bootstrap_search (const values&,
+                           const scope& rs,
+                           const scope&,
+                           const path&,
+                           const target_key& tk,
+                           const location& l,
+                           action_targets& ts)
+    {
+      if (!tk.type->is_a<dir> ())
+        fail (l) << "dist meta-operation target must be project root directory";
+
+      ts.push_back (&rs);
+    }
+
+    static void
+    dist_bootstrap_execute (const values&, action, action_targets& ts,
+                            uint16_t, bool prog)
+    {
+      for (const action_target& at: ts)
+        dist_project (at.as<scope> (), nullptr, prog);
+    }
+
+    const meta_operation_info mo_dist_bootstrap {
+      dist_id,
+      "dist",
+      "distribute",
+      "distributing",
+      "distributed",
+      "has nothing to distribute",
+      true,    // bootstrap_outer //@@ Maybe not? (But will overrides work)?
+      nullptr, // meta-operation pre
+      &dist_operation_pre,
+      &dist_bootstrap_load,
+      &dist_bootstrap_search,
+      nullptr, // no match (see dist_bootstrap_execute()).
+      &dist_bootstrap_execute,
+      nullptr, // operation post
+      nullptr, // meta-operation post
+      nullptr  // include
     };
   }
 }

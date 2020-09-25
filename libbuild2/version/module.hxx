@@ -44,8 +44,6 @@ namespace build2
 
       dependencies_type dependencies;
 
-      bool dist_uncommitted = false;
-
       module (const project_name& p,
               butl::standard_version v,
               bool c,

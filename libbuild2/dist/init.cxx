@@ -29,10 +29,6 @@ namespace build2
 
       l5 ([&]{trace << "for " << rs;});
 
-      // Register the meta-operation.
-      //
-      rs.insert_meta_operation (dist_id, mo_dist);
-
       // Enter module variables. Do it during boot in case they get assigned
       // in bootstrap.build (which is customary for, e.g., dist.package).
       //
@@ -59,49 +55,47 @@ namespace build2
       //
       vp.insert<bool> ("config.dist.uncommitted");
 
+      // The bootstrap distribution mode. Note that it can only be specified
+      // as a global override and is thus marked as unsaved in init(). Unlike
+      // the normal load distribution mode, we can do in-source and multiple
+      // projects at once.
+      //
+      // Note also that other config.dist.* variables can only be specified as
+      // overrides (since config.build is not loaded) but do not have to be
+      // global.
+      //
+      auto& v_d_b (vp.insert<bool> ("config.dist.bootstrap"));
+
       vp.insert<dir_path>     ("dist.root");
       vp.insert<process_path> ("dist.cmd");
       vp.insert<paths>        ("dist.archives");
       vp.insert<paths>        ("dist.checksums");
-      vp.insert<paths>        ("dist.uncommitted");
 
       vp.insert<bool> ("dist", variable_visibility::target); // Flag.
 
-      // Project's package name.
+      // Project's package name. Note: if set, must be in bootstrap.build.
       //
       auto& v_d_p (vp.insert<string> ("dist.package"));
+
+      // See if we need to use the bootstrap mode.
+      //
+      bool bm (cast_false<bool> (rs.global_scope ()[v_d_b]));
+
+      // Register the meta-operation.
+      //
+      rs.insert_meta_operation (dist_id,
+                                bm ? mo_dist_bootstrap : mo_dist_load);
 
       // Create the module.
       //
       extra.set_module (new module (v_d_p));
     }
 
-    bool
-    init (scope& rs,
-          scope&,
-          const location& l,
-          bool first,
-          bool,
-          module_init_extra&)
+    // This code is reused by the bootstrap mode.
+    //
+    void
+    init_config (scope& rs)
     {
-      tracer trace ("dist::init");
-
-      if (!first)
-      {
-        warn (l) << "multiple dist module initializations";
-        return true;
-      }
-
-      l5 ([&]{trace << "for " << rs;});
-
-      // Register our wildcard rule. Do it explicitly for the alias to prevent
-      // something like insert<target>(dist_id, test_id) taking precedence.
-      //
-      rs.insert_rule<target> (dist_id, 0, "dist",       rule_);
-      rs.insert_rule<alias>  (dist_id, 0, "dist.alias", rule_); //@@ outer?
-
-      // Configuration.
-      //
       // Note that we don't use any defaults for root -- the location
       // must be explicitly specified or we will complain if and when
       // we try to dist.
@@ -109,13 +103,9 @@ namespace build2
       using config::lookup_config;
       using config::specified_config;
 
-      bool s (specified_config (rs, "dist"));
-
-      // Adjust module priority so that the config.dist.* values are saved at
-      // the end of config.build.
+      // Note: ignore config.dist.bootstrap.
       //
-      if (s)
-        config::save_module (rs, "dist", INT32_MAX);
+      bool s (specified_config (rs, "dist", {"bootstrap"}));
 
       // dist.root
       //
@@ -172,6 +162,62 @@ namespace build2
       // Omit it from the configuration unless specified.
       //
       lookup_config (rs, "config.dist.uncommitted");
+    }
+
+    bool
+    init (scope& rs,
+          scope&,
+          const location& l,
+          bool first,
+          bool,
+          module_init_extra&)
+    {
+      tracer trace ("dist::init");
+
+      if (!first)
+      {
+        warn (l) << "multiple dist module initializations";
+        return true;
+      }
+
+      l5 ([&]{trace << "for " << rs;});
+
+      auto& vp (rs.var_pool ());
+
+      // Register our wildcard rule. Do it explicitly for the alias to prevent
+      // something like insert<target>(dist_id, test_id) taking precedence.
+      //
+      rs.insert_rule<target> (dist_id, 0, "dist",       rule_);
+      rs.insert_rule<alias>  (dist_id, 0, "dist.alias", rule_); //@@ outer?
+
+      // Configuration.
+      //
+      // Adjust module priority so that the config.dist.* values are saved at
+      // the end of config.build.
+      //
+      // Note: must be done regardless of specified_config() result due to
+      // the unsave_variable() call below.
+      //
+      config::save_module (rs, "dist", INT32_MAX);
+
+      init_config (rs);
+
+      // dist.bootstrap
+      //
+      {
+        auto& v (*vp.find ("config.dist.bootstrap"));
+
+        // If specified, verify it is a global override.
+        //
+        if (lookup l = rs[v])
+        {
+          if (!l.belongs (rs.global_scope ()))
+            fail << "config.dist.bootstrap must be a global override" <<
+              info << "specify !config.dist.bootstrap=...";
+        }
+
+        config::unsave_variable (rs, v);
+      }
 
       return true;
     }

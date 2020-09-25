@@ -30,6 +30,44 @@ namespace build2
     static const in_rule in_rule_;
     static const manifest_install_rule manifest_install_rule_;
 
+    static void
+    dist_callback (const path&, const scope&, void*);
+
+    void
+    boot_post (scope& rs, const location&, module_boot_post_extra& extra)
+    {
+      // If the dist module is used, set its dist.package and register the
+      // post-processing callback.
+      //
+      if (auto* dm = rs.find_module<dist::module> (dist::module::name))
+      {
+        // Don't touch if dist.package was set by the user.
+        //
+        value& val (rs.assign (dm->var_dist_package));
+
+        if (!val)
+        {
+          auto& m (extra.module_as<module> ());
+          const standard_version& v (m.version);
+
+          // We've already verified in boot() it is named.
+          //
+          string p (project (rs).string ());
+          p += '-';
+          p += v.string ();
+          val = move (p);
+
+          // Only register the post-processing callback if this is a rewritten
+          // snapshot.
+          //
+          if (m.rewritten)
+            dm->register_callback (dir_path (".") / manifest_file,
+                                   &dist_callback,
+                                   &m);
+        }
+      }
+    }
+
     void
     boot (scope& rs, const location& l, module_boot_extra& extra)
     {
@@ -281,11 +319,9 @@ namespace build2
 
       // Initialize second (dist.package, etc).
       //
+      extra.post = &boot_post;
       extra.init = module_boot_init::before_second;
     }
-
-    static void
-    dist_callback (const path&, const scope&, void*);
 
     bool
     init (scope& rs,
@@ -293,7 +329,7 @@ namespace build2
           const location& l,
           bool first,
           bool,
-          module_init_extra& extra)
+          module_init_extra&)
     {
       tracer trace ("version::init");
 
@@ -303,43 +339,6 @@ namespace build2
       // Load in.base (in.* variables, in{} target type).
       //
       load_module (rs, rs, "in.base", l);
-
-      auto& m (extra.module_as<module> ());
-      const standard_version& v (m.version);
-
-      // If the dist module is used, set its dist.package and register the
-      // post-processing callback.
-      //
-      if (auto* dm = rs.find_module<dist::module> (dist::module::name))
-      {
-        // Make sure dist is init'ed, not just boot'ed.
-        //
-        load_module (rs, rs, "dist", l);
-
-        m.dist_uncommitted = cast_false<bool> (rs["config.dist.uncommitted"]);
-
-        // Don't touch if dist.package was set by the user.
-        //
-        value& val (rs.assign (dm->var_dist_package));
-
-        if (!val)
-        {
-          // We've already verified in boot() it is named.
-          //
-          string p (project (rs).string ());
-          p += '-';
-          p += v.string ();
-          val = move (p);
-
-          // Only register the post-processing callback if this is a rewritten
-          // snapshot.
-          //
-          if (m.rewritten)
-            dm->register_callback (dir_path (".") / manifest_file,
-                                   &dist_callback,
-                                   &m);
-        }
-      }
 
       // Register rules.
       //
@@ -363,7 +362,7 @@ namespace build2
 
       // Complain if this is an uncommitted snapshot.
       //
-      if (!m.committed && !m.dist_uncommitted)
+      if (!m.committed && !cast_false<bool> (rs["config.dist.uncommitted"]))
         fail << "distribution of uncommitted project " << rs.src_path () <<
           info << "specify config.dist.uncommitted=true to force";
 
