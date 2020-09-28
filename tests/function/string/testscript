@@ -24,3 +24,10 @@
     $* <'print $string.icasecmp("a", "b")'            >'false' : untyped-untyped
   }
 }
+
+: trim
+:
+{
+  $* <'print $trim([string] "  a  ")' >'a' : string
+  $* <'print $string.trim(  "  a  ")' >'a' : untyped
+}

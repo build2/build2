@@ -43,6 +43,18 @@ namespace build2
                        convert<string> (move (y))) == 0;
     };
 
+    // Trim.
+    //
+    f["trim"] = [](string s)
+    {
+      return trim (move (s));
+    };
+
+    f[".trim"] = [](names s)
+    {
+      return names {name (trim (convert<string> (move (s))))};
+    };
+
     // String-specific overloads from builtins.
     //
     function_family b (m, "builtin");
