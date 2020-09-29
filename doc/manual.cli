@@ -4866,9 +4866,6 @@ While we have already seen some examples of how to propagate the configuration
 values to our source code, \l{#proj-config-propag Configuration Propagation}
 discusses this topic in more detail.
 
-this topic is discussed further in
-.
-
 
 \h#proj-config-report|Configuration Report|
 
