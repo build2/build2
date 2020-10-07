@@ -263,11 +263,45 @@ namespace build2
           }
         }
 
-        // Add buildfiles that are not normally loaded as part of the project,
-        // for example, the export stub. They will still be ignored on the
-        // next step if the user explicitly marked them dist=false.
+        // Add ad hoc files and buildfiles that are not normally loaded as
+        // part of the project, for example, the export stub. They will still
+        // be ignored on the next step if the user explicitly marked them
+        // dist=false.
         //
-        add_target<buildfile> (rs, rs.root_extra->export_file);
+        auto add_adhoc = [] (const scope& rs)
+        {
+          add_target<buildfile> (rs, rs.root_extra->export_file);
+
+          if (auto* m = rs.find_module<module> (module::name))
+          {
+            for (const path& f: m->adhoc)
+            {
+              if (!path_pattern (f))
+                add_target<file> (rs, f);
+              else
+              try
+              {
+                path_search (f,
+                             [&rs] (path&& pe, const string&, bool interm)
+                             {
+                               if (!interm)
+                                 add_target<file> (rs, pe, true /* exists */);
+
+                               return true;
+                             },
+                             rs.src_path (),
+                             path_match_flags::none /* no follow_symlinks */);
+              }
+              catch (const system_error& e)
+              {
+                fail << "unable to scan " << rs.src_path () / f.directory ()
+                     << ": " << e;
+              }
+            }
+          }
+        };
+
+        add_adhoc (rs);
 
         // The same for subprojects that have been loaded.
         //
@@ -285,7 +319,7 @@ namespace build2
             if (!nrs.src_path ().sub (src_root)) // Not a strong amalgamation.
               continue;
 
-            add_target<buildfile> (nrs, nrs.root_extra->export_file);
+            add_adhoc (nrs);
           }
         }
 

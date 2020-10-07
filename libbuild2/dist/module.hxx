@@ -22,9 +22,25 @@ namespace build2
 
       const variable& var_dist_package;
 
+      // If exists, add the specified source file to the distribution. The
+      // last component in the path may be a wildcard pattern in which case
+      // all the files matching this pattern are added. The file path must be
+      // relative to the source root.
+      //
+      // Note that the file may still be explicitly excluded by a buildfile.
+      //
+      // Note also that the patterns in the last component restriction is due
+      // to symlink trickiness.
+      //
+      void
+      add_adhoc (path f)
+      {
+        adhoc.push_back (move (f));
+      }
+
       // Distribution post-processing callbacks.
       //
-      // The last component in the pattern may contain shell wildcards. If the
+      // Only the last component in the pattern may contain wildcards. If the
       // path contains a directory, then it is matched from the distribution
       // root only. Otherwise, it is matched against all the files being
       // distributed. For example:
@@ -57,6 +73,8 @@ namespace build2
           : var_dist_package (v_d_p) {}
 
     public:
+      vector<path> adhoc;
+
       struct callback
       {
         const path     pattern;
