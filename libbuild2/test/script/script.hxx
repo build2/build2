@@ -28,6 +28,8 @@ namespace build2
       using build2::script::redirect_type;
       using build2::script::line_type;
       using build2::script::command_expr;
+      using build2::script::deadline;
+      using build2::script::timeout;
 
       class parser; // Required by VC for 'friend class parser' declaration.
 
@@ -168,10 +170,29 @@ namespace build2
       class group: public scope
       {
       public:
-        vector<unique_ptr<scope>> scopes;
+        group (const string& id, group& p): scope (id, &p, p.root) {}
 
       public:
-        group (const string& id, group& p): scope (id, &p, p.root) {}
+        vector<unique_ptr<scope>> scopes;
+
+        // The test group execution deadline and the individual test timeout.
+        //
+        optional<deadline> group_deadline;
+        optional<timeout>  test_timeout;
+
+        // Parse the argument having the '[<group-timeout>]/[<test-timeout>]'
+        // form, where the values are expressed in seconds and either of them
+        // (but not both) can be omitted, and set the group deadline and test
+        // timeout respectively, if specified. Reset them to nullopt on zero.
+        //
+        virtual void
+        set_timeout (const string&, bool success, const location&) override;
+
+        // Return the nearest of the own deadline and the enclosing groups
+        // deadlines.
+        //
+        virtual optional<deadline>
+        effective_deadline () override;
 
       protected:
         group (const string& id, script& r): scope (id, nullptr, r) {}
@@ -206,6 +227,29 @@ namespace build2
       {
       public:
         test (const string& id, group& p): scope (id, &p, p.root) {}
+
+      public:
+        // The whole test and the remaining test fragment execution deadlines.
+        //
+        // The former is based on the minimum of the test timeouts set for the
+        // enclosing scopes and is calculated on the first deadline() call.
+        // The later is set by set_timeout() from the timeout builtin call
+        // during the test execution.
+        //
+        optional<optional<deadline>> test_deadline; // calculated<specified<>>
+        optional<deadline>           fragment_deadline;
+
+        // Parse the specified in seconds timeout and set the remaining test
+        // fragment execution deadline. Reset it to nullopt on zero.
+        //
+        virtual void
+        set_timeout (const string&, bool success, const location&) override;
+
+        // Return the nearest of the test and fragment execution deadlines,
+        // calculating the former on the first call.
+        //
+        virtual optional<deadline>
+        effective_deadline () override;
 
         // Pre-parse data.
         //
@@ -254,6 +298,13 @@ namespace build2
       class script: public script_base, public group
       {
       public:
+        // The test operation deadline and the individual test timeout (see
+        // the config.test.timeout variable for details).
+        //
+        optional<deadline> operation_deadline;
+        optional<timeout>  test_timeout;
+
+      public:
         script (const target& test_target,
                 const testscript& script_target,
                 const dir_path& root_wd);
@@ -262,6 +313,12 @@ namespace build2
         script (const script&) = delete;
         script& operator= (script&&) = delete;
         script& operator= (const script&) = delete;
+
+        // Return the nearest of the test operation and group execution
+        // deadlines.
+        //
+        virtual optional<deadline>
+        effective_deadline () override;
 
         // Pre-parse data.
         //

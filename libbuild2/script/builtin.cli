@@ -17,5 +17,10 @@ namespace build2
       bool --newline|-n;
       bool --whitespace|-w;
     };
+
+    class timeout_options
+    {
+      bool --success|-s;
+    };
   }
 }

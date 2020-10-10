@@ -3,7 +3,11 @@
 
 #include <libbuild2/test/operation.hxx>
 
+#include <libbuild2/rule.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/algorithm.hxx>
+
+#include <libbuild2/test/common.hxx> // test_deadline()
 
 using namespace std;
 using namespace butl;
@@ -23,6 +27,36 @@ namespace build2
       return mo != disfigure_id ? update_id : 0;
     }
 
+    // Ad hoc rule apply callback.
+    //
+    // If this is not perform(test) or there is no deadline set for the test
+    // execution, then forward the call to the ad hoc rule's apply().
+    // Otherwise, return a recipe that will execute with the deadline if we
+    // can get it and return the noop recipe that just issues a warning if we
+    // can't.
+    //
+    static recipe
+    adhoc_apply (const adhoc_rule& ar, action a, target& t, match_extra& me)
+    {
+      optional<timestamp> d;
+
+      if (a != perform_test_id || !(d = test_deadline (t)))
+        return ar.apply (a, t, me);
+
+      if (const auto* dr = dynamic_cast<const adhoc_rule_with_deadline*> (&ar))
+      {
+        if (recipe r = dr->apply (a, t, me, d))
+          return r;
+      }
+
+      return [] (action a, const target& t)
+      {
+        warn << "unable to impose timeout on test for target " << t
+             << ", skipping";
+        return noop_action (a, t);
+      };
+    }
+
     const operation_info op_test {
       test_id,
       0,
@@ -36,7 +70,7 @@ namespace build2
       &test_pre,
       nullptr,
       nullptr,
-      nullptr
+      &adhoc_apply
     };
 
     // Also the explicit update-for-test operation alias.

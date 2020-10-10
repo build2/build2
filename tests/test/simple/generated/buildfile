@@ -6,4 +6,5 @@
 
 ./: testscript exe{driver} $b file{*.in}
 
-exe{driver}: cxx{driver}
+import libs = libbutl%lib{butl}
+exe{driver}: cxx{driver} $libs

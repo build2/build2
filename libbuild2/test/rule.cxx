@@ -3,6 +3,12 @@
 
 #include <libbuild2/test/rule.hxx>
 
+#ifndef _WIN32
+#  include <signal.h>                  // SIG*
+#else
+#  include <libbutl/win32-utility.hxx> // DBG_TERMINATE_PROCESS
+#endif
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
@@ -632,11 +638,30 @@ namespace build2
     // ...
     // nameN arg arg ... nullptr nullptr
     //
+    // Stack-allocated linked list of information about the running pipeline
+    // processes.
+    //
+    struct pipe_process
+    {
+      process&    proc;
+      const char* prog; // Only for diagnostics.
+
+      // True if this process has been terminated.
+      //
+      bool terminated = false;
+
+      pipe_process* prev; // NULL for the left-most program.
+
+      pipe_process (process& p, const char* g, pipe_process* r)
+          : proc (p), prog (g), prev (r) {}
+    };
+
     static bool
     run_test (const target& t,
               diag_record& dr,
               char const** args,
-              process* prev = nullptr)
+              const optional<timestamp>& deadline,
+              pipe_process* prev = nullptr)
     {
       // Find the next process, if any.
       //
@@ -648,19 +673,116 @@ namespace build2
       //
       int out (*next != nullptr ? -1 : 1);
       bool pr;
-      process_exit pe;
+
+      // Absent if the process misses the deadline.
+      //
+      optional<process_exit> pe;
 
       try
       {
-        process p (prev == nullptr
-                   ? process (args, 0, out)       // First process.
-                   : process (args, *prev, out)); // Next process.
+        // Wait for a process to complete until the deadline is reached and
+        // return the underlying wait function result.
+        //
+        auto timed_wait = [] (process& p, const timestamp& deadline)
+        {
+          timestamp now (system_clock::now ());
+          return deadline > now
+                 ? p.timed_wait (deadline - now)
+                 : p.try_wait ();
+        };
 
-        pr = *next == nullptr || run_test (t, dr, next, &p);
-        p.wait ();
+        // Terminate the pipeline processes starting from the specified one
+        // and up to the leftmost one and then kill those which didn't
+        // terminate in 1 second. Issue diagnostics and fail if something goes
+        // wrong, but still try to terminate all processes.
+        //
+        auto term_pipe = [&timed_wait] (pipe_process* pp)
+        {
+          diag_record dr;
+
+          // Terminate processes gracefully and set the terminate flag for
+          // them.
+          //
+          for (pipe_process* p (pp); p != nullptr; p = p->prev)
+          {
+            try
+            {
+              p->proc.term ();
+            }
+            catch (const process_error& e)
+            {
+              dr << fail << "unable to terminate " << p->prog << ": " << e;
+            }
+
+            p->terminated = true;
+          }
+
+          // Wait a bit for the processes to terminate and kill the remaining
+          // ones.
+          //
+          timestamp deadline (system_clock::now () + chrono::seconds (1));
+
+          for (pipe_process* p (pp); p != nullptr; p = p->prev)
+          {
+            process& pr (p->proc);
+
+            try
+            {
+              if (!timed_wait (pr, deadline))
+              {
+                pr.kill ();
+                pr.wait ();
+              }
+            }
+            catch (const process_error& e)
+            {
+              dr << fail << "unable to wait/kill " << p->prog << ": " << e;
+            }
+          }
+        };
+
+        process p (prev == nullptr
+                   ? process (args, 0, out)            // First process.
+                   : process (args, prev->proc, out)); // Next process.
+
+        pipe_process pp (p, args[0], prev);
+
+        // If the deadline is specified, then make sure we don't miss it
+        // waiting indefinitely in the process destructor on the right-hand
+        // part of the pipe failure.
+        //
+        auto g (make_exception_guard ([&deadline, &pp, &term_pipe] ()
+        {
+          if (deadline)
+          try
+          {
+            term_pipe (&pp);
+          }
+          catch (const failed&)
+          {
+            // We can't do much here.
+          }
+        }));
+
+        pr = *next == nullptr || run_test (t, dr, next, deadline, &pp);
+
+        if (!deadline)
+          p.wait ();
+        else if (!timed_wait (p, *deadline))
+          term_pipe (&pp);
 
         assert (p.exit);
-        pe = *p.exit;
+
+#ifndef _WIN32
+        if (!(pp.terminated      &&
+              !p.exit->normal () &&
+              p.exit->signal () == SIGTERM))
+#else
+        if (!(pp.terminated &&
+              !p.exit->normal () &&
+              p.exit->status == DBG_TERMINATE_PROCESS))
+#endif
+          pe = *p.exit;
       }
       catch (const process_error& e)
       {
@@ -672,7 +794,7 @@ namespace build2
         throw failed ();
       }
 
-      bool wr (pe.normal () && pe.code () == 0);
+      bool wr (pe && pe->normal () && pe->code () == 0);
 
       if (!wr)
       {
@@ -681,7 +803,11 @@ namespace build2
 
         dr << error;
         print_process (dr, args);
-        dr << " " << pe;
+
+        if (pe)
+          dr << " " << *pe;
+        else
+          dr << " terminated: execution timeout expired";
       }
 
       return pr && wr;
@@ -896,10 +1022,13 @@ namespace build2
       if (!ctx.dry_run)
       {
         diag_record dr;
+        pipe_process pp (cat, "cat", nullptr);
+
         if (!run_test (tt,
                        dr,
                        args.data () + (sin ? 3 : 0), // Skip cat.
-                       sin ? &cat : nullptr))
+                       test_deadline (tt),
+                       sin ? &pp : nullptr))
         {
           dr << info << "test command line: ";
           print_process (dr, args);

@@ -5595,6 +5595,28 @@ treated specially. It enables all the tests at and under its directory. This
 special treatment can be inhibited by specifying the target type explicitly
 (for example, \c{dir{foo/\}}).
 
+The test execution time can be limited using the \c{config.test.timeout}
+variable. Its value has the \c{<operation-timeout>/<test-timeout>} form where
+the timeouts are specified in seconds and either of them (but not both) can be
+omitted. The left hand side sets the timeout for the whole \c{test} operation
+and the right hand side \- for individual tests. The zero value clears the
+previously set timeout. For example:
+
+\
+b test config.test.timeout=20   # Test operation.
+b test config.test.timeout=20/5 # Test operation and individual tests.
+b test config.test.timeout=/5   # Individual tests.
+\
+
+The test timeout can be specified on multiple nested root scopes. For example,
+we can specify a greater timeout for the entire build configuration and lesser
+ones for individual projects. The tests must complete before the nearest of
+the enclosing scope timeouts. Failed that, the timed out tests are terminated
+forcibly causing the entire \c{test} operation to fail. See also the
+\l{testscript#builtins-timeout \c{timeout}} builtin for specifying timeouts
+from within the tests and test groups.
+
+
 \h1#module-install|\c{install} Module|
 
 \N{This chapter is a work in progress and is incomplete.}

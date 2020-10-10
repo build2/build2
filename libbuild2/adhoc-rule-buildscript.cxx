@@ -124,8 +124,21 @@ namespace build2
   }
 
   recipe adhoc_buildscript_rule::
-  apply (action a, target& t, match_extra&) const
+  apply (action a, target& t, match_extra& e) const
   {
+    return apply (a, t, e, nullopt);
+  }
+
+  recipe adhoc_buildscript_rule::
+  apply (action a, target& t, match_extra&, const optional<timestamp>& d) const
+  {
+    // We don't support deadlines of any of these case (see below).
+    //
+    if (d && (a.outer ()      ||
+              t.data<bool> () ||
+              (a == perform_update_id && t.is_a<file> ())))
+      return empty_recipe;
+
     // If this is an outer operation (e.g., update-for-test), then delegate to
     // the inner.
     //
@@ -171,9 +184,9 @@ namespace build2
     }
     else
     {
-      return [this] (action a, const target& t)
+      return [d, this] (action a, const target& t)
       {
-        return default_action (a, t);
+        return default_action (a, t, d);
       };
     }
   }
@@ -584,7 +597,9 @@ namespace build2
   }
 
   target_state adhoc_buildscript_rule::
-  default_action (action a, const target& t) const
+  default_action (action a,
+                  const target& t,
+                  const optional<timestamp>& deadline) const
   {
     tracer trace ("adhoc_buildscript_rule::default_action");
 
@@ -597,7 +612,7 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      build::script::environment e (a, t, script.temp_dir);
+      build::script::environment e (a, t, script.temp_dir, deadline);
       build::script::parser p (ctx);
 
       if (verb == 1)

@@ -18,7 +18,8 @@ namespace build2
   //
   // Note: not exported and should not be used directly (i.e., registered).
   //
-  class adhoc_buildscript_rule: public adhoc_rule
+  class adhoc_buildscript_rule: public adhoc_rule,
+                                public adhoc_rule_with_deadline
   {
   public:
     virtual bool
@@ -28,11 +29,15 @@ namespace build2
     virtual recipe
     apply (action, target&, match_extra&) const override;
 
+    virtual recipe
+    apply (action, target&, match_extra&,
+           const optional<timestamp>&) const override;
+
     target_state
     perform_update_file (action, const target&) const;
 
     target_state
-    default_action (action, const target&) const;
+    default_action (action, const target&, const optional<timestamp>&) const;
 
     adhoc_buildscript_rule (const location& l, size_t b)
         : adhoc_rule ("<ad hoc buildscript recipe>", l, b) {}

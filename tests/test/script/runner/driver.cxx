@@ -1,6 +1,13 @@
 // file      : tests/test/script/runner/driver.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#ifndef _WIN32
+#  include <thread> // this_thread::sleep_for()
+#  include <chrono>
+#else
+#  include <libbutl/win32-utility.hxx>
+#endif
+
 #include <limits>    // numeric_limits
 #include <string>
 #include <cstdlib>   // abort()
@@ -36,10 +43,10 @@ main (int argc, char* argv[])
   // Usage: driver [-i <int>] (-o <string>)* (-e <string>)* (-f <file>)*
   //        (-d <dir>)* (-v <name>)* [(-t (a|m|s|z)) | (-s <int>)]
   //
-  // Execute actions specified by -i, -o, -e, -f, -d, and -v options in the
-  // order as they appear on the command line. After that terminate abnormally
-  // if -t option is provided, otherwise exit normally with the status
-  // specified by -s option (0 by default).
+  // Execute actions specified by -i, -o, -e, -f, -d, -v, and -l options in
+  // the order as they appear on the command line. After that terminate
+  // abnormally if -t option is provided, otherwise exit normally with the
+  // status specified by -s option (0 by default).
   //
   // -i <fd>
   //    Forward stdin data to the standard stream denoted by the file
@@ -61,6 +68,9 @@ main (int argc, char* argv[])
   // -v <name>
   //    If the specified variable is set the print its value to stdout and the
   //    string '<none>' otherwise.
+  //
+  // -l <sec>
+  //    Sleep the specified number of seconds.
   //
   // -t <method>
   //    Abnormally terminate itself using one of the following methods:
@@ -143,6 +153,18 @@ main (int argc, char* argv[])
     {
       optional<string> var (getenv (v));
       cout << (var ? *var : "<none>") << endl;
+    }
+    else if (o == "-l")
+    {
+      size_t t (toi (v));
+
+       // MinGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
+       //
+#ifndef _WIN32
+      this_thread::sleep_for (chrono::seconds (t));
+#else
+      Sleep (static_cast<DWORD> (t * 1000));
+#endif
     }
     else if (o == "-t")
     {

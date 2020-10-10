@@ -1206,7 +1206,7 @@ token is an unquoted word, then the second token of the line is examined in
 the \c{second_token} mode (see below). If it is a variable assignment (either
 \c{+=}, \c{=+}, or \c{=}), then the line type is a variable line. Otherwise,
 it is a test command line. Note that variables with computed names can only
-be set using the \l{#builtins-set \c{set} pseudo-builtin}.
+be set using the \l{#builtins-set \c{set}} pseudo-builtin.
 
 The Testscript language defines the following distinct lexing modes (or
 contexts):
@@ -2429,10 +2429,11 @@ with a newline.
 \h#builtins-env|\c{env}|
 
 \
-env [-u <name>]... [-] [<name>=<value>]... -- <cmd>
+env [-t <sec>] [-u <name>]... [-] [<name>=<value>]... -- <cmd>
 \
 
-Run a command adding/removing the variables to/from the environment.
+Run a command limiting its execution time and/or adding/removing the variables
+to/from the environment.
 
 Note that \c{env} is a \i{pseudo-builtin}. In particular, its name and the
 \c{--} separator must be specified \i{literally} on the command line.
@@ -2448,6 +2449,11 @@ env - --unset=FOO -- $*
 \
 
 \dl|
+
+\li|\n\c{-t|--timeout <sec>}
+
+  Terminate the command if it fails to complete within the specified number
+  of seconds. See also \l{#builtins-timeout \c{timeout}} builtin.|
 
 \li|\n\c{-u|--unset <name>}
 
@@ -2821,6 +2827,46 @@ Test the specified \i{path} according to one of the following options. Succeed
   Path exists and is to a directory.||
 
 Note that tests dereference symbolic links.
+
+
+\h#builtins-timeout|\c{timeout}|
+
+\
+timeout [-s] [<group-timeout>]/[<test-timeout>]
+timeout [-s] <timeout>
+\
+
+Specify test and/or test group timeout.
+
+The first form sets the test group and/or individual test timeouts and can
+only be used as a setup command. Either of the timeouts (but not both) can be
+omitted.
+
+The second form sets the test group timeout if used as a setup or teardown
+command and the remaining test fragment timeout if used as a test command.
+
+In both forms the timeouts are specified in seconds with the zero value
+clearing the previously set timeout.
+
+Note that \c{timeout} is a \i{pseudo-builtin}. In particular, it must be the
+only command in the pipe expression, it either succeeds or terminates
+abnormally, and its standard streams cannot be redirected.
+
+The timeouts can be set on multiple levels: via the \c{config.test.timeout}
+variable on the (potentially nested) project root scopes (see
+\l{build2#module-test \c{test}} module for details), with the \c{timeout}
+builtin in the nested test group scopes and the test scope, and with the
+\c{env} builtin for individual commands. Each command must complete before the
+nearest timeout from its timeout hierarchy. Failed that, a command is
+terminated forcibly causing the entire \c{test} operation to fail unless the
+expired timeout was specified with the \c{--success} option, in which case the
+timed out command is assumed to have succeeded.
+
+\dl|
+
+\li|\n\c{-s|--success}
+
+  Assume a command terminated due to this timeout to have succeeded.||
 
 
 \h#builtins-touch|\c{touch}|

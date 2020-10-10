@@ -21,6 +21,8 @@ namespace build2
                    default_rule,
                    group_rule
     {
+      static const string name;
+
       const test::group_rule&
       group_rule () const
       {

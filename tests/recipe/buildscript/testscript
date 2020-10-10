@@ -107,3 +107,123 @@
 
   $* clean 2>-
 }
+
+: timeout
+:
+if ($cxx.target.class != 'windows')
+{
+  : update
+  :
+  {
+    : expired
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        foo: bar
+        % [diag=update]
+        {{
+          cp $path($<) $path($>)
+          timeout 1
+          ^sleep 5
+        }}
+        EOI
+
+      $* 2>>~%EOE% != 0;
+        update file{foo}
+        buildfile:6:3: error: ^sleep terminated: execution timeout expired
+          info: while updating file{foo}
+        %.+
+        EOE
+
+      $* clean 2>-
+    }
+
+    : successful-timeout
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        foo: bar
+        % [diag=update]
+        {{
+          cp $path($<) $path($>)
+          timeout --success 1
+          ^sleep 5
+        }}
+        EOI
+
+      $* 2>>EOE;
+        update file{foo}
+        EOE
+
+      $* clean 2>-
+    }
+  }
+
+  : test
+  :
+  {
+    : expired
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        foo: bar
+        {{
+          cp $path($<) $path($>)
+        }}
+        % [diag=test] test
+        {{
+          ^sleep 5
+        }}
+        EOI
+
+      $* test config.test.timeout=1 2>>~%EOE% != 0;
+        cp file{foo}
+        test file{foo}
+        buildfile:7:3: error: ^sleep terminated: execution timeout expired
+          info: while testing file{foo}
+        %.+
+        EOE
+
+      $* test config.test.timeout=/1 2>>~%EOE% != 0;
+        test file{foo}
+        buildfile:7:3: error: ^sleep terminated: execution timeout expired
+          info: while testing file{foo}
+        %.+
+        EOE
+
+      $* clean 2>-
+    }
+
+    : not-expired
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        foo: bar
+        % [diag=cp]
+        {{
+          ^sleep 4
+          cp $path($<) $path($>)
+        }}
+        % [diag=test] test
+        {{
+          ^sleep 1
+        }}
+        EOI
+
+      $* test config.test.timeout=3 2>>EOE;
+        cp file{foo}
+        test file{foo}
+        EOE
+
+      $* clean 2>-
+    }
+  }
+}

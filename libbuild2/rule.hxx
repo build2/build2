@@ -205,6 +205,22 @@ namespace build2
     static target_state
     clean_recipes_build (action, const scope&, const dir&);
   };
+
+  // A mix-in interface for ad hoc rules that support recipes with deadlines.
+  //
+  class adhoc_rule_with_deadline
+  {
+  public:
+    virtual
+    ~adhoc_rule_with_deadline ();
+
+    // Return empty recipe if one with the deadline cannot be provided for
+    // this action. In this case the caller may fallback to the normal
+    // apply().
+    //
+    virtual recipe
+    apply (action, target&, match_extra&, const optional<timestamp>&) const = 0;
+  };
 }
 
 #endif // LIBBUILD2_RULE_HXX

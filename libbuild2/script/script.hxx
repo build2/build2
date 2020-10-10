@@ -308,8 +308,9 @@ namespace build2
       //
       process_path program;
 
-      strings          arguments;
-      environment_vars variables;
+      strings            arguments;
+      environment_vars   variables; // From env builtin.
+      optional<duration> timeout;   // From env builtin.
 
       optional<redirect> in;
       optional<redirect> out;
@@ -362,6 +363,37 @@ namespace build2
 
     ostream&
     operator<< (ostream&, const command_expr&);
+
+    struct timeout
+    {
+      duration value;
+      bool success;
+
+      timeout (duration d, bool s): value (d), success (s) {}
+    };
+
+    struct deadline
+    {
+      timestamp value;
+      bool success;
+
+      deadline (timestamp t, bool s): value (t), success (s) {}
+    };
+
+    // If timestamps/durations are equal, the failure is less than the
+    // success.
+    //
+    bool
+    operator< (const deadline&, const deadline&);
+
+    bool
+    operator< (const timeout&, const timeout&);
+
+    optional<deadline>
+    to_deadline (const optional<timestamp>&, bool success);
+
+    optional<timeout>
+    to_timeout (const optional<duration>&, bool success);
 
     // Script execution environment.
     //
@@ -468,6 +500,23 @@ namespace build2
                     names&&,
                     const string& attrs,
                     const location&) = 0;
+
+      // Set the script execution timeout from the timeout builtin call.
+      //
+      // The builtin argument semantics is script implementation-dependent. If
+      // success is true then a process missing this deadline should not be
+      // considered as failed unless it didn't terminate gracefully and had to
+      // be killed.
+      //
+      virtual void
+      set_timeout (const string& arg, bool success, const location&) = 0;
+
+      // Return the script execution deadline which can potentially rely on
+      // factors besides the latest timeout builtin call (variables, scoping,
+      // etc).
+      //
+      virtual optional<deadline>
+      effective_deadline () = 0;
 
       // Create the temporary directory and set the temp_dir reference target
       // to its path. Must only be called if temp_dir is empty.

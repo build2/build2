@@ -6,6 +6,10 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/algorithm.hxx>
 
+#include <libbuild2/script/timeout.hxx>
+
+#include <libbuild2/test/module.hxx>
+
 using namespace std;
 
 namespace build2
@@ -212,6 +216,74 @@ namespace build2
             break;
         }
       }
+
+      return r;
+    }
+
+    optional<timestamp> common::
+    operation_deadline () const
+    {
+      if (!operation_timeout)
+        return nullopt;
+
+      duration::rep r (operation_deadline_.load (memory_order_consume));
+
+      if (r == timestamp_unknown_rep)
+      {
+        duration::rep t (timestamp (system_clock::now () + *operation_timeout).
+                         time_since_epoch ().count ());
+
+        if (operation_deadline_.compare_exchange_strong (r,
+                                                         t,
+                                                         memory_order_release,
+                                                         memory_order_consume))
+          r = t;
+      }
+
+      return timestamp (duration (r));
+    }
+
+    // Helpers.
+    //
+    optional<timestamp>
+    operation_deadline (const target& t)
+    {
+      optional<timestamp> r;
+
+      for (const scope* s (t.base_scope ().root_scope ());
+           s != nullptr;
+           s = s->parent_scope ()->root_scope ())
+      {
+        if (auto* m = s->find_module<module> (module::name))
+          r = earlier (r, m->operation_deadline ());
+      }
+
+      return r;
+    }
+
+    optional<duration>
+    test_timeout (const target& t)
+    {
+      optional<duration> r;
+
+      for (const scope* s (t.base_scope ().root_scope ());
+           s != nullptr;
+           s = s->parent_scope ()->root_scope ())
+      {
+        if (auto* m = s->find_module<module> (module::name))
+          r = earlier (r, m->test_timeout);
+      }
+
+      return r;
+    }
+
+    optional<timestamp>
+    test_deadline (const target& t)
+    {
+      optional<timestamp> r (operation_deadline (t));
+
+      if (optional<duration> d = test_timeout (t))
+        r = earlier (r, system_clock::now () + *d);
 
       return r;
     }

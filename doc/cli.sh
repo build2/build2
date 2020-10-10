@@ -101,6 +101,7 @@ function compile_doc () # <file> <prefix> <suffix>
 --link-regex '%bpkg(#.+)?%../../bpkg/doc/build2-package-manager-manual.xhtml$1%' \
 --link-regex '%bdep([-.].+)%../../bdep/doc/bdep$1%' \
 --link-regex '%testscript(#.+)?%build2-testscript-manual.xhtml$1%' \
+--link-regex '%build2(#.+)?%build2-build-system-manual.xhtml$1%' \
 --output-prefix "$2" \
 --output-suffix "$3" \
 "$1"

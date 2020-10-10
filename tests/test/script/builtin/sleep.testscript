@@ -6,3 +6,21 @@
 : success
 :
 $c <'sleep 1' && $b
+
+: timeout
+:
+{
+  : failure
+  :
+  $c <'env -t 1 -- sleep 86400' && $b 2>>~%EOE% != 0
+    %testscript:.*: error: sleep terminated: execution timeout expired%
+    %.
+    EOE
+
+  : success
+  :
+  $c <<EOI && $b
+    timeout --success 1;
+    sleep 86400
+    EOI
+}

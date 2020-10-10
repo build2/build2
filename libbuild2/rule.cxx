@@ -349,6 +349,13 @@ namespace build2
   {
   }
 
+  // adhoc_rule_with_deadline (vtable)
+  //
+  adhoc_rule_with_deadline::
+  ~adhoc_rule_with_deadline ()
+  {
+  }
+
   // Scope operation callback that cleans up recipe builds.
   //
   target_state adhoc_rule::

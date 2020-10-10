@@ -3,6 +3,7 @@
 
 #include <libbuild2/script/script.hxx>
 
+#include <chrono>
 #include <sstream>
 #include <cstring> // strchr()
 
@@ -408,13 +409,20 @@ namespace build2
 
       if ((m & command_to_stream::header) == command_to_stream::header)
       {
-        // Print the env builtin arguments, if any environment variable
-        // (un)sets are present.
+        // Print the env builtin if any of its options/arguments are present.
         //
-        if (!c.variables.empty ())
+        if (!c.variables.empty () || c.timeout)
         {
           o << "env";
 
+          // Timeout.
+          //
+          if (c.timeout)
+            o << " -t "
+              << chrono::duration_cast<chrono::seconds> (*c.timeout).count ();
+
+          // Variable unsets/sets.
+          //
           auto b (c.variables.begin ()), i (b), e (c.variables.end ());
 
           // Print a variable name or assignment to the stream, quoting it if
@@ -456,8 +464,7 @@ namespace build2
           //
           // Print the variable unsets as the -u options until a variable set
           // is encountered (contains '=') or the end of the variable list is
-          // reached. In the former case, to avoid a potential ambiguity add
-          // the '-' separator, if there are any options.
+          // reached.
           //
           // Note that we rely on the fact that unsets come first, which is
           // guaranteed by parser::parse_env_builtin().
@@ -471,15 +478,14 @@ namespace build2
               o << " -u "; print (v, true /* name*/);
             }
             else                              // Variable set.
-            {
-              if (i != b)
-                o << " -";
-
               break;
-            }
           }
 
           // Variable sets.
+          //
+          // Note that we don't add the '-' separator since we always use the
+          // `-* <value>` option notation and so there can't be any ambiguity
+          // with a variable set.
           //
           for (; i != e; ++i)
           {

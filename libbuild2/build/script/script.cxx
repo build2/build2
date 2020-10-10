@@ -7,6 +7,8 @@
 
 #include <libbuild2/target.hxx>
 
+#include <libbuild2/script/timeout.hxx>
+
 #include <libbuild2/build/script/parser.hxx>
 
 using namespace std;
@@ -17,12 +19,17 @@ namespace build2
   {
     namespace script
     {
+      using build2::script::to_deadline;
+
       // environment
       //
       static const optional<string> wd_name ("current directory");
 
       environment::
-      environment (action a, const target_type& t, bool temp)
+      environment (action a,
+                   const target_type& t,
+                   bool temp,
+                   const optional<timestamp>& dl)
           : build2::script::environment (
               t.ctx,
               cast<target_triplet> (t.ctx.global_scope["build.host"]),
@@ -32,7 +39,8 @@ namespace build2
               redirect (redirect_type::merge, 2),
               redirect (redirect_type::pass)),
             target (t),
-            vars (context, false /* global */)
+            vars (context, false /* global */),
+            script_deadline (to_deadline (dl, false /* success */))
       {
         // Set special variables.
         //
@@ -58,8 +66,10 @@ namespace build2
           //
           names ns;
           for (const target_type* pt: t.prerequisite_targets[a])
+          {
             if (pt != nullptr)
               pt->as_name (ns);
+          }
 
           assign (var_pool.insert ("<")) = move (ns);
         }
@@ -230,6 +240,20 @@ namespace build2
           r = *l; // Copy value (and type) from the outer scope.
 
         return r;
+      }
+
+      void environment::
+      set_timeout (const string& t, bool success, const location& l)
+      {
+        fragment_deadline =
+          to_deadline (parse_deadline (t, "buildscript timeout", l),
+                       success);
+      }
+
+      optional<deadline> environment::
+      effective_deadline ()
+      {
+        return earlier (script_deadline, fragment_deadline);
       }
     }
   }

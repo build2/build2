@@ -3,6 +3,12 @@
 
 #include <libbuild2/script/run.hxx>
 
+#ifndef _WIN32
+#  include <signal.h>                  // SIG*
+#else
+#  include <libbutl/win32-utility.hxx> // DBG_TERMINATE_PROCESS
+#endif
+
 #include <ios> // streamsize
 
 #include <libbutl/regex.mxx>
@@ -15,6 +21,7 @@
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/script/regex.hxx>
+#include <libbuild2/script/timeout.hxx>
 #include <libbuild2/script/builtin-options.hxx>
 
 using namespace std;
@@ -757,6 +764,39 @@ namespace build2
       return false;
     }
 
+    // The timeout pseudo-builtin: set the script timeout. See the script-
+    // specific set_timeout() implementations for the exact semantics.
+    //
+    // timeout [--success|-s] <timeout>
+    //
+    static void
+    timeout_builtin (environment& env,
+                     const strings& args,
+                     const location& ll)
+    {
+      try
+      {
+        // Parse arguments.
+        //
+        cli::vector_scanner scan (args);
+        timeout_options ops (scan);
+
+        if (!scan.more ())
+          fail (ll) << "missing timeout";
+
+        string a (scan.next ());
+
+        if (scan.more ())
+          fail (ll) << "unexpected argument '" << scan.next () << "'";
+
+        env.set_timeout (a, ops.success (), ll);
+      }
+      catch (const cli::exception& e)
+      {
+        fail (ll) << "timeout: " << e;
+      }
+    }
+
     // The exit pseudo-builtin: exit the script successfully, or print the
     // diagnostics and exit the script unsuccessfully. Always throw exit
     // exception.
@@ -786,6 +826,16 @@ namespace build2
       throw exit (false);
     }
 
+    // Return the command program path for diagnostics.
+    //
+    static inline path
+    cmd_path (const command& c)
+    {
+      return c.program.initial == nullptr         // Not pre-searched?
+             ? c.program.recall
+             : path (c.program.recall_string ());
+    }
+
     // The set pseudo-builtin: set variable from the stdin input.
     //
     // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
@@ -794,16 +844,12 @@ namespace build2
     set_builtin (environment& env,
                  const strings& args,
                  auto_fd in,
+                 const optional<deadline>& dl,
+                 const command& deadline_cmd,
                  const location& ll)
     {
       try
       {
-        // Do not throw when eofbit is set (end of stream reached), and
-        // when failbit is set (read operation failed to extract any
-        // character).
-        //
-        ifdstream cin  (move (in), ifdstream::badbit);
-
         // Parse arguments.
         //
         cli::vector_scanner scan (args);
@@ -828,62 +874,136 @@ namespace build2
         if (vname.empty ())
           fail (ll) << "empty variable name";
 
-        // Read the input.
+        // Read out the stream content into a string while keeping an eye on
+        // the deadline. Then parse it according to the split mode.
         //
-        cin.peek (); // Sets eofbit for an empty stream.
-
-        names ns;
-        while (!cin.eof ())
+        string s;
         {
-          // Read next element that depends on the whitespace mode being
-          // enabled or not. For the later case it also make sense to strip
-          // the trailing CRs that can appear while, for example,
-          // cross-testing Windows target or as a part of msvcrt junk
-          // production (see above).
-          //
-          string s;
-          if (ops.whitespace ())
-            cin >> s;
-          else
-          {
-            getline (cin, s);
+          ifdstream cin;
 
-            while (!s.empty () && s.back () == '\r')
-              s.pop_back ();
-          }
-
-          // If failbit is set then we read nothing into the string as eof is
-          // reached. That in particular means that the stream has trailing
-          // whitespaces (possibly including newlines) if the whitespace mode
-          // is enabled, or the trailing newline otherwise. If so then
-          // we append the "blank" to the variable value in the exact mode
-          // prior to bailing out.
+          // If the execution deadline is specified, then turn the stream into
+          // the non-blocking mode reading its content in chunks and with a
+          // single operation otherwise. If the specified deadline is reached
+          // while reading the stream, then bail out for the successful
+          // deadline and fail otherwise. Note that in the former case the
+          // variable value will be incomplete, but we leave it to the caller
+          // to handle that.
           //
-          if (cin.fail ())
+          if (dl)
           {
-            if (ops.exact ())
+            fdselect_set fds {in.get ()};
+            cin.open (move (in), fdstream_mode::non_blocking);
+
+            const timestamp& dlt (dl->value);
+
+            for (char buf[4096];; )
             {
-              if (ops.whitespace () || ops.newline ())
-                ns.emplace_back (move (s)); // Reuse empty string.
-              else if (ns.empty ())
-                ns.emplace_back ("\n");
-              else
-                ns[0].value += '\n';
+              timestamp now (system_clock::now ());
+
+              if (dlt <= now || ifdselect (fds, dlt - now) == 0)
+              {
+                if (!dl->success)
+                  fail (ll) << cmd_path (deadline_cmd)
+                            << " terminated: execution timeout expired";
+                else
+                  break;
+              }
+
+              streamsize n (cin.readsome (buf, sizeof (buf)));
+
+              // Bail out if eos is reached.
+              //
+              if (n == 0)
+                break;
+
+              s.append (buf, n);
             }
-
-            break;
           }
-
-          if (ops.whitespace () || ops.newline () || ns.empty ())
-            ns.emplace_back (move (s));
           else
           {
-            ns[0].value += '\n';
-            ns[0].value += s;
+            cin.open (move (in));
+            s = cin.read_text ();
           }
+
+          cin.close ();
         }
 
-        cin.close ();
+        // Parse the stream content into the variable value.
+        //
+        names ns;
+
+        if (!s.empty ())
+        {
+          if (ops.whitespace ()) // The whitespace mode.
+          {
+            // Note that we collapse multiple consecutive whitespaces.
+            //
+            for (size_t p (0); p != string::npos; )
+            {
+              // Skip the whitespaces.
+              //
+              const char* sep (" \n\r\t");
+              size_t b (s.find_first_not_of (sep, p));
+
+              if (b != string::npos) // Word beginning.
+              {
+                size_t e (s.find_first_of (sep, b)); // Find the word end.
+                ns.emplace_back (string (s, b, e != string::npos ? e - b : e));
+
+                p = e;
+              }
+              else // Trailings whitespaces.
+              {
+                // Append the trailing "blank" after the trailing whitespaces
+                // in the exact mode.
+                //
+                if (ops.exact ())
+                  ns.emplace_back (empty_string);
+
+                // Bail out since the end of the string is reached.
+                //
+                break;
+              }
+            }
+          }
+          else // The newline or no-split mode.
+          {
+            // Note that we don't collapse multiple consecutive newlines.
+            //
+            // Note also that we always sanitize CRs so this loop is always
+            // needed.
+            //
+            for (size_t p (0); p != string::npos; )
+            {
+              size_t e (s.find ('\n', p));
+              string l (s, p, e != string::npos ? e - p : e);
+
+              // Strip the trailing CRs that can appear while, for example,
+              // cross-testing Windows target or as a part of msvcrt junk
+              // production (see above).
+              //
+              while (!l.empty () && l.back () == '\r')
+                l.pop_back ();
+
+              // Append the line.
+              //
+              if (!l.empty ()       || // Non-empty.
+                  e != string::npos || // Empty, non-trailing.
+                  ops.exact ())        // Empty, trailing, in the exact mode.
+              {
+                if (ops.newline () || ns.empty ())
+                  ns.emplace_back (move (l));
+                else
+                {
+                  ns[0].value += '\n';
+                  ns[0].value += l;
+                }
+              }
+
+              p = e != string::npos ? e + 1 : e;
+            }
+          }
+        }
 
         env.set_variable (move (vname),
                           move (ns),
@@ -915,24 +1035,70 @@ namespace build2
         name);
     }
 
+    // Stack-allocated linked list of information about the running pipeline
+    // processes and builtins.
+    //
+    struct pipe_command
+    {
+      // We could probably use a union here, but let's keep it simple for now
+      // (one is NULL).
+      //
+      process* proc;
+      builtin* bltn;
+
+      // True if this command has been terminated.
+      //
+      bool terminated = false;
+
+      // Only for diagnostics.
+      //
+      const command& cmd;
+      const location& loc;
+
+      pipe_command* prev; // NULL for the left-most command.
+
+      pipe_command (process& p,
+                    const command& c,
+                    const location& l,
+                    pipe_command* v)
+          : proc (&p), bltn (nullptr), cmd (c), loc (l), prev (v) {}
+
+      pipe_command (builtin& b,
+                    const command& c,
+                    const location& l,
+                    pipe_command* v)
+          : proc (nullptr), bltn (&b), cmd (c), loc (l), prev (v) {}
+    };
+
     static bool
     run_pipe (environment& env,
               command_pipe::const_iterator bc,
               command_pipe::const_iterator ec,
               auto_fd ifd,
               size_t ci, size_t li, const location& ll,
-              bool diag)
+              bool diag,
+              optional<deadline> dl = nullopt,
+              const command* dl_cmd = nullptr, // env -t <cmd>
+              pipe_command* prev_cmd = nullptr)
     {
+      tracer trace ("script::run_pipe");
+
       if (bc == ec) // End of the pipeline.
         return true;
 
-      // The overall plan is to run the first command in the pipe, reading
-      // its input from the file descriptor passed (or, for the first
-      // command, according to stdin redirect specification) and redirecting
-      // its output to the right-hand part of the pipe recursively. Fail if
-      // the right-hand part fails. Otherwise check the process exit code,
-      // match stderr (and stdout for the last command in the pipe) according
-      // to redirect specification(s) and fail if any of the above fails.
+      // The overall plan is to run the first command in the pipe, reading its
+      // input from the file descriptor passed (or, for the first command,
+      // according to stdin redirect specification) and redirecting its output
+      // to the right-hand part of the pipe recursively. Fail if the
+      // right-hand part fails. Otherwise check the process exit code, match
+      // stderr (and stdout for the last command in the pipe) according to
+      // redirect specification(s) and fail if any of the above fails.
+      //
+      // If the command has a deadline, then terminate the whole pipeline when
+      // the deadline is reached. This way the pipeline processes get a chance
+      // to terminate gracefully, which in particular may require to interrupt
+      // their IO operations, closing their standard streams readers and
+      // writers.
       //
       const command& c (*bc);
 
@@ -996,48 +1162,69 @@ namespace build2
         return args;
       };
 
-      // Prior to opening file descriptors for command input/output
-      // redirects let's check if the command is the exit builtin. Being a
-      // builtin syntactically it differs from the regular ones in a number
-      // of ways. It doesn't communicate with standard streams, so
-      // redirecting them is meaningless. It may appear only as a single
-      // command in a pipeline. It doesn't return any value and stops the
-      // script execution, so checking its exit status is meaningless as
-      // well. That all means we can short-circuit here calling the builtin
-      // and bailing out right after that. Checking that the user didn't
-      // specify any redirects or exit code check sounds like a right thing
-      // to do.
+      // Prior to opening file descriptors for command input/output redirects
+      // let's check if the command is the timeout or exit builtin. Being a
+      // builtin syntactically they differ from the regular ones in a number
+      // of ways. They don't communicate with standard streams, so redirecting
+      // them is meaningless. They may appear only as a single command in a
+      // pipeline. They don't return any value, so checking their exit status
+      // is meaningless as well. That all means we can short-circuit here
+      // calling the builtin and bailing out right after that. Checking that
+      // the user didn't specify any variables, timeout, redirects, or exit
+      // code check sounds like a right thing to do.
       //
-      if (resolve && program == "exit")
+      if (resolve && (program == "timeout" || program == "exit"))
       {
         // In case the builtin is erroneously pipelined from the other
         // command, we will close stdin gracefully (reading out the stream
-        // content), to make sure that the command doesn't print any
-        // unwanted diagnostics about IO operation failure.
+        // content), to make sure that the command doesn't print any unwanted
+        // diagnostics about IO operation failure.
         //
-        // Note that dtor will ignore any errors (which is what we want).
+        // Note though, that doing so would be a bad idea if the deadline is
+        // specified, since we can block on read and miss the deadline.
         //
-        ifdstream is (move (ifd), fdstream_mode::skip);
+        if (!dl)
+        {
+          // Note that dtor will ignore any errors (which is what we want).
+          //
+          ifdstream (move (ifd), fdstream_mode::skip);
+        }
 
         if (!first || !last)
-          fail (ll) << "exit builtin must be the only pipe command";
+          fail (ll) << program << " builtin must be the only pipe command";
+
+        if (!c.variables.empty ())
+          fail (ll) << "environment variables cannot be (un)set for "
+                    << program << " builtin";
+
+        if (c.timeout)
+          fail (ll) << "timeout cannot be specified for " << program
+                    << " builtin";
 
         if (c.in)
-          fail (ll) << "exit builtin stdin cannot be redirected";
+          fail (ll) << program << " builtin stdin cannot be redirected";
 
         if (c.out)
-          fail (ll) << "exit builtin stdout cannot be redirected";
+          fail (ll) << program << " builtin stdout cannot be redirected";
 
         if (c.err)
-          fail (ll) << "exit builtin stderr cannot be redirected";
+          fail (ll) << program << " builtin stderr cannot be redirected";
 
         if (c.exit)
-          fail (ll) << "exit builtin exit code cannot be checked";
+          fail (ll) << program << " builtin exit code cannot be checked";
 
         if (verb >= 2)
           print_process (process_args ());
 
-        exit_builtin (c.arguments, ll); // Throws exit exception.
+        if (program == "timeout")
+        {
+          timeout_builtin (env, c.arguments, ll);
+          return true;
+        }
+        else if (program == "exit")
+          exit_builtin (c.arguments, ll); // Throws exit exception.
+        else
+          assert (false);
       }
 
       // Create a unique path for a command standard stream cache file.
@@ -1121,6 +1308,9 @@ namespace build2
           //    process to hang which can be interpreted as a command failure.
           // @@ Both ways are quite ugly. Is there some better way to do
           //    this?
+          // @@ Maybe we can create a pipe, write a byte into it, close the
+          //    writing end, and after the process terminates make sure we can
+          //    still read this byte out?
           //
           // Fall through.
           //
@@ -1163,6 +1353,24 @@ namespace build2
 
       assert (ifd.get () != -1);
 
+      // Calculate the process/builtin execution deadline. Note that we should
+      // also consider the left-hand side processes deadlines, not to keep
+      // them waiting for us and allow them to terminate not later than their
+      // deadlines. Thus, let's also track which command has introduced the
+      // deadline, so we can report it if the deadline is missed.
+      //
+      dl = earlier (dl, env.effective_deadline ());
+
+      if (c.timeout)
+      {
+        deadline d (system_clock::now () + *c.timeout, false /* success */);
+        if (!dl || d < *dl)
+        {
+          dl = d;
+          dl_cmd = &c;
+        }
+      }
+
       // Prior to opening file descriptors for command outputs redirects
       // let's check if the command is the set builtin. Being a builtin
       // syntactically it differs from the regular ones in a number of ways.
@@ -1190,7 +1398,10 @@ namespace build2
         if (verb >= 2)
           print_process (process_args ());
 
-        set_builtin (env, c.arguments, move (ifd), ll);
+        set_builtin (env, c.arguments, move (ifd),
+                     dl, dl_cmd != nullptr ? *dl_cmd : c,
+                     ll);
+
         return true;
       }
 
@@ -1344,10 +1555,119 @@ namespace build2
       //
       assert (ofd.out.get () != -1 && efd.get () != -1);
 
+      // Wait for a process/builtin to complete until the deadline is reached
+      // and return the underlying wait function result (optional<something>).
+      //
+      auto timed_wait = [] (auto& p, const timestamp& deadline)
+      {
+        timestamp now (system_clock::now ());
+        return deadline > now ? p.timed_wait (deadline - now) : p.try_wait ();
+      };
+
+      // Terminate the pipeline processes starting from the specified one and
+      // up to the leftmost one and then kill those which didn't terminate
+      // after 1 second.
+      //
+      // After that wait for the pipeline builtins completion. Since their
+      // standard streams should no longer be written to or read from by any
+      // process, that shouldn't take long. If, however, they won't be able to
+      // complete in 1 second, then some of them have probably stuck while
+      // communicating with a slow filesystem device or similar, and since we
+      // currently have no way to terminate asynchronous builtins, we have no
+      // choice but to abort.
+      //
+      // Issue diagnostics and fail if something goes wrong, but still try to
+      // terminate/kill all the pipe processes.
+      //
+      auto term_pipe = [&timed_wait, &trace] (pipe_command* pc)
+      {
+        diag_record dr;
+
+        auto prog = [] (pipe_command* c) {return cmd_path (c->cmd);};
+
+        // Terminate processes gracefully and set the terminate flag for the
+        // pipe commands.
+        //
+        for (pipe_command* c (pc); c != nullptr; c = c->prev)
+        {
+          if (process* p = c->proc)
+          try
+          {
+            l5 ([&]{trace (c->loc) << "terminating: " << c->cmd;});
+
+            p->term ();
+          }
+          catch (const process_error& e)
+          {
+            // If unable to terminate the process for any reason (the process
+            // is exiting on Windows, etc) then just ignore this, postponing
+            // the potential failure till the kill() call.
+            //
+            l5 ([&]{trace (c->loc) <<"unable to terminate " << prog (c)
+                                   << ": " << e;});
+          }
+
+          c->terminated = true;
+        }
+
+        // Wait a bit for the processes to terminate and kill the remaining
+        // ones.
+        //
+        timestamp dl (system_clock::now () + chrono::seconds (1));
+
+        for (pipe_command* c (pc); c != nullptr; c = c->prev)
+        {
+          if (process* p = c->proc)
+          try
+          {
+            l5 ([&]{trace (c->loc) << "waiting: " << c->cmd;});
+
+            if (!timed_wait (*p, dl))
+            {
+              l5 ([&]{trace (c->loc) << "killing: " << c->cmd;});
+
+              p->kill ();
+              p->wait ();
+            }
+          }
+          catch (const process_error& e)
+          {
+            dr << fail (c->loc) << "unable to wait/kill " << prog (c) << ": "
+               << e;
+          }
+        }
+
+        // Wait a bit for the builtins to complete and abort if any remain
+        // running.
+        //
+        dl = system_clock::now () + chrono::seconds (1);
+
+        for (pipe_command* c (pc); c != nullptr; c = c->prev)
+        {
+          if (builtin* b = c->bltn)
+          try
+          {
+            l5 ([&]{trace (c->loc) << "waiting: " << c->cmd;});
+
+            if (!timed_wait (*b, dl))
+            {
+              error (c->loc) << prog (c) << " builtin hanged, aborting";
+              terminate (false /* trace */);
+            }
+          }
+          catch (const system_error& e)
+          {
+            dr << fail (c->loc) << "unable to wait for " << prog (c) << ": "
+               << e;
+          }
+        }
+      };
+
+      // Absent if the process/builtin misses the "unsuccessful" deadline.
+      //
       optional<process_exit> exit;
-      const builtin_info* bi (resolve
-                              ? builtins.find (program)
-                              : nullptr);
+
+      const builtin_info* bi (resolve ? builtins.find (program) : nullptr);
 
       bool success;
 
@@ -1393,6 +1713,21 @@ namespace build2
 
         if (cleanup_builtin (program))
           cln = cleanup ();
+
+        // We also extend the sleep builtin, deactivating the thread before
+        // going to sleep and waking up before the deadline is reached.
+        //
+        // Let's "wrap up" the sleep-related values into the single object to
+        // rely on "small function object" optimization.
+        //
+        struct sleep
+        {
+          optional<timestamp> deadline;
+          bool terminated = false;
+
+          sleep (const optional<timestamp>& d): deadline (d) {}
+        };
+        sleep slp (dl ? dl->value : optional<timestamp> ());
 
         builtin_callbacks bcs {
 
@@ -1555,14 +1890,29 @@ namespace build2
 
           // sleep
           //
-          // Deactivate the thread before going to sleep.
-          //
-          [&env] (const duration& d)
+          [&env, &slp] (const duration& d)
           {
+            duration t (d);
+            const optional<timestamp>& dl (slp.deadline);
+
+            if (dl)
+            {
+              timestamp now (system_clock::now ());
+
+              slp.terminated = now + t > *dl;
+
+              if (*dl <= now)
+                return;
+
+              duration d (*dl - now);
+              if (t > d)
+                t = d;
+            }
+
             // If/when required we could probably support the precise sleep
             // mode (e.g., via an option).
             //
-            env.context.sched.sleep (d);
+            env.context.sched.sleep (t);
           }
         };
 
@@ -1575,13 +1925,49 @@ namespace build2
                                    *env.work_dir.path,
                                    bcs));
 
-          success = run_pipe (env,
-                              nc,
-                              ec,
-                              move (ofd.in),
-                              ci + 1, li, ll, diag);
+          pipe_command pc (b, c, ll, prev_cmd);
 
-          exit = process_exit (b.wait ());
+          // If the deadline is specified, then make sure we don't miss it
+          // waiting indefinitely in the builtin destructor on the right-hand
+          // side of the pipe failure.
+          //
+          auto g (make_exception_guard ([&dl, &pc, &term_pipe] ()
+          {
+            if (dl)
+            try
+            {
+              term_pipe (&pc);
+            }
+            catch (const failed&)
+            {
+              // We can't do much here.
+            }
+          }));
+
+          success = run_pipe (env,
+                              nc, ec,
+                              move (ofd.in),
+                              ci + 1, li, ll, diag,
+                              dl, dl_cmd,
+                              &pc);
+
+          if (!dl)
+            b.wait ();
+          else if (!timed_wait (b, dl->value))
+            term_pipe (&pc);
+
+          // Note that this also handles ad hoc termination (without the call
+          // to term_pipe()) by the sleep builtin (see above).
+          //
+          if (pc.terminated || slp.terminated)
+          {
+            assert (dl);
+
+            if (dl->success)
+              exit = process_exit (0);
+          }
+          else
+            exit = process_exit (r);
         }
         catch (const system_error& e)
         {
@@ -1654,19 +2040,60 @@ namespace build2
             env.work_dir.path->string ().c_str (),
             pe.vars);
 
+          // Can't throw.
+          //
           ifd.reset ();
           ofd.out.reset ();
           efd.reset ();
 
+          pipe_command pc (pr, c, ll, prev_cmd);
+
+          // If the deadline is specified, then make sure we don't miss it
+          // waiting indefinitely in the process destructor on the right-hand
+          // part of the pipe failure.
+          //
+          auto g (make_exception_guard ([&dl, &pc, &term_pipe] ()
+          {
+            if (dl)
+            try
+            {
+              term_pipe (&pc);
+            }
+            catch (const failed&)
+            {
+              // We can't do much here.
+            }
+          }));
+
           success = run_pipe (env,
-                              nc,
-                              ec,
+                              nc, ec,
                               move (ofd.in),
-                              ci + 1, li, ll, diag);
+                              ci + 1, li, ll, diag,
+                              dl, dl_cmd,
+                              &pc);
 
-          pr.wait ();
+          if (!dl)
+            pr.wait ();
+          else if (!timed_wait (pr, dl->value))
+            term_pipe (&pc);
 
-          exit = move (pr.exit);
+#ifndef _WIN32
+          if (pc.terminated       &&
+              !pr.exit->normal () &&
+              pr.exit->signal () == SIGTERM)
+#else
+          if (pc.terminated       &&
+              !pr.exit->normal () &&
+              pr.exit->status == DBG_TERMINATE_PROCESS)
+#endif
+          {
+            assert (dl);
+
+            if (dl->success)
+              exit = process_exit (0);
+          }
+          else
+            exit = pr.exit;
         }
         catch (const process_error& e)
         {
@@ -1679,19 +2106,19 @@ namespace build2
         }
       }
 
-      assert (exit);
-
       // If the righ-hand side pipeline failed than the whole pipeline fails,
       // and no further checks are required.
       //
       if (!success)
         return false;
 
-      // Use the program path for diagnostics (print relative, etc).
+      // Fail if the process is terminated due to reaching the deadline.
       //
-      const path& pr (resolve
-                      ? c.program.recall
-                      : path (c.program.recall_string ())); // Can't throw.
+      if (!exit)
+        fail (ll) << cmd_path (dl_cmd != nullptr ? *dl_cmd : c)
+                  << " terminated: execution timeout expired";
+
+      path pr (cmd_path (c));
 
       // If there is no valid exit code available by whatever reason then we
       // print the proper diagnostics, dump stderr (if cached and not too
@@ -1794,7 +2221,7 @@ namespace build2
       // pipe that "switches on" the diagnostics potential printing.
       //
       command_expr::const_iterator trailing_ands; // Undefined if diag is
-      // disallowed.
+                                                  // disallowed.
       if (diag)
       {
         auto i (expr.crbegin ());
@@ -1817,8 +2244,10 @@ namespace build2
         // with false.
         //
         if (!((or_op && r) || (!or_op && !r)))
-          r = run_pipe (
-            env, p.begin (), p.end (), auto_fd (), ci, li, ll, print);
+          r = run_pipe (env,
+                        p.begin (), p.end (),
+                        auto_fd (),
+                        ci, li, ll, print);
 
         ci += p.size ();
       }

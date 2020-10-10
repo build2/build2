@@ -48,10 +48,10 @@
 : set
 :
 {
-  $* <'env a=b -- cmd'      >'env a=b -- cmd'        : var
-  $* <'env -u a b=c -- cmd' >'env -u a - b=c -- cmd' : opt-var
-  $* <'env a="b c" -- cmd'  >"env a='b c' -- cmd"    : quote
-  $* <'env "a b"=c -- cmd'  >"env 'a b=c' -- cmd"    : quote-name
+  $* <'env a=b -- cmd'      >'env a=b -- cmd'      : var
+  $* <'env -u a b=c -- cmd' >'env -u a b=c -- cmd' : opt-var
+  $* <'env a="b c" -- cmd'  >"env a='b c' -- cmd"  : quote
+  $* <'env "a b"=c -- cmd'  >"env 'a b=c' -- cmd"  : quote-name
 
   : double-quote
   :
@@ -66,9 +66,19 @@
     EOE
 }
 
+: timeout
+:
+{
+  $* <'env -t 5 -- cmd'        >'env -t 5 -- cmd'      : short-opt
+  $* <'env --timeout 5 -- cmd' >'env -t 5 -- cmd'      : long-opt
+  $* <'env --timeout=5 -- cmd' >'env -t 5 -- cmd'      : long-opt-eq
+  $* <'env -u a -t 5 -- cmd'   >'env -t 5 -u a -- cmd' : mult-opt
+  $* <'env -t 5 a=b -- cmd'    >'env -t 5 a=b -- cmd'  : args
+}
+
 : non-first
 :
-$* <'cmd1 && env -u a b=c -- cmd2' >'cmd1 && env -u a - b=c -- cmd2'
+$* <'cmd1 && env -u a b=c -- cmd2' >'cmd1 && env -u a b=c -- cmd2'
 
 : no-cmd
 :

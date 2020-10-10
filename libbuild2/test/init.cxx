@@ -10,6 +10,8 @@
 
 #include <libbuild2/config/utility.hxx>
 
+#include <libbuild2/script/timeout.hxx>
+
 #include <libbuild2/test/module.hxx>
 #include <libbuild2/test/target.hxx>
 #include <libbuild2/test/operation.hxx>
@@ -44,8 +46,8 @@ namespace build2
         //
         // Specified as <target>@<path-id> pairs with both sides being
         // optional. The variable is untyped (we want a list of name-pairs),
-        // overridable, and with global visibiility. The target is relative
-        // (in essence a prerequisite) which is resolved from the (root) scope
+        // overridable, and with global visibility. The target is relative (in
+        // essence a prerequisite) which is resolved from the (root) scope
         // where the config.test value is defined.
         //
         vp.insert ("config.test"),
@@ -54,6 +56,11 @@ namespace build2
         // for semantics).
         //
         vp.insert<name_pair> ("config.test.output"),
+
+        // Test operation and individual test execution timeouts (see the
+        // manual for semantics).
+        //
+        vp.insert<string> ("config.test.timeout"),
 
         // The test variable is a name which can be a path (with the
         // true/false special values) or a target name.
@@ -187,6 +194,33 @@ namespace build2
         else if (b.value == "clean") m.before = output_before::clean;
         else if (b.value == "")      m.before = output_before::clean;
         else fail << "invalid config.test.output before value '" << b << "'";
+      }
+
+      // config.test.timeout
+      //
+      if (lookup l = lookup_config (rs, m.config_test_timeout))
+      {
+        const string& t (cast<string> (l));
+
+        const char* ot ("config.test.timeout test operation timeout value");
+        const char* tt ("config.test.timeout test timeout value");
+
+        size_t p (t.find ('/'));
+        if (p != string::npos)
+        {
+          // Note: either of the timeouts can be omitted but not both.
+          //
+          if (t.size () == 1)
+            fail << "invalid config.test.timeout value '" << t << "'";
+
+          if (p != 0)
+            m.operation_timeout = parse_timeout (string (t, 0, p), ot);
+
+          if (p != t.size () - 1)
+            m.test_timeout = parse_timeout (string (t, p + 1), tt);
+        }
+        else
+          m.test_timeout = parse_timeout (t, ot);
       }
 
       //@@ TODO: Need ability to specify extra diff options (e.g.,

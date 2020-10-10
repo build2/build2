@@ -26,6 +26,8 @@ namespace build2
       using build2::script::redirect_type;
       using build2::script::expr_term;
       using build2::script::command_expr;
+      using build2::script::deadline;
+      using build2::script::timeout;
 
       // Notes:
       //
@@ -83,7 +85,10 @@ namespace build2
       public:
         using target_type = build2::target;
 
-        environment (action, const target_type&, bool temp_dir);
+        environment (action,
+                     const target_type&,
+                     bool temp_dir,
+                     const optional<timestamp>& deadline = nullopt);
 
         environment (environment&&) = delete;
         environment (const environment&) = delete;
@@ -98,7 +103,7 @@ namespace build2
         // Script-local variable pool and map.
         //
         // Note that it may be tempting to reuse the rule-specific variables
-        // for this but they should no be modified during execution (i.e.,
+        // for this but they should not be modified during execution (i.e.,
         // they are for intra-rule communication; perhaps we could have a
         // special builtin that sets such variables during match).
         //
@@ -125,11 +130,28 @@ namespace build2
         //
         auto_rmdir temp_dir;
 
+        // The whole script and the remaining script fragment execution
+        // deadlines (the latter is set by the timeout builtin).
+        //
+        optional<deadline> script_deadline;
+        optional<deadline> fragment_deadline;
+
         virtual void
         set_variable (string&& name,
                       names&&,
                       const string& attrs,
                       const location&) override;
+
+        // Parse the specified in seconds timeout and set the remaining script
+        // fragment execution deadline. Reset it to nullopt on zero.
+        //
+        virtual void
+        set_timeout (const string&, bool success, const location&) override;
+
+        // Return the nearest of the script and fragment execution deadlines.
+        //
+        virtual optional<deadline>
+        effective_deadline () override;
 
         virtual void
         create_temp_dir () override;

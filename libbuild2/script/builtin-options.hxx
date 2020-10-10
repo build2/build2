@@ -326,6 +326,64 @@ namespace build2
       bool newline_;
       bool whitespace_;
     };
+
+    class timeout_options
+    {
+      public:
+      timeout_options ();
+
+      timeout_options (int& argc,
+                       char** argv,
+                       bool erase = false,
+                       ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                       ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      timeout_options (int start,
+                       int& argc,
+                       char** argv,
+                       bool erase = false,
+                       ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                       ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      timeout_options (int& argc,
+                       char** argv,
+                       int& end,
+                       bool erase = false,
+                       ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                       ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      timeout_options (int start,
+                       int& argc,
+                       char** argv,
+                       int& end,
+                       bool erase = false,
+                       ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                       ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      timeout_options (::build2::script::cli::scanner&,
+                       ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                       ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      // Option accessors.
+      //
+      const bool&
+      success () const;
+
+      // Implementation details.
+      //
+      protected:
+      bool
+      _parse (const char*, ::build2::script::cli::scanner&);
+
+      private:
+      bool
+      _parse (::build2::script::cli::scanner&,
+              ::build2::script::cli::unknown_mode option,
+              ::build2::script::cli::unknown_mode argument);
+
+      public:
+      bool success_;
+    };
   }
 }
 

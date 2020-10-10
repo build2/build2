@@ -8,6 +8,10 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/algorithm.hxx>
 
+#include <libbuild2/script/timeout.hxx>
+
+#include <libbuild2/test/common.hxx>        // operation_deadline(),
+                                            // test_timeout()
 #include <libbuild2/test/script/parser.hxx>
 
 using namespace std;
@@ -18,6 +22,9 @@ namespace build2
   {
     namespace script
     {
+      using build2::script::to_deadline;
+      using build2::script::to_timeout;
+
       // scope_base
       //
       scope_base::
@@ -188,11 +195,14 @@ namespace build2
       // script
       //
       script::
-      script (const target& tt,
-              const testscript& st,
-              const dir_path& rwd)
+      script (const target& tt, const testscript& st, const dir_path& rwd)
           : script_base (tt, st),
-            group (st.name == "testscript" ? string () : st.name, *this)
+            group (st.name == "testscript" ? string () : st.name, *this),
+            operation_deadline (
+              to_deadline (build2::test::operation_deadline (tt),
+                           false /* success */)),
+            test_timeout (to_timeout (build2::test::test_timeout (tt),
+                                      false /* success */))
       {
         // Set the script working dir ($~) to $out_base/test/<id> (id_path
         // for root is just the id which is empty if st is 'testscript').
@@ -282,6 +292,14 @@ namespace build2
         reset_special ();
       }
 
+      optional<deadline> script::
+      effective_deadline ()
+      {
+        return earlier (operation_deadline, group_deadline);
+      }
+
+      // scope
+      //
       lookup scope::
       lookup (const variable& var) const
       {
@@ -408,6 +426,86 @@ namespace build2
         // Set $*.
         //
         assign (root.cmd_var) = move (s);
+      }
+
+      // group
+      //
+      void group::
+      set_timeout (const string& t, bool success, const location& l)
+      {
+        const char* gt (parent != nullptr
+                        ? "test group timeout"
+                        : "testscript timeout");
+
+        const char* tt ("test timeout");
+
+        size_t p (t.find ('/'));
+        if (p != string::npos)
+        {
+          // Note: either of the timeouts can be omitted but not both.
+          //
+          if (t.size () == 1)
+            fail (l) << "invalid timeout '" << t << "'";
+
+          if (p != 0)
+            group_deadline =
+              to_deadline (parse_deadline (string (t, 0, p), gt, l),
+                           success);
+
+          if (p != t.size () - 1)
+            test_timeout =
+              to_timeout (parse_timeout (string (t, p + 1), tt, l), success);
+        }
+        else
+          group_deadline = to_deadline (parse_deadline (t, gt, l), success);
+      }
+
+      optional<deadline> group::
+      effective_deadline ()
+      {
+        return parent != nullptr
+               ? earlier (parent->effective_deadline (), group_deadline)
+               : group_deadline;
+      }
+
+      // test
+      //
+      void test::
+      set_timeout (const string& t, bool success, const location& l)
+      {
+        fragment_deadline =
+          to_deadline (parse_deadline (t, "test fragment timeout", l),
+                       success);
+      }
+
+      optional<deadline> test::
+      effective_deadline ()
+      {
+        if (!test_deadline)
+        {
+          assert (parent != nullptr); // Test is always inside a group scope.
+
+          test_deadline = parent->effective_deadline ();
+
+          // Calculate the minimum timeout and factor it into the resulting
+          // deadline.
+          //
+          optional<timeout> t (root.test_timeout); // config.test.timeout
+          for (const scope* p (parent); p != nullptr; p = p->parent)
+          {
+            const group* g (dynamic_cast<const group*> (p));
+            assert (g != nullptr);
+
+            t = earlier (t, g->test_timeout);
+          }
+
+          if (t)
+            test_deadline =
+              earlier (*test_deadline,
+                       deadline (system_clock::now () + t->value, t->success));
+        }
+
+        return earlier (*test_deadline, fragment_deadline);
       }
     }
   }

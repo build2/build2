@@ -798,6 +798,13 @@ namespace build2
   {
     return apply_pattern (s, p.c_str ());
   }
+
+  // Try to parse a string as a non-negative number returning nullopt if the
+  // argument is not a valid number or the number is greater than the
+  // specified maximum.
+  //
+  optional<uint64_t>
+  parse_number (const string&, uint64_t max = UINT64_MAX);
 }
 
 #include <libbuild2/utility.ixx>

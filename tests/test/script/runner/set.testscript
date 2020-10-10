@@ -94,10 +94,28 @@
 {
   : non-exact
   :
-  $c <<EOI && $b
-  set -w baz <' foo   bar ';
-  echo $baz >'foo bar'
-  EOI
+  {
+    : non-empty
+    :
+    $c <<EOI && $b
+    set -w baz <' foo   bar ';
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
+    EOI
+
+    : empty
+    :
+    $c <<EOI && $b
+    set -w baz <:'';
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >''
+    EOI
+
+    : spaces
+    :
+    $c <<EOI && $b
+    set -w baz <'  ';
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >''
+    EOI
+  }
 
   : exact
   :
@@ -106,7 +124,7 @@
     :
     $c <<EOI && $b
     set --exact --whitespace baz <' foo   bar ';
-    echo $baz >'foo bar '
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar" ""'
     EOI
 
     : no-trailing-ws
@@ -115,8 +133,22 @@
     : ':' modifier.
     :
     $c <<EOI && $b
-    set --exact --whitespace baz <:' foo bar';
-    echo $baz >'foo bar'
+    set -e -w baz <:' foo bar';
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >'"foo" "bar"'
+    EOI
+
+    : empty
+    :
+    $c <<EOI && $b
+    set -e -w baz <:'';
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >''
+    EOI
+
+    : spaces
+    :
+    $c <<EOI && $b
+    set -e -w baz <'  ';
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >'""'
     EOI
   }
 }
@@ -134,7 +166,7 @@
   bar
 
   EOF
-  echo $baz >' foo  bar '
+  echo $regex.apply($baz, '^(.*)$', '"\1"') >'"" "foo" "" "bar" ""'
   EOI
 
   : exact
@@ -150,7 +182,7 @@
     bar
 
     EOF
-    echo $baz >' foo  bar  '
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >'"" "foo" "" "bar" "" ""'
     EOI
 
     : no-trailing-newline
@@ -162,7 +194,7 @@
 
     bar
     EOF
-    echo $baz >' foo  bar'
+    echo $regex.apply($baz, '^(.*)$', '"\1"') >'"" "foo" "" "bar"'
     EOI
   }
 }
@@ -180,7 +212,7 @@
   bar
 
   EOF
-  echo $baz >>EOO
+  echo ($baz[0]) >>EOO
 
   foo
 
@@ -209,7 +241,7 @@
 
     bar
     EOF
-    echo "$baz" >>EOO
+    echo ($baz[0]) >>EOO
 
     foo
 
@@ -227,12 +259,72 @@
 
     bar
     EOF
-    echo "$baz" >>EOO
+    echo ($baz[0]) >>EOO
 
     foo
 
     bar
     EOO
+    EOI
+  }
+}
+
+: deadline
+:
+{
+  : not-reached
+  :
+  $c <<EOI && $b
+  env -t 10 -- $* -o 'foo' | set bar;
+  echo $bar >foo 2>|
+  EOI
+
+  : set-reached
+  :
+  $c <<EOI && $b 2>>~%EOE% != 0
+  $* -o 'foo' -l 10 | env -t 1 -- set bar
+  EOI
+  %testscript:.*: error: set terminated: execution timeout expired%
+  %.
+  EOE
+
+  : driver-reached
+  :
+  $c <<EOI && $b 2>>~%EOE% != 0
+  env -t 1 -- $* -o 'foo' -l 10 | set bar
+  EOI
+  %testscript:.*: error: .+driver.* terminated: execution timeout expired%
+  %.
+  EOE
+
+  : read-some-data
+  :
+  {
+    s="----------------------------------------------------------------------"
+    s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+    s="$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s$s"
+
+    : failure
+    :
+    $c <<EOI && $b 2>>~%EOE% != 0
+    echo "$s" >=f;
+    $* -o 'foo' -l 10 | cat f - | env -t 2 -- set bar
+    EOI
+    %testscript:.*: error: set terminated: execution timeout expired%
+    %.
+    EOE
+
+    : success
+    :
+    : Note that the cat builtin ends up with the 'broken pipe' diagnostics or
+    : similar.
+    :
+    $c <<EOI && $b
+    echo "$s" >=f;
+    timeout --success 2;
+    $* -o 'foo' -l 10 | cat f - 2>>~%EOE% | set bar
+      %cat: .+%
+      EOE
     EOI
   }
 }

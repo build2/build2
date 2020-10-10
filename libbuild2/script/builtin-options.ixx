@@ -173,6 +173,15 @@ namespace build2
     {
       return this->whitespace_;
     }
+
+    // timeout_options
+    //
+
+    inline const bool& timeout_options::
+    success () const
+    {
+      return this->success_;
+    }
   }
 }
 

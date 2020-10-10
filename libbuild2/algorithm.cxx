@@ -527,7 +527,7 @@ namespace build2
       {
       case target_decl::prereq_new:
         {
-          dr << info << "target " << t << " is no declared in any buildfile";
+          dr << info << "target " << t << " is not declared in any buildfile";
 
           if (t.is_a<file> ())
             dr << info << "perhaps it is a missing source file?";

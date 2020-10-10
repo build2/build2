@@ -593,4 +593,22 @@ namespace build2
 
     script::regex::init ();
   }
+
+  optional<uint64_t>
+  parse_number (const string& s, uint64_t max_num)
+  {
+    optional<uint64_t> r;
+
+    if (!s.empty ())
+    {
+      const char* b (s.c_str ());
+      char* e (nullptr);
+      uint64_t v (strtoull (b, &e, 10)); // Can't throw.
+
+      if (errno != ERANGE && e == b + s.size () && v <= max_num)
+        r = v;
+    }
+
+    return r;
+  }
 }

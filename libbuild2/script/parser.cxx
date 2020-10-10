@@ -1027,7 +1027,9 @@ namespace build2
             bool env (false);
             if (prog && tt == type::word && t.value == "env")
             {
-              c.variables = parse_env_builtin (t, tt);
+              parsed_env r (parse_env_builtin (t, tt));
+              c.variables = move (r.variables);
+              c.timeout = r.timeout;
               env = true;
             }
 
@@ -1287,7 +1289,7 @@ namespace build2
       return make_pair (move (expr), move (hd));
     }
 
-    environment_vars parser::
+    parser::parsed_env parser::
     parse_env_builtin (token& t, token_type& tt)
     {
       // enter: 'env' word token
@@ -1295,11 +1297,10 @@ namespace build2
 
       next (t, tt); // Skip 'env'.
 
-      // Note that the -u option and its value can belong to the different
-      // name chunks. That's why we parse the env builtin arguments in the
-      // chunking mode into the argument/location pair list up to the '--'
-      // separator and parse this list into the variable sets/unsets
-      // afterwords.
+      // Note that an option name and value can belong to different name
+      // chunks. That's why we parse the env builtin arguments in the chunking
+      // mode into the argument/location pair list up to the '--' separator
+      // and parse this list into the variable sets/unsets afterwords.
       //
       // Align the size with environment_vars (double because of -u <var>
       // which is two arguments).
@@ -1352,13 +1353,13 @@ namespace build2
 
       // Parse the env builtin options and arguments.
       //
-      environment_vars r;
+      parsed_env r;
 
       // Note: args is empty in the pre-parse mode.
       //
       auto i (as.begin ()), e (as.end ());
 
-      // Parse the variable unsets (from options).
+      // Parse options (the timeout and variable unsets).
       //
       for (; i != e; ++i)
       {
@@ -1372,32 +1373,76 @@ namespace build2
           break;
         }
 
-        // Unset the variable, adding its name to the resulting variable list.
+        // We should probably switch to CLI if we need anything more
+        // elaborate. Note however, that we will have no precise error
+        // location then.
         //
-        auto unset = [&r, &i, this] (string&& v, const char* o)
+
+        // If this is an option represented with its long or short name, then
+        // return its value as string and nullopt otherwise. In the former
+        // case strip the value assignment from the option, if it is in the
+        // <name>=<value> form, and fail if the option value is empty.
+        //
+        auto str = [&i, &e, &o, &l, this] (const char* lo, const char* so)
         {
-          if (v.empty ())
+          optional<string> r;
+
+          if (o == lo || o == so)
+          {
+            if (++i == e)
+              fail (l) << "env: missing value for option '" << o << "'";
+
+            r = move (i->first);
+          }
+          else
+          {
+            size_t n (string::traits_type::length (lo));
+
+            if (o.compare (0, n, lo) == 0 && o[n] == '=')
+            {
+              r = string (o, n + 1);
+              o.resize (n);
+            }
+          }
+
+          if (r && r->empty ())
             fail (i->second) << "env: empty value for option '" << o << "'";
 
-          if (v.find ('=') != string::npos)
-            fail (i->second) << "env: invalid value '" << v << "' for "
-                             << "option '" << o << "': contains '='";
-
-          r.push_back (move (v));
+          return r;
         };
 
-        // If this is the --unset|-u option then add the variable unset and
-        // bail out to parsing the variable sets otherwise.
+        // As above but convert the option value to a number and fail on
+        // error.
         //
-        if (o == "--unset" || o == "-u")
+        auto num = [&i, &o, &str, this] (const char* ln, const char* sn)
         {
-          if (++i == e)
-            fail (l) << "env: missing value for option '" << o << "'";
+          optional<uint64_t> r;
+          if (optional<string> s = str (ln, sn))
+          {
+            r = parse_number (*s);
 
-          unset (move (i->first), o.c_str ());
+            if (!r)
+              fail (i->second) << "env: invalid value '" << *s
+                               << "' for option '" << o << "'";
+          }
+
+          return r;
+        };
+
+        // Parse a known option or bail out to parsing the variable sets.
+        //
+        if (optional<uint64_t> v = num ("--timeout", "-t"))
+        {
+          r.timeout = chrono::seconds (*v);
         }
-        else if (o.compare (0, 8, "--unset=") == 0)
-          unset (string (o, 8), "--unset");
+        else if (optional<string> v = str ("--unset", "-u"))
+        {
+          if (v->find ('=') != string::npos)
+            fail (i->second) << "env: invalid value '" << *v << "' for "
+                             << "option '" << o << "': contains '='";
+
+          r.variables.push_back (move (*v));
+        }
         else
           break;
       }
@@ -1421,7 +1466,7 @@ namespace build2
 
         // Add the variable set to the resulting list.
         //
-        r.push_back (move (a));
+        r.variables.push_back (move (a));
       }
 
       return r;

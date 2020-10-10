@@ -42,3 +42,60 @@ driver = $src_root/../exe{driver}
 ./: file{output}: test.stdout = true
 file{output}: in{output} $src_root/manifest #@@ in module
 EOI
+
+: timeout
+:
+{
+  : operation
+  :
+  {
+    : no-output
+    :
+    ln -s $src_base/output.in ./;
+    $* config.test.timeout=1 <<EOI 2>>/~%EOE% != 0
+    driver = $src_root/../exe{driver}
+    ./: test = $driver
+    ./: test.options = -s
+    ./: $driver
+    EOI
+    error: test dir{./} failed
+    %  error: .+ -s terminated: execution timeout expired%
+    %  info: test command line: .+%
+    EOE
+
+    : output
+    :
+    ln -s $src_base/output.in ./;
+    $* config.test.timeout=1 &output &output.d <<EOI 2>>/~%EOE% != 0
+    driver = $src_root/../exe{driver}
+    ./: test = $driver
+    ./: test.options = -s
+    ./: $driver
+    ./: file{output}: test.stdout = true
+    file{output}: in{output} $src_root/manifest #@@ in module
+    EOI
+    error: test dir{./} failed
+    %  error: diff .+ terminated: execution timeout expired%
+    %  error: .+ -s terminated: execution timeout expired%
+    %  info: test command line: .+%
+    EOE
+  }
+
+  : test
+  :
+  {
+    : no-output
+    :
+    ln -s $src_base/output.in ./;
+    $* config.test.timeout=/1 <<EOI 2>>/~%EOE% != 0
+    driver = $src_root/../exe{driver}
+    ./: test = $driver
+    ./: test.options = -s
+    ./: $driver
+    EOI
+    error: test dir{./} failed
+    %  error: .+ -s terminated: execution timeout expired%
+    %  info: test command line: .+%
+    EOE
+  }
+}

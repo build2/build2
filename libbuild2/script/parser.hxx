@@ -130,12 +130,18 @@ namespace build2
       pre_parse_line_start (token&, token_type&, lexer_mode);
 
       // Parse the env pseudo-builtin arguments up to the program name. Return
-      // the list of the variables that should be unset ("name") and/or set
-      // ("name=value") in the command environment and the token/type that
-      // starts the program name. Note that the variable unsets come first, if
-      // present.
+      // the program execution timeout, the list of the variables that should
+      // be unset ("name") and/or set ("name=value") in the command
+      // environment, and the token/type that starts the program name. Note
+      // that the variable unsets come first, if present.
       //
-      environment_vars
+      struct parsed_env
+      {
+        optional<duration> timeout;
+        environment_vars variables;
+      };
+
+      parsed_env
       parse_env_builtin (token&, token_type&);
 
       // Execute.

@@ -1767,6 +1767,7 @@ namespace build2
             {
               is.close ();
               pr.kill ();
+              pr.wait ();
               throw_generic_ios_failure (EFBIG, "output too large");
             }
           }

@@ -20,6 +20,7 @@ namespace build2
     {
       const variable& config_test;
       const variable& config_test_output;
+      const variable& config_test_timeout;
 
       const variable& var_test;
       const variable& test_options;
@@ -40,10 +41,27 @@ namespace build2
       output_before before = output_before::warn;
       output_after after = output_after::clean;
 
+      // The config.test.timeout values.
+      //
+      optional<duration> operation_timeout;
+      optional<duration> test_timeout;
+
       // The config.test query interface.
       //
       const names* test_ = nullptr; // The config.test value if any.
       scope*       root_ = nullptr; // The root scope for target resolution.
+
+      // Store it as the underlying representation and use the release-consume
+      // ordering (see mtime_target for the reasoning).
+      //
+      mutable atomic<timestamp::rep> operation_deadline_ {
+        timestamp_unknown_rep};
+
+      // Return the test operation deadline, calculating it on the first call
+      // as an offset from now by the operation timeout.
+      //
+      optional<timestamp>
+      operation_deadline () const;
 
       // Return true if the specified alias target should pass-through to its
       // prerequisites.
@@ -65,6 +83,27 @@ namespace build2
       explicit
       common (common_data&& d): common_data (move (d)) {}
     };
+
+    // Helpers.
+    //
+
+    // Return the nearest of the target-enclosing root scopes test operation
+    // deadlines.
+    //
+    optional<timestamp>
+    operation_deadline (const target&);
+
+    // Return the lesser of the target-enclosing root scopes test timeouts.
+    //
+    optional<duration>
+    test_timeout (const target&);
+
+    // Convert the test timeouts in the target-enclosing root scopes into
+    // deadlines and return the nearest between them and the operation
+    // deadlines in the enclosing root scopes.
+    //
+    optional<timestamp>
+    test_deadline (const target&);
   }
 }
 
