@@ -65,7 +65,7 @@ execution by focusing on the following functionality:
 
 \li|Comparing to expected exit status.|
 
-\li|Comparing to expected output for \c{stdout}/\c{stderr}, including
+\li|Comparing \c{stdout}/\c{stderr} to expected output, including
     using regex.|
 
 \li|Setup/teardown commands and automatic file/directory cleanups.|
@@ -530,7 +530,7 @@ their names (as every \c{hello} program should), then we could write a
 test like this:
 
 \
-$* - <<EOI | $* -d - >>EOO
+$* - <<EOI | $* -r - >>EOO
 John
 Jane
 EOI
@@ -1056,17 +1056,17 @@ after the execution (for example, to examine test setup, output, etc). Before
 the execution the default behavior is to warn and then automatically remove
 the working directory if it exists. After the execution the default behavior
 is to perform all the cleanups and teardowns and then remove the working
-directory failing if it is not empty. This default behaviors can, however, be
+directory if it is not empty. This default behavior can, however, be
 overridden with the \c{config.test.output} variable.
 
 The \c{config.test.output} variable contains a pair of values with the first
 signifying the \i{before} behavior and the second \- \i{after}. The valid
-\i{before} values are \c{fail} (fail if the directory exists), \c{warn}
-(warn if the directory exists then remove), \c{clean} (silently remove
-the existing directory). The valid \i{after} values are \c{clean} (remove
-the directory failing if it is not empty) and \c{keep} (do not run cleanups
-and teardowns and do not remove the working directory). The default behavior
-is thus equivalent to specifying the \c{warn@clean} pair.
+\i{before} values are \c{fail} (fail if the directory exists), \c{warn} (warn
+if the directory exists then remove), \c{clean} (silently remove the existing
+directory). The valid \i{after} values are \c{clean} (remove the directory if
+it is not empty) and \c{keep} (do not run cleanups and teardowns and do not
+remove the working directory). The default behavior is thus equivalent to
+specifying the \c{warn@clean} pair.
 
 If only a single value is specified in \c{config.test.output} then it is
 assumed to be the \i{after} value and the \i{before} value is assumed to
@@ -2893,8 +2893,8 @@ consider designing a concise, textual \i{mini-format} for input (either via
 command line or \c{stdin}) and output rather than constructing the test data
 and expected results programmatically.
 
-Documentation-wise, each test should at least include explicit id that
-adequately summarizes what it tests. Add summary or even details for more
+Documentation-wise, each test should at least include an explicit id that
+adequately summarizes what it tests. Add a summary or even details for more
 complex tests. Failure tests usually fall into this category.
 
 Use the leading description for multi-line tests, for example:
@@ -2977,8 +2977,8 @@ example, if the above tests were in \c{greeting.testscript}, then using
 the id path would then become \c{greeting/custom-greeting/john}, etc.
 
 We quote values that are \i{strings} as opposed to options, file names, paths
-(unless contain spaces), integers, or boolean. When quoting, use the single
-quote unless you need expansions (or single quotes) inside. Note that unlike
+(unless they contain spaces), integers, or boolean. When quoting, use single
+quotes unless you need expansions (or single quotes) inside. Note that unlike
 Bash you do not need to quote variable expansions in order to preserve
 whitespaces.  For example:
 

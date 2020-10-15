@@ -545,7 +545,7 @@ they define new operations).
 Let's examine briefly the modules loaded by our \c{bootstrap.build}: The
 \l{#module-version \c{version}} module helps with managing our project
 versioning. With this module we only maintain the version in a single place
-(project's \c{manifest} file) and it is automatically made available in
+(the project's \c{manifest} file) and it is automatically made available in
 various convenient forms throughout our project (\c{buildfiles}, header files,
 etc). The \c{version} module also automates versioning of snapshots between
 releases.
@@ -627,8 +627,8 @@ incrementally and many versions, while perfectly usable, are not
 feature-complete. As a result, a better practical strategy is to specify the
 set of minimum supported compiler versions rather than the C++ standard.
 
-There is also the issue of using libraries that require newer standard in
-older code. For example, headers from a library that relies on C++14 features
+There is also the issue of using libraries that require a newer standard in
+old code. For example, headers from a library that relies on C++14 features
 will not compile when included in a project that is built as C++11.  And, even
 if the headers compile (that is, C++14 features are only used in the
 implementation), strictly speaking, there is no guarantee that codebases
@@ -681,7 +681,7 @@ directory\" semantics.
 Note also that \c{dir{\}} is purely an alias and doesn't have anything to do
 with the filesystem. In particular, it does not create any directories. If you
 do want explicit directory creation (which should be rarely needed), use the
-\c{fsdir{}} target type instead.|
+\c{fsdir{\}} target type instead.|
 
 The \c{./} target is a special \i{default target}. If we run the build system
 without specifying the target explicitly, then this target is built by
@@ -792,7 +792,7 @@ amount of the module name suffix in their names to unambiguously resolve all
 the modules within a project. See \l{#cxx-modules-build Building Modules} for
 details.|
 
-The source subdirectory \c{buildfile} is identical to the simple project's
+The source subdirectory \c{buildfile} is identical to that of the simple project
 minus the parts moved to \c{root.build}:
 
 \
@@ -826,8 +826,8 @@ $ hello/hello
 Hello, World!
 \
 
-If we don't specify a target to build (as we did above), then \c{build2} will
-build the current directory or, more precisely, the default target in the
+If we don't specify a target to build (as in the example above), then \c{build2}
+will build the current directory or, more precisely, the default target in the
 \c{buildfile} in the current directory. We can also build a directory other
 than the current, for example:
 
@@ -884,9 +884,9 @@ libhello/
 
 The overall layout (\c{build/}, \c{libhello/} source directory) as well as the
 contents of the root files (\c{bootstrap.build}, \c{root.build}, root
-\c{buildfile}) are exactly the same. There is, however, a new file,
-\c{export.build}, in \c{build/}, a new subdirectory, \c{tests/}, and the
-contents of the project's source subdirectory, \c{libhello/}, look quite a bit
+\c{buildfile}) are exactly the same. There is, however, the new file
+\c{export.build} in \c{build/}, the new subdirectory \c{tests/}, and the
+contents of the project's source subdirectory \c{libhello/} look quite a bit
 different. We will examine all of these differences in the coming sections, as
 we learn more about the build system.
 
@@ -1077,10 +1077,10 @@ Note also that only targets and not prerequisites have this notion of src/out
 directories. In a sense, prerequisites are relative to the target they are
 prerequisites of and are resolved to targets in a manner that is specific to
 their target types. For \c{file{\}}-based prerequisites the corresponding
-target in out is first looked up and if found used. Otherwise, an existing file
-in src is searched for and if found the corresponding target (now in src) is
-used. In particular, this semantics gives preference to generated code over
-static.
+target in out is first looked up and, if found, used. Otherwise, an existing
+file in src is searched for and, if found, the corresponding target (now in
+src) is used. In particular, this semantics gives preference to generated code
+over static.
 
 \N|More precisely, a prerequisite is relative to the scope (discussed below)
 in which the dependency is declared and not to the target that it is a
@@ -1091,8 +1091,8 @@ points we have established so far: Every build has two parallel directory
 trees, src and out, with the in source build being just a special case where
 they are the same. Targets in a project can be either in the src or out
 directory though most of the time targets we mention in our \c{buildfiles}
-will be in out, which is the default. Prerequsites are relative to targets
-they are prerequisites of and \c{file{}}-based prerequisites are first
+will be in out, which is the default. Prerequisites are relative to targets
+they are prerequisites of and \c{file{\}}-based prerequisites are first
 searched for as declared targets in out and then as existing files in src.
 
 Note also that we can have as many out of source builds as we want and we can
@@ -1183,7 +1183,7 @@ The above scope structure is very similar to what you will see (besides a lot
 of other things) if you build with \c{--dump\ match}. With this option the
 build system driver dumps the build state after matching rules to targets (see
 \l{#intro-diag-debug Diagnostics and Debugging} for more information). Here is
-an abbreviated output of bulding our \c{hello} with \c{--dump} (assuming an in
+an abbreviated output of building our \c{hello} with \c{--dump} (assuming an in
 source build in \c{/tmp/hello}):
 
 \
@@ -1521,8 +1521,8 @@ subdirectory structure.|
 
 Seeing this merged \c{buildfile} may make you wonder what exactly caused the
 loading of the source directory \c{buildfile} in our normal setup. In other
-words, when we build our \c{hello} from the project root, who and why loads
-\c{hello/buildfile}?
+words, when we build our \c{hello} from the project root, who loads
+\c{hello/buildfile} and why?
 
 Actually, in the earlier days of \c{build2}, we had to explicitly load
 \c{buildfiles} that define targets we depend on with the \c{include}
@@ -2373,8 +2373,8 @@ $ tree /tmp/dist/hello-0.1.0/
 └── manifest
 \
 
-As we can see, the distribution directory includes the project version (comes
-from the \c{version} variable which, in our case, is extracted from
+As we can see, the distribution directory includes the project version (from
+the \c{version} variable which, in our case, is extracted from
 \c{manifest} by the \c{version} module). Inside the distribution directory we
 have our project's source files (but, for example, without any \c{.gitignore}
 files that we may have had in \c{hello/}).
@@ -2592,7 +2592,7 @@ export $out_root/libhello/$import.target
 
 An export stub is a special kind of \c{buildfile} that bridges from the
 importing project into exporting. It is loaded in a special temporary scope
-out of any project, in a \"no man's land\" so to speak. The only variables set
+outside of any project, in a \"no man's land\" so to speak. The only variables set
 on the temporary scope are \c{src_root} and \c{out_root} of the project being
 imported as well as \c{import.target} containing the name of the target being
 imported (without project qualification; that is, \c{lib{hello\}} in our
@@ -2948,14 +2948,14 @@ Note also that we don't need to change anything in the above \c{buildfile} if
 our library is header-only. In \c{build2} this is handled dynamically and
 automatically based on the absence of source file prerequisites. In fact, the
 same library can be header-only on some platforms or in some configuration and
-\"source-full\" in others.
+\"source-ful\" in others.
 
 \N|In \c{build2} a header-only library (or a module interface-only library) is
 not a different kind of library compared to static/shared libraries but is
 rather a binary-less, or \i{binless} for short, static or shared library. So,
 theoretically, it is possible to have a library that has a binless static and
-a binary-full (\i{binfull}) shared variants. Note also that binless libraries
-can depend on binfull libraries and are fully supported where the
+a binary-ful (\i{binful}) shared variants. Note also that binless libraries
+can depend on binful libraries and are fully supported where the
 \c{pkg-config(1)} functionality is concerned.
 
 If you are creating a new library with \l{bdep-new(1)} and are certain that it
@@ -3040,7 +3040,7 @@ project somewhere else, amalgamation is physical containment. It can be
 project or \i{weak} where only the out directory is contained.
 
 There are several distinct use cases for amalgamations. We've already
-discussed the \c{tests/} subproject in \c{libhello}. To recap, traditionally,
+discussed the \c{tests/} subproject in \c{libhello}. To recap: traditionally,
 it is made a subproject rather than a subdirectory to support building it as a
 standalone project in order to test library installations.
 
@@ -3142,7 +3142,7 @@ hello/
 └── ...
 \
 
-As you can see, we now have the \c{config.build} files in both project's
+As you can see, we now have the \c{config.build} files in both projects'
 \c{build/} subdirectories. If we examine the amalgamation's \c{config.build},
 we will see the familiar picture:
 
@@ -3222,9 +3222,10 @@ future changes to the configurations. If, for example, we need to adjust
 compile options in the GCC configuration, then we will have to (remember to)
 do it in both places.
 
-You can probably sense where this is going: why not create a shared build
-configuration (that is, an amalgamation) for GCC and Clang where we build both
-of our projects (as its subprojects)? This is how we can do that:
+You can probably sense where this is going: why not create two shared build
+configurations (that is, amalgamations), one for GCC and one for Clang, within
+each of which we build both of our projects (as their subprojects)? This is
+how we can do that:
 
 \
 $ b create: build-gcc/,cc   config.cxx=g++
@@ -3339,11 +3340,11 @@ and variable assignment. We've already used all three but let's see another
 example:
 
 \
-include ../libhello/                             # Directive.
+include ../libhello/                              # Directive.
 
-exe{hello}: {hxx cxx}{**} ../libhello/lib{hello} # Dependency declaration.
+exe{hello}: {hxx cxx}{**} ../libhello/lib{hello}  # Dependency.
 
-cxx.poptions += -DNDEBUG                         # Variable assignment.
+cxx.poptions += -DNDEBUG                          # Variable.
 \
 
 There is also the scope opening (we've seen one in \c{export.build}) as well
@@ -3352,18 +3353,18 @@ latter two are used to assign several entity-specific variables at once. For
 example:
 
 \
-details/                          # scope
+details/                          # Scope.
 {
   hxx{*}: install = false
 }
 
-hxx{version}:                     # target-specific
+hxx{version}:                     # Target-specific.
 {
   dist  = true
   clean = ($src_root != $out_root)
 }
 
-exe{test}: file{test.roundtrip}:  # prerequisite-specific
+exe{test}: file{test.roundtrip}:  # Prerequisite-specific.
 {
   test.stdin  = true
   test.stdout = true
@@ -3402,7 +3403,7 @@ the last set of targets. For example:
 
 \N|All prerequisite-specific variables must be assigned at once as part of the
 dependency declaration since repeating the same dependency again duplicates
-the prerequisite rather than references the already existing one.
+the prerequisite rather than references the already existing one.|
 
 There is also the target type/pattern-specific variable assignment block,
 for example:
@@ -3415,11 +3416,11 @@ exe{*.test}:
 }
 \
 
-See \l{#variables Variables} for more information.|
+See \l{#variables Variables} for a more detailed discussion of variables.
 
 Each \c{buildfile} is processed linearly with directives executed and
 variables expanded as they are encountered. However, certain variables, for
-example, \c{cxx.poptions} are also expanded by rules during execution in which
+example \c{cxx.poptions}, are also expanded by rules during execution in which
 case they will \"see\" the final value set in the \c{buildfile}.
 
 \N|Unlike GNU \c{make(1)}, which has deferred (\c{=}) and immediate (\c{:=})
@@ -3578,7 +3579,7 @@ info ($regex.split('foo bar', ' ', '')[1])  # bar
 
 Names are split into a list at whitespace boundaries with certain other
 characters treated as syntax rather than as part of the value. Here are
-a few example:
+a few examples:
 
 \
 x = $y          # expansion
@@ -3589,8 +3590,8 @@ x = name@value  # pairs
 x = # start of a comment
 \
 
-The complete set of syntax characters is \c{$(){\}@#\"'} plus space and tab as
-well as \c{[]} but only in certain contexts (see \l{#attributes Attributes}
+The complete set of syntax characters is \c{$(){\}@#\"'} plus space and tab, as
+well as \c{[]}, but only in certain contexts (see \l{#attributes Attributes}
 for details). If instead we need these characters to appear literally as part
 of the value, then we either have to \i{escape} or \i{quote} them.
 
@@ -3611,7 +3612,7 @@ y = ($foo\[123].txt)
 |
 
 To escape a special character, we prefix it with a backslash (\c{\\}; to
-specify a literal backslash double it). For example:
+specify a literal backslash, double it). For example:
 
 \
 x = \$
@@ -4074,7 +4075,7 @@ hello/
 └── ...
 \
 
-Let's examine how this support is implemented in our \c{buildifle}, line by
+Let's examine how this support is implemented in our \c{buildfile}, line by
 line. Because now we link \c{hello.cxx} object code into multiple executables
 (unit tests and the \c{hello} program itself), we have to place it into a
 \i{utility library}. This is what the first line does (it has to explicitly
@@ -4210,7 +4211,7 @@ mechanisms that can help us understand the cause of a misbehaving build.
 To perform a build the build system goes through several phases. During the
 \i{load} phase the \c{buildfiles} are loaded and processed. The result of this
 phase is the in-memory \i{build state} that contains the scopes, targets,
-variables, etc., defined by the \c{buildfiles}. Next, is the \i{match} phase
+variables, etc., defined by the \c{buildfiles}. Next is the \i{match} phase
 during which rules are matched to the targets that need to be built,
 recursively. Finally, during the \i{execute} phase the matched rules are
 executed to perform the build.
@@ -4302,7 +4303,7 @@ and, similar to \c{if}, there is also the \c{assert!} variant, which fails if
 the condition is \c{true}.
 
 All the diagnostics directives write to \c{stderr}. If instead we need to
-write something to \c{stdout}, for example, to send some information back to
+write something to \c{stdout} to, for example, send some information back to
 our caller, then we can use the \c{print} directive. For example, this will
 print the C++ compiler id and its target:
 
@@ -4323,13 +4324,13 @@ since a prerequisite has no identity. Instead, we can use the \c{dump}
 directive discussed next to print the entire dependency declaration, including
 prerequisite-specific variables for each prerequisite.|
 
-While printing variables values is the most common mechanism for diagnosing
+While printing variable values is the most common mechanism for diagnosing
 \c{buildfile} issues, sometimes it is also helpful to examine targets and
 scopes. For that we use the \c{dump} directive.
 
 Without any arguments, \c{dump} prints (to \c{stderr}) the contents of the
 scope it was encountered in and at that point of processing the \c{buildfile}.
-Its output includes variables, targets and their prerequsites, as well as
+Its output includes variables, targets and their prerequisites, as well as
 nested scopes, recursively. As an example, let's print the source directory
 scope of our \c{hello} executable project. Here is its \c{buildfile} with
 the \c{dump} directive at the end:
@@ -4402,7 +4403,7 @@ the state after the load phase (\c{--dump load}) and/or after the match phase
 (\c{--dump match}). In particular, the after match printout reflects the
 changes to the build state made by the matching rules, which may include
 entering of additional dependencies, setting of additional variables,
-resolution of prerequsites to targets, assignment of file extensions, etc. As
+resolution of prerequisites to targets, assignment of file extensions, etc. As
 a result, while the \c{dump} directive should be sufficient in most cases,
 sometimes you may need to use the \c{--dump} option to examine the build state
 just before rule execution.
@@ -4603,7 +4604,7 @@ cxx.poptions += \"-DLIBHELLO_GREETING=\\\"$config.libhello.greeting\\\"\"
 \
 
 \
-// lihello/hello.cxx
+// libhello/hello.cxx
 
 void say_hello (ostream& o, const string& n)
 {
@@ -5024,7 +5025,7 @@ cxx.poptions += \"-DLIBHELLO_GREETING=\\\"$config.libhello.greeting\\\"\"
 \
 
 \
-// lihello/hello.cxx
+// libhello/hello.cxx
 
 void say_hello (ostream& o, const string& n)
 {
@@ -5110,7 +5111,7 @@ hxx{config}: in{config}
 \
 
 \
-// lihello/hello.cxx
+// libhello/hello.cxx
 
 #include <libhello/config.hxx>
 
@@ -5155,7 +5156,7 @@ namespace hello
 \
 
 \
-// lihello/hello.cxx
+// libhello/hello.cxx
 
 #include <libhello/config.hxx>
 
@@ -5189,7 +5190,7 @@ namespace hello
 \
 
 \
-// lihello/hello.cxx
+// libhello/hello.cxx
 
 #include <libhello/config.hxx>
 
@@ -5631,7 +5632,7 @@ man<N>      man/man<N>/                             install.man<N>
 
 The \c{<project>} and \c{<private>} substitutions in these
 \c{config.install.*} values are replaced with the project name and private
-subdirectory, respectively. If either is empty, that the corresponding
+subdirectory, respectively. If either is empty, then the corresponding
 directory component is ignored.
 
 The optional private installation subdirectory (\c{<private>}) mechanism can
@@ -5817,7 +5818,7 @@ As shown in the above example, there is nothing wrong with \"jumping\" to a
 further version (for example, from alpha to beta, or from beta to release, or
 even from alpha to release). We cannot, however, jump backwards (for example,
 from beta back to alpha). As a result, a sensible strategy is to start with
-\c{a.0} since it can always be upgraded (but not downgrade) at a later stage.
+\c{a.0} since it can always be upgraded (but not downgraded) at a later stage.
 
 When it comes to the version control systems, the recommended workflow is as
 follows: The change to the final version should be the last commit in the
@@ -5943,12 +5944,12 @@ snapshot information). The result is a package that is specific to this
 commit.
 
 Besides extracting the version information and making it available as
-individual components, the \c{version} module also provide rules for
+individual components, the \c{version} module also provides rules for
 installing the manifest file as well as automatically generating version
 headers (or other similar version-based files).
 
 By default the project's \c{manifest} file is installed as documentation, just
-like other \c{doc{}} targets (thus replacing the \c{version} file customarily
+like other \c{doc{\}} targets (thus replacing the \c{version} file customarily
 shipped in the project root directory). The manifest installation rule in the
 \c{version} module in addition patches the installed manifest file with the
 actual snapshot number and id, just like during the preparation of
@@ -6007,7 +6008,7 @@ as listed in the manifest. If it is the project itself, then the rest can
 refer to one of the \c{version.*} variables that we discussed earlier (in
 reality it can be any variable visible from the project's root scope).
 
-If the name refers to one of the dependecies (that is, projects listed with
+If the name refers to one of the dependencies (that is, projects listed with
 \c{depends:} in the manifest), then the following special substitutions are
 recognized:
 
@@ -6092,7 +6093,7 @@ build/bootstrap.build:3:1: error: incompatible build2 version
   info: required 0.5.0
 \
 
-What version constraints should be use when depending on other project. We
+What version constraints should be used when depending on another project? We
 start with a simple case where we depend on a release. Let's say \c{libprint}
 \c{2.3.0} added a feature that we need in our \c{libhello}. If \c{libprint}
 follows the source/binary compatibility guidelines discussed above, then
@@ -6115,8 +6116,8 @@ version: 2.0.0-b.1
 depends: libprint == 3.0.0-b.2
 \
 
-Finally, let's assume we are feeling adventerous and would like to test
-development snapshots of \c{libprint} (most likey from our own snapshots). In
+Finally, let's assume we are feeling adventurous and would like to test
+development snapshots of \c{libprint} (most likely from our own snapshots). In
 this case the recommendation is to only allow a snapshot range for a specific
 pre-release with the understanding and a warning that no compatibility between
 snapshot versions is guaranteed. For example:
@@ -6670,7 +6671,7 @@ namespace hello
 }
 \
 
-Up until now we've only been talking about names belonding to a module. What
+Up until now we've only been talking about names belonging to a module. What
 about the corresponding symbols? For exported names, the resulting symbols
 would be the same as if those names were declared outside of a module's
 purview (or as if no modules were used at all). Non-exported names, on the
@@ -8133,7 +8134,7 @@ not treated as an escape sequence.
 
 The lax mode is mostly useful when trying to reuse existing \c{.in} files from
 other build systems, such as \c{autoconf}. Note, however, that the lax mode is
-still stricter than the \c{autoconf}'s semantics which also leaves unresolved
+still stricter than \c{autoconf}'s semantics which also leaves unresolved
 substitutions as is. For example:
 
 \
