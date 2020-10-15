@@ -195,11 +195,12 @@ namespace build2
                 action a,
                 const target& t,
                 const string& n,
-                bool strict) const
+                bool strict,
+                const optional<string>& null) const
     {
       return n.compare (0, 6, "import") == 0 && (n[6] == ' ' || n[6] == '\t')
         ? substitute_import (l, a, t, trim (string (n, 7)))
-        : rule::substitute (l, a, t, n, strict);
+        : rule::substitute (l, a, t, n, strict, null);
     }
 
     string in_rule::

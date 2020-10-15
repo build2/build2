@@ -116,6 +116,14 @@ namespace build2
           fail << "invalid substitution mode '" << *s << "'";
       }
 
+      // NULL substitutions.
+      //
+      optional<string> null;
+      if (const string* s = cast_null<string> (t["in.null"]))
+        null = *s;
+      else
+        null = null_;
+
       // Determine if anything needs to be updated.
       //
       timestamp mt (t.load_mtime ());
@@ -220,7 +228,7 @@ namespace build2
               // can be overriden with custom substitution semantics.
               //
               optional<string> v (
-                substitute (location (ip, ln), a, t, n, strict));
+                substitute (location (ip, ln), a, t, n, strict, null));
 
               assert (v); // Rule semantics change without version increment?
 
@@ -360,7 +368,8 @@ namespace build2
             // pointing to the opening symbol and e -- to the closing.
             //
             string name (s, b + 1, e - b -1);
-            if (optional<string> val = substitute (l, a, t, name, strict))
+            if (optional<string> val =
+                  substitute (l, a, t, name, strict, null))
             {
               // Save in depdb.
               //
@@ -429,11 +438,26 @@ namespace build2
     }
 
     string rule::
-    lookup (const location& l, action, const target& t, const string& n) const
+    lookup (const location& loc,
+            action,
+            const target& t,
+            const string& n,
+            const optional<string>& null) const
     {
-      if (auto x = t[n])
+      auto l (t[n]);
+
+      if (l.defined ())
       {
-        value v (*x);
+        value v (*l);
+
+        if (v.null)
+        {
+          if (null)
+            return *null;
+          else
+            fail (loc) << "null value in variable '" << n << "'" <<
+              info << "use in.null to specify null value substiution string";
+        }
 
         // For typed values call string() for conversion.
         //
@@ -445,16 +469,16 @@ namespace build2
             : t.ctx.functions.call (&t.base_scope (),
                                     "string",
                                     vector_view<value> (&v, 1),
-                                    l));
+                                    loc));
         }
         catch (const invalid_argument& e)
         {
-          fail (l) << e <<
+          fail (loc) << e <<
             info << "while substituting '" << n << "'" << endf;
         }
       }
       else
-        fail (l) << "undefined variable '" << n << "'" << endf;
+        fail (loc) << "undefined variable '" << n << "'" << endf;
     }
 
     optional<string> rule::
@@ -462,7 +486,8 @@ namespace build2
                 action a,
                 const target& t,
                 const string& n,
-                bool strict) const
+                bool strict,
+                const optional<string>& null) const
     {
       // In the lax mode scan the fragment to make sure it is a variable name
       // (that is, it can be expanded in a buildfile as just $<name>; see
@@ -486,7 +511,7 @@ namespace build2
         }
       }
 
-      return lookup (l, a, t, n);
+      return lookup (l, a, t, n, null);
     }
   }
 }

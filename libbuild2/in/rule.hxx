@@ -33,11 +33,13 @@ namespace build2
       rule (string rule_id,
             string program,
             char symbol = '$',
-            bool strict = true)
+            bool strict = true,
+            optional<string> null = nullopt)
           : rule_id_ (move (rule_id)),
             program_ (move (program)),
             symbol_ (symbol),
-            strict_ (strict) {}
+            strict_ (strict),
+            null_ (move (null)) {}
 
       virtual bool
       match (action, target&, const string&) const override;
@@ -65,7 +67,8 @@ namespace build2
       lookup (const location&,
               action,
               const target&,
-              const string& name) const;
+              const string& name,
+              const optional<string>& null) const;
 
       // Perform variable substitution. Return nullopt if it should be
       // ignored.
@@ -75,13 +78,15 @@ namespace build2
                   action,
                   const target&,
                   const string& name,
-                  bool strict) const;
+                  bool strict,
+                  const optional<string>& null) const;
 
     protected:
       const string rule_id_;
       const string program_;
       char symbol_;
       bool strict_;
+      optional<string> null_;
     };
   }
 }

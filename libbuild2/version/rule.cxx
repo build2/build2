@@ -88,7 +88,8 @@ namespace build2
     lookup (const location& l,
             action a,
             const target& t,
-            const string& n) const
+            const string& n,
+            const optional<string>& null) const
     {
       // Note that this code will be executed during up-to-date check for each
       // substitution so let's try not to do anything overly sub-optimal here.
@@ -108,7 +109,8 @@ namespace build2
         return rule::lookup (l, // Standard lookup.
                              a,
                              t,
-                             p == string::npos ? n : string (n, p + 1));
+                             p == string::npos ? n : string (n, p + 1),
+                             null);
       }
 
       string pn (n, 0, p);

@@ -29,7 +29,8 @@ namespace build2
       lookup (const location&,
               action,
               const target&,
-              const string&) const override;
+              const string&,
+              const optional<string>&) const override;
     };
 
     // Pre-process manifest before installation to patch in the version.

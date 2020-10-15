@@ -51,7 +51,8 @@ namespace build2
                   action a,
                   const target&,
                   const string&,
-                  bool) const override;
+                  bool,
+                  const optional<string>&) const override;
 
       string
       substitute_import (const location&,

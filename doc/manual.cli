@@ -8156,6 +8156,19 @@ target-specific variables. Typed variable values are converted to string
 using the corresponding \c{builtin.string()} function overload before
 substitution.
 
+Using an undefined variable in a substitution is an error. Using a \c{null}
+value in a substitution is also an error unless the fallback value is
+specified with the \c{in.null} variable. For example:
+
+\
+# buildfile
+
+h{config}: in{config}
+{
+  in.null = '' # Substitute null values with empty string.
+}
+\
+
 A number of other build system modules, for example, \l{#module-version
 \c{version}} and \l{#module-bash \c{bash}}, are based on the \c{in} module and
 provide extended functionality. The \c{in} preprocessing rule matches any

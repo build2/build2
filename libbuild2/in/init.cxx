@@ -59,6 +59,11 @@ namespace build2
         // unknown substitutions as is.
         //
         vp.insert<string> ("in.substitution");
+
+        // Fallback value to use for NULL value substitutions. If unspecified,
+        // NULL substitutions are an error.
+        //
+        vp.insert<string> ("in.null");
       }
 
       // Register target types.
