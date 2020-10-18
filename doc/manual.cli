@@ -627,8 +627,8 @@ incrementally and many versions, while perfectly usable, are not
 feature-complete. As a result, a better practical strategy is to specify the
 set of minimum supported compiler versions rather than the C++ standard.
 
-There is also the issue of using libraries that require a newer standard than
-client code. For example, headers from a library that relies on C++14 features
+There is also the issue of using libraries that require a newer standard in
+old code. For example, headers from a library that relies on C++14 features
 will not compile when included in a project that is built as C++11.  And, even
 if the headers compile (that is, C++14 features are only used in the
 implementation), strictly speaking, there is no guarantee that codebases
@@ -884,9 +884,9 @@ libhello/
 
 The overall layout (\c{build/}, \c{libhello/} source directory) as well as the
 contents of the root files (\c{bootstrap.build}, \c{root.build}, root
-\c{buildfile}) are exactly the same. There is, however, a new file,
-\c{export.build}, in \c{build/}; a new subdirectory, \c{tests/}; and the
-contents of the project's source subdirectory, \c{libhello/}, look quite a bit
+\c{buildfile}) are exactly the same. There is, however, the new file
+\c{export.build} in \c{build/}, the new subdirectory \c{tests/}, and the
+contents of the project's source subdirectory \c{libhello/} look quite a bit
 different. We will examine all of these differences in the coming sections, as
 we learn more about the build system.
 
@@ -1063,7 +1063,7 @@ The elaborate target specification can also be used in \c{buildfiles}. We
 haven't encountered any so far because targets mentioned without explicit
 src/out default to out and, naturally, most of the targets we mention in
 \c{buildfiles} are things we want built. One situation where you may encounter
-a src target mentioned explicitly is when specifying its installability
+an src target mentioned explicitly is when specifying its installability
 (discussed in the next section). For example, if our project includes the
 customary \c{INSTALL} file, it probably doesn't make sense to install it.
 However, since it is a source file, we have to use the elaborate target
@@ -1522,7 +1522,7 @@ subdirectory structure.|
 Seeing this merged \c{buildfile} may make you wonder what exactly caused the
 loading of the source directory \c{buildfile} in our normal setup. In other
 words, when we build our \c{hello} from the project root, who loads
-\c{hello/buildfile}, and why?
+\c{hello/buildfile} and why?
 
 Actually, in the earlier days of \c{build2}, we had to explicitly load
 \c{buildfiles} that define targets we depend on with the \c{include}
@@ -3340,11 +3340,11 @@ and variable assignment. We've already used all three but let's see another
 example:
 
 \
-include ../libhello/                             # Directive.
+include ../libhello/                              # Directive.
 
-exe{hello}: {hxx cxx}{**} ../libhello/lib{hello} # Dependency declaration.
+exe{hello}: {hxx cxx}{**} ../libhello/lib{hello}  # Dependency.
 
-cxx.poptions += -DNDEBUG                         # Variable assignment.
+cxx.poptions += -DNDEBUG                          # Variable.
 \
 
 There is also the scope opening (we've seen one in \c{export.build}) as well
@@ -3353,18 +3353,18 @@ latter two are used to assign several entity-specific variables at once. For
 example:
 
 \
-details/                          # scope
+details/                          # Scope.
 {
   hxx{*}: install = false
 }
 
-hxx{version}:                     # target-specific
+hxx{version}:                     # Target-specific.
 {
   dist  = true
   clean = ($src_root != $out_root)
 }
 
-exe{test}: file{test.roundtrip}:  # prerequisite-specific
+exe{test}: file{test.roundtrip}:  # Prerequisite-specific.
 {
   test.stdin  = true
   test.stdout = true
@@ -3416,7 +3416,7 @@ exe{*.test}:
 }
 \
 
-See \l{#variables Variables} for more information.
+See \l{#variables Variables} for a more detailed discussion of variables.
 
 Each \c{buildfile} is processed linearly with directives executed and
 variables expanded as they are encountered. However, certain variables, for

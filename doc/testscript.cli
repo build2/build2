@@ -1055,18 +1055,18 @@ because of a failed previous run) or it may be desirable not to clean it up
 after the execution (for example, to examine test setup, output, etc). Before
 the execution the default behavior is to warn and then automatically remove
 the working directory if it exists. After the execution the default behavior
-is to perform all the cleanups and teardowns and then remove the failing working
+is to perform all the cleanups and teardowns and then remove the working
 directory if it is not empty. This default behavior can, however, be
 overridden with the \c{config.test.output} variable.
 
 The \c{config.test.output} variable contains a pair of values with the first
 signifying the \i{before} behavior and the second \- \i{after}. The valid
-\i{before} values are \c{fail} (fail if the directory exists), \c{warn}
-(warn if the directory exists then remove), \c{clean} (silently remove
-the existing directory). The valid \i{after} values are \c{clean} (remove
-the failing directory if it is not empty) and \c{keep} (do not run cleanups
-and teardowns and do not remove the working directory). The default behavior
-is thus equivalent to specifying the \c{warn@clean} pair.
+\i{before} values are \c{fail} (fail if the directory exists), \c{warn} (warn
+if the directory exists then remove), \c{clean} (silently remove the existing
+directory). The valid \i{after} values are \c{clean} (remove the directory if
+it is not empty) and \c{keep} (do not run cleanups and teardowns and do not
+remove the working directory). The default behavior is thus equivalent to
+specifying the \c{warn@clean} pair.
 
 If only a single value is specified in \c{config.test.output} then it is
 assumed to be the \i{after} value and the \i{before} value is assumed to
