@@ -22,10 +22,11 @@ namespace build2
   {
   public:
     virtual bool
-    match (action, target&, const string&, optional<action>) const override;
+    match (action, target&, const string&, match_extra&,
+           optional<action>) const override;
 
     virtual recipe
-    apply (action, target&) const override;
+    apply (action, target&, match_extra&) const override;
 
     target_state
     perform_update_file (action, const target&) const;

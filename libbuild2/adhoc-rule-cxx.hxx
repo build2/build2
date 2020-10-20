@@ -51,10 +51,10 @@ namespace build2
   {
   public:
     virtual bool
-    match (action, target&, const string&) const override;
+    match (action, target&, const string&, match_extra&) const override;
 
     virtual recipe
-    apply (action, target&) const override;
+    apply (action, target&, match_extra&) const override;
 
     adhoc_cxx_rule (const location&, size_t,
                     uint64_t ver,

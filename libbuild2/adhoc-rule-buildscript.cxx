@@ -99,7 +99,8 @@ namespace build2
   }
 
   bool adhoc_buildscript_rule::
-  match (action a, target& t, const string&, optional<action> fb) const
+  match (action a, target& t, const string&, match_extra&,
+         optional<action> fb) const
   {
     if (!fb)
       ;
@@ -122,7 +123,7 @@ namespace build2
   }
 
   recipe adhoc_buildscript_rule::
-  apply (action a, target& t) const
+  apply (action a, target& t, match_extra&) const
   {
     // If this is an outer operation (e.g., update-for-test), then delegate to
     // the inner.

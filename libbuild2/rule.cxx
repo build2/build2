@@ -332,13 +332,14 @@ namespace build2
   const dir_path adhoc_rule::recipes_build_dir ("recipes");
 
   bool adhoc_rule::
-  match (action a, target& t, const string& h, optional<action> fallback) const
+  match (action a, target& t, const string& h, match_extra& me,
+         optional<action> fallback) const
   {
-    return !fallback && match (a, t, h);
+    return !fallback && match (a, t, h, me);
   }
 
   bool adhoc_rule::
-  match (action, target&, const string&) const
+  match (action, target&, const string&, match_extra&) const
   {
     return true;
   }

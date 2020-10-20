@@ -40,6 +40,8 @@ namespace build2
       execution_mode::first,
       0 /* concurrency */,      // Run serially.
       &install_pre,
+      nullptr,
+      nullptr,
       nullptr
     };
 
@@ -63,6 +65,8 @@ namespace build2
       execution_mode::last,
       0 /* concurrency */,      // Run serially
       &install_pre,
+      nullptr,
+      nullptr,
       nullptr
     };
 
@@ -79,7 +83,9 @@ namespace build2
       op_update.mode,
       op_update.concurrency,
       op_update.pre,
-      op_update.post
+      op_update.post,
+      op_update.adhoc_match,
+      op_update.adhoc_apply
     };
   }
 }

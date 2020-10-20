@@ -606,6 +606,8 @@ namespace build2
     execution_mode::first,
     1 /* concurrency */,
     nullptr,
+    nullptr,
+    nullptr,
     nullptr
   };
 
@@ -630,6 +632,8 @@ namespace build2
     execution_mode::first,
     1 /* concurrency */,
     nullptr,
+    nullptr,
+    nullptr,
     nullptr
   };
 
@@ -643,6 +647,8 @@ namespace build2
     "is clean",
     execution_mode::last,
     1 /* concurrency */,
+    nullptr,
+    nullptr,
     nullptr,
     nullptr
   };

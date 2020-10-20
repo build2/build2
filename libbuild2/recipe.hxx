@@ -54,8 +54,6 @@ namespace build2
   // A recipe is a fragment of a rule so we handle ad hoc recipies by
   // "completing" them to rules.
   //
-  class adhoc_rule;
-
   struct adhoc_recipe
   {
     small_vector<action, 1> actions;

@@ -65,7 +65,9 @@ namespace build2
 
   // <libbuild2/rule.hxx>
   //
+  struct match_extra;
   class rule;
+  class adhoc_rule;
 
   // <libbuild2/context.hxx>
   //

@@ -34,6 +34,8 @@ namespace build2
       execution_mode::first,
       1 /* concurrency */,
       &test_pre,
+      nullptr,
+      nullptr,
       nullptr
     };
 
@@ -50,7 +52,9 @@ namespace build2
       op_update.mode,
       op_update.concurrency,
       op_update.pre,
-      op_update.post
+      op_update.post,
+      op_update.adhoc_match,
+      op_update.adhoc_apply
     };
   }
 }

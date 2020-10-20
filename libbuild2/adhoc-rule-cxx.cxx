@@ -63,7 +63,7 @@ namespace build2
 
 #if defined(BUILD2_BOOTSTRAP) || defined(LIBBUILD2_STATIC_BUILD)
   bool adhoc_cxx_rule::
-  match (action, target&, const string&) const
+  match (action, target&, const string&, match_extra&) const
   {
     // Note that we wait until match() (instead of, say, failing in the
     // parser) to allow the presence of ad hoc C++ recipes for other
@@ -92,7 +92,7 @@ namespace build2
   load_module_library (const path& lib, const string& sym, string& err);
 
   bool adhoc_cxx_rule::
-  match (action a, target& t, const string& hint) const
+  match (action a, target& t, const string& hint, match_extra& me) const
   {
     tracer trace ("adhoc_cxx_rule::match");
 
@@ -653,13 +653,13 @@ namespace build2
       }
     }
 
-    return impl->match (a, t, hint);
+    return impl->match (a, t, hint, me);
   }
 #endif // BUILD2_BOOTSTRAP || LIBBUILD2_STATIC_BUILD
 
   recipe adhoc_cxx_rule::
-  apply (action a, target& t) const
+  apply (action a, target& t, match_extra& me) const
   {
-    return impl.load (memory_order_relaxed)->apply (a, t);
+    return impl.load (memory_order_relaxed)->apply (a, t, me);
   }
 }

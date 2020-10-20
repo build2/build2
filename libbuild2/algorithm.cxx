@@ -326,6 +326,18 @@ namespace build2
             dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
         });
 
+      auto match = [a, &t] (const adhoc_rule& r, optional<action> ra)
+      {
+        match_extra me;
+
+        if (auto* f = (a.outer ()
+                       ? t.ctx.current_outer_oif
+                       : t.ctx.current_inner_oif)->adhoc_match)
+          return f (r, a, t, string () /* hint */, me,  ra);
+        else
+          return r.match (a, t, string () /* hint */, me, ra);
+      };
+
       // The action could be Y-for-X while the ad hoc recipes are always for
       // X. So strip the Y-for part for comparison (but not for the match()
       // calls; see below for the hairy inner/outer semantics details).
@@ -337,17 +349,17 @@ namespace build2
       auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
       auto i (find_if (
                 b, e,
-                [a, ca, &t] (const adhoc_recipe& r)
+                [&match, ca] (const adhoc_recipe& r)
                 {
                   auto& as (r.actions);
                   return (find (as.begin (), as.end (), ca) != as.end () &&
-                          r.rule->match (a, t, string () /* hint */, nullopt));
+                          match (*r.rule, nullopt));
                 }));
 
       if (i == e)
         i = find_if (
           b, e,
-          [a, ca, &t] (const adhoc_recipe& r)
+          [&match, ca] (const adhoc_recipe& r)
           {
             // See the adhoc_rule::match() documentation for details on what's
             // going on here.
@@ -356,7 +368,7 @@ namespace build2
             if (find (as.begin (), as.end (), ca) == as.end ())
             {
               for (auto ra: as)
-                if (r.rule->match (a, t, string () /* hint */, ra))
+                if (match (*r.rule, ra))
                   return true;
             }
             return false;
@@ -450,7 +462,7 @@ namespace build2
                        << diag_do (a, t);
                 });
 
-              rule::match_extra me;
+              match_extra me;
               if (!ru.match (a, t, hint, me))
                 continue;
             }
@@ -480,7 +492,7 @@ namespace build2
                 //
                 // @@ Can't we temporarily swap things out in target?
                 //
-                rule::match_extra me1;
+                match_extra me1;
                 if (!ru1.match (a, t, hint, me1))
                   continue;
               }
@@ -568,18 +580,28 @@ namespace build2
   recipe
   apply_impl (action a,
               target& t,
-              const pair<const string, reference_wrapper<const rule>>& r)
+              const pair<const string, reference_wrapper<const rule>>& m)
   {
     auto df = make_diag_frame (
-      [a, &t, &r](const diag_record& dr)
+      [a, &t, &m](const diag_record& dr)
       {
         if (verb != 0)
-          dr << info << "while applying rule " << r.first << " to "
+          dr << info << "while applying rule " << m.first << " to "
              << diag_do (a, t);
       });
 
-    rule::match_extra me;
-    return r.second.get ().apply (a, t, me);
+    const rule& r (m.second);
+    match_extra me;
+
+    if (auto* f = (a.outer ()
+                   ? t.ctx.current_outer_oif
+                   : t.ctx.current_inner_oif)->adhoc_apply)
+    {
+      if (auto* ar = dynamic_cast<const adhoc_rule*> (&r))
+        return f (*ar, a, t, me);
+    }
+
+    return r.apply (a, t, me);
   }
 
   // If step is true then perform only one step of the match/apply sequence.

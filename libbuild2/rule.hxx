@@ -24,17 +24,17 @@ namespace build2
   //
   // Note: match() is only called once but may not be followed by apply().
   //
+  // The match_extra argument is used to pass additional information that is
+  // only needed by some rule implementations. It is also a way for us to
+  // later pass more information without breaking source compatibility.
+  //
+  struct match_extra
+  {
+  };
+
   class LIBBUILD2_SYMEXPORT rule
   {
   public:
-    // The match_extra argument is used to pass additional information that is
-    // only needed by some rule implementations. It is also a way for us to
-    // later pass more information without breaking source compatibility.
-    //
-    struct match_extra
-    {
-    };
-
     virtual bool
     match (action, target&, const string& hint, match_extra&) const = 0;
 
@@ -144,7 +144,7 @@ namespace build2
   //
   // Note: not exported.
   //
-  class adhoc_rule: public simple_rule
+  class adhoc_rule: public rule
   {
   public:
     location_value loc;     // Buildfile location of the recipe.
@@ -174,12 +174,11 @@ namespace build2
     // interface.
     //
     virtual bool
-    match (action, target&, const string&, optional<action> fallback) const;
+    match (action, target&, const string&, match_extra&,
+           optional<action> fallback) const;
 
     virtual bool
-    match (action, target&, const string&) const override;
-
-    using simple_rule::match; // To make Clang happy.
+    match (action, target&, const string&, match_extra&) const override;
 
     // Dump support.
     //

@@ -11,6 +11,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/action.hxx>
+#include <libbuild2/recipe.hxx>
 #include <libbuild2/target-state.hxx>
 
 #include <libbuild2/export.hxx>
@@ -67,7 +68,7 @@ namespace build2
     //
     const bool bootstrap_outer;
 
-    // The first argument in all the callback is the meta-operation
+    // The first argument in all the callbacks is the meta-operation
     // parameters.
     //
     // If the meta-operation expects parameters, then it should have a
@@ -215,7 +216,7 @@ namespace build2
     //
     const size_t concurrency;
 
-    // The first argument in all the callback is the operation parameters.
+    // The first argument in all the callbacks is the operation parameters.
     //
     // If the operation expects parameters, then it should have a non-NULL
     // pre(). Failed that, any parameters will be diagnosed as unexpected.
@@ -226,6 +227,16 @@ namespace build2
     //
     operation_id (*pre) (const values&, meta_operation_id, const location&);
     operation_id (*post) (const values&, meta_operation_id);
+
+    // Operation-specific ad hoc rule callbacks. Essentially, if not NULL,
+    // then every ad hoc rule match and apply call for this operation is
+    // proxied through these functions.
+    //
+    bool (*adhoc_match) (const adhoc_rule&,
+                         action, target&, const string&, match_extra&,
+                         optional<action>);
+
+    recipe (*adhoc_apply) (const adhoc_rule&, action, target&, match_extra&);
   };
 
   // Built-in operations.
