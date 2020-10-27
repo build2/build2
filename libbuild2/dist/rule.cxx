@@ -23,11 +23,13 @@ namespace build2
     recipe rule::
     apply (action a, target& t) const
     {
-      const dir_path& out_root (t.root_scope ().out_path ());
+      const scope& rs (t.root_scope ());
+      const dir_path& src_root (rs.src_path ());
+      const dir_path& out_root (rs.out_path ());
 
       // If we can, go inside see-through groups.
       //
-      for (prerequisite_member p:
+      for (prerequisite_member pm:
              group_prerequisite_members (a, t, members_mode::maybe))
       {
         // Note: no exclusion tests, we want all of them (and see also the
@@ -35,7 +37,7 @@ namespace build2
 
         // Skip prerequisites imported from other projects.
         //
-        if (p.proj ())
+        if (pm.proj ())
           continue;
 
         // We used to always search and match but that resulted in the
@@ -54,26 +56,38 @@ namespace build2
         // @@ Note that this is still an issue in a custom dist rule.
         //
         const target* pt (nullptr);
-        if (p.is_a<file> ())
+        if (pm.is_a<file> ())
         {
-          pt = p.load ();
+          pt = pm.load ();
 
           if (pt == nullptr)
           {
+            const prerequisite& p (pm.prerequisite);
+
             // Search for an existing target or existing file in src.
             //
             const prerequisite_key& k (p.key ());
             pt = k.tk.type->search (t, k);
 
             if (pt == nullptr)
+            {
+              // Skip it if it's outside of the project (e.g., an executable
+              // "imported" in an ad hoc way).
+              //
+              if (p.dir.absolute ()     &&
+                  !p.dir.sub (src_root) &&
+                  !p.dir.sub (out_root))
+                continue;
+
               fail << "prerequisite " << k << " is not existing source file "
                    << "nor known output target" << endf;
+            }
 
-            search_custom (p.prerequisite, *pt); // Cache.
+            search_custom (p, *pt); // Cache.
           }
         }
         else
-          pt = &p.search (t);
+          pt = &pm.search (t);
 
         // Don't match targets that are outside of our project.
         //
