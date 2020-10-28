@@ -51,6 +51,7 @@ namespace build2
     // string
     //
     f["string"] = [](bool b) {return b ? "true" : "false";};
+    f["string"] = [](int64_t i) {return to_string (i);};
     f["string"] = [](uint64_t i) {return to_string (i);};
     f["string"] = [](name n) {return to_string (n);};
 
