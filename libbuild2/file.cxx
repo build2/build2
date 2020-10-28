@@ -1495,7 +1495,6 @@ namespace build2
     bool he (exists (hd));
     bool fe (exists (f));
 
-
     // Reuse the parser to accumulate the configuration variable information.
     //
     parser p (ctx, load_stage::root);
@@ -1519,13 +1518,6 @@ namespace build2
       //
       // - Should we be printing NULL values? Maybe make this configurable?
       // - Quoted printing format (single/double)?
-      //
-
-      // Use the special `config` module name (which doesn't have its own
-      // report) for project configuration.
-      //
-      diag_record dr (text);
-      dr << "config " << proj << '@' << root;
 
       // Printing the whole variable name would add too much noise with all
       // the repetitive config.<project>. So we are only going to print the
@@ -1539,6 +1531,36 @@ namespace build2
       //   libhello.tests.remote true
       //
       string stem (!proj.empty () ? '.' + proj.variable () + '.' : string ());
+
+      // Calculate max name length.
+      //
+      size_t pad (10);
+      for (const pair<lookup, string>& lf: p.config_report)
+      {
+        lookup l (lf.first);
+
+        size_t n;
+        if (l.value == nullptr)
+        {
+          n = l.var->name.size ();
+        }
+        else
+        {
+          size_t p (!stem.empty ()
+                    ? l.var->name.find (stem) + stem.size ()
+                    : 7); // "config."
+          n = l.var->name.size () - p;
+        }
+
+        if (n > pad)
+          pad = n;
+      }
+
+      // Use the special `config` module name (which doesn't have its own
+      // report) for project configuration.
+      //
+      diag_record dr (text);
+      dr << "config " << proj << '@' << root;
 
       names storage;
       for (const pair<lookup, string>& lf: p.config_report)
@@ -1577,10 +1599,10 @@ namespace build2
               dr << "\n    " << n;
           }
           else
-            dr << left << setw (10) << n << ' ' << ns;
+            dr << left << setw (static_cast<int> (pad)) << n << ' ' << ns;
         }
         else
-          dr << left << setw (10) << n << " [null]";
+          dr << left << setw (static_cast<int> (pad)) << n << " [null]";
       }
     }
   }
