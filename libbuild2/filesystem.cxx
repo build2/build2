@@ -297,4 +297,30 @@ namespace build2
     //
     return rmdir (ctx, d, verbosity);
   }
+
+  permissions
+  path_perms (const path& p)
+  {
+    try
+    {
+      return path_permissions (p);
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to obtain path " << p << " permissions: " << e << endf;
+    }
+  }
+
+  void
+  path_perms (const path& p, permissions f)
+  {
+    try
+    {
+      path_permissions (p, f);
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to set path " << p << " permissions: " << e;
+    }
+  }
 }

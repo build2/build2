@@ -7,6 +7,7 @@
 #include <libbutl/manifest-serializer.mxx>
 
 #include <libbuild2/context.hxx>
+#include <libbuild2/filesystem.hxx>  // path_perms()
 #include <libbuild2/diagnostics.hxx>
 
 using namespace butl;
@@ -27,7 +28,7 @@ namespace build2
       {
         try
         {
-          permissions perm (path_permissions (in));
+          permissions perm (path_perms (in));
 
           ifdstream ifs (in);
           manifest_parser p (ifs, in.string ());

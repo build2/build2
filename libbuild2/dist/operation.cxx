@@ -649,7 +649,7 @@ namespace build2
       //
       args.push_back ("-m");
       args.push_back (
-        (path_permissions (t.path ()) & permissions::xu) == permissions::xu
+        (path_perms (t.path ()) & permissions::xu) == permissions::xu
         ? "755"
         : "644");
 

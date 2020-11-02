@@ -179,6 +179,16 @@ namespace build2
   LIBBUILD2_SYMEXPORT fs_status<rmdir_status>
   rmdir_buildignore (context&,
                      const dir_path&, const path&, uint16_t verbosity = 1);
+
+  // Get/set a path permissions.
+  //
+  using permissions = butl::permissions;
+
+  LIBBUILD2_SYMEXPORT permissions
+  path_perms (const path&);
+
+  LIBBUILD2_SYMEXPORT void
+  path_perms (const path&, permissions);
 }
 
 #include <libbuild2/filesystem.ixx>

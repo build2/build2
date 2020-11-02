@@ -10,6 +10,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/algorithm.hxx>
+#include <libbuild2/filesystem.hxx>  // path_perms()
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/parser.hxx> // attributes
@@ -553,7 +554,28 @@ namespace build2
         p.execute (*rs, *bs, e, script, r);
 
         if (!ctx.dry_run)
+        {
+          // If this is an executable, let's be helpful to the user and set
+          // the executable bit on POSIX.
+          //
+#ifndef _WIN32
+          auto chmod = [] (const path& p)
+          {
+            path_perms (p,
+                        (path_perms (p)  |
+                         permissions::xu |
+                         permissions::xg |
+                         permissions::xo));
+          };
+
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          {
+            if (auto* p = m->is_a<exe> ())
+              chmod (p->path ());
+          }
+#endif
           dd.check_mtime (tp);
+        }
       }
     }
 
