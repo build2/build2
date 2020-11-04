@@ -5612,7 +5612,7 @@ namespace build2
           {
             string s (relative (dd).string ());
             s.insert (0, "-fmodule-mapper=");
-            s += "?@"; // Cookie (aka line prefix).
+            s += "?@"; // Significant line prefix.
             stor.push_back (move (s));
           }
 
