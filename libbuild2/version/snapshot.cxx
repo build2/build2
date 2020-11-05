@@ -19,10 +19,27 @@ namespace build2
     snapshot
     extract_snapshot (const scope& rs)
     {
-      // Ignore errors when checking for existence since we may be iterating
-      // over directories past any reasonable project boundaries.
+      // Resolve the path symlink components to make sure that if we are
+      // extracting snapshot for a subproject which is symlinked from the git
+      // submodule, then we end up with a root of the git submodule repository
+      // rather than the containing repository root.
       //
-      for (dir_path d (rs.src_path ()); !d.empty (); d = d.directory ())
+      dir_path d (rs.src_path ());
+
+      try
+      {
+        d.realize ();
+      }
+      catch (const invalid_path&) // Some component doesn't exist.
+      {
+        return snapshot ();
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to obtain real path for " << d << ": " << e;
+      }
+
+      for (; !d.empty (); d = d.directory ())
       {
         // .git can be either a directory or a file in case of a submodule.
         //
