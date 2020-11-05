@@ -3124,6 +3124,18 @@ namespace build2
                 }
               }
 
+              if (ctype == compiler_type::clang && cvariant == "emscripten")
+              {
+                if (x_lang == lang::cxx)
+                {
+                  if (!find_option_prefix ("DISABLE_EXCEPTION_CATCHING=", args))
+                  {
+                    args.push_back ("-s");
+                    args.push_back ("DISABLE_EXCEPTION_CATCHING=0");
+                  }
+                }
+              }
+
               append_options (args, cmode,
                               cmode.size () - (modules && clang ? 1 : 0));
               append_sys_inc_options (args); // Extra system header dirs (last).
@@ -4352,6 +4364,18 @@ namespace build2
                 {
                   args.push_back ("-D_MT");
                   args.push_back ("-D_DLL");
+                }
+              }
+
+              if (ctype == compiler_type::clang && cvariant == "emscripten")
+              {
+                if (x_lang == lang::cxx)
+                {
+                  if (!find_option_prefix ("DISABLE_EXCEPTION_CATCHING=", args))
+                  {
+                    args.push_back ("-s");
+                    args.push_back ("DISABLE_EXCEPTION_CATCHING=0");
+                  }
                 }
               }
 
@@ -5921,299 +5945,324 @@ namespace build2
       size_t out_i (0);  // Index of the -o option.
       size_t lang_n (0); // Number of lang options.
 
-      if (cclass == compiler_class::msvc)
+      switch (cclass)
       {
-        // The /F*: option variants with separate names only became available
-        // in VS2013/12.0. Why do we bother? Because the command line suddenly
-        // becomes readable.
-        //
-        // Also, clang-cl does not yet support them, at least not in 8 or 9.
-        //
-        bool fc (cmaj >= 18 && cvariant != "clang");
-
-        args.push_back ("/nologo");
-
-        append_options (args, cmode);
-
-        if (md.pp != preprocessed::all)
-          append_sys_inc_options (args); // Extra system header dirs (last).
-
-        // While we want to keep the low-level build as "pure" as possible,
-        // the two misguided defaults, C++ exceptions and runtime, just have
-        // to be fixed. Otherwise the default build is pretty much unusable.
-        // But we also make sure that the user can easily disable our
-        // defaults: if we see any relevant options explicitly specified, we
-        // take our hands off.
-        //
-        // For C looks like no /EH* (exceptions supported but no C++ objects
-        // destroyed) is a reasonable default.
-        //
-        if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
-          args.push_back ("/EHsc");
-
-        // The runtime is a bit more interesting. At first it may seem like a
-        // good idea to be a bit clever and use the static runtime if we are
-        // building obja{}. And for obje{} we could decide which runtime to
-        // use based on the library link order: if it is static-only, then we
-        // could assume the static runtime. But it is indeed too clever: when
-        // building liba{} we have no idea who is going to use it. It could be
-        // an exe{} that links both static and shared libraries (and is
-        // therefore built with the shared runtime). And to safely use the
-        // static runtime, everything must be built with /MT and there should
-        // be no DLLs in the picture. So we are going to play it safe and
-        // always default to the shared runtime.
-        //
-        // In a similar vein, it would seem reasonable to use the debug runtime
-        // if we are compiling with debug. But, again, there will be fireworks
-        // if we have some projects built with debug and some without and then
-        // we try to link them together (which is not an unreasonable thing to
-        // do). So by default we will always use the release runtime.
-        //
-        if (!find_option_prefixes ({"/MD", "/MT"}, args))
-          args.push_back ("/MD");
-
-        msvc_sanitize_cl (args);
-
-        append_header_options (env, args, header_args, a, t, md, md.dd);
-        append_module_options (env, args, module_args, a, t, md, md.dd);
-
-        // The presence of /Zi or /ZI causes the compiler to write debug info
-        // to the .pdb file. By default it is a shared file called vcNN.pdb
-        // (where NN is the VC version) created (wait for it) in the current
-        // working directory (and not the directory of the .obj file). Also,
-        // because it is shared, there is a special Windows service that
-        // serializes access. We, of course, want none of that so we will
-        // create a .pdb per object file.
-        //
-        // Note that this also changes the name of the .idb file (used for
-        // minimal rebuild and incremental compilation): cl.exe take the /Fd
-        // value and replaces the .pdb extension with .idb.
-        //
-        // Note also that what we are doing here appears to be incompatible
-        // with PCH (/Y* options) and /Gm (minimal rebuild).
-        //
-        if (find_options ({"/Zi", "/ZI"}, args))
+      case compiler_class::msvc:
         {
+          // The /F*: option variants with separate names only became
+          // available in VS2013/12.0. Why do we bother? Because the command
+          // line suddenly becomes readable.
+          //
+          // Also, clang-cl does not yet support them, at least not in 8 or 9.
+          //
+          bool fc (cmaj >= 18 && cvariant != "clang");
+
+          args.push_back ("/nologo");
+
+          append_options (args, cmode);
+
+          if (md.pp != preprocessed::all)
+            append_sys_inc_options (args); // Extra system header dirs (last).
+
+          // While we want to keep the low-level build as "pure" as possible,
+          // the two misguided defaults, C++ exceptions and runtime, just have
+          // to be fixed. Otherwise the default build is pretty much unusable.
+          // But we also make sure that the user can easily disable our
+          // defaults: if we see any relevant options explicitly specified, we
+          // take our hands off.
+          //
+          // For C looks like no /EH* (exceptions supported but no C++ objects
+          // destroyed) is a reasonable default.
+          //
+          if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
+            args.push_back ("/EHsc");
+
+          // The runtime is a bit more interesting. At first it may seem like
+          // a good idea to be a bit clever and use the static runtime if we
+          // are building obja{}. And for obje{} we could decide which runtime
+          // to use based on the library link order: if it is static-only,
+          // then we could assume the static runtime. But it is indeed too
+          // clever: when building liba{} we have no idea who is going to use
+          // it. It could be an exe{} that links both static and shared
+          // libraries (and is therefore built with the shared runtime). And
+          // to safely use the static runtime, everything must be built with
+          // /MT and there should be no DLLs in the picture. So we are going
+          // to play it safe and always default to the shared runtime.
+          //
+          // In a similar vein, it would seem reasonable to use the debug
+          // runtime if we are compiling with debug. But, again, there will be
+          // fireworks if we have some projects built with debug and some
+          // without and then we try to link them together (which is not an
+          // unreasonable thing to do). So by default we will always use the
+          // release runtime.
+          //
+          if (!find_option_prefixes ({"/MD", "/MT"}, args))
+            args.push_back ("/MD");
+
+          msvc_sanitize_cl (args);
+
+          append_header_options (env, args, header_args, a, t, md, md.dd);
+          append_module_options (env, args, module_args, a, t, md, md.dd);
+
+          // The presence of /Zi or /ZI causes the compiler to write debug
+          // info to the .pdb file. By default it is a shared file called
+          // vcNN.pdb (where NN is the VC version) created (wait for it) in
+          // the current working directory (and not the directory of the .obj
+          // file). Also, because it is shared, there is a special Windows
+          // service that serializes access. We, of course, want none of that
+          // so we will create a .pdb per object file.
+          //
+          // Note that this also changes the name of the .idb file (used for
+          // minimal rebuild and incremental compilation): cl.exe take the /Fd
+          // value and replaces the .pdb extension with .idb.
+          //
+          // Note also that what we are doing here appears to be incompatible
+          // with PCH (/Y* options) and /Gm (minimal rebuild).
+          //
+          if (find_options ({"/Zi", "/ZI"}, args))
+          {
+            if (fc)
+              args.push_back ("/Fd:");
+            else
+              out1 = "/Fd";
+
+            out1 += relo.string ();
+            out1 += ".pdb";
+
+            args.push_back (out1.c_str ());
+          }
+
           if (fc)
-            args.push_back ("/Fd:");
+          {
+            args.push_back ("/Fo:");
+            args.push_back (relo.string ().c_str ());
+          }
           else
-            out1 = "/Fd";
-
-          out1 += relo.string ();
-          out1 += ".pdb";
-
-          args.push_back (out1.c_str ());
-        }
-
-        if (fc)
-        {
-          args.push_back ("/Fo:");
-          args.push_back (relo.string ().c_str ());
-        }
-        else
-        {
-          out = "/Fo" + relo.string ();
-          args.push_back (out.c_str ());
-        }
-
-        // @@ MODHDR MSVC
-        //
-        if (ut == unit_type::module_iface)
-        {
-          relm = relative (tp);
-
-          args.push_back ("/module:interface");
-          args.push_back ("/module:output");
-          args.push_back (relm.string ().c_str ());
-        }
-
-        // Note: no way to indicate that the source if already preprocessed.
-
-        args.push_back ("/c");                   // Compile only.
-        append_lang_options (args, md);          // Compile as.
-        args.push_back (sp->string ().c_str ()); // Note: relied on being last.
-      }
-      else
-      {
-        if (ot == otype::s)
-        {
-          // On Darwin, Win32 -fPIC is the default.
-          //
-          if (tclass == "linux" || tclass == "bsd")
-            args.push_back ("-fPIC");
-        }
-
-        if (tsys == "win32-msvc")
-        {
-          switch (ctype)
           {
-          case compiler_type::clang:
+            out = "/Fo" + relo.string ();
+            args.push_back (out.c_str ());
+          }
+
+          // @@ MODHDR MSVC
+          //
+          if (ut == unit_type::module_iface)
+          {
+            relm = relative (tp);
+
+            args.push_back ("/module:interface");
+            args.push_back ("/module:output");
+            args.push_back (relm.string ().c_str ());
+          }
+
+          // Note: no way to indicate that the source if already preprocessed.
+
+          args.push_back ("/c");                   // Compile only.
+          append_lang_options (args, md);          // Compile as.
+          args.push_back (sp->string ().c_str ()); // Note: relied on being last.
+
+          break;
+        }
+      case compiler_class::gcc:
+        {
+          if (ot == otype::s)
+          {
+            // On Darwin, Win32 -fPIC is the default.
+            //
+            if (tclass == "linux" || tclass == "bsd")
+              args.push_back ("-fPIC");
+          }
+
+          if (tsys == "win32-msvc")
+          {
+            switch (ctype)
             {
-              // Default to the /EHsc exceptions support for C++, similar to
-              // the the MSVC case above.
-              //
-              // Note that both vanilla clang++ and clang-cl drivers add
-              // -fexceptions and -fcxx-exceptions by default. However,
-              // clang-cl also adds -fexternc-nounwind, which implements the
-              // 'c' part in /EHsc. Note that adding this option is not a mere
-              // optimization, as we have discovered through some painful
-              // experience; see Clang bug #45021.
-              //
-              // Let's also omit this option if -f[no]-exceptions is specified
-              // explicitly.
-              //
-              if (x_lang == lang::cxx)
+            case compiler_type::clang:
               {
-                if (!find_options ({"-fexceptions", "-fno-exceptions"}, args))
+                // Default to the /EHsc exceptions support for C++, similar to
+                // the the MSVC case above.
+                //
+                // Note that both vanilla clang++ and clang-cl drivers add
+                // -fexceptions and -fcxx-exceptions by default. However,
+                // clang-cl also adds -fexternc-nounwind, which implements the
+                // 'c' part in /EHsc. Note that adding this option is not a
+                // mere optimization, as we have discovered through some
+                // painful experience; see Clang bug #45021.
+                //
+                // Let's also omit this option if -f[no]-exceptions is
+                // specified explicitly.
+                //
+                if (x_lang == lang::cxx)
                 {
-                  args.push_back ("-Xclang");
-                  args.push_back ("-fexternc-nounwind");
+                  if (!find_options ({"-fexceptions", "-fno-exceptions"}, args))
+                  {
+                    args.push_back ("-Xclang");
+                    args.push_back ("-fexternc-nounwind");
+                  }
                 }
-              }
 
-              // Default to the multi-threaded DLL runtime (/MD), similar to
-              // the MSVC case above.
-              //
-              // Clang's MSVC.cpp will not link the default runtime if either
-              // -nostdlib or -nostartfiles is specified. Let's do the same.
-              //
-              initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
-              if (!find_options (os, cmode) && !find_options (os, args))
-              {
-                args.push_back ("-D_MT");
-                args.push_back ("-D_DLL");
+                // Default to the multi-threaded DLL runtime (/MD), similar to
+                // the MSVC case above.
+                //
+                // Clang's MSVC.cpp will not link the default runtime if
+                // either -nostdlib or -nostartfiles is specified. Let's do
+                // the same.
+                //
+                initializer_list<const char*> os {"-nostdlib", "-nostartfiles"};
+                if (!find_options (os, cmode) && !find_options (os, args))
+                {
+                  args.push_back ("-D_MT");
+                  args.push_back ("-D_DLL");
 
-                // All these -Xclang --dependent-lib=... add quite a bit of
-                // noise to the command line. The alternative is to use the
-                // /DEFAULTLIB option during linking. The drawback of that
-                // approach is that now we can theoretically build the object
-                // file for one runtime but try to link it with something
-                // else.
-                //
-                // For example, an installed static library was built for a
-                // non-debug runtime while a project that links it uses
-                // debug. With the --dependent-lib approach we will try to
-                // link multiple runtimes while with /DEFAULTLIB we may end up
-                // with unresolved symbols (but things might also work out
-                // fine, unless the runtimes have incompatible ABIs).
-                //
-                // Let's start with /DEFAULTLIB and see how it goes (see the
-                // link rule).
-                //
+                  // All these -Xclang --dependent-lib=... add quite a bit of
+                  // noise to the command line. The alternative is to use the
+                  // /DEFAULTLIB option during linking. The drawback of that
+                  // approach is that now we can theoretically build the
+                  // object file for one runtime but try to link it with
+                  // something else.
+                  //
+                  // For example, an installed static library was built for a
+                  // non-debug runtime while a project that links it uses
+                  // debug. With the --dependent-lib approach we will try to
+                  // link multiple runtimes while with /DEFAULTLIB we may end
+                  // up with unresolved symbols (but things might also work
+                  // out fine, unless the runtimes have incompatible ABIs).
+                  //
+                  // Let's start with /DEFAULTLIB and see how it goes (see the
+                  // link rule).
+                  //
 #if 0
-                args.push_back ("-Xclang");
-                args.push_back ("--dependent-lib=msvcrt");
+                  args.push_back ("-Xclang");
+                  args.push_back ("--dependent-lib=msvcrt");
 
-                // This provides POSIX compatibility (map open() to _open(),
-                // etc).
+                  // This provides POSIX compatibility (map open() to _open(),
+                  // etc).
+                  //
+                  args.push_back ("-Xclang");
+                  args.push_back ("--dependent-lib=oldnames");
+#endif
+                }
+
+                break;
+              }
+            case compiler_type::gcc:
+            case compiler_type::msvc:
+            case compiler_type::icc:
+              assert (false);
+            }
+          }
+
+          // For now Emscripten defaults to partial C++ exceptions support
+          // (you can throw but not catch). We enable full support unless it
+          // was explicitly disabled by the user.
+          //
+          if (ctype == compiler_type::clang && cvariant == "emscripten")
+          {
+            if (x_lang == lang::cxx)
+            {
+              if (!find_option_prefix ("DISABLE_EXCEPTION_CATCHING=", args))
+              {
+                args.push_back ("-s");
+                args.push_back ("DISABLE_EXCEPTION_CATCHING=0");
+              }
+            }
+          }
+
+          append_options (args, cmode);
+
+          if (md.pp != preprocessed::all)
+            append_sys_inc_options (args); // Extra system header dirs (last).
+
+          append_header_options (env, args, header_args, a, t, md, md.dd);
+          append_module_options (env, args, module_args, a, t, md, md.dd);
+
+          // Note: the order of the following options is relied upon below.
+          //
+          out_i = args.size (); // Index of the -o option.
+
+          if (ut == unit_type::module_iface || ut == unit_type::module_header)
+          {
+            switch (ctype)
+            {
+            case compiler_type::gcc:
+              {
+                // Output module file is specified in the mapping file, the
+                // same as input.
+                //
+                if (ut != unit_type::module_header) // No object file.
+                {
+                  args.push_back ("-o");
+                  args.push_back (relo.string ().c_str ());
+                  args.push_back ("-c");
+                }
+                break;
+              }
+            case compiler_type::clang:
+              {
+                relm = relative (tp);
+
+                args.push_back ("-o");
+                args.push_back (relm.string ().c_str ());
+                args.push_back ("--precompile");
+
+                // Without this option Clang's .pcm will reference source
+                // files.  In our case this file may be transient (.ii). Plus,
+                // it won't play nice with distributed compilation.
                 //
                 args.push_back ("-Xclang");
-                args.push_back ("--dependent-lib=oldnames");
-#endif
+                args.push_back ("-fmodules-embed-all-files");
+
+                break;
               }
-
-              break;
+            case compiler_type::msvc:
+            case compiler_type::icc:
+              assert (false);
             }
-          case compiler_type::gcc:
-          case compiler_type::msvc:
-          case compiler_type::icc:
-            assert (false);
           }
-        }
-
-        append_options (args, cmode);
-
-        if (md.pp != preprocessed::all)
-          append_sys_inc_options (args); // Extra system header dirs (last).
-
-        append_header_options (env, args, header_args, a, t, md, md.dd);
-        append_module_options (env, args, module_args, a, t, md, md.dd);
-
-        // Note: the order of the following options is relied upon below.
-        //
-        out_i = args.size (); // Index of the -o option.
-
-        if (ut == unit_type::module_iface || ut == unit_type::module_header)
-        {
-          switch (ctype)
+          else
           {
-          case compiler_type::gcc:
-            {
-              // Output module file is specified in the mapping file, the
-              // same as input.
-              //
-              if (ut != unit_type::module_header) // No object file.
-              {
-                args.push_back ("-o");
-                args.push_back (relo.string ().c_str ());
-                args.push_back ("-c");
-              }
-              break;
-            }
-          case compiler_type::clang:
-            {
-              relm = relative (tp);
-
-              args.push_back ("-o");
-              args.push_back (relm.string ().c_str ());
-              args.push_back ("--precompile");
-
-              // Without this option Clang's .pcm will reference source files.
-              // In our case this file may be transient (.ii). Plus, it won't
-              // play nice with distributed compilation.
-              //
-              args.push_back ("-Xclang");
-              args.push_back ("-fmodules-embed-all-files");
-
-              break;
-            }
-          case compiler_type::msvc:
-          case compiler_type::icc:
-            assert (false);
+            args.push_back ("-o");
+            args.push_back (relo.string ().c_str ());
+            args.push_back ("-c");
           }
-        }
-        else
-        {
-          args.push_back ("-o");
-          args.push_back (relo.string ().c_str ());
-          args.push_back ("-c");
-        }
 
-        lang_n = append_lang_options (args, md);
+          lang_n = append_lang_options (args, md);
 
-        if (md.pp == preprocessed::all)
-        {
-          // Note that the mode we select must still handle comments and line
-          // continuations. So some more compiler-specific voodoo.
-          //
-          switch (ctype)
+          if (md.pp == preprocessed::all)
           {
-          case compiler_type::gcc:
+            // Note that the mode we select must still handle comments and
+            // line continuations. So some more compiler-specific voodoo.
+            //
+            switch (ctype)
             {
-              // -fdirectives-only is available since GCC 4.3.0.
-              //
-              if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
+            case compiler_type::gcc:
               {
-                args.push_back ("-fpreprocessed");
-                args.push_back ("-fdirectives-only");
+                // -fdirectives-only is available since GCC 4.3.0.
+                //
+                if (cmaj > 4 || (cmaj == 4 && cmin >= 3))
+                {
+                  args.push_back ("-fpreprocessed");
+                  args.push_back ("-fdirectives-only");
+                }
+                break;
               }
-              break;
+            case compiler_type::clang:
+              {
+                // Clang handles comments and line continuations in the
+                // preprocessed source (it does not have -fpreprocessed).
+                //
+                break;
+              }
+            case compiler_type::icc:
+              break; // Compile as normal source for now.
+            case compiler_type::msvc:
+              assert (false);
             }
-          case compiler_type::clang:
-            {
-              // Clang handles comments and line continuations in the
-              // preprocessed source (it does not have -fpreprocessed).
-              //
-              break;
-            }
-          case compiler_type::icc:
-            break; // Compile as normal source for now.
-          case compiler_type::msvc:
-            assert (false);
           }
-        }
 
-        args.push_back (sp->string ().c_str ());
+          args.push_back (sp->string ().c_str ());
+
+          break;
+        }
       }
 
       args.push_back (nullptr);

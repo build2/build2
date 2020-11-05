@@ -265,6 +265,8 @@ namespace build2
 "     stdlib:=\"netbsd\"                                                    \n"
 "#  elif defined(__APPLE__)                                                 \n"
 "     stdlib:=\"apple\"                                                     \n"
+"#  elif defined(__EMSCRIPTEN__)                                            \n"
+"     stdlib:=\"emscripten\"                                                \n"
 "#  else                                                                    \n"
 "     stdlib:=\"other\"                                                     \n"
 "#  endif                                                                   \n"
@@ -349,15 +351,17 @@ namespace build2
           // Try more specific variants first. Keep msvc last since 'cl' is
           // very generic.
           //
-          if (auto r = check (type::msvc,  "clang-cl", "clang")) return *r;
-          if (auto r = check (type::clang, "clang"            )) return *r;
-          if (auto r = check (type::gcc,   "gcc"              )) return *r;
-          if (auto r = check (type::icc,   "icc"              )) return *r;
-          if (auto r = check (type::msvc,  "cl"               )) return *r;
+          if (auto r = check (type::msvc,  "clang-cl", "clang" )) return *r;
+          if (auto r = check (type::clang, "clang"             )) return *r;
+          if (auto r = check (type::gcc,   "gcc"               )) return *r;
+          if (auto r = check (type::icc,   "icc"               )) return *r;
+          if (auto r = check (type::clang, "emcc", "emscripten")) return *r;
+          if (auto r = check (type::msvc,  "cl"                )) return *r;
 
           if      (check (type::clang, as = "clang++")) es = "clang";
           else if (check (type::gcc,   as = "g++")    ) es = "gcc";
           else if (check (type::icc,   as = "icpc")   ) es = "icc";
+          else if (check (type::clang, as = "em++")   ) es = "emcc";
           else if (check (type::msvc,  as = "c++")    ) es = "cc";
 
           o = lang::cxx;
@@ -368,15 +372,17 @@ namespace build2
           // Try more specific variants first. Keep msvc last since 'cl' is
           // very generic.
           //
-          if (auto r = check (type::msvc,  "clang-cl", "clang")) return *r;
-          if (auto r = check (type::clang, "clang++"          )) return *r;
-          if (auto r = check (type::gcc,   "g++"              )) return *r;
-          if (auto r = check (type::icc,   "icpc"             )) return *r;
-          if (auto r = check (type::msvc,  "cl"               )) return *r;
+          if (auto r = check (type::msvc,  "clang-cl", "clang" )) return *r;
+          if (auto r = check (type::clang, "clang++"           )) return *r;
+          if (auto r = check (type::gcc,   "g++"               )) return *r;
+          if (auto r = check (type::icc,   "icpc"              )) return *r;
+          if (auto r = check (type::clang, "em++", "emscripten")) return *r;
+          if (auto r = check (type::msvc,  "cl"                )) return *r;
 
           if      (check (type::clang, as = "clang")) es = "clang++";
           else if (check (type::gcc,   as = "gcc")  ) es = "g++";
           else if (check (type::icc,   as = "icc")  ) es = "icpc";
+          else if (check (type::clang, as = "emcc") ) es = "em++";
           else if (check (type::msvc,  as = "cc")   ) es = "c++";
 
           o = lang::c;
@@ -738,10 +744,15 @@ namespace build2
     // is not empty, then only "confirm" the pre-guess. Return empty result if
     // unable to guess.
     //
+    // If the compiler has both type and variant signatures (say, like
+    // clang-emscripten), then the variant goes to signature and type goes to
+    // type_signature. Otherwise, type_signature is not used.
+    //
     struct guess_result
     {
       compiler_id id;
       string signature;
+      string type_signature;
       string checksum;
       process_path path;
 
@@ -755,8 +766,8 @@ namespace build2
       info_ptr info = {nullptr, null_info_deleter};
 
       guess_result () = default;
-      guess_result (compiler_id i, string&& s)
-          : id (move (i)), signature (move (s)) {}
+      guess_result (compiler_id i, string&& s, string&& ts = {})
+          : id (move (i)), signature (move (s)), type_signature (move (ts)) {}
 
       bool
       empty () const {return id.empty ();}
@@ -952,12 +963,14 @@ namespace build2
       env.vars = evars;
 #endif
 
-      auto run = [&cs, &env, &args] (const char* o,
-                                     auto&& f,
-                                     bool checksum = false) -> guess_result
+      string cache;
+      auto run = [&cs, &env, &args, &cache] (
+        const char* o,
+        auto&& f,
+        bool checksum = false) -> guess_result
       {
         args[args.size () - 2] = o;
-
+        cache.clear ();
         return build2::run<guess_result> (
           3                          /* verbosity */,
           env,
@@ -968,7 +981,8 @@ namespace build2
           checksum ? &cs : nullptr);
       };
 
-      // Start with -v. This will cover gcc and clang (including clang-cl).
+      // Start with -v. This will cover gcc and clang (including clang-cl and
+      // Emscripten clang).
       //
       // While icc also writes what may seem like something we can use to
       // detect it:
@@ -988,17 +1002,22 @@ namespace build2
                          pt == type::clang ||
                          (pt == type::msvc && pv && *pv == "clang")))
       {
-        auto f = [&xi, &pt] (string& l, bool last) -> guess_result
+        auto f = [&xi, &pt, &cache] (string& l, bool last) -> guess_result
         {
           if (xi)
           {
+            //@@ TODO: what about type_signature? Or do we just assume that
+            //   the variant version will be specified along with type
+            //   version? Do we even have this ability?
+
             // The signature line is first in Clang and last in GCC.
             //
-            if (xi->type != type::gcc || last)
-              return guess_result (*xi, move (l));
+            return (xi->type != type::gcc || last
+                    ? guess_result (*xi, move (l))
+                    : guess_result ());
           }
 
-          // The gcc/g++ -v output will have a last line in the form:
+          // The gcc -v output will have a last line in the form:
           //
           // "gcc version X.Y.Z ..."
           //
@@ -1012,11 +1031,14 @@ namespace build2
           // gcc version 5.1.0 (Ubuntu 5.1.0-0ubuntu11~14.04.1)
           // gcc version 6.0.0 20160131 (experimental) (GCC)
           //
-          if (last && l.compare (0, 4, "gcc ") == 0)
-            return guess_result (compiler_id {type::gcc, ""}, move (l));
+          if (cache.empty ())
+          {
+            if (last && l.compare (0, 4, "gcc ") == 0)
+              return guess_result (compiler_id {type::gcc, ""}, move (l));
+          }
 
-          // The Apple clang/clang++ -v output will have a line (currently
-          // first) in the form:
+          // The Apple clang -v output will have a line (currently first) in
+          // the form:
           //
           // "Apple (LLVM|clang) version X.Y.Z ..."
           //
@@ -1040,13 +1062,42 @@ namespace build2
           // Check for Apple clang before the vanilla one since the above line
           // also includes "clang".
           //
-          if (l.compare (0, 6, "Apple ") == 0 &&
-              (l.compare (6, 5, "LLVM ") == 0 ||
-               l.compare (6, 6, "clang ") == 0))
-            return guess_result (compiler_id {type::clang, "apple"}, move (l));
+          if (cache.empty ())
+          {
+            if (l.compare (0, 6, "Apple ") == 0 &&
+                (l.compare (6, 5, "LLVM ") == 0 ||
+                 l.compare (6, 6, "clang ") == 0))
+              return guess_result (compiler_id {type::clang, "apple"}, move (l));
+          }
 
-          // The vanilla clang/clang++ -v output will have a first line in the
-          // form:
+          // Emscripten emcc -v prints its own version and the clang version,
+          // for example:
+          //
+          // emcc (...) 2.0.8
+          // clang version 12.0.0 (...)
+          //
+          // The order, however is not guaranteed (see Emscripten issue
+          // #12654). So things are going to get hairy.
+          //
+          if (l.compare (0, 5, "emcc ") == 0)
+          {
+            if (cache.empty ())
+            {
+              // Cache the emcc line and continue in order to get the clang
+              // line.
+              //
+              cache = move (l);
+              return guess_result ();
+            }
+            else if (cache.find ("clang ") != string::npos)
+            {
+              return guess_result (compiler_id {type::clang, "emscripten"},
+                                   move (l),
+                                   move (cache));
+            }
+          }
+
+          // The vanilla clang -v output will have a first line in the form:
           //
           // "[... ]clang version X.Y.Z[-...] ..."
           //
@@ -1062,10 +1113,31 @@ namespace build2
           //
           if (l.find ("clang ") != string::npos)
           {
-            return guess_result (pt == type::msvc
-                                 ? compiler_id {type::msvc, "clang"}
-                                 : compiler_id {type::clang, ""},
-                                 move (l));
+            if (cache.empty ())
+            {
+              // Cache the clang line and continue in order to get the variant
+              // line, if any.
+              //
+              cache = move (l);
+              return guess_result ();
+            }
+            else if (cache.compare (0, 5, "emcc ") == 0)
+            {
+              return guess_result (compiler_id {type::clang, "emscripten"},
+                                   move (cache),
+                                   move (l));
+            }
+          }
+
+          if (last)
+          {
+            if (cache.find ("clang ") != string::npos)
+            {
+              return guess_result (pt == type::msvc
+                                   ? compiler_id {type::msvc, "clang"}
+                                   : compiler_id {type::clang, ""},
+                                   move (cache));
+            }
           }
 
           return guess_result ();
@@ -1075,10 +1147,6 @@ namespace build2
         // build configuration for gcc or the selected gcc installation for
         // clang) which makes sense to include into the compiler checksum. So
         // ask run() to calculate it for every line of the -v ouput.
-        //
-        // One notable consequence of this is that if the locale changes
-        // (e.g., via LC_ALL), then the compiler signature will most likely
-        // change as well because of the translated text.
         //
         r = run ("-v", f, true /* checksum */);
 
@@ -2155,8 +2223,8 @@ namespace build2
                  const strings* c_lo, const strings* x_lo,
                  guess_result&& gr, sha256& cs)
     {
-      // This function handles both vanialla Clang, including its clang-cl
-      // variant, as well as Apple Clang.
+      // This function handles vanialla Clang, including its clang-cl variant,
+      // as well as Apple and Emscripten variants.
       //
       // The clang-cl variant appears to be a very thin wrapper over the
       // standard clang/clang++ drivers. In addition to the cl options, it
@@ -2166,6 +2234,7 @@ namespace build2
       //
       bool cl (gr.id.type == compiler_type::msvc);
       bool apple (gr.id.variant == "apple");
+      bool emscr (gr.id.variant == "emscripten");
 
       const process_path& xp (gr.path);
 
@@ -2177,31 +2246,16 @@ namespace build2
       // "[... ]clang version A.B.C[( |-)...]"
       // "Apple (clang|LLVM) version A.B[.C] ..."
       //
-      compiler_version ver;
-      optional<compiler_version> var_ver;
+      // We will also reuse this code to parse the Emscripten version which
+      // is quite similar:
+      //
+      // emcc (...) 2.0.8
+      //
+      auto extract_version = [] (const string& s, bool patch, const char* what)
+        -> compiler_version
       {
-        auto df = make_diag_frame (
-          [&xm](const diag_record& dr)
-          {
-            dr << info << "use config." << xm << ".version to override";
-          });
+        compiler_version ver;
 
-        // Treat the custom version as just a tail of the signature.
-        //
-        const string& s (xv == nullptr ? gr.signature : *xv);
-
-        // Some overrides for testing.
-        //
-        //s = "clang version 3.7.0 (tags/RELEASE_370/final)";
-        //
-        //gr.id.variant = "apple";
-        //s = "Apple LLVM version 7.3.0 (clang-703.0.16.1)";
-        //s = "Apple clang version 3.1 (tags/Apple/clang-318.0.58) (based on LLVM 3.1svn)";
-
-        // Scan the string as words and look for one that looks like a
-        // version.  Use '-' as a second delimiter to handle versions like
-        // "3.6.0-2ubuntu1~trusty1".
-        //
         size_t b (0), e (0);
         while (next_word (s, b, e, ' ', '-'))
         {
@@ -2216,14 +2270,17 @@ namespace build2
         }
 
         if (b == e)
-          fail << "unable to extract Clang version from '" << s << "'";
+          fail << "unable to extract " << what << " version from '" << s << "'"
+               << endf;
 
         ver.string.assign (s, b, string::npos);
 
         // Split the version into components.
         //
         size_t vb (b), ve (b);
-        auto next = [&s, b, e, &vb, &ve] (const char* m, bool opt) -> uint64_t
+        auto next = [&s, what,
+                     b, e,
+                     &vb, &ve] (const char* m, bool opt) -> uint64_t
         {
           try
           {
@@ -2236,77 +2293,124 @@ namespace build2
           catch (const invalid_argument&) {}
           catch (const out_of_range&) {}
 
-          fail << "unable to extract Clang " << m << " version from '"
+          fail << "unable to extract " << what << ' ' << m << " version from '"
                << string (s, b, e - b) << "'" << endf;
         };
 
         ver.major = next ("major", false);
         ver.minor = next ("minor", false);
-        ver.patch = next ("patch", apple);
+        ver.patch = next ("patch", patch);
 
         if (e != s.size ())
           ver.build.assign (s, e + 1, string::npos);
 
-        // Map Apple to vanilla Clang version, preserving the original as
-        // the variant version.
+        return ver;
+      };
+
+      compiler_version ver;
+      {
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        // Treat the custom version as just a tail of the signature.
         //
-        if (apple)
-        {
-          var_ver = move (ver);
+        // @@ TODO: should we have type_version here (and suggest that
+        //          in diag_frame above?
+        //
+        const string& s (xv != nullptr
+                         ? *xv
+                         : emscr ? gr.type_signature : gr.signature);
 
-          // Apple no longer discloses the mapping so it's a guesswork and we
-          // better be conservative. For details see:
-          //
-          // https://gist.github.com/yamaya/2924292
-          //
-          // Specifically, we now look in the libc++'s __config file for the
-          // _LIBCPP_VERSION and use the previous version as a conservative
-          // estimate.
-          //
-          // Note that this is Apple Clang version and not XCode version.
-          //
-          // 4.2    -> 3.2svn
-          // 5.0    -> 3.3svn
-          // 5.1    -> 3.4svn
-          // 6.0    -> 3.5svn
-          // 6.1.0  -> 3.6svn
-          // 7.0.0  -> 3.7
-          // 7.3.0  -> 3.8
-          // 8.0.0  -> 3.9
-          // 8.1.0  -> ?
-          // 9.0.0  -> 4.0
-          // 9.1.0  -> 5.0
-          // 10.0.0 -> 6.0
-          // 11.0.0 -> 7.0
-          // 11.0.3 -> 8.0
-          //
-          uint64_t mj (var_ver->major);
-          uint64_t mi (var_ver->minor);
-          uint64_t pa (var_ver->patch);
+        // Some overrides for testing.
+        //
+        //s = "clang version 3.7.0 (tags/RELEASE_370/final)";
+        //
+        //gr.id.variant = "apple";
+        //s = "Apple LLVM version 7.3.0 (clang-703.0.16.1)";
+        //s = "Apple clang version 3.1 (tags/Apple/clang-318.0.58) (based on LLVM 3.1svn)";
 
-          if      (mj >= 12)                        {mj = 8; mi = 0;}
-          else if (mj == 11 && (mi > 0 || pa >= 3)) {mj = 8; mi = 0;}
-          else if (mj == 11)                        {mj = 7; mi = 0;}
-          else if (mj == 10)                        {mj = 6; mi = 0;}
-          else if (mj == 9 && mi >= 1)              {mj = 5; mi = 0;}
-          else if (mj == 9)                         {mj = 4; mi = 0;}
-          else if (mj == 8)                         {mj = 3; mi = 9;}
-          else if (mj == 7 && mi >= 3)              {mj = 3; mi = 8;}
-          else if (mj == 7)                         {mj = 3; mi = 7;}
-          else if (mj == 6 && mi >= 1)              {mj = 3; mi = 5;}
-          else if (mj == 6)                         {mj = 3; mi = 4;}
-          else if (mj == 5 && mi >= 1)              {mj = 3; mi = 3;}
-          else if (mj == 5)                         {mj = 3; mi = 2;}
-          else if (mj == 4 && mi >= 2)              {mj = 3; mi = 1;}
-          else                                      {mj = 3; mi = 0;}
+        // Scan the string as words and look for one that looks like a
+        // version. Use '-' as a second delimiter to handle versions like
+        // "3.6.0-2ubuntu1~trusty1".
+        //
+        ver = extract_version (s, apple, "Clang");
+      }
 
-          ver = compiler_version {
-            to_string (mj) + '.' + to_string (mi) + ".0",
-            mj,
-            mi,
-            0,
-            ""};
-        }
+      optional<compiler_version> var_ver;
+      if (apple)
+      {
+        // Map Apple to vanilla Clang version, preserving the original as the
+        // variant version.
+        //
+        var_ver = move (ver);
+
+        // Apple no longer discloses the mapping so it's a guesswork and we
+        // better be conservative. For details see:
+        //
+        // https://gist.github.com/yamaya/2924292
+        //
+        // Specifically, we now look in the libc++'s __config file for the
+        // _LIBCPP_VERSION and use the previous version as a conservative
+        // estimate.
+        //
+        // Note that this is Apple Clang version and not XCode version.
+        //
+        // 4.2    -> 3.2svn
+        // 5.0    -> 3.3svn
+        // 5.1    -> 3.4svn
+        // 6.0    -> 3.5svn
+        // 6.1.0  -> 3.6svn
+        // 7.0.0  -> 3.7
+        // 7.3.0  -> 3.8
+        // 8.0.0  -> 3.9
+        // 8.1.0  -> ?
+        // 9.0.0  -> 4.0
+        // 9.1.0  -> 5.0
+        // 10.0.0 -> 6.0
+        // 11.0.0 -> 7.0
+        // 11.0.3 -> 8.0
+        //
+        uint64_t mj (var_ver->major);
+        uint64_t mi (var_ver->minor);
+        uint64_t pa (var_ver->patch);
+
+        if      (mj >= 12)                        {mj = 8; mi = 0;}
+        else if (mj == 11 && (mi > 0 || pa >= 3)) {mj = 8; mi = 0;}
+        else if (mj == 11)                        {mj = 7; mi = 0;}
+        else if (mj == 10)                        {mj = 6; mi = 0;}
+        else if (mj == 9 && mi >= 1)              {mj = 5; mi = 0;}
+        else if (mj == 9)                         {mj = 4; mi = 0;}
+        else if (mj == 8)                         {mj = 3; mi = 9;}
+        else if (mj == 7 && mi >= 3)              {mj = 3; mi = 8;}
+        else if (mj == 7)                         {mj = 3; mi = 7;}
+        else if (mj == 6 && mi >= 1)              {mj = 3; mi = 5;}
+        else if (mj == 6)                         {mj = 3; mi = 4;}
+        else if (mj == 5 && mi >= 1)              {mj = 3; mi = 3;}
+        else if (mj == 5)                         {mj = 3; mi = 2;}
+        else if (mj == 4 && mi >= 2)              {mj = 3; mi = 1;}
+        else                                      {mj = 3; mi = 0;}
+
+        ver = compiler_version {
+          to_string (mj) + '.' + to_string (mi) + ".0",
+          mj,
+          mi,
+          0,
+          ""};
+      }
+      else if (emscr)
+      {
+        // Extract Emscripten version.
+        //
+        auto df = make_diag_frame (
+          [&xm](const diag_record& dr)
+          {
+            dr << info << "use config." << xm << ".version to override";
+          });
+
+        var_ver = extract_version (gr.signature, false, "Emscripten");
       }
 
       // Figure out the target architecture.
@@ -2414,13 +2518,24 @@ namespace build2
         }
       }
 
-      // Derive the compiler toolchain pattern. Try clang/clang++, the gcc/g++
-      // alias, as well as cc/c++.
+      // Derive the compiler toolchain pattern.
       //
       string cpat;
 
-      if (!cl)
+      if (cl)
+        ;
+      else if (emscr)
       {
+        cpat = pattern (xc, xl == lang::c ? "emcc" : "em++");
+
+        // Emscripten provides the emar/emranlib wrappers (over llvm-*).
+        //
+        bpat = pattern (xc, xl == lang::c ? "cc" : "++", "m");
+      }
+      else
+      {
+        // Try clang/clang++, the gcc/g++ alias, as well as cc/c++.
+        //
         cpat = pattern (xc, xl == lang::c ? "clang" : "clang++");
 
         if (cpat.empty ())
@@ -2950,10 +3065,15 @@ namespace build2
                            x_mo, c_po, x_po, c_co, x_co, c_lo, x_lo,
                            move (gr), cs));
 
-      // By default use the signature line to generate the checksum.
+      // By default use the signature line(s) to generate the checksum.
       //
       if (cs.empty ())
+      {
         cs.append (r.signature);
+
+        if (!gr.type_signature.empty ())
+          cs.append (gr.type_signature);
+      }
 
       r.checksum = cs.string ();
 
@@ -3051,7 +3171,14 @@ namespace build2
           switch (id.type)
           {
           case type::gcc:    s = "gcc";   break;
-          case type::clang:  s = "clang"; break;
+          case type::clang:
+            {
+              if (id.variant == "emscripten")
+                s = "emcc";
+              else
+                s = "clang";
+              break;
+            }
           case type::icc:    s = "icc";   break;
           case type::msvc:
             {
@@ -3067,7 +3194,14 @@ namespace build2
           switch (id.type)
           {
           case type::gcc:    s = "g++";     break;
-          case type::clang:  s = "clang++"; break;
+          case type::clang:
+            {
+              if (id.variant == "emscripten")
+                s = "em++";
+              else
+                s = "clang";
+              break;
+            }
           case type::icc:    s = "icpc";    break;
           case type::msvc:
             {

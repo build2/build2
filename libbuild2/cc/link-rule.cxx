@@ -953,6 +953,8 @@ namespace build2
             {
               if (tclass == "windows")
                 e = "exe";
+              else if (tsys == "emscripten")
+                e = "js";
               else
                 e = "";
 
@@ -996,6 +998,18 @@ namespace build2
 
               break;
             }
+          }
+
+          // Add Emscripten .wasm.
+          //
+          if (ot == otype::e && tsys == "emscripten")
+          {
+            const target_type& tt (*bs.find_target_type ("wasm"));
+
+            file& wasm (add_adhoc_member<file> (t, tt));
+
+            if (wasm.path ().empty ())
+              wasm.derive_path ("wasm");
           }
 
           // Add VC's .pdb. Note that we are looking for the link.exe /DEBUG
@@ -2438,7 +2452,22 @@ namespace build2
         }
 
         if (ldc)
+        {
+          // See the compile rule for details. Note that here we don't really
+          // know whether it's a C++ executable so we may end up with some
+          // unnecessary overhead.
+          //
+          if (ctype == compiler_type::clang && cvariant == "emscripten")
+          {
+            if (!find_option_prefix ("DISABLE_EXCEPTION_CATCHING=", args))
+            {
+              args.push_back ("-s");
+              args.push_back ("DISABLE_EXCEPTION_CATCHING=0");
+            }
+          }
+
           append_options (args, cmode);
+        }
 
         // Extra system library dirs (last).
         //
@@ -3244,6 +3273,21 @@ namespace build2
           try_rmfile (relt + ".lib", true /* ignore_errors */);
           try_rmfile (relt + ".exp", true /* ignore_errors */);
         }
+
+        // Set executable bit on the .js file so that it can be run with a
+        // suitable binfmt interpreter (e.g., nodejs). See Emscripten issue
+        // 12707 for details.
+        //
+#ifndef _WIN32
+        if (lt.executable () && tsys == "emscripten")
+        {
+          path_perms (relt,
+                      (path_perms (relt) |
+                       permissions::xu   |
+                       permissions::xg   |
+                       permissions::xo));
+        }
+#endif
       }
 
       if (ranlib)

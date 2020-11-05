@@ -19,12 +19,13 @@ namespace build2
     //
     // Currently recognized compilers and their ids:
     //
-    // gcc          GCC gcc/g++
-    // clang        Vanilla Clang clang/clang++
-    // clang-apple  Apple Clang clang/clang++ and the gcc/g++ "alias"
-    // msvc         Microsoft cl.exe
-    // msvc-clang   Clang in the cl compatibility mode (clang-cl)
-    // icc          Intel icc/icpc
+    // gcc               GCC gcc/g++
+    // clang             Vanilla Clang clang/clang++
+    // clang-apple       Apple Clang clang/clang++ and the gcc/g++ "alias"
+    // clang-emscripten  Emscripten emcc/em++.
+    // msvc              Microsoft cl.exe
+    // msvc-clang        Clang in the cl compatibility mode (clang-cl)
+    // icc               Intel icc/icpc
     //
     // Note that the user can provide a custom id with one of the predefined
     // types and a custom variant (say 'gcc-tasking').
@@ -83,7 +84,7 @@ namespace build2
     //
     // Currently defined compiler classes:
     //
-    // gcc          gcc, clang, clang-apple, icc (on non-Windows)
+    // gcc          gcc, clang, clang-{apple,emscripten}, icc (on non-Windows)
     // msvc         msvc, clang-cl, icc (Windows)
     //
     enum class compiler_class
@@ -117,8 +118,9 @@ namespace build2
     //
     // A compiler variant may also have a variant version:
     //
-    // clang-apple   A.B[.C] ...         {A, B, C, ...}
-    // msvc-clang    A.B.C[( |-)...]     {A, B, C, ...} (native Clang version)
+    // clang-apple       A.B[.C] ...     {A, B, C, ...}
+    // clang-emscripten  A.B.C ...        {A, B, C, ...}
+    // msvc-clang        A.B.C[( |-)...] {A, B, C, ...} (native Clang version)
     //
     // Note that the clang-apple variant version is a custom Apple version
     // that doesn't correspond to the vanilla Clang version nor is the mapping
@@ -211,6 +213,7 @@ namespace build2
       // uclibc
       // musl
       // dietlibc
+      // emscripten
       // other
       // none
       //

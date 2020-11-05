@@ -145,7 +145,7 @@ namespace build2
     config_init (scope& rs,
                  scope& bs,
                  const location& loc,
-                 bool first,
+                 bool,
                  bool,
                  module_init_extra& extra)
     {
@@ -177,6 +177,126 @@ namespace build2
       //
       config::save_module (rs, "bin", 350);
 
+      bool new_cfg (false); // Any new configuration values?
+
+      // config.bin.target
+      //
+      const target_triplet* tgt;
+      {
+        const variable& var (ctx.var_pool["config.bin.target"]);
+
+        // We first see if the value was specified via the configuration
+        // mechanism.
+        //
+        lookup l (lookup_config (new_cfg, rs, var));
+
+        // Then see if there is a config hint (e.g., from the cc module).
+        //
+        bool hint (false);
+        if (!l)
+        {
+          // Note: new_cfg is false for a hinted value.
+          //
+          if (auto hl = extra.hints[var])
+          {
+            l = hl;
+            hint = true;
+          }
+        }
+
+        if (!l)
+          fail (loc) << "unable to determine binutils target" <<
+            info << "consider specifying it with " << var <<
+            info << "or first load a module that can provide it as a hint, "
+                     << "such as c or cxx";
+
+        // Split/canonicalize the target.
+        //
+        string s (cast<string> (l));
+
+        // Did the user ask us to use config.sub? If this is a hinted value,
+        // then we assume it has already been passed through config.sub.
+        //
+        if (!hint && config_sub)
+        {
+          s = run<string> (3,
+                           *config_sub,
+                           s.c_str (),
+                           [] (string& l, bool) {return move (l);});
+          l5 ([&]{trace << "config.sub target: '" << s << "'";});
+        }
+
+        try
+        {
+          target_triplet t (s);
+
+          l5 ([&]{trace << "canonical target: '" << t.string () << "'; "
+                        << "class: " << t.class_;});
+
+          assert (!hint || s == t.representation ());
+
+          // Also enter as bin.target.{cpu,vendor,system,version,class}
+          // for convenience of access.
+          //
+          rs.assign<string> ("bin.target.cpu")     = t.cpu;
+          rs.assign<string> ("bin.target.vendor")  = t.vendor;
+          rs.assign<string> ("bin.target.system")  = t.system;
+          rs.assign<string> ("bin.target.version") = t.version;
+          rs.assign<string> ("bin.target.class")   = t.class_;
+
+          tgt = &rs.assign<target_triplet> ("bin.target", move (t));
+        }
+        catch (const invalid_argument& e)
+        {
+          // This is where we suggest that the user specifies --config-sub
+          // to help us out.
+          //
+          fail << "unable to parse binutils target '" << s << "': " << e <<
+            info << "consider using the --config-sub option";
+        }
+      }
+
+      // config.bin.pattern
+      //
+      const string* pat (nullptr);
+      {
+        const variable& var (ctx.var_pool["config.bin.pattern"]);
+
+        // We first see if the value was specified via the configuration
+        // mechanism.
+        //
+        lookup l (lookup_config (new_cfg, rs, var));
+
+        // Then see if there is a config hint (e.g., from the C++ module).
+        //
+        if (!l)
+        {
+          // Note: new_cfg is false for a hinted value.
+          //
+          if (auto hl = extra.hints[var])
+            l = hl;
+        }
+
+        // For ease of use enter it as bin.pattern (since it can come from
+        // different places).
+        //
+        if (l)
+        {
+          const string& s (cast<string> (l));
+
+          if (s.empty () ||
+              (!path::traits_type::is_separator (s.back ()) &&
+               s.find ('*') == string::npos))
+          {
+            fail << "missing '*' or trailing '"
+                 << char (path::traits_type::directory_separator)
+                 << "' in binutils pattern '" << s << "'";
+          }
+
+          pat = &rs.assign<string> ("bin.pattern", s);
+        }
+      }
+
       // The idea here is as follows: if we already have one of
       // the bin.* variables set, then we assume this is static
       // project configuration and don't bother setting the
@@ -184,15 +304,20 @@ namespace build2
       //
       //@@ Need to validate the values. Would be more efficient
       //   to do it once on assignment than every time on query.
-      //   Custom var type?
       //
 
       // config.bin.lib
       //
+      // By default it's both unless the target doesn't support one of the
+      // variants.
+      //
       {
         value& v (rs.assign ("bin.lib"));
         if (!v)
-          v = *lookup_config (rs, "config.bin.lib", "both");
+          v = *lookup_config (rs,
+                              "config.bin.lib",
+                              tgt->system == "emscripten" ? "static" :
+                              "both");
       }
 
       // config.bin.exe.lib
@@ -272,140 +397,19 @@ namespace build2
         set ("bin.exe.suffix", "config.bin.exe.suffix", s);
       }
 
-      if (first)
+      // If this is a configuration with new values, then print the report
+      // at verbosity level 2 and up (-v).
+      //
+      if (verb >= (new_cfg ? 2 : 3))
       {
-        bool new_cfg (false); // Any new configuration values?
+        diag_record dr (text);
 
-        // config.bin.target
-        //
-        {
-          const variable& var (ctx.var_pool["config.bin.target"]);
+        dr << "bin " << project (rs) << '@' << rs << '\n'
+           << "  target     " << *tgt;
 
-          // We first see if the value was specified via the configuration
-          // mechanism.
-          //
-          lookup l (lookup_config (new_cfg, rs, var));
-
-          // Then see if there is a config hint (e.g., from the cc module).
-          //
-          bool hint (false);
-          if (!l)
-          {
-            // Note: new_cfg is false for a hinted value.
-            //
-            if (auto hl = extra.hints[var])
-            {
-              l = hl;
-              hint = true;
-            }
-          }
-
-          if (!l)
-            fail (loc) << "unable to determine binutils target" <<
-              info << "consider specifying it with " << var <<
-              info << "or first load a module that can provide it as a hint, "
-                       << "such as c or cxx";
-
-          // Split/canonicalize the target.
-          //
-          string s (cast<string> (l));
-
-          // Did the user ask us to use config.sub? If this is a hinted value,
-          // then we assume it has already been passed through config.sub.
-          //
-          if (!hint && config_sub)
-          {
-            s = run<string> (3,
-                             *config_sub,
-                             s.c_str (),
-                             [] (string& l, bool) {return move (l);});
-            l5 ([&]{trace << "config.sub target: '" << s << "'";});
-          }
-
-          try
-          {
-            target_triplet t (s);
-
-            l5 ([&]{trace << "canonical target: '" << t.string () << "'; "
-                          << "class: " << t.class_;});
-
-            assert (!hint || s == t.representation ());
-
-            // Also enter as bin.target.{cpu,vendor,system,version,class}
-            // for convenience of access.
-            //
-            rs.assign<string> ("bin.target.cpu")     = t.cpu;
-            rs.assign<string> ("bin.target.vendor")  = t.vendor;
-            rs.assign<string> ("bin.target.system")  = t.system;
-            rs.assign<string> ("bin.target.version") = t.version;
-            rs.assign<string> ("bin.target.class")   = t.class_;
-
-            rs.assign<target_triplet> ("bin.target") = move (t);
-          }
-          catch (const invalid_argument& e)
-          {
-            // This is where we suggest that the user specifies --config-sub
-            // to help us out.
-            //
-            fail << "unable to parse binutils target '" << s << "': " << e <<
-              info << "consider using the --config-sub option";
-          }
-        }
-
-        // config.bin.pattern
-        //
-        {
-          const variable& var (ctx.var_pool["config.bin.pattern"]);
-
-          // We first see if the value was specified via the configuration
-          // mechanism.
-          //
-          lookup l (lookup_config (new_cfg, rs, var));
-
-          // Then see if there is a config hint (e.g., from the C++ module).
-          //
-          if (!l)
-          {
-            // Note: new_cfg is false for a hinted value.
-            //
-            if (auto hl = extra.hints[var])
-              l = hl;
-          }
-
-          // For ease of use enter it as bin.pattern (since it can come from
-          // different places).
-          //
-          if (l)
-          {
-            const string& s (cast<string> (l));
-
-            if (s.empty () ||
-                (!path::traits_type::is_separator (s.back ()) &&
-                 s.find ('*') == string::npos))
-            {
-              fail << "missing '*' or trailing '"
-                   << char (path::traits_type::directory_separator)
-                   << "' in binutils pattern '" << s << "'";
-            }
-
-            rs.assign<string> ("bin.pattern") = s;
-          }
-        }
-
-        // If this is a configuration with new values, then print the report
-        // at verbosity level 2 and up (-v).
-        //
-        if (verb >= (new_cfg ? 2 : 3))
-        {
-          diag_record dr (text);
-
-          dr << "bin " << project (rs) << '@' << rs << '\n'
-             << "  target     " << cast<target_triplet> (rs["bin.target"]);
-
-          if (auto l = rs["bin.pattern"])
-            dr << '\n'
-               << "  pattern    " << cast<string> (l);
-        }
+        if (pat != nullptr)
+          dr << '\n'
+             << "  pattern    " << *pat;
       }
 
       return true;
@@ -428,7 +432,7 @@ namespace build2
 
       // Cache some config values we will be needing below.
       //
-      const string& tclass (cast<string> (rs["bin.target.class"]));
+      const target_triplet& tgt (cast<target_triplet> (rs["bin.target"]));
 
       // Register target types and configure their default "installability".
       //
@@ -497,12 +501,12 @@ namespace build2
         // bin/, not lib/.
         //
         if (install_loaded)
-          install_path<libs> (bs,
-                              dir_path (tclass == "windows" ? "bin" : "lib"));
+          install_path<libs> (
+            bs, dir_path (tgt.class_ == "windows" ? "bin" : "lib"));
 
         // Create additional target types for certain targets.
         //
-        if (tclass == "windows")
+        if (tgt.class_ == "windows")
         {
           // Import library.
           //
@@ -513,6 +517,17 @@ namespace build2
           {
             install_path<libi> (bs, dir_path ("lib"));
             install_mode<libi> (bs, "644");
+          }
+        }
+
+        if (tgt.cpu == "wasm32" || tgt.cpu == "wasm64")
+        {
+          const target_type& wasm (bs.derive_target_type<file> ("wasm").first);
+
+          if (install_loaded)
+          {
+            install_path (bs, wasm, dir_path ("bin")); // Goes to install.bin
+            install_mode (bs, wasm, "644");            // But not executable.
           }
         }
       }
