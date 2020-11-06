@@ -181,7 +181,7 @@ namespace build2
 
       // config.bin.target
       //
-      const target_triplet* tgt;
+      const target_triplet* tgt (nullptr);
       {
         const variable& var (ctx.var_pool["config.bin.target"]);
 
