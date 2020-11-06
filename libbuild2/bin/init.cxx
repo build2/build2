@@ -526,8 +526,10 @@ namespace build2
 
           if (install_loaded)
           {
-            install_path (bs, wasm, dir_path ("bin")); // Goes to install.bin
-            install_mode (bs, wasm, "644");            // But not executable.
+            // Note that we keep the executable bit on the .wasm file, see
+            // Emscripten issue 12707 for background.
+            //
+            install_path (bs, wasm, dir_path ("bin"));
           }
         }
       }
