@@ -220,7 +220,7 @@ namespace build2
             m.test_timeout = parse_timeout (string (t, p + 1), tt);
         }
         else
-          m.test_timeout = parse_timeout (t, ot);
+          m.operation_timeout = parse_timeout (t, ot);
       }
 
       //@@ TODO: Need ability to specify extra diff options (e.g.,

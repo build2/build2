@@ -314,7 +314,8 @@
   {
     : set
     :
-    $c <<EOI && $b config.test.timeout=1/10 2>>~%EOE% != 0
+    $c <<EOI && $b config.test.timeout=1 2>>~%EOE% != 0
+      timeout 10;
       $* -l 3
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
@@ -323,7 +324,8 @@
 
     : reset
     :
-    $c <<EOI && $b config.test.timeout=1/10 config.test.timeout=0/10
+    $c <<EOI && $b config.test.timeout=1 config.test.timeout=0/10
+      timeout 10;
       $* -l 3
       EOI
 
@@ -355,7 +357,8 @@
   {
     : set
     :
-    $c <<EOI && $b config.test.timeout=10/1 2>>~%EOE% != 0
+    $c <<EOI && $b config.test.timeout=/1 2>>~%EOE% != 0
+      timeout 10;
       $* -l 3
       EOI
       %testscript:.*: error: .+ terminated: execution timeout expired%
@@ -364,7 +367,8 @@
 
     : reset
     :
-    $c <<EOI && $b config.test.timeout=10/1 config.test.timeout=10/0
+    $c <<EOI && $b config.test.timeout=/1 config.test.timeout=10/0
+      timeout 10;
       $* -l 3
       EOI
 
