@@ -269,11 +269,19 @@ namespace build2
     const operation_info* current_inner_oif;
     const operation_info* current_outer_oif;
 
+    action
+    current_action () const
+    {
+      return action (current_mif->id,
+                     current_inner_oif->id,
+                     current_outer_oif != nullptr ? current_outer_oif->id : 0);
+    }
+
     // Check whether this is the specified meta-operation during bootstrap
     // (when current_mif may not be yet known).
     //
     bool
-    bootstrap_meta_operation (const char* mo)
+    bootstrap_meta_operation (const char* mo) const
     {
       return ((current_mname == mo  ) ||
               (current_mname.empty () && current_oname == mo));
