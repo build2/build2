@@ -88,10 +88,10 @@ namespace build2
 
     class LIBBUILD2_CC_SYMEXPORT module: public build2::module,
                                          public virtual common,
-                                         link_rule,
-                                         compile_rule,
-                                         install_rule,
-                                         libux_install_rule
+                                         public link_rule,
+                                         public compile_rule,
+                                         public install_rule,
+                                         public libux_install_rule
     {
     public:
       explicit

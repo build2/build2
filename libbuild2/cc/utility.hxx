@@ -32,10 +32,19 @@ namespace build2
     extern const dir_path module_build_dir;         // cc/build/
     extern const dir_path module_build_modules_dir; // cc/build/modules/
 
-    // Compile output type from source target.
+    // Compile output type from output target type (obj*{}, bmi*{}, etc).
+    //
+    // If input unit type is specified, then restrict the tests only to output
+    // types that can be produced from this input.
     //
     otype
-    compile_type (const target&, unit_type);
+    compile_type (const target_type&, optional<unit_type> = nullopt);
+
+    inline otype
+    compile_type (const target& t, optional<unit_type> ut = nullopt)
+    {
+      return compile_type (t.type (), ut);
+    }
 
     compile_target_types
     compile_types (otype);

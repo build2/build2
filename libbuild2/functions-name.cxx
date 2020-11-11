@@ -32,7 +32,9 @@ namespace build2
     return make_pair (move (n), move (e));
   }
 
-  static const target&
+  // Note: this helper mey be used by other functions that operate on targets.
+  //
+  LIBBUILD2_SYMEXPORT const target&
   to_target (const scope& s, name&& n, name&& o)
   {
     if (const target* r = search_existing (n, s, o.dir))

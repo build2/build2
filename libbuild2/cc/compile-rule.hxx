@@ -53,6 +53,15 @@ namespace build2
       target_state
       perform_clean (action, const target&) const;
 
+    public:
+      void
+      append_lib_options (strings&,
+                          const scope&,
+                          action, const file&, bool, linfo) const;
+    protected:
+      static void
+      functions (function_family&, const char*); // functions.cxx
+
     private:
       struct match_data;
       using environment = small_vector<const char*, 2>;
@@ -63,11 +72,15 @@ namespace build2
 
       template <typename T>
       void
-      append_lib_options (const scope&,
-                          T&,
-                          action,
-                          const target&,
-                          linfo) const;
+      append_lib_options (T&,
+                          const scope&,
+                          action, const file&, bool, linfo) const;
+
+      template <typename T>
+      void
+      append_lib_options (T&,
+                          const scope&,
+                          action, const target&, linfo) const;
 
       // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
       // generated headers to directories where they will be generated.
@@ -94,11 +107,9 @@ namespace build2
       append_prefixes (prefix_map&, const target&, const variable&) const;
 
       void
-      append_lib_prefixes (const scope&,
-                           prefix_map&,
-                           action,
-                           target&,
-                           linfo) const;
+      append_lib_prefixes (prefix_map&,
+                           const scope&,
+                           action, target&, linfo) const;
 
       prefix_map
       build_prefix_map (const scope&, action, target&, linfo) const;
@@ -168,7 +179,7 @@ namespace build2
                              action, const file&,
                              const match_data&, const path&) const;
 
-      // Compiler-specific language selection option. Return the number of
+      // Compiler-specific language selection options. Return the number of
       // options (arguments, really) appended.
       //
       size_t

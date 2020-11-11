@@ -1490,8 +1490,9 @@ namespace build2
 
     void link_rule::
     append_libraries (strings& args,
-                      const file& l, bool la, lflags lf,
-                      const scope& bs, action a, linfo li) const
+                      const scope& bs, action a,
+                      const file& l, bool la, lflags lf, linfo li,
+                      bool self) const
     {
       struct data
       {
@@ -1664,14 +1665,13 @@ namespace build2
       };
 
       process_libraries (
-        a, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
+        a, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, self);
     }
 
     void link_rule::
-    append_libraries (sha256& cs,
-                      bool& update, timestamp mt,
-                      const file& l, bool la, lflags lf,
-                      const scope& bs, action a, linfo li) const
+    append_libraries (sha256& cs, bool& update, timestamp mt,
+                      const scope& bs, action a,
+                      const file& l, bool la, lflags lf, linfo li) const
     {
       struct data
       {
@@ -1771,11 +1771,9 @@ namespace build2
 
     void link_rule::
     rpath_libraries (strings& args,
-                     const target& t,
                      const scope& bs,
-                     action a,
-                     linfo li,
-                     bool link) const
+                     action a, const file& l, bool la,
+                     linfo li, bool link, bool self) const
     {
       // Use -rpath-link only on targets that support it (Linux, *BSD). Note
       // that we don't really need it for top-level libraries.
@@ -1874,12 +1872,30 @@ namespace build2
         d.args.push_back (move (o));
       };
 
-      // In case we don't have the "small function object" optimization.
-      //
-      const function<bool (const file&, bool)> impf (imp);
-      const function<
-        void (const file* const*, const string&, lflags, bool)> libf (lib);
 
+      if (self && !link && !la)
+      {
+        // Top-level shared library dependency.
+        //
+        if (!l.path ().empty ()) // Not binless.
+        {
+          // It is either matched or imported so should be a cc library.
+          //
+          if (!cast_false<bool> (l.vars[c_system]))
+            args.push_back ("-Wl,-rpath," + l.path ().directory ().string ());
+        }
+      }
+
+      process_libraries (a, bs, li, sys_lib_dirs,
+                         l, la, 0 /* lflags */,
+                         imp, lib, nullptr);
+    }
+
+    void link_rule::
+    rpath_libraries (strings& args,
+                     const scope& bs, action a,
+                     const target& t, linfo li, bool link) const
+    {
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
         if (pt == nullptr)
@@ -1892,23 +1908,7 @@ namespace build2
             (la = (f = pt->is_a<libux> ())) ||
             (      f = pt->is_a<libs>  ()))
         {
-          if (!link && !la)
-          {
-            // Top-level shared library dependency.
-            //
-            if (!f->path ().empty ()) // Not binless.
-            {
-              // It is either matched or imported so should be a cc library.
-              //
-              if (!cast_false<bool> (f->vars[c_system]))
-                args.push_back (
-                  "-Wl,-rpath," + f->path ().directory ().string ());
-            }
-          }
-
-          process_libraries (a, bs, li, sys_lib_dirs,
-                             *f, la, pt.data,
-                             impf, libf, nullptr);
+          rpath_libraries (args, bs, a, *f, la, li, link, true);
         }
       }
     }
@@ -2431,7 +2431,7 @@ namespace build2
           if (cast_true<bool> (t[for_install
                                  ? "bin.rpath_link.auto"
                                  : "bin.rpath.auto"]))
-            rpath_libraries (sargs, t, bs, a, li, for_install /* link */);
+            rpath_libraries (sargs, bs, a, t, li, for_install /* link */);
 
           lookup l;
 
@@ -2575,7 +2575,7 @@ namespace build2
             //
             if (la || ls)
             {
-              append_libraries (cs, update, mt, *f, la, p.data, bs, a, li);
+              append_libraries (cs, update, mt, bs, a, *f, la, p.data, li);
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
@@ -2886,7 +2886,7 @@ namespace build2
               (ls = (f = pt->is_a<libs>  ())))))
         {
           if (la || ls)
-            append_libraries (sargs, *f, la, p.data, bs, a, li);
+            append_libraries (sargs, bs, a, *f, la, p.data, li);
           else
           {
             sargs.push_back (relative (f->path ()).string ()); // string()&&

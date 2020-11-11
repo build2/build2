@@ -51,6 +51,33 @@ namespace build2
 
       using simple_rule::match; // To make Clang happy.
 
+    public:
+      // Library handling.
+      //
+      void
+      append_libraries (strings&,
+                        const scope&, action,
+                        const file&, bool, lflags, linfo, bool = true) const;
+
+      void
+      append_libraries (sha256&, bool&, timestamp,
+                        const scope&, action,
+                        const file&, bool, lflags,  linfo) const;
+
+      void
+      rpath_libraries (strings&,
+                       const scope&,
+                       action, const file&, bool, linfo, bool, bool) const;
+
+      void
+      rpath_libraries (strings&,
+                       const scope&, action,
+                       const target&, linfo, bool) const;
+
+    protected:
+      static void
+      functions (function_family&, const char*); // functions.cxx
+
     private:
       friend class install_rule;
       friend class libux_install_rule;
@@ -125,25 +152,6 @@ namespace build2
 
         link_rule::libs_paths libs_paths;
       };
-
-      // Library handling.
-      //
-      void
-      append_libraries (strings&,
-                        const file&, bool, lflags,
-                        const scope&, action, linfo) const;
-
-      void
-      append_libraries (sha256&,
-                        bool&, timestamp,
-                        const file&, bool, lflags,
-                        const scope&, action, linfo) const;
-
-      void
-      rpath_libraries (strings&,
-                       const target&,
-                       const scope&, action, linfo,
-                       bool) const;
 
       // Windows rpath emulation (windows-rpath.cxx).
       //

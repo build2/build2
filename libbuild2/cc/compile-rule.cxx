@@ -380,11 +380,9 @@ namespace build2
     //
     template <typename T>
     void compile_rule::
-    append_lib_options (const scope& bs,
-                        T& args,
-                        action a,
-                        const target& t,
-                        linfo li) const
+    append_lib_options (T& args,
+                        const scope& bs,
+                        action a, const file& l, bool la, linfo li) const
     {
       // See through utility libraries.
       //
@@ -409,11 +407,25 @@ namespace build2
         append_options (args, l, var);
       };
 
-      // In case we don't have the "small function object" optimization.
-      //
-      const function<bool (const file&, bool)> impf (imp);
-      const function<void (const file&, const string&, bool, bool)> optf (opt);
+      process_libraries (a, bs, li, sys_lib_dirs,
+                         l, la, 0, // Hack: lflags unused.
+                         imp, nullptr, opt);
+    }
 
+    void compile_rule::
+    append_lib_options (strings& args,
+                        const scope& bs,
+                        action a, const file& l, bool la, linfo li) const
+    {
+      append_lib_options<strings> (args, bs, a, l, la, li);
+    }
+
+    template <typename T>
+    void compile_rule::
+    append_lib_options (T& args,
+                        const scope& bs,
+                        action a, const target& t, linfo li) const
+    {
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
@@ -427,14 +439,13 @@ namespace build2
             pt = link_member (*l, a, li);
 
           bool la;
-          if (!((la = pt->is_a<liba> ())  ||
-                (la = pt->is_a<libux> ()) ||
-                pt->is_a<libs> ()))
-            continue;
-
-          process_libraries (a, bs, li, sys_lib_dirs,
-                             pt->as<file> (), la, 0, // Hack: lflags unused.
-                             impf, nullptr, optf);
+          const file* f;
+          if ((la = (f = pt->is_a<liba> ()))  ||
+              (la = (f = pt->is_a<libux> ())) ||
+              (     (f = pt->is_a<libs> ())))
+          {
+            append_lib_options (args, bs, a, *f, la, li);
+          }
         }
       }
     }
@@ -443,8 +454,8 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile_rule::
-    append_lib_prefixes (const scope& bs,
-                         prefix_map& m,
+    append_lib_prefixes (prefix_map& m,
+                         const scope& bs,
                          action a,
                          target& t,
                          linfo li) const
@@ -888,7 +899,7 @@ namespace build2
 
             // Hash *.export.poptions from prerequisite libraries.
             //
-            append_lib_options (bs, cs, a, t, li);
+            append_lib_options (cs, bs, a, t, li);
           }
 
           append_options (cs, t, c_coptions);
@@ -1474,7 +1485,7 @@ namespace build2
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_lib_prefixes (bs, m, a, t, li);
+      append_lib_prefixes (m, bs, a, t, li);
 
       return m;
     }
@@ -2906,7 +2917,7 @@ namespace build2
 
           // Add *.export.poptions from prerequisite libraries.
           //
-          append_lib_options (bs, args, a, t, li);
+          append_lib_options (args, bs, a, t, li);
 
           // Populate the src-out with the -I$out_base -I$src_base pairs.
           //
@@ -4302,7 +4313,7 @@ namespace build2
           append_options (args, t, x_poptions);
           append_options (args, t, c_poptions);
 
-          append_lib_options (t.base_scope (), args, a, t, li);
+          append_lib_options (args, t.base_scope (), a, t, li);
 
           if (md.symexport)
             append_symexport_options (args, t);
@@ -5929,7 +5940,7 @@ namespace build2
 
         // Add *.export.poptions from prerequisite libraries.
         //
-        append_lib_options (bs, args, a, t, li);
+        append_lib_options (args, bs, a, t, li);
 
         if (md.symexport)
           append_symexport_options (args, t);

@@ -6,21 +6,23 @@ namespace build2
   namespace cc
   {
     inline otype
-    compile_type (const target& t, unit_type u)
+    compile_type (const target_type& t, optional<unit_type> u)
     {
       using namespace bin;
 
       auto test = [&t, u] (const auto& h, const auto& i, const auto& o)
       {
-        return t.is_a (u == unit_type::module_header ? h :
-                       u == unit_type::module_iface  ? i :
-                       o);
+        return (u
+                ? t.is_a (*u == unit_type::module_header ? h :
+                          *u == unit_type::module_iface  ? i : o)
+                : t.is_a (h) || t.is_a (i) || t.is_a (o));
       };
 
       return
         test (hbmie::static_type, bmie::static_type, obje::static_type) ? otype::e :
+        test (hbmis::static_type, bmis::static_type, objs::static_type) ? otype::s :
         test (hbmia::static_type, bmia::static_type, obja::static_type) ? otype::a :
-        otype::s;
+        static_cast<otype> (0xFF);
     }
 
     inline compile_target_types

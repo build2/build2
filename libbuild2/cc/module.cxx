@@ -6,6 +6,7 @@
 #include <iomanip> // left, setw()
 
 #include <libbuild2/scope.hxx>
+#include <libbuild2/function.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/bin/target.hxx>
@@ -677,6 +678,18 @@ namespace build2
     {
       tracer trace (x, "init");
 
+      context& ctx (rs.ctx);
+
+      // Register the module function family if this is the first instance of
+      // this modules.
+      //
+      if (!function_family::defined (ctx.functions, x))
+      {
+        function_family f (ctx.functions, x);
+        compile_rule::functions (f, x);
+        link_rule::functions (f, x);
+      }
+
       // Load cc.core. Besides other things, this will load bin (core) plus
       // extra bin.* modules we may need.
       //
@@ -798,13 +811,12 @@ namespace build2
         bool s (tsys != "emscripten");
 
         auto& r (rs.rules);
+        const compile_rule& cr (*this);
+        const link_rule&    lr (*this);
 
         // We register for configure so that we detect unresolved imports
         // during configuration rather that later, e.g., during update.
         //
-        const compile_rule& cr (*this);
-        const link_rule&    lr (*this);
-
         r.insert<obje> (perform_update_id,    x_compile, cr);
         r.insert<obje> (perform_clean_id,     x_compile, cr);
         r.insert<obje> (configure_update_id,  x_compile, cr);
