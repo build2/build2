@@ -34,6 +34,7 @@ namespace build2
   // <libbuild2/function.hxx>
   //
   class function_map;
+  class function_family;
 
   // <libbuild2/scope.hxx>
   //

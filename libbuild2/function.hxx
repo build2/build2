@@ -249,10 +249,9 @@ namespace build2
     default_thunk (const scope*, vector_view<value>, const function_overload&);
 
     // A function family uses a common qualification (though you can pass
-    // empty string to supress it). For an unqualified name (doesn't not
-    // contain a dot) the qualified version is added automatically. A name
-    // containing a leading dot is a shortcut notation for a qualified-only
-    // name.
+    // empty string to supress it). For an unqualified name (doesn't contain
+    // dot) the qualified version is added automatically. A name containing a
+    // leading dot is a shortcut notation for a qualified-only name.
     //
     function_family (function_map& map,
                      string qual,
@@ -908,6 +907,26 @@ namespace build2
                 function_overload::types (args::types, args::max),
                 thunk,
                 typename cast::data {&cast::thunk, dm}));
+    }
+
+    // Low-level interface that can be used to register additional data.
+    //
+    // Note that the call to this function sidesteps the thunk.
+    //
+    template <typename D, typename... A>
+    void
+    insert (function_impl* i, D d) &&
+    {
+      using args = function_args<A...>;
+
+      insert (move (name),
+              function_overload (
+                nullptr,
+                args::min,
+                args::max,
+                function_overload::types (args::types, args::max),
+                i,
+                move (d)));
     }
 
   private:
