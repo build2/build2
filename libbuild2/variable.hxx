@@ -704,7 +704,10 @@ namespace build2
   {
     static_assert (sizeof (bool) <= value::size_, "insufficient space");
 
-    static bool convert (name&&, name*);
+    // Note: in some places we rely on the convert() function not changing
+    //       the passed names thus we make them const.
+    //
+    static bool convert (const name&, const name*);
     static void assign (value&, bool);
     static void append (value&, bool); // OR.
     static name reverse (bool x) {return name (x ? "true" : "false");}

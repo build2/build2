@@ -460,7 +460,7 @@ namespace build2
   // bool value
   //
   bool value_traits<bool>::
-  convert (name&& n, name* r)
+  convert (const name& n, const name* r)
   {
     if (r == nullptr && n.simple ())
     {
