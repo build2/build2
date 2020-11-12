@@ -4924,7 +4924,7 @@ namespace build2
 
     // Post-process the result: remove extension, reverse target type-specific
     // pattern/match amendments (essentially: cxx{*} -> *.cxx -> foo.cxx ->
-    // cxx{foo}), and recombined the result.
+    // cxx{foo}), and recombine the result.
     //
     for (name& n: r)
     {

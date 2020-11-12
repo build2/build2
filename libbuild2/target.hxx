@@ -767,13 +767,14 @@ namespace build2
     }
 
   public:
-    // Split the name leaf into target name (in place) and extension
-    // (returned).
+    // Split the name (not necessarily a simple path) into target name (in
+    // place) and extension (returned).
     //
     static optional<string>
     split_name (string&, const location&);
 
-    // Combine the target name and extension into the name leaf.
+    // Combine the target name (not necessarily a simple path) and
+    // extension.
     //
     // If the target type has the default extension, then "escape" the
     // existing extension if any.

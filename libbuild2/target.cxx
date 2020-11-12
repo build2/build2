@@ -250,74 +250,279 @@ namespace build2
   {
     assert (!v.empty ());
 
-    // We treat a single trailing dot as "specified no extension", double dots
-    // as a single trailing dot (that is, an escape sequence which can be
-    // repeated any number of times; in such cases we naturally assume there
-    // is no default extension) and triple dots as "unspecified (default)
-    // extension" (used when the extension in the name is not "ours", for
-    // example, cxx{foo.test...} for foo.test.cxx). An odd number of dots
-    // other than one or three is invalid.
+    // Normally, we treat the rightmost dot as an extension separator (but see
+    // find_extension() for the exact semantics) and if none exists, then we
+    // assume the extension is not specified. There are, however, special
+    // cases that override this rule:
+    //
+    // - We treat triple dots as the "chosen extension separator" (used to
+    //   resolve ambiguity as to which dot is the separator, for example,
+    //   libfoo...u.a). If they are trailing triple dots, then this signifies
+    //   the "unspecified (default) extension" (used when the extension in the
+    //   name is not "ours", for example, cxx{foo.test...} for foo.test.cxx)
+    //   Having multiple triple dots is illegal.
+    //
+    // - Otherwise, we treat a single trailing dot as the "specified no
+    // - extension".
+    //
+    // - Finally, double dots are used as an escape sequence to make sure the
+    //   dot is not treated as an extension separator (or as special by any of
+    //   the above rules, for example, libfoo.u..a). In case of trailing
+    //   double dots, we naturally assume there is no default extension.
+    //
+    // An odd number of dots other than one or three is illegal. This means,
+    // in particular, that it's impossible to specify a base/extension pair
+    // where either the base ends with a dot or the extension begins with one
+    // (or both). We are ok with that.
+    //
+    // Dot-only sequences are illegal. Note though, that dir{.} and dir{..}
+    // are handled ad hoc outside this function and are valid.
+
+    // Note that we cannot unescape dots in-place before we validate the name
+    // since it can be required for diagnostics. Thus, the plan is as follows:
+    //
+    // - Iterate right to left, searching for the extension dot, validating
+    //   the name, and checking if any dots are escaped.
+    //
+    // - Split the name.
+    //
+    // - Unescape the dots in the name and/or extension, if required.
+
+    // Search for an extension dot, validate the name, and check for escape
+    // sequences.
+    //
+    optional<size_t> edp; // Extension dot position.
+    size_t edn (0);       // Extension dot representation lenght (1 or 3).
+
+    bool escaped (false);
+    bool dot_only (true);
+    size_t n (v.size ());
+
+    // Iterate right to left until the beginning of the string or a directory
+    // separator is encountered.
+    //
+    // At the end of the loop p will point to the beginning of the leaf.
+    //
+    size_t p (n - 1);
+
+    for (;; --p)
+    {
+      char c (v[p]);
+
+      if (c == '.')
+      {
+        // Find the first dot in the sequence.
+        //
+        size_t i (p);
+        for (; i != 0 && v[i - 1] == '.'; --i) ;
+
+        size_t sn (p - i + 1); // Sequence length.
+
+        if (sn == 3)          // Triple dots?
+        {
+          if (edp && edn == 3)
+            fail (loc) << "multiple triple dots in target name '" << v << "'";
+
+          edp = i;
+          edn = 3;
+        }
+        else if (sn == 1)     // Single dot?
+        {
+          if (!edp)
+          {
+            edp = i;
+            edn = 1;
+          }
+        }
+        else if (sn % 2 == 0) // Escape sequence?
+          escaped = true;
+        else
+          fail (loc) << "invalid dot sequence in target name '" << v << "'";
+
+        p = i; // Position to the first dot in the sequence.
+      }
+      else if (path::traits_type::is_separator (c))
+      {
+        // Position to the beginning of the leaf and bail out.
+        //
+        ++p;
+        break;
+      }
+      else
+        dot_only = false;
+
+      if (p == 0)
+        break;
+    }
+
+    if (dot_only)
+      fail (loc) << "invalid target name '" << v << "'";
+
+    // The leading dot cannot be an extension dot. Thus, the leading triple
+    // dots are invalid and the leading single dot is not considered as such.
+    //
+    if (edp && *edp == p)
+    {
+      if (edn == 3)
+        fail (loc) << "leading triple dots in target name '" << v << "'";
+
+      edp = nullopt;
+    }
+
+    // Split the name.
     //
     optional<string> r;
 
-    size_t p;
-    if (v.back () != '.')
+    if (edp)
     {
-      if ((p = path::traits_type::find_extension (v)) != string::npos)
-        r = string (v.c_str () + p + 1);
-    }
-    else
-    {
-      if ((p = v.find_last_not_of ('.')) == string::npos)
-        fail (loc) << "invalid target name '" << v << "'";
-
-      p++;                      // Position of the first trailing dot.
-      size_t n (v.size () - p); // Number of the trailing dots.
-
-      if (n == 1)
+      if (*edp != n - edn)          // Non-trailing dot?
+        r = string (v, *edp + edn);
+      else if (edn == 1)            // Trailing single dot?
         r = string ();
-      else if (n == 3)
-        ;
-      else if (n % 2 == 0)
+      //else if (edn == 3)          // Trailing triple dots?
+      //  r = nullopt;
+
+      v.resize (*edp);
+    }
+    else if (v.back () == '.')      // Trailing escaped dot?
+      r = string ();
+
+    if (!escaped)
+      return r;
+
+    // Unescape the dots.
+    //
+    auto unescape = [] (string& s, size_t b = 0)
+    {
+      size_t n (s.size ());
+      for (size_t i (b); i != n; ++i)
       {
-        p += n / 2; // Keep half of the dots.
-        r = string ();
-      }
-      else
-        fail (loc) << "invalid trailing dot sequence in target name '"
-                   << v << "'";
-    }
+        if (s[i] == '.')
+        {
+          // Find the end of the dot sequence.
+          //
+          size_t j (i + 1);
+          for (; j != n && s[j] == '.'; ++j) ;
 
-    if (p != string::npos)
-      v.resize (p);
+          size_t sn (j - i); // Sequence length.
+
+          // Multiple dots can only represent an escape sequence now.
+          //
+          if (sn != 1)
+          {
+            assert (sn % 2 == 0);
+
+            size_t dn (sn / 2);   // Number of dots to remove.
+            s.erase (i + dn, dn);
+
+            i += dn - 1; // Position to the last dot in the sequence.
+            n -= dn;     // Adjust string size counter.
+          }
+        }
+      }
+    };
+
+    unescape (v, p);
+
+    if (r)
+      unescape (*r);
 
     return r;
   }
 
+  // Escape the name according to the rules described in split_name(). The
+  // idea is that we should be able to roundtrip things.
+  //
+  // Note though, that multiple representations can end up with the same
+  // name, for example libfoo.u..a and libfoo...u.a. We will always resolve
+  // ambiguity with the triple dot and only escape those dots that otherwise
+  // can be misinterpreted (dot sequences, etc).
+  //
   void target::
   combine_name (string& v, const optional<string>& e, bool de)
   {
-    if (v.back () == '.')
+    // Escape all dot sequences since they can be misinterpreted as escape
+    // sequences and return true if the result contains an unescaped dot that
+    // can potentially be considered an extension dot.
+    //
+    // In the name mode only consider the basename, escape the trailing dot
+    // (since it can be misinterpreted as the 'no extension' case), and don't
+    // treat the basename leading dot as the potential extension dot.
+    //
+    auto escape = [] (string& s, bool name) -> bool
+    {
+      if (s.empty ())
+        return false;
+
+      bool r (false);
+      size_t n (s.size ());
+
+      // Iterate right to left until the beginning of the string or a
+      // directory separator is encountered.
+      //
+      for (size_t p (n - 1);; --p)
+      {
+        char c (s[p]);
+
+        if (c == '.')
+        {
+          // Find the first dot in the sequence.
+          //
+          size_t i (p);
+          for (; i != 0 && s[i - 1] == '.'; --i) ;
+
+          size_t sn (p - i + 1); // Sequence length.
+
+          bool esc (sn != 1); // Escape the sequence.
+          bool ext (sn == 1); // An extension dot, potentially.
+
+          if (name)
+          {
+            if (i == n - 1)
+              esc = true;
+
+            if (ext && (i == 0 || path::traits_type::is_separator (s[i - 1])))
+              ext = false;
+          }
+
+          if (esc)
+            s.insert (p + 1, sn, '.'); // Double them.
+
+          if (ext)
+            r = true;
+
+          p = i; // Position to the first dot in the sequence.
+        }
+        else if (path::traits_type::is_separator (c))
+        {
+          assert (name);
+          break;
+        }
+
+        if (p == 0)
+          break;
+      }
+
+      return r;
+    };
+
+    bool ed (escape (v, true /* name */));
+
+    if (v.back () == '.') // Name had (before escaping) trailing dot.
     {
       assert (e && e->empty ());
-
-      size_t p (v.find_last_not_of ('.'));
-      assert (p != string::npos);
-
-      p++;                      // Position of the first trailing dot.
-      size_t n (v.size () - p); // Number of the trailing dots.
-      v.append (n, '.');        // Double them.
     }
     else if (e)
     {
-      v += '.';
-      v += *e;  // Empty or not.
+      // Separate the name and extension with the triple dots if the extension
+      // contains potential extension dots.
+      //
+      string ext (*e);
+      v += escape (ext, false /* name */) ?  "..." : ".";
+      v += ext; // Empty or not.
     }
-    else if (de)
-    {
-      if (path::traits_type::find_extension (v) != string::npos)
-        v += "...";
-    }
+    else if (de && ed)
+      v += "...";
   }
 
   // include()
@@ -499,6 +704,8 @@ namespace build2
     return pair<target&, ulock> (*t, ulock ());
   }
 
+  static const optional<string> unknown_ext ("?");
+
   ostream&
   to_stream (ostream& os, const target_key& k, optional<stream_verbosity> osv)
   {
@@ -530,7 +737,7 @@ namespace build2
 
     if (n)
     {
-      os << *k.name;
+      const optional<string>* ext (nullptr); // NULL or present.
 
       // If the extension derivation functions are NULL, then it means this
       // target type doesn't use extensions.
@@ -543,11 +750,30 @@ namespace build2
         //
         if (ev > 0 && (ev > 1 || (k.ext && !k.ext->empty ())))
         {
-          os << '.' << (k.ext ? *k.ext : "?");
+          ext = k.ext ? &k.ext : &unknown_ext;
         }
       }
       else
         assert (!k.ext || k.ext->empty ()); // Unspecified or none.
+
+      // Escape dots in the name/extension to resolve potential ambiguity.
+      //
+      if (k.name->find ('.') == string::npos &&
+          (ext == nullptr || (*ext)->find ('.') == string::npos))
+      {
+        os << *k.name;
+
+        if (ext != nullptr)
+          os << '.' << **ext;
+      }
+      else
+      {
+        string n (*k.name);
+        target::combine_name (n,
+                              ext != nullptr ? *ext : nullopt_string,
+                              false /* default_extension */);
+        os << n;
+      }
     }
     else
       to_stream (os,

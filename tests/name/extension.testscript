@@ -16,46 +16,238 @@ EOI
   : unspecified
   :
   touch foo.txt;
-  $* <'./: txt{foo}'
+  $* <<EOI >>EOO
+  ./: txt{foo}
+  print $name(txt{foo})
+  print $extension(txt{foo})
+  print txt{fo?}
+  EOI
+  foo
+  [null]
+  txt{foo}
+  EOO
 
   : specified
   :
   touch foo.text;
-  $* <'./: txt{foo.text}'
+  $* <<EOI >>EOO
+  ./: txt{foo.text}
+  print $name(txt{foo.text})
+  print $extension(txt{foo.text})
+  print txt{fo?.text}
+  EOI
+  foo
+  text
+  txt{foo.text}
+  EOO
 
-  : specified-none
+  : specified-triple
   :
-  touch foo;
-  $* <'./: txt{foo.}'
+  touch fo.o.text;
+  $* <<EOI >>EOO
+  ./: txt{fo...o.text}
+  print $name(txt{fo...o.text})
+  print $extension(txt{fo...o.text})
+  print txt{f?...o.text}
+  EOI
+  fo
+  o.text
+  txt{fo...o.text}
+  EOO
 
-  : specified-default
+  : multiple-triples
   :
-  touch foo.testscript.txt;
-  $* <'./: txt{foo.testscript...}'
+  $* <'./: txt{f...o...o}' 2>>EOE != 0
+  <stdin>:1:5: error: multiple triple dots in target name 'f...o...o'
+  EOE
 
-  # Trailing dots are not allowed on Windows.
-  #
-
-  : specified-escape-one
+  : multiple-singles
   :
-  if ($cxx.target.class != 'windows')
+  touch fo.o.text;
+  $* <<EOI >>EOO
+  ./: txt{fo.o.text}
+  print $name(txt{fo.o.text})
+  print $extension(txt{fo.o.text})
+  print txt{f?.o.text}
+  EOI
+  fo.o
+  text
+  txt{fo.o.text}
+  EOO
+
+  : escape-basename
+  :
+  touch fo.o.text;
+  $* <<EOI >>EOO
+  ./: txt{fo..o.text}
+  print $name(txt{fo..o.text})
+  print $extension(txt{fo..o.text})
+  print txt{f?..o.text}
+  EOI
+  fo.o
+  text
+  txt{fo.o.text}
+  EOO
+
+  : escape-extension
+  :
+  touch fo.o.text;
+  $* <<EOI >>EOO
+  ./: txt{fo.o..text}
+  print $name(txt{fo.o..text})
+  print $extension(txt{fo.o..text})
+  print txt{f?.o..text}
+  EOI
+  fo
+  o.text
+  txt{fo...o.text}
+  EOO
+
+  : trailing
+  :
   {
-    touch foo.;
-    $* <'./: txt{foo..}'
+    : no-extension
+    :
+    touch foo;
+    $* <<EOI >>EOO
+    ./: txt{foo.}
+    print $name(txt{foo.})
+    print $extension(txt{foo.})
+    print txt{fo?.}
+    EOI
+    foo
+
+    txt{foo.}
+    EOO
+
+    : dot-no-extension
+    :
+    touch f.oo;
+    $* <<EOI >>EOO
+    ./: txt{f.oo.}
+    print $name(txt{f.oo.})
+    print $extension(txt{f.oo.})
+    print txt{f.o?.}
+    EOI
+    f.oo
+
+    txt{f.oo.}
+    EOO
+
+    : default-extension
+    :
+    touch foo.testscript.txt;
+    $* <<EOI >>EOO
+    ./: txt{foo.testscript...}
+    print $name(txt{foo.testscript...})
+    print $extension(txt{foo.testscript...})
+    print txt{fo?.testscript...}
+    EOI
+    foo.testscript
+    [null]
+    txt{foo.testscript...}
+    EOO
+
+    # Trailing dots are not allowed on Windows.
+    #
+
+    : escape-one
+    :
+    if ($cxx.target.class != 'windows')
+    {
+      touch foo.;
+      $* <<EOI >>EOO
+      ./: txt{foo..}
+      print $name(txt{foo..})
+      print $extension(txt{foo..})
+      print txt{fo?..}
+      EOI
+      foo.
+
+      txt{foo..}
+      EOO
+    }
+
+    : escape-two
+    :
+    if ($cxx.target.class != 'windows')
+    {
+      touch foo..;
+      $* <<EOI >>EOO
+      ./: txt{foo....}
+      print $name(txt{foo....})
+      print $extension(txt{foo....})
+      print txt{fo?....}
+      EOI
+      foo..
+
+      txt{foo....}
+      EOO
+    }
   }
 
-  : specified-escape-two
+  : leading
   :
-  if ($cxx.target.class != 'windows')
   {
-    touch foo..;
-    $* <'./: txt{foo....}'
+    : single
+    :
+    touch .foo.txt;
+    $* <<EOI >>EOO
+    ./: txt{.foo}
+    print $name(txt{.foo})
+    print $extension(txt{.foo})
+    print txt{.fo?}
+    EOI
+    .foo
+    [null]
+    txt{.foo}
+    EOO
+
+    : triple
+    :
+    $* <'./: txt{...foo}' 2>>EOE != 0
+    <stdin>:1:5: error: leading triple dots in target name '...foo'
+    EOE
+
+    : escape-one
+    :
+    touch .foo.txt;
+    $* <<EOI >>EOO
+    ./: txt{..foo}
+    print $name(txt{..foo})
+    print $extension(txt{..foo})
+    print txt{..fo?}
+    EOI
+    .foo
+    [null]
+    txt{.foo}
+    EOO
+
+    : escape-two
+    :
+    touch ..foo.txt;
+    $* <<EOI >>EOO
+    ./: txt{....foo}
+    print $name(txt{....foo})
+    print $extension(txt{....foo})
+    print txt{....fo?}
+    EOI
+    ..foo
+    [null]
+    txt{....foo}
+    EOO
   }
 
   : specified-invalid
   :
-  $* <'./: txt{foo.....}' 2>>EOE != 0
-  <stdin>:1:5: error: invalid trailing dot sequence in target name 'foo.....'
+  $* <'./: txt{fo.....o}' 2>>EOE != 0
+  <stdin>:1:5: error: invalid dot sequence in target name 'fo.....o'
+  EOE
+
+  : specified-dot-only
+  :
+  $* <'./: txt{..}' 2>>EOE != 0
+  <stdin>:1:5: error: invalid target name '..'
   EOE
 }
 
@@ -71,6 +263,17 @@ EOI
   :
   touch foo.testscript.txt;
   $* <'print txt{fo?.testscript...}' >'txt{foo.testscript...}'
+
+  : dir
+  :
+  touch foo.txt;
+  $* <'print txt{./f*}' >'txt{./foo}'
+
+  : dir-leading-triple
+  :
+  $* <'print txt{./...f*}' 2>>EOE != 0
+  <stdin>:1:11: error: leading triple dots in target name './...f*'
+  EOE
 
   # Trailing dots are not allowed on Windows.
   #
