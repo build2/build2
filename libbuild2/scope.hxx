@@ -367,6 +367,11 @@ namespace build2
       return derive_target_type (name, T::static_type);
     }
 
+    // Derive from an "exemplar" type overriding the factory.
+    //
+    const target_type&
+    derive_target_type (const target_type&);
+
     // Rules.
     //
   public:

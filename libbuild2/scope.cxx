@@ -929,6 +929,15 @@ namespace build2
     return root_extra->target_types.insert (name, move (dt));
   }
 
+  const target_type& scope::
+  derive_target_type (const target_type& et)
+  {
+    assert (root_scope () == this);
+    unique_ptr<target_type> dt (new target_type (et));
+    dt->factory = &derived_tt_factory;
+    return root_extra->target_types.insert (et.name, move (dt)).first;
+  }
+
   // scope_map
   //
 

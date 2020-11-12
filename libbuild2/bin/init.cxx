@@ -415,6 +415,8 @@ namespace build2
       return true;
     }
 
+    extern const char wasm_ext[] = "wasm"; // VC14 rejects constexpr.
+
     bool
     init (scope& rs,
           scope& bs,
@@ -522,7 +524,18 @@ namespace build2
 
         if (tgt.cpu == "wasm32" || tgt.cpu == "wasm64")
         {
-          const target_type& wasm (bs.derive_target_type<file> ("wasm").first);
+          const target_type& wasm (
+            rs.derive_target_type(
+              target_type {
+                "wasm",
+                &file::static_type,
+                nullptr, /* factory */
+                &target_extension_fix<wasm_ext>,
+                nullptr, /* default_extension */
+                &target_pattern_fix<wasm_ext>,
+                &target_print_0_ext_verb, // Fixed extension, no use printing.
+                &file_search,
+                false /* see_through */}));
 
           if (install_loaded)
           {
@@ -855,6 +868,8 @@ namespace build2
       return true;
     }
 
+    extern const char pdb_ext[] = "pdb"; // VC14 rejects constexpr.
+
     bool
     ld_init (scope& rs,
              scope& bs,
@@ -879,7 +894,18 @@ namespace build2
 
       if (lid == "msvc")
       {
-        const target_type& pdb (bs.derive_target_type<file> ("pdb").first);
+        const target_type& pdb (
+          rs.derive_target_type(
+            target_type {
+              "pdb",
+              &file::static_type,
+              nullptr, /* factory */
+              &target_extension_fix<pdb_ext>,
+              nullptr, /* default_extension */
+              &target_pattern_fix<pdb_ext>,
+              &target_print_0_ext_verb, // Fixed extension, no use printing.
+              &file_search,
+              false /* see_through */}));
 
         if (cast_false<bool> (rs["install.loaded"]))
         {
