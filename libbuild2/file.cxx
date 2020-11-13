@@ -2586,7 +2586,7 @@ namespace build2
               ns.clear (); // NULL
           }
           else
-            l5 ([&]{trace << "postponing " << r.first;});
+            l5 ([&]{trace << "postponing " << ns.back ();});
         }
       }
 

@@ -819,7 +819,10 @@ namespace build2
       }
 
       if (pd == nullptr)
+      {
+        l5 ([&]{trace << "no library found for " << p;});
         return nullptr;
+      }
 
       // Enter (or find) the lib{} target group.
       //
