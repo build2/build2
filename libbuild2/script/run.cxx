@@ -1571,7 +1571,7 @@ namespace build2
       // After that wait for the pipeline builtins completion. Since their
       // standard streams should no longer be written to or read from by any
       // process, that shouldn't take long. If, however, they won't be able to
-      // complete in 1 second, then some of them have probably stuck while
+      // complete in 2 seconds, then some of them have probably stuck while
       // communicating with a slow filesystem device or similar, and since we
       // currently have no way to terminate asynchronous builtins, we have no
       // choice but to abort.
@@ -1640,7 +1640,7 @@ namespace build2
         // Wait a bit for the builtins to complete and abort if any remain
         // running.
         //
-        dl = system_clock::now () + chrono::seconds (1);
+        dl = system_clock::now () + chrono::seconds (2);
 
         for (pipe_command* c (pc); c != nullptr; c = c->prev)
         {
