@@ -184,6 +184,7 @@ namespace build2
         }
       default:
         assert (false);
+        return;
       }
 
       // Should be {}-balanced.
