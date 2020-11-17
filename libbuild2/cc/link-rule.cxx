@@ -1009,7 +1009,7 @@ namespace build2
             file& wasm (add_adhoc_member<file> (t, tt));
 
             if (wasm.path ().empty ())
-              wasm.derive_path ("wasm");
+              wasm.derive_path ();
           }
 
           // Add VC's .pdb. Note that we are looking for the link.exe /DEBUG
@@ -1032,7 +1032,7 @@ namespace build2
               // will include the version in case of a dll).
               //
               if (pdb.path ().empty ())
-                pdb.derive_path (t.path (), "pdb");
+                pdb.derive_path (t.path ());
             }
           }
 
