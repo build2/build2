@@ -43,8 +43,8 @@ namespace build2
       token t;
       for (bool n (true); (n ? l_->next (t) : t.type) != type::eos; )
       {
-        // Break to stop, continue to continue, set n to false if the
-        // next token already extracted.
+        // Break to stop, continue to continue, and set n to false if the
+        // next token is already extracted.
         //
         n = true;
 
@@ -71,37 +71,63 @@ namespace build2
             // [export]  import <module-name> [<attributes>] ;
             // [export]  import <header-name> [<attributes>] ;
             //
+            // The leading module/export/import keyword should be the first
+            // token of a logical line and only if certain characters appear
+            // after module/import and all the tokens are on the same line,
+            // then the line is recognized as a pseudo-directive; see p1857
+            // for details.
+            //
             // Additionally, when include is translated to an import, it's
             // normally replaced with the special __import keyword since it
             // may appear in C context.
             //
-            const string& id (t.value);
-
-            if (bb == 0)
+            if (bb == 0 && t.first)
             {
-              if      (id == "import" || id == "__import")
+              const string& id (t.value); // Note: tracks t.
+
+              // Handle the export prefix which can appear for both module
+              // and import.
+              //
+              bool ex (false);
+              if (id == "export")
               {
-                parse_import (t, false);
-              }
-              else if (id == "module")
-              {
-                parse_module (t, false);
-              }
-              else if (id == "export")
-              {
-                if (l_->next (t) == type::identifier)
+                if (l_->next (t) != type::identifier || t.first)
                 {
-                  if      (id == "module") parse_module (t, true);
-                  else if (id == "import") parse_import (t, true);
-                  else n = false; // Something else (e.g., export namespace).
+                  n = false; // Could be module/import on next line.
+                  continue;
                 }
+
+                ex = true;
+                // Fall through.
+              }
+
+              if (id == "module")
+              {
+                location_value l (get_location (t));
+                l_->next (t);
+
+                if ((t.type == type::semi     ||
+                     t.type == type::identifier) && !t.first)
+                  parse_module (t, ex, move (l));
+                else
+                  n = false;
+              }
+              else if (id == "import" || id == "__import")
+              {
+                l_->next (t);
+
+                if ((t.type == type::less     ||
+                     t.type == type::string   ||
+                     t.type == type::identifier) && !t.first)
+                  parse_import (t, ex);
                 else
                   n = false;
               }
             }
             continue;
           }
-        default: continue;
+        default:
+          continue;
         }
 
         break;
@@ -120,6 +146,8 @@ namespace build2
       // if anything in between fails (probably by having it sitting in a
       // diag_frame). So let's keep it simple for now.
       //
+      // @@ We now do that for missing include, so could do here as well.
+      //
       if (bb != 0)
         warn (t) << (bb > 0 ? "missing '}'" : "extraneous '}'");
 
@@ -134,12 +162,12 @@ namespace build2
     void parser::
     parse_import (token& t, bool ex)
     {
-      // enter: import keyword
+      // enter: token after import keyword
       // leave: semi
 
       string un;
       unit_type ut;
-      switch (l_->next (t)) // Start of module/header name.
+      switch (t.type) // Start of module/header name.
       {
       case type::less:
       case type::string:
@@ -155,15 +183,19 @@ namespace build2
           break;
         }
       default:
-        fail (t) << "module or header name expected instead of " << t << endf;
+        assert (false);
       }
 
       // Should be {}-balanced.
       //
-      for (; t.type != type::eos && t.type != type::semi; l_->next (t)) ;
+      for (;
+           t.type != type::eos && t.type != type::semi && !t.first;
+           l_->next (t)) ;
 
       if (t.type != type::semi)
         fail (t) << "';' expected instead of " << t;
+      else if (t.first)
+        fail (t) << "';' must be on the same line";
 
       // For now we skip header units (see a comment on module type/info
       // string serialization in compile rule for details). Note that
@@ -191,21 +223,17 @@ namespace build2
     }
 
     void parser::
-    parse_module (token& t, bool ex)
+    parse_module (token& t, bool ex, location_value l)
     {
-      // enter: module keyword
+      // enter: token after module keyword (l is the module keyword location)
       // leave: semi
-
-      location_value l (get_location (t));
-
-      l_->next (t);
 
       // Handle the leading 'module;' marker (p0713).
       //
       // Note that we don't bother diagnosing invalid/duplicate markers
       // leaving that to the compiler.
       //
-      if (!ex && t.type == type::semi)
+      if (!ex && t.type == type::semi && !t.first)
       {
         module_marker_ = move (l);
         return;
@@ -217,10 +245,14 @@ namespace build2
 
       // Should be {}-balanced.
       //
-      for (; t.type != type::eos && t.type != type::semi; l_->next (t)) ;
+      for (;
+           t.type != type::eos && t.type != type::semi && !t.first;
+           l_->next (t)) ;
 
       if (t.type != type::semi)
         fail (t) << "';' expected instead of " << t;
+      else if (t.first)
+        fail (t) << "';' must be on the same line";
 
       if (!u_->module_info.name.empty ())
         fail (l) << "multiple module declarations";
@@ -241,12 +273,12 @@ namespace build2
       //
       for (;; l_->next (t))
       {
-        if (t.type != type::identifier)
+        if (t.type != type::identifier || t.first)
           fail (t) << "module name expected instead of " << t;
 
         n += t.value;
 
-        if (l_->next (t) != type::dot)
+        if (l_->next (t) != type::dot || t.first)
           break;
 
         n += '.';
@@ -271,7 +303,7 @@ namespace build2
       {
         while (l_->next (t) != type::greater)
         {
-          if (t.type == type::eos)
+          if (t.type == type::eos || t.first)
             fail (t) << "closing '>' expected after header name" << endf;
         }
       }

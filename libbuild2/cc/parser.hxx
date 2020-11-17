@@ -31,7 +31,7 @@ namespace build2
       parse_import (token&, bool);
 
       void
-      parse_module (token&, bool);
+      parse_module (token&, bool, location_value);
 
       string
       parse_module_name (token&);

@@ -138,10 +138,13 @@ namespace build2
     using type = token_type;
 
     void lexer::
-    next (token& t, xchar c, bool ignore_pp)
+    next (token& t, pair<xchar, bool> cf, bool ignore_pp)
     {
-      for (;; c = skip_spaces ())
+      for (;; cf = skip_spaces ())
       {
+        xchar c (cf.first);
+
+        t.first = cf.second;
         t.file = &log_file_;
         t.line = log_line_ ? *log_line_ : c.line;
         t.column = c.column;
@@ -197,7 +200,7 @@ namespace build2
               {
                 // Note that we keep using the passed token for buffers.
                 //
-                c = skip_spaces (false); // Stop at newline.
+                c = skip_spaces (false).first; // Stop at newline.
 
                 if (eos (c) || c == '\n')
                   break;
@@ -215,7 +218,7 @@ namespace build2
                   //
                   if (!(c >= '0' && c <= '9'))
                   {
-                    next (t, c, false);
+                    next (t, make_pair (c, false), false);
 
                     if (t.type == type::identifier)
                     {
@@ -230,7 +233,7 @@ namespace build2
                     if (t.type != type::identifier || t.value != "line")
                       continue;
 
-                    c = skip_spaces (false);
+                    c = skip_spaces (false).first;
 
                     if (!(c >= '0' && c <= '9'))
                       fail (c) << "line number expected after #line directive";
@@ -242,7 +245,7 @@ namespace build2
                   continue; // Parse the tail, if any.
                 }
 
-                next (t, c, false);
+                next (t, make_pair (c, false), false);
               }
               break;
             }
@@ -823,7 +826,7 @@ namespace build2
 
       // See if we have the file.
       //
-      c = skip_spaces (false);
+      c = skip_spaces (false).first;
 
       if (c == '\"')
       {
@@ -1007,9 +1010,16 @@ namespace build2
     }
 
     auto lexer::
-    skip_spaces (bool nl) -> xchar
+    skip_spaces (bool nl) -> pair<xchar, bool>
     {
       xchar c (get ());
+
+      // Besides the first character, we also need to take into account any
+      // newlines that we are skipping. For example, the first character may
+      // be a space at the end of the line which we will skip along with the
+      // following newline.
+      //
+      bool first (c.column == 1);
 
       for (; !eos (c); c = get ())
       {
@@ -1017,6 +1027,7 @@ namespace build2
         {
         case '\n':
           if (!nl) break;
+          first = true;
           // Fall through.
         case ' ':
         case '\t':
@@ -1072,10 +1083,15 @@ namespace build2
               if (!nl)
                 break;
 
+              first = true;
               continue;
             }
 
             // C comment.
+            //
+            // Note that for the first logic we consider a C comment to be
+            // entirely part of the same logical line even if there are
+            // newlines inside.
             //
             if (p == '*')
             {
@@ -1132,7 +1148,7 @@ namespace build2
         break;
       }
 
-      return c;
+      return make_pair (c, first);
     }
 
     ostream&

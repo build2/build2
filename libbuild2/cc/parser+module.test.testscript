@@ -45,6 +45,17 @@ EOI
 export import foo;
 EOO
 
+: non-import
+:
+$* <<EOI
+import
+foo;
+export import(*a);
+import::inner xi = {};
+::import <a>;
+class import<int>;
+EOI
+
 : non-module
 :
 $* <<EOI
@@ -52,6 +63,10 @@ $* <<EOI
 #pragma export module foo;
 #pragma module foo;
 export namespace bar {int fox ();}
+module
+foo;
+foo::module();
+module::inner yi = {};
 EOI
 
 : attribute
@@ -103,14 +118,6 @@ export
 module foo;
 EOI
 <stdin>:6:1: warning: extraneous '}'
-EOE
-
-: import-missing-name
-:
-$* <<EOI 2>>EOE != 0
-import ;
-EOI
-<stdin>:1:8: error: module or header name expected instead of ';'
 EOE
 
 : module-missing-name

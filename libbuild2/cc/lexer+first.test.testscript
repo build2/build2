@@ -1,0 +1,25 @@
+# file      : libbuild2/cc/lexer+first.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test the first token of a logical line logic.
+#
+
+: basics
+:
+$* -f <<EOI >>EOO
+; .
+ ; .
+; // Hello
+;
+; /* Hello
+World */ .
+EOI
+';' t
+'.' f
+';' t
+'.' f
+';' t
+';' t
+';' t
+'.' f
+EOO

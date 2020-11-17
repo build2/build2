@@ -16,12 +16,19 @@ namespace build2
 {
   namespace cc
   {
-    // Usage: argv[0] [-l] [<file>]
+    // Usage: argv[0] [-l] [-f] [<file>]
+    //
+    // -l
+    //   Print location.
+    //
+    // -f
+    //   Print first flag.
     //
     int
     main (int argc, char* argv[])
     {
       bool loc (false);
+      bool first (false);
       path file;
 
       for (int i (1); i != argc; ++i)
@@ -30,6 +37,8 @@ namespace build2
 
         if (a == "-l")
           loc = true;
+        else if (a == "-f")
+          first = true;
         else
         {
           file = path (argv[i]);
@@ -60,6 +69,9 @@ namespace build2
         for (token t; l.next (t) != token_type::eos; )
         {
           cout << t;
+
+          if (first)
+            cout << ' ' << (t.first ? 't' : 'f');
 
           if (loc)
             cout << ' ' << *t.file << ':' << t.line << ':' << t.column;

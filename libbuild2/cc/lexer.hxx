@@ -25,7 +25,8 @@ namespace build2
     // as #line, #pragma, but not #include (which is diagnosed). Currently,
     // all preprocessor directives except #line are ignored and no values are
     // saved from literals. The #line directive (and its shorthand notation)
-    // is recognized to provide the logical token location.
+    // is recognized to provide the logical token location. Note that the
+    // modules-related pseudo-directives are not recognized or handled.
     //
     // While at it we also calculate the checksum of the input ignoring
     // comments, whitespaces, etc. This is used to detect changes that do not
@@ -58,6 +59,7 @@ namespace build2
     struct token
     {
       token_type type = token_type::eos;
+      bool       first = false;          // First token of a logical line.
       string     value;
 
       // Logical position.
@@ -121,7 +123,7 @@ namespace build2
 
     private:
       void
-      next (token&, xchar, bool);
+      next (token&, pair<xchar, bool /* first */>, bool);
 
       void
       number_literal (token&, xchar);
@@ -141,7 +143,7 @@ namespace build2
       void
       line_directive (token&, xchar);
 
-      xchar
+      pair<xchar, bool /* first */>
       skip_spaces (bool newline = true);
 
       // The char_scanner adaptation for newline escape sequence processing.
