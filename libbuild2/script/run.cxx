@@ -844,6 +844,11 @@ namespace build2
     set_builtin (environment& env,
                  const strings& args,
                  auto_fd in,
+#ifndef _WIN32
+                 bool,
+#else
+                 bool pipe,
+#endif
                  const optional<deadline>& dl,
                  const command& deadline_cmd,
                  const location& ll)
@@ -889,7 +894,19 @@ namespace build2
           // variable value will be incomplete, but we leave it to the caller
           // to handle that.
           //
+          // Note that on Windows we can only turn pipe file descriptors into
+          // the non-blocking mode. Thus, we have no choice but to read from
+          // descriptors of other types synchronously there. That implies that
+          // we can potentially block indefinitely reading a file and missing
+          // the deadline on Windows. Note though, that the user can always
+          // rewrite `set foo <<<file` with `cat file | set foo` to avoid this
+          // problem.
+          //
+#ifndef _WIN32
           if (dl)
+#else
+          if (dl && pipe)
+#endif
           {
             fdselect_set fds {in.get ()};
             cin.open (move (in), fdstream_mode::non_blocking);
@@ -1398,7 +1415,8 @@ namespace build2
         if (verb >= 2)
           print_process (process_args ());
 
-        set_builtin (env, c.arguments, move (ifd),
+        set_builtin (env, c.arguments,
+                     move (ifd), !first,
                      dl, dl_cmd != nullptr ? *dl_cmd : c,
                      ll);
 

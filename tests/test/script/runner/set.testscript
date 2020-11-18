@@ -276,7 +276,14 @@
   :
   $c <<EOI && $b
   env -t 10 -- $* -o 'foo' | set bar;
-  echo $bar >foo 2>|
+  echo "$bar" >'foo'
+  EOI
+
+  : non-pipe
+  :
+  $c <<EOI && $b
+  env -t 10 -- set bar <'foo';
+  echo "$bar" >'foo'
   EOI
 
   : set-reached
