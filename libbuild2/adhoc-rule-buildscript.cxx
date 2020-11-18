@@ -10,7 +10,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/algorithm.hxx>
-#include <libbuild2/filesystem.hxx>  // path_perms()
+#include <libbuild2/filesystem.hxx>  // path_perms(), auto_rmfile
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/parser.hxx> // attributes
@@ -563,6 +563,20 @@ namespace build2
 
       if (!ctx.dry_run || verb >= 2)
       {
+        // On failure remove the target files that may potentially exist but
+        // be invalid.
+        //
+        small_vector<auto_rmfile, 8> rms;
+
+        if (!ctx.dry_run)
+        {
+          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          {
+            if (auto* f = m->is_a<file> ())
+              rms.emplace_back (f->path ());
+          }
+        }
+
         build::script::default_runner r;
         p.execute (*rs, *bs, e, script, r);
 
@@ -588,6 +602,9 @@ namespace build2
           }
 #endif
           dd.check_mtime (tp);
+
+          for (auto& rm: rms)
+            rm.cancel ();
         }
       }
     }

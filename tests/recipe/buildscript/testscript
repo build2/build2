@@ -17,24 +17,71 @@
 : update
 :
 {
-  echo 'bar' >=bar;
+  : success
+  :
+  {
+    echo 'bar' >=bar;
 
-  cat <<EOI >=buildfile;
-    foo: bar
-    {{
-      cp $path($<) $path($>)
-    }}
-    EOI
+    cat <<EOI >=buildfile;
+      foo: bar
+      {{
+        cp $path($<) $path($>)
+      }}
+      EOI
 
-  $* 2>'cp file{foo}';
+    $* 2>'cp file{foo}';
 
-  cat <<<foo >'bar';
+    cat <<<foo >'bar';
 
-  # While at it, make sure there is no rebuild.
-  #
-  $* 2>/'info: dir{./} is up to date';
+    # While at it, make sure there is no rebuild.
+    #
+    $* 2>/'info: dir{./} is up to date';
 
-  $* clean 2>-
+    $* clean 2>-
+  }
+
+  : error
+  :
+  : Test that the target file is removed on error and is created on subsequent
+  : successful update.
+  :
+  {
+    echo 'bar' >=bar;
+
+    cat <<EOI >=buildfile;
+      foo: bar
+      {{
+        diag concat $<
+
+        t = $path($>)
+        p = $path($<)
+
+        cp $p $t
+
+        cat $(p).baz >>$t
+      }}
+      EOI
+
+    $* 2>>~%EOE% != 0;
+      concat file{bar.}
+      %cat: unable to print '.+bar.baz': .+%
+      buildfile:10:3: error: cat exited with code 1
+      %.+
+      EOE
+
+    test -f foo != 0;
+
+    echo 'baz' >=bar.baz;
+
+    $* 2>'concat file{bar.}';
+
+    cat <<<foo >>EOO;
+      bar
+      baz
+      EOO
+
+    $* clean 2>-
+  }
 }
 
 : clean
