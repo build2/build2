@@ -28,13 +28,24 @@ namespace build2
 
     private:
       void
-      parse_import (token&, bool);
-
-      void
       parse_module (token&, bool, location_value);
 
+      void
+      parse_import (token&, bool);
+
       string
-      parse_module_name (token&);
+      parse_module_name (token&, bool);
+
+      string
+      parse_module_part (token& t)
+      {
+        string n;
+        parse_module_part (t, n);
+        return n;
+      }
+
+      void
+      parse_module_part (token&, string&);
 
       string
       parse_header_name (token&);

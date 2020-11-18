@@ -377,9 +377,13 @@ namespace build2
             xchar p (peek ());
 
             if (p == ':')
+            {
               geth (p);
+              t.type = type::scope;
+            }
+            else
+              t.type = type::colon;
 
-            t.type = type::punctuation;
             return;
           }
           // Number (and also .<N> above).
@@ -1158,6 +1162,8 @@ namespace build2
       {
       case type::dot:         o << "'.'";                   break;
       case type::semi:        o << "';'";                   break;
+      case type::colon:       o << "':'";                   break;
+      case type::scope:       o << "'::'";                  break;
       case type::less:        o << "'<'";                   break;
       case type::greater:     o << "'>'";                   break;
       case type::lcbrace:     o << "'{'";                   break;

@@ -45,13 +45,13 @@ namespace build2
         unit u (p.parse (is, in));
         unit_type ut (u.type);
 
-        for (const module_import& m: u.module_info.imports)
-          cout << (m.exported ? "export " : "")
-               << "import " << m.name << ';' << endl;
-
         if (ut == unit_type::module_iface || ut == unit_type::module_impl)
           cout << (ut == unit_type::module_iface ? "export " : "")
                << "module " << u.module_info.name << ';' << endl;
+
+        for (const module_import& m: u.module_info.imports)
+          cout << (m.exported ? "export " : "")
+               << "import " << m.name << ';' << endl;
       }
       catch (const failed&)
       {

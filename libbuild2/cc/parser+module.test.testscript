@@ -7,6 +7,30 @@
 # NOTE: currently header unit imports don't produce anything.
 #
 
+: module-iface
+:
+$* <<EOI >>EOI
+export module foo;
+EOI
+
+: module-impl
+:
+$* <<EOI >>EOI
+module foo;
+EOI
+
+: module-iface-part
+:
+$* <<EOI >>EOI
+export module foo:part;
+EOI
+
+: module-impl-part
+:
+$* <<EOI >>EOI
+module foo.bar:part.sub;
+EOI
+
 : import
 :
 $* <<EOI >>EOI
@@ -23,16 +47,12 @@ import <sys/foo.h>;
 __import "/usr/include/stdio.h";
 EOI
 
-: module-implementation
+: import-part
 :
 $* <<EOI >>EOI
 module foo;
-EOI
-
-: module-interface
-:
-$* <<EOI >>EOI
-export module foo;
+import :part;
+import :part.sub;
 EOI
 
 : export-imported
@@ -54,6 +74,7 @@ export import(*a);
 import::inner xi = {};
 ::import <a>;
 class import<int>;
+import ::x;
 EOI
 
 : non-module
@@ -72,12 +93,12 @@ EOI
 : attribute
 :
 $* <<EOI >>EOO
+module bar [[module({module})]];
 import foo [[export({import})]];
 import "foo.h" [[export({import})]];
-module bar [[module({module})]];
 EOI
-import foo;
 module bar;
+import foo;
 EOO
 
 : import-duplicate
@@ -91,6 +112,16 @@ EOI
 import foo;
 import bar.baz;
 EOO
+
+: part-out-purview
+:
+$* <<EOI 2>>EOE != 0
+module;
+import :part
+module foo;
+EOI
+<stdin>:2:8: error: partition importation out of module purview
+EOE
 
 : brace-missing
 :
@@ -125,7 +156,7 @@ EOE
 $* <<EOI 2>>EOE != 0
 module ;
 EOI
-<stdin>:1:1: error: module declaration expected after leading module marker
+<stdin>:1:1: error: module declaration expected after global module fragment
 EOE
 
 : import-missing-semi

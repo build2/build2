@@ -40,6 +40,8 @@ namespace build2
 
       dot,         // .
       semi,        // ;
+      colon,       // :
+      scope,       // ::
       less,        // <
       greater,     // >
       lcbrace,     // {

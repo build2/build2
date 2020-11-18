@@ -1,0 +1,14 @@
+# file      : libbuild2/cc/lexer+basics.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+# Test lexer basics (token recognition, etc)
+#
+
+# colon-scope
+#
+$* <<EOI >>EOO
+:::
+EOI
+'::'
+':'
+EOO

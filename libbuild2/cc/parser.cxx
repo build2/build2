@@ -66,10 +66,11 @@ namespace build2
           {
             // Constructs we need to recognize:
             //
-            //           module                              ;
-            // [export]  module <module-name> [<attributes>] ;
-            // [export]  import <module-name> [<attributes>] ;
-            // [export]  import <header-name> [<attributes>] ;
+            //           module                                              ;
+            // [export]  module <module-name> [<module-part>] [<attributes>] ;
+            // [export]  import <module-name>                 [<attributes>] ;
+            // [export]  import <module-part>                 [<attributes>] ;
+            // [export]  import <header-name>                 [<attributes>] ;
             //
             // The leading module/export/import keyword should be the first
             // token of a logical line and only if certain characters appear
@@ -117,6 +118,7 @@ namespace build2
                 l_->next (t);
 
                 if ((t.type == type::less     ||
+                     t.type == type::colon    ||
                      t.type == type::string   ||
                      t.type == type::identifier) && !t.first)
                   parse_import (t, ex);
@@ -153,10 +155,49 @@ namespace build2
 
       if (module_marker_ && u.module_info.name.empty ())
         fail (*module_marker_) << "module declaration expected after "
-                               << "leading module marker";
+                               << "global module fragment";
 
       checksum = l.checksum ();
       return u;
+    }
+
+    void parser::
+    parse_module (token& t, bool ex, location_value l)
+    {
+      // enter: token after module keyword (l is the module keyword location)
+      // leave: semi
+
+      // Handle the leading 'module;' marker (p0713).
+      //
+      // Note that we don't bother diagnosing invalid/duplicate markers
+      // leaving that to the compiler.
+      //
+      if (!ex && t.type == type::semi && !t.first)
+      {
+        module_marker_ = move (l);
+        return;
+      }
+
+      // Otherwise it should be the start of the module name.
+      //
+      string n (parse_module_name (t, true /* partition */));
+
+      // Should be {}-balanced.
+      //
+      for (;
+           t.type != type::eos && t.type != type::semi && !t.first;
+           l_->next (t)) ;
+
+      if (t.type != type::semi)
+        fail (t) << "';' expected instead of " << t;
+      else if (t.first)
+        fail (t) << "';' must be on the same line";
+
+      if (!u_->module_info.name.empty ())
+        fail (l) << "multiple module declarations";
+
+      u_->type = ex ? unit_type::module_iface : unit_type::module_impl;
+      u_->module_info.name = move (n);
     }
 
     void parser::
@@ -176,9 +217,25 @@ namespace build2
           ut = unit_type::module_header;
           break;
         }
+      case type::colon:
+        {
+          if (u_->type != unit_type::module_iface &&
+              u_->type != unit_type::module_impl)
+            fail (t) << "partition importation out of module purview";
+
+          un = parse_module_part (t);
+          ut = unit_type::module_iface; // @@ _part?
+          break;
+        }
       case type::identifier:
         {
-          un = parse_module_name (t);
+          // Note that in import a partition can only be specified without a
+          // module name. In other words, the following is invalid:
+          //
+          // module m;
+          // import m:p;
+          //
+          un = parse_module_name (t, false /* partition */);
           ut = unit_type::module_iface;
           break;
         }
@@ -223,59 +280,22 @@ namespace build2
         i->exported = i->exported || ex;
     }
 
-    void parser::
-    parse_module (token& t, bool ex, location_value l)
-    {
-      // enter: token after module keyword (l is the module keyword location)
-      // leave: semi
-
-      // Handle the leading 'module;' marker (p0713).
-      //
-      // Note that we don't bother diagnosing invalid/duplicate markers
-      // leaving that to the compiler.
-      //
-      if (!ex && t.type == type::semi && !t.first)
-      {
-        module_marker_ = move (l);
-        return;
-      }
-
-      // Otherwise it should be the start of the module name.
-      //
-      string n (parse_module_name (t));
-
-      // Should be {}-balanced.
-      //
-      for (;
-           t.type != type::eos && t.type != type::semi && !t.first;
-           l_->next (t)) ;
-
-      if (t.type != type::semi)
-        fail (t) << "';' expected instead of " << t;
-      else if (t.first)
-        fail (t) << "';' must be on the same line";
-
-      if (!u_->module_info.name.empty ())
-        fail (l) << "multiple module declarations";
-
-      u_->type = ex ? unit_type::module_iface : unit_type::module_impl;
-      u_->module_info.name = move (n);
-    }
-
     string parser::
-    parse_module_name (token& t)
+    parse_module_name (token& t, bool part)
     {
       // enter: first token of module name
       // leave: token after module name
 
       string n;
 
-      // <identifier>[ . <identifier>]*
+      // <identifier>[ . <identifier>]* [<module-part>]
       //
       for (;; l_->next (t))
       {
-        if (t.type != type::identifier || t.first)
+        if (t.type != type::identifier)
           fail (t) << "module name expected instead of " << t;
+        else if (t.first)
+          fail (t) << "module name must be on the same line";
 
         n += t.value;
 
@@ -285,7 +305,36 @@ namespace build2
         n += '.';
       }
 
+      if (part && t.type == type::colon && !t.first)
+        parse_module_part (t, n);
+
       return n;
+    }
+
+    void parser::
+    parse_module_part (token& t, string& n)
+    {
+      // enter: colon
+      // leave: token after module partition
+
+      n += ':';
+
+      // : <identifier>[ . <identifier>]*
+      //
+      for (;;)
+      {
+        if (l_->next (t) != type::identifier)
+          fail (t) << "partition name expected instead of " << t;
+        else if (t.first)
+          fail (t) << "partition name must be on the same line";
+
+        n += t.value;
+
+        if (l_->next (t) != type::dot || t.first)
+          break;
+
+        n += '.';
+      }
     }
 
     string parser::
