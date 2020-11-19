@@ -2653,16 +2653,17 @@ working directory unless the \c{-f} option is specified.
 \h#builtins-sed|\c{sed}|
 
 \
-sed [-n] [-i] -e <script> [<file>]
+sed [-n] [-i] (-e <script>)... [<file>]
 \
 
 Read text from \i{file}, make editing changes according to \i{script}, and
-write the result to \c{stdout}. If \i{file} is not specified or is \c{-}, read
-from \c{stdin}. If both \i{file} and the \c{-i} option are specified then edit
-the \i{file} in place. Specifying \c{-i} when reading from \c{stdin} is
+write the result to \c{stdout}. If multiple \i{scripts} are present, then they
+are applied in the order specified. If \i{file} is not specified or is \c{-},
+read from \c{stdin}. If both \i{file} and the \c{-i} option are specified then
+edit the \i{file} in place. Specifying \c{-i} when reading from \c{stdin} is
 illegal.
 
-Note that this builtin implementation deviates significantly from POSIX
+Note that this builtin implementation deviates substantially from POSIX
 \c{sed} (as described next). Most significantly, the regular expression flavor
 is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
 
@@ -2679,7 +2680,7 @@ is ECMAScript (more specifically, ECMA-262-based C++11 regular expressions).
 
 \li|\n\c{-e|--expression <script>}
 
-  Editing commands to be executed (required).||
+  Editing commands to be executed. At least one script must be specified.||
 
 To perform the transformation \c{sed} reads each line of input (without the
 newline) into the pattern space. It then executes the script commands on the
@@ -2698,7 +2699,8 @@ are supported.
   present in \i{flags} then continue substituting subsequent matches of
   \i{regex} in the same pattern space. If the \c{p} flag is present in
   \i{flags} and the replacement has been made, then write the pattern space to
-  \c{stdout}. If both \c{g} and \c{p} were specified, then write the pattern
+  \c{stdout} and start the next cycle by proceeding to read the next line
+  of input. If both \c{g} and \c{p} were specified, then write the pattern
   space out only after the last substitution.
 
   Any character other than \c{\\} (backslash) or newline can be used instead
