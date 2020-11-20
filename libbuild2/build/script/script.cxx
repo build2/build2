@@ -74,13 +74,20 @@ namespace build2
           assign (var_pool.insert ("<")) = move (ns);
         }
 
-        // Set the $~ special variable.
-        //
         if (temp)
-        {
+          set_temp_dir_variable ();
+      }
+
+      void environment::
+      set_temp_dir_variable ()
+      {
+        // Note that the temporary directory could have been created
+        // implicitly by the runner.
+        //
+        if (temp_dir.path.empty ())
           create_temp_dir ();
-          assign (var_pool.insert<dir_path> ("~")) = temp_dir.path;
-        }
+
+        assign (var_pool.insert<dir_path> ("~")) = temp_dir.path;
       }
 
       void environment::

@@ -2299,19 +2299,82 @@ namespace build2
     void
     clean (environment& env, const location& ll)
     {
-      context& ctx (env.context);
+      // We don't use the build2 filesystem utilities here in order to remove
+      // the filesystem entries regardless of the dry-run mode and also to add
+      // the location info to diagnostics. Other than that, these lambdas
+      // implement the respective utility functions semantics.
+      //
+      auto rmfile = [&ll] (const path& f)
+      {
+        try
+        {
+          rmfile_status r (try_rmfile (f));
+
+          if (r == rmfile_status::success && verb >= 3)
+            text << "rm " << f;
+
+          return r;
+        }
+        catch (const system_error& e)
+        {
+          fail (ll) << "unable to remove file " << f << ": " << e << endf;
+        }
+      };
+
+      auto rmdir = [&ll] (const dir_path& d)
+      {
+        try
+        {
+          rmdir_status r (!work.sub (d)
+                          ? try_rmdir (d)
+                          : rmdir_status::not_empty);
+
+          if (r == rmdir_status::success && verb >= 3)
+            text << "rmdir " << d;
+
+          return r;
+        }
+        catch (const system_error& e)
+        {
+          fail (ll) << "unable to remove directory " << d << ": " << e << endf;
+        }
+      };
+
+      auto rmdir_r = [&ll] (const dir_path& d, bool dir)
+      {
+        if (work.sub (d)) // Don't try to remove working directory.
+          return rmdir_status::not_empty;
+
+        if (!build2::entry_exists (d))
+          return rmdir_status::not_exist;
+
+        try
+        {
+          butl::rmdir_r (d, dir);
+        }
+        catch (const system_error& e)
+        {
+          fail (ll) << "unable to remove directory " << d << ": " << e << endf;
+        }
+
+        if (verb >= 3)
+          text << "rmdir -r " << d;
+
+        return rmdir_status::success;
+      };
+
       const dir_path& wdir (*env.work_dir.path);
 
       // Note that we operate with normalized paths here.
       //
-      // Remove special files. The order is not important as we don't
-      // expect directories here.
+      // Remove special files. The order is not important as we don't expect
+      // directories here.
       //
       for (const path& p: env.special_cleanups)
       {
         // Remove the file if exists. Fail otherwise.
         //
-        if (rmfile (ctx, p, 3) == rmfile_status::not_exist)
+        if (rmfile (p) == rmfile_status::not_exist)
           fail (ll) << "registered for cleanup special file " << p
                     << " does not exist";
       }
@@ -2332,9 +2395,9 @@ namespace build2
 
         // Wildcard with the last component being '***' (without trailing
         // separator) matches all files and sub-directories recursively as
-        // well as the start directories itself. So we will recursively
-        // remove the directories that match the parent (for the original
-        // path) directory wildcard.
+        // well as the start directories itself. So we will recursively remove
+        // the directories that match the parent (for the original path)
+        // directory wildcard.
         //
         bool recursive (cp.leaf ().representation () == "***");
         const path& p (!recursive ? cp : cp.directory ());
@@ -2345,15 +2408,19 @@ namespace build2
         {
           bool removed (false);
 
-          auto rm = [&cp, recursive, &removed, &ll, &ctx, &wdir]
+          auto rm = [&cp,
+                     recursive,
+                     &removed,
+                     &ll,
+                     &wdir,
+                     &rmfile, &rmdir, &rmdir_r]
                     (path&& pe, const string&, bool interm)
           {
             if (!interm)
             {
-              // While removing the entry we can get not_exist due to
-              // racing conditions, but that's ok if somebody did our job.
-              // Note that we still set the removed flag to true in this
-              // case.
+              // While removing the entry we can get not_exist due to racing
+              // conditions, but that's ok if somebody did our job. Note that
+              // we still set the removed flag to true in this case.
               //
               removed = true; // Will be meaningless on failure.
 
@@ -2363,7 +2430,7 @@ namespace build2
 
                 if (!recursive)
                 {
-                  rmdir_status r (rmdir (ctx, d, 3));
+                  rmdir_status r (rmdir (d));
 
                   if (r != rmdir_status::not_empty)
                     return true;
@@ -2377,13 +2444,10 @@ namespace build2
                 }
                 else
                 {
-                  // Don't remove the working directory (it will be removed
-                  // by the dedicated cleanup).
+                  // Don't remove the working directory (it will be removed by
+                  // the dedicated cleanup).
                   //
-                  // Cast to uint16_t to avoid ambiguity with
-                  // libbutl::rmdir_r().
-                  //
-                  rmdir_status r (rmdir_r (ctx, d, d != wdir, 3));
+                  rmdir_status r (rmdir_r (d, d != wdir));
 
                   if (r != rmdir_status::not_empty)
                     return true;
@@ -2396,14 +2460,14 @@ namespace build2
                 }
               }
               else
-                rmfile (ctx, pe, 3);
+                rmfile (pe);
             }
 
             return true;
           };
 
-          // Note that here we rely on the fact that recursive iterating
-          // goes depth-first (which make sense for the cleanup).
+          // Note that here we rely on the fact that recursive iterating goes
+          // depth-first (which make sense for the cleanup).
           //
           try
           {
@@ -2434,9 +2498,8 @@ namespace build2
                         : "file");
         }
 
-        // Remove the directory if exists and empty. Fail otherwise.
-        // Removal of non-existing directory is not an error for 'maybe'
-        // cleanup type.
+        // Remove the directory if exists and empty. Fail otherwise. Removal
+        // of non-existing directory is not an error for 'maybe' cleanup type.
         //
         if (p.to_directory ())
         {
@@ -2444,20 +2507,10 @@ namespace build2
           bool wd (d == wdir);
 
           // Don't remove the working directory for the recursive cleanup
-          // (it will be removed by the dedicated one).
+          // since it needs to be removed by the caller (can contain
+          // .buildignore file, etc).
           //
-          // Note that the root working directory contains the
-          // .buildignore file (see above).
-          //
-          // @@ If 'd' is a file then will fail with a diagnostics having
-          //    no location info. Probably need to add an optional location
-          //    parameter to rmdir() function. The same problem exists for
-          //    a file cleanup when try to rmfile() directory instead of
-          //    file.
-          //
-          rmdir_status r (recursive
-                          ? rmdir_r (ctx, d, !wd, static_cast <uint16_t> (3))
-                          : rmdir (ctx, d, 3));
+          rmdir_status r (recursive ? rmdir_r (d, !wd) : rmdir (d));
 
           if (r == rmdir_status::success ||
               (r == rmdir_status::not_exist && t == cleanup_type::maybe))
@@ -2473,10 +2526,10 @@ namespace build2
             print_dir (dr, d, ll);
         }
 
-        // Remove the file if exists. Fail otherwise. Removal of
-        // non-existing file is not an error for 'maybe' cleanup type.
+        // Remove the file if exists. Fail otherwise. Removal of non-existing
+        // file is not an error for 'maybe' cleanup type.
         //
-        if (rmfile (ctx, p, 3) == rmfile_status::not_exist &&
+        if (rmfile (p) == rmfile_status::not_exist &&
             t == cleanup_type::always)
           fail (ll) << "registered for cleanup file " << p
                     << " does not exist";

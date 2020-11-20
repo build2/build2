@@ -71,20 +71,24 @@ namespace build2
       // Usages:
       //
       // argv[0] [-l]
-      // argv[0] -d
-      // argv[0] -p
+      // argv[0] -b [-t]
+      // argv[0] -d [-t]
+      // argv[0] -q
       // argv[0] -g [<diag-name>]
       //
       // In the first form read the script from stdin and trace the script
-      // execution to stdout using the custom print runner.
+      // body execution to stdout using the custom print runner.
       //
       // In the second form read the script from stdin, parse it and dump the
-      // resulting lines to stdout.
+      // script body lines to stdout.
       //
-      // In the third form read the script from stdin, parse it and print
+      // In the third form read the script from stdin, parse it and dump the
+      // depdb preamble lines to stdout.
+      //
+      // In the forth form read the script from stdin, parse it and print
       // line tokens quoting information to stdout.
       //
-      // In the forth form read the script from stdin, parse it and print the
+      // In the fifth form read the script from stdin, parse it and print the
       // low-verbosity script diagnostics name or custom low-verbosity
       // diagnostics to stdout. If the script doesn't deduce any of them, then
       // print the diagnostics and exit with non-zero code.
@@ -92,10 +96,17 @@ namespace build2
       // -l
       //    Print the script line number for each executed expression.
       //
-      // -d
-      //    Dump the parsed script to sdout.
+      // -b
+      //    Dump the parsed script body to stdout.
       //
-      // -p
+      // -d
+      //    Dump the parsed script depdb preamble to stdout.
+      //
+      // -t
+      //    Print true if the body (-b) or depdb preamble (-d) references the
+      //    temporary directory and false otherwise.
+      //
+      // -q
       //    Print the parsed script tokens quoting information to sdout. If a
       //    token is quoted follow its representation with its quoting
       //    information in the [<quoting>/<completeness>] form, where:
@@ -115,13 +126,15 @@ namespace build2
         enum class mode
         {
           run,
-          dump,
-          print,
+          body,
+          depdb_preamble,
+          quoting,
           diag
         } m (mode::run);
 
         bool print_line (false);
         optional<string> diag_name;
+        bool temp_dir (false);
 
         for (int i (1); i != argc; ++i)
         {
@@ -129,10 +142,17 @@ namespace build2
 
           if (a == "-l")
             print_line = true;
+          else if (a == "-b")
+            m = mode::body;
           else if (a == "-d")
-            m = mode::dump;
-          else if (a == "-p")
-            m = mode::print;
+            m = mode::depdb_preamble;
+          else if (a == "-t")
+          {
+            assert (m == mode::body || m == mode::depdb_preamble);
+            temp_dir = true;
+          }
+          else if (a == "-q")
+            m = mode::quoting;
           else if (a == "-g")
             m = mode::diag;
           else
@@ -179,12 +199,14 @@ namespace build2
 
           tt.path (path ("driver"));
 
+          adhoc_actions acts {perform_update_id};
+
           // Parse and run.
           //
           parser p (ctx);
           path_name nm ("buildfile");
 
-          script s (p.pre_parse (tt,
+          script s (p.pre_parse (tt, acts,
                                  cin, nm,
                                  11 /* line */,
                                  (m != mode::diag
@@ -196,9 +218,9 @@ namespace build2
           {
           case mode::run:
             {
-              environment e (perform_update_id, tt, false /* temp_dir */);
+              environment e (perform_update_id, tt, s.body_temp_dir);
               print_runner r (print_line);
-              p.execute (ctx.global_scope, ctx.global_scope, e, s, r);
+              p.execute_body (ctx.global_scope, ctx.global_scope, e, s, r);
               break;
             }
           case mode::diag:
@@ -221,14 +243,27 @@ namespace build2
 
               break;
             }
-          case mode::dump:
+          case mode::body:
             {
-              dump (cout, "", s.lines);
+              if (!temp_dir)
+                dump (cout, "", s.body);
+              else
+                cout << (s.body_temp_dir ? "true" : "false") << endl;
+
               break;
             }
-          case mode::print:
+          case mode::depdb_preamble:
             {
-              for (const line& l: s.lines)
+              if (!temp_dir)
+                dump (cout, "", s.depdb_preamble);
+              else
+                cout << (s.depdb_preamble_temp_dir ? "true" : "false") << endl;
+
+              break;
+            }
+          case mode::quoting:
+            {
+              for (const line& l: s.body)
               {
                 for (const replay_token& rt: l.tokens)
                 {

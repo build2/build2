@@ -8,6 +8,7 @@
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/depdb.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/script/parser.hxx>
@@ -34,7 +35,7 @@ namespace build2
         // name.
         //
         script
-        pre_parse (const target&,
+        pre_parse (const target&, const adhoc_actions& acts,
                    istream&, const path_name&, uint64_t line,
                    optional<string> diag_name, const location& diag_loc);
 
@@ -63,9 +64,26 @@ namespace build2
         // Execute. Issue diagnostics and throw failed in case of an error.
         //
       public:
+
+        // By default call the runner's enter() and leave() functions that
+        // initialize/clean up the environment before/after the script
+        // execution.
+        //
         void
-        execute (const scope& root, const scope& base,
-                 environment&, const script&, runner&);
+        execute_body (const scope& root, const scope& base,
+                      environment&, const script&, runner&,
+                      bool enter = true, bool leave = true);
+
+
+        // Note that it's the caller's responsibility to make sure that the
+        // runner's enter() function is called before the first preamble/body
+        // command execution and leave() -- after the last command.
+        //
+        void
+        execute_depdb_preamble (const scope& root, const scope& base,
+                                environment&, const script&, runner&,
+                                depdb&);
+
 
         // Parse a special builtin line into names, performing the variable
         // and pattern expansions. If omit_builtin is true, then omit the
@@ -78,8 +96,18 @@ namespace build2
                          bool omit_builtin = true);
 
       protected:
+        // Setup the parser for subsequent exec_*() function calls.
+        //
         void
-        exec_script ();
+        pre_exec (const scope& root, const scope& base,
+                  environment&, const script*, runner*);
+
+        void
+        exec_lines (const lines&, const function<exec_cmd_function>&);
+
+        names
+        exec_special (token& t, build2::script::token_type& tt,
+                      bool omit_builtin = true);
 
         // Helpers.
         //
@@ -112,6 +140,7 @@ namespace build2
 
       protected:
         script* script_;
+        const adhoc_actions* actions_; // Non-NULL during pre-parsing.
 
         // Current low-verbosity script diagnostics and its weight.
         //
@@ -165,8 +194,8 @@ namespace build2
         //
         // depdb string <arg> - Track the argument (single) change as string.
         //
-        optional<location> depdb_clear_; // 'depdb clear' location if any.
-        lines              depdb_lines_; // Note: excludes 'depdb clear'.
+        optional<location> depdb_clear_;    // 'depdb clear' location if any.
+        lines              depdb_preamble_; // Note: excludes 'depdb clear'.
 
         // True during pre-parsing when the pre-parse mode is temporarily
         // suspended to perform expansion.

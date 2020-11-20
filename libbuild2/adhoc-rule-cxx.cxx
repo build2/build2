@@ -38,7 +38,8 @@ namespace build2
   }
 
   bool adhoc_cxx_rule::
-  recipe_text (context&, const target&, string&& t, attributes&)
+  recipe_text (context&, const target&, const adhoc_actions&,
+               string&& t, attributes&)
   {
     code = move (t);
     return true;

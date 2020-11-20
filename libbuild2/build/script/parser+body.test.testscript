@@ -1,7 +1,62 @@
-# file      : libbuild2/build/script/parser+line.test.testscript
+# file      : libbuild2/build/script/parser+body.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
-test.options += -d
+test.options += -b
+
+: lines
+:
+$* <<EOI >>EOO
+  s = 'foo'
+  if echo "$s" | sed 's/o/a/p' >>>? 'bar'
+    f = 'baz'
+  else
+    f = 'fox'
+  end
+  depdb clear
+  depdb string "$s"
+  depdb hash "$f"
+  foo "$s" "$f"
+  EOI
+  foo "$s" "$f"
+  EOO
+
+: temp_dir
+:
+{
+  test.options += -t
+
+  : no
+  :
+  $* <<EOI >false
+    foo
+    EOI
+
+  : yes
+  :
+  $* <<EOI >true
+    foo
+    f = $~/f
+    EOI
+
+  : preamble-no
+  :
+  $* <<EOI >false
+    f1 = $~/f2
+    depdb string "$f1"
+    f2 = $~/f3
+    depdb string "$f2"
+    foo "$f1" "$f2"
+    EOI
+
+  : preamble-yes
+  :
+  $* <<EOI >true
+    f1 = $~/f1
+    depdb string "$f1"
+    f2 = $~/f2
+    foo "$f2"
+    EOI
+}
 
 : command
 :

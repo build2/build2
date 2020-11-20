@@ -26,7 +26,7 @@ namespace build2
       //
 
       script parser::
-      pre_parse (const target& tg,
+      pre_parse (const target& tg, const adhoc_actions& acts,
                  istream& is, const path_name& pn, uint64_t line,
                  optional<string> diag, const location& diag_loc)
       {
@@ -39,9 +39,10 @@ namespace build2
 
         // The script shouldn't be able to modify the target/scopes.
         //
-        target_ = const_cast<target*> (&tg);
-        scope_  = const_cast<scope*> (&tg.base_scope ());
-        root_   = scope_->root_scope ();
+        target_  = const_cast<target*> (&tg);
+        actions_ = &acts;
+        scope_   = const_cast<scope*> (&tg.base_scope ());
+        root_    = scope_->root_scope ();
 
         pbase_  = scope_->src_path_;
 
@@ -108,7 +109,7 @@ namespace build2
         // Save the custom dependency change tracking lines, if present.
         //
         s.depdb_clear = depdb_clear_.has_value ();
-        s.depdb_lines = move (depdb_lines_);
+        s.depdb_preamble = move (depdb_preamble_);
 
         return s;
       }
@@ -232,7 +233,7 @@ namespace build2
         if (save_line_ != nullptr)
         {
           if (save_line_ == &ln)
-            script_->lines.push_back (move (ln));
+            script_->body.push_back (move (ln));
           else
             *save_line_ = move (ln);
         }
@@ -268,12 +269,12 @@ namespace build2
           // cmd_if, not cmd_end. Thus remember the start position of the
           // next logical line.
           //
-          size_t i (script_->lines.size ());
+          size_t i (script_->body.size ());
 
           pre_parse_line (t, tt, true /* if_line */);
           assert (tt == type::newline);
 
-          line_type lt (script_->lines[i].type);
+          line_type lt (script_->body[i].type);
 
           // First take care of 'end'.
           //
@@ -407,8 +408,8 @@ namespace build2
 
             // Instruct the parser to save the diag builtin line separately
             // from the script lines, when it is fully parsed. Note that it
-            // will be executed prior to the script execution to obtain the
-            // custom diagnostics.
+            // will be executed prior to the script body execution to obtain
+            // the custom diagnostics.
             //
             diag_line_   = make_pair (line (), l);
             save_line_   = &diag_line_->first;
@@ -428,9 +429,27 @@ namespace build2
           {
             verify ();
 
+            // Verify that depdb is not used for anything other than
+            // performing update.
+            //
+            assert (actions_ != nullptr);
+
+            for (const action& a: *actions_)
+            {
+              if (a != perform_update_id)
+                fail (l) << "'depdb' builtin cannot be used to "
+                         << ctx.meta_operation_table[a.meta_operation ()].name
+                         << ' ' << ctx.operation_table[a.operation ()];
+            }
+
+            if (diag_line_)
+              fail (diag_line_->second)
+                << "'diag' builtin call before 'depdb' call" <<
+                info (l) << "'depdb' call is here";
+
             // Note that the rest of the line contains the builtin command
-            // name, potentially followed by the arguments to be
-            // hashed/saved. Thus, we parse it in the value lexer mode.
+            // name, potentially followed by the arguments to be hashed/saved.
+            // Thus, we parse it in the value lexer mode.
             //
             mode (lexer_mode::value);
 
@@ -453,11 +472,27 @@ namespace build2
                 fail (l) << "multiple 'depdb clear' builtin calls" <<
                   info (*depdb_clear_) << "previous call is here";
 
-              if (!depdb_lines_.empty ())
-                fail (l) << "'depdb clear' should be the first 'depdb' "
-                         << "builtin call" <<
-                  info (depdb_lines_[0].tokens[0].location ())
-                         << "first 'depdb' call is here";
+              if (!depdb_preamble_.empty ())
+              {
+                diag_record dr (fail (l));
+                dr << "'depdb clear' should be the first 'depdb' builtin call";
+
+                // Print the first depdb call location.
+                //
+                for (const line& l: depdb_preamble_)
+                {
+                  const replay_tokens& rt (l.tokens);
+                  assert (!rt.empty ());
+
+                  const token& t (rt[0].token);
+                  if (t.type == type::word && t.value == "depdb")
+                  {
+                    dr << info (rt[0].location ())
+                       << "first 'depdb' call is here";
+                    break;
+                  }
+                }
+              }
 
               // Save the builtin location, cancel the line saving, and clear
               // the referenced variable list, since it won't be used.
@@ -469,13 +504,37 @@ namespace build2
             }
             else
             {
+              // Move the script body to the end of the depdb preamble.
+              //
+              // Note that at this (pre-parsing) stage we cannot evaluate if
+              // all the script body lines are allowed for depdb preamble.
+              // That, in particular, would require to analyze pipelines to
+              // see if they are terminated with the set builtin, but this
+              // information is only available at the execution stage. Thus,
+              // we move into the preamble whatever is there and delay the
+              // check until the execution.
+              //
+              lines& ls (script_->body);
+              depdb_preamble_.insert (depdb_preamble_.end (),
+                                      make_move_iterator (ls.begin ()),
+                                      make_move_iterator (ls.end ()));
+              ls.clear ();
+
+              // Also move the body_temp_dir flag, if it is true.
+              //
+              if (script_->body_temp_dir)
+              {
+                script_->depdb_preamble_temp_dir = true;
+                script_->body_temp_dir = false;
+              }
+
               // Instruct the parser to save the depdb builtin line separately
               // from the script lines, when it is fully parsed. Note that the
               // builtin command arguments will be validated during execution,
               // when expanded.
               //
-              depdb_lines_.push_back (line ());
-              save_line_ = &depdb_lines_.back ();
+              depdb_preamble_.push_back (line ());
+              save_line_ = &depdb_preamble_.back ();
             }
 
             // Parse the rest of the line and bail out.
@@ -531,8 +590,8 @@ namespace build2
             {
               if (pre_parse_suspended_)
               {
-                dr << info (l) << "while deducing low-verbosity script "
-                   << "diagnostics name";
+                dr << info (l)
+                   << "while deducing low-verbosity script diagnostics name";
 
                 suggest_diag (dr);
               }
@@ -757,14 +816,161 @@ namespace build2
       }
 
       void parser::
-      execute (const scope& rs, const scope& bs,
-               environment& e, const script& s, runner& r)
+      execute_body (const scope& rs, const scope& bs,
+                    environment& e, const script& s, runner& r,
+                    bool enter, bool leave)
+      {
+        pre_exec (rs, bs, e, &s, &r);
+
+        if (enter)
+          runner_->enter (e, s.start_loc);
+
+        // Note that we rely on "small function object" optimization here.
+        //
+        auto exec_cmd = [this] (token& t, build2::script::token_type& tt,
+                                size_t li,
+                                bool single,
+                                const location& ll)
+        {
+          // We use the 0 index to signal that this is the only command.
+          //
+          if (single)
+            li = 0;
+
+          command_expr ce (
+            parse_command_line (t, static_cast<token_type&> (tt)));
+
+          runner_->run (*environment_, ce, li, ll);
+        };
+
+        exec_lines (s.body, exec_cmd);
+
+        if (leave)
+          runner_->leave (e, s.end_loc);
+      }
+
+      void parser::
+      execute_depdb_preamble (const scope& rs, const scope& bs,
+                              environment& e, const script& s, runner& r,
+                              depdb& dd)
+      {
+        tracer trace ("execute_depdb_preamble");
+
+        // The only valid lines in the depdb preamble are the depdb builtin
+        // itself as well as the variable assignments, including via the set
+        // builtin.
+
+        pre_exec (rs, bs, e, &s, &r);
+
+        // Let's "wrap up" the objects we operate upon into the single object
+        // to rely on "small function object" optimization.
+        //
+        struct
+        {
+          environment& env;
+          const script& scr;
+          depdb& dd;
+          tracer& trace;
+        } ctx {e, s, dd, trace};
+
+        auto exec_cmd = [&ctx, this]
+                        (token& t,
+                         build2::script::token_type& tt,
+                         size_t li,
+                         bool /* single */,
+                         const location& ll)
+        {
+          if (tt == type::word && t.value == "depdb")
+          {
+            names ns (exec_special (t, tt));
+
+            // This should have been enforced during pre-parsing.
+            //
+            assert (!ns.empty ()); // <cmd> ... <newline>
+
+            const string& cmd (ns[0].value);
+
+            if (cmd == "hash")
+            {
+              sha256 cs;
+              for (auto i (ns.begin () + 1); i != ns.end (); ++i) // Skip <cmd>.
+                to_checksum (cs, *i);
+
+              if (ctx.dd.expect (cs.string ()) != nullptr)
+                l4 ([&] {
+                    ctx.trace (ll)
+                      << "'depdb hash' argument change forcing update of "
+                      << ctx.env.target;});
+            }
+            else if (cmd == "string")
+            {
+              string s;
+              try
+              {
+                s = convert<string> (
+                  names (make_move_iterator (ns.begin () + 1),
+                         make_move_iterator (ns.end ())));
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (ll) << "invalid 'depdb string' argument: " << e;
+              }
+
+              if (ctx.dd.expect (s) != nullptr)
+                l4 ([&] {
+                    ctx.trace (ll)
+                      << "'depdb string' argument change forcing update of "
+                      << ctx.env.target;});
+            }
+            else
+              assert (false);
+          }
+          else
+          {
+            // Note that we don't reset the line index to zero (as we do in
+            // execute_body()) assuming that there are some script body
+            // commands to follow.
+            //
+            command_expr ce (
+              parse_command_line (t, static_cast<token_type&> (tt)));
+
+            // Verify that this expression executes the set builtin.
+            //
+            if (find_if (ce.begin (), ce.end (),
+                         [] (const expr_term& et)
+                         {
+                           const process_path& p (et.pipe.back ().program);
+                           return p.initial == nullptr &&
+                                  p.recall.string () == "set";
+                         }) == ce.end ())
+            {
+              const replay_tokens& rt (ctx.scr.depdb_preamble.back ().tokens);
+              assert (!rt.empty ());
+
+              fail (ll) << "disallowed command in depdb preamble" <<
+                info << "only variable assignments are allowed in "
+                     << "depdb preamble" <<
+                info (rt[0].location ()) << "depdb preamble ends here";
+            }
+
+            runner_->run (*environment_, ce, li, ll);
+          }
+        };
+
+        exec_lines (s.depdb_preamble, exec_cmd);
+      }
+
+      void parser::
+      pre_exec (const scope& rs, const scope& bs,
+                environment& e, const script* s, runner* r)
       {
         path_ = nullptr; // Set by replays.
 
         pre_parse_ = false;
 
         set_lexer (nullptr);
+
+        actions_ = nullptr;
 
         // The script shouldn't be able to modify the scopes.
         //
@@ -776,20 +982,15 @@ namespace build2
         scope_ = const_cast<scope*> (&bs);
         pbase_ = scope_->src_path_;
 
-        script_ = const_cast<script*> (&s);
-        runner_ = &r;
+        script_ = const_cast<script*> (s);
+        runner_ = r;
         environment_ = &e;
-
-        exec_script ();
       }
 
       void parser::
-      exec_script ()
+      exec_lines (const lines& lns,
+                  const function<exec_cmd_function>& exec_cmd)
       {
-        const script& s (*script_);
-
-        runner_->enter (*environment_, s.start_loc);
-
         // Note that we rely on "small function object" optimization for the
         // exec_*() lambdas.
         //
@@ -814,22 +1015,6 @@ namespace build2
           apply_value_attributes (&var, lhs, move (rhs), kind);
         };
 
-        auto exec_cmd = [this] (token& t, build2::script::token_type& tt,
-                                size_t li,
-                                bool single,
-                                const location& ll)
-        {
-          // We use the 0 index to signal that this is the only command.
-          //
-          if (single)
-            li = 0;
-
-          command_expr ce (
-            parse_command_line (t, static_cast<token_type&> (tt)));
-
-          runner_->run (*environment_, ce, li, ll);
-        };
-
         auto exec_if = [this] (token& t, build2::script::token_type& tt,
                                size_t li,
                                const location& ll)
@@ -842,14 +1027,26 @@ namespace build2
           return runner_->run_if (*environment_, ce, li, ll);
         };
 
-        size_t li (1);
+        build2::script::parser::exec_lines (lns.begin (), lns.end (),
+                                            exec_set, exec_cmd, exec_if,
+                                            environment_->exec_line,
+                                            &environment_->var_pool);
+      }
 
-        exec_lines (s.lines.begin (), s.lines.end (),
-                    exec_set, exec_cmd, exec_if,
-                    li,
-                    &environment_->var_pool);
+      names parser::
+      exec_special (token& t, build2::script::token_type& tt,
+                    bool omit_builtin)
+      {
+        if (omit_builtin)
+        {
+          assert (tt != type::newline && tt != type::eos);
 
-        runner_->leave (*environment_, s.end_loc);
+          next (t, tt);
+        }
+
+        return tt != type::newline && tt != type::eos
+               ? parse_names (t, tt, pattern_mode::expand)
+               : names ();
       }
 
       names parser::
@@ -858,25 +1055,7 @@ namespace build2
                        const line& ln,
                        bool omit_builtin)
       {
-        path_ = nullptr; // Set by replays.
-
-        pre_parse_ = false;
-
-        set_lexer (nullptr);
-
-        // The script shouldn't be able to modify the scopes.
-        //
-        // Note that for now we don't set target_ since it's not clear what
-        // it could be used for (we need scope_ for calling functions such as
-        // $target.path()).
-        //
-        root_ = const_cast<scope*> (&rs);
-        scope_ = const_cast<scope*> (&bs);
-        pbase_ = scope_->src_path_;
-
-        script_ = nullptr;
-        runner_ = nullptr;
-        environment_ = &e;
+        pre_exec (rs, bs, e, nullptr /* script */, nullptr /* runner */);
 
         // Copy the tokens and start playing.
         //
@@ -886,16 +1065,7 @@ namespace build2
         build2::script::token_type tt;
         next (t, tt);
 
-        if (omit_builtin)
-        {
-          assert (tt != type::newline && tt != type::eos);
-
-          next (t, tt);
-        }
-
-        names r (tt != type::newline && tt != type::eos
-                 ? parse_names (t, tt, pattern_mode::expand)
-                 : names ());
+        names r (exec_special (t, tt, omit_builtin));
 
         replay_stop ();
         return r;
@@ -928,7 +1098,7 @@ namespace build2
           if (special_variable (name))
           {
             if (name == "~")
-              script_->temp_dir = true;
+              script_->body_temp_dir = true;
           }
           else if (!name.empty ())
           {
@@ -970,7 +1140,7 @@ namespace build2
         //
         if (script_ != nullptr    &&
             !script_->depdb_clear &&
-            script_->depdb_lines.empty ())
+            script_->depdb_preamble.empty ())
         {
           if (r.defined () && !r.belongs (*environment_))
           {

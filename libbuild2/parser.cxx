@@ -1236,17 +1236,6 @@ namespace build2
 
         if (!skip)
         {
-          if (d.first)
-          {
-            if (ar->recipe_text (ctx, *target_, move (t.value), d.as))
-              d.clean = true;
-
-            // Verify we have no unhandled attributes.
-            //
-            for (attribute& a: d.as)
-              fail (d.as.loc) << "unknown recipe attribute " << a << endf;
-          }
-
           auto& ars (target_->adhoc_recipes);
           ars.push_back (adhoc_recipe {{}, move (ar)});
 
@@ -1314,6 +1303,20 @@ namespace build2
 
               ars.back ().actions.push_back (a);
             }
+          }
+
+          if (d.first)
+          {
+            adhoc_recipe& ar (ars.back ());
+
+            if (ar.rule->recipe_text (
+                  ctx, *target_, ar.actions, move (t.value), d.as))
+              d.clean = true;
+
+            // Verify we have no unhandled attributes.
+            //
+            for (attribute& a: d.as)
+              fail (d.as.loc) << "unknown recipe attribute " << a << endf;
           }
         }
 

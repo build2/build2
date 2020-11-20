@@ -75,7 +75,7 @@ b += --no-column
   : Test cleanup of a directory as a file.
   :
   $c <'$* -d a &a' && $b 2>>/~%EOE% != 0
-  %error: unable to remove file test/1/a: .+%
+  %testscript:1: error: unable to remove file test/1/a: .+%
     info: test id: 1
   EOE
 }
@@ -161,7 +161,7 @@ b += --no-column
   : Test cleanup of a file as a directory.
   :
   $c <'$* -f a &a/' && $b 2>>/~%EOE% != 0
-  %error: unable to remove directory test/1/a/: .+%
+  %testscript:1: error: unable to remove directory test/1/a/: .+%
     info: test id: 1
   EOE
 }
@@ -240,7 +240,7 @@ b += --no-column
       : Test cleanup of a file as a wildcard.
       :
       $c <'$* -f a &a/***' && $b 2>>/~%EOE% != 0
-      %error: unable to remove directory test/1/a/: .*%
+      %testscript:1: error: unable to remove directory test/1/a/: .*%
         info: test id: 1
       EOE
     }

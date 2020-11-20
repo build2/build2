@@ -82,6 +82,265 @@
 
     $* clean 2>-
   }
+
+  : untracked-var
+  :
+  {
+    cat <<EOI >=buildfile;
+      a = a
+      b = b
+      foo:
+      {{
+        x = true
+        echo "$($x ? a : b)" >$path($>)
+      }}
+      EOI
+
+    $* 2>>~%EOE% != 0;
+      echo file{foo}
+      buildfile:6:10: error: use of untracked variable 'a'
+        info: use the 'depdb' builtin to manually track it
+      %.+
+      EOE
+
+    $* clean 2>-
+  }
+
+  : depdb
+  :
+  {
+    : track-var-auto
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        s = $process.run(cat bar)
+        foo:
+        {{
+          echo "$s" >$path($>)
+        }}
+        EOI
+
+      $* 2>'echo file{foo}';
+      cat <<<foo >'bar';
+
+      $* 2>/'info: dir{./} is up to date';
+
+      echo 'baz' >=bar;
+
+      $* 2>'echo file{foo}';
+      cat <<<foo >'baz';
+
+      $* clean 2>-
+    }
+
+    : track-var-manual
+    :
+    {
+      echo 'bar' >=bar;
+      echo 'baz' >=baz;
+
+      cat <<EOI >=buildfile;
+        a = $process.run(cat baz)
+        foo: bar
+        {{
+          depdb hash "$a"
+          diag compose $>
+
+          cp $path($<) $path($>)
+
+          x = true
+          echo "$($x ? a : b)" >>$path($>)
+        }}
+        EOI
+
+      $* 2>'compose file{foo.}';
+
+      cat <<<foo >>EOO;
+        bar
+        baz
+        EOO
+
+      $* 2>/'info: dir{./} is up to date';
+
+      # Make sure that on filesystems with a low file timestamps resolution
+      # (for example HFS+) the file is considered as changed.
+      #
+      sleep 1;
+
+      echo 'BAR' >=bar;
+
+      $* 2>'compose file{foo.}';
+
+      cat <<<foo >>EOO;
+        BAR
+        baz
+        EOO
+
+      $* 2>/'info: dir{./} is up to date';
+
+      echo 'BAZ' >=baz;
+
+      $* 2>'compose file{foo.}';
+
+      cat <<<foo >>EOO;
+        BAR
+        BAZ
+        EOO
+
+      $* 2>/'info: dir{./} is up to date';
+
+      $* clean 2>-
+    }
+
+    : string
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        s = $process.run(cat bar)
+        foo:
+        {{
+          depdb clear
+          depdb string "$s"
+          echo "$s" >$path($>)
+        }}
+        EOI
+
+      $* 2>'echo file{foo}';
+      cat <<<foo >'bar';
+
+      $* 2>/'info: dir{./} is up to date';
+
+      echo 'baz' >=bar;
+
+      $* 2>'echo file{foo}';
+      cat <<<foo >'baz';
+
+      $* clean 2>-
+    }
+
+    : hash
+    :
+    {
+      echo 'bar' >=bar;
+
+      cat <<EOI >=buildfile;
+        s = $process.run(cat bar)
+        foo:
+        {{
+          depdb clear
+          depdb hash "$s"
+          echo "$s" >$path($>)
+        }}
+        EOI
+
+      $* 2>'echo file{foo}';
+      cat <<<foo >'bar';
+
+      $* 2>/'info: dir{./} is up to date';
+
+      echo 'baz' >=bar;
+
+      $* 2>'echo file{foo}';
+      cat <<<foo >'baz';
+
+      $* clean 2>-
+    }
+
+    : preamble
+    :
+    {
+      : valid
+      :
+      {
+        echo 'bar' >=bar;
+
+        cat <<EOI >=buildfile;
+          s = $process.run(cat bar)
+          foo:
+          {{
+            depdb clear
+
+            s1 = 'abc'
+            s2 = 'xyz'
+
+            if echo "$s" >>>? 'bar'
+              v = "$s1"
+            else
+              echo "$s2" | set v
+            end
+
+            depdb string "$v"
+
+            echo "$v" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo}';
+        cat <<<foo >'abc';
+
+        $* 2>/'info: dir{./} is up to date';
+
+        echo 'baz' >=bar;
+        $* 2>'echo file{foo}';
+        cat <<<foo >'xyz';
+
+        $* clean 2>-
+      }
+
+      : invalid
+      :
+      {
+        cat <<EOI >=buildfile;
+          foo:
+          {{
+            v = 'abc'
+            echo "$v" >$path($>)
+            depdb string "$v"
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          buildfile:4:3: error: disallowed command in depdb preamble
+            info: only variable assignments are allowed in depdb preamble
+            buildfile:5:3: info: depdb preamble ends here
+          %.+
+          EOE
+
+        $* clean 2>-
+      }
+
+      : temp-dir
+      :
+      {
+        cat <<EOI >=buildfile;
+          foo:
+          {{
+            touch $~/f | set dummy
+
+            if test -f $~/f
+              v = "yes"
+            else
+              v = "no"
+            end
+
+            depdb string "$v"
+            diag echo $>
+
+            test -f $~/f
+            echo "$v" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo.}';
+
+        $* clean 2>-
+      }
+    }
+  }
 }
 
 : clean
@@ -112,25 +371,51 @@
 : test
 :
 {
-  echo 'bar' >=bar;
+  : success
+  :
+  {
+    echo 'bar' >=bar;
 
-  cat <<EOI >=buildfile;
-    foo: bar
-    {{
-      cp $path($<) $path($>)
-    }}
-    % [diag=test] test
-    {{
-      cat <$path($<) >?$path($>)
-    }}
-    EOI
+    cat <<EOI >=buildfile;
+      foo: bar
+      {{
+        cp $path($<) $path($>)
+      }}
+      % [diag=test] test
+      {{
+        cat <$path($<) >?$path($>)
+      }}
+      EOI
 
-  $* test 2>>EOE;
-    cp file{foo}
-    test file{foo}
-    EOE
+    $* test 2>>EOE;
+      cp file{foo}
+      test file{foo}
+      EOE
 
-  $* clean 2>-
+    $* clean 2>-
+  }
+
+  : depdb
+  :
+  {
+    echo 'bar' >=bar;
+
+    cat <<EOI >=buildfile;
+      foo: bar
+      {{
+        cp $path($<) $path($>)
+      }}
+      % [diag=test] test
+      {{
+        depdb clear
+        cat <$path($<) >?$path($>)
+      }}
+      EOI
+
+    $* test 2>>EOE != 0
+      buildfile:7:3: error: 'depdb' builtin cannot be used to perform test
+      EOE
+  }
 }
 
 : diff-label

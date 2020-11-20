@@ -43,7 +43,8 @@ namespace build2
         : adhoc_rule ("<ad hoc buildscript recipe>", l, b) {}
 
     virtual bool
-    recipe_text (context&, const target&, string&&, attributes&) override;
+    recipe_text (context&, const target&, const adhoc_actions&,
+                 string&&, attributes&) override;
 
     virtual void
     dump_attributes (ostream&) const override;

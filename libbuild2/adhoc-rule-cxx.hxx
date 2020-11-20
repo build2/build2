@@ -61,7 +61,8 @@ namespace build2
                     optional<string> sep);
 
     virtual bool
-    recipe_text (context&, const target&, string&& t, attributes&) override;
+    recipe_text (context&, const target&, const adhoc_actions&,
+                 string&&, attributes&) override;
 
     virtual
     ~adhoc_cxx_rule () override;

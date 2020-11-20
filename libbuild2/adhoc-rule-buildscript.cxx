@@ -23,7 +23,8 @@ using namespace std;
 namespace build2
 {
   bool adhoc_buildscript_rule::
-  recipe_text (context& ctx, const target& tg, string&& t, attributes& as)
+  recipe_text (context& ctx, const target& tg, const adhoc_actions& acts,
+               string&& t, attributes& as)
   {
     // Handle and erase recipe-specific attributes.
     //
@@ -56,7 +57,7 @@ namespace build2
     istringstream is (move (t));
     build::script::parser p (ctx);
 
-    script = p.pre_parse (tg,
+    script = p.pre_parse (tg, acts,
                           is, loc.file, loc.line + 1,
                           move (diag), as.loc);
 
@@ -87,14 +88,14 @@ namespace build2
     if (script.depdb_clear)
       os << ind << "depdb clear" << endl;
 
-    script::dump (os, ind, script.depdb_lines);
+    script::dump (os, ind, script.depdb_preamble);
 
     if (script.diag_line)
     {
       os << ind; script::dump (os, *script.diag_line, true /* newline */);
     }
 
-    script::dump (os, ind, script.lines);
+    script::dump (os, ind, script.body);
     ind.resize (ind.size () - 2);
     os << ind << string (braces, '}');
   }
@@ -452,69 +453,43 @@ namespace build2
 
     // Execute the custom dependency change tracking commands, if present.
     //
-    if (!script.depdb_lines.empty ())
+    // Note that we share the environment between the execute_depdb_preamble()
+    // and execute_body() calls, which is not merely an optimization since
+    // variables set in the preamble must be available in the body.
+    //
+    // Creating the environment instance is not cheap so optimize for the
+    // common case where we don't have the depdb preamble and nothing to
+    // update.
+    //
+    bool depdb_preamble (!script.depdb_preamble.empty ());
+
+    if (!depdb_preamble)
+    {
+      if (dd.writing () || dd.mtime > mt)
+        update = true;
+
+      if (!update)
+      {
+        dd.close ();
+        return *ps;
+      }
+    }
+
+    build::script::environment env (a, t, false /* temp_dir */);
+    build::script::default_runner r;
+
+    if (depdb_preamble)
     {
       bs = &t.base_scope ();
       rs = bs->root_scope ();
 
-      // While it would have been nice to reuse the environment for both
-      // dependency tracking and execution, there are complications (creating
-      // temporary directory, etc).
-      //
-      build::script::environment e (a, t, false /* temp_dir */);
+      if (script.depdb_preamble_temp_dir)
+        env.set_temp_dir_variable ();
+
       build::script::parser p (ctx);
 
-      for (const script::line& l: script.depdb_lines)
-      {
-        names ns (p.execute_special (*rs, *bs, e, l));
-
-        // These should have been enforced during pre-parsing.
-        //
-        assert (!ns.empty ());         //         <cmd> ... <newline>
-        assert (l.tokens.size () > 2); // 'depdb' <cmd> ... <newline>
-
-        const string& cmd (ns[0].value);
-
-        location loc (l.tokens[0].location ());
-
-        if (cmd == "hash")
-        {
-          sha256 cs;
-          for (auto i (ns.begin () + 1); i != ns.end (); ++i) // Skip <cmd>.
-            to_checksum (cs, *i);
-
-          if (dd.expect (cs.string ()) != nullptr)
-            l4 ([&] {
-                diag_record dr (trace);
-                dr << "'depdb hash' argument change forcing update of " << t <<
-                  info (loc); script::dump (dr.os, l);
-              });
-        }
-        else if (cmd == "string")
-        {
-          string s;
-          try
-          {
-            s = convert<string> (names (make_move_iterator (ns.begin () + 1),
-                                        make_move_iterator (ns.end ())));
-          }
-          catch (const invalid_argument& e)
-          {
-            fail (l.tokens[2].location ())
-              << "invalid 'depdb string' argument: " << e;
-          }
-
-          if (dd.expect (s) != nullptr)
-            l4 ([&] {
-                diag_record dr (trace);
-                dr << "'depdb string' argument change forcing update of "
-                   << t <<
-                  info (loc); script::dump (dr.os, l);
-              });
-        }
-        else
-          assert (false);
-      }
+      r.enter (env, script.start_loc);
+      p.execute_depdb_preamble (*rs, *bs, env, script, r, dd);
     }
 
     // Update if depdb mismatch.
@@ -527,24 +502,38 @@ namespace build2
     // If nothing changed, then we are done.
     //
     if (!update)
+    {
+      // Note that if we execute the depdb preamble but not the script body,
+      // we need to call the runner's leave() function explicitly (here and
+      // below).
+      //
+      if (depdb_preamble)
+        r.leave (env, script.end_loc);
+
       return *ps;
+    }
 
     if (!ctx.dry_run || verb != 0)
     {
+      // Prepare to executing the script diag line and/or body.
+      //
+      // Note that it doesn't make much sense to use the temporary directory
+      // variable ($~) in the 'diag' builtin call, so we postpone setting it
+      // until the script body execution, that can potentially be omitted.
+      //
       if (bs == nullptr)
       {
         bs = &t.base_scope ();
         rs = bs->root_scope ();
       }
 
-      build::script::environment e (a, t, script.temp_dir);
       build::script::parser p (ctx);
 
       if (verb == 1)
       {
         if (script.diag_line)
         {
-          text << p.execute_special (*rs, *bs, e, *script.diag_line);
+          text << p.execute_special (*rs, *bs, env, *script.diag_line);
         }
         else
         {
@@ -577,8 +566,10 @@ namespace build2
           }
         }
 
-        build::script::default_runner r;
-        p.execute (*rs, *bs, e, script, r);
+        if (script.body_temp_dir && !script.depdb_preamble_temp_dir)
+          env.set_temp_dir_variable ();
+
+        p.execute_body (*rs, *bs, env, script, r, !depdb_preamble);
 
         if (!ctx.dry_run)
         {
@@ -607,7 +598,11 @@ namespace build2
             rm.cancel ();
         }
       }
+      else if (depdb_preamble)
+        r.leave (env, script.end_loc);
     }
+    else if (depdb_preamble)
+      r.leave (env, script.end_loc);
 
     t.mtime (system_clock::now ());
     return target_state::changed;
@@ -629,7 +624,7 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      build::script::environment e (a, t, script.temp_dir, deadline);
+      build::script::environment e (a, t, script.body_temp_dir, deadline);
       build::script::parser p (ctx);
 
       if (verb == 1)
@@ -649,7 +644,7 @@ namespace build2
       if (!ctx.dry_run || verb >= 2)
       {
         build::script::default_runner r;
-        p.execute (rs, bs, e, script, r);
+        p.execute_body (rs, bs, e, script, r);
       }
     }
 

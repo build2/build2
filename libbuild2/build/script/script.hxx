@@ -45,7 +45,8 @@ namespace build2
         // Note that the variables are not pre-entered into a pool during the
         // parsing phase, so the line variable pointers are NULL.
         //
-        lines_type lines;
+        lines_type body;
+        bool       body_temp_dir = false; // True if the body references $~.
 
         // Referenced ordinary (non-special) variables.
         //
@@ -59,10 +60,6 @@ namespace build2
         //
         small_vector<string, 2> vars; // 2 for command and options.
 
-        // True if script references the $~ special variable.
-        //
-        bool temp_dir = false;
-
         // Command name for low-verbosity diagnostics and custom low-verbosity
         // diagnostics line. Note: cannot be both (see the script parser for
         // details).
@@ -74,7 +71,8 @@ namespace build2
         // script parser for details).
         //
         bool       depdb_clear;
-        lines_type depdb_lines;
+        lines_type depdb_preamble;
+        bool       depdb_preamble_temp_dir = false; // True if references $~.
 
         location start_loc;
         location end_loc;
@@ -135,6 +133,18 @@ namespace build2
         //
         optional<deadline> script_deadline;
         optional<deadline> fragment_deadline;
+
+        // Index of the next script line to be executed. Used and incremented
+        // by the parser's execute_depdb_preamble() and execute_body()
+        // function calls to produce special file names, etc.
+        //
+        size_t exec_line = 1;
+
+        // Create the temporary directory (if it doesn't exist yet) and set
+        // the $~ special variable to its path.
+        //
+        void
+        set_temp_dir_variable ();
 
         virtual void
         set_variable (string&& name,

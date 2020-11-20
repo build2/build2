@@ -160,7 +160,8 @@ namespace build2
     // therefore requires cleanup.
     //
     virtual bool
-    recipe_text (context&, const target&, string&&, attributes&) = 0;
+    recipe_text (context&, const target&, const adhoc_actions&,
+                 string&&, attributes&) = 0;
 
   public:
     // Some of the operations come in compensating pairs, such as update and

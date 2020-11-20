@@ -1,0 +1,90 @@
+# file      : libbuild2/build/script/parser+depdb.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+test.options += -d
+
+: clear
+:
+{
+  : multiple
+  :
+  $* <<EOI 2>>EOE != 0
+    depdb clear
+    depdb clear
+    EOI
+    buildfile:12:1: error: multiple 'depdb clear' builtin calls
+      buildfile:11:1: info: previous call is here
+    EOE
+
+  : after-string
+  :
+  $* <<EOI 2>>EOE != 0
+    a = b
+    depdb string "$a"
+    depdb clear
+    EOI
+    buildfile:13:1: error: 'depdb clear' should be the first 'depdb' builtin call
+      buildfile:12:1: info: first 'depdb' call is here
+    EOE
+}
+
+: preamble
+:
+{
+  : no-body
+  :
+  $* <<EOI >>EOO
+    s = 'foo'
+    if echo "$s" | sed 's/o/a/p' >>>? 'bar'
+      f = 'baz'
+    else
+      f = 'fox'
+    end
+    depdb clear
+    depdb string "$s"
+    depdb hash "$f"
+    foo "$s" "$f"
+    EOI
+    s = 'foo'
+    if echo "$s" | sed 's/o/a/p' >>>? 'bar'
+      f = 'baz'
+    else
+      f = 'fox'
+    end
+    depdb string "$s"
+    depdb hash "$f"
+    EOO
+
+  : temp_dir
+  :
+  {
+    test.options += -t
+
+    : no
+    :
+    $* <<EOI >false
+      f = foo
+      depdb hash "$f"
+      f = $~/f
+      foo "$f"
+      EOI
+
+    : yes
+    :
+    $* <<EOI >true
+      f = $~/f
+      depdb hash "$f"
+      foo "$f"
+      EOI
+
+    : yes-mult
+    :
+    $* <<EOI >true
+      f = $~/f
+      depdb hash "$f"
+      s = "abc"
+      depdb string "$s"
+      foo "$f"
+      EOI
+  }
+}

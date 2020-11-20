@@ -33,8 +33,8 @@ $* <<EOI >>~%EOO%
 : ambiguity
 :
 {
-: name
-:
+  : name
+  :
   $* test <<EOI 2>>EOE != 0
     echo abc
     diag xyz
@@ -53,6 +53,29 @@ $* <<EOI >>~%EOO%
     EOI
     buildfile:14:1: error: multiple 'diag' builtin calls
       buildfile:12:1: info: previous call is here
+    EOE
+
+  : names
+  :
+  $* <<EOI 2>>EOE != 0
+    cp abc xyz
+    cat xyz
+    EOI
+    buildfile:11:1: error: low-verbosity script diagnostics name is ambiguous
+      buildfile:11:1: info: could be 'cp'
+      buildfile:12:1: info: could be 'cat'
+      info: consider specifying it explicitly with the 'diag' recipe attribute
+      info: or provide custom low-verbosity diagnostics with the 'diag' builtin
+    EOE
+
+  : none
+  :
+  $* <<EOI 2>>EOE != 0
+    a = 'b'
+    EOI
+    buildfile:11:1: error: unable to deduce low-verbosity script diagnostics name
+      info: consider specifying it explicitly with the 'diag' recipe attribute
+      info: or provide custom low-verbosity diagnostics with the 'diag' builtin
     EOE
 }
 
@@ -90,4 +113,14 @@ $* <<EOI 2>>EOE != 0
   env -- diag copy >= $>
   EOI
   buildfile:11:8: error: 'diag' call via 'env' builtin
+  EOE
+
+: before-depdb
+:
+$* <<EOI 2>>EOE != 0
+  diag test
+  depdb clear
+  EOI
+  buildfile:11:1: error: 'diag' builtin call before 'depdb' call
+    buildfile:12:1: info: 'depdb' call is here
   EOE
