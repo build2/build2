@@ -1584,7 +1584,7 @@ namespace build2
 
       // Terminate the pipeline processes starting from the specified one and
       // up to the leftmost one and then kill those which didn't terminate
-      // after 1 second.
+      // after 2 seconds.
       //
       // After that wait for the pipeline builtins completion. Since their
       // standard streams should no longer be written to or read from by any
@@ -1631,7 +1631,7 @@ namespace build2
         // Wait a bit for the processes to terminate and kill the remaining
         // ones.
         //
-        timestamp dl (system_clock::now () + chrono::seconds (1));
+        timestamp dl (system_clock::now () + chrono::seconds (2));
 
         for (pipe_command* c (pc); c != nullptr; c = c->prev)
         {

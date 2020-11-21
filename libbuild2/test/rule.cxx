@@ -693,8 +693,8 @@ namespace build2
 
         // Terminate the pipeline processes starting from the specified one
         // and up to the leftmost one and then kill those which didn't
-        // terminate in 1 second. Issue diagnostics and fail if something goes
-        // wrong, but still try to terminate all processes.
+        // terminate in 2 seconds. Issue diagnostics and fail if something
+        // goes wrong, but still try to terminate all processes.
         //
         auto term_pipe = [&timed_wait] (pipe_process* pp)
         {
@@ -720,7 +720,7 @@ namespace build2
           // Wait a bit for the processes to terminate and kill the remaining
           // ones.
           //
-          timestamp deadline (system_clock::now () + chrono::seconds (1));
+          timestamp deadline (system_clock::now () + chrono::seconds (2));
 
           for (pipe_process* p (pp); p != nullptr; p = p->prev)
           {
