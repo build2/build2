@@ -66,6 +66,7 @@ namespace build2
   using butl::icase_compare_string;
   using butl::icase_compare_c_string;
   using butl::lcase;
+  using butl::ucase;
   using butl::alpha;
   using butl::alnum;
   using butl::digit;

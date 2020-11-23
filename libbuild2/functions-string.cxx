@@ -55,6 +55,28 @@ namespace build2
       return names {name (trim (convert<string> (move (s))))};
     };
 
+    // Convert ASCII strings into lower/upper case.
+    //
+    f["lcase"] = [](string s)
+    {
+      return lcase (move (s));
+    };
+
+    f[".lcase"] = [](names s)
+    {
+      return names {name (lcase (convert<string> (move (s))))};
+    };
+
+    f["ucase"] = [](string s)
+    {
+      return ucase (move (s));
+    };
+
+    f[".ucase"] = [](names s)
+    {
+      return names {name (ucase (convert<string> (move (s))))};
+    };
+
     // String-specific overloads from builtins.
     //
     function_family b (m, "builtin");
