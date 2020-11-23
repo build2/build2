@@ -54,8 +54,62 @@ namespace build2
     public:
       // Library handling.
       //
+      struct appended_library
+      {
+        static const size_t npos = size_t (~0);
+
+        uintptr_t l;          // Pointer to library target (last bit 0) or to
+                              // library name (-lpthread or path; last bit 1).
+        size_t begin = npos;  // First arg belonging to this library.
+        size_t end   = npos;  // Past last arg belonging to this library.
+      };
+
+      class appended_libraries: public small_vector<appended_library, 128>
+      {
+      public:
+        // Find existing or append new entry. If appending new, use the second
+        // argument as the begin value.
+        //
+        appended_library&
+        append (const file& l, size_t b)
+        {
+          auto p (reinterpret_cast<uintptr_t> (&l));
+          auto i (find_if (begin (), end (),
+                           [p] (const appended_library& al)
+                           {
+                             return al.l == p;
+                           }));
+
+          if (i != end ())
+            return *i;
+
+          push_back (appended_library {p, b, appended_library::npos});
+          return back ();
+        }
+
+        appended_library&
+        append (const string& l, size_t b)
+        {
+          auto i (find_if (begin (), end (),
+                           [&l] (const appended_library& al)
+                           {
+                             return (al.l & 1) != 0 &&
+                               l == *reinterpret_cast<const string*> (
+                                 al.l & ~uintptr_t (1));
+                           }));
+
+          if (i != end ())
+            return *i;
+
+          push_back (
+            appended_library {
+              reinterpret_cast<uintptr_t> (&l) | 1, b, appended_library::npos});
+          return back ();
+        }
+      };
+
       void
-      append_libraries (strings&,
+      append_libraries (appended_libraries&, strings&,
                         const scope&, action,
                         const file&, bool, lflags, linfo, bool = true) const;
 
@@ -64,8 +118,10 @@ namespace build2
                         const scope&, action,
                         const file&, bool, lflags,  linfo) const;
 
+      using rpathed_libraries = small_vector<const file*, 256>;
+
       void
-      rpath_libraries (strings&,
+      rpath_libraries (rpathed_libraries&, strings&,
                        const scope&,
                        action, const file&, bool, linfo, bool, bool) const;
 

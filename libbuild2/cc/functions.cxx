@@ -27,15 +27,16 @@ namespace build2
     struct lib_data
     {
       const char* x;
-      void (*f) (strings&,
+      void (*f) (void*, strings&,
                  const vector_view<value>&, const module&, const scope&,
                  action, const file&, bool, linfo);
     };
 
     static value
-    lib_thunk (const scope* bs,
-               vector_view<value> vs,
-               const function_overload& f)
+    lib_thunk_impl (void* ls,
+                    const scope* bs,
+                    vector_view<value> vs,
+                    const function_overload& f)
     {
       const lib_data& d (*reinterpret_cast<const lib_data*> (&f.data));
 
@@ -114,13 +115,23 @@ namespace build2
             (la = (f = t.is_a<liba>  ())) ||
             (     (f = t.is_a<libs>  ())))
         {
-          d.f (r, vs, *m, *bs, a, *f, la, li);
+          d.f (ls, r, vs, *m, *bs, a, *f, la, li);
         }
         else
           fail << t << " is not a library target";
       }
 
       return value (move (r));
+    }
+
+    template <typename L>
+    static value
+    lib_thunk (const scope* bs,
+               vector_view<value> vs,
+               const function_overload& f)
+    {
+      L ls;
+      return lib_thunk_impl (&ls, bs, vs, f);
     }
 
     void compile_rule::
@@ -132,19 +143,24 @@ namespace build2
       // sources that depend on the specified libraries. The second argument
       // is the output target type (obje, objs, etc).
       //
-      // Note that this function can only be called during execution after all
-      // the specified library targets have been matched. Normally it is used
-      // in ad hoc recipes to implement custom compilation.
+      // Note that passing multiple targets at once is not a mere convenience:
+      // this also allows for more effective duplicate suppression.
+      //
+      // Note also that this function can only be called during execution
+      // after all the specified library targets have been matched. Normally
+      // it is used in ad hoc recipes to implement custom compilation.
+      //
       //
       f[".lib_poptions"].insert<lib_data, names, names> (
-        &lib_thunk,
+        &lib_thunk<appended_libraries>,
         lib_data {
           x,
-          [] (strings& r,
+          [] (void* ls, strings& r,
               const vector_view<value>&, const module& m, const scope& bs,
               action a, const file& l, bool la, linfo li)
           {
-            m.append_lib_options (r, bs, a, l, la, li);
+            m.append_library_options (
+              *static_cast<appended_libraries*> (ls), r, bs, a, l, la, li);
           }});
     }
 
@@ -164,16 +180,19 @@ namespace build2
       // If the last argument is false, then do not return the specified
       // libraries themselves.
       //
-      // Note that this function can only be called during execution after all
-      // the specified library targets have been matched. Normally it is used
-      // in ad hoc recipes to implement custom linking.
+      // Note that passing multiple targets at once is not a mere convenience:
+      // this also allows for more effective duplicate suppression.
+      //
+      // Note also that this function can only be called during execution
+      // after all the specified library targets have been matched. Normally
+      // it is used in ad hoc recipes to implement custom linking.
       //
       f[".lib_libs"].insert<lib_data,
                             names, names, optional<names>, optional<names>> (
-        &lib_thunk,
+        &lib_thunk<appended_libraries>,
         lib_data {
           x,
-          [] (strings& r,
+          [] (void* ls, strings& r,
               const vector_view<value>& vs, const module& m, const scope& bs,
               action a, const file& l, bool la, linfo li)
           {
@@ -193,7 +212,9 @@ namespace build2
 
             bool self (vs.size () > 3 ? convert<bool> (vs[3]) : true);
 
-            m.append_libraries (r, bs, a, l, la, lf, li, self);
+            m.append_libraries (*static_cast<appended_libraries*> (ls), r,
+                                bs,
+                                a, l, la, lf, li, self);
           }});
 
       // $<module>.lib_rpaths(<targets>, <otype> [, <link> [, <self>]])
@@ -209,22 +230,27 @@ namespace build2
       // If the last argument is false, then do not return the options for the
       // specified libraries themselves.
       //
-      // Note that this function can only be called during execution after all
-      // the specified library targets have been matched. Normally it is used
-      // in ad hoc recipes to implement custom linking.
+      // Note that passing multiple targets at once is not a mere convenience:
+      // this also allows for more effective duplicate suppression.
+
+      // Note also that this function can only be called during execution
+      // after all the specified library targets have been matched. Normally
+      // it is used in ad hoc recipes to implement custom linking.
       //
       f[".lib_rpaths"].insert<lib_data,
                               names, names, optional<names>, optional<names>> (
-        &lib_thunk,
+        &lib_thunk<rpathed_libraries>,
         lib_data {
           x,
-          [] (strings& r,
+          [] (void* ls, strings& r,
               const vector_view<value>& vs, const module& m, const scope& bs,
               action a, const file& l, bool la, linfo li)
           {
             bool link (vs.size () > 2 ? convert<bool> (vs[2]) : false);
             bool self (vs.size () > 3 ? convert<bool> (vs[3]) : true);
-            m.rpath_libraries (r, bs, a, l, la, li, link, self);
+            m.rpath_libraries (*static_cast<rpathed_libraries*> (ls), r,
+                               bs,
+                               a, l, la, li, link, self);
           }});
     }
   }

@@ -376,25 +376,40 @@ namespace build2
     }
 
     // Append or hash library options from a pair of *.export.* variables
-    // (first one is cc.export.*) recursively, prerequisite libraries first.
+    // (first is x.* then cc.*) recursively, prerequisite libraries first.
     //
     template <typename T>
     void compile_rule::
-    append_lib_options (T& args,
-                        const scope& bs,
-                        action a, const file& l, bool la, linfo li) const
+    append_library_options (appended_libraries& ls, T& args,
+                            const scope& bs,
+                            action a, const file& l, bool la, linfo li) const
     {
+      struct data
+      {
+        appended_libraries& ls;
+        T& args;
+      } d {ls, args};
+
       // See through utility libraries.
       //
       auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
 
-      auto opt = [&args, this] (
-        const file& l, const string& t, bool com, bool exp)
+      auto opt = [&d, this] (const file& l,
+                             const string& t, bool com, bool exp)
       {
         // Note that in our model *.export.poptions are always "interface",
         // even if set on liba{}/libs{}, unlike loptions.
         //
         if (!exp) // Ignore libux.
+          return;
+
+        // Suppress duplicates.
+        //
+        // Compilation is the simple case: we can add the options on the first
+        // occurrence of the library and ignore all subsequent occurrences.
+        // See GitHub issue #114 for details.
+        //
+        if (find (d.ls.begin (), d.ls.end (), &l) != d.ls.end ())
           return;
 
         const variable& var (
@@ -404,7 +419,13 @@ namespace build2
              ? x_export_poptions
              : l.ctx.var_pool[t + ".export.poptions"]));
 
-        append_options (args, l, var);
+        append_options (d.args, l, var);
+
+        // From the process_libraries() semantics we know that the final call
+        // is always for the common options.
+        //
+        if (com)
+          d.ls.push_back (&l);
       };
 
       process_libraries (a, bs, li, sys_lib_dirs,
@@ -413,19 +434,21 @@ namespace build2
     }
 
     void compile_rule::
-    append_lib_options (strings& args,
-                        const scope& bs,
-                        action a, const file& l, bool la, linfo li) const
+    append_library_options (appended_libraries& ls, strings& args,
+                            const scope& bs,
+                            action a, const file& l, bool la, linfo li) const
     {
-      append_lib_options<strings> (args, bs, a, l, la, li);
+      append_library_options<strings> (ls, args, bs, a, l, la, li);
     }
 
     template <typename T>
     void compile_rule::
-    append_lib_options (T& args,
-                        const scope& bs,
-                        action a, const target& t, linfo li) const
+    append_library_options (T& args,
+                            const scope& bs,
+                            action a, const target& t, linfo li) const
     {
+      appended_libraries ls;
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
@@ -444,7 +467,7 @@ namespace build2
               (la = (f = pt->is_a<libux> ())) ||
               (     (f = pt->is_a<libs> ())))
           {
-            append_lib_options (args, bs, a, *f, la, li);
+            append_library_options (ls, args, bs, a, *f, la, li);
           }
         }
       }
@@ -454,11 +477,11 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile_rule::
-    append_lib_prefixes (prefix_map& m,
-                         const scope& bs,
-                         action a,
-                         target& t,
-                         linfo li) const
+    append_library_prefixes (prefix_map& m,
+                             const scope& bs,
+                             action a,
+                             target& t,
+                             linfo li) const
     {
       auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
 
@@ -478,7 +501,7 @@ namespace build2
         append_prefixes (m, l, var);
       };
 
-      // The same logic as in append_lib_options().
+      // The same logic as in append_library_options().
       //
       const function<bool (const file&, bool)> impf (imp);
       const function<void (const file&, const string&, bool, bool)> optf (opt);
@@ -711,7 +734,7 @@ namespace build2
 
         // A dependency on a library is there so that we can get its
         // *.export.poptions, modules, etc. This is the library metadata
-        // protocol. See also append_lib_options().
+        // protocol. See also append_library_options().
         //
         if (pi == include_type::normal &&
             (p.is_a<libx> () ||
@@ -899,7 +922,7 @@ namespace build2
 
             // Hash *.export.poptions from prerequisite libraries.
             //
-            append_lib_options (cs, bs, a, t, li);
+            append_library_options (cs, bs, a, t, li);
           }
 
           append_options (cs, t, c_coptions);
@@ -1485,7 +1508,7 @@ namespace build2
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_lib_prefixes (m, bs, a, t, li);
+      append_library_prefixes (m, bs, a, t, li);
 
       return m;
     }
@@ -2917,7 +2940,7 @@ namespace build2
 
           // Add *.export.poptions from prerequisite libraries.
           //
-          append_lib_options (args, bs, a, t, li);
+          append_library_options (args, bs, a, t, li);
 
           // Populate the src-out with the -I$out_base -I$src_base pairs.
           //
@@ -4313,7 +4336,7 @@ namespace build2
           append_options (args, t, x_poptions);
           append_options (args, t, c_poptions);
 
-          append_lib_options (args, t.base_scope (), a, t, li);
+          append_library_options (args, t.base_scope (), a, t, li);
 
           if (md.symexport)
             append_symexport_options (args, t);
@@ -5940,7 +5963,7 @@ namespace build2
 
         // Add *.export.poptions from prerequisite libraries.
         //
-        append_lib_options (args, bs, a, t, li);
+        append_library_options (args, bs, a, t, li);
 
         if (md.symexport)
           append_symexport_options (args, t);

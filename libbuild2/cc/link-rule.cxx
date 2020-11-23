@@ -1489,19 +1489,20 @@ namespace build2
     }
 
     void link_rule::
-    append_libraries (strings& args,
+    append_libraries (appended_libraries& ls, strings& args,
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li,
                       bool self) const
     {
       struct data
       {
+        appended_libraries&  ls;
         strings&             args;
         const file&          l;
         action               a;
         linfo                li;
         compile_target_types tts;
-      } d {args, l, a, li, compile_types (li.type)};
+      } d {ls, args, l, a, li, compile_types (li.type)};
 
       auto imp = [] (const file&, bool la)
       {
@@ -1514,6 +1515,61 @@ namespace build2
                              bool)
       {
         const file* l (lc != nullptr ? *lc : nullptr);
+
+        // Suppress duplicates.
+        //
+        // Linking is the complicated case: we cannot add the libraries and
+        // options on the first occurrence of the library and ignore all
+        // subsequent occurrences because of the static linking semantics.
+        // Instead, we can ignore all the occurrences except the last which
+        // would normally be done with a pre-pass but would also complicate
+        // things quite a bit. So instead we are going to keep track of the
+        // duplicates like we've done in other places but in addition we will
+        // also keep track of the elements added to args corresponding to this
+        // library. And whenever we see a duplicate, we are going to "hoist"
+        // that range of elements to the end of args. See GitHub issue #114
+        // for details.
+        //
+        // From the process_libraries() semantics we know that this callback
+        // is always called and always after the options callbacks.
+        //
+        appended_library& al (l != nullptr
+                              ? d.ls.append (*l, d.args.size ())
+                              : d.ls.append (p, d.args.size ()));
+
+        if (al.end != appended_library::npos) // Closed.
+        {
+          // Hoist the elements corresponding to this library to the end.
+          //
+          if (al.begin != al.end)
+          {
+            // Rotate to the left the subrange starting from the first element
+            // of this library and until the end so that the element after the
+            // last element of this library becomes the first element of this
+            // subrange. We also need to adjust begin/end of libraries
+            // affected by the rotation.
+            //
+            rotate (d.args.begin () + al.begin,
+                    d.args.begin () + al.end,
+                    d.args.end ());
+
+            size_t n (al.end - al.begin);
+
+            for (appended_library& al1: d.ls)
+            {
+              if (al1.begin >= al.end)
+              {
+                al1.begin -= n;
+                al1.end -= n;
+              }
+            }
+
+            al.end = d.args.size ();
+            al.begin = al.end - n;
+          }
+
+          return;
+        }
 
         if (l == nullptr)
         {
@@ -1542,7 +1598,7 @@ namespace build2
           {
             for (ptrdiff_t i (-1); lc[i] != nullptr; --i)
               if (!lc[i]->is_a<libux> ())
-                return;
+                goto done;
           }
 
           if (d.li.type == otype::a)
@@ -1558,10 +1614,10 @@ namespace build2
             // care of by perform_update()). So we cut it off here.
             //
             if (!lu)
-              return;
+              goto done;
 
             if (l->mtime () == timestamp_unreal) // Binless.
-              return;
+              goto done;
 
             for (const target* pt: l->prerequisite_targets[d.a])
             {
@@ -1593,7 +1649,7 @@ namespace build2
             //
 
             if (l->mtime () == timestamp_unreal) // Binless.
-              return;
+              goto done;
 
             // On Windows a shared library is a DLL with the import library as
             // an ad hoc group member. MinGW though can link directly to DLLs
@@ -1622,13 +1678,16 @@ namespace build2
                 d.args.push_back ("-Wl,--whole-archive");
                 d.args.push_back (move (p));
                 d.args.push_back ("-Wl,--no-whole-archive");
-                return;
+                goto done;
               }
             }
 
             d.args.push_back (move (p));
           }
         }
+
+      done:
+        al.end = d.args.size (); // Close.
       };
 
       auto opt = [&d, this] (const file& l,
@@ -1647,6 +1706,11 @@ namespace build2
         // the exp checks below.
         //
         if (d.li.type == otype::a || !exp)
+          return;
+
+        // Suppress duplicates.
+        //
+        if (d.ls.append (l, d.args.size ()).end != appended_library::npos)
           return;
 
         // If we need an interface value, then use the group (lib{}).
@@ -1673,6 +1737,11 @@ namespace build2
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li) const
     {
+      // Note that we don't do any duplicate suppression here: there is no way
+      // to "hoist" things once they are hashed and hashing only the first
+      // occurrence could miss changes to the command line (e.g., due to
+      // "hoisting").
+
       struct data
       {
         sha256&         cs;
@@ -1770,7 +1839,7 @@ namespace build2
     }
 
     void link_rule::
-    rpath_libraries (strings& args,
+    rpath_libraries (rpathed_libraries& ls, strings& args,
                      const scope& bs,
                      action a, const file& l, bool la,
                      linfo li, bool link, bool self) const
@@ -1808,9 +1877,10 @@ namespace build2
       //
       struct
       {
-        strings& args;
-        bool     link;
-      } d {args, link};
+        rpathed_libraries& ls;
+        strings&           args;
+        bool               link;
+      } d {ls, args, link};
 
       auto lib = [&d, this] (const file* const* lc,
                              const string& f,
@@ -1832,6 +1902,16 @@ namespace build2
 
           if (l->mtime () == timestamp_unreal) // Binless.
             return;
+
+          // Suppress duplicates.
+          //
+          // We handle rpath similar to the compilation case by adding the
+          // options on the first occurrence and ignoring all the subsequent.
+          //
+          if (find (d.ls.begin (), d.ls.end (), l) != d.ls.end ())
+            return;
+
+          d.ls.push_back (l);
         }
         else
         {
@@ -1882,7 +1962,10 @@ namespace build2
           // It is either matched or imported so should be a cc library.
           //
           if (!cast_false<bool> (l.vars[c_system]))
+          {
             args.push_back ("-Wl,-rpath," + l.path ().directory ().string ());
+            ls.push_back (&l);
+          }
         }
       }
 
@@ -1896,6 +1979,8 @@ namespace build2
                      const scope& bs, action a,
                      const target& t, linfo li, bool link) const
     {
+      rpathed_libraries ls;
+
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
         if (pt == nullptr)
@@ -1908,7 +1993,7 @@ namespace build2
             (la = (f = pt->is_a<libux> ())) ||
             (      f = pt->is_a<libs>  ()))
         {
-          rpath_libraries (args, bs, a, *f, la, li, link, true);
+          rpath_libraries (ls, args, bs, a, *f, la, li, link, true);
         }
       }
     }
@@ -2862,35 +2947,42 @@ namespace build2
       // inside append_libraries().
       //
       bool seen_obj (false);
-      for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
-        const target* pt (p.target);
-
-        if (pt == nullptr)
-          continue;
-
-        if (modules)
+        appended_libraries als;
+        for (const prerequisite_target& p: t.prerequisite_targets[a])
         {
-          if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
-            pt = find_adhoc_member (*pt, tts.obj);
-        }
+          const target* pt (p.target);
 
-        const file* f;
-        bool la (false), ls (false);
+          if (pt == nullptr)
+            continue;
 
-        if ((f = pt->is_a<objx> ())           ||
-            (!lt.utility &&
-             (la = (f = pt->is_a<libux> ()))) ||
-            (!lt.static_library () &&
-             ((la = (f = pt->is_a<liba>  ())) ||
-              (ls = (f = pt->is_a<libs>  ())))))
-        {
-          if (la || ls)
-            append_libraries (sargs, bs, a, *f, la, p.data, li);
-          else
+          if (modules)
           {
-            sargs.push_back (relative (f->path ()).string ()); // string()&&
-            seen_obj = true;
+            if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
+              pt = find_adhoc_member (*pt, tts.obj);
+          }
+
+          const file* f;
+          bool la (false), ls (false);
+
+          if ((f = pt->is_a<objx> ())           ||
+              (!lt.utility &&
+               (la = (f = pt->is_a<libux> ()))) ||
+              (!lt.static_library () &&
+               ((la = (f = pt->is_a<liba>  ())) ||
+                (ls = (f = pt->is_a<libs>  ())))))
+          {
+            if (la || ls)
+              append_libraries (als, sargs, bs, a, *f, la, p.data, li);
+            else
+            {
+              // Do not hoist libraries over object files since such object
+              // files might satisfy symbols in the preceding libraries.
+              //
+              als.clear ();
+              sargs.push_back (relative (f->path ()).string ()); // string()&&
+              seen_obj = true;
+            }
           }
         }
       }
