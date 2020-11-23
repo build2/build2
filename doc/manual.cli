@@ -14,7 +14,7 @@
 // @@ installation of dependencies
 
 /*
-@@ include includes once (also source)
+@@ Redo synopsis in directives once enable p-code-box.css.
 
 @@ info (where? in scopes? could show some? separate section?)
 @@ other meta-ops: create (anything else?)
@@ -5549,6 +5549,37 @@ x = S
 info $(file{bar}: x) # S w
 info $(file{bar}: y) # s w
 \
+
+
+\h1#directives|Directives|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+\h#directives-include|\c{include}|
+
+\
+include <file>
+include <directory>
+\
+
+Load the specified file (the first form) or \c{buildfile} in the specified
+directory (the second form). In both cases the file is loaded in the scope
+corresponding to its directory. Subsequent inclusions of the same file are
+automatically ignored. See also \l{#directives-source \c{source}}.
+
+
+\h#directives-source|\c{source}|
+
+
+\
+source <file>
+\
+
+Load the specified file in the current scope as if its contents were copied
+and pasted in place of the \c{source} directive. Note that subsequent sourcing
+of the same file in the same scope are not automatically ignored.  See also
+\l{#directives-include \c{include}}.
+
 
 \h1#module-test|\c{test} Module|
 
