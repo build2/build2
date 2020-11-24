@@ -58,10 +58,10 @@ namespace build2
       {
         static const size_t npos = size_t (~0);
 
-        uintptr_t l;          // Pointer to library target (last bit 0) or to
-                              // library name (-lpthread or path; last bit 1).
-        size_t begin = npos;  // First arg belonging to this library.
-        size_t end   = npos;  // Past last arg belonging to this library.
+        uintptr_t l;   // Pointer to library target (last bit 0) or to
+                       // library name (-lpthread or path; last bit 1).
+        size_t begin;  // First arg belonging to this library.
+        size_t end;    // Past last arg belonging to this library.
       };
 
       class appended_libraries: public small_vector<appended_library, 128>
