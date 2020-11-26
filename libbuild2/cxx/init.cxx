@@ -325,13 +325,18 @@ namespace build2
               // But let's allow forcing it to plain c++-modules in case
               // things got merged or the user feels adventurous.
               //
-              if (mj >= 10 &&
+              // @@ TMP: revise: for now must be forced (also in modules
+              //    tests).
+              //
+              if (mj >= 11 &&
+                  l &&
+                  ci.version.build.find ("c++-modules")
+                  /*
                   ci.version.build.find (l
                                          ? "c++-modules"
-                                         : "c++-modules-ex") != string::npos)
+                                         : "c++-modules-ex")*/ != string::npos)
               {
-                // Currently defines __cpp_modules=201810 which is said to
-                // correspond to p1103 (merged modules).
+                // Defines __cpp_modules=201907. @@ TMP: confirm.
                 //
                 prepend ("-fmodules-ts");
                 modules = true;

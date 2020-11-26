@@ -1770,16 +1770,415 @@ namespace build2
     // Any unhandled io_error is handled by the caller as a generic module
     // mapper io error.
     //
-    struct compile_rule::module_mapper_state
+    struct compile_rule::module_mapper_state //@@ gcc_module_mapper_state
     {
       size_t headers  = 0; // Number of header units imported.
       size_t skip;         // Number of depdb entries to skip.
-      string data;         // Auxiliary data.
+
+      small_vector<string, 16> batch; // Reuse buffers.
 
       explicit
       module_mapper_state (size_t skip_count): skip (skip_count) {}
     };
 
+    void compile_rule::
+    gcc_module_mapper (module_mapper_state& st,
+                       action a, const scope& bs, file& t, linfo li,
+                       ifdstream& is,
+                       ofdstream& os,
+                       depdb& dd, bool& update, bool& bad_error,
+                       optional<prefix_map>& pfx_map, srcout_map& so_map) const
+    {
+      tracer trace (x, "compile_rule::gcc_module_mapper");
+
+      // While the dynamic mapper is only used during preprocessing, we still
+      // need to handle batching (GCC sends batches of imports even in this
+      // mode; actually, not for header unit imports and module imports we
+      // don't see here). Note that we cannot sidestep batching by handing one
+      // request at a time; while this might work to a certain extent (due to
+      // pipe buffering), there is no guarantee (see libcody issue #20).
+
+      // Read in the entire batch trying hard to reuse the buffers.
+      //
+      auto& batch (st.batch);
+      size_t batch_n (0);
+
+      for (;;)
+      {
+        if (batch.size () == batch_n)
+          batch.push_back (string ());
+
+        string& r (batch[batch_n]);
+
+        if (eof (getline (is, r)))
+          break;
+
+        batch_n++;
+
+        if (r.back () != ';')
+          break;
+
+        // Strip the trailing `;` word.
+        //
+        r.pop_back ();
+        r.pop_back ();
+      }
+
+      if (batch_n == 0) // EOF
+        return;
+
+      if (verb >= 3)
+      {
+        // Note that we show `;` in requests/responses so that the result
+        // could be replayed.
+        //
+        // @@ Should we print the pid we are talking to? It gets hard to
+        //    follow once things get nested. But if all our diag will include
+        //    some kind of id (chain, thread?), then this will not be strictly
+        //    necessary.
+        //
+        diag_record dr (text);
+        for (size_t i (0); i != batch_n; ++i)
+          dr << (i == 0 ? "  > " : " ;\n    ") << batch[i];
+      }
+
+      // Handle each request converting it into a response.
+      //
+      string tmp; // Reuse the buffer.
+      for (size_t i (0); i != batch_n; ++i)
+      {
+        string& r (batch[i]);
+
+        // @@ TODO: quoting and escaping.
+        //
+        size_t b (0), e (0), n; // Next word.
+
+        auto next = [&r, &b, &e, &n] () -> size_t
+        {
+          return (n = next_word (r, b, e, ' ', '\t'));
+        };
+
+        next (); // Request name.
+
+        auto name = [&r, b, n] (const char* c) -> bool
+        {
+          // We can reasonably assume a command will never be quoted.
+          //
+          size_t n (strlen (c));
+          return (r.compare (b, n, c) == 0 &&
+                  (r[n] == ' '  || r[n] == '\t' || r[n] == '\0'));
+        };
+
+        // Handle the request by explicitly continuing to the next iteration
+        // on success and optionally setting the reason on failure.
+        //
+        const char* w ("malformed request");
+
+        if (name ("HELLO"))
+        {
+          // > HELLO <version> <compiler> <ident>
+          // < HELLO <version> <mapper> [<flags>]
+          //
+          //@@ TODO: check protocol version.
+
+          r = "HELLO 1 build2";
+          continue;
+        }
+        else if (name ("MODULE-REPO"))
+        {
+          // > MODULE-REPO
+          // < PATHNAME <repo-dir>
+
+          // Return the current working directory to essentially disable this
+          // functionality.
+          //
+          r = "PATHNAME .";
+          continue;
+        }
+        // Turns out it's easiest to handle header IMPORT together with
+        // INCLUDE since it can also trigger a re-search, etc. In a sense,
+        // IMPORT is all of the INCLUDE logic (but skipping translation) plus
+        // the BMI dependency synthesis. Note that we don't get named module
+        // imports here.
+        //
+        else if (name ("MODULE-IMPORT") || name ("INCLUDE-TRANSLATE"))
+        {
+          // > MODULE-IMPORT <path> [<flags>]
+          // < PATHNAME <bmi-path>
+          //
+          // > INCLUDE-TRANSLATE <path> [<flags>]
+          // < BOOL [TRUE|FALSE]
+          // < PATHNAME <bmi-path>
+
+          bool imp (r[b] == 'M'); // import
+
+          if (next ())
+          {
+            path f (r, b, n);
+            bool exists (true);
+
+            // The TU path we pass to the compiler is always absolute so any
+            // ""-includes will also be absolute. As a result, the only way to
+            // end up with a relative path is by using relative -I which
+            // doesn't make much sense in our world (it will be relative to
+            // CWD).
+            //
+            if (exists && f.relative ())
+            {
+              r = "ERROR relative header path '";
+              r.append (r, b, n);
+              r += '\'';
+              continue;
+            }
+
+            // The skip_count logic: in a nutshell (and similar to the non-
+            // mapper case), we may have "processed" some portion of the
+            // headers based on the depdb cache and we need to avoid
+            // re-processing them here. See the skip_count discussion for
+            // details.
+            //
+            // Note also that we need to be careful not to decrementing the
+            // count for re-searches and include translation.
+            //
+            bool skip (st.skip != 0);
+
+            // The first part is the same for both include and import: resolve
+            // the header path to target, update it, and trigger re-search if
+            // necessary.
+            //
+            const file* ht (nullptr);
+            auto& pts (t.prerequisite_targets[a]);
+
+            // Enter, update, and see if we need to re-search this header.
+            //
+            bool updated (false), remapped;
+            try
+            {
+              pair<const file*, bool> er (
+                enter_header (a, bs, t, li,
+                              move (f), false /* cache */, false /* norm */,
+                              pfx_map, so_map));
+
+              ht = er.first;
+              remapped = er.second;
+
+              if (remapped)
+              {
+                r = "ERROR remapping of headers not supported";
+                continue;
+              }
+
+              // If we couldn't enter this header as a target or find a rule
+              // to update it, then it most likely means a misspelled header
+              // (rather than a broken generated header setup) and our
+              // diagnostics won't really add anything to the compiler's. So
+              // let's only print it at -V or higher.
+              //
+              if (ht == nullptr)
+              {
+                assert (!exists); // Sanity check.
+
+                if (verb > 2)
+                {
+                  diag_record dr;
+                  dr << error << "header '" << f << "' not found and no "
+                     << "rule to generate it";
+
+                  if (verb < 4)
+                    dr << info << "re-run with --verbose=4 for more information";
+                }
+
+                throw failed ();
+              }
+
+              // Note that we explicitly update even for import (instead of,
+              // say, letting the BMI rule do it implicitly) since we may need
+              // to cause a re-search (see below).
+              //
+              if (!skip)
+              {
+                if (pts.empty () || pts.back () != ht)
+                {
+                  optional<bool> ir (inject_header (a, t,
+                                                    *ht, timestamp_unknown,
+                                                    verb > 2 /* fail */));
+                  if (!ir)
+                    throw failed ();
+
+                  updated = *ir;
+                }
+                else
+                  assert (exists);
+              }
+              else
+                assert (exists && !remapped); // Maybe this should be an error.
+            }
+            catch (const failed&)
+            {
+              // If the header does not exist or could not be updated, do we
+              // want our diagnostics, the compiler's, or both? We definitely
+              // want the compiler's since it points to the exact location.
+              // Ours could also be helpful. So while it will look a bit
+              // messy, let's keep both (it would have been nicer to print
+              // ours after the compiler's but that isn't easy).
+              //
+              r = "ERROR unable to update header '";
+              r += (ht != nullptr ? ht->path () : f).string ();
+              r += '\'';
+              continue;
+            }
+
+            if (!imp) // Indirect prerequisite (see above).
+              update = updated || update;
+
+            // A mere update is not enough to cause a re-search. It either had
+            // to also not exist or be remapped.
+            //
+            // @@ Currently impossible.
+            //
+            /*
+            if ((updated && !exists) || remapped)
+            {
+              rs = "SEARCH";
+              st.data = move (n); // Followup correlation.
+              break;
+            }
+            */
+
+            // Now handle INCLUDE and IMPORT differences.
+            //
+            const string& hp (ht->path ().string ());
+
+            // Reduce include translation to the import case.
+            //
+            if (!imp && xlate_hdr != nullptr)
+            {
+              auto i (lower_bound (
+                        xlate_hdr->begin (), xlate_hdr->end (),
+                        hp,
+                        [] (const string& x, const string& y)
+                        {
+                          return path_traits::compare (x, y) < 0;
+                        }));
+
+              imp = (i != xlate_hdr->end () && *i == hp);
+            }
+
+            if (imp)
+            {
+              try
+              {
+                // Synthesize the BMI dependency then update and add the BMI
+                // target as a prerequisite.
+                //
+                const file& bt (make_header_sidebuild (a, bs, li, *ht));
+
+                if (!skip)
+                {
+                  optional<bool> ir (inject_header (a, t,
+                                                    bt, timestamp_unknown,
+                                                    true /* fail */));
+                  assert (ir); // Not from cache.
+                  update = *ir || update;
+                }
+
+                const string& bp (bt.path ().string ());
+
+                if (skip)
+                  st.skip--;
+                else
+                {
+                  // While the header path passed by the compiler is absolute
+                  // (see the reason/check above), it is not necessarily
+                  // normalized. And that's the path that the compiler will
+                  // look for in the static mapping. So we have to write the
+                  // original (which we may need to normalize when we read
+                  // this mapping in extract_headers()).
+                  //
+                  // @@ Also note that we will see multiple imports of the
+                  //    same file potentially blowing up the mapping. Should
+                  //    we keep track and suppress duplicates (preferably
+                  //    at the outset so that we can skip all the target
+                  //    entering, etc)?
+                  //
+                  //    Ideally, this should survive accross multiple compiler
+                  //    invocations so that we can avoid import that are
+                  //    before the skip count. Could we not reuse the
+                  //    module_info::imports vector (even if we discrad this
+                  //    information, we could at least reuse the buffers)?
+                  //
+                  tmp = "@ "; tmp.append (r, b, n); tmp += ' '; tmp += bp;
+                  dd.expect (tmp);
+                  st.headers++;
+                }
+
+                r = "PATHNAME "; r += bp;
+              }
+              catch (const failed&)
+              {
+                r = "ERROR 'unable to update header unit "; r += hp; r += '\'';
+                continue;
+              }
+            }
+            else
+            {
+              if (skip)
+                st.skip--;
+              else
+                dd.expect (hp);
+
+              // Confusingly, TRUE means include textually and FALSE means we
+              // don't know.
+              //
+              r = "BOOL TRUE";
+            }
+
+            continue;
+          }
+        }
+        else
+          w = "unexpected request";
+
+        // @@ TODO: truncate response batch? (libcody issue #22).
+        //
+        r = "ERROR '"; r += w; r += ' '; r.append (r, b, n); r += '\'';
+
+        // @@ break?
+      }
+
+      if (verb >= 3)
+      {
+        diag_record dr (text);
+        for (size_t i (0); i != batch_n; ++i)
+          dr << (i == 0 ? "  < " : " ;\n    ") << batch[i];
+      }
+
+      // Write the response batch.
+      //
+      for (size_t i (0);; )
+      {
+        string& r (batch[i]);
+
+        if (r.compare (0, 6, "ERROR ") == 0)
+          bad_error = true;
+
+        os.write (r.c_str (), static_cast<streamsize> (r.size ()));
+
+        if (++i == batch_n)
+        {
+          os.put ('\n');
+          break;
+        }
+        else
+          os.write (" ;\n", 3);
+      }
+
+      os.flush ();
+    }
+
+    // The original module mapper implementation (c++-modules-ex GCC branch)
+    //
+#if 0
     void compile_rule::
     gcc_module_mapper (module_mapper_state& st,
                        action a, const scope& bs, file& t, linfo li,
@@ -2027,7 +2426,7 @@ namespace build2
             {
               pair<const file*, bool> r (
                 enter_header (a, bs, t, li,
-                              move (f), false /* cache */,
+                              move (f), false /* cache */, false /* norm */,
                               pfx_map, so_map));
 
               if (!r.second) // Shouldn't be remapped.
@@ -2054,7 +2453,7 @@ namespace build2
             {
               pair<const file*, bool> er (
                 enter_header (a, bs, t, li,
-                              move (f), false /* cache */,
+                              move (f), false /* cache */, false /* norm */,
                               pfx_map, so_map));
 
               ht = er.first;
@@ -2241,6 +2640,7 @@ namespace build2
 
       os << rs << endl;
     }
+#endif
 
     // Enter as a target a header file. Depending on the cache flag, the file
     // is assumed to either have come from the depdb cache or from the
@@ -2256,7 +2656,7 @@ namespace build2
     //
     pair<const file*, bool> compile_rule::
     enter_header (action a, const scope& bs, file& t, linfo li,
-                  path&& f, bool cache,
+                  path&& f, bool cache, bool norm,
                   optional<prefix_map>& pfx_map, srcout_map& so_map) const
     {
       tracer trace (x, "compile_rule::enter_header");
@@ -2506,10 +2906,10 @@ namespace build2
         // project, then you are on your own.
         //
         // All of this is unless the path comes from the depdb, in which case
-        // we've already done that. This is also where we handle src-out remap
-        // (again, not needed if cached).
+        // we've already done that (normally). This is also where we handle
+        // src-out remap (again, not needed if cached).
         //
-        if (!cache)
+        if (!cache || norm)
         {
           // Interestingly, on most paltforms and with most compilers (Clang
           // on Linux being a notable exception) most system/compiler headers
@@ -2559,7 +2959,10 @@ namespace build2
               fail << "invalid header path '" << f.string () << "': " << e;
             }
           }
+        }
 
+        if (!cache)
+        {
           if (!so_map.empty ())
           {
             // Find the most qualified prefix of which we are a sub-path.
@@ -3394,12 +3797,13 @@ namespace build2
         bool df (!ctx.match_only && !ctx.dry_run_option);
 
         const file* ht (enter_header (a, bs, t, li,
-                                      move (hp), cache,
+                                      move (hp), cache, false /* norm */,
                                       pfx_map, so_map).first);
         if (ht == nullptr)
         {
           diag_record dr;
-          dr << error << "header '" << hp << "' not found";
+          dr << error << "header '" << hp << "' not found and no rule to "
+             << "generate it";
 
           if (df)
             dr << info << "failure deferred to compiler diagnostics";
@@ -3445,7 +3849,8 @@ namespace build2
       };
 
       // As above but for a header unit. Note that currently it is only used
-      // for the cached case (the other case is handled by the mapper).
+      // for the cached case (the other case is handled by the mapper). We
+      // also assume that the path may not be normalized (see below).
       //
       auto add_unit = [a, &bs, &t, li,
                        &pfx_map, &so_map,
@@ -3455,13 +3860,16 @@ namespace build2
         context& ctx (t.ctx);
         bool df (!ctx.match_only && !ctx.dry_run_option);
 
-        const file* ht (enter_header (a, bs, t, li,
-                                      move (hp), true /* cache */,
-                                      pfx_map, so_map).first);
+        const file* ht (
+          enter_header (a, bs, t, li,
+                        move (hp), true /* cache */, true /* norm */,
+                        pfx_map, so_map).first);
+
         if (ht == nullptr)
         {
           diag_record dr;
-          dr << error << "header '" << hp << "' not found";
+          dr << error << "header '" << hp << "' not found and no rule to "
+             << "generate it";
 
           if (df)
             dr << info << "failure deferred to compiler diagnostics";
@@ -3545,8 +3953,7 @@ namespace build2
                 : make_pair (auto_rmfile (), false);
             }
 
-            // This can be a header or a header unit (mapping). The latter
-            // is single-quoted.
+            // This can be a header or a header unit (mapping).
             //
             // If this header (unit) came from the depdb, make sure it is no
             // older than the target (if it has changed since the target was
@@ -3555,12 +3962,18 @@ namespace build2
             optional<bool> r;
             if ((*l)[0] == '@')
             {
-              size_t p (l->find ('\'', 3));
+              // @@ What if the header path contains spaces? How is GCC
+              //    handling this?
+
+              size_t p (l->find (' ', 2));
 
               if (p != string::npos)
               {
-                path h (*l, 3, p - 3);
-                path b (move (l->erase (0, p + 2)));
+                // Note that the header path is absolute and commonly but not
+                // necessarily normalized.
+                //
+                path h (*l, 2, p - 2);
+                path b (move (l->erase (0, p + 1)));
 
                 r = add_unit (move (h), move (b), mt);
               }
@@ -4658,12 +5071,14 @@ namespace build2
           //
           if (dd.writing () || !dd.skip ())
           {
-            auto write = [&dd] (const string& name, const path& file, bool q)
+            // Note that for header unit, name will be an absolute and
+            // normalized path since that's the TU path we pass to the
+            // compiler.
+            //
+            auto write = [&dd] (const string& name, const path& file)
             {
               dd.write ("@ ", false);
-              if (q) dd.write ('\'', false);
               dd.write (name, false);
-              if (q) dd.write ('\'', false);
               dd.write (' ', false);
               dd.write (file);
             };
@@ -4672,7 +5087,7 @@ namespace build2
             //
             if (ut == unit_type::module_iface ||
                 ut == unit_type::module_header)
-              write (mi.name, t.path (), ut == unit_type::module_header);
+              write (mi.name, t.path ());
 
             if (size_t start = md.modules.start)
             {
@@ -4690,7 +5105,7 @@ namespace build2
                   //
                   // Note: all real modules (not header units).
                   //
-                  write (is[i - start].name, m->as<file> ().path (), false);
+                  write (is[i - start].name, m->as<file> ().path ());
                 }
               }
             }

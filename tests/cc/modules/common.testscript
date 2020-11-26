@@ -13,10 +13,16 @@ EOI
 +cat <<EOI >=build/root.build
 using in
 
+using cxx.guess
+
 # Force modules.
 #
 cxx.std = experimental
 cxx.features.symexport = true
+
+# @@ TMP revise
+if ($cxx.id == 'gcc')
+  cxx.features.modules = true
 
 using cxx
 

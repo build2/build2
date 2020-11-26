@@ -228,6 +228,7 @@ namespace build2
   // <libbutl/path-map.mxx>
   //
   using butl::path;
+  using path_traits = path::traits_type;
   using butl::path_name;
   using butl::path_name_view;
   using butl::path_name_value;

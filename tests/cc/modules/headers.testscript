@@ -120,6 +120,9 @@ $* test clean config.cxx.translatable_headers="$~/core.hxx" <<EOI
     EOI
 }
 
+# @@ TODO
+#
+#\
 : generated
 :
 ln -s ../core.hxx.in ./;
@@ -164,6 +167,7 @@ $* 'test:' ./@$out/remapped/ \
   hxx{core}: in{core}
   EOI
 rm -rf $out
+#\
 
 # Clean module sidebuilds.
 #
