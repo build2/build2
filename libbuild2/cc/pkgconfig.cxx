@@ -972,13 +972,23 @@ namespace build2
                 else
                   p = string (o, 2);
 
-                dir_path d (move (p));
+                try
+                {
+                  dir_path d (move (p));
 
-                if (d.relative ())
-                  fail << "relative -L directory in '" << lflags () << "'" <<
+                  if (d.relative ())
+                    fail << "relative -L directory '" << d << "' in '"
+                         << lflags () << "'" <<
+                      info << "while parsing pkg-config --libs " << pc.path;
+
+                  usrd->push_back (move (d));
+                }
+                catch (const invalid_path& e)
+                {
+                  fail << "invalid -L directory '" << e.path << "' in '"
+                       << lflags () << "'" <<
                     info << "while parsing pkg-config --libs " << pc.path;
-
-                usrd->push_back (move (d));
+                }
               }
             }
           }
