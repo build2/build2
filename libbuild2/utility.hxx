@@ -288,8 +288,8 @@ namespace build2
   run_start (uint16_t verbosity,
              const process_env&, // Implicit-constructible from process_path.
              const char* args[],
-             int in,
-             int out,
+             int in = 0,
+             int out = 1,
              bool error = true,
              const dir_path& cwd = dir_path (),
              const location& = location ());
@@ -298,8 +298,8 @@ namespace build2
   run_start (uint16_t verbosity,
              const process_env& pe,
              cstrings& args,
-             int in,
-             int out,
+             int in = 0,
+             int out = 1,
              bool error = true,
              const dir_path& cwd = dir_path (),
              const location& l = location ())
@@ -310,8 +310,8 @@ namespace build2
   inline process
   run_start (const process_env& pe,
              const char* args[],
-             int in,
-             int out,
+             int in = 0,
+             int out = 1,
              bool error = true,
              const dir_path& cwd = dir_path (),
              const location& l = location ())
@@ -322,8 +322,8 @@ namespace build2
   inline process
   run_start (const process_env& pe,
              cstrings& args,
-             int in,
-             int out,
+             int in = 0,
+             int out = 1,
              bool error = true,
              const dir_path& cwd = dir_path (),
              const location& l = location ())
@@ -335,7 +335,7 @@ namespace build2
   run (const process_env& pe, // Implicit-constructible from process_path.
        const char* args[])
   {
-    process pr (run_start (pe, args, 0, 1, true));
+    process pr (run_start (pe, args));
     run_finish (args, pr);
   }
 
@@ -371,8 +371,8 @@ namespace build2
   inline process
   run_start (uint16_t verbosity,
              const char* args[],
-             int in,
-             int out,
+             int in = 0,
+             int out = 1,
              bool error = true,
              const dir_path& cwd = dir_path (),
              const char* const* env = nullptr,
@@ -388,8 +388,8 @@ namespace build2
   inline process
   run_start (uint16_t verbosity,
              cstrings& args,
-             int in,
-             int out,
+             int in = 0,
+             int out = 1,
              bool error = true,
              const dir_path& cwd = dir_path (),
              const char* const* env = nullptr,
