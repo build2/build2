@@ -28,6 +28,8 @@ namespace build2
       using build2::script::redirect_type;
       using build2::script::line_type;
       using build2::script::command_expr;
+      using build2::script::expr_term;
+      using build2::script::command;
       using build2::script::deadline;
       using build2::script::timeout;
 
@@ -105,6 +107,15 @@ namespace build2
         virtual void
         create_temp_dir () override {assert (false);};
 
+        // Return true if this is a test program path.
+        //
+        // Note that currently the test program is only specified via the test
+        // variable ($0 effectively). In the future we may invent some other
+        // means of marking a program as a test (builtin, etc).
+        //
+        bool
+        test_program (const path&);
+
         // Variables.
         //
       public:
@@ -163,6 +174,15 @@ namespace build2
         location end_loc_;
 
         optional<line> if_cond_;
+
+        // Test program paths.
+        //
+        // Currently always contains a single element (see test_program() for
+        // details). While in the future there can be more of them, the zero
+        // index will always refer to the test variable value and can
+        // potentially be NULL (see reset_special() for details).
+        //
+        small_vector<const path*, 1> test_programs_;
       };
 
       // group

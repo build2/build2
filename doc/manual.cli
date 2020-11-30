@@ -5647,6 +5647,38 @@ forcibly causing the entire \c{test} operation to fail. See also the
 \l{testscript#builtins-timeout \c{timeout}} builtin for specifying timeouts
 from within the tests and test groups.
 
+The programs being tested can be executed via a \i{runner program} by
+specifying the \c{config.test.runner} variable. Its value has the \c{<path>
+[<options>]} form. For example:
+
+\
+b test config.test.runner=\"valgrind -q\"
+\
+
+When the runner program is specified, commands of simple and Testscript tests
+are automatically adjusted so that the runner program is executed instead,
+with the test command passed to it as arguments. For ad hoc test recipes,
+the runner program has to be handled explicitly. Specifically, if
+\c{config.test.runner} is specified, the \c{test.runner.path} and
+\c{test.runner.options} variables contain the runner program path and options,
+respectively, and are set to \c{null} otherwise. These variables can be used
+by ad hoc recipes to detect the presence of the runner program and, if so,
+arrange appropriate execution of desired commands. For example:
+
+\
+exe{hello}:
+% test
+{{
+  diag test $>
+
+  cmd = ($test.runner.path == [null] \
+    ? $> \
+    : $test.runner.path $test.runner.options $path($>))
+
+  $cmd 'World' >>>?'Hello, World!'
+}}
+\
+
 
 \h1#module-install|\c{install} Module|
 

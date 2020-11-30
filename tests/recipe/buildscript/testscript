@@ -406,7 +406,7 @@
       }}
       % [diag=test] test
       {{
-        cat <$path($<) >?$path($>)
+        cat <$path($>) >?$path($<)
       }}
       EOI
 
@@ -431,13 +431,60 @@
       % [diag=test] test
       {{
         depdb clear
-        cat <$path($<) >?$path($>)
+        cat <$path($>) >?$path($<)
       }}
       EOI
 
     $* test 2>>EOE != 0
       buildfile:7:3: error: 'depdb' builtin cannot be used to perform test
       EOE
+  }
+
+  : runner
+  :
+  if ($cxx.target.class != 'windows')
+  {
+    echo 'bar' >=bar;
+
+    cat <<EOI >=run;
+      #!/bin/sh
+      if test "$1" = "--trace"; then
+        shift
+        echo "$*"
+      fi
+      "$@"
+      EOI
+
+    chmod u+x run;
+
+    cat <<EOI >=buildfile;
+      foo: bar
+      {{
+        cp $path($<) $path($>)
+      }}
+      % [diag=test] test
+      {{
+        if ($test.runner.path != [null])
+          $test.runner.path $test.runner.options cat <$path($>)
+        else
+          cat <$path($>)
+        end
+      }}
+      EOI
+
+    $* test 2>>EOE;
+      cp file{foo}
+      test file{foo}
+      bar
+      EOE
+
+    $* test config.test.runner="./run --trace" 2>>EOE;
+      test file{foo}
+      cat
+      bar
+      EOE
+
+    $* clean 2>-
   }
 }
 

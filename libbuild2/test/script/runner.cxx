@@ -21,6 +21,12 @@ namespace build2
         return common_.test (s.root.test_target, s.id_path);
       }
 
+      pair<const process_path*, const strings*> default_runner::
+      test_runner ()
+      {
+        return make_pair (common_.runner_path, common_.runner_options);
+      }
+
       void default_runner::
       enter (scope& sp, const location&)
       {

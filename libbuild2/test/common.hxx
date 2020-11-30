@@ -21,10 +21,14 @@ namespace build2
       const variable& config_test;
       const variable& config_test_output;
       const variable& config_test_timeout;
+      const variable& config_test_runner;
 
       const variable& var_test;
       const variable& test_options;
       const variable& test_arguments;
+
+      const variable& test_runner_path;
+      const variable& test_runner_options;
 
       const variable& test_stdin;
       const variable& test_stdout;
@@ -45,6 +49,12 @@ namespace build2
       //
       optional<duration> operation_timeout;
       optional<duration> test_timeout;
+
+      // The test.runner.{path,options} values extracted from the
+      // config.test.runner value, if any.
+      //
+      const process_path* runner_path = nullptr;
+      const strings* runner_options = nullptr;
 
       // The config.test query interface.
       //

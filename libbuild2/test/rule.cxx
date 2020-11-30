@@ -937,12 +937,32 @@ namespace build2
         args.push_back (nullptr);
       }
 
-      // If dry-run, the target may not exist.
+      process_path pp;
+
+      // Do we have a test runner?
       //
-      process_path pp (!ctx.dry_run
-                       ? run_search     (p, true /* init */)
-                       : run_try_search (p, true));
-      args.push_back (pp.empty () ? p.string ().c_str () : pp.recall_string ());
+      if (runner_path == nullptr)
+      {
+        // If dry-run, the target may not exist.
+        //
+        pp = process_path (!ctx.dry_run
+                           ? run_search     (p, true /* init */)
+                           : run_try_search (p, true));
+
+        args.push_back (pp.empty ()
+                        ? p.string ().c_str ()
+                        : pp.recall_string ());
+      }
+      else
+      {
+        args.push_back (runner_path->recall_string ());
+
+        append_options (args, *runner_options);
+
+        // Leave it to the runner to resolve the test program path.
+        //
+        args.push_back (p.string ().c_str ());
+      }
 
       // Do we have options and/or arguments?
       //

@@ -321,6 +321,16 @@ namespace build2
         parse_here_documents (t, tt, p);
         assert (tt == type::newline);
 
+        // @@ Note that currently running programs via a runner (e.g., see
+        //    test.runner) needs to be handled explicitly in ad hoc recipes.
+        //    We could potentially run them via the runner implicitly, similar
+        //    to how we do in the testscript. We would need then to match the
+        //    command program path against the recipe target ad hoc member
+        //    paths (test programs), to detect if it must be run via the
+        //    runner. The runner path/options would need to be optionally
+        //    passed to the environment constructor, similar to passing the
+        //    script deadline.
+        //
         return move (p.first);
       }
 

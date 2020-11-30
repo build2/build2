@@ -1,0 +1,31 @@
+# file      : tests/test/script/runner/test-runner.testscript
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
++if ($cxx.target.class == 'windows')
+  exit
+end
+
++cat <<EOI >=run
+  #!/bin/sh
+  if test "$1" = "--trace"; then
+    shift
+    echo "$*"
+  fi
+  "$@"
+  EOI
+
++chmod u+x run
+
+run=$~/run
+
+: basic
+:
+$c <<"EOI" && $b "config.test.runner=$run --trace"
+  cat <'text' >'text';   # Non-test program.
+  \$* -o 'text' >>~%EOO%  # Test program.
+    %.+/driver -o text%
+    text
+    EOO
+  EOI

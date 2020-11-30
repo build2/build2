@@ -1280,7 +1280,45 @@ namespace build2
         parse_here_documents (t, tt, p);
         assert (tt == type::newline);
 
-        return move (p.first);
+        command_expr r (move (p.first));
+
+        // If the test program runner is specified, then adjust the
+        // expressions to run test programs via this runner.
+        //
+        pair<const process_path*, const strings*> tr (
+          runner_->test_runner ());
+
+        if (tr.first != nullptr)
+        {
+          for (expr_term& t: r)
+          {
+            for (command& c: t.pipe)
+            {
+              if (scope_->test_program (c.program.recall))
+              {
+                // Append the runner options and the test program path to the
+                // the arguments list and rotate the list to the left, so that
+                // it starts from the runner options. This should probably be
+                // not less efficient than inserting the program path and then
+                // the runner options at the beginning of the list.
+                //
+                strings& args (c.arguments);
+                size_t n (args.size ());
+
+                args.insert (args.end (),
+                             tr.second->begin (), tr.second->end ());
+
+                args.push_back (c.program.recall.string ());
+
+                rotate (args.begin (), args.begin () + n, args.end ());
+
+                c.program = process_path (*tr.first, false /* init */);
+              }
+            }
+          }
+        }
+
+        return r;
       }
 
       //

@@ -99,3 +99,30 @@ EOI
     EOE
   }
 }
+
+: runner
+:
+if ($cxx.target.class != 'windows')
+{
+  cat <<EOI >=run;
+    #!/bin/sh
+    if test "$1" = "--trace"; then
+      shift
+      echo "tracing"
+    fi
+    "$@"
+    EOI
+
+  chmod u+x run;
+
+  echo 'tracing'          >=output.in;
+  cat $src_base/output.in >+output.in;
+
+  $* config.test.runner="./run --trace" <<EOI
+  driver = $src_root/../exe{driver}
+  ./: test = $driver
+  ./: $driver
+  ./: file{output}: test.stdout = true
+  file{output}: in{output} $src_root/manifest #@@ in module
+  EOI
+}

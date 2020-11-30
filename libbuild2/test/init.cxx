@@ -62,12 +62,22 @@ namespace build2
         //
         vp.insert<string> ("config.test.timeout"),
 
+        // Test command runner path and options (see the manual for semantics).
+        //
+        vp.insert<strings> ("config.test.runner"),
+
         // The test variable is a name which can be a path (with the
         // true/false special values) or a target name.
         //
         vp.insert<name>    ("test", variable_visibility::target),
         vp.insert<strings> ("test.options"),
         vp.insert<strings> ("test.arguments"),
+
+        // Test command runner path and options extracted from
+        // config.test.runner.
+        //
+        vp.insert<process_path> ("test.runner.path"),
+        vp.insert<strings>      ("test.runner.options"),
 
         // Prerequisite-specific.
         //
@@ -221,6 +231,46 @@ namespace build2
         }
         else
           m.operation_timeout = parse_timeout (t, ot);
+      }
+
+      // config.test.runner
+      //
+      {
+        value& pv (rs.assign (m.test_runner_path));
+        value& ov (rs.assign (m.test_runner_options));
+
+        if (lookup l = lookup_config (rs, m.config_test_runner))
+        {
+          const strings& args (cast<strings> (l));
+
+          // Extract the runner process path.
+          //
+          {
+            const string& s (args.empty () ? empty_string : args.front ());
+
+            path p;
+            try { p = path (s); } catch (const invalid_path&) {}
+
+            if (p.empty ())
+              fail << "invalid runner path '" << s << "' in "
+                   << m.config_test_runner;
+
+            pv = run_search (p, false /* init */);
+            m.runner_path = &pv.as<process_path> ();
+          }
+
+          // Extract the runner options.
+          //
+          {
+            ov = strings (++args.begin (), args.end ());
+            m.runner_options = &ov.as<strings> ();
+          }
+        }
+        else
+        {
+          pv = nullptr;
+          ov = nullptr;
+        }
       }
 
       //@@ TODO: Need ability to specify extra diff options (e.g.,

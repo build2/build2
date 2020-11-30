@@ -39,6 +39,12 @@ namespace build2
           return true;
         }
 
+        virtual pair<const process_path*, const strings*>
+        test_runner () override
+        {
+          return make_pair (nullptr, nullptr);
+        }
+
         virtual void
         enter (scope& s, const location&) override
         {

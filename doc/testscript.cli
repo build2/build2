@@ -1041,13 +1041,21 @@ basics/fox/baz
 \
 
 To only run individual tests, test groups, or testscript files we can specify
-their id paths in the \c{config.testscript} variable, for example:
+their id paths in the \c{config.test} variable, for example:
 
 \
 $ b test config.test=basics                      # All in basics.testscript
 $ b test config.test=basics/fox                  # All in fox
 $ b test config.test=basics/foo                  # Only foo
-$ b test 'config.test=basics/foo basics/fox/bar' # Only foo and bar
+$ b test config.test=\"basics/foo basics/fox/bar\" # Only foo and bar
+\
+
+The test commands (\c{$0}, \c{$*}) can be executed via a \i{runner program} by
+specifying the \c{config.test.runner} variable (see \l{build2#module-test
+\c{test}} module for details). For example:
+
+\
+$ b test config.test.runner=\"valgrind -q\"
 \
 
 The script working directory may exist before the execution (for example,

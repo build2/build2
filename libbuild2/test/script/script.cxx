@@ -94,12 +94,37 @@ namespace build2
           const_cast<path&> (id_path) = path (move (s));
         }
 
-        // Calculate the working directory path unless this is the root scope
-        // (handled in an ad hoc way).
+        // Calculate the working directory path and the test programs set
+        // unless this is the root scope (handled in an ad hoc way).
         //
         if (p != nullptr)
+        {
           const_cast<dir_path&> (*work_dir.path) =
             dir_path (*p->work_dir.path) /= id;
+
+          // Note that we could probably keep the test programs sets fully
+          // independent across the scopes and check if the program is a test
+          // by traversing the scopes upwards recursively. Note though, that
+          // the parent scope's set cannot change during the nested scope
+          // lifetime and normally contains just a single entry. Thus, it
+          // seems more efficient to get rid of the recursion by copying the
+          // set from the parent now and potentially changing it later on the
+          // test variable assignment, etc.
+          //
+          test_programs_ = p->test_programs_;
+        }
+      }
+
+      bool scope::
+      test_program (const path& p)
+      {
+        assert (!test_programs_.empty ());
+
+        return find_if (test_programs_.begin (), test_programs_.end (),
+                        [&p] (const path* tp)
+                        {
+                          return tp != nullptr ? *tp == p : false;
+                        }) != test_programs_.end ();
       }
 
       void scope::
@@ -287,6 +312,12 @@ namespace build2
           }
         }
 
+        // Reserve the entry for the test program specified via the test
+        // variable. Note that the value will be assigned by the below
+        // reset_special() call.
+        //
+        test_programs_.push_back (nullptr);
+
         // Set the special $*, $N variables.
         //
         reset_special ();
@@ -378,7 +409,8 @@ namespace build2
       void scope::
       reset_special ()
       {
-        // First assemble the $* value.
+        // First assemble the $* value and save the test variable value into
+        // the test program set.
         //
         strings s;
 
@@ -387,14 +419,24 @@ namespace build2
           s.insert (s.end (), v.begin (), v.end ());
         };
 
+        // If the test variable can't be looked up for any reason (is NULL,
+        // etc), then keep $* empty.
+        //
         if (auto l = lookup (root.test_var))
-          s.push_back (cast<path> (l).representation ());
+        {
+          const path& p (cast<path> (l));
+          s.push_back (p.representation ());
 
-        if (auto l = lookup (root.options_var))
-          append (cast<strings> (l));
+          test_programs_[0] = &p;
 
-        if (auto l = lookup (root.arguments_var))
-          append (cast<strings> (l));
+          if (auto l = lookup (root.options_var))
+            append (cast<strings> (l));
+
+          if (auto l = lookup (root.arguments_var))
+            append (cast<strings> (l));
+        }
+        else
+          test_programs_[0] = nullptr;
 
         // Keep redirects/cleanups out of $N.
         //

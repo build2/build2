@@ -29,6 +29,12 @@ namespace build2
         virtual bool
         test (scope&) const = 0;
 
+        // Return the runner program path and options if the test commands
+        // must be run via the runner and the pair of NULLs otherwise.
+        //
+        virtual pair<const process_path*, const strings*>
+        test_runner () = 0;
+
         // Location is the scope start location (for diagnostics, etc).
         //
         virtual void
@@ -65,6 +71,12 @@ namespace build2
 
         virtual bool
         test (scope& s) const override;
+
+        // Return the test.runner.{path,options} values, if config.test.runner
+        // is specified.
+        //
+        virtual pair<const process_path*, const strings*>
+        test_runner () override;
 
         virtual void
         enter (scope&, const location&) override;
