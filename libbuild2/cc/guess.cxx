@@ -1054,6 +1054,7 @@ namespace build2
           // Apple LLVM version 7.0.0 (clang-700.1.76)
           // Apple LLVM version 7.0.2 (clang-700.1.81)
           // Apple LLVM version 7.3.0 (clang-703.0.16.1)
+          // Apple clang version 12.0.0 (clang-1200.0.32.27)
           //
           // Note that the gcc/g++ "aliases" for clang/clang++ also include
           // this line but it is (currently) preceded by "Configured with:
@@ -2372,12 +2373,13 @@ namespace build2
         // 10.0.0 -> 6.0
         // 11.0.0 -> 7.0
         // 11.0.3 -> 8.0
+        // 12.0.0 -> 9.0
         //
         uint64_t mj (var_ver->major);
         uint64_t mi (var_ver->minor);
         uint64_t pa (var_ver->patch);
 
-        if      (mj >= 12)                        {mj = 8; mi = 0;}
+        if      (mj >= 12)                        {mj = 9; mi = 0;}
         else if (mj == 11 && (mi > 0 || pa >= 3)) {mj = 8; mi = 0;}
         else if (mj == 11)                        {mj = 7; mi = 0;}
         else if (mj == 10)                        {mj = 6; mi = 0;}
