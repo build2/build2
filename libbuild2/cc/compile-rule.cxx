@@ -39,17 +39,20 @@ namespace build2
     // or quoted paths for header units with the following rules:
     //
     // 1. If this is a module unit, then the first name is the module name
-    //    intself following by either '!' for an interface or header unit and
-    //    by '+' for an implementation unit.
+    //    intself following by either '!' for an interface, interface
+    //    partition, or header unit and by '+' for an implementation or
+    //    implementation partition unit.
     //
     // 2. If an imported module is re-exported, then the module name is
     //    followed by '*'.
     //
     // For example:
     //
-    // foo! foo.core* foo.base* foo.impl
+    // foo! foo.core* foo.base* foo:intf! foo.impl
     // foo.base+ foo.impl
     // foo.base foo.impl
+    // foo:impl+
+    // foo:intf! foo:impl
     // "/usr/include/stdio.h"!
     // "/usr/include/stdio.h"! "/usr/include/stddef.h"
     //
@@ -69,7 +72,8 @@ namespace build2
         s += mi.name;
         if (ut == unit_type::module_header) s += '"';
 
-        s += (ut == unit_type::module_impl ? '+' : '!');
+        s += (ut == unit_type::module_impl ||
+              ut == unit_type::module_impl_part ? '+' : '!');
       }
 
       for (const module_import& i: mi.imports)
@@ -77,9 +81,9 @@ namespace build2
         if (!s.empty ())
           s += ' ';
 
-        if (i.type == unit_type::module_header) s += '"';
+        if (i.type == import_type::module_header) s += '"';
         s += i.name;
-        if (i.type == unit_type::module_header) s += '"';
+        if (i.type == import_type::module_header) s += '"';
 
         if (i.exported)
           s += '*';
@@ -117,17 +121,33 @@ namespace build2
 
         string w (s, b, m - (d == ' ' && c != '\0' ? 1 : 0));
 
-        unit_type t (c == '+' ? unit_type::module_impl  :
-                     d == ' ' ? unit_type::module_iface :
-                     unit_type::module_header);
-
         if (c == '!' || c == '+')
         {
-          ut = t;
+          if (d == ' ')
+          {
+            ut = w.find (':') != string::npos
+              ? (c == '!'
+                 ? unit_type::module_intf_part
+                 : unit_type::module_impl_part)
+              : (c == '!'
+                 ? unit_type::module_intf
+                 : unit_type::module_impl);
+          }
+          else
+            ut = unit_type::module_header;
+
           mi.name = move (w);
         }
         else
+        {
+          import_type t (d == ' '
+                         ? (w.find (':') != string::npos
+                            ? import_type::module_part
+                            : import_type::module_intf)
+                         : import_type::module_header);
+
           mi.imports.push_back (module_import {t, move (w), c == '*', 0});
+        }
 
         // Skip to the next word (quote and space or just space).
         //
@@ -266,7 +286,9 @@ namespace build2
               }
               break;
             }
-          case unit_type::module_iface:
+          case unit_type::module_intf:
+          case unit_type::module_intf_part:
+          case unit_type::module_impl_part:
           case unit_type::module_header:
             {
               // Here things get rather compiler-specific. We also assume
@@ -334,7 +356,7 @@ namespace build2
       // Note: unit type will be refined in apply().
       //
       unit_type ut (t.is_a<hbmix> () ? unit_type::module_header :
-                    t.is_a<bmix> ()  ? unit_type::module_iface  :
+                    t.is_a<bmix> ()  ? unit_type::module_intf  :
                     unit_type::non_modular);
 
       // Link-up to our group (this is the obj/bmi{} target group protocol
@@ -343,7 +365,7 @@ namespace build2
       if (t.group == nullptr)
         t.group = &search (t,
                            (ut == unit_type::module_header ? hbmi::static_type:
-                            ut == unit_type::module_iface  ? bmi::static_type :
+                            ut == unit_type::module_intf   ? bmi::static_type :
                             obj::static_type),
                            t.dir, t.out, t.name);
 
@@ -361,7 +383,7 @@ namespace build2
         // For a header unit we check the "real header" plus the C header.
         //
         if (ut == unit_type::module_header ? p.is_a (**x_hdr) || p.is_a<h> () :
-            ut == unit_type::module_iface  ? p.is_a (*x_mod)                  :
+            ut == unit_type::module_intf   ? p.is_a (*x_mod)                  :
             p.is_a (x_src))
         {
           // Save in the target's auxiliary storage.
@@ -683,11 +705,12 @@ namespace build2
           }
         }
 
-        // If we are compiling a module, then the obj*{} is an ad hoc member
-        // of bmi*{}. For now neither GCC nor Clang produce an object file
-        // for a header unit (but something tells me this is going to change).
+        // If we are compiling a BMI-producing module TU, then the obj*{} is
+        // an ad hoc member of bmi*{}. For now neither GCC nor Clang produce
+        // an object file for a header unit (but something tells me this is
+        // going to change).
         //
-        if (ut == unit_type::module_iface)
+        if (ut == unit_type::module_intf) // Note: still unrefined.
         {
           // The module interface unit can be the same as an implementation
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
@@ -847,7 +870,7 @@ namespace build2
         //    guess we will figure it out when MSVC supports header units.
         //    Also see hashing below.
         //
-        if (ut == unit_type::module_iface)
+        if (ut == unit_type::module_intf) // Note: still unrefined.
         {
           lookup l (src.vars[x_symexport]);
           md.symexport = l ? cast<bool> (l) : symexport;
@@ -909,7 +932,7 @@ namespace build2
           //
           cs.append (&md.pp, sizeof (md.pp));
 
-          if (ut == unit_type::module_iface)
+          if (ut == unit_type::module_intf) // Note: still unrefined.
             cs.append (&md.symexport, sizeof (md.symexport));
 
           if (xlate_hdr != nullptr)
@@ -1143,7 +1166,7 @@ namespace build2
           }
 
           // Make sure the translation unit type matches the resulting target
-          // type.
+          // type. Note that tu here is the unrefined type.
           //
           switch (tu.type)
           {
@@ -1151,14 +1174,18 @@ namespace build2
           case unit_type::module_impl:
             {
               if (ut != unit_type::non_modular)
-                fail << "translation unit " << src << " is not a module interface" <<
+                fail << "translation unit " << src << " is not a module "
+                     << "interface or partition" <<
                   info << "consider using " << x_src.name << "{} instead";
               break;
             }
-          case unit_type::module_iface:
+          case unit_type::module_intf:
+          case unit_type::module_intf_part:
+          case unit_type::module_impl_part:
             {
-              if (ut != unit_type::module_iface)
-                fail << "translation unit " << src << " is a module interface" <<
+              if (ut != unit_type::module_intf)
+                fail << "translation unit " << src << " is a module "
+                     << "interface or partition" <<
                   info << "consider using " << x_mod->name << "{} instead";
               break;
             }
@@ -1196,9 +1223,11 @@ namespace build2
             // @@ MODHDR MSVC: should we do the same for header units? I guess
             //    we will figure it out when MSVC supports header units.
             //
+            // @@ TMP: probably outdated. Probably the same for partitions.
+            //
             if (ctype == compiler_type::msvc)
             {
-              if (ut == unit_type::module_iface)
+              if (ut == unit_type::module_intf)
                 psrc.second = false;
             }
           }
@@ -4928,11 +4957,14 @@ namespace build2
             {
               // Sanity checks.
               //
-              // If we are compiling a module interface, make sure the
-              // translation unit has the necessary declarations.
+              // If we are compiling a module interface or partition, make
+              // sure the translation unit has the necessary declarations.
               //
-              if (ut != unit_type::module_iface && src.is_a (*x_mod))
-                fail << src << " is not a module interface unit";
+              if (ut != unit_type::module_intf      &&
+                  ut != unit_type::module_intf_part &&
+                  ut != unit_type::module_impl_part &&
+                  src.is_a (*x_mod))
+                fail << src << " is not a module interface or partition unit";
 
               // A header unit should look like a non-modular translation unit.
               //
@@ -4949,10 +4981,12 @@ namespace build2
               // syntax so we use the preprequisite type to distinguish
               // between interface and implementation units.
               //
+              // @@ TMP: probably outdated.
+              //
               if (ctype == compiler_type::msvc && cmaj == 19 && cmin <= 11)
               {
                 if (ut == unit_type::module_impl && src.is_a (*x_mod))
-                  ut = unit_type::module_iface;
+                  ut = unit_type::module_intf;
               }
             }
 
@@ -5037,13 +5071,14 @@ namespace build2
       // Search and match all the modules we depend on. If this is a module
       // implementation unit, then treat the module itself as if it was
       // imported (we insert it first since for some compilers we have to
-      // differentiate between this special module and real imports). Note:
-      // move.
+      // differentiate between this special module and real imports). Note
+      // that module partitions do not have this implied import semantics.
+      // Note also: move.
       //
       if (ut == unit_type::module_impl)
         is.insert (
           is.begin (),
-          module_import {unit_type::module_iface, move (mi.name), false, 0});
+          module_import {import_type::module_intf, move (mi.name), false, 0});
 
       // The change to the set of imports would have required a change to
       // source code (or options). Changes to the bmi{}s themselves will be
@@ -5085,7 +5120,9 @@ namespace build2
 
             // The output mapping is provided in the same way as input.
             //
-            if (ut == unit_type::module_iface ||
+            if (ut == unit_type::module_intf      ||
+                ut == unit_type::module_intf_part ||
+                ut == unit_type::module_impl_part ||
                 ut == unit_type::module_header)
               write (mi.name, t.path ());
 
@@ -5117,14 +5154,17 @@ namespace build2
       }
 
       // Set the cc.module_name rule-specific variable if this is an interface
-      // unit. Note that it may seem like a good idea to set it on the bmi{}
-      // group to avoid duplication. We, however, cannot do it MT-safely since
-      // we don't match the group.
+      // or partition unit. Note that it may seem like a good idea to set it
+      // on the bmi{} group to avoid duplication. We, however, cannot do it
+      // MT-safely since we don't match the group.
       //
       // @@ MODHDR TODO: do we need this for header units? Currently we don't
       //    see header units here.
       //
-      if (ut == unit_type::module_iface /*|| ut == unit_type::module_header*/)
+      if (ut == unit_type::module_intf      ||
+          ut == unit_type::module_intf_part ||
+          ut == unit_type::module_impl_part
+          /*ut == unit_type::module_header*/)
       {
         if (value& v = t.state[a].assign (c_module_name))
           assert (cast<string> (v) == mi.name);
@@ -5156,8 +5196,8 @@ namespace build2
     {
       tracer trace (x, "compile_rule::search_modules");
 
-      // NOTE: currently we don't see header unit imports (they are
-      //       handled by extract_headers() and are not in imports).
+      // NOTE: currently we don't see header unit imports (they are handled by
+      //       extract_headers() and are not in imports).
 
       // So we have a list of imports and a list of "potential" module
       // prerequisites. They are potential in the sense that they may or may
@@ -5179,14 +5219,14 @@ namespace build2
       //
       // In the above examples one common theme about all the file names is
       // that they contain, in one form or another, the "tail" of the module
-      // name ('core'). So what we are going to do is require that the
-      // interface file names contain enough of the module name tail to
-      // unambiguously resolve all the module imports. On our side we are
-      // going to implement a "fuzzy" module name to file name match. This
-      // should be reliable enough since we will always verify our guesses
-      // once we match the target and extract the actual module name. Plus,
-      // the user will always have the option of resolving any impasses by
-      // specifying the module name explicitly.
+      // name ('core'). So what we are going to do is require that, within a
+      // pool (library, executable), the interface file names contain enough
+      // of the module name tail to unambiguously resolve all the module
+      // imports. On our side we are going to implement a "fuzzy" module name
+      // to file name match. This should be reliable enough since we will
+      // always verify our guesses once we match the target and extract the
+      // actual module name. Plus, the user will always have the option of
+      // resolving any impasses by specifying the module name explicitly.
       //
       // So, the fuzzy match: the idea is that each match gets a score, the
       // number of characters in the module name that got matched. A match
@@ -5220,6 +5260,9 @@ namespace build2
       // is pre-built and will be found by some other means (e.g., VC's
       // IFCPATH).
       //
+      // Note also that we handle module partitions the same as submodules. In
+      // other words, for matching, `.` and `:` are treated the same.
+      //
       auto match_max = [] (const string& m) -> size_t
       {
         // The primary and sub-scores are packed in the following decimal
@@ -5235,9 +5278,9 @@ namespace build2
 
       auto match = [] (const string& f, const string& m) -> size_t
       {
-        auto file_sep = [] (char c) -> char
+        auto char_sep = [] (char c) -> char
         {
-          // Return the character (translating directory seperator to '/') if
+          // Return the character (translating directory seperators to '/') if
           // it is a separator and '\0' otherwise (so can be used as bool).
           //
           return (c == '_' || c == '-' || c == '.'    ? c   :
@@ -5280,11 +5323,12 @@ namespace build2
           // a separators. Some examples of the latter:
           //
           // foo.bar
+          // foo:bar
           //  fooBAR
           //  FOObar
           //
-          bool fs (file_sep (fc));
-          bool ms (mc == '_' || mc == '.');
+          bool fs (char_sep (fc));
+          bool ms (mc == '_' || mc == '.' || mc == ':');
 
           if (fs && ms)
           {
@@ -5331,7 +5375,7 @@ namespace build2
         //
         size_t as (0);
         if      (fi == 0)                                 as = 9;
-        else if (char c = file_sep (f[fi - 1]))           as = c == '/' ? 8 : 7;
+        else if (char c = char_sep (f[fi - 1]))           as = c == '/' ? 8 : 7;
         else if (fi != fn && case_sep (f[fi], f[fi - 1])) as = 7;
 
         // The length of the unmatched part sub-score.
@@ -5770,8 +5814,10 @@ namespace build2
               // but it's probably not worth it if we have a small string
               // optimization.
               //
-              imports.push_back (
-                module_import {unit_type::module_iface, mn, true, 0});
+              import_type t (mn.find (':') != string::npos
+                             ? import_type::module_part
+                             : import_type::module_intf);
+              imports.push_back (module_import {t, mn, true, 0});
             }
           }
         }
@@ -6133,8 +6179,10 @@ namespace build2
           // Note that it is also used to specify the output BMI file.
           //
           if (md.headers == 0                && // In append_header_options()?
-              (ms.start != 0                 ||
-               ut == unit_type::module_iface ||
+              (ms.start != 0                     ||
+               ut == unit_type::module_intf      ||
+               ut == unit_type::module_intf_part ||
+               ut == unit_type::module_impl_part ||
                ut == unit_type::module_header))
           {
             string s (relative (dd).string ());
@@ -6354,13 +6402,16 @@ namespace build2
       environment env;
       cstrings args {cpath.recall_string ()};
 
-      // If we are building a module interface, then the target is bmi*{} and
-      // its ad hoc member is obj*{}. For header units there is no obj*{}.
+      // If we are building a module interface or partition, then the target
+      // is bmi*{} and its ad hoc member is obj*{}. For header units there is
+      // no obj*{}.
       //
       path relm;
       path relo (ut == unit_type::module_header
                  ? path ()
-                 : relative (ut == unit_type::module_iface
+                 : relative (ut == unit_type::module_intf      ||
+                             ut == unit_type::module_intf_part ||
+                             ut == unit_type::module_impl_part
                              ? find_adhoc_member<file> (t, tts.obj)->path ()
                              : tp));
 
@@ -6493,8 +6544,9 @@ namespace build2
           }
 
           // @@ MODHDR MSVC
+          // @@ MODPART MSVC
           //
-          if (ut == unit_type::module_iface)
+          if (ut == unit_type::module_intf)
           {
             relm = relative (tp);
 
@@ -6628,7 +6680,10 @@ namespace build2
           //
           out_i = args.size (); // Index of the -o option.
 
-          if (ut == unit_type::module_iface || ut == unit_type::module_header)
+          if (ut == unit_type::module_intf      ||
+              ut == unit_type::module_intf_part ||
+              ut == unit_type::module_impl_part ||
+              ut == unit_type::module_header)
           {
             switch (ctype)
             {
@@ -6869,7 +6924,9 @@ namespace build2
       // Clang's module compilation requires two separate compiler
       // invocations.
       //
-      if (ctype == compiler_type::clang && ut == unit_type::module_iface)
+      // @@ MODPART: Clang (all of this is probably outdated).
+      //
+      if (ctype == compiler_type::clang && ut == unit_type::module_intf)
       {
         // Adjust the command line. First discard everything after -o then
         // build the new "tail".

@@ -33,7 +33,7 @@ namespace build2
       void
       parse_import (token&, bool);
 
-      string
+      pair<string, bool>
       parse_module_name (token&, bool);
 
       string

@@ -43,11 +43,20 @@ namespace build2
 
         parser p;
         unit u (p.parse (is, in));
-        unit_type ut (u.type);
 
-        if (ut == unit_type::module_iface || ut == unit_type::module_impl)
-          cout << (ut == unit_type::module_iface ? "export " : "")
-               << "module " << u.module_info.name << ';' << endl;
+        switch (u.type)
+        {
+        case unit_type::module_intf:
+        case unit_type::module_intf_part:
+          cout << "export ";
+          // Fall through.
+        case unit_type::module_impl:
+        case unit_type::module_impl_part:
+          cout << "module " << u.module_info.name << ';' << endl;
+          break;
+        default:
+          break;
+        }
 
         for (const module_import& m: u.module_info.imports)
           cout << (m.exported ? "export " : "")

@@ -36,20 +36,35 @@ namespace build2
     // header unit is an "interface unit" for (a part of) the global module
     // (maybe a partition).
     //
+    // Note also that implementation paritions produce BMIs and are, in a
+    // sense, module-private interfaces.
+    //
     enum class unit_type
     {
       non_modular,
-      module_iface,
+      module_intf,
       module_impl,
+      module_intf_part,
+      module_impl_part,
+      module_header
+    };
+
+    // Note that an interface partition can be imported both as an interface
+    // (with export) and as implementation (without export).
+    //
+    enum class import_type
+    {
+      module_intf,
+      module_part,
       module_header
     };
 
     struct module_import
     {
-      unit_type  type;      // Either module_iface or module_header.
-      string     name;
-      bool       exported;  // True if re-exported (export import M;).
-      size_t     score;     // Match score (see compile::search_modules()).
+      import_type type;
+      string      name;
+      bool        exported;  // True if re-exported (export import M;).
+      size_t      score;     // Match score (see compile::search_modules()).
     };
 
     using module_imports = vector<module_import>;

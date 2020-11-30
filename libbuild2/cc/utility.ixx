@@ -12,9 +12,13 @@ namespace build2
 
       auto test = [&t, u] (const auto& h, const auto& i, const auto& o)
       {
+
+
         return (u
                 ? t.is_a (*u == unit_type::module_header ? h :
-                          *u == unit_type::module_iface  ? i : o)
+                          *u == unit_type::module_intf      ||
+                          *u == unit_type::module_intf_part ||
+                          *u == unit_type::module_impl_part ? i : o)
                 : t.is_a (h) || t.is_a (i) || t.is_a (o));
       };
 

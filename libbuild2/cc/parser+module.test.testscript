@@ -49,11 +49,15 @@ EOI
 
 : import-part
 :
-$* <<EOI >>EOI
+$* <<EOI >>EOO
 module foo;
 import :part;
 import :part.sub;
 EOI
+module foo;
+import foo:part;
+import foo:part.sub;
+EOO
 
 : export-imported
 :

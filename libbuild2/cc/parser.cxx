@@ -180,7 +180,7 @@ namespace build2
 
       // Otherwise it should be the start of the module name.
       //
-      string n (parse_module_name (t, true /* partition */));
+      pair<string, bool> np (parse_module_name (t, true /* partition */));
 
       // Should be {}-balanced.
       //
@@ -196,8 +196,10 @@ namespace build2
       if (!u_->module_info.name.empty ())
         fail (l) << "multiple module declarations";
 
-      u_->type = ex ? unit_type::module_iface : unit_type::module_impl;
-      u_->module_info.name = move (n);
+      u_->type =np.second
+        ? (ex ? unit_type::module_intf_part : unit_type::module_impl_part)
+        : (ex ? unit_type::module_intf      : unit_type::module_impl);
+      u_->module_info.name = move (np.first);
     }
 
     void parser::
@@ -206,37 +208,48 @@ namespace build2
       // enter: token after import keyword
       // leave: semi
 
+      // Note that in import a partition can only be specified without a
+      // module name. In other words, the following is invalid:
+      //
+      // module m;
+      // import m:p;
+      //
       string un;
-      unit_type ut;
+      import_type ut;
       switch (t.type) // Start of module/header name.
       {
       case type::less:
       case type::string:
         {
           un = parse_header_name (t);
-          ut = unit_type::module_header;
+          ut = import_type::module_header;
           break;
         }
       case type::colon:
         {
-          if (u_->type != unit_type::module_iface &&
-              u_->type != unit_type::module_impl)
+          switch (u_->type)
+          {
+          case unit_type::module_intf:
+          case unit_type::module_impl:
+          case unit_type::module_intf_part:
+          case unit_type::module_impl_part:
+            break;
+          default:
             fail (t) << "partition importation out of module purview";
+          }
 
-          un = parse_module_part (t);
-          ut = unit_type::module_iface; // @@ _part?
+          // Add the module name to the partition so that code that doesn't
+          // need to distinguish beetween different kinds of imports doesn't
+          // have to.
+          //
+          un = u_->module_info.name + parse_module_part (t);
+          ut = import_type::module_part;
           break;
         }
       case type::identifier:
         {
-          // Note that in import a partition can only be specified without a
-          // module name. In other words, the following is invalid:
-          //
-          // module m;
-          // import m:p;
-          //
-          un = parse_module_name (t, false /* partition */);
-          ut = unit_type::module_iface;
+          un = parse_module_name (t, false /* partition */).first;
+          ut = import_type::module_intf;
           break;
         }
       default:
@@ -259,7 +272,7 @@ namespace build2
       // string serialization in compile rule for details). Note that
       // currently parse_header_name() always returns empty name.
       //
-      if (ut == unit_type::module_header)
+      if (ut == import_type::module_header)
         return;
 
       // Ignore duplicates. We don't expect a large numbers of (direct)
@@ -280,7 +293,7 @@ namespace build2
         i->exported = i->exported || ex;
     }
 
-    string parser::
+    pair<string, bool /* partition */> parser::
     parse_module_name (token& t, bool part)
     {
       // enter: first token of module name
@@ -305,10 +318,11 @@ namespace build2
         n += '.';
       }
 
-      if (part && t.type == type::colon && !t.first)
+      bool p (part && t.type == type::colon && !t.first);
+      if (p)
         parse_module_part (t, n);
 
-      return n;
+      return make_pair (move (n), p);
     }
 
     void parser::
