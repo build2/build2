@@ -79,8 +79,10 @@ namespace build2
             // for details.
             //
             // Additionally, when include is translated to an import, it's
-            // normally replaced with the special __import keyword since it
-            // may appear in C context.
+            // normally replaced with special import (special since it may
+            // appear in C context); it could be a special keyword (GCC used
+            // to call it __import) or it can have a special attribute (GCC
+            // currently marks it with [[__translated]]).
             //
             if (bb == 0 && t.first)
             {
@@ -113,7 +115,7 @@ namespace build2
                 else
                   n = false;
               }
-              else if (id == "import" || id == "__import")
+              else if (id == "import" /*|| id == "__import"*/)
               {
                 l_->next (t);
 

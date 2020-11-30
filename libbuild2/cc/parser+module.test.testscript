@@ -44,7 +44,7 @@ EOI
 $* <<EOI
 import "foo.h";
 import <sys/foo.h>;
-__import "/usr/include/stdio.h";
+import "/usr/include/stdio.h" [[__translated]];
 EOI
 
 : import-part
