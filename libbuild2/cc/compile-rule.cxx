@@ -1893,7 +1893,6 @@ namespace build2
         {
           // We can reasonably assume a command will never be quoted.
           //
-          size_t n (strlen (c));
           return (r.compare (b, n, c) == 0 &&
                   (r[n] == ' '  || r[n] == '\t' || r[n] == '\0'));
         };
