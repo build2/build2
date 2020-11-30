@@ -1050,6 +1050,11 @@ namespace build2
         // used can get complicated. So we will always use rm/rmdir from
         // MSYS2/Cygwin which go above and beyond to accomplish the mission.
         //
+        // Note also that it's possible we didn't create the directory and
+        // won't be able to remove it due to permissions (for example, on Mac
+        // OS we cannot remove empty /usr/local even with sudo). So instead of
+        // failing we issue a warning and skip the directory.
+        //
 #ifndef _WIN32
         if (base.sudo == nullptr)
         {
@@ -1065,9 +1070,9 @@ namespace build2
           {
             try_rmdir (chd);
           }
-          catch (const system_error& e)
+          catch (const system_error&)
           {
-            fail << "unable to remove directory " << chd << ": " << e;
+            r = false;
           }
         }
         else
@@ -1091,7 +1096,14 @@ namespace build2
               text << "uninstall " << reld;
           }
 
-          run (pp, args);
+          process pr (run_start (pp, args));
+          r = run_finish_code (args, pr);
+        }
+
+        if (!r)
+        {
+          warn << "unable to remove empty directory " << chd << ", ignoring";
+          return false;
         }
       }
 
