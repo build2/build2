@@ -92,11 +92,10 @@ namespace build2
       return s;
     }
 
-    static pair<unit_type, module_info>
-    to_module_info (const string& s)
+    static unit_type
+    to_module_info (const string& s, module_info& mi)
     {
       unit_type ut (unit_type::non_modular);
-      module_info mi;
 
       for (size_t b (0), e (0), n (s.size ()), m; e < n; )
       {
@@ -154,7 +153,7 @@ namespace build2
         e += (d == '"' ? 2 : 1);
       }
 
-      return pair<unit_type, module_info> (move (ut), move (mi));
+      return ut;
     }
 
     // preprocessed
@@ -191,7 +190,7 @@ namespace build2
       prerequisite_member src;
       auto_rmfile psrc;                     // Preprocessed source, if any.
       path dd;                              // Dependency database path.
-      size_t headers = 0;                   // Number of imported header units.
+      size_t header_units = 0;              // Number of imported header units.
       module_positions modules = {0, 0, 0}; // Positions of imported modules.
     };
 
@@ -1064,6 +1063,8 @@ namespace build2
                << "for target " << src << ": " << e;
         }
 
+        unit tu;
+
         // If we have no #include directives (or header unit imports), then
         // skip header dependency extraction.
         //
@@ -1073,7 +1074,9 @@ namespace build2
           // Note: trace is used in a test.
           //
           l5 ([&]{trace << "extracting headers from " << src;});
-          psrc = extract_headers (a, bs, t, li, src, md, dd, u, mt);
+          auto& is (tu.module_info.imports);
+          psrc = extract_headers (a, bs, t, li, src, md, dd, u, mt, is);
+          is.clear (); // No longer needed.
         }
 
         // Next we "obtain" the translation unit information. What exactly
@@ -1097,7 +1100,6 @@ namespace build2
           else
             u = true; // Database is invalid, force re-parse.
 
-          unit tu;
           for (bool first (true);; first = false)
           {
             if (u)
@@ -1108,18 +1110,19 @@ namespace build2
               if (dd.writing ())
                 dd.flush ();
 
-              auto p (parse_unit (a, t, li, src, psrc.first, md, dd.path));
+              string ncs (
+                parse_unit (a, t, li, src, psrc.first, md, dd.path, tu));
 
-              if (!cs || *cs != p.second)
+              if (!cs || *cs != ncs)
               {
                 assert (first); // Unchanged TU has a different checksum?
-                dd.write (p.second);
+                dd.write (ncs);
               }
               //
               // Don't clear the update flag if it was forced or the checksum
               // should not be relied upon.
               //
-              else if (first && !p.second.empty ())
+              else if (first && !ncs.empty ())
               {
                 // Clear the update flag and set the touch flag. Unless there
                 // is no (usable) object file, of course. See also the md.mt
@@ -1131,8 +1134,6 @@ namespace build2
                   md.touch = true;
                 }
               }
-
-              tu = move (p.first);
             }
 
             if (modules)
@@ -1150,9 +1151,7 @@ namespace build2
               {
                 if (string* l = dd.read ())
                 {
-                  auto p (to_module_info (*l));
-                  tu.type = p.first;
-                  tu.module_info = move (p.second);
+                  tu.type = to_module_info (*l, tu.module_info);
                 }
                 else
                 {
@@ -1801,13 +1800,14 @@ namespace build2
     //
     struct compile_rule::module_mapper_state //@@ gcc_module_mapper_state
     {
-      size_t headers  = 0; // Number of header units imported.
-      size_t skip;         // Number of depdb entries to skip.
+      size_t skip;              // Number of depdb entries to skip.
+      size_t header_units = 0;  // Number of header units imported.
+      module_imports& imports;  // Unused (potentially duplicate suppression).
 
       small_vector<string, 16> batch; // Reuse buffers.
 
-      explicit
-      module_mapper_state (size_t skip_count): skip (skip_count) {}
+      module_mapper_state (size_t s, module_imports& i)
+          : skip (s), imports (i) {}
     };
 
     void compile_rule::
@@ -1958,6 +1958,15 @@ namespace build2
               r += '\'';
               continue;
             }
+
+            // Note also that we may see multiple imports of the same header
+            // if it's imported via multiple paths. There is nothing really we
+            // can do about it since we have to have each path in the file
+            // mapper (see below for details).
+            //
+            // At least in case of GCC, we don't see multiple imports for the
+            // same path nor multiple inclusions, regardless of whether the
+            // header uses #pragma once or include guards.
 
             // The skip_count logic: in a nutshell (and similar to the non-
             // mapper case), we may have "processed" some portion of the
@@ -2123,21 +2132,9 @@ namespace build2
                   // original (which we may need to normalize when we read
                   // this mapping in extract_headers()).
                   //
-                  // @@ Also note that we will see multiple imports of the
-                  //    same file potentially blowing up the mapping. Should
-                  //    we keep track and suppress duplicates (preferably
-                  //    at the outset so that we can skip all the target
-                  //    entering, etc)?
-                  //
-                  //    Ideally, this should survive accross multiple compiler
-                  //    invocations so that we can avoid import that are
-                  //    before the skip count. Could we not reuse the
-                  //    module_info::imports vector (even if we discrad this
-                  //    information, we could at least reuse the buffers)?
-                  //
                   tmp = "@ "; tmp.append (r, b, n); tmp += ' '; tmp += bp;
                   dd.expect (tmp);
-                  st.headers++;
+                  st.header_units++;
                 }
 
                 r = "PATHNAME "; r += bp;
@@ -3091,7 +3088,8 @@ namespace build2
                      match_data& md,
                      depdb& dd,
                      bool& update,
-                     timestamp mt) const
+                     timestamp mt,
+                     module_imports& imports) const
     {
       tracer trace (x, "compile_rule::extract_headers");
 
@@ -3924,7 +3922,7 @@ namespace build2
 
           if (bt.path () == bp)
           {
-            md.headers++;
+            md.header_units++;
             skip_count++;
             return *u;
           }
@@ -4106,7 +4104,7 @@ namespace build2
                 //
                 if (mod_mapper || sense_diag)
                 {
-                  module_mapper_state mm_state (skip_count);
+                  module_mapper_state mm_state (skip_count, imports);
 
                   const char* w (nullptr);
                   try
@@ -4258,7 +4256,7 @@ namespace build2
                   }
 
                   if (mod_mapper)
-                    md.headers += mm_state.headers;
+                    md.header_units += mm_state.header_units;
                 }
 
                 // The idea is to reduce this to the stdout case.
@@ -4701,17 +4699,19 @@ namespace build2
       return make_pair (move (psrc), puse);
     }
 
-    // Return the translation unit information (first) and its checksum
-    // (second). If the checksum is empty, then it should not be used.
+    // Return the translation unit information (last argument) and its
+    // checksum (result). If the checksum is empty, then it should not be
+    // used.
     //
-    pair<unit, string> compile_rule::
+    string compile_rule::
     parse_unit (action a,
                 file& t,
                 linfo li,
                 const file& src,
                 auto_rmfile& psrc,
                 const match_data& md,
-                const path& dd) const
+                const path& dd,
+                unit& tu) const
     {
       tracer trace (x, "compile_rule::parse_unit");
 
@@ -4935,7 +4935,7 @@ namespace build2
                         fdstream_mode::binary | fdstream_mode::skip);
 
           parser p;
-          unit tu (p.parse (is, path_name (*sp)));
+          p.parse (is, path_name (*sp), tu);
 
           is.close ();
 
@@ -4993,9 +4993,7 @@ namespace build2
             // accurate (parts of the translation unit could have been
             // #ifdef'ed out; see __build2_preprocess).
             //
-            return pair<unit, string> (
-              move (tu),
-              reprocess ? string () : move (p.checksum));
+            return reprocess ? string () : move (p.checksum);
           }
 
           // Fall through.
@@ -6126,7 +6124,7 @@ namespace build2
       {
       case compiler_type::gcc:
         {
-          if (md.headers != 0)
+          if (md.header_units != 0)
           {
             string s (relative (dd).string ());
             s.insert (0, "-fmodule-mapper=");
@@ -6177,7 +6175,7 @@ namespace build2
           //
           // Note that it is also used to specify the output BMI file.
           //
-          if (md.headers == 0                && // In append_header_options()?
+          if (md.header_units == 0 && // In append_header_options()?
               (ms.start != 0                     ||
                ut == unit_type::module_intf      ||
                ut == unit_type::module_intf_part ||

@@ -14,13 +14,11 @@ namespace build2
   {
     using type = token_type;
 
-    unit parser::
-    parse (ifdstream& is, const path_name& in)
+    void parser::
+    parse (ifdstream& is, const path_name& in, unit& u)
     {
       lexer l (is, in);
       l_ = &l;
-
-      unit u;
       u_ = &u;
 
       // If the source has errors then we want the compiler to issues the
@@ -160,7 +158,6 @@ namespace build2
                                << "global module fragment";
 
       checksum = l.checksum ();
-      return u;
     }
 
     void parser::

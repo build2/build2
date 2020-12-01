@@ -143,12 +143,13 @@ namespace build2
       pair<auto_rmfile, bool>
       extract_headers (action, const scope&, file&, linfo,
                        const file&, match_data&,
-                       depdb&, bool&, timestamp) const;
+                       depdb&, bool&, timestamp, module_imports&) const;
 
-      pair<unit, string>
+      string
       parse_unit (action, file&, linfo,
                   const file&, auto_rmfile&,
-                  const match_data&, const path&) const;
+                  const match_data&, const path&,
+                  unit&) const;
 
       void
       extract_modules (action, const scope&, file&, linfo,
