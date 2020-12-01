@@ -1247,8 +1247,9 @@ namespace build2
 
         // Clean up empty leading directories (in reverse).
         //
-        // Note that we are using the leading directory (if there is one)
-        // for the clean up information (sudo, etc).
+        // Note that we are using the leading directory (if there is one) for
+        // the clean up information (sudo, etc). We may also try to uninstall
+        // the same directory via different bases (e.g., root and exec_bin).
         //
         for (auto i (ids.rbegin ()), j (i), e (ids.rend ()); i != e; j = ++i)
         {
