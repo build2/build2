@@ -111,8 +111,9 @@ namespace build2
 
           // Ignore config.*.configured and user-supplied names.
           //
-          if (!match_tail ("configured") &&
-              find_if (ig.begin (), ig.end (), match_tail) == ig.end ())
+          if (v->name.size () <= ns.name.size () ||
+              (!match_tail ("configured") &&
+               find_if (ig.begin (), ig.end (), match_tail) == ig.end ()))
             return true;
         }
       }
