@@ -1552,8 +1552,20 @@ namespace build2
       // Merge standard streams.
       //
       bool mo (out != nullptr && out->type == redirect_type::merge);
-      if (mo || err.type == redirect_type::merge)
+      bool me (err.type == redirect_type::merge);
+
+      if (mo || me)
       {
+        // Note that while the parser verifies that there is no stdout/stderr
+        // mutual redirects specified on the command line, we can still end up
+        // with mutual redirects here since one of such redirects can be
+        // provided as a default by the script environment implementation
+        // which the parser is not aware of at the time of parsing the command
+        // line.
+        //
+        if (mo && me)
+          fail (ll) << "stdout and stderr redirected to each other";
+
         auto_fd& self  (mo ? ofd.out : efd);
         auto_fd& other (mo ? efd : ofd.out);
 

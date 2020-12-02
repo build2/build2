@@ -83,6 +83,29 @@
     $* clean 2>-
   }
 
+  : mutual-redirects
+  :
+  {
+    echo 'bar' >=bar;
+
+    cat <<EOI >=buildfile;
+      foo: bar
+      % [diag=cp]
+      {{
+        echo 'copying' 2>&1
+        cp $path($<) $path($>)
+      }}
+      EOI
+
+    $* 2>>~%EOE% != 0;
+      cp file{foo}
+      buildfile:4:3: error: stdout and stderr redirected to each other
+      %.+
+      EOE
+
+    $* clean 2>-
+  }
+
   : untracked-var
   :
   {
