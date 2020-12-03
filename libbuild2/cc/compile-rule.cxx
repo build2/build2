@@ -768,18 +768,23 @@ namespace build2
           {
             // Handle (phase two) imported libraries. We know that for such
             // libraries we don't need to do match() in order to get options
-            // (if any, they would be set by search_library()).
+            // (if any, they would be set by search_library()). But we do need
+            // to match it if we may need its modules (see search_modules()
+            // for details).
             //
             if (p.proj ())
             {
-              if (search_library (a,
-                                  sys_lib_dirs,
-                                  usr_lib_dirs,
-                                  p.prerequisite) != nullptr)
+              pt = search_library (a,
+                                   sys_lib_dirs,
+                                   usr_lib_dirs,
+                                   p.prerequisite);
+
+              if (pt != nullptr && !modules)
                 continue;
             }
 
-            pt = &p.search (t);
+            if (pt == nullptr)
+              pt = &p.search (t);
 
             if (const libx* l = pt->is_a<libx> ())
               pt = link_member (*l, a, li);
@@ -836,7 +841,7 @@ namespace build2
         // resolved and prerequisite_targets populated. So we match it but
         // then unmatch if it is safe. And thanks to the two-pass prerequisite
         // match in link::apply() it will be safe unless someone is building
-        // an obj?{} target directory.
+        // an obj?{} target directly.
         //
         pair<bool, target_state> mr (
           build2::match (
@@ -5587,6 +5592,11 @@ namespace build2
                 //
                 // The module names should be specified but if not assume
                 // something else is going on and ignore.
+                //
+                // Note also that besides modules, prerequisite_targets may
+                // contain libraries which are interface dependencies of this
+                // library and which may be called to resolve its module
+                // dependencies.
                 //
                 const string* n (cast_null<string> (bt->vars[c_module_name]));
 

@@ -855,8 +855,20 @@ namespace build2
         if (s != nullptr) lt->s = s;
       }
 
-      target_lock al (a != nullptr ? lock (act, *a) : target_lock ());
-      target_lock sl (s != nullptr ? lock (act, *s) : target_lock ());
+      target_lock al (a != nullptr ? lock (act, *a, false) : target_lock ());
+      target_lock sl (s != nullptr ? lock (act, *s, false) : target_lock ());
+
+      if (al && al.offset == target::offset_matched)
+      {
+        assert ((*a)[act].rule == &file_rule::rule_match);
+        al.unlock ();
+      }
+
+      if (sl && sl.offset == target::offset_matched)
+      {
+        assert ((*s)[act].rule == &file_rule::rule_match);
+        sl.unlock ();
+      }
 
       if (!al) a = nullptr;
       if (!sl) s = nullptr;
@@ -953,11 +965,17 @@ namespace build2
       }
 
       // If we have the lock (meaning this is the first time), set the
-      // traget's recipe to noop. Failed that we will keep re-locking it,
+      // traget's rule/recipe. Failed that we will keep re-locking it,
       // updating its members, etc.
       //
-      if (al) match_recipe (al, noop_recipe);
-      if (sl) match_recipe (sl, noop_recipe);
+      // For members, use the fallback file rule instead of noop since we may
+      // need their prerequisites matched (used for modules support; see
+      // pkgconfig_load(), search_modules() for details).
+      //
+      // Note also that these calls clear target data.
+      //
+      if (al) match_rule (al, file_rule::rule_match);
+      if (sl) match_rule (sl, file_rule::rule_match);
       if (ll) match_recipe (ll, noop_recipe);
 
       return r;

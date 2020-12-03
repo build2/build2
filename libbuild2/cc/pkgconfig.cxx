@@ -1209,6 +1209,11 @@ namespace build2
       // liba{} would require weeding out duplicates that are already in
       // lib{}.
       //
+      // Currently, this information is only used by the modules machinery to
+      // resolve module names to module files (but we cannot only do this if
+      // modules are enabled since the same installed library can be used by
+      // multiple builds).
+      //
       prerequisites prs;
 
       pkgconf apc;
@@ -1262,8 +1267,8 @@ namespace build2
         parse_cflags (*st, spc, false);
 
       // For now we assume static and shared variants export the same set of
-      // modules. While technically possible, having a different set will
-      // most likely lead to all sorts of trouble (at least for installed
+      // modules. While technically possible, having a different set will most
+      // likely lead to all sorts of complications (at least for installed
       // libraries) and life is short.
       //
       if (modules)
@@ -1272,12 +1277,6 @@ namespace build2
       assert (!lt.has_prerequisites ());
       if (!prs.empty ())
         lt.prerequisites (move (prs));
-
-      // Bless the library group with a "trust me it exists" timestamp. Failed
-      // that, if we add it as a prerequisite (like we do above), the fallback
-      // file rule won't match.
-      //
-      lt.mtime (mtime (ipc.path));
     }
 
 #else
