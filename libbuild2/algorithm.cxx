@@ -682,9 +682,7 @@ namespace build2
           // in its match() (provided that it matches) in order to, for
           // example, convey some information to apply().
           //
-          s.vars.clear ();
-          t.prerequisite_targets[a].clear ();
-          if (a.inner ()) t.clear_data ();
+          clear_target (a, t);
 
           const rule_match* r (match_rule (a, t, nullptr, try_match));
 
@@ -723,9 +721,7 @@ namespace build2
       // As a sanity measure clear the target data since it can be incomplete
       // or invalid (mark()/unmark() should give you some ideas).
       //
-      s.vars.clear ();
-      t.prerequisite_targets[a].clear ();
-      if (a.inner ()) t.clear_data ();
+      clear_target (a, t);
 
       s.state = target_state::failed;
       l.offset = target::offset_applied;

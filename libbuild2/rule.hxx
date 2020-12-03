@@ -81,7 +81,9 @@ namespace build2
     apply (action, target&) const override;
 
     file_rule () {}
+
     static const file_rule instance;
+    static const build2::rule_match rule_match;
   };
 
   class LIBBUILD2_SYMEXPORT alias_rule: public simple_rule
@@ -197,7 +199,7 @@ namespace build2
     // latter does. As a result, we use special-looking "<ad hoc X recipe>"
     // names.
     //
-    build2::rule_match rule_match;
+    const build2::rule_match rule_match;
 
     static const dir_path recipes_build_dir;
 

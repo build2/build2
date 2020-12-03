@@ -184,16 +184,18 @@ namespace build2
   dependency_cycle (action, const target&);
 
   // If the target is already applied (for this action) or executed, then no
-  // lock is acquired. Otherwise, the target must not yet be matched for this
-  // action.
+  // lock is acquired. Otherwise, unless matched is true, the target must not
+  // be matched but not yet applied for this action (and if that's the case
+  // and matched is true, then you get a locked target that you should
+  // probably check for consistency, for exmaple, by comparing the matched
+  // rule).
   //
   // @@ MT fuzzy: what if it is already in the desired state, why assert?
-  //    Currently we only use it with match_recipe() and if it is matched
-  //    but not applied, then it's not clear why we are overriding that
-  //    match.
+  //    Currently we only use it with match_recipe/rule() and if it is matched
+  //    but not applied, then it's not clear why we are overriding that match.
   //
   target_lock
-  lock (action, const target&);
+  lock (action, const target&, bool matched = false);
 
   // Add an ad hoc member to the end of the chain assuming that an already
   // existing member of this target type is the same. Return the newly added
@@ -315,11 +317,17 @@ namespace build2
                size_t start_count, atomic_count& task_count,
                bool fail = true);
 
-  // Match by specifying the recipe directly and without incrementing the
+  // Apply the specified recipe directly and without incrementing the
   // dependency counts. The target must be locked.
   //
   void
   match_recipe (target_lock&, recipe);
+
+  // Match (but do not apply) the specified rule directly and without
+  // incrementing the dependency counts. The target must be locked.
+  //
+  void
+  match_rule (target_lock&, const rule_match&);
 
   // Match a "delegate rule" from withing another rules' apply() function
   // avoiding recursive matches (thus the third argument). Unless try_match is

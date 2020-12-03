@@ -221,14 +221,16 @@ namespace build2
   }
 
   inline target_lock
-  lock (action a, const target& t)
+  lock (action a, const target& t, bool m)
   {
-    // We don't allow locking a target that has already been matched.
+    // We don't allow locking a target that has already been matched unless
+    // explicitly requested by the caller.
     //
     target_lock r (lock_impl (a, t, scheduler::work_none));
     assert (!r                                 ||
             r.offset == target::offset_touched ||
-            r.offset == target::offset_tried);
+            r.offset == target::offset_tried   ||
+            (m && r.offset == target::offset_matched));
     return r;
   }
 
@@ -371,6 +373,17 @@ namespace build2
     return r;
   }
 
+  // Clear rule match-specific target data.
+  //
+  inline void
+  clear_target (action a, target& t)
+  {
+    t[a].vars.clear ();
+    t.prerequisite_targets[a].clear ();
+    if (a.inner ())
+      t.clear_data ();
+  }
+
   inline void
   set_recipe (target_lock& l, recipe&& r)
   {
@@ -414,11 +427,26 @@ namespace build2
   inline void
   match_recipe (target_lock& l, recipe r)
   {
-    assert (l.target != nullptr && l.target->ctx.phase == run_phase::match);
+    assert (l.target != nullptr                &&
+            l.offset != target::offset_matched &&
+            l.target->ctx.phase == run_phase::match);
 
+    clear_target (l.action, *l.target);
     (*l.target)[l.action].rule = nullptr; // No rule.
     set_recipe (l, move (r));
     l.offset = target::offset_applied;
+  }
+
+  inline void
+  match_rule (target_lock& l, const rule_match& r)
+  {
+    assert (l.target != nullptr                &&
+            l.offset != target::offset_matched &&
+            l.target->ctx.phase == run_phase::match);
+
+    clear_target (l.action, *l.target);
+    (*l.target)[l.action].rule = &r;
+    l.offset = target::offset_matched;
   }
 
   inline recipe
