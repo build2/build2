@@ -856,13 +856,14 @@ namespace build2
       }
 
       target_lock al (a != nullptr ? lock (act, *a, true) : target_lock ());
-      target_lock sl (s != nullptr ? lock (act, *s, true) : target_lock ());
 
       if (al && al.offset == target::offset_matched)
       {
         assert ((*a)[act].rule == &file_rule::rule_match);
         al.unlock ();
       }
+
+      target_lock sl (s != nullptr ? lock (act, *s, true) : target_lock ());
 
       if (sl && sl.offset == target::offset_matched)
       {
