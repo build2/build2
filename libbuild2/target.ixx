@@ -196,7 +196,7 @@ namespace build2
   has_group_prerequisites () const
   {
     return has_prerequisites () ||
-      (group != nullptr && !group->has_prerequisites ());
+      (group != nullptr && group->has_prerequisites ());
   }
 
   inline bool target::
