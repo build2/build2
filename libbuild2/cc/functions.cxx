@@ -175,7 +175,9 @@ namespace build2
       //
       // The following flags are supported:
       //
-      // whole - link the specified libraries in the whole archive mode
+      // whole    - link the specified libraries in the whole archive mode
+      //
+      // absolute - return absolute paths to the libraries
       //
       // If the last argument is false, then do not return the specified
       // libraries themselves.
@@ -197,6 +199,7 @@ namespace build2
               action a, const file& l, bool la, linfo li)
           {
             lflags lf (0);
+            bool rel (true);
             if (vs.size () > 2)
             {
               for (const name& f: vs[2].as<names> ())
@@ -205,6 +208,8 @@ namespace build2
 
                 if (s == "whole")
                   lf |= lflag_whole;
+                else if (s == "absolute")
+                  rel = false;
                 else
                   fail << "invalid flag '" << s << "'";
               }
@@ -214,7 +219,7 @@ namespace build2
 
             m.append_libraries (*static_cast<appended_libraries*> (ls), r,
                                 bs,
-                                a, l, la, lf, li, self);
+                                a, l, la, lf, li, self, rel);
           }});
 
       // $<module>.lib_rpaths(<targets>, <otype> [, <link> [, <self>]])

@@ -111,7 +111,8 @@ namespace build2
       void
       append_libraries (appended_libraries&, strings&,
                         const scope&, action,
-                        const file&, bool, lflags, linfo, bool = true) const;
+                        const file&, bool, lflags, linfo,
+                        bool = true, bool = true) const;
 
       void
       append_libraries (sha256&, bool&, timestamp,

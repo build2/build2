@@ -1492,7 +1492,7 @@ namespace build2
     append_libraries (appended_libraries& ls, strings& args,
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li,
-                      bool self) const
+                      bool self, bool rel) const
     {
       struct data
       {
@@ -1501,8 +1501,9 @@ namespace build2
         const file&          l;
         action               a;
         linfo                li;
+        bool                 rel;
         compile_target_types tts;
-      } d {ls, args, l, a, li, compile_types (li.type)};
+      } d {ls, args, l, a, li, rel, compile_types (li.type)};
 
       auto imp = [] (const file&, bool la)
       {
@@ -1637,7 +1638,9 @@ namespace build2
               //
               if (const file* f = pt->is_a<objx> ())
               {
-                string p (relative (f->path ()).string ());
+                const string& p (d.rel
+                                 ? relative (f->path ()).string ()
+                                 : f->path ().string ());
                 if (find (d.args.begin (), d.args.end (), p) == d.args.end ())
                   d.args.push_back (move (p));
               }
@@ -1661,7 +1664,9 @@ namespace build2
                 l = li;
             }
 
-            string p (relative (l->path ()).string ());
+            string p (d.rel
+                      ? relative (l->path ()).string ()
+                      : l->path ().string ());
 
             if (f & lflag_whole)
             {
