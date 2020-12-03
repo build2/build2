@@ -855,8 +855,8 @@ namespace build2
         if (s != nullptr) lt->s = s;
       }
 
-      target_lock al (a != nullptr ? lock (act, *a, false) : target_lock ());
-      target_lock sl (s != nullptr ? lock (act, *s, false) : target_lock ());
+      target_lock al (a != nullptr ? lock (act, *a, true) : target_lock ());
+      target_lock sl (s != nullptr ? lock (act, *s, true) : target_lock ());
 
       if (al && al.offset == target::offset_matched)
       {
