@@ -53,7 +53,7 @@ namespace build2
     const target_type libx::static_type
     {
       "libx",
-      &target::static_type,
+      &mtime_target::static_type,
       nullptr,
       nullptr,
       nullptr,

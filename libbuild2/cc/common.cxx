@@ -840,36 +840,36 @@ namespace build2
         return r;
 
       // If we cannot acquire the lock then this mean the target has already
-      // been matched (though not clear by whom) and we assume all of this
-      // has already been done.
+      // been matched and we assume all of this has already been done.
       //
-      target_lock ll (lock (act, *lt));
+      auto lock = [act] (const target* t) -> target_lock
+      {
+        auto l (t != nullptr ? build2::lock (act, *t, true) : target_lock ());
+
+        if (l && l.offset == target::offset_matched)
+        {
+          assert ((*t)[act].rule == &file_rule::rule_match);
+          l.unlock ();
+        }
+
+        return l;
+      };
+
+      target_lock ll (lock (lt));
 
       // Set lib{} group members to indicate what's available. Note that we
       // must be careful here since its possible we have already imported some
       // of its members.
       //
+      timestamp mt (timestamp_nonexistent);
       if (ll)
       {
-        if (a != nullptr) lt->a = a;
-        if (s != nullptr) lt->s = s;
+        if (s != nullptr) {lt->s = s; mt = s->mtime ();}
+        if (a != nullptr) {lt->a = a; mt = a->mtime ();}
       }
 
-      target_lock al (a != nullptr ? lock (act, *a, true) : target_lock ());
-
-      if (al && al.offset == target::offset_matched)
-      {
-        assert ((*a)[act].rule == &file_rule::rule_match);
-        al.unlock ();
-      }
-
-      target_lock sl (s != nullptr ? lock (act, *s, true) : target_lock ());
-
-      if (sl && sl.offset == target::offset_matched)
-      {
-        assert ((*s)[act].rule == &file_rule::rule_match);
-        sl.unlock ();
-      }
+      target_lock al (lock (a));
+      target_lock sl (lock (s));
 
       if (!al) a = nullptr;
       if (!sl) s = nullptr;
@@ -965,9 +965,9 @@ namespace build2
           pkgconfig_load (act, *p.scope, *lt, a, s, pc, *pd, sysd, *usrd);
       }
 
-      // If we have the lock (meaning this is the first time), set the
-      // traget's rule/recipe. Failed that we will keep re-locking it,
-      // updating its members, etc.
+      // If we have the lock (meaning this is the first time), set the matched
+      // rule. Failed that we will keep re-locking it, updating its members,
+      // etc.
       //
       // For members, use the fallback file rule instead of noop since we may
       // need their prerequisites matched (used for modules support; see
@@ -977,7 +977,17 @@ namespace build2
       //
       if (al) match_rule (al, file_rule::rule_match);
       if (sl) match_rule (sl, file_rule::rule_match);
-      if (ll) match_recipe (ll, noop_recipe);
+      if (ll)
+      {
+        match_rule (ll, file_rule::rule_match);
+
+        // Also bless the library group with a "trust me it exists" timestamp.
+        // Failed that, if the rule match gets cleared (e.g., because of
+        // multiple operations being executed), then the fallback file rule
+        // won't match.
+        //
+        lt->mtime (mt);
+      }
 
       return r;
     }
