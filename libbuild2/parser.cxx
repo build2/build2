@@ -6013,6 +6013,8 @@ namespace build2
               result_data = ctx.functions.call (scope_, name, args, loc);
               what = "function call";
             }
+            else
+              lookup_function (move (name), loc);
           }
           else
           {
@@ -6847,6 +6849,12 @@ namespace build2
     }
 
     return lookup ();
+  }
+
+  void parser::
+  lookup_function (string&&, const location&)
+  {
+    assert (pre_parse_);
   }
 
   void parser::

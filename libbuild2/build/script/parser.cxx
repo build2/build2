@@ -5,6 +5,7 @@
 
 #include <libbutl/builtin.mxx>
 
+#include <libbuild2/function.hxx>
 #include <libbuild2/algorithm.hxx>
 
 #include <libbuild2/build/script/lexer.hxx>
@@ -26,7 +27,7 @@ namespace build2
       //
 
       script parser::
-      pre_parse (const target& tg, const adhoc_actions& acts,
+      pre_parse (const target& tg, const adhoc_actions& as,
                  istream& is, const path_name& pn, uint64_t line,
                  optional<string> diag, const location& diag_loc)
       {
@@ -40,11 +41,14 @@ namespace build2
         // The script shouldn't be able to modify the target/scopes.
         //
         target_  = const_cast<target*> (&tg);
-        actions_ = &acts;
+        actions_ = &as;
         scope_   = const_cast<scope*> (&tg.base_scope ());
         root_    = scope_->root_scope ();
 
         pbase_  = scope_->src_path_;
+
+        perform_update_ = find (as.begin (), as.end (), perform_update_id) !=
+                          as.end ();
 
         script s;
         script_ = &s;
@@ -64,6 +68,15 @@ namespace build2
         assert (t.type == type::eos);
 
         s.end_loc = get_location (t);
+
+        // Diagnose impure function calls.
+        //
+        if (impure_func_)
+          fail (impure_func_->second)
+            << "call to impure function " << impure_func_->first << " is "
+            << "only allowed in depdb preamble" <<
+            info << "consider using 'depdb' builtin to track its result "
+                 << "changes";
 
         // Diagnose absent/ambigous script name.
         //
@@ -537,6 +550,11 @@ namespace build2
                 script_->depdb_preamble_temp_dir = true;
                 script_->body_temp_dir = false;
               }
+
+              // Reset the impure function call info since it's valid for the
+              // depdb preamble.
+              //
+              impure_func_ = nullopt;
 
               // Instruct the parser to save the depdb builtin line separately
               // from the script lines, when it is fully parsed. Note that the
@@ -1163,6 +1181,18 @@ namespace build2
         }
 
         return r;
+      }
+
+      void parser::
+      lookup_function (string&& name, const location& loc)
+      {
+        if (perform_update_ && !impure_func_)
+        {
+          const function_overloads* f (ctx.functions.find (name));
+
+          if (f != nullptr && !f->pure)
+            impure_func_ = make_pair (move (name), loc);
+        }
       }
     }
   }

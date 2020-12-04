@@ -512,6 +512,13 @@ namespace build2
     virtual lookup
     lookup_variable (name&& qual, string&& name, const location&);
 
+    // This function is only called during pre-parse and is the continuation
+    // of the similar logic in lookup_variable() above (including the fact
+    // that the name is empty for computed function names).
+    //
+    virtual void
+    lookup_function (string&& name, const location&);
+
     // Utilities.
     //
   protected:

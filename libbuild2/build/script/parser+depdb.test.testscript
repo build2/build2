@@ -88,3 +88,52 @@ test.options += -d
       EOI
   }
 }
+
+: impure-function
+:
+{
+  : var-assignment
+  :
+  $* <<EOI 2>>~%EOE% != 0
+    v = $getenv('VAR')
+    EOI
+    buildfile:11:6: error: call to impure function getenv is only allowed in depdb preamble
+    %  info: .+%
+    EOE
+
+  : quoted
+  :
+  $* <<EOI 2>>~%EOE% != 0
+    v = "$getenv('VAR')"
+    EOI
+    buildfile:11:7: error: call to impure function getenv is only allowed in depdb preamble
+    %  info: .*%
+    EOE
+
+  : if-cond
+  :
+  $* <<EOI 2>>~%EOE% != 0
+    if ($getenv('VAR') == 'yes')
+      foo
+    end
+    EOI
+    buildfile:11:6: error: call to impure function getenv is only allowed in depdb preamble
+    %  info: .+%
+    EOE
+
+  : command
+  :
+  $* <<EOI 2>>~%EOE% != 0
+    $getenv('VAR')
+    EOI
+    buildfile:11:2: error: call to impure function getenv is only allowed in depdb preamble
+    %  info: .+%
+    EOE
+
+  : non-functions
+  :
+  {
+    $* <'$getenv'             : var
+    $* <'$getenv (v ? a : b)' : eval
+  }
+}

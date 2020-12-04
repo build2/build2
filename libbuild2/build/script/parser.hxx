@@ -121,6 +121,9 @@ namespace build2
         virtual lookup
         lookup_variable (name&&, string&&, const location&) override;
 
+        virtual void
+        lookup_function (string&&, const location&) override;
+
         // During execution translate the process path and executable targets
         // leaving the rest for the base parser to handle.
         //
@@ -141,6 +144,11 @@ namespace build2
       protected:
         script* script_;
         const adhoc_actions* actions_; // Non-NULL during pre-parsing.
+
+        // True if performing update is one of the actions. Only set for the
+        // pre-parse mode.
+        //
+        bool perform_update_;
 
         // Current low-verbosity script diagnostics and its weight.
         //
@@ -196,6 +204,17 @@ namespace build2
         //
         optional<location> depdb_clear_;    // 'depdb clear' location if any.
         lines              depdb_preamble_; // Note: excludes 'depdb clear'.
+
+        // If present, the first impure function called in the body of the
+        // script that performs update.
+        //
+        // Note that during the line pre-parsing we cannot tell if this is a
+        // body or depdb preamble line. Thus, if we encounter an impure
+        // function call we just save its name/location and postpone the
+        // potential failure till the end of the script pre-parsing, if it
+        // turns out to be a body line.
+        //
+        optional<pair<string, location>> impure_func_;
 
         // True during pre-parsing when the pre-parse mode is temporarily
         // suspended to perform expansion.
