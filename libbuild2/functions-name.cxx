@@ -59,11 +59,11 @@ namespace build2
     //
     function_family fn (m, "name");
 
-    fn["name"] = [](const scope* s, name n)
+    fn["name"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.value;
     };
-    fn["name"] = [](const scope* s, names ns)
+    fn["name"] += [](const scope* s, names ns)
     {
       return to_target_name (s, convert<name> (move (ns))).first.value;
     };
@@ -71,40 +71,40 @@ namespace build2
     // Note: returns NULL if extension is unspecified (default) and empty if
     // specified as no extension.
     //
-    fn["extension"] = [](const scope* s, name n)
+    fn["extension"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).second;
     };
-    fn["extension"] = [](const scope* s, names ns)
+    fn["extension"] += [](const scope* s, names ns)
     {
       return to_target_name (s, convert<name> (move (ns))).second;
     };
 
-    fn["directory"] = [](const scope* s, name n)
+    fn["directory"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.dir;
     };
-    fn["directory"] = [](const scope* s, names ns)
+    fn["directory"] += [](const scope* s, names ns)
     {
       return to_target_name (s, convert<name> (move (ns))).first.dir;
     };
 
-    fn["target_type"] = [](const scope* s, name n)
+    fn["target_type"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.type;
     };
-    fn["target_type"] = [](const scope* s, names ns)
+    fn["target_type"] += [](const scope* s, names ns)
     {
       return to_target_name (s, convert<name> (move (ns))).first.type;
     };
 
     // Note: returns NULL if no project specified.
     //
-    fn["project"] = [](const scope* s, name n)
+    fn["project"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.proj;
     };
-    fn["project"] = [](const scope* s, names ns)
+    fn["project"] += [](const scope* s, names ns)
     {
       return to_target_name (s, convert<name> (move (ns))).first.proj;
     };
@@ -113,7 +113,12 @@ namespace build2
     //
     function_family ft (m, "target");
 
-    ft["path"] = [](const scope* s, names ns)
+    // Note that while this function is not technically pure, we don't mark it
+    // as such since it can only be called (normally form a recipe) after the
+    // target has been matched, meaning that this target is a prerequisite and
+    // therefore this impurity has been accounted for.
+    //
+    ft["path"] += [](const scope* s, names ns)
     {
       if (s == nullptr)
         fail << "target.path() called out of scope";
@@ -155,7 +160,10 @@ namespace build2
     // This one can only be called on a single target since we don't support
     // containers of process_path's (though we probably could).
     //
-    fn["process_path"] = [](const scope* s, names ns)
+    // Note that while this function is not technically pure, we don't mark it
+    // as such for the same reasons as $path() above.
+    //
+    fn["process_path"] += [](const scope* s, names ns)
     {
       if (s == nullptr)
         fail << "target.process_path() called out of scope";
@@ -184,7 +192,7 @@ namespace build2
     //
     function_family fb (m, "builtin");
 
-    fb[".concat"] = [](dir_path d, name n)
+    fb[".concat"] += [](dir_path d, name n)
     {
       d /= n.dir;
       n.dir = move (d);

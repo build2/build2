@@ -16,8 +16,8 @@ namespace build2
 
       // As discussed in value_traits<process_path>, we always have recall.
       //
-      f["recall"] = &process_path::recall;
-      f["effect"] = [](process_path p)
+      f["recall"] += &process_path::recall;
+      f["effect"] += [](process_path p)
       {
         return move (p.effect.empty () ? p.recall : p.effect);
       };
@@ -26,8 +26,8 @@ namespace build2
     {
       function_family f (m, "process_path_ex");
 
-      f["name"] = &process_path_ex::name;
-      f["checksum"] = &process_path_ex::checksum;
+      f["name"] += &process_path_ex::name;
+      f["checksum"] += &process_path_ex::checksum;
     }
   }
 }

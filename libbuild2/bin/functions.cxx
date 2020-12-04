@@ -24,12 +24,14 @@ namespace build2
       // bin.lib value on. As a result, it can be omitted in which case the
       // function call scope is used (covers project-local lib{} targets).
       //
+      // Note that this function is not pure.
+      //
       // @@ TODO: support for target (note that if it's out of project, then
       //          it's imported, which means it might still be qualified.)
       //
       // @@ TODO: support utility libraries (see link_member()).
       //
-      f[".link_member"] = [] (const scope* bs, names ns)
+      f.insert (".link_member", false) += [] (const scope* bs, names ns)
       {
         string t (convert<string> (move (ns)));
 

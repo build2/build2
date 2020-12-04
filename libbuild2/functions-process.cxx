@@ -414,12 +414,14 @@ namespace build2
     //
     // Run builtin or external program and return trimmed stdout.
     //
-    f[".run"] = [](const scope* s, names args)
+    // Note that this function is not pure.
+    //
+    f.insert (".run", false) += [](const scope* s, names args)
     {
       return run (s, move (args));
     };
 
-    f["run"] = [](const scope* s, process_path pp)
+    f.insert ("run", false) += [](const scope* s, process_path pp)
     {
       return run_process (s, pp, strings ());
     };
@@ -433,38 +435,41 @@ namespace build2
     // (as a whole) against <pat> and, if successful, returned, optionally
     // processed with <fmt>, as an element of a list.
     //
-    f[".run_regex"] = [](const scope* s, names a, string p, optional<string> f)
+    // Note that this function is not pure.
+    //
     {
-      return run_regex (s, move (a), p, f);
-    };
+      auto e (f.insert (".run_regex", false));
 
-    f[".run_regex"] = [] (const scope* s, names a, names p, optional<names> f)
-    {
-      return run_regex (s,
-                        move (a),
-                        convert<string> (move (p)),
-                        f ? convert<string> (move (*f)) : nullopt_string);
-    };
+      e += [](const scope* s, names a, string p, optional<string> f)
+      {
+        return run_regex (s, move (a), p, f);
+      };
 
-    f["run_regex"] = [](const scope* s,
-                        process_path pp,
-                        string p,
-                        optional<string> f)
+      e += [] (const scope* s, names a, names p, optional<names> f)
+      {
+        return run_regex (s,
+                          move (a),
+                          convert<string> (move (p)),
+                          f ? convert<string> (move (*f)) : nullopt_string);
+      };
+    }
     {
-      return run_process_regex (s, pp, strings (), p, f);
-    };
+      auto e (f.insert ("run_regex", false));
 
-    f["run_regex"] = [](const scope* s,
-                        process_path pp,
-                        names p,
-                        optional<names> f)
-    {
-      return run_process_regex (s,
-                                pp, strings (),
-                                convert<string> (move (p)),
-                                (f
-                                 ? convert<string> (move (*f))
-                                 : nullopt_string));
-    };
+      e += [](const scope* s, process_path pp, string p, optional<string> f)
+      {
+        return run_process_regex (s, pp, strings (), p, f);
+      };
+
+      e += [](const scope* s, process_path pp, names p, optional<names> f)
+      {
+        return run_process_regex (s,
+                                  pp, strings (),
+                                  convert<string> (move (p)),
+                                  (f
+                                   ? convert<string> (move (*f))
+                                   : nullopt_string));
+      };
+    }
   }
 }

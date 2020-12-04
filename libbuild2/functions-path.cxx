@@ -144,9 +144,9 @@ namespace build2
 
     // string
     //
-    f["string"] = [](path p) {return move (p).string ();};
+    f["string"] += [](path p) {return move (p).string ();};
 
-    f["string"] = [](paths v)
+    f["string"] += [](paths v)
     {
       strings r;
       for (auto& p: v)
@@ -154,7 +154,7 @@ namespace build2
       return r;
     };
 
-    f["string"] = [](dir_paths v)
+    f["string"] += [](dir_paths v)
     {
       strings r;
       for (auto& p: v)
@@ -164,9 +164,9 @@ namespace build2
 
     // representation
     //
-    f["representation"] = [](path p) {return move (p).representation ();};
+    f["representation"] += [](path p) {return move (p).representation ();};
 
-    f["representation"] = [](paths v)
+    f["representation"] += [](paths v)
     {
       strings r;
       for (auto& p: v)
@@ -174,7 +174,7 @@ namespace build2
       return r;
     };
 
-    f["representation"] = [](dir_paths v)
+    f["representation"] += [](dir_paths v)
     {
       strings r;
       for (auto& p: v)
@@ -186,24 +186,24 @@ namespace build2
     //
     // @@ TODO: add ability to specify alternative separator.
     //
-    f["canonicalize"] = [](path p)     {p.canonicalize (); return p;};
-    f["canonicalize"] = [](dir_path p) {p.canonicalize (); return p;};
+    f["canonicalize"] += [](path p)     {p.canonicalize (); return p;};
+    f["canonicalize"] += [](dir_path p) {p.canonicalize (); return p;};
 
-    f["canonicalize"] = [](paths v)
+    f["canonicalize"] += [](paths v)
     {
       for (auto& p: v)
         p.canonicalize ();
       return v;
     };
 
-    f["canonicalize"] = [](dir_paths v)
+    f["canonicalize"] += [](dir_paths v)
     {
       for (auto& p: v)
         p.canonicalize ();
       return v;
     };
 
-    f[".canonicalize"] = [](names ns)
+    f[".canonicalize"] += [](names ns)
     {
       // For each path decide based on the presence of a trailing slash
       // whether it is a directory. Return as untyped list of (potentially
@@ -221,19 +221,22 @@ namespace build2
 
     // normalize
     //
-    f["normalize"] = [](path p, optional<value> a)
+    // @@ TODO: normalize(true) is not pure, redo as a separate actualize()
+    //    function.
+    //
+    f["normalize"] += [](path p, optional<value> a)
     {
       p.normalize (a && convert<bool> (move (*a)));
       return p;
     };
 
-    f["normalize"] = [](dir_path p, optional<value> a)
+    f["normalize"] += [](dir_path p, optional<value> a)
     {
       p.normalize (a && convert<bool> (move (*a)));
       return p;
     };
 
-    f["normalize"] = [](paths v, optional<value> a)
+    f["normalize"] += [](paths v, optional<value> a)
     {
       bool act (a && convert<bool> (move (*a)));
 
@@ -242,7 +245,7 @@ namespace build2
 
       return v;
     };
-    f["normalize"] = [](dir_paths v, optional<value> a)
+    f["normalize"] += [](dir_paths v, optional<value> a)
     {
       bool act (a && convert<bool> (move (*a)));
 
@@ -251,7 +254,7 @@ namespace build2
       return v;
     };
 
-    f[".normalize"] = [](names ns, optional<value> a)
+    f[".normalize"] += [](names ns, optional<value> a)
     {
       bool act (a && convert<bool> (move (*a)));
 
@@ -271,9 +274,9 @@ namespace build2
 
     // directory
     //
-    f["directory"] = &path::directory;
+    f["directory"] += &path::directory;
 
-    f["directory"] = [](paths v)
+    f["directory"] += [](paths v)
     {
       dir_paths r;
       for (const path& p: v)
@@ -281,14 +284,14 @@ namespace build2
       return r;
     };
 
-    f["directory"] = [](dir_paths v)
+    f["directory"] += [](dir_paths v)
     {
       for (dir_path& p: v)
         p = p.directory ();
       return v;
     };
 
-    f[".directory"] = [](names ns)
+    f[".directory"] += [](names ns)
     {
       // For each path decide based on the presence of a trailing slash
       // whether it is a directory. Return as list of directory names.
@@ -305,23 +308,23 @@ namespace build2
 
     // base
     //
-    f["base"] = &path::base;
+    f["base"] += &path::base;
 
-    f["base"] = [](paths v)
+    f["base"] += [](paths v)
     {
       for (path& p: v)
         p = p.base ();
       return v;
     };
 
-    f["base"] = [](dir_paths v)
+    f["base"] += [](dir_paths v)
     {
       for (dir_path& p: v)
         p = p.base ();
       return v;
     };
 
-    f[".base"] = [](names ns)
+    f[".base"] += [](names ns)
     {
       // For each path decide based on the presence of a trailing slash
       // whether it is a directory. Return as untyped list of (potentially
@@ -339,28 +342,28 @@ namespace build2
 
     // leaf
     //
-    f["leaf"] = &path::leaf;
+    f["leaf"] += &path::leaf;
 
-    f["leaf"] = [](path p, dir_path d)
+    f["leaf"] += [](path p, dir_path d)
     {
       return leaf (p, move (d));
     };
 
-    f["leaf"] = [](paths v, optional<dir_path> d)
+    f["leaf"] += [](paths v, optional<dir_path> d)
     {
       for (path& p: v)
         p = leaf (p, d);
       return v;
     };
 
-    f["leaf"] = [](dir_paths v, optional<dir_path> d)
+    f["leaf"] += [](dir_paths v, optional<dir_path> d)
     {
       for (dir_path& p: v)
         p = leaf (p, d);
       return v;
     };
 
-    f[".leaf"] = [](names ns, optional<dir_path> d)
+    f[".leaf"] += [](names ns, optional<dir_path> d)
     {
       // For each path decide based on the presence of a trailing slash
       // whether it is a directory. Return as untyped list of (potentially
@@ -378,9 +381,9 @@ namespace build2
 
     // extension
     //
-    f["extension"] = &extension;
+    f["extension"] += &extension;
 
-    f[".extension"] = [](names ns)
+    f[".extension"] += [](names ns)
     {
       return extension (convert<path> (move (ns)));
     };
@@ -415,19 +418,19 @@ namespace build2
     //
     // Name matching.
     //
-    f[".match"] = [](string name, string pattern)
+    f[".match"] += [](string name, string pattern)
     {
       return path_match (name, pattern);
     };
 
     // Path matching.
     //
-    f["match"] = [](path ent, path pat, optional<dir_path> start)
+    f["match"] += [](path ent, path pat, optional<dir_path> start)
     {
       return path_match (ent, pat, start);
     };
 
-    f["match"] = [](path ent, names pat, optional<names> start)
+    f["match"] += [](path ent, names pat, optional<names> start)
     {
       return path_match (ent,
                          convert<path> (move (pat)),
@@ -436,7 +439,7 @@ namespace build2
                          : optional<dir_path> ());
     };
 
-    f["match"] = [](names ent, path pat, optional<names> start)
+    f["match"] += [](names ent, path pat, optional<names> start)
     {
       return path_match (convert<path> (move (ent)),
                          pat,
@@ -448,7 +451,7 @@ namespace build2
     // The semantics depends on the presence of the start directory or the
     // first two argument syntactic representation.
     //
-    f[".match"] = [](names ent, names pat, optional<names> start)
+    f[".match"] += [](names ent, names pat, optional<names> start)
     {
       auto path_arg = [] (const names& a) -> bool
       {
@@ -472,15 +475,15 @@ namespace build2
     //
     function_family b (m, "builtin", &path_thunk);
 
-    b[".concat"] = &concat_path_string;
-    b[".concat"] = &concat_dir_path_string;
+    b[".concat"] += &concat_path_string;
+    b[".concat"] += &concat_dir_path_string;
 
-    b[".concat"] = [](path l, names ur)
+    b[".concat"] += [](path l, names ur)
     {
       return concat_path_string (move (l), convert<string> (move (ur)));
     };
 
-    b[".concat"] = [](dir_path l, names ur)
+    b[".concat"] += [](dir_path l, names ur)
     {
       return concat_dir_path_string (move (l), convert<string> (move (ur)));
     };

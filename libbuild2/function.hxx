@@ -75,20 +75,27 @@ namespace build2
   //
   // // Register length() and string.length().
   // //
-  // f["length"] = &string::size;
+  // f["length"] += &string::size;
   //
   // // Register string.max_size().
   // //
-  // f[".max_size"] = []() {return string ().max_size ();};
+  // f[".max_size"] += []() {return string ().max_size ();};
   //
-  // For more examples/ideas, study the existing function families (reside
-  // in the functions-*.cxx files).
+  // The use of += instead of = is meant to suggest that we are adding an
+  // overload. For more examples/ideas, study the existing function families
+  // (reside in the functions-*.cxx files).
   //
   // Note that normally there will be a function overload that has all the
   // parameters untyped with an implementation that falls back to one of the
   // overloads that have all the parameters typed, possibly inferring the type
   // from the argument value "syntax" (e.g., presence of a trailing slash for
   // a directory path).
+  //
+  // A function is pure if for the same set of arguments it always produces
+  // the same result and has no (observable) side effects. Those functions
+  // that are not pure should be explicitly marked as such, for example:
+  //
+  // f.insert ("date", false /* pure */) += &date;
   //
   struct function_overload;
 
@@ -116,13 +123,13 @@ namespace build2
 
     using types = vector_view<const optional<const value_type*>>;
 
-    const size_t arg_min;
-    const size_t arg_max;
-    const types  arg_types;
+    size_t arg_min;
+    size_t arg_max;
+    types  arg_types;
 
     // Function implementation.
     //
-    function_impl* const impl;
+    function_impl* impl;
 
     // Auxiliary data storage. Note that it is expected to be trivially
     // copyable and destructible.
@@ -166,18 +173,57 @@ namespace build2
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const function_overload&); // Print signature.
 
+  struct function_overloads: small_vector<function_overload, 8>
+  {
+    const char* name; // Set to point to key by function_map::insert() below.
+    bool pure = true;
+
+    function_overload&
+    insert (function_overload f)
+    {
+      // Sanity checks.
+      //
+      assert (f.arg_min <= f.arg_max           &&
+              f.arg_types.size () <= f.arg_max &&
+              f.impl != nullptr);
+
+      push_back (move (f));
+      back ().name = name;
+      return back ();
+    }
+  };
+
   class LIBBUILD2_SYMEXPORT function_map
   {
   public:
-    using map_type = std::multimap<string, function_overload>;
+    using map_type = std::map<string, function_overloads>;
     using iterator = map_type::iterator;
     using const_iterator = map_type::const_iterator;
 
-    iterator
-    insert (string name, function_overload);
+    function_overloads&
+    insert (string name, bool pure)
+    {
+      auto p (map_.emplace (move (name), function_overloads ()));
 
-    void
-    erase (iterator i) {map_.erase (i);}
+      function_overloads& r (p.first->second);
+
+      if (p.second)
+      {
+        r.name = p.first->first.c_str ();
+        r.pure = pure;
+      }
+      else
+        assert (r.pure == pure);
+
+      return r;
+    }
+
+    const function_overloads*
+    find (const string& name) const
+    {
+      auto i (map_.find (name));
+      return i != map_.end () ? &i->second : nullptr;
+    }
 
     value
     call (const scope* base,
@@ -262,6 +308,9 @@ namespace build2
 
     entry
     operator[] (string name) const;
+
+    entry
+    insert (string name, bool pure = true) const;
 
     static bool
     defined (function_map& map, string qual)
@@ -762,20 +811,18 @@ namespace build2
 
   struct LIBBUILD2_SYMEXPORT function_family::entry
   {
-    function_map& map_;
-    string name;
-    const string& qual;
-    function_impl* thunk;
+    function_overloads& overloads;
+    function_overloads* alt_overloads;
+    function_impl*      thunk;
 
     template <typename R, typename... A>
     void
-    operator= (R (*impl) (A...)) &&
+    operator+= (R (*impl) (A...)) const
     {
       using args = function_args<A...>;
       using cast = function_cast_func<R, A...>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -786,13 +833,12 @@ namespace build2
 
     template <typename R, typename... A>
     void
-    operator= (R (*impl) (const scope*, A...)) &&
+    operator+= (R (*impl) (const scope*, A...)) const
     {
       using args = function_args<A...>;
       using cast = function_cast_func<R, const scope*, A...>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -812,20 +858,19 @@ namespace build2
 #if defined(__GNUC__) && !defined(__clang__) && __GNUC__ < 6
     template <typename L>
     void
-    operator= (const L&) &&
+    operator+= (const L&) const
     {
-      move (*this).coerce_lambda (&L::operator());
+      this->coerce_lambda (&L::operator());
     }
 
     template <typename L, typename R, typename... A>
     void
-    coerce_lambda (R (L::*op) (A...) const) &&
+    coerce_lambda (R (L::*op) (A...) const) const
     {
       using args = function_args<A...>;
       using cast = function_cast_lamb<L, R, A...>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -836,13 +881,12 @@ namespace build2
 
     template <typename L, typename R, typename... A>
     void
-    coerce_lambda (R (L::*op) (const scope*, A...) const) &&
+    coerce_lambda (R (L::*op) (const scope*, A...) const) const
     {
       using args = function_args<A...>;
       using cast = function_cast_lamb<L, R, const scope*, A...>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -853,9 +897,9 @@ namespace build2
 #else
     template <typename L>
     void
-    operator= (const L& l) &&
+    operator+= (const L& l) const
     {
-      move (*this).operator= (decay_lambda (&L::operator(), l));
+      this->operator+= (decay_lambda (&L::operator(), l));
     }
 
     template <typename L, typename R, typename... A>
@@ -875,13 +919,12 @@ namespace build2
     //
     template <typename R, typename T>
     void
-    operator= (R (T::*mf) () const) &&
+    operator+= (R (T::*mf) () const) const
     {
       using args = function_args<T>;
       using cast = function_cast_memf<R, T>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -894,13 +937,12 @@ namespace build2
     //
     template <typename R, typename T>
     void
-    operator= (R T::*dm) &&
+    operator+= (R T::*dm) const
     {
       using args = function_args<T>;
       using cast = function_cast_memd<R, T>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -915,12 +957,11 @@ namespace build2
     //
     template <typename D, typename... A>
     void
-    insert (function_impl* i, D d) &&
+    insert (function_impl* i, D d) const
     {
       using args = function_args<A...>;
 
-      insert (move (name),
-              function_overload (
+      insert (function_overload (
                 nullptr,
                 args::min,
                 args::max,
@@ -931,13 +972,27 @@ namespace build2
 
   private:
     void
-    insert (string, function_overload) const;
+    insert (function_overload f) const
+    {
+      function_overload* f1 (alt_overloads != nullptr
+                             ? &alt_overloads->insert (f)
+                             : nullptr);
+      function_overload& f2 (overloads.insert (move (f)));
+
+      // If we have both, then set alternative names.
+      //
+      if (f1 != nullptr)
+      {
+        f1->alt_name = f2.name;
+        f2.alt_name = f1->name;
+      }
+    }
   };
 
   inline auto function_family::
   operator[] (string name) const -> entry
   {
-    return entry {map_, move (name), qual_, thunk_};
+    return insert (move (name));
   }
 }
 

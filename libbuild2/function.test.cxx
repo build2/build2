@@ -52,38 +52,37 @@ namespace build2
 
     function_family f (functions, "dummy");
 
-    f["fail"]     = []()        {fail << "failed" << endf;};
-    f["fail_arg"] = [](names a) {return convert<uint64_t> (move (a[0]));};
+    f["fail"]     += []()        {fail << "failed" << endf;};
+    f["fail_arg"] += [](names a) {return convert<uint64_t> (move (a[0]));};
 
-    f["nullable"] = [](names* a)          {return a == nullptr;};
-    f["optional"] = [](optional<names> a) {return !a;};
+    f["nullable"] += [](names* a)          {return a == nullptr;};
+    f["optional"] += [](optional<names> a) {return !a;};
 
-    f["dummy0"] = []()         {return "abc";};
-    f["dummy1"] = [](string s) {return s;};
-    f["dummy2"] = [](uint64_t x, uint64_t y) {return x + y;};
+    f["dummy0"] += []()         {return "abc";};
+    f["dummy1"] += [](string s) {return s;};
+    f["dummy2"] += [](uint64_t x, uint64_t y) {return x + y;};
 
-    f["ambig"] = [](names a, optional<string>)   {return a;};
-    f["ambig"] = [](names a, optional<uint64_t>) {return a;};
+    f["ambig"] += [](names a, optional<string>)   {return a;};
+    f["ambig"] += [](names a, optional<uint64_t>) {return a;};
 
-    f["reverse"] = [](names a) {return a;};
+    f["reverse"] += [](names a) {return a;};
 
-    f["scoped"]      = [](const scope*, names a) {return a;};
-    f["scoped_void"] = [](const scope*, names) {};
-    f["scoped"]      = &scoped;
-    f["scoped_void"] = &scoped_void;
+    f["scoped"]      += [](const scope*, names a) {return a;};
+    f["scoped_void"] += [](const scope*, names) {};
+    f["scoped"]      += &scoped;
+    f["scoped_void"] += &scoped_void;
 
-    f[".qual"] = []() {return "abc";};
+    f[".qual"] += []() {return "abc";};
 
-    f[".length"] = &path::size; // Member function.
-    f[".type"]   = &name::type; // Data member.
+    f[".length"] += &path::size; // Member function.
+    f[".type"]   += &name::type; // Data member.
 
-    f[".abs"] = [](dir_path d) {return d.absolute ();};
+    f[".abs"] += [](dir_path d) {return d.absolute ();};
 
     // Variadic function with first required argument of type bool. Returns
     // number of arguments passed.
     //
-    functions.insert (
-      "variadic",
+    functions.insert ("variadic", true).insert (
       function_overload (
         nullptr,
         1,
@@ -96,8 +95,7 @@ namespace build2
 
     // Dump arguments.
     //
-    functions.insert (
-      "dump",
+    functions.insert ("dump", true).insert (
       function_overload (
         nullptr,
         0,

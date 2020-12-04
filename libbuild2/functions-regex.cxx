@@ -521,12 +521,12 @@ namespace build2
     //               sub-strings that match the marked sub-expressions and
     //               NULL if no match
     //
-    f[".match"] = [](value s, string re, optional<names> flags)
+    f[".match"] += [](value s, string re, optional<names> flags)
     {
       return match (move (s), re, move (flags));
     };
 
-    f[".match"] = [](value s, names re, optional<names> flags)
+    f[".match"] += [](value s, names re, optional<names> flags)
     {
       return match (move (s), convert<string> (move (re)), move (flags));
     };
@@ -540,12 +540,12 @@ namespace build2
     //
     // icase - match ignoring case
     //
-    f[".find_match"] = [](names s, string re, optional<names> flags)
+    f[".find_match"] += [](names s, string re, optional<names> flags)
     {
       return find_match (move (s), re, move (flags));
     };
 
-    f[".find_match"] = [](names s, names re, optional<names> flags)
+    f[".find_match"] += [](names s, names re, optional<names> flags)
     {
       return find_match (move (s), convert<string> (move (re)), move (flags));
     };
@@ -573,12 +573,12 @@ namespace build2
     // If both return_match and return_subs flags are specified then the
     // sub-string that matches the whole regular expression comes first.
     //
-    f[".search"] = [](value s, string re, optional<names> flags)
+    f[".search"] += [](value s, string re, optional<names> flags)
     {
       return search (move (s), re, move (flags));
     };
 
-    f[".search"] = [](value s, names re, optional<names> flags)
+    f[".search"] += [](value s, names re, optional<names> flags)
     {
       return search (move (s), convert<string> (move (re)), move (flags));
     };
@@ -593,12 +593,12 @@ namespace build2
     //
     // icase - match ignoring case
     //
-    f[".find_search"] = [](names s, string re, optional<names> flags)
+    f[".find_search"] += [](names s, string re, optional<names> flags)
     {
       return find_search (move (s), re, move (flags));
     };
 
-    f[".find_search"] = [](names s, names re, optional<names> flags)
+    f[".find_search"] += [](names s, names re, optional<names> flags)
     {
       return find_search (move (s),
                           convert<string> (move (re)),
@@ -625,12 +625,12 @@ namespace build2
     // If both format_first_only and format_no_copy flags are specified then
     // the result will only contain the replacement of the first match.
     //
-    f[".replace"] = [](value s, string re, string fmt, optional<names> flags)
+    f[".replace"] += [](value s, string re, string fmt, optional<names> flags)
     {
       return replace (move (s), re, fmt, move (flags));
     };
 
-    f[".replace"] = [](value s, names re, names fmt, optional<names> flags)
+    f[".replace"] += [](value s, names re, names fmt, optional<names> flags)
     {
       return replace (move (s),
                       convert<string> (move (re)),
@@ -658,7 +658,7 @@ namespace build2
     // Note that if format_no_copy is specified, unmatched lines are not
     // copied either.
     //
-    f[".replace_lines"] = [](value s,
+    f[".replace_lines"] += [](value s,
                              string re,
                              string fmt,
                              optional<names> flags)
@@ -666,7 +666,7 @@ namespace build2
       return replace_lines (move (s), re, move (fmt), move (flags));
     };
 
-    f[".replace_lines"] = [](value s,
+    f[".replace_lines"] += [](value s,
                              names re,
                              names* fmt,
                              optional<names> flags)
@@ -695,12 +695,12 @@ namespace build2
     //
     // format_no_copy    - do not copy unmatched value parts into the result
     //
-    f[".split"] = [](value s, string re, string fmt, optional<names> flags)
+    f[".split"] += [](value s, string re, string fmt, optional<names> flags)
     {
       return split (move (s), re, fmt, move (flags));
     };
 
-    f[".split"] = [](value s, names re, names fmt, optional<names> flags)
+    f[".split"] += [](value s, names re, names fmt, optional<names> flags)
     {
       return split (move (s),
                     convert<string> (move (re)),
@@ -730,7 +730,7 @@ namespace build2
     // the result will be a concatenation of only the first match
     // replacements.
     //
-    f[".merge"] = [](names s,
+    f[".merge"] += [](names s,
                      string re,
                      string fmt,
                      optional<string> delim,
@@ -739,7 +739,7 @@ namespace build2
       return merge (move (s), re, fmt, move (delim), move (flags));
     };
 
-    f[".merge"] = [](names s,
+    f[".merge"] += [](names s,
                      names re,
                      names fmt,
                      optional<names> delim,
@@ -775,12 +775,12 @@ namespace build2
     // the result elements will only contain the replacement of the first
     // match.
     //
-    f[".apply"] = [](names s, string re, string fmt, optional<names> flags)
+    f[".apply"] += [](names s, string re, string fmt, optional<names> flags)
     {
       return apply (move (s), re, fmt, move (flags));
     };
 
-    f[".apply"] = [](names s, names re, names fmt, optional<names> flags)
+    f[".apply"] += [](names s, names re, names fmt, optional<names> flags)
     {
       return apply (move (s),
                     convert<string> (move (re)),

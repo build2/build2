@@ -80,21 +80,6 @@ namespace build2
     return i != map_.end () && i->first.compare (0, n, name) == 0;
   }
 
-  auto function_map::
-  insert (string name, function_overload f) -> iterator
-  {
-    // Sanity checks.
-    //
-    assert (f.arg_min <= f.arg_max &&
-            f.arg_types.size () <= f.arg_max &&
-            f.impl != nullptr);
-
-    auto i (map_.emplace (move (name), move (f)));
-
-    i->second.name = i->first.c_str ();
-    return i;
-  }
-
   pair<value, bool> function_map::
   call (const scope* base,
         const string& name,
@@ -120,16 +105,17 @@ namespace build2
     // See the overall function machinery description for the ranking
     // semantics.
     //
-    auto ip (map_.equal_range (name));
+    const function_overloads* all_ovls (find (name));
 
     size_t rank (~0);
     small_vector<const function_overload*, 2> ovls;
+    if (all_ovls != nullptr)
     {
       size_t count (args.size ());
 
-      for (auto it (ip.first); it != ip.second; ++it)
+      for (auto it (all_ovls->begin ()); it != all_ovls->end (); ++it)
       {
-        const function_overload& f (it->second);
+        const function_overload& f (*it);
 
         // Argument count match.
         //
@@ -257,8 +243,11 @@ namespace build2
 
         dr << fail (loc) << "unmatched call to "; print_call (dr.os);
 
-        for (auto i (ip.first); i != ip.second; ++i)
-          dr << info << "candidate: " << i->second;
+        if (all_ovls != nullptr)
+        {
+          for (auto i (all_ovls->begin ()); i != all_ovls->end (); ++i)
+            dr << info << "candidate: " << *i;
+        }
 
         // If this is an unqualified name, then also print qualified
         // functions that end with this name. But skip functions that we
@@ -271,14 +260,20 @@ namespace build2
           for (auto i (begin ()); i != end (); ++i)
           {
             const string& q (i->first);
-            const function_overload& f (i->second);
 
-            if ((f.alt_name == nullptr || f.alt_name != name) &&
-                q.size () > n)
+            if (q.size () > n)
             {
-              size_t p (q.size () - n);
-              if (q[p - 1] == '.' && q.compare (p, n, name) == 0)
-                dr << info << "candidate: " << i->second;
+              for (auto j (i->second.begin ()); j != i->second.end (); ++j)
+              {
+                const function_overload& f (*j);
+
+                if (f.alt_name == nullptr || f.alt_name != name)
+                {
+                  size_t p (q.size () - n);
+                  if (q[p - 1] == '.' && q.compare (p, n, name) == 0)
+                    dr << info << "candidate: " << f;
+                }
+              }
             }
           }
         }
@@ -298,6 +293,35 @@ namespace build2
         dr << endf;
       }
     }
+  }
+
+  auto function_family::
+  insert (string n, bool pure) const -> entry
+  {
+    // Figure out qualification.
+    //
+    string qn;
+    size_t p (n.find ('.'));
+
+    if (p == string::npos)
+    {
+      if (!qual_.empty ())
+      {
+        qn = qual_;
+        qn += '.';
+        qn += n;
+      }
+    }
+    else if (p == 0)
+    {
+      assert (!qual_.empty ());
+      n.insert (0, qual_);
+    }
+
+    return entry {
+      map_.insert (move (n), pure),
+      qn.empty () ? nullptr : &map_.insert (move (qn), pure),
+      thunk_};
   }
 
   value function_family::
@@ -321,41 +345,6 @@ namespace build2
 #else
   const optional<const value_type*>* const function_args<>::types = nullptr;
 #endif
-
-  void function_family::entry::
-  insert (string n, function_overload f) const
-  {
-    // Figure out qualification.
-    //
-    string qn;
-    size_t p (n.find ('.'));
-
-    if (p == string::npos)
-    {
-      if (!qual.empty ())
-      {
-        qn = qual;
-        qn += '.';
-        qn += n;
-      }
-    }
-    else if (p == 0)
-    {
-      assert (!qual.empty ());
-      n.insert (0, qual);
-    }
-
-    auto i (qn.empty () ? map_.end () : map_.insert (move (qn), f));
-    auto j (map_.insert (move (n), move (f)));
-
-    // If we have both, then set alternative names.
-    //
-    if (i != map_.end ())
-    {
-      i->second.alt_name = j->first.c_str ();
-      j->second.alt_name = i->first.c_str ();
-    }
-  }
 
   // Static-initialize the function map and populate with builtin functions.
   //

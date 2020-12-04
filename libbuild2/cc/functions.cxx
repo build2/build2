@@ -150,8 +150,10 @@ namespace build2
       // after all the specified library targets have been matched. Normally
       // it is used in ad hoc recipes to implement custom compilation.
       //
+      // Note that this function is not pure.
       //
-      f[".lib_poptions"].insert<lib_data, names, names> (
+      f.insert (".lib_poptions", false).
+        insert<lib_data, names, names> (
         &lib_thunk<appended_libraries>,
         lib_data {
           x,
@@ -189,8 +191,10 @@ namespace build2
       // after all the specified library targets have been matched. Normally
       // it is used in ad hoc recipes to implement custom linking.
       //
-      f[".lib_libs"].insert<lib_data,
-                            names, names, optional<names>, optional<names>> (
+      // Note that this function is not pure.
+      //
+      f.insert (".lib_libs", false).
+        insert<lib_data, names, names, optional<names>, optional<names>> (
         &lib_thunk<appended_libraries>,
         lib_data {
           x,
@@ -237,13 +241,15 @@ namespace build2
       //
       // Note that passing multiple targets at once is not a mere convenience:
       // this also allows for more effective duplicate suppression.
-
+      //
       // Note also that this function can only be called during execution
       // after all the specified library targets have been matched. Normally
       // it is used in ad hoc recipes to implement custom linking.
       //
-      f[".lib_rpaths"].insert<lib_data,
-                              names, names, optional<names>, optional<names>> (
+      // Note that this function is not pure.
+      //
+      f.insert (".lib_rpaths", false).
+        insert<lib_data, names, names, optional<names>, optional<names>> (
         &lib_thunk<rpathed_libraries>,
         lib_data {
           x,

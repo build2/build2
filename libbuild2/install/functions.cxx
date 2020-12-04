@@ -18,7 +18,9 @@ namespace build2
       // Resolve potentially relative install.* value to an absolute directory
       // based on (other) install.* values visible from the calling scope.
       //
-      f[".resolve"] = [] (const scope* s, dir_path d)
+      // Note that this function is not pure.
+      //
+      f.insert (".resolve", false) += [] (const scope* s, dir_path d)
       {
         if (s == nullptr)
           fail << "install.resolve() called out of scope" << endf;

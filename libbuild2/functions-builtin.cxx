@@ -19,7 +19,9 @@ namespace build2
     // Note that we may want to extend the scope argument to a more general
     // notion of "lookup context" (scope, target, prerequisite).
     //
-    f["defined"] = [](const scope* s, names name)
+    // Note that this function is not pure.
+    //
+    f.insert ("defined", false) += [](const scope* s, names name)
     {
       if (s == nullptr)
         fail << "defined() called out of scope" << endf;
@@ -29,7 +31,9 @@ namespace build2
 
     // Return variable visibility if it has been entered and NULL otherwise.
     //
-    f["visibility"] = [](const scope* s, names name)
+    // Note that this function is not pure.
+    //
+    f.insert ("visibility", false) += [](const scope* s, names name)
     {
       if (s == nullptr)
         fail << "visibility() called out of scope" << endf;
@@ -42,25 +46,25 @@ namespace build2
               : nullopt);
     };
 
-    f["type"] = [](value* v) {return v->type != nullptr ? v->type->name : "";};
-    f["null"]  = [](value* v) {return v->null;};
-    f["empty"] = [](value* v)  {return v->null || v->empty ();};
+    f["type"] += [](value* v) {return v->type != nullptr ? v->type->name : "";};
+    f["null"] += [](value* v) {return v->null;};
+    f["empty"] += [](value* v)  {return v->null || v->empty ();};
 
-    f["identity"] = [](value* v) {return move (*v);};
+    f["identity"] += [](value* v) {return move (*v);};
 
     // string
     //
-    f["string"] = [](bool b) {return b ? "true" : "false";};
-    f["string"] = [](int64_t i) {return to_string (i);};
-    f["string"] = [](uint64_t i) {return to_string (i);};
-    f["string"] = [](name n) {return to_string (n);};
+    f["string"] += [](bool b) {return b ? "true" : "false";};
+    f["string"] += [](int64_t i) {return to_string (i);};
+    f["string"] += [](uint64_t i) {return to_string (i);};
+    f["string"] += [](name n) {return to_string (n);};
 
     // Quote a value returning its string representation. If escape is true,
     // then also escape (with a backslash) the quote characters being added
     // (this is useful if the result will be re-parsed, for example as a
     // Testscript command line).
     //
-    f["quote"] = [](value* v, optional<value> escape)
+    f["quote"] += [](value* v, optional<value> escape)
     {
       if (v->null)
         return string ();
@@ -81,7 +85,9 @@ namespace build2
     // Return NULL if the environment variable is not set, untyped value
     // otherwise.
     //
-    f["getenv"] = [](names name)
+    // Note that this function is not pure.
+    //
+    f.insert ("getenv", false) += [](names name)
     {
       optional<string> v (getenv (convert<string> (move (name))));
 

@@ -27,7 +27,9 @@ namespace build2
       // config module creation was requested for other meta-operations with
       // config.config.module=true in bootstrap.build.
       //
-      f[".save"] = [] (const scope* s)
+      // Note that this function is not pure.
+      //
+      f.insert (".save", false) += [] (const scope* s)
       {
         if (s == nullptr)
           fail << "config.save() called out of scope" << endf;

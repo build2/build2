@@ -13,22 +13,22 @@ namespace build2
   {
     function_family f (m, "target_triplet");
 
-    f["string"] = [](target_triplet t) {return t.string ();};
-    f["representation"] = [](target_triplet t) {return t.representation ();};
+    f["string"] += [](target_triplet t) {return t.string ();};
+    f["representation"] += [](target_triplet t) {return t.representation ();};
 
     // Target triplet-specific overloads from builtins.
     //
     function_family b (m, "builtin");
 
-    b[".concat"] = [](target_triplet l, string sr) {return l.string () + sr;};
-    b[".concat"] = [](string sl, target_triplet r) {return sl + r.string ();};
+    b[".concat"] += [](target_triplet l, string sr) {return l.string () + sr;};
+    b[".concat"] += [](string sl, target_triplet r) {return sl + r.string ();};
 
-    b[".concat"] = [](target_triplet l, names ur)
+    b[".concat"] += [](target_triplet l, names ur)
     {
       return l.string () + convert<string> (move (ur));
     };
 
-    b[".concat"] = [](names ul, target_triplet r)
+    b[".concat"] += [](names ul, target_triplet r)
     {
       return convert<string> (move (ul)) + r.string ();
     };

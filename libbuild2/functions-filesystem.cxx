@@ -78,6 +78,9 @@ namespace build2
   void
   filesystem_functions (function_map& m)
   {
+    // @@ Maybe we should have the ability to mark the whole family as not
+    //    pure?
+
     function_family f (m, "filesystem");
 
     // path_search
@@ -86,25 +89,32 @@ namespace build2
     // absolute path, then the start directory is ignored (if present).
     // Otherwise, the start directory must be specified and be absolute.
     //
-    f["path_search"] = [](path pattern, optional<dir_path> start)
+    // Note that this function is not pure.
+    //
     {
-      return path_search (pattern, start);
-    };
+      auto e (f.insert ("path_search", false));
 
-    f["path_search"] = [](path pattern, names start)
-    {
-      return path_search (pattern, convert<dir_path> (move (start)));
-    };
+      e += [](path pattern, optional<dir_path> start)
+      {
+        return path_search (pattern, start);
+      };
 
-    f["path_search"] = [](names pattern, optional<dir_path> start)
-    {
-      return path_search (convert<path> (move (pattern)), start);
-    };
+      e += [](path pattern, names start)
+      {
+        return path_search (pattern, convert<dir_path> (move (start)));
+      };
 
-    f["path_search"] = [](names pattern, names start)
-    {
-      return path_search (convert<path>     (move (pattern)),
-                          convert<dir_path> (move (start)));
-    };
+      e += [](names pattern, optional<dir_path> start)
+      {
+        return path_search (convert<path> (move (pattern)), start);
+      };
+
+      e += [](names pattern, names start)
+      {
+        return path_search (convert<path>     (move (pattern)),
+                            convert<dir_path> (move (start)));
+      };
+    }
+
   }
 }

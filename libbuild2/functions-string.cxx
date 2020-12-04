@@ -13,31 +13,31 @@ namespace build2
   {
     function_family f (m, "string");
 
-    f["string"] = [](string s)  {return s;};
+    f["string"] += [](string s)  {return s;};
 
     // @@ Shouldn't it concatenate elements into the single string?
     // @@ Doesn't seem to be used so far. Can consider removing.
     //
-    // f["string"] = [](strings v) {return v;};
+    // f["string"] += [](strings v) {return v;};
 
     // Compare ASCII strings ignoring case and returning the boolean value.
     //
-    f["icasecmp"] = [](string x, string y)
+    f["icasecmp"] += [](string x, string y)
     {
       return icasecmp (x, y) == 0;
     };
 
-    f["icasecmp"] = [](string x, names y)
+    f["icasecmp"] += [](string x, names y)
     {
       return icasecmp (x, convert<string> (move (y))) == 0;
     };
 
-    f["icasecmp"] = [](names x, string y)
+    f["icasecmp"] += [](names x, string y)
     {
       return icasecmp (convert<string> (move (x)), y) == 0;
     };
 
-    f[".icasecmp"] = [](names x, names y)
+    f[".icasecmp"] += [](names x, names y)
     {
       return icasecmp (convert<string> (move (x)),
                        convert<string> (move (y))) == 0;
@@ -45,34 +45,34 @@ namespace build2
 
     // Trim.
     //
-    f["trim"] = [](string s)
+    f["trim"] += [](string s)
     {
       return trim (move (s));
     };
 
-    f[".trim"] = [](names s)
+    f[".trim"] += [](names s)
     {
       return names {name (trim (convert<string> (move (s))))};
     };
 
     // Convert ASCII strings into lower/upper case.
     //
-    f["lcase"] = [](string s)
+    f["lcase"] += [](string s)
     {
       return lcase (move (s));
     };
 
-    f[".lcase"] = [](names s)
+    f[".lcase"] += [](names s)
     {
       return names {name (lcase (convert<string> (move (s))))};
     };
 
-    f["ucase"] = [](string s)
+    f["ucase"] += [](string s)
     {
       return ucase (move (s));
     };
 
-    f[".ucase"] = [](names s)
+    f[".ucase"] += [](names s)
     {
       return names {name (ucase (convert<string> (move (s))))};
     };
@@ -81,15 +81,15 @@ namespace build2
     //
     function_family b (m, "builtin");
 
-    b[".concat"] = [](string l, string r) {l += r; return l;};
+    b[".concat"] += [](string l, string r) {l += r; return l;};
 
-    b[".concat"] = [](string l, names ur)
+    b[".concat"] += [](string l, names ur)
     {
       l += convert<string> (move (ur));
       return l;
     };
 
-    b[".concat"] = [](names ul, string r)
+    b[".concat"] += [](names ul, string r)
     {
       string l (convert<string> (move (ul)));
       l += r;
