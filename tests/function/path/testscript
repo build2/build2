@@ -3,7 +3,9 @@
 
 .include ../../common.testscript
 
-s = ($cxx.target.class != 'windows' ? '/' : '\')
+posix = ($cxx.target.class != 'windows')
+
+s = ($posix ? '/' : '\')
 
 : canonicalize
 :
@@ -25,15 +27,16 @@ s = ($cxx.target.class != 'windows' ? '/' : '\')
   $* <'print $normalize([dir_paths] a/../b a/../c/)' >"b$s c$s"  : dir-paths
   $* <'print $path.normalize(a/../b)'                >"b"        : untyped
   $* <'print $path.normalize(a/../b/ a/../c)'        >"b$s c"    : mixed
-
-  : actualize
-  :
-  if ($cxx.target.class == 'windows')
-  {
-    mkdir Foo;
-    $* <'print $path.normalize($out_base/foo, true)' >~'/.+\\Foo/'
-  }
 }
+
+: actualize
+:
+if! $posix
+{
+  mkdir Foo;
+  $* <'print $path.actualize($out_base/foo)' >~'/.+\\Foo/'
+}
+
 
 : directory
 :
@@ -103,7 +106,7 @@ s = ($cxx.target.class != 'windows' ? '/' : '\')
 
 : invalid-path
 :
-p = ($cxx.target.class != 'windows' ? /../foo : 'c:/../foo');
+p = ($posix ? /../foo : 'c:/../foo');
 $* <"\$path.normalize\('$p')" 2>>"EOE" != 0
 error: invalid path: '$p'
   <stdin>:1:2: info: while calling path.normalize\(<untyped>\)

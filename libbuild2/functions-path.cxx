@@ -221,43 +221,25 @@ namespace build2
 
     // normalize
     //
-    // @@ TODO: normalize(true) is not pure, redo as a separate actualize()
-    //    function.
-    //
-    f["normalize"] += [](path p, optional<value> a)
-    {
-      p.normalize (a && convert<bool> (move (*a)));
-      return p;
-    };
+    f["normalize"] += [](path p)     {p.normalize (); return p;};
+    f["normalize"] += [](dir_path p) {p.normalize (); return p;};
 
-    f["normalize"] += [](dir_path p, optional<value> a)
+    f["normalize"] += [](paths v)
     {
-      p.normalize (a && convert<bool> (move (*a)));
-      return p;
-    };
-
-    f["normalize"] += [](paths v, optional<value> a)
-    {
-      bool act (a && convert<bool> (move (*a)));
-
       for (auto& p: v)
-        p.normalize (act);
-
-      return v;
-    };
-    f["normalize"] += [](dir_paths v, optional<value> a)
-    {
-      bool act (a && convert<bool> (move (*a)));
-
-      for (auto& p: v)
-        p.normalize (act);
+        p.normalize ();
       return v;
     };
 
-    f[".normalize"] += [](names ns, optional<value> a)
+    f["normalize"] += [](dir_paths v)
     {
-      bool act (a && convert<bool> (move (*a)));
+      for (auto& p: v)
+        p.normalize ();
+      return v;
+    };
 
+    f[".normalize"] += [](names ns)
+    {
       // For each path decide based on the presence of a trailing slash
       // whether it is a directory. Return as untyped list of (potentially
       // mixed) paths.
@@ -265,9 +247,50 @@ namespace build2
       for (name& n: ns)
       {
         if (n.directory ())
-          n.dir.normalize (act);
+          n.dir.normalize ();
         else
-          n.value = convert<path> (move (n)).normalize (act).string ();
+          n.value = convert<path> (move (n)).normalize ().string ();
+      }
+      return ns;
+    };
+
+    // actualize
+    //
+    // Note that this function is not pure.
+    //
+    {
+      auto e (f.insert ("actualize", false));
+
+      e += [](path p)     {p.normalize (true); return p;};
+      e += [](dir_path p) {p.normalize (true); return p;};
+
+      e += [](paths v)
+      {
+        for (auto& p: v)
+          p.normalize (true);
+        return v;
+      };
+
+      e += [](dir_paths v)
+      {
+        for (auto& p: v)
+          p.normalize (true);
+        return v;
+      };
+    }
+
+    f.insert (".actualize", false) += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir.normalize (true);
+        else
+          n.value = convert<path> (move (n)).normalize (true).string ();
       }
       return ns;
     };
