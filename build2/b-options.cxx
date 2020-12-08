@@ -714,6 +714,8 @@ namespace build2
     pager_specified_ (false),
     pager_option_ (),
     pager_option_specified_ (false),
+    options_file_ (),
+    options_file_specified_ (false),
     default_options_ (),
     default_options_specified_ (false),
     no_default_options_ (),
@@ -970,6 +972,13 @@ namespace build2
       this->pager_option_specified_ = true;
     }
 
+    if (a.options_file_specified_)
+    {
+      ::build2::cl::parser< string>::merge (
+        this->options_file_, a.options_file_);
+      this->options_file_specified_ = true;
+    }
+
     if (a.default_options_specified_)
     {
       ::build2::cl::parser< dir_path>::merge (
@@ -1197,6 +1206,25 @@ namespace build2
        << "                      this option to specify multiple pager options." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--options-file\033[0m \033[4mfile\033[0m   Read additional options from \033[4mfile\033[0m. Each option should" << ::std::endl
+       << "                      appear on a separate line optionally followed by space or" << ::std::endl
+       << "                      equal sign (\033[1m=\033[0m) and an option value. Empty lines and lines" << ::std::endl
+       << "                      starting with \033[1m#\033[0m are ignored. Option values can be" << ::std::endl
+       << "                      enclosed in double (\033[1m\"\033[0m) or single (\033[1m'\033[0m) quotes to preserve" << ::std::endl
+       << "                      leading and trailing whitespaces as well as to specify" << ::std::endl
+       << "                      empty values. If the value itself contains trailing or" << ::std::endl
+       << "                      leading quotes, enclose it with an extra pair of quotes," << ::std::endl
+       << "                      for example \033[1m'\"x\"'\033[0m. Non-leading and non-trailing quotes" << ::std::endl
+       << "                      are interpreted as being part of the option value." << ::std::endl
+       << ::std::endl
+       << "                      The semantics of providing options in a file is" << ::std::endl
+       << "                      equivalent to providing the same set of options in the" << ::std::endl
+       << "                      same order on the command line at the point where the" << ::std::endl
+       << "                      \033[1m--options-file\033[0m option is specified except that the shell" << ::std::endl
+       << "                      escaping and quoting is not required. Repeat this option" << ::std::endl
+       << "                      to specify more than one options file." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--default-options\033[0m \033[4mdir\033[0m The directory to load additional default options files" << ::std::endl
        << "                      from." << ::std::endl;
 
@@ -1307,6 +1335,9 @@ namespace build2
       _cli_options_map_["--pager-option"] =
       &::build2::cl::thunk< options, strings, &options::pager_option_,
         &options::pager_option_specified_ >;
+      _cli_options_map_["--options-file"] =
+      &::build2::cl::thunk< options, string, &options::options_file_,
+        &options::options_file_specified_ >;
       _cli_options_map_["--default-options"] =
       &::build2::cl::thunk< options, dir_path, &options::default_options_,
         &options::default_options_specified_ >;

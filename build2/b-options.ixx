@@ -500,6 +500,18 @@ namespace build2
     return this->pager_option_specified_;
   }
 
+  inline const string& options::
+  options_file () const
+  {
+    return this->options_file_;
+  }
+
+  inline bool options::
+  options_file_specified () const
+  {
+    return this->options_file_specified_;
+  }
+
   inline const dir_path& options::
   default_options () const
   {

@@ -639,6 +639,29 @@ namespace build2
        specify multiple pager options."
     }
 
+    // The following option is "fake" in that it is actually handled by
+    // argv_file_scanner. We have it here for documentation.
+    //
+    string --options-file
+    {
+      "<file>",
+      "Read additional options from <file>. Each option should appear on a
+       separate line optionally followed by space or equal sign (\cb{=}) and
+       an option value. Empty lines and lines starting with \cb{#} are
+       ignored. Option values can be enclosed in double (\cb{\"}) or single
+       (\cb{'}) quotes to preserve leading and trailing whitespaces as well as
+       to specify empty values. If the value itself contains trailing or
+       leading quotes, enclose it with an extra pair of quotes, for example
+       \cb{'\"x\"'}. Non-leading and non-trailing quotes are interpreted as
+       being part of the option value.
+
+       The semantics of providing options in a file is equivalent to providing
+       the same set of options in the same order on the command line at the
+       point where the \cb{--options-file} option is specified except that
+       the shell escaping and quoting is not required. Repeat this option
+       to specify more than one options file."
+    }
+
     dir_path --default-options
     {
       "<dir>",

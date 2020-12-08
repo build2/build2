@@ -255,7 +255,7 @@ main (int argc, char* argv[])
     string args;
     try
     {
-      cl::argv_scanner scan (argc, argv);
+      cl::argv_file_scanner scan (argc, argv, "--options-file");
 
       size_t argn (0);       // Argument count.
       bool shortcut (false); // True if the shortcut syntax is used.
@@ -502,6 +502,7 @@ main (int argc, char* argv[])
                   trace << "loading " << (r ? "remote " : "local ") << f;
               }
             },
+            "--options-file",
             true /* args */));
 
         // Merge the default and command line options.
