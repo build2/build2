@@ -1134,7 +1134,8 @@ namespace build2
         string m;
         for (size_t b (0), e (0); !(m = next (mstr, b, e)).empty (); )
         {
-          // The format is <name>=<path>.
+          // The format is <name>=<path> with `..` used as a partition
+          // separator (see pkgconfig_save() for details).
           //
           size_t p (m.find ('='));
           if (p == string::npos ||
@@ -1152,6 +1153,11 @@ namespace build2
           //
           string pp (pc.variable ("cxx_module_preprocessed." + mn));
           string se (pc.variable ("cxx_module_symexport." + mn));
+
+          // Replace the partition separator.
+          //
+          if ((p = mn.find ("..")) != string::npos)
+            mn.replace (p, 2, 1, ':');
 
           // For now there are only C++ modules.
           //
@@ -1594,7 +1600,11 @@ namespace build2
           };
           vector<module> modules;
 
-          for (const target* pt: g.prerequisite_targets[a])
+          // Note that the prerequisite targets are in the member, not the
+          // group (for now we don't support different sets of modules for
+          // static/shared library; see load above for details).
+          //
+          for (const target* pt: l.prerequisite_targets[a])
           {
             // @@ UTL: we need to (recursively) see through libu*{} (and
             //    also in search_modules()).
@@ -1641,10 +1651,23 @@ namespace build2
             os << endl
                << "cxx_modules =";
 
-            // Module names shouldn't require escaping.
+            // The partition separator (`:`) is not a valid character in the
+            // variable name. In fact, from the pkg-config source we can see
+            // that the only valid special characters in variable names are
+            // `_` and `.`. So to represent partition separators we use `..`,
+            // for example hello.print..impl. While in the variable values we
+            // can use `:`, for consistency we use `..` there as well.
             //
-            for (const module& m: modules)
+            for (module& m: modules)
+            {
+              size_t p (m.name.find (':'));
+              if (p != string::npos)
+                m.name.replace (p, 1, 2, '.');
+
+              // Module names shouldn't require escaping.
+              //
               os << ' ' << m.name << '=' << escape (m.file.string ());
+            }
 
             os << endl;
 
