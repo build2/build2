@@ -609,6 +609,34 @@ namespace build2
       }
     }
 
+    // environment_vars
+    //
+    environment_vars::iterator environment_vars::
+    find (const string& var)
+    {
+      size_t n (var.find ('='));
+      if (n == string::npos)
+        n = var.size ();
+
+      return find_if (begin (), end (),
+                      [&var, n] (const string& v)
+                      {
+                        return v.compare (0, n, var, 0, n) == 0 &&
+                          (v[n] == '=' || v[n] == '\0');
+                      });
+    }
+
+    void environment_vars::
+    add (string var)
+    {
+      iterator i (find (var));
+
+      if (i != end ())
+        *i = move (var);
+      else
+        push_back (move (var));
+    }
+
     // redirect
     //
     redirect::
@@ -750,6 +778,72 @@ namespace build2
     clean_special (path p)
     {
       special_cleanups.emplace_back (move (p));
+    }
+
+    const environment_vars& environment::
+    exported_variables (environment_vars&)
+    {
+      return exported_vars;
+    }
+
+    const environment_vars& environment::
+    merge_exported_variables (const environment_vars& vars,
+                              environment_vars& storage)
+    {
+      const environment_vars& own (exported_variables (storage));
+
+      // If both, the own and the specified variable (un)sets are present,
+      // then merge them. Otherwise, return the own (un)sets, if present, or
+      // the specified (un)sets otherwise.
+      //
+      if (!own.empty () && !vars.empty ())
+      {
+        // Copy the own (un)sets into the storage, if they are not there yet.
+        //
+        if (&storage != &own)
+          storage = own;
+
+        for (const string& v: vars)
+          storage.add (v);
+
+        return storage;
+      }
+      else if (!own.empty ())
+        return own;
+      else
+        return vars;
+    }
+
+    // Helpers.
+    //
+    void
+    verify_environment_var_name (const string& name,
+                                 const char* opt,
+                                 const char* prefix,
+                                 const location& l)
+    {
+      if (name.empty ())
+        fail (l) << prefix << "empty value for option " << opt;
+
+      if (name.find ('=') != string::npos)
+        fail (l) << prefix << "invalid value '" << name << "' for option "
+                 << opt << ": contains '='";
+    }
+
+
+    void
+    verify_environment_var_assignment (const string& var,
+                                       const char* prefix,
+                                       const location& l)
+    {
+      size_t p (var.find ('='));
+
+      if (p == 0)
+        fail (l) << prefix << "empty variable name";
+
+      if (p == string::npos)
+        fail (l) << prefix << "expected variable assignment instead of '"
+                 << var << "'";
     }
   }
 }

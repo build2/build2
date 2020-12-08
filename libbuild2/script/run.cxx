@@ -764,10 +764,66 @@ namespace build2
       return false;
     }
 
+    // The export pseudo-builtin: add/remove the variables to/from the script
+    // commands execution environment and/or clear the previous additions/
+    // removals.
+    //
+    // export [-c|--clear <name>]... [-u|--unset <name>]... [<name>=<value>]...
+    //
+    static void
+    export_builtin (environment& env, const strings& args, const location& ll)
+    {
+      try
+      {
+        cli::vector_scanner scan (args);
+        export_options ops (scan);
+
+        // Validate a variable name.
+        //
+        auto verify_name = [&ll] (const string& name, const char* opt)
+        {
+          verify_environment_var_name (name, opt, "export: ", ll);
+        };
+
+        // Parse options (variable set/unset cleanups and unsets).
+        //
+        for (const string& v: ops.clear ())
+        {
+          verify_name (v, "-c|--clear");
+
+          environment_vars::iterator i (env.exported_vars.find (v));
+
+          if (i != env.exported_vars.end ())
+            env.exported_vars.erase (i);
+        }
+
+        for (string& v: ops.unset ())
+        {
+          verify_name (v, "-u|--unset");
+
+          env.exported_vars.add (move (v));
+        }
+
+        // Parse arguments (variable sets).
+        //
+        while (scan.more ())
+        {
+          string a (scan.next ());
+          verify_environment_var_assignment (a, "export: ", ll);
+
+          env.exported_vars.add (move (a));
+        }
+      }
+      catch (const cli::exception& e)
+      {
+        fail (ll) << "export: " << e;
+      }
+    }
+
     // The timeout pseudo-builtin: set the script timeout. See the script-
     // specific set_timeout() implementations for the exact semantics.
     //
-    // timeout [--success|-s] <timeout>
+    // timeout [-s|--success] <timeout>
     //
     static void
     timeout_builtin (environment& env,
@@ -1180,17 +1236,19 @@ namespace build2
       };
 
       // Prior to opening file descriptors for command input/output redirects
-      // let's check if the command is the timeout or exit builtin. Being a
-      // builtin syntactically they differ from the regular ones in a number
-      // of ways. They don't communicate with standard streams, so redirecting
-      // them is meaningless. They may appear only as a single command in a
-      // pipeline. They don't return any value, so checking their exit status
-      // is meaningless as well. That all means we can short-circuit here
-      // calling the builtin and bailing out right after that. Checking that
-      // the user didn't specify any variables, timeout, redirects, or exit
-      // code check sounds like a right thing to do.
+      // let's check if the command is the exit, export, or timeout
+      // builtin. Being a builtin syntactically they differ from the regular
+      // ones in a number of ways. They don't communicate with standard
+      // streams, so redirecting them is meaningless. They may appear only as
+      // a single command in a pipeline. They don't return any value, so
+      // checking their exit status is meaningless as well. That all means we
+      // can short-circuit here calling the builtin and bailing out right
+      // after that. Checking that the user didn't specify any variables,
+      // timeout, redirects, or exit code check sounds like a right thing to
+      // do.
       //
-      if (resolve && (program == "timeout" || program == "exit"))
+      if (resolve &&
+          (program == "exit" || program == "export" || program == "timeout"))
       {
         // In case the builtin is erroneously pipelined from the other
         // command, we will close stdin gracefully (reading out the stream
@@ -1233,13 +1291,20 @@ namespace build2
         if (verb >= 2)
           print_process (process_args ());
 
-        if (program == "timeout")
+        if (program == "exit")
+        {
+          exit_builtin (c.arguments, ll); // Throws exit exception.
+        }
+        else if (program == "export")
+        {
+          export_builtin (env, c.arguments, ll);
+          return true;
+        }
+        else if (program == "timeout")
         {
           timeout_builtin (env, c.arguments, ll);
           return true;
         }
-        else if (program == "exit")
-          exit_builtin (c.arguments, ll); // Throws exit exception.
         else
           assert (false);
       }
@@ -2056,9 +2121,14 @@ namespace build2
                            ? process::path_search (args[0])
                            : process_path ());
 
+          environment_vars vss;
+          const environment_vars& vs (
+            env.merge_exported_variables (c.variables, vss));
+
           // Note that CWD and builtin-escaping character '^' are not printed.
           //
-          process_env pe (resolve ? pp : c.program, c.variables);
+          const small_vector<string, 4>& evs (vs);
+          process_env pe (resolve ? pp : c.program, evs);
 
           if (verb >= 2)
             print_process (pe, args);

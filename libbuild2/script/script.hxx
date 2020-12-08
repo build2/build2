@@ -295,10 +295,25 @@ namespace build2
 
     // command
     //
-    // Align with butl::process_env, assuming it is not very common to (un)set
-    // more than two variables.
+    // Assume it is not very common to (un)set more than a few environment
+    // variables in the script.
     //
-    using environment_vars = small_vector<string, 2>;
+    struct environment_vars: small_vector<string, 4>
+    {
+      // Find a variable (un)set.
+      //
+      // Note that only the variable name is considered for both arguments. In
+      // other words, passing a variable set as a first argument can result
+      // with a variable unset being found and vice versa.
+      //
+      environment_vars::iterator
+      find (const string&);
+
+      // Add or overwrite an existing variable (un)set.
+      //
+      void
+      add (string);
+    };
 
     struct command
     {
@@ -492,6 +507,29 @@ namespace build2
       void
       clean_special (path);
 
+      // Command execution environment variables.
+      //
+    public:
+      // Environment variable (un)sets from the export builtin call.
+      //
+      // Each variable in the list can only be present once.
+      //
+      environment_vars exported_vars;
+
+      // Return the environment variable (un)sets which can potentially rely
+      // on factors besides the export builtin call sequence (scoping,
+      // etc). The default implementation returns exported_vars.
+      //
+      virtual const environment_vars&
+      exported_variables (environment_vars& storage);
+
+      // Merge the own environment variable (un)sets with the specified ones,
+      // overriding the former with the latter.
+      //
+      const environment_vars&
+      merge_exported_variables (const environment_vars&,
+                                environment_vars& storage);
+
     public:
       // Set variable value with optional (non-empty) attributes.
       //
@@ -528,6 +566,22 @@ namespace build2
       virtual
       ~environment () = default;
     };
+
+    // Helpers.
+    //
+    // Issue diagnostics with the specified prefix and fail if the string is
+    // not a valid variable name or assignment (empty, etc).
+    //
+    void
+    verify_environment_var_name (const string&,
+                                 const char* opt,
+                                 const char* prefix,
+                                 const location&);
+
+    void
+    verify_environment_var_assignment (const string&,
+                                       const char* prefix,
+                                       const location&);
   }
 }
 

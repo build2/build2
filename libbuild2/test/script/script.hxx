@@ -30,6 +30,7 @@ namespace build2
       using build2::script::command_expr;
       using build2::script::expr_term;
       using build2::script::command;
+      using build2::script::environment_vars;
       using build2::script::deadline;
       using build2::script::timeout;
 
@@ -109,6 +110,12 @@ namespace build2
                       names&&,
                       const string& attrs,
                       const location&) override;
+
+        // Merge the command execution environment variable (un)sets from this
+        // and outer scopes.
+        //
+        virtual const environment_vars&
+        exported_variables (environment_vars& storage) override;
 
         // Noop since the temporary directory is a working directory and so
         // is created before the scope commands execution.

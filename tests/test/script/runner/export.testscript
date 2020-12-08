@@ -1,0 +1,133 @@
+# file      : tests/test/script/runner/export.testscript
+# license   : MIT; see accompanying LICENSE file
+
+.include ../common.testscript
+
+: group
+:
+{
+  : add
+  :
+  $c <<EOI && $b
+    {
+      +export foo=bar
+
+      $* -v foo >'bar'
+    }
+    EOI
+
+  : change
+  :
+  $c <<EOI && $b
+    {
+      +export foo=bar
+      +export foo=baz
+
+      $* -v foo >'baz'
+    }
+    EOI
+
+  : remove
+  :
+  $c <<EOI && $b
+    {
+      +export foo=bar
+      +export --unset foo
+
+      $* -v foo >'<none>'
+    }
+    EOI
+
+  : clear
+  :
+  {
+    : added
+    :
+    $c <<EOI && $b
+      {
+        +export foo=bar
+        +export --clear foo
+
+        $* -v foo >'<none>'
+      }
+      EOI
+
+    : removed
+    :
+    $c <<EOI && $b
+      {
+        +export foo=bar
+        +export --unset foo
+        +export --clear foo
+
+        $* -v foo >'<none>'
+      }
+      EOI
+
+    : non-existent
+    :
+    $c <<EOI && $b
+      {
+        +export --clear foo
+
+        $* -v foo >'<none>'
+      }
+      EOI
+  }
+
+  : override
+  :
+  $c <<EOI && $b
+    +export foo=bar
+
+    {
+      +export --unset foo
+
+      export foo=baz;
+      $* -v foo >'baz'
+
+      -$* -v foo >'<none>'
+    }
+
+    -$* -v foo >'bar'
+    EOI
+}
+
+: test
+:
+{
+  : override
+  :
+  $c <<EOI && $b
+    {
+      export foo=bar;
+      env foo=baz -- $* -v foo >'baz';
+      $* -v foo >'bar'
+    }
+    EOI
+}
+
+: invalid
+:
+{
+  : set
+  :
+  $c <'export foo' && $b 2>>~%EOE% != 0
+    testscript:1:1: error: export: expected variable assignment instead of 'foo'
+    %.+
+    EOE
+
+  : unset
+  :
+  $c <'export --unset foo=abc' && $b 2>>~%EOE% != 0
+    testscript:1:1: error: export: invalid value 'foo=abc' for option -u|--unset: contains '='
+    %.+
+    EOE
+
+  : clear
+  :
+  $c <'export --clear foo=abc' && $b 2>>~%EOE% != 0
+    testscript:1:1: error: export: invalid value 'foo=abc' for option -c|--clear: contains '='
+    %.+
+    EOE
+}

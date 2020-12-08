@@ -173,6 +173,14 @@ namespace build2
           reset_special ();
       }
 
+      const environment_vars& scope::
+      exported_variables (environment_vars& storage)
+      {
+        return parent != nullptr
+               ? parent->merge_exported_variables (exported_vars, storage)
+               : exported_vars;
+      }
+
       // script_base
       //
       script_base::

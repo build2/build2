@@ -1,6 +1,8 @@
 // file      : libbuild2/script/builtin.cli
 // license   : MIT; see accompanying LICENSE file
 
+include <libbuild2/types.hxx>;
+
 // Note that options in this file are undocumented because we generate neither
 // the usage printing code nor man pages. Instead, they are documented in the
 // Testscript Language Manual's builtin descriptions.
@@ -21,6 +23,12 @@ namespace build2
     class timeout_options
     {
       bool --success|-s;
+    };
+
+    class export_options
+    {
+      vector<string> --unset|-u;
+      vector<string> --clear|-c;
     };
   }
 }

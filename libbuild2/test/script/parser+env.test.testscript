@@ -31,7 +31,7 @@
   : invalid-val
   :
   $* <'env --unset=a=b -- cmd' 2>>EOE != 0
-    testscript:1:5: error: env: invalid value 'a=b' for option '--unset': contains '='
+    testscript:1:5: error: env: invalid value 'a=b' for option --unset: contains '='
     EOE
 
   : no-sep

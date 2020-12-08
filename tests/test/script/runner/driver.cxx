@@ -66,8 +66,8 @@ main (int argc, char* argv[])
   //    if required.
   //
   // -v <name>
-  //    If the specified variable is set the print its value to stdout and the
-  //    string '<none>' otherwise.
+  //    If the specified variable is set then print its value to stdout and
+  //    the string '<none>' otherwise.
   //
   // -l <sec>
   //    Sleep the specified number of seconds.

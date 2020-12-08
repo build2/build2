@@ -1437,36 +1437,22 @@ namespace build2
         }
         else if (optional<string> v = str ("--unset", "-u"))
         {
-          if (v->find ('=') != string::npos)
-            fail (i->second) << "env: invalid value '" << *v << "' for "
-                             << "option '" << o << "': contains '='";
+          verify_environment_var_name (*v, o.c_str (), "env: ", i->second);
 
-          r.variables.push_back (move (*v));
+          r.variables.add (move (*v));
         }
         else
           break;
       }
 
-      // Parse the variable sets (from arguments).
+      // Parse arguments (variable sets).
       //
       for (; i != e; ++i)
       {
         string& a (i->first);
+        verify_environment_var_assignment (a, "env: ", i->second);
 
-        // Validate the variable assignment.
-        //
-        size_t p (a.find ('='));
-
-        if (p == string::npos)
-          fail (i->second)
-            << "env: expected variable assignment instead of '" << a << "'";
-
-        if (p == 0)
-          fail (i->second) << "env: empty variable name";
-
-        // Add the variable set to the resulting list.
-        //
-        r.variables.push_back (move (a));
+        r.variables.add (move (a));
       }
 
       return r;

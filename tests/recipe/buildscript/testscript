@@ -1,6 +1,8 @@
 # file      : tests/recipe/buildscript/testscript
 # license   : MIT; see accompanying LICENSE file
 
+posix = ($cxx.target.class != 'windows')
+
 +mkdir build
 +cat <<EOI >=build/bootstrap.build
   project = test
@@ -124,6 +126,37 @@
       buildfile:6:10: error: use of untracked variable 'a'
         info: use the 'depdb' builtin to manually track it
       %.+
+      EOE
+
+    $* clean 2>-
+  }
+
+  : export
+  :
+  if $posix
+  {
+    cat <<EOI >=bar;
+      #!/bin/sh
+      echo "$message"
+      EOI
+
+    cat <<EOI >=buildfile;
+      exe{foo}: bar
+      {{
+        cp $path($<) $path($>)
+      }}
+      % test
+      {{
+        diag test $>
+        export message=text1
+        $> >>>?'text1'
+        env message=text2 -- $> >>>?'text2'
+      }}
+      EOI
+
+    $* test 2>>EOE;
+      cp exe{foo}
+      test exe{foo.}
       EOE
 
     $* clean 2>-
@@ -442,7 +475,7 @@
 
   : runner
   :
-  if ($cxx.target.class != 'windows')
+  if $posix
   {
     echo 'bar' >=bar;
 
@@ -512,7 +545,7 @@
 
 : timeout
 :
-if ($cxx.target.class != 'windows')
+if $posix
 {
   : update
   :

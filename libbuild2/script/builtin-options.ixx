@@ -162,16 +162,52 @@ namespace build2
       return this->exact_;
     }
 
+    inline bool& set_options::
+    exact ()
+    {
+      return this->exact_;
+    }
+
+    inline void set_options::
+    exact (const bool& x)
+    {
+      this->exact_ = x;
+    }
+
     inline const bool& set_options::
     newline () const
     {
       return this->newline_;
     }
 
+    inline bool& set_options::
+    newline ()
+    {
+      return this->newline_;
+    }
+
+    inline void set_options::
+    newline (const bool& x)
+    {
+      this->newline_ = x;
+    }
+
     inline const bool& set_options::
     whitespace () const
     {
       return this->whitespace_;
+    }
+
+    inline bool& set_options::
+    whitespace ()
+    {
+      return this->whitespace_;
+    }
+
+    inline void set_options::
+    whitespace (const bool& x)
+    {
+      this->whitespace_ = x;
     }
 
     // timeout_options
@@ -181,6 +217,81 @@ namespace build2
     success () const
     {
       return this->success_;
+    }
+
+    inline bool& timeout_options::
+    success ()
+    {
+      return this->success_;
+    }
+
+    inline void timeout_options::
+    success (const bool& x)
+    {
+      this->success_ = x;
+    }
+
+    // export_options
+    //
+
+    inline const vector<string>& export_options::
+    unset () const
+    {
+      return this->unset_;
+    }
+
+    inline vector<string>& export_options::
+    unset ()
+    {
+      return this->unset_;
+    }
+
+    inline void export_options::
+    unset (const vector<string>& x)
+    {
+      this->unset_ = x;
+    }
+
+    inline bool export_options::
+    unset_specified () const
+    {
+      return this->unset_specified_;
+    }
+
+    inline void export_options::
+    unset_specified (bool x)
+    {
+      this->unset_specified_ = x;
+    }
+
+    inline const vector<string>& export_options::
+    clear () const
+    {
+      return this->clear_;
+    }
+
+    inline vector<string>& export_options::
+    clear ()
+    {
+      return this->clear_;
+    }
+
+    inline void export_options::
+    clear (const vector<string>& x)
+    {
+      this->clear_ = x;
+    }
+
+    inline bool export_options::
+    clear_specified () const
+    {
+      return this->clear_specified_;
+    }
+
+    inline void export_options::
+    clear_specified (bool x)
+    {
+      this->clear_specified_ = x;
     }
   }
 }

@@ -257,6 +257,8 @@ namespace build2
   }
 }
 
+#include <libbuild2/types.hxx>
+
 namespace build2
 {
   namespace script
@@ -298,16 +300,34 @@ namespace build2
                    ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
                    ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
 
-      // Option accessors.
+      // Option accessors and modifiers.
       //
       const bool&
       exact () const;
 
+      bool&
+      exact ();
+
+      void
+      exact (const bool&);
+
       const bool&
       newline () const;
 
+      bool&
+      newline ();
+
+      void
+      newline (const bool&);
+
       const bool&
       whitespace () const;
+
+      bool&
+      whitespace ();
+
+      void
+      whitespace (const bool&);
 
       // Implementation details.
       //
@@ -364,10 +384,16 @@ namespace build2
                        ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
                        ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
 
-      // Option accessors.
+      // Option accessors and modifiers.
       //
       const bool&
       success () const;
+
+      bool&
+      success ();
+
+      void
+      success (const bool&);
 
       // Implementation details.
       //
@@ -383,6 +409,94 @@ namespace build2
 
       public:
       bool success_;
+    };
+
+    class export_options
+    {
+      public:
+      export_options ();
+
+      export_options (int& argc,
+                      char** argv,
+                      bool erase = false,
+                      ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                      ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      export_options (int start,
+                      int& argc,
+                      char** argv,
+                      bool erase = false,
+                      ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                      ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      export_options (int& argc,
+                      char** argv,
+                      int& end,
+                      bool erase = false,
+                      ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                      ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      export_options (int start,
+                      int& argc,
+                      char** argv,
+                      int& end,
+                      bool erase = false,
+                      ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                      ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      export_options (::build2::script::cli::scanner&,
+                      ::build2::script::cli::unknown_mode option = ::build2::script::cli::unknown_mode::fail,
+                      ::build2::script::cli::unknown_mode argument = ::build2::script::cli::unknown_mode::stop);
+
+      // Option accessors and modifiers.
+      //
+      const vector<string>&
+      unset () const;
+
+      vector<string>&
+      unset ();
+
+      void
+      unset (const vector<string>&);
+
+      bool
+      unset_specified () const;
+
+      void
+      unset_specified (bool);
+
+      const vector<string>&
+      clear () const;
+
+      vector<string>&
+      clear ();
+
+      void
+      clear (const vector<string>&);
+
+      bool
+      clear_specified () const;
+
+      void
+      clear_specified (bool);
+
+      // Implementation details.
+      //
+      protected:
+      bool
+      _parse (const char*, ::build2::script::cli::scanner&);
+
+      private:
+      bool
+      _parse (::build2::script::cli::scanner&,
+              ::build2::script::cli::unknown_mode option,
+              ::build2::script::cli::unknown_mode argument);
+
+      public:
+      vector<string> unset_;
+      bool unset_specified_;
+      vector<string> clear_;
+      bool clear_specified_;
     };
   }
 }
