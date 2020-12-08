@@ -462,12 +462,28 @@ namespace build2
 
             if (oi->search_func != 0)
             {
-              std::string f (oi->search_func (s2.c_str (), oi->arg));
+              string f (oi->search_func (s2.c_str (), oi->arg));
               if (!f.empty ())
                 load (f);
             }
             else
+            {
+              // If the path of the file being parsed is not simple and the
+              // path of the file that needs to be loaded is relative, then
+              // complete the latter using the former as a base.
+              //
+#ifndef _WIN32
+              string::size_type p (file.find_last_of ('/'));
+              bool c (p != string::npos && s2[0] != '/');
+#else
+              string::size_type p (file.find_last_of ("/\\"));
+              bool c (p != string::npos && s2[1] != ':');
+#endif
+              if (c)
+                s2.insert (0, file, 0, p + 1);
+
               load (s2);
+            }
 
             continue;
           }
