@@ -54,14 +54,14 @@
   : missing
   :
   $c <'timeout' && $b 2>>~%EOE% != 0
-    testscript:1:1: error: missing timeout
+    testscript:1:1: error: timeout: missing timeout
     %.
     EOE
 
   : invalid
   :
   $c <'timeout foo' && $b 2>>~%EOE% != 0
-    testscript:1:1: error: invalid test fragment timeout 'foo'
+    testscript:1:1: error: timeout: invalid test fragment timeout 'foo'
     %.
     EOE
 }
@@ -121,7 +121,7 @@
         +timeout foo/
       }
       EOI
-      testscript:2:4: error: invalid test group timeout 'foo'
+      testscript:2:4: error: timeout: invalid test group timeout 'foo'
       %.
       EOE
   }
@@ -176,7 +176,7 @@
         +timeout /foo
       }
       EOI
-      testscript:2:4: error: invalid test timeout 'foo'
+      testscript:2:4: error: timeout: invalid test timeout 'foo'
       %.
       EOE
   }
@@ -229,7 +229,7 @@
     $c <<EOI && $b 2>>~%EOE% != 0
       +timeout foo/
       EOI
-      testscript:1:2: error: invalid testscript timeout 'foo'
+      testscript:1:2: error: timeout: invalid testscript timeout 'foo'
       %.
       EOE
 
@@ -300,7 +300,7 @@
         +timeout /foo
       }
       EOI
-      testscript:2:4: error: invalid test timeout 'foo'
+      testscript:2:4: error: timeout: invalid test timeout 'foo'
       %.
       EOE
   }

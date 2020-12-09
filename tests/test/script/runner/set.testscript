@@ -52,7 +52,7 @@
   : both-newline-whitespace
   :
   $c <'set -nw' && $b 2>>EOE != 0
-  testscript:1:1: error: both -n|--newline and -w|--whitespace specified
+  testscript:1:1: error: set: both -n|--newline and -w|--whitespace specified
     info: test id: 1
   EOE
 }
@@ -63,28 +63,28 @@
   : none
   :
   $c <'set -e' && $b 2>>EOE != 0
-  testscript:1:1: error: missing variable name
+  testscript:1:1: error: set: missing variable name
     info: test id: 1
   EOE
 
   : unexpected
   :
   $c <'set foo bar baz' && $b 2>>EOE != 0
-  testscript:1:1: error: unexpected argument 'baz'
+  testscript:1:1: error: set: unexpected argument 'baz'
     info: test id: 1
   EOE
 
   : empty-attrs
   :
   $c <"set '' baz" && $b 2>>EOE != 0
-  testscript:1:1: error: empty variable attributes
+  testscript:1:1: error: set: empty variable attributes
     info: test id: 1
   EOE
 
   : empty-var
   :
   $c <"set ''" && $b 2>>EOE != 0
-  testscript:1:1: error: empty variable name
+  testscript:1:1: error: set: empty variable name
     info: test id: 1
   EOE
 }

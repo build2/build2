@@ -4,9 +4,12 @@
 namespace build2
 {
   inline optional<timestamp>
-  parse_deadline (const string& s, const char* what, const location& l)
+  parse_deadline (const string& s,
+                  const char* what,
+                  const char* prefix,
+                  const location& l)
   {
-    if (optional<duration> t = parse_timeout (s, what, l))
+    if (optional<duration> t = parse_timeout (s, what, prefix, l))
       return system_clock::now () + *t;
     else
       return nullopt;

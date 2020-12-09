@@ -782,12 +782,12 @@ namespace build2
         timeout_options ops (scan);
 
         if (!scan.more ())
-          fail (ll) << "missing timeout";
+          fail (ll) << "timeout: missing timeout";
 
         string a (scan.next ());
 
         if (scan.more ())
-          fail (ll) << "unexpected argument '" << scan.next () << "'";
+          fail (ll) << "timeout: unexpected argument '" << scan.next () << "'";
 
         env.set_timeout (a, ops.success (), ll);
       }
@@ -820,7 +820,7 @@ namespace build2
       const string& s (*i++);
 
       if (i != e)
-        fail (ll) << "unexpected argument '" << *i << "'";
+        fail (ll) << "exit: unexpected argument '" << *i << "'";
 
       error (ll) << s;
       throw exit (false);
@@ -861,23 +861,23 @@ namespace build2
         set_options ops (scan);
 
         if (ops.whitespace () && ops.newline ())
-          fail (ll) << "both -n|--newline and -w|--whitespace specified";
+          fail (ll) << "set: both -n|--newline and -w|--whitespace specified";
 
         if (!scan.more ())
-          fail (ll) << "missing variable name";
+          fail (ll) << "set: missing variable name";
 
         string a (scan.next ()); // Either attributes or variable name.
         const string* ats (!scan.more () ? nullptr : &a);
         string vname (!scan.more () ? move (a) : scan.next ());
 
         if (scan.more ())
-          fail (ll) << "unexpected argument '" << scan.next () << "'";
+          fail (ll) << "set: unexpected argument '" << scan.next () << "'";
 
         if (ats != nullptr && ats->empty ())
-          fail (ll) << "empty variable attributes";
+          fail (ll) << "set: empty variable attributes";
 
         if (vname.empty ())
-          fail (ll) << "empty variable name";
+          fail (ll) << "set: empty variable name";
 
         // Read out the stream content into a string while keeping an eye on
         // the deadline. Then parse it according to the split mode.

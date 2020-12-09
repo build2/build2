@@ -10,12 +10,13 @@
 namespace build2
 {
   // Parse the specified in seconds timeout returning it if the value is not
-  // zero and nullopt otherwise. Issue diagnostics and fail if the argument is
-  // not a valid timeout.
+  // zero and nullopt otherwise. Issue diagnostics with an optional prefix and
+  // fail if the argument is not a valid timeout.
   //
   optional<duration>
   parse_timeout (const string&,
                  const char* what,
+                 const char* prefix = "",
                  const location& = location ());
 
   // As above, but return the timepoint which is away from now by the
@@ -24,6 +25,7 @@ namespace build2
   optional<timestamp>
   parse_deadline (const string&,
                   const char* what,
+                  const char* prefix = "",
                   const location& = location ());
 
   // Return the earlier timeout/deadline of two values, if any is present.

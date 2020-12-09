@@ -480,6 +480,7 @@ namespace build2
                         : "testscript timeout");
 
         const char* tt ("test timeout");
+        const char* pf ("timeout: ");
 
         size_t p (t.find ('/'));
         if (p != string::npos)
@@ -491,15 +492,17 @@ namespace build2
 
           if (p != 0)
             group_deadline =
-              to_deadline (parse_deadline (string (t, 0, p), gt, l),
+              to_deadline (parse_deadline (string (t, 0, p), gt, pf, l),
                            success);
 
           if (p != t.size () - 1)
             test_timeout =
-              to_timeout (parse_timeout (string (t, p + 1), tt, l), success);
+              to_timeout (parse_timeout (string (t, p + 1), tt, pf, l),
+                          success);
         }
         else
-          group_deadline = to_deadline (parse_deadline (t, gt, l), success);
+          group_deadline = to_deadline (parse_deadline (t, gt, pf, l),
+                                        success);
       }
 
       optional<deadline> group::
@@ -516,8 +519,9 @@ namespace build2
       set_timeout (const string& t, bool success, const location& l)
       {
         fragment_deadline =
-          to_deadline (parse_deadline (t, "test fragment timeout", l),
-                       success);
+          to_deadline (
+            parse_deadline (t, "test fragment timeout", "timeout: ", l),
+            success);
       }
 
       optional<deadline> test::

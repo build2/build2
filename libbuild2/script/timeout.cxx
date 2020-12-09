@@ -12,7 +12,10 @@ using namespace std;
 namespace build2
 {
   optional<duration>
-  parse_timeout (const string& s, const char* what, const location& l)
+  parse_timeout (const string& s,
+                 const char* what,
+                 const char* prefix,
+                 const location& l)
   {
     if (optional<uint64_t> n = parse_number (s))
     {
@@ -21,6 +24,6 @@ namespace build2
         : optional<duration> ();
     }
     else
-      fail (l) << "invalid " << what << " '" << s << "'" << endf;
+      fail (l) << prefix << "invalid " << what << " '" << s << "'" << endf;
   }
 }

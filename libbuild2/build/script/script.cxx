@@ -253,8 +253,9 @@ namespace build2
       set_timeout (const string& t, bool success, const location& l)
       {
         fragment_deadline =
-          to_deadline (parse_deadline (t, "buildscript timeout", l),
-                       success);
+          to_deadline (
+            parse_deadline (t, "buildscript timeout", "timeout: ", l),
+            success);
       }
 
       optional<deadline> environment::
