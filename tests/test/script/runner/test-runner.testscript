@@ -22,10 +22,36 @@ run=$~/run
 
 : basic
 :
-$c <<"EOI" && $b "config.test.runner=$run --trace"
-  cat <'text' >'text';   # Non-test program.
-  \$* -o 'text' >>~%EOO%  # Test program.
+$c <<EOI && $b "config.test.runner=$run --trace"
+  +cat <'text' >'text'         # Non-test program.
+
+  +$* -o 'text' >>~%EOO%       # Test program.
     %.+/driver -o text%
     text
     EOO
+
+  {
+    prog = $0
+    test=cat
+
+    +cat <'text' >>EOO         # Test program.
+      cat
+      text
+      EOO
+
+    +$prog -o 'text' >>~%EOO%  # Non-test program.
+      text
+      EOO
+
+    test=$prog
+
+    {
+      cat <'text' >'text';     # Non-test program.
+
+      $* -o 'text' >>~%EOO%    # Test program.
+        %.+/driver -o text%
+        text
+        EOO
+    }
+  }
   EOI

@@ -95,6 +95,15 @@ namespace build2
 
         scope_state state = scope_state::unknown;
 
+        // Test program paths.
+        //
+        // Currently always contains a single element (see test_program() for
+        // details). While in the future there can be more of them, the zero
+        // index will always refer to the test variable value and can
+        // potentially be NULL (see reset_special() for details).
+        //
+        small_vector<const path*, 1> test_programs;
+
         void
         set_variable (string&& name,
                       names&&,
@@ -174,15 +183,6 @@ namespace build2
         location end_loc_;
 
         optional<line> if_cond_;
-
-        // Test program paths.
-        //
-        // Currently always contains a single element (see test_program() for
-        // details). While in the future there can be more of them, the zero
-        // index will always refer to the test variable value and can
-        // potentially be NULL (see reset_special() for details).
-        //
-        small_vector<const path*, 1> test_programs_;
       };
 
       // group

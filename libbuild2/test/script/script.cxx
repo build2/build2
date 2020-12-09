@@ -94,37 +94,24 @@ namespace build2
           const_cast<path&> (id_path) = path (move (s));
         }
 
-        // Calculate the working directory path and the test programs set
-        // unless this is the root scope (handled in an ad hoc way).
+        // Calculate the working directory path unless this is the root scope
+        // (handled in an ad hoc way).
         //
         if (p != nullptr)
-        {
           const_cast<dir_path&> (*work_dir.path) =
             dir_path (*p->work_dir.path) /= id;
-
-          // Note that we could probably keep the test programs sets fully
-          // independent across the scopes and check if the program is a test
-          // by traversing the scopes upwards recursively. Note though, that
-          // the parent scope's set cannot change during the nested scope
-          // lifetime and normally contains just a single entry. Thus, it
-          // seems more efficient to get rid of the recursion by copying the
-          // set from the parent now and potentially changing it later on the
-          // test variable assignment, etc.
-          //
-          test_programs_ = p->test_programs_;
-        }
       }
 
       bool scope::
       test_program (const path& p)
       {
-        assert (!test_programs_.empty ());
+        assert (!test_programs.empty ());
 
-        return find_if (test_programs_.begin (), test_programs_.end (),
+        return find_if (test_programs.begin (), test_programs.end (),
                         [&p] (const path* tp)
                         {
                           return tp != nullptr ? *tp == p : false;
-                        }) != test_programs_.end ();
+                        }) != test_programs.end ();
       }
 
       void scope::
@@ -319,7 +306,7 @@ namespace build2
         // variable. Note that the value will be assigned by the below
         // reset_special() call.
         //
-        test_programs_.push_back (nullptr);
+        test_programs.push_back (nullptr);
 
         // Set the special $*, $N variables.
         //
@@ -430,7 +417,7 @@ namespace build2
           const path& p (cast<path> (l));
           s.push_back (p.representation ());
 
-          test_programs_[0] = &p;
+          test_programs[0] = &p;
 
           if (auto l = lookup (root.options_var))
             append (cast<strings> (l));
@@ -439,7 +426,7 @@ namespace build2
             append (cast<strings> (l));
         }
         else
-          test_programs_[0] = nullptr;
+          test_programs[0] = nullptr;
 
         // Keep redirects/cleanups out of $N.
         //

@@ -41,6 +41,18 @@ namespace build2
             dr << info << "test id: " << sp.id_path.posix_string ();
           });
 
+        // Note that we could probably keep the test programs sets fully
+        // independent across the scopes and check if the program is a test by
+        // traversing the scopes upwards recursively. Note though, that the
+        // parent scope's set cannot change during the nested scope execution
+        // and normally contains just a single entry. Thus, it seems more
+        // efficient to get rid of the recursion by copying the set from the
+        // parent now and potentially changing it later on the test variable
+        // assignment, etc.
+        //
+        if (sp.parent != nullptr)
+          sp.test_programs = sp.parent->test_programs;
+
         // Scope working directory shall be empty (the script working
         // directory is cleaned up by the test rule prior the script
         // execution).
