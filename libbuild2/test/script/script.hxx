@@ -303,11 +303,26 @@ namespace build2
         variable_pool var_pool;
         mutable shared_mutex var_pool_mutex;
 
+        // Used to compose a test command.
+        //
+        // Changing any of their values requires resetting the $* and $N
+        // special aliases.
+        //
         const variable& test_var;      // test
         const variable& options_var;   // test.options
         const variable& arguments_var; // test.arguments
         const variable& redirects_var; // test.redirects
         const variable& cleanups_var;  // test.cleanups
+
+        bool
+        test_command_var (const string& name) const
+        {
+          return name == test_var.name      ||
+                 name == options_var.name   ||
+                 name == arguments_var.name ||
+                 name == redirects_var.name ||
+                 name == cleanups_var.name;
+        }
 
         const variable& wd_var;       // $~
         const variable& id_var;       // $@

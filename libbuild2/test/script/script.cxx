@@ -181,6 +181,9 @@ namespace build2
                                     token_type::assign,
                                     path_name ("<attributes>"));
         }
+
+        if (root.test_command_var (var.name))
+          reset_special ();
       }
 
       // script_base

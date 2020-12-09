@@ -269,6 +269,15 @@
   }
 }
 
+: special-vars
+:
+{
+  $c <<EOI && $b
+    set -w test.options <'-o foo';
+    $* >'foo'
+    EOI
+}
+
 : deadline
 :
 {
