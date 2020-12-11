@@ -116,12 +116,23 @@ namespace build2
       //
       // If unspecified, defaults to false for liba{} and to true for libu*{}.
       //
-      vp.insert<bool>      ("bin.whole", variable_visibility::target);
+      vp.insert<bool> ("bin.whole", variable_visibility::target);
 
-      vp.insert<string>    ("bin.exe.prefix");
-      vp.insert<string>    ("bin.exe.suffix");
-      vp.insert<string>    ("bin.lib.prefix");
-      vp.insert<string>    ("bin.lib.suffix");
+      // Mark library as binless.
+      //
+      // For example, the user can mark a C++ library consisting of only
+      // module interfaces as binless so it becomes a modules equivalent to
+      // header-only library (which we will call a module interface-only
+      // library).
+      //
+      vp.insert<bool> ("bin.binless", variable_visibility::target);
+
+      // Executable and library name prefixes and suffixes.
+      //
+      vp.insert<string> ("bin.exe.prefix");
+      vp.insert<string> ("bin.exe.suffix");
+      vp.insert<string> ("bin.lib.prefix");
+      vp.insert<string> ("bin.lib.suffix");
 
       // The optional custom clean patterns should be just the pattern stem,
       // without the library prefix/name or extension. For example, `-[A-Z]`

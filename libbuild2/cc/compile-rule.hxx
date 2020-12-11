@@ -166,7 +166,7 @@ namespace build2
       find_modules_sidebuild (const scope&) const;
 
       const file&
-      make_module_sidebuild (action, const scope&, const target&,
+      make_module_sidebuild (action, const scope&, const file&,
                              const target&, const string&) const;
 
       const file&

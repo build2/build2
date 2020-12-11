@@ -704,12 +704,16 @@ namespace build2
           }
         }
 
-        // If we are compiling a BMI-producing module TU, then the obj*{} is
-        // an ad hoc member of bmi*{}. For now neither GCC nor Clang produce
-        // an object file for a header unit (but something tells me this is
-        // going to change).
+        // If we are compiling a BMI-producing module TU, then add obj*{} an
+        // ad hoc member of bmi*{} unless we only need the BMI (see
+        // config_data::b_binless for details).
         //
-        if (ut == unit_type::module_intf) // Note: still unrefined.
+        // For now neither GCC nor Clang produce an object file for a header
+        // unit (but something tells me this might change).
+        //
+        // Note: ut is still unrefined.
+        //
+        if (ut == unit_type::module_intf && cast_true<bool> (t[b_binless]))
         {
           // The module interface unit can be the same as an implementation
           // (e.g., foo.mxx and foo.cxx) which means obj*{} targets could
@@ -5404,8 +5408,8 @@ namespace build2
       // implicit import, if you will). Do you see where it's going? Nowever
       // good, that's right. This shallow reference means that the compiler
       // should be able to find BMIs for all the re-exported modules,
-      // recursive. The good news is we are actually in a pretty good shape to
-      // handle this: after match all our prerequisite BMIs will have their
+      // recursively. The good news is we are actually in a pretty good shape
+      // to handle this: after match all our prerequisite BMIs will have their
       // prerequisite BMIs known, recursively. The only bit that is missing is
       // the re-export flag of some sorts. As well as deciding where to handle
       // it: here or in append_module_options(). After some meditation it
@@ -5422,6 +5426,8 @@ namespace build2
       //    position. One bad aspect about this part is that we assume those
       //    bmi{}s have been matched by the same rule. But let's not kid
       //    ourselves, there will be no other rule that matches bmi{}s.
+      //
+      //    @@ I think now we could use prerequisite_targets::data for this?
       //
       // 2. Once we have matched all the bmi{}s we are importing directly
       //    (with all the re-exported by us at the back), we will go over them
@@ -5553,12 +5559,12 @@ namespace build2
 
         if (pt != nullptr)
         {
-          const target* lt (nullptr);
+          const file* lt (nullptr);
 
           if (const libx* l = pt->is_a<libx> ())
             lt = link_member (*l, a, li);
           else if (pt->is_a<liba> () || pt->is_a<libs> () || pt->is_a<libux> ())
-            lt = pt;
+            lt = &pt->as<file> ();
 
           // If this is a library, check its bmi{}s and mxx{}s.
           //
@@ -5951,7 +5957,7 @@ namespace build2
     const file& compile_rule::
     make_module_sidebuild (action a,
                            const scope& bs,
-                           const target& lt,
+                           const file& lt,
                            const target& mt,
                            const string& mn) const
     {
@@ -5965,17 +5971,16 @@ namespace build2
       // not to conflict with other modules. If we assume that within an
       // amalgamation there is only one "version" of each module, then the
       // module name itself seems like a good fit. We just replace '.' with
-      // '-'.
+      // '-' and ':' with '+'.
       //
       string mf;
       transform (mn.begin (), mn.end (),
                  back_inserter (mf),
-                 [] (char c) {return c == '.' ? '-' : c;});
+                 [] (char c) {return c == '.' ? '-' : c == ':' ? '+' : c;});
 
       // It seems natural to build a BMI type that corresponds to the library
       // type. After all, this is where the object file part of the BMI is
-      // going to come from (though things will probably be different for
-      // module-only libraries).
+      // going to come from (unless it's a module interface-only library).
       //
       const target_type& tt (compile_types (link_type (lt).type).bmi);
 
@@ -6012,6 +6017,10 @@ namespace build2
         // @@ TODO: will probably need revision if using sidebuild for
         //    non-installed libraries (e.g., direct BMI dependencies
         //    will probably have to be translated to mxx{} or some such).
+        //    Hm, don't think we want it this way: we want BMIs of binless
+        //    library to be built in the library rather than on the side
+        //    (so they can be potentially re-used by multiple independent
+        //    importers).
         //
         if (p.is_a<libx> () ||
             p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> ())
@@ -6034,7 +6043,14 @@ namespace build2
       // while we were preparing the prerequisite list.
       //
       if (p.second.owns_lock ())
+      {
         bt.prerequisites (move (ps));
+
+        // Unless this is a binless library, we don't need the object file
+        // (see config_data::b_binless for details).
+        //
+        bt.vars.assign (b_binless) = (lt.mtime () == timestamp_unreal);
+      }
 
       return bt;
     }
@@ -6410,17 +6426,28 @@ namespace build2
       cstrings args {cpath.recall_string ()};
 
       // If we are building a module interface or partition, then the target
-      // is bmi*{} and its ad hoc member is obj*{}. For header units there is
-      // no obj*{}.
+      // is bmi*{} and it may have an ad hoc obj*{} member. For header units
+      // there is no obj*{} (see the corresponding add_adhoc_member() call in
+      // apply()).
       //
       path relm;
-      path relo (ut == unit_type::module_header
-                 ? path ()
-                 : relative (ut == unit_type::module_intf      ||
-                             ut == unit_type::module_intf_part ||
-                             ut == unit_type::module_impl_part
-                             ? find_adhoc_member<file> (t, tts.obj)->path ()
-                             : tp));
+      path relo;
+      switch (ut)
+      {
+      case unit_type::module_header:
+        break;
+      case unit_type::module_intf:
+      case unit_type::module_intf_part:
+      case unit_type::module_impl_part:
+        {
+          if (const file* o = find_adhoc_member<file> (t, tts.obj))
+            relo = relative (o->path ());
+
+          break;
+        }
+      default:
+        relo = relative (tp);
+      }
 
       // Build the command line.
       //
@@ -6525,6 +6552,8 @@ namespace build2
           //
           // Note also that what we are doing here appears to be incompatible
           // with PCH (/Y* options) and /Gm (minimal rebuild).
+          //
+          // @@ MOD: TODO deal with absent relo.
           //
           if (find_options ({"/Zi", "/ZI"}, args))
           {
@@ -6699,16 +6728,34 @@ namespace build2
                 // Output module file is specified in the mapping file, the
                 // same as input.
                 //
-                if (ut != unit_type::module_header) // No object file.
+                if (ut == unit_type::module_header) // No obj, -c implied.
+                  break;
+
+                if (!relo.empty ())
                 {
                   args.push_back ("-o");
                   args.push_back (relo.string ().c_str ());
-                  args.push_back ("-c");
                 }
+                else if (ut != unit_type::module_header)
+                {
+                  // Should this be specified in append_lang_options() like
+                  // -fmodule-header (which, BTW, implies -fmodule-only)?
+                  // While it's plausible that -fmodule-header has some
+                  // semantic differences that should be in effect during
+                  // preprocessing, -fmodule-only seems to only mean "don't
+                  // write the object file" so for now we specify it only
+                  // here.
+                  //
+                  args.push_back ("-fmodule-only");
+                }
+
+                args.push_back ("-c");
                 break;
               }
             case compiler_type::clang:
               {
+                // @@ MOD TODO: deal with absent relo.
+
                 relm = relative (tp);
 
                 args.push_back ("-o");

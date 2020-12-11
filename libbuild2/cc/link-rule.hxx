@@ -131,6 +131,14 @@ namespace build2
                        const scope&, action,
                        const target&, linfo, bool) const;
 
+      void
+      append_binless_modules (strings&,
+                              const scope&, action, const file&) const;
+
+      void
+      append_binless_modules (sha256&,
+                              const scope&, action, const file&) const;
+
     protected:
       static void
       functions (function_family&, const char*); // functions.cxx

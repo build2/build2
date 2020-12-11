@@ -414,6 +414,8 @@ namespace build2
 
         hinters,
 
+        vp["bin.binless"],
+
         // NOTE: remember to update documentation if changing anything here.
         //
         vp.insert<strings> ("config.cxx"),

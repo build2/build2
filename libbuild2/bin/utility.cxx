@@ -47,9 +47,11 @@ namespace build2
       return lmembers {a, s};
     }
 
-    const target*
+    const file*
     link_member (const libx& x, action a, linfo li, bool exist)
     {
+      const target* r;
+
       if (x.is_a<libul> ())
       {
         // For libul{} that is linked to an executable the member choice
@@ -72,7 +74,7 @@ namespace build2
 
         // Called by the compile rule during execute.
         //
-        return x.ctx.phase == run_phase::match && !exist
+        r = x.ctx.phase == run_phase::match && !exist
           ? &search (x, tt, x.dir, x.out, x.name)
           : search_existing (x.ctx, tt, x.dir, x.out, x.name);
       }
@@ -87,15 +89,17 @@ namespace build2
         group_view gv (resolve_members (a, l));
         assert (gv.members != nullptr);
 
-        pair<otype, bool> r (
+        pair<otype, bool> p (
           link_member (lmembers {l.a != nullptr, l.s != nullptr}, li.order));
 
-        if (!r.second)
-          fail << (r.first == otype::s ? "shared" : "static")
+        if (!p.second)
+          fail << (p.first == otype::s ? "shared" : "static")
                << " variant of " << l << " is not available";
 
-        return r.first == otype::s ? static_cast<const target*> (l.s) : l.a;
+        r = p.first == otype::s ? static_cast<const target*> (l.s) : l.a;
       }
+
+      return static_cast<const file*> (r);
     }
 
     pattern_paths

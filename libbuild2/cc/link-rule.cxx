@@ -583,37 +583,37 @@ namespace build2
         move (cp_l), move (cp_v)};
     }
 
-    // Look for binary-full utility library recursively until we hit a
-    // non-utility "barier".
+    // Look for binful utility library recursively until we hit a non-utility
+    // "barier".
     //
-    static bool
-    find_binfull (action a, const target& t, linfo li)
+    static const libux*
+    find_binful (action a, const target& t, linfo li)
     {
       for (const target* pt: t.prerequisite_targets[a])
       {
         if (pt == nullptr || unmark (pt) != 0) // Called after pass 1 below.
           continue;
 
-        const file* pf;
+        const libux* ux;
 
         // If this is the libu*{} group, then pick the appropriate member.
         //
         if (const libul* ul = pt->is_a<libul> ())
         {
-          pf = &link_member (*ul, a, li)->as<file> ();
+          ux = &link_member (*ul, a, li)->as<libux> ();
         }
-        else if ((pf = pt->is_a<libue> ()) ||
-                 (pf = pt->is_a<libus> ()) ||
-                 (pf = pt->is_a<libua> ()))
+        else if ((ux = pt->is_a<libue> ()) ||
+                 (ux = pt->is_a<libus> ()) ||
+                 (ux = pt->is_a<libua> ()))
           ;
         else
           continue;
 
-        if (!pf->path ().empty () || find_binfull (a, *pf, li))
-          return true;
+        if (!ux->path ().empty () || (ux = find_binful (a, *ux, li)))
+          return ux;
       }
 
-      return false;
+      return nullptr;
     };
 
     recipe link_rule::
@@ -642,6 +642,7 @@ namespace build2
         t.state[a].assign (c_type) = string (x);
 
       bool binless (lt.library ()); // Binary-less until proven otherwise.
+      bool user_binless (lt.library () && cast_false<bool> (t[b_binless]));
 
       // Inject dependency on the output directory. Note that we do it even
       // for binless libraries since there could be other output (e.g., .pc
@@ -655,7 +656,7 @@ namespace build2
       //
       // Also clear the binless flag if we see any source or object files.
       // Note that if we don't see any this still doesn't mean the library is
-      // binless since it can depend on a binfull utility library. This we
+      // binless since it can depend on a binful utility library. This we
       // check below, after matching the libraries.
       //
       // We do libraries first in order to indicate that we will execute these
@@ -680,9 +681,9 @@ namespace build2
       optional<dir_paths> usr_lib_dirs; // Extract lazily.
       compile_target_types tts (compile_types (ot));
 
-      auto skip = [&a, &rs] (const target* pt) -> bool
+      auto skip = [&a, &rs] (const target& pt) -> bool
       {
-        return a.operation () == clean_id && !pt->dir.sub (rs.out_path ());
+        return a.operation () == clean_id && !pt.dir.sub (rs.out_path ());
       };
 
       auto& pts (t.prerequisite_targets[a]);
@@ -713,15 +714,13 @@ namespace build2
 
         if (mod || p.is_a (x_src) || p.is_a<c> ())
         {
-          binless = binless && false;
+          binless = binless && (mod ? user_binless : false);
 
           // Rule chaining, part 1.
           //
-
           // Which scope shall we use to resolve the root? Unlikely, but
           // possible, the prerequisite is from a different project
           // altogether. So we are going to use the target's project.
-          //
 
           // If the source came from the lib{} group, then create the obj{}
           // group and add the source as a prerequisite of the obj{} group,
@@ -763,19 +762,44 @@ namespace build2
           // obj/bmi{} is always in the out tree. Note that currently it could
           // be the group -- we will pick a member in part 2 below.
           //
-          pt = &search (t, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope);
+          pair<target&, ulock> r (
+            search_locked (
+              t, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
           // If we shouldn't clean obj{}, then it is fair to assume we
           // shouldn't clean the source either (generated source will be in
           // the same directory as obj{} and if not, well, go find yourself
           // another build system ;-)).
           //
-          if (skip (pt))
+          if (skip (r.first))
           {
             pt = nullptr;
             continue;
           }
 
+          // Either set of verify the bin.binless value on this bmi*{} target
+          // (see config_data::b_binless for semantics).
+          //
+          if (mod)
+          {
+            if (r.second.owns_lock ())
+            {
+              if (user_binless)
+                r.first.assign (b_binless) = true;
+            }
+            else
+            {
+              lookup l (r.first[b_binless]);
+
+              if (user_binless ? !cast_false<bool> (l) : l.defined ())
+                fail << "synthesized dependency for prerequisite " << p
+                     << " would be incompatible with existing target "
+                     << r.first <<
+                  info << "incompatible bin.binless value";
+            }
+          }
+
+          pt = &r.first;
           m = mod ? 2 : 1;
         }
         else if (p.is_a<libx> () ||
@@ -797,7 +821,7 @@ namespace build2
           if (pt == nullptr)
             pt = &p.search (t);
 
-          if (skip (pt))
+          if (skip (*pt))
             m = 3; // Mark so it is not matched.
 
           // If this is the lib{}/libu{} group, then pick the appropriate
@@ -844,18 +868,27 @@ namespace build2
             pt = &p.search (t);
           }
 
-          if (skip (pt))
+          if (skip (*pt))
           {
             pt = nullptr;
             continue;
           }
 
-          // @@ MODHDR: hbmix{} has no objx{}
+          // Header BMIs have no object file. Module BMI must be explicitly
+          // marked with bin.binless by the user to be usable in a binless
+          // library.
           //
-          binless = binless && !(pt->is_a<objx> () || pt->is_a<bmix> ());
+          binless = binless && !(
+            pt->is_a<objx> () ||
+            (pt->is_a<bmix> ()   &&
+             !pt->is_a<hbmix> () &&
+             cast_false<bool> ((*pt)[b_binless])));
 
           m = 3;
         }
+
+        if (user_binless && !binless)
+          fail << t << " cannot be binless due to " << p << " prerequisite";
 
         mark (pt, m);
       }
@@ -864,9 +897,19 @@ namespace build2
       //
       match_members (a, t, pts, start);
 
-      // Check if we have any binfull utility libraries.
+      // Check if we have any binful utility libraries.
       //
-      binless = binless && !find_binfull (a, t, li);
+      if (binless)
+      {
+        if (const libux* l = find_binful (a, t, li))
+        {
+          binless = false;
+
+          if (user_binless)
+            fail << t << " cannot be binless due to binful " << *l
+                 << " prerequisite";
+        }
+      }
 
       // Now that we know for sure whether we are binless, derive file name(s)
       // and add ad hoc group members. Note that for binless we still need the
@@ -1176,10 +1219,11 @@ namespace build2
                                   ? (group ? bmi::static_type : tts.bmi)
                                   : (group ? obj::static_type : tts.obj));
 
-          // If this obj*{} already has prerequisites, then verify they are
-          // "compatible" with what we are doing here. Otherwise, synthesize
-          // the dependency. Note that we may also end up synthesizing with
-          // someone beating us to it. In this case also verify.
+          // If this obj*/bmi*{} already has prerequisites, then verify they
+          // are "compatible" with what we are doing here. Otherwise,
+          // synthesize the dependency. Note that we may also end up
+          // synthesizing with someone beating us to it. In this case also
+          // verify.
           //
           bool verify (true);
 
@@ -1397,7 +1441,7 @@ namespace build2
           // If this is a library not to be cleaned, we can finally blank it
           // out.
           //
-          if (skip (pt))
+          if (skip (*pt))
           {
             pt = nullptr;
             continue;
@@ -1999,6 +2043,50 @@ namespace build2
             (      f = pt->is_a<libs>  ()))
         {
           rpath_libraries (ls, args, bs, a, *f, la, li, link, true);
+        }
+      }
+    }
+
+    // Append object files of bmi{} prerequisites that belong to binless
+    // libraries.
+    //
+    void link_rule::
+    append_binless_modules (strings& args,
+                            const scope& bs, action a, const file& t) const
+    {
+      // Note that here we don't need to hoist anything on duplicate detection
+      // since the order in which we link object files is not important.
+      //
+      for (const target* pt: t.prerequisite_targets[a])
+      {
+        if (pt != nullptr     &&
+            pt->is_a<bmix> () &&
+            cast_false<bool> ((*pt)[b_binless]))
+        {
+          const objx& o (*find_adhoc_member<objx> (*pt)); // Must be there.
+          string p (relative (o.path ()).string ());
+          if (find (args.begin (), args.end (), p) == args.end ())
+          {
+            args.push_back (move (p));
+            append_binless_modules (args, bs, a, o);
+          }
+        }
+      }
+    }
+
+    void link_rule::
+    append_binless_modules (sha256& cs,
+                            const scope& bs, action a, const file& t) const
+    {
+      for (const target* pt: t.prerequisite_targets[a])
+      {
+        if (pt != nullptr     &&
+            pt->is_a<bmix> () &&
+            cast_false<bool> ((*pt)[b_binless]))
+        {
+          const objx& o (*find_adhoc_member<objx> (*pt));
+          hash_path (cs, o.path (), bs.root_scope ()->out_path ());
+          append_binless_modules (cs, bs, a, o);
         }
       }
     }
@@ -2635,8 +2723,13 @@ namespace build2
           //
           if (modules)
           {
-            if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
+            if (pt->is_a<bmix> ())
+            {
               pt = find_adhoc_member (*pt, tts.obj);
+
+              if (pt == nullptr) // Header BMIs have no object file.
+                continue;
+            }
           }
 
           const file* f;
@@ -2669,7 +2762,12 @@ namespace build2
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
+            {
               hash_path (cs, f->path (), rs.out_path ());
+
+              if (modules)
+                append_binless_modules (cs, rs, a, *f);
+            }
           }
           else if ((f = pt->is_a<bin::def> ()))
           {
@@ -2963,8 +3061,13 @@ namespace build2
 
           if (modules)
           {
-            if (pt->is_a<bmix> ()) // @@ MODHDR: hbmix{} has no objx{}
+            if (pt->is_a<bmix> ())
+            {
               pt = find_adhoc_member (*pt, tts.obj);
+
+              if (pt == nullptr) // Header BMIs have no object file.
+                continue;
+            }
           }
 
           const file* f;
@@ -2985,7 +3088,12 @@ namespace build2
               // files might satisfy symbols in the preceding libraries.
               //
               als.clear ();
-              sargs.push_back (relative (f->path ()).string ()); // string()&&
+
+              sargs.push_back (relative (f->path ()).string ());
+
+              if (modules)
+                append_binless_modules (sargs, bs, a, *f);
+
               seen_obj = true;
             }
           }

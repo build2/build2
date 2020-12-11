@@ -1524,7 +1524,7 @@ namespace build2
           os << "Libs:";
 
           // While we don't need it for a binless library itselt, it may be
-          // necessary to resolve its binfull dependencies.
+          // necessary to resolve its binful dependencies.
           //
           os << " -L" << escape (ldir.string ());
 

@@ -721,7 +721,7 @@ namespace build2
         }
 
         // Look for binary-less libraries via pkg-config .pc files. Note that
-        // it is possible we have already found one of them as binfull but the
+        // it is possible we have already found one of them as binful but the
         // other is binless.
         //
         {
@@ -731,7 +731,7 @@ namespace build2
           if (na || ns)
           {
             // Only consider the common .pc file if we can be sure there
-            // is no binfull variant.
+            // is no binful variant.
             //
             pair<path, path> r (
               pkgconfig_search (d, p.proj, name, na && ns /* common */));

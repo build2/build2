@@ -59,7 +59,7 @@ namespace build2
     // If existing is true, then only return the member target if it exists
     // (currently only used and supported for utility libraries).
     //
-    LIBBUILD2_BIN_SYMEXPORT const target*
+    LIBBUILD2_BIN_SYMEXPORT const file*
     link_member (const libx&, action, linfo, bool existing = false);
 
     // As above but return otype::a or otype::s as well as an indication if

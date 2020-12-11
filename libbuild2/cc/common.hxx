@@ -42,6 +42,18 @@ namespace build2
       //
       const char* const* x_hinters;
 
+      // We set this variable on the bmi*{} target to indicate whether it
+      // belongs to a binless library. More specifically, it controls both
+      // the production and consumption (linking) of the object file with
+      // the following possible states:
+      //
+      //             produce consume
+      // true           y       y      (binless normal or sidebuild)
+      // false          n       n      (binful sidebuild)
+      // absent         y       n      (binful normal)
+      //
+      const variable& b_binless; // bin.binless
+
       const variable& config_x;
       const variable& config_x_id;      // <type>[-<variant>]
       const variable& config_x_version;
