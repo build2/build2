@@ -279,8 +279,13 @@ namespace build2
                                        target_decl::prereq_new,
                                        trace));
 
-    l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << r.first
-                  << " for prerequisite " << pk;});
+    // @@ Writing the target (r.first) to the stream ends up in target::ext()
+    //    which tries to slock ctx.targets.mutex_, which is already ulock-ed
+    //    (r.second) by the current thread. This results with
+    //    system_error(errc::resource_deadlock_would_occur).
+    //
+    //l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << r.first
+    //              << " for prerequisite " << pk;});
     return r;
   }
 }
