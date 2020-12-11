@@ -2765,6 +2765,11 @@ namespace build2
             {
               hash_path (cs, f->path (), rs.out_path ());
 
+              // @@ Do we actually need to hash this? I don't believe this set
+              // can change without rendering the object file itself out of
+              // date. Maybe in some pathological case where the bmi*{} is
+              // marked with bin.binless manually?
+              //
               if (modules)
                 append_binless_modules (cs, rs, a, *f);
             }

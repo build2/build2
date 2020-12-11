@@ -22,9 +22,63 @@ namespace build2
   {
     using namespace bin;
 
+    // Common thunk for $x.*(<targets> [, ...]) functions.
+    //
+    struct thunk_data
+    {
+      const char* x;
+      void (*f) (strings&,
+                 const vector_view<value>&, const module&, const scope&,
+                 action, const target&);
+    };
+
+    static value
+    thunk (const scope* bs,
+           vector_view<value> vs,
+           const function_overload& f)
+    {
+      const auto& d (*reinterpret_cast<const thunk_data*> (&f.data));
+
+      if (bs == nullptr)
+        fail << f.name << " called out of scope";
+
+      const scope* rs (bs->root_scope ());
+
+      if (rs == nullptr)
+        fail << f.name << " called out of project";
+
+      if (bs->ctx.phase != run_phase::execute)
+        fail << f.name << " can only be called during execution";
+
+      const module* m (rs->find_module<module> (d.x));
+
+      if (m == nullptr)
+        fail << f.name << " called without " << d.x << " module being loaded";
+
+      // We can assume these are present due to function's types signature.
+      //
+      names& ts_ns (vs[0].as<names> ()); // <targets>
+
+      // In a somewhat hackish way strip the outer operation to match how we
+      // call the underlying functions in the compile/link rules. This should
+      // be harmless since ad hoc recipes are always for the inner operation.
+      //
+      action a (rs->ctx.current_action ().inner_action ());
+
+      strings r;
+      for (auto i (ts_ns.begin ()); i != ts_ns.end (); ++i)
+      {
+        name& n (*i), o;
+        const target& t (to_target (*bs, move (n), move (n.pair ? *++i : o)));
+        d.f (r, vs, *m, *bs, a, t);
+      }
+
+      return value (move (r));
+    }
+
     // Common thunk for $x.lib_*(<targets>, <otype> [, ...]) functions.
     //
-    struct lib_data
+    struct lib_thunk_data
     {
       const char* x;
       void (*f) (void*, strings&,
@@ -38,7 +92,7 @@ namespace build2
                     vector_view<value> vs,
                     const function_overload& f)
     {
-      const lib_data& d (*reinterpret_cast<const lib_data*> (&f.data));
+      const auto& d (*reinterpret_cast<const lib_thunk_data*> (&f.data));
 
       if (bs == nullptr)
         fail << f.name << " called out of scope";
@@ -134,10 +188,18 @@ namespace build2
       return lib_thunk_impl (&ls, bs, vs, f);
     }
 
+    // @@ Maybe we should provide wrapper functions that return all the
+    //    compile options (including from *.?options, mode, etc) and all the
+    //    link arguments in the correct order, etc. Can call them:
+    //
+    //    compile_options()
+    //    link_arguments()
+    //
+
     void compile_rule::
     functions (function_family& f, const char* x)
     {
-      // $<module>.lib_poptions(<targets>, <otype>)
+      // $<module>.lib_poptions(<lib-targets>, <otype>)
       //
       // Return the preprocessor options that should be passed when compiling
       // sources that depend on the specified libraries. The second argument
@@ -153,9 +215,9 @@ namespace build2
       // Note that this function is not pure.
       //
       f.insert (".lib_poptions", false).
-        insert<lib_data, names, names> (
+        insert<lib_thunk_data, names, names> (
         &lib_thunk<appended_libraries>,
-        lib_data {
+        lib_thunk_data {
           x,
           [] (void* ls, strings& r,
               const vector_view<value>&, const module& m, const scope& bs,
@@ -169,7 +231,7 @@ namespace build2
     void link_rule::
     functions (function_family& f, const char* x)
     {
-      // $<module>.lib_libs(<targets>, <otype> [, <flags> [, <self>]])
+      // $<module>.lib_libs(<lib-targets>, <otype> [, <flags> [, <self>]])
       //
       // Return the libraries (and any associated options) that should be
       // passed when linking targets that depend on the specified libraries.
@@ -194,9 +256,9 @@ namespace build2
       // Note that this function is not pure.
       //
       f.insert (".lib_libs", false).
-        insert<lib_data, names, names, optional<names>, optional<names>> (
+        insert<lib_thunk_data, names, names, optional<names>, optional<names>> (
         &lib_thunk<appended_libraries>,
-        lib_data {
+        lib_thunk_data {
           x,
           [] (void* ls, strings& r,
               const vector_view<value>& vs, const module& m, const scope& bs,
@@ -226,7 +288,7 @@ namespace build2
                                 a, l, la, lf, li, self, rel);
           }});
 
-      // $<module>.lib_rpaths(<targets>, <otype> [, <link> [, <self>]])
+      // $<module>.lib_rpaths(<lib-targets>, <otype> [, <link> [, <self>]])
       //
       // Return the rpath options that should be passed when linking targets
       // that depend on the specified libraries. The second argument is the
@@ -249,9 +311,9 @@ namespace build2
       // Note that this function is not pure.
       //
       f.insert (".lib_rpaths", false).
-        insert<lib_data, names, names, optional<names>, optional<names>> (
+        insert<lib_thunk_data, names, names, optional<names>, optional<names>> (
         &lib_thunk<rpathed_libraries>,
-        lib_data {
+        lib_thunk_data {
           x,
           [] (void* ls, strings& r,
               const vector_view<value>& vs, const module& m, const scope& bs,
@@ -262,6 +324,38 @@ namespace build2
             m.rpath_libraries (*static_cast<rpathed_libraries*> (ls), r,
                                bs,
                                a, l, la, li, link, self);
+          }});
+
+      // $cxx.obj_modules(<obj-targets>)
+      //
+      // Return object files corresponding to module interfaces that are used
+      // by the specified object files and that belong to binless libraries.
+      //
+      // Note that passing multiple targets at once is not a mere convenience:
+      // this also allows for more effective duplicate suppression.
+      //
+      // Note also that this function can only be called during execution
+      // after all the specified object file targets have been matched.
+      // Normally it is used in ad hoc recipes to implement custom linking.
+      //
+      // Note that this function is not pure.
+      //
+      f.insert (".obj_modules", false).
+        insert<thunk_data, names> (
+        &thunk,
+        thunk_data {
+          x,
+          [] (strings& r,
+              const vector_view<value>&, const module& m, const scope& bs,
+              action a, const target& t)
+          {
+            if (const file* f = t.is_a<objx> ())
+            {
+              if (m.modules)
+                m.append_binless_modules (r, bs, a, *f);
+            }
+            else
+              fail << t << " is not an object file target";
           }});
     }
   }
