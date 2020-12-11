@@ -39,6 +39,12 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target&
   search (const target&, const prerequisite_key&);
 
+  // As above but return the lock if the target was newly created. Note that
+  // this version can only be used on project-unqualified prerequisites.
+  //
+  LIBBUILD2_SYMEXPORT pair<target&, ulock>
+  search_locked (const target&, const prerequisite_key&);
+
   // Note that unlike the above version, this one can be called during the
   // load and execute phases.
   //
@@ -57,6 +63,9 @@ namespace build2
   const target&
   search (const target&, const target_type&, const prerequisite_key&);
 
+  pair<target&, ulock>
+  search_locked (const target&, const target_type&, const prerequisite_key&);
+
   // As above but specify the prerequisite to search as individual key
   // components. Scope can be NULL if the directory is absolute.
   //
@@ -69,6 +78,15 @@ namespace build2
           const string* ext = nullptr,  // NULL means unspecified.
           const scope* = nullptr,       // NULL means dir is absolute.
           const optional<project_name>& proj = nullopt);
+
+  pair<target&, ulock>
+  search_locked (const target&,
+                 const target_type&,
+                 const dir_path& dir,
+                 const dir_path& out,
+                 const string& name,
+                 const string* ext = nullptr,  // NULL means unspecified.
+                 const scope* = nullptr);      // NULL means dir is absolute.
 
   const target*
   search_existing (context&,

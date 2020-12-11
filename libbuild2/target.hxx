@@ -1558,8 +1558,8 @@ namespace build2
     // (for example, a binless library or an installed import library -- we
     // know the DLL is there, just not exactly where). In this case you could
     // also set its mtime to timestamp_unreal (but don't have to, if a real
-    // timestamp can be derived, for example, the from the import library in
-    // the DLL case above).
+    // timestamp can be derived, for example, from the import library in the
+    // DLL case above).
     //
     // Note, however, that a target with timestamp_unreal does not have to
     // have an empty path. One consequence of this arrangement (assigned path

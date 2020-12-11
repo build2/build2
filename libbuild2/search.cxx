@@ -243,4 +243,44 @@ namespace build2
                   << " for prerequisite " << pk;});
     return t;
   }
+
+  pair<target&, ulock>
+  create_new_target_locked (context& ctx, const prerequisite_key& pk)
+  {
+    tracer trace ("create_new_target_locked");
+
+    const target_key& tk (pk.tk);
+
+    // We default to the target in this directory scope.
+    //
+    dir_path d;
+    if (tk.dir->absolute ())
+      d = *tk.dir; // Already normalized.
+    else
+    {
+      d = pk.scope->out_path ();
+
+      if (!tk.dir->empty ())
+      {
+        d /= *tk.dir;
+        d.normalize ();
+      }
+    }
+
+    // Find or insert.
+    //
+    // @@ OUT: same story as in search_existing_target() re out.
+    //
+    auto r (ctx.targets.insert_locked (*tk.type,
+                                       move (d),
+                                       *tk.out,
+                                       *tk.name,
+                                       tk.ext,
+                                       target_decl::prereq_new,
+                                       trace));
+
+    l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << r.first
+                  << " for prerequisite " << pk;});
+    return r;
+  }
 }

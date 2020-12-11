@@ -68,6 +68,17 @@ namespace build2
     return create_new_target (t.ctx, pk);
   }
 
+  pair<target&, ulock>
+  search_locked (const target& t, const prerequisite_key& pk)
+  {
+    assert (t.ctx.phase == run_phase::match && !pk.proj);
+
+    if (const target* pt = pk.tk.type->search (t, pk))
+      return {const_cast<target&> (*pt), ulock ()};
+
+    return create_new_target_locked (t.ctx, pk);
+  }
+
   const target*
   search_existing (context& ctx, const prerequisite_key& pk)
   {

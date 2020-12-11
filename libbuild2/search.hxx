@@ -34,6 +34,11 @@ namespace build2
   //
   LIBBUILD2_SYMEXPORT const target&
   create_new_target (context&, const prerequisite_key&);
+
+  // As above but return the lock if the target was newly created.
+  //
+  LIBBUILD2_SYMEXPORT pair<target&, ulock>
+  create_new_target_locked (context&, const prerequisite_key&);
 }
 
 #endif // LIBBUILD2_SEARCH_HXX
