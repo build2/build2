@@ -1805,7 +1805,7 @@ namespace build2
     // Note that the input stream is non-blocking while output is blocking
     // and this function should be prepared to handle closed input stream.
     // Any unhandled io_error is handled by the caller as a generic module
-    // mapper io error.
+    // mapper io error. Returning false terminates the communication.
     //
     struct compile_rule::module_mapper_state //@@ gcc_module_mapper_state
     {
@@ -1813,13 +1813,13 @@ namespace build2
       size_t header_units = 0;  // Number of header units imported.
       module_imports& imports;  // Unused (potentially duplicate suppression).
 
-      small_vector<string, 16> batch; // Reuse buffers.
+      small_vector<string, 2> batch; // Reuse buffers.
 
       module_mapper_state (size_t s, module_imports& i)
           : skip (s), imports (i) {}
     };
 
-    void compile_rule::
+    bool compile_rule::
     gcc_module_mapper (module_mapper_state& st,
                        action a, const scope& bs, file& t, linfo li,
                        ifdstream& is,
@@ -1863,7 +1863,7 @@ namespace build2
       }
 
       if (batch_n == 0) // EOF
-        return;
+        return false;
 
       if (verb >= 3)
       {
@@ -1882,6 +1882,8 @@ namespace build2
 
       // Handle each request converting it into a response.
       //
+      bool term (false);
+
       string tmp; // Reuse the buffer.
       for (size_t i (0); i != batch_n; ++i)
       {
@@ -1962,9 +1964,8 @@ namespace build2
             //
             if (exists && f.relative ())
             {
-              r = "ERROR relative header path '";
-              r.append (r, b, n);
-              r += '\'';
+              tmp.assign (r, b, n);
+              r = "ERROR relative header path '"; r += tmp; r += '\'';
               continue;
             }
 
@@ -2173,11 +2174,14 @@ namespace build2
         else
           w = "unexpected request";
 
-        // @@ TODO: truncate response batch? (libcody issue #22).
+        // Truncate the response batch and terminate the communication (see
+        // also libcody issue #22).
         //
-        r = "ERROR '"; r += w; r += ' '; r.append (r, b, n); r += '\'';
-
-        // @@ break?
+        tmp.assign (r, b, n);
+        r = "ERROR '"; r += w; r += ' '; r += tmp; r += '\'';
+        batch_n = i + 1;
+        term = true;
+        break;
       }
 
       if (verb >= 3)
@@ -2208,10 +2212,13 @@ namespace build2
       }
 
       os.flush ();
+
+      return !term;
     }
 
     // The original module mapper implementation (c++-modules-ex GCC branch)
     //
+    // @@ TMP remove at some point
 #if 0
     void compile_rule::
     gcc_module_mapper (module_mapper_state& st,
@@ -4140,11 +4147,13 @@ namespace build2
 
                       do
                       {
-                        gcc_module_mapper (mm_state,
-                                           a, bs, t, li,
-                                           is, os,
-                                           dd, update, bad_error,
-                                           pfx_map, so_map);
+                        if (!gcc_module_mapper (mm_state,
+                                                a, bs, t, li,
+                                                is, os,
+                                                dd, update, bad_error,
+                                                pfx_map, so_map))
+                          break;
+
                       } while (!is.eof ());
 
                       os.close ();

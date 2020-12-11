@@ -125,7 +125,7 @@ namespace build2
 
       struct module_mapper_state;
 
-      void
+      bool
       gcc_module_mapper (module_mapper_state&,
                          action, const scope&, file&, linfo,
                          ifdstream&, ofdstream&,
