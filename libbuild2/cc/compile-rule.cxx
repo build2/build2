@@ -6051,7 +6051,7 @@ namespace build2
       // Note that this is racy and someone might have created this target
       // while we were preparing the prerequisite list.
       //
-      if (p.second.owns_lock ())
+      if (p.second)
       {
         bt.prerequisites (move (ps));
 
@@ -6129,7 +6129,7 @@ namespace build2
       // Note that this is racy and someone might have created this target
       // while we were preparing the prerequisite list.
       //
-      if (p.second.owns_lock ())
+      if (p.second)
         bt.prerequisites (move (ps));
 
       return bt;

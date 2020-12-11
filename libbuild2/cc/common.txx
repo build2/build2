@@ -27,7 +27,7 @@ namespace build2
                                          target_decl::implied,
                                          trace));
 
-      assert (!exist || !p.second.owns_lock ());
+      assert (!exist || !p.second);
       r = &p.first.template as<T> ();
       return move (p.second);
     }

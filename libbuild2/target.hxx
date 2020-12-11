@@ -147,6 +147,10 @@ namespace build2
     const string* ext () const; // Return NULL if not specified.
     const string& ext (string);
 
+    // As above but assume targets mutex is locked.
+    //
+    const string* ext_locked () const;
+
     const dir_path&
     out_dir () const {return out.empty () ? dir : out;}
 
@@ -283,6 +287,11 @@ namespace build2
     //
     target_key
     key () const;
+
+    // As above but assume targets mutex is locked.
+    //
+    target_key
+    key_locked () const;
 
     names
     as_name () const;
@@ -811,6 +820,11 @@ namespace build2
   inline bool
   operator!= (const target& x, const target& y) {return !(x == y);}
 
+  // Note that if the targets mutex is locked, then calling this operator
+  // will lead to a deadlock. Instead, do:
+  //
+  // ... << t.key_locked () << ...
+  //
   ostream&
   operator<< (ostream&, const target&);
 
@@ -1385,7 +1399,7 @@ namespace build2
                              decl,
                              t));
 
-      return pair<target&, bool> (p.first, p.second.owns_lock ());
+      return pair<target&, bool> (p.first, p.second);
     }
 
     // Note that the following versions always enter implied targets.

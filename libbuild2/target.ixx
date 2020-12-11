@@ -12,16 +12,34 @@ namespace build2
   // target
   //
   inline const string* target::
+  ext_locked () const
+  {
+    return *ext_ ? &**ext_ : nullptr;
+  }
+
+  inline const string* target::
   ext () const
   {
     slock l (ctx.targets.mutex_);
-    return *ext_ ? &**ext_ : nullptr;
+    return ext_locked ();
   }
 
   inline target_key target::
   key () const
   {
     const string* e (ext ());
+    return target_key {
+      &type (),
+      &dir,
+      &out,
+      &name,
+      e != nullptr ? optional<string> (*e) : nullopt};
+  }
+
+  inline target_key target::
+  key_locked () const
+  {
+    const string* e (ext_locked ());
     return target_key {
       &type (),
       &dir,

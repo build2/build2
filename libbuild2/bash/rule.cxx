@@ -168,7 +168,7 @@ namespace build2
 
                   // Only set path/mtime on first insertion.
                   //
-                  if (rp.second.owns_lock ())
+                  if (rp.second)
                     pt.path_mtime (move (ap), mt);
 
                   // Save the length of the import path in auxuliary data. We

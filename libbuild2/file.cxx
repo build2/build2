@@ -2682,7 +2682,7 @@ namespace build2
         // a simple name via PATH search and as an absolute path in which case
         // the first import will determine the path).
         //
-        if (r.second.owns_lock ())
+        if (r.second)
         {
           r.first.as<exe> ().process_path (move (pp));
           r.second.unlock ();

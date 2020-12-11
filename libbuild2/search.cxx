@@ -278,9 +278,16 @@ namespace build2
                                        tk.ext,
                                        target_decl::prereq_new,
                                        trace));
+    l5 ([&]
+        {
+          diag_record dr (trace);
+          if (r.second)
+            dr << "new target " << r.first.key_locked ();
+          else
+            dr << "existing target " << r.first;
+          dr << " for prerequisite " << pk;
+        });
 
-    l5 ([&]{trace << (r.second ? "new" : "existing") << " target " << r.first
-                  << " for prerequisite " << pk;});
     return r;
   }
 }

@@ -312,7 +312,7 @@ namespace build2
                                    target_decl::implied,
                                    trace));
 
-    assert (r.second.owns_lock ());
+    assert (r.second);
 
     target& m (r.first);
     *mp = &m;
