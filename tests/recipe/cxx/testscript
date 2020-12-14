@@ -26,6 +26,8 @@ if (!$static && $test.target == $build.host)
     }}
     EOI
 
+  +export BDEP_SYNC=0
+
   : update-clean
   :
   {
@@ -89,7 +91,7 @@ if (!$static && $test.target == $build.host)
       }}
       EOI
 
-    env BDEP_SYNC=0 -- $* 2>>~%EOE%;
+    $* 2>>~%EOE%;
       %^(c\+\+|ld).*%+
       cp file{foo}
       EOE
@@ -98,9 +100,9 @@ if (!$static && $test.target == $build.host)
 
     # While at it, make sure there is no rebuild.
     #
-    env BDEP_SYNC=0 -- $* 2>/'info: dir{./} is up to date';
+    $* 2>/'info: dir{./} is up to date';
 
-    env BDEP_SYNC=0 -- $* clean 2>-
+    $* clean 2>-
   }
 
   : test
@@ -153,14 +155,14 @@ if (!$static && $test.target == $build.host)
       }}
       EOI
 
-    env BDEP_SYNC=0 -- $* test 2>>~%EOE%;
+    $* test 2>>~%EOE%;
       %^(c\+\+|ld).*%+
       cp file{foo}
       test file{foo}
       bar
       EOE
 
-    env BDEP_SYNC=0 -- $* clean 2>-
+    $* clean 2>-
   }
 
   # Clean recipe builds if the testscript is enabled (see above for details).
