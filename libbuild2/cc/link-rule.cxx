@@ -824,7 +824,7 @@ namespace build2
           if (skip (*pt))
             m = 3; // Mark so it is not matched.
 
-          // If this is the lib{}/libu{} group, then pick the appropriate
+          // If this is the lib{}/libul{} group, then pick the appropriate
           // member.
           //
           if (const libx* l = pt->is_a<libx> ())
@@ -2130,7 +2130,7 @@ namespace build2
       compile_target_types tts (compile_types (ot));
 
       bool binless (md.binless);
-      assert (ot != otype::e || !binless); // Sanity check.
+      assert (!lt.executable() || !binless); // Sanity check.
 
       // Determine if we are out-of-date.
       //
