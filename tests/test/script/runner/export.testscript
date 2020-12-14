@@ -3,6 +3,11 @@
 
 .include ../common.testscript
 
+# Make sure that the foo variable, which may potentially be set in the build2
+# environment, doesn't affect the tests.
+#
++export --unset foo
+
 : group
 :
 {
