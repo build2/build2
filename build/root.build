@@ -20,7 +20,7 @@ if ($cxx.target.system == 'win32-msvc')
   cxx.poptions += -D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS
 
 if ($cxx.class == 'msvc')
-  cxx.coptions += /wd4251 /wd4275 /wd4800
+  cxx.coptions += /wd4251 /wd4275 /wd4800 /wd4819
 
 cxx.poptions =+ "-I$out_root" "-I$src_root"
 
