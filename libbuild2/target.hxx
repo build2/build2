@@ -1399,7 +1399,7 @@ namespace build2
                              decl,
                              t));
 
-      return pair<target&, bool> (p.first, p.second);
+      return pair<target&, bool> (p.first, p.second.owns_lock ()); // Clang 3.7
     }
 
     // Note that the following versions always enter implied targets.
