@@ -45,7 +45,7 @@ namespace build2
     // The ranlib path can be NULL, in which case no ranlib guessing will be
     // attemplated and the returned ranlib_* members will be left empty.
     //
-    ar_info
+    const ar_info&
     guess_ar (const path& ar, const path* ranlib, const char* paths);
 
     // ld information.
@@ -85,7 +85,7 @@ namespace build2
       optional<semantic_version> version;
     };
 
-    ld_info
+    const ld_info&
     guess_ld (const path& ld, const char* paths);
 
     // rc information.
@@ -110,7 +110,7 @@ namespace build2
       string checksum;
     };
 
-    rc_info
+    const rc_info&
     guess_rc (const path& rc, const char* paths);
   }
 }

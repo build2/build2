@@ -2956,8 +2956,7 @@ namespace build2
     // Compiler checks can be expensive (we often need to run the compiler
     // several times) so we cache the result.
     //
-    static map<string, compiler_info> cache;
-    static mutex cache_mutex;
+    static global_cache<compiler_info> cache;
 
     const compiler_info&
     guess (const char* xm,
@@ -2988,11 +2987,8 @@ namespace build2
         if (x_lo != nullptr) append_options (cs, *x_lo);
         key = cs.string ();
 
-        mlock l (cache_mutex);
-
-        auto i (cache.find (key));
-        if (i != cache.end ())
-          return i->second;
+        if (const compiler_info* r = cache.find (key))
+          return *r;
       }
 
       // Parse the user-specified compiler id (config.x.id).
@@ -3144,15 +3140,7 @@ namespace build2
           r.bin_pattern = p.directory ().representation (); // Trailing slash.
       }
 
-      // It's possible the cache entry already exists, in which case we
-      // ignore our value.
-      //
-      // But what if the compiler information it contains is different? Well,
-      // we don't generally deal with toolchain changes during the build so we
-      // ignore this special case as well.
-      //
-      mlock l (cache_mutex);
-      return cache.insert (make_pair (move (key), move (r))).first->second;
+      return cache.insert (move (key), move (r));
     }
 
     strings

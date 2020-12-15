@@ -1698,20 +1698,35 @@ namespace build2
   // Note that loading of the metadata is split into two steps, extraction and
   // parsing, because extraction also serves as validation that the executable
   // is runnable, what we expected, etc. In other words, we sometimes do the
-  // extraction without parsing. In this light it would have been more
-  // efficient for extract to return the running process with a pipe rather
-  // than the extracted data. But this would complicate the code quite a bit
-  // plus we don't expect the data to be large, typically.
+  // extraction without parsing. Actually, this seems to be no longer true but
+  // we do separate the two acts with some interleaving code (e.g., inserting
+  // the target).
   //
   // Also note that we do not check the export.metadata here leaving it to
   // the caller to do for both this case and export stub.
   //
+  // Finally, at first it may seem that caching the metadata is unnecessary
+  // since the target state itself serves as a cache (i.e., we try hard to
+  // avoid re-extracting the metadata). However, if there is no metadata, then
+  // we will re-run the extraction for every optional import. So we cache that
+  // case only. Note also that while this is only done during serial load, we
+  // still have to use MT-safe cache since it could be shared by multiple
+  // build contexts.
+  //
+  static global_cache<bool> metadata_cache;
+
   static optional<string>
   extract_metadata (const process_path& pp,
                     const string& key,
                     bool opt,
                     const location& loc)
   {
+    if (opt)
+    {
+      if (metadata_cache.find (pp.effect_string ()))
+        return nullopt;
+    }
+
     // Note: to ease handling (think patching third-party code) we will always
     // specify the --build2-metadata option in this single-argument form.
     //
@@ -1754,7 +1769,7 @@ namespace build2
         ifdstream is (move (pr.in_ofd), ifdstream::badbit); // Note: no skip!
 
         // What are the odds that we will run some unrelated program which
-        // will keep writing to stdout until we run out of memory reading?
+        // will keep writing to stdout until we run out of memory reading it?
         // Apparently non-negligible (see GitHub issue #102).
         //
         string r;
@@ -1839,7 +1854,10 @@ namespace build2
     fail:
 
     if (opt)
+    {
+      metadata_cache.insert (pp.effect_string (), true);
       return nullopt;
+    }
     else
       throw failed ();
   }
@@ -2683,10 +2701,7 @@ namespace build2
         // the first import will determine the path).
         //
         if (r.second)
-        {
           r.first.as<exe> ().process_path (move (pp));
-          r.second.unlock ();
-        }
       }
 
       // Save the metadata. Note that this happens during the load phase and

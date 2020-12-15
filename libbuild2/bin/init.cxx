@@ -683,7 +683,7 @@ namespace build2
                            nullptr,
                            config::save_default_commented)));
 
-        ar_info ari (guess_ar (ar, ranlib, pat.paths));
+        const ar_info& ari (guess_ar (ar, ranlib, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).
@@ -723,33 +723,28 @@ namespace build2
         }
 
         rs.assign<process_path_ex> ("bin.ar.path")   =
-          process_path_ex (move (ari.ar_path), "ar", ari.ar_checksum);
-        rs.assign<string>       ("bin.ar.id")        = move (ari.ar_id);
-        rs.assign<string>       ("bin.ar.signature") = move (ari.ar_signature);
-        rs.assign<string>       ("bin.ar.checksum")  = move (ari.ar_checksum);
+          process_path_ex (ari.ar_path, "ar", ari.ar_checksum);
+        rs.assign<string>       ("bin.ar.id")        = ari.ar_id;
+        rs.assign<string>       ("bin.ar.signature") = ari.ar_signature;
+        rs.assign<string>       ("bin.ar.checksum")  = ari.ar_checksum;
 
         {
-          semantic_version& v (ari.ar_version);
+          const semantic_version& v (ari.ar_version);
 
           rs.assign<string>   ("bin.ar.version")       = v.string ();
           rs.assign<uint64_t> ("bin.ar.version.major") = v.major;
           rs.assign<uint64_t> ("bin.ar.version.minor") = v.minor;
           rs.assign<uint64_t> ("bin.ar.version.patch") = v.patch;
-          rs.assign<string>   ("bin.ar.version.build") = move (v.build);
+          rs.assign<string>   ("bin.ar.version.build") = v.build;
         }
 
         if (ranlib != nullptr)
         {
           rs.assign<process_path_ex> ("bin.ranlib.path")   =
-            process_path_ex (move (ari.ranlib_path),
-                             "ranlib",
-                             ari.ranlib_checksum);
-          rs.assign<string>       ("bin.ranlib.id")        =
-            move (ari.ranlib_id);
-          rs.assign<string>       ("bin.ranlib.signature") =
-            move (ari.ranlib_signature);
-          rs.assign<string>       ("bin.ranlib.checksum") =
-            move (ari.ranlib_checksum);
+            process_path_ex (ari.ranlib_path, "ranlib", ari.ranlib_checksum);
+          rs.assign<string>       ("bin.ranlib.id")        = ari.ranlib_id;
+          rs.assign<string>       ("bin.ranlib.signature") = ari.ranlib_signature;
+          rs.assign<string>       ("bin.ranlib.checksum")  = ari.ranlib_checksum;
         }
       }
 
@@ -826,7 +821,7 @@ namespace build2
                            path (apply_pattern (ld_d, pat.pattern)),
                            config::save_default_commented)));
 
-        ld_info ldi (guess_ld (ld, pat.paths));
+        const ld_info& ldi (guess_ld (ld, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).
@@ -859,20 +854,20 @@ namespace build2
         }
 
         rs.assign<process_path_ex> ("bin.ld.path")   =
-          process_path_ex (move (ldi.path), "ld", ldi.checksum);
-        rs.assign<string>       ("bin.ld.id")        = move (ldi.id);
-        rs.assign<string>       ("bin.ld.signature") = move (ldi.signature);
-        rs.assign<string>       ("bin.ld.checksum")  = move (ldi.checksum);
+          process_path_ex (ldi.path, "ld", ldi.checksum);
+        rs.assign<string>       ("bin.ld.id")        = ldi.id;
+        rs.assign<string>       ("bin.ld.signature") = ldi.signature;
+        rs.assign<string>       ("bin.ld.checksum")  = ldi.checksum;
 
         if (ldi.version)
         {
-          semantic_version& v (*ldi.version);
+          const semantic_version& v (*ldi.version);
 
           rs.assign<string>   ("bin.ld.version")       = v.string ();
           rs.assign<uint64_t> ("bin.ld.version.major") = v.major;
           rs.assign<uint64_t> ("bin.ld.version.minor") = v.minor;
           rs.assign<uint64_t> ("bin.ld.version.patch") = v.patch;
-          rs.assign<string>   ("bin.ld.version.build") = move (v.build);
+          rs.assign<string>   ("bin.ld.version.build") = v.build;
         }
       }
 
@@ -979,7 +974,7 @@ namespace build2
                            path (apply_pattern (rc_d, pat.pattern)),
                            config::save_default_commented)));
 
-        rc_info rci (guess_rc (rc, pat.paths));
+        const rc_info& rci (guess_rc (rc, pat.paths));
 
         // If this is a configuration with new values, then print the report
         // at verbosity level 2 and up (-v).
@@ -994,10 +989,10 @@ namespace build2
         }
 
         rs.assign<process_path_ex> ("bin.rc.path")   =
-          process_path_ex (move (rci.path), "rc", rci.checksum);
-        rs.assign<string>       ("bin.rc.id")        = move (rci.id);
-        rs.assign<string>       ("bin.rc.signature") = move (rci.signature);
-        rs.assign<string>       ("bin.rc.checksum")  = move (rci.checksum);
+          process_path_ex (rci.path, "rc", rci.checksum);
+        rs.assign<string>       ("bin.rc.id")        = rci.id;
+        rs.assign<string>       ("bin.rc.signature") = rci.signature;
+        rs.assign<string>       ("bin.rc.checksum")  = rci.checksum;
       }
 
       return true;

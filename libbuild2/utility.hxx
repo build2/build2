@@ -4,6 +4,7 @@
 #ifndef LIBBUILD2_UTILITY_HXX
 #define LIBBUILD2_UTILITY_HXX
 
+#include <map>
 #include <tuple>      // make_tuple()
 #include <memory>     // make_shared()
 #include <string>     // to_string()
@@ -17,8 +18,6 @@
 
 #include <libbutl/utility.mxx>  // combine_hash(), reverse_iterate(), etc
 #include <libbutl/fdstream.mxx>
-
-#include <unordered_set>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -532,6 +531,39 @@ namespace build2
     return run<T> (
       verbosity, pe, args, forward<F> (f), error, ignore_exit, checksum);
   }
+
+  // Global, MT-safe information cache. Normally used for caching information
+  // (versions, targets, search paths, etc) extracted from other programs
+  // (compilers, etc).
+  //
+  // The key is normally a hash of all the inputs that can affect the output.
+  //
+  // Note that insertion is racy and it's possible the cache entry already
+  // exists, in which case we ignore our value assuming it is the same.
+  //
+  template <typename T>
+  class global_cache
+  {
+  public:
+    const T*
+    find (const string& k) const
+    {
+      mlock l (mutex_);
+      auto i (cache_.find (k));
+      return i != cache_.end () ? &i->second : nullptr;
+    }
+
+    const T&
+    insert (string k, T v)
+    {
+      mlock l (mutex_);
+      return cache_.insert (make_pair (move (k), move (v))).first->second;
+    }
+
+  private:
+    std::map<string, T> cache_;
+    mutable mutex mutex_;
+  };
 
   // File descriptor streams.
   //

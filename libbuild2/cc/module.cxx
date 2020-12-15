@@ -338,6 +338,17 @@ namespace build2
 #  endif
 #endif
 
+    // Extracting search dirs can be expensive (we may need to run the
+    // compiler several times) so we cache the result.
+    //
+    struct search_dirs
+    {
+      pair<dir_paths, size_t> lib;
+      pair<dir_paths, size_t> inc;
+    };
+
+    static global_cache<search_dirs> dirs_cache;
+
     void config_module::
     init (scope& rs, const location& loc, const variable_map&)
     {
@@ -440,33 +451,67 @@ namespace build2
       pair<dir_paths, size_t> inc_dirs;
       const optional<pair<dir_paths, size_t>>& mod_dirs (xi.sys_mod_dirs);
 
-      if (xi.sys_lib_dirs)
+      if (xi.sys_lib_dirs && xi.sys_inc_dirs)
+      {
         lib_dirs = *xi.sys_lib_dirs;
-      else
-      {
-        switch (xi.class_)
-        {
-        case compiler_class::gcc:
-          lib_dirs = gcc_library_search_dirs (xi.path, rs);
-          break;
-        case compiler_class::msvc:
-          lib_dirs = msvc_library_search_dirs (xi.path, rs);
-          break;
-        }
-      }
-
-      if (xi.sys_inc_dirs)
         inc_dirs = *xi.sys_inc_dirs;
+      }
       else
       {
-        switch (xi.class_)
+        string key;
         {
-        case compiler_class::gcc:
-          inc_dirs = gcc_header_search_dirs (xi.path, rs);
-          break;
-        case compiler_class::msvc:
-          inc_dirs = msvc_header_search_dirs (xi.path, rs);
-          break;
+          sha256 cs;
+          cs.append (static_cast<size_t> (x_lang));
+          cs.append (xi.path.effect_string ());
+          append_options (cs, mode);
+          key = cs.string ();
+        }
+
+        // Because the compiler info (xi) is also cached, we can assume that
+        // if dirs come from there, then they do so consistently.
+        //
+        const search_dirs* sd (dirs_cache.find (key));
+
+        if (xi.sys_lib_dirs)
+          lib_dirs = *xi.sys_lib_dirs;
+        else if (sd != nullptr)
+          lib_dirs = sd->lib;
+        else
+        {
+          switch (xi.class_)
+          {
+          case compiler_class::gcc:
+            lib_dirs = gcc_library_search_dirs (xi.path, rs);
+            break;
+          case compiler_class::msvc:
+            lib_dirs = msvc_library_search_dirs (xi.path, rs);
+            break;
+          }
+        }
+
+        if (xi.sys_inc_dirs)
+          inc_dirs = *xi.sys_inc_dirs;
+        else if (sd != nullptr)
+          inc_dirs = sd->inc;
+        else
+        {
+          switch (xi.class_)
+          {
+          case compiler_class::gcc:
+            inc_dirs = gcc_header_search_dirs (xi.path, rs);
+            break;
+          case compiler_class::msvc:
+            inc_dirs = msvc_header_search_dirs (xi.path, rs);
+            break;
+          }
+        }
+
+        if (sd == nullptr)
+        {
+          search_dirs sd;
+          if (!xi.sys_lib_dirs) sd.lib = lib_dirs;
+          if (!xi.sys_inc_dirs) sd.inc = inc_dirs;
+          dirs_cache.insert (move (key), move (sd));
         }
       }
 

@@ -54,7 +54,7 @@ namespace build2
       {
         process_path r (
           run_try_search (prog,
-                          true        /* init */,
+                          false       /* init (cached) */,
                           dir_path () /* fallback */,
                           true        /* path_only */,
                           paths));
@@ -80,13 +80,32 @@ namespace build2
           dr << info << "use " << var << " to override";
         });
 
-      return run_search (prog, true, dir_path (), true);
+      return run_search (prog, false, dir_path (), true);
     }
 
-    ar_info
+    // Extracting ar/ranlib information requires running them which can become
+    // expensive if done repeatedly. So we cache the result.
+    //
+    static global_cache<ar_info> ar_cache;
+
+    const ar_info&
     guess_ar (const path& ar, const path* rl, const char* paths)
     {
       tracer trace ("bin::guess_ar");
+
+      // First check the cache.
+      //
+      string key;
+      {
+        sha256 cs;
+        cs.append (ar.string ());
+        if (rl != nullptr) cs.append (rl->string ());
+        if (paths != nullptr) cs.append (paths);
+        key = cs.string ();
+
+        if (const ar_info* r = ar_cache.find (key))
+          return *r;
+      }
 
       guess_result arr, rlr;
 
@@ -307,23 +326,42 @@ namespace build2
           fail << "unable to guess " << *rl << " signature";
       }
 
-      return ar_info {
-        move (arp),
-        move (arr.id),
-        move (arr.signature),
-        move (arr.checksum),
-        move (*arr.version),
+      return ar_cache.insert (move (key),
+                              ar_info {
+                                move (arp),
+                                move (arr.id),
+                                move (arr.signature),
+                                move (arr.checksum),
+                                move (*arr.version),
 
-        move (rlp),
-        move (rlr.id),
-        move (rlr.signature),
-        move (rlr.checksum)};
+                                move (rlp),
+                                move (rlr.id),
+                                move (rlr.signature),
+                                move (rlr.checksum)});
     }
 
-    ld_info
+    // Extracting ld information requires running it which can become
+    // expensive if done repeatedly. So we cache the result.
+    //
+    static global_cache<ld_info> ld_cache;
+
+    const ld_info&
     guess_ld (const path& ld, const char* paths)
     {
       tracer trace ("bin::guess_ld");
+
+      // First check the cache.
+      //
+      string key;
+      {
+        sha256 cs;
+        cs.append (ld.string ());
+        if (paths != nullptr) cs.append (paths);
+        key = cs.string ();
+
+        if (const ld_info* r = ld_cache.find (key))
+          return *r;
+      }
 
       guess_result r;
 
@@ -484,18 +522,37 @@ namespace build2
       if (r.empty ())
         fail << "unable to guess " << ld << " signature";
 
-      return ld_info {
-        move (pp),
-        move (r.id),
-        move (r.signature),
-        move (r.checksum),
-        move (r.version)};
+      return ld_cache.insert (move (key),
+                              ld_info {
+                                move (pp),
+                                move (r.id),
+                                move (r.signature),
+                                move (r.checksum),
+                                move (r.version)});
     }
 
-    rc_info
+    // Extracting rc information requires running it which can become
+    // expensive if done repeatedly. So we cache the result.
+    //
+    static global_cache<rc_info> rc_cache;
+
+    const rc_info&
     guess_rc (const path& rc, const char* paths)
     {
       tracer trace ("bin::guess_rc");
+
+      // First check the cache.
+      //
+      string key;
+      {
+        sha256 cs;
+        cs.append (rc.string ());
+        if (paths != nullptr) cs.append (paths);
+        key = cs.string ();
+
+        if (const rc_info* r = rc_cache.find (key))
+          return *r;
+      }
 
       guess_result r;
 
@@ -575,8 +632,12 @@ namespace build2
       if (r.empty ())
         fail << "unable to guess " << rc << " signature";
 
-      return rc_info {
-        move (pp), move (r.id), move (r.signature), move (r.checksum)};
+      return rc_cache.insert (move (key),
+                              rc_info {
+                                move (pp),
+                                move (r.id),
+                                move (r.signature),
+                                move (r.checksum)});
     }
   }
 }
