@@ -2972,6 +2972,13 @@ namespace build2
     {
       // First check the cache.
       //
+      // @@ We currently include config.{cc,x}.[pc]options into the key which
+      //    means any project-specific tweaks to these result in a different
+      //    key. Perhaps we should assume that any options that can affect the
+      //    result of what we are guessing (-m32, -stdlib=, etc) should be
+      //    specified as part of the mode? While definitely feels correct,
+      //    people will most likely specify these options else where as well.
+      //
       string key;
       {
         sha256 cs;
