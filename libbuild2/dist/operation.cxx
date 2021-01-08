@@ -719,13 +719,16 @@ namespace build2
         // On Windows we use libarchive's bsdtar with auto-compression (tar
         // itself and quite a few compressors are MSYS executables).
         //
-        const char* l (nullptr); // Compression level (option).
+        // For gzip we also suppress the timestamp with -n to produce the
+        // same archive for the same distribution.
+        //
+        const char* o (nullptr); // Option (compression level, etc).
 
 #ifdef _WIN32
         const char* tar = "bsdtar";
 
         if (e == "tar.gz")
-          l = "--options=compression-level=9";
+          o = "--options=compression-level=9,!timestamp";
 #else
         const char* tar = "tar";
 
@@ -739,9 +742,9 @@ namespace build2
         //
         const char* c (nullptr);
 
-        if      (e == "tar.gz")  { c = "gzip";  l = "-9"; }
-        else if (e == "tar.xz")  { c = "xz";              }
-        else if (e == "tar.bz2") { c = "bzip2";           }
+        if      (e == "tar.gz")  { c = "gzip";  o = "-9n"; }
+        else if (e == "tar.xz")  { c = "xz";               }
+        else if (e == "tar.bz2") { c = "bzip2";            }
 
         if (c != nullptr)
         {
@@ -753,8 +756,8 @@ namespace build2
 
           i = args.size ();
           args.push_back (c);
-          if (l != nullptr)
-            args.push_back (l);
+          if (o != nullptr)
+            args.push_back (o);
           args.push_back (nullptr);
           args.push_back (nullptr); // Pipe end.
 
@@ -784,8 +787,8 @@ namespace build2
                   "--format", "ustar",
                   "-a"};
 
-          if (l != nullptr)
-            args.push_back (l);
+          if (o != nullptr)
+            args.push_back (o);
 
           args.push_back ("-cf");
           args.push_back (ap.string ().c_str ());

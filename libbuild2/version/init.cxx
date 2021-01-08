@@ -374,7 +374,24 @@ namespace build2
                                      path::temp_path ("manifest"),
                                      m.version));
 
-      mvfile (t.path, f, verb_never);
+
+
+      // Copy the original timestamps in order produce the same archive for
+      // the same distribution.
+      //
+      try
+      {
+        entry_time et (file_time (f));
+
+        mvfile (t.path, f, verb_never);
+
+        file_time (f, et);
+      }
+      catch (const system_error& e)
+      {
+        fail << "unable to get/set timestamp for " << f << ": " << e;
+      }
+
       t.cancel ();
     }
 

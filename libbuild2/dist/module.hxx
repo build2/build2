@@ -59,6 +59,10 @@ namespace build2
       // Note also that in the bootstrap distribution mode only callbacks
       // registered during bootstrap will be called.
       //
+      // If the callback is doing some sort of post-processing, then you may
+      // want to consider preserving the timestamps of the files being
+      // modified in order produce the same archive for the same distribution.
+      //
       using callback_func = void (const path&, const scope&, void*);
 
       void
