@@ -17,9 +17,9 @@ namespace build2
 {
   namespace bin
   {
-    // fail_rule
+    // obj_rule
     //
-    bool fail_rule::
+    bool obj_rule::
     match (action a, target& t, const string&) const
     {
       const char* n (t.dynamic_type ().name); // Ignore derived type.
@@ -29,7 +29,19 @@ namespace build2
            << n << "s{} member" << endf;
     }
 
-    recipe fail_rule::
+    recipe obj_rule::
+    apply (action, target&) const {return empty_recipe;}
+
+    // libul_rule
+    //
+    bool libul_rule::
+    match (action a, target& t, const string&) const
+    {
+      fail << diag_doing (a, t) << " target group" <<
+        info << "explicitly select libua{} or libus{} member" << endf;
+    }
+
+    recipe libul_rule::
     apply (action, target&) const {return empty_recipe;}
 
     // lib_rule

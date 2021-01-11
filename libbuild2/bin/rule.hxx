@@ -15,13 +15,28 @@ namespace build2
 {
   namespace bin
   {
-    // "Fail rule" for obj{}, [h]bmi{}, and libu{} that issues diagnostics if
-    // someone tries to build any of these groups directly.
+    // "Fail rule" for obj{} and [h]bmi{} that issues diagnostics if someone
+    // tries to build these groups directly.
     //
-    class fail_rule: public simple_rule
+    class obj_rule: public simple_rule
     {
     public:
-      fail_rule () {}
+      obj_rule () {}
+
+      virtual bool
+      match (action, target&, const string&) const override;
+
+      virtual recipe
+      apply (action, target&) const override;
+    };
+
+    // "Fail rule" for libul{} that issues diagnostics if someone tries to
+    // build this group directly.
+    //
+    class libul_rule: public simple_rule
+    {
+    public:
+      libul_rule () {}
 
       virtual bool
       match (action, target&, const string&) const override;

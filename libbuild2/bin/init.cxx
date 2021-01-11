@@ -29,7 +29,8 @@ namespace build2
 {
   namespace bin
   {
-    static const fail_rule fail_;
+    static const obj_rule obj_;
+    static const libul_rule libul_;
     static const lib_rule lib_;
 
     // Default config.bin.*.lib values.
@@ -563,17 +564,17 @@ namespace build2
       {
         auto& r (bs.rules);
 
-        r.insert<obj> (perform_update_id, "bin.obj", fail_);
-        r.insert<obj> (perform_clean_id,  "bin.obj", fail_);
+        r.insert<obj> (perform_update_id, "bin.obj", obj_);
+        r.insert<obj> (perform_clean_id,  "bin.obj", obj_);
 
-        r.insert<bmi> (perform_update_id, "bin.bmi", fail_);
-        r.insert<bmi> (perform_clean_id,  "bin.bmi", fail_);
+        r.insert<bmi> (perform_update_id, "bin.bmi", obj_);
+        r.insert<bmi> (perform_clean_id,  "bin.bmi", obj_);
 
-        r.insert<hbmi> (perform_update_id, "bin.hbmi", fail_);
-        r.insert<hbmi> (perform_clean_id,  "bin.hbmi", fail_);
+        r.insert<hbmi> (perform_update_id, "bin.hbmi", obj_);
+        r.insert<hbmi> (perform_clean_id,  "bin.hbmi", obj_);
 
-        r.insert<libul> (perform_update_id, "bin.libul", fail_);
-        r.insert<libul> (perform_clean_id,  "bin.libul", fail_);
+        r.insert<libul> (perform_update_id, "bin.libul", libul_);
+        r.insert<libul> (perform_clean_id,  "bin.libul", libul_);
 
         // Similar to alias.
         //
