@@ -378,18 +378,25 @@ namespace build2
       // for libraries then we have bin.ld. So we will use the link.exe /DUMP
       // /ARCHIVEMEMBERS.
       //
+      // But then we wanted to also support lld-link which does not support
+      // the /DUMP option (at least not as of LLVM 10). On the other hand, it
+      // turns out that both link.exe and lld-link support the /LIB option
+      // which makes them act as lib.exe. So we have started with /DUMP but
+      // now switched to /LIB.
+      //
       const char* args[] = {ld.recall_string (),
-                            "/DUMP",               // Must come first.
+                            "/LIB",    // Must come first.
                             "/NOLOGO",
-                            "/ARCHIVEMEMBERS",
+                            "/LIST",
                             l.string ().c_str (),
                             nullptr};
 
       if (verb >= 3)
         print_process (args);
 
-      // Link.exe seem to always dump everything to stdout but just in case
-      // redirect stderr to stdout.
+      // link.exe always dump everything to stdout (including diagnostics)
+      // while lld-link sends diagnostics to stderr so redirect stderr to
+      // stdout.
       //
       process pr (run_start (ld,
                              args,
@@ -412,8 +419,10 @@ namespace build2
           if (s.compare (0, 18, "unable to execute ") == 0)
             break;
 
-          // The lines we are interested in seem to have this form (though
-          // presumably the "Archive member name at" part can be translated):
+          // The lines we are interested in seem to have this form:
+          //
+          // libhello\hello.lib.obj
+          // hello-0.1.0-a.0.19700101000000.dll
           //
           // Archive member name at 746: [...]hello.dll[/][ ]*
           // Archive member name at 8C70: [...]hello.lib.obj[/][ ]*
@@ -424,29 +433,16 @@ namespace build2
 
           if (n >= 7) // At least ": X.obj" or ": X.dll".
           {
-            --n;
-
-            if (s[n] == '/') // Skip trailing slash if one is there.
-              --n;
-
-            n -= 3; // Beginning of extension.
+            n -= 4; // Beginning of extension.
 
             if (s[n] == '.')
             {
-              // Make sure there is ": ".
-              //
-              size_t p (s.rfind (':', n - 1));
+              const char* e (s.c_str () + n + 1);
 
-              if (p != string::npos && s[p + 1] == ' ')
-              {
-                const char* e (s.c_str () + n + 1);
-
-                if (icasecmp (e, "obj", 3) == 0)
-                  obj = true;
-
-                if (icasecmp (e, "dll", 3) == 0)
-                  dll = true;
-              }
+              if (icasecmp (e, "obj", 3) == 0)
+                obj = true;
+              else if (icasecmp (e, "dll", 3) == 0)
+                dll = true;
             }
           }
         }
@@ -458,7 +454,13 @@ namespace build2
       }
 
       if (!run_finish_code (args, pr, s))
+      {
+        diag_record dr;
+        dr << warn << "unable to detect " << l << " library type, ignoring" <<
+          info << "run the following command to investigate" <<
+          info; print_process (dr, args);
         return otype::e;
+      }
 
       if (obj && dll)
       {
