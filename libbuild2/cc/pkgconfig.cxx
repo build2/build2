@@ -811,11 +811,17 @@ namespace build2
 
             // @@ If by some reason this is the library itself (doesn't go
             //    first or libpkgconf parsed libs in some bizarre way) we will
-            //    hang trying to lock it's target inside search_library() (or
-            //    fail an assertion if run serially) as by now it is already
-            //    locked. To be safe we probably shouldn't rely on the position
-            //    and filter out all occurrences of the library itself (by
-            //    name?) and complain if none were encountered.
+            //    have a dependency cycle by trying to lock its target inside
+            //    search_library() as by now it is already locked. To be safe
+            //    we probably shouldn't rely on the position and filter out
+            //    all occurrences of the library itself (by name?) and
+            //    complain if none were encountered.
+            //
+            //    Note also that the same situation can occur if we have a
+            //    binful library for which we could not find the library
+            //    binary and are treating it as binless. We now have a diag
+            //    frame around the call to search_library() to help diagnose
+            //    such situations.
             //
             libs.push_back (name (move (o)));
             continue;
@@ -1002,7 +1008,19 @@ namespace build2
           prerequisite_key pk {
             nullopt, {&lib::static_type, &out, &out, &nm, nullopt}, &s};
 
-          if (const target* lt = search_library (a, top_sysd, usrd, pk))
+          const target* lt;
+          {
+            auto df = make_diag_frame (
+              [&pc, &l](const diag_record& dr)
+              {
+                location f (pc.path);
+                dr << info (f) << "while resolving pkg-config dependency " << l;
+              });
+
+            lt = search_library (a, top_sysd, usrd, pk);
+          }
+
+          if (lt != nullptr)
           {
             // We used to pick a member but that doesn't seem right since the
             // same target could be used with different link orders.
