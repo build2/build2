@@ -27,8 +27,8 @@ namespace build2
   // empty, then it means the name is in a project other than our own (e.g.,
   // it is installed).
   //
-  // A type or project can only be specified if either directory or value are
-  // not empty.
+  // A type can only be specified if either directory or value are not empty.
+  // We allow project-qualified empty names for reversibility.
   //
   // If pair is not '\0', then this name and the next in the list form a
   // pair. Can be used as a bool flag.

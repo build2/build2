@@ -2488,7 +2488,7 @@ namespace build2
 
     // General import format:
     //
-    // import[?!] [<attrs>] [<var>=](<project>|<project>%<target>])+
+    // import[?!] [<attrs>] [<var>=](<target>|<project>%<target>])+
     //
     bool opt (t.value.back () == '?');
     bool ph2 (opt || t.value.back () == '!');
@@ -4520,6 +4520,22 @@ namespace build2
     return make_pair (has, l);
   }
 
+  // Add a name verifying it is valid.
+  //
+  static inline name&
+  append_name (names& ns,
+               optional<project_name> p, dir_path d, string t, string v,
+               const location& loc)
+  {
+    // The directory/value must not be empty if we have a type.
+    //
+    if (d.empty () && v.empty () && !t.empty ())
+      fail (loc) << "typed empty name";
+
+    ns.emplace_back (move (p), move (d), move (t), move (v));
+    return ns.back ();
+  }
+
   // Splice names from the name view into the destination name list while
   // doing sensible things with pairs, types, etc. Return the number of
   // the names added.
@@ -4623,8 +4639,8 @@ namespace build2
           ns.push_back (ns[pairn - 1]);
       }
 
-      ns.emplace_back (move (p), move (d), move (t), move (v));
-      ns.back ().pair = cn.pair;
+      name& r (append_name (ns, move (p), move (d), move (t), move (v), loc));
+      r.pair = cn.pair;
     }
 
     return ns.size () - start;
@@ -4694,6 +4710,9 @@ namespace build2
     //
     auto append = [&r, &dir] (string&& v, optional<string>&& e, bool a)
     {
+      // Here we can assume either dir or value are not empty (comes from
+      // pattern expansion).
+      //
       name n (dir ? name (dir_path (move (v))) : name (move (v)));
 
       if (a)
@@ -5465,6 +5484,10 @@ namespace build2
           }
           else
           {
+            // This is either a simple name (untyped concatenation; in which
+            // case it is always valid) or it came from type concatenation in
+            // which case we can assume the result is valid.
+            //
             ns.push_back (move (concat_data));
 
             // Clear the type information if that's not the only name.
@@ -5815,18 +5838,22 @@ namespace build2
             if (dp != nullptr)
               dir = *dp / dir;
 
-            ns.emplace_back (*pp1,
-                             move (dir),
-                             (tp != nullptr ? *tp : string ()),
-                             string ());
+            append_name (
+              ns,
+              *pp1, move (dir), (tp != nullptr ? *tp : string ()), string (),
+              loc);
+
             continue;
           }
         }
 
-        ns.emplace_back (*pp1,
-                         (dp != nullptr ? *dp : dir_path ()),
-                         (tp != nullptr ? *tp : string ()),
-                         move (val));
+        append_name (ns,
+                     *pp1,
+                     (dp != nullptr ? *dp : dir_path ()),
+                     (tp != nullptr ? *tp : string ()),
+                     move (val),
+                     loc);
+
         continue;
       }
 
@@ -6329,10 +6356,12 @@ namespace build2
             // Empty LHS, (e.g., @y), create an empty name. The second test
             // will be in effect if we have something like v=@y.
             //
-            ns.emplace_back (pp,
-                             (dp != nullptr ? *dp : dir_path ()),
-                             (tp != nullptr ? *tp : string ()),
-                             string ());
+            append_name (ns,
+                         pp,
+                         (dp != nullptr ? *dp : dir_path ()),
+                         (tp != nullptr ? *tp : string ()),
+                         string (),
+                         get_location (t));
             count = 1;
           }
           else if (count > 1)
@@ -6347,10 +6376,12 @@ namespace build2
           //
           if (peeked ().separated)
           {
-            ns.emplace_back (pp,
-                             (dp != nullptr ? *dp : dir_path ()),
-                             (tp != nullptr ? *tp : string ()),
-                             string ());
+            append_name (ns,
+                         pp,
+                         (dp != nullptr ? *dp : dir_path ()),
+                         (tp != nullptr ? *tp : string ()),
+                         string (),
+                         get_location (t));
             count = 0;
           }
         }
@@ -6364,7 +6395,7 @@ namespace build2
       if (!first)
         break;
 
-      if (tt == type::rcbrace) // Empty name, e.g., dir{}.
+      if (tt == type::rcbrace) // Empty name, e.g., {}.
       {
         // If we are a second half of a pair, add another first half
         // unless this is the first instance.
@@ -6372,10 +6403,12 @@ namespace build2
         if (pairn != 0 && pairn != ns.size ())
           ns.push_back (ns[pairn - 1]);
 
-        ns.emplace_back (pp,
-                         (dp != nullptr ? *dp : dir_path ()),
-                         (tp != nullptr ? *tp : string ()),
-                         string ());
+        append_name (ns,
+                     pp,
+                     (dp != nullptr ? *dp : dir_path ()),
+                     (tp != nullptr ? *tp : string ()),
+                     string (),
+                     get_location (t));
         break;
       }
       else
@@ -6388,10 +6421,12 @@ namespace build2
     //
     if (!ns.empty () && ns.back ().pair)
     {
-      ns.emplace_back (pp,
-                       (dp != nullptr ? *dp : dir_path ()),
-                       (tp != nullptr ? *tp : string ()),
-                       string ());
+      append_name (ns,
+                   pp,
+                   (dp != nullptr ? *dp : dir_path ()),
+                   (tp != nullptr ? *tp : string ()),
+                   string (),
+                   get_location (t));
     }
 
     if (pre_parse_)

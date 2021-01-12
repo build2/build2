@@ -2549,6 +2549,11 @@ namespace build2
     context& ctx (base.ctx);
     assert (ctx.phase == run_phase::load);
 
+    // Validate the name.
+    //
+    if (tgt.qualified () && tgt.empty ())
+      fail (loc) << "project-qualified empty name " << tgt;
+
     // If metadata is requested, delegate to import_direct() which will lookup
     // the target and verify the metadata was loaded.
     //

@@ -23,7 +23,6 @@ EOI
 :
 {
   $* <'print {}{bar}'            >'bar'
-  $* <'print {foo}{}'            >'foo{}'
   $* <'print {foo}{bar}'         >'foo{bar}'
   $* <'print {foo}{bar baz}'     >'foo{bar} foo{baz}'
   $* <'print {foo fox}{bar}'     >'foo{bar} fox{bar}'
