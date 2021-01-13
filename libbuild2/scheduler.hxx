@@ -125,6 +125,24 @@ namespace build2
       return wait (0, task_count, wq);
     }
 
+    // Mark the queue so that we don't work any tasks that may already be
+    // there. In the normal "bunch of acync() calls followed by wait()"
+    // cases this happens automatically but in special cases where async()
+    // calls from different "levels" can mix we need to do explicit marking
+    // (see the task queue description below for details).
+    //
+    struct task_queue;
+    struct queue_mark
+    {
+      explicit
+      queue_mark (scheduler&);
+      ~queue_mark ();
+
+    private:
+      task_queue* tq_;
+      size_t om_;
+    };
+
     // Resume threads waiting on this task count.
     //
     void
@@ -446,7 +464,9 @@ namespace build2
     lock
     wait_idle ();
 
-  private:
+    // Implementation details.
+    //
+  public:
     bool
     activate_helper (lock&);
 
@@ -494,7 +514,6 @@ namespace build2
     static std::decay_t<T>
     decay_copy (T&& x) {return forward<T> (x);}
 
-  private:
     // Monitor.
     //
     atomic_count*              monitor_count_ = nullptr;  // NULL if not used.
@@ -629,8 +648,8 @@ namespace build2
     // back.
     //
     // To satisfy the second requirement, the master thread stores the index
-    // of the first task it has queued at this "level" and makes sure it
-    // doesn't try to deque any task beyond that.
+    // (mark) of the first task it has queued at this "level" and makes sure
+    // it doesn't try to deque any task beyond that.
     //
     size_t task_queue_depth_; // Multiple of max_active.
 
@@ -830,6 +849,7 @@ namespace build2
   };
 }
 
+#include <libbuild2/scheduler.ixx>
 #include <libbuild2/scheduler.txx>
 
 #endif // LIBBUILD2_SCHEDULER_HXX

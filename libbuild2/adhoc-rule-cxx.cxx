@@ -295,6 +295,11 @@ namespace build2
       //
       context& ctx (*t.ctx.module_context);
 
+      // Mark the queue so that we don't work any tasks that may already be
+      // there.
+      //
+      scheduler::queue_mark qm (ctx.sched);
+
       const uint16_t verbosity (3); // Project creation command verbosity.
 
       // Project and location signatures.

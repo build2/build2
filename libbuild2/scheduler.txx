@@ -77,8 +77,8 @@ namespace build2
         tq->stat_full++;
 
         // We have to perform the same mark adjust/restore as in pop_back()
-        // since the task we are about to execute synchronously may try to
-        // work the queue.
+        // (and in queue_mark) since the task we are about to execute
+        // synchronously may try to work the queue.
         //
         // It would have been cleaner to package all this logic into push()
         // but that would require dragging function/argument types into it.

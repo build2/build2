@@ -415,6 +415,12 @@ namespace build2
       //
       context& ctx (*bs.ctx.module_context);
 
+      // Mark the queue so that we don't work any tasks that may already be
+      // there (we could be called in strange ways, for example, as part of
+      // match via dir_search()).
+      //
+      scheduler::queue_mark qm (ctx.sched);
+
       // Load the imported project in the module context.
       //
       pair<names, const scope&> lr (
