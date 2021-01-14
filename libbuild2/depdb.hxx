@@ -55,9 +55,10 @@ namespace build2
   //
   // If we assume that an update of the database also means an update of the
   // target, then this "interrupted update" situation can be easily detected
-  // by comparing the database and target modification timestamps. This is
-  // also used to handle the dry-run mode where we essentially do the
-  // interruption ourselves.
+  // by comparing the database and target modification timestamps: a valid
+  // up-to-date state will always have the target mtime greater or equal to
+  // the depdb mtime. This is also used to handle the dry-run mode where we
+  // essentially do the interruption ourselves.
   //
   struct LIBBUILD2_SYMEXPORT depdb_base
   {

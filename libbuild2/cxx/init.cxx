@@ -189,6 +189,17 @@ namespace build2
           if (!o.empty ())
             prepend (move (o));
 
+          // Since VC 15.7 we can get a (more) accurate __cplusplus value if
+          // we ask for it with /Zc:__cplusplus:
+          //
+          // https://devblogs.microsoft.com/cppblog/msvc-now-correctly-reports-__cplusplus/
+          //
+          if (mj > 19 || (mj == 19 &&  mi >= 14))
+          {
+            if (!find_option_prefix ("/Zc:__cplusplus", mode))
+              prepend ("/Zc:__cplusplus");
+          }
+
           break;
         }
       case compiler_class::gcc:
