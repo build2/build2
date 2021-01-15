@@ -896,6 +896,7 @@ namespace build2
     //text << this_thread::get_id () << " phase switch  " << o << " " << n;
   }
 
+#if 0
   phase_switch::
   phase_switch (phase_unlock&& u, phase_lock&& l)
       : old_phase (u.l->phase), new_phase (l.phase)
@@ -903,6 +904,7 @@ namespace build2
     phase_lock_instance = u.l; // Disarms phase_lock
     u.l = nullptr;             // Disarms phase_unlock
   }
+#endif
 
   phase_switch::
   ~phase_switch () noexcept (false)

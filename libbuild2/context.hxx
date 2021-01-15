@@ -606,10 +606,12 @@ namespace build2
   // phase_lock pl;
   // phase_switch ps (move (pu), move (pl));
   //
+  // @@ Need to re-confirm it does the right thing if/when we need it.
+  //
   struct LIBBUILD2_SYMEXPORT phase_switch
   {
     phase_switch (context&, run_phase);
-    phase_switch (phase_unlock&&, phase_lock&&);
+    //phase_switch (phase_unlock&&, phase_lock&&);
     ~phase_switch () noexcept (false);
 
     run_phase old_phase, new_phase;
