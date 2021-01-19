@@ -331,21 +331,12 @@ namespace build2
             }
           case compiler_type::gcc:
             {
-              // We now use extended/experimental module mapper support which
-              // is currently only available in our c++-modules-ex branch.
-              // But let's allow forcing it to plain c++-modules in case
-              // things got merged or the user feels adventurous.
+              // We use the module mapper support which is only available
+              // since GCC 11. And since we are not yet capable of supporting
+              // generated headers via the mapper, we require the user to
+              // explicitly request modules.
               //
-              // @@ TMP: revise: for now must be forced (also in modules
-              //    tests).
-              //
-              if (mj >= 11 &&
-                  l &&
-                  ci.version.build.find ("c++-modules")
-                  /*
-                  ci.version.build.find (l
-                                         ? "c++-modules"
-                                         : "c++-modules-ex")*/ != string::npos)
+              if (mj >= 11 && l)
               {
                 // Defines __cpp_modules=201907. @@ TMP: confirm.
                 //
