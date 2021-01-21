@@ -950,6 +950,10 @@ namespace build2
         // idea is that in .pc files that we generate, we copy those macros
         // (or custom ones) from *.export.poptions.
         //
+        // @@ Should we add .pc files as ad hoc members so pkconfig_save() can
+        // use their names when deriving -l-names (this would be expecially
+        // helpful for binless libraries to get hold of prefix/suffix, etc).
+        //
         if (pc.first.empty () && pc.second.empty ())
         {
           if (!pkgconfig_load (act, *p.scope,

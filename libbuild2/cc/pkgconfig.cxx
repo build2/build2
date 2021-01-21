@@ -1479,13 +1479,25 @@ namespace build2
           }
           else
           {
-            // Derive -l-name from the file name in a fuzzy, platform-specific
-            // manner.
-            //
-            n = l.path ().leaf ().base ().string ();
+            const path& p (l.path ());
 
-            if (cclass != compiler_class::msvc)
-              strip_lib ();
+            if (p.empty ()) // Binless.
+            {
+              // For a binless library the target name is all it can possibly
+              // be.
+              //
+              n = l.name;
+            }
+            else
+            {
+              // Derive -l-name from the file name in a fuzzy, platform-
+              // specific manner.
+              //
+              n = p.leaf ().base ().string ();
+
+              if (cclass != compiler_class::msvc)
+                strip_lib ();
+            }
           }
 
           os << " -l" << n;
