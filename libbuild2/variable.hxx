@@ -610,6 +610,9 @@ namespace build2
   //   static const build2::value_type value_type;
   // };
 
+  template <typename T>
+  struct value_traits<const T>: value_traits<T> {};
+
   // Convert name to a simple value. Throw invalid_argument (with a message)
   // if the name is not a valid representation of value (in which case the
   // name remains unchanged for diagnostics). The second version is called for
@@ -897,6 +900,9 @@ namespace build2
   // half of a pair). If both are empty then this is an empty value (and not a
   // pair of two empties).
   //
+  // @@ Maybe we should redo this with optional<> to signify which half can
+  //    be missing?
+  //
   template <>
   struct LIBBUILD2_SYMEXPORT value_traits<name_pair>
   {
@@ -1004,8 +1010,66 @@ namespace build2
     static const build2::value_type value_type;
   };
 
+  // optional<T>
+  //
+  // This is an incomplete implementation meant to provide enough support only
+  // to be usable as elements of containers.
+  //
+  template <typename T>
+  struct value_traits<optional<T>>
+  {
+    static int compare (const optional<T>&, const optional<T>&);
+  };
+
+  // pair<F, S>
+  //
+  // Either F or S can be optional<T> making the corresponding half of the
+  // pair optional.
+  //
+  // This is an incomplete implementation meant to provide enough support only
+  // to be usable as elements of containers.
+  //
+  template <typename F, typename S>
+  struct pair_value_traits
+  {
+    static pair<F, S>
+    convert (name&&, name*, const char*, const char*, const variable*);
+
+    static void
+    reverse (const F&, const S&, names&);
+  };
+
+  template <typename F, typename S>
+  struct pair_value_traits<F, optional<S>>
+  {
+    static pair<F, optional<S>>
+    convert (name&&, name*, const char*, const char*, const variable*);
+
+    static void
+    reverse (const F&, const optional<S>&, names&);
+  };
+
+  template <typename F, typename S>
+  struct pair_value_traits<optional<F>, S>
+  {
+    static pair<optional<F>, S>
+    convert (name&&, name*, const char*, const char*, const variable*);
+
+    static void
+    reverse (const optional<F>&, const S&, names&);
+  };
+
+  template <typename F, typename S>
+  struct value_traits<pair<F, S>>: pair_value_traits<F, S>
+  {
+    static int compare (const pair<F, S>&, const pair<F, S>&);
+  };
+
   // vector<T>
   //
+  template <typename T>
+  struct vector_value_type;
+
   template <typename T>
   struct value_traits<vector<T>>
   {
@@ -1018,20 +1082,17 @@ namespace build2
     static bool empty (const vector<T>& x) {return x.empty ();}
 
     static const vector<T> empty_instance;
-
-    // Make sure these are static-initialized together. Failed that VC will
-    // make sure it's done in the wrong order.
-    //
-    struct value_type_ex: build2::value_type
-    {
-      string type_name;
-      value_type_ex (value_type&&);
-    };
-    static const value_type_ex value_type;
+    static const vector_value_type<T> value_type;
   };
 
   // vector<pair<K, V>>
   //
+  // Either K or V can be optional<T> making the corresponding half of the
+  // pair optional.
+  //
+  template <typename K, typename V>
+  struct pair_vector_value_type;
+
   template <typename K, typename V>
   struct value_traits<vector<pair<K, V>>>
   {
@@ -1045,20 +1106,16 @@ namespace build2
     static bool empty (const vector<pair<K, V>>& x) {return x.empty ();}
 
     static const vector<pair<K, V>> empty_instance;
-
-    // Make sure these are static-initialized together. Failed that VC will
-    // make sure it's done in the wrong order.
-    //
-    struct value_type_ex: build2::value_type
-    {
-      string type_name;
-      value_type_ex (value_type&&);
-    };
-    static const value_type_ex value_type;
+    static const pair_vector_value_type<K, V> value_type;
   };
 
   // map<K, V>
   //
+  // Either K or V can be optional<T> making the key or value optional.
+  //
+  template <typename K, typename V>
+  struct map_value_type;
+
   template <typename K, typename V>
   struct value_traits<std::map<K, V>>
   {
@@ -1073,16 +1130,7 @@ namespace build2
     static bool empty (const map<K, V>& x) {return x.empty ();}
 
     static const map<K, V> empty_instance;
-
-    // Make sure these are static-initialized together. Failed that VC will
-    // make sure it's done in the wrong order.
-    //
-    struct value_type_ex: build2::value_type
-    {
-      string type_name;
-      value_type_ex (value_type&&);
-    };
-    static const value_type_ex value_type;
+    static const map_value_type<K, V> value_type;
   };
 
   // Explicitly pre-instantiate and export value_traits templates for
@@ -1102,10 +1150,22 @@ namespace build2
   value_traits<vector<pair<string, string>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
+  value_traits<vector<pair<string, optional<string>>>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<vector<pair<optional<string>, string>>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
   value_traits<std::map<string, string>>;
 
   extern template struct LIBBUILD2_DECEXPORT
-  value_traits<std::map<project_name, dir_path>>;
+  value_traits<std::map<string, optional<string>>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<std::map<optional<string>, string>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<std::map<project_name, dir_path>>; // var_subprojects
 
   // Project-wide (as opposed to global) variable overrides (see context ctor
   // for details).

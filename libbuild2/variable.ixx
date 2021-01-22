@@ -728,6 +728,31 @@ namespace build2
                  : s);
   }
 
+  // optional<T>
+  //
+  template <typename T>
+  inline int value_traits<optional<T>>::
+  compare (const optional<T>& l, const optional<T>& r)
+  {
+    return l
+      ? (r ? value_traits<T>::compare (*l, *r) : 1)
+      : (r ? -1 : 0);
+  }
+
+  // pair<F, S> value
+  //
+  template <typename F, typename S>
+  inline int value_traits<pair<F, S>>::
+  compare (const pair<F, S>& l, const pair<F, S>& r)
+  {
+    int i (value_traits<F>::compare (l.first, r.first));
+
+    if (i == 0)
+      i = value_traits<S>::compare (l.second, r.second);
+
+    return i;
+  }
+
   // vector<T> value
   //
   template <typename T>

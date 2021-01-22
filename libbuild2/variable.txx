@@ -241,9 +241,228 @@ namespace build2
     return value_traits<T>::compare (l.as<T> (), r.as<T> ());
   }
 
+  // pair<F, S> value
+  //
+  template <typename F, typename S>
+  pair<F, S> pair_value_traits<F, S>::
+  convert (name&& l, name* r,
+           const char* type, const char* what, const variable* var)
+  {
+    if (!l.pair)
+    {
+      diag_record dr (fail);
+
+      dr << type << ' ' << what << (*what != '\0' ? " " : "")
+         << "pair expected instead of '" << l << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+    }
+
+    if (l.pair != '@')
+    {
+      diag_record dr (fail);
+
+      dr << "unexpected pair style for "
+         << type << ' ' << what << (*what != '\0' ? " " : "")
+         << "key-value pair '"
+         << l << "'" << l.pair << "'" << *r << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+    }
+
+    try
+    {
+      F f (value_traits<F>::convert (move (l), nullptr));
+
+      try
+      {
+        S s (value_traits<S>::convert (move (*r), nullptr));
+
+        return pair<F, S>  (move (f), move (s));
+      }
+      catch (const invalid_argument&)
+      {
+        diag_record dr (fail);
+
+        dr << "invalid " << value_traits<S>::value_type.name
+           << " second have of pair '" << *r << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+
+        dr << endf;
+      }
+    }
+    catch (const invalid_argument&)
+    {
+      diag_record dr (fail);
+
+      dr << "invalid " << value_traits<F>::value_type.name
+         << " first have of pair '" << l << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << endf;
+    }
+  }
+
+  template <typename F, typename S>
+  pair<F, optional<S>> pair_value_traits<F, optional<S>>::
+  convert (name&& l, name* r,
+           const char* type, const char* what, const variable* var)
+  {
+    if (l.pair && l.pair != '@')
+    {
+      diag_record dr (fail);
+
+      dr << "unexpected pair style for "
+         << type << ' ' << what << (*what != '\0' ? " " : "")
+         << "key-value pair '"
+         << l << "'" << l.pair << "'" << *r << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+    }
+
+    try
+    {
+      F f (value_traits<F>::convert (move (l), nullptr));
+
+      try
+      {
+        optional<S> s;
+
+        if (l.pair)
+          s = value_traits<S>::convert (move (*r), nullptr);
+
+        return pair<F, optional<S>>  (move (f), move (s));
+      }
+      catch (const invalid_argument&)
+      {
+        diag_record dr (fail);
+
+        dr << "invalid " << value_traits<S>::value_type.name
+           << " second have of pair '" << *r << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+
+        dr << endf;
+      }
+    }
+    catch (const invalid_argument&)
+    {
+      diag_record dr (fail);
+
+      dr << "invalid " << value_traits<F>::value_type.name
+         << " first have of pair '" << l << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << endf;
+    }
+  }
+
+  template <typename F, typename S>
+  pair<optional<F>, S> pair_value_traits<optional<F>, S>::
+  convert (name&& l, name* r,
+           const char* type, const char* what, const variable* var)
+  {
+    if (l.pair && l.pair != '@')
+    {
+      diag_record dr (fail);
+
+      dr << "unexpected pair style for "
+         << type << ' ' << what << (*what != '\0' ? " " : "")
+         << "key-value pair '"
+         << l << "'" << l.pair << "'" << *r << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+    }
+
+    try
+    {
+      optional<F> f;
+
+      if (l.pair)
+      {
+        f = value_traits<F>::convert (move (l), nullptr);
+        l = move (*r); // Shift.
+      }
+
+      try
+      {
+        S s (value_traits<S>::convert (move (l), nullptr));
+
+        return pair<optional<F>, S>  (move (f), move (s));
+      }
+      catch (const invalid_argument&)
+      {
+        diag_record dr (fail);
+
+        dr << "invalid " << value_traits<S>::value_type.name
+           << " second have of pair '" << l << "'";
+
+        if (var != nullptr)
+          dr << " in variable " << var->name;
+
+        dr << endf;
+      }
+    }
+    catch (const invalid_argument&)
+    {
+      diag_record dr (fail);
+
+      dr << "invalid " << value_traits<F>::value_type.name
+         << " first have of pair '" << l << "'";
+
+      if (var != nullptr)
+        dr << " in variable " << var->name;
+
+      dr << endf;
+    }
+  }
+
+  template <typename F, typename S>
+  void pair_value_traits<F, S>::
+  reverse (const F& f, const S& s, names& ns)
+  {
+    ns.push_back (value_traits<F>::reverse (f));
+    ns.back ().pair = '@';
+    ns.push_back (value_traits<S>::reverse (s));
+  }
+
+  template <typename F, typename S>
+  void pair_value_traits<F, optional<S>>::
+  reverse (const F& f, const optional<S>& s, names& ns)
+  {
+    ns.push_back (value_traits<F>::reverse (f));
+    if (s)
+    {
+      ns.back ().pair = '@';
+      ns.push_back (value_traits<S>::reverse (*s));
+    }
+  }
+
+  template <typename F, typename S>
+  void pair_value_traits<optional<F>, S>::
+  reverse (const optional<F>& f, const S& s, names& ns)
+  {
+    if (f)
+    {
+      ns.push_back (value_traits<F>::reverse (*f));
+      ns.back ().pair = '@';
+    }
+    ns.push_back (value_traits<S>::reverse (s));
+  }
+
   // vector<T> value
   //
-
   template <typename T>
   vector<T> value_traits<vector<T>>::
   convert (names&& ns)
@@ -396,21 +615,28 @@ namespace build2
     return 0;
   }
 
+  // Make sure these are static-initialized together. Failed that VC will make
+  // sure it's done in the wrong order.
+  //
   template <typename T>
-  value_traits<vector<T>>::value_type_ex::
-  value_type_ex (value_type&& v)
-    : value_type (move (v))
+  struct vector_value_type: value_type
   {
-    type_name  = value_traits<T>::type_name;
-    type_name += 's';
-    name = type_name.c_str ();
-  }
+    string type_name;
+
+    vector_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = value_traits<T>::type_name;
+      type_name += 's';
+      name = type_name.c_str ();
+    }
+  };
 
   template <typename T>
   const vector<T> value_traits<vector<T>>::empty_instance;
 
   template <typename T>
-  const typename value_traits<vector<T>>::value_type_ex
+  const vector_value_type<T>
   value_traits<vector<T>>::value_type = build2::value_type // VC14 wants =.
   {
     nullptr,                          // Patched above.
@@ -444,63 +670,14 @@ namespace build2
     for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
       name& l (*i);
+      name* r (l.pair ? &*++i : nullptr);
 
-      if (!l.pair)
-      {
-        diag_record dr (fail);
+      p.push_back (value_traits<pair<K, V>>::convert (
+                     move (l), r,
+                     value_traits<vector<pair<K, V>>>::value_type.name,
+                     "element",
+                     var));
 
-        dr << value_traits<vector<pair<K, V>>>::value_type.name
-           << " key-value pair expected instead of '" << l << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
-      }
-
-      name& r (*++i); // Got to have the second half of the pair.
-
-      if (l.pair != '@')
-      {
-        diag_record dr (fail);
-
-        dr << "unexpected pair style for "
-           << value_traits<vector<pair<K, V>>>::value_type.name
-           << " key-value '" << l << "'" << l.pair << "'" << r << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
-      }
-
-      try
-      {
-        K k (value_traits<K>::convert (move (l), nullptr));
-
-        try
-        {
-          V v (value_traits<V>::convert (move (r), nullptr));
-
-          p.emplace_back (move (k), move (v));
-        }
-        catch (const invalid_argument&)
-        {
-          diag_record dr (fail);
-
-          dr << "invalid " << value_traits<V>::value_type.name
-             << " element value '" << r << "'";
-
-          if (var != nullptr)
-            dr << " in variable " << var->name;
-        }
-      }
-      catch (const invalid_argument&)
-      {
-        diag_record dr (fail);
-
-        dr << "invalid " << value_traits<K>::value_type.name
-           << " element key '" << l << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
-      }
     }
   }
 
@@ -522,11 +699,7 @@ namespace build2
     s.reserve (2 * vv.size ());
 
     for (const auto& p: vv)
-    {
-      s.push_back (value_traits<K>::reverse (p.first));
-      s.back ().pair = '@';
-      s.push_back (value_traits<V>::reverse (p.second));
-    }
+      value_traits<pair<K, V>>::reverse (p.first, p.second, s);
 
     return s;
   }
@@ -543,9 +716,7 @@ namespace build2
 
     for (; li != le && ri != re; ++li, ++ri)
     {
-      int r;
-      if ((r = value_traits<K>::compare (li->first, ri->first)) != 0 ||
-          (r = value_traits<V>::compare (li->second, ri->second)) != 0)
+      if (int r = value_traits<pair<K, V>>::compare (*li, *ri))
         return r;
     }
 
@@ -558,23 +729,66 @@ namespace build2
     return 0;
   }
 
+  // Make sure these are static-initialized together. Failed that VC will make
+  // sure it's done in the wrong order.
+  //
   template <typename K, typename V>
-  value_traits<vector<pair<K, V>>>::value_type_ex::
-  value_type_ex (value_type&& v)
-    : value_type (move (v))
+  struct pair_vector_value_type: value_type
   {
-    type_name  = value_traits<K>::type_name;
-    type_name += '_';
-    type_name += value_traits<V>::type_name;
-    type_name += "_pair_vector";
-    name = type_name.c_str ();
-  }
+    string type_name;
+
+    pair_vector_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = value_traits<K>::type_name;
+      type_name += '_';
+      type_name += value_traits<V>::type_name;
+      type_name += "_pair_vector";
+      name = type_name.c_str ();
+    }
+  };
+
+  // This is beyond our static initialization order control skills, so we hack
+  // it up for now.
+  //
+  template <typename K, typename V>
+  struct pair_vector_value_type<K, optional<V>>: value_type
+  {
+    string type_name;
+
+    pair_vector_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = value_traits<K>::type_name;
+      type_name += "_optional_";
+      type_name += value_traits<V>::type_name;
+      type_name += "_pair_vector";
+      name = type_name.c_str ();
+    }
+  };
+
+  template <typename K, typename V>
+  struct pair_vector_value_type<optional<K>, V>: value_type
+  {
+    string type_name;
+
+    pair_vector_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = "optional_";
+      type_name += value_traits<K>::type_name;
+      type_name += '_';
+      type_name += value_traits<V>::type_name;
+      type_name += "_pair_vector";
+      name = type_name.c_str ();
+    }
+  };
 
   template <typename K, typename V>
   const vector<pair<K, V>> value_traits<vector<pair<K, V>>>::empty_instance;
 
   template <typename K, typename V>
-  const typename value_traits<std::vector<pair<K, V>>>::value_type_ex
+  const pair_vector_value_type<K, V>
   value_traits<vector<pair<K, V>>>::value_type = build2::value_type // VC14 wants =
   {
     nullptr,                     // Patched above.
@@ -610,63 +824,15 @@ namespace build2
     for (auto i (ns.begin ()); i != ns.end (); ++i)
     {
       name& l (*i);
+      name* r (l.pair ? &*++i : nullptr);
 
-      if (!l.pair)
-      {
-        diag_record dr (fail);
+      pair<K, V> v (value_traits<pair<K, V>>::convert (
+                      move (l), r,
+                      value_traits<map<K, V>>::value_type.name,
+                      "element",
+                      var));
 
-        dr << value_traits<map<K, V>>::value_type.name << " key-value "
-           << "pair expected instead of '" << l << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
-      }
-
-      name& r (*++i); // Got to have the second half of the pair.
-
-      if (l.pair != '@')
-      {
-        diag_record dr (fail);
-
-        dr << "unexpected pair style for "
-           << value_traits<map<K, V>>::value_type.name << " key-value "
-           << "'" << l << "'" << l.pair << "'" << r << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
-      }
-
-      try
-      {
-        K k (value_traits<K>::convert (move (l), nullptr));
-
-        try
-        {
-          V v (value_traits<V>::convert (move (r), nullptr));
-
-          p.emplace (move (k), move (v));
-        }
-        catch (const invalid_argument&)
-        {
-          diag_record dr (fail);
-
-          dr << "invalid " << value_traits<V>::value_type.name
-             << " element value '" << r << "'";
-
-          if (var != nullptr)
-            dr << " in variable " << var->name;
-        }
-      }
-      catch (const invalid_argument&)
-      {
-        diag_record dr (fail);
-
-        dr << "invalid " << value_traits<K>::value_type.name
-           << " element key '" << l << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
-      }
+      p.emplace (move (v.first), move (v.second));
     }
   }
 
@@ -692,11 +858,7 @@ namespace build2
     s.reserve (2 * vm.size ());
 
     for (const auto& p: vm)
-    {
-      s.push_back (value_traits<K>::reverse (p.first));
-      s.back ().pair = '@';
-      s.push_back (value_traits<V>::reverse (p.second));
-    }
+      value_traits<pair<K, V>>::reverse (p.first, p.second, s);
 
     return s;
   }
@@ -715,9 +877,7 @@ namespace build2
 
     for (; li != le && ri != re; ++li, ++ri)
     {
-      int r;
-      if ((r = value_traits<K>::compare (li->first, ri->first)) != 0 ||
-          (r = value_traits<V>::compare (li->second, ri->second)) != 0)
+      if (int r = value_traits<pair<const K, V>>::compare (*li, *ri))
         return r;
     }
 
@@ -730,23 +890,66 @@ namespace build2
     return 0;
   }
 
+  // Make sure these are static-initialized together. Failed that VC will make
+  // sure it's done in the wrong order.
+  //
   template <typename K, typename V>
-  value_traits<std::map<K, V>>::value_type_ex::
-  value_type_ex (value_type&& v)
-    : value_type (move (v))
+  struct map_value_type: value_type
   {
-    type_name  = value_traits<K>::type_name;
-    type_name += '_';
-    type_name += value_traits<V>::type_name;
-    type_name += "_map";
-    name = type_name.c_str ();
-  }
+    string type_name;
+
+    map_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = value_traits<K>::type_name;
+      type_name += '_';
+      type_name += value_traits<V>::type_name;
+      type_name += "_map";
+      name = type_name.c_str ();
+    }
+  };
+
+  // This is beyond our static initialization order control skills, so we hack
+  // it up for now.
+  //
+  template <typename K, typename V>
+  struct map_value_type<K, optional<V>>: value_type
+  {
+    string type_name;
+
+    map_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = value_traits<K>::type_name;
+      type_name += "_optional_";
+      type_name += value_traits<V>::type_name;
+      type_name += "_map";
+      name = type_name.c_str ();
+    }
+  };
+
+  template <typename K, typename V>
+  struct map_value_type<optional<K>, V>: value_type
+  {
+    string type_name;
+
+    map_value_type (value_type&& v)
+        : value_type (move (v))
+    {
+      type_name  = "optional_";
+      type_name += value_traits<K>::type_name;
+      type_name += '_';
+      type_name += value_traits<V>::type_name;
+      type_name += "_map";
+      name = type_name.c_str ();
+    }
+  };
 
   template <typename K, typename V>
   const std::map<K, V> value_traits<std::map<K, V>>::empty_instance;
 
   template <typename K, typename V>
-  const typename value_traits<std::map<K, V>>::value_type_ex
+  const map_value_type<K, V>
   value_traits<std::map<K, V>>::value_type = build2::value_type // VC14 wants =
   {
     nullptr,             // Patched above.
