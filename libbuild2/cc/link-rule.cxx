@@ -330,7 +330,7 @@ namespace build2
       //
       string ver;
       bool verp (true); // Platform-specific.
-      using verion_map = map<string, string>;
+      using verion_map = map<optional<string>, string>;
       if (const verion_map* m = cast_null<verion_map> (t["bin.lib.version"]))
       {
         // First look for the target system.
@@ -347,14 +347,20 @@ namespace build2
         // say "all others -- no version".
         //
         if (i == m->end ())
-          i = m->find ("*");
+          i = m->find (string ("*"));
 
         // Finally look for the platform-independent version.
         //
         if (i == m->end ())
         {
           verp = false;
-          i = m->find ("");
+
+          i = m->find (nullopt);
+
+          // For backwards-compatibility.
+          //
+          if (i == m->end ())
+            i = m->find (string ());
         }
 
         // If we didn't find anything, fail. If the bin.lib.version was

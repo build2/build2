@@ -144,8 +144,11 @@ namespace build2
       vp.insert<string> ("bin.lib.load_suffix");
       vp.insert<string> ("bin.lib.load_suffix_pattern");
 
-      vp.insert<map<string, string>> ("bin.lib.version");
-      vp.insert<string>              ("bin.lib.version_pattern");
+      // @@ TMP: update bdep-new generated projects, documentation not to use
+      //         @ for platform-independent version.
+      //
+      vp.insert<map<optional<string>, string>> ("bin.lib.version");
+      vp.insert<string>                        ("bin.lib.version_pattern");
 
       return true;
     }
