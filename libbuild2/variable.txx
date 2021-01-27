@@ -838,6 +838,35 @@ namespace build2
 
   template <typename K, typename V>
   void
+  map_prepend (value& v, names&& ns, const variable* var)
+  {
+    using std::map;
+
+    map<K, V>& p (v
+                  ? v.as<map<K, V>> ()
+                  : *new (&v.data_) map<K, V> ());
+
+    // Verify we have a sequence of pairs and convert each lhs/rhs to K/V.
+    //
+    for (auto i (ns.begin ()); i != ns.end (); ++i)
+    {
+      name& l (*i);
+      name* r (l.pair ? &*++i : nullptr);
+
+      pair<K, V> v (value_traits<pair<K, V>>::convert (
+                      move (l), r,
+                      value_traits<map<K, V>>::value_type.name,
+                      "element",
+                      var));
+
+      // Poor man's emplace_or_assign().
+      //
+      p.emplace (move (v.first), V ()).first->second = move (v.second);
+    }
+  }
+
+  template <typename K, typename V>
+  void
   map_assign (value& v, names&& ns, const variable* var)
   {
     using std::map;
@@ -961,7 +990,7 @@ namespace build2
     &default_copy_assign<map<K, V>>,
     &map_assign<K, V>,
     &map_append<K, V>,
-    &map_append<K, V>,   // Prepend is the same as append.
+    &map_prepend<K, V>,
     &map_reverse<K, V>,
     nullptr,             // No cast (cast data_ directly).
     &map_compare<K, V>,

@@ -339,15 +339,17 @@ namespace build2
     // Assign/Append/Prepend.
     //
   public:
-    // Assign/append a typed value. For assign, LHS should be either of the
-    // same type or untyped. For append, LHS should be either of the same type
-    // or untyped and NULL.
+    // Assign/append/prepend a typed value. For assign, LHS should be either
+    // of the same type or untyped. For append, LHS should be either of the
+    // same type or untyped and NULL.
     //
     template <typename T> value& operator= (T);
     template <typename T> value& operator+= (T);
+    template <typename T> value& prepend (T);
 
     value& operator= (names);
     value& operator+= (names);
+    //value& prepend (names); // See below.
 
     template <typename T> value& operator= (T* v) {
       return v != nullptr ? *this = *v : *this = nullptr;}
@@ -355,8 +357,12 @@ namespace build2
     template <typename T> value& operator+= (T* v) {
       return v != nullptr ? *this += *v : *this;}
 
+    template <typename T> value& prepend (T* v) {
+      return v != nullptr ? prepend (*v) : *this;}
+
     value& operator= (const char* v) {return *this = string (v);}
     value& operator+= (const char* v) {return *this += string (v);}
+    value& prepend (const char* v) {return prepend (string (v));}
 
     // Assign/append/prepend raw data. Variable is optional and is only used
     // for diagnostics.
@@ -1113,6 +1119,9 @@ namespace build2
   //
   // Either K or V can be optional<T> making the key or value optional.
   //
+  // Note that append/+= is non-overriding (like insert()) while prepend/=+
+  // is (like insert_or_assign()).
+  //
   template <typename K, typename V>
   struct map_value_type;
 
@@ -1125,8 +1134,7 @@ namespace build2
 
     static void assign (value&, map<K, V>&&);
     static void append (value&, map<K, V>&&);
-    static void prepend (value& v, map<K, V>&& x) {
-      return append (v, move (x));}
+    static void prepend (value&, map<K, V>&&);
     static bool empty (const map<K, V>& x) {return x.empty ();}
 
     static const map<K, V> empty_instance;
@@ -1156,6 +1164,9 @@ namespace build2
   value_traits<vector<pair<optional<string>, string>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
+  value_traits<vector<pair<string, optional<bool>>>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
   value_traits<std::map<string, string>>;
 
   extern template struct LIBBUILD2_DECEXPORT
@@ -1163,6 +1174,9 @@ namespace build2
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<std::map<optional<string>, string>>;
+
+  extern template struct LIBBUILD2_DECEXPORT
+  value_traits<std::map<string, optional<bool>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
   value_traits<std::map<project_name, dir_path>>; // var_subprojects

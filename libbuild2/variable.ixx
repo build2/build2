@@ -114,6 +114,22 @@ namespace build2
     return *this;
   }
 
+  template <typename T>
+  inline value& value::
+  prepend (T v)
+  {
+    assert (type == &value_traits<T>::value_type || (type == nullptr && null));
+
+    // Prepare the receiving value.
+    //
+    if (type == nullptr)
+      type = &value_traits<T>::value_type;
+
+    value_traits<T>::prepend (*this, move (v));
+    null = false;
+    return *this;
+  }
+
   inline value& value::
   operator= (names v)
   {
@@ -862,6 +878,26 @@ namespace build2
         //
         m.insert (make_move_iterator (x.begin ()),
                   make_move_iterator (x.end ()));
+    }
+    else
+      new (&v.data_) map<K, V> (move (x));
+  }
+
+  template <typename K, typename V>
+  inline void value_traits<std::map<K, V>>::
+  prepend (value& v, map<K, V>&& x)
+  {
+    if (v)
+    {
+      map<K, V>& m (v.as<map<K, V>> ());
+
+      m.swap (x);
+
+      // Note that this will only move values. Keys (being const) are still
+      // copied.
+      //
+      m.insert (make_move_iterator (x.begin ()),
+                make_move_iterator (x.end ()));
     }
     else
       new (&v.data_) map<K, V> (move (x));
