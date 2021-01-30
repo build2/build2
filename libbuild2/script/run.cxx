@@ -15,7 +15,6 @@
 #include <libbutl/builtin.mxx>
 #include <libbutl/fdstream.mxx>     // fdopen_mode, fddup()
 #include <libbutl/filesystem.mxx>   // path_search()
-#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>

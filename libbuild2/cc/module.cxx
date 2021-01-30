@@ -3,6 +3,7 @@
 
 #include <libbuild2/cc/module.hxx>
 
+#include <map>
 #include <iomanip> // left, setw()
 
 #include <libbuild2/scope.hxx>
@@ -426,20 +427,21 @@ namespace build2
         translate_std (xi, tt, rs, mode, v);
       }
 
-      // config.x.translatable_header
+      // config.x.translate_include
       //
       // It's still fuzzy whether specifying (or maybe tweaking) this list in
       // the configuration will be a common thing to do so for now we use
-      // omitted. It's also probably too early to think whether we should have
-      // the cc.* version and what the semantics should be.
+      // omitted.
       //
-      if (x_translatable_headers != nullptr)
+      if (x_translate_include != nullptr)
       {
-        lookup l (lookup_config (rs, *config_x_translatable_headers));
-
-        // @@ MODHDR: if(modules) ?
-        //
-        rs.assign (x_translatable_headers) += cast_null<strings> (l);
+        if (lookup l = lookup_config (rs, *config_x_translate_include))
+        {
+          // @@ MODHDR: if(modules) ? Yes.
+          //
+          rs.assign (x_translate_include).prepend (
+            cast<translatable_headers> (l));
+        }
       }
 
       // Extract system header/library search paths from the compiler and
@@ -718,8 +720,19 @@ namespace build2
       }
     }
 
+    // Global cache of ad hoc importable headers.
+    //
+    // The key is a hash of the system header search directories
+    // (sys_inc_dirs) where we search for the headers.
+    //
+    static map<string, importable_headers> importable_headers_cache;
+    static mutex importable_headers_mutex;
+
     void module::
-    init (scope& rs, const location& loc, const variable_map&)
+    init (scope& rs,
+          const location& loc,
+          const variable_map&,
+          const compiler_info& xi)
     {
       tracer trace (x, "init");
 
@@ -740,71 +753,76 @@ namespace build2
       //
       load_module (rs, rs, "cc.core", loc);
 
-      // Process, sort, and cache (in this->xlate_hdr) translatable headers.
-      // Keep the cache NULL if unused or empty.
+      // Search include translation headers and groups.
       //
-      // @@ MODHDR TODO: support exclusions entries (e.g., -<stdio.h>)?
-      //
-      if (modules && x_translatable_headers != nullptr)
+      if (modules)
       {
-        strings* ih (cast_null<strings> (rs.assign (x_translatable_headers)));
-
-        if (ih != nullptr && !ih->empty ())
         {
-          // Translate <>-style header names to absolute paths using the
-          // compiler's include search paths. Otherwise complete and normalize
-          // since when searching in this list we always use the absolute and
-          // normalized header target path.
-          //
-          for (string& h: *ih)
+          sha256 k;
+          for (const dir_path& d: sys_inc_dirs)
+            k.append (d.string ());
+
+          mlock l (importable_headers_mutex);
+          importable_headers = &importable_headers_cache[k.string ()];
+        }
+
+        auto& hs (*importable_headers);
+
+        ulock ul (hs.mutex);
+
+        if (hs.group_map.find (header_group_std) == hs.group_map.end ())
+          guess_std_importable_headers (xi, sys_inc_dirs, hs);
+
+        // Process x.translate_include.
+        //
+        const variable& var (*x_translate_include);
+        if (auto* v = cast_null<translatable_headers> (rs[var]))
+        {
+          for (const auto& p: *v)
           {
-            if (h.empty ())
-              continue;
+            const string& k (p.first);
 
-            path f;
-            if (h.front () == '<' && h.back () == '>')
+            if (k.front () == '<' && k.back () == '>')
             {
-              h.pop_back ();
-              h.erase (0, 1);
-
-              for (const dir_path& d: sys_inc_dirs)
+              if (path_pattern (k))
               {
-                if (file_exists ((f = d, f /= h),
-                                 true /* follow_symlinks */,
-                                 true /* ignore_errors */))
-                  goto found;
+                size_t n (hs.insert_angle_pattern (sys_inc_dirs, k));
+
+                l5 ([&]{trace << "pattern " << k << " searched to " << n
+                              << " headers";});
               }
+              else
+              {
+                // What should we do if not found? While we can fail, this
+                // could be too drastic if, for example, the header is
+                // "optional" and may or may not be present/used. So for now
+                // let's ignore (we could have also removed it from the map as
+                // an indication).
+                //
+                const auto* r (hs.insert_angle (sys_inc_dirs, k));
 
-              // What should we do if not found? While we can fail, this could
-              // be too drastic if, for example, the header is "optional" and
-              // may or may not be present/used. So for now let's restore the
-              // original form to aid debugging (it can't possibly match any
-              // absolute path).
+                l5 ([&]{trace << "header " << k << " searched to "
+                              << (r ? r->first.string ().c_str () : "<none>");});
+              }
+            }
+            else if (path_traits::find_separator (k) == string::npos)
+            {
+              // Group name.
               //
-              h.insert (0, 1, '<');
-              h.push_back ('>');
-              continue;
-
-            found:
-              ; // Fall through.
+              if (k != header_group_all_importable &&
+                  k != header_group_std_importable &&
+                  k != header_group_all            &&
+                  k != header_group_std)
+                fail (loc) << "unknown header group '" << k << "' in " << var;
             }
             else
             {
-              f = path (move (h));
-
-              if (f.relative ())
-                f.complete ();
+              // Absolute and normalized header path.
+              //
+              if (!path_traits::absolute (k))
+                fail (loc) << "relative header path '" << k << "' in " << var;
             }
-
-            // @@ MODHDR: should we use the more elaborate but robust
-            //            normalize/realize scheme so the we get the same
-            //            path? Feels right.
-            f.normalize ();
-            h = move (f).string ();
           }
-
-          sort (ih->begin (), ih->end ());
-          xlate_hdr = ih;
         }
       }
 

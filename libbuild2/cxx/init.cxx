@@ -431,16 +431,42 @@ namespace build2
         vp.insert<strings> ("config.cxx.aoptions"),
         vp.insert<strings> ("config.cxx.libs"),
 
-        // List of translatable headers. Inclusions of such headers are
+        // Headers and header groups whose inclusion should or should not be
         // translated to the corresponding header unit imports.
         //
         // A header can be specified either as an absolute and normalized path
-        // or as a <>-style include name. The latter kind is automatically
-        // translated to the absolute form based on the compiler's system (as
-        // opposed to -I) header search paths. Note also that all entries must
-        // be specified before loading the cxx module.
+        // or as a <>-style include file or file pattern (for example,
+        // <vector>, <boost/**.hpp>). The latter kind is automatically
+        // resolved to the absolute form based on the compiler's system (as
+        // opposed to project's) header search paths.
         //
-        &vp.insert<strings> ("config.cxx.translatable_headers"),
+        // Currently recognized header groups are:
+        //
+        // std-importable -- translate importable standard library headers
+        // std            -- translate all standard library headers
+        // all-importable -- translate all importable headers
+        // all            -- translate all headers
+        //
+        // Note that a header may belong to multiple groups which are looked
+        // up from the most to least specific, for example: <vector>,
+        // std-importable, std, all-importable, all.
+        //
+        // A header or group can also be excluded from being translated, for
+        // example:
+        //
+        //   std-importable <vector>@false
+        //
+        // The config.cxx.translate_include value is prepended (merged with
+        // override) into cxx.translate_include while loading the cxx.config
+        // module. The headers and header groups in cxx.translate_include are
+        // resolved while loading the cxx module. For example:
+        //
+        //   cxx.translate_include = <map>@false  # Can be overriden.
+        //   using cxx.config
+        //   cxx.translate_include =+ <set>@false # Cannot be overriden.
+        //   using cxx
+        //
+        &vp.insert<cc::translatable_headers> ("config.cxx.translate_include"),
 
         vp.insert<process_path_ex> ("cxx.path"),
         vp.insert<strings>         ("cxx.mode"),
@@ -457,7 +483,7 @@ namespace build2
         vp.insert<strings>  ("cxx.aoptions"),
         vp.insert<strings>  ("cxx.libs"),
 
-        &vp.insert<strings> ("cxx.translatable_headers"),
+        &vp.insert<cc::translatable_headers> ("cxx.translate_include"),
 
         vp["cc.poptions"],
         vp["cc.coptions"],
@@ -485,6 +511,7 @@ namespace build2
         vp["cc.type"],
         vp["cc.system"],
         vp["cc.module_name"],
+        vp["cc.importable"],
         vp["cc.reprocess"],
 
         // Ability to signal that source is already (partially) preprocessed.
@@ -539,6 +566,7 @@ namespace build2
       //
       vp.insert_alias (d.c_runtime,     "cxx.runtime");
       vp.insert_alias (d.c_module_name, "cxx.module_name");
+      vp.insert_alias (d.c_importable,  "cxx.importable");
 
       auto& m (extra.set_module (new config_module (move (d))));
       m.guess (rs, loc, extra.hints);
@@ -662,7 +690,7 @@ namespace build2
       };
 
       auto& m (extra.set_module (new module (move (d))));
-      m.init (rs, loc, extra.hints);
+      m.init (rs, loc, extra.hints, *cm.x_info);
 
       return true;
     }

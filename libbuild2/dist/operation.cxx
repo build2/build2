@@ -6,8 +6,6 @@
 #include <libbutl/sha1.mxx>
 #include <libbutl/sha256.mxx>
 
-#include <libbutl/path-pattern.mxx>
-
 #include <libbuild2/file.hxx>
 #include <libbuild2/dump.hxx>
 #include <libbuild2/scope.hxx>

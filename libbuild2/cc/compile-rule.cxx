@@ -943,9 +943,30 @@ namespace build2
           if (ut == unit_type::module_intf) // Note: still unrefined.
             cs.append (&md.symexport, sizeof (md.symexport));
 
-          if (xlate_hdr != nullptr)
-            append_options (cs,  *xlate_hdr);
-
+          // If we track translate_include then we should probably also track
+          // the cc.importable flag for each header we include, which would be
+          // quite heavy-handed indeed. Or maybe we shouldn't bother with this
+          // at all: after all include translation is an optimization so why
+          // rebuild an otherwise up-to-date target?
+          //
+#if 0
+          if (modules)
+          {
+            // While there is also the companion importable_headers map, it's
+            // unlikely to change in a way that affects us without changes to
+            // other things that we track (e.g., compiler version, etc).
+            //
+            if (const auto* v = cast_null<translatable_headers> (
+                  t[x_translate_include]))
+            {
+              for (const auto& p: *v)
+              {
+                cs.append (p.first);
+                cs.append (!p.second || *p.second);
+              }
+            }
+          }
+#endif
           if (md.pp != preprocessed::all)
           {
             append_options (cs, t, x_poptions);
@@ -1813,6 +1834,10 @@ namespace build2
       size_t header_units = 0;  // Number of header units imported.
       module_imports& imports;  // Unused (potentially duplicate suppression).
 
+      // Include translation (looked up lazily).
+      //
+      optional<const build2::cc::translatable_headers*> translatable_headers;
+
       small_vector<string, 2> batch; // Reuse buffers.
 
       module_mapper_state (size_t s, module_imports& i)
@@ -2094,21 +2119,85 @@ namespace build2
 
             // Now handle INCLUDE and IMPORT differences.
             //
-            const string& hp (ht->path ().string ());
+            const path& hp (ht->path ());
+            const string& hs (hp.string ());
 
             // Reduce include translation to the import case.
             //
-            if (!imp && xlate_hdr != nullptr)
+            if (!imp)
             {
-              auto i (lower_bound (
-                        xlate_hdr->begin (), xlate_hdr->end (),
-                        hp,
-                        [] (const string& x, const string& y)
-                        {
-                          return path_traits::compare (x, y) < 0;
-                        }));
+              if (!st.translatable_headers)
+                st.translatable_headers =
+                  cast_null<translatable_headers> (t[x_translate_include]);
 
-              imp = (i != xlate_hdr->end () && *i == hp);
+              if (*st.translatable_headers != nullptr)
+              {
+                auto& ths (**st.translatable_headers);
+
+                // First look for the header path in the translatable headers
+                // itself.
+                //
+                auto i (ths.find (hs)), ie (ths.end ());
+
+                // Next look it up in the importable headers and then look up
+                // the associated groups in the translatable headers.
+                //
+                if (i == ie)
+                {
+                  slock l (importable_headers->mutex);
+                  auto& ihs (importable_headers->header_map);
+
+                  auto j (ihs.find (hp)), je (ihs.end ());
+
+                  if (j != je)
+                  {
+                    // The groups are ordered from the most to least
+                    // specific.
+                    //
+                    for (const string& g: j->second)
+                      if ((i = ths.find (g)) != ie)
+                        break;
+                  }
+
+                  // Finally look for the `all` groups.
+                  //
+                  if (i == ie)
+                  {
+                    i = ths.find (header_group_all_importable);
+
+                    if (i != ie)
+                    {
+                      // See if this header is marked as importable.
+                      //
+                      if (lookup l = (*ht)[c_importable])
+                      {
+                        if (!cast<bool> (l))
+                          i = ie;
+                      }
+                      else if (j != je)
+                      {
+                        // See if this is one of ad hoc *-importable groups
+                        // (currently only std-importable).
+                        //
+                        const auto& gs (j->second);
+                        if (find (gs.begin (),
+                                  gs.end (),
+                                  header_group_std_importable) == gs.end ())
+                          i = ie;
+                      }
+                      else
+                        i = ie;
+                    }
+
+                    if (i == ie)
+                      i = ths.find (header_group_all);
+                  }
+                }
+
+                // Translate if we found an entry and it's not false.
+                //
+                imp = (i != ie && (!i->second || *i->second));
+              }
             }
 
             if (imp)
@@ -2151,7 +2240,7 @@ namespace build2
               }
               catch (const failed&)
               {
-                r = "ERROR 'unable to update header unit "; r += hp; r += '\'';
+                r = "ERROR 'unable to update header unit "; r += hs; r += '\'';
                 continue;
               }
             }
@@ -2160,7 +2249,7 @@ namespace build2
               if (skip)
                 st.skip--;
               else
-                dd.expect (hp);
+                dd.expect (hs);
 
               // Confusingly, TRUE means include textually and FALSE means we
               // don't know.
@@ -2925,82 +3014,12 @@ namespace build2
       }
       else
       {
-        // We used to just normalize the path but that could result in an
-        // invalid path (e.g., for some system/compiler headers on CentOS 7
-        // with Clang 3.4) because of the symlinks (if a directory component
-        // is a symlink, then any following `..` are resolved relative to the
-        // target; see path::normalize() for background).
-        //
-        // Initially, to fix this, we realized (i.e., realpath(3)) it instead.
-        // But that turned out also not to be quite right since now we have
-        // all the symlinks resolved: conceptually it feels correct to keep
-        // the original header names since that's how the user chose to
-        // arrange things and practically this is how the compilers see/report
-        // them (e.g., the GCC module mapper).
-        //
-        // So now we have a pretty elaborate scheme where we try to use the
-        // normalized path if possible and fallback to realized. Normalized
-        // paths will work for situations where `..` does not cross symlink
-        // boundaries, which is the sane case. And for the insane case we only
-        // really care about out-of-project files (i.e., system/compiler
-        // headers). In other words, if you have the insane case inside your
-        // project, then you are on your own.
-        //
-        // All of this is unless the path comes from the depdb, in which case
+        // Normalize the path unless it comes from the depdb, in which case
         // we've already done that (normally). This is also where we handle
         // src-out remap (again, not needed if cached).
         //
         if (!cache || norm)
-        {
-          // Interestingly, on most paltforms and with most compilers (Clang
-          // on Linux being a notable exception) most system/compiler headers
-          // are already normalized.
-          //
-          path_abnormality a (f.abnormalities ());
-          if (a != path_abnormality::none)
-          {
-            // While we can reasonably expect this path to exit, things do go
-            // south from time to time (like compiling under wine with file
-            // wlantypes.h included as WlanTypes.h).
-            //
-            try
-            {
-              // If we have any parent components, then we have to verify the
-              // normalized path matches realized.
-              //
-              path r;
-              if ((a & path_abnormality::parent) == path_abnormality::parent)
-              {
-                r = f;
-                r.realize ();
-              }
-
-              try
-              {
-                f.normalize ();
-
-                // Note that we might still need to resolve symlinks in the
-                // normalized path.
-                //
-                if (!r.empty () && f != r && path (f).realize () != r)
-                  f = move (r);
-              }
-              catch (const invalid_path&)
-              {
-                assert (!r.empty ()); // Shouldn't have failed if no `..`.
-                f = move (r);         // Fallback to realize.
-              }
-            }
-            catch (const invalid_path&)
-            {
-              fail << "invalid header path '" << f.string () << "'";
-            }
-            catch (const system_error& e)
-            {
-              fail << "invalid header path '" << f.string () << "': " << e;
-            }
-          }
-        }
+          normalize_header (f);
 
         if (!cache)
         {

@@ -4,6 +4,9 @@
 #ifndef LIBBUILD2_CC_TYPES_HXX
 #define LIBBUILD2_CC_TYPES_HXX
 
+#include <map>
+#include <unordered_map>
+
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
@@ -80,6 +83,80 @@ namespace build2
       unit_type               type = unit_type::non_modular;
       build2::cc::module_info module_info;
     };
+
+    // Ad hoc (as opposed to marked with x.importable) importable headers.
+    //
+    // Note that these are only searched for in the system header search
+    // directories (sys_inc_dirs).
+    //
+    struct importable_headers
+    {
+      mutable shared_mutex mutex;
+
+      using groups = small_vector<string, 3>;
+
+      // Map of groups (e.g., std, <vector>, <boost/*.hpp>) that have already
+      // been inserted.
+      //
+      // For angle-bracket file groups (e.g., <vector>), the value is a
+      // pointer to the corresponding header_map element. For angle-bracket
+      // file pattern groups (e.g., <boost/**.hpp>), the value is the number
+      // of files in the group.
+      //
+      // Note that while the case-sensitivity of header names in #include
+      // directives is implementation-defined, our group names are case-
+      // sensitive (playing loose with the case will lead to portability
+      // issues sooner or later so we don't bother with any more elborate
+      // solutions).
+      //
+      std::unordered_map<string, uintptr_t> group_map;
+
+      // Map of absolute and normalized header paths to groups (e.g., std,
+      // <vector>, <boost/**.hpp>) to which they belong. The groups are
+      // ordered from the most to least specific (e.g., <vector> then std).
+      //
+      std::unordered_map<path, groups> header_map;
+
+      // Note that all these functions assume the instance is unique-locked.
+      //
+
+      // Search for and insert an angle-bracket file, for example <vector>,
+      // making it belong to the angle-bracket file group itself. Return the
+      // pointer to the corresponding header_map element if the file has been
+      // found and NULL otherwise (so can be used as bool).
+      //
+      pair<const path, groups>*
+      insert_angle (const dir_paths& sys_inc_dirs, const string& file);
+
+      // As above but for a manually-searched absolute and normalized path.
+      //
+      pair<const path, groups>&
+      insert_angle (path, const string& file);
+
+      // Search for and insert an angle-bracket file pattern, for example
+      // <boost/**.hpp>, making each header belong to the angle-bracket file
+      // group (e.g., <boost/any.hpp>) and the angle-bracket file pattern
+      // group itself. Return the number of files found that match the
+      // pattern.
+      //
+      size_t
+      insert_angle_pattern (const dir_paths& sys_inc_dirs, const string& pat);
+    };
+
+    // Headers and header groups whose inclusion should or should not be
+    // translated to the corresponding header unit imports.
+    //
+    // The key is either an absolute and normalized header path or a reference
+    // to an importable_headers group (e.g., <vector>, std).
+    //
+    using translatable_headers = std::map<string, optional<bool>>;
+
+    // Special translatable header groups.
+    //
+    extern const string header_group_all;
+    extern const string header_group_all_importable;
+    extern const string header_group_std;
+    extern const string header_group_std_importable;
 
     // Compiler language.
     //

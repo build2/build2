@@ -64,7 +64,7 @@ namespace build2
       const variable& config_x_loptions;
       const variable& config_x_aoptions;
       const variable& config_x_libs;
-      const variable* config_x_translatable_headers;
+      const variable* config_x_translate_include;
 
       const variable& x_path;         // Compiler process path.
       const variable& x_mode;         // Compiler mode options.
@@ -79,7 +79,7 @@ namespace build2
       const variable& x_loptions;
       const variable& x_aoptions;
       const variable& x_libs;
-      const variable* x_translatable_headers;
+      const variable* x_translate_include;
 
       const variable& c_poptions; // cc.*
       const variable& c_coptions;
@@ -107,6 +107,7 @@ namespace build2
       const variable& c_type;         // cc.type
       const variable& c_system;       // cc.system
       const variable& c_module_name;  // cc.module_name
+      const variable& c_importable;   // cc.importable
       const variable& c_reprocess;    // cc.reprocess
 
       const variable& x_preprocessed; // x.preprocessed
@@ -172,8 +173,7 @@ namespace build2
       bool modules;                 // x.features.modules
       bool symexport;               // x.features.symexport
 
-      const strings* xlate_hdr;     // x.translatable_headers (NULL if
-                                    // unused/empty).
+      build2::cc::importable_headers* importable_headers;
 
       // The order of sys_*_dirs is the mode entries first, followed by the
       // compiler built-in entries, and finished off with any extra entries
@@ -252,7 +252,7 @@ namespace build2
             ctgt (tgt), tsys (ctgt.system), tclass (ctgt.class_),
             modules (fm),
             symexport (fs),
-            xlate_hdr (nullptr),
+            importable_headers (nullptr),
             sys_lib_dirs (sld), sys_inc_dirs (sid), sys_mod_dirs (smd),
             sys_lib_dirs_mode (slm), sys_inc_dirs_mode (sim),
             sys_mod_dirs_mode (smm),

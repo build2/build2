@@ -146,6 +146,14 @@ namespace build2
       //
       vp.insert<string> ("cc.module_name", v_t);
 
+      // Importable header marker (normally set via the x.importable alias).
+      //
+      // Note that while at first it might seem like a good idea to allow
+      // setting it on a scope, that will cause translation of inline/template
+      // includes which is something we definitely don't want.
+      //
+      vp.insert<bool> ("cc.importable", v_t);
+
       // Ability to disable using preprocessed output for compilation.
       //
       vp.insert<bool> ("config.cc.reprocess");

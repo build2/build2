@@ -18,6 +18,7 @@
 
 #include <libbutl/utility.mxx>  // combine_hash(), reverse_iterate(), etc
 #include <libbutl/fdstream.mxx>
+#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
@@ -93,6 +94,10 @@ namespace build2
   //
   using butl::open_file_or_stdin;
   using butl::open_file_or_stdout;
+
+  // <libbutl/path-pattern.mxx>
+  //
+  using butl::path_pattern;
 
   // Diagnostics state (verbosity level, etc; see <libbuild2/diagnostics.hxx>).
   //

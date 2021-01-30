@@ -3218,5 +3218,180 @@ namespace build2
 
       return r;
     }
+
+    // Table 23 [tab:headers.cpp].
+    //
+    // In the future we will probably have to maintain per-standard additions.
+    //
+    static const char* std_importable[] = {
+      "<algorithm>",
+      "<any>",
+      "<array>",
+      "<atomic>",
+      "<barrier>",
+      "<bit>",
+      "<bitset>",
+      "<charconv>",
+      "<chrono>",
+      "<codecvt>",
+      "<compare>",
+      "<complex>",
+      "<concepts>",
+      "<condition_variable>",
+      "<coroutine>",
+      "<deque>",
+      "<exception>",
+      "<execution>",
+      "<filesystem>",
+      "<format>",
+      "<forward_list>",
+      "<fstream>",
+      "<functional>",
+      "<future>",
+      "<initializer_list>",
+      "<iomanip>",
+      "<ios>",
+      "<iosfwd>",
+      "<iostream>",
+      "<istream>",
+      "<iterator>",
+      "<latch>",
+      "<limits>",
+      "<list>",
+      "<locale>",
+      "<map>",
+      "<memory>",
+      "<memory_resource>",
+      "<mutex>",
+      "<new>",
+      "<numbers>",
+      "<numeric>",
+      "<optional>",
+      "<ostream>",
+      "<queue>",
+      "<random>",
+      "<ranges>",
+      "<ratio>",
+      "<regex>",
+      "<scoped_allocator>",
+      "<semaphore>",
+      "<set>",
+      "<shared_mutex>",
+      "<source_location>",
+      "<span>",
+      "<sstream>",
+      "<stack>",
+      "<stdexcept>",
+      "<stop_token>",
+      "<streambuf>",
+      "<string>",
+      "<string_view>",
+      "<strstream>",
+      "<syncstream>",
+      "<system_error>",
+      "<thread>",
+      "<tuple>",
+      "<typeindex>",
+      "<typeinfo>",
+      "<type_traits>",
+      "<unordered_map>",
+      "<unordered_set>",
+      "<utility>",
+      "<valarray>",
+      "<variant>",
+      "<vector>",
+      "<version>"
+    };
+
+    // Table 24 ([tab:headers.cpp.c])
+    //
+    static const char* std_non_importable[] = {
+      "<cassert>",
+      "<cctype>",
+      "<cerrno>",
+      "<cfenv>",
+      "<cfloat>",
+      "<cinttypes>",
+      "<climits>",
+      "<clocale>",
+      "<cmath>",
+      "<csetjmp>",
+      "<csignal>",
+      "<cstdarg>",
+      "<cstddef>",
+      "<cstdint>",
+      "<cstdio>",
+      "<cstdlib>",
+      "<cstring>",
+      "<ctime>",
+      "<cuchar>",
+      "<cwchar>",
+      "<cwctype>"
+    };
+
+    void
+    guess_std_importable_headers (const compiler_info& ci,
+                                  const dir_paths& sys_inc_dirs,
+                                  importable_headers& hs)
+    {
+      hs.group_map.emplace (header_group_std, 0);
+      hs.group_map.emplace (header_group_std_importable, 0);
+
+      // For better performance we make compiler-specific assumptions.
+      //
+      // For example, we can assume that all these headers are found in the
+      // same header search directory. This is at least the case for GCC's
+      // libstdc++.
+      //
+      // Note also that some headers could be missing. For example, <format>
+      // is currently not provided by GCC. Though entering missing headers
+      // should be harmless.
+      //
+      pair<const path, importable_headers::groups>* p;
+      auto add_groups = [&p] (bool imp)
+      {
+        if (imp)
+          p->second.push_back (header_group_std_importable); // More specific.
+
+        p->second.push_back (header_group_std);
+      };
+
+      if (ci.id.type != compiler_type::gcc)
+      {
+        for (const char* f: std_importable)
+          if ((p = hs.insert_angle (sys_inc_dirs, f)) != nullptr)
+            add_groups (true);
+
+        for (const char* f: std_non_importable)
+          if ((p = hs.insert_angle (sys_inc_dirs, f)) != nullptr)
+            add_groups (false);
+      }
+      else
+      {
+        p = hs.insert_angle (sys_inc_dirs, std_importable[0]);
+        assert (p != nullptr);
+
+        add_groups (true);
+
+        dir_path d (p->first.directory ());
+
+        auto add_header = [&hs, &d, &p, add_groups] (const char* f, bool imp)
+        {
+          path fp (d);
+          fp.combine (f + 1, strlen (f) - 2, '\0'); // Assuming simple.
+
+          p = &hs.insert_angle (move (fp), f);
+          add_groups (imp);
+        };
+
+        for (size_t i (1);
+             i != sizeof (std_importable) / sizeof (std_importable[0]);
+             ++i)
+          add_header (std_importable[i], true);
+
+        for (const char* f: std_non_importable)
+          add_header (f, false);
+      }
+    }
   }
 }

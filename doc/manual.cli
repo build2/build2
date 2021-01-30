@@ -6552,8 +6552,8 @@ config.cxx.aoptions
 config.cxx.libs
   cxx.libs
 
-config.cxx.translatable_headers
-  cxx.translatable_headers
+config.cxx.translate_include
+  cxx.translate_include
 \
 
 

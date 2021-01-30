@@ -103,7 +103,10 @@ namespace build2
             libux_install_rule (move (d), *this) {}
 
       void
-      init (scope&, const location&, const variable_map&);
+      init (scope&,
+            const location&,
+            const variable_map&,
+            const compiler_info&);
     };
   }
 }

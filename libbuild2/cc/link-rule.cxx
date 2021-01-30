@@ -858,7 +858,7 @@ namespace build2
           //
           else
           {
-            if (!p.is_a<objx> () && !p.is_a<bmix> ())
+            if (!p.is_a<objx> () && !p.is_a<bmix> () && !x_header (p, true))
             {
               // @@ Temporary hack until we get the default outer operation
               // for update. This allows operations like test and install to

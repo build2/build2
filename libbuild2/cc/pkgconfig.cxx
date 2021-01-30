@@ -1142,15 +1142,17 @@ namespace build2
         return r;
       };
 
-      // Parse modules and add them to the prerequisites.
+      // Parse modules, enter them as targets, and add them to the
+      // prerequisites.
       //
-      auto parse_modules = [&trace, &next, &s, this]
-        (const pkgconf& pc, prerequisites& ps)
+      auto parse_modules = [&trace, this,
+                            &next, &s, &lt] (const pkgconf& pc,
+                                             prerequisites& ps)
       {
-        string mstr (pc.variable ("cxx_modules"));
+        string val (pc.variable ("cxx_modules"));
 
         string m;
-        for (size_t b (0), e (0); !(m = next (mstr, b, e)).empty (); )
+        for (size_t b (0), e (0); !(m = next (val, b, e)).empty (); )
         {
           // The format is <name>=<path> with `..` used as a partition
           // separator (see pkgconfig_save() for details).
@@ -1159,7 +1161,7 @@ namespace build2
           if (p == string::npos ||
               p == 0            || // Empty name.
               p == m.size () - 1)  // Empty path.
-            fail << "invalid module information in '" << mstr << "'" <<
+            fail << "invalid module information in '" << val << "'" <<
               info << "while parsing pkg-config --variable=cxx_modules "
                    << pc.path;
 
@@ -1193,12 +1195,12 @@ namespace build2
 
           // If the target already exists, then setting its variables is not
           // MT-safe. So currently we only do it if we have the lock (and thus
-          // nobody can see this target yet) assuming that this has already
+          // nobody can see this target yet) verifying that this has already
           // been done otherwise.
           //
           // @@ This is not quite correct, though: this target could already
           //    exist but for a "different purpose" (e.g., it could be used as
-          //    a header).
+          //    a header). Well, maybe it shouldn't.
           //
           // @@ Could setting it in the rule-specific vars help? (But we
           //    are not matching a rule for it.) Note that we are setting
@@ -1211,7 +1213,7 @@ namespace build2
 
             // Set module properties. Note that if unspecified we should still
             // set them to their default values since the hosting project may
-            // have them set to incompatible value.
+            // have them set to incompatible values.
             //
             {
               value& v (mt.vars.assign (x_preprocessed)); // NULL
@@ -1224,8 +1226,65 @@ namespace build2
 
             tl.second.unlock ();
           }
+          else
+          {
+            if (!mt.vars[c_module_name])
+              fail << "unexpected metadata for module target " << mt <<
+                info << "module is expected to have assigned name" <<
+                info << "make sure this module is used via " << lt
+                   << " prerequisite";
+          }
 
           ps.push_back (prerequisite (mt));
+        }
+      };
+
+      // Parse importable headers and enter them as targets.
+      //
+      auto parse_headers = [&trace, this,
+                            &next, &s, &lt] (const pkgconf& pc,
+                                             const target_type& tt,
+                                             const char* lang)
+      {
+        string var (string (lang) + "_importable_headers");
+        string val (pc.variable (var));
+
+        string h;
+        for (size_t b (0), e (0); !(h = next (val, b, e)).empty (); )
+        {
+          path hp (move (h));
+          path hf (hp.leaf ());
+
+          auto tl (
+            s.ctx.targets.insert_locked (
+              tt,
+              hp.directory (),
+              dir_path (),
+              hf.base ().string (),
+              hf.extension (),
+              target_decl::implied,
+              trace));
+
+          target& ht (tl.first);
+
+          // If the target already exists, then setting its variables is not
+          // MT-safe. So currently we only do it if we have the lock (and thus
+          // nobody can see this target yet) verifying that this has already
+          // been done otherwise.
+          //
+          if (tl.second.owns_lock ())
+          {
+            ht.vars.assign (c_importable) = true;
+            tl.second.unlock ();
+          }
+          else
+          {
+            if (!cast_false<bool> (ht.vars[c_importable]))
+              fail << "unexpected metadata for existing header target " << ht <<
+                info << "header is expected to be marked importable" <<
+                info << "make sure this header is used via " << lt
+                   << " prerequisite";
+          }
         }
       };
 
@@ -1291,12 +1350,20 @@ namespace build2
         parse_cflags (*st, spc, false);
 
       // For now we assume static and shared variants export the same set of
-      // modules. While technically possible, having a different set will most
-      // likely lead to all sorts of complications (at least for installed
-      // libraries) and life is short.
+      // modules/importable headers. While technically possible, having
+      // different sets will most likely lead to all sorts of complications
+      // (at least for installed libraries) and life is short.
       //
       if (modules)
+      {
         parse_modules (ipc, prs);
+
+        // We treat headers outside of any project as C headers (see
+        // enter_header() for details).
+        //
+        parse_headers (ipc, h::static_type /* **x_hdr */, x);
+        parse_headers (ipc, h::static_type, "c");
+      }
 
       assert (!lt.has_prerequisites ());
       if (!prs.empty ())
@@ -1614,32 +1681,46 @@ namespace build2
           }
         }
 
-        // If we have modules, list them in the modules variable. We also save
-        // some extra info about them (yes, the rabbit hole runs deep). This
-        // code is pretty similar to compiler::search_modules().
+        // If we have modules and/or importable headers, list them in the
+        // respective variables. We also save some extra info about modules
+        // (yes, the rabbit hole runs deep). This code is pretty similar to
+        // compiler::search_modules().
         //
-        if (modules)
+        // Note that we want to convey the importable headers information even
+        // if modules are not enabled.
+        //
         {
           struct module
           {
             string name;
             path file;
 
-            string pp;
+            string preprocessed;
             bool symexport;
           };
-          vector<module> modules;
+          vector<module> mods;
+
+          // If we were to ever support another C-based language (e.g.,
+          // Objective-C) and libraries that can use a mix of languages (e.g.,
+          // C++ and Objective-C), then we would need to somehow reverse-
+          // lookup header target type to language. Let's hope we don't.
+          //
+          vector<path>   x_hdrs;
+          vector<path>   c_hdrs;
 
           // Note that the prerequisite targets are in the member, not the
-          // group (for now we don't support different sets of modules for
-          // static/shared library; see load above for details).
+          // group (for now we don't support different sets of modules/headers
+          // for static/shared library; see load above for details).
           //
           for (const target* pt: l.prerequisite_targets[a])
           {
+            if (pt == nullptr)
+              continue;
+
             // @@ UTL: we need to (recursively) see through libu*{} (and
             //    also in search_modules()).
             //
-            if (pt != nullptr && pt->is_a<bmix> ())
+            if (modules && pt->is_a<bmix> ())
             {
               // What we have is a binary module interface. What we need is
               // a module interface source it was built from. We assume it's
@@ -1666,7 +1747,7 @@ namespace build2
               if (const string* v = cast_null<string> ((*mt)[x_preprocessed]))
                 pp = *v;
 
-              modules.push_back (
+              mods.push_back (
                 module {
                   cast<string> (pt->state[a].vars[c_module_name]),
                   move (p),
@@ -1674,9 +1755,21 @@ namespace build2
                   symexport
                 });
             }
+            else if (pt->is_a (**x_hdr) || pt->is_a<h> ())
+            {
+              if (cast_false<bool> ((*pt)[c_importable]))
+              {
+                path p (install::resolve_file (pt->as<file> ()));
+
+                if (p.empty ()) // Not installed.
+                  continue;
+
+                (pt->is_a<h> () ? c_hdrs : x_hdrs).push_back (move (p));
+              }
+            }
           }
 
-          if (!modules.empty ())
+          if (size_t n = mods.size ())
           {
             os << endl
                << "cxx_modules =";
@@ -1688,7 +1781,7 @@ namespace build2
             // for example hello.print..impl. While in the variable values we
             // can use `:`, for consistency we use `..` there as well.
             //
-            for (module& m: modules)
+            for (module& m: mods)
             {
               size_t p (m.name.find (':'));
               if (p != string::npos)
@@ -1696,7 +1789,8 @@ namespace build2
 
               // Module names shouldn't require escaping.
               //
-              os << ' ' << m.name << '=' << escape (m.file.string ());
+              os << (n != 1 ? " \\\n" : " ")
+                 << m.name << '=' << escape (m.file.string ());
             }
 
             os << endl;
@@ -1705,15 +1799,37 @@ namespace build2
             //
             // <lang>_module_<property>.<module> = <value>
             //
-            for (const module& m: modules)
+            for (const module& m: mods)
             {
-              if (!m.pp.empty ())
-                os << "cxx_module_preprocessed." << m.name << " = " << m.pp
-                   << endl;
+              if (!m.preprocessed.empty ())
+                os << "cxx_module_preprocessed." << m.name << " = "
+                   << m.preprocessed << endl;
 
               if (m.symexport)
                 os << "cxx_module_symexport." << m.name << " = true" << endl;
             }
+          }
+
+          if (size_t n = c_hdrs.size ())
+          {
+            os << endl
+               << "c_importable_headers =";
+
+            for (const path& h: c_hdrs)
+              os << (n != 1 ? " \\\n" : " ") << escape (h.string ());
+
+            os << endl;
+          }
+
+          if (size_t n = x_hdrs.size ())
+          {
+            os << endl
+               << x << "_importable_headers =";
+
+            for (const path& h: x_hdrs)
+              os << (n != 1 ? " \\\n" : " ") << escape (h.string ());
+
+            os << endl;
           }
         }
 

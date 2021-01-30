@@ -175,7 +175,7 @@ namespace build2
         vp.insert<strings> ("config.c.loptions"),
         vp.insert<strings> ("config.c.aoptions"),
         vp.insert<strings> ("config.c.libs"),
-        nullptr          /* config.c.translatable_headers */,
+        nullptr           /* config.c.translate_include */,
 
         vp.insert<process_path_ex> ("c.path"),
         vp.insert<strings>         ("c.mode"),
@@ -192,7 +192,7 @@ namespace build2
         vp.insert<strings>      ("c.aoptions"),
         vp.insert<strings>      ("c.libs"),
 
-        nullptr                /* c.translatable_headers */,
+        nullptr                /* c.translate_include */,
 
         vp["cc.poptions"],
         vp["cc.coptions"],
@@ -220,6 +220,7 @@ namespace build2
         vp["cc.type"],
         vp["cc.system"],
         vp["cc.module_name"],
+        vp["cc.importable"],
         vp["cc.reprocess"],
 
         vp.insert<string>   ("c.preprocessed"), // See cxx.preprocessed.
@@ -259,7 +260,8 @@ namespace build2
 
       // Alias some cc. variables as c.
       //
-      vp.insert_alias (d.c_runtime, "c.runtime");
+      vp.insert_alias (d.c_runtime,    "c.runtime");
+      vp.insert_alias (d.c_importable, "c.importable");
 
       auto& m (extra.set_module (new config_module (move (d))));
       m.guess (rs, loc, extra.hints);
@@ -363,7 +365,7 @@ namespace build2
       };
 
       auto& m (extra.set_module (new module (move (d))));
-      m.init (rs, loc, extra.hints);
+      m.init (rs, loc, extra.hints, *cm.x_info);
 
       return true;
     }

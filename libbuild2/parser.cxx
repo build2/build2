@@ -7,7 +7,6 @@
 #include <iostream> // cout
 
 #include <libbutl/filesystem.mxx>   // path_search
-#include <libbutl/path-pattern.mxx>
 
 #include <libbuild2/rule.hxx>
 #include <libbuild2/dump.hxx>

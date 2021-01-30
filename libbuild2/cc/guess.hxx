@@ -265,6 +265,16 @@ namespace build2
                    const string& cid,
                    const string& pattern,
                    const strings& mode);
+
+    // Insert importable/non-importable C++ standard library headers
+    // ([headers]/4).
+    //
+    // Note that the importable_headers instance should be unique-locked.
+    //
+    void
+    guess_std_importable_headers (const compiler_info&,
+                                  const dir_paths& sys_inc_dirs,
+                                  importable_headers&);
   }
 }
 
