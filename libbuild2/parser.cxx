@@ -4754,21 +4754,26 @@ namespace build2
       //
       bool unique (r.empty () && path_pattern_recursive (path (p)) <= 1);
 
-      function<void (string&&, optional<string>&&)> appf;
+      struct data
+      {
+        const optional<string>& e;
+        const dir_path& sp;
+        function<void (string&&, optional<string>&&)> appf;
+
+      } d {e, *sp, nullptr};
+
       if (unique)
-        appf = [a, &append] (string&& v, optional<string>&& e)
+        d.appf = [a, &append] (string&& v, optional<string>&& e)
         {
           append (move (v), move (e), a);
         };
       else
-        appf = [a, &include_match] (string&& v, optional<string>&& e)
+        d.appf = [a, &include_match] (string&& v, optional<string>&& e)
         {
           include_match (move (v), move (e), a);
         };
 
-      auto process = [this, &e, &appf, sp] (path&& m,
-                                            const string& p,
-                                            bool interm)
+      auto process = [&d, this] (path&& m, const string& p, bool interm)
       {
         // Ignore entries that start with a dot unless the pattern that
         // matched them also starts with a dot. Also ignore directories
@@ -4780,14 +4785,14 @@ namespace build2
             (root_ != nullptr              &&
              root_->root_extra != nullptr  &&
              m.to_directory ()             &&
-             exists (*sp / m / root_->root_extra->buildignore_file)))
+             exists (d.sp / m / root_->root_extra->buildignore_file)))
           return !interm;
 
         // Note that we have to make copies of the extension since there will
         // multiple entries for each pattern.
         //
         if (!interm)
-          appf (move (m).representation (), optional<string> (e));
+          d.appf (move (m).representation (), optional<string> (d.e));
 
         return true;
       };
