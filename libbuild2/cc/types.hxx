@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_CC_TYPES_HXX
 #define LIBBUILD2_CC_TYPES_HXX
 
-#include <map>
 #include <unordered_map>
 
 #include <libbuild2/types.hxx>
@@ -149,7 +148,7 @@ namespace build2
     // The key is either an absolute and normalized header path or a reference
     // to an importable_headers group (e.g., <vector>, std).
     //
-    using translatable_headers = std::map<string, optional<bool>>;
+    using translatable_headers = map<string, optional<bool>>;
 
     // Special translatable header groups.
     //

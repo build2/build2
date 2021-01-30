@@ -13,6 +13,7 @@
 #  include <libbuild2/config.hxx>
 #endif
 
+#include <map>
 #include <array>
 #include <tuple>
 #include <vector>
@@ -92,6 +93,8 @@ namespace build2
   using std::shared_ptr;
   using std::weak_ptr;
 
+  using std::map;
+  using std::multimap;
   using std::array;
   using std::vector;
   using butl::vector_view;  // <libbutl/vector-view.mxx>

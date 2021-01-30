@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_UTILITY_HXX
 #define LIBBUILD2_UTILITY_HXX
 
-#include <map>
 #include <tuple>      // make_tuple()
 #include <memory>     // make_shared()
 #include <string>     // to_string()
@@ -566,7 +565,7 @@ namespace build2
     }
 
   private:
-    std::map<string, T> cache_;
+    map<string, T> cache_;
     mutable mutex mutex_;
   };
 

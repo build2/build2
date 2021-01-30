@@ -65,7 +65,6 @@
 #  include <libbuild2/filesystem.hxx>
 #endif
 
-#include <map>
 #include <cstring> // strlen(), strchr(), strstr()
 
 #include <libbuild2/diagnostics.hxx>

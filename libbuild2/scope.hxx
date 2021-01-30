@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_SCOPE_HXX
 #define LIBBUILD2_SCOPE_HXX
 
-#include <map>
 #include <unordered_set>
 
 #include <libbuild2/types.hxx>
@@ -27,7 +26,7 @@ namespace build2
 {
   class dir;
 
-  using subprojects = std::map<project_name, dir_path>;
+  using subprojects = map<project_name, dir_path>;
 
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, const subprojects&); // Print as name@dir sequence.
@@ -416,8 +415,7 @@ namespace build2
       function<callback> post;
     };
 
-    using operation_callback_map = std::multimap<action_id,
-                                                 operation_callback>;
+    using operation_callback_map = multimap<action_id, operation_callback>;
 
     operation_callback_map operation_callbacks;
 

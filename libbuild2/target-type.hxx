@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_TARGET_TYPE_HXX
 #define LIBBUILD2_TARGET_TYPE_HXX
 
-#include <map>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -203,8 +201,8 @@ namespace build2
       bool d_;
     };
 
-    std::map<string, target_type_ref> type_map_;
-    std::map<string, reference_wrapper<const target_type>> file_map_;
+    map<string, target_type_ref>                      type_map_;
+    map<string, reference_wrapper<const target_type>> file_map_;
   };
 }
 

@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_FUNCTION_HXX
 #define LIBBUILD2_FUNCTION_HXX
 
-#include <map>
 #include <utility>       // index_sequence
 #include <type_traits>   // aligned_storage
 
@@ -196,7 +195,7 @@ namespace build2
   class LIBBUILD2_SYMEXPORT function_map
   {
   public:
-    using map_type = std::map<string, function_overloads>;
+    using map_type = map<string, function_overloads>;
     using iterator = map_type::iterator;
     using const_iterator = map_type::const_iterator;
 

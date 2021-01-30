@@ -3,7 +3,6 @@
 
 #include <libbuild2/cc/link-rule.hxx>
 
-#include <map>
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
 
@@ -24,7 +23,6 @@
 #include <libbuild2/cc/target.hxx>  // c, pc*
 #include <libbuild2/cc/utility.hxx>
 
-using std::map;
 using std::exit;
 
 using namespace butl;

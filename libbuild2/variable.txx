@@ -813,8 +813,6 @@ namespace build2
   void
   map_append (value& v, names&& ns, const variable* var)
   {
-    using std::map;
-
     map<K, V>& p (v
                   ? v.as<map<K, V>> ()
                   : *new (&v.data_) map<K, V> ());
@@ -840,8 +838,6 @@ namespace build2
   void
   map_prepend (value& v, names&& ns, const variable* var)
   {
-    using std::map;
-
     map<K, V>& p (v
                   ? v.as<map<K, V>> ()
                   : *new (&v.data_) map<K, V> ());
@@ -869,8 +865,6 @@ namespace build2
   void
   map_assign (value& v, names&& ns, const variable* var)
   {
-    using std::map;
-
     if (v)
       v.as<map<K, V>> ().clear ();
 
@@ -881,8 +875,6 @@ namespace build2
   static names_view
   map_reverse (const value& v, names& s)
   {
-    using std::map;
-
     auto& vm (v.as<map<K, V>> ());
     s.reserve (2 * vm.size ());
 
@@ -896,8 +888,6 @@ namespace build2
   static int
   map_compare (const value& l, const value& r)
   {
-    using std::map;
-
     auto& lm (l.as<map<K, V>> ());
     auto& rm (r.as<map<K, V>> ());
 
@@ -975,11 +965,11 @@ namespace build2
   };
 
   template <typename K, typename V>
-  const std::map<K, V> value_traits<std::map<K, V>>::empty_instance;
+  const map<K, V> value_traits<map<K, V>>::empty_instance;
 
   template <typename K, typename V>
   const map_value_type<K, V>
-  value_traits<std::map<K, V>>::value_type = build2::value_type // VC14 wants =
+  value_traits<map<K, V>>::value_type = build2::value_type // VC14 wants =
   {
     nullptr,             // Patched above.
     sizeof (map<K, V>),

@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_VARIABLE_HXX
 #define LIBBUILD2_VARIABLE_HXX
 
-#include <map>
 #include <set>
 #include <type_traits>   // aligned_storage
 #include <unordered_map>
@@ -1126,9 +1125,9 @@ namespace build2
   struct map_value_type;
 
   template <typename K, typename V>
-  struct value_traits<std::map<K, V>>
+  struct value_traits<map<K, V>>
   {
-    template <typename K1, typename V1> using map = std::map<K1, V1>;
+    template <typename K1, typename V1> using map = map<K1, V1>;
 
     static_assert (sizeof (map<K, V>) <= value::size_, "insufficient space");
 
@@ -1167,19 +1166,19 @@ namespace build2
   value_traits<vector<pair<string, optional<bool>>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
-  value_traits<std::map<string, string>>;
+  value_traits<map<string, string>>;
 
   extern template struct LIBBUILD2_DECEXPORT
-  value_traits<std::map<string, optional<string>>>;
+  value_traits<map<string, optional<string>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
-  value_traits<std::map<optional<string>, string>>;
+  value_traits<map<optional<string>, string>>;
 
   extern template struct LIBBUILD2_DECEXPORT
-  value_traits<std::map<string, optional<bool>>>;
+  value_traits<map<string, optional<bool>>>;
 
   extern template struct LIBBUILD2_DECEXPORT
-  value_traits<std::map<project_name, dir_path>>; // var_subprojects
+  value_traits<map<project_name, dir_path>>; // var_subprojects
 
   // Project-wide (as opposed to global) variable overrides (see context ctor
   // for details).
@@ -1712,7 +1711,7 @@ namespace build2
             stem_version (sver) {}
     };
 
-    using map_type = std::map<K, entry_type>;
+    using map_type = map<K, entry_type>;
 
     map_type m_;
   };
@@ -1734,7 +1733,7 @@ namespace build2
   class variable_pattern_map
   {
   public:
-    using map_type = std::map<string, variable_map>;
+    using map_type = map<string, variable_map>;
     using const_iterator = map_type::const_iterator;
     using const_reverse_iterator = map_type::const_reverse_iterator;
 
@@ -1762,7 +1761,7 @@ namespace build2
   class LIBBUILD2_SYMEXPORT variable_type_map
   {
   public:
-    using map_type = std::map<reference_wrapper<const target_type>,
+    using map_type = map<reference_wrapper<const target_type>,
                               variable_pattern_map>;
     using const_iterator = map_type::const_iterator;
 

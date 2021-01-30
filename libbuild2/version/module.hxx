@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_VERSION_MODULE_HXX
 #define LIBBUILD2_VERSION_MODULE_HXX
 
-#include <map>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
@@ -26,7 +24,7 @@ namespace build2
       string constraint;
     };
 
-    using dependencies = std::map<string, dependency>;
+    using dependencies = map<string, dependency>;
 
     struct module: build2::module
     {

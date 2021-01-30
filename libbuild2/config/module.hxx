@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_CONFIG_MODULE_HXX
 #define LIBBUILD2_CONFIG_MODULE_HXX
 
-#include <map>
-
 #include <libbutl/prefix-map.mxx>
 
 #include <libbuild2/types.hxx>
@@ -55,7 +53,7 @@ namespace build2
       // Priority order with INT32_MIN being the highest. Modules with the
       // same priority are saved in the order inserted.
       //
-      std::multimap<std::int32_t, const_iterator> order;
+      multimap<std::int32_t, const_iterator> order;
 
       pair<iterator, bool>
       insert (string name, int prio = 0)

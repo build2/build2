@@ -82,8 +82,6 @@ namespace build2
       }
     }
 
-    using project_set = set<const scope*>; // Use pointers to get comparison.
-
     // Return (first) whether an unused/inherited variable should be saved
     // according to the config.config.persist value and (second) whether the
     // user should be warned about it.

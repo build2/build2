@@ -853,7 +853,7 @@ namespace build2
   // map<K, V> value
   //
   template <typename K, typename V>
-  inline void value_traits<std::map<K, V>>::
+  inline void value_traits<map<K, V>>::
   assign (value& v, map<K, V>&& x)
   {
     if (v)
@@ -863,7 +863,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  inline void value_traits<std::map<K, V>>::
+  inline void value_traits<map<K, V>>::
   append (value& v, map<K, V>&& x)
   {
     if (v)
@@ -884,7 +884,7 @@ namespace build2
   }
 
   template <typename K, typename V>
-  inline void value_traits<std::map<K, V>>::
+  inline void value_traits<map<K, V>>::
   prepend (value& v, map<K, V>&& x)
   {
     if (v)

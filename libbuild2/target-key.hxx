@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_TARGET_KEY_HXX
 #define LIBBUILD2_TARGET_KEY_HXX
 
-#include <map>
 #include <cstring> // strcmp()
 
 #include <libbuild2/types.hxx>

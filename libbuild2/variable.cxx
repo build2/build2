@@ -1841,17 +1841,17 @@ namespace build2
   value_traits<vector<pair<string, optional<bool>>>>;
 
   template struct LIBBUILD2_DEFEXPORT
-  value_traits<std::map<string, string>>;
+  value_traits<map<string, string>>;
 
   template struct LIBBUILD2_DEFEXPORT
-  value_traits<std::map<string, optional<string>>>;
+  value_traits<map<string, optional<string>>>;
 
   template struct LIBBUILD2_DEFEXPORT
-  value_traits<std::map<optional<string>, string>>;
+  value_traits<map<optional<string>, string>>;
 
   template struct LIBBUILD2_DEFEXPORT
-  value_traits<std::map<string, optional<bool>>>;
+  value_traits<map<string, optional<bool>>>;
 
   template struct LIBBUILD2_DEFEXPORT
-  value_traits<std::map<project_name, dir_path>>;
+  value_traits<map<project_name, dir_path>>;
 }

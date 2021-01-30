@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_RULE_MAP_HXX
 #define LIBBUILD2_RULE_MAP_HXX
 
-#include <map>
-
 #include <libbutl/prefix-map.mxx>
 
 #include <libbuild2/types.hxx>
@@ -19,7 +17,7 @@ namespace build2
   using hint_rule_map =
     butl::prefix_map<string, reference_wrapper<const rule>, '.'>;
 
-  using target_type_rule_map = std::map<const target_type*, hint_rule_map>;
+  using target_type_rule_map = map<const target_type*, hint_rule_map>;
 
   // This is an "indexed map" with operation_id being the index. Entry
   // with id 0 is a wildcard.

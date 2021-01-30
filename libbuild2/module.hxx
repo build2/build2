@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_MODULE_HXX
 #define LIBBUILD2_MODULE_HXX
 
-#include <map>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -275,7 +273,7 @@ namespace build2
   // A NULL entry for the main module indicates that a module library was not
   // found.
   //
-  using loaded_module_map = std::map<string, const module_functions*>;
+  using loaded_module_map = map<string, const module_functions*>;
 
   // The loaded_modules map is locked per top-level (as opposed to nested)
   // context (see context.hxx for details).

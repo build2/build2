@@ -4,6 +4,7 @@
 #ifndef LIBBUILD2_TEST_SCRIPT_PARSER_HXX
 #define LIBBUILD2_TEST_SCRIPT_PARSER_HXX
 
+#include <set>
 #include <unordered_map>
 
 #include <libbuild2/types.hxx>

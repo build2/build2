@@ -3,7 +3,6 @@
 
 #include <libbuild2/cc/module.hxx>
 
-#include <map>
 #include <iomanip> // left, setw()
 
 #include <libbuild2/scope.hxx>

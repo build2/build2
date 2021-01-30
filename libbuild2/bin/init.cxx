@@ -3,8 +3,6 @@
 
 #include <libbuild2/bin/init.hxx>
 
-#include <map>
-
 #include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
