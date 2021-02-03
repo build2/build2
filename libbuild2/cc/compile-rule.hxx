@@ -162,7 +162,7 @@ namespace build2
                       const target_type&,
                       const file&, module_imports&, sha256&) const;
 
-      dir_path
+      pair<dir_path, const scope&>
       find_modules_sidebuild (const scope&) const;
 
       const file&
@@ -170,7 +170,8 @@ namespace build2
                              const target&, const string&) const;
 
       const file&
-      make_header_sidebuild (action, const scope&, linfo, const file&) const;
+      make_header_sidebuild (action, const scope&, const file&,
+                             linfo, const file&) const;
 
       void
       append_header_options (environment&, cstrings&, small_vector<string, 2>&,

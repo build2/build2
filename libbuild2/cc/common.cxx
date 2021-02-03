@@ -335,9 +335,22 @@ namespace build2
                 // on Windows import-installed DLLs may legally have empty
                 // paths.
                 //
-                if (t.mtime () == timestamp_unknown)
+                const char* w (nullptr);
+                if (t.ctx.phase == run_phase::match)
+                {
+                  size_t o (t.state[a].task_count.load (memory_order_consume) -
+                            t.ctx.count_base ());
+
+                  if (o != target::offset_applied &&
+                      o != target::offset_executed)
+                    w = "not matched";
+                }
+                else if (t.mtime () == timestamp_unknown)
+                  w = "out of date";
+
+                if (w != nullptr)
                   fail   << (impl ? "implementation" : "interface")
-                         << " dependency " << t << " is out of date" <<
+                         << " dependency " << t << " is " << w <<
                     info << "mentioned in *.export." << (impl ? "imp_" : "")
                          << "libs of target " << l <<
                     info << "is it a prerequisite of " << l << "?";

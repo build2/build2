@@ -450,7 +450,7 @@ namespace build2
       };
 
       process_libraries (a, bs, li, sys_lib_dirs,
-                         l, la, 0, // Hack: lflags unused.
+                         l, la, 0, // lflags unused.
                          imp, nullptr, opt);
     }
 
@@ -544,7 +544,7 @@ namespace build2
             continue;
 
           process_libraries (a, bs, li, sys_lib_dirs,
-                             pt->as<file> (), la, 0, // Hack: lflags unused.
+                             pt->as<file> (), la, 0, // lflags unused.
                              impf, nullptr, optf);
         }
       }
@@ -759,8 +759,8 @@ namespace build2
           continue;
 
         // A dependency on a library is there so that we can get its
-        // *.export.poptions, modules, etc. This is the library metadata
-        // protocol. See also append_library_options().
+        // *.export.poptions, modules, importable headers, etc. This is the
+        // library metadata protocol. See also append_library_options().
         //
         if (pi == include_type::normal &&
             (p.is_a<libx> () ||
@@ -773,8 +773,8 @@ namespace build2
             // Handle (phase two) imported libraries. We know that for such
             // libraries we don't need to do match() in order to get options
             // (if any, they would be set by search_library()). But we do need
-            // to match it if we may need its modules (see search_modules()
-            // for details).
+            // to match it if we may need its modules or importable headers
+            // (see search_modules(), make_header_sidebuild() for details).
             //
             if (p.proj ())
             {
@@ -2207,7 +2207,7 @@ namespace build2
                 // Synthesize the BMI dependency then update and add the BMI
                 // target as a prerequisite.
                 //
-                const file& bt (make_header_sidebuild (a, bs, li, *ht));
+                const file& bt (make_header_sidebuild (a, bs, t, li, *ht));
 
                 if (!skip)
                 {
@@ -2240,7 +2240,8 @@ namespace build2
               }
               catch (const failed&)
               {
-                r = "ERROR 'unable to update header unit "; r += hs; r += '\'';
+                r = "ERROR 'unable to update header unit for ";
+                r += hs; r += '\'';
                 continue;
               }
             }
@@ -2700,7 +2701,7 @@ namespace build2
               // Synthesize the BMI dependency then update and add the BMI
               // target as a prerequisite.
               //
-              const file& bt (make_header_sidebuild (a, bs, li, *ht));
+              const file& bt (make_header_sidebuild (a, bs, t, li, *ht));
 
               if (!skip)
               {
@@ -3946,7 +3947,7 @@ namespace build2
         //
         if (inject_header (a, t, *ht, mt, false /* fail */))
         {
-          const file& bt (make_header_sidebuild (a, bs, li, *ht));
+          const file& bt (make_header_sidebuild (a, bs, t, li, *ht));
 
           // It doesn't look like we need the cache semantics here since given
           // the header, we should be able to build its BMI. In other words, a
@@ -5878,7 +5879,7 @@ namespace build2
     // Find or create a modules sidebuild subproject returning its root
     // directory.
     //
-    dir_path compile_rule::
+    pair<dir_path, const scope&> compile_rule::
     find_modules_sidebuild (const scope& rs) const
     {
       context& ctx (rs.ctx);
@@ -5976,7 +5977,7 @@ namespace build2
       assert (m != nullptr && m->modules);
 #endif
 
-      return pd;
+      return pair<dir_path, const scope&> (move (pd), *as);
     }
 
     // Synthesize a dependency for building a module binary interface on
@@ -5993,7 +5994,7 @@ namespace build2
 
       // Note: see also make_header_sidebuild() below.
 
-      dir_path pd (find_modules_sidebuild (*bs.root_scope ()));
+      dir_path pd (find_modules_sidebuild (*bs.root_scope ()).first);
 
       // We need to come up with a file/target name that will be unique enough
       // not to conflict with other modules. If we assume that within an
@@ -6042,14 +6043,6 @@ namespace build2
         if (include (a, lt, p) != include_type::normal) // Excluded/ad hoc.
           continue;
 
-        // @@ TODO: will probably need revision if using sidebuild for
-        //    non-installed libraries (e.g., direct BMI dependencies
-        //    will probably have to be translated to mxx{} or some such).
-        //    Hm, don't think we want it this way: we want BMIs of binless
-        //    library to be built in the library rather than on the side
-        //    (so they can be potentially re-used by multiple independent
-        //    importers).
-        //
         if (p.is_a<libx> () ||
             p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> ())
         {
@@ -6087,8 +6080,9 @@ namespace build2
     // the side.
     //
     const file& compile_rule::
-    make_header_sidebuild (action,
+    make_header_sidebuild (action a,
                            const scope& bs,
+                           const file& t,
                            linfo li,
                            const file& ht) const
     {
@@ -6096,7 +6090,105 @@ namespace build2
 
       // Note: similar to make_module_sidebuild() above.
 
-      dir_path pd (find_modules_sidebuild (*bs.root_scope ()));
+      auto sb (find_modules_sidebuild (*bs.root_scope ()));
+      dir_path pd (move (sb.first));
+      const scope& as (sb.second);
+
+      // Determine if this header belongs to one of the libraries we depend
+      // on.
+      //
+      // Note that because libraries are not in prerequisite_targets, we have
+      // to go through prerequisites, similar to append_library_options().
+      //
+      const file* lt (nullptr);
+      {
+        // Note that any such library would necessarily be an interface
+        // dependency so we never need to go into implementations.
+        //
+        auto imp = [] (const file&, bool)
+        {
+          return false;
+        };
+
+        // The same logic as in append_libraries().
+        //
+        struct data
+        {
+          action       a;
+          const file&  ht;
+          const file*& lt;
+        } d {a, ht, lt};
+
+        auto lib = [&d] (const file* const* lc,
+                         const string&,
+                         lflags,
+                         bool)
+        {
+          // It's unfortunate we have no way to bail out.
+          //
+          if (d.lt != nullptr)
+            return;
+
+          const file* l (lc != nullptr ? *lc : nullptr);
+
+          if (l == nullptr)
+            return;
+
+          // Feels like we should only consider non-utility libraries with
+          // utilities being treated as "direct" use.
+          //
+          if (l->is_a<libux> ())
+            return;
+
+          // Since the library is searched and matched, all the headers should
+          // be in prerequisite_targets.
+          //
+          const auto& pts (l->prerequisite_targets[d.a]);
+          if (find (pts.begin (), pts.end (), &d.ht) != pts.end ())
+            d.lt = l;
+
+          // This is a bit of a hack: for the installed case the library
+          // prerequisites are matched by file_rule which won't pick the
+          // liba/libs{} member (naturally) but will just match the lib{}
+          // group. So we also check the group's prerequisite targets. This
+          // should be harmless since for now all the importable headers are
+          // specified on the group.
+          //
+          if (d.lt == nullptr && l->group != nullptr)
+          {
+            const auto& pts (l->group->prerequisite_targets[d.a]);
+            if (find (pts.begin (), pts.end (), &d.ht) != pts.end ())
+              d.lt = l;
+          }
+        };
+
+        for (prerequisite_member p: group_prerequisite_members (a, t))
+        {
+          if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+            continue;
+
+          // Should be already searched and matched for libraries.
+          //
+          if (const target* pt = p.load ())
+          {
+            if (const libx* l = pt->is_a<libx> ())
+              pt = link_member (*l, a, li);
+
+            bool la;
+            const file* f;
+            if ((la = (f = pt->is_a<liba> ()))  ||
+                (la = (f = pt->is_a<libux> ())) ||
+                (     (f = pt->is_a<libs> ())))
+            {
+              process_libraries (
+                a, bs, li, sys_lib_dirs,
+                *f, la, 0, // lflags unused.
+                imp, lib, {},
+                true);
+            }
+          }
+        }
+      }
 
       // What should we use as a file/target name? On one hand we want it
       // unique enough so that <stdio.h> and <custom/stdio.h> don't end up
@@ -6121,7 +6213,12 @@ namespace build2
         mf += sha256 (hp.string ()).abbreviated_string (12);
       }
 
-      const target_type& tt (compile_types (li.type).hbmi);
+      // If the header comes from the library, use its hbmi?{} type to
+      // maximize reuse.
+      //
+      const target_type& tt (
+        compile_types (
+          lt != nullptr ? link_type (*lt).type : li.type).hbmi);
 
       if (const file* bt = bs.ctx.targets.find<file> (
             tt,
@@ -6134,6 +6231,48 @@ namespace build2
 
       prerequisites ps;
       ps.push_back (prerequisite (ht));
+
+      // Similar story as for modules: the header may need poptions from its
+      // library (e.g., -I to find other headers that it includes).
+      //
+      if (lt != nullptr)
+        ps.push_back (prerequisite (*lt));
+      else
+      {
+        // If the header does not belong to a library then this is a "direct"
+        // use, for example, by an exe{} target. In this case we need to add
+        // all the prerequisite libraries as well as scope p/coptions (in a
+        // sense, we are trying to approximate how all the sources that would
+        // typically include such a header are build).
+        //
+        // Note that this is also the case when we build the library's own
+        // sources (in a way it would have been cleaner to always build
+        // library's headers with only its "interface" options/prerequisites
+        // but that won't be easy to achieve).
+        //
+        // Note also that at first it might seem like a good idea to
+        // incorporate this information into the hash we use to form the BMI
+        // name. But that would reduce sharing of the BMI. For example, that
+        // would mean we will build the library header twice, once with the
+        // implementation options/prerequisites and once -- with interface.
+        // On the other hand, importable headers are expected to be "modular"
+        // and should probably not depend on any of the implementation
+        // options/prerequisites (though one could conceivably build a
+        // "richer" BMI if it is also to be used to build the library
+        // implementation -- interesting idea).
+        //
+        for (prerequisite_member p: group_prerequisite_members (a, t))
+        {
+          if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
+            continue;
+
+          if (p.is_a<libx> () ||
+              p.is_a<liba> () || p.is_a<libs> () || p.is_a<libux> ())
+          {
+            ps.push_back (p.as_prerequisite ());
+          }
+        }
+      }
 
       auto p (bs.ctx.targets.insert_locked (
                 tt,
@@ -6149,7 +6288,31 @@ namespace build2
       // while we were preparing the prerequisite list.
       //
       if (p.second)
+      {
         bt.prerequisites (move (ps));
+
+        // Add the p/coptions from our scope in case of a "direct" use. Take
+        // into account hbmi{} target-type/pattern values to allow specifying
+        // hbmi-specific options.
+        //
+        if (lt == nullptr)
+        {
+          auto set = [this, &bs, &as, &tt, &bt] (const variable& var)
+          {
+            // Avoid duplicating the options if they are from the same
+            // amalgamation as the sidebuild.
+            //
+            lookup l (bs.lookup (var, tt, bt.name, hbmi::static_type, bt.name));
+            if (l.defined () && !l.belongs (as))
+              bt.assign (var) = *l;
+          };
+
+          set (c_poptions);
+          set (x_poptions);
+          set (c_coptions);
+          set (x_coptions);
+        }
+      }
 
       return bt;
     }

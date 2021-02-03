@@ -744,7 +744,7 @@ namespace build2
       };
 
       // Parse --libs into loptions/libs (interface and implementation). If
-      // ps is not NULL, add each resolves library target as a prerequisite.
+      // ps is not NULL, add each resolved library target as a prerequisite.
       //
       auto parse_libs = [a, &s, top_sysd, this] (target& t,
                                                  bool binless,
@@ -1239,12 +1239,14 @@ namespace build2
         }
       };
 
-      // Parse importable headers and enter them as targets.
+      // Parse importable headers, enter them as targets, and add them to
+      // the prerequisites.
       //
       auto parse_headers = [&trace, this,
                             &next, &s, &lt] (const pkgconf& pc,
                                              const target_type& tt,
-                                             const char* lang)
+                                             const char* lang,
+                                             prerequisites& ps)
       {
         string var (string (lang) + "_importable_headers");
         string val (pc.variable (var));
@@ -1285,6 +1287,8 @@ namespace build2
                 info << "make sure this header is used via " << lt
                    << " prerequisite";
           }
+
+          ps.push_back (prerequisite (ht));
         }
       };
 
@@ -1361,8 +1365,8 @@ namespace build2
         // We treat headers outside of any project as C headers (see
         // enter_header() for details).
         //
-        parse_headers (ipc, h::static_type /* **x_hdr */, x);
-        parse_headers (ipc, h::static_type, "c");
+        parse_headers (ipc, h::static_type /* **x_hdr */, x, prs);
+        parse_headers (ipc, h::static_type, "c", prs);
       }
 
       assert (!lt.has_prerequisites ());

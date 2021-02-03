@@ -1563,6 +1563,8 @@ namespace build2
                              lflags f,
                              bool)
       {
+        // Note: see also make_header_sidebuild().
+
         const file* l (lc != nullptr ? *lc : nullptr);
 
         // Suppress duplicates.

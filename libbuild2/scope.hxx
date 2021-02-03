@@ -139,12 +139,20 @@ namespace build2
       return lookup (var, &tt, &tn).first;
     }
 
+    lookup_type
+    lookup (const variable& var,
+            const target_type& tt, const string& tn,
+            const target_type& gt, const string& gn) const
+    {
+      return lookup (var, &tt, &tn, &gt, &gn).first;
+    }
+
     pair<lookup_type, size_t>
     lookup (const variable& var,
-            const target_type* tt = nullptr,
-            const string* tn = nullptr) const
+            const target_type* tt = nullptr, const string* tn = nullptr,
+            const target_type* gt = nullptr, const string* gn = nullptr) const
     {
-      auto p (lookup_original (var, tt, tn));
+      auto p (lookup_original (var, tt, tn, gt, gn));
       return var.overrides == nullptr ? p : lookup_override (var, move (p));
     }
 
