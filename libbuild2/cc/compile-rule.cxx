@@ -6289,7 +6289,7 @@ namespace build2
         //
         if (lt == nullptr)
         {
-          auto set = [this, &bs, &as, &tt, &bt] (const variable& var)
+          auto set = [&bs, &as, &tt, &bt] (const variable& var)
           {
             // Avoid duplicating the options if they are from the same
             // amalgamation as the sidebuild.
