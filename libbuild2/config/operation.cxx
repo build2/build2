@@ -720,7 +720,7 @@ namespace build2
         //
         create_bootstrap_inner (rs);
 
-        if (rs.out_path () == rs.src_path ())
+        if (rs.out_eq_src ())
           fail (l) << "forwarding to source directory " << rs.src_path ();
       }
       else

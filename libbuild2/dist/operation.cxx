@@ -597,7 +597,7 @@ namespace build2
           (rs->out_path () != t.dir && rs->src_path () != t.dir))
         fail << "dist meta-operation target must be project root directory";
 
-      if (rs->out_path () == rs->src_path ())
+      if (rs->out_eq_src ())
         fail << "in-tree distribution of target " << t <<
           info << "distribution requires out-of-tree build";
 

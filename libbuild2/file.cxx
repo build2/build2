@@ -399,7 +399,7 @@ namespace build2
                const dir_path& src_root)
   {
     auto i (ctx.scopes.rw ().insert (out_root, true /* root */));
-    scope& rs (i->second);
+    scope& rs (*i->second.scope);
 
     // Set out_path. Note that src_path is set in setup_root() below.
     //
@@ -457,9 +457,17 @@ namespace build2
     const dir_path& d (cast<dir_path> (v));
 
     if (s.src_path_ == nullptr)
-      s.src_path_ = &d;
+    {
+      if (*s.out_path_ != d)
+      {
+        auto i (ctx.scopes.rw (s).insert (s, d));
+        s.src_path_ = &i->first;
+      }
+      else
+        s.src_path_ = s.out_path_;
+    }
     else
-      assert (s.src_path_ == &d);
+      assert (*s.src_path_ == d);
 
     s.assign (ctx.var_forwarded) = forwarded;
   }
@@ -469,7 +477,7 @@ namespace build2
               const dir_path& out_base,
               const dir_path& src_base)
   {
-    scope& s (i->second);
+    scope& s (*i->second.scope);
     context& ctx (s.ctx);
 
     // Set src/out_base variables.
@@ -496,7 +504,15 @@ namespace build2
       assert (*s.out_path_ == out_base);
 
     if (s.src_path_ == nullptr)
-      s.src_path_ = &cast<dir_path> (sv);
+    {
+      if (out_base != src_base)
+      {
+        auto i (ctx.scopes.rw (s).insert (s, src_base));
+        s.src_path_ = &i->first;
+      }
+      else
+        s.src_path_ = s.out_path_;
+    }
     else
       assert (*s.src_path_ == src_base);
 
@@ -504,21 +520,22 @@ namespace build2
   }
 
   pair<scope&, scope*>
-  switch_scope (scope& root, const dir_path& p, bool proj)
+  switch_scope (scope& root, const dir_path& out_base, bool proj)
   {
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
-    auto i (root.ctx.scopes.rw (root).insert (p));
-    scope& base (i->second);
+    auto i (root.ctx.scopes.rw (root).insert (out_base));
+    scope& base (*i->second.scope);
 
     scope* rs (nullptr);
 
     if (proj && (rs = base.root_scope ()) != nullptr)
     {
-      // Path p can be src_base or out_base. Figure out which one it is.
+      // The path must be in the out (since we've inserted it as out into the
+      // scope map).
       //
-      dir_path out_base (p.sub (rs->out_path ()) ? p : out_src (p, *rs));
+      assert (out_base.sub (rs->out_path ()));
 
       // Create and bootstrap root scope(s) of subproject(s) that this scope
       // may belong to. If any were created, load them. Note that we need to
@@ -534,8 +551,7 @@ namespace build2
 
       // Now we can figure out src_base and finish setting the scope.
       //
-      dir_path src_base (src_out (out_base, *rs));
-      setup_base (i, move (out_base), move (src_base));
+      setup_base (i, out_base, src_out (out_base, *rs));
     }
 
     return pair<scope&, scope*> (base, rs);
@@ -1316,7 +1332,7 @@ namespace build2
     // probably be tried first since that src_root was explicitly configured
     // by the user. After that, #2 followed by #1 seems reasonable.
     //
-    scope& rs (create_root (ctx, out_root, dir_path ())->second);
+    scope& rs (*create_root (ctx, out_root, dir_path ())->second.scope);
 
     bool bstrapped (bootstrapped (rs));
 
@@ -1383,7 +1399,7 @@ namespace build2
 
         // The same logic to src_root as in create_bootstrap_outer().
         //
-        scope& rs (create_root (ctx, out_root, dir_path ())->second);
+        scope& rs (*create_root (ctx, out_root, dir_path ())->second.scope);
 
         optional<bool> altn;
         if (!bootstrapped (rs))
@@ -1618,7 +1634,7 @@ namespace build2
     assert (!forwarded || out_root != src_root);
 
     auto i (create_root (ctx, out_root, src_root));
-    scope& rs (i->second);
+    scope& rs (*i->second.scope);
 
     if (!bootstrapped (rs))
     {
@@ -2327,7 +2343,7 @@ namespace build2
     {
       bool top (proot == nullptr);
 
-      root = &create_root (ctx, out_root, src_root)->second;
+      root = create_root (ctx, out_root, src_root)->second.scope;
 
       bool bstrapped (bootstrapped (*root));
 

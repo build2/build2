@@ -2151,8 +2151,7 @@ namespace build2
 
                   if (j != je)
                   {
-                    // The groups are ordered from the most to least
-                    // specific.
+                    // The groups are ordered from the most to least specific.
                     //
                     for (const string& g: j->second)
                       if ((i = ths.find (g)) != ie)
@@ -2812,18 +2811,11 @@ namespace build2
         if (!e.empty ())
           n.resize (n.size () - e.size () - 1); // One for the dot.
 
-        // See if this directory is part of any project out_root hierarchy and
-        // if so determine the target type.
+        // See if this directory is part of any project and if so determine
+        // the target type.
         //
-        // Note that this will miss all the headers that come from src_root
-        // (so they will be treated as generic C headers below). Generally, we
-        // don't have the ability to determine that some file belongs to
-        // src_root of some project. But that's not a problem for our
-        // purposes: it is only important for us to accurately determine
-        // target types for headers that could be auto-generated.
-        //
-        // While at it also try to determine if this target is from the src or
-        // out tree of said project.
+        // While at it also determine if this target is from the src or out
+        // tree of said project.
         //
         dir_path out;
 
@@ -2839,7 +2831,7 @@ namespace build2
         {
           tts = map_extension (bs, n, e);
 
-          if (bs.out_path () != bs.src_path () && d.sub (bs.src_path ()))
+          if (!bs.out_eq_src () && d.sub (bs.src_path ()))
             out = out_src (d, *rs);
         }
 

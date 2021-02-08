@@ -43,8 +43,10 @@ namespace build2
     const dir_path& out_path () const {return *out_path_;}
     const dir_path& src_path () const {return *src_path_;}
 
-    // The first is a pointer to the key in scope_map. The second is a pointer
-    // to the src_root/base variable value, if any (i.e., it can be NULL).
+    bool out_eq_src () const {return out_path_ == src_path_;}
+
+    // These are pointers to the keys in scope_map. The second can be NULL
+    // during bootstrap until initialized.
     //
     const dir_path* out_path_ = nullptr;
     const dir_path* src_path_ = nullptr;
@@ -627,21 +629,53 @@ namespace build2
     }
   };
 
-  // Scope map.
+  // Scope map. Protected by the phase mutex.
   //
-  // Protected by the phase mutex. Note that the scope map is only for paths
-  // from the out tree.
+  // While it contains both out and src paths, the latter is not available
+  // during bootstrap (see setup_root() and setup_base() for details).
   //
-  using scope_map_base = dir_path_map<scope>;
-
-  class scope_map: public scope_map_base
+  class scope_map
   {
   public:
+    struct scope_ptr
+    {
+      using scope_type = build2::scope;
+
+      scope_type* scope;
+      bool        out;
+
+      scope_ptr (bool o): scope (nullptr), out (o) {}
+      ~scope_ptr () {if (out) delete scope;}
+
+      scope_ptr (scope_ptr&& x) // For GCC 4.9
+          : scope (x.scope), out (x.out)
+      {
+        x.scope = nullptr;
+      }
+
+      scope_ptr& operator= (scope_ptr&&) = delete;
+
+      scope_ptr (const scope_ptr&) = delete;
+      scope_ptr& operator= (const scope_ptr&) = delete;
+    };
+
+    using map_type = dir_path_map<scope_ptr>;
+
+    using iterator = map_type::iterator;
+    using const_iterator = map_type::const_iterator;
+
+    // Insert a scope given its out path.
+    //
     // Note that we assume the first insertion into the map is always the
     // global scope with empty key.
     //
     LIBBUILD2_SYMEXPORT iterator
-    insert (const dir_path&, bool root = false);
+    insert (const dir_path& our_path, bool root = false);
+
+    // Insert a shallow reference to the scope for its src path.
+    //
+    LIBBUILD2_SYMEXPORT iterator
+    insert (scope&, const dir_path& src_path);
 
     // Find the most qualified scope that encompasses this path.
     //
@@ -667,6 +701,10 @@ namespace build2
       return find (path_cast<dir_path> (p));
     }
 
+    const_iterator begin () const {return map_.begin ();}
+    const_iterator end () const {return map_.end ();}
+    const_iterator find_exact (const dir_path& d) const {return map_.find (d);}
+
     // RW access.
     //
   public:
@@ -691,6 +729,7 @@ namespace build2
 
   private:
     context& ctx;
+    map_type map_;
   };
 }
 

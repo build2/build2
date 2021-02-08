@@ -35,7 +35,7 @@ namespace build2
   create_global_scope (scope_map& m)
   {
     auto i (m.insert (dir_path ()));
-    scope& r (i->second);
+    scope& r (*i->second.scope);
     r.out_path_ = &i->first;
     return r;
   };
@@ -488,7 +488,7 @@ namespace build2
       //
       if (c == '!' || (dir && dir->absolute ()))
       {
-        scope& s (c == '!' ? gs : sm.insert (*dir)->second);
+        scope& s (c == '!' ? gs : *sm.insert (*dir)->second.scope);
 
         auto p (s.vars.insert (*o));
         assert (p.second); // Variable name is unique.

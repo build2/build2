@@ -944,10 +944,21 @@ namespace build2
   auto scope_map::
   insert (const dir_path& k, bool root) -> iterator
   {
-    scope_map_base& m (*this);
+    auto er (map_.emplace (k, true /* out */));
 
-    auto er (m.emplace (k, scope (ctx, true /* global */)));
-    scope& s (er.first->second);
+    if (er.second)
+    {
+      er.first->second.scope = new scope (ctx, true /* global */);
+    }
+    else if (!er.first->second.out)
+    {
+      // This can potentially be triggered if we use the same directory as one
+      // project's out and another's src.
+      //
+      fail << "directory " << k << " is used as both src and out scope";
+    }
+
+    scope& s (*er.first->second.scope);
 
     // If this is a new scope, update the parent chain.
     //
@@ -958,14 +969,14 @@ namespace build2
       // Update scopes of which we are a new parent/root (unless this is the
       // global scope). Also find our parent while at it.
       //
-      if (m.size () > 1)
+      if (map_.size () > 1)
       {
         // The first entry is ourselves.
         //
-        auto r (m.find_sub (k));
+        auto r (map_.find_sub (k));
         for (++r.first; r.first != r.second; ++r.first)
         {
-          scope& c (r.first->second);
+          scope& c (*r.first->second.scope);
 
           // The first scope of which we are a parent is the least (shortest)
           // one which means there is no other scope between it and our
@@ -995,10 +1006,10 @@ namespace build2
     {
       // Upgrade to root scope.
       //
-      auto r (m.find_sub (k));
+      auto r (map_.find_sub (k));
       for (++r.first; r.first != r.second; ++r.first)
       {
-        scope& c (r.first->second);
+        scope& c (*r.first->second.scope);
 
         if (c.root_ == s.root_) // No intermediate root.
           c.root_ = &s;
@@ -1010,14 +1021,36 @@ namespace build2
     return er.first;
   }
 
+  auto scope_map::
+  insert (scope& s, const dir_path& k) -> iterator
+  {
+    auto er (map_.emplace (k, false /* out */));
+
+    if (er.second)
+    {
+      er.first->second.scope = &s;
+    }
+    else if (!er.first->second.out)
+    {
+      assert (er.first->second.scope == &s);
+    }
+    else
+    {
+      // This can be triggered, for example, by specifying a variable override
+      // with src instead of out directory.
+      //
+      fail << "directory " << k << " is used as both src and out scope";
+    }
+
+    return er.first;
+  }
+
   scope& scope_map::
   find (const dir_path& k)
   {
     assert (k.normalized (false)); // Allow non-canonical dir separators.
-
-    scope_map_base& m (*this);
-    auto i (m.find_sup (k));
-    assert (i != m.end ()); // Should have global scope.
-    return i->second;
+    auto i (map_.find_sup (k));
+    assert (i != map_.end ()); // Should have global scope.
+    return *i->second.scope;
   }
 }

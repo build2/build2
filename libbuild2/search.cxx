@@ -175,7 +175,7 @@ namespace build2
 
     if (tk.out->empty ())
     {
-      if (s->out_path () != s->src_path ())
+      if (!s->out_eq_src ())
         out = out_src (d, *s->root_scope ());
     }
     else

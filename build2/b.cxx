@@ -1151,7 +1151,7 @@ main (int argc, char* argv[])
           // use to the bootstrap files (other than src-root.build, which,
           // BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (create_root (*ctx, out_root, src_root)->second);
+          scope& rs (*create_root (*ctx, out_root, src_root)->second.scope);
 
           bool bstrapped (bootstrapped (rs));
 
@@ -1561,9 +1561,10 @@ main (int argc, char* argv[])
               // If we have a directory, enter the scope, similar to how we do
               // it in the context ctor.
               //
-              scope& s (o.dir
-                        ? sm.insert ((out_base / *o.dir).normalize ())->second
-                        : *rs.weak_scope ());
+              scope& s (
+                o.dir
+                ? *sm.insert ((out_base / *o.dir).normalize ())->second.scope
+                : *rs.weak_scope ());
 
               auto p (s.vars.insert (o.ovr));
 
@@ -1581,9 +1582,10 @@ main (int argc, char* argv[])
               if (o.ovr.visibility == variable_visibility::global)
                 continue;
 
-              scope& s (o.dir
-                        ? sm.insert ((out_base / *o.dir).normalize ())->second
-                        : rs);
+              scope& s (
+                o.dir
+                ? *sm.insert ((out_base / *o.dir).normalize ())->second.scope
+                : rs);
 
               auto p (s.vars.insert (o.ovr));
 

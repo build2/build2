@@ -146,7 +146,7 @@ namespace build2
   // second.
   //
   LIBBUILD2_SYMEXPORT pair<scope&, scope*>
-  switch_scope (scope& root, const dir_path&, bool project = true);
+  switch_scope (scope& root, const dir_path& out_base, bool project = true);
 
   // Bootstrap and optionally load an ad hoc (sub)project (i.e., the kind that
   // is not discovered and loaded automatically by bootstrap/load functions

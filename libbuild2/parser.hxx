@@ -531,7 +531,7 @@ namespace build2
     // project. So both must be saved and restored.
     //
     void
-    switch_scope (const dir_path&);
+    switch_scope (const dir_path& out_base);
 
     void
     process_default_target (token&);
