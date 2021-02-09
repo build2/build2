@@ -45,8 +45,10 @@ namespace build2
 
       // Translate the x.std value (if any) to the standard-selecting
       // option(s) (if any) and fold them (normally by pre-pending) into the
-      // compiler mode options. This function may also check/set x.features.*
-      // variables on the root scope.
+      // compiler mode options.
+      //
+      // This function may also check/set [config.]x.features.* variables on
+      // the root scope.
       //
       virtual void
       translate_std (const compiler_info&,

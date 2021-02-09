@@ -6,6 +6,8 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#include <libbuild2/config/utility.hxx>
+
 #include <libbuild2/cc/guess.hxx>
 #include <libbuild2/cc/module.hxx>
 
@@ -93,11 +95,57 @@ namespace build2
       //
       auto& vp (rs.var_pool ());
 
-      //bool concepts (false);
-      //auto& v_c (vp.insert<bool> ("cxx.features.concepts"));
+      // Similar to config.cxx.std, config.cxx.features.* override
+      // cxx.features.*.
+      //
+      struct feature
+      {
+        optional<bool>   value; // cxx.features.* value.
+        optional<bool> c_value; // config.cxx.features.* value.
+        bool            result; // Calculated result value.
 
-      bool modules (false);
-      auto& v_m (vp.insert<bool> ("cxx.features.modules"));
+        feature& operator= (bool r) {result = r; return *this;}
+
+        build2::value&    value_; // cxx.features.* variable value.
+        const char*       name_;  // Feature name.
+      };
+
+      auto get_feature = [&rs, &vp] (const char* name) -> feature
+      {
+        auto& var   (vp.insert<bool> (string ("cxx.features.") + name));
+        auto& c_var (vp.insert<bool> (string ("config.cxx.features.") + name));
+
+        pair<value&, bool> val (rs.vars.insert (var));
+        lookup l (config::lookup_config (rs, c_var));
+
+        optional<bool> v, c_v;
+        if (l.defined ())
+          v = c_v = cast_false<bool> (*l);
+        else if (!val.second)
+          v = cast_false<bool> (val.first);
+
+        return feature {v, c_v, false, val.first, name};
+      };
+
+      auto set_feature = [&rs, &ci, v] (const feature& f)
+      {
+        if (f.c_value && *f.c_value != f.result)
+        {
+          fail << f.name_ << " cannot be "
+               << (*f.c_value ? "enabled" : "disabled") << " for "
+               << project (rs) << '@' << rs <<
+          info << "C++ language standard is "
+               << (v != nullptr ? v->c_str () : "compiler-default") <<
+          info << "C++ compiler is " << ci.signature <<
+          info << f.name_ << " state requested with config.cxx.features."
+               << f.name_;
+        }
+
+        f.value_ = f.result;
+      };
+
+      feature modules (get_feature ("modules"));
+      //feature concepts (get_feature ("concepts"));
 
       // NOTE: see also module sidebuild subproject if changing anything about
       // modules here.
@@ -301,8 +349,7 @@ namespace build2
 
         // Unless disabled by the user, try to enable C++ modules.
         //
-        lookup l;
-        if (!(l = rs[v_m]) || cast<bool> (l))
+        if (!modules.value || *modules.value)
         {
           switch (ct)
           {
@@ -315,7 +362,7 @@ namespace build2
               // M;` syntax. And 16.4 (19.24) supports the global module
               // fragment.
               //
-              if (mj > 19 || (mj == 19 && mi >= (l ? 10 : 12)))
+              if (mj > 19 || (mj == 19 && mi >= (modules.value ? 10 : 12)))
               {
                 prepend (
                   mj > 19  || mi >= 24     ?
@@ -336,13 +383,14 @@ namespace build2
               // generated headers via the mapper, we require the user to
               // explicitly request modules.
               //
-              if (mj >= 11 && l)
+              if (mj >= 11 && modules.value)
               {
                 // Defines __cpp_modules=201907. @@ TMP: confirm.
                 //
                 prepend ("-fmodules-ts");
                 modules = true;
               }
+
               break;
             }
           case compiler_type::clang:
@@ -360,12 +408,13 @@ namespace build2
               //
               // Also see Clang modules support hack in cc::compile.
               //
-              if (l)
+              if (modules.value)
               {
                 prepend ("-D__cpp_modules=201704"); // p0629r0
                 mode.push_back ("-fmodules-ts"); // For the hack to work.
                 modules = true;
               }
+
               break;
             }
           case compiler_type::icc:
@@ -374,8 +423,8 @@ namespace build2
         }
       }
 
-      rs.assign (v_m) = modules;
-      //rs.assign (v_c) = concepts;
+      set_feature (modules);
+      //set_feature (concepts);
     }
 
     static const char* const hinters[] = {"c", nullptr};
