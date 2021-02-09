@@ -1596,7 +1596,7 @@ namespace build2
     // will be NULL) was actually inserted. Similar to find(), if typed is
     // false, leave the value untyped even if the variable is.
     //
-    pair<reference_wrapper<value>, bool>
+    pair<value&, bool>
     insert (const variable&, bool typed = true);
 
     pair<const_iterator, const_iterator>

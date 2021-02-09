@@ -1736,7 +1736,7 @@ namespace build2
     return pair<value_data*, const variable&> (r, p.second);
   }
 
-  pair<reference_wrapper<value>, bool> variable_map::
+  pair<value&, bool> variable_map::
   insert (const variable& var, bool typed)
   {
     assert (!global_ || ctx->phase == run_phase::load);
@@ -1756,7 +1756,7 @@ namespace build2
 
     r.version++;
 
-    return make_pair (reference_wrapper<value> (r), p.second);
+    return pair<value&, bool> (r, p.second);
   }
 
   // variable_type_map

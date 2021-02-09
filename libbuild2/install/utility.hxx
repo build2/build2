@@ -28,7 +28,7 @@ namespace build2
           *s.var_pool ().find ("install")));
 
       if (r.second) // Already set by the user?
-        r.first.get () = path_cast<path> (move (d));
+        r.first = path_cast<path> (move (d));
     }
 
     template <typename T>
@@ -46,7 +46,7 @@ namespace build2
           *s.var_pool ().find ("install.mode")));
 
       if (r.second) // Already set by the user?
-        r.first.get () = move (m);
+        r.first = move (m);
     }
 
     template <typename T>

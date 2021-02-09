@@ -739,7 +739,7 @@ namespace build2
           // export stub and we shouldn't touch them.
           //
           if (p.second)
-            p.first.get () = move (pops);
+            p.first = move (pops);
         }
       };
 
@@ -1090,7 +1090,7 @@ namespace build2
           auto p (t.vars.insert (c_export_loptions));
 
           if (p.second)
-            p.first.get () = move (lops);
+            p.first = move (lops);
         }
 
         // Set even if empty (export override).
@@ -1099,7 +1099,7 @@ namespace build2
           auto p (t.vars.insert (la ? c_export_imp_libs : c_export_libs));
 
           if (p.second)
-            p.first.get () = move (libs);
+            p.first = move (libs);
         }
       };
 

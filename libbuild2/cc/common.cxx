@@ -899,7 +899,7 @@ namespace build2
 
         if (p.second)
         {
-          p.first.get () = string ("cc");
+          p.first = string ("cc");
 
           if (sys)
             t.vars.assign (c_system) = true;
@@ -951,7 +951,7 @@ namespace build2
 
             strings o;
             o.push_back (move (d));
-            p.first.get () = move (o);
+            p.first = move (o);
           }
         }
       };
