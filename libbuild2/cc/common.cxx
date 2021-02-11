@@ -46,31 +46,42 @@ namespace build2
     // The first argument to proc_lib is a pointer to the last element of an
     // array that contains the current library dependency chain all the way to
     // the library passed to process_libraries(). The first element of this
-    // array is NULL.
+    // array is NULL. If this argument is NULL, then this is a library without
+    // a target (e.g., -lpthread) and its name is in the second argument.
+    //
+    // If proc_impl always returns false (that is, we are only interested in
+    // interfaces), then top_li can be absent. This makes process_libraries()
+    // not to pick the liba/libs{} member for installed libraries instead
+    // passing the lib{} group itself. This can be used to match the semantics
+    // of file_rule which, when matching prerequisites, does not pick the
+    // liba/libs{} member (naturally) but just matches the lib{} group.
+    //
+    // Note that if top_li is present, then the target passed to proc_impl,
+    // proc_lib, and proc_opt is always a file.
     //
     void common::
     process_libraries (
       action a,
       const scope& top_bs,
-      linfo top_li,
+      optional<linfo> top_li,
       const dir_paths& top_sysd,
-      const file& l,
+      const mtime_target& l,                     // liba/libs{} or lib{}
       bool la,
       lflags lf,
-      const function<bool (const file&,
+      const function<bool (const target&,
                            bool la)>& proc_impl, // Implementation?
-      const function<void (const file* const*,   // Can be NULL.
+      const function<void (const target* const*, // Can be NULL.
                            const string& path,   // Library path.
                            lflags,               // Link flags.
                            bool sys)>& proc_lib, // True if system library.
-      const function<void (const file&,
+      const function<void (const target&,
                            const string& type,   // cc.type
                            bool com,             // cc. or x.
                            bool exp)>& proc_opt, // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
-      small_vector<const file*, 16>* chain) const
+      small_vector<const target*, 16>* chain) const
     {
-      small_vector<const file*, 16> chain_storage;
+      small_vector<const target*, 16> chain_storage;
       if (chain == nullptr)
       {
         chain = &chain_storage;
@@ -193,7 +204,8 @@ namespace build2
         // stub the path to the DLL may not be known and so the path will be
         // empty (but proc_lib() will use the import stub).
         //
-        const path& p (l.path ());
+        const file* f;
+        const path& p ((f = l.is_a<file> ()) ? f->path () : empty_path);
 
         bool s (t != nullptr // If cc library (matched or imported).
                 ? cast_false<bool> (l.vars[c_system])
@@ -203,7 +215,7 @@ namespace build2
       }
 
       const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
-      optional<linfo> li;                        // Calculate lazily.
+      optional<optional<linfo>> li;              // Calculate lazily.
       const dir_paths* sysd (nullptr);           // Resolve lazily.
 
       // Find system search directories corresponding to this library, i.e.,
@@ -225,7 +237,7 @@ namespace build2
       {
         li = (t == nullptr || cc)
         ? top_li
-        : link_info (bs, link_type (l).type);
+        : optional<linfo> (link_info (bs, link_type (l).type));
       };
 
       // Only go into prerequisites (implementation) if instructed and we are
@@ -234,6 +246,8 @@ namespace build2
       //
       if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
+        assert (top_li); // Must pick a member if implementation (see above).
+
         for (const prerequisite_target& pt: l.prerequisite_targets[a])
         {
           // Note: adhoc prerequisites are not part of the library metadata
@@ -303,7 +317,7 @@ namespace build2
             {
               // This is something like -lpthread or shell32.lib so should be
               // a valid path. But it can also be an absolute library path
-              // (e.g., something that may come from our .static/shared.pc
+              // (e.g., something that may come from our .{static/shared}.pc
               // files).
               //
               if (proc_lib)
@@ -316,7 +330,7 @@ namespace build2
               if (sysd == nullptr) find_sysd ();
               if (!li) find_linfo ();
 
-              const file& t (
+              const mtime_target& t (
                 resolve_library (a,
                                  bs,
                                  n,
@@ -449,12 +463,16 @@ namespace build2
     // will select exactly the same target as the library's matched rule and
     // that's the only way to guarantee it will be up-to-date.
     //
-    const file& common::
+    // If li is absent, then don't pick the liba/libs{} member, returning the
+    // lib{} target itself. If li is present, then the returned target is
+    // always a file.
+    //
+    const mtime_target& common::
     resolve_library (action a,
                      const scope& s,
                      const name& cn,
                      const dir_path& out,
-                     linfo li,
+                     optional<linfo> li,
                      const dir_paths& sysd,
                      optional<dir_paths>& usrd) const
     {
@@ -491,12 +509,16 @@ namespace build2
           fail << "unable to find library " << pk;
       }
 
-      // If this is lib{}/libu*{}, pick appropriate member.
+      // If this is lib{}/libu*{}, pick appropriate member unless we were
+      // instructed not to.
       //
-      if (const libx* l = xt->is_a<libx> ())
-        xt = link_member (*l, a, li); // Pick lib*{e,a,s}{}.
+      if (li)
+      {
+        if (const libx* l = xt->is_a<libx> ())
+          xt = link_member (*l, a, *li); // Pick lib*{e,a,s}{}.
+      }
 
-      return xt->as<file> ();
+      return xt->as<mtime_target> ();
     }
 
     // Note that pk's scope should not be NULL (even if dir is absolute).
@@ -868,28 +890,6 @@ namespace build2
         return l;
       };
 
-      target_lock ll (lock (lt));
-
-      // Set lib{} group members to indicate what's available. Note that we
-      // must be careful here since its possible we have already imported some
-      // of its members.
-      //
-      timestamp mt (timestamp_nonexistent);
-      if (ll)
-      {
-        if (s != nullptr) {lt->s = s; mt = s->mtime ();}
-        if (a != nullptr) {lt->a = a; mt = a->mtime ();}
-      }
-
-      target_lock al (lock (a));
-      target_lock sl (lock (s));
-
-      if (!al) a = nullptr;
-      if (!sl) s = nullptr;
-
-      if (a != nullptr) a->group = lt;
-      if (s != nullptr) s->group = lt;
-
       // Mark as a "cc" library (unless already marked) and set the system
       // flag.
       //
@@ -907,6 +907,33 @@ namespace build2
 
         return p.second;
       };
+
+      target_lock ll (lock (lt));
+
+      // Set lib{} group members to indicate what's available. Note that we
+      // must be careful here since its possible we have already imported some
+      // of its members.
+      //
+      timestamp mt (timestamp_nonexistent);
+      if (ll)
+      {
+        if (s != nullptr) {lt->s = s; mt = s->mtime ();}
+        if (a != nullptr) {lt->a = a; mt = a->mtime ();}
+
+        // Mark the group since sometimes we use it itself instead of one of
+        // the liba/libs{} members (see process_libraries() for details).
+        //
+        mark_cc (*lt);
+      }
+
+      target_lock al (lock (a));
+      target_lock sl (lock (s));
+
+      if (!al) a = nullptr;
+      if (!sl) s = nullptr;
+
+      if (a != nullptr) a->group = lt;
+      if (s != nullptr) s->group = lt;
 
       // If the library already has cc.type, then assume it was either
       // already imported or was matched by a rule.

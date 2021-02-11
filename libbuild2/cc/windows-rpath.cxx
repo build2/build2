@@ -56,14 +56,14 @@ namespace build2
       // We need to collect all the DLLs, so go into implementation of both
       // shared and static (in case they depend on shared).
       //
-      auto imp = [] (const file&, bool) {return true;};
+      auto imp = [] (const target&, bool) {return true;};
 
-      auto lib = [&r] (const file* const* lc,
+      auto lib = [&r] (const target* const* lc,
                        const string& f,
                        lflags,
                        bool sys)
       {
-        const file* l (lc != nullptr ? *lc : nullptr);
+        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         // We don't rpath system libraries.
         //
@@ -137,14 +137,14 @@ namespace build2
     {
       windows_dlls r;
 
-      auto imp = [] (const file&, bool) {return true;};
+      auto imp = [] (const target&, bool) {return true;};
 
-      auto lib = [&r, &bs] (const file* const* lc,
+      auto lib = [&r, &bs] (const target* const* lc,
                             const string& f,
                             lflags,
                             bool sys)
       {
-        const file* l (lc != nullptr ? *lc : nullptr);
+        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         if (sys)
           return;

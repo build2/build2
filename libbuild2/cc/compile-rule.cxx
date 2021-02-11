@@ -413,11 +413,13 @@ namespace build2
 
       // See through utility libraries.
       //
-      auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
+      auto imp = [] (const target& l, bool la) {return la && l.is_a<libux> ();};
 
-      auto opt = [&d, this] (const file& l,
+      auto opt = [&d, this] (const target& lt,
                              const string& t, bool com, bool exp)
       {
+        const file& l (lt.as<file> ());
+
         // Note that in our model *.export.poptions are always "interface",
         // even if set on liba{}/libs{}, unlike loptions.
         //
@@ -504,10 +506,10 @@ namespace build2
                              target& t,
                              linfo li) const
     {
-      auto imp = [] (const file& l, bool la) {return la && l.is_a<libux> ();};
+      auto imp = [] (const target& l, bool la) {return la && l.is_a<libux> ();};
 
       auto opt = [&m, this] (
-        const file& l, const string& t, bool com, bool exp)
+        const target& l, const string& t, bool com, bool exp)
       {
         if (!exp)
           return;
@@ -524,8 +526,8 @@ namespace build2
 
       // The same logic as in append_library_options().
       //
-      const function<bool (const file&, bool)> impf (imp);
-      const function<void (const file&, const string&, bool, bool)> optf (opt);
+      const function<bool (const target&, bool)> impf (imp);
+      const function<void (const target&, const string&, bool, bool)> optf (opt);
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -6097,10 +6099,7 @@ namespace build2
         // Note that any such library would necessarily be an interface
         // dependency so we never need to go into implementations.
         //
-        auto imp = [] (const file&, bool)
-        {
-          return false;
-        };
+        auto imp = [] (const target&, bool) { return false; };
 
         // The same logic as in append_libraries().
         //
@@ -6111,7 +6110,7 @@ namespace build2
           const file*& lt;
         } d {a, ht, lt};
 
-        auto lib = [&d] (const file* const* lc,
+        auto lib = [&d] (const target* const* lc,
                          const string&,
                          lflags,
                          bool)
@@ -6121,7 +6120,7 @@ namespace build2
           if (d.lt != nullptr)
             return;
 
-          const file* l (lc != nullptr ? *lc : nullptr);
+          const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
           if (l == nullptr)
             return;
@@ -6175,7 +6174,7 @@ namespace build2
               process_libraries (
                 a, bs, li, sys_lib_dirs,
                 *f, la, 0, // lflags unused.
-                imp, lib, {},
+                imp, lib, nullptr,
                 true);
             }
           }

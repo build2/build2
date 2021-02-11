@@ -272,16 +272,16 @@ namespace build2
       process_libraries (
         action,
         const scope&,
-        linfo,
+        optional<linfo>,
         const dir_paths&,
-        const file&,
+        const mtime_target&,
         bool,
         lflags,
-        const function<bool (const file&, bool)>&,
-        const function<void (const file* const*, const string&, lflags, bool)>&,
-        const function<void (const file&, const string&, bool, bool)>&,
+        const function<bool (const target&, bool)>&,
+        const function<void (const target* const*, const string&, lflags, bool)>&,
+        const function<void (const target&, const string&, bool, bool)>&,
         bool = false,
-        small_vector<const file*, 16>* = nullptr) const;
+        small_vector<const target*, 16>* = nullptr) const;
 
       const target*
       search_library (action a,
@@ -308,12 +308,12 @@ namespace build2
       }
 
     public:
-      const file&
+      const mtime_target&
       resolve_library (action,
                        const scope&,
                        const name&,
                        const dir_path&,
-                       linfo,
+                       optional<linfo>,
                        const dir_paths&,
                        optional<dir_paths>&) const;
 

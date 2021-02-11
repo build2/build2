@@ -1633,15 +1633,15 @@ namespace build2
           // pretty similar to link_rule::append_libraries()).
           //
           bool priv (false);
-          auto imp = [&priv] (const file&, bool la) {return priv && la;};
+          auto imp = [&priv] (const target&, bool la) {return priv && la;};
 
           auto lib = [&save_library_target,
-                      &save_library_name] (const file* const* c,
+                      &save_library_name] (const target* const* lc,
                                            const string& p,
                                            lflags,
                                            bool)
           {
-            const file* l (c != nullptr ? *c : nullptr);
+            const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
             if (l != nullptr)
             {
@@ -1652,9 +1652,7 @@ namespace build2
               save_library_name (p); // Something "system'y", save as is.
           };
 
-          auto opt = [] (const file&,
-                         const string&,
-                         bool, bool)
+          auto opt = [] (const target&, const string&, bool, bool)
           {
             //@@ TODO: should we filter -L similar to -I?
             //@@ TODO: how will the Libs/Libs.private work?

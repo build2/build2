@@ -1553,19 +1553,19 @@ namespace build2
         compile_target_types tts;
       } d {ls, args, l, a, li, rel, compile_types (li.type)};
 
-      auto imp = [] (const file&, bool la)
+      auto imp = [] (const target&, bool la)
       {
         return la;
       };
 
-      auto lib = [&d, this] (const file* const* lc,
+      auto lib = [&d, this] (const target* const* lc,
                              const string& p,
                              lflags f,
                              bool)
       {
         // Note: see also make_header_sidebuild().
 
-        const file* l (lc != nullptr ? *lc : nullptr);
+        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         // Suppress duplicates.
         //
@@ -1745,11 +1745,13 @@ namespace build2
         al.end = d.args.size (); // Close.
       };
 
-      auto opt = [&d, this] (const file& l,
+      auto opt = [&d, this] (const target& lt,
                              const string& t,
                              bool com,
                              bool exp)
       {
+        const file& l (lt.as<file> ());
+
         // Don't try to pass any loptions when linking a static library.
         //
         // Note also that we used to pass non-export loptions but that didn't
@@ -1806,17 +1808,17 @@ namespace build2
         linfo           li;
       } d {cs, bs.root_scope ()->out_path (), update, mt, li};
 
-      auto imp = [] (const file&, bool la)
+      auto imp = [] (const target&, bool la)
       {
         return la;
       };
 
-      auto lib = [&d, this] (const file* const* lc,
+      auto lib = [&d, this] (const target* const* lc,
                              const string& p,
                              lflags f,
                              bool)
       {
-        const file* l (lc != nullptr ? *lc : nullptr);
+        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         if (l == nullptr)
         {
@@ -1868,7 +1870,7 @@ namespace build2
         }
       };
 
-      auto opt = [&d, this] (const file& l,
+      auto opt = [&d, this] (const target& l,
                              const string& t,
                              bool com,
                              bool exp)
@@ -1908,7 +1910,7 @@ namespace build2
           return;
       }
 
-      auto imp = [link] (const file& l, bool la)
+      auto imp = [link] (const target& l, bool la)
       {
         // If we are not rpath-link'ing, then we only need to rpath interface
         // libraries (they will include rpath's for their implementations)
@@ -1937,12 +1939,12 @@ namespace build2
         bool               link;
       } d {ls, args, link};
 
-      auto lib = [&d, this] (const file* const* lc,
+      auto lib = [&d, this] (const target* const* lc,
                              const string& f,
                              lflags,
                              bool sys)
       {
-        const file* l (lc != nullptr ? *lc : nullptr);
+        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on a napkin somewhere...
