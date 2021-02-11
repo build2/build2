@@ -173,6 +173,9 @@ $* test clean <<EOI
 ln -s ../driver.cxx ./;
 $* test &*.d <'exe{test}: cxx{driver}' 2>>EOE != 0
   driver.cxx: error: unable to resolve module foo.core
+    info: verify module interface is listed as a prerequisite, otherwise
+    info: consider adjusting module interface file names or
+    info: consider specifying module name with cxx.module_name
   EOE
 
 : misguessed

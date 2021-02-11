@@ -5248,7 +5248,7 @@ namespace build2
       //
       // In the above examples one common theme about all the file names is
       // that they contain, in one form or another, the "tail" of the module
-      // name ('core'). So what we are going to do is require that, within a
+      // name (`core`). So what we are going to do is require that, within a
       // pool (library, executable), the interface file names contain enough
       // of the module name tail to unambiguously resolve all the module
       // imports. On our side we are going to implement a "fuzzy" module name
@@ -5267,7 +5267,7 @@ namespace build2
       // abstract-window.mxx: which one is likely to define this module?
       // Clearly the first, but in the above-described scheme they will get
       // the same score. More generally, consider these "obvious" (to the
-      // human) situations:
+      // human, that is) situations:
       //
       //   window.mxx          vs  abstract-window.mxx
       //   details/window.mxx  vs  abstract-window.mxx
@@ -5276,13 +5276,17 @@ namespace build2
       // To handle such cases we are going to combine the above primary score
       // with the following secondary scores (in that order):
       //
-      // a) Strength of separation between matched and unmatched parts:
+      // A) Strength of separation between matched and unmatched parts:
       //
       //    '\0' > directory separator > other separator > unseparated
       //
       //    Here '\0' signifies nothing to separate (unmatched part is empty).
       //
-      // b) Shortness of the unmatched part.
+      // B) Shortness of the unmatched part.
+      //
+      // Finally, for the fuzzy match we require a complete match of the last
+      // module (or partition) component. Failed that, we will match `format`
+      // to `print` because the last character (`t`) is the same.
       //
       // For std.* modules we only accept non-fuzzy matches (think std.core vs
       // some core.mxx). And if such a module is unresolved, then we assume it
@@ -5299,8 +5303,12 @@ namespace build2
         //
         // PPPPABBBB
         //
-        // We use decimal instead of binary packing to make it easier to
-        // separate fields in the trace messages, during debugging, etc.
+        // Where PPPP is the primary score, A is the A) score, and BBBB is
+        // the B) scope described above. Zero signifies no match.
+        //
+        // We use decimal instead of binary packing to make it easier for the
+        // human to separate fields in the trace messages, during debugging,
+        // etc.
         //
         return m.size () * 100000 + 99999; // Maximum match score.
       };
@@ -5323,6 +5331,8 @@ namespace build2
                   (ucase (c1) == c1) != (ucase (c2) == c2));
         };
 
+        auto mod_sep = [] (char c) {return c == '.' || c == ':';};
+
         size_t fn (f.size ()), fi (fn);
         size_t mn (m.size ()), mi (mn);
 
@@ -5331,6 +5341,10 @@ namespace build2
         //
         bool fsep (false);
         bool msep (false);
+
+        // We require complete match of at least last module component.
+        //
+        bool match (false);
 
         // Scan backwards for as long as we match. Keep track of the previous
         // character for case change detection.
@@ -5357,11 +5371,12 @@ namespace build2
           //  FOObar
           //
           bool fs (char_sep (fc));
-          bool ms (mc == '_' || mc == '.' || mc == ':');
+          bool ms (mod_sep (mc) || mc == '_');
 
           if (fs && ms)
           {
             fsep = msep = true;
+            match = match || mod_sep (mc);
             continue;
           }
 
@@ -5379,12 +5394,21 @@ namespace build2
               if (fa) {++fi; msep = true;}
               if (ma) {++mi; fsep = true;}
 
+              match = match || mod_sep (mc);
               continue;
             }
           }
 
           break; // No match.
         }
+
+        // Deal with edge cases: complete module match and complete file
+        // match.
+        //
+        match = match || mi == 0 || (fi == 0 && mod_sep (m[mi - 1]));
+
+        if (!match)
+          return 0;
 
         // "Uncount" real separators.
         //
@@ -5753,8 +5777,13 @@ namespace build2
             //
             // But at this stage this doesn't seem worth the trouble.
             //
-            fail (relative (src)) << "unable to resolve module "
-                                  << imports[i].name;
+            fail (relative (src))
+              << "unable to resolve module " << imports[i].name <<
+              info << "verify module interface is listed as a prerequisite, "
+              << "otherwise" <<
+              info << "consider adjusting module interface file names or" <<
+              info << "consider specifying module name with " << x
+              << ".module_name";
           }
         }
       }
