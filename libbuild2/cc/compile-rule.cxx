@@ -6094,7 +6094,7 @@ namespace build2
       // Note that because libraries are not in prerequisite_targets, we have
       // to go through prerequisites, similar to append_library_options().
       //
-      const file* lt (nullptr);
+      const target* lt (nullptr); // Can be lib{}.
       {
         // Note that any such library would necessarily be an interface
         // dependency so we never need to go into implementations.
@@ -6105,9 +6105,9 @@ namespace build2
         //
         struct data
         {
-          action       a;
-          const file&  ht;
-          const file*& lt;
+          action         a;
+          const file&    ht;
+          const target*& lt;
         } d {a, ht, lt};
 
         auto lib = [&d] (const target* const* lc,
@@ -6120,7 +6120,7 @@ namespace build2
           if (d.lt != nullptr)
             return;
 
-          const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
+          const target* l (lc != nullptr ? *lc : nullptr); // Can be lib{}.
 
           if (l == nullptr)
             return;
@@ -6137,20 +6137,6 @@ namespace build2
           const auto& pts (l->prerequisite_targets[d.a]);
           if (find (pts.begin (), pts.end (), &d.ht) != pts.end ())
             d.lt = l;
-
-          // This is a bit of a hack: for the installed case the library
-          // prerequisites are matched by file_rule which won't pick the
-          // liba/libs{} member (naturally) but will just match the lib{}
-          // group. So we also check the group's prerequisite targets. This
-          // should be harmless since for now all the importable headers are
-          // specified on the group.
-          //
-          if (d.lt == nullptr && l->group != nullptr)
-          {
-            const auto& pts (l->group->prerequisite_targets[d.a]);
-            if (find (pts.begin (), pts.end (), &d.ht) != pts.end ())
-              d.lt = l;
-          }
         };
 
         for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -6171,11 +6157,18 @@ namespace build2
                 (la = (f = pt->is_a<libux> ())) ||
                 (     (f = pt->is_a<libs> ())))
             {
+              // Note that we are requesting process_libraries() to not pick
+              // the liba/libs{} member of the installed libraries and return
+              // the lib{} group itself instead. This is because, for the
+              // installed case, the library prerequisites (both headers and
+              // interface dependency libraries) are matched by file_rule
+              // which won't pick the liba/libs{} member (naturally) but will
+              // just match the lib{} group.
+              //
               process_libraries (
-                a, bs, li, sys_lib_dirs,
+                a, bs, nullopt, sys_lib_dirs,
                 *f, la, 0, // lflags unused.
-                imp, lib, nullptr,
-                true);
+                imp, lib, nullptr, true /* self */);
             }
           }
         }
@@ -6209,7 +6202,9 @@ namespace build2
       //
       const target_type& tt (
         compile_types (
-          lt != nullptr ? link_type (*lt).type : li.type).hbmi);
+          lt != nullptr && !lt->is_a<lib> ()
+          ? link_type (*lt).type
+          : li.type).hbmi);
 
       if (const file* bt = bs.ctx.targets.find<file> (
             tt,
