@@ -95,7 +95,7 @@ namespace build2
       //
       auto& vp (rs.var_pool ());
 
-      // Similar to config.cxx.std, config.cxx.features.* override
+      // Similar to config.cxx.std, config.cxx.features.* overrides
       // cxx.features.*.
       //
       struct feature
