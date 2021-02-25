@@ -625,7 +625,7 @@ namespace std
   // specialize the class template to behave as the __match_any<line_char>
   // instantiation does (that luckily has all the functions in place).
   //
-#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION <= 10000
+#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION <= 11000
   template <>
   class __match_any_but_newline<build2::script::regex::line_char>
     : public __match_any<build2::script::regex::line_char>
