@@ -25,10 +25,10 @@ namespace build2
       enum class char_flags: uint16_t
       {
         icase = 0x1, // Case-insensitive match.
-          idot  = 0x2, // Invert '.' escaping.
+        idot  = 0x2, // Invert '.' escaping.
 
-          none = 0
-          };
+        none = 0
+      };
 
       // Restricts valid standard flags to just {icase}, extends with custom
       // flags {idot}.
@@ -66,9 +66,9 @@ namespace build2
       enum class line_type
       {
         special,
-          literal,
-          regex
-          };
+        literal,
+        regex
+      };
 
       struct line_char
       {
@@ -625,7 +625,8 @@ namespace std
   // specialize the class template to behave as the __match_any<line_char>
   // instantiation does (that luckily has all the functions in place).
   //
-#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION <= 11000
+//#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION <= 11000
+#ifdef _LIBCPP_VERSION
   template <>
   class __match_any_but_newline<build2::script::regex::line_char>
     : public __match_any<build2::script::regex::line_char>
