@@ -276,8 +276,11 @@ namespace build2
       const path* whom;
       try
       {
+        // Open the streams in the binary mode to preserve the .in file line
+        // endings.
+        //
         what = "open"; whom = &ip;
-        ifdstream ifs (ip, ifdstream::badbit);
+        ifdstream ifs (ip, fdopen_mode::binary, ifdstream::badbit);
 
         what = "open"; whom = &tp;
 #ifdef _WIN32
@@ -285,7 +288,7 @@ namespace build2
         // remove the file immediately before creating it sometimes can cause
         // open to fail with permission denied.
         //
-        ofdstream ofs (tp);
+        ofdstream ofs (tp, fdopen_mode::binary);
 #else
         // See fdopen() for details (umask, etc).
         //
@@ -302,11 +305,24 @@ namespace build2
         //
         try_rmfile (tp, true /* ignore_error */);
 
+        // Note: no binary flag is added since this is noop on POSIX.
+        //
         ofdstream ofs (fdopen (tp,
                                fdopen_mode::out | fdopen_mode::create,
                                prm));
 #endif
         auto_rmfile arm (tp);
+
+        // Note: this default will only be used if the file if empty (i.e.,
+        // does not contain even a newline).
+        //
+        const char* nl (
+#ifdef _WIN32
+          "\r\n"
+#else
+          "\n"
+#endif
+        );
 
         string s; // Reuse the buffer.
         for (size_t ln (1);; ++ln)
@@ -314,6 +330,13 @@ namespace build2
           what = "read"; whom = &ip;
           if (!getline (ifs, s))
             break; // Could not read anything, not even newline.
+
+          // Remember the line ending type and, if it is CRLF, strip the
+          // trailing '\r'.
+          //
+          bool crlf (!s.empty () && s.back() == '\r');
+          if (crlf)
+            s.pop_back();
 
           // Not tracking column for now (see also depdb above).
           //
@@ -400,8 +423,10 @@ namespace build2
 
           what = "write"; whom = &tp;
           if (ln != 1)
-            ofs << '\n'; // See below.
+            ofs << nl; // See below.
           ofs << s;
+
+          nl = crlf ? "\r\n" : "\n"; // Preserve the original line ending.
         }
 
         // Close depdb before closing the output file so its mtime is not
@@ -410,7 +435,7 @@ namespace build2
         dd.close ();
 
         what = "close"; whom = &tp;
-        ofs << '\n'; // Last write to make sure our mtime is older than dd.
+        ofs << nl; // Last write to make sure our mtime is older than dd.
         ofs.close ();
         arm.cancel ();
 
