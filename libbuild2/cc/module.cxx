@@ -633,7 +633,7 @@ namespace build2
 
         if (xi.variant_version)
         {
-          dr << "  variant:   " << '\n'
+          dr << "  variant:" << '\n'
              << "    version  " << xi.variant_version->string << '\n'
              << "    major    " << xi.variant_version->major << '\n'
              << "    minor    " << xi.variant_version->minor << '\n'
