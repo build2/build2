@@ -1016,6 +1016,8 @@ namespace build2
                     : guess_result ());
           }
 
+          size_t p;
+
           // The gcc -v output will have a last line in the form:
           //
           // "gcc version X.Y.Z ..."
@@ -1111,7 +1113,12 @@ namespace build2
           // The clang-cl output is exactly the same, which means the only way
           // to distinguish it is based on the executable name.
           //
-          if (l.find ("clang ") != string::npos)
+          // We must also watch out for potential misdetections, for example:
+          //
+          // Configured with: ../gcc/configure CC=clang CXX=clang++ ...
+          //
+          if ((p = l.find ("clang ")) != string::npos &&
+              (p == 0 || l[p - 1] == ' '))
           {
             if (cache.empty ())
             {
