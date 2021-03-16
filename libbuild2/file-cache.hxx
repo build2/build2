@@ -105,7 +105,7 @@ namespace build2
     {
       using path_type = build2::path;
 
-      bool temporary;
+      bool temporary = true;
 
       // The returned reference is valid and stable for the lifetime of the
       // entry handle.
