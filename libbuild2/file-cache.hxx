@@ -96,6 +96,7 @@ namespace build2
     //
     struct read
     {
+      ~read () {}
     };
 
     // A cache entry handle. When it is destroyed, a temporary entry is
