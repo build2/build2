@@ -757,7 +757,7 @@ namespace build2
   // the prerequisites in the reverse order.
   //
   // You can also clean extra files derived from ad hoc group members that are
-  // "indexed" using using their target types (see add/find_adhoc_member() for
+  // "indexed" using their target types (see add/find_adhoc_member() for
   // details).
   //
   // Note that if the target path is empty then it is assumed "unreal" and is

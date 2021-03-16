@@ -8,7 +8,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
-#include <libbuild2/filesystem.hxx> // auto_rmfile
+#include <libbuild2/file-cache.hxx>
 
 #include <libbuild2/cc/types.hxx>
 #include <libbuild2/cc/common.hxx>
@@ -140,14 +140,14 @@ namespace build2
       optional<bool>
       inject_header (action, file&, const file&, timestamp, bool) const;
 
-      pair<auto_rmfile, bool>
+      pair<file_cache::entry, bool>
       extract_headers (action, const scope&, file&, linfo,
                        const file&, match_data&,
                        depdb&, bool&, timestamp, module_imports&) const;
 
       string
       parse_unit (action, file&, linfo,
-                  const file&, auto_rmfile&,
+                  const file&, file_cache::entry&,
                   const match_data&, const path&,
                   unit&) const;
 

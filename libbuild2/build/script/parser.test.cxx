@@ -10,6 +10,7 @@
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/scheduler.hxx>
+#include <libbuild2/file-cache.hxx>
 
 #include <libbuild2/build/script/script.hxx> // line
 #include <libbuild2/build/script/parser.hxx>
@@ -179,7 +180,8 @@ namespace build2
         //
         scheduler sched (1);
         global_mutexes mutexes (1);
-        context ctx (sched, mutexes);
+        file_cache fcache (sched);
+        context ctx (sched, mutexes, fcache);
 
         try
         {

@@ -58,6 +58,7 @@ namespace build2
   context::
   context (scheduler& s,
            global_mutexes& ms,
+           file_cache& fc,
            bool mo,
            bool nem,
            bool dr,
@@ -68,6 +69,7 @@ namespace build2
       : data_ (new data (*this)),
         sched (s),
         mutexes (ms),
+        fcache (fc),
         match_only (mo),
         no_external_modules (nem),
         dry_run_option (dr),

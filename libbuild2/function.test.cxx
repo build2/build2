@@ -12,6 +12,7 @@
 #include <libbuild2/scheduler.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
+#include <libbuild2/file-cache.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 using namespace std;
@@ -46,7 +47,8 @@ namespace build2
     //
     scheduler sched (1);
     global_mutexes mutexes (1);
-    context ctx (sched, mutexes);
+    file_cache fcache (sched);
+    context ctx (sched, mutexes, fcache);
 
     auto& functions (ctx.functions);
 

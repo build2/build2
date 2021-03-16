@@ -188,7 +188,7 @@ namespace build2
       bool touch = false;                   // Target needs to be touched.
       timestamp mt = timestamp_unknown;     // Target timestamp.
       prerequisite_member src;
-      auto_rmfile psrc;                     // Preprocessed source, if any.
+      file_cache::entry psrc;               // Preprocessed source, if any.
       path dd;                              // Dependency database path.
       size_t header_units = 0;              // Number of imported header units.
       module_positions modules = {0, 0, 0}; // Positions of imported modules.
@@ -1100,7 +1100,7 @@ namespace build2
         // If we have no #include directives (or header unit imports), then
         // skip header dependency extraction.
         //
-        pair<auto_rmfile, bool> psrc (auto_rmfile (), false);
+        pair<file_cache::entry, bool> psrc (file_cache::entry (), false);
         if (md.pp < preprocessed::includes)
         {
           // Note: trace is used in a test.
@@ -1292,22 +1292,33 @@ namespace build2
         {
           md.psrc = move (psrc.first);
 
+          // Now is also the right time to unpin the cache entry (we don't do
+          // it earlier because parse_unit() may need to read it).
+          //
+          md.psrc.unpin ();
+
           // Without modules keeping the (partially) preprocessed output
           // around doesn't buy us much: if the source/headers haven't changed
           // then neither will the object file. Modules make things more
           // interesting: now we may have to recompile an otherwise unchanged
-          // translation unit because a BMI it depends on has changed. In this
-          // case re-processing the translation unit would be a waste and
-          // compiling the original source would break distributed
+          // translation unit because a named module BMI it depends on has
+          // changed. In this case re-processing the translation unit would be
+          // a waste and compiling the original source would break distributed
           // compilation.
           //
           // Note also that the long term trend will (hopefully) be for
           // modularized projects to get rid of #include's which means the
           // need for producing this partially preprocessed output will
-          // (hopefully) gradually disappear.
+          // (hopefully) gradually disappear. Or not, most C headers will stay
+          // headers, and probably not importable.
+          //
+          // @@ TODO: no use keeping it if there are no named module imports
+          //          (but see also file_cache::create() hint, and
+          //          extract_headers() the cache case: there we just assume
+          //          it exists if modules is true).
           //
           if (modules)
-            md.psrc.active = false; // Keep.
+            md.psrc.temporary = false; // Keep.
         }
 
         // Above we may have ignored changes to the translation unit. The
@@ -3109,7 +3120,7 @@ namespace build2
     // header unit BMI is out-of-date, then we have to re-preprocess this
     // translation unit.
     //
-    pair<auto_rmfile, bool> compile_rule::
+    pair<file_cache::entry, bool> compile_rule::
     extract_headers (action a,
                      const scope& bs,
                      file& t,
@@ -3123,11 +3134,13 @@ namespace build2
     {
       tracer trace (x, "compile_rule::extract_headers");
 
+      context& ctx (t.ctx);
+
       otype ot (li.type);
 
       bool reprocess (cast_false<bool> (t[c_reprocess]));
 
-      auto_rmfile psrc;
+      file_cache::entry psrc;
       bool puse (true);
 
       // If things go wrong (and they often do in this area), give the user a
@@ -3346,6 +3359,8 @@ namespace build2
                         &so_map, this]
         (bool& gen) -> const path*
       {
+        context& ctx (t.ctx);
+
         const path* r (nullptr);
 
         if (args.empty ()) // First call.
@@ -3489,7 +3504,7 @@ namespace build2
                     // See if this path is inside a project with an out-of-
                     // tree build and is in the out directory tree.
                     //
-                    const scope& bs (t.ctx.scopes.find (d));
+                    const scope& bs (ctx.scopes.find (d));
                     if (bs.root_scope () != nullptr)
                     {
                       const dir_path& bp (bs.out_path ());
@@ -3580,16 +3595,16 @@ namespace build2
 
               msvc_sanitize_cl (args);
 
-              psrc = auto_rmfile (t.path () + x_pext);
+              psrc = ctx.fcache.create (t.path () + x_pext, !modules);
 
               if (fc)
               {
                 args.push_back ("/Fi:");
-                args.push_back (psrc.path.string ().c_str ());
+                args.push_back (psrc.path ().string ().c_str ());
               }
               else
               {
-                out = "/Fi" + psrc.path.string ();
+                out = "/Fi" + psrc.path ().string ();
                 args.push_back (out.c_str ());
               }
 
@@ -3724,9 +3739,9 @@ namespace build2
 
                 // Preprocessor output.
                 //
-                psrc = auto_rmfile (t.path () + x_pext);
+                psrc = ctx.fcache.create (t.path () + x_pext, !modules);
                 args.push_back ("-o");
-                args.push_back (psrc.path.string ().c_str ());
+                args.push_back (psrc.path ().string ().c_str ());
               }
               else
               {
@@ -4005,8 +4020,9 @@ namespace build2
               // around (see apply() for details).
               //
               return modules
-                ? make_pair (auto_rmfile (t.path () + x_pext, false), true)
-                : make_pair (auto_rmfile (), false);
+                ? make_pair (ctx.fcache.create_existing (t.path () + x_pext),
+                             true)
+                : make_pair (file_cache::entry (), false);
             }
 
             // This can be a header or a header unit (mapping).
@@ -4059,7 +4075,7 @@ namespace build2
 
               // Bail out early if we have deferred a failure.
               //
-              return make_pair (auto_rmfile (), false);
+              return make_pair (file_cache::entry (), false);
             }
           }
         }
@@ -4072,6 +4088,13 @@ namespace build2
 
             if (args.empty () || gen != args_gen)
               drmp = init_args (gen);
+
+            // If we are producing the preprocessed output, get its write
+            // handle.
+            //
+            file_cache::write psrcw (psrc
+                                     ? psrc.init_new ()
+                                     : file_cache::write ());
 
             if (verb >= 3)
               print_process (args.data ()); // Disable pipe mode.
@@ -4559,7 +4582,7 @@ namespace build2
                 if (md.deferred_failure)
                 {
                   is.close ();
-                  return make_pair (auto_rmfile (), false);
+                  return make_pair (file_cache::entry (), false);
                 }
 
                 // In case of VC, we are parsing stderr and if things go
@@ -4703,6 +4726,13 @@ namespace build2
             }
             else
               run_finish (args, pr); // Throws.
+
+            // Success.
+            //
+            assert (!restart);
+
+            if (psrc)
+              psrcw.close ();
           }
           catch (const process_error& e)
           {
@@ -4727,7 +4757,7 @@ namespace build2
       //
       dd.expect ("");
 
-      puse = puse && !reprocess && !psrc.path.empty ();
+      puse = puse && !reprocess && psrc;
       return make_pair (move (psrc), puse);
     }
 
@@ -4740,7 +4770,7 @@ namespace build2
                 file& t,
                 linfo li,
                 const file& src,
-                auto_rmfile& psrc,
+                file_cache::entry& psrc,
                 const match_data& md,
                 const path& dd,
                 unit& tu) const
@@ -4791,8 +4821,8 @@ namespace build2
         // may extend cc.reprocess to allow specifying where reprocessing is
         // needed).
         //
-        ps = !psrc.path.empty () && !reprocess;
-        sp = &(ps ? psrc.path : src.path ());
+        ps = psrc && !reprocess;
+        sp = &(ps ? psrc.path () : src.path ());
 
         // VC's preprocessed output, if present, is fully preprocessed.
         //
@@ -4931,11 +4961,16 @@ namespace build2
       for (;;) // Breakout loop.
       try
       {
-        // Disarm the removal of the preprocessed file in case of an error.
-        // We re-arm it below.
+        // If we are compiling the preprocessed output, get its read handle.
         //
-        if (ps)
-          psrc.active = false;
+        file_cache::read psrcr (ps ? psrc.open () : file_cache::read ());
+
+        // Temporarily disable the removal of the preprocessed file in case of
+        // an error. We re-enable it below.
+        //
+        bool ptmp (ps && psrc.temporary);
+        if (ptmp)
+          psrc.temporary = false;
 
         process pr;
 
@@ -4973,8 +5008,8 @@ namespace build2
 
           if (pr.wait ())
           {
-            if (ps)
-              psrc.active = true; // Re-arm.
+            if (ptmp)
+              psrc.temporary = true; // Re-enable.
 
             unit_type& ut (tu.type);
             module_info& mi (tu.module_info);
@@ -7045,14 +7080,14 @@ namespace build2
 
       // If we have the (partially) preprocessed output, switch to that.
       //
-      bool psrc (!md.psrc.path.empty ());
-      bool pact (md.psrc.active);
+      bool psrc (md.psrc);
+      bool ptmp (psrc && md.psrc.temporary);
       if (psrc)
       {
         args.pop_back (); // nullptr
         args.pop_back (); // sp
 
-        sp = &md.psrc.path;
+        sp = &md.psrc.path ();
 
         // This should match with how we setup preprocessing.
         //
@@ -7099,10 +7134,11 @@ namespace build2
 
         // Let's keep the preprocessed file in case of an error but only at
         // verbosity level 3 and up (when one actually sees it mentioned on
-        // the command line). We also have to re-arm on success (see below).
+        // the command line). We also have to re-enable on success (see
+        // below).
         //
-        if (pact && verb >= 3)
-          md.psrc.active = false;
+        if (ptmp && verb >= 3)
+          md.psrc.temporary = false;
       }
 
       if (verb >= 3)
@@ -7121,6 +7157,10 @@ namespace build2
       {
         try
         {
+          // If we are compiling the preprocessed output, get its read handle.
+          //
+          file_cache::read psrcr (psrc ? md.psrc.open () : file_cache::read ());
+
           // VC cl.exe sends diagnostics to stdout. It also prints the file
           // name being compiled as the first line. So for cl.exe we redirect
           // stdout to a pipe, filter that noise out, and send the rest to
@@ -7178,8 +7218,8 @@ namespace build2
 
       // Remove preprocessed file (see above).
       //
-      if (pact && verb >= 3)
-        md.psrc.active = true;
+      if (ptmp && verb >= 3)
+        md.psrc.temporary = true;
 
       // Clang's module compilation requires two separate compiler
       // invocations.
@@ -7251,14 +7291,21 @@ namespace build2
     {
       const file& t (xt.as<file> ());
 
+      // Compressed preprocessed file extension.
+      //
+      auto cpext = [this, &t, s = string ()] () mutable -> const char*
+      {
+        return (s = t.ctx.fcache.compressed_extension (x_pext)).c_str ();
+      };
+
       clean_extras extras;
 
       switch (ctype)
       {
-      case compiler_type::gcc:   extras = {".d", x_pext, ".t"};          break;
-      case compiler_type::clang: extras = {".d", x_pext};                break;
-      case compiler_type::msvc:  extras = {".d", x_pext, ".idb", ".pdb"};break;
-      case compiler_type::icc:   extras = {".d"};                        break;
+      case compiler_type::gcc:   extras = {".d", x_pext, cpext (), ".t"};          break;
+      case compiler_type::clang: extras = {".d", x_pext, cpext ()};                break;
+      case compiler_type::msvc:  extras = {".d", x_pext, cpext (), ".idb", ".pdb"};break;
+      case compiler_type::icc:   extras = {".d"};                                  break;
       }
 
       return perform_clean_extra (a, t, extras);

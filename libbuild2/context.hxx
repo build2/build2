@@ -20,6 +20,7 @@
 
 namespace build2
 {
+  class file_cache;
   class loaded_modules_lock;
 
   class LIBBUILD2_SYMEXPORT run_phase_mutex
@@ -141,6 +142,7 @@ namespace build2
   public:
     scheduler& sched;
     global_mutexes& mutexes;
+    file_cache& fcache;
 
     // Match only flag (see --match-only but also dist).
     //
@@ -490,6 +492,7 @@ namespace build2
     explicit
     context (scheduler&,
              global_mutexes&,
+             file_cache&,
              bool match_only = false,
              bool no_external_modules = false,
              bool dry_run = false,

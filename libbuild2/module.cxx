@@ -80,6 +80,7 @@ namespace build2
     ctx.module_context_storage->reset (
       new context (ctx.sched,
                    ctx.mutexes,
+                   ctx.fcache,
                    false,                    /* match_only */
                    false,                    /* no_external_modules */
                    false,                    /* dry_run */

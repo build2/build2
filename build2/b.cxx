@@ -37,6 +37,7 @@
 #include <libbuild2/buildspec.hxx>
 #include <libbuild2/operation.hxx>
 #include <libbuild2/filesystem.hxx>
+#include <libbuild2/file-cache.hxx>
 #include <libbuild2/diagnostics.hxx>
 #include <libbuild2/prerequisite.hxx>
 
@@ -761,6 +762,7 @@ main (int argc, char* argv[])
                     : nullopt));
 
     global_mutexes mutexes (sched.shard_size ());
+    file_cache fcache (sched);
 
     // Trace some overall environment information.
     //
@@ -780,11 +782,12 @@ main (int argc, char* argv[])
     // below).
     //
     unique_ptr<context> ctx;
-    auto new_context = [&ctx, &sched, &mutexes, &cmd_vars]
+    auto new_context = [&ctx, &sched, &mutexes, &fcache, &cmd_vars]
     {
       ctx = nullptr; // Free first.
       ctx.reset (new context (sched,
                               mutexes,
+                              fcache,
                               ops.match_only (),
                               ops.no_external_modules (),
                               ops.dry_run (),
