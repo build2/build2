@@ -86,24 +86,28 @@ namespace build2
     // without a close() call is treated as an unsuccessful write and the
     // initialization can be attempted again.
     //
-    struct write
+    class write
     {
-      void close () {}
+    public:
+      void
+      close ();
     };
 
     // A cache entry read handle. During the lifetime of this object the
     // filesystem entry can be opened for reading and read from.
     //
-    struct read
+    class read
     {
-      ~read () {}
+    public:
+      ~read ();
     };
 
     // A cache entry handle. When it is destroyed, a temporary entry is
     // automatically removed from the filesystem.
     //
-    struct entry
+    class entry
     {
+    public:
       using path_type = build2::path;
 
       bool temporary = true;
@@ -112,43 +116,34 @@ namespace build2
       // entry handle.
       //
       const path_type&
-      path () const {return path_;}
+      path () const;
 
       // Initialization.
       //
       write
-      init_new ()
-      {
-        return write ();
-      }
+      init_new ();
 
       void
-      init_existing () {}
+      init_existing ();
 
       // Reading.
       //
       read
-      open ()
-      {
-        return read ();
-      }
+      open ();
 
       // Pinning.
       //
       void
-      pin () {}
+      pin ();
 
       void
-      unpin () {}
+      unpin ();
 
-      // NULL entry handle.
+      // NULL handle.
       //
       entry () = default;
 
-      explicit operator bool () const
-      {
-        return !path_.empty ();
-      }
+      explicit operator bool () const;
 
       // Move-to-NULL-entry-only type.
       //
@@ -170,20 +165,12 @@ namespace build2
     // used to hint whether the entry is likely to be temporary or permanent.
     //
     entry
-    create (path f, optional<bool> /*temporary*/)
-    {
-      return entry (move (f), true /* temporary */);
-    };
+    create (path, optional<bool> temporary);
 
     // A shortcut for creating and initializing an existing permanent entry.
     //
     entry
-    create_existing (path f)
-    {
-      entry e (move (f), false /* temporary */);
-      e.init_existing ();
-      return e;
-    };
+    create_existing (path);
 
     // Return the compressed filesystem entry extension (with the leading dot)
     // or empty string if no compression is used by this cache implementation.
@@ -193,15 +180,12 @@ namespace build2
     // clean_extra()).
     //
     string
-    compressed_extension (const char* = nullptr)
-    {
-      return string ();
-    }
+    compressed_extension (const char* ext = nullptr);
 
+    // Implementation details.
+    //
     explicit
-    file_cache (scheduler&)
-    {
-    }
+    file_cache (scheduler&);
   };
 }
 
