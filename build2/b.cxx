@@ -762,7 +762,18 @@ main (int argc, char* argv[])
                     : nullopt));
 
     global_mutexes mutexes (sched.shard_size ());
-    file_cache fcache (sched);
+
+    bool fcache_comp (true);
+    if (ops.file_cache_specified ())
+    {
+      const string& v (ops.file_cache ());
+      if (v == "noop" || v == "none")
+        fcache_comp = false;
+      else if (v != "sync-lz4")
+        fail << "invalid --file-cache value '" << v << "'";
+    }
+
+    file_cache fcache (fcache_comp);
 
     // Trace some overall environment information.
     //

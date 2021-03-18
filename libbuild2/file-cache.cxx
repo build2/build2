@@ -26,7 +26,8 @@ namespace build2
     // to compressing the new file (for example, if we fail and leave the
     // uncompressed file behind for troubleshooting).
     //
-    try_rmfile_ignore_error (comp_path_);
+    if (!comp_path_.empty ())
+      try_rmfile_ignore_error (comp_path_);
 
     pin ();
     return write (*this);
@@ -37,6 +38,8 @@ namespace build2
   {
     assert (state_ == uninit);
 
+    bool c (!comp_path_.empty ());
+
     // Determine the cache state from the filesystem state.
     //
     // First check for the uncompressed file. Its presence means that the
@@ -45,15 +48,18 @@ namespace build2
     //
     if (exists (path_))
     {
-      try_rmfile_ignore_error (comp_path_);
+      if (c)
+        try_rmfile_ignore_error (comp_path_);
+
       state_ = uncomp;
     }
-    else if (exists (comp_path_))
+    else if (c && exists (comp_path_))
     {
       state_ = comp;
     }
     else
-      fail << path_ << " (or its compressed variant) does not exist" <<
+      fail << path_ << (c ? " (or its compressed variant)" : "")
+           << " does not exist" <<
         info << "consider cleaning the build state";
   }
 
@@ -158,7 +164,7 @@ namespace build2
         // file, then we don't attempt to remove the uncompressed file either
         // since it could be an indicator that the compressed file is invalid.
         //
-        if (try_rmfile_ignore_error (comp_path_))
+        if (comp_path_.empty () || try_rmfile_ignore_error (comp_path_))
           try_rmfile_ignore_error (path_);
         break;
       }

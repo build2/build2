@@ -494,6 +494,16 @@ namespace build2
        details."
     }
 
+    string --file-cache
+    {
+      "<impl>",
+      "File cache implementation to use for intermediate build results. Valid
+       values are \cb{noop} (no caching or compression) and \cb{sync-lz4} (no
+       caching with synchronous LZ4 on-disk compression). If this option is
+       not specified, then a suitable default implementation is used
+       (currently \cb{sync-lz4})."
+    }
+
     size_t --max-stack
     {
       "<num>",

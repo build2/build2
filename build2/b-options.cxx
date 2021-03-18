@@ -709,6 +709,8 @@ namespace build2
     max_jobs_specified_ (false),
     queue_depth_ (4),
     queue_depth_specified_ (false),
+    file_cache_ (),
+    file_cache_specified_ (false),
     max_stack_ (),
     max_stack_specified_ (false),
     serial_stop_ (),
@@ -890,6 +892,13 @@ namespace build2
       ::build2::cl::parser< size_t>::merge (
         this->queue_depth_, a.queue_depth_);
       this->queue_depth_specified_ = true;
+    }
+
+    if (a.file_cache_specified_)
+    {
+      ::build2::cl::parser< string>::merge (
+        this->file_cache_, a.file_cache_);
+      this->file_cache_specified_ = true;
     }
 
     if (a.max_stack_specified_)
@@ -1105,6 +1114,14 @@ namespace build2
        << "                      the build system scheduler implementation for details." << ::std::endl;
 
     os << std::endl
+       << "\033[1m--file-cache\033[0m \033[4mimpl\033[0m     File cache implementation to use for intermediate build" << ::std::endl
+       << "                      results. Valid values are \033[1mnoop\033[0m (no caching or" << ::std::endl
+       << "                      compression) and \033[1msync-lz4\033[0m (no caching with synchronous" << ::std::endl
+       << "                      LZ4 on-disk compression). If this option is not" << ::std::endl
+       << "                      specified, then a suitable default implementation is used" << ::std::endl
+       << "                      (currently \033[1msync-lz4\033[0m)." << ::std::endl;
+
+    os << std::endl
        << "\033[1m--max-stack\033[0m \033[4mnum\033[0m       The maximum stack size in KBytes to allow for newly" << ::std::endl
        << "                      created threads. For \033[4mpthreads\033[0m-based systems the driver" << ::std::endl
        << "                      queries the stack size of the main thread and uses the" << ::std::endl
@@ -1311,6 +1328,9 @@ namespace build2
       _cli_options_map_["-Q"] =
       &::build2::cl::thunk< options, size_t, &options::queue_depth_,
         &options::queue_depth_specified_ >;
+      _cli_options_map_["--file-cache"] =
+      &::build2::cl::thunk< options, string, &options::file_cache_,
+        &options::file_cache_specified_ >;
       _cli_options_map_["--max-stack"] =
       &::build2::cl::thunk< options, size_t, &options::max_stack_,
         &options::max_stack_specified_ >;

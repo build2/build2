@@ -74,22 +74,25 @@ namespace build2
   // one that simply saves the file on disk) is file_cache::entry that is just
   // auto_rmfile.
 
-  // The synchronous compressed file cache implementation.
+  // The synchronous LZ4 on-disk compression file cache implementation.
   //
   // If the cache entry is no longer pinned, this implementation compresses
-  // the content and removes the uncompressed file all as part of the call that
-  // caused the entry to become unpinned.
+  // the content and removes the uncompressed file all as part of the call
+  // that caused the entry to become unpinned.
   //
   // In order to deal with interruptions during compression, when recreating
   // the cache entry state from the filesystem state, this implementation
   // treats the presence of the uncompressed file as an indication that the
   // compressed file, if any, is invalid.
   //
-  class scheduler;
-
   class file_cache
   {
   public:
+    // If compression is disabled, then this implementation becomes equivalent
+    // to the noop implementation.
+    //
+    explicit
+    file_cache (bool compress = true);
 
     class entry;
 
@@ -108,7 +111,6 @@ namespace build2
       close ();
 
       write (): entry_ (nullptr) {}
-      ~write ();
 
       // Move-to-NULL-only type.
       //
@@ -116,6 +118,8 @@ namespace build2
       write (const write&) = delete;
       write& operator= (write&&);
       write& operator= (const write&) = delete;
+
+      ~write ();
 
     private:
       friend class entry;
@@ -133,7 +137,6 @@ namespace build2
     {
     public:
       read (): entry_ (nullptr) {}
-      ~read ();
 
       // Move-to-NULL-only type.
       //
@@ -141,6 +144,8 @@ namespace build2
       read (const read&) = delete;
       read& operator= (read&&);
       read& operator= (const read&) = delete;
+
+      ~read ();
 
     private:
       friend class entry;
@@ -203,10 +208,12 @@ namespace build2
       entry& operator= (entry&&);
       entry& operator= (const entry&) = delete;
 
-      // Implementation details.
-      //
-      entry (path_type, bool);
       ~entry ();
+
+    private:
+      friend class file_cache;
+
+      entry (path_type, bool, bool);
 
       void
       preempt ();
@@ -224,7 +231,7 @@ namespace build2
 
       state     state_ = null;
       path_type path_;           // Uncompressed path.
-      path_type comp_path_;      // Compressed path.
+      path_type comp_path_;      // Compressed path (empty if disabled).
       size_t    pin_ = 0;        // Pin count.
     };
 
@@ -254,10 +261,8 @@ namespace build2
     string
     compressed_extension (const char* ext = nullptr);
 
-    // Implementation details.
-    //
-    explicit
-    file_cache (scheduler&);
+  private:
+    bool compress_;
   };
 }
 

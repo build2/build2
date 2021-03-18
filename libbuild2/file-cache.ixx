@@ -95,7 +95,9 @@ namespace build2
   inline void file_cache::entry::
   unpin ()
   {
-    if (--pin_ == 0 && (state_ == uncomp || state_ == decomp))
+    if (--pin_ == 0          &&
+        !comp_path_.empty () &&
+        (state_ == uncomp || state_ == decomp))
       preempt ();
   }
 
@@ -106,11 +108,11 @@ namespace build2
   }
 
   inline file_cache::entry::
-  entry (path_type p, bool t)
+  entry (path_type p, bool t, bool c)
       : temporary (t),
         state_ (uninit),
         path_ (move (p)),
-        comp_path_ (path_ + ".lz4"),
+        comp_path_ (c ? path_ + ".lz4" : path_type ()),
         pin_ (1)
   {
   }
@@ -152,13 +154,13 @@ namespace build2
   inline file_cache::entry file_cache::
   create (path f, optional<bool>)
   {
-    return entry (move (f), true /* temporary */);
+    return entry (move (f), true /* temporary */, compress_);
   }
 
   inline file_cache::entry file_cache::
   create_existing (path f)
   {
-    entry e (move (f), false /* temporary */);
+    entry e (move (f), false /* temporary */, compress_);
     e.init_existing ();
     return e;
   }
@@ -166,11 +168,14 @@ namespace build2
   inline string file_cache::
   compressed_extension (const char* e)
   {
-    return (e != nullptr ? string (e) : string ()) + ".lz4";
+    return compress_
+      ? (e != nullptr ? string (e) : string ()) + ".lz4"
+      : string ();
   }
 
   inline file_cache::
-  file_cache (scheduler&)
+  file_cache (bool compress)
+      : compress_ (compress)
   {
   }
 }

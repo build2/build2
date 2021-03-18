@@ -374,6 +374,18 @@ namespace build2
     return this->queue_depth_specified_;
   }
 
+  inline const string& options::
+  file_cache () const
+  {
+    return this->file_cache_;
+  }
+
+  inline bool options::
+  file_cache_specified () const
+  {
+    return this->file_cache_specified_;
+  }
+
   inline const size_t& options::
   max_stack () const
   {

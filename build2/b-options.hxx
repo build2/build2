@@ -510,6 +510,12 @@ namespace build2
     bool
     queue_depth_specified () const;
 
+    const string&
+    file_cache () const;
+
+    bool
+    file_cache_specified () const;
+
     const size_t&
     max_stack () const;
 
@@ -632,6 +638,8 @@ namespace build2
     bool max_jobs_specified_;
     size_t queue_depth_;
     bool queue_depth_specified_;
+    string file_cache_;
+    bool file_cache_specified_;
     size_t max_stack_;
     bool max_stack_specified_;
     bool serial_stop_;

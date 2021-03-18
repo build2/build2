@@ -38,7 +38,7 @@ main (int, char* argv[])
   //
   scheduler sched (1);
   global_mutexes mutexes (1);
-  file_cache fcache (sched);
+  file_cache fcache;
   context ctx (sched, mutexes, fcache);
 
   return 0;
