@@ -1,8 +1,6 @@
 // file      : libbuild2/file-cache.ixx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbuild2/filesystem.hxx> // try_rmfile()
-
 namespace build2
 {
   // file_cache::write
@@ -10,6 +8,32 @@ namespace build2
   inline void file_cache::write::
   close ()
   {
+    entry_->state_ = entry::uncomp;
+  }
+
+  inline file_cache::write::
+  ~write ()
+  {
+    if (entry_ != nullptr)
+      entry_->unpin ();
+  }
+
+  inline file_cache::write::
+  write (write&& e)
+      : entry_ (e.entry_)
+  {
+    e.entry_ = nullptr;
+  }
+
+  inline file_cache::write& file_cache::write::
+  operator= (write&& e)
+  {
+    if (this != &e)
+    {
+      assert (entry_ == nullptr);
+      swap (entry_, e.entry_);
+    }
+    return *this;
   }
 
   // file_cache::read
@@ -17,6 +41,26 @@ namespace build2
   inline file_cache::read::
   ~read ()
   {
+    if (entry_ != nullptr)
+      entry_->unpin ();
+  }
+
+  inline file_cache::read::
+  read (read&& e)
+      : entry_ (e.entry_)
+  {
+    e.entry_ = nullptr;
+  }
+
+  inline file_cache::read& file_cache::read::
+  operator= (read&& e)
+  {
+    if (this != &e)
+    {
+      assert (entry_ == nullptr);
+      swap (entry_, e.entry_);
+    }
+    return *this;
   }
 
   // file_cache::entry
@@ -27,55 +71,64 @@ namespace build2
     return path_;
   }
 
-  inline file_cache::write file_cache::entry::
-  init_new ()
-  {
-    return write ();
-  }
-
-  inline void file_cache::entry::
-  init_existing ()
-  {
-  }
-
   inline file_cache::read file_cache::entry::
   open ()
   {
-    return read ();
+    assert (state_ != null && state_ != uninit);
+
+    if (state_ == comp)
+    {
+      decompress ();
+      state_ = decomp;
+    }
+
+    pin ();
+    return read (*this);
   }
 
   inline void file_cache::entry::
   pin ()
   {
+    ++pin_;
   }
 
   inline void file_cache::entry::
   unpin ()
   {
+    if (--pin_ == 0 && (state_ == uncomp || state_ == decomp))
+      preempt ();
   }
 
   inline file_cache::entry::
   operator bool () const
   {
-    return !path_.empty ();
+    return state_ != null;
   }
 
   inline file_cache::entry::
   entry (path_type p, bool t)
-      : temporary (t), path_ (move (p))
+      : temporary (t),
+        state_ (uninit),
+        path_ (move (p)),
+        comp_path_ (path_ + ".lz4"),
+        pin_ (1)
   {
   }
 
   inline file_cache::entry::
   ~entry ()
   {
-    if (!path_.empty () && temporary)
-      try_rmfile (path_, true /* ignore_errors */);
+    if (state_ != null && temporary)
+      remove ();
   }
 
   inline file_cache::entry::
   entry (entry&& e)
-      : temporary (e.temporary), path_ (move (e.path_))
+      : temporary (e.temporary),
+        state_ (e.state_),
+        path_ (move (e.path_)),
+        comp_path_ (move (e.comp_path_)),
+        pin_ (e.pin_)
   {
   }
 
@@ -84,9 +137,12 @@ namespace build2
   {
     if (this != &e)
     {
-      assert (path_.empty ());
+      assert (state_ == null);
       temporary = e.temporary;
+      state_ = e.state_;
       path_ = move (e.path_);
+      comp_path_ = move (e.comp_path_);
+      pin_ = e.pin_;
     }
     return *this;
   }
@@ -108,9 +164,9 @@ namespace build2
   }
 
   inline string file_cache::
-  compressed_extension (const char*)
+  compressed_extension (const char* e)
   {
-    return string ();
+    return (e != nullptr ? string (e) : string ()) + ".lz4";
   }
 
   inline file_cache::

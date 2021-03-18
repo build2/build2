@@ -73,10 +73,25 @@ namespace build2
   // Note also that a noop implementation of this caching semantics (that is,
   // one that simply saves the file on disk) is file_cache::entry that is just
   // auto_rmfile.
+
+  // The synchronous compressed file cache implementation.
   //
-  class /*LIBBUILD2_SYMEXPORT*/ file_cache
+  // If the cache entry is no longer pinned, this implementation compresses
+  // the content and removes the uncompressed file all as part of the call that
+  // caused the entry to become unpinned.
+  //
+  // In order to deal with interruptions during compression, when recreating
+  // the cache entry state from the filesystem state, this implementation
+  // treats the presence of the uncompressed file as an indication that the
+  // compressed file, if any, is invalid.
+  //
+  class scheduler;
+
+  class file_cache
   {
   public:
+
+    class entry;
 
     // A cache entry write handle. During the lifetime of this object the
     // filesystem entry can be opened for writing and written to.
@@ -91,6 +106,24 @@ namespace build2
     public:
       void
       close ();
+
+      write (): entry_ (nullptr) {}
+      ~write ();
+
+      // Move-to-NULL-only type.
+      //
+      write (write&&);
+      write (const write&) = delete;
+      write& operator= (write&&);
+      write& operator= (const write&) = delete;
+
+    private:
+      friend class entry;
+
+      explicit
+      write (entry& e): entry_ (&e) {}
+
+      entry* entry_;
     };
 
     // A cache entry read handle. During the lifetime of this object the
@@ -99,13 +132,29 @@ namespace build2
     class read
     {
     public:
+      read (): entry_ (nullptr) {}
       ~read ();
+
+      // Move-to-NULL-only type.
+      //
+      read (read&&);
+      read (const read&) = delete;
+      read& operator= (read&&);
+      read& operator= (const read&) = delete;
+
+    private:
+      friend class entry;
+
+      explicit
+      read (entry& e): entry_ (&e) {}
+
+      entry* entry_;
     };
 
     // A cache entry handle. When it is destroyed, a temporary entry is
     // automatically removed from the filesystem.
     //
-    class entry
+    class LIBBUILD2_SYMEXPORT entry
     {
     public:
       using path_type = build2::path;
@@ -133,6 +182,8 @@ namespace build2
 
       // Pinning.
       //
+      // Note that every call to pin() should have a matching unpin().
+      //
       void
       pin ();
 
@@ -145,7 +196,7 @@ namespace build2
 
       explicit operator bool () const;
 
-      // Move-to-NULL-entry-only type.
+      // Move-to-NULL-only type.
       //
       entry (entry&&);
       entry (const entry&) = delete;
@@ -157,7 +208,24 @@ namespace build2
       entry (path_type, bool);
       ~entry ();
 
-      path_type path_;
+      void
+      preempt ();
+
+      bool
+      compress ();
+
+      void
+      decompress ();
+
+      void
+      remove ();
+
+      enum state {null, uninit, uncomp, comp, decomp};
+
+      state     state_ = null;
+      path_type path_;           // Uncompressed path.
+      path_type comp_path_;      // Compressed path.
+      size_t    pin_ = 0;        // Pin count.
     };
 
     // Create a cache entry corresponding to the specified filesystem path.
@@ -168,6 +236,10 @@ namespace build2
     create (path, optional<bool> temporary);
 
     // A shortcut for creating and initializing an existing permanent entry.
+    //
+    // Note that this function creates a permanent entry right away and if
+    // init_existing() fails, no filesystem cleanup of any kind will be
+    // performed.
     //
     entry
     create_existing (path);
