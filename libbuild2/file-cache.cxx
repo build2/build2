@@ -4,7 +4,6 @@
 #include <libbuild2/file-cache.hxx>
 
 #include <libbutl/lz4.hxx>
-#include <libbutl/filesystem.mxx> // entry_stat, path_entry()
 
 #include <libbuild2/filesystem.hxx>  // exists(), try_rmfile()
 #include <libbuild2/diagnostics.hxx>
@@ -96,32 +95,25 @@ namespace build2
   {
     tracer trace ("file_cache::entry::compress");
 
-    pair<bool, entry_stat> st (
-      path_entry (path_,
-                  true /* follow_symlinks */,
-                  true /* ignore_error */));
-
-    if (!st.first)
-      return false;
-
     try
     {
       ifdstream ifs (path_,      fdopen_mode::binary, ifdstream::badbit);
       ofdstream ofs (comp_path_, fdopen_mode::binary);
 
+      uint64_t n (fdstat (ifs.fd ()).size);
+
       // Experience shows that for the type of content we typically cache
       // using 1MB blocks results in almost the same comression as for 4MB.
       //
-      uint64_t comp_size (
-        lz4::compress (ofs, ifs,
-                       1 /* compression_level (fastest) */,
-                       6 /* block_size_id (1MB) */,
-                       st.second.size));
+      uint64_t cn (lz4::compress (ofs, ifs,
+                                  1 /* compression_level (fastest) */,
+                                  6 /* block_size_id (1MB) */,
+                                  n));
 
       ofs.close ();
 
       l6 ([&]{trace << "compressed " << path_ << " to "
-                    << (comp_size * 100 / st.second.size) << '%';});
+                    << (cn * 100 / n) << '%';});
     }
     catch (const std::exception& e)
     {
