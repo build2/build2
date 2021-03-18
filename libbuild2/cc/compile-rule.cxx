@@ -4625,7 +4625,12 @@ namespace build2
               if (pr.wait ())
               {
                 if (!bad_error) // Ignore expected successes (we are done).
+                {
+                  if (!restart && psrc)
+                    psrcw.close ();
+
                   continue;
+                }
 
                 fail << "expected error exit status from " << x_lang
                      << " compiler";
@@ -4726,13 +4731,6 @@ namespace build2
             }
             else
               run_finish (args, pr); // Throws.
-
-            // Success.
-            //
-            assert (!restart);
-
-            if (psrc)
-              psrcw.close ();
           }
           catch (const process_error& e)
           {
