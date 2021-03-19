@@ -763,13 +763,15 @@ main (int argc, char* argv[])
 
     global_mutexes mutexes (sched.shard_size ());
 
-    bool fcache_comp (true);
+    bool fcache_comp (false);
     if (ops.file_cache_specified ())
     {
       const string& v (ops.file_cache ());
       if (v == "noop" || v == "none")
         fcache_comp = false;
-      else if (v != "sync-lz4")
+      else if (v == "sync-lz4")
+        fcache_comp = true;
+      else
         fail << "invalid --file-cache value '" << v << "'";
     }
 

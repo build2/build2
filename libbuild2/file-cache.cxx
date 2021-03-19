@@ -19,7 +19,7 @@ namespace build2
   {
     assert (state_ == uninit);
 
-    // Remove stale compressed file if exists. While not strictly necessary
+    // Remove stale compressed file if it exists. While not strictly necessary
     // (since the presence of the new uncompressed file will render the
     // compressed one invalid), this makes things cleaner in case we don't get
     // to compressing the new file (for example, if we fail and leave the
