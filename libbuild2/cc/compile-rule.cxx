@@ -2839,13 +2839,22 @@ namespace build2
         //
         small_vector<const target_type*, 2> tts;
 
-        const scope& bs (t.ctx.scopes.find (d));
-        if (const scope* rs = bs.root_scope ())
+        // Note that the path can be in out or src directory and the latter
+        // can be associated with multiple scopes. So strictly speaking we
+        // need to pick one that is "associated" with us. But that is still a
+        // TODO (see scope_map::find() for details) and so for now we just
+        // pick the first one (it's highly unlikely the source file extension
+        // mapping will differ based on the configuration).
+        //
         {
-          tts = map_extension (bs, n, e);
+          const scope& bs (**t.ctx.scopes.find (d).first);
+          if (const scope* rs = bs.root_scope ())
+          {
+            tts = map_extension (bs, n, e);
 
-          if (!bs.out_eq_src () && d.sub (bs.src_path ()))
-            out = out_src (d, *rs);
+            if (!bs.out_eq_src () && d.sub (bs.src_path ()))
+              out = out_src (d, *rs);
+          }
         }
 
         // If it is outside any project, or the project doesn't have such an
@@ -3504,12 +3513,13 @@ namespace build2
                     // See if this path is inside a project with an out-of-
                     // tree build and is in the out directory tree.
                     //
-                    const scope& bs (ctx.scopes.find (d));
+                    const scope& bs (ctx.scopes.find_out (d));
                     if (bs.root_scope () != nullptr)
                     {
-                      const dir_path& bp (bs.out_path ());
-                      if (bp != bs.src_path ())
+                      if (!bs.out_eq_src ())
                       {
+                        const dir_path& bp (bs.out_path ());
+
                         bool e;
                         if ((e = (d == bp)) || d.sub (bp))
                         {
@@ -5977,7 +5987,7 @@ namespace build2
                    module_build_modules_dir /=
                    x);
 
-      const scope* ps (&ctx.scopes.find (pd));
+      const scope* ps (&ctx.scopes.find_out (pd));
 
       if (ps->out_path () != pd)
       {
@@ -5988,7 +5998,7 @@ namespace build2
         // Re-test again now that we are in exclusive phase (another thread
         // could have already created and loaded the subproject).
         //
-        ps = &ctx.scopes.find (pd);
+        ps = &ctx.scopes.find_out (pd);
 
         if (ps->out_path () != pd)
         {

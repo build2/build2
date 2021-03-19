@@ -1167,7 +1167,7 @@ main (int argc, char* argv[])
           // use to the bootstrap files (other than src-root.build, which,
           // BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (*create_root (*ctx, out_root, src_root)->second.scope);
+          scope& rs (*create_root (*ctx, out_root, src_root)->second.front ());
 
           bool bstrapped (bootstrapped (rs));
 
@@ -1579,7 +1579,7 @@ main (int argc, char* argv[])
               //
               scope& s (
                 o.dir
-                ? *sm.insert ((out_base / *o.dir).normalize ())->second.scope
+                ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
                 : *rs.weak_scope ());
 
               auto p (s.vars.insert (o.ovr));
@@ -1600,7 +1600,7 @@ main (int argc, char* argv[])
 
               scope& s (
                 o.dir
-                ? *sm.insert ((out_base / *o.dir).normalize ())->second.scope
+                ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
                 : rs);
 
               auto p (s.vars.insert (o.ovr));
@@ -1646,7 +1646,7 @@ main (int argc, char* argv[])
           // building before we know how to for all the targets in this
           // operation batch.
           //
-          const scope& bs (ctx->scopes.find (ts.out_base));
+          const scope& bs (ctx->scopes.find_out (ts.out_base));
 
           // Find the target type and extract the extension.
           //

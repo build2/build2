@@ -1063,7 +1063,7 @@ namespace build2
     //
     const dir_path& d (parent && t.name.empty () ? t.dir.directory () : t.dir);
 
-    const scope& bs (t.ctx.scopes.find (d));
+    const scope& bs (t.ctx.scopes.find_out (d));
     const scope* rs (bs.root_scope ());
 
     // If root scope is NULL, then this can mean that we are out of any
@@ -1142,7 +1142,7 @@ namespace build2
 
       if (op_t != nullptr)
       {
-        op_s = &t.ctx.scopes.find (t.dir);
+        op_s = &t.ctx.scopes.find_out (t.dir); // Always out.
 
         if (op_s->out_path () == t.dir && !op_s->operation_callbacks.empty ())
         {

@@ -278,7 +278,7 @@ namespace build2
               continue;
           }
 
-          if (const scope* rs = t.ctx.scopes.find (b->dir).root_scope ())
+          if (const scope* rs = b->base_scope ().root_scope ())
           {
             const dir_path& d (pp.sub (rs->src_path ())
                                ? rs->src_path ()

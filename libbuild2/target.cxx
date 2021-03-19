@@ -132,7 +132,7 @@ namespace build2
     // If this target is from the src tree, use its out directory to find
     // the scope.
     //
-    return ctx.scopes.find (out_dir ());
+    return ctx.scopes.find_out (out_dir ());
   }
 
   const scope& target::

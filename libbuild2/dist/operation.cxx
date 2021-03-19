@@ -309,7 +309,7 @@ namespace build2
           {
             const dir_path& pd (p.second);
             dir_path out_nroot (out_root / pd);
-            const scope& nrs (ctx.scopes.find (out_nroot));
+            const scope& nrs (ctx.scopes.find_out (out_nroot));
 
             if (nrs.out_path () != out_nroot) // This subproject not loaded.
               continue;
@@ -470,7 +470,7 @@ namespace build2
             const dir_path& pd (p.second);
             if (dl.sub (pd))
             {
-              srs = &ctx.scopes.find (out_root / pd);
+              srs = &ctx.scopes.find_out (out_root / pd);
 
               if (auto* m = srs->find_module<module> (module::name))
                 cbs = &m->callbacks_;
@@ -1008,7 +1008,9 @@ namespace build2
       if (rs.out_path () != out_base || rs.src_path () != src_base)
         fail (l) << "dist meta-operation target must be project root directory";
 
-      setup_base (rs.ctx.scopes.rw (rs).insert (out_base), out_base, src_base);
+      setup_base (rs.ctx.scopes.rw (rs).insert_out (out_base),
+                  out_base,
+                  src_base);
 
       // Also initialize the dist.* variables (needed in dist_project()).
       //

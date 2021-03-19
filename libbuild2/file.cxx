@@ -398,8 +398,8 @@ namespace build2
                const dir_path& out_root,
                const dir_path& src_root)
   {
-    auto i (ctx.scopes.rw ().insert (out_root, true /* root */));
-    scope& rs (*i->second.scope);
+    auto i (ctx.scopes.rw ().insert_out (out_root, true /* root */));
+    scope& rs (*i->second.front ());
 
     // Set out_path. Note that src_path is set in setup_root() below.
     //
@@ -460,7 +460,7 @@ namespace build2
     {
       if (*s.out_path_ != d)
       {
-        auto i (ctx.scopes.rw (s).insert (s, d));
+        auto i (ctx.scopes.rw (s).insert_src (s, d));
         s.src_path_ = &i->first;
       }
       else
@@ -477,7 +477,7 @@ namespace build2
               const dir_path& out_base,
               const dir_path& src_base)
   {
-    scope& s (*i->second.scope);
+    scope& s (*i->second.front ());
     context& ctx (s.ctx);
 
     // Set src/out_base variables.
@@ -507,7 +507,7 @@ namespace build2
     {
       if (out_base != src_base)
       {
-        auto i (ctx.scopes.rw (s).insert (s, src_base));
+        auto i (ctx.scopes.rw (s).insert_src (s, src_base));
         s.src_path_ = &i->first;
       }
       else
@@ -525,8 +525,8 @@ namespace build2
     // First, enter the scope into the map and see if it is in any project. If
     // it is not, then there is nothing else to do.
     //
-    auto i (root.ctx.scopes.rw (root).insert (out_base));
-    scope& base (*i->second.scope);
+    auto i (root.ctx.scopes.rw (root).insert_out (out_base));
+    scope& base (*i->second.front ());
 
     scope* rs (nullptr);
 
@@ -739,7 +739,7 @@ namespace build2
     // in which case we will have src_root and maybe even the name.
     //
     const dir_path* src_root (nullptr);
-    const scope& s (ctx.scopes.find (out_root));
+    const scope& s (ctx.scopes.find_out (out_root));
 
     if (s.root_scope () == &s && s.out_path () == out_root)
     {
@@ -1332,7 +1332,7 @@ namespace build2
     // probably be tried first since that src_root was explicitly configured
     // by the user. After that, #2 followed by #1 seems reasonable.
     //
-    scope& rs (*create_root (ctx, out_root, dir_path ())->second.scope);
+    scope& rs (*create_root (ctx, out_root, dir_path ())->second.front ());
 
     bool bstrapped (bootstrapped (rs));
 
@@ -1399,7 +1399,7 @@ namespace build2
 
         // The same logic to src_root as in create_bootstrap_outer().
         //
-        scope& rs (*create_root (ctx, out_root, dir_path ())->second.scope);
+        scope& rs (*create_root (ctx, out_root, dir_path ())->second.front ());
 
         optional<bool> altn;
         if (!bootstrapped (rs))
@@ -1634,7 +1634,7 @@ namespace build2
     assert (!forwarded || out_root != src_root);
 
     auto i (create_root (ctx, out_root, src_root));
-    scope& rs (*i->second.scope);
+    scope& rs (*i->second.front ());
 
     if (!bootstrapped (rs))
     {
@@ -2343,7 +2343,7 @@ namespace build2
     {
       bool top (proot == nullptr);
 
-      root = create_root (ctx, out_root, src_root)->second.scope;
+      root = create_root (ctx, out_root, src_root)->second.front ();
 
       bool bstrapped (bootstrapped (*root));
 
@@ -2532,7 +2532,7 @@ namespace build2
         //
         dir_path out_base (out_src (src_base, *root));
 
-        auto i (ctx.scopes.rw (*root).insert (out_base));
+        auto i (ctx.scopes.rw (*root).insert_out (out_base));
         scope& base (setup_base (i, move (out_base), move (src_base)));
 
         source_once (*root, base, *bf);

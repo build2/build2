@@ -634,32 +634,27 @@ namespace build2
   // While it contains both out and src paths, the latter is not available
   // during bootstrap (see setup_root() and setup_base() for details).
   //
+  // Note also that the same src path can be naturally associated with
+  // multiple out paths/scopes (and one of them may be the same as src).
+  //
   class scope_map
   {
   public:
-    struct scope_ptr
+    // The first element, if not NULL, is for the "owning" out path. The rest
+    // of the elements are for the src path shallow references.
+    //
+    struct scopes: small_vector<scope*, 3>
     {
-      using scope_type = build2::scope;
+      scopes () = default;
+      ~scopes () {if (!empty ()) delete front ();}
 
-      scope_type* scope;
-      bool        out;
-
-      scope_ptr (bool o): scope (nullptr), out (o) {}
-      ~scope_ptr () {if (out) delete scope;}
-
-      scope_ptr (scope_ptr&& x) // For GCC 4.9
-          : scope (x.scope), out (x.out)
-      {
-        x.scope = nullptr;
-      }
-
-      scope_ptr& operator= (scope_ptr&&) = delete;
-
-      scope_ptr (const scope_ptr&) = delete;
-      scope_ptr& operator= (const scope_ptr&) = delete;
+      scopes (scopes&&) = default; // For GCC 4.9
+      scopes (const scopes&) = delete;
+      scopes& operator= (scopes&&) = delete;
+      scopes& operator= (const scopes&) = delete;
     };
 
-    using map_type = dir_path_map<scope_ptr>;
+    using map_type = dir_path_map<scopes>;
 
     using iterator = map_type::iterator;
     using const_iterator = map_type::const_iterator;
@@ -670,36 +665,56 @@ namespace build2
     // global scope with empty key.
     //
     LIBBUILD2_SYMEXPORT iterator
-    insert (const dir_path& our_path, bool root = false);
+    insert_out (const dir_path& our_path, bool root = false);
 
     // Insert a shallow reference to the scope for its src path.
     //
     LIBBUILD2_SYMEXPORT iterator
-    insert (scope&, const dir_path& src_path);
+    insert_src (scope&, const dir_path& src_path);
 
-    // Find the most qualified scope that encompasses this path.
+    // Find the most qualified scope that encompasses this out path.
     //
     const scope&
-    find (const dir_path& d) const
+    find_out (const dir_path& d) const
     {
-      return const_cast<scope_map*> (this)->find (d);
+      return const_cast<scope_map*> (this)->find_out (d);
     }
 
-    const scope&
-    find (const path& p) const
-    {
-      // Natural thing to do here would be to call find (p.directory ()).
-      // However, there could be a situation where the passed path is a
-      // directory (i.e., the calling code does not know what it is dealing
-      // with), so let's use the whole path.
-      //
-      // In fact, ideally, we should have used path_map instead of
-      // dir_path_map to be able to search for both paths without any casting
-      // (and copies). But currently we have too much stuff pointing to the
-      // key.
-      //
-      return find (path_cast<dir_path> (p));
-    }
+    // Find all the scopes that encompass this path (out or src).
+    //
+    // Note that the returned range will never be empty (there is always the
+    // global scope).
+    //
+    // If the path is in src, then we may end up with multiple scopes. For
+    // example, if two configurations of the same project are being built in a
+    // single invocation. How can we pick the scope that is "ours", for some
+    // definition of "ours"?
+    //
+    // The current think is that a project can be "associated" with other
+    // projects: its sub-projects and imported projects (it doesn't feel like
+    // its super-projects should be in this set, but maybe). And "ours" could
+    // mean belonging to one of the associated projects. This feels correct
+    // since a project shouldn't really be reaching into unrelated projects.
+    // And a project can only import one instance of any given project.
+    //
+    // We could implement this by keeping track (in scope::root_extra) of all
+    // the imported projects. The potential problem is performance: we would
+    // need to traverse the imported projects set recursively (potentially
+    // re-traversing the same projects multiple times).
+    //
+    // An alternative idea is to tag associated scopes with some marker so
+    // that all the scopes that "know" about each other have the same tag,
+    // essentially partitioning the scope set into connected subsets. One
+    // issue here (other than the complexity of implementing something like
+    // this) is that there could potentially be multiple source scopes with
+    // the same tag (e.g., two projects that don't know anything about each
+    // other could each import a different configuration of some common
+    // project and in turn be both imported by yet another project thus all
+    // acquiring the same tag). BTW, this could also be related to that
+    // "island append" restriction we have on loading additional buildfile.
+    //
+    LIBBUILD2_SYMEXPORT pair<scopes::const_iterator, scopes::const_iterator>
+    find (const dir_path&) const;
 
     const_iterator begin () const {return map_.begin ();}
     const_iterator end () const {return map_.end ();}
@@ -725,7 +740,7 @@ namespace build2
     scope_map (context& c): ctx (c) {}
 
     LIBBUILD2_SYMEXPORT scope&
-    find (const dir_path&);
+    find_out (const dir_path&);
 
   private:
     context& ctx;

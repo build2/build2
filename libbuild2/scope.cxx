@@ -942,23 +942,20 @@ namespace build2
   //
 
   auto scope_map::
-  insert (const dir_path& k, bool root) -> iterator
+  insert_out (const dir_path& k, bool root) -> iterator
   {
-    auto er (map_.emplace (k, true /* out */));
+    auto er (map_.emplace (k, scopes ()));
 
     if (er.second)
+      er.first->second.push_back (nullptr);
+
+    if (er.first->second.front () == nullptr)
     {
-      er.first->second.scope = new scope (ctx, true /* global */);
-    }
-    else if (!er.first->second.out)
-    {
-      // This can potentially be triggered if we use the same directory as one
-      // project's out and another's src.
-      //
-      fail << "directory " << k << " is used as both src and out scope";
+      er.first->second.front () = new scope (ctx, true /* global */);
+      er.second = true;
     }
 
-    scope& s (*er.first->second.scope);
+    scope& s (*er.first->second.front ());
 
     // If this is a new scope, update the parent chain.
     //
@@ -976,27 +973,28 @@ namespace build2
         auto r (map_.find_sub (k));
         for (++r.first; r.first != r.second; ++r.first)
         {
-          scope& c (*r.first->second.scope);
+          if (scope* c = r.first->second.front ())
+          {
+            // The first scope of which we are a parent is the least
+            // (shortest) one which means there is no other scope between it
+            // and our parent.
+            //
+            if (p == nullptr)
+              p = c->parent_;
 
-          // The first scope of which we are a parent is the least (shortest)
-          // one which means there is no other scope between it and our
-          // parent.
-          //
-          if (p == nullptr)
-            p = c.parent_;
+            if (root && c->root_ == p->root_) // No intermediate root.
+              c->root_ = &s;
 
-          if (root && c.root_ == p->root_) // No intermediate root.
-            c.root_ = &s;
-
-          if (p == c.parent_) // No intermediate parent.
-            c.parent_ = &s;
+            if (p == c->parent_) // No intermediate parent.
+              c->parent_ = &s;
+          }
         }
 
         // We couldn't get the parent from one of its old children so we have
         // to find it ourselves.
         //
         if (p == nullptr)
-          p = &find (k.directory ());
+          p = &find_out (k.directory ());
       }
 
       s.parent_ = p;
@@ -1009,10 +1007,11 @@ namespace build2
       auto r (map_.find_sub (k));
       for (++r.first; r.first != r.second; ++r.first)
       {
-        scope& c (*r.first->second.scope);
-
-        if (c.root_ == s.root_) // No intermediate root.
-          c.root_ = &s;
+        if (scope* c = r.first->second.front ())
+        {
+          if (c->root_ == s.root_) // No intermediate root.
+            c->root_ = &s;
+        }
       }
 
       s.root_ = &s;
@@ -1022,35 +1021,56 @@ namespace build2
   }
 
   auto scope_map::
-  insert (scope& s, const dir_path& k) -> iterator
+  insert_src (scope& s, const dir_path& k) -> iterator
   {
-    auto er (map_.emplace (k, false /* out */));
+    auto er (map_.emplace (k, scopes ()));
 
     if (er.second)
-    {
-      er.first->second.scope = &s;
-    }
-    else if (!er.first->second.out)
-    {
-      assert (er.first->second.scope == &s);
-    }
-    else
-    {
-      // This can be triggered, for example, by specifying a variable override
-      // with src instead of out directory.
-      //
-      fail << "directory " << k << " is used as both src and out scope";
-    }
+      er.first->second.push_back (nullptr); // Owning out path entry.
+
+    // It doesn't feel like this function can possibly be called multiple
+    // times for the same scope and path so we skip the duplicate check.
+    //
+    er.first->second.push_back (&s);
 
     return er.first;
   }
 
   scope& scope_map::
-  find (const dir_path& k)
+  find_out (const dir_path& k)
   {
     assert (k.normalized (false)); // Allow non-canonical dir separators.
+
+    // This one is tricky: if we found an entry that doesn't contain the
+    // out path scope, then we need to consider outer scopes.
+    //
+    auto i (map_.find_sup_if (k,
+                              [] (const pair<const dir_path, scopes>& v)
+                              {
+                                return v.second.front () != nullptr;
+                              }));
+
+    assert (i != map_.end ()); // Should have at least global scope.
+    return *i->second.front ();
+  }
+
+  auto scope_map::
+  find (const dir_path& k) const -> pair<scopes::const_iterator,
+                                         scopes::const_iterator>
+  {
+    assert (k.normalized (false));
     auto i (map_.find_sup (k));
-    assert (i != map_.end ()); // Should have global scope.
-    return *i->second.scope;
+    assert (i != map_.end ());
+
+    auto b (i->second.begin ());
+    auto e (i->second.end ());
+
+    // Skip NULL first element.
+    //
+    if (*b == nullptr)
+      ++b;
+
+    assert (b != e);
+    return make_pair (b, e);
   }
 }

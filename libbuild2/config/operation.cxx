@@ -609,7 +609,7 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find_out (out_nroot));
 
           // @@ Strictly speaking we need to check whether the config module
           //    was loaded for this subproject.
@@ -649,7 +649,7 @@ namespace build2
         for (auto p: *ps)
         {
           dir_path out_nroot (out_root / p.second);
-          const scope& nrs (ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find_out (out_nroot));
           assert (nrs.out_path () == out_nroot);
 
           configure_forward (nrs, projects);
@@ -877,7 +877,7 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find_out (out_nroot));
           assert (nrs.out_path () == out_nroot); // See disfigure_load().
 
           r = disfigure_project (a, nrs, projects) || r;
@@ -985,7 +985,7 @@ namespace build2
         for (auto p: *ps)
         {
           dir_path out_nroot (out_root / p.second);
-          const scope& nrs (ctx.scopes.find (out_nroot));
+          const scope& nrs (ctx.scopes.find_out (out_nroot));
           assert (nrs.out_path () == out_nroot);
 
           r = disfigure_forward (nrs, projects) || r;

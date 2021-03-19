@@ -438,7 +438,7 @@ namespace build2
               scope_map::const_iterator& i,
               bool rel)
   {
-    const scope& p (*i->second.scope);
+    const scope& p (*i->second.front ());
     const dir_path& d (i->first);
     ++i;
 
@@ -493,7 +493,9 @@ namespace build2
     // scope).
     //
     for (auto e (p.ctx.scopes.end ());
-         i != e && i->second.out && i->second.scope->parent_scope () == &p; )
+         (i != e &&
+          i->second.front () != nullptr &&
+          i->second.front ()->parent_scope () == &p); )
     {
       if (vb)
       {
@@ -543,7 +545,7 @@ namespace build2
   dump (const context& c, optional<action> a)
   {
     auto i (c.scopes.begin ());
-    assert (i->second.scope == &c.global_scope);
+    assert (i->second.front () == &c.global_scope);
 
     // We don't lock diag_stream here as dump() is supposed to be called from
     // the main thread prior/after to any other threads being spawned.
@@ -559,7 +561,7 @@ namespace build2
   {
     const scope_map& m (s.ctx.scopes);
     auto i (m.find_exact (s.out_path ()));
-    assert (i != m.end () && i->second.scope == &s);
+    assert (i != m.end () && i->second.front () == &s);
 
     string ind (cind);
     ostream& os (*diag_stream);
