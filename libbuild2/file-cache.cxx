@@ -37,29 +37,30 @@ namespace build2
   {
     assert (state_ == uninit);
 
-    bool c (!comp_path_.empty ());
-
     // Determine the cache state from the filesystem state.
     //
     // First check for the uncompressed file. Its presence means that the
     // compressed file, if exists, is invalid and we clean it up, similar to
     // init_new().
     //
-    if (exists (path_))
+    // Note that if compression is disabled, we omit the check assuming the
+    // the uncompressed file exists.
+    //
+    if (!comp_path_.empty ())
     {
-      if (c)
+      if (exists (path_))
+      {
         try_rmfile_ignore_error (comp_path_);
-
-      state_ = uncomp;
+        state_ = uncomp;
+      }
+      else if (exists (comp_path_))
+      {
+        state_ = comp;
+      }
+      else
+        fail << comp_path_ << " (or its uncompressed variant) does not exist" <<
+          info << "consider cleaning the build state";
     }
-    else if (c && exists (comp_path_))
-    {
-      state_ = comp;
-    }
-    else
-      fail << path_ << (c ? " (or its compressed variant)" : "")
-           << " does not exist" <<
-        info << "consider cleaning the build state";
   }
 
   void file_cache::entry::
