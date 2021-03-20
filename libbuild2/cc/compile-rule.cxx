@@ -1256,6 +1256,9 @@ namespace build2
             //
             // @@ TMP: probably outdated. Probably the same for partitions.
             //
+            // @@ See also similar check in extract_headers(), existing entry
+            //    case.
+            //
             if (ctype == compiler_type::msvc)
             {
               if (ut == unit_type::module_intf)
@@ -4029,7 +4032,10 @@ namespace build2
               // If modules are enabled, then we keep the preprocessed output
               // around (see apply() for details).
               //
-              return modules
+              // See apply() for details on the extra MSVC check.
+              //
+              return modules && (ctype != compiler_type::msvc ||
+                                 md.type != unit_type::module_intf)
                 ? make_pair (ctx.fcache.create_existing (t.path () + x_pext),
                              true)
                 : make_pair (file_cache::entry (), false);
