@@ -3,6 +3,92 @@
 
 namespace build2
 {
+  // file_cache::entry
+  //
+  inline const path& file_cache::entry::
+  path () const
+  {
+    return path_;
+  }
+
+  inline void file_cache::entry::
+  pin ()
+  {
+    ++pin_;
+  }
+
+  inline void file_cache::entry::
+  unpin ()
+  {
+    if (--pin_ == 0          &&
+        !comp_path_.empty () &&
+        (state_ == uncomp || state_ == decomp))
+      preempt ();
+  }
+
+  inline file_cache::read file_cache::entry::
+  open ()
+  {
+    assert (state_ != null && state_ != uninit);
+
+    if (state_ == comp)
+    {
+      decompress ();
+      state_ = decomp;
+    }
+
+    pin ();
+    return read (*this);
+  }
+
+  inline file_cache::entry::
+  operator bool () const
+  {
+    return state_ != null;
+  }
+
+  inline file_cache::entry::
+  entry (path_type p, bool t, bool c)
+      : temporary (t),
+        state_ (uninit),
+        path_ (move (p)),
+        comp_path_ (c ? path_ + ".lz4" : path_type ()),
+        pin_ (1)
+  {
+  }
+
+  inline file_cache::entry::
+  ~entry ()
+  {
+    if (state_ != null && temporary)
+      remove ();
+  }
+
+  inline file_cache::entry::
+  entry (entry&& e)
+      : temporary (e.temporary),
+        state_ (e.state_),
+        path_ (move (e.path_)),
+        comp_path_ (move (e.comp_path_)),
+        pin_ (e.pin_)
+  {
+  }
+
+  inline file_cache::entry& file_cache::entry::
+  operator= (entry&& e)
+  {
+    if (this != &e)
+    {
+      assert (state_ == null);
+      temporary = e.temporary;
+      state_ = e.state_;
+      path_ = move (e.path_);
+      comp_path_ = move (e.comp_path_);
+      pin_ = e.pin_;
+    }
+    return *this;
+  }
+
   // file_cache::write
   //
   inline void file_cache::write::
@@ -59,92 +145,6 @@ namespace build2
     {
       assert (entry_ == nullptr);
       swap (entry_, e.entry_);
-    }
-    return *this;
-  }
-
-  // file_cache::entry
-  //
-  inline const path& file_cache::entry::
-  path () const
-  {
-    return path_;
-  }
-
-  inline file_cache::read file_cache::entry::
-  open ()
-  {
-    assert (state_ != null && state_ != uninit);
-
-    if (state_ == comp)
-    {
-      decompress ();
-      state_ = decomp;
-    }
-
-    pin ();
-    return read (*this);
-  }
-
-  inline void file_cache::entry::
-  pin ()
-  {
-    ++pin_;
-  }
-
-  inline void file_cache::entry::
-  unpin ()
-  {
-    if (--pin_ == 0          &&
-        !comp_path_.empty () &&
-        (state_ == uncomp || state_ == decomp))
-      preempt ();
-  }
-
-  inline file_cache::entry::
-  operator bool () const
-  {
-    return state_ != null;
-  }
-
-  inline file_cache::entry::
-  entry (path_type p, bool t, bool c)
-      : temporary (t),
-        state_ (uninit),
-        path_ (move (p)),
-        comp_path_ (c ? path_ + ".lz4" : path_type ()),
-        pin_ (1)
-  {
-  }
-
-  inline file_cache::entry::
-  ~entry ()
-  {
-    if (state_ != null && temporary)
-      remove ();
-  }
-
-  inline file_cache::entry::
-  entry (entry&& e)
-      : temporary (e.temporary),
-        state_ (e.state_),
-        path_ (move (e.path_)),
-        comp_path_ (move (e.comp_path_)),
-        pin_ (e.pin_)
-  {
-  }
-
-  inline file_cache::entry& file_cache::entry::
-  operator= (entry&& e)
-  {
-    if (this != &e)
-    {
-      assert (state_ == null);
-      temporary = e.temporary;
-      state_ = e.state_;
-      path_ = move (e.path_);
-      comp_path_ = move (e.comp_path_);
-      pin_ = e.pin_;
     }
     return *this;
   }
