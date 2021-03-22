@@ -763,7 +763,7 @@ main (int argc, char* argv[])
 
     global_mutexes mutexes (sched.shard_size ());
 
-    bool fcache_comp (false);
+    bool fcache_comp (true);
     if (ops.file_cache_specified ())
     {
       const string& v (ops.file_cache ());
