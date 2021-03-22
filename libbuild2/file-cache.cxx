@@ -61,6 +61,8 @@ namespace build2
         fail << comp_path_ << " (or its uncompressed variant) does not exist" <<
           info << "consider cleaning the build state";
     }
+    else
+      state_ = uncomp;
   }
 
   void file_cache::entry::
