@@ -28,6 +28,59 @@ namespace build2
     void
     functions (function_map&); // functions.cxx
 
+    // Custom save function for config.config.environment.
+    //
+    // It tries to optimize the storage in subprojects by appending the
+    // difference (compared to the amalgamation's values) instead of storing
+    // the entire values.
+    //
+    static pair<names_view, const char*>
+    save_environment (const value& d, const value* b, names& storage)
+    {
+      if (b == nullptr)
+        return make_pair (reverse (d, storage), "=");
+
+      // The plan is to iterator over environment variables adding those that
+      // are not in base to storage. There is, however, a complication: we may
+      // see multiple entries for the same variable and only the last entry
+      // should have effect. So we need to iterate in reverse and check if
+      // we've already seen this variable.
+      //
+      const strings& ds (d.as<strings> ());
+      const strings& bs (b->as<strings> ());
+
+      for (auto i (ds.rbegin ()), e (ds.rend ()); i != e; ++i)
+      {
+        // Note that we must only consider variable names (up to first '=' if
+        // any).
+        //
+        const string& v (*i);
+        size_t p (v.find ('='));
+
+        // Check if we have already seen this variable.
+        //
+        if (find_if (ds.rbegin (), i,
+                     [&v, p] (const string& v1)
+                     {
+                       return v.compare (0, p, v1, 0, v1.find ('=')) == 0;
+                     }) != i)
+          continue;
+
+        // Check if there is the same value in base.
+        //
+        auto j (find_if (bs.rbegin (), bs.rend (),
+                         [&v, p] (const string& v1)
+                         {
+                           return v.compare (0, p, v1, 0, v1.find ('=')) == 0;
+                         }));
+
+        if (j == bs.rend () || *j != v)
+          storage.push_back (name (v));
+      }
+
+      return make_pair (names_view (storage), "+=");
+    }
+
     void
     boot (scope& rs, const location&, module_boot_extra& extra)
     {
@@ -96,6 +149,37 @@ namespace build2
       auto& c_p (vp.insert<vector<pair<string, string>>> (
                    "config.config.persist", true /* ovr */, v_p));
 
+      // Configuration environment variables.
+      //
+      // Environment variables used by tools (e.g., compilers), buildfiles
+      // (e.g., $getenv()), and the build system itself (e.g., to locate
+      // tools) in ways that affect the build result are in essence part of
+      // the project configuration.
+      //
+      // This variable allows storing environment variable overrides that
+      // should be applied to the environment when executing tools, etc., as
+      // part of a project build. Specifically, it contains a list of
+      // environment variable "sets" (<name>=<value>) and "unsets" (<name>).
+      // If multiple entries are specified for the same environment variable,
+      // the last entry has effect. For example:
+      //
+      // config.config.environment="LC_ALL=C LANG"
+      //
+      // Note that a subproject inherits overrides from its amalgamation (this
+      // semantics is the result of the way we optimize the storage of this
+      // variable in subproject's config.build; the thinking is that if a
+      // variable is not overridden by the subproject then it doesn't affect
+      // the build result and therefore it's irrelevant whether it has a value
+      // that came from the original environment of from the amalgamation
+      // override).
+      //
+      // Use the NULL or empty value to clear.
+      //
+      // @@ We could use =<name> as a "pass-through" instruction (e.g., if
+      //    we need to use original value in subproject).
+      //
+      auto& c_e (vp.insert<strings> ("config.config.environment", true /* ovr */));
+
       // Only create the module if we are configuring, creating, or
       // disfiguring or if it was requested with config.config.module (useful
       // if we need to call $config.save() during other meta-operations).
@@ -127,6 +211,9 @@ namespace build2
           m.save_module ("import", INT32_MIN);
 
           m.save_variable (c_p, save_null_omitted);
+          m.save_variable (c_e,
+                           save_null_omitted | save_empty_omitted | save_base,
+                           &save_environment);
         }
       }
 

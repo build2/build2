@@ -26,10 +26,19 @@ namespace build2
     // saved in the order populated. If flags are absent, then this variable
     // was marked as "unsaved" (always transient).
     //
+    // The optional save function can be used to implement custom variable
+    // saving, for example, as a difference appended to the base value. The
+    // second half of the result is the assignment operator to use.
+    //
+    using save_variable_function =
+      pair<names_view, const char*> (const value&,
+                                     const value* base,
+                                     names& storage);
     struct saved_variable
     {
       reference_wrapper<const variable> var;
       optional<uint64_t> flags;
+      save_variable_function* save;
     };
 
     struct saved_variables: vector<saved_variable>
@@ -74,7 +83,9 @@ namespace build2
       // Return true if variable/module were newly inserted.
       //
       bool
-      save_variable (const variable&, optional<uint64_t> flags);
+      save_variable (const variable&,
+                     optional<uint64_t> flags,
+                     save_variable_function* = nullptr);
 
       static void
       save_variable (scope&, const variable&, optional<uint64_t>);

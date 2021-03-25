@@ -57,6 +57,8 @@ namespace build2
     //
     const uint64_t save_default_commented = 0x01; // Based on value::extra.
     const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
+    const uint64_t save_empty_omitted     = 0x04; // Treat empty as undefined.
+    const uint64_t save_base              = 0x08; // Custom save with base.
 
     inline void
     save_variable (scope& rs, const variable& var, uint64_t flags = 0)

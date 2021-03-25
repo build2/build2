@@ -12,7 +12,9 @@ namespace build2
   namespace config
   {
     bool module::
-    save_variable (const variable& var, optional<uint64_t> flags)
+    save_variable (const variable& var,
+                   optional<uint64_t> flags,
+                   save_variable_function* save)
     {
       const string& n (var.name);
 
@@ -43,7 +45,7 @@ namespace build2
         return false;
       }
 
-      sv.push_back (saved_variable {var, flags});
+      sv.push_back (saved_variable {var, flags, save});
       return true;
     }
 

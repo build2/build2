@@ -286,7 +286,18 @@ namespace build2
           const string& sname (p.second->first);
           const saved_variables& svars (p.second->second);
 
-          bool first (true); // Separate modules with a blank line.
+          // Separate modules with a blank line.
+          //
+          auto first = [v = true] () mutable
+          {
+            if (v)
+            {
+              v = false;
+              return "\n";
+            }
+            return "";
+          };
+
           for (const saved_variable& sv: svars)
           {
             if (!sv.flags) // unsaved
@@ -306,7 +317,9 @@ namespace build2
             // inherited. We might also not have any value at all (see
             // unconfigured()).
             //
-            if (!l.defined () || (l->null && flags & save_null_omitted))
+            if (!l.defined () ||
+                (l->null     ? flags & save_null_omitted  :
+                 l->empty () ? flags & save_empty_omitted : false))
               continue;
 
             // Handle inherited from outer scope values.
@@ -315,90 +328,97 @@ namespace build2
             // we save the inherited values regardless of whether they are
             // used or not.
             //
-            if (inherit && !(l.belongs (rs) || l.belongs (ctx.global_scope)))
+            const value* base (nullptr);
+            if (inherit)
             {
-              // This is presumably an inherited value. But it could also be
-              // some left-over garbage. For example, an amalgamation could
-              // have used a module but then dropped it while its config
-              // values are still lingering in config.build. They are probably
-              // still valid and we should probably continue using them but we
-              // definitely want to move them to our config.build since they
-              // will be dropped from the amalgamation's config.build on the
-              // next reconfigure. Let's also warn the user just in case,
-              // unless there is no module and thus we couldn't really check
-              // (the latter could happen when calling $config.save() during
-              // other meta-operations, though it passes false for inherit).
+              // Return true if the specified value can be inherited from.
               //
-              // There is also another case that falls under this now that
-              // overrides are by default amalgamation-wide rather than just
-              // "project and subprojects": we may be (re-)configuring a
-              // subproject but the override is now set on the outer project's
-              // root.
-              //
-              bool found (false), checked (true);
-              const scope* r (&rs);
-              while ((r = r->parent_scope ()->root_scope ()) != nullptr)
+              auto find_inherited = [&on, &projects,
+                                     &info_value,
+                                     &sname, &rs, &var] (const lookup& org,
+                                                         const lookup& ovr)
               {
-                if (l.belongs (*r))
-                {
-                  // Find the config module (might not be there).
-                  //
-                  if (auto* m = r->find_module<const module> (module::name))
-                  {
-                    // Find the corresponding saved module.
-                    //
-                    auto i (m->saved_modules.find (sname));
+                const lookup& l (ovr);
 
-                    if (i != m->saved_modules.end ())
-                    {
-                      // Find the variable.
-                      //
-                      const saved_variables& sv (i->second);
-                      found = sv.find (var) != sv.end ();
-
-                      // If not marked as saved, check whether overriden via
-                      // config.config.persist.
-                      //
-                      if (!found && m->persist != nullptr)
-                      {
-                        found = save_config_variable (
-                          var,
-                          m->persist,
-                          false /* inherited */,
-                          true  /* unused */).first;
-                      }
-
-                      // Handle that other case: if this is an override but
-                      // the outer project itself is not being configured,
-                      // then we need to save this override.
-                      //
-                      // One problem with using the already configured project
-                      // set is that the outer project may be configured only
-                      // after us in which case both projects will save the
-                      // value. But perhaps this is a feature, not a bug since
-                      // this is how project-local (%) override behaves.
-                      //
-                      if (found &&
-                          org.first != ovr.first &&
-                          projects.find (r) == projects.end ())
-                        found = false;
-                    }
-                  }
-                  else
-                    checked = false;
-
-                  break;
-                }
-              }
-
-              if (found)
-              {
-                // Inherited.
+                // This is presumably an inherited value. But it could also be
+                // some left-over garbage. For example, an amalgamation could
+                // have used a module but then dropped it while its config
+                // values are still lingering in config.build. They are
+                // probably still valid and we should probably continue using
+                // them but we definitely want to move them to our
+                // config.build since they will be dropped from the
+                // amalgamation's config.build on the next reconfigure. Let's
+                // also warn the user just in case, unless there is no module
+                // and thus we couldn't really check (the latter could happen
+                // when calling $config.save() during other meta-operations,
+                // though it passes false for inherit).
                 //
-                continue;
-              }
-              else
-              {
+                // There is also another case that falls under this now that
+                // overrides are by default amalgamation-wide rather than just
+                // "project and subprojects": we may be (re-)configuring a
+                // subproject but the override is now set on the outer
+                // project's root.
+                //
+                bool found (false), checked (true);
+                const scope* r (&rs);
+                while ((r = r->parent_scope ()->root_scope ()) != nullptr)
+                {
+                  if (l.belongs (*r))
+                  {
+                    // Find the config module (might not be there).
+                    //
+                    if (auto* m = r->find_module<const module> (module::name))
+                    {
+                      // Find the corresponding saved module.
+                      //
+                      auto i (m->saved_modules.find (sname));
+
+                      if (i != m->saved_modules.end ())
+                      {
+                        // Find the variable.
+                        //
+                        const saved_variables& sv (i->second);
+                        found = sv.find (var) != sv.end ();
+
+                        // If not marked as saved, check whether overriden via
+                        // config.config.persist.
+                        //
+                        if (!found && m->persist != nullptr)
+                        {
+                          found = save_config_variable (
+                            var,
+                            m->persist,
+                            false /* inherited */,
+                            true  /* unused */).first;
+                        }
+
+                        // Handle that other case: if this is an override but
+                        // the outer project itself is not being configured,
+                        // then we need to save this override.
+                        //
+                        // One problem with using the already configured
+                        // project set is that the outer project may be
+                        // configured only after us in which case both
+                        // projects will save the value. But perhaps this is a
+                        // feature, not a bug since this is how project-local
+                        // (%) override behaves.
+                        //
+                        if (found &&
+                            org != ovr &&
+                            projects.find (r) == projects.end ())
+                          found = false;
+                      }
+                    }
+                    else
+                      checked = false;
+
+                    break;
+                  }
+                }
+
+                if (found)
+                  return true;
+
                 // If this value is not defined in a project's root scope,
                 // then something is broken.
                 //
@@ -411,7 +431,7 @@ namespace build2
                 // our own. One special case where we don't want to warn the
                 // user is if the variable is overriden.
                 //
-                if (checked && org.first == ovr.first)
+                if (checked && org == ovr)
                 {
                   diag_record dr;
                   dr << warn (on) << "saving previously inherited variable "
@@ -422,6 +442,39 @@ namespace build2
 
                   if (verb >= 2)
                     info_value (dr, *l);
+                }
+
+                return false;
+              };
+
+              // Inherit as-is.
+              //
+              if (!l.belongs (rs) &&
+                  !l.belongs (ctx.global_scope) &&
+                  find_inherited (org.first, ovr.first))
+                continue;
+              else if (flags & save_base)
+              {
+                // See if we can base our value on inherited.
+                //
+                if (const scope* ors = rs.parent_scope ()->root_scope ())
+                {
+                  pair<lookup, size_t> org (ors->lookup_original (var));
+                  pair<lookup, size_t> ovr (var.overrides == nullptr
+                                            ? org
+                                            : ors->lookup_override (var, org));
+                  const lookup& l (ovr.first);
+
+                  // We cannot base anything on an empty value.
+                  //
+                  if (l && !l->empty ())
+                  {
+                    // @@ It's not clear we want the checks/diagnostics in
+                    //    this case.
+                    //
+                    if (find_inherited (org.first, ovr.first))
+                      base = l.value;
+                  }
                 }
               }
             }
@@ -440,44 +493,42 @@ namespace build2
                 continue;
             }
 
-            // If we got here then we are saving this variable. Handle the
-            // blank line.
-            //
-            if (first)
-            {
-              os << endl;
-              first = false;
-            }
-
             // Handle the save_default_commented flag.
             //
             if ((org.first.defined () && org.first->extra) && // Default value.
                 org.first == ovr.first &&                     // Not overriden.
                 (flags & save_default_commented) != 0)
             {
-              os << '#' << n << " =" << endl;
+              os << first () << '#' << n << " =" << endl;
               continue;
             }
 
-            if (v)
+            if (v.null)
             {
-              storage.clear ();
-              names_view ns (reverse (v, storage));
-
-              os << n;
-
-              if (ns.empty ())
-                os << " =";
-              else
-              {
-                os << " = ";
-                to_stream (os, ns, true /* quote */, '@');
-              }
-
-              os << endl;
+              os << first () << n << " = [null]" << endl;
+              continue;
             }
-            else
-              os << n << " = [null]" << endl;
+
+            storage.clear ();
+            pair<names_view, const char*> p (
+              sv.save != nullptr
+              ? sv.save (v, base, storage)
+              : make_pair (reverse (v, storage), "="));
+
+            // Might becomes empty after a custom save function had at it.
+            //
+            if (p.first.empty () && (flags & save_empty_omitted))
+              continue;
+
+            os << first () << n << ' ' << p.second;
+
+            if (!p.first.empty ())
+            {
+              os << ' ';
+              to_stream (os, p.first, true /* quote */, '@');
+            }
+
+            os << endl;
           }
         }
       }
