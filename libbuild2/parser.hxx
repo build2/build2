@@ -528,9 +528,10 @@ namespace build2
 
     // Switch to a new current scope. Note that this function might also have
     // to switch to a new root scope if the new current scope is in another
-    // project. So both must be saved and restored.
+    // project. So both must be saved and restored. In case of a new root, it
+    // also switches to the new project's environment.
     //
-    void
+    auto_project_env
     switch_scope (const dir_path& out_base);
 
     void

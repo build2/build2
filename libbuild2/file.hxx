@@ -145,6 +145,10 @@ namespace build2
   // false or the new scope is not in any project, then NULL is returned in
   // second.
   //
+  // Note that if switching the scope involved switching the project, then you
+  // may also need to switch to the new project's environment (see
+  // root_extra::environment).
+  //
   LIBBUILD2_SYMEXPORT pair<scope&, scope*>
   switch_scope (scope& root, const dir_path& out_base, bool project = true);
 

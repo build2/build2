@@ -412,8 +412,10 @@ namespace build2
       //
       ctx.module_context->modules_lock = ctx.modules_lock;
 
-      // "Switch" to the module context.
+      // Clear current project's environment and "switch" to the module
+      // context.
       //
+      auto_thread_env penv (nullptr);
       context& ctx (*bs.ctx.module_context);
 
       // Mark the queue so that we don't work any tasks that may already be

@@ -326,6 +326,14 @@ namespace build2
   const rule_match*
   match_rule (action a, target& t, const rule* skip, bool try_match)
   {
+    const scope& bs (t.base_scope ());
+
+    // Match rules in project environment.
+    //
+    auto_project_env penv;
+    if (const scope* rs = bs.root_scope ())
+      penv = auto_project_env (*rs);
+
     // First check for an ad hoc recipe.
     //
     if (!t.adhoc_recipes.empty ())
@@ -401,8 +409,6 @@ namespace build2
     //
     meta_operation_id mo (a.meta_operation ());
     operation_id o (a.inner () ? a.operation () : a.outer_operation ());
-
-    const scope& bs (t.base_scope ());
 
     for (auto tt (&t.type ()); tt != nullptr; tt = tt->base)
     {
@@ -593,6 +599,14 @@ namespace build2
               target& t,
               const pair<const string, reference_wrapper<const rule>>& m)
   {
+    const scope& bs (t.base_scope ());
+
+    // Apply rules in project environment.
+    //
+    auto_project_env penv;
+    if (const scope* rs = bs.root_scope ())
+      penv = auto_project_env (*rs);
+
     auto df = make_diag_frame (
       [a, &t, &m](const diag_record& dr)
       {
@@ -1120,7 +1134,7 @@ namespace build2
   static target_state
   execute_recipe (action a, target& t, const recipe& r)
   {
-    target_state ts (target_state::unknown);
+    target_state ts (target_state::unchanged);
 
     try
     {
@@ -1155,31 +1169,43 @@ namespace build2
           op_s = nullptr; // Ignore.
       }
 
-      // Pre operations.
-      //
-      // Note that here we assume the dir{} target cannot be part of a group
-      // and as a result we (a) don't try to avoid calling post callbacks in
-      // case of a group failure and (b) merge the pre and post states with
-      // the group state.
-      //
-      if (op_s != nullptr)
+      if (r != nullptr || op_s != nullptr)
       {
-        for (auto i (op_p.first); i != op_p.second; ++i)
-          if (const auto& f = i->second.pre)
-            ts |= f (a, *op_s, *op_t);
-      }
+        const scope& bs (t.base_scope ());
 
-      // Recipe.
-      //
-      ts |= r != nullptr ? r (a, t) : target_state::unchanged;
+        // Execute recipe/callbacks in project environment.
+        //
+        auto_project_env penv;
+        if (const scope* rs = bs.root_scope ())
+          penv = auto_project_env (*rs);
 
-      // Post operations.
-      //
-      if (op_s != nullptr)
-      {
-        for (auto i (op_p.first); i != op_p.second; ++i)
-          if (const auto& f = i->second.post)
-            ts |= f (a, *op_s, *op_t);
+        // Pre operations.
+        //
+        // Note that here we assume the dir{} target cannot be part of a group
+        // and as a result we (a) don't try to avoid calling post callbacks in
+        // case of a group failure and (b) merge the pre and post states with
+        // the group state.
+        //
+        if (op_s != nullptr)
+        {
+          for (auto i (op_p.first); i != op_p.second; ++i)
+            if (const auto& f = i->second.pre)
+              ts |= f (a, *op_s, *op_t);
+        }
+
+        // Recipe.
+        //
+        if (r != nullptr)
+          ts |= r (a, t);
+
+        // Post operations.
+        //
+        if (op_s != nullptr)
+        {
+          for (auto i (op_p.first); i != op_p.second; ++i)
+            if (const auto& f = i->second.post)
+              ts |= f (a, *op_s, *op_t);
+        }
       }
 
       // See the recipe documentation for details on what's going on here.

@@ -81,8 +81,7 @@ namespace build2
   using butl::function_cast;
 
   using butl::getenv;
-  using butl::setenv;
-  using butl::unsetenv;
+  using butl::auto_thread_env;
 
   using butl::throw_generic_error;
   using butl::throw_system_error;

@@ -1209,6 +1209,10 @@ namespace build2
       {
         // Ok, no luck, switch the scope.
         //
+        // Note that we don't need to do anything for the project's
+        // environment: source_once() will take care of it itself and
+        // search_implied() is not affected.
+        //
         pair<scope&, scope*> sp (
           switch_scope (*s.rw ().root_scope (), out_base));
 

@@ -609,7 +609,8 @@ namespace build2
         {}, /* operations */
         {}, /* modules */
         {}, /* override_cache */
-        {}} /* target_types */);
+        {}, /* target_types */
+        {}} /* environment */);
 
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in
@@ -1404,6 +1405,10 @@ namespace build2
         optional<bool> altn;
         if (!bootstrapped (rs))
         {
+          // Clear current project's environment.
+          //
+          auto_project_env penv (nullptr);
+
           value& v (bootstrap_out (rs, altn));
 
           if (!v)
@@ -1494,9 +1499,16 @@ namespace build2
       }
     };
 
-    init_modules (module_boot_init::before_first);
-    init_modules (module_boot_init::before_second);
-    init_modules (module_boot_init::before);
+    {
+      init_modules (module_boot_init::before_first);
+
+      // Project environment should now be in effect.
+      //
+      auto_project_env penv (root);
+
+      init_modules (module_boot_init::before_second);
+      init_modules (module_boot_init::before);
+    }
 
     // Load hooks and root.build.
     //
@@ -1521,7 +1533,10 @@ namespace build2
 
     // Finish off initializing bootstrapped modules (after mode).
     //
-    init_modules (module_boot_init::after);
+    {
+      auto_project_env penv (root);
+      init_modules (module_boot_init::after);
+    }
 
     // Print the project configuration report, similar to how we do it in
     // build system modules.
@@ -1638,6 +1653,10 @@ namespace build2
 
     if (!bootstrapped (rs))
     {
+      // Clear current project's environment.
+      //
+      auto_project_env penv (nullptr);
+
       optional<bool> altn;
       bootstrap_out (rs, altn);
       setup_root (rs, forwarded);
@@ -1742,6 +1761,10 @@ namespace build2
       if (metadata_cache.find (pp.effect_string ()))
         return nullopt;
     }
+
+    // Clear current project's environment for good measure.
+    //
+    auto_project_env penv (nullptr);
 
     // Note: to ease handling (think patching third-party code) we will always
     // specify the --build2-metadata option in this single-argument form.
@@ -2338,6 +2361,10 @@ namespace build2
         fwd = (src_root != out_root);
       }
     }
+
+    // Clear current project's environment.
+    //
+    auto_project_env penv (nullptr);
 
     for (const scope* proot (nullptr); ; proot = root)
     {

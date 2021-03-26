@@ -2126,8 +2126,8 @@ namespace build2
 
           // Note that CWD and builtin-escaping character '^' are not printed.
           //
-          const small_vector<string, 4>& evs (vs);
-          process_env pe (resolve ? pp : c.program, evs);
+          const small_vector<string, 4>& evars (vs);
+          process_env pe (resolve ? pp : c.program, evars);
 
           if (verb >= 2)
             print_process (pe, args);

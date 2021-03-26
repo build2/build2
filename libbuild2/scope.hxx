@@ -488,6 +488,19 @@ namespace build2
       // Target types.
       //
       target_type_map target_types;
+
+      // Environment variable overrides.
+      //
+      // These overrides should be applied to the environment when running
+      // tools (e.g., compilers) or querying environment variables from the
+      // buildfiles and by the build system itself. Populated by the config
+      // module and is not available during bootstrap (more precisely, not
+      // available until before_first modules have been initialized). The list
+      // is either empty of NULL-terminated.
+      //
+      // See also auto_project_env below.
+      //
+      vector<const char*> environment;
     };
 
     unique_ptr<root_extra_type> root_extra;
@@ -574,6 +587,23 @@ namespace build2
     //
     return to_stream (os, s.out_path (), true /* representation */);
   }
+
+  // Automatic project environment setup/cleanup.
+  //
+  struct auto_project_env: auto_thread_env
+  {
+    auto_project_env () = default;
+
+    explicit
+    auto_project_env (nullptr_t p) // Clear current environment.
+        : auto_thread_env (p) {}
+
+    explicit
+    auto_project_env (const scope& rs)
+        : auto_thread_env (rs.root_extra->environment.empty ()
+                           ? nullptr
+                           : rs.root_extra->environment.data ()) {}
+  };
 
   // Return the src/out directory corresponding to the given out/src. The
   // passed directory should be a sub-directory of out/src_root.

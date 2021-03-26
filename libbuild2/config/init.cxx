@@ -4,6 +4,8 @@
 #include <libbuild2/config/init.hxx>
 
 #include <sstream>
+#include <cstdlib> // getenv()
+#include <cstring> // strncmp()
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/rule.hxx>
@@ -27,6 +29,24 @@ namespace build2
   {
     void
     functions (function_map&); // functions.cxx
+
+    // Compare environment variable names. Note that on Windows they are
+    // case-insensitive.
+    //
+    static inline bool
+    compare_env (const string& x, size_t xn, const string& y, size_t yn)
+    {
+      if (xn == string::npos) xn = x.size ();
+      if (yn == string::npos) yn = y.size ();
+
+      return xn == yn &&
+#ifdef _WIN32
+        icasecmp (x.c_str (), y.c_str (), xn) == 0
+#else
+        strncmp (x.c_str (), y.c_str (), xn) == 0
+#endif
+        ;
+    }
 
     // Custom save function for config.config.environment.
     //
@@ -62,7 +82,7 @@ namespace build2
         if (find_if (ds.rbegin (), i,
                      [&v, p] (const string& v1)
                      {
-                       return v.compare (0, p, v1, 0, v1.find ('=')) == 0;
+                       return compare_env (v, p, v1, v1.find ('='));
                      }) != i)
           continue;
 
@@ -71,7 +91,7 @@ namespace build2
         auto j (find_if (bs.rbegin (), bs.rend (),
                          [&v, p] (const string& v1)
                          {
-                           return v.compare (0, p, v1, 0, v1.find ('=')) == 0;
+                           return compare_env (v, p, v1, v1.find ('='));
                          }));
 
         if (j == bs.rend () || *j != v)
@@ -373,6 +393,68 @@ namespace build2
         m.persist =
           cast_null<vector<pair<string, string>>> (
             rs["config.config.persist"]);
+      }
+
+      // Copy config.config.environment to scope::root_extra::environment.
+      //
+      // Note that we store shallow copies that point to the c.c.environment
+      // value which means it shall not change.
+      //
+      if (const strings* src = cast_null<strings> (
+            rs["config.config.environment"]))
+      {
+        vector<const char*>& dst (rs.root_extra->environment);
+
+        // The idea is to only copy entries that are effective, that is those
+        // that actually override something in the environment. This should be
+        // both more efficient and less noisy (e.g., if we decide to print
+        // this in diagnostics).
+        //
+        // Note that config.config.environment may contain duplicates and the
+        // last entry should have effect.
+        //
+        // Note also that we use std::getenv() instead of butl::getenv() to
+        // disregard any thread environment overrides.
+        //
+        for (auto i (src->rbegin ()), e (src->rend ()); i != e; ++i)
+        {
+          // Note that we must only consider variable names (up to first '='
+          // if any).
+          //
+          const string& v (*i);
+          size_t p (v.find ('='));
+
+          // Check if we have already seen this variable.
+          //
+          if (find_if (src->rbegin (), i,
+                       [&v, p] (const string& v1)
+                       {
+                         return compare_env (v, p, v1, v1.find ('='));
+                       }) != i)
+            continue;
+
+          // If it's an unset, see if it actually unsets anything.
+          //
+          if (p == string::npos)
+          {
+            if (std::getenv (v.c_str ()) == nullptr)
+              continue;
+          }
+          //
+          // And if it's a set, see if it sets a different value.
+          //
+          else
+          {
+            const char* v1 (std::getenv (string (v, 0, p).c_str ()));
+            if (v1 != nullptr && v.compare (p + 1, string::npos, v1) == 0)
+              continue;
+          }
+
+          dst.push_back (v.c_str ());
+        }
+
+        if (!dst.empty ())
+          dst.push_back (nullptr);
       }
 
       // Register alias and fallback rule for the configure meta-operation.

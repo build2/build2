@@ -291,8 +291,10 @@ namespace build2
         create_module_context (ctx, loc);
       }
 
-      // "Switch" to the module context.
+      // Clear current project's environment and "switch" to the module
+      // context.
       //
+      auto_thread_env penv (nullptr);
       context& ctx (*t.ctx.module_context);
 
       // Mark the queue so that we don't work any tasks that may already be

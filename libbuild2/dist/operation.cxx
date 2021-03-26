@@ -426,6 +426,10 @@ namespace build2
         add_subdir (rs, dir_path (), files);
       }
 
+      // Apply project environment.
+      //
+      auto_project_env penv (rs);
+
       dir_path td (dist_root / dir_path (dist_package));
 
       // Clean up the target directory.
@@ -502,7 +506,10 @@ namespace build2
           }
 
           if (path_match (t.path ().leaf ().string (), pat.leaf ().string ()))
+          {
+            auto_project_env penv (*srs);
             cb.function (r, *srs, cb.data);
+          }
         }
 
         if (prog)

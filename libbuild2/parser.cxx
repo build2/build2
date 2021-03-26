@@ -49,7 +49,8 @@ namespace build2
   class parser::enter_scope
   {
   public:
-    enter_scope (): p_ (nullptr), r_ (nullptr), s_ (nullptr), b_ (nullptr) {}
+    enter_scope ()
+        : p_ (nullptr), r_ (nullptr), s_ (nullptr), b_ (nullptr) {}
 
     enter_scope (parser& p, dir_path&& d)
         : p_ (&p), r_ (p.root_), s_ (p.scope_), b_ (p.pbase_)
@@ -75,7 +76,15 @@ namespace build2
       if (n)
         d.normalize ();
 
-      p.switch_scope (d);
+      e_ = p.switch_scope (d);
+    }
+
+    // As above but for already absolute and normalized directory.
+    //
+    enter_scope (parser& p, const dir_path& d, bool)
+        : p_ (&p), r_ (p.root_), s_ (p.scope_), b_ (p.pbase_)
+    {
+      e_ = p.switch_scope (d);
     }
 
     ~enter_scope ()
@@ -101,6 +110,7 @@ namespace build2
         r_ = x.r_;
         s_ = x.s_;
         b_ = x.b_;
+        e_ = move (x.e_);
         x.p_ = nullptr;
       }
       return *this;
@@ -114,6 +124,7 @@ namespace build2
     scope* r_;
     scope* s_;
     const dir_path* b_; // Pattern base.
+    auto_project_env e_;
   };
 
   class parser::enter_target
@@ -268,6 +279,13 @@ namespace build2
     prerequisite_ = prq;
 
     pbase_ = scope_->src_path_;
+
+    // Note that root_ may not be a project root (see parse_export_stub()).
+    //
+    auto_project_env penv (
+      stage_ != stage::boot && root_ != nullptr && root_->root_extra != nullptr
+      ? auto_project_env (*root_)
+      : auto_project_env ());
 
     if (path_->path != nullptr)
       enter_buildfile (*path_->path); // Note: needs scope_.
@@ -2076,10 +2094,7 @@ namespace build2
       // out the absolute buildfile path since we may switch the project
       // root and src_root with it (i.e., include into a sub-project).
       //
-      scope* ors (root_);
-      scope* ocs (scope_);
-      const dir_path* opb (pbase_);
-      switch_scope (out_base);
+      enter_scope sg (*this, out_base, true /* absolute & normalized */);
 
       if (root_ == nullptr)
         fail (l) << "out of project include from " << out_base;
@@ -2095,9 +2110,6 @@ namespace build2
       if (!root_->buildfiles.insert (p).second) // Note: may be "new" root.
       {
         l5 ([&]{trace (l) << "skipping already included " << p;});
-        pbase_ = opb;
-        scope_ = ocs;
-        root_ = ors;
         continue;
       }
 
@@ -2113,10 +2125,6 @@ namespace build2
       {
         fail (l) << "unable to read buildfile " << p << ": " << e;
       }
-
-      pbase_ = opb;
-      scope_ = ocs;
-      root_ = ors;
     }
 
     next_after_newline (t, tt);
@@ -6896,10 +6904,12 @@ namespace build2
     assert (pre_parse_);
   }
 
-  void parser::
+  auto_project_env parser::
   switch_scope (const dir_path& d)
   {
     tracer trace ("parser::switch_scope", &path_);
+
+    auto_project_env r;
 
     // Switching the project during bootstrap can result in bizarre nesting
     // with unexpected loading order (e.g., config.build are loaded from inner
@@ -6917,6 +6927,10 @@ namespace build2
     if (proj && p.second != root_)
     {
       root_ = p.second;
+
+      if (root_ != nullptr)
+        r = auto_project_env (*root_);
+
       l5 ([&]
           {
             if (root_ != nullptr)
@@ -6925,6 +6939,8 @@ namespace build2
               trace << "switching to out of project scope";
           });
     }
+
+    return r;
   }
 
   void parser::
