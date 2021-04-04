@@ -157,23 +157,18 @@ namespace build2
 
     // If inherit is false, then don't rely on inheritance from outer scopes.
     //
+    // @@ We are modifying the module (marking additional variables as saved)
+    //    and this function can be called from a buildfile (probably only
+    //    during serial execution but still).
+    //
     void
     save_config (const scope& rs,
                  ostream& os, const path_name& on,
                  bool inherit,
+                 module& mod,
                  const project_set& projects)
     {
       context& ctx (rs.ctx);
-
-      // @@ We are modifying the module (marking additional variables as
-      // saved) and this function can be called from a buildfile (probably
-      // only during serial execution but still).
-      //
-      module* mod (rs.find_module<module> (module::name));
-
-      if (mod == nullptr)
-        fail (on) << "no configuration information available during this "
-                  << "meta-operation";
 
       names storage;
 
@@ -234,18 +229,18 @@ namespace build2
               var->name.compare (0, 14, "config.config.") == 0)
             continue;
 
-          if (mod->find_variable (*var)) // Saved or unsaved.
+          if (mod.find_variable (*var)) // Saved or unsaved.
             continue;
 
           const value& v (p.first->second);
 
           pair<bool, bool> r (save_config_variable (*var,
-                                                    mod->persist,
+                                                    mod.persist,
                                                     false /* inherited */,
                                                     true  /* unused */));
           if (r.first) // save
           {
-            mod->save_variable (*var, 0);
+            mod.save_variable (*var, 0);
 
             if (r.second) // warn
             {
@@ -281,7 +276,7 @@ namespace build2
 
         // Save config variables.
         //
-        for (auto p: mod->saved_modules.order)
+        for (auto p: mod.saved_modules.order)
         {
           const string& sname (p.second->first);
           const saved_variables& svars (p.second->second);
@@ -542,6 +537,7 @@ namespace build2
     save_config (const scope& rs,
                  const path& f,
                  bool inherit,
+                 module& mod,
                  const project_set& projects)
     {
       path_name fn (f);
@@ -555,7 +551,8 @@ namespace build2
       try
       {
         ofdstream ofs;
-        save_config (rs, open_file_or_stdout (fn, ofs), fn, inherit, projects);
+        save_config (
+          rs, open_file_or_stdout (fn, ofs), fn, inherit, mod, projects);
         ofs.close ();
       }
       catch (const io_error& e)
@@ -564,10 +561,81 @@ namespace build2
       }
     }
 
+    // Update config.config.environment value for a hermetic configuration.
+    //
+    static void
+    save_environment (scope& rs, module& mod)
+    {
+      // Here we have two parts: (1) get the list of environment variables we
+      // need to save and (2) save their values in config.config.environment.
+      //
+      // The saved_environment list should by now contain all the project-
+      // specific environment variables. To that we add builtin defaults and
+      // then filter the result against config.config.hermetic.environment
+      // inclusions/exclusions.
+      //
+      auto& vars (mod.saved_environment);
+
+      vars.insert ("PATH");
+
+#if   defined(_WIN32)
+#elif defined(__APPLE__)
+      vars.insert ("DYLD_LIBRARY_PATH");
+#else // Linux, FreeBSD, NetBSD, OpenBSD
+      vars.insert ("LD_LIBRARY_PATH");
+#endif
+
+      for (const pair<string, optional<bool>>& p:
+             cast_empty<hermetic_environment> (
+               rs["config.config.hermetic.environment"]))
+      {
+        if (!p.second || *p.second)
+          vars.insert (p.first);
+        else
+          vars.erase (p.first);
+      }
+
+      // Get the values.
+      //
+      strings vals;
+      {
+        // Set the project environment before querying the values. Note that
+        // the logic in init() makes sure that this is all we need to do to
+        // handle reload (in which case we should still be using
+        // config.config.environment from amalgamation, if any).
+        //
+        auto_project_env penv (rs);
+
+        for (const string& var: vars)
+        {
+          if (optional<string> val = getenv (var))
+          {
+            vals.push_back (var + '=' + *val);
+          }
+          else
+            vals.push_back (var); // Unset.
+        }
+      }
+
+      value& v (rs.assign (*rs.ctx.var_pool.find ("config.config.environment")));
+
+      // Note that setting new config.config.environment value invalidates the
+      // project's environment (scope::root_extra::environment) which could be
+      // queried in the post-configuration hook. We could re-initialize it but
+      // the c.c.e value from amalgamation could be referenced by subprojects.
+      // So instead it seems easier to just save the old value in the module.
+      //
+      if (v)
+        mod.old_environment = move (v.as<strings> ());
+
+      v = move (vals);
+    }
+
     static void
     configure_project (action a,
-                       const scope& rs,
+                       scope& rs,
                        const variable* c_s, // config.config.save
+                       module& mod,
                        project_set& projects)
     {
       tracer trace ("configure_project");
@@ -597,6 +665,12 @@ namespace build2
       {
         l5 ([&]{trace << "completely configuring " << out_root;});
 
+        // Save the environment if this configuration is hermetic (see init()
+        // for the other half of this logic).
+        //
+        if (cast_false<bool> (rs["config.config.hermetic"]))
+          save_environment (rs, mod);
+
         // Save src-root.build unless out_root is the same as src.
         //
         if (c_s == nullptr && out_root != src_root)
@@ -621,7 +695,7 @@ namespace build2
         // may end up leaving it in partially configured state.
         //
         if (c_s == nullptr)
-          save_config (rs, config_file (rs), true /* inherit */, projects);
+          save_config (rs, config_file (rs), true /* inherit */, mod, projects);
         else
         {
           lookup l (rs[*c_s]);
@@ -634,7 +708,8 @@ namespace build2
             // still want to support this mode somehow in the future (it seems
             // like an override of config.config.persist should do the trick).
             //
-            save_config (rs, cast<path> (l), false /* inherit */, projects);
+            save_config (
+              rs, cast<path> (l), false /* inherit */, mod, projects);
           }
         }
       }
@@ -645,11 +720,8 @@ namespace build2
 
       if (c_s == nullptr)
       {
-        if (module* m = rs.find_module<module> (module::name))
-        {
-          for (auto hook: m->configure_post_)
-            hook (a, rs);
-        }
+        for (auto hook: mod.configure_post_)
+          hook (a, rs);
       }
 
       // Configure subprojects that have been loaded.
@@ -660,15 +732,19 @@ namespace build2
         {
           const dir_path& pd (p.second);
           dir_path out_nroot (out_root / pd);
-          const scope& nrs (ctx.scopes.find_out (out_nroot));
+          scope& nrs (ctx.scopes.find_out (out_nroot).rw ());
 
-          // @@ Strictly speaking we need to check whether the config module
-          //    was loaded for this subproject.
+          // Skip this subproject if it is not loaded or doesn't use the
+          // config module.
           //
-          if (nrs.out_path () != out_nroot) // This subproject not loaded.
-            continue;
+          if (nrs.out_path () == out_nroot)
+          {
+            if (module* m = rs.find_module<module> (module::name))
+            {
+              configure_project (a, nrs, c_s, *m, projects);
+            }
+          }
 
-          configure_project (a, nrs, c_s, projects);
         }
       }
     }
@@ -874,7 +950,11 @@ namespace build2
             }
           }
 
-          configure_project (a, *rs, c_s, projects);
+          configure_project (a,
+                             rs->rw (),
+                             c_s,
+                             *rs->find_module<module> (module::name),
+                             projects);
         }
       }
     }

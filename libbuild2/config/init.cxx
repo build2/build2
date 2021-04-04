@@ -5,7 +5,6 @@
 
 #include <sstream>
 #include <cstdlib> // getenv()
-#include <cstring> // strncmp()
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/rule.hxx>
@@ -29,24 +28,6 @@ namespace build2
   {
     void
     functions (function_map&); // functions.cxx
-
-    // Compare environment variable names. Note that on Windows they are
-    // case-insensitive.
-    //
-    static inline bool
-    compare_env (const string& x, size_t xn, const string& y, size_t yn)
-    {
-      if (xn == string::npos) xn = x.size ();
-      if (yn == string::npos) yn = y.size ();
-
-      return xn == yn &&
-#ifdef _WIN32
-        icasecmp (x.c_str (), y.c_str (), xn) == 0
-#else
-        strncmp (x.c_str (), y.c_str (), xn) == 0
-#endif
-        ;
-    }
 
     // Custom save function for config.config.environment.
     //
@@ -82,7 +63,8 @@ namespace build2
         if (find_if (ds.rbegin (), i,
                      [&v, p] (const string& v1)
                      {
-                       return compare_env (v, p, v1, v1.find ('='));
+                       return saved_environment::compare (
+                         v, v1, p, v1.find ('='));
                      }) != i)
           continue;
 
@@ -91,7 +73,8 @@ namespace build2
         auto j (find_if (bs.rbegin (), bs.rend (),
                          [&v, p] (const string& v1)
                          {
-                           return compare_env (v, p, v1, v1.find ('='));
+                           return saved_environment::compare (
+                             v, v1, p, v1.find ('='));
                          }));
 
         if (j == bs.rend () || *j != v)
@@ -130,7 +113,7 @@ namespace build2
       // as a command line override.
       //
       // Note: must be entered during bootstrap since we need it in
-      // configure_execute().
+      // configure_execute() even for the forward case.
       //
       vp.insert<path> ("config.config.save", true /* ovr */);
 
@@ -166,39 +149,11 @@ namespace build2
       //
       // Use the NULL value to clear.
       //
-      auto& c_p (vp.insert<vector<pair<string, string>>> (
-                   "config.config.persist", true /* ovr */, v_p));
-
-      // Configuration environment variables.
+      // Note: must be entered during bootstrap since we need it in create's
+      // save_config().
       //
-      // Environment variables used by tools (e.g., compilers), buildfiles
-      // (e.g., $getenv()), and the build system itself (e.g., to locate
-      // tools) in ways that affect the build result are in essence part of
-      // the project configuration.
-      //
-      // This variable allows storing environment variable overrides that
-      // should be applied to the environment when executing tools, etc., as
-      // part of a project build. Specifically, it contains a list of
-      // environment variable "sets" (<name>=<value>) and "unsets" (<name>).
-      // If multiple entries are specified for the same environment variable,
-      // the last entry has effect. For example:
-      //
-      // config.config.environment="LC_ALL=C LANG"
-      //
-      // Note that a subproject inherits overrides from its amalgamation (this
-      // semantics is the result of the way we optimize the storage of this
-      // variable in subproject's config.build; the thinking is that if a
-      // variable is not overridden by the subproject then it doesn't affect
-      // the build result and therefore it's irrelevant whether it has a value
-      // that came from the original environment of from the amalgamation
-      // override).
-      //
-      // Use the NULL or empty value to clear.
-      //
-      // @@ We could use =<name> as a "pass-through" instruction (e.g., if
-      //    we need to use original value in subproject).
-      //
-      auto& c_e (vp.insert<strings> ("config.config.environment", true /* ovr */));
+      vp.insert<vector<pair<string, string>>> (
+        "config.config.persist", true /* ovr */, v_p);
 
       // Only create the module if we are configuring, creating, or
       // disfiguring or if it was requested with config.config.module (useful
@@ -229,11 +184,6 @@ namespace build2
           //
           m.save_module ("config", INT32_MIN);
           m.save_module ("import", INT32_MIN);
-
-          m.save_variable (c_p, save_null_omitted);
-          m.save_variable (c_e,
-                           save_null_omitted | save_empty_omitted | save_base,
-                           &save_environment);
         }
       }
 
@@ -277,7 +227,16 @@ namespace build2
         return true;
       }
 
+      context& ctx (rs.ctx);
+
       l5 ([&]{trace << "for " << rs;});
+
+      // If we have the module, then we are configuring (or the project wishes
+      // to call $config.save(); we don't get here on disfigure).
+      //
+      module* m (extra.module != nullptr
+                 ? &extra.module_as<module> ()
+                 : nullptr);
 
       auto& vp (rs.var_pool ());
 
@@ -285,8 +244,89 @@ namespace build2
       //
       const auto v_p (variable_visibility::project);
 
-      auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
       auto& c_v (vp.insert<uint64_t> ("config.version", false /*ovr*/, v_p));
+      auto& c_l (vp.insert<paths> ("config.config.load", true /* ovr */));
+
+      // Hermetic configurations.
+      //
+      // A hermetic configuration stores environment variables that affect the
+      // project in config.config.environment.
+      //
+      // Note that this is essentially a tri-state value: true means keep
+      // hermetizing (save the environment in config.config.environment),
+      // false means keep de-hermetizing (clear config.config.environment) and
+      // undefined/NULL means don't touch config.config.environment.
+      //
+      // During reconfiguration things stay hermetic unless re-hermetization
+      // is explicitly requested with config.config.hermetic.reload=true (or
+      // de-hermetization is requested with config.config.hermetic=false).
+      //
+      // Use the NULL value to clear.
+      //
+      auto& c_h (vp.insert<bool> ("config.config.hermetic", true /* ovr */));
+
+      if (m != nullptr)
+        m->save_variable (c_h, save_null_omitted);
+
+      // Request hermetic configuration re-hermetization.
+      //
+      // Note that this variable is not saved in config.build and is expected
+      // to always be specified as a command line override.
+      //
+      auto& c_h_r (
+        vp.insert<bool> ("config.config.hermetic.reload", true /* ovr */));
+
+      // Hermetic configuration environment variables inclusion/exclusion.
+      //
+      // This configuration variable can be used to include additional or
+      // exclude existing environment variables into/from the list that should
+      // be saved in order to make the configuration hermetic. For example:
+      //
+      // config.config.hermetic.environment="LANG PATH@false"
+      //
+      // Use the NULL or empty value to clear.
+      //
+      auto& c_h_e (
+        vp.insert<hermetic_environment> ("config.config.hermetic.environment"));
+
+      if (m != nullptr)
+        m->save_variable (c_h_e, save_null_omitted | save_empty_omitted);
+
+      // Configuration environment variables.
+      //
+      // Environment variables used by tools (e.g., compilers), buildfiles
+      // (e.g., $getenv()), and the build system itself (e.g., to locate
+      // tools) in ways that affect the build result are in essence part of
+      // the project configuration.
+      //
+      // This variable allows storing environment variable overrides that
+      // should be applied to the environment when executing tools, etc., as
+      // part of a project build. Specifically, it contains a list of
+      // environment variable "sets" (<name>=<value>) and "unsets" (<name>).
+      // If multiple entries are specified for the same environment variable,
+      // the last entry has effect. For example:
+      //
+      // config.config.environment="LC_ALL=C LANG"
+      //
+      // Note that a subproject inherits overrides from its amalgamation (this
+      // semantics is the result of the way we optimize the storage of this
+      // variable in subproject's config.build; the thinking is that if a
+      // variable is not overridden by the subproject then it doesn't affect
+      // the build result and therefore it's irrelevant whether it has a value
+      // that came from the original environment of from the amalgamation
+      // override).
+      //
+      // Use the NULL or empty value to clear.
+      //
+      // @@ We could use =<name> as a "pass-through" instruction (e.g., if
+      //    we need to use original value in subproject).
+      //
+      auto& c_e (vp.insert<strings> ("config.config.environment", true /* ovr */));
+
+      if (m != nullptr)
+        m->save_variable (c_e,
+                          save_null_omitted | save_empty_omitted | save_base,
+                          &save_environment);
 
       // Load config.build if one exists followed by extra files specified in
       // config.config.load (we don't need to worry about disfigure since we
@@ -358,7 +398,7 @@ namespace build2
         // b ./config.config.load=.../config.build  # this project
         // b  !config.config.load=.../config.build  # every project
         //
-        if (l.belongs (rs) || l.belongs (rs.ctx.global_scope))
+        if (l.belongs (rs) || l.belongs (ctx.global_scope))
         {
           for (const path& f: cast<paths> (l))
           {
@@ -384,31 +424,50 @@ namespace build2
         }
       }
 
-      // Cache the config.config.persist value, if any.
+      // Save and cache the config.config.persist value, if any.
       //
-      if (extra.module != nullptr)
+      if (m != nullptr)
       {
-        auto& m (extra.module_as<module> ());
+        auto& c_p (*vp.find ("config.config.persist"));
+        m->save_variable (c_p, save_null_omitted);
+        m->persist = cast_null<vector<pair<string, string>>> (rs[c_p]);
+      }
 
-        m.persist =
-          cast_null<vector<pair<string, string>>> (
-            rs["config.config.persist"]);
+      // If we are configuring, handle config.config.hermetic.
+      //
+      // The overall plan is to either clear config.config.environment (if
+      // c.c.h=false) or populate it with the values that affect this project
+      // (if c.c.h=true). We have to do it half here (because c.c.e is used as
+      // a source for the project environment and we would naturally want the
+      // semantics to be equivalent to what will be saved in config.build) and
+      // half in configure_execute() (because that's where we have the final
+      // list of all the environment variables we need to save).
+      //
+      // So here we must deal with the cases where the current c.c.e value
+      // will be changed: either cleared (c.c.h=false) or set to new values
+      // from the "outer" environment (c.c.h.reload=true). Note also that even
+      // then a c.c.e value from an amalgamation, if any, should be in effect.
+      //
+      if (ctx.current_mif->id == configure_id &&
+          (!cast_true<bool> (rs[c_h]) ||  // c.c.h=false
+           cast_false<bool> (rs[c_h_r]))) // c.c.h.r=true
+      {
+        rs.vars.erase (c_e); // Undefine.
       }
 
       // Copy config.config.environment to scope::root_extra::environment.
       //
       // Note that we store shallow copies that point to the c.c.environment
-      // value which means it shall not change.
+      // value which means it should not change.
       //
-      if (const strings* src = cast_null<strings> (
-            rs["config.config.environment"]))
+      if (const strings* src = cast_null<strings> (rs[c_e]))
       {
         vector<const char*>& dst (rs.root_extra->environment);
 
         // The idea is to only copy entries that are effective, that is those
         // that actually override something in the environment. This should be
-        // both more efficient and less noisy (e.g., if we decide to print
-        // this in diagnostics).
+        // both more efficient and less noisy (e.g., if we need to print this
+        // in diagnostics).
         //
         // Note that config.config.environment may contain duplicates and the
         // last entry should have effect.
@@ -429,7 +488,8 @@ namespace build2
           if (find_if (src->rbegin (), i,
                        [&v, p] (const string& v1)
                        {
-                         return compare_env (v, p, v1, v1.find ('='));
+                         return saved_environment::compare (
+                           v, v1, p, v1.find ('='));
                        }) != i)
             continue;
 

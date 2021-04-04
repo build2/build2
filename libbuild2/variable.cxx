@@ -1759,6 +1759,14 @@ namespace build2
     return pair<value&, bool> (r, p.second);
   }
 
+  bool variable_map::
+  erase (const variable& var)
+  {
+    assert (!global_ || ctx->phase == run_phase::load);
+
+    return m_.erase (var) != 0;
+  }
+
   // variable_type_map
   //
   lookup variable_type_map::

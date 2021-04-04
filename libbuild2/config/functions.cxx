@@ -7,6 +7,7 @@
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
 
+#include <libbuild2/config/module.hxx>
 #include <libbuild2/config/operation.hxx>
 
 using namespace std;
@@ -39,6 +40,11 @@ namespace build2
         if (s == nullptr)
           fail << "config.save() called out of project" << endf;
 
+        module* mod (s->find_module<module> (module::name));
+
+        if (mod == nullptr)
+          fail << "config.save() called without config module";
+
         ostringstream os;
 
         // Empty project set should is ok as long as inherit is false.
@@ -47,6 +53,7 @@ namespace build2
         save_config (*s,
                      os, path_name ("config.save()"),
                      false /* inherit */,
+                     *mod,
                      ps);
 
         return os.str ();

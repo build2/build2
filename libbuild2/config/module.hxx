@@ -4,6 +4,8 @@
 #ifndef LIBBUILD2_CONFIG_MODULE_HXX
 #define LIBBUILD2_CONFIG_MODULE_HXX
 
+#include <cstring> // strncmp()
+
 #include <libbutl/prefix-map.mxx>
 
 #include <libbuild2/types.hxx>
@@ -50,7 +52,7 @@ namespace build2
       const_iterator
       find (const variable& var) const
       {
-        return std::find_if (
+        return find_if (
           begin (),
           end (),
           [&var] (const saved_variable& v) {return var == v.var;});
@@ -76,8 +78,69 @@ namespace build2
       }
     };
 
-    struct module: build2::module
+    // List of environment variable names that effect this project.
+    //
+    // Note that on Windows environment variable names are case-insensitive.
+    //
+    struct saved_environment: vector<string>
     {
+      // Compare environment variable names.
+      //
+      static inline bool
+      compare (const string& x,
+               const string& y,
+               size_t xn = string::npos,
+               size_t yn = string::npos)
+      {
+        if (xn == string::npos) xn = x.size ();
+        if (yn == string::npos) yn = y.size ();
+
+        return xn == yn &&
+#ifdef _WIN32
+          icasecmp (x.c_str (), y.c_str (), xn) == 0
+#else
+          strncmp (x.c_str (), y.c_str (), xn) == 0
+#endif
+          ;
+      }
+
+      iterator
+      find (const string& v)
+      {
+        return find_if (
+          begin (),
+          end (),
+          [&v] (const string& v1) {return compare (v, v1);});
+      }
+
+      const_iterator
+      find (const string& v) const
+      {
+        return find_if (
+          begin (),
+          end (),
+          [&v] (const string& v1) {return compare (v, v1);});
+      }
+
+      void
+      insert (string v)
+      {
+        if (find (v) == end ())
+          push_back (move (v));
+      }
+
+      void
+      erase (const string& v)
+      {
+        auto i (find (v));
+        if (i != end ())
+          vector<string>::erase (i);
+      }
+    };
+
+    class module: public build2::module
+    {
+    public:
       config::saved_modules saved_modules;
 
       // Return true if variable/module were newly inserted.
@@ -109,6 +172,9 @@ namespace build2
 
         return nullptr;
       }
+
+      config::saved_environment saved_environment;
+      strings old_environment;
 
       // Configure/disfigure hooks.
       //

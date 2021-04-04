@@ -15,6 +15,8 @@ namespace build2
 {
   namespace config
   {
+    class module;
+
     extern const meta_operation_info mo_configure;
     extern const meta_operation_info mo_disfigure;
 
@@ -37,7 +39,12 @@ namespace build2
     save_config (const scope& rs,
                  ostream&, const path_name&,
                  bool inherit,
+                 module&,
                  const project_set&);
+
+    // See config.config.hermetic.environment.
+    //
+    using hermetic_environment = vector<pair<string, optional<bool>>>;
   }
 }
 

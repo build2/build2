@@ -1562,6 +1562,14 @@ namespace build2
     pair<value_data*, const variable&>
     lookup_to_modify (const variable&, bool typed = true);
 
+    pair<const_iterator, const_iterator>
+    lookup_namespace (const variable& ns) const
+    {
+      auto r (m_.find_sub (ns));
+      return make_pair (const_iterator (r.first,  *this),
+                        const_iterator (r.second, *this));
+    }
+
     // Convert a lookup pointing to a value belonging to this variable map
     // to its non-const version. Note that this is only safe on the original
     // values (see find_original()).
@@ -1599,13 +1607,10 @@ namespace build2
     pair<value&, bool>
     insert (const variable&, bool typed = true);
 
-    pair<const_iterator, const_iterator>
-    lookup_namespace (const variable& ns) const
-    {
-      auto r (m_.find_sub (ns));
-      return make_pair (const_iterator (r.first,  *this),
-                        const_iterator (r.second, *this));
-    }
+    // Note: does not deal with aliases.
+    //
+    bool
+    erase (const variable&);
 
     const_iterator
     begin () const {return const_iterator (m_.begin (), *this);}
