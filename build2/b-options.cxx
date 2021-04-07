@@ -1634,8 +1634,9 @@ namespace build2
        << ::std::endl
        << "\033[1mEXIT STATUS\033[0m" << ::std::endl
        << ::std::endl
-       << "Non-zero exit status is returned in case of an error." << ::std::endl
-       << ::std::endl
+       << "Non-zero exit status is returned in case of an error." << ::std::endl;
+
+    os << std::endl
        << "\033[1mENVIRONMENT\033[0m" << ::std::endl
        << ::std::endl
        << "The \033[1mHOME\033[0m environment variable is used to determine the user's home directory." << ::std::endl

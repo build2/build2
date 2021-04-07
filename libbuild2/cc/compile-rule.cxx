@@ -6596,7 +6596,7 @@ namespace build2
       if (getenv ("IFCPATH"))
       {
         // VC's IFCPATH takes precedence over /module:stdIfcDir so unset it if
-        // we are using our own std modules.
+        // we are using our own std modules. Note: IFCPATH saved in guess.cxx.
         //
         if (!stdifc.empty ())
           env.push_back ("IFCPATH");

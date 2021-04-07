@@ -173,6 +173,15 @@ namespace build2
         return nullptr;
       }
 
+      void
+      save_environment (const char* var)
+      {
+        saved_environment.insert (var);
+      }
+
+      static void
+      save_environment (scope&, const char*);
+
       config::saved_environment saved_environment;
       strings old_environment;
 

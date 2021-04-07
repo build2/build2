@@ -56,6 +56,13 @@ namespace build2
         m->save_variable (var, flags);
     }
 
+    void module::
+    save_environment (scope& rs, const char* var)
+    {
+      if (module* m = rs.find_module<module> (module::name))
+        m->save_environment (var);
+    }
+
     bool module::
     save_module (const char* name, int prio)
     {

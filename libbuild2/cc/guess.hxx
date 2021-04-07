@@ -236,6 +236,12 @@ namespace build2
       optional<pair<dir_paths, size_t>> sys_lib_dirs;
       optional<pair<dir_paths, size_t>> sys_inc_dirs;
       optional<pair<dir_paths, size_t>> sys_mod_dirs;
+
+      // Optional list of environment variables that affect the compiler and
+      // its target platform.
+      //
+      const char* const* compiler_environment;
+      const char* const* platform_environment;
     };
 
     // In a sense this is analagous to the language standard which we handle

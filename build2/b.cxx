@@ -606,6 +606,7 @@ main (int argc, char* argv[])
         << "b.name = [string] b" << endl
         << "b.version = [string] '" << LIBBUILD2_VERSION_FULL << '\'' << endl
         << "b.checksum = [string] '" << LIBBUILD2_VERSION_FULL << '\'' << endl
+        << "b.environment = [strings] BUILD2_VAR_OVR BUILD2_DEF_OPT" << endl
         << "b.static = [bool] " <<
 #ifdef LIBBUILD2_STATIC
         "true"

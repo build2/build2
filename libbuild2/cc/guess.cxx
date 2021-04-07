@@ -829,7 +829,9 @@ namespace build2
         //
         // The main drawback of the latter, of course, is that the commands we
         // print are no longer re-runnable (even though we may have supplied
-        // the rest of the "environment" explicitly on the command line).
+        // the rest of the "environment" explicitly on the command line). Plus
+        // we would need to save whatever environment variables we used to
+        // form the fallback path in case of hermetic configuration.
         //
         // An alternative strategy is to try and obtain the corresponding
         // "environment" in case of the effective (absolute) path similar to
@@ -1571,6 +1573,13 @@ namespace build2
     const char*
     msvc_cpu (const string&); // msvc.cxx
 
+    // Note that LIB, LINK, and _LINK_ are technically link.exe's variables
+    // but we include them in case linking is done via the compiler without
+    // loading bin.ld. BTW, the same applies to rc.exe INCLUDE.
+    //
+    static const char* msvc_env[] = {"INCLUDE", "IFCPATH", "CL", "_CL_",
+                                     "LIB", "LINK", "_LINK_", nullptr};
+
     static compiler_info
     guess_msvc (const char* xm,
                 lang xl,
@@ -1796,8 +1805,40 @@ namespace build2
         move (xsl),
         move (lib_dirs),
         move (inc_dirs),
-        move (mod_dirs)};
+        move (mod_dirs),
+        msvc_env,
+        nullptr};
     }
+
+    // See "Environment Variables Affecting GCC".
+    //
+    // @@ TODO: Yt feels like we should unset the following variables:
+    //
+    // DEPENDENCIES_OUTPUT
+    // SUNPRO_DEPENDENCIES
+    //
+    // Note also that we include (some) linker's variables in case linking is
+    // done via the compiler without loading bin.ld (to do this precisely we
+    // would need to detect which linker is being used at which point we might
+    // as well load bin.ld).
+    //
+    static const char* gcc_c_env[] = {
+      "CPATH", "C_INCLUDE_PATH",
+      "LIBRARY_PATH", "LD_RUN_PATH",
+      "SOURCE_DATE_EPOCH", "GCC_EXEC_PREFIX", "COMPILER_PATH",
+      nullptr};
+
+    static const char* gcc_cxx_env[] = {
+      "CPATH", "CPLUS_INCLUDE_PATH",
+      "LIBRARY_PATH", "LD_RUN_PATH",
+      "SOURCE_DATE_EPOCH", "GCC_EXEC_PREFIX", "COMPILER_PATH",
+      nullptr};
+
+    // Note that Clang recognizes a whole family of *_DEPLOYMENT_TARGET
+    // variables.
+    //
+    static const char* macos_env[] = {
+      "SDKROOT", "MACOSX_DEPLOYMENT_TARGET", nullptr};
 
     static compiler_info
     guess_gcc (const char* xm,
@@ -1979,6 +2020,17 @@ namespace build2
         }
       }
 
+      // Environment.
+      //
+      const char* const* c_env (nullptr);
+      switch (xl)
+      {
+      case lang::c:   c_env = gcc_c_env;   break;
+      case lang::cxx: c_env = gcc_cxx_env; break;
+      }
+
+      const char* const* p_env (tt.system == "darwin" ? macos_env : nullptr);
+
       return compiler_info {
         move (gr.path),
         move (gr.id),
@@ -1996,7 +2048,9 @@ namespace build2
         move (xsl),
         nullopt,
         nullopt,
-        nullopt};
+        nullopt,
+        c_env,
+        p_env};
     }
 
     struct clang_msvc_info: msvc_info
@@ -2217,6 +2271,22 @@ namespace build2
 
       return r;
     }
+
+    // These are derived from gcc_* plus the sparse documentation (clang(1))
+    // and source code.
+    //
+    //
+    static const char* clang_c_env[] = {
+      "CPATH", "C_INCLUDE_PATH",
+      "LIBRARY_PATH", "LD_RUN_PATH",
+      "COMPILER_PATH",
+      nullptr};
+
+    static const char* clang_cxx_env[] = {
+      "CPATH", "CPLUS_INCLUDE_PATH",
+      "LIBRARY_PATH", "LD_RUN_PATH",
+      "COMPILER_PATH",
+      nullptr};
 
     static compiler_info
     guess_clang (const char* xm,
@@ -2624,6 +2694,29 @@ namespace build2
         }
       }
 
+      // Environment.
+      //
+      // Note that "Emscripten Compiler Frontend (emcc)" has a long list of
+      // environment variables with little explanation. So someone will need
+      // to figure out what's important (some of them are clearly for
+      // debugging of emcc itself).
+      //
+      const char* const* c_env (nullptr);
+      const char* const* p_env (nullptr);
+      if (tt.system == "win32-msvc")
+        c_env = msvc_env;
+      else
+      {
+        switch (xl)
+        {
+        case lang::c:   c_env = clang_c_env;   break;
+        case lang::cxx: c_env = clang_cxx_env; break;
+        }
+
+        if (tt.system == "darwin")
+          p_env = macos_env;
+      }
+
       return compiler_info {
         move (gr.path),
         move (gr.id),
@@ -2641,7 +2734,9 @@ namespace build2
         move (xsl),
         move (lib_dirs),
         nullopt,
-        nullopt};
+        nullopt,
+        c_env,
+        p_env};
     }
 
     static compiler_info
@@ -2956,7 +3051,9 @@ namespace build2
         move (xsl),
         nullopt,
         nullopt,
-        nullopt};
+        nullopt,
+        nullptr, /* TODO */
+        nullptr};
     }
 
     // Compiler checks can be expensive (we often need to run the compiler

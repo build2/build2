@@ -8,6 +8,7 @@ using namespace std;
 namespace build2
 {
   void (*config_save_variable) (scope&, const variable&, optional<uint64_t>);
+  void (*config_save_environment) (scope&, const char*);
   void (*config_save_module) (scope&, const char*, int);
   const string& (*config_preprocess_create) (context&,
                                              values&,

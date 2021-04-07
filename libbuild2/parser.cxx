@@ -494,6 +494,10 @@ namespace build2
         {
           f = &parser::parse_config;
         }
+        else if (n == "config.environment")
+        {
+          f = &parser::parse_config_environment;
+        }
 
         if (f != nullptr)
         {
@@ -2481,6 +2485,48 @@ namespace build2
         config_report_new = config_report_new || new_val;
       }
     }
+
+    next_after_newline (t, tt);
+  }
+
+  void parser::
+  parse_config_environment (token& t, type& tt)
+  {
+    // config.environment <name>...
+    //
+
+    // While we could allow this directive during bootstrap, it would have to
+    // be after loading the config module, which can be error prone. So we
+    // disallow it for now (it's also not clear "configuring" bootstrap with
+    // environment variables is a good idea; think of info, etc).
+    //
+    if (stage_ == stage::boot)
+      fail (t) << "config.environment during bootstrap";
+
+    // Parse the rest as names in the value mode to get variable expansion,
+    // etc.
+    //
+    mode (lexer_mode::value);
+    next (t, tt);
+    const location l (get_location (t));
+
+    strings ns;
+    try
+    {
+      ns = convert<strings> (
+        tt != type::newline && tt != type::eos
+        ? parse_names (t, tt,
+                       pattern_mode::ignore,
+                       "environment variable name",
+                       nullptr)
+        : names ());
+    }
+    catch (const invalid_argument& e)
+    {
+      fail (l) << "invalid environment variable name: " << e.what ();
+    }
+
+    config::save_environment (*root_, ns);
 
     next_after_newline (t, tt);
   }

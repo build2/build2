@@ -219,6 +219,28 @@ namespace build2
         config::unsave_variable (rs, v);
       }
 
+      // Environment.
+      //
+      // Preparing a distribution may involve executing the following
+      // programs:
+      //
+      // install
+      //
+      //   While some install implementations recognize environment variables,
+      //   none of them affect our invocations (see the install module for
+      //   analysis).
+      //
+      // *sum programs (md5sum, sha1sum, sha256sum, etc)
+      //
+      //   These do not recognize any environment variables (at least the
+      //   GNU coreutils versions).
+      //
+      //
+      // tar, zip, gzip, xz (and whatever tar may invoke)
+      //
+      //   This is a can of worms that we currently don't touch (perhaps this
+      //   will sort itself out if/when we switch to libarchive).
+
       return true;
     }
 

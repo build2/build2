@@ -706,6 +706,9 @@ namespace build2
       rs.assign (x_sys_lib_dirs) = move (lib_dirs.first);
       rs.assign (x_sys_inc_dirs) = move (inc_dirs.first);
 
+      config::save_environment (rs, xi.compiler_environment);
+      config::save_environment (rs, xi.platform_environment);
+
       // Load cc.core.config.
       //
       if (!cast_false<bool> (rs["cc.core.config.loaded"]))

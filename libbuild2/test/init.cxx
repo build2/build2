@@ -278,6 +278,12 @@ namespace build2
       //
       //@@ TODO: Pring report.
 
+      // Environment.
+      //
+      // The only external program that we currently use is diff. None of the
+      // implementations we looked at (GNU diffutils, FreeBSD) use any
+      // environment variables.
+
       // Register target types.
       //
       {

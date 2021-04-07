@@ -326,6 +326,9 @@ namespace build2
           fail << "unable to guess " << *rl << " signature";
       }
 
+      // None of the ar/ranlib implementations we recognize seem to use
+      // environment variables (not even Microsoft lib.exe).
+      //
       return ar_cache.insert (move (key),
                               ar_info {
                                 move (arp),
@@ -333,12 +336,38 @@ namespace build2
                                 move (arr.signature),
                                 move (arr.checksum),
                                 move (*arr.version),
+                                nullptr,
 
                                 move (rlp),
                                 move (rlr.id),
                                 move (rlr.signature),
-                                move (rlr.checksum)});
+                                move (rlr.checksum),
+                                nullptr});
     }
+
+    // Linker environment variables (see also the cc module which duplicates
+    // some of these).
+    //
+    // Notes:
+    //
+    //  - GNU linkers search in LD_LIBRARY_PATH in addition to LD_RUN_PATH but
+    //    we assume the former is part of the built-in list. Interestingly,
+    //    LLD does not search in either.
+    //
+    //  - The LLD family of linkers have a bunch of undocumented, debugging-
+    //    related variables (LLD_REPRODUCE, LLD_VERSION, LLD_IN_TEST) that we
+    //    ignore.
+    //
+    //  - ld64 uses a ton of environment variables (according to the source
+    //    code) but none of them are documented in the man pages. So someone
+    //    will need to figure out what's important (some of them are clearly
+    //    for debugging of ld itself).
+    //
+    static const char* gnu_ld_env[] = {
+      "LD_RUN_PATH", "GNUTARGET", "LDEMULATION", "COLLECT_NO_DEMANGLE", nullptr};
+
+    static const char* msvc_ld_env[] = {
+      "LIB", "LINK", "_LINK_", nullptr};
 
     // Extracting ld information requires running it which can become
     // expensive if done repeatedly. So we cache the result.
@@ -522,14 +551,25 @@ namespace build2
       if (r.empty ())
         fail << "unable to guess " << ld << " signature";
 
+      const char* const* ld_env ((r.id == "gnu"    ||
+                                  r.id == "gnu-gold") ? gnu_ld_env :
+                                 (r.id == "msvc"   ||
+                                  r.id == "msvc-lld") ? msvc_ld_env :
+                                 nullptr);
+
       return ld_cache.insert (move (key),
                               ld_info {
                                 move (pp),
                                 move (r.id),
                                 move (r.signature),
                                 move (r.checksum),
-                                move (r.version)});
+                                move (r.version),
+                                ld_env});
     }
+
+    // Resource compiler environment variables.
+    //
+    static const char* msvc_rc_env[] = {"INCLUDE", nullptr};
 
     // Extracting rc information requires running it which can become
     // expensive if done repeatedly. So we cache the result.
@@ -632,12 +672,17 @@ namespace build2
       if (r.empty ())
         fail << "unable to guess " << rc << " signature";
 
+      const char* const* rc_env ((r.id == "msvc"   ||
+                                  r.id == "msvc-llvm") ? msvc_rc_env :
+                                 nullptr);
+
       return rc_cache.insert (move (key),
                               rc_info {
                                 move (pp),
                                 move (r.id),
                                 move (r.signature),
-                                move (r.checksum)});
+                                move (r.checksum),
+                                rc_env});
     }
   }
 }

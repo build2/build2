@@ -28,6 +28,9 @@ namespace build2
     // a toolchain-specific manner (usually the output of --version/-V) and
     // is not bulletproof.
     //
+    // The environment is an optional list of environment variables that
+    // affect ar/ranlib result.
+    //
     struct ar_info
     {
       process_path ar_path;
@@ -35,11 +38,13 @@ namespace build2
       string ar_signature;
       string ar_checksum;
       semantic_version ar_version;
+      const char* const* ar_environment;
 
       process_path ranlib_path;
       string ranlib_id;
       string ranlib_signature;
       string ranlib_checksum;
+      const char* const* ranlib_environment;
     };
 
     // The ranlib path can be NULL, in which case no ranlib guessing will be
@@ -72,6 +77,9 @@ namespace build2
     // toolchain-specific manner (usually the output of --version/-version/-v)
     // and is not bulletproof.
     //
+    // The environment is an optional list of environment variables that
+    // affect the linker result.
+    //
     // Note that for now the version is extracted only for some linkers. Once
     // it's done for all of them, we should drop optional.
     //
@@ -81,8 +89,8 @@ namespace build2
       string id;
       string signature;
       string checksum;
-
       optional<semantic_version> version;
+      const char* const* environment;
     };
 
     const ld_info&
@@ -102,12 +110,16 @@ namespace build2
     // toolchain-specific manner (usually the output of --version) and is not
     // bulletproof.
     //
+    // The environment is an optional list of environment variables that
+    // affect the resource compiler result.
+    //
     struct rc_info
     {
       process_path path;
       string id;
       string signature;
       string checksum;
+      const char* const* environment;
     };
 
     const rc_info&

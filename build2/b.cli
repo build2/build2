@@ -724,7 +724,12 @@ namespace build2
   \h|EXIT STATUS|
 
   Non-zero exit status is returned in case of an error.
+  "
 
+  // NOTE: remember to update --build2-metadata output if adding any relevant
+  //       new environment variables.
+  //
+  "
   \h|ENVIRONMENT|
 
   The \cb{HOME} environment variable is used to determine the user's home
@@ -739,5 +744,6 @@ namespace build2
 
   The \cb{BUILD2_DEF_OPT} environment variable is used to suppress loading of
   default options files in nested build system driver invocations. Its values
-  are \cb{false} or \cb{0} to suppress and \cb{true} or \cb{1} to load."
+  are \cb{false} or \cb{0} to suppress and \cb{true} or \cb{1} to load.
+  "
 }

@@ -36,6 +36,9 @@ namespace build2
   (*config_save_variable) (scope&, const variable&, optional<uint64_t>);
 
   LIBBUILD2_SYMEXPORT extern void
+  (*config_save_environment) (scope&, const char*);
+
+  LIBBUILD2_SYMEXPORT extern void
   (*config_save_module) (scope&, const char*, int);
 
   LIBBUILD2_SYMEXPORT extern const string&
@@ -53,7 +56,7 @@ namespace build2
 
   namespace config
   {
-    // Mark the variable to be saved during configuration.
+    // Mark a variable to be saved during configuration.
     //
     const uint64_t save_default_commented = 0x01; // Based on value::extra.
     const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
@@ -67,7 +70,7 @@ namespace build2
         config_save_variable (rs, var, flags);
     }
 
-    // Mark the variable as "unsaved" (always transient).
+    // Mark a variable as "unsaved" (always transient).
     //
     // Such variables are not very common and are usually used to control the
     // process of configuration itself.
@@ -77,6 +80,82 @@ namespace build2
     {
       if (config_save_variable != nullptr)
         config_save_variable (rs, var, nullopt);
+    }
+
+    // Mark an environment variable to be saved during hermetic configuration.
+    //
+    // Some notes/suggestions on saving environment variables for tools (e.g.,
+    // compilers, etc):
+    //
+    // 1. We want to save variables that affect the result (e.g., build
+    //    output) rather than byproducts (e.g., diagnostics).
+    //
+    // 2. Environment variables are often poorly documented (and not always in
+    //    the ENVIRONMENT section; sometimes they are mentioned together with
+    //    the corresponding option). A sensible approach in this case is to
+    //    save documented (and perhaps well-known undocumented) variables --
+    //    the user can always save additional variables if necessary. The way
+    //    to discover undocumented environment variables is to grep the source
+    //    code.
+    //
+    // 3. Sometime environment variables only affect certain modes of a tool.
+    //    If such modes are not used, then there is no need to save the
+    //    corresponding variables.
+    //
+    // 4. Finally, there could be environment variables that are incompatible
+    //    with what we are doing (e.g., they change the mode of operation or
+    //    some such; see GCC's DEPENDENCIES_OUTPUT for example). While they
+    //    can be cleared for each invocation, this is burdensome and it is
+    //    often easier to just unset them for the entire build system process
+    //    if we can be reasonable sure that there can be no plausible use for
+    //    this variable (e.g., by another module or by the buildfile
+    //    directly). The module's load() function is a natural place to do
+    //    that.
+    //
+    inline void
+    save_environment (scope& rs, const string& var)
+    {
+      if (config_save_environment != nullptr)
+        config_save_environment (rs, var.c_str ());
+    }
+
+    inline void
+    save_environment (scope& rs, const char* var)
+    {
+      if (config_save_environment != nullptr)
+        config_save_environment (rs, var);
+    }
+
+    inline void
+    save_environment (scope& rs, initializer_list<const char*> vars)
+    {
+      if (config_save_environment != nullptr)
+      {
+        for (const char* var: vars)
+          config_save_environment (rs, var);
+      }
+    }
+
+    inline void
+    save_environment (scope& rs, const strings& vars)
+    {
+      if (config_save_environment != nullptr)
+      {
+        for (const string& var: vars)
+          config_save_environment (rs, var.c_str ());
+      }
+    }
+
+    // A NULL-terminated list of variables.
+    //
+    inline void
+    save_environment (scope& rs, const char* const* vars)
+    {
+      if (vars != nullptr && config_save_environment != nullptr)
+      {
+        for (; *vars != nullptr; ++vars)
+          config_save_environment (rs, *vars);
+      }
     }
 
     // Establish module save order/priority with INT32_MIN being the highest.

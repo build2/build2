@@ -37,6 +37,12 @@ namespace build2
       // prevent this we pass the git's exec directory via the --exec-path
       // option explicitly.
       //
+      // Note also that git has quite a few GIT_* environment variables and
+      // stray values for some of them could break our commands. So it may
+      // seem like a good idea to unset them. But on the other hand, they may
+      // be there for a reason: after all, we are operating on user's projects
+      // and user's environment may be setup to handle them.
+      //
       path p ("git");
       process_path pp (run_search (p, true /* init */));
 

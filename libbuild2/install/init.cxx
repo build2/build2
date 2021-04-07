@@ -313,6 +313,40 @@ namespace build2
         vp.insert<bool>   ("install.subdirs");
       }
 
+      // Environment.
+      //
+      // Installation may involve executing the following programs:
+      //
+      // install
+      //
+      //   GNU coreutils install recognizes the SIMPLE_BACKUP_SUFFIX and
+      //   VERSION_CONTROL variables but they only matter with --backup which
+      //   we do not specify and assume unlikely to be specified via .options.
+      //
+      //   FreeBSD install recognizes STRIPBIN and DONTSTRIP variables that
+      //   only matter with -s which we do not specify but which could be
+      //   specified with .options. NetBSD and OpenBSD use STRIP (Mac OS man
+      //   page doesn't list anything).
+      //
+      // sudo
+      //
+      //   While sudo has a bunch of SUDO_* variables, none of them appear to
+      //   matter (either not used in the modes that we invoke sudo in or do
+      //   not affect the result).
+      //
+      // ln, rm, rmdir
+      //
+      //   GNU coreutils ln recognizes the SIMPLE_BACKUP_SUFFIX and
+      //   VERSION_CONTROL variables but they only matter with --backup which
+      //   we do not specify.
+      //
+#if   defined(__FreeBSD__)
+      config::save_environment (rs, {"STRIPBIN", "DONTSTRIP"});
+#elif defined(__NetBSD__) || \
+      defined(__OpenBSD__)
+      config::save_environment (rs, "STRIP");
+#endif
+
       // Register our rules.
       //
       {

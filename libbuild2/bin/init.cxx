@@ -740,6 +740,8 @@ namespace build2
           rs.assign<string>   ("bin.ar.version.build") = v.build;
         }
 
+        config::save_environment (rs, ari.ar_environment);
+
         if (ranlib != nullptr)
         {
           rs.assign<process_path_ex> ("bin.ranlib.path")   =
@@ -747,6 +749,8 @@ namespace build2
           rs.assign<string>       ("bin.ranlib.id")        = ari.ranlib_id;
           rs.assign<string>       ("bin.ranlib.signature") = ari.ranlib_signature;
           rs.assign<string>       ("bin.ranlib.checksum")  = ari.ranlib_checksum;
+
+          config::save_environment (rs, ari.ranlib_environment);
         }
       }
 
@@ -871,6 +875,8 @@ namespace build2
           rs.assign<uint64_t> ("bin.ld.version.patch") = v.patch;
           rs.assign<string>   ("bin.ld.version.build") = v.build;
         }
+
+        config::save_environment (rs, ldi.environment);
       }
 
       return true;
@@ -995,6 +1001,8 @@ namespace build2
         rs.assign<string>       ("bin.rc.id")        = rci.id;
         rs.assign<string>       ("bin.rc.signature") = rci.signature;
         rs.assign<string>       ("bin.rc.checksum")  = rci.checksum;
+
+        config::save_environment (rs, rci.environment);
       }
 
       return true;

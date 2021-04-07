@@ -19,7 +19,7 @@
 #include <libbuild2/parser.hxx>
 
 #include <libbuild2/config/module.hxx>  // config::module::version
-#include <libbuild2/config/utility.hxx> // config::lookup_config()
+#include <libbuild2/config/utility.hxx> // config::{lookup_*, save_*}()
 
 using namespace std;
 using namespace butl;
@@ -2888,6 +2888,10 @@ namespace build2
 
     target& t (pt->rw ()); // Load phase.
 
+    // Note that if metadata is requested via any of the import*() functions,
+    // then we will always end up here (see delegates to import_direct()),
+    // which is where we do the final verifications and processing.
+    //
     if (meta)
     {
       // The export.metadata value should start with the version followed by
@@ -2924,14 +2928,30 @@ namespace build2
           fail (loc) << "invalid metadata variable prefix in imported "
                      << "target " << t;
 
+        const string& pfx (ns[1].value);
+
+        auto& vp (ctx.var_pool.rw ()); // Load phase.
+
         // See if we have the stable program name in the <var-prefix>.name
         // variable. If its missing, set it to the metadata key (i.e., target
         // name as imported) by default.
         //
-        auto& vp (ctx.var_pool.rw ()); // Load phase.
-        value& nv (t.assign (vp.insert (ns[1].value + ".name")));
-        if (!nv)
-          nv = *meta;
+        {
+          value& nv (t.assign (vp.insert (pfx + ".name")));
+          if (!nv)
+            nv = *meta;
+        }
+
+        // See if the program reported the use of environment variables and
+        // if so save them as affecting this project.
+        //
+        if (const auto* e = cast_null<strings> (t.vars[pfx + ".environment"]))
+        {
+          scope& rs (*base.root_scope ());
+
+          for (const string& v: *e)
+            config::save_environment (rs, v);
+        }
       }
       else
         fail (loc) << "no metadata for imported target " << t;

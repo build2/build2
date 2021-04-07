@@ -549,6 +549,7 @@ namespace build2
       // Initialize the config entry points in the build system core.
       //
       config_save_variable = &module::save_variable;
+      config_save_environment = &module::save_environment;
       config_save_module = &module::save_module;
       config_preprocess_create = &preprocess_create;
       config_configure_post = &module::configure_post;
