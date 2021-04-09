@@ -414,6 +414,11 @@ namespace build2
     //
     // Run builtin or external program and return trimmed stdout.
     //
+    // Note that if the result of executing the program can be affected by
+    // environment variables and this result can in turn affect the build
+    // result, then such variables should be reported with the
+    // config.environment directive.
+    //
     // Note that this function is not pure.
     //
     f.insert (".run", false) += [](const scope* s, names args)
@@ -434,6 +439,11 @@ namespace build2
     // Each line of stdout (including the customary trailing blank) is matched
     // (as a whole) against <pat> and, if successful, returned, optionally
     // processed with <fmt>, as an element of a list.
+    //
+    // Note that if the result of executing the program can be affected by
+    // environment variables and this result can in turn affect the build
+    // result, then such variables should be reported with the
+    // config.environment directive.
     //
     // Note that this function is not pure.
     //

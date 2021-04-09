@@ -1652,15 +1652,15 @@ examine each of them starting with \c{config}.
 
 \h2#intro-operations-config|Configuring|
 
-As mentioned briefly earlier, the \c{config} module provides support for
-persisting configurations by having us \i{configure} our projects. At first it
-may feel natural to call \c{configure} an operation. There is, however, a
-conceptual problem: we don't really configure a target. And, perhaps after
-some meditation, it should become clear that what we are really doing is
-configuring operations on targets. For example, configuring updating a C++
-project might involve detecting and saving information about the C++ compiler
-while configuring installing it may require specifying the installation
-directory.
+As mentioned briefly earlier, the \l{#module-config \c{config}} module
+provides support for persisting configurations by having us \i{configure} our
+projects. At first it may feel natural to call \c{configure} an operation.
+There is, however, a conceptual problem: we don't really configure a
+target. And, perhaps after some meditation, it should become clear that what
+we are really doing is configuring operations on targets. For example,
+configuring updating a C++ project might involve detecting and saving
+information about the C++ compiler while configuring installing it may require
+specifying the installation directory.
 
 In other words, \c{configure} is an operation on operation on targets \- a
 meta-operation.  And so in \c{build2} we have the concept of a \i{build system
@@ -1775,6 +1775,20 @@ $ b configure config.cxx=\"g++ -L/opt/install\"
 \
 
 |
+
+
+If we would like to prevent subsequent changes to the environment from
+affecting our build configuration, we can make it \i{hermetic} (see
+\l{#module-config-hermetic Hermetic Build Configurations} for details):
+
+\
+$ b configure config.config.hermetic=true ...
+\
+
+\N|One prominent use of hermetic configurations is to preserve the build
+environment of the Visual Studio development command prompt. That is,
+hermetically configuring our project in a suitable Visual Studio command
+prompt makes us free to build it from any other prompt or shell, IDE, etc.|
 
 We can also configure out of source builds of our projects. In this case,
 besides \c{config.build}, \c{configure} also saves the location of the source
@@ -4572,12 +4586,19 @@ the optional functionality case, the default should probably be to provide it.
 As discussed in the introduction, the central part of the build configuration
 functionality are the \i{configuration variables}. One of the key features
 that make them special is support for automatic persistence in the
-\c{build/config.build} file provided by the \c{config} module (see
-\l{#intro-operations-config Configuring} for details). The following example,
-based on the \c{libhello} project from the introduction, gives an overview of
-the project configuration functionality with the remainder of the chapter
-providing the detailed explanation of all the parts shown as well as the
-alternative approaches.
+\c{build/config.build} file provided by the \l{#module-config \c{config}}
+module (see \l{#intro-operations-config Configuring} for details).
+
+\N|Another mechanism that can be used for project configuration is environment
+variables. While not recommended, sometimes it may be forced on us by external
+factors. In such cases, environment variables that affect the build result
+should be reported with the \c{config.environment} directive as discussed in
+\l{#module-config-hermetic Hermetic Build Configurations}.|
+
+The following example, based on the \c{libhello} project from the introduction,
+gives an overview of the project configuration functionality with the
+remainder of the chapter providing the detailed explanation of all the parts
+shown as well as the alternative approaches.
 
 \
 libhello/
@@ -5579,6 +5600,153 @@ Load the specified file in the current scope as if its contents were copied
 and pasted in place of the \c{source} directive. Note that subsequent sourcing
 of the same file in the same scope are not automatically ignored.  See also
 \l{#directives-include \c{include}}.
+
+
+\h1#module-config|\c{config} Module|
+
+\N{This chapter is a work in progress and is incomplete.}
+
+\h#module-config-hermetic|Hermetic Build Configurations|
+
+Hermetic build configurations save environment variables that affect the
+project along with other project configuration in the \c{build/config.build}
+file. These saved environment variables are then used instead of the current
+environment when performing operations on the project, thus making sure the
+project \"sees\" exactly the same environment as during configuration.
+
+\N|While currently hermetic configurations only deal with the environment, in
+the future this functionality may be extended to also support disallowing
+changes to external resources (compilers, system headers and libraries, etc).|
+
+To create a hermetic configuration we use the \c{config.config.hermetic}
+configuration variable. For example:
+
+\
+$ b configure config.config.hermetic=true
+\
+
+\N|Hermetic configurations are not the default because they are not without
+drawbacks. Firstly, a hermetic configuration may break if the saved
+environment becomes incompatible with the rest of the system. For example, you
+may re-install an external program (say, a compiler) into a different location
+and update your \c{PATH} to match the new setup. However, a hermetic
+configuration will \"see\" the first change but not the second.
+
+Another issue is the commands printed during a hermetic build: they are
+executed in the saved environment which may not match the environment in which
+the build system was invoked. As a result, we cannot easily re-execute such
+commands, which is often handy during build troubleshooting.
+
+It is also important to keep in mind that a non-hermetic build configuration
+does not break or produce incorrect results if the environment changes.
+Instead, changes to the environment are detected and affected targets are
+automatically rebuilt.
+
+The two use-cases where hermetic configurations are really useful are when we
+need to save an environment which is not generally available (for example, an
+environment of a Visual Studio development command prompt) or when our build
+results need to exactly match the specific configuration (for example, because
+parts of the overall result have already been built and installed, as is the
+case with build system modules).|
+
+If we now examine \c{config.build}, we will see something along these lines:
+
+\
+$ cat build/config.build
+
+config.config.hermetic = true
+config.config.environment = CPATH CPLUS_INCLUDE_PATH PATH=...
+\
+
+\N|Hermetic configuration support is built on top of the low-level
+\c{config.config.environment} configuration variable which allows us to
+specify custom environment variables and their values. Specifically, it
+contains a list of environment variable \"sets\" (\c{\i{name}=\i{value}})
+and \"unsets\" (\ci{name}). For example:
+
+\
+$ b configure \
+  config.config.environment=\"PATH=/bin:/usr/bin LD_LIBRARY_PATH\"
+\
+
+Specifying \c{config.config.hermetic=true} simply instructs the \c{config}
+module to collect and save in \c{config.config.environment} environment
+variables that affect the project. These include:
+
+\ul|
+
+\li|built-in variables (such as \c{PATH} and \c{LD_LIBRARY_PATH} or equivalent),|
+
+\li|variables that affect external programs as reported by build system
+modules (such as \c{CPLUS_INCLUDE_PATH} reported by the \c{cxx} module) or
+by imported programs via metadata,|
+
+\li|variables reported by the project itself with the \c{config.environment}
+directive (discussed below).|||
+
+Reconfiguring a hermetic configuration preserves the saved environment unless
+\i{re-hermetization} is explicitly requested with the
+\c{config.config.hermetic.reload} configuration variable. For example:
+
+\
+$ b configure config.config.hermetic.reload=true
+\
+
+\N|Note that \c{config.config.hermetic.reload} is transient and is not stored
+in \c{config.build}. In other words, there is no way to create a hermetic
+configuration that is re-hermetized by default during reconfiguration.|
+
+To \i{de-hermetize} a hermetic build configuration, reconfigure it with
+\c{config.config.hermetic=false}.
+
+\N|The \c{config.config.hermetic} variable has essentially a tri-state value:
+\c{true} means keep hermetized (save the environment in
+\c{config.config.environment}), \c{false} means keep de-hermetized (clear
+\c{config.config.environment}) and \c{null} or undefined means don't touch
+\c{config.config.environment}.|
+
+We can adjust the set of environment variables saved in a hermetic
+configuration using the \c{config.config.hermetic.environment} configuration
+variable. It contains a list of inclusions (\ci{name}) and exclusions
+(\c{\i{name}@false}) which are applied to the final set of environment
+variables that affect the project. For example:
+
+\
+LC_ALL=C b configure \
+  config.config.hermetic=true \
+  config.config.hermetic.environment=\"LC_ALL PATH@false\"
+\
+
+Typically, the set of environment variables that affect the project is
+discovered automatically. Specifically, modules that we use (such as \c{cxx})
+are expected to report the environment variables that affect the programs they
+invoke (such as the C++ compiler). Similarly, programs that we import in our
+\c{buildfiles} (for example to use in ad hoc recipes) are expected to report
+environment variables that affect them as part of their metadata.
+
+However, there are situations where we need to report an environment variable
+manually. These include calling the \c{$getenv()} function from a
+\c{buildfile} or invoking a program (either in an ad hoc recipe, the \c{run}
+directive, or the \c{$run*()} function family) that either does not provide
+the metadata or does not report the environment as part of it. In such cases
+we should report the environment variable manually using the
+\c{config.environment} directive. For example:
+
+\
+config.environment USE_FOO
+
+foo = $getenv(USE_FOO)
+
+if ($foo != [null])
+  cxx.poptions += \"-DUSE_FOO=$foo\"
+\
+
+\N|Normally, we would want to report variables that affect the build result
+rather than build byproducts (for example, diagnostics). This is, for example,
+the reason why locale-related environment variables are not saved by default.
+Also, sometime environment variables only affect certain modes of a program.
+If such modes are not used, then there is no need to report the corresponding
+variables.|
 
 
 \h1#module-test|\c{test} Module|

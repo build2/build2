@@ -2139,6 +2139,10 @@ namespace build2
   {
     // run <name> [<arg>...]
     //
+    // Note that if the result of executing the program can be affected by
+    // environment variables and this result can in turn affect the build
+    // result, then such variables should be reported with the
+    // config.environment directive.
 
     // Parse the command line as names in the value mode to get variable
     // expansion, etc.

@@ -85,6 +85,10 @@ namespace build2
     // Return NULL if the environment variable is not set, untyped value
     // otherwise.
     //
+    // Note that if the build result can be affected by the variable being
+    // queried, then it should be reported with the config.environment
+    // directive.
+    //
     // Note that this function is not pure.
     //
     f.insert ("getenv", false) += [](names name)
