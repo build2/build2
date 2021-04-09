@@ -739,7 +739,7 @@ namespace build2
           //
           if (nrs.out_path () == out_nroot)
           {
-            if (module* m = rs.find_module<module> (module::name))
+            if (module* m = nrs.find_module<module> (module::name))
             {
               configure_project (a, nrs, c_s, *m, projects);
             }
