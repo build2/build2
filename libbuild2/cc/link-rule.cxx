@@ -3322,7 +3322,7 @@ namespace build2
       {
         auto quote = [s = string ()] (const char* a) mutable -> const char*
         {
-          return process::quote_argument (a, s);
+          return process::quote_argument (a, s, false /* batch */);
         };
 
         // Calculate the would-be command line length similar to how process'
