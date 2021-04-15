@@ -360,9 +360,12 @@ namespace build2
               // which makes them pretty much unusable. This has been fixed in
               // 15.3 (19.11). And 15.5 (19.12) supports the `export module
               // M;` syntax. And 16.4 (19.24) supports the global module
-              // fragment.
+              // fragment. And in 16.8 all the modules-related options have
+              // been changed. Seeing that the whole thing is unusable anyway,
+              // we disable it for 16.8 or later for now.
               //
-              if (mj > 19 || (mj == 19 && mi >= (modules.value ? 10 : 12)))
+              if ((mj > 19 || (mj == 19 && mi >= (modules.value ? 10 : 12))) &&
+                  (mj < 19 || (mj == 19 && mi < 28) || modules.value))
               {
                 prepend (
                   mj > 19  || mi >= 24     ?
