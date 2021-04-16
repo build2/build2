@@ -2,9 +2,10 @@
 // license   : MIT; see accompanying LICENSE file
 
 "
-Unless you specifically only need the \c{build2} build system and not the
-complete \c{build2} toolchain, you should use the \c{build2-toolchain}
-distribution instead.
+Unless you specifically only need the \c{build2} build system, you should
+install the entire \c{build2} toolchain instead, either using the
+\l{https://build2.org/install.xhtml install script} or the
+\c{build2-toolchain} distribution.
 
 The instructions outlined below are essentially a summary of the first three
 steps of the manual bootstrap process described in \c{build2-toolchain} with a
@@ -12,7 +13,7 @@ few extra examples that would primarily be useful for distribution packaging.
 
 Also, below we only show commands for UNIX-like operating systems. For other
 operating systems and for more details on each step, refer to the
-\c{build2-toolchain} documentation.
+\c{build2-toolchain} installation documentation.
 
 \c{build2} requires a C++14 compiler. GCC 4.9, Clang 3.7, and MSVC 14 (2015)
 Update 3 or any later versions of these compilers are known to work. The build
@@ -106,6 +107,7 @@ using shared libraries:
 
 \
 $ build2/b-boot configure         \
+  config.config.hermetic=true     \
   config.cxx=g++                  \
   config.cc.coptions=-O3          \
   config.bin.rpath=/usr/local/lib \
@@ -114,6 +116,13 @@ $ build2/b-boot configure         \
 
 $ build2/b-boot
 \
+
+\N|The \c{config.config.hermetic=true} configuration variable in the first
+command makes sure the embedded \c{~host} and \c{~build2} configurations
+include the current environment. This is especially important for \c{~build2}
+which is used to dynamically build and load ad hoc recipes and build system
+modules and must therefore match the environment that was used to build the
+build system itself.|
 
 If you are only interested in installing the result, then you can avoid
 building tests by specifying the \c{update-for-install} operation in the last
@@ -125,7 +134,6 @@ $ build2/b-boot update-for-install
 
 On the other hand, if I you are not planning to install the result, then you
 can omit the \c{config.install.*} values as well as \c{.rpath}.
-
 
 To install:
 
@@ -146,6 +154,7 @@ Or, alternatively, for an out of tree build:
 
 \
 $ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
+  config.config.hermetic=true     \
   config.cxx=g++                  \
   config.cc.coptions=-O3          \
   config.bin.rpath=/usr/local/lib \
@@ -167,6 +176,7 @@ configuration variable, for example:
 
 \
 $ build2-static/build2/b configure: build2-X.Y.Z/@build2-shared/ \
+  config.config.hermetic=true        \
   config.cxx=g++                     \
   config.cc.coptions=-O3             \
   config.install.root=/usr           \
