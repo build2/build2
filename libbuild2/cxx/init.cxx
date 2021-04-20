@@ -720,6 +720,7 @@ namespace build2
         cast<process_path>   (rs[cm.x_path]),
         cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
+        cm.env_checksum,
 
         modules,
         symexport,

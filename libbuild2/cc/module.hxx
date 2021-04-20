@@ -59,6 +59,8 @@ namespace build2
 
       const compiler_info* x_info;
 
+      string env_checksum; // Environment checksum (also in x.path).
+
       // Temporary storage for data::sys_*_dirs_*.
       //
       size_t sys_lib_dirs_mode;

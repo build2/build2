@@ -241,6 +241,73 @@ namespace build2
     return find_option_prefixes (ps, s[var], ic);
   }
 
+  // hash_environment()
+  //
+  inline void
+  hash_environment (sha256& cs, const char* n)
+  {
+    cs.append (n);
+
+    if (optional<string> v = getenv (n))
+      cs.append (*v);
+  }
+
+  inline void
+  hash_environment (sha256& cs, const string& n)
+  {
+    hash_environment (cs, n.c_str ());
+  }
+
+  inline void
+  hash_environment (sha256& cs, initializer_list<const char*> ns)
+  {
+    for (const char* n: ns)
+      hash_environment (cs, n);
+  }
+
+  inline string
+  hash_environment (initializer_list<const char*> ns)
+  {
+    sha256 cs;
+    hash_environment (cs, ns);
+    return cs.string ();
+  }
+
+  inline void
+  hash_environment (sha256& cs, const strings& ns)
+  {
+    for (const string& n: ns)
+      hash_environment (cs, n);
+  }
+
+  inline string
+  hash_environment (const strings& ns)
+  {
+    sha256 cs;
+    hash_environment (cs, ns);
+    return cs.string ();
+  }
+
+  inline void
+  hash_environment (sha256& cs, const char* const* ns)
+  {
+    if (ns != nullptr)
+    {
+      for (; *ns != nullptr; ++ns)
+        hash_environment (cs, *ns);
+    }
+  }
+
+  inline string
+  hash_environment (const char* const* ns)
+  {
+    sha256 cs;
+    hash_environment (cs, ns);
+    return cs.string ();
+  }
+
+  // find_stem()
+  //
   inline size_t
   find_stem (const string& s, size_t s_p, size_t s_n,
              const char* stem, const char* seps)

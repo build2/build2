@@ -802,6 +802,35 @@ namespace build2
                         const cstrings&,
                         bool = false);
 
+  // Hash environment variable (its name and value) normally to be used as a
+  // checksum. See also config::save_environment().
+  //
+  void
+  hash_environment (sha256&, const char* name);
+
+  void
+  hash_environment (sha256&, const string& name);
+
+  void
+  hash_environment (sha256&, initializer_list<const char*> names);
+
+  string
+  hash_environment (initializer_list<const char*> names);
+
+  void
+  hash_environment (sha256&, const strings& names);
+
+  string
+  hash_environment (const strings& names);
+
+  // A NULL-terminated list of variables (may itself be NULL).
+  //
+  void
+  hash_environment (sha256&, const char* const* names);
+
+  string
+  hash_environment (const char* const* names);
+
   // Find in the string the stem separated from other characters with the
   // specified separators or begin/end of the string. Return the stem's
   // position or npos if not found.

@@ -197,7 +197,7 @@ namespace build2
     compile_rule::
     compile_rule (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".compile 4")
+          rule_id (string (x) += ".compile 5")
     {
       static_assert (sizeof (match_data) <= target::data_size,
                      "insufficient space");
@@ -928,6 +928,11 @@ namespace build2
         //
         if (dd.expect (cast<string> (rs[x_checksum])) != nullptr)
           l4 ([&]{trace << "compiler mismatch forcing update of " << t;});
+
+        // Then the compiler environment checksum.
+        //
+        if (dd.expect (env_checksum) != nullptr)
+          l4 ([&]{trace << "environment mismatch forcing update of " << t;});
 
         // Then the options checksum.
         //

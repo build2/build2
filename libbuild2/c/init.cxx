@@ -343,6 +343,7 @@ namespace build2
         cast<process_path>   (rs[cm.x_path]),
         cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
+        cm.env_checksum,
 
         false, // No C modules yet.
         false, // No __symexport support since no modules.

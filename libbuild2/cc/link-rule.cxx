@@ -37,7 +37,7 @@ namespace build2
     link_rule::
     link_rule (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".link 2")
+          rule_id (string (x) += ".link 3")
     {
       static_assert (sizeof (match_data) <= target::data_size,
                      "insufficient space");
@@ -2427,10 +2427,13 @@ namespace build2
           l4 ([&]{trace << "linker mismatch forcing update of " << t;});
       }
 
-      // Hash and compare any changes to the environment.
+      // Then the linker environment checksum (original and our modifications).
       //
-      if (dd.expect (env_cs.string ()) != nullptr)
-        l4 ([&]{trace << "environment mismatch forcing update of " << t;});
+      {
+        bool e (dd.expect (env_checksum) != nullptr);
+        if (dd.expect (env_cs.string ()) != nullptr || e)
+          l4 ([&]{trace << "environment mismatch forcing update of " << t;});
+      }
 
       // Next check the target. While it might be incorporated into the linker
       // checksum, it also might not (e.g., VC link.exe).

@@ -202,7 +202,21 @@ namespace build2
         }
       }
 
+      // Hash the environment (used for change detection).
+      //
+      // Note that for simplicity we use the combined checksum for both
+      // compilation and linking (which may compile, think LTO).
+      //
+      {
+        sha256 cs;
+        hash_environment (cs, xi.compiler_environment);
+        hash_environment (cs, xi.platform_environment);
+        env_checksum = cs.string ();
+      }
+
       // Assign values to variables that describe the compiler.
+      //
+      // @@ TODO: env_checksum.
       //
       rs.assign (x_path) = process_path_ex (xi.path, x_name, xi.checksum);
       const strings& xm (cast<strings> (rs.assign (x_mode) = move (mode)));

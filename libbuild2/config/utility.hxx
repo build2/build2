@@ -112,6 +112,8 @@ namespace build2
     //    directly). The module's load() function is a natural place to do
     //    that.
     //
+    // See also build2::hash_environment().
+    //
     inline void
     save_environment (scope& rs, const string& var)
     {
@@ -146,7 +148,7 @@ namespace build2
       }
     }
 
-    // A NULL-terminated list of variables.
+    // A NULL-terminated list of variables (may itself be NULL).
     //
     inline void
     save_environment (scope& rs, const char* const* vars)

@@ -170,6 +170,8 @@ namespace build2
       const string& tsys;           // x.target.system
       const string& tclass;         // x.target.class
 
+      const string& env_checksum;   // config_module::env_checksum
+
       bool modules;                 // x.features.modules
       bool symexport;               // x.features.symexport
 
@@ -230,6 +232,7 @@ namespace build2
             const process_path& path,
             const strings& mode,
             const target_triplet& tgt,
+            const string& env_cs,
             bool fm,
             bool fs,
             const dir_paths& sld,
@@ -250,6 +253,7 @@ namespace build2
             cmaj (mj), cmin (mi),
             cpath (path), cmode (mode),
             ctgt (tgt), tsys (ctgt.system), tclass (ctgt.class_),
+            env_checksum (env_cs),
             modules (fm),
             symexport (fs),
             importable_headers (nullptr),
