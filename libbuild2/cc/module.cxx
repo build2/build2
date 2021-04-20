@@ -216,9 +216,8 @@ namespace build2
 
       // Assign values to variables that describe the compiler.
       //
-      // @@ TODO: env_checksum.
-      //
-      rs.assign (x_path) = process_path_ex (xi.path, x_name, xi.checksum);
+      rs.assign (x_path) = process_path_ex (
+        xi.path, x_name, xi.checksum, env_checksum);
       const strings& xm (cast<strings> (rs.assign (x_mode) = move (mode)));
 
       rs.assign (x_id) = xi.id.string ();

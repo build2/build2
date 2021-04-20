@@ -724,8 +724,11 @@ namespace build2
           }
         }
 
-        rs.assign<process_path_ex> ("bin.ar.path")   =
-          process_path_ex (ari.ar_path, "ar", ari.ar_checksum);
+        rs.assign<process_path_ex> ("bin.ar.path")   = process_path_ex (
+          ari.ar_path,
+          "ar",
+          ari.ar_checksum,
+          hash_environment (ari.ar_environment));
         rs.assign<string>       ("bin.ar.id")        = ari.ar_id;
         rs.assign<string>       ("bin.ar.signature") = ari.ar_signature;
         rs.assign<string>       ("bin.ar.checksum")  = ari.ar_checksum;
@@ -744,8 +747,11 @@ namespace build2
 
         if (ranlib != nullptr)
         {
-          rs.assign<process_path_ex> ("bin.ranlib.path")   =
-            process_path_ex (ari.ranlib_path, "ranlib", ari.ranlib_checksum);
+          rs.assign<process_path_ex> ("bin.ranlib.path")   = process_path_ex (
+            ari.ranlib_path,
+            "ranlib",
+            ari.ranlib_checksum,
+            hash_environment (ari.ranlib_environment));
           rs.assign<string>       ("bin.ranlib.id")        = ari.ranlib_id;
           rs.assign<string>       ("bin.ranlib.signature") = ari.ranlib_signature;
           rs.assign<string>       ("bin.ranlib.checksum")  = ari.ranlib_checksum;
@@ -859,8 +865,11 @@ namespace build2
              << "  checksum   " << ldi.checksum;
         }
 
-        rs.assign<process_path_ex> ("bin.ld.path")   =
-          process_path_ex (ldi.path, "ld", ldi.checksum);
+        rs.assign<process_path_ex> ("bin.ld.path")   = process_path_ex (
+          ldi.path,
+          "ld",
+          ldi.checksum,
+          hash_environment (ldi.environment));
         rs.assign<string>       ("bin.ld.id")        = ldi.id;
         rs.assign<string>       ("bin.ld.signature") = ldi.signature;
         rs.assign<string>       ("bin.ld.checksum")  = ldi.checksum;
@@ -996,8 +1005,11 @@ namespace build2
                << "  checksum   " << rci.checksum;
         }
 
-        rs.assign<process_path_ex> ("bin.rc.path")   =
-          process_path_ex (rci.path, "rc", rci.checksum);
+        rs.assign<process_path_ex> ("bin.rc.path")   = process_path_ex (
+          rci.path,
+          "rc",
+          rci.checksum,
+          hash_environment (rci.environment));
         rs.assign<string>       ("bin.rc.id")        = rci.id;
         rs.assign<string>       ("bin.rc.signature") = rci.signature;
         rs.assign<string>       ("bin.rc.checksum")  = rci.checksum;

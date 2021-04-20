@@ -957,8 +957,8 @@ namespace build2
                    "insufficient space");
 
     // Represented as a potential @-pair of name(s) corresponding to
-    // process_path followed by the name@ and checksum@ pairs. So it's a
-    // container-like.
+    // process_path optionally followed by the name@, checksum@, and
+    // env-checksum@ pairs. So it's a container-like.
     //
     static process_path_ex convert (names&&);
     static void assign (value&, process_path_ex&&);

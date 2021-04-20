@@ -217,7 +217,8 @@ namespace build2
       size_t erase (0);
 
       // This can be a process_path (pair), process_path_ex (process_path
-      // followed by the name@ and checksum@ pairs), or just a path.
+      // optionally followed by the name@, checksum@, and env-checksum@
+      // pairs), or just a path.
       //
       // First, check if the arguments begin with a process_path[_ex] and, if
       // that's the case, only use the leading name/pair to create the process

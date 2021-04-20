@@ -293,22 +293,40 @@ namespace build2
   //
   // See also {import,export}.metadata.
   //
+  // Note that the environment checksum is calculated in the (potentially
+  // hermetic) project environment which makes instances of process_path_ex
+  // project-specific. (We could potentially store the original list of
+  // environment variables and calculate the checksum on the fly in the
+  // current context thus making it project-independent. But this will
+  // complicate things without, currently, much real benefit since all our
+  // use-cases fit well with the project-specific restriction. We could
+  // probably even support both variants if desirable.)
+  //
   struct process_path_ex: process_path
   {
-    optional<string> name;     // Stable name for diagnostics.
-    optional<string> checksum; // Checksum for change tracking.
+    optional<string> name;         // Stable name for diagnostics.
+    optional<string> checksum;     // Executable checksum for change tracking.
+    optional<string> env_checksum; // Environment checksum for change tracking.
 
     using process_path::process_path;
 
-    process_path_ex (const process_path& p, string n, optional<string> c = {})
+    process_path_ex (const process_path& p,
+                     string n,
+                     optional<string> c = {},
+                     optional<string> ec = {})
         : process_path (p, false /* init */),
           name (std::move (n)),
-          checksum (std::move (c)) {}
+          checksum (std::move (c)),
+          env_checksum (std::move (ec)) {}
 
-    process_path_ex (process_path&& p, string n, optional<string> c = {})
+    process_path_ex (process_path&& p,
+                     string n,
+                     optional<string> c = {},
+                     optional<string> ec = {})
         : process_path (std::move (p)),
           name (std::move (n)),
-          checksum (std::move (c)) {}
+          checksum (std::move (c)),
+          env_checksum (std::move (ec)) {}
 
     process_path_ex () = default;
   };

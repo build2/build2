@@ -28,6 +28,7 @@ namespace build2
 
       f["name"] += &process_path_ex::name;
       f["checksum"] += &process_path_ex::checksum;
+      f["env_checksum"] += &process_path_ex::env_checksum;
     }
   }
 }

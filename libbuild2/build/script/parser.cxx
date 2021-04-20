@@ -678,7 +678,7 @@ namespace build2
         // if it's process_path_ex, then we may end up with something along
         // these lines:
         //
-        // /usr/bin/g++ name@c++ checksum@deadbeef --version
+        // /usr/bin/g++ name@c++ checksum@... env-checksum@... --version
         //
         // Which is a bit harder to recognize syntactically. So what we are
         // going to do is have a separate first pass which reduces the

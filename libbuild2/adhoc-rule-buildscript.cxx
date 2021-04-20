@@ -229,7 +229,7 @@ namespace build2
     timestamp mt (t.load_mtime ());
     optional<target_state> ps;
 
-    sha256 pcs, ecs;
+    sha256 prq_cs, exe_cs, env_cs;
     {
       // This is essentially ps=execute_prerequisites(a, t, mt) which we
       // cannot use because we need to see ad hoc prerequisites.
@@ -302,7 +302,7 @@ namespace build2
         if (script.depdb_clear)
           continue;
 
-        hash_target (pcs, pt);
+        hash_target (prq_cs, pt);
 
         // The script can reference a program in one of four ways:
         //
@@ -315,11 +315,12 @@ namespace build2
         // 4. As a program path/name.
         //
         // When it comes to change tracking, there is nothing we can do for
-        // (4) and there is nothing to do for (3) (assuming builtin semantics
-        // is stable/backwards-compatible). The (2) case is handled
-        // automatically by hashing all the variable values referenced by the
-        // script (see below), which in case of process_path_ex includes the
-        // checksum, if available.
+        // (4) (the user can track its environment manually with depdb-env)
+        // and there is nothing to do for (3) (assuming builtin semantics is
+        // stable/backwards-compatible). The (2) case is handled automatically
+        // by hashing all the variable values referenced by the script (see
+        // below), which in case of process_path_ex includes the checksums
+        // (both executable and environment), if available.
         //
         // This leaves the (1) case, which itself splits into two sub-cases:
         // the target comes with the dependency information (e.g., imported
@@ -336,11 +337,16 @@ namespace build2
         // to do; the user may mark tools as ad hoc in order to omit them from
         // $<).
         //
-        if (auto* e = pt.is_a<exe> ())
+        if (auto* et = pt.is_a<exe> ())
         {
-          if (auto* c = e->lookup_metadata<string> ("checksum"))
+          if (auto* c = et->lookup_metadata<string> ("checksum"))
           {
-            ecs.append (*c);
+            exe_cs.append (*c);
+          }
+
+          if (auto* e = et->lookup_metadata<strings> ("environment"))
+          {
+            hash_environment (env_cs, *e);
           }
         }
       }
@@ -395,6 +401,9 @@ namespace build2
     // Note that this excludes the special $< and $> variables which we
     // handle below.
     //
+    // @@ TODO: maybe detect and decompose process_path_ex in order to
+    //    properly attribute checksum and environment changes?
+    //
     if (!script.depdb_clear)
     {
       sha256 cs;
@@ -436,16 +445,19 @@ namespace build2
       if (dd.expect (tcs.string ()) != nullptr)
         l4 ([&]{trace << "target set change forcing update of " << t;});
 
-      if (dd.expect (pcs.string ()) != nullptr)
+      if (dd.expect (prq_cs.string ()) != nullptr)
         l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
     }
 
-    // Finally the programs checksum.
+    // Finally the programs and environment checksums.
     //
     if (!script.depdb_clear)
     {
-      if (dd.expect (ecs.string ()) != nullptr)
+      if (dd.expect (exe_cs.string ()) != nullptr)
         l4 ([&]{trace << "program checksum change forcing update of " << t;});
+
+      if (dd.expect (env_cs.string ()) != nullptr)
+        l4 ([&]{trace << "environment change forcing update of " << t;});
     }
 
     const scope* bs (nullptr);

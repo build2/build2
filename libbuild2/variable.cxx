@@ -1158,9 +1158,18 @@ namespace build2
       else if (k == "checksum")
       {
         if (!i->simple ())
-          throw_invalid_argument (*i, nullptr, "process_path_ex checksum");
+          throw_invalid_argument (
+            *i, nullptr, "process_path_ex executable checksum");
 
         pp.checksum = move (i->value);
+      }
+      else if (k == "env-checksum")
+      {
+        if (!i->simple ())
+          throw_invalid_argument (
+            *i, nullptr, "process_path_ex environment checksum");
+
+        pp.env_checksum = move (i->value);
       }
       else
         throw invalid_argument (
@@ -1176,7 +1185,9 @@ namespace build2
     auto b (ns.begin ()), i (b), e (ns.end ());
     for (i += i->pair ? 2 : 1; i != e && i->pair; i += 2)
     {
-      if (!i->simple () || (i->value != "name" && i->value != "checksum"))
+      if (!i->simple () || (i->value != "name" &&
+                            i->value != "checksum" &&
+                            i->value != "env-checksum"))
         break;
     }
 
@@ -1217,6 +1228,7 @@ namespace build2
 
       lhs.name = move (rhs.name);
       lhs.checksum = move (rhs.checksum);
+      lhs.env_checksum = move (rhs.env_checksum);
     }
     else
     {
@@ -1224,6 +1236,7 @@ namespace build2
 
       lhs.name = rhs.name;
       lhs.checksum = rhs.checksum;
+      lhs.env_checksum = rhs.env_checksum;
     }
   }
 
@@ -1252,7 +1265,8 @@ namespace build2
     {
       s.reserve ((x.effect.empty () ? 1 : 2) +
                  (x.name ? 2 : 0)            +
-                 (x.checksum ? 2 : 0));
+                 (x.checksum ? 2 : 0)        +
+                 (x.env_checksum ? 2 : 0));
 
       process_path_reverse_impl (x, s);
 
@@ -1268,6 +1282,13 @@ namespace build2
         s.push_back (name ("checksum"));
         s.back ().pair = '@';
         s.push_back (name (*x.checksum));
+      }
+
+      if (x.env_checksum)
+      {
+        s.push_back (name ("env-checksum"));
+        s.back ().pair = '@';
+        s.push_back (name (*x.env_checksum));
       }
     }
 
