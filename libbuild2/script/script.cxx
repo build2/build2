@@ -818,18 +818,34 @@ namespace build2
     //
     void
     verify_environment_var_name (const string& name,
-                                 const char* opt,
                                  const char* prefix,
-                                 const location& l)
+                                 const location& l,
+                                 const char* opt)
     {
       if (name.empty ())
-        fail (l) << prefix << "empty value for option " << opt;
+      {
+        diag_record dr (fail (l));
+        dr << prefix << "empty ";
+
+        if (opt == nullptr)
+          dr << "variable name";
+        else
+          dr << "value for option " << opt;
+      }
 
       if (name.find ('=') != string::npos)
-        fail (l) << prefix << "invalid value '" << name << "' for option "
-                 << opt << ": contains '='";
-    }
+      {
+        diag_record dr (fail (l));
+        dr << prefix << "invalid ";
 
+        if (opt == nullptr)
+          dr << "variable name '" << name << "'";
+        else
+          dr << "value '" << name << "' for option " << opt;
+
+        dr << ": contains '='";
+      }
+    }
 
     void
     verify_environment_var_assignment (const string& var,

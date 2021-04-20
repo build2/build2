@@ -194,13 +194,16 @@ namespace build2
         // The depdb builtin can be used to change the default dependency
         // change tracking:
         //
-        // depdb clear         - Cancels the default variables, targets, and
-        //                       prerequisites change tracking. Can only be
-        //                       the first depdb builtin call.
+        // depdb clear           - Cancel the default variables, targets, and
+        //                         prerequisites change tracking. Can only be
+        //                         the first depdb builtin call.
         //
-        // depdb hash <args>  - Track the argument list change as a hash.
+        // depdb hash <args>     - Track the argument list change as a hash.
         //
-        // depdb string <arg> - Track the argument (single) change as string.
+        // depdb string <arg>    - Track the argument (single) change as string.
+        //
+        // depdb env <var-names> - Track the environment variables change as a
+        //                         hash.
         //
         optional<location> depdb_clear_;    // 'depdb clear' location if any.
         lines              depdb_preamble_; // Note: excludes 'depdb clear'.

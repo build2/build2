@@ -569,14 +569,15 @@ namespace build2
 
     // Helpers.
     //
-    // Issue diagnostics with the specified prefix and fail if the string is
-    // not a valid variable name or assignment (empty, etc).
+    // Issue diagnostics with the specified prefix and fail if the string
+    // (potentially an option value) is not a valid variable name or
+    // assignment (empty, etc).
     //
     void
     verify_environment_var_name (const string&,
-                                 const char* opt,
                                  const char* prefix,
-                                 const location&);
+                                 const location&,
+                                 const char* opt = nullptr);
 
     void
     verify_environment_var_assignment (const string&,

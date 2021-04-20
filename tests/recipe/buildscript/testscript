@@ -306,6 +306,68 @@ posix = ($cxx.target.class != 'windows')
       $* clean 2>-
     }
 
+    : env
+    :
+    {
+      : invalid
+      :
+      {
+        cat <<EOI >=buildfile;
+          foo:
+          {{
+            s = $getenv(FOO)
+
+            depdb clear
+            depdb env FOO=bar
+            echo "$s" >$path($>)
+          }}
+          EOI
+
+        $* 2>>/EOE != 0;
+          buildfile:6:3: error: invalid 'depdb env' argument: invalid variable name 'FOO=bar': contains '='
+            info: while updating file{foo}
+            info: while updating dir{./}
+          info: failed to update dir{./}
+          EOE
+
+        $* clean 2>-
+      }
+
+      : valid
+      :
+      {
+        cat <<EOI >=buildfile;
+          foo:
+          {{
+            s = $getenv(FOO)
+
+            depdb clear
+            depdb env FOO
+            echo "$s" >$path($>)
+          }}
+          EOI
+
+        export FOO=foo;
+
+        $* 2>'echo file{foo}';
+        cat <<<foo >'foo';
+
+        $* 2>/'info: dir{./} is up to date';
+
+        export FOO=bar;
+
+        $* 2>'echo file{foo}';
+        cat <<<foo >'bar';
+
+        export -u FOO;
+
+        $* 2>'echo file{foo}';
+        cat <<<foo >'';
+
+        $* clean 2>-
+      }
+    }
+
     : preamble
     :
     {

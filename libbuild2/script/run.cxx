@@ -781,7 +781,7 @@ namespace build2
         //
         auto verify_name = [&ll] (const string& name, const char* opt)
         {
-          verify_environment_var_name (name, opt, "export: ", ll);
+          verify_environment_var_name (name, "export: ", ll, opt);
         };
 
         // Parse options (variable set/unset cleanups and unsets).

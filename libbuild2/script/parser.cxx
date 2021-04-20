@@ -1437,7 +1437,7 @@ namespace build2
         }
         else if (optional<string> v = str ("--unset", "-u"))
         {
-          verify_environment_var_name (*v, o.c_str (), "env: ", i->second);
+          verify_environment_var_name (*v, "env: ", i->second, o.c_str ());
 
           r.variables.add (move (*v));
         }

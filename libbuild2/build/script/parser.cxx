@@ -481,7 +481,7 @@ namespace build2
             next (t, tt);
 
             if (tt != type::word ||
-                (v != "clear" && v != "hash" && v != "string"))
+                (v != "clear" && v != "hash" && v != "string" && v != "env"))
             {
               fail (get_location (t))
                 << "expected 'depdb' builtin command instead of " << t;
@@ -948,6 +948,33 @@ namespace build2
                 l4 ([&] {
                     ctx.trace (ll)
                       << "'depdb string' argument change forcing update of "
+                      << ctx.env.target;});
+            }
+            else if (cmd == "env")
+            {
+              sha256 cs;
+              const char* pf ("invalid 'depdb env' argument: ");
+
+              try
+              {
+                // Skip <cmd>.
+                //
+                for (auto i (ns.begin () + 1); i != ns.end (); ++i)
+                {
+                  string vn (convert<string> (move (*i)));
+                  build2::script::verify_environment_var_name (vn, pf, ll);
+                  hash_environment (cs, vn);
+                }
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (ll) << pf << e;
+              }
+
+              if (ctx.dd.expect (cs.string ()) != nullptr)
+                l4 ([&] {
+                    ctx.trace (ll)
+                      << "'depdb env' environment change forcing update of "
                       << ctx.env.target;});
             }
             else
