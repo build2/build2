@@ -14,9 +14,6 @@ namespace build2
     lorder
     link_order (const scope& bs, otype ot)
     {
-      // Initialize to suppress 'may be used uninitialized' warning produced
-      // by MinGW GCC 5.4.0.
-      //
       const char* var (nullptr);
 
       switch (ot)
