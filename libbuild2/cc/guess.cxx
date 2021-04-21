@@ -1812,7 +1812,7 @@ namespace build2
 
     // See "Environment Variables Affecting GCC".
     //
-    // @@ TODO: Yt feels like we should unset the following variables:
+    // @@ TODO: It feels like we should unset the following variables:
     //
     // DEPENDENCIES_OUTPUT
     // SUNPRO_DEPENDENCIES
@@ -1835,7 +1835,7 @@ namespace build2
       nullptr};
 
     // Note that Clang recognizes a whole family of *_DEPLOYMENT_TARGET
-    // variables.
+    // variables (as does ld64).
     //
     static const char* macos_env[] = {
       "SDKROOT", "MACOSX_DEPLOYMENT_TARGET", nullptr};

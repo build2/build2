@@ -139,6 +139,16 @@ namespace build2
     }
 
     inline void
+    save_environment (scope& rs, const cstrings& vars)
+    {
+      if (config_save_environment != nullptr)
+      {
+        for (const char* var: vars)
+          config_save_environment (rs, var);
+      }
+    }
+
+    inline void
     save_environment (scope& rs, const strings& vars)
     {
       if (config_save_environment != nullptr)

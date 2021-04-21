@@ -818,6 +818,12 @@ namespace build2
   hash_environment (initializer_list<const char*> names);
 
   void
+  hash_environment (sha256&, const cstrings& names);
+
+  string
+  hash_environment (const cstrings& names);
+
+  void
   hash_environment (sha256&, const strings& names);
 
   string

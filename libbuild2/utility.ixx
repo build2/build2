@@ -274,6 +274,21 @@ namespace build2
   }
 
   inline void
+  hash_environment (sha256& cs, const cstrings& ns)
+  {
+    for (const char* n: ns)
+      hash_environment (cs, n);
+  }
+
+  inline string
+  hash_environment (const cstrings& ns)
+  {
+    sha256 cs;
+    hash_environment (cs, ns);
+    return cs.string ();
+  }
+
+  inline void
   hash_environment (sha256& cs, const strings& ns)
   {
     for (const string& n: ns)
