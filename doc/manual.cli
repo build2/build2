@@ -5741,6 +5741,24 @@ if ($foo != [null])
   cxx.poptions += \"-DUSE_FOO=$foo\"
 \
 
+Additionally, if invoking a program in an ad hoc recipe that either does not
+provide the metadata or does not report the environment as part of it, then we
+additionally should track the changes to the relevant environment variables
+manually using the \c{depdb env} builtin. For example:
+
+\
+import! foo = foo%exe{foo} # Uses FOO and BAR environment variables.
+
+config.environment FOO BAR
+
+file{output}: file{input} $foo
+{{
+  diag foo $>
+  depdb env FOO BAR
+  $foo $path($<[0]) >$path($>)
+}}
+\
+
 \N|Normally, we would want to report variables that affect the build result
 rather than build byproducts (for example, diagnostics). This is, for example,
 the reason why locale-related environment variables are not saved by default.
