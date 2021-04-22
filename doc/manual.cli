@@ -5901,9 +5901,9 @@ man         share/man/                              install.man
 man<N>      man/man<N>/                             install.man<N>
 \
 
-The \c{<project>} and \c{<private>} substitutions in these
-\c{config.install.*} values are replaced with the project name and private
-subdirectory, respectively. If either is empty, then the corresponding
+The \c{<project>}, \c{<version>}, and \c{<private>} substitutions in these
+\c{config.install.*} values are replaced with the project name, version, and
+private subdirectory, respectively. If either is empty, then the corresponding
 directory component is ignored.
 
 The optional private installation subdirectory (\c{<private>}) mechanism can

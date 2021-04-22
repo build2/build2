@@ -52,16 +52,31 @@ namespace build2
 
       // Note: watch out for the small std::function optimization.
       //
-      auto subst = [prv, &rs] (const string& var, string& r)
+      struct data
       {
-        if (var == "project")
+        const dir_path* prv;
+        const dir_path& val;
+        const variable& var;
+      } d {prv, val, var};
+
+      auto subst = [&d, &rs] (const string& n, string& r)
+      {
+        if (n == "project")
         {
           r += project (rs).string ();
         }
-        else if (var == "private")
+        else if (n == "version")
         {
-          if (prv != nullptr && !prv->empty ())
-            r += prv->string ();
+          if (const auto* v = cast_null<string> (rs.vars[rs.ctx.var_version]))
+            r += *v;
+          else
+            fail << "no version variable in project " << project (rs) <<
+              info << "required in " << d.var << " value '" << d.val << "'";
+        }
+        else if (n == "private")
+        {
+          if (d.prv != nullptr && !d.prv->empty ())
+            r += d.prv->string ();
         }
         else
           return false;
