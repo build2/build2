@@ -173,6 +173,9 @@ namespace build2
     // search paths (similar to the PATH environment variable), in which case
     // it will end with a directory separator but will not contain '*'.
     //
+    // Watch out for the environment variables affecting any of the extracted
+    // information (like sys_*_dirs) since we cache it.
+    //
     struct compiler_info
     {
       process_path path;
@@ -252,6 +255,7 @@ namespace build2
     const compiler_info&
     guess (const char* xm,        // Module (for var names in diagnostics).
            lang xl,               // Language.
+           const string& ec,      // Environment checksum.
            const path& xc,        // Compiler path.
            const string* xi,      // Compiler id (optional).
            const string* xv,      // Compiler version (optional).

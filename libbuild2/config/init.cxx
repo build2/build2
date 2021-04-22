@@ -455,13 +455,15 @@ namespace build2
         rs.vars.erase (c_e); // Undefine.
       }
 
-      // Copy config.config.environment to scope::root_extra::environment.
+      // Copy config.config.environment to scope::root_extra::environment and
+      // calculate its checksum.
       //
       // Note that we store shallow copies that point to the c.c.environment
       // value which means it should not change.
       //
       if (const strings* src = cast_null<strings> (rs[c_e]))
       {
+        sha256 cs;
         vector<const char*>& dst (rs.root_extra->environment);
 
         // The idea is to only copy entries that are effective, that is those
@@ -511,10 +513,14 @@ namespace build2
           }
 
           dst.push_back (v.c_str ());
+          cs.append (v);
         }
 
         if (!dst.empty ())
+        {
           dst.push_back (nullptr);
+          rs.root_extra->environment_checksum = cs.string ();
+        }
       }
 
       // Register alias and fallback rule for the configure meta-operation.

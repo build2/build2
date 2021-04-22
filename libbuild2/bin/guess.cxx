@@ -363,6 +363,9 @@ namespace build2
     //    will need to figure out what's important (some of them are clearly
     //    for debugging of ld itself).
     //
+    // See also the note on environment and caching below if adding any new
+    // variables.
+    //
     static const char* gnu_ld_env[] = {
       "LD_RUN_PATH", "GNUTARGET", "LDEMULATION", "COLLECT_NO_DEMANGLE", nullptr};
 
@@ -380,6 +383,9 @@ namespace build2
       tracer trace ("bin::guess_ld");
 
       // First check the cache.
+      //
+      // Note that none of the information that we cache can be affected by
+      // the environment.
       //
       string key;
       {
@@ -569,6 +575,9 @@ namespace build2
 
     // Resource compiler environment variables.
     //
+    // See also the note on environment and caching below if adding any new
+    // variables.
+    //
     static const char* msvc_rc_env[] = {"INCLUDE", nullptr};
 
     // Extracting rc information requires running it which can become
@@ -582,6 +591,9 @@ namespace build2
       tracer trace ("bin::guess_rc");
 
       // First check the cache.
+      //
+      // Note that none of the information that we cache can be affected by
+      // the environment.
       //
       string key;
       {

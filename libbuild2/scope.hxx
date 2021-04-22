@@ -501,6 +501,12 @@ namespace build2
       // See also auto_project_env below.
       //
       vector<const char*> environment;
+
+      // A checksum of the above environment variables (empty if there are
+      // none). This can be used to take into account project environment
+      // when, for example, caching environment-sensitive information.
+      //
+      string environment_checksum;
     };
 
     unique_ptr<root_extra_type> root_extra;

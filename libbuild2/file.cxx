@@ -610,7 +610,8 @@ namespace build2
         {}, /* modules */
         {}, /* override_cache */
         {}, /* target_types */
-        {}} /* environment */);
+        {}, /* environment */
+        ""} /* environment_checksum */);
 
     // Enter built-in meta-operation and operation names. Loading of
     // modules (via the src bootstrap; see below) can result in

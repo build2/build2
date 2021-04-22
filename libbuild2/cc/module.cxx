@@ -154,7 +154,9 @@ namespace build2
         // we are now folding *.std options into mode options.
         //
         x_info = &build2::cc::guess (
-          x, x_lang, move (xc),
+          x, x_lang,
+          rs.root_extra->environment_checksum,
+          move (xc),
           cast_null<string> (lookup_config (rs, config_x_id)),
           cast_null<string> (lookup_config (rs, config_x_version)),
           cast_null<string> (lookup_config (rs, config_x_target)),

@@ -31,6 +31,9 @@ namespace build2
     // The environment is an optional list of environment variables that
     // affect ar/ranlib result.
     //
+    // Watch out for the environment not to affect any of the extracted
+    // information since we cache it.
+    //
     struct ar_info
     {
       process_path ar_path;
@@ -80,6 +83,9 @@ namespace build2
     // The environment is an optional list of environment variables that
     // affect the linker result.
     //
+    // Watch out for the environment not to affect any of the extracted
+    // information since we cache it.
+    //
     // Note that for now the version is extracted only for some linkers. Once
     // it's done for all of them, we should drop optional.
     //
@@ -112,6 +118,9 @@ namespace build2
     //
     // The environment is an optional list of environment variables that
     // affect the resource compiler result.
+    //
+    // Watch out for the environment not to affect any of the extracted
+    // information since we cache it.
     //
     struct rc_info
     {

@@ -1577,6 +1577,9 @@ namespace build2
     // but we include them in case linking is done via the compiler without
     // loading bin.ld. BTW, the same applies to rc.exe INCLUDE.
     //
+    // See also the note on environment and caching below if adding any new
+    // variables.
+    //
     static const char* msvc_env[] = {"INCLUDE", "IFCPATH", "CL", "_CL_",
                                      "LIB", "LINK", "_LINK_", nullptr};
 
@@ -1821,6 +1824,9 @@ namespace build2
     // done via the compiler without loading bin.ld (to do this precisely we
     // would need to detect which linker is being used at which point we might
     // as well load bin.ld).
+    //
+    // See also the note on environment and caching below if adding any new
+    // variables.
     //
     static const char* gcc_c_env[] = {
       "CPATH", "C_INCLUDE_PATH",
@@ -2275,6 +2281,8 @@ namespace build2
     // These are derived from gcc_* plus the sparse documentation (clang(1))
     // and source code.
     //
+    // See also the note on environment and caching below if adding any new
+    // variables.
     //
     static const char* clang_c_env[] = {
       "CPATH", "C_INCLUDE_PATH",
@@ -3064,6 +3072,7 @@ namespace build2
     const compiler_info&
     guess (const char* xm,
            lang xl,
+           const string& ec,
            const path& xc,
            const string* xis,
            const string* xv,
@@ -3074,6 +3083,13 @@ namespace build2
            const strings* c_lo, const strings* x_lo)
     {
       // First check the cache.
+      //
+      // Note that in case of MSVC (and Clang targeting MSVC) sys_*_dirs can
+      // be affected by the environment (INCLUDE, LIB, and IFCPATH) which is
+      // project-specific. So we have to include those into the key. But we
+      // don't know yet know whether it's those compilers/targets. So it seems
+      // we have no better choice than to include the project environment if
+      // overridden.
       //
       // @@ We currently include config.{cc,x}.[pc]options into the key which
       //    means any project-specific tweaks to these result in a different
@@ -3087,6 +3103,7 @@ namespace build2
         sha256 cs;
         cs.append (static_cast<size_t> (xl));
         cs.append (xc.string ());
+        if (!ec.empty ()) cs.append (ec);
         if (xis != nullptr) cs.append (*xis);
         append_options (cs, x_mo);
         if (c_po != nullptr) append_options (cs, *c_po);
