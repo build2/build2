@@ -1815,7 +1815,8 @@ namespace build2
 
     // See "Environment Variables Affecting GCC".
     //
-    // @@ TODO: It feels like we should unset the following variables:
+    // Note that we also check below that the following variables are not set
+    // since they would interfere with what we are doing.
     //
     // DEPENDENCIES_OUTPUT
     // SUNPRO_DEPENDENCIES
@@ -2028,6 +2029,12 @@ namespace build2
 
       // Environment.
       //
+      if (getenv ("DEPENDENCIES_OUTPUT"))
+        fail << "GCC DEPENDENCIES_OUTPUT environment variable is set";
+
+      if (getenv ("SUNPRO_DEPENDENCIES"))
+        fail << "GCC SUNPRO_DEPENDENCIES environment variable is set";
+
       const char* const* c_env (nullptr);
       switch (xl)
       {

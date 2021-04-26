@@ -104,13 +104,12 @@ namespace build2
     //
     // 4. Finally, there could be environment variables that are incompatible
     //    with what we are doing (e.g., they change the mode of operation or
-    //    some such; see GCC's DEPENDENCIES_OUTPUT for example). While they
-    //    can be cleared for each invocation, this is burdensome and it is
-    //    often easier to just unset them for the entire build system process
-    //    if we can be reasonable sure that there can be no plausible use for
-    //    this variable (e.g., by another module or by the buildfile
-    //    directly). The module's load() function is a natural place to do
-    //    that.
+    //    some such; see GCC's DEPENDENCIES_OUTPUT for example). The two ways
+    //    to deal with this is either clear them for each invocation or, if
+    //    that's too burdensome and there is no good reason to have the build
+    //    system invoked with such variables, detect their presence and fail.
+    //    Note that unsetting them for the entire build system process is not
+    //    an option since that would be racy.
     //
     // See also build2::hash_environment().
     //
