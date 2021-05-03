@@ -1,3 +1,21 @@
+Version 0.14.0
+
+  * Allow unseparated scope-qualified variable assignment and expansion.
+
+    For example, now the following:
+
+    foo/x = y
+    info $(foo/x)
+
+    Is equivalent to:
+
+    foo/ x = y
+    info $(foo/ x)
+
+    While this makes scope-qualified syntax consistent with target-qualified,
+    it also means that variable names that contain directory separators are
+    now effectively reserved.
+
 Version 0.13.0
 
   * Support for project-specific configuration.

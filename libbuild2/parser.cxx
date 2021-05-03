@@ -891,6 +891,7 @@ namespace build2
       //
       //        x = y
       //   foo/ x = y   (ns will have two elements)
+      //    foo/x = y   (ns will have one element)
       //
       // And in the future we may also want to support:
       //
@@ -915,13 +916,27 @@ namespace build2
         // let parse_variable_name() complain.
         //
         dir_path d;
-        if (ns.size () == 2 && ns[0].directory ())
+        size_t p;
+        if ((ns.size () == 2 && ns[0].directory ()) ||
+            (ns.size () == 1 && ns[0].simple () &&
+             (p = path_traits::rfind_separator (ns[0].value)) != string::npos))
         {
           if (at.first)
             fail (at.second) << "attributes before scope directory";
 
-          d = move (ns[0].dir);
-          ns.erase (ns.begin ());
+          if (ns.size () == 2)
+          {
+            d = move (ns[0].dir);
+            ns.erase (ns.begin ());
+          }
+          else
+          {
+            // Note that p cannot point to the last character since then it
+            // would have been a directory, not a simple name.
+            //
+            d = dir_path (ns[0].value, 0, p + 1);
+            ns[0].value.erase (0, p + 1);
+          }
 
           // Make sure it's not a pattern (see also the target case above and
           // scope below).
@@ -6007,7 +6022,9 @@ namespace build2
             // faster.
             //
             char c;
-            if ((tt == type::word || (c = special (t))) &&
+            if ((tt == type::word
+                 ? path_traits::rfind_separator (t.value) == string::npos
+                 : (c = special (t))) &&
                 peek () == type::rparen)
             {
               name = (tt == type::word ? move (t.value) : string (1, c));
@@ -6015,6 +6032,8 @@ namespace build2
             }
             else
             {
+              using name_type = build2::name;
+
               //@@ OUT will parse @-pair and do well?
               //
               values vs (parse_eval (t, tt, pmode));
@@ -6030,7 +6049,7 @@ namespace build2
                   fail (loc) << "null variable/function name";
 
                 names storage;
-                vector_view<build2::name> ns (reverse (v, storage)); // Movable.
+                vector_view<name_type> ns (reverse (v, storage)); // Movable.
                 size_t n (ns.size ());
 
                 // We cannot handle scope-qualification in the eval context as
@@ -6060,7 +6079,23 @@ namespace build2
                   fail (loc) << "expected variable/function name instead of '"
                              << ns[n - 1] << "'";
 
-                name = move (ns[n - 1].value);
+                size_t p;
+                if (n == 1 &&                           // $(foo/x)
+                    (p = path_traits::rfind_separator (ns[0].value)) !=
+                      string::npos)
+                {
+                  // Note that p cannot point to the last character since then
+                  // it would have been a directory, not a simple name.
+                  //
+                  string& s (ns[0].value);
+
+                  name = string (s, p + 1);
+                  s.resize (p + 1);
+                  qual = name_type (dir_path (move (s)));
+                  qual.pair = '/';
+                }
+                else
+                  name = move (ns[n - 1].value);
               }
             }
           }
