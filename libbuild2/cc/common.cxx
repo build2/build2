@@ -24,7 +24,7 @@ namespace build2
     // Recursively process prerequisite libraries of the specified library. If
     // proc_impl returns false, then only process interface (*.export.libs),
     // otherwise -- interface and implementation (prerequisite and from
-    // *.libs, unless overriden with *.export.imp_libs).
+    // *.libs, unless overriden with *.export.impl_libs).
     //
     // Note that here we assume that an interface library is also always an
     // implementation (since we don't use *.export.libs for static linking).
@@ -123,7 +123,7 @@ namespace build2
         // Note that we used to treat *.export.libs set on the liba/libs{}
         // members as *.libs overrides rather than as member-specific
         // interface dependencies. This difference in semantics proved to be
-        // surprising so now we have separate *.export.imp_libs for that.
+        // surprising so now we have separate *.export.impl_libs for that.
         // Note that in this case options come from *.export.* variables.
         //
         // Note also that we only check for *.*libs. If one doesn't have any
@@ -131,12 +131,12 @@ namespace build2
         // set to NULL or empty (this is why we check for the result being
         // defined).
         //
-        c_e_libs = l[impl ? c_export_imp_libs : c_export_libs];
+        c_e_libs = l[impl ? c_export_impl_libs : c_export_libs];
 
         if (!cc)
           x_e_libs = l[same
-                       ? (impl ? x_export_imp_libs : x_export_libs)
-                       : vp[*t + (impl ? ".export.imp_libs" : ".export.libs")]];
+                       ? (impl ? x_export_impl_libs : x_export_libs)
+                       : vp[*t + (impl ? ".export.impl_libs" : ".export.libs")]];
 
         // Process options first.
         //
@@ -258,7 +258,7 @@ namespace build2
 
       // Only go into prerequisites (implementation) if instructed and we are
       // not using explicit export. Otherwise, interface dependencies come
-      // from the lib{}:*.export.imp_libs below.
+      // from the lib{}:*.export.impl_libs below.
       //
       if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
       {
@@ -456,7 +456,7 @@ namespace build2
                 if (w != nullptr)
                   fail   << (impl ? "implementation" : "interface")
                          << " dependency " << t << " is " << w <<
-                    info << "mentioned in *.export." << (impl ? "imp_" : "")
+                    info << "mentioned in *.export." << (impl ? "impl_" : "")
                          << "libs of target " << l <<
                     info << "is it a prerequisite of " << l << "?";
               }

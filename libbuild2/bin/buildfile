@@ -4,10 +4,10 @@
 # NOTE: shared imports should go into root.build.
 #
 include ../
-imp_libs = ../lib{build2} # Implied interface dependency.
+impl_libs = ../lib{build2} # Implied interface dependency.
 
 ./: lib{build2-bin}: libul{build2-bin}: {hxx ixx txx cxx}{** -**.test...} \
-  $imp_libs
+  $impl_libs
 
 # Unit tests.
 #

@@ -4,13 +4,13 @@
 # NOTE: shared imports should go into root.build.
 #
 include ../
-imp_libs = ../lib{build2} # Implied interface dependency.
+impl_libs = ../lib{build2} # Implied interface dependency.
 
 include ../cc/
-int_libs = ../cc/lib{build2-cc}
+intf_libs = ../cc/lib{build2-cc}
 
 ./: lib{build2-cxx}: libul{build2-cxx}: {hxx ixx txx cxx}{** -**.test...} \
-  $int_libs $imp_libs
+  $intf_libs $impl_libs
 
 # Unit tests.
 #
@@ -52,7 +52,7 @@ if! $cross
 lib{build2-cxx}:
 {
   cxx.export.poptions = "-I$out_root" "-I$src_root"
-  cxx.export.libs = $int_libs
+  cxx.export.libs = $intf_libs
 }
 
 liba{build2-cxx}: cxx.export.poptions += -DLIBBUILD2_CXX_STATIC

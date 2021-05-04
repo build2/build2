@@ -91,13 +91,13 @@ namespace build2
       const variable& x_export_coptions;
       const variable& x_export_loptions;
       const variable& x_export_libs;
-      const variable& x_export_imp_libs;
+      const variable& x_export_impl_libs;
 
       const variable& c_export_poptions; // cc.export.*
       const variable& c_export_coptions;
       const variable& c_export_loptions;
       const variable& c_export_libs;
-      const variable& c_export_imp_libs;
+      const variable& c_export_impl_libs;
 
       const variable& x_stdlib;       // x.stdlib
 

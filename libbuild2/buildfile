@@ -23,7 +23,7 @@ include $bundled_modules
 
 # NOTE: shared imports should go into root.build.
 #
-int_libs = $libbutl
+intf_libs = $libbutl
 
 lib{build2}: libul{build2}:                                            \
   {hxx ixx txx cxx}{* -utility-*installed -config -version -*.test...} \
@@ -92,7 +92,7 @@ libul{build2}: install/{hxx ixx txx cxx}{** -**.test...}
 
 libul{build2}: test/{hxx ixx txx cxx}{** -**.test...}
 
-libul{build2}: $int_libs
+libul{build2}: $intf_libs
 
 # Include the generated config and version headers into the distribution (so
 # that we don't pick up installed ones) and don't remove them when cleaning in
@@ -193,7 +193,7 @@ else
 lib{build2}:
 {
   cxx.export.poptions = "-I$out_root" "-I$src_root"
-  cxx.export.libs = $int_libs
+  cxx.export.libs = $intf_libs
 }
 
 # While we don't call any pthread_*() functions in our API, this appears to be

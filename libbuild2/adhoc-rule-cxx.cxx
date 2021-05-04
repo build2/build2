@@ -487,8 +487,8 @@ namespace build2
 
         ofs.open (of);
 
-        ofs << "import imp_libs += build2%lib{build2}"                  << '\n'
-            << "libs{" << id << "}: cxx{rule} hxx{location} $imp_libs"  << '\n'
+        ofs << "import impl_libs += build2%lib{build2}"                 << '\n'
+            << "libs{" << id << "}: cxx{rule} hxx{location} $impl_libs" << '\n'
             << '\n'
             << "if ($cxx.target.system == 'win32-msvc')"                << '\n'
             << "  cxx.poptions += -D_CRT_SECURE_NO_WARNINGS -D_SCL_SECURE_NO_WARNINGS" << '\n'

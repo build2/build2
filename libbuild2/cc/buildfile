@@ -4,16 +4,16 @@
 # NOTE: shared imports should go into root.build.
 #
 include ../
-imp_libs = ../lib{build2} # Implied interface dependency.
+impl_libs = ../lib{build2} # Implied interface dependency.
 
-import imp_libs += libpkgconf%lib{pkgconf}
+import impl_libs += libpkgconf%lib{pkgconf}
 
 include ../bin/
-int_libs = ../bin/lib{build2-bin}
+intf_libs = ../bin/lib{build2-bin}
 
 ./: lib{build2-cc}: libul{build2-cc}: {hxx ixx txx cxx}{** -**.test...} \
   h{msvc-setup}                                                         \
-  $int_libs $imp_libs
+  $intf_libs $impl_libs
 
 # Unit tests.
 #
@@ -50,7 +50,7 @@ if ($cxx.target.class == 'windows')
 lib{build2-cc}:
 {
   cxx.export.poptions = "-I$out_root" "-I$src_root"
-  cxx.export.libs = $int_libs
+  cxx.export.libs = $intf_libs
 }
 
 liba{build2-cc}: cxx.export.poptions += -DLIBBUILD2_CC_STATIC
