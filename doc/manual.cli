@@ -2288,6 +2288,7 @@ lib         exec_root/lib/                  config.install.lib
 libexec     exec_root/libexec/<project>/    config.install.libexec
 pkgconfig   lib/pkgconfig/                  config.install.pkgconfig
 
+etc         data_root/etc/                  config.install.etc
 include     data_root/include/              config.install.include
 share       data_root/share/                config.install.share
 data        share/<project>/                config.install.data
@@ -5891,6 +5892,7 @@ lib         exec_root/lib/<private>/                install.lib
 libexec     exec_root/libexec/<private>/<project>/  install.libexec
 pkgconfig   lib/pkgconfig/                          install.pkgconfig
 
+etc         data_root/etc/                          install.etc
 include     data_root/include/<private>/            install.include
 share       data_root/share/                        install.share
 data        share/<private>/<project>/              install.data

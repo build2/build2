@@ -278,6 +278,7 @@ namespace build2
     DIR (libexec,  ((dir_path ("exec_root") /= "libexec") /= "<private>") /= "<project>");
     DIR (pkgconfig,  dir_path ("lib")       /= "pkgconfig");
 
+    DIR (etc,        dir_path ("data_root") /= "etc");
     DIR (include,   (dir_path ("data_root") /= "include") /= "<private>");
     DIR (share,      dir_path ("data_root") /= "share");
     DIR (data,      (dir_path ("share")     /= "<private>") /= "<project>");
@@ -460,6 +461,7 @@ namespace build2
         set_dir (s, p, rs, "libexec",   dir_libexec);
         set_dir (s, p, rs, "pkgconfig", dir_pkgconfig, false, "644");
 
+        set_dir (s, p, rs, "etc",       dir_etc);
         set_dir (s, p, rs, "include",   dir_include);
         set_dir (s, p, rs, "share",     dir_share);
         set_dir (s, p, rs, "data",      dir_data);
