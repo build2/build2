@@ -1558,10 +1558,11 @@ namespace build2
         return la;
       };
 
-      auto lib = [&d, this] (const target* const* lc,
-                             const string& p,
-                             lflags f,
-                             bool)
+      auto lib = [&d, this] (
+        const target* const* lc,
+        const small_vector<reference_wrapper<const string>, 2>& ns,
+        lflags f,
+        bool)
       {
         // Note: see also make_header_sidebuild().
 
@@ -1584,15 +1585,15 @@ namespace build2
         // From the process_libraries() semantics we know that this callback
         // is always called and always after the options callbacks.
         //
-        appended_library& al (l != nullptr
-                              ? d.ls.append (*l, d.args.size ())
-                              : d.ls.append (p, d.args.size ()));
+        appended_library* al (l != nullptr
+                              ? &d.ls.append (*l, d.args.size ())
+                              : d.ls.append (ns, d.args.size ()));
 
-        if (al.end != appended_library::npos) // Closed.
+        if (al != nullptr && al->end != appended_library::npos) // Closed.
         {
           // Hoist the elements corresponding to this library to the end.
           //
-          if (al.begin != al.end)
+          if (al->begin != al->end)
           {
             // Rotate to the left the subrange starting from the first element
             // of this library and until the end so that the element after the
@@ -1600,23 +1601,23 @@ namespace build2
             // subrange. We also need to adjust begin/end of libraries
             // affected by the rotation.
             //
-            rotate (d.args.begin () + al.begin,
-                    d.args.begin () + al.end,
+            rotate (d.args.begin () + al->begin,
+                    d.args.begin () + al->end,
                     d.args.end ());
 
-            size_t n (al.end - al.begin);
+            size_t n (al->end - al->begin);
 
             for (appended_library& al1: d.ls)
             {
-              if (al1.begin >= al.end)
+              if (al1.begin >= al->end)
               {
                 al1.begin -= n;
                 al1.end -= n;
               }
             }
 
-            al.end = d.args.size ();
-            al.begin = al.end - n;
+            al->end = d.args.size ();
+            al->begin = al->end - n;
           }
 
           return;
@@ -1628,7 +1629,10 @@ namespace build2
           // static library.
           //
           if (d.li.type != otype::a)
-            d.args.push_back (p);
+          {
+            for (const string& n: ns)
+              d.args.push_back (n);
+          }
         }
         else
         {
@@ -1742,7 +1746,8 @@ namespace build2
         }
 
       done:
-        al.end = d.args.size (); // Close.
+        if (al != nullptr)
+          al->end = d.args.size (); // Close.
       };
 
       auto opt = [&d, this] (const target& lt,
@@ -1813,17 +1818,21 @@ namespace build2
         return la;
       };
 
-      auto lib = [&d, this] (const target* const* lc,
-                             const string& p,
-                             lflags f,
-                             bool)
+      auto lib = [&d, this] (
+        const target* const* lc,
+        const small_vector<reference_wrapper<const string>, 2>& ns,
+        lflags f,
+        bool)
       {
         const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         if (l == nullptr)
         {
           if (d.li.type != otype::a)
-            d.cs.append (p);
+          {
+            for (const string& n: ns)
+              d.cs.append (n);
+          }
         }
         else
         {
@@ -1939,10 +1948,11 @@ namespace build2
         bool               link;
       } d {ls, args, link};
 
-      auto lib = [&d, this] (const target* const* lc,
-                             const string& f,
-                             lflags,
-                             bool sys)
+      auto lib = [&d, this] (
+        const target* const* lc,
+        const small_vector<reference_wrapper<const string>, 2>& ns,
+        lflags,
+        bool sys)
       {
         const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
@@ -1951,6 +1961,17 @@ namespace build2
         //
         if (sys)
           return;
+
+        auto append = [&d] (const string& f)
+        {
+          string o (d.link ? "-Wl,-rpath-link," : "-Wl,-rpath,");
+
+          size_t p (path::traits_type::rfind_separator (f));
+          assert (p != string::npos);
+
+          o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.
+          d.args.push_back (move (o));
+        };
 
         if (l != nullptr)
         {
@@ -1965,10 +1986,11 @@ namespace build2
           // We handle rpath similar to the compilation case by adding the
           // options on the first occurrence and ignoring all the subsequent.
           //
-          if (find (d.ls.begin (), d.ls.end (), l) != d.ls.end ())
-            return;
-
-          d.ls.push_back (l);
+          if (find (d.ls.begin (), d.ls.end (), l) == d.ls.end ())
+          {
+            append (ns[0]);
+            d.ls.push_back (l);
+          }
         }
         else
         {
@@ -1977,36 +1999,28 @@ namespace build2
           // better than checking for a platform-specific extension (maybe
           // we should cache it somewhere).
           //
-          size_t p (path::traits_type::find_extension (f));
+          for (const string& f: ns)
+          {
+            size_t p (path::traits_type::find_extension (f));
 
-          if (p == string::npos)
-            return;
+            if (p == string::npos)
+              return;
 
-          ++p; // Skip dot.
+            ++p; // Skip dot.
 
-          bool c (true);
-          const char* e;
+            bool c (true);
+            const char* e;
 
-          if      (tclass == "windows") {e = "dll"; c = false;}
-          else if (tsys == "darwin")     e = "dylib";
-          else                           e = "so";
+            if      (tclass == "windows") {e = "dll"; c = false;}
+            else if (tsys == "darwin")     e = "dylib";
+            else                           e = "so";
 
-          if ((c
-               ? f.compare (p, string::npos, e)
-               : icasecmp (f.c_str () + p, e)) != 0)
-            return;
+            if ((c
+                 ? f.compare (p, string::npos, e)
+                 : icasecmp (f.c_str () + p, e)) == 0)
+              append (f);
+          }
         }
-
-        // Ok, if we are here then it means we have a non-system, shared
-        // library and its absolute path is in f.
-        //
-        string o (d.link ? "-Wl,-rpath-link," : "-Wl,-rpath,");
-
-        size_t p (path::traits_type::rfind_separator (f));
-        assert (p != string::npos);
-
-        o.append (f, 0, (p != 0 ? p : 1)); // Don't include trailing slash.
-        d.args.push_back (move (o));
       };
 
 

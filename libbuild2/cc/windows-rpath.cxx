@@ -58,10 +58,11 @@ namespace build2
       //
       auto imp = [] (const target&, bool) {return true;};
 
-      auto lib = [&r] (const target* const* lc,
-                       const string& f,
-                       lflags,
-                       bool sys)
+      auto lib = [&r] (
+        const target* const* lc,
+        const small_vector<reference_wrapper<const string>, 2>& ns,
+        lflags,
+        bool sys)
       {
         const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
@@ -76,8 +77,13 @@ namespace build2
         {
           // This can be an "undiscovered" DLL (see search_library()).
           //
-          if (!l->is_a<libs> () || l->path ().empty ()) // Also covers binless.
-            return;
+          if (l->is_a<libs> () && !l->path ().empty ()) // Also covers binless.
+          {
+            timestamp t (l->load_mtime ());
+
+            if (t > r)
+              r = t;
+          }
         }
         else
         {
@@ -91,20 +97,19 @@ namespace build2
           //
           //    Though this can happen on MinGW with direct DLL link...
           //
-          size_t p (path::traits_type::find_extension (f));
+          for (const string& f: ns)
+          {
+            size_t p (path::traits_type::find_extension (f));
 
-          if (p == string::npos || icasecmp (f.c_str () + p + 1, "dll") != 0)
-            return;
+            if (p != string::npos && icasecmp (f.c_str () + p + 1, "dll") == 0)
+            {
+              timestamp t (mtime (f.c_str ()));
+
+              if (t > r)
+                r = t;
+            }
+          }
         }
-
-        // Ok, this is a DLL.
-        //
-        timestamp t (l != nullptr
-                     ? l->load_mtime ()
-                     : mtime (f.c_str ()));
-
-        if (t > r)
-          r = t;
       };
 
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
@@ -139,10 +144,11 @@ namespace build2
 
       auto imp = [] (const target&, bool) {return true;};
 
-      auto lib = [&r, &bs] (const target* const* lc,
-                            const string& f,
-                            lflags,
-                            bool sys)
+      auto lib = [&r, &bs] (
+        const target* const* lc,
+        const small_vector<reference_wrapper<const string>, 2>& ns,
+        lflags,
+        bool sys)
       {
         const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
@@ -161,7 +167,7 @@ namespace build2
                                : nullptr);
             r.insert (
               windows_dll {
-                f,
+                ns[0],
                 pdb != nullptr ? &pdb->as<file> ().path ().string () : nullptr,
                 string ()
               });
@@ -169,35 +175,38 @@ namespace build2
         }
         else
         {
-          size_t p (path::traits_type::find_extension (f));
-
-          if (p != string::npos && icasecmp (f.c_str () + p + 1, "dll") == 0)
+          for (const string& f: ns)
           {
-            // See if we can find a corresponding .pdb.
-            //
-            windows_dll wd {f, nullptr, string ()};
-            string& pdb (wd.pdb_storage);
+            size_t p (path::traits_type::find_extension (f));
 
-            // First try "our" naming: foo.dll.pdb.
-            //
-            pdb = f;
-            pdb += ".pdb";
-
-            if (!exists (path (pdb)))
+            if (p != string::npos && icasecmp (f.c_str () + p + 1, "dll") == 0)
             {
-              // Then try the usual naming: foo.pdb.
+              // See if we can find a corresponding .pdb.
               //
-              pdb.assign (f, 0, p);
+              windows_dll wd {f, nullptr, string ()};
+              string& pdb (wd.pdb_storage);
+
+              // First try "our" naming: foo.dll.pdb.
+              //
+              pdb = f;
               pdb += ".pdb";
 
               if (!exists (path (pdb)))
-                pdb.clear ();
+              {
+                // Then try the usual naming: foo.pdb.
+                //
+                pdb.assign (f, 0, p);
+                pdb += ".pdb";
+
+                if (!exists (path (pdb)))
+                  pdb.clear ();
+              }
+
+              if (!pdb.empty ())
+                wd.pdb = &pdb;
+
+              r.insert (move (wd));
             }
-
-            if (!pdb.empty ())
-              wd.pdb = &pdb;
-
-            r.insert (move (wd));
           }
         }
       };

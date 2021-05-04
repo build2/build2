@@ -6193,10 +6193,11 @@ namespace build2
           const target*& lt;
         } d {a, ht, lt};
 
-        auto lib = [&d] (const target* const* lc,
-                         const string&,
-                         lflags,
-                         bool)
+        auto lib = [&d] (
+          const target* const* lc,
+          const small_vector<reference_wrapper<const string>, 2>&,
+          lflags,
+          bool)
         {
           // It's unfortunate we have no way to bail out.
           //

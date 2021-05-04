@@ -58,8 +58,14 @@ namespace build2
       {
         static const size_t npos = size_t (~0);
 
-        uintptr_t l;   // Pointer to library target (last bit 0) or to
-                       // library name (-lpthread or path; last bit 1).
+        // Each appended_library represents either a library target or a
+        // library name fragment up to 2 elements long:
+        //
+        //                          target         |         name
+        //                --------------------------------------------------
+        const void* l1; //      library target     | library name[1] or NULL
+        const void* l2; //           NULL          | library name[0]
+
         size_t begin;  // First arg belonging to this library.
         size_t end;    // Past last arg belonging to this library.
       };
@@ -73,38 +79,52 @@ namespace build2
         appended_library&
         append (const file& l, size_t b)
         {
-          auto p (reinterpret_cast<uintptr_t> (&l));
-          auto i (find_if (begin (), end (),
-                           [p] (const appended_library& al)
-                           {
-                             return al.l == p;
-                           }));
-
-          if (i != end ())
-            return *i;
-
-          push_back (appended_library {p, b, appended_library::npos});
-          return back ();
-        }
-
-        appended_library&
-        append (const string& l, size_t b)
-        {
           auto i (find_if (begin (), end (),
                            [&l] (const appended_library& al)
                            {
-                             return (al.l & 1) != 0 &&
-                               l == *reinterpret_cast<const string*> (
-                                 al.l & ~uintptr_t (1));
+                             return al.l2 == nullptr && al.l1 == &l;
                            }));
 
           if (i != end ())
             return *i;
 
-          push_back (
-            appended_library {
-              reinterpret_cast<uintptr_t> (&l) | 1, b, appended_library::npos});
+          push_back (appended_library {&l, nullptr, b, appended_library::npos});
           return back ();
+        }
+
+        // Return NULL if no duplicate tracking can be performed for this
+        // library.
+        //
+        appended_library*
+        append (const small_vector<reference_wrapper<const string>, 2>& ns,
+                size_t b)
+        {
+          size_t n (ns.size ());
+
+          if (n > 2)
+            return nullptr;
+
+          auto i (
+            find_if (
+              begin (), end (),
+              [&ns, n] (const appended_library& al)
+              {
+                return al.l2 != nullptr &&
+                  *static_cast<const string*> (al.l2) == ns[0].get () &&
+                  (n == 2
+                   ? (al.l1 != nullptr &&
+                      *static_cast<const string*> (al.l1) == ns[1].get ())
+                   : al.l1 == nullptr);
+              }));
+
+          if (i != end ())
+            return &*i;
+
+          push_back (appended_library {
+              n == 2 ? &ns[1].get () : nullptr, &ns[0].get (),
+              b, appended_library::npos});
+
+          return &back ();
         }
       };
 

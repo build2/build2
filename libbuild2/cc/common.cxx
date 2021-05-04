@@ -32,10 +32,6 @@ namespace build2
     // *.export.libs is up-to-date (which will happen automatically if it is
     // listed as a prerequisite of this library).
     //
-    // Storing a reference to library path in proc_lib is legal (it comes
-    // either from the target's path or from one of the *.libs variables
-    // neither of which should change on this run).
-    //
     // Note that the order of processing is:
     //
     // 1. options (x.* then cc.* to be consistent with poptions/loptions)
@@ -47,7 +43,23 @@ namespace build2
     // array that contains the current library dependency chain all the way to
     // the library passed to process_libraries(). The first element of this
     // array is NULL. If this argument is NULL, then this is a library without
-    // a target (e.g., -lpthread) and its name is in the second argument.
+    // a target (e.g., -lpthread) and its name is in the second argument
+    // (which could be resolved to an absolute path or passed as an -l<name>
+    // option). Otherwise, (the first argument is not NULL), the second
+    // argument contains the target path (which can be empty in case of the
+    // unknown DLL path).
+    //
+    // Initially, the second argument (library name) was a string (e.g.,
+    // -lpthread) but there are cases where the library is identified with
+    // multiple options, such as -framework CoreServices (there are also cases
+    // like -Wl,--whole-archive -lfoo -lbar -Wl,--no-whole-archive). So now it
+    // is a vector_view that contains a fragment of options (from one of the
+    // *.libs variables) that corresponds to the library (or several
+    // libraries, as in the --whole-archive example above).
+    //
+    // Storing a reference to elements of library name in proc_lib is legal
+    // (they come either from the target's path or from one of the *.libs
+    // variables neither of which should change on this run).
     //
     // If proc_impl always returns false (that is, we are only interested in
     // interfaces), then top_li can be absent. This makes process_libraries()
@@ -69,15 +81,16 @@ namespace build2
       bool la,
       lflags lf,
       const function<bool (const target&,
-                           bool la)>& proc_impl, // Implementation?
-      const function<void (const target* const*, // Can be NULL.
-                           const string& path,   // Library path.
-                           lflags,               // Link flags.
-                           bool sys)>& proc_lib, // True if system library.
+                           bool la)>& proc_impl,            // Implementation?
+      const function<void (const target* const*,            // Can be NULL.
+                           const small_vector<reference_wrapper<
+                             const string>, 2>&,            // Library "name".
+                           lflags,                          // Link flags.
+                           bool sys)>& proc_lib,            // System library?
       const function<void (const target&,
-                           const string& type,   // cc.type
-                           bool com,             // cc. or x.
-                           bool exp)>& proc_opt, // *.export.
+                           const string& type,              // cc.type
+                           bool com,                        // cc. or x.
+                           bool exp)>& proc_opt,            // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
       small_vector<const target*, 16>* chain) const
     {
@@ -196,6 +209,8 @@ namespace build2
 
       // Next process the library itself if requested.
       //
+      small_vector<reference_wrapper<const string>, 2> proc_lib_name; // Reuse.
+
       if (self && proc_lib)
       {
         chain->push_back (&l);
@@ -211,7 +226,8 @@ namespace build2
                 ? cast_false<bool> (l.vars[c_system])
                 : !p.empty () && sys (top_sysd, p.string ()));
 
-        proc_lib (&chain->back (), p.string (), lf, s);
+        proc_lib_name = {p.string ()};
+        proc_lib (&chain->back (), proc_lib_name, lf, s);
       }
 
       const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
@@ -299,17 +315,79 @@ namespace build2
           return s;
         };
 
-        auto proc_int = [&l,
-                         &proc_impl, &proc_lib, &proc_opt, chain,
+        // Determine the length of the library name fragment as well as
+        // whether it is a system library. Possible length values are:
+        //
+        // 1 - just the argument itself (-lpthread)
+        // 2 - argument and next element (-l pthread, -framework CoreServices)
+        // 0 - unrecognized/until the end (-Wl,--whole-archive ...)
+        //
+        auto sense_fragment = [&sys_simple, this] (const string& l) ->
+          pair<size_t, bool>
+        {
+          size_t n;
+          bool s (true);
+
+          if (tsys == "win32-msvc")
+          {
+            if (l[0] == '/')
+            {
+              // Some other option (e.g., /WHOLEARCHIVE:<name>).
+              //
+              n = 0;
+            }
+            else
+            {
+              // Presumably a path.
+              //
+              n = 1;
+              s = sys_simple (l);
+            }
+          }
+          else
+          {
+            if (l[0] == '-')
+            {
+              // -l<name>, -l <name>
+              //
+              if (l[1] == 'l')
+              {
+                n = l.size () == 2 ? 2 : 1;
+              }
+              // -framework <name> (Mac OS)
+              //
+              else if (tsys == "darwin" && l == "-framework")
+              {
+                n = 2;
+              }
+              // Some other option (e.g., -Wl,--whole-archive).
+              //
+              else
+                n = 0;
+            }
+            else
+            {
+              // Presumably a path.
+              //
+              n = 1;
+              s = sys_simple (l);
+            }
+          }
+
+          return make_pair (n, s);
+        };
+
+        auto proc_int = [&l, chain,
+                         &proc_impl, &proc_lib, &proc_lib_name, &proc_opt,
                          &sysd, &usrd,
-                         &find_sysd, &find_linfo, &sys_simple,
+                         &find_sysd, &find_linfo, &sense_fragment,
                          &bs, a, &li, impl, this] (const lookup& lu)
         {
           const vector<name>* ns (cast_null<vector<name>> (lu));
           if (ns == nullptr || ns->empty ())
             return;
 
-          for (auto i (ns->begin ()), e (ns->end ()); i != e; ++i)
+          for (auto i (ns->begin ()), e (ns->end ()); i != e; )
           {
             const name& n (*i);
 
@@ -321,7 +399,20 @@ namespace build2
               // files).
               //
               if (proc_lib)
-                proc_lib (nullptr, n.value, 0, sys_simple (n.value));
+              {
+                pair<size_t, bool> r (sense_fragment (n.value));
+
+                proc_lib_name.clear ();
+                for (auto e1 (r.first != 0 ? i + r.first : e);
+                     i != e && i != e1 && i->simple ();
+                     ++i)
+                {
+                  proc_lib_name.push_back (i->value);
+                }
+
+                proc_lib (nullptr, proc_lib_name, 0, r.second);
+                continue;
+              }
             }
             else
             {
@@ -380,23 +471,36 @@ namespace build2
                                  t, t.is_a<liba> () || t.is_a<libux> (), 0,
                                  proc_impl, proc_lib, proc_opt, true, chain);
             }
+
+            ++i;
           }
         };
 
         // Process libraries from *.libs (of type strings).
         //
-        auto proc_imp = [&proc_lib, &sys_simple] (const lookup& lu)
+        auto proc_imp = [&proc_lib, &proc_lib_name,
+                         &sense_fragment] (const lookup& lu)
         {
           const strings* ns (cast_null<strings> (lu));
           if (ns == nullptr || ns->empty ())
             return;
 
-          for (const string& n: *ns)
+          for (auto i (ns->begin ()), e (ns->end ()); i != e; )
           {
             // This is something like -lpthread or shell32.lib so should be a
             // valid path.
             //
-            proc_lib (nullptr, n, 0, sys_simple (n));
+            pair<size_t, bool> r (sense_fragment (*i));
+
+            proc_lib_name.clear ();
+            for (auto e1 (r.first != 0 ? i + r.first : e);
+                 i != e && i != e1;
+                 ++i)
+            {
+              proc_lib_name.push_back (*i);
+            }
+
+            proc_lib (nullptr, proc_lib_name, 0, r.second);
           }
         };
 

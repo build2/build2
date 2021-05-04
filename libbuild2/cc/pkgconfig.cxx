@@ -1635,11 +1635,11 @@ namespace build2
           bool priv (false);
           auto imp = [&priv] (const target&, bool la) {return priv && la;};
 
-          auto lib = [&save_library_target,
-                      &save_library_name] (const target* const* lc,
-                                           const string& p,
-                                           lflags,
-                                           bool)
+          auto lib = [&save_library_target, &save_library_name] (
+            const target* const* lc,
+            const small_vector<reference_wrapper<const string>, 2>& ns,
+            lflags,
+            bool)
           {
             const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
@@ -1649,7 +1649,12 @@ namespace build2
                 save_library_target (*l);
             }
             else
-              save_library_name (p); // Something "system'y", save as is.
+            {
+              // Something "system'y", save as is.
+              //
+              for (const string& n: ns)
+                save_library_name (n);
+            }
           };
 
           auto opt = [] (const target&, const string&, bool, bool)

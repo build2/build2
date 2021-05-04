@@ -282,7 +282,9 @@ namespace build2
         bool,
         lflags,
         const function<bool (const target&, bool)>&,
-        const function<void (const target* const*, const string&, lflags, bool)>&,
+        const function<void (const target* const*,
+                             const small_vector<reference_wrapper<const string>, 2>&,
+                             lflags, bool)>&,
         const function<void (const target&, const string&, bool, bool)>&,
         bool = false,
         small_vector<const target*, 16>* = nullptr) const;
