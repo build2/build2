@@ -664,7 +664,12 @@ namespace build2
     //
     if (p == run_phase::load)
     {
-      lm_.lock ();
+      if (!lm_.try_lock ())
+      {
+        ctx_.sched.deactivate (false /* external */);
+        lm_.lock ();
+        ctx_.sched.activate (false /* external */);
+      }
       r = !fail_; // Re-query.
     }
 
@@ -773,7 +778,12 @@ namespace build2
 
     if (n == run_phase::load)
     {
-      lm_.lock ();
+      if (!lm_.try_lock ())
+      {
+        ctx_.sched.deactivate (false /* external */);
+        lm_.lock ();
+        ctx_.sched.activate (false /* external */);
+      }
       r = !fail_; // Re-query.
     }
 
