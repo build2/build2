@@ -3323,7 +3323,7 @@ namespace build2
               if (id.variant == "emscripten")
                 s = "em++";
               else
-                s = "clang";
+                s = "clang++";
               break;
             }
           case type::icc:    s = "icpc";    break;
