@@ -5651,6 +5651,66 @@ namespace build2
         return r;
       };
 
+      // Find the module in prerequisite targets of a library (recursively)
+      // seeing through libu*{}. Note: sets the `done` flag. See similar
+      // logic in pkgconfig_save().
+      //
+      auto find = [a, &bs, this,
+                   &check_exact, &done] (const file& l,
+                                         const auto& find) -> void
+      {
+        for (const target* pt: l.prerequisite_targets[a])
+        {
+          if (pt == nullptr)
+            continue;
+
+          // Note that here we (try) to use whatever flavor of bmi*{} is
+          // available.
+          //
+          // @@ MOD: BMI compatibility check.
+          //
+          if (pt->is_a<bmix> ())
+          {
+            const string& n (cast<string> (pt->state[a].vars[c_module_name]));
+
+            if (const target** p = check_exact (n))
+              *p = pt;
+          }
+          else if (pt->is_a (*x_mod))
+          {
+            // This is an installed library with a list of module sources (the
+            // source are specified as prerequisites but the fallback file
+            // rule puts them into prerequisite_targets for us).
+            //
+            // The module names should be specified but if not assume
+            // something else is going on and ignore.
+            //
+            // Note also that besides modules, prerequisite_targets may
+            // contain libraries which are interface dependencies of this
+            // library and which may be called to resolve its module
+            // dependencies.
+            //
+            const string* n (cast_null<string> (pt->vars[c_module_name]));
+
+            if (n == nullptr)
+              continue;
+
+            if (const target** p = check_exact (*n))
+              *p = &this->make_module_sidebuild (a, bs, l, *pt, *n); // GCC 4.9
+          }
+          // Note that in prerequisite targets we will have the libux{}
+          // members, not the group.
+          //
+          else if (const libux* pl = pt->is_a<libux> ())
+            find (*pl, find);
+          else
+            continue;
+
+          if (done)
+            break;
+        }
+      };
+
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
@@ -5671,54 +5731,7 @@ namespace build2
           //
           if (lt != nullptr)
           {
-            for (const target* bt: lt->prerequisite_targets[a])
-            {
-              if (bt == nullptr)
-                continue;
-
-              // Note that here we (try) to use whatever flavor of bmi*{} is
-              // available.
-              //
-              // @@ MOD: BMI compatibility check.
-              // @@ UTL: we need to (recursively) see through libu*{} (and
-              //    also in pkgconfig_save()).
-              //
-              if (bt->is_a<bmix> ())
-              {
-                const string& n (
-                  cast<string> (bt->state[a].vars[c_module_name]));
-
-                if (const target** p = check_exact (n))
-                  *p = bt;
-              }
-              else if (bt->is_a (*x_mod))
-              {
-                // This is an installed library with a list of module sources
-                // (the source are specified as prerequisites but the fallback
-                // file rule puts them into prerequisite_targets for us).
-                //
-                // The module names should be specified but if not assume
-                // something else is going on and ignore.
-                //
-                // Note also that besides modules, prerequisite_targets may
-                // contain libraries which are interface dependencies of this
-                // library and which may be called to resolve its module
-                // dependencies.
-                //
-                const string* n (cast_null<string> (bt->vars[c_module_name]));
-
-                if (n == nullptr)
-                  continue;
-
-                if (const target** p = check_exact (*n))
-                  *p = &make_module_sidebuild (a, bs, *lt, *bt, *n);
-              }
-              else
-                continue;
-
-              if (done)
-                break;
-            }
+            find (*lt, find);
 
             if (done)
               break;

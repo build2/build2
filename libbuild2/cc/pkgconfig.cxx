@@ -1715,66 +1715,78 @@ namespace build2
           vector<path>   x_hdrs;
           vector<path>   c_hdrs;
 
+          // We need to (recursively) see through libu*{}. See similar logic
+          // in search_modules().
+          //
           // Note that the prerequisite targets are in the member, not the
           // group (for now we don't support different sets of modules/headers
           // for static/shared library; see load above for details).
           //
-          for (const target* pt: l.prerequisite_targets[a])
+          auto collect = [a, this,
+                          &mods,
+                          &x_hdrs, &c_hdrs] (const target& l,
+                                             const auto& collect) -> void
           {
-            if (pt == nullptr)
-              continue;
-
-            // @@ UTL: we need to (recursively) see through libu*{} (and
-            //    also in search_modules()).
-            //
-            if (modules && pt->is_a<bmix> ())
+            for (const target* pt: l.prerequisite_targets[a])
             {
-              // What we have is a binary module interface. What we need is
-              // a module interface source it was built from. We assume it's
-              // the first mxx{} target that we see.
-              //
-              const target* mt (nullptr);
-              for (const target* t: pt->prerequisite_targets[a])
-              {
-                if ((mt = t->is_a (*x_mod)))
-                  break;
-              }
-
-              // Can/should there be a bmi{} without mxx{}? Can't think of a
-              // reason.
-              //
-              assert (mt != nullptr);
-
-              path p (install::resolve_file (mt->as<file> ()));
-
-              if (p.empty ()) // Not installed.
+              if (pt == nullptr)
                 continue;
 
-              string pp;
-              if (const string* v = cast_null<string> ((*mt)[x_preprocessed]))
-                pp = *v;
-
-              mods.push_back (
-                module {
-                  cast<string> (pt->state[a].vars[c_module_name]),
-                  move (p),
-                  move (pp),
-                  symexport
-                });
-            }
-            else if (pt->is_a (**x_hdr) || pt->is_a<h> ())
-            {
-              if (cast_false<bool> ((*pt)[c_importable]))
+              if (modules && pt->is_a<bmix> ())
               {
-                path p (install::resolve_file (pt->as<file> ()));
+                // What we have is a binary module interface. What we need is
+                // a module interface source it was built from. We assume it's
+                // the first mxx{} target that we see.
+                //
+                const target* mt (nullptr);
+                for (const target* t: pt->prerequisite_targets[a])
+                {
+                  if ((mt = t->is_a (*x_mod)))
+                    break;
+                }
+
+                // Can/should there be a bmi{} without mxx{}? Can't think of a
+                // reason.
+                //
+                assert (mt != nullptr);
+
+                path p (install::resolve_file (mt->as<file> ()));
 
                 if (p.empty ()) // Not installed.
                   continue;
 
-                (pt->is_a<h> () ? c_hdrs : x_hdrs).push_back (move (p));
+                string pp;
+                if (const string* v = cast_null<string> ((*mt)[x_preprocessed]))
+                  pp = *v;
+
+                mods.push_back (
+                  module {
+                    cast<string> (pt->state[a].vars[c_module_name]),
+                    move (p),
+                    move (pp),
+                    symexport});
               }
+              else if (pt->is_a (**x_hdr) || pt->is_a<h> ())
+              {
+                if (cast_false<bool> ((*pt)[c_importable]))
+                {
+                  path p (install::resolve_file (pt->as<file> ()));
+
+                  if (p.empty ()) // Not installed.
+                    continue;
+
+                  (pt->is_a<h> () ? c_hdrs : x_hdrs).push_back (move (p));
+                }
+              }
+              // Note that in prerequisite targets we will have the libux{}
+              // members, not the group.
+              //
+              else if (pt->is_a<libux> ())
+                collect (*pt, collect);
             }
-          }
+          };
+
+          collect (l, collect);
 
           if (size_t n = mods.size ())
           {
