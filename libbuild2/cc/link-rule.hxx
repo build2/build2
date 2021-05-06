@@ -32,6 +32,16 @@ namespace build2
         bool seen_cc  = false;
         bool seen_obj = false;
         bool seen_lib = false;
+
+        match_result& operator|= (match_result y)
+        {
+          seen_x   = seen_x   || y.seen_x;
+          seen_c   = seen_c   || y.seen_c;
+          seen_cc  = seen_cc  || y.seen_cc;
+          seen_obj = seen_obj || y.seen_obj;
+          seen_lib = seen_lib || y.seen_lib;
+          return *this;
+        }
       };
 
       match_result

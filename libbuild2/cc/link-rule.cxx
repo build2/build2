@@ -73,17 +73,17 @@ namespace build2
             // Header-only X library (or library with C source and X header).
             (library          && x_header (p, false /* c_hdr */)))
         {
-          r.seen_x = r.seen_x || true;
+          r.seen_x = true;
         }
         else if (p.is_a<c> ()            ||
                  // Header-only C library.
                  (library && p.is_a<h> ()))
         {
-          r.seen_c = r.seen_c || true;
+          r.seen_c = true;
         }
         else if (p.is_a<obj> () || p.is_a<bmi> ())
         {
-          r.seen_obj = r.seen_obj || true;
+          r.seen_obj = true;
         }
         else if (p.is_a<obje> () || p.is_a<bmie> ())
         {
@@ -92,116 +92,108 @@ namespace build2
           if (ot != otype::e)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
-          r.seen_obj = r.seen_obj || true;
+          r.seen_obj = true;
         }
         else if (p.is_a<obja> () || p.is_a<bmia> ())
         {
           if (ot != otype::a)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
-          r.seen_obj = r.seen_obj || true;
+          r.seen_obj = true;
         }
         else if (p.is_a<objs> () || p.is_a<bmis> ())
         {
           if (ot != otype::s)
             fail << p.type ().name << "{} as prerequisite of " << t;
 
-          r.seen_obj = r.seen_obj || true;
+          r.seen_obj = true;
         }
         else if (p.is_a<libul> () || p.is_a<libux> ())
         {
           // For a unility library we look at its prerequisites, recursively.
-          // Since these checks are not exactly light-weight, only do them if
-          // we haven't already seen any X prerequisites.
           //
-          if (!r.seen_x)
+          // This is a bit iffy: in our model a rule can only search a
+          // target's prerequisites if it matches. But we don't yet know
+          // whether we match. However, it seems correct to assume that any
+          // rule-specific search will always resolve to an existing target if
+          // there is one. So perhaps it's time to relax this restriction a
+          // little? Note that this fits particularly well with what we are
+          // doing here since if there is no existing target, then there can
+          // be no prerequisites.
+          //
+          // Note, however, that we cannot link-up a prerequisite target
+          // member to its group since we are not matching this target. As
+          // result we have to do all the steps except for setting t.group and
+          // pass both member and group (we also cannot query t.group since
+          // it's racy).
+          //
+          const target* pg (nullptr);
+          const target* pt (p.search_existing ());
+
+          if (p.is_a<libul> ())
           {
-            // This is a bit iffy: in our model a rule can only search a
-            // target's prerequisites if it matches. But we don't yet know
-            // whether we match. However, it seems correct to assume that any
-            // rule-specific search will always resolve to an existing target
-            // if there is one. So perhaps it's time to relax this restriction
-            // a little? Note that this fits particularly well with what we
-            // doing here since if there is no existing target, then there can
-            // be no prerequisites.
-            //
-            // Note, however, that we cannot link-up a prerequisite target
-            // member to its group since we are not matching this target. As
-            // result we have to do all the steps except for setting t.group
-            // and pass both member and group (we also cannot query t.group
-            // since it's racy).
-            //
-            const target* pg (nullptr);
-            const target* pt (p.search_existing ());
-
-            if (p.is_a<libul> ())
-            {
-              if (pt != nullptr)
-              {
-                // If this is a group then try to pick (again, if exists) a
-                // suitable member. If it doesn't exist, then we will only be
-                // considering the group's prerequisites.
-                //
-                if (const target* pm =
-                    link_member (pt->as<libul> (),
-                                 a,
-                                 linfo {ot, lorder::a /* unused */},
-                                 true /* existing */))
-                {
-                  pg = pt;
-                  pt = pm;
-                }
-              }
-              else
-              {
-                // It's possible we have no group but have a member so try
-                // that.
-                //
-                const target_type& tt (ot == otype::a ? libua::static_type :
-                                       ot == otype::s ? libus::static_type :
-                                       libue::static_type);
-
-                // We know this prerequisite member is a prerequisite since
-                // otherwise the above search would have returned the member
-                // target.
-                //
-                pt = search_existing (t.ctx, p.prerequisite.key (tt));
-              }
-            }
-            else if (!p.is_a<libue> ())
-            {
-              // See if we also/instead have a group.
-              //
-              pg = search_existing (t.ctx,
-                                    p.prerequisite.key (libul::static_type));
-
-              if (pt == nullptr)
-                swap (pt, pg);
-            }
-
             if (pt != nullptr)
             {
-              // If we are matching a target, use the original output type
-              // since that would be the member that we pick.
+              // If this is a group then try to pick (again, if exists) a
+              // suitable member. If it doesn't exist, then we will only be
+              // considering the group's prerequisites.
               //
-              otype pot (pt->is_a<libul> () ? ot : link_type (*pt).type);
-              match_result pr (match (a, *pt, pg, pot, true /* lib */));
-
-              // Do we need to propagate any other seen_* values? Hm, that
-              // would in fact match with the "see-through" semantics of
-              // utility libraries we have in other places.
-              //
-              r.seen_x = pr.seen_x;
+              if (const target* pm =
+                  link_member (pt->as<libul> (),
+                               a,
+                               linfo {ot, lorder::a /* unused */},
+                               true /* existing */))
+              {
+                pg = pt;
+                pt = pm;
+              }
             }
             else
-              r.seen_lib = r.seen_lib || true; // Consider as just a library.
+            {
+              // It's possible we have no group but have a member so try that.
+              //
+              const target_type& tt (ot == otype::a ? libua::static_type :
+                                     ot == otype::s ? libus::static_type :
+                                     libue::static_type);
+
+              // We know this prerequisite member is a prerequisite since
+              // otherwise the above search would have returned the member
+              // target.
+              //
+              pt = search_existing (t.ctx, p.prerequisite.key (tt));
+            }
           }
+          else if (!p.is_a<libue> ())
+          {
+            // See if we also/instead have a group.
+            //
+            pg = search_existing (t.ctx,
+                                  p.prerequisite.key (libul::static_type));
+
+            if (pt == nullptr)
+              swap (pt, pg);
+          }
+
+          if (pt != nullptr)
+          {
+            // If we are matching a target, use the original output type since
+            // that would be the member that we pick.
+            //
+            otype pot (pt->is_a<libul> () ? ot : link_type (*pt).type);
+
+            // Propagate values according to the "see-through" semantics of
+            // utility libraries.
+            //
+            r |= match (a, *pt, pg, pot, true /* lib */);
+          }
+          else
+            r.seen_lib = true; // Consider as just a library.
         }
         else if (p.is_a<lib> ()  ||
                  p.is_a<liba> () ||
                  p.is_a<libs> ())
         {
-          r.seen_lib = r.seen_lib || true;
+          r.seen_lib = true;
         }
         // Some other c-common header/source (say C++ in a C rule) other than
         // a C header (we assume everyone can hanle that).
