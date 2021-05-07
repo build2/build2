@@ -1842,14 +1842,20 @@ namespace build2
           // Note that we won't be able to add more options since trying them
           // will be expensive.
           //
-          if (r.compare (0,
-                         20 + key.size (),
-                         "# build2 buildfile " + key + '\n') == 0)
+          // Note also that the <key> and variable prefix (as specified in the
+          // export.metadata) are not necessarily the same: <key> is the
+          // target name as imported. Think of it as program's canonical name,
+          // for example, g++ with the actual program being g++-10, etc., and
+          // the variable prefix could be gxx.
+          //
+          string s ("# build2 buildfile " + key);
+          if (r.compare (0, s.size (), s) == 0 && r[s.size ()] == '\n')
             return r;
 
           if (!opt)
             error (loc) << "invalid metadata signature in " << args[0]
-                        << " output";
+                        << " output" <<
+              info << "expected '" << s << "'";
 
           goto fail;
         }
@@ -1919,6 +1925,37 @@ namespace build2
                        nullptr /* root */,
                        t.base_scope ().rw (), // Load phase.
                        &t);
+  }
+
+  // Suggest appropriate ways to import the specified target (as type and
+  // name) from the specified project.
+  //
+  static void
+  import_suggest (const diag_record& dr,
+                  const project_name& pn,
+                  const target_type& tt,
+                  const string& tn,
+                  const char* qual = nullptr)
+  {
+    string pv (pn.variable ());
+
+    // Suggest normal import.
+    //
+    dr << info << "use config.import." << pv << " configuration variable to "
+       << "specify its " << (qual != nullptr ? qual : "") << "project out_root";
+
+    // Suggest ad hoc import but only if it's a path-based target (doing it
+    // for lib{} is very confusing).
+    //
+    if (tt.is_a<path_target> ())
+    {
+      string v (tt.is_a<exe> () && (pv == tn || pn == tn)
+                ? "config." + pv
+                : "config.import." + pv + '.' + tn + '.' + tt.name);
+
+      dr << info << "or use " << v << " configuration variable to specify "
+         << "its " << (qual != nullptr ? qual : "") << "path";
+    }
   }
 
   // Return the processed target name as well as the project directory, if
@@ -2136,6 +2173,8 @@ namespace build2
             tgt = name (); // NULL
           else
           {
+            string on (move (tgt.value)); // Original name as imported.
+
             tgt.dir = p->directory ();
             tgt.value = p->leaf ().string ();
 
@@ -2164,15 +2203,15 @@ namespace build2
               //    natural course?
               //
               name n (tgt);
-              auto r (ibase.find_target_type (n, loc));
+              const target_type* tt (ibase.find_target_type (n, loc).first);
 
-              if (r.first == nullptr)
+              if (tt == nullptr)
                 fail (loc) << "unknown target type " << n.type << " in " << n;
 
               // Note: not using the extension extracted by find_target_type()
               // to be consistent with import phase 2.
               //
-              target& t (insert_target (trace, ctx, *r.first, *p).first);
+              target& t (insert_target (trace, ctx, *tt, *p).first);
 
               // Load the metadata, similar to import phase 2.
               //
@@ -2182,12 +2221,21 @@ namespace build2
                 {
                   if (!e->vars[ctx.var_export_metadata].defined ())
                   {
-                    parse_metadata (*e,
-                                    *extract_metadata (e->process_path (),
-                                                       *meta,
-                                                       false /* optional */,
-                                                       loc),
-                                    loc);
+                    optional<string> md;
+                    {
+                      auto df = make_diag_frame (
+                        [&proj, tt, &on] (const diag_record& dr)
+                        {
+                          import_suggest (dr, proj, *tt, on, "alternative ");
+                        });
+
+                      md = extract_metadata (e->process_path (),
+                                             *meta,
+                                             false /* optional */,
+                                             loc);
+                    }
+
+                    parse_metadata (*e, move (*md), loc);
                   }
                 }
               }
@@ -2610,12 +2658,13 @@ namespace build2
                         r.second);
     }
 
-    // Save the original target name as metadata key.
-    //
-    auto meta (metadata ? optional<string> (tgt.value) : nullopt);
-
     pair<name, optional<dir_path>> r (
-      import_search (base, move (tgt), opt, meta, true /* subpproj */, loc));
+      import_search (base,
+                     move (tgt),
+                     opt,
+                     nullopt /* metadata */,
+                     true    /* subpproj */,
+                     loc));
 
     // If there is no project, we are either done or go straight to phase 2.
     //
@@ -2645,7 +2694,7 @@ namespace build2
             if (const target* t = import (ctx,
                                           base.find_prerequisite_key (ns, loc),
                                           opt && !r.second  /* optional */,
-                                          meta,
+                                          nullopt           /* metadata */,
                                           false             /* existing */,
                                           loc))
               ns = t->as_name ();
@@ -2666,8 +2715,9 @@ namespace build2
                    ? import_kind::adhoc
                    : import_kind::normal);
 
-    return make_pair (import_load (base.ctx, move (r), metadata, loc).first,
-                      k);
+    return make_pair (
+      import_load (base.ctx, move (r), false /* metadata */, loc).first,
+      k);
   }
 
   const target*
@@ -2735,6 +2785,13 @@ namespace build2
         if (*t != nullptr && (*t)->vars[ctx.var_export_metadata].defined ())
           return *t; // We've got all we need.
 
+        auto df = make_diag_frame (
+          [&proj, &tt, &tk] (const diag_record& dr)
+          {
+            import_suggest (
+              dr, proj, tt, *tk.name, "alternative ");
+          });
+
         if (!(md = extract_metadata (pp, *meta, opt, loc)))
           break;
       }
@@ -2772,27 +2829,7 @@ namespace build2
       dr << info << "consider adding its installation location" <<
         info << "or explicitly specify its project name";
     else
-    {
-      string projv (proj.variable ());
-
-      // Suggest normal import.
-      //
-      dr << info << "use config.import." << projv << " configuration variable "
-         << "to specify its project out_root";
-
-      // Suggest ad hoc import but only if it's a path-based target (doing it
-      // for lib{} is very confusing).
-      //
-      if (tt.is_a<path_target> ())
-      {
-        string v (tt.is_a<exe> () && (projv == *tk.name || proj == *tk.name)
-                  ? "config." + projv
-                  : "config.import." + projv + '.' + *tk.name + '.' + tt.name);
-
-        dr << info << "or use " << v << " configuration variable to specify "
-           << "its path";
-      }
-    }
+      import_suggest (dr, proj, tt, *tk.name);
 
     dr << endf;
   }
@@ -2819,6 +2856,8 @@ namespace build2
     context& ctx (base.ctx);
     assert (ctx.phase == run_phase::load);
 
+    // Use the original target name as metadata key.
+    //
     auto meta (metadata ? optional<string> (tgt.value) : nullopt);
 
     names ns;

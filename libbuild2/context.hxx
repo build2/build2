@@ -392,9 +392,10 @@ namespace build2
     //
     // The following metadata variable names have pre-defined meaning:
     //
-    //   <var-prefix>.name = [string]      # Stable name for diagnostics.
-    //   <var-prefix>.version = [string]   # Version for diagnostics.
-    //   <var-prefix>.checksum = [string]  # Checksum for change tracking.
+    //   <var-prefix>.name = [string]         # Stable name for diagnostics.
+    //   <var-prefix>.version = [string]      # Version for diagnostics.
+    //   <var-prefix>.checksum = [string]     # Checksum for change tracking.
+    //   <var-prefix>.environment = [strings] # Envvars for change tracking.
     //
     // If the <var-prefix>.name variable is missing, it is set to the target
     // name as imported.
