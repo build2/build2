@@ -50,16 +50,9 @@ namespace build2
     scheduler_queue = q;
   }
 
-  size_t scheduler::
-  wait (size_t start_count, const atomic_count& task_count, work_queue wq)
+  optional<size_t> scheduler::
+  wait_impl (size_t start_count, const atomic_count& task_count, work_queue wq)
   {
-    // Note that task_count is a synchronization point.
-    //
-    size_t tc;
-
-    if ((tc = task_count.load (memory_order_acquire)) <= start_count)
-      return tc;
-
     assert (max_active_ != 1); // Serial execution, nobody to wait for.
 
     // See if we can run some of our own tasks.
@@ -71,6 +64,8 @@ namespace build2
       //
       if (task_queue* tq = queue ())
       {
+        size_t tc;
+
         for (lock ql (tq->mutex); !tq->shutdown && !empty_back (*tq); )
         {
           pop_back (*tq, ql);
@@ -91,7 +86,7 @@ namespace build2
       }
     }
 
-    return suspend (start_count, task_count);
+    return nullopt;
   }
 
   void scheduler::

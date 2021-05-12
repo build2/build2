@@ -853,27 +853,35 @@ namespace build2
   // phase_unlock
   //
   phase_unlock::
-  phase_unlock (context& ctx, bool u)
-      : l (u ? phase_lock_instance : nullptr)
+  phase_unlock (context& c, bool u, bool d)
+      : ctx (u ? &c : nullptr), lock (nullptr)
   {
-    if (u)
+    if (u && !d)
+      unlock ();
+  }
+
+  void phase_unlock::
+  unlock ()
+  {
+    if (ctx != nullptr && lock == nullptr)
     {
-      assert (&l->ctx == &ctx);
+      lock = phase_lock_instance;
+      assert (&lock->ctx == ctx);
 
-      phase_lock_instance = nullptr; // Note: not l->prev.
-      ctx.phase_mutex.unlock (l->phase);
+      phase_lock_instance = nullptr; // Note: not lock->prev.
+      ctx->phase_mutex.unlock (lock->phase);
 
-      //text << this_thread::get_id () << " phase unlock  " << l->p;
+      //text << this_thread::get_id () << " phase unlock  " << lock->phase;
     }
   }
 
   phase_unlock::
   ~phase_unlock () noexcept (false)
   {
-    if (l != nullptr)
+    if (lock != nullptr)
     {
-      bool r (l->ctx.phase_mutex.lock (l->phase));
-      phase_lock_instance = l;
+      bool r (ctx->phase_mutex.lock (lock->phase));
+      phase_lock_instance = lock;
 
       // Fail unless we are already failing. Note that we keep the phase
       // locked since there will be phase_lock down the stack to unlock it.
@@ -881,7 +889,7 @@ namespace build2
       if (!r && !uncaught_exception ())
         throw failed ();
 
-      //text << this_thread::get_id () << " phase lock    " << l->p;
+      //text << this_thread::get_id () << " phase lock    " << lock->phase;
     }
   }
 

@@ -125,6 +125,16 @@ namespace build2
       return wait (0, task_count, wq);
     }
 
+    // As above but call lock.unlock() before suspending (can be used to
+    // unlock the phase).
+    //
+    template <typename L>
+    size_t
+    wait (size_t start_count,
+          const atomic_count& task_count,
+          L& lock,
+          work_queue = work_all);
+
     // Mark the queue so that we don't work any tasks that may already be
     // there. In the normal "bunch of acync() calls followed by wait()"
     // cases this happens automatically but in special cases where async()
@@ -846,6 +856,10 @@ namespace build2
 
     static void
     queue (task_queue*) noexcept;
+
+  private:
+    optional<size_t>
+    wait_impl (size_t, const atomic_count&, work_queue);
   };
 }
 

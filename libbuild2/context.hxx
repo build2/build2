@@ -594,10 +594,14 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT phase_unlock
   {
-    phase_unlock (context&, bool unlock = true);
+    phase_unlock (context&, bool unlock = true, bool delay = false);
     ~phase_unlock () noexcept (false);
 
-    phase_lock* l;
+    void
+    unlock ();
+
+    context* ctx;
+    phase_lock* lock;
   };
 
   // Assuming we have a lock on the current phase, temporarily switch to a

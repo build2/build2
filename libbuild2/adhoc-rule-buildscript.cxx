@@ -265,9 +265,7 @@ namespace build2
 
         const target& pt (*p.target);
 
-        const auto& tc (pt[a].task_count);
-        if (tc.load (memory_order_acquire) >= busy)
-          ctx.sched.wait (exec, tc, scheduler::work_none);
+        ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
 
         target_state s (pt.executed_state (a));
         rs |= s;

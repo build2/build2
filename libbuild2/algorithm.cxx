@@ -236,8 +236,8 @@ namespace build2
         // to switch the phase to load. Which would result in a deadlock
         // unless we release the phase.
         //
-        phase_unlock ul (ct.ctx);
-        e = ctx.sched.wait (busy - 1, task_count, *wq);
+        phase_unlock u (ct.ctx, true /* unlock */, true /* delay */);
+        e = ctx.sched.wait (busy - 1, task_count, u, *wq);
       }
 
       // We don't lock already applied or executed targets.
@@ -2015,9 +2015,7 @@ namespace build2
 
       // If the target is still busy, wait for its completion.
       //
-      const auto& tc (mt[a].task_count);
-      if (tc.load (memory_order_acquire) >= busy)
-        ctx.sched.wait (exec, tc, scheduler::work_none);
+      ctx.sched.wait (exec, mt[a].task_count, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -2067,9 +2065,7 @@ namespace build2
 
       const target& mt (*ts[i]);
 
-      const auto& tc (mt[a].task_count);
-      if (tc.load (memory_order_acquire) >= busy)
-        ctx.sched.wait (exec, tc, scheduler::work_none);
+      ctx.sched.wait (exec, mt[a].task_count, scheduler::work_none);
 
       r |= mt.executed_state (a);
 
@@ -2151,9 +2147,7 @@ namespace build2
 
       const target& pt (*p.target);
 
-      const auto& tc (pt[a].task_count);
-      if (tc.load (memory_order_acquire) >= busy)
-        ctx.sched.wait (exec, tc, scheduler::work_none);
+      ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
 
       target_state s (pt.executed_state (a));
       rs |= s;

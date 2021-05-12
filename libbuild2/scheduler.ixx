@@ -3,6 +3,41 @@
 
 namespace build2
 {
+  inline size_t scheduler::
+  wait (size_t start_count, const atomic_count& task_count, work_queue wq)
+  {
+    // Note that task_count is a synchronization point.
+    //
+    size_t tc;
+    if ((tc = task_count.load (memory_order_acquire)) <= start_count)
+      return tc;
+
+    if (optional<size_t> r = wait_impl (start_count, task_count, wq))
+      return *r;
+
+    return suspend (start_count, task_count);
+  }
+
+  template <typename L>
+  inline size_t scheduler::
+  wait (size_t start_count,
+        const atomic_count& task_count,
+        L& lock,
+        work_queue wq)
+  {
+    // Note that task_count is a synchronization point.
+    //
+    size_t tc;
+    if ((tc = task_count.load (memory_order_acquire)) <= start_count)
+      return tc;
+
+    if (optional<size_t> r = wait_impl (start_count, task_count, wq))
+      return *r;
+
+    lock.unlock ();
+    return suspend (start_count, task_count);
+  }
+
   inline scheduler::queue_mark::
   queue_mark (scheduler& s)
       : tq_ (s.queue ())
