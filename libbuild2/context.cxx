@@ -621,7 +621,7 @@ namespace build2
   }
 
   bool run_phase_mutex::
-  lock (run_phase p)
+  lock (run_phase n)
   {
     bool r;
 
@@ -632,7 +632,7 @@ namespace build2
       // Increment the counter.
       //
       condition_variable* v (nullptr);
-      switch (p)
+      switch (n)
       {
       case run_phase::load:    lc_++; v = &lv_; break;
       case run_phase::match:   mc_++; v = &mv_; break;
@@ -645,13 +645,13 @@ namespace build2
       //
       if (u)
       {
-        ctx_.phase = p;
+        ctx_.phase = n;
         r = !fail_;
       }
-      else if (ctx_.phase != p)
+      else if (ctx_.phase != n)
       {
         ctx_.sched.deactivate (false /* external */);
-        for (; ctx_.phase != p; v->wait (l)) ;
+        for (; ctx_.phase != n; v->wait (l)) ;
         r = !fail_;
         l.unlock (); // Important: activate() can block.
         ctx_.sched.activate (false /* external */);
@@ -662,7 +662,7 @@ namespace build2
 
     // In case of load, acquire the exclusive access mutex.
     //
-    if (p == run_phase::load)
+    if (n == run_phase::load)
     {
       if (!lm_.try_lock ())
       {
@@ -677,11 +677,11 @@ namespace build2
   }
 
   void run_phase_mutex::
-  unlock (run_phase p)
+  unlock (run_phase o)
   {
     // In case of load, release the exclusive access mutex.
     //
-    if (p == run_phase::load)
+    if (o == run_phase::load)
       lm_.unlock ();
 
     {
@@ -690,25 +690,35 @@ namespace build2
       // Decrement the counter and see if this phase has become unlocked.
       //
       bool u (false);
-      switch (p)
+      switch (o)
       {
       case run_phase::load:    u = (--lc_ == 0); break;
       case run_phase::match:   u = (--mc_ == 0); break;
       case run_phase::execute: u = (--ec_ == 0); break;
       }
 
-      // If the phase is unlocked, pick a new phase and notify the waiters.
-      // Note that we notify all load waiters so that they can all serialize
-      // behind the second-level mutex.
+      // If the phase became unlocked, pick a new phase and notify the
+      // waiters. Note that we notify all load waiters so that they can all
+      // serialize behind the second-level mutex.
       //
       if (u)
       {
+        run_phase n;
         condition_variable* v;
+        if      (lc_ != 0) {n = run_phase::load;    v = &lv_;}
+        else if (mc_ != 0) {n = run_phase::match;   v = &mv_;}
+        else if (ec_ != 0) {n = run_phase::execute; v = &ev_;}
+        else               {n = run_phase::load;    v = nullptr;}
 
-        if      (lc_ != 0) {ctx_.phase = run_phase::load;    v = &lv_;}
-        else if (mc_ != 0) {ctx_.phase = run_phase::match;   v = &mv_;}
-        else if (ec_ != 0) {ctx_.phase = run_phase::execute; v = &ev_;}
-        else               {ctx_.phase = run_phase::load;    v = nullptr;}
+        ctx_.phase = n;
+
+        // Enter/leave scheduler sub-phase. See also the other half in
+        // relock().
+        //
+        if (o == run_phase::match && n == run_phase::execute)
+          ctx_.sched.push_phase ();
+        else if (o == run_phase::execute && n == run_phase::match)
+          ctx_.sched.pop_phase ();
 
         if (v != nullptr)
         {
@@ -757,6 +767,14 @@ namespace build2
       {
         ctx_.phase = n;
         r = !fail_;
+
+        // Enter/leave scheduler sub-phase. See also the other half in
+        // unlock().
+        //
+        if (o == run_phase::match && n == run_phase::execute)
+          ctx_.sched.push_phase ();
+        else if (o == run_phase::execute && n == run_phase::match)
+          ctx_.sched.pop_phase ();
 
         // Notify others that could be waiting for this phase.
         //
@@ -846,7 +864,7 @@ namespace build2
       phase_lock_instance = prev;
       ctx.phase_mutex.unlock (phase);
 
-      //text << this_thread::get_id () << " phase release " << p;
+      //text << this_thread::get_id () << " phase release " << phase;
     }
   }
 
@@ -913,10 +931,13 @@ namespace build2
     if (new_phase == run_phase::load) // Note: load lock is exclusive.
       ctx.load_generation++;
 
-    //text << this_thread::get_id () << " phase switch  " << o << " " << n;
+    //text << this_thread::get_id () << " phase switch  "
+    //     << old_phase << " " << new_phase;
   }
 
 #if 0
+  // NOTE: see push/pop_phase() logic if trying to enable this.
+  //
   phase_switch::
   phase_switch (phase_unlock&& u, phase_lock&& l)
       : old_phase (u.l->phase), new_phase (l.phase)
@@ -950,6 +971,7 @@ namespace build2
     if (!r && !uncaught_exception ())
       throw failed ();
 
-    //text << this_thread::get_id () << " phase restore " << n << " " << o;
+    //text << this_thread::get_id () << " phase restore "
+    //     << new_phase << " " << old_phase;
   }
 }

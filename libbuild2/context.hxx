@@ -38,8 +38,7 @@ namespace build2
     void
     unlock (run_phase);
 
-    // Switch from one phase to another. Semantically, just unlock() followed
-    // by lock() but more efficient.
+    // Switch from one phase to another.
     //
     bool
     relock (run_phase unlock, run_phase lock);
@@ -116,7 +115,10 @@ namespace build2
   // we have switched to another task).
   //
   // Note that sharing the same scheduler between multiple top-level contexts
-  // can currently be problematic due to operation-specific scheduler tuning.
+  // can currently be problematic due to operation-specific scheduler tuning
+  // as all as phase pushing/popping (perhaps this suggest that we should
+  // instead go the multiple communicating schedulers route, a la the job
+  // server).
   //
   // The loaded_modules state (module.hxx) is shared among all the contexts
   // (there is no way to have multiple shared library loading "contexts") and
@@ -635,12 +637,12 @@ namespace build2
 
     wait_guard (context&,
                 atomic_count& task_count,
-                bool phase = false);
+                bool unlock_phase = false);
 
     wait_guard (context&,
                 size_t start_count,
                 atomic_count& task_count,
-                bool phase = false);
+                bool unlock_phase = false);
 
     void
     wait ();

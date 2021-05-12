@@ -418,6 +418,10 @@ namespace build2
       auto_thread_env penv (nullptr);
       context& ctx (*bs.ctx.module_context);
 
+      // Enter a scheduler sub-phase.
+      //
+      scheduler::phase_guard pg (ctx.sched);
+
       // Mark the queue so that we don't work any tasks that may already be
       // there (we could be called in strange ways, for example, as part of
       // match via dir_search()).

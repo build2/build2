@@ -113,7 +113,7 @@ namespace build2
     {
       ready_condv_.notify_one ();
     }
-    else if (queued_task_count_.load (std::memory_order_consume) != 0 &&
+    else if (queued_task_count_.load (memory_order_consume) != 0 &&
              activate_helper (l))
       ;
     else if (active_ == 0 && external_ == 0)
@@ -405,8 +405,12 @@ namespace build2
     if ((wait_queue_size_ = max_threads == 1 ? 0 : shard_size ()) != 0)
       wait_queue_.reset (new wait_slot[wait_queue_size_]);
 
-    // Reset counters.
+    // Reset other state.
     //
+    phase_.clear ();
+
+    idle_reserve_         = 0;
+
     stat_max_waiters_     = 0;
     stat_wait_collisions_ = 0;
 
@@ -541,6 +545,132 @@ namespace build2
     return r;
   }
 
+  void scheduler::
+  push_phase ()
+  {
+    if (max_active_ == 1) // Serial execution.
+      return;
+
+    // Note that we cannot "wait out" until all the old phase threads
+    // deactivate themselves because we are called while holding the phase
+    // transition lock which may prevent that from happening.
+    //
+    lock l (mutex_);
+
+    // Here is the problem: the old phase is likely to have a bunch of waiting
+    // threads with non-empty queues and after switching the phase new helpers
+    // are going to start working those queues (and immediately get blocked
+    // trying to lock the "old" phase). This is further exacerbated by the
+    // fact that helpers get tasks from the front of the queue while new tasks
+    // are added at the back. Which means helpers won't see any "new" phase
+    // tasks until enough of them get "sacrificed" (i.e., blocked) to clear
+    // the old phase backlog (or more like front-log in this case).
+    //
+    // Since none of the old phase tasks can make any progress until we return
+    // to the old phase, we need to somehow "hide" their tasks from the new
+    // phase helpers. The way we are going to do it is to temporarily (until
+    // pop) replace such queues with empty ones. This should be ok since a
+    // thread with such a "shadowed" queue won't wake up until we return to
+    // the old phase.
+    //
+    // Note also that the assumption here is that while we may still have
+    // "phase-less" threads milling around (e.g., transitioning from active to
+    // waiting), they do not access the queue (helpers are a special case that
+    // we deal with by locking the queue).
+    //
+    phase_.emplace_back (task_queues_.size ());
+    vector<task_queue_data>& ph (phase_.back ());
+
+    auto j (ph.begin ());
+    for (auto i (task_queues_.begin ()); i != task_queues_.end (); ++i, ++j)
+    {
+      task_queue& tq (*i);
+      lock ql (tq.mutex);
+
+      if (tq.size != 0)
+      {
+        queued_task_count_.fetch_sub (tq.size, memory_order_release);
+
+        // @@ TODO: should we make task_queue::data allocation lazy? On the
+        //    other hand, we don't seem to get many non-empty queues here on
+        //    real-world projects.
+        //
+        j->data.reset (new task_data[task_queue_depth_]);
+        tq.swap (*j);
+      }
+    }
+
+    assert (queued_task_count_.load (memory_order_consume) == 0);
+
+    // Boost the max_threads limit for the first sub-phase.
+    //
+    // Ideally/long-term we want to redo this by waking up one of the old
+    // phase waiting threads to serve as a helper.
+    //
+    if (phase_.size () == 1)
+    {
+      size_t cur_threads (init_active_ + helpers_ - idle_reserve_);
+
+      old_eff_max_threads_ = (cur_threads > max_threads_
+                              ? cur_threads
+                              : max_threads_);
+      old_max_threads_ = max_threads_;
+
+      max_threads_ = old_eff_max_threads_ + max_threads_ / 2;
+      idle_reserve_ = 0;
+    }
+  }
+
+  void scheduler::
+  pop_phase ()
+  {
+    if (max_active_ == 1) // Serial execution.
+      return;
+
+    lock l (mutex_);
+    assert (!phase_.empty ());
+
+    // Restore the queue sizes.
+    //
+    assert (queued_task_count_.load (memory_order_consume) == 0);
+
+    vector<task_queue_data>& ph (phase_.back ());
+
+    auto i (task_queues_.begin ());
+    for (auto j (ph.begin ()); j != ph.end (); ++i, ++j)
+    {
+      if (j->size != 0)
+      {
+        task_queue& tq (*i);
+        lock ql (tq.mutex);
+        tq.swap (*j);
+        queued_task_count_.fetch_add (tq.size, memory_order_release);
+      }
+    }
+
+    phase_.pop_back ();
+
+    // Restore the original limit and reserve idle helpers that we created
+    // above the old (effective) limit.
+    //
+    if (phase_.size () == 0)
+    {
+      size_t cur_threads (init_active_ + helpers_);
+
+      if (cur_threads > old_eff_max_threads_)
+      {
+        idle_reserve_ = cur_threads - old_eff_max_threads_;
+
+        // Not necessarily the case since some helpers may have still picked
+        // up tasks from the old phase and are now in waiting_.
+        //
+        //assert (idle_reserve_ <= idle_);
+      }
+
+      max_threads_ = old_max_threads_;
+    }
+  }
+
   scheduler::monitor_guard scheduler::
   monitor (atomic_count& c, size_t t, function<size_t (size_t)> f)
   {
@@ -566,18 +696,18 @@ namespace build2
     if (shutdown_)
       return false;
 
-    if (idle_ != 0)
+    if (idle_ > idle_reserve_)
     {
       idle_condv_.notify_one ();
     }
     //
     // Ignore the max_threads value if we have queued tasks but no active
     // threads. This means everyone is waiting for something to happen but
-    // nobody is doing anything (e.g., working the queues). This, for
-    // example, can happen if a thread waits for a task that is in its queue
-    // but is below the mark.
+    // nobody is doing anything (e.g., working the queues). This, for example,
+    // can happen if a thread waits for a task that is in its queue but is
+    // below the mark.
     //
-    else if (init_active_ + helpers_ < max_threads_ ||
+    else if (init_active_ + helpers_ - idle_reserve_ < max_threads_ ||
              (active_ == 0 &&
               queued_task_count_.load (memory_order_consume) != 0))
     {
@@ -778,6 +908,8 @@ namespace build2
       {
         s.active_++;
 
+        // Note: see the push_phase() logic if changing anything here.
+        //
         while (s.queued_task_count_.load (memory_order_consume) != 0)
         {
           // Queues are never removed which means we can get the current range

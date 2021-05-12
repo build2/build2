@@ -135,6 +135,35 @@ namespace build2
           L& lock,
           work_queue = work_all);
 
+    // Sub-phases.
+    //
+    // Note that these functions should be called while holding the lock
+    // protecting the phase transition, when there are no longer any threads
+    // in the old phase nor yet any threads in the new phase (or, equivalent,
+    // for example, if the old phase does not utilize the scheduler).
+    //
+    // In particular, for push, while we don't expect any further calls to
+    // async() or wait() in the old phase (until pop), there could still be
+    // active threads that haven't had a chance to deactivated themselves yet.
+    // For pop there should be no remaining tasks queued corresponding to the
+    // phase being popped.
+    //
+    void
+    push_phase ();
+
+    void
+    pop_phase ();
+
+    struct phase_guard
+    {
+      explicit
+      phase_guard (scheduler& s): s_ (s) {s_.push_phase ();}
+      ~phase_guard () {s_.pop_phase ();}
+
+    private:
+      scheduler& s_;
+    };
+
     // Mark the queue so that we don't work any tasks that may already be
     // there. In the normal "bunch of acync() calls followed by wait()"
     // cases this happens automatically but in special cases where async()
@@ -663,29 +692,43 @@ namespace build2
     //
     size_t task_queue_depth_; // Multiple of max_active.
 
-    struct task_queue
+    // Our task queue is circular with head being the index of the first
+    // element and tail -- of the last. Since this makes the empty and one
+    // element cases indistinguishable, we also keep the size.
+    //
+    // The mark is an index somewhere between (figuratively speaking) head and
+    // tail, if enabled. If the mark is hit, then it is disabled until the
+    // queue becomes empty or it is reset by a push.
+    //
+    struct task_queue_data
     {
-      std::mutex mutex;
-      bool shutdown = false;
-
-      size_t stat_full = 0; // Number of times push() returned NULL.
-
-      // Our task queue is circular with head being the index of the first
-      // element and tail -- of the last. Since this makes the empty and one
-      // element cases indistinguishable, we also keep the size.
-      //
-      // The mark is an index somewhere between (figuratively speaking) head
-      // and tail, if enabled. If the mark is hit, then it is disabled until
-      // the queue becomes empty or it is reset by a push.
-      //
       size_t head = 0;
       size_t mark = 0;
       size_t tail = 0;
       size_t size = 0;
 
       unique_ptr<task_data[]> data;
+    };
 
-      task_queue (size_t depth): data (new task_data[depth]) {}
+    struct task_queue: task_queue_data
+    {
+      std::mutex mutex;
+      bool shutdown = false;
+
+      size_t stat_full = 0; // Number of times push() returned NULL.
+
+      task_queue (size_t depth) {data.reset (new task_data[depth]);}
+
+      void
+      swap (task_queue_data& d)
+      {
+        using std::swap;
+        swap (head, d.head);
+        swap (mark, d.mark);
+        swap (tail, d.tail);
+        swap (size, d.size);
+        swap (data, d.data);
+      }
     };
 
     // Task queue API. Expects the queue mutex to be locked.
@@ -856,6 +899,14 @@ namespace build2
 
     static void
     queue (task_queue*) noexcept;
+
+    // Sub-phases.
+    //
+    small_vector<vector<task_queue_data>, 2> phase_;
+
+    size_t idle_reserve_;
+    size_t old_max_threads_;
+    size_t old_eff_max_threads_;
 
   private:
     optional<size_t>
