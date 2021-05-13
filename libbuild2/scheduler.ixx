@@ -18,6 +18,12 @@ namespace build2
     return suspend (start_count, task_count);
   }
 
+  inline size_t scheduler::
+  wait (const atomic_count& task_count, work_queue wq)
+  {
+    return wait (0, task_count, wq);
+  }
+
   template <typename L>
   inline size_t scheduler::
   wait (size_t start_count,

@@ -119,11 +119,10 @@ namespace build2
           const atomic_count& task_count,
           work_queue = work_all);
 
+    // As above but assume 0 start_count.
+    //
     size_t
-    wait (const atomic_count& task_count, work_queue wq = work_all)
-    {
-      return wait (0, task_count, wq);
-    }
+    wait (const atomic_count& task_count, work_queue wq = work_all);
 
     // As above but call lock.unlock() before suspending (can be used to
     // unlock the phase).
