@@ -169,6 +169,9 @@ namespace build2
       append_binless_modules (sha256&,
                               const scope&, action, const file&) const;
 
+      optional<path>
+      find_system_library (const strings&) const;
+
     protected:
       static void
       functions (function_family&, const char*); // functions.cxx

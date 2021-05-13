@@ -68,7 +68,7 @@ namespace build2
       {
         path f (s, 1, s.size () - 2);
 
-        path p;
+        path p; // Reuse the buffer.
         for (const dir_path& d: sys_inc_dirs)
         {
           if (file_exists ((p = d, p /= f),

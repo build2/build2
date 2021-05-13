@@ -175,6 +175,21 @@ namespace build2
       throw invalid_argument ("invalid preprocessed value '" + s + "'");
     }
 
+    optional<path> compile_rule::
+    find_system_header (const path& f) const
+    {
+      path p; // Reuse the buffer.
+      for (const dir_path& d: sys_inc_dirs)
+      {
+        if (file_exists ((p = d, p /= f),
+                         true /* follow_symlinks */,
+                         true /* ignore_errors */))
+          return p;
+      }
+
+      return nullopt;
+    }
+
     struct compile_rule::match_data
     {
       explicit

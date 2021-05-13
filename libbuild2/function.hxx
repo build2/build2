@@ -950,7 +950,7 @@ namespace build2
                 typename cast::data {&cast::thunk, dm}));
     }
 
-    // Low-level interface that can be used to register additional data.
+    // Low-level interface that can be used to pass additional data.
     //
     // Note that the call to this function sidesteps the thunk.
     //

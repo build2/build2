@@ -322,6 +322,8 @@ namespace build2
         // 2 - argument and next element (-l pthread, -framework CoreServices)
         // 0 - unrecognized/until the end (-Wl,--whole-archive ...)
         //
+        // See similar code in find_system_library().
+        //
         auto sense_fragment = [&sys_simple, this] (const string& l) ->
           pair<size_t, bool>
         {
@@ -626,6 +628,8 @@ namespace build2
     }
 
     // Note that pk's scope should not be NULL (even if dir is absolute).
+    //
+    // Note: see similar logic in find_system_library().
     //
     target* common::
     search_library (action act,

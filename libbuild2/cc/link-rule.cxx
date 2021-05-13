@@ -34,6 +34,137 @@ namespace build2
     using namespace bin;
     using build2::to_string;
 
+    optional<path> link_rule::
+    find_system_library (const strings& l) const
+    {
+      assert (!l.empty ());
+
+      // Figure out what we are looking for.
+      //
+      // See similar code in process_libraries().
+      //
+      // @@ TODO: should we take the link order into account (but do we do
+      //    this when we link system libraries)?
+      //
+      string n1, n2;
+      {
+        auto i (l.begin ()), e (l.end ());
+
+        string s (*i);
+
+        if (tsys == "win32-msvc")
+        {
+          if (s[0] == '/')
+          {
+            // Some option (e.g., /WHOLEARCHIVE:<name>). Fall through to fail.
+          }
+          else
+          {
+            // Presumably a complete name.
+            //
+            n1 = move (s);
+            i++;
+          }
+        }
+        else
+        {
+          if (s[0] == '-')
+          {
+            // -l<name>, -l <name>
+            //
+            if (s[1] == 'l')
+            {
+              if (s.size () == 2) // -l <name>
+              {
+                if (i + 1 != e)
+                  s = *++i;
+                else
+                  s.clear ();
+              }
+              else                // -l<name>
+                s.erase (0, 2);
+
+              if (!s.empty ())
+              {
+                i++;
+
+                // Here we need to be consistent with search_library(). Maybe
+                // one day we should generalize it to be usable here (though
+                // here we don't need library name guessing).
+                //
+                const char* p ("");
+                const char* e1 (nullptr);
+                const char* e2 (nullptr);
+
+                if (tclass == "windows")
+                {
+                  if (tsys == "mingw32")
+                  {
+                    p = "lib";
+                    e1 = ".dll.a";
+                    e2 = ".a";
+                  }
+                  else
+                  {
+                    e1 = ".dll.lib";
+                    e2 = ".lib";
+                  }
+                }
+                else
+                {
+                  p = "lib";
+                  e1 = (tclass == "macos" ? ".dylib" : ".so");
+                  e2 = ".a";
+                }
+
+                n1 = p + s + e1;
+                n2 = e2 != nullptr ? p + s + e2 : string ();
+              }
+            }
+#if 0
+            // -framework <name> (Mac OS)
+            //
+            else if (tsys == "darwin" && l == "-framework")
+            {
+              // @@ TODO: maybe one day.
+            }
+#endif
+            else
+            {
+              // Some other option (e.g., -Wl,--whole-archive). Fall through
+              // to fail.
+            }
+          }
+          else
+          {
+            // Presumably a complete name.
+            //
+            n1 = move (s);
+            i++;
+          }
+        }
+
+        if (i != e)
+          fail << "unexpected library name '" << *i << "'";
+      }
+
+      path p; // Reuse the buffer.
+      for (const dir_path& d: sys_lib_dirs)
+      {
+        auto exists = [&p, &d] (const string& n)
+        {
+          return file_exists ((p = d, p /= n),
+                              true /* follow_symlinks */,
+                              true /* ignore_errors */);
+        };
+
+        if (exists (n1) || (!n2.empty () && exists (n2)))
+          return p;
+      }
+
+      return nullopt;
+    }
+
     link_rule::
     link_rule (data&& d)
         : common (move (d)),

@@ -60,6 +60,10 @@ namespace build2
       append_library_options (appended_libraries&, strings&,
                               const scope&,
                               action, const file&, bool, linfo) const;
+
+      optional<path>
+      find_system_header (const path&) const;
+
     protected:
       static void
       functions (function_family&, const char*); // functions.cxx

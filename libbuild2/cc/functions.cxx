@@ -53,7 +53,7 @@ namespace build2
       const module* m (rs->find_module<module> (d.x));
 
       if (m == nullptr)
-        fail << f.name << " called without " << d.x << " module being loaded";
+        fail << f.name << " called without " << d.x << " module loaded";
 
       // We can assume these are present due to function's types signature.
       //
@@ -108,7 +108,7 @@ namespace build2
       const module* m (rs->find_module<module> (d.x));
 
       if (m == nullptr)
-        fail << f.name << " called without " << d.x << " module being loaded";
+        fail << f.name << " called without " << d.x << " module loaded";
 
       // We can assume these are present due to function's types signature.
       //
@@ -226,6 +226,45 @@ namespace build2
             m.append_library_options (
               *static_cast<appended_libraries*> (ls), r, bs, a, l, la, li);
           }});
+
+      // $<module>.find_system_header(<name>)
+      //
+      // Return the header path if the specified header exists in one of the
+      // system header search directories and NULL otherwise. System header
+      // search directories are those that the compiler searches by default
+      // plus directories specified as part of the compiler mode options (but
+      // not *.poptions).
+      //
+      // Note that this function is not pure.
+      //
+      f.insert (".find_system_header", false).
+        insert<const char*, names> (
+          [] (const scope* bs,
+              vector_view<value> vs,
+              const function_overload& f) -> value
+          {
+            const char* x (*reinterpret_cast<const char* const*> (&f.data));
+
+            if (bs == nullptr)
+              fail << f.name << " called out of scope";
+
+            const scope* rs (bs->root_scope ());
+
+            if (rs == nullptr)
+              fail << f.name << " called out of project";
+
+            const module* m (rs->find_module<module> (x));
+
+            if (m == nullptr)
+              fail << f.name << " called without " << x << " module loaded";
+
+            // We can assume the argument is present due to function's types
+            // signature.
+            //
+            auto r (m->find_system_header (convert<path> (move (vs[0]))));
+            return r ? value (move (*r)) : value (nullptr);
+          },
+          x);
     }
 
     void link_rule::
@@ -357,6 +396,47 @@ namespace build2
             else
               fail << t << " is not an object file target";
           }});
+
+      // $<module>.find_system_library(<name>)
+      //
+      // Return the library path if the specified library exists in one of the
+      // system library search directories. System library search directories
+      // are those that the compiler searches by default plus directories
+      // specified as part of the compiler mode options (but not *.loptions).
+      //
+      // The library can be specified in the same form as expected by the
+      // linker (-lfoo for POSIX, foo.lib for MSVC) or as a complete name.
+      //
+      // Note that this function is not pure.
+      //
+      f.insert (".find_system_library", false).
+        insert<const char*, names> (
+          [] (const scope* bs,
+              vector_view<value> vs,
+              const function_overload& f) -> value
+          {
+            const char* x (*reinterpret_cast<const char* const*> (&f.data));
+
+            if (bs == nullptr)
+              fail << f.name << " called out of scope";
+
+            const scope* rs (bs->root_scope ());
+
+            if (rs == nullptr)
+              fail << f.name << " called out of project";
+
+            const module* m (rs->find_module<module> (x));
+
+            if (m == nullptr)
+              fail << f.name << " called without " << x << " module loaded";
+
+            // We can assume the argument is present due to function's types
+            // signature.
+            //
+            auto r (m->find_system_library (convert<strings> (move (vs[0]))));
+            return r ? value (move (*r)) : value (nullptr);
+          },
+          x);
     }
   }
 }
