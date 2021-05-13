@@ -54,6 +54,9 @@ namespace build2
       if (tq->shutdown)
         throw_generic_error (ECANCELED);
 
+      if (tq->data == nullptr)
+        tq->data.reset (new task_data[task_queue_depth_]);
+
       if (task_data* td = push (*tq))
       {
         // Package the task (under lock).

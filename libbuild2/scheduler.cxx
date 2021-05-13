@@ -571,7 +571,8 @@ namespace build2
     // phase helpers. The way we are going to do it is to temporarily (until
     // pop) replace such queues with empty ones. This should be ok since a
     // thread with such a "shadowed" queue won't wake up until we return to
-    // the old phase.
+    // the old phase (but the shadow queue may be used if the thread in
+    // question is also switching to the new phase).
     //
     // Note also that the assumption here is that while we may still have
     // "phase-less" threads milling around (e.g., transitioning from active to
@@ -589,13 +590,10 @@ namespace build2
 
       if (tq.size != 0)
       {
-        queued_task_count_.fetch_sub (tq.size, memory_order_release);
-
-        // @@ TODO: should we make task_queue::data allocation lazy? On the
-        //    other hand, we don't seem to get many non-empty queues here on
-        //    real-world projects.
+        // Note that task_queue::data will be allocated lazily (there is a
+        // good chance this queue is not going to be used in the new phase).
         //
-        j->data.reset (new task_data[task_queue_depth_]);
+        queued_task_count_.fetch_sub (tq.size, memory_order_release);
         tq.swap (*j);
       }
     }

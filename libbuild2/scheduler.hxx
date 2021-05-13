@@ -700,6 +700,9 @@ namespace build2
     // tail, if enabled. If the mark is hit, then it is disabled until the
     // queue becomes empty or it is reset by a push.
     //
+    // Note also that the data array can be NULL (lazy allocation) and one
+    // must make sure it's allocated before calling push().
+    //
     struct task_queue_data
     {
       size_t head = 0;
