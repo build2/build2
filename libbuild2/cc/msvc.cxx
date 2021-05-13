@@ -295,33 +295,55 @@ namespace build2
       }
     }
 
+    // Parse semicolon-separated list of search directories (from INCLUDE/LIB
+    // environment variables).
+    //
+    static void
+    parse_search_dirs (const string& v, dir_paths& r, const char* what)
+    {
+      for (size_t b (0), e (0); next_word (v, b, e, ';'); )
+      {
+        string d (v, b, e - b);
+        trim (d);
+
+        if (!d.empty ())
+        {
+          try
+          {
+            r.push_back (dir_path (move (d)));
+          }
+          catch (const invalid_path&)
+          {
+            fail << "invalid path '" << d << "' in " << what;
+          }
+        }
+      }
+    }
+
     // Extract system header search paths from MSVC.
     //
     pair<dir_paths, size_t> config_module::
     msvc_header_search_dirs (const process_path&, scope& rs) const
     {
-      // The compiler doesn't seem to have any built-in paths and all of them
-      // either come from the INCLUDE environment variable or are specified
-      // explicitly on the command line (we now do this if running out of the
-      // command prompt; see guess).
-
-      // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
-      //    cl.exe /Be prints INCLUDE. One advantage of going through the
-      //    compiler is that it may be a wrapper (like our msvc-linux). Note
-      //    also that we will still have to incorporate mode options. And this
-      //    is not used for Clang targeting MSVC.
-      //
-      //    Should we actually bother? INCLUDE is normally used for system
-      //    headers and its highly unlikely we will see an imported library
-      //    that lists one of those directories in pkg-config Cflags value.
-      //    So the only benefit is to be able to print them. Let's wait and
-      //    see.
+      // MSVC doesn't have any built-in paths and all of them either come from
+      // the INCLUDE environment variable or are specified explicitly on the
+      // command line (we now do this if running out of the command prompt;
+      // see guess). Note that this is not used for Clang targeting MSVC (but
+      // is for clang-cl).
 
       // Extract -I paths from the compiler mode.
       //
       dir_paths r;
       msvc_extract_header_search_dirs (cast<strings> (rs[x_mode]), r);
       size_t rn (r.size ());
+
+      // @@ This does not work for our msvc-linux wrappers which set the
+      //    environment variable internally. One way to make this work would
+      //    be run `cl.exe /Be` which prints INCLUDE and LIB (but not for
+      //    clang-cl).
+      //
+      if (optional<string> v = getenv ("INCLUDE"))
+        parse_search_dirs (*v, r, "INCLUDE environment variable");
 
       return make_pair (move (r), rn);
      }
@@ -331,25 +353,22 @@ namespace build2
     pair<dir_paths, size_t> config_module::
     msvc_library_search_dirs (const process_path&, scope& rs) const
     {
-      // The linker doesn't seem to have any built-in paths and all of them
-      // either come from the LIB environment variable or are specified
-      // explicitly on the command line (we now do this if running out of the
-      // command prompt; see guess).
-
-      // @@ VC: how are we going to do this? E.g., cl-14 does this internally.
-      //    cl.exe /Be prints LIB. See above for further discussion.
-      //
-      //    Should we actually bother? LIB is normally used for system
-      //    libraries and its highly unlikely we will see an explicit import
-      //    for a library from one of those directories. So the only benefit
-      //    is to be able to print them. Let's wait and see.
-      //
+      // MSVC doesn't seem to have any built-in paths and all of them either
+      // come from the LIB environment variable or are specified explicitly on
+      // the command line (we now do this if running out of the command
+      // prompt; see guess). See the header case above for details.
 
       // Extract /LIBPATH paths from the compiler mode.
       //
       dir_paths r;
       msvc_extract_library_search_dirs (cast<strings> (rs[x_mode]), r);
       size_t rn (r.size ());
+
+      // @@ This does not work for our msvc-linux wrappers (see above for
+      //    details).
+      //
+      if (optional<string> v = getenv ("LIB"))
+        parse_search_dirs (*v, r, "LIB environment variable");
 
       return make_pair (move (r), rn);
     }
