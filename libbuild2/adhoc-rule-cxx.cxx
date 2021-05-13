@@ -292,19 +292,11 @@ namespace build2
       }
 
       // Clear current project's environment and "switch" to the module
-      // context.
+      // context, including entering a scheduler sub-phase.
       //
       auto_thread_env penv (nullptr);
       context& ctx (*t.ctx.module_context);
-
-      // Enter a scheduler sub-phase.
-      //
       scheduler::phase_guard pg (ctx.sched);
-
-      // Mark the queue so that we don't work any tasks that may already be
-      // there.
-      //
-      scheduler::queue_mark qm (ctx.sched);
 
       const uint16_t verbosity (3); // Project creation command verbosity.
 
