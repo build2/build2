@@ -86,7 +86,7 @@ namespace build2
     // Ad hoc (as opposed to marked with x.importable) importable headers.
     //
     // Note that these are only searched for in the system header search
-    // directories (sys_inc_dirs).
+    // directories (sys_hdr_dirs).
     //
     struct importable_headers
     {
@@ -125,7 +125,7 @@ namespace build2
       // found and NULL otherwise (so can be used as bool).
       //
       pair<const path, groups>*
-      insert_angle (const dir_paths& sys_inc_dirs, const string& file);
+      insert_angle (const dir_paths& sys_hdr_dirs, const string& file);
 
       // As above but for a manually-searched absolute and normalized path.
       //
@@ -139,7 +139,7 @@ namespace build2
       // pattern.
       //
       size_t
-      insert_angle_pattern (const dir_paths& sys_inc_dirs, const string& pat);
+      insert_angle_pattern (const dir_paths& sys_hdr_dirs, const string& pat);
     };
 
     // Headers and header groups whose inclusion should or should not be

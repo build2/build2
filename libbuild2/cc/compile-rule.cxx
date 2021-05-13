@@ -179,7 +179,7 @@ namespace build2
     find_system_header (const path& f) const
     {
       path p; // Reuse the buffer.
-      for (const dir_path& d: sys_inc_dirs)
+      for (const dir_path& d: sys_hdr_dirs)
       {
         if (file_exists ((p = d, p /= f),
                          true /* follow_symlinks */,
@@ -220,15 +220,15 @@ namespace build2
 
     template <typename T>
     void compile_rule::
-    append_sys_inc_options (T& args) const
+    append_sys_hdr_options (T& args) const
     {
-      assert (sys_inc_dirs_extra <= sys_inc_dirs.size ());
+      assert (sys_hdr_dirs_extra <= sys_hdr_dirs.size ());
 
       // Note that the mode options are added as part of cmode.
       //
-      auto b (sys_inc_dirs.begin () + sys_inc_dirs_mode);
-      auto m (sys_inc_dirs.begin () + sys_inc_dirs_extra);
-      auto e (sys_inc_dirs.end ());
+      auto b (sys_hdr_dirs.begin () + sys_hdr_dirs_mode);
+      auto m (sys_hdr_dirs.begin () + sys_hdr_dirs_extra);
+      auto e (sys_hdr_dirs.end ());
 
       // Note: starting from 15.6, MSVC gained /external:I option though it
       // doesn't seem to affect the order, only "system-ness".
@@ -1013,7 +1013,7 @@ namespace build2
           append_options (cs, cmode);
 
           if (md.pp != preprocessed::all)
-            append_sys_inc_options (cs); // Extra system header dirs (last).
+            append_sys_hdr_options (cs); // Extra system header dirs (last).
 
           if (dd.expect (cs.string ()) != nullptr)
             l4 ([&]{trace << "options mismatch forcing update of " << t;});
@@ -3609,7 +3609,7 @@ namespace build2
               args.push_back ("/nologo");
 
               append_options (args, cmode);
-              append_sys_inc_options (args); // Extra system header dirs (last).
+              append_sys_hdr_options (args); // Extra system header dirs (last).
 
               // See perform_update() for details on overriding the default
               // exceptions and runtime.
@@ -3679,7 +3679,7 @@ namespace build2
 
               append_options (args, cmode,
                               cmode.size () - (modules && clang ? 1 : 0));
-              append_sys_inc_options (args); // Extra system header dirs (last).
+              append_sys_hdr_options (args); // Extra system header dirs (last).
 
               // Setup the dynamic module mapper if needed.
               //
@@ -4903,7 +4903,7 @@ namespace build2
               args.push_back ("/nologo");
 
               append_options (args, cmode);
-              append_sys_inc_options (args);
+              append_sys_hdr_options (args);
 
               if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
                 args.push_back ("/EHsc");
@@ -4952,7 +4952,7 @@ namespace build2
 
               append_options (args, cmode,
                               cmode.size () - (modules && clang ? 1 : 0));
-              append_sys_inc_options (args);
+              append_sys_hdr_options (args);
 
               args.push_back ("-E");
               append_lang_options (args, md);
@@ -6785,7 +6785,7 @@ namespace build2
           append_options (args, cmode);
 
           if (md.pp != preprocessed::all)
-            append_sys_inc_options (args); // Extra system header dirs (last).
+            append_sys_hdr_options (args); // Extra system header dirs (last).
 
           // While we want to keep the low-level build as "pure" as possible,
           // the two misguided defaults, C++ exceptions and runtime, just have
@@ -6996,7 +6996,7 @@ namespace build2
           append_options (args, cmode);
 
           if (md.pp != preprocessed::all)
-            append_sys_inc_options (args); // Extra system header dirs (last).
+            append_sys_hdr_options (args); // Extra system header dirs (last).
 
           append_header_options (env, args, header_args, a, t, md, md.dd);
           append_module_options (env, args, module_args, a, t, md, md.dd);

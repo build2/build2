@@ -182,7 +182,7 @@ namespace build2
         vp.insert<path>            ("c.config.path"),
         vp.insert<strings>         ("c.config.mode"),
         vp.insert<dir_paths>       ("c.sys_lib_dirs"),
-        vp.insert<dir_paths>       ("c.sys_inc_dirs"),
+        vp.insert<dir_paths>       ("c.sys_hdr_dirs"),
 
         vp.insert<string>       ("c.std"),
 
@@ -349,15 +349,15 @@ namespace build2
         false, // No __symexport support since no modules.
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
-        cast<dir_paths> (rs[cm.x_sys_inc_dirs]),
+        cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),
         cm.x_info->sys_mod_dirs ? &cm.x_info->sys_mod_dirs->first : nullptr,
 
         cm.sys_lib_dirs_mode,
-        cm.sys_inc_dirs_mode,
+        cm.sys_hdr_dirs_mode,
         cm.sys_mod_dirs_mode,
 
         cm.sys_lib_dirs_extra,
-        cm.sys_inc_dirs_extra,
+        cm.sys_hdr_dirs_extra,
 
         c::static_type,
         nullptr,        // No C modules yet.

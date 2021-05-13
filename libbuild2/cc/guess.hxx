@@ -237,7 +237,7 @@ namespace build2
       // entries, if extracted at the guess stage.
       //
       optional<pair<dir_paths, size_t>> sys_lib_dirs;
-      optional<pair<dir_paths, size_t>> sys_inc_dirs;
+      optional<pair<dir_paths, size_t>> sys_hdr_dirs;
       optional<pair<dir_paths, size_t>> sys_mod_dirs;
 
       // Optional list of environment variables that affect the compiler and
@@ -283,7 +283,7 @@ namespace build2
     //
     void
     guess_std_importable_headers (const compiler_info&,
-                                  const dir_paths& sys_inc_dirs,
+                                  const dir_paths& sys_hdr_dirs,
                                   importable_headers&);
   }
 }

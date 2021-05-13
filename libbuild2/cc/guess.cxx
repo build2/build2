@@ -1473,7 +1473,7 @@ namespace build2
     // do that probably first checking if they exist/empty).
     //
     static pair<dir_paths, size_t>
-    msvc_inc (const msvc_info& mi, const strings& mo)
+    msvc_hdr (const msvc_info& mi, const strings& mo)
     {
       dir_paths r;
 
@@ -1754,7 +1754,7 @@ namespace build2
       // supply PATH/INCLUDE/LIB/IFCPATH equivalents ourselves.
       //
       optional<pair<dir_paths, size_t>> lib_dirs;
-      optional<pair<dir_paths, size_t>> inc_dirs;
+      optional<pair<dir_paths, size_t>> hdr_dirs;
       optional<pair<dir_paths, size_t>> mod_dirs;
       string bpat;
 
@@ -1763,7 +1763,7 @@ namespace build2
         const char* cpu (msvc_cpu (target_triplet (t).cpu));
 
         lib_dirs = msvc_lib (*mi, x_mo, cpu);
-        inc_dirs = msvc_inc (*mi, x_mo);
+        hdr_dirs = msvc_hdr (*mi, x_mo);
         mod_dirs = msvc_mod (*mi, x_mo, cpu);
 
         bpat = msvc_bin (*mi, cpu);
@@ -1807,7 +1807,7 @@ namespace build2
         move (csl),
         move (xsl),
         move (lib_dirs),
-        move (inc_dirs),
+        move (hdr_dirs),
         move (mod_dirs),
         msvc_env,
         nullptr};
@@ -3458,7 +3458,7 @@ namespace build2
 
     void
     guess_std_importable_headers (const compiler_info& ci,
-                                  const dir_paths& sys_inc_dirs,
+                                  const dir_paths& sys_hdr_dirs,
                                   importable_headers& hs)
     {
       hs.group_map.emplace (header_group_std, 0);
@@ -3486,16 +3486,16 @@ namespace build2
       if (ci.id.type != compiler_type::gcc)
       {
         for (const char* f: std_importable)
-          if ((p = hs.insert_angle (sys_inc_dirs, f)) != nullptr)
+          if ((p = hs.insert_angle (sys_hdr_dirs, f)) != nullptr)
             add_groups (true);
 
         for (const char* f: std_non_importable)
-          if ((p = hs.insert_angle (sys_inc_dirs, f)) != nullptr)
+          if ((p = hs.insert_angle (sys_hdr_dirs, f)) != nullptr)
             add_groups (false);
       }
       else
       {
-        p = hs.insert_angle (sys_inc_dirs, std_importable[0]);
+        p = hs.insert_angle (sys_hdr_dirs, std_importable[0]);
         assert (p != nullptr);
 
         add_groups (true);

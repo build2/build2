@@ -71,7 +71,7 @@ namespace build2
       const variable& x_c_path;       // Compiler path as configured.
       const variable& x_c_mode;       // Compiler mode as configured.
       const variable& x_sys_lib_dirs; // System library search directories.
-      const variable& x_sys_inc_dirs; // System header search directories.
+      const variable& x_sys_hdr_dirs; // System header search directories.
 
       const variable& x_std;
       const variable& x_poptions;
@@ -182,15 +182,15 @@ namespace build2
       // (e.g., fallback directories such as /usr/local/*).
       //
       const dir_paths& sys_lib_dirs; // x.sys_lib_dirs
-      const dir_paths& sys_inc_dirs; // x.sys_inc_dirs
+      const dir_paths& sys_hdr_dirs; // x.sys_hdr_dirs
       const dir_paths* sys_mod_dirs; // compiler_info::sys_mod_dirs
 
       size_t sys_lib_dirs_mode; // Number of leading mode entries (0 if none).
-      size_t sys_inc_dirs_mode;
+      size_t sys_hdr_dirs_mode;
       size_t sys_mod_dirs_mode;
 
       size_t sys_lib_dirs_extra; // First trailing extra entry (size if none).
-      size_t sys_inc_dirs_extra;
+      size_t sys_hdr_dirs_extra;
 
       const target_type& x_src; // Source target type (c{}, cxx{}).
       const target_type* x_mod; // Module target type (mxx{}), if any.
@@ -236,10 +236,10 @@ namespace build2
             bool fm,
             bool fs,
             const dir_paths& sld,
-            const dir_paths& sid,
+            const dir_paths& shd,
             const dir_paths* smd,
-            size_t slm, size_t sim, size_t smm,
-            size_t sle, size_t sie,
+            size_t slm, size_t shm, size_t smm,
+            size_t sle, size_t she,
             const target_type& src,
             const target_type* mod,
             const target_type* const* hdr,
@@ -257,10 +257,10 @@ namespace build2
             modules (fm),
             symexport (fs),
             importable_headers (nullptr),
-            sys_lib_dirs (sld), sys_inc_dirs (sid), sys_mod_dirs (smd),
-            sys_lib_dirs_mode (slm), sys_inc_dirs_mode (sim),
+            sys_lib_dirs (sld), sys_hdr_dirs (shd), sys_mod_dirs (smd),
+            sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
             sys_mod_dirs_mode (smm),
-            sys_lib_dirs_extra (sle), sys_inc_dirs_extra (sie),
+            sys_lib_dirs_extra (sle), sys_hdr_dirs_extra (she),
             x_src (src), x_mod (mod), x_hdr (hdr), x_inc (inc) {}
     };
 

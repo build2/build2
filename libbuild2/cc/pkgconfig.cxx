@@ -93,7 +93,7 @@ namespace build2
     explicit
     pkgconf (path_type,
              const dir_paths& pc_dirs,
-             const dir_paths& sys_inc_dirs,
+             const dir_paths& sys_hdr_dirs,
              const dir_paths& sys_lib_dirs);
 
     // Create a special empty object. Querying package information on such
@@ -299,7 +299,7 @@ namespace build2
   pkgconf (path_type p,
            const dir_paths& pc_dirs,
            const dir_paths& sys_lib_dirs,
-           const dir_paths& sys_inc_dirs)
+           const dir_paths& sys_hdr_dirs)
       : path (move (p))
   {
     auto add_dirs = [] (pkgconf_list_t& dir_list,
@@ -339,7 +339,7 @@ namespace build2
               true  /* cleanup */);
 
     add_dirs (c->filter_includedirs,
-              sys_inc_dirs,
+              sys_hdr_dirs,
               false /* suppress_dups */,
               true  /* cleanup */);
 
@@ -1324,11 +1324,11 @@ namespace build2
 
       bool pa (at != nullptr && !ap.empty ());
       if (pa || sp.empty ())
-        apc = pkgconf (ap, pc_dirs, sys_lib_dirs, sys_inc_dirs);
+        apc = pkgconf (ap, pc_dirs, sys_lib_dirs, sys_hdr_dirs);
 
       bool ps (st != nullptr && !sp.empty ());
       if (ps || ap.empty ())
-        spc = pkgconf (sp, pc_dirs, sys_lib_dirs, sys_inc_dirs);
+        spc = pkgconf (sp, pc_dirs, sys_lib_dirs, sys_hdr_dirs);
 
       // Sort out the interface dependencies (which we are setting on lib{}).
       // If we have the shared .pc variant, then we use that.  Otherwise --

@@ -525,7 +525,7 @@ namespace build2
         vp.insert<path>            ("cxx.config.path"),
         vp.insert<strings>         ("cxx.config.mode"),
         vp.insert<dir_paths>       ("cxx.sys_lib_dirs"),
-        vp.insert<dir_paths>       ("cxx.sys_inc_dirs"),
+        vp.insert<dir_paths>       ("cxx.sys_hdr_dirs"),
 
         vp.insert<string>   ("cxx.std"),
 
@@ -726,15 +726,15 @@ namespace build2
         symexport,
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
-        cast<dir_paths> (rs[cm.x_sys_inc_dirs]),
+        cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),
         cm.x_info->sys_mod_dirs ? &cm.x_info->sys_mod_dirs->first : nullptr,
 
         cm.sys_lib_dirs_mode,
-        cm.sys_inc_dirs_mode,
+        cm.sys_hdr_dirs_mode,
         cm.sys_mod_dirs_mode,
 
         cm.sys_lib_dirs_extra,
-        cm.sys_inc_dirs_extra,
+        cm.sys_hdr_dirs_extra,
 
         cxx::static_type,
         modules ? &mxx::static_type : nullptr,

@@ -56,7 +56,7 @@ namespace build2
     }
 
     auto importable_headers::
-    insert_angle (const dir_paths& sys_inc_dirs,
+    insert_angle (const dir_paths& sys_hdr_dirs,
                    const string& s) -> pair<const path, groups>*
     {
       assert (s.front () == '<' && s.back () == '>');
@@ -69,7 +69,7 @@ namespace build2
         path f (s, 1, s.size () - 2);
 
         path p; // Reuse the buffer.
-        for (const dir_path& d: sys_inc_dirs)
+        for (const dir_path& d: sys_hdr_dirs)
         {
           if (file_exists ((p = d, p /= f),
                            true /* follow_symlinks */,
@@ -121,7 +121,7 @@ namespace build2
     }
 
     size_t importable_headers::
-    insert_angle_pattern (const dir_paths& sys_inc_dirs, const string& pat)
+    insert_angle_pattern (const dir_paths& sys_hdr_dirs, const string& pat)
     {
       assert (pat.front () == '<' && pat.back () == '>' && path_pattern (pat));
 
@@ -166,7 +166,7 @@ namespace build2
           return true;
         };
 
-        for (const dir_path& dir: sys_inc_dirs)
+        for (const dir_path& dir: sys_hdr_dirs)
         {
           d.dir = &dir;
 

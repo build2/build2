@@ -64,11 +64,11 @@ namespace build2
       // Temporary storage for data::sys_*_dirs_*.
       //
       size_t sys_lib_dirs_mode;
-      size_t sys_inc_dirs_mode;
+      size_t sys_hdr_dirs_mode;
       size_t sys_mod_dirs_mode;
 
       size_t sys_lib_dirs_extra;
-      size_t sys_inc_dirs_extra;
+      size_t sys_hdr_dirs_extra;
 
       bool new_config = false; // See guess() and init() for details.
 

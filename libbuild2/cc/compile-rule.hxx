@@ -74,7 +74,7 @@ namespace build2
 
       template <typename T>
       void
-      append_sys_inc_options (T&) const;
+      append_sys_hdr_options (T&) const;
 
       template <typename T>
       void

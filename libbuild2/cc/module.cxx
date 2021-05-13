@@ -359,7 +359,7 @@ namespace build2
     struct search_dirs
     {
       pair<dir_paths, size_t> lib;
-      pair<dir_paths, size_t> inc;
+      pair<dir_paths, size_t> hdr;
     };
 
     static global_cache<search_dirs> dirs_cache;
@@ -464,13 +464,13 @@ namespace build2
       // Note that for now module search paths only come from compiler_info.
       //
       pair<dir_paths, size_t> lib_dirs;
-      pair<dir_paths, size_t> inc_dirs;
+      pair<dir_paths, size_t> hdr_dirs;
       const optional<pair<dir_paths, size_t>>& mod_dirs (xi.sys_mod_dirs);
 
-      if (xi.sys_lib_dirs && xi.sys_inc_dirs)
+      if (xi.sys_lib_dirs && xi.sys_hdr_dirs)
       {
         lib_dirs = *xi.sys_lib_dirs;
-        inc_dirs = *xi.sys_inc_dirs;
+        hdr_dirs = *xi.sys_hdr_dirs;
       }
       else
       {
@@ -505,19 +505,19 @@ namespace build2
           }
         }
 
-        if (xi.sys_inc_dirs)
-          inc_dirs = *xi.sys_inc_dirs;
+        if (xi.sys_hdr_dirs)
+          hdr_dirs = *xi.sys_hdr_dirs;
         else if (sd != nullptr)
-          inc_dirs = sd->inc;
+          hdr_dirs = sd->hdr;
         else
         {
           switch (xi.class_)
           {
           case compiler_class::gcc:
-            inc_dirs = gcc_header_search_dirs (xi.path, rs);
+            hdr_dirs = gcc_header_search_dirs (xi.path, rs);
             break;
           case compiler_class::msvc:
-            inc_dirs = msvc_header_search_dirs (xi.path, rs);
+            hdr_dirs = msvc_header_search_dirs (xi.path, rs);
             break;
           }
         }
@@ -526,17 +526,17 @@ namespace build2
         {
           search_dirs sd;
           if (!xi.sys_lib_dirs) sd.lib = lib_dirs;
-          if (!xi.sys_inc_dirs) sd.inc = inc_dirs;
+          if (!xi.sys_hdr_dirs) sd.hdr = hdr_dirs;
           dirs_cache.insert (move (key), move (sd));
         }
       }
 
       sys_lib_dirs_mode = lib_dirs.second;
-      sys_inc_dirs_mode = inc_dirs.second;
+      sys_hdr_dirs_mode = hdr_dirs.second;
       sys_mod_dirs_mode = mod_dirs ? mod_dirs->second : 0;
 
       sys_lib_dirs_extra = lib_dirs.first.size ();
-      sys_inc_dirs_extra = inc_dirs.first.size ();
+      sys_hdr_dirs_extra = hdr_dirs.first.size ();
 
 #ifndef _WIN32
       // Add /usr/local/{include,lib}. We definitely shouldn't do this if we
@@ -552,7 +552,7 @@ namespace build2
       // on the next invocation.
       //
       {
-        auto& is (inc_dirs.first);
+        auto& is (hdr_dirs.first);
         auto& ls (lib_dirs.first);
 
         bool ui  (find (is.begin (), is.end (), usr_inc)     != is.end ());
@@ -683,7 +683,7 @@ namespace build2
         }
 
         auto& mods (mod_dirs ? mod_dirs->first : dir_paths ());
-        auto& incs (inc_dirs.first);
+        auto& incs (hdr_dirs.first);
         auto& libs (lib_dirs.first);
 
         if (verb >= 3 && !mods.empty ())
@@ -697,10 +697,10 @@ namespace build2
 
         if (verb >= 3 && !incs.empty ())
         {
-          dr << "\n  inc dirs";
+          dr << "\n  hdr dirs";
           for (size_t i (0); i != incs.size (); ++i)
           {
-            if (i == sys_inc_dirs_extra)
+            if (i == sys_hdr_dirs_extra)
               dr << "\n    --";
             dr << "\n    " << incs[i];
           }
@@ -719,7 +719,7 @@ namespace build2
       }
 
       rs.assign (x_sys_lib_dirs) = move (lib_dirs.first);
-      rs.assign (x_sys_inc_dirs) = move (inc_dirs.first);
+      rs.assign (x_sys_hdr_dirs) = move (hdr_dirs.first);
 
       config::save_environment (rs, xi.compiler_environment);
       config::save_environment (rs, xi.platform_environment);
@@ -740,7 +740,7 @@ namespace build2
     // Global cache of ad hoc importable headers.
     //
     // The key is a hash of the system header search directories
-    // (sys_inc_dirs) where we search for the headers.
+    // (sys_hdr_dirs) where we search for the headers.
     //
     static map<string, importable_headers> importable_headers_cache;
     static mutex importable_headers_mutex;
@@ -776,7 +776,7 @@ namespace build2
       {
         {
           sha256 k;
-          for (const dir_path& d: sys_inc_dirs)
+          for (const dir_path& d: sys_hdr_dirs)
             k.append (d.string ());
 
           mlock l (importable_headers_mutex);
@@ -788,7 +788,7 @@ namespace build2
         ulock ul (hs.mutex);
 
         if (hs.group_map.find (header_group_std) == hs.group_map.end ())
-          guess_std_importable_headers (xi, sys_inc_dirs, hs);
+          guess_std_importable_headers (xi, sys_hdr_dirs, hs);
 
         // Process x.translate_include.
         //
@@ -803,7 +803,7 @@ namespace build2
             {
               if (path_pattern (k))
               {
-                size_t n (hs.insert_angle_pattern (sys_inc_dirs, k));
+                size_t n (hs.insert_angle_pattern (sys_hdr_dirs, k));
 
                 l5 ([&]{trace << "pattern " << k << " searched to " << n
                               << " headers";});
@@ -816,7 +816,7 @@ namespace build2
                 // let's ignore (we could have also removed it from the map as
                 // an indication).
                 //
-                const auto* r (hs.insert_angle (sys_inc_dirs, k));
+                const auto* r (hs.insert_angle (sys_hdr_dirs, k));
 
                 l5 ([&]{trace << "header " << k << " searched to "
                               << (r ? r->first.string ().c_str () : "<none>");});
