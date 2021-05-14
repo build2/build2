@@ -891,26 +891,28 @@ namespace build2
 
             if (l[0] != '-') // e.g., just shell32.lib
               continue;
-            else if (cmp ("advapi32")  ||
-                     cmp ("bcrypt")    ||
-                     cmp ("crypt32")   ||
-                     cmp ("d3d",   3)  || // d3d*
-                     cmp ("gdi32")     ||
-                     cmp ("imagehlp")  ||
-                     cmp ("mswsock")   ||
-                     cmp ("msxml", 5)  || // msxml*
-                     cmp ("normaliz")  ||
-                     cmp ("odbc32")    ||
-                     cmp ("ole32")     ||
-                     cmp ("oleaut32")  ||
-                     cmp ("rpcrt4")    ||
-                     cmp ("secur32")   ||
-                     cmp ("shell32")   ||
-                     cmp ("shlwapi")   ||
-                     cmp ("version")   ||
-                     cmp ("ws2")       ||
-                     cmp ("ws2_32")    ||
+            else if (cmp ("advapi32")        ||
+                     cmp ("bcrypt")          ||
+                     cmp ("crypt32")         ||
+                     cmp ("d3d",   3)        || // d3d*
+                     cmp ("gdi32")           ||
+                     cmp ("imagehlp")        ||
+                     cmp ("mswsock")         ||
+                     cmp ("msxml", 5)        || // msxml*
+                     cmp ("normaliz")        ||
+                     cmp ("odbc32")          ||
+                     cmp ("ole32")           ||
+                     cmp ("oleaut32")        ||
+                     cmp ("rpcrt4")          ||
+                     cmp ("secur32")         ||
+                     cmp ("shell32")         ||
+                     cmp ("shlwapi")         ||
+                     cmp ("synchronization") ||
+                     cmp ("version")         ||
+                     cmp ("ws2")             ||
+                     cmp ("ws2_32")          ||
                      cmp ("wsock32"))
+
             {
               if (tsys == "win32-msvc")
               {
