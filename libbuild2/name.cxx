@@ -12,6 +12,25 @@ namespace build2
   const name empty_name;
   const names empty_names;
 
+  void name::
+  canonicalize ()
+  {
+    // We cannot assume the name part is a valid filesystem name so we will
+    // have to do the splitting manually.
+    //
+    size_t p (path_traits::rfind_separator (value));
+
+    if (p != string::npos)
+    {
+      if (p + 1 == value.size ())
+        throw invalid_argument ("empty value");
+
+      dir /= dir_path (value, p != 0 ? p : 1); // Special case: "/".
+
+      value.erase (0, p + 1);
+    }
+  }
+
   string
   to_string (const name& n)
   {
@@ -61,15 +80,18 @@ namespace build2
   ostream&
   to_stream (ostream& os, const name& n, bool quote, char pair, bool escape)
   {
-    auto write_string = [quote, pair, escape, &os](const string& v)
+    auto write_string = [quote, pair, escape, &os](const string& v, bool pat)
     {
       char sc[] = {
         '{', '}', '[', ']', '$', '(', ')', // Token endings.
         ' ', '\t', '\n', '#',              // Spaces.
         '\\', '"',                         // Escaping and quoting.
         '%',                               // Project name separator.
-        '*', '?',                          // Wildcard characters.
         pair,                              // Pair separator, if any.
+        '\0'};
+
+      char pc[] = {
+        '*', '?',                          // Wildcard characters.
         '\0'};
 
       if (quote && v.find ('\'') != string::npos)
@@ -91,7 +113,8 @@ namespace build2
         if (escape) os << '\\';
         os << '"';
       }
-      else if (quote && v.find_first_of (sc) != string::npos)
+      else if (quote && (v.find_first_of (sc) != string::npos ||
+                         (!pat && v.find_first_of (pc) != string::npos)))
       {
         if (escape) os << '\\';
         os << '\'';
@@ -107,15 +130,16 @@ namespace build2
 
     uint16_t dv (stream_verb (os).path); // Directory verbosity.
 
-    auto write_dir = [dv, quote, &os, &write_string] (const dir_path& d)
+    auto write_dir = [dv, quote, &os, &write_string] (const dir_path& d,
+                                                      bool pat)
     {
       if (quote)
-        write_string (dv < 1 ? diag_relative (d) : d.representation ());
+        write_string (dv < 1 ? diag_relative (d) : d.representation (), pat);
       else
         os << d;
     };
 
-    // Note: similar to to_string() below.
+    // Note: similar to to_string() above.
     //
 
     // If quoted then print empty name as '' rather than {}.
@@ -125,7 +149,7 @@ namespace build2
 
     if (n.proj)
     {
-      write_string (n.proj->string ());
+      write_string (n.proj->string (), false);
       os << '%';
     }
 
@@ -145,26 +169,26 @@ namespace build2
                         dir_path ());
 
     if (!pd.empty ())
-      write_dir (pd);
+      write_dir (pd, false);
 
     if (t || (!d && !v))
     {
       if (t)
-        write_string (n.type);
+        write_string (n.type, false);
 
       os << '{';
     }
 
     if (v)
-      write_string (n.value);
+      write_string (n.value, n.pattern);
     else if (d)
     {
       if (rd.empty ())
-        write_string (dir_path (".").representation ());
+        write_string (dir_path (".").representation (), false);
       else if (!pd.empty ())
-        write_string (rd.leaf ().representation ());
+        write_string (rd.leaf ().representation (), n.pattern);
       else
-        write_dir (rd);
+        write_dir (rd, n.pattern);
     }
 
     if (t || (!d && !v))

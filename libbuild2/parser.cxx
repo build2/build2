@@ -516,7 +516,7 @@ namespace build2
 
       if (tt != type::labrace)
       {
-        ns = parse_names (t, tt, pattern_mode::ignore);
+        ns = parse_names (t, tt, pattern_mode::preserve);
 
         // Allow things like function calls that don't result in anything.
         //
@@ -570,7 +570,7 @@ namespace build2
             // should move to ans.
             //
             size_t m (ns.size ());
-            parse_names (t, tt, ns, pattern_mode::ignore);
+            parse_names (t, tt, ns, pattern_mode::preserve);
             size_t n (ns.size ());
 
             // Another empty case (<$empty>).
@@ -604,7 +604,7 @@ namespace build2
           //
           next (t, tt);
           if (start_names (tt))
-            parse_names (t, tt, ns, pattern_mode::ignore);
+            parse_names (t, tt, ns, pattern_mode::preserve);
         }
 
         if (!ans.empty ())
@@ -661,7 +661,7 @@ namespace build2
             // Figure out if this is a target or a target type/pattern (yeah,
             // it can be a mixture).
             //
-            if (path_pattern (n.value))
+            if (n.pattern)
             {
               if (n.pair)
                 fail (nloc) << "out-qualified target type/pattern";
@@ -669,14 +669,84 @@ namespace build2
               if (!ans.empty () && !ans[i].ns.empty ())
                 fail (ans[i].loc) << "ad hoc member in target type/pattern";
 
+              // Reduce the various directory/value combinations to the scope
+              // directory (if any) and the pattern. Here are more interesting
+              // examples of patterns:
+              //
+              // */           --  */{}
+              // dir{*}       --  dir{*}
+              // dir{*/}      --  */dir{}
+              //
+              // foo/*/       --  foo/*/{}
+              // foo/dir{*/}  --  foo/*/dir{}
+              //
+              // Note that these are not patterns:
+              //
+              // foo*/file{bar}
+              // foo*/dir{bar/}
+              //
+              // While these are:
+              //
+              // file{foo*/bar}
+              // dir{foo*/bar/}
+              //
+              // And this is a half-pattern (foo* should no be treated as a
+              // pattern but that's unfortunately indistinguishable):
+              //
+              // foo*/dir{*/}  --  foo*/*/dir{}
+              //
+              if (n.value.empty () && !n.dir.empty ())
+              {
+                // Note that we use string and not the representation: in a
+                // sense the trailing slash in the pattern is subsumed by the
+                // target type.
+                //
+                if (n.dir.simple ())
+                  n.value = move (n.dir).string ();
+                else
+                {
+                  n.value = n.dir.leaf ().string ();
+                  n.dir.make_directory ();
+                }
+
+                // Treat directory as type dir{} similar to other places.
+                //
+                if (n.untyped ())
+                  n.type = "dir";
+              }
+              else
+              {
+                // Move the directory part, if any, from value to dir.
+                //
+                try
+                {
+                  n.canonicalize ();
+                }
+                catch (const invalid_path& e)
+                {
+                  fail (nloc) << "invalid path '" << e.path << "'";
+                }
+                catch (const invalid_argument&)
+                {
+                  fail (nloc) << "invalid pattern '" << n.value << "'";
+                }
+              }
+
               // If we have the directory, then it is the scope.
               //
               enter_scope sg;
               if (!n.dir.empty ())
+              {
+                if (path_pattern (n.dir))
+                  fail (nloc) << "pattern in directory "
+                              << n.dir.representation ();
+
                 sg = enter_scope (*this, move (n.dir));
+              }
 
               // Resolve target type. If none is specified or if it is '*',
-              // use the root of the hierarchy. So these are all equivalent:
+              // use the root of the target type hierarchy. So these are all
+              // equivalent:
               //
               // *: foo = bar
               // {*}: foo = bar
@@ -924,6 +994,12 @@ namespace build2
           if (at.first)
             fail (at.second) << "attributes before scope directory";
 
+          // Make sure it's not a pattern (see also the target case above and
+          // scope below).
+          //
+          if (ns[0].pattern)
+            fail (nloc) << "pattern in " << ns[0];
+
           if (ns.size () == 2)
           {
             d = move (ns[0].dir);
@@ -937,12 +1013,6 @@ namespace build2
             d = dir_path (ns[0].value, 0, p + 1);
             ns[0].value.erase (0, p + 1);
           }
-
-          // Make sure it's not a pattern (see also the target case above and
-          // scope below).
-          //
-          if (path_pattern (d))
-            fail (nloc) << "pattern in directory " << d.representation ();
         }
 
         const variable& var (parse_variable_name (move (ns), nloc));
@@ -980,13 +1050,11 @@ namespace build2
 
         if (next (t, tt) == type::lcbrace && peek () == type::newline)
         {
-          dir_path&& d (move (ns[0].dir));
-
           // Make sure not a pattern (see also the target and directory cases
           // above).
           //
-          if (path_pattern (d))
-            fail (nloc) << "pattern in directory " << d.representation ();
+          if (ns[0].pattern)
+            fail (nloc) << "pattern in " << ns[0];
 
           next (t, tt); // Newline.
           next (t, tt); // First token inside the block.
@@ -999,7 +1067,7 @@ namespace build2
           // Can contain anything that a top level can.
           //
           {
-            enter_scope sg (*this, move (d));
+            enter_scope sg (*this, move (ns[0].dir));
             parse_clause (t, tt);
           }
 
@@ -1060,7 +1128,7 @@ namespace build2
       attributes_push (t, tt);
 
       location nloc (get_location (t));
-      names ns (parse_names (t, tt, pattern_mode::ignore, "variable name"));
+      names ns (parse_names (t, tt, pattern_mode::preserve, "variable name"));
 
       if (tt != type::assign  &&
           tt != type::prepend &&
@@ -1199,7 +1267,7 @@ namespace build2
                 fail (t) << "expected c++ recipe version instead of " << t;
 
               location nloc (get_location (t));
-              names ns (parse_names (t, tt, pattern_mode::ignore));
+              names ns (parse_names (t, tt, pattern_mode::preserve));
 
               uint64_t ver;
               try
@@ -1586,10 +1654,9 @@ namespace build2
       if (n.qualified ())
         fail (tloc) << "project name in target " << n;
 
-      // Make sure none of our targets are patterns (maybe we will allow
-      // quoting later).
+      // Make sure none of our targets are patterns.
       //
-      if (path_pattern (n.value))
+      if (n.pattern)
         fail (tloc) << "pattern in target " << n;
 
       enter_target tg (*this,
@@ -2171,7 +2238,7 @@ namespace build2
     {
       args = convert<strings> (
         tt != type::newline && tt != type::eos
-        ? parse_names (t, tt, pattern_mode::ignore, "argument", nullptr)
+        ? parse_names (t, tt, pattern_mode::preserve, "argument", nullptr)
         : names ());
     }
     catch (const invalid_argument& e)
@@ -2535,7 +2602,7 @@ namespace build2
       ns = convert<strings> (
         tt != type::newline && tt != type::eos
         ? parse_names (t, tt,
-                       pattern_mode::ignore,
+                       pattern_mode::preserve,
                        "environment variable name",
                        nullptr)
         : names ());
@@ -2811,7 +2878,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, pattern_mode::ignore, "module", nullptr)
+              ? parse_names (t, tt, pattern_mode::preserve, "module", nullptr)
               : names ());
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
@@ -3121,7 +3188,7 @@ namespace build2
       {
         next (t, tt);
         const location l (get_location (t));
-        names ns (parse_names (t, tt, pattern_mode::ignore, "function name"));
+        names ns (parse_names (t, tt, pattern_mode::preserve, "function name"));
 
         if (ns.empty () || ns[0].empty ())
           fail (l) << "function name expected after ':'";
@@ -3230,7 +3297,7 @@ namespace build2
           auto parse_pattern_with_attributes = [this] (token& t, type& tt)
           {
             return parse_value_with_attributes (
-              t, tt, pattern_mode::ignore, "pattern", nullptr);
+              t, tt, pattern_mode::preserve, "pattern", nullptr);
           };
 
           for (size_t i (0);; ++i)
@@ -3593,7 +3660,7 @@ namespace build2
     //
     names ns (tt != type::newline && tt != type::eos
               ? parse_names (t, tt,
-                             pattern_mode::ignore,
+                             pattern_mode::preserve,
                              "description",
                              nullptr)
               : names ());
@@ -3670,7 +3737,7 @@ namespace build2
     const location l (get_location (t));
     next (t, tt);
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, pattern_mode::ignore)
+              ? parse_names (t, tt, pattern_mode::preserve)
               : names ());
 
     text (l) << "dump:";
@@ -4411,7 +4478,7 @@ namespace build2
 
       const location nl (get_location (t));
       next (t, tt);
-      value n (parse_value (t, tt, pattern_mode::ignore));
+      value n (parse_value (t, tt, pattern_mode::preserve));
 
       if (tt != type::rparen)
         fail (t) << "expected ')' after variable name";
@@ -4524,7 +4591,7 @@ namespace build2
         const location l (get_location (t));
 
         names ns (
-          parse_names (t, tt, pattern_mode::ignore, "attribute", nullptr));
+          parse_names (t, tt, pattern_mode::preserve, "attribute", nullptr));
 
         string n;
         value v;
@@ -4548,7 +4615,7 @@ namespace build2
           next (t, tt);
 
           v = (tt != type::comma && tt != type::rsbrace
-               ? parse_value (t, tt, pattern_mode::ignore, "attribute value")
+               ? parse_value (t, tt, pattern_mode::preserve, "attribute value")
                : value (names ()));
 
           expire_mode ();
@@ -4596,7 +4663,11 @@ namespace build2
   //
   static inline name&
   append_name (names& ns,
-               optional<project_name> p, dir_path d, string t, string v,
+               optional<project_name> p,
+               dir_path d,
+               string t,
+               string v,
+               bool pat,
                const location& loc)
   {
     // The directory/value must not be empty if we have a type.
@@ -4604,7 +4675,7 @@ namespace build2
     if (d.empty () && v.empty () && !t.empty ())
       fail (loc) << "typed empty name";
 
-    ns.emplace_back (move (p), move (d), move (t), move (v));
+    ns.emplace_back (move (p), move (d), move (t), move (v), pat);
     return ns.back ();
   }
 
@@ -4711,7 +4782,9 @@ namespace build2
           ns.push_back (ns[pairn - 1]);
       }
 
-      name& r (append_name (ns, move (p), move (d), move (t), move (v), loc));
+      name& r (
+        append_name (
+          ns, move (p), move (d), move (t), move (v), cn.pattern, loc));
       r.pair = cn.pair;
     }
 
@@ -5087,7 +5160,7 @@ namespace build2
                        bool cross)
   {
     if (pp)
-      pmode = pattern_mode::ignore;
+      pmode = pattern_mode::preserve;
 
     next (t, tt);                          // Get what's after '{'.
     const location loc (get_location (t)); // Start of names.
@@ -5113,7 +5186,7 @@ namespace build2
       // This can be an ordinary name group or a pattern (with inclusions and
       // exclusions). We want to detect which one it is since for patterns we
       // want just the list of simple names without pair/dir/type added (those
-      // are added after the pattern expansion in parse_names_pattern()).
+      // are added after the pattern expansion in expand_name_pattern()).
       //
       // Detecting which one it is is tricky. We cannot just peek at the token
       // and look for some wildcards since the pattern can be the result of an
@@ -5294,7 +5367,7 @@ namespace build2
     tracer trace ("parser::parse_names", &path_);
 
     if (pp)
-      pmode = pattern_mode::ignore;
+      pmode = pattern_mode::preserve;
 
     // Returned value NULL/type and pattern (see below).
     //
@@ -5387,12 +5460,12 @@ namespace build2
       }
     };
 
-    // Set the result pattern target type and switch to the ignore mode.
+    // Set the result pattern target type and switch to the preserve mode.
     //
     // The goal of the detect mode is to assemble the "raw" list (the pattern
     // itself plus inclusions/exclusions) that will then be passed to
-    // parse_names_pattern(). So clear pair, directory, and type (they will be
-    // added during pattern expansion) and change the mode to ignore (to
+    // expand_name_pattern(). So clear pair, directory, and type (they will be
+    // added during pattern expansion) and change the mode to preserve (to
     // prevent any expansions in inclusions/exclusions).
     //
     auto pattern_detected =
@@ -5403,7 +5476,7 @@ namespace build2
       pairn = 0;
       dp = nullptr;
       tp = nullptr;
-      pmode = pattern_mode::ignore;
+      pmode = pattern_mode::preserve;
       rpat = ttp;
     };
 
@@ -5833,58 +5906,72 @@ namespace build2
           }
         };
 
-        if (pmode != pattern_mode::ignore   &&
-            !*pp1                           && // Cannot be project-qualified.
-            !quoted                         && // Cannot be quoted.
-            ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
-            (pattern () || (curly && val[0] == '+')))
+        bool pat (false);
+        if (pmode != pattern_mode::preserve)
         {
-          // Resolve the target if there is one. If we fail, then this is not
-          // a pattern.
-          //
-          const target_type* ttp (tp != nullptr && scope_ != nullptr
-                                  ? scope_->find_target_type (*tp)
-                                  : nullptr);
-
-          if (tp == nullptr || ttp != nullptr)
+          if (!*pp1    && // Cannot be project-qualified.
+              !quoted  && // Cannot be quoted.
+              ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
+              (pattern () || (curly && val[0] == '+')))
           {
-            if (pmode == pattern_mode::detect)
-            {
-              // Strip the literal unquoted plus character for the first
-              // pattern in the group.
-              //
-              if (ppat)
-              {
-                assert (val[0] == '+');
+            // Resolve the target type if there is one. If we fail, then this
+            // is not a pattern.
+            //
+            const target_type* ttp (tp != nullptr && scope_ != nullptr
+                                    ? scope_->find_target_type (*tp)
+                                    : nullptr);
 
-                val.erase (0, 1);
-                ppat = pinc = false;
+            if (tp == nullptr || ttp != nullptr)
+            {
+              if (pmode == pattern_mode::detect)
+              {
+                // Strip the literal unquoted plus character for the first
+                // pattern in the group.
+                //
+                if (ppat)
+                {
+                  assert (val[0] == '+');
+
+                  val.erase (0, 1);
+                  ppat = pinc = false;
+                }
+
+                // Reset the detect pattern mode to expand if the pattern is
+                // not followed by the inclusion/exclusion pattern/match. Note
+                // that if it is '}' (i.e., the end of the group), then it is
+                // a single pattern and the expansion is what we want.
+                //
+                if (!pattern_prefix (peeked ()))
+                  pmode = pattern_mode::expand;
               }
 
-              // Reset the detect pattern mode to expand if the pattern is not
-              // followed by the inclusion/exclusion pattern/match. Note that
-              // if it is '}' (i.e., the end of the group), then it is a single
-              // pattern and the expansion is what we want.
-              //
-              if (!pattern_prefix (peeked ()))
-                pmode = pattern_mode::expand;
+              if (pmode == pattern_mode::expand)
+              {
+                count = expand_name_pattern (get_location (t),
+                                             names {name (move (val))},
+                                             ns,
+                                             what,
+                                             pairn,
+                                             dp, tp, ttp);
+                continue;
+              }
+
+              pattern_detected (ttp);
+
+              // Fall through.
             }
-
-            if (pmode == pattern_mode::expand)
-            {
-              count = expand_name_pattern (get_location (t),
-                                           names {name (move (val))},
-                                           ns,
-                                           what,
-                                           pairn,
-                                           dp, tp, ttp);
-              continue;
-            }
-
-            pattern_detected (ttp);
-
-            // Fall through.
           }
+        }
+        else
+        {
+          // For the preserve mode we treat it as a pattern if it look like
+          // one syntactically. For now we also don't treat leading `+` in the
+          // curly context as an indication of a pattern.
+          //
+          if (!*pp1   && // Cannot be project-qualified.
+              !quoted && // Cannot be quoted.
+              pattern ())
+            pat = true;
         }
 
         // If we are a second half of a pair, add another first half
@@ -5918,6 +6005,7 @@ namespace build2
             append_name (
               ns,
               *pp1, move (dir), (tp != nullptr ? *tp : string ()), string (),
+              pat,
               loc);
 
             continue;
@@ -5929,6 +6017,7 @@ namespace build2
                      (dp != nullptr ? *dp : dir_path ()),
                      (tp != nullptr ? *tp : string ()),
                      move (val),
+                     pat,
                      loc);
 
         continue;
@@ -6193,7 +6282,7 @@ namespace build2
           location l (get_location (t));
           value v (
             tt != type::rsbrace
-            ? parse_value (t, tt, pattern_mode::ignore, "value subscript")
+            ? parse_value (t, tt, pattern_mode::preserve, "value subscript")
             : value (names ()));
 
           if (tt != type::rsbrace)
@@ -6458,6 +6547,7 @@ namespace build2
                          (dp != nullptr ? *dp : dir_path ()),
                          (tp != nullptr ? *tp : string ()),
                          string (),
+                         false /* pattern */,
                          get_location (t));
             count = 1;
           }
@@ -6478,6 +6568,7 @@ namespace build2
                          (dp != nullptr ? *dp : dir_path ()),
                          (tp != nullptr ? *tp : string ()),
                          string (),
+                         false /* pattern */,
                          get_location (t));
             count = 0;
           }
@@ -6505,6 +6596,7 @@ namespace build2
                      (dp != nullptr ? *dp : dir_path ()),
                      (tp != nullptr ? *tp : string ()),
                      string (),
+                     false /* pattern */,
                      get_location (t));
         break;
       }
@@ -6523,6 +6615,7 @@ namespace build2
                    (dp != nullptr ? *dp : dir_path ()),
                    (tp != nullptr ? *tp : string ()),
                    string (),
+                   false /* pattern */,
                    get_location (t));
     }
 
@@ -6762,7 +6855,7 @@ namespace build2
           // specific (via pre-parse or some such).
           //
           params.push_back (tt != type::rparen
-                            ? parse_value (t, tt, pattern_mode::ignore)
+                            ? parse_value (t, tt, pattern_mode::preserve)
                             : value (names ()));
         }
 

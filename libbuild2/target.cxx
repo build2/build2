@@ -176,12 +176,13 @@ namespace build2
       }
     }
 
-    // Delegate to scope's find_original().
+    // Delegate to scope's lookup_original().
     //
     if (!r.first)
     {
       if (!target_only)
       {
+        //@@ TODO: dir name
         auto p (base_scope ().lookup_original (
                   var,
                   &type (),
@@ -232,7 +233,7 @@ namespace build2
         r.first = lookup_type (*p.first, p.second, vars);
     }
 
-    // Delegate to target's find_original().
+    // Delegate to target's lookup_original().
     //
     if (!r.first)
     {

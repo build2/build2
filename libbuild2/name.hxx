@@ -33,6 +33,8 @@ namespace build2
   // If pair is not '\0', then this name and the next in the list form a
   // pair. Can be used as a bool flag.
   //
+  // If pattern is true then this is a name pattern (e.g., file{*.txt}).
+  //
   struct name
   {
     optional<project_name> proj;
@@ -40,6 +42,7 @@ namespace build2
     string type;
     string value;
     char pair = '\0';
+    bool pattern = false;
 
     name () {} // = default; Clang needs this to initialize const object.
     name (string v): value (move (v)) {}
@@ -54,8 +57,13 @@ namespace build2
         : proj (project_name (move (p))), dir (move (d)), type (move (t)),
           value (move (v)) {}
 
-    name (optional<project_name> p, dir_path d, string t, string v)
-        : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)) {}
+      name (optional<project_name> p,
+            dir_path d,
+            string t,
+            string v,
+            bool pat = false)
+        : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)),
+          pattern (pat) {}
 
     bool
     qualified () const {return proj.has_value ();}
@@ -115,6 +123,13 @@ namespace build2
 
     int
     compare (const name&) const;
+
+    // Canonicalize the name by moving the directory component (if any) from
+    // value to dir. Throw invalid_argument if value would become empty. May
+    // also throw invalid_path.
+    //
+    void
+    canonicalize ();
   };
 
   LIBBUILD2_SYMEXPORT extern const name empty_name;
@@ -130,6 +145,9 @@ namespace build2
 
   // Return string representation of a name.
   //
+  // Note that this function does not quote special characters and you should
+  // use the to_stream() function below if this is necessary.
+  //
   LIBBUILD2_SYMEXPORT string
   to_string (const name&);
 
@@ -143,11 +161,12 @@ namespace build2
     cs.append (n.type);
     cs.append (n.value);
     cs.append (n.pair);
+    cs.append (n.pattern);
   }
 
   // Store a string in a name in a reversible way. If the string ends with a
   // trailing directory separator then it is stored as a directory, otherwise
-  // as a simple name.
+  // as a simple name. Note that the returned name is never a pattern.
   //
   name
   to_name (string);
@@ -156,6 +175,10 @@ namespace build2
   // containing special characters are quoted. The special characters are:
   //
   // {}[]$() \t\n#\"'%
+  //
+  // And additionally, if name is not a pattern:
+  //
+  // *?
   //
   // If the pair argument is not '\0', then it is added to the above special
   // characters set. If the quote character is present in the component then

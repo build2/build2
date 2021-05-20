@@ -141,7 +141,7 @@ namespace build2
     //
     const dir_path    dir;  // Absolute and normalized.
     const dir_path    out;  // Empty or absolute and normalized.
-    const string      name;
+    const string      name; // Empty for dir{} and fsdir{} targets.
     optional<string>* ext_; // Reference to value in target_key.
 
     const string* ext () const; // Return NULL if not specified.

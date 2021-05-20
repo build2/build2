@@ -20,6 +20,9 @@ namespace build2
     if (r == 0)
       r = pair < x.pair ? -1 : (pair > x.pair ? 1 : 0);
 
+    if (r == 0)
+      r = pattern == x.pattern ? 0 : (!pattern && x.pattern ? -1 : 1);
+
     return r;
   }
 

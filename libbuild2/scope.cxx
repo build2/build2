@@ -327,7 +327,7 @@ namespace build2
       // If we are still looking for the cache, see if the original comes from
       // this scope. We check this before the overrides since it can come from
       // the target type/patter-specific variables, which is "more inner" than
-      // normal scope variables (see find_original()).
+      // normal scope variables (see lookup_original()).
       //
       if (inner_vars == nullptr && orig.defined () && belongs (orig))
       {
@@ -684,33 +684,26 @@ namespace build2
     else if (!v.empty ())
     {
       // Split the path into its directory part (if any) the name part, and
-      // the extension (if any). We cannot assume the name part is a valid
-      // filesystem name so we will have to do the splitting manually.
+      // the extension (if any).
       //
       // See also parser::expand_name_pattern() if changing anything here.
       //
-      size_t p (path::traits_type::rfind_separator (v));
-
-      if (p != string::npos)
+      try
       {
-        try
-        {
-          n.dir /= dir_path (v, p != 0 ? p : 1); // Special case: "/".
-        }
-        catch (const invalid_path& e)
-        {
-          fail (loc) << "invalid path '" << e.path << "'";
-        }
-
-        // This is probably too general of a place to ignore multiple trailing
-        // slashes and treat it as a directory (e.g., we don't want to
-        // encourage this sloppiness in buildfiles). We could, however, do it
-        // for certain contexts, such as buildspec. Maybe a lax flag?
+        n.canonicalize ();
+      }
+      catch (const invalid_path& e)
+      {
+        fail (loc) << "invalid path '" << e.path << "'";
+      }
+      catch (const invalid_argument&)
+      {
+        // This is probably too general of a place to ignore multiple
+        // trailing slashes and treat it as a directory (e.g., we don't want
+        // to encourage this sloppiness in buildfiles). We could, however,
+        // do it for certain contexts, such as buildspec. Maybe a lax flag?
         //
-        if (++p == v.size ())
-          fail (loc) << "invalid name '" << v << "'";
-
-        v.erase (0, p);
+        fail (loc) << "invalid name '" << v << "'";
       }
 
       // Extract the extension.

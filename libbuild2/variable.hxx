@@ -1572,7 +1572,7 @@ namespace build2
 
     // Convert a lookup pointing to a value belonging to this variable map
     // to its non-const version. Note that this is only safe on the original
-    // values (see find_original()).
+    // values (see lookup_original()).
     //
     value&
     modify (const lookup_type& l)
@@ -1793,7 +1793,7 @@ namespace build2
     // "target identity" (as target type and target name). Note that while at
     // first it may seem like we don't need the target identity, we actually
     // do since the stem may itself be target-type/pattern-specific. See
-    // scope::find_original() for details.
+    // scope::lookup_original() for details.
     //
     mutable
     variable_cache<tuple<const value*, const target_type*, string>>

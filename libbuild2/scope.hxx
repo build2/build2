@@ -132,9 +132,13 @@ namespace build2
     lookup_type
     lookup (const variable& var, const target_key& tk) const
     {
+      //@@ TODO: dir name
       return lookup (var, tk.type, tk.name).first;
     }
 
+    // Note for dir{} and fsdir{} target name is the directory leaf (without
+    // the trailing slash).
+    //
     lookup_type
     lookup (const variable& var, const target_type& tt, const string& tn) const
     {

@@ -108,9 +108,9 @@ namespace build2
     //
     enum class pattern_mode
     {
-      ignore, // Treat as ordinary names.
-      detect, // Ignore pair/dir/type if the first name is a pattern.
-      expand  // Expand to ordinary names.
+      preserve, // Preserve as name pattern.
+      expand,   // Expand to non-pattern names.
+      detect    // Implementation detail mode (see code for more information).
     };
 
     // If one is true then parse a single (logical) line (logical means it
@@ -400,8 +400,8 @@ namespace build2
     // As above but also handle value attributes.
     //
     value
-    parse_value_with_attributes (token& t, token_type& tt,
-                                 pattern_mode pmode,
+    parse_value_with_attributes (token&, token_type&,
+                                 pattern_mode,
                                  const char* what = "name",
                                  const string* separators = &name_separators,
                                  bool chunk = false);
