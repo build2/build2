@@ -22,10 +22,23 @@ namespace build2
   // type does not use extensions. Note that this is relied upon when deciding
   // whether to print the extension.
   //
-  // The fixed extension function should return the fixed extension (which can
-  // point to the key's ext member; note that for performance reasons we
-  // currently only verify the explicitly specified extension on target
-  // insersion -- see target_key comparison for details).
+  // If the fixed extension function is specified, then it means that this
+  // target type has a fixed extension (including the no-extension case) and
+  // this function should return such a fixed extension (which, if overriding
+  // by the user is allowed, can point to the key's ext member; note that for
+  // performance reasons we currently only verify the explicitly specified
+  // extension on target insersion -- see target_key comparison for details).
+  // It is called eraly, during the target insertion, in contrast to the
+  // default extension function described below (you would specify one or the
+  // other).
+  //
+  // Note that the fixed no-extension case that allows overriding by the user
+  // is used to implement the "if extension is not specified by the user then
+  // there is no extension" semantics of the file{} and similar target types.
+  // For such cases the target_extension_none() function should be used (we
+  // compare to it's address to detect target types with such semantics).
+  // Similarly, for cases where the user must specify the extension explicitly
+  // (e.g., man{}), use target_extension_must().
   //
   // The root scope argument to the fixed extension function may be NULL which
   // means the root scope is not known. A target type that relies on this must

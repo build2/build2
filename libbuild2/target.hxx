@@ -1940,6 +1940,12 @@ namespace build2
                       string&, optional<string>&, const location&,
                       bool);
 
+  const char*
+  target_extension_none (const target_key&, const scope*);
+
+  const char*
+  target_extension_must (const target_key&, const scope*);
+
   // Get the extension from the `extension` variable or use the default if
   // none set. If the default is NULL, then return NULL.
   //

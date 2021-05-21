@@ -887,6 +887,7 @@ namespace build2
     dt->base = &base;
     dt->factory = &derived_tt_factory;
 
+#if 0
     // @@ We should probably inherit the fixed extension unless overriden with
     // another fixed? But then any derivation from file{} will have to specify
     // (or override) the fixed extension? But what is the use of deriving from
@@ -918,6 +919,43 @@ namespace build2
       dt->fixed_extension != nullptr
       ? &target_print_0_ext_verb  // Fixed extension, no use printing.
       : nullptr;                  // Normal.
+#endif
+
+    // An attempt to clarify the above mess:
+    //
+    // 1. If we have a "really fixed" extension (like man1{}) then we keep
+    //    it (including pattern and print functions).
+    //
+    // 2. Otherwise, we make it target_extension_var.
+    //
+    // Note that this still mis-fires for the following scenarios:
+    //
+    // file{} -- What if the user does not set the default extension expecting
+    //           similar semantics as file{} or man{} itself. Maybe explicit
+    //           via attribute (i.e., inherit from base)?
+    //
+    // @@ Get the fallback extension from base target_extension_var
+    //    somehow (we know the base target type so could just call it)?
+    //
+    if (ext)
+    {
+      if (dt->fixed_extension == nullptr                ||
+          dt->fixed_extension == &target_extension_none ||
+          dt->fixed_extension == &target_extension_must)
+      {
+        dt->fixed_extension = nullptr;
+        dt->default_extension = &target_extension_var<nullptr>;
+        dt->pattern = &target_pattern_var<nullptr>;
+        dt->print = nullptr;
+      }
+    }
+    else
+    {
+      dt->fixed_extension = nullptr;
+      dt->default_extension = nullptr;
+      dt->pattern = nullptr;
+      dt->print = nullptr;
+    }
 
     return root_extra->target_types.insert (name, move (dt));
   }

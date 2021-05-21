@@ -43,14 +43,12 @@ namespace build2
       fail (l) << "pattern in in{} prerequisite" << endf;
     }
 
-    extern const char in_ext_def[] = ""; // No extension by default.
-
     const target_type in::static_type
     {
       "in",
       &file::static_type,
       &target_factory<in>,
-      &target_extension_fix<in_ext_def>,
+      &target_extension_none,
       nullptr, /* default_extension */   // Taken care of by search.
       &in_pattern,
       &target_print_1_ext_verb,          // Same as file.

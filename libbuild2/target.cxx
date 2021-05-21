@@ -979,6 +979,23 @@ namespace build2
     return search_existing_file (t.ctx, pk);
   }
 
+  extern const char target_extension_none_[] = "";
+
+  const char*
+  target_extension_none (const target_key& k, const scope* s)
+  {
+    return target_extension_fix<target_extension_none_> (k, s);
+  }
+
+  const char*
+  target_extension_must (const target_key& tk, const scope*)
+  {
+    if (!tk.ext)
+      fail << tk.type->name << " target " << tk << " must include extension";
+
+    return tk.ext->c_str ();
+  }
+
   void
   target_print_0_ext_verb (ostream& os, const target_key& k)
   {
@@ -1037,14 +1054,12 @@ namespace build2
     false
   };
 
-  extern const char file_ext_def[] = "";
-
   const target_type file::static_type
   {
     "file",
     &path_target::static_type,
     &target_factory<file>,
-    &target_extension_fix<file_ext_def>,
+    &target_extension_none,
     nullptr, /* default_extension */
     nullptr, /* pattern */
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
@@ -1467,7 +1482,7 @@ namespace build2
     "doc",
     &file::static_type,
     &target_factory<doc>,
-    &target_extension_fix<file_ext_def>, // Same as file (no extension).
+    &target_extension_none,              // Same as file (no extension).
     nullptr, /* default_extension */
     nullptr, /* pattern */               // Same as file.
     &target_print_1_ext_verb,            // Same as file.
@@ -1480,7 +1495,7 @@ namespace build2
     "legal",
     &doc::static_type,
     &target_factory<legal>,
-    &target_extension_fix<file_ext_def>, // Same as file (no extension).
+    &target_extension_none,              // Same as file (no extension).
     nullptr, /* default_extension */
     nullptr, /* pattern */               // Same as file.
     &target_print_1_ext_verb,            // Same as file.
@@ -1488,21 +1503,12 @@ namespace build2
     false
   };
 
-  static const char*
-  man_extension (const target_key& tk, const scope*)
-  {
-    if (!tk.ext)
-      fail << "man target " << tk << " must include extension (man section)";
-
-    return tk.ext->c_str ();
-  }
-
   const target_type man::static_type
   {
     "man",
     &doc::static_type,
     &target_factory<man>,
-    &man_extension,           // Should be specified explicitly.
+    &target_extension_must,   // Should be specified explicitly.
     nullptr, /* default_extension */
     nullptr,
     &target_print_1_ext_verb, // Print extension even at verbosity level 0.
