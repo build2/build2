@@ -1784,7 +1784,7 @@ namespace build2
     bool           empty () const {return map_.empty ();}
 
     lookup
-    find (const target_type&, const string& tname, const variable&) const;
+    find (const target_key&, const variable&, optional<string>& name) const;
 
     // Prepend/append value cache.
     //

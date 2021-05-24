@@ -182,13 +182,13 @@ namespace build2
     {
       if (!target_only)
       {
-        //@@ TODO: dir name
+        target_key tk (key ());
+        target_key gk (g != nullptr ? g->key () : target_key {});
+
         auto p (base_scope ().lookup_original (
                   var,
-                  &type (),
-                  &name,
-                  g != nullptr ? &g->type () : nullptr,
-                  g != nullptr ? &g->name : nullptr));
+                  &tk,
+                  g != nullptr ? &gk : nullptr));
 
         r.first = move (p.first);
         r.second = r.first ? r.second + p.second : p.second;

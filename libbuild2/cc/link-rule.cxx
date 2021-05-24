@@ -1522,12 +1522,14 @@ namespace build2
 
             if (!l.defined ())
             {
-              bool g (pt->group != nullptr);
+              const target* g (pt->group);
+
+              target_key tk (pt->key ());
+              target_key gk (g != nullptr ? g->key () : target_key {});
+
               l = bs.lookup_original (var,
-                                      &pt->type (),
-                                      &pt->name,
-                                      (g ? &pt->group->type () : nullptr),
-                                      (g ? &pt->group->name : nullptr)).first;
+                                      &tk,
+                                      g != nullptr ? &gk : nullptr).first;
             }
 
             if (l ? cast<bool> (*l) : u)

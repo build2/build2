@@ -7,6 +7,7 @@
 
 #include <libbutl/path-pattern.mxx>
 
+#include <libbuild2/target.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 using namespace std;
@@ -1791,13 +1792,57 @@ namespace build2
   // variable_type_map
   //
   lookup variable_type_map::
-  find (const target_type& type,
-        const string& name,
-        const variable& var) const
+  find (const target_key& tk,
+        const variable& var,
+        optional<string>& oname) const
   {
+    // Compute and cache "effective" name that we will be matching.
+    //
+    auto name = [&tk, &oname] () -> const string&
+    {
+      if (!oname)
+      {
+        const target_type& tt (*tk.type);
+
+        // Note that if the name is not empty, then we always use that, even
+        // if the type is dir/fsdir.
+        //
+        if (tk.name->empty () && (tt.is_a<dir> () || tt.is_a<fsdir> ()))
+        {
+          oname = tk.dir->leaf ().string ();
+        }
+        // If we have the extension and the type expects the extension to be
+        // always specified explicitly by the user, then add it to the name.
+        //
+        // Overall, we have the following cases:
+        //
+        // 1. Extension is fixed: man1{}.
+        //
+        // 2. Extension is always specified by the user: file{}.
+        //
+        // 3. Default extension that may be overridden by the user: hxx{}.
+        //
+        // 4. Extension assigned by the rule but may be overridden by the
+        //    user: obje{}.
+        //
+        // By default we only match the extension for (2).
+        //
+        else if (tk.ext && !tk.ext->empty () &&
+                 (tt.fixed_extension == &target_extension_none ||
+                  tt.fixed_extension == &target_extension_must))
+        {
+          oname = *tk.name + '.' + *tk.ext;
+        }
+        else
+          oname = string (); // Use tk.name as is.
+      }
+
+      return oname->empty () ? *tk.name : *oname;
+    };
+
     // Search across target type hierarchy.
     //
-    for (auto tt (&type); tt != nullptr; tt = tt->base)
+    for (auto tt (tk.type); tt != nullptr; tt = tt->base)
     {
       auto i (map_.find (*tt));
 
@@ -1820,7 +1865,7 @@ namespace build2
         //
         if (pat != "*")
         {
-          if (!butl::path_match (name, pat))
+          if (!butl::path_match (name (), pat))
             continue;
         }
 
@@ -1839,6 +1884,12 @@ namespace build2
             //
             if (v->extra == 0 && var.type != nullptr)
               vm.typify (*v, var);
+
+            // Make sure the effective name is computed if this is
+            // append/prepend (it is used as a cache key).
+            //
+            if (v->extra != 0)
+              name ();
 
             return lookup (*v, p.second, vm);
           }

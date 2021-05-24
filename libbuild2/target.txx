@@ -94,6 +94,9 @@ namespace build2
   {
     // Include target type/pattern-specific variables.
     //
+    // Note that we know this is not dir{} or fsdir{} and that the extension
+    // is not part of the match (see variable_type_map::find() for details).
+    //
     if (auto l = s.lookup (*s.ctx.var_extension, tt, tn))
     {
       // Help the user here and strip leading '.' from the extension.

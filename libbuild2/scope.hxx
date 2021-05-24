@@ -132,17 +132,25 @@ namespace build2
     lookup_type
     lookup (const variable& var, const target_key& tk) const
     {
-      //@@ TODO: dir name
-      return lookup (var, tk.type, tk.name).first;
+      return lookup (var, &tk).first;
+    }
+
+    lookup_type
+    lookup (const variable& var,
+            const target_key& tk,
+            const target_key& gk) const
+    {
+      return lookup (var, &tk, &gk).first;
     }
 
     // Note for dir{} and fsdir{} target name is the directory leaf (without
-    // the trailing slash).
+    // the trailing slash). Also, if extension is to be matched (for this
+    // target type), then it should be included in the name.
     //
     lookup_type
     lookup (const variable& var, const target_type& tt, const string& tn) const
     {
-      return lookup (var, &tt, &tn).first;
+      return lookup (var, target_key {&tt, nullptr, nullptr, &tn, nullopt});
     }
 
     lookup_type
@@ -150,15 +158,20 @@ namespace build2
             const target_type& tt, const string& tn,
             const target_type& gt, const string& gn) const
     {
-      return lookup (var, &tt, &tn, &gt, &gn).first;
+      return lookup (var,
+                     target_key {&tt, nullptr, nullptr, &tn, nullopt},
+                     target_key {&gt, nullptr, nullptr, &gn, nullopt});
     }
 
+    // Note that target keys may be incomplete (only type and name must be
+    // present plus dir for dir{} and fsdir{} targets if name is empty).
+    //
     pair<lookup_type, size_t>
     lookup (const variable& var,
-            const target_type* tt = nullptr, const string* tn = nullptr,
-            const target_type* gt = nullptr, const string* gn = nullptr) const
+            const target_key* tk = nullptr,
+            const target_key* gk = nullptr) const
     {
-      auto p (lookup_original (var, tt, tn, gt, gn));
+      auto p (lookup_original (var, tk, gk));
       return var.overrides == nullptr ? p : lookup_override (var, move (p));
     }
 
@@ -166,11 +179,10 @@ namespace build2
     // can be used to skip a number of initial lookups.
     //
     pair<lookup_type, size_t>
-    lookup_original (
-      const variable&,
-      const target_type* tt = nullptr, const string* tn = nullptr,
-      const target_type* gt = nullptr, const string* gn = nullptr,
-      size_t start_depth = 1) const;
+    lookup_original (const variable&,
+                     const target_key* tk = nullptr,
+                     const target_key* gk = nullptr,
+                     size_t start_depth = 1) const;
 
     pair<lookup_type, size_t>
     lookup_override (const variable& var,

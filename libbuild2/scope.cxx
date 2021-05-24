@@ -32,11 +32,11 @@ namespace build2
   //
   pair<lookup, size_t> scope::
   lookup_original (const variable& var,
-                   const target_type* tt, const string* tn,
-                   const target_type* gt, const string* gn,
+                   const target_key* tk,
+                   const target_key* gk,
                    size_t start_d) const
   {
-    assert (tt != nullptr || var.visibility != variable_visibility::target);
+    assert (tk != nullptr || var.visibility != variable_visibility::target);
 
     size_t d (0);
 
@@ -47,8 +47,9 @@ namespace build2
     //
     auto pre_app = [&var, this] (lookup_type& l,
                                  const scope* s,
-                                 const target_type* tt, const string* tn,
-                                 const target_type* gt, const string* gn)
+                                 const target_key* tk,
+                                 const target_key* gk,
+                                 optional<string> n)
     {
       const value& v (*l);
       assert ((v.extra == 1 || v.extra == 2) && v.type == nullptr);
@@ -62,14 +63,14 @@ namespace build2
       // group, then we shouldn't be looking for stem in the target's
       // variables. In other words, once we "jump" to group, we stay there.
       //
-      lookup_type stem (s->lookup_original (var, tt, tn, gt, gn, 2).first);
+      lookup_type stem (s->lookup_original (var, tk, gk, 2).first);
 
       // Check the cache.
       //
       pair<value&, ulock> entry (
         s->target_vars.cache.insert (
           ctx,
-          make_tuple (&v, tt, *tn),
+          make_tuple (&v, tk->type, n && !n->empty () ? move (*n) : *tk->name),
           stem,
           static_cast<const variable_map::value_data&> (v).version,
           var));
@@ -120,9 +121,17 @@ namespace build2
       l.value = &cv;
     };
 
+    // Most of the time we match against the target name directly but
+    // sometimes we may need to match against the directory leaf (dir{} or
+    // fsdir{}) or incorporate the extension. We therefore try hard to avoid
+    // the copy.
+    //
+    optional<string> tn;
+    optional<string> gn;
+
     for (const scope* s (this); s != nullptr; )
     {
-      if (tt != nullptr) // This started from the target.
+      if (tk != nullptr) // This started from the target.
       {
         bool f (!s->target_vars.empty ());
 
@@ -132,12 +141,12 @@ namespace build2
         {
           if (f)
           {
-            lookup_type l (s->target_vars.find (*tt, *tn, var));
+            lookup_type l (s->target_vars.find (*tk, var, tn));
 
             if (l.defined ())
             {
               if (l->extra != 0) // Prepend/append?
-                pre_app (l, s, tt, tn, gt, gn);
+                pre_app (l, s, tk, gk, move (tn));
 
               return make_pair (move (l), d);
             }
@@ -148,14 +157,14 @@ namespace build2
         //
         if (++d >= start_d)
         {
-          if (f && gt != nullptr)
+          if (f && gk != nullptr)
           {
-            lookup_type l (s->target_vars.find (*gt, *gn, var));
+            lookup_type l (s->target_vars.find (*gk, var, gn));
 
             if (l.defined ())
             {
               if (l->extra != 0) // Prepend/append?
-                pre_app (l, s, gt, gn, nullptr, nullptr);
+                pre_app (l, s, gk, nullptr, move (gn));
 
               return make_pair (move (l), d);
             }
