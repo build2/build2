@@ -146,7 +146,8 @@ namespace build2
   // Return string representation of a name.
   //
   // Note that this function does not quote special characters and you should
-  // use the to_stream() function below if this is necessary.
+  // use the to_stream() function below if this is necessary. It also cannot
+  // be used on a name pattern.
   //
   LIBBUILD2_SYMEXPORT string
   to_string (const name&);

@@ -128,6 +128,7 @@ namespace build2
   {
     size_t n (ns.size ());
 
+    diag_record dr;
     if (value_traits<T>::empty_value ? n <= 1 : n == 1)
     {
       try
@@ -137,19 +138,23 @@ namespace build2
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
-
-        return;
       }
-      catch (const invalid_argument&) {} // Fall through.
+      catch (const invalid_argument& e)
+      {
+        dr << fail << e;
+      }
     }
+    else
+      dr << fail << "invalid " << value_traits<T>::value_type.name
+         << " value: " << (n == 0 ? "empty" : "multiple names");
 
-    diag_record dr (fail);
+    if (!dr.empty ())
+    {
+      if (var != nullptr)
+        dr << " in variable " << var->name;
 
-    dr << "invalid " << value_traits<T>::value_type.name
-       << " value '" << ns << "'";
-
-    if (var != nullptr)
-      dr << " in variable " << var->name;
+      dr << info << "while converting '" << ns << "'";
+    }
   }
 
   template <typename T>
@@ -158,6 +163,7 @@ namespace build2
   {
     size_t n (ns.size ());
 
+    diag_record dr;
     if (value_traits<T>::empty_value ? n <= 1 : n == 1)
     {
       try
@@ -167,19 +173,23 @@ namespace build2
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
-
-        return;
       }
-      catch (const invalid_argument&) {} // Fall through.
+      catch (const invalid_argument& e)
+      {
+        dr << fail << e;
+      }
     }
+    else
+      dr << fail << "invalid " << value_traits<T>::value_type.name
+         << " value: " << (n == 0 ? "empty" : "multiple names");
 
-    diag_record dr (fail);
+    if (!dr.empty ())
+    {
+      if (var != nullptr)
+        dr << " in variable " << var->name;
 
-    dr << "invalid " << value_traits<T>::value_type.name
-       << " value '" << ns << "'";
-
-    if (var != nullptr)
-      dr << " in variable " << var->name;
+      dr << info << "while converting '" << ns << "'";
+    }
   }
 
   template <typename T>
@@ -188,6 +198,7 @@ namespace build2
   {
     size_t n (ns.size ());
 
+    diag_record dr;
     if (value_traits<T>::empty_value ? n <= 1 : n == 1)
     {
       try
@@ -197,19 +208,23 @@ namespace build2
           (n == 0
            ? T ()
            : value_traits<T>::convert (move (ns.front ()), nullptr)));
-
-        return;
       }
-      catch (const invalid_argument&) {} // Fall through.
+      catch (const invalid_argument& e)
+      {
+        dr << fail << e;
+      }
     }
+    else
+      dr << fail << "invalid " << value_traits<T>::value_type.name
+         << " value: " << (n == 0 ? "empty" : "multiple names");
 
-    diag_record dr (fail);
+    if (!dr.empty ())
+    {
+      if (var != nullptr)
+        dr << " in variable " << var->name;
 
-    dr << "invalid " << value_traits<T>::value_type.name
-       << " value '" << ns << "'";
-
-    if (var != nullptr)
-      dr << " in variable " << var->name;
+      dr << info << "while converting '" << ns << "'";
+    }
   }
 
   template <typename T>
@@ -282,30 +297,28 @@ namespace build2
 
         return pair<F, S>  (move (f), move (s));
       }
-      catch (const invalid_argument&)
+      catch (const invalid_argument& e)
       {
         diag_record dr (fail);
 
-        dr << "invalid " << value_traits<S>::value_type.name
-           << " second have of pair '" << *r << "'";
-
+        dr << e;
         if (var != nullptr)
           dr << " in variable " << var->name;
 
-        dr << endf;
+        dr << info << "while converting second have of pair '" << *r << "'"
+           << endf;
       }
     }
-    catch (const invalid_argument&)
+    catch (const invalid_argument& e)
     {
       diag_record dr (fail);
 
-      dr << "invalid " << value_traits<F>::value_type.name
-         << " first have of pair '" << l << "'";
-
+      dr << e;
       if (var != nullptr)
         dr << " in variable " << var->name;
 
-      dr << endf;
+      dr << info << "while converting first have of pair '" << l << "'"
+         << endf;
     }
   }
 
@@ -340,30 +353,28 @@ namespace build2
 
         return pair<F, optional<S>>  (move (f), move (s));
       }
-      catch (const invalid_argument&)
+      catch (const invalid_argument& e)
       {
         diag_record dr (fail);
 
-        dr << "invalid " << value_traits<S>::value_type.name
-           << " second have of pair '" << *r << "'";
-
+        dr << e;
         if (var != nullptr)
           dr << " in variable " << var->name;
 
-        dr << endf;
+        dr << info << "while converting second have of pair '" << *r << "'"
+           << endf;
       }
     }
-    catch (const invalid_argument&)
+    catch (const invalid_argument& e)
     {
       diag_record dr (fail);
 
-      dr << "invalid " << value_traits<F>::value_type.name
-         << " first have of pair '" << l << "'";
-
+      dr << e;
       if (var != nullptr)
         dr << " in variable " << var->name;
 
-      dr << endf;
+      dr << info << "while converting first have of pair '" << l << "'"
+         << endf;
     }
   }
 
@@ -401,30 +412,28 @@ namespace build2
 
         return pair<optional<F>, S>  (move (f), move (s));
       }
-      catch (const invalid_argument&)
+      catch (const invalid_argument& e)
       {
         diag_record dr (fail);
 
-        dr << "invalid " << value_traits<S>::value_type.name
-           << " second have of pair '" << l << "'";
-
+        dr << e;
         if (var != nullptr)
           dr << " in variable " << var->name;
 
-        dr << endf;
+        dr << info << "while converting second have of pair '" << *r << "'"
+           << endf;
       }
     }
-    catch (const invalid_argument&)
+    catch (const invalid_argument& e)
     {
       diag_record dr (fail);
 
-      dr << "invalid " << value_traits<F>::value_type.name
-         << " first have of pair '" << l << "'";
-
+      dr << e;
       if (var != nullptr)
         dr << " in variable " << var->name;
 
-      dr << endf;
+      dr << info << "while converting first have of pair '" << l << "'"
+         << endf;
     }
   }
 
@@ -528,19 +537,19 @@ namespace build2
       {
         p.push_back (value_traits<T>::convert (move (n), r));
       }
-      catch (const invalid_argument&)
+      catch (const invalid_argument& e)
       {
         diag_record dr (fail);
 
-        dr << "invalid " << value_traits<T>::value_type.name;
+        dr << e;
+        if (var != nullptr)
+          dr << " in variable " << var->name;
 
+        dr << info << "while converting ";
         if (n.pair)
           dr << " element pair '" << n << "'@'" << *r << "'";
         else
           dr << " element '" << n << "'";
-
-        if (var != nullptr)
-          dr << " in variable " << var->name;
       }
     }
   }

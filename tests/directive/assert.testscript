@@ -23,7 +23,7 @@ EOE
 : invalid
 :
 $* <'assert junk' 2>>EOE != 0
-<stdin>:1:8: error: invalid bool value: 'junk'
+<stdin>:1:8: error: invalid bool value 'junk'
 EOE
 
 : null

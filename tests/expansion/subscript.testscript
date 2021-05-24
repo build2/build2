@@ -85,7 +85,7 @@ EOE
 : invalid-subscript
 :
 $* <'print ($x[1a])' 2>>EOE != 0
-<stdin>:1:11: error: invalid value subscript: invalid uint64 value: '1a'
+<stdin>:1:11: error: invalid value subscript: invalid uint64 value '1a'
   <stdin>:1:9: info: use the '\[' escape sequence if this is a wildcard pattern
 EOE
 

@@ -432,23 +432,30 @@ namespace build2
   // Throw invalid_argument for an invalid simple value.
   //
   [[noreturn]] static void
-  throw_invalid_argument (const name& n, const name* r, const char* type)
+  throw_invalid_argument (const name& n,
+                          const name* r,
+                          const char* type,
+                          bool pair_ok = false)
   {
     string m;
     string t (type);
 
-    if (r != nullptr)
+    // Note that the message should be suitable for appending "in variable X".
+    //
+    if (!pair_ok && r != nullptr)
       m = "pair in " + t + " value";
+    else if (n.pattern || (r != nullptr && r->pattern))
+      m = "pattern in " + t + " value";
     else
     {
-      m = "invalid " + t + " value: ";
+      m = "invalid " + t + " value ";
 
       if (n.simple ())
         m += "'" + n.value + "'";
       else if (n.directory ())
         m += "'" + n.dir.representation () + "'";
       else
-        m += "complex name";
+        m += "name '" + to_string (n) + "'";
     }
 
     throw invalid_argument (m);
@@ -463,7 +470,7 @@ namespace build2
   bool value_traits<bool>::
   convert (const name& n, const name* r)
   {
-    if (r == nullptr && n.simple ())
+    if (r == nullptr && !n.pattern && n.simple () )
     {
       const string& s (n.value);
 
@@ -504,7 +511,7 @@ namespace build2
   int64_t value_traits<int64_t>::
   convert (const name& n, const name* r)
   {
-    if (r == nullptr && n.simple ())
+    if (r == nullptr && !n.pattern && n.simple ())
     {
       try
       {
@@ -552,7 +559,7 @@ namespace build2
   uint64_t value_traits<uint64_t>::
   convert (const name& n, const name* r)
   {
-    if (r == nullptr && n.simple ())
+    if (r == nullptr && !n.pattern && n.simple ())
     {
       try
       {
@@ -607,9 +614,16 @@ namespace build2
 
     // We can only convert project-qualified simple and directory names.
     //
-    if (!(n.simple (true) || n.directory (true)) ||
-        !(r == nullptr || r->simple (true) || r->directory (true)))
-      throw_invalid_argument (n, r, "string");
+    if (n.pattern ||
+        !(n.simple (true) || n.directory (true)))
+      throw_invalid_argument (n, nullptr, "string");
+
+    if (r != nullptr)
+    {
+      if (r->pattern ||
+          !(r->simple (true) || r->directory (true)))
+        throw_invalid_argument (*r, nullptr, "string");
+    }
 
     string s;
 
@@ -679,7 +693,7 @@ namespace build2
   path value_traits<path>::
   convert (name&& n, name* r)
   {
-    if (r == nullptr)
+    if (r == nullptr && !n.pattern)
     {
       // A directory path is a path.
       //
@@ -746,7 +760,7 @@ namespace build2
   dir_path value_traits<dir_path>::
   convert (name&& n, name* r)
   {
-    if (r == nullptr)
+    if (r == nullptr && !n.pattern)
     {
       if (n.directory ())
         return move (n.dir);
@@ -813,7 +827,7 @@ namespace build2
   abs_dir_path value_traits<abs_dir_path>::
   convert (name&& n, name* r)
   {
-    if (r == nullptr && (n.simple () || n.directory ()))
+    if (r == nullptr && !n.pattern && (n.simple () || n.directory ()))
     {
       try
       {
@@ -861,7 +875,7 @@ namespace build2
   name value_traits<name>::
   convert (name&& n, name* r)
   {
-    if (r == nullptr)
+    if (r == nullptr && !n.pattern)
       return move (n);
 
     throw_invalid_argument (n, r, "name");
@@ -899,6 +913,9 @@ namespace build2
   name_pair value_traits<name_pair>::
   convert (name&& n, name* r)
   {
+    if (n.pattern || (r != nullptr && r->pattern))
+      throw_invalid_argument (n, r, "name_pair", true /* pair_ok */);
+
     n.pair = '\0'; // Keep "unpaired" in case r is empty.
     return name_pair (move (n), r != nullptr ? move (*r) : name ());
   }
@@ -979,8 +996,8 @@ namespace build2
   static T
   process_path_convert (name&& n, name* r, const char* what)
   {
-    if (                   n.untyped () &&  n.unqualified () &&  !n.empty () &&
-        (r == nullptr || (r->untyped () && r->unqualified () && !r->empty ())))
+    if (                   !n.pattern &&  n.untyped () &&  n.unqualified () &&  !n.empty () &&
+        (r == nullptr || (!r->pattern && r->untyped () && r->unqualified () && !r->empty ())))
     {
       path rp (move (n.dir));
       if (rp.empty ())
@@ -1003,7 +1020,7 @@ namespace build2
       return pp;
     }
 
-    throw_invalid_argument (n, r, what);
+    throw_invalid_argument (n, r, what, true /* pair_ok */);
   }
 
   process_path value_traits<process_path>::
@@ -1142,7 +1159,7 @@ namespace build2
       if (!i->pair)
         throw invalid_argument ("non-pair in process_path_ex value");
 
-      if (!i->simple ())
+      if (i->pattern || !i->simple ())
         throw_invalid_argument (*i, nullptr, "process_path_ex");
 
       const string& k ((i++)->value);
@@ -1151,14 +1168,14 @@ namespace build2
       //
       if (k == "name")
       {
-        if (!i->simple ())
+        if (i->pattern || !i->simple ())
           throw_invalid_argument (*i, nullptr, "process_path_ex name");
 
         pp.name = move (i->value);
       }
       else if (k == "checksum")
       {
-        if (!i->simple ())
+        if (i->pattern || !i->simple ())
           throw_invalid_argument (
             *i, nullptr, "process_path_ex executable checksum");
 
@@ -1166,7 +1183,7 @@ namespace build2
       }
       else if (k == "env-checksum")
       {
-        if (!i->simple ())
+        if (i->pattern || !i->simple ())
           throw_invalid_argument (
             *i, nullptr, "process_path_ex environment checksum");
 
@@ -1323,22 +1340,17 @@ namespace build2
   target_triplet value_traits<target_triplet>::
   convert (name&& n, name* r)
   {
-    if (r == nullptr)
+    if (r == nullptr && !n.pattern && n.simple ())
     {
-      if (n.simple ())
+      try
       {
-        try
-        {
-          return n.empty () ? target_triplet () : target_triplet (n.value);
-        }
-        catch (const invalid_argument& e)
-        {
-          throw invalid_argument (
-            string ("invalid target_triplet value: ") + e.what ());
-        }
+        return n.empty () ? target_triplet () : target_triplet (n.value);
       }
-
-      // Fall through.
+      catch (const invalid_argument& e)
+      {
+        throw invalid_argument (
+          string ("invalid target_triplet value: ") + e.what ());
+      }
     }
 
     throw_invalid_argument (n, r, "target_triplet");
@@ -1369,22 +1381,17 @@ namespace build2
   project_name value_traits<project_name>::
   convert (name&& n, name* r)
   {
-    if (r == nullptr)
+    if (r == nullptr && !n.pattern && n.simple ())
     {
-      if (n.simple ())
+      try
       {
-        try
-        {
-          return n.empty () ? project_name () : project_name (move (n.value));
-        }
-        catch (const invalid_argument& e)
-        {
-          throw invalid_argument (
-            string ("invalid project_name value: ") + e.what ());
-        }
+        return n.empty () ? project_name () : project_name (move (n.value));
       }
-
-      // Fall through.
+      catch (const invalid_argument& e)
+      {
+        throw invalid_argument (
+          string ("invalid project_name value: ") + e.what ());
+      }
     }
 
     throw_invalid_argument (n, r, "project_name");

@@ -36,7 +36,7 @@ EOE
 : fail-invalid-arg
 :
 $* <'$fail_arg(abc)' 2>>EOE != 0
-error: invalid argument: invalid uint64 value: 'abc'
+error: invalid argument: invalid uint64 value 'abc'
   buildfile:1:2: info: while calling fail_arg(<untyped>)
 EOE
 

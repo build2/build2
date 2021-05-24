@@ -882,6 +882,8 @@ namespace build2
 
   // name
   //
+  // Note that a typed name is never a pattern.
+  //
   template <>
   struct LIBBUILD2_SYMEXPORT value_traits<name>
   {

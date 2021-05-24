@@ -56,6 +56,7 @@ test.arguments =
 
   $* noop      config.test.fancy=junk 2>>EOE != 0
     error: invalid bool value 'junk' in variable config.test.fancy
+      info: while converting 'junk'
     EOE
 }
 
@@ -109,6 +110,7 @@ test.arguments =
 
   $* noop      config.test.fancy=junk 2>>EOE != 0
     error: invalid bool value 'junk' in variable config.test.fancy
+      info: while converting 'junk'
     EOE
 }
 
@@ -160,6 +162,7 @@ test.arguments =
 
   $* noop      config.test.fancy=junk 2>>EOE != 0
     error: invalid bool value 'junk' in variable config.test.fancy
+      info: while converting 'junk'
     EOE
 }
 

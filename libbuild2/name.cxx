@@ -34,6 +34,8 @@ namespace build2
   string
   to_string (const name& n)
   {
+    assert (!n.pattern);
+
     string r;
 
     // Note: similar to to_stream() below.
