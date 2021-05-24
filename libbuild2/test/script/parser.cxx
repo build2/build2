@@ -945,7 +945,7 @@ namespace build2
         {
           pre_parse_ = false;
           args = parse_names (t, tt,
-                              pattern_mode::expand,
+                              pattern_mode::ignore,
                               false,
                               "directive argument",
                               nullptr);

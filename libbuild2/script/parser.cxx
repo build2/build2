@@ -34,7 +34,7 @@ namespace build2
       //
       return tt != type::newline && start_names (tt)
         ? parse_value (t, tt,
-                       pattern_mode::preserve,
+                       pattern_mode::ignore,
                        "variable value",
                        nullptr)
         : value (names ());
@@ -101,7 +101,7 @@ namespace build2
     {
       parse_names (t, tt,
                    ns,
-                   pattern_mode::preserve,
+                   pattern_mode::ignore,
                    true /* chunk */,
                    "command line",
                    nullptr);
@@ -1073,7 +1073,7 @@ namespace build2
             else
               parse_names (t, tt,
                            ns,
-                           pattern_mode::preserve,
+                           pattern_mode::ignore,
                            true /* chunk */,
                            "command line",
                            nullptr);
@@ -1319,7 +1319,7 @@ namespace build2
 
         parse_names (t, tt,
                      ns,
-                     pattern_mode::preserve,
+                     pattern_mode::ignore,
                      true /* chunk */,
                      "env builtin argument",
                      nullptr);
@@ -1473,7 +1473,7 @@ namespace build2
       next (t, tt);
       location l (get_location (t));
       names ns (parse_names (t, tt,
-                             pattern_mode::preserve,
+                             pattern_mode::ignore,
                              true,
                              "exit status",
                              nullptr));
@@ -1669,7 +1669,7 @@ namespace build2
         //
         names ns (tt != type::newline
                   ? parse_names (t, tt,
-                                 pattern_mode::preserve,
+                                 pattern_mode::ignore,
                                  false,
                                  "here-document line",
                                  nullptr)

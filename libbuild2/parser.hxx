@@ -108,6 +108,7 @@ namespace build2
     //
     enum class pattern_mode
     {
+      ignore,   // Treat as literals.
       preserve, // Preserve as name pattern.
       expand,   // Expand to non-pattern names.
       detect    // Implementation detail mode (see code for more information).

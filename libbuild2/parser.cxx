@@ -1127,6 +1127,9 @@ namespace build2
     {
       attributes_push (t, tt);
 
+      // Variable names should not contain patterns so we preserve them here
+      // and diagnose in parse_variable_name().
+      //
       location nloc (get_location (t));
       names ns (parse_names (t, tt, pattern_mode::preserve, "variable name"));
 
@@ -1267,7 +1270,7 @@ namespace build2
                 fail (t) << "expected c++ recipe version instead of " << t;
 
               location nloc (get_location (t));
-              names ns (parse_names (t, tt, pattern_mode::preserve));
+              names ns (parse_names (t, tt, pattern_mode::ignore));
 
               uint64_t ver;
               try
@@ -2238,7 +2241,7 @@ namespace build2
     {
       args = convert<strings> (
         tt != type::newline && tt != type::eos
-        ? parse_names (t, tt, pattern_mode::preserve, "argument", nullptr)
+        ? parse_names (t, tt, pattern_mode::expand, "argument", nullptr)
         : names ());
     }
     catch (const invalid_argument& e)
@@ -2602,7 +2605,7 @@ namespace build2
       ns = convert<strings> (
         tt != type::newline && tt != type::eos
         ? parse_names (t, tt,
-                       pattern_mode::preserve,
+                       pattern_mode::ignore,
                        "environment variable name",
                        nullptr)
         : names ());
@@ -2878,7 +2881,7 @@ namespace build2
     next (t, tt);
     const location l (get_location (t));
     names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, pattern_mode::preserve, "module", nullptr)
+              ? parse_names (t, tt, pattern_mode::ignore, "module", nullptr)
               : names ());
 
     for (auto i (ns.begin ()); i != ns.end (); ++i)
@@ -3193,7 +3196,7 @@ namespace build2
         if (ns.empty () || ns[0].empty ())
           fail (l) << "function name expected after ':'";
 
-        if (!ns[0].simple ())
+        if (ns[0].pattern || !ns[0].simple ())
           fail (l) << "function name expected instead of " << ns[0];
 
         e.func = move (ns[0].value);
@@ -3297,7 +3300,7 @@ namespace build2
           auto parse_pattern_with_attributes = [this] (token& t, type& tt)
           {
             return parse_value_with_attributes (
-              t, tt, pattern_mode::preserve, "pattern", nullptr);
+              t, tt, pattern_mode::ignore, "pattern", nullptr);
           };
 
           for (size_t i (0);; ++i)
@@ -3660,7 +3663,7 @@ namespace build2
     //
     names ns (tt != type::newline && tt != type::eos
               ? parse_names (t, tt,
-                             pattern_mode::preserve,
+                             pattern_mode::ignore,
                              "description",
                              nullptr)
               : names ());
@@ -3760,6 +3763,11 @@ namespace build2
         name& n (*i++);
         name o (n.pair ? move (*i++) : name ());
 
+        // @@ TODO
+        //
+        if (n.pattern)
+          fail (l) << "dumping target patterns no yet supported";
+
         const target* t (enter_target::find_target (*this, n, o, l, trace));
 
         if (t != nullptr)
@@ -3787,7 +3795,7 @@ namespace build2
 
     // The list should contain a single, simple name.
     //
-    if (ns.size () != 1 || !ns[0].simple () || ns[0].empty ())
+    if (ns.size () != 1 || ns[0].pattern || !ns[0].simple () || ns[0].empty ())
       fail (l) << "expected variable name instead of " << ns;
 
     // Note that the overridability can still be restricted (e.g., by a module
@@ -4489,7 +4497,8 @@ namespace build2
       if (v.type != nullptr || !v || v.as<names> ().size () != 1)
         fail (l) << "expected target before ':'";
 
-      if (n.type != nullptr || !n || n.as<names> ().size () != 1)
+      if (n.type != nullptr || !n || n.as<names> ().size () != 1 ||
+          n.as<names> ()[0].pattern)
         fail (nl) << "expected variable name after ':'";
 
       names& ns (v.as<names> ());
@@ -4591,7 +4600,7 @@ namespace build2
         const location l (get_location (t));
 
         names ns (
-          parse_names (t, tt, pattern_mode::preserve, "attribute", nullptr));
+          parse_names (t, tt, pattern_mode::ignore, "attribute", nullptr));
 
         string n;
         value v;
@@ -4615,7 +4624,7 @@ namespace build2
           next (t, tt);
 
           v = (tt != type::comma && tt != type::rsbrace
-               ? parse_value (t, tt, pattern_mode::preserve, "attribute value")
+               ? parse_value (t, tt, pattern_mode::ignore, "attribute value")
                : value (names ()));
 
           expire_mode ();
@@ -5907,7 +5916,7 @@ namespace build2
         };
 
         bool pat (false);
-        if (pmode != pattern_mode::preserve)
+        if (pmode == pattern_mode::expand || pmode == pattern_mode::detect)
         {
           if (!*pp1    && // Cannot be project-qualified.
               !quoted  && // Cannot be quoted.
@@ -5962,7 +5971,7 @@ namespace build2
             }
           }
         }
-        else
+        else if (pmode == pattern_mode::preserve)
         {
           // For the preserve mode we treat it as a pattern if it look like
           // one syntactically. For now we also don't treat leading `+` in the
@@ -6282,7 +6291,7 @@ namespace build2
           location l (get_location (t));
           value v (
             tt != type::rsbrace
-            ? parse_value (t, tt, pattern_mode::preserve, "value subscript")
+            ? parse_value (t, tt, pattern_mode::ignore, "value subscript")
             : value (names ()));
 
           if (tt != type::rsbrace)
@@ -6855,7 +6864,7 @@ namespace build2
           // specific (via pre-parse or some such).
           //
           params.push_back (tt != type::rparen
-                            ? parse_value (t, tt, pattern_mode::preserve)
+                            ? parse_value (t, tt, pattern_mode::ignore)
                             : value (names ()));
         }
 

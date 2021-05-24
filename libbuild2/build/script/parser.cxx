@@ -445,7 +445,7 @@ namespace build2
             // be printed, thus we parse it in the value lexer mode.
             //
             mode (lexer_mode::value);
-            parse_names (t, tt, pattern_mode::preserve);
+            parse_names (t, tt, pattern_mode::ignore);
             return nullopt;
           }
           else if (v == "depdb")
@@ -567,7 +567,7 @@ namespace build2
 
             // Parse the rest of the line and bail out.
             //
-            parse_names (t, tt, pattern_mode::preserve);
+            parse_names (t, tt, pattern_mode::ignore);
             return nullopt;
           }
         }
@@ -627,7 +627,7 @@ namespace build2
 
           pr = parse_names (t, tt,
                             ns,
-                            pattern_mode::preserve,
+                            pattern_mode::ignore,
                             true /* chunk */,
                             "command line",
                             nullptr);
