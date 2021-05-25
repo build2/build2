@@ -33,16 +33,21 @@ namespace build2
   // If pair is not '\0', then this name and the next in the list form a
   // pair. Can be used as a bool flag.
   //
-  // If pattern is true then this is a name pattern (e.g., file{*.txt}).
+  // If pattern is present then this is a name pattern (e.g., file{*.txt},
+  // file{~'/(.+)\.txt/i'}, file{^'/\1/'}). A directory name cannot be a regex
+  // pattern (since we would need to store it in dir_path and a regex is not
+  // necessarily a valid path).
   //
   struct name
   {
+    enum class pattern_type: uint8_t {path, regex_pattern, regex_substitution};
+
     optional<project_name> proj;
     dir_path dir;
     string type;
     string value;
     char pair = '\0';
-    bool pattern = false;
+    optional<pattern_type> pattern;
 
     name () {} // = default; Clang needs this to initialize const object.
     name (string v): value (move (v)) {}
@@ -57,13 +62,16 @@ namespace build2
         : proj (project_name (move (p))), dir (move (d)), type (move (t)),
           value (move (v)) {}
 
-      name (optional<project_name> p,
-            dir_path d,
-            string t,
-            string v,
-            bool pat = false)
+    name (optional<project_name> p, dir_path d, string t, string v)
+        : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)) {}
+
+    name (optional<project_name> p,
+          dir_path d,
+          string t,
+          string v,
+          optional<pattern_type> pt)
         : proj (move (p)), dir (move (d)), type (move (t)), value (move (v)),
-          pattern (pat) {}
+          pattern (pt) {}
 
     bool
     qualified () const {return proj.has_value ();}
@@ -162,7 +170,8 @@ namespace build2
     cs.append (n.type);
     cs.append (n.value);
     cs.append (n.pair);
-    cs.append (n.pattern);
+    if (n.pattern)
+      cs.append (static_cast<uint8_t> (*n.pattern));
   }
 
   // Store a string in a name in a reversible way. If the string ends with a
@@ -173,13 +182,20 @@ namespace build2
   to_name (string);
 
   // Serialize the name to the stream. If requested, the name components
-  // containing special characters are quoted. The special characters are:
+  // containing special characters are quoted and/or escaped. The special
+  // characters are:
   //
   // {}[]$() \t\n#\"'%
   //
-  // And additionally, if name is not a pattern:
+  // And additionally, unless name is a pattern:
   //
   // *?
+  //
+  // As well as leading and if followed by a non-alphanumeric delimiter:
+  //
+  // ~^
+  //
+  // As well as leading `+` if in the curly braces.
   //
   // If the pair argument is not '\0', then it is added to the above special
   // characters set. If the quote character is present in the component then

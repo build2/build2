@@ -16,6 +16,7 @@
 #include <map>
 #include <array>
 #include <tuple>
+#include <regex>
 #include <vector>
 #include <string>
 #include <memory>           // unique_ptr, shared_ptr
@@ -44,6 +45,7 @@
 
 #include <libbutl/path.mxx>
 #include <libbutl/path-map.mxx>
+#include <libbutl/regex.mxx>
 #include <libbutl/sha256.mxx>
 #include <libbutl/process.mxx>
 #include <libbutl/fdstream.mxx>
@@ -104,6 +106,14 @@ namespace build2
   using std::ostream;
   using std::endl;
   using std::streamsize; // C++'s ssize_t.
+
+  // Regex.
+  //
+  // Note that <libbutl/regex.mxx> includes an ostream insertion operator for
+  // regex_error which prints cleaned up message, if any.
+  //
+  using std::regex;
+  using std::regex_error;
 
   // Concurrency.
   //

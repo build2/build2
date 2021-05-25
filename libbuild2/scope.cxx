@@ -49,7 +49,7 @@ namespace build2
                                  const scope* s,
                                  const target_key* tk,
                                  const target_key* gk,
-                                 optional<string> n)
+                                 string n)
     {
       const value& v (*l);
       assert ((v.extra == 1 || v.extra == 2) && v.type == nullptr);
@@ -70,7 +70,7 @@ namespace build2
       pair<value&, ulock> entry (
         s->target_vars.cache.insert (
           ctx,
-          make_tuple (&v, tk->type, n && !n->empty () ? move (*n) : *tk->name),
+          make_tuple (&v, tk->type, !n.empty () ? move (n) : *tk->name),
           stem,
           static_cast<const variable_map::value_data&> (v).version,
           var));
@@ -146,7 +146,7 @@ namespace build2
             if (l.defined ())
             {
               if (l->extra != 0) // Prepend/append?
-                pre_app (l, s, tk, gk, move (tn));
+                pre_app (l, s, tk, gk, move (*tn));
 
               return make_pair (move (l), d);
             }
@@ -164,7 +164,7 @@ namespace build2
             if (l.defined ())
             {
               if (l->extra != 0) // Prepend/append?
-                pre_app (l, s, gk, nullptr, move (gn));
+                pre_app (l, s, gk, nullptr, move (*gn));
 
               return make_pair (move (l), d);
             }

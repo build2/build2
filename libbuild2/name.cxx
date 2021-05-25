@@ -82,8 +82,21 @@ namespace build2
   ostream&
   to_stream (ostream& os, const name& n, bool quote, char pair, bool escape)
   {
-    auto write_string = [quote, pair, escape, &os](const string& v, bool pat)
+    using pattern_type = name::pattern_type;
+
+    auto write_string = [&os, quote, pair, escape] (
+      const string& v,
+      optional<pattern_type> pat = nullopt,
+      bool curly = false)
     {
+      // Special characters, path pattern characters, and regex pattern
+      // characters. The latter only need to be quoted in the first position
+      // and if followed by a non-alphanumeric delimiter. If that's the only
+      // special character, then we handle it with escaping rather than
+      // quoting (see the parsing logic for rationale). Additionally, we
+      // escape leading `+` in the curly braces which is also recognized as a
+      // path pattern.
+      //
       char sc[] = {
         '{', '}', '[', ']', '$', '(', ')', // Token endings.
         ' ', '\t', '\n', '#',              // Spaces.
@@ -93,8 +106,23 @@ namespace build2
         '\0'};
 
       char pc[] = {
-        '*', '?',                          // Wildcard characters.
+        '*', '?',                          // Path wildcard characters.
         '\0'};
+
+      auto rc = [] (const string& v)
+      {
+        return (v[0] == '~' || v[0] == '^') && v[1] != '\0' && !alnum (v[1]);
+      };
+
+      if (pat)
+      {
+        switch (*pat)
+        {
+        case pattern_type::path:                          break;
+        case pattern_type::regex_pattern:      os << '~'; break;
+        case pattern_type::regex_substitution: os << '^'; break;
+        }
+      }
 
       if (quote && v.find ('\'') != string::npos)
       {
@@ -115,6 +143,11 @@ namespace build2
         if (escape) os << '\\';
         os << '"';
       }
+      //
+      // Note that a regex pattern does not need to worry about special path
+      // pattern character but not vice-verse. See the parsing logic for
+      // details.
+      //
       else if (quote && (v.find_first_of (sc) != string::npos ||
                          (!pat && v.find_first_of (pc) != string::npos)))
       {
@@ -126,17 +159,32 @@ namespace build2
         if (escape) os << '\\';
         os << '\'';
       }
+      // Note that currently we do not preserve a leading `+` as a pattern
+      // unless it has other wildcard characters (see the parsing code for
+      // details). So we escape it both if it's not a pattern or is a path
+      // pattern.
+      //
+      else if (quote && ((!pat || *pat == pattern_type::path) &&
+                         ((v[0] == '+' && curly) || rc (v))))
+      {
+        if (escape) os << '\\';
+        os << '\\' << v;
+      }
       else
         os << v;
     };
 
     uint16_t dv (stream_verb (os).path); // Directory verbosity.
 
-    auto write_dir = [dv, quote, &os, &write_string] (const dir_path& d,
-                                                      bool pat)
+    auto write_dir = [&os, quote, &write_string, dv] (
+      const dir_path& d,
+      optional<pattern_type> pat = nullopt,
+      bool curly = false)
     {
       if (quote)
-        write_string (dv < 1 ? diag_relative (d) : d.representation (), pat);
+        write_string (dv < 1 ? diag_relative (d) : d.representation (),
+                      pat,
+                      curly);
       else
         os << d;
     };
@@ -151,7 +199,7 @@ namespace build2
 
     if (n.proj)
     {
-      write_string (n.proj->string (), false);
+      write_string (n.proj->string ());
       os << '%';
     }
 
@@ -171,29 +219,34 @@ namespace build2
                         dir_path ());
 
     if (!pd.empty ())
-      write_dir (pd, false);
+      write_dir (pd);
 
-    if (t || (!d && !v))
+    bool curly;
+    if ((curly = t || (!d && !v)))
     {
       if (t)
-        write_string (n.type, false);
+        write_string (n.type);
 
       os << '{';
     }
 
     if (v)
-      write_string (n.value, n.pattern);
+      write_string (n.value, n.pattern, curly);
     else if (d)
     {
+      // A directory pattern cannot be regex.
+      //
+      assert (!n.pattern || *n.pattern == pattern_type::path);
+
       if (rd.empty ())
-        write_string (dir_path (".").representation (), false);
+        write_string (dir_path (".").representation (), nullopt, curly);
       else if (!pd.empty ())
-        write_string (rd.leaf ().representation (), n.pattern);
+        write_string (rd.leaf ().representation (), n.pattern, curly);
       else
-        write_dir (rd, n.pattern);
+        write_dir (rd, n.pattern, curly);
     }
 
-    if (t || (!d && !v))
+    if (curly)
       os << '}';
 
     return os;

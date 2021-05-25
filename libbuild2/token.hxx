@@ -120,7 +120,8 @@ namespace build2
     // Quoting can be complete, where the token starts and ends with the quote
     // characters and quoting is contiguous or partial where only some part(s)
     // of the token are quoted or quoting continues to the next token. We also
-    // keep track whether the first character of a token is quoted.
+    // keep track whether the first character of a token is quoted (we also
+    // treat escaped first character as quoted).
     //
     quote_type qtype;
     bool qcomp;

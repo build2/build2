@@ -1740,17 +1740,69 @@ namespace build2
   class variable_pattern_map
   {
   public:
-    using map_type = map<string, variable_map>;
+    using pattern_type = name::pattern_type;
+
+    // We use the map to keep the patterns in the shortest-first order. This
+    // is used during match where we starting from the longest values so that
+    // the more "specific" patterns (i.e., those that cover fewer characters
+    // with the wildcard) take precedence.
+    //
+    // Note that this is only an approximation (e.g., `*[0-9]` vs `[0-9]`) but
+    // it's sufficient in practice (e.g., `*` vs `*.txt`). We also have the
+    // ambiguity problem (e.g., `foo-foo` matching both `foo-*` and `*-foo`).
+    //
+    // And, of course, this doesn't apply accross pattern types so we always
+    // treat regex patterns as more specific than path patterns.
+    //
+    // While it feels like this should be a union (with pattern_type as the
+    // discriminator), we need to keep the original regex text for dumping.
+    // So we just keep optional<regex> which is absent for path patterns (it's
+    // optional since a default-constructed regex has a pattern). BTW, the
+    // size of std::regex object ranges between 32 and 64 bytes, depending on
+    // the implementation.
+    //
+    struct pattern
+    {
+      pattern_type                    type;
+      mutable bool                    match_ext; // Match extension flag.
+      string                          text;
+      mutable optional<build2::regex> regex;
+    };
+
+    struct pattern_compare
+    {
+      bool operator() (const pattern& x, const pattern& y) const
+      {
+        return x.type != y.type
+          ? x.type == pattern_type::path
+          : (x.text.size () != y.text.size ()
+             ? x.text.size () < y.text.size ()
+             : x.text < y.text);
+      }
+    };
+
+    using map_type = map<pattern, variable_map, pattern_compare>;
     using const_iterator = map_type::const_iterator;
     using const_reverse_iterator = map_type::const_reverse_iterator;
 
     variable_pattern_map (context& c, bool global)
         : ctx (c), global_ (global) {}
 
+    // Note that here we assume the "outer" pattern format (delimiters, flags,
+    // etc) is valid.
+    //
+    // Note: may throw regex_error in which case text is preserved.
+    //
     variable_map&
-    operator[] (const string& v)
+    insert (pattern_type type, string&& text);
+
+    // Convenience shortcut or path patterns.
+    //
+    variable_map&
+    operator[] (string text)
     {
-      return map_.emplace (v, variable_map (ctx, global_)).first->second;
+      return map_.emplace (pattern {pattern_type::path, false, move (text), {}},
+                           variable_map (ctx, global_)).first->second;
     }
 
     const_iterator         begin ()  const {return map_.begin ();}
@@ -1769,7 +1821,7 @@ namespace build2
   {
   public:
     using map_type = map<reference_wrapper<const target_type>,
-                              variable_pattern_map>;
+                         variable_pattern_map>;
     using const_iterator = map_type::const_iterator;
 
     variable_type_map (context& c, bool global): ctx (c), global_ (global) {}
@@ -1785,6 +1837,10 @@ namespace build2
     const_iterator end ()   const {return map_.end ();}
     bool           empty () const {return map_.empty ();}
 
+    // If found append/prepend then name is guaranteed to either contain the
+    // full name that was used for the match or be empty in which case the
+    // orginal target name was used.
+    //
     lookup
     find (const target_key&, const variable&, optional<string>& name) const;
 

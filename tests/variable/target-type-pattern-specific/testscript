@@ -19,6 +19,65 @@ X
 y Y
 EOO
 
+: old-tests-type-pattern
+:
+$* <<EOI >>EOO
+dir{*}: x = y
+
+x = z
+dir{*-foo}: x = $x # 'z'
+print $(bar-foo/: x)
+
+x = G
+file{*-foo}: x = x
+file{xfoo}: x = $x      # 'G'
+print $(file{xfoo}: x)
+file{-foo}: x = $x      # 'x'
+print $(file{-foo}: x)
+file{x-foo}: x = $x     # 'x'
+print $(file{x-foo}: x)
+file{bar-*-foo}: x = X
+file{bar-x}: x = $x     # 'G'
+print $(file{bar-x}: x)
+file{bar--foo}: x = $x  # 'X'
+print $(file{bar--foo}: x)
+file{bar-x-foo}: x = $x # 'X'
+print $(file{bar-x-foo}: x)
+
+file{*-fox}: x = 1
+file{fox-*}: x = 2
+file{fox-fox}: x = $x # '2'
+print $(file{fox-fox}: x)
+file{*-fox}: x = 3
+file{fox-x-fox}: x = $x # still '2'!
+print $(file{fox-fox}: x)
+
+*-foz: x = z        # any target
+file{x-foz}: x = $x # 'z'
+print $(file{x-foz}: x)
+
+*: x1 = X1
+{*}: x2 = X2
+*{*}: x3 = X3
+print $(file{x}: x1)
+print $(file{x}: x2)
+print $(file{x}: x3)
+EOI
+z
+G
+x
+x
+G
+X
+X
+2
+2
+z
+X1
+X2
+X3
+EOO
+
 : block
 :
 $* <<EOI >>EOO
@@ -55,3 +114,71 @@ EOI
 X
 y Y
 EOO
+
+: regex
+:
+{
+  : flag-icase
+  :
+  $* <<EOI >>EOO
+  file{~/'.+\.txt'/i}: x = 1
+
+  print $(file{foo.txt}: x)
+  print $(file{foo.TXT}: x)
+  EOI
+  1
+  1
+  EOO
+
+  : flag-match-ext
+  :
+  $* <<EOI >>EOO
+  define txt: file
+
+  txt{*}:             x = 0
+  txt{~/'[^.]+'/}:    x = 1
+  txt{~/'.+\.tx'/e}:  x = 2
+  txt{~/'.+\.txt'/e}: x = 3
+
+  print $(txt{foo.x}: x)
+  print $(txt{foo.tx}: x)
+  print $(txt{foo.txt}: x)
+  print $(txt{foo.bar...}: x)
+  EOI
+  1
+  2
+  3
+  0
+  EOO
+
+  : backref
+  :
+  $* <<EOI >>EOO
+  x = 0
+  file{~/'(.+)-\1'/}: x = 1
+
+  print $(file{foo-foo}: x)
+  print $(file{foo-bar}: x)
+  EOI
+  1
+  0
+  EOO
+
+  : dir
+  :
+  $* <<EOI >>EOO
+  foo/dir{~/b.+/}: x = 1
+
+  print $(foo/dir{bar}: x)
+  EOI
+  1
+  EOO
+
+  : invalid
+  :
+  $* <<EOI 2>>~/EOE/ != 0
+  file{~/'(.+'/}: x = 1
+  EOI
+  /<stdin>:1:1: error: invalid regex pattern .+/
+  EOE
+}

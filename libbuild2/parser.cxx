@@ -638,7 +638,9 @@ namespace build2
         // sensitive to the target context in which they are evaluated. The
         // function signature is:
         //
-        // void (token& t, type& tt, const target_type* type, string pat)
+        // void (token& t, type& tt,
+        //       optional<pattern_type>, const target_type* pat_tt, string pat,
+        //       const location& pat_loc)
         //
         // Note that the target and its ad hoc members are inserted implied
         // but this flag can be cleared and default_target logic applied if
@@ -695,42 +697,51 @@ namespace build2
               //
               // foo*/dir{*/}  --  foo*/*/dir{}
               //
-              if (n.value.empty () && !n.dir.empty ())
+              // Note also that none of this applies to regex patterns (see
+              // the parsing code for details).
+              //
+              if (*n.pattern == pattern_type::path)
               {
-                // Note that we use string and not the representation: in a
-                // sense the trailing slash in the pattern is subsumed by the
-                // target type.
-                //
-                if (n.dir.simple ())
-                  n.value = move (n.dir).string ();
+                if (n.value.empty () && !n.dir.empty ())
+                {
+                  // Note that we use string and not the representation: in a
+                  // sense the trailing slash in the pattern is subsumed by
+                  // the target type.
+                  //
+                  if (n.dir.simple ())
+                    n.value = move (n.dir).string ();
+                  else
+                  {
+                    n.value = n.dir.leaf ().string ();
+                    n.dir.make_directory ();
+                  }
+
+                  // Treat directory as type dir{} similar to other places.
+                  //
+                  if (n.untyped ())
+                    n.type = "dir";
+                }
                 else
                 {
-                  n.value = n.dir.leaf ().string ();
-                  n.dir.make_directory ();
-                }
-
-                // Treat directory as type dir{} similar to other places.
-                //
-                if (n.untyped ())
-                  n.type = "dir";
-              }
-              else
-              {
-                // Move the directory part, if any, from value to dir.
-                //
-                try
-                {
-                  n.canonicalize ();
-                }
-                catch (const invalid_path& e)
-                {
-                  fail (nloc) << "invalid path '" << e.path << "'";
-                }
-                catch (const invalid_argument&)
-                {
-                  fail (nloc) << "invalid pattern '" << n.value << "'";
+                  // Move the directory part, if any, from value to dir.
+                  //
+                  try
+                  {
+                    n.canonicalize ();
+                  }
+                  catch (const invalid_path& e)
+                  {
+                    fail (nloc) << "invalid path '" << e.path << "'";
+                  }
+                  catch (const invalid_argument&)
+                  {
+                    fail (nloc) << "invalid pattern '" << n.value << "'";
+                  }
                 }
               }
+              else if (*n.pattern == pattern_type::regex_substitution)
+                fail (nloc) << "regex substitution " << n << " without "
+                            << "regex pattern";
 
               // If we have the directory, then it is the scope.
               //
@@ -760,7 +771,7 @@ namespace build2
               if (ti == nullptr)
                 fail (nloc) << "unknown target type " << n.type;
 
-              f (t, tt, ti, move (n.value));
+              f (t, tt, n.pattern, ti, move (n.value), nloc);
             }
             else
             {
@@ -781,7 +792,7 @@ namespace build2
                 enter_adhoc_members (move (ans[i]), true /* implied */);
               }
 
-              f (t, tt, nullptr, string ());
+              f (t, tt, nullopt, nullptr, string (), location ());
             }
 
             if (++i != e)
@@ -832,7 +843,8 @@ namespace build2
               st = token (t), // Save start token (will be gone on replay).
               recipes = small_vector<shared_ptr<adhoc_rule>, 1> ()]
               (token& t, type& tt,
-               const target_type* type, string pat) mutable
+               optional<pattern_type> pt, const target_type* ptt, string pat,
+               const location& ploc) mutable
             {
               token rt; // Recipe start token.
 
@@ -842,7 +854,7 @@ namespace build2
               {
                 next (t, tt); // Newline.
                 next (t, tt); // First token inside the variable block.
-                parse_variable_block (t, tt, type, move (pat));
+                parse_variable_block (t, tt, pt, ptt, move (pat), ploc);
 
                 if (tt != type::rcbrace)
                   fail (t) << "expected '}' instead of " << t;
@@ -858,7 +870,7 @@ namespace build2
               else
                 rt = st;
 
-              if (type != nullptr)
+              if (pt)
                 fail (rt) << "recipe in target type/pattern";
 
               parse_recipe (t, tt, rt, recipes);
@@ -921,17 +933,19 @@ namespace build2
 
           // Parse the assignment for each target.
           //
-          for_each ([this, &var, akind, &aloc] (token& t, type& tt,
-                                                const target_type* type,
-                                                string pat)
-                    {
-                      if (type == nullptr)
-                        parse_variable (t, tt, var, akind);
-                      else
-                        parse_type_pattern_variable (t, tt,
-                                                     *type, move (pat),
-                                                     var, akind, aloc);
-                    });
+          for_each (
+            [this, &var, akind, &aloc] (
+              token& t, type& tt,
+              optional<pattern_type> pt, const target_type* ptt, string pat,
+              const location& ploc)
+            {
+              if (pt)
+                parse_type_pattern_variable (t, tt,
+                                             *pt, *ptt, move (pat), ploc,
+                                             var, akind, aloc);
+              else
+                parse_variable (t, tt, var, akind);
+            });
 
           next_after_newline (t, tt);
         }
@@ -1110,7 +1124,8 @@ namespace build2
 
   void parser::
   parse_variable_block (token& t, type& tt,
-                        const target_type* type, string pat)
+                        optional<pattern_type> pt, const target_type* ptt,
+                        string pat, const location& ploc)
   {
     // Parse a target or prerequisite-specific variable block. If type is not
     // NULL, then this is a target type/pattern-specific block.
@@ -1148,12 +1163,12 @@ namespace build2
                  << " visibility but is assigned on a target";
       }
 
-      if (type == nullptr)
-        parse_variable (t, tt, var, tt);
-      else
+      if (pt)
         parse_type_pattern_variable (t, tt,
-                                     *type, pat, // Note: can't move.
+                                     *pt, *ptt, pat, ploc, // Note: can't move.
                                      var, tt, get_location (t));
+      else
+        parse_variable (t, tt, var, tt);
 
       if (tt != type::newline)
         fail (t) << "expected newline instead of " << t;
@@ -3835,24 +3850,34 @@ namespace build2
   }
 
   void parser::
-  parse_type_pattern_variable (token& t, token_type& tt,
-                               const target_type& type, string pat,
-                               const variable& var, token_type kind,
-                               const location& loc)
+  parse_type_pattern_variable (
+    token& t, token_type& tt,
+    pattern_type pt, const target_type& ptt, string pat, const location& ploc,
+    const variable& var, token_type kind, const location& loc)
   {
     // Parse target type/pattern-specific variable assignment.
     //
-    // See old-tests/variable/type-pattern.
 
     // Note: expanding the value in the current scope context.
     //
     value rhs (parse_variable_value (t, tt));
 
-    // Leave the value untyped unless we are assigning.
-    //
-    pair<reference_wrapper<value>, bool> p (
-      scope_->target_vars[type][move (pat)].insert (
-        var, kind == type::assign));
+    pair<reference_wrapper<value>, bool> p (rhs /* dummy */, false);
+    try
+    {
+      // Leave the value untyped unless we are assigning.
+      //
+      // Note that the pattern is preserved if insert fails with regex_error.
+      //
+      p = scope_->target_vars[ptt].insert (pt, move (pat)).insert (
+        var, kind == type::assign);
+    }
+    catch (const regex_error& e)
+    {
+      // Print regex_error description if meaningful (no space).
+      //
+      fail (ploc) << "invalid regex pattern '" << pat << "'" << e;
+    }
 
     value& lhs (p.first);
 
@@ -4676,7 +4701,7 @@ namespace build2
                dir_path d,
                string t,
                string v,
-               bool pat,
+               optional<name::pattern_type> pat,
                const location& loc)
   {
     // The directory/value must not be empty if we have a type.
@@ -4792,8 +4817,9 @@ namespace build2
       }
 
       name& r (
-        append_name (
-          ns, move (p), move (d), move (t), move (v), cn.pattern, loc));
+        append_name (ns,
+                     move (p), move (d), move (t), move (v), cn.pattern,
+                     loc));
       r.pair = cn.pair;
     }
 
@@ -5492,6 +5518,7 @@ namespace build2
 
     // Return '+' or '-' if a token can start an inclusion or exclusion
     // (pattern or group), '\0' otherwise. The result can be used as bool.
+    // Note that token::qfirst covers both quoting and escaping.
     //
     auto pattern_prefix = [] (const token& t) -> char
     {
@@ -5758,9 +5785,9 @@ namespace build2
 
         // Find a separator (slash or %).
         //
-        string::size_type p (separators != nullptr
-                             ? val.find_last_of (*separators)
-                             : string::npos);
+        string::size_type pos (separators != nullptr
+                               ? val.find_last_of (*separators)
+                               : string::npos);
 
         // First take care of project. A project-qualified name is not very
         // common, so we can afford some copying for the sake of simplicity.
@@ -5768,10 +5795,10 @@ namespace build2
         optional<project_name> p1;
         const optional<project_name>* pp1 (&pp);
 
-        if (p != string::npos)
+        if (pos != string::npos)
         {
-          bool last (val[p] == '%');
-          string::size_type q (last ? p : val.rfind ('%', p - 1));
+          bool last (val[pos] == '%');
+          string::size_type q (last ? pos : val.rfind ('%', pos - 1));
 
           for (; q != string::npos; ) // Breakout loop.
           {
@@ -5801,13 +5828,13 @@ namespace build2
             // Now fix the rest of the name.
             //
             val.erase (0, q + 1);
-            p = last ? string::npos : p - (q + 1);
+            pos = last ? string::npos : pos - (q + 1);
 
             break;
           }
         }
 
-        string::size_type n (p != string::npos ? val.size () - 1 : 0);
+        size_t size (pos != string::npos ? val.size () - 1 : 0);
 
         // See if this is a type name, directory prefix, or both. That
         // is, it is followed by an un-separated '{'.
@@ -5834,7 +5861,7 @@ namespace build2
             }
           }
 
-          if (p != n && tp != nullptr && !pinc)
+          if (pos != size && tp != nullptr && !pinc)
             fail (loc) << "nested type name " << val;
 
           dir_path d1;
@@ -5845,9 +5872,9 @@ namespace build2
 
           try
           {
-            if (p == string::npos) // type
+            if (pos == string::npos) // type
               tp1 = &val;
-            else if (p == n) // directory
+            else if (pos == size) // directory
             {
               if (dp == nullptr)
                 d1 = dir_path (val);
@@ -5858,12 +5885,12 @@ namespace build2
             }
             else // both
             {
-              t1.assign (val, p + 1, n - p);
+              t1.assign (val, pos + 1, size - pos);
 
               if (dp == nullptr)
-                d1 = dir_path (val, 0, p + 1);
+                d1 = dir_path (val, 0, pos + 1);
               else
-                d1 = *dp / dir_path (val, 0, p + 1);
+                d1 = *dp / dir_path (val, 0, pos + 1);
 
               dp1 = &d1;
               tp1 = &t1;
@@ -5893,101 +5920,211 @@ namespace build2
           continue;
         }
 
-        // See if this is a wildcard pattern.
+        // See if this is a pattern, path or regex.
         //
-        // It should either contain a wildcard character or, in a curly
-        // context, start with unquoted '+'.
+        // A path pattern either contains an unquoted wildcard character or,
+        // in the curly context, start with unquoted/unescaped `+`.
         //
-        // Note that in the general case we need to convert it to a path prior
-        // to testing for being a pattern (think of b[a/r] that is not a
-        // pattern). If the conversion fails then this is not a path pattern.
+        // A regex pattern starts with unquoted/unescaped `~` followed by a
+        // non-alphanumeric delimiter and has the following form:
         //
-        auto pattern = [&val, &loc, this] ()
+        // ~/<pat>/[<flags>]
+        //
+        // A regex substitution starts with unquoted/unescaped '^' followed by
+        // a non-alphanumeric delimiter and has the follwing form:
+        //
+        // ^/<sub>/[<flags>]
+        //
+        // Any non-alphanumeric character other that `/` can be used as a
+        // delimiter but escaping of the delimiter character is not supported
+        // (one benefit of this is that we can store and print the pattern as
+        // is without worrying about escaping; the non-alphanumeric part is to
+        // allow values like ~host and ^cat).
+        //
+        // The following pattern flags are recognized:
+        //
+        // i -- match ignoring case
+        // e -- match including extension
+        //
+        // Note that we cannot express certain path patterns that start with
+        // the regex introducer using quoting (for example, `~*`) since
+        // quoting prevents the whole from being recognized as a path
+        // pattern. However, we can achieve this with escaping (for example,
+        // \~*). This works automatically since we treat (at the lexer level)
+        // escaped first characters as quoted without treating the whole thing
+        // as quoted. Note that there is also the corresponding logic in
+        // to_stream(name).
+        //
+        // A pattern cannot be project-qualified.
+        //
+        optional<pattern_type> pat;
+
+        if (pmode != pattern_mode::ignore && !*pp1)
         {
-          // Let's optimize it a bit for the common cases.
+          // Note that in the general case we need to convert it to a path
+          // prior to testing for being a pattern (think of b[a/r] that is not
+          // a pattern).
           //
-          if (val.find_first_of ("*?[") == string::npos)
-            return false;
-
-          if (path::traits_type::find_separator (val) == string::npos)
-            return path_pattern (val);
-
-          try
+          auto path_pattern = [&val, &loc, this] ()
           {
-            return path_pattern (path (val));
-          }
-          catch (const invalid_path& e)
-          {
-            fail (loc) << "invalid path '" << e.path << "'" << endf;
-          }
-        };
-
-        bool pat (false);
-        if (pmode == pattern_mode::expand || pmode == pattern_mode::detect)
-        {
-          if (!*pp1    && // Cannot be project-qualified.
-              !quoted  && // Cannot be quoted.
-              ((dp != nullptr && dp->absolute ()) || pbase_ != nullptr) &&
-              (pattern () || (curly && val[0] == '+')))
-          {
-            // Resolve the target type if there is one. If we fail, then this
-            // is not a pattern.
+            // Let's optimize it a bit for the common cases.
             //
-            const target_type* ttp (tp != nullptr && scope_ != nullptr
-                                    ? scope_->find_target_type (*tp)
-                                    : nullptr);
+            if (val.find_first_of ("*?[") == string::npos)
+              return false;
 
-            if (tp == nullptr || ttp != nullptr)
+            if (path_traits::find_separator (val) == string::npos)
+              return build2::path_pattern (val);
+
+            try
             {
-              if (pmode == pattern_mode::detect)
+              return build2::path_pattern (path (val));
+            }
+            catch (const invalid_path& e)
+            {
+              fail (loc) << "invalid path '" << e.path << "'" << endf;
+            }
+          };
+
+          auto regex_pattern = [&val] ()
+          {
+            return ((val[0] == '~' || val[0] == '^') &&
+                    val[1] != '\0' && !alnum (val[1]));
+          };
+
+          if (pmode != pattern_mode::preserve)
+          {
+            // Note that if we have no base directory or cannot resolve the
+            // target type, then this affectively becomes the ignore mode.
+            //
+            if (pbase_ != nullptr || (dp != nullptr && dp->absolute ()))
+            {
+              // Note that we have to check for regex patterns first since
+              // they may also be detected as path patterns.
+              //
+              if (!quoted_first && regex_pattern ())
               {
-                // Strip the literal unquoted plus character for the first
-                // pattern in the group.
+                // Note: we may decide to support regex-based name generation
+                // some day (though a substitution won't make sense here).
                 //
-                if (ppat)
+                fail (loc) << "regex pattern-based name generation" <<
+                  info << "quote '" << val << "' (or escape first character) "
+                       << "to treat it as literal name (or path pattern)";
+              }
+              else if ((!quoted && path_pattern ()) ||
+                       (!quoted_first && curly && val[0] == '+'))
+              {
+                // Resolve the target type if there is one.
+                //
+                const target_type* ttp (tp != nullptr && scope_ != nullptr
+                                        ? scope_->find_target_type (*tp)
+                                        : nullptr);
+
+                if (tp == nullptr || ttp != nullptr)
                 {
-                  assert (val[0] == '+');
+                  if (pmode == pattern_mode::detect)
+                  {
+                    // Strip the literal unquoted plus character for the first
+                    // pattern in the group.
+                    //
+                    if (ppat)
+                    {
+                      assert (val[0] == '+');
+                      val.erase (0, 1);
+                      ppat = pinc = false;
+                    }
 
-                  val.erase (0, 1);
-                  ppat = pinc = false;
+                    // Set the detect pattern mode to expand if the pattern is
+                    // not followed by the inclusion/exclusion pattern/match.
+                    // Note that if it is '}' (i.e., the end of the group),
+                    // then it is a single pattern and the expansion is what
+                    // we want.
+                    //
+                    if (!pattern_prefix (peeked ()))
+                      pmode = pattern_mode::expand;
+                  }
+
+                  if (pmode == pattern_mode::expand)
+                  {
+                    count = expand_name_pattern (get_location (t),
+                                                 names {name (move (val))},
+                                                 ns,
+                                                 what,
+                                                 pairn,
+                                                 dp, tp, ttp);
+                    continue;
+                  }
+
+                  pattern_detected (ttp);
+
+                  // Fall through.
                 }
-
-                // Reset the detect pattern mode to expand if the pattern is
-                // not followed by the inclusion/exclusion pattern/match. Note
-                // that if it is '}' (i.e., the end of the group), then it is
-                // a single pattern and the expansion is what we want.
-                //
-                if (!pattern_prefix (peeked ()))
-                  pmode = pattern_mode::expand;
               }
-
-              if (pmode == pattern_mode::expand)
-              {
-                count = expand_name_pattern (get_location (t),
-                                             names {name (move (val))},
-                                             ns,
-                                             what,
-                                             pairn,
-                                             dp, tp, ttp);
-                continue;
-              }
-
-              pattern_detected (ttp);
-
-              // Fall through.
             }
           }
-        }
-        else if (pmode == pattern_mode::preserve)
-        {
-          // For the preserve mode we treat it as a pattern if it look like
-          // one syntactically. For now we also don't treat leading `+` in the
-          // curly context as an indication of a pattern.
-          //
-          if (!*pp1   && // Cannot be project-qualified.
-              !quoted && // Cannot be quoted.
-              pattern ())
-            pat = true;
+          else
+          {
+            // For the preserve mode we treat it as a pattern if it look like
+            // one syntactically. For now we also don't treat leading `+` in
+            // the curly context as an indication of a path pattern (since
+            // there isn't any good reason to; see also to_stream(name) for
+            // the corresponding serialization logic).
+            //
+            if (!quoted_first && regex_pattern ())
+            {
+              const char* w;
+              if (val[0] == '~')
+              {
+                w = "regex pattern";
+                pat = pattern_type::regex_pattern;
+              }
+              else
+              {
+                w = "regex substitution";
+                pat = pattern_type::regex_substitution;
+              }
+
+              size_t n (val.size ());
+
+              // Verify delimiters and find the position of the flags.
+              //
+              char d (val[1]);
+              size_t p (val.rfind (d));
+
+              if (p == 1)
+              {
+                fail (loc) << "no trailing delimiter '" << d << "' in "
+                           << w << " '" << val << "'" <<
+                  info << "quote '" << val << "' (or escape first character) "
+                       << "to treat it as literal name (or path pattern)";
+              }
+
+              // Verify flags.
+              //
+              for (size_t i (++p); i != n; ++i)
+              {
+                char f (val[i]);
+
+                if (*pat == pattern_type::regex_pattern)
+                {
+                  if (f == 'i' || f == 'e')
+                    continue;
+                }
+
+                fail (loc) << "unknown flag '" << f << "' in " << w << " '"
+                           << val << "'";
+              }
+
+              val.erase (0, 1); // Remove `~` or `^`.
+
+              // Make sure we don't treat something like `~/.../` as a
+              // directory.
+              //
+              pos = string::npos;
+              size = 0;
+            }
+            else if (!quoted && path_pattern ())
+              pat = pattern_type::path;
+          }
         }
 
         // If we are a second half of a pair, add another first half
@@ -6006,7 +6143,9 @@ namespace build2
         // in scope::find_target_type(). This would also mess up
         // reversibility to simple name.
         //
-        if (p == n)
+        // Note: a regex pattern cannot be a directory (see above).
+        //
+        if (pos == size)
         {
           // For reversibility to simple name, only treat it as a directory
           // if the string is an exact representation.
@@ -6021,8 +6160,7 @@ namespace build2
             append_name (
               ns,
               *pp1, move (dir), (tp != nullptr ? *tp : string ()), string (),
-              pat,
-              loc);
+              pat, loc);
 
             continue;
           }
@@ -6568,7 +6706,7 @@ namespace build2
                          (dp != nullptr ? *dp : dir_path ()),
                          (tp != nullptr ? *tp : string ()),
                          string (),
-                         false /* pattern */,
+                         nullopt, /* pattern */
                          get_location (t));
             count = 1;
           }
@@ -6589,7 +6727,7 @@ namespace build2
                          (dp != nullptr ? *dp : dir_path ()),
                          (tp != nullptr ? *tp : string ()),
                          string (),
-                         false /* pattern */,
+                         nullopt, /* pattern */
                          get_location (t));
             count = 0;
           }
@@ -6617,7 +6755,7 @@ namespace build2
                      (dp != nullptr ? *dp : dir_path ()),
                      (tp != nullptr ? *tp : string ()),
                      string (),
-                     false /* pattern */,
+                     nullopt, /* pattern */
                      get_location (t));
         break;
       }
@@ -6636,7 +6774,7 @@ namespace build2
                    (dp != nullptr ? *dp : dir_path ()),
                    (tp != nullptr ? *tp : string ()),
                    string (),
-                   false /* pattern */,
+                   nullopt, /* pattern */
                    get_location (t));
     }
 

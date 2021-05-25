@@ -1796,6 +1796,51 @@ namespace build2
     return m_.erase (var) != 0;
   }
 
+  // variable_pattern_map
+  //
+  variable_map& variable_pattern_map::
+  insert (pattern_type type, string&& text)
+  {
+    auto r (map_.emplace (pattern {type, false, move (text), {}},
+                          variable_map (ctx, global_)));
+
+    // Compile the regex.
+    //
+    if (r.second && type == pattern_type::regex_pattern)
+    {
+      // On exception restore the text argument (so that it's available for
+      // diagnostics) and remove the element from the map.
+      //
+      auto eg (make_exception_guard (
+                 [&text, &r, this] ()
+                 {
+                   text = r.first->first.text;
+                   map_.erase (r.first);
+                 }));
+
+      const string& t (r.first->first.text);
+      size_t n (t.size ()), p (t.rfind (t[0]));
+
+      // Convert flags.
+      //
+      regex::flag_type f (regex::ECMAScript);
+      for (size_t i (p + 1); i != n; ++i)
+      {
+        switch (t[i])
+        {
+        case 'i': f |= regex::icase;               break;
+        case 'e': r.first->first.match_ext = true; break;
+        }
+      }
+
+      // Skip leading delimiter as well as trailing delimiter and flags.
+      //
+      r.first->first.regex = regex (t.c_str () + 1, p - 1, f);
+    }
+
+    return r.first->second;
+  }
+
   // variable_type_map
   //
   lookup variable_type_map::
@@ -1804,6 +1849,8 @@ namespace build2
         optional<string>& oname) const
   {
     // Compute and cache "effective" name that we will be matching.
+    //
+    // See also the additional match_ext logic below.
     //
     auto name = [&tk, &oname] () -> const string&
     {
@@ -1856,24 +1903,40 @@ namespace build2
       if (i == end ())
         continue;
 
-      // Try to match the pattern, starting from the longest values
-      // so that the more "specific" patterns (i.e., those that cover
-      // fewer characters with the wildcard) take precedence. See
-      // tests/variable/type-pattern.
+      // Try to match the pattern, starting from the longest values.
       //
       const variable_pattern_map& m (i->second);
-
       for (auto j (m.rbegin ()); j != m.rend (); ++j)
       {
-        const string& pat (j->first);
+        using pattern = variable_pattern_map::pattern;
+        using pattern_type = variable_pattern_map::pattern_type;
 
-        //@@ TODO: should we detect ambiguity? 'foo-*' '*-foo' and 'foo-foo'?
-        //   Right now the last defined will be used.
-        //
-        if (pat != "*")
+        const pattern& pat (j->first);
+
+        bool r, e (false);
+        if (pat.type == pattern_type::path)
         {
-          if (!butl::path_match (name (), pat))
-            continue;
+          r = pat.text == "*" || butl::path_match (name (), pat.text);
+        }
+        else
+        {
+          const string& n (name ());
+
+          // Deal with match_ext: first see if the extension would be added by
+          // default. If not, then temporarily add it in oname and then clean
+          // it up if there is no match (to prevent another pattern from using
+          // it). While we may keep adding it if there are multiple patterns
+          // with such a flag, we will at least reuse the buffer in oname.
+          //
+          e = pat.match_ext && tk.ext && !tk.ext->empty () && oname->empty ();
+          if (e)
+          {
+            *oname = *tk.name;
+            *oname += '.';
+            *oname += *tk.ext;
+          }
+
+          r = regex_match (e ? *oname : n, *pat.regex);
         }
 
         // Ok, this pattern matches. But is there a variable?
@@ -1882,8 +1945,9 @@ namespace build2
         // to automatically type it. And if it is assignment, then typify it
         // ourselves.
         //
-        const variable_map& vm (j->second);
+        if (r)
         {
+          const variable_map& vm (j->second);
           auto p (vm.lookup (var, false));
           if (const variable_map::value_data* v = p.first)
           {
@@ -1895,12 +1959,15 @@ namespace build2
             // Make sure the effective name is computed if this is
             // append/prepend (it is used as a cache key).
             //
-            if (v->extra != 0)
+            if (v->extra != 0 && !oname)
               name ();
 
             return lookup (*v, p.second, vm);
           }
         }
+
+        if (e)
+          oname->clear ();
       }
     }
 

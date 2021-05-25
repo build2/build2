@@ -103,6 +103,7 @@ namespace build2
     // Recursive descent parser.
     //
   protected:
+    using pattern_type = name::pattern_type;
 
     // Pattern expansion mode.
     //
@@ -129,8 +130,10 @@ namespace build2
 
     void
     parse_variable_block (token&, token_type&,
-                          const target_type* = nullptr,
-                          string = string ());
+                          optional<pattern_type> = {},
+                          const target_type*  = nullptr,
+                          string = {},
+                          const location& = {});
 
     void
     parse_recipe (token&, token_type&,
@@ -223,9 +226,10 @@ namespace build2
     parse_variable (token&, token_type&, const variable&, token_type);
 
     void
-    parse_type_pattern_variable (token&, token_type&,
-                                 const target_type&, string,
-                                 const variable&, token_type, const location&);
+    parse_type_pattern_variable (
+      token&, token_type&,
+      pattern_type, const target_type&, string, const location&,
+      const variable&, token_type, const location&);
 
     const variable&
     parse_variable_name (names&&, const location&);

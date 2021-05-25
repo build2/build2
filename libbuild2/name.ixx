@@ -21,7 +21,20 @@ namespace build2
       r = pair < x.pair ? -1 : (pair > x.pair ? 1 : 0);
 
     if (r == 0)
-      r = pattern == x.pattern ? 0 : (!pattern && x.pattern ? -1 : 1);
+    {
+      bool p (pattern);
+      bool xp (x.pattern);
+
+      r = p == xp ? 0 : (p ? 1 : -1);
+
+      if (r == 0 && p)
+      {
+        auto p (static_cast<uint8_t> (*pattern));
+        auto xp (static_cast<uint8_t> (*x.pattern));
+
+        r = p < xp ? -1 : (p > xp ? 1 : 0);
+      }
+    }
 
     return r;
   }

@@ -674,18 +674,15 @@ namespace build2
     bool qcomp (false);
     bool qfirst (false);
 
-    auto append = [&lexeme, &m, &qcomp, &qfirst] (char c)
+    auto append = [&lexeme, &m, &qcomp, &qfirst] (char c, bool escaped = false)
     {
-      if (m == lexer_mode::double_quoted)
-      {
-        if (lexeme.empty ()) // First character.
+      if (lexeme.empty () && (escaped || m == lexer_mode::double_quoted))
           qfirst = true;
-      }
-      else
-      {
-        if (qcomp) // An unquoted character after a quoted fragment.
-          qcomp = false;
-      }
+
+      // An unquoted character after a quoted fragment.
+      //
+      if (m != lexer_mode::double_quoted && qcomp)
+        qcomp = false;
 
       lexeme += c;
     };
@@ -716,7 +713,7 @@ namespace build2
             fail (p) << "unterminated escape sequence";
 
           if (p != '\n') // Ignore if line continuation.
-            append (p);
+            append (p, true);
 
           continue;
         }

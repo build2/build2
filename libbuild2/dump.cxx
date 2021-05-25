@@ -147,6 +147,9 @@ namespace build2
                   const variable_type_map& vtm,
                   const scope& s)
   {
+    using pattern = variable_pattern_map::pattern;
+    using pattern_type = variable_pattern_map::pattern_type;
+
     for (const auto& vt: vtm)
     {
       const target_type& t (vt.first);
@@ -154,7 +157,7 @@ namespace build2
 
       for (const auto& vp: vpm)
       {
-        const string p (vp.first);
+        const pattern& pat (vp.first);
         const variable_map& vars (vp.second);
 
         os << endl
@@ -163,7 +166,10 @@ namespace build2
         if (t != target::static_type)
           os << t.name << '{';
 
-        os << p;
+        if (pat.type == pattern_type::regex_pattern)
+          os << '~';
+
+        os << pat.text;
 
         if (t != target::static_type)
           os << '}';
