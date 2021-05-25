@@ -894,6 +894,7 @@ namespace build2
             else if (cmp ("advapi32")        ||
                      cmp ("bcrypt")          ||
                      cmp ("crypt32")         ||
+                     cmp ("dbgeng")          ||
                      cmp ("d3d",   3)        || // d3d*
                      cmp ("gdi32")           ||
                      cmp ("imagehlp")        ||
