@@ -119,10 +119,12 @@ namespace build2
 
     // Quoting can be complete, where the token starts and ends with the quote
     // characters and quoting is contiguous or partial where only some part(s)
-    // of the token are quoted or quoting continues to the next token.
+    // of the token are quoted or quoting continues to the next token. We also
+    // keep track whether the first character of a token is quoted.
     //
     quote_type qtype;
     bool qcomp;
+    bool qfirst;
 
     // Normally only used for word, but can also be used to store "modifiers"
     // or some such for other tokens.
@@ -139,26 +141,35 @@ namespace build2
         : token (token_type::eos, false, 0, 0, token_printer) {}
 
     token (token_type t, bool s, uint64_t l, uint64_t c, printer_type* p)
-        : token (t, string (), s, quote_type::unquoted, false, l, c, p) {}
+        : token (t, string (), s,
+                 quote_type::unquoted, false, false,
+                 l, c,
+                 p) {}
 
     token (token_type t, bool s,
            quote_type qt,
            uint64_t l, uint64_t c,
            printer_type* p)
-        : token (t, string (), s, qt, qt != quote_type::unquoted, l, c, p) {}
+        : token (t, string (), s,
+                 qt, qt != quote_type::unquoted, qt != quote_type::unquoted,
+                 l, c,
+                 p) {}
 
     token (string v, bool s,
-           quote_type qt, bool qc,
+           quote_type qt, bool qc, bool qf,
            uint64_t l, uint64_t c)
-        : token (token_type::word, move (v), s, qt, qc, l, c, &token_printer){}
+        : token (token_type::word, move (v), s,
+                 qt, qc, qf,
+                 l, c,
+                 &token_printer) {}
 
     token (token_type t,
            string v, bool s,
-           quote_type qt, bool qc,
+           quote_type qt, bool qc, bool qf,
            uint64_t l, uint64_t c,
            printer_type* p)
         : type (t), separated (s),
-          qtype (qt), qcomp (qc),
+          qtype (qt), qcomp (qc), qfirst (qf),
           value (move (v)),
           line (l), column (c),
           printer (p) {}

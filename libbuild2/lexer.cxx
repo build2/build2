@@ -202,9 +202,10 @@ namespace build2
 
     auto make_token = [&sep, ln, cn] (type t, string v = string ())
     {
-      return token (t, move (v),
-                    sep, quote_type::unquoted, false,
-                    ln, cn, token_printer);
+      return token (t, move (v), sep,
+                    quote_type::unquoted, false, false,
+                    ln, cn,
+                    token_printer);
     };
 
     // Handle `[` (do it first to make sure the flag is cleared regardless of
@@ -446,9 +447,10 @@ namespace build2
 
     auto make_token = [sep, ln, cn] (type t, string v = string ())
     {
-      return token (t, move (v),
-                    sep, quote_type::unquoted, false,
-                    ln, cn, token_printer);
+      return token (t, move (v), sep,
+                    quote_type::unquoted, false, false,
+                    ln, cn,
+                    token_printer);
     };
 
     // Handle `[` (do it first to make sure the flag is cleared regardless of
@@ -620,15 +622,14 @@ namespace build2
 
           if (c == '\n' || c == '#' || eos (c))
           {
-            st.hold = token (type::multi_rcbrace,
-                             string (count, '}'),
-                             false, quote_type::unquoted, false,
+            st.hold = token (type::multi_rcbrace, string (count, '}'), false,
+                             quote_type::unquoted, false, false,
                              bln, bcn,
                              token_printer);
 
             lexeme.resize (chop);
-            return token (move (lexeme),
-                          false, quote_type::unquoted, false,
+            return token (move (lexeme), false,
+                          quote_type::unquoted, false, false,
                           ln, cn);
           }
 
@@ -671,15 +672,22 @@ namespace build2
     // quote character.
     //
     bool qcomp (false);
+    bool qfirst (false);
 
-    auto append = [&lexeme, &m, &qcomp] (char c)
+    auto append = [&lexeme, &m, &qcomp, &qfirst] (char c)
     {
-      lexeme += c;
+      if (m == lexer_mode::double_quoted)
+      {
+        if (lexeme.empty ()) // First character.
+          qfirst = true;
+      }
+      else
+      {
+        if (qcomp) // An unquoted character after a quoted fragment.
+          qcomp = false;
+      }
 
-      // An unquoted character after a quoted fragment.
-      //
-      if (qcomp && m != lexer_mode::double_quoted)
-        qcomp = false;
+      lexeme += c;
     };
 
     for (; !eos (c); c = peek ())
@@ -840,6 +848,12 @@ namespace build2
                 break;
               }
 
+              // Note that we will treat plus in ''+ as quoted. This is
+              // probably the better option considering the "$empty"+ case
+              //
+              if (lexeme.empty ())
+                qfirst = true;
+
               get ();
               for (c = get (); !eos (c) && c != '\''; c = get ())
                 lexeme += c;
@@ -875,6 +889,11 @@ namespace build2
                 break;
               }
 
+              // The same reasoning as above.
+              //
+              if (lexeme.empty ())
+                qfirst = true;
+
               continue;
             }
           }
@@ -905,7 +924,7 @@ namespace build2
     if (m == lexer_mode::variable)
       state_.pop ();
 
-    return token (move (lexeme), sep, qtype, qcomp, ln, cn);
+    return token (move (lexeme), sep, qtype, qcomp, qfirst, ln, cn);
   }
 
   pair<bool, bool> lexer::

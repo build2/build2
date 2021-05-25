@@ -127,7 +127,7 @@ namespace build2
         bool q (m == lexer_mode::here_line_double);
 
         return token (t, string (), sep,
-                      (q ? quote_type::double_ : quote_type::unquoted), q,
+                      (q ? quote_type::double_ : quote_type::unquoted), q, q,
                       ln, cn,
                       token_printer);
       };
@@ -180,7 +180,7 @@ namespace build2
       auto make_token = [&sep, &c] (type t, string v = string ())
       {
         return token (t, move (v), sep,
-                      quote_type::unquoted, false,
+                      quote_type::unquoted, false, false,
                       c.line, c.column,
                       token_printer);
       };

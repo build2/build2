@@ -5394,6 +5394,7 @@ namespace build2
     //
     bool concat (false);
     bool concat_quoted (false);
+    bool concat_quoted_first (false);
     name concat_data;
 
     auto concat_typed = [&vnull, &vtype, &concat, &concat_data, this]
@@ -5492,21 +5493,13 @@ namespace build2
     // Return '+' or '-' if a token can start an inclusion or exclusion
     // (pattern or group), '\0' otherwise. The result can be used as bool.
     //
-    // @@ Note that we only need to make sure that the leading '+' or '-'
-    //    characters are unquoted. We could consider some partially quoted
-    //    tokens as starting inclusion or exclusion as well, for example
-    //    +'foo*'. However, currently we can not determine which part of a
-    //    token is quoted, and so can't distinguish the above token from
-    //    '+'foo*. This is why we end up with a criteria that is stricter than
-    //    is really required.
-    //
     auto pattern_prefix = [] (const token& t) -> char
     {
       char c;
-      return t.type == type::word && ((c = t.value[0]) == '+' || c == '-') &&
-             t.qtype == quote_type::unquoted
-             ? c
-             : '\0';
+      return (t.type == type::word && !t.qfirst &&
+              ((c = t.value[0]) == '+' || c == '-')
+              ? c
+              : '\0');
     };
 
     // A name sequence potentially starts with a pattern if it starts with a
@@ -5586,9 +5579,11 @@ namespace build2
         assert (!pre_parse_);
 
         bool quoted (concat_quoted);
+        bool quoted_first (concat_quoted_first);
 
         concat = false;
         concat_quoted = false;
+        concat_quoted_first = false;
 
         // If this is a result of typed concatenation, then don't inject. For
         // one we don't want any of the "interpretations" performed in the
@@ -5671,7 +5666,7 @@ namespace build2
         t = token (move (concat_data.value),
                    true,
                    quoted ? quote_type::mixed : quote_type::unquoted,
-                   false,
+                   false, quoted_first,
                    t.line, t.column);
       }
       else if (!first)
@@ -5713,6 +5708,7 @@ namespace build2
         string val (move (t.value));
         const location loc (get_location (t));
         bool quoted (t.qtype != quote_type::unquoted);
+        bool quoted_first (t.qfirst);
 
         // Should we accumulate? If the buffer is not empty, then we continue
         // accumulating (the case where we are separated should have been
@@ -5723,6 +5719,8 @@ namespace build2
         if (concat        || // Continue.
             !last_concat ()) // Start.
         {
+          bool e (val.empty ());
+
           // If LHS is typed then do typed concatenation.
           //
           if (concat && vtype != nullptr)
@@ -5743,8 +5741,17 @@ namespace build2
               v += val;
           }
 
-          concat = true;
+          // Consider something like this: ""$foo where foo='+foo'. Should we
+          // treat the plus as a first (unquoted) character? Feels like we
+          // should not. The way we achieve this is a bit hackish: we make it
+          // look like a quoted first character. Note that there is a second
+          // half of this in expansion case which deals with $empty+foo.
+          //
+          if (!concat) // First.
+            concat_quoted_first = quoted_first || e;
+
           concat_quoted = quoted || concat_quoted;
+          concat = true;
 
           continue;
         }
@@ -6451,7 +6458,7 @@ namespace build2
           //
           else if (!result->null && !result->empty ())
           {
-            // This can only an untyped value.
+            // This can only be an untyped value.
             //
             // @@ Could move if result == &result_data.
             //
@@ -6487,8 +6494,13 @@ namespace build2
               concat_data.value += n.value;
           }
 
-          concat = true;
+          // The same little hack as in the word case ($empty+foo).
+          //
+          if (!concat) // First.
+            concat_quoted_first = true;
+
           concat_quoted = quoted || concat_quoted;
+          concat = true;
         }
         else
         {
@@ -6703,8 +6715,8 @@ namespace build2
       //
       // print +foo
       //
-      // So wepeek at one more character since what we expect next ('=') can't
-      // be whitespace-separated.
+      // So we peek at one more character since what we expect next ('=')
+      // can't be whitespace-separated.
       //
       return c0 == '\n' || c0 == '\0' || c0 == '(' ||
         (p.second                 &&

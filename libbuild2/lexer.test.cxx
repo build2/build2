@@ -84,7 +84,11 @@ namespace build2
           }
 
           if (q != '\0')
-            cout << " [" << q << (t.qcomp ? "/C" : "/P") << ']';
+            cout << " ["
+                 << q
+                 << (t.qcomp ? "/C" : "/P")
+                 << (!t.qcomp && t.qfirst ? "/F" : "")
+                 << ']';
         }
 
         cout << endl;

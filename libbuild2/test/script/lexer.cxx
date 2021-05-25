@@ -324,9 +324,8 @@ namespace build2
           lexeme += c;
         }
 
-        return token (move (lexeme),
-                      false,
-                      quote_type::unquoted, false,
+        return token (move (lexeme), false,
+                      quote_type::unquoted, false, false,
                       ln, cn);
       }
 
