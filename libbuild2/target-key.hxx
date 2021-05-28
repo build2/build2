@@ -21,10 +21,10 @@ namespace build2
   class LIBBUILD2_SYMEXPORT target_key
   {
   public:
-    const target_type* const type;
-    const dir_path* const dir; // Can be relative if part of prerequisite_key.
-    const dir_path* const out; // Can be relative if part of prerequisite_key.
-    const string* const name;
+    const target_type*       type;
+    const dir_path*          dir; // Can be relative if part of prerequisite_key.
+    const dir_path*          out; // Can be relative if part of prerequisite_key.
+    const string*            name;
     mutable optional<string> ext; // Absent - unspecified, empty - none.
 
     template <typename T>

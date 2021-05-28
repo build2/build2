@@ -1940,10 +1940,10 @@ namespace build2
                       string&, optional<string>&, const location&,
                       bool);
 
-  const char*
+  LIBBUILD2_SYMEXPORT const char*
   target_extension_none (const target_key&, const scope*);
 
-  const char*
+  LIBBUILD2_SYMEXPORT const char*
   target_extension_must (const target_key&, const scope*);
 
   // Get the extension from the `extension` variable or use the default if
