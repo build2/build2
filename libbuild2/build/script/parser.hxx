@@ -32,10 +32,11 @@ namespace build2
         parser (context& c): build2::script::parser (c) {}
 
         // Note that the returned script object references the passed path
-        // name.
+        // name. Target is NULL if this recipe is shared among multiple
+        // targets.
         //
         script
-        pre_parse (const target&, const adhoc_actions& acts,
+        pre_parse (const scope&, const target*, const adhoc_actions& acts,
                    istream&, const path_name&, uint64_t line,
                    optional<string> diag_name, const location& diag_loc);
 
