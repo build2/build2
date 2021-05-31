@@ -22,7 +22,7 @@ namespace build2
                                 public adhoc_rule_with_deadline
   {
   public:
-    virtual optional<action>
+    virtual bool
     reverse_fallback (action, const target_type&) const override;
 
     virtual recipe
@@ -38,11 +38,11 @@ namespace build2
     target_state
     default_action (action, const target&, const optional<timestamp>&) const;
 
-    adhoc_buildscript_rule (const location& l, size_t b)
-        : adhoc_rule ("<ad hoc buildscript recipe>", l, b) {}
+    adhoc_buildscript_rule (string n, const location& l, size_t b)
+        : adhoc_rule (move (n), l, b) {}
 
     virtual bool
-    recipe_text (context&, const scope&, const target*, const adhoc_actions&,
+    recipe_text (context&, const scope&, const target*,
                  string&&, attributes&) override;
 
     virtual void

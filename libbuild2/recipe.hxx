@@ -48,18 +48,6 @@ namespace build2
   LIBBUILD2_SYMEXPORT extern const recipe noop_recipe;
   LIBBUILD2_SYMEXPORT extern const recipe default_recipe;
   LIBBUILD2_SYMEXPORT extern const recipe group_recipe;
-
-  // Ad hoc recipe.
-  //
-  // A recipe is a fragment of a rule so we handle ad hoc recipies by
-  // "completing" them to rules.
-  //
-  using adhoc_actions = small_vector<action, 1>;
-  struct adhoc_recipe
-  {
-    adhoc_actions          actions;
-    shared_ptr<adhoc_rule> rule;
-  };
 }
 
 #endif // LIBBUILD2_RECIPE_HXX

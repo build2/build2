@@ -976,7 +976,7 @@ namespace build2
           3                          /* verbosity */,
           env,
           args.data (),
-          forward<decltype(f)> (f),
+          forward<decltype (f)> (f),
           false                      /* error */,
           false                      /* ignore_exit */,
           checksum ? &cs : nullptr);

@@ -201,7 +201,7 @@ namespace build2
 
           tt.path (path ("driver"));
 
-          adhoc_actions acts {perform_update_id};
+          small_vector<action, 1> acts {perform_update_id};
 
           // Parse and run.
           //

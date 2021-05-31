@@ -25,6 +25,9 @@ namespace build2
     // in its base.
   };
 
+  // Note that when used as part of a pattern, the implementation cannot use
+  // the match_extra::buffer nor the target auxilary data storage.
+  //
   class LIBBUILD2_SYMEXPORT cxx_rule_v1: public cxx_rule
   {
   public:
@@ -33,11 +36,19 @@ namespace build2
     // cannot be injected as a real prerequisite since it's from a different
     // build context).
     //
-    const location     recipe_loc;   // Buildfile location of the recipe.
-    const target_state recipe_state; // State of recipe library target.
+    // If pattern is not NULL then this recipe belongs to an ad hoc pattern
+    // rule and apply() may need to call the pattern's apply_*() functions if
+    // the pattern has any ad hoc group member substitutions or prerequisite
+    // substitutions/non-patterns, respectively.
+    //
+    const location     recipe_loc;     // Buildfile location of the recipe.
+    const target_state recipe_state;   // State of recipe library target.
+    const adhoc_rule_pattern* pattern; // Ad hoc pattern rule of recipe.
 
-    cxx_rule_v1 (const location& l, target_state s)
-      : recipe_loc (l), recipe_state (s) {}
+    cxx_rule_v1 (const location& l,
+                 target_state s,
+                 const adhoc_rule_pattern* p)
+      : recipe_loc (l), recipe_state (s), pattern (p) {}
 
     // Return true by default.
     //
@@ -56,12 +67,12 @@ namespace build2
     virtual recipe
     apply (action, target&, match_extra&) const override;
 
-    adhoc_cxx_rule (const location&, size_t,
+    adhoc_cxx_rule (string, const location&, size_t,
                     uint64_t ver,
                     optional<string> sep);
 
     virtual bool
-    recipe_text (context&, const scope&, const target*, const adhoc_actions&,
+    recipe_text (context&, const scope&, const target*,
                  string&&, attributes&) override;
 
     virtual

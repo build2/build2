@@ -195,6 +195,47 @@ namespace build2
     }
   }
 
+  // Dump ad hoc recipe.
+  //
+  static void
+  dump_recipe (ostream& os, string& ind, const adhoc_rule& r, const scope& s)
+  {
+    auto& re (*s.root_scope ()->root_extra);
+
+    os << ind << '%';
+
+    r.dump_attributes (os);
+
+    for (action a: r.actions)
+      os << ' ' << re.meta_operations[a.meta_operation ()]->name <<
+        '(' << re.operations[a.operation ()]->name << ')';
+
+    os << endl;
+    r.dump_text (os, ind);
+  }
+
+  // Dump pattern rule.
+  //
+  static void
+  dump_rule (ostream& os,
+             string& ind,
+             const adhoc_rule_pattern& rp,
+             const scope& s)
+  {
+    // Pattern.
+    //
+    os << ind;
+    rp.dump (os);
+
+    // Recipes.
+    //
+    for (const shared_ptr<adhoc_rule>& r: rp.rules)
+    {
+      os << endl;
+      dump_recipe (os, ind, *r, s);
+    }
+  }
+
   static void
   dump_target (optional<action> a,
                ostream& os,
@@ -356,21 +397,10 @@ namespace build2
     //
     if (!t.adhoc_recipes.empty ())
     {
-      auto& re (*s.root_scope ()->root_extra);
-
-      for (const adhoc_recipe& r: t.adhoc_recipes)
+      for (const shared_ptr<adhoc_rule>& r: t.adhoc_recipes)
       {
-        os << endl
-           << ind << '%';
-
-        r.rule->dump_attributes (os);
-
-        for (action a: r.actions)
-          os << ' ' << re.meta_operations[a.meta_operation ()]->name <<
-            '(' << re.operations[a.operation ()]->name << ')';
-
         os << endl;
-        r.rule->dump_text (os, ind);
+        dump_recipe (os, ind, *r, s);
       }
 
       used = true;
@@ -469,9 +499,11 @@ namespace build2
 
     ind += "  ";
 
-    bool vb (false), sb (false), tb (false); // Variable/scope/target block.
+    // Variable/rule/scope/target block.
+    //
+    bool vb (false), rb (false), sb (false), tb (false);
 
-    // Target type/pattern-sepcific variables.
+    // Target type/pattern-specific variables.
     //
     if (!p.target_vars.empty ())
     {
@@ -490,6 +522,21 @@ namespace build2
       vb = true;
     }
 
+    // Pattern rules.
+    //
+    for (const unique_ptr<adhoc_rule_pattern>& rp: p.adhoc_rules)
+    {
+      if (vb || rb)
+      {
+        os << endl;
+        vb = false;
+      }
+
+      os << endl; // Extra newline between rules.
+      dump_rule (os, ind, *rp, p);
+      rb = true;
+    }
+
     // Nested scopes of which we are an immediate parent. Only consider the
     // out hierarchy.
     //
@@ -503,16 +550,14 @@ namespace build2
           i->second.front () != nullptr &&
           i->second.front ()->parent_scope () == &p); )
     {
-      if (vb)
+      if (vb || rb || sb)
       {
         os << endl;
-        vb = false;
+        vb = rb = false;
       }
 
-      if (sb)
-        os << endl; // Extra newline between scope blocks.
+      os << endl; // Extra newline between scope blocks.
 
-      os << endl;
       dump_scope (a, os, ind, i, true /* relative */);
       sb = true;
     }
@@ -529,13 +574,13 @@ namespace build2
       if (&p != &t.base_scope ())
         continue;
 
-      if (vb || sb || tb)
+      if (vb || rb || sb || tb)
       {
         os << endl;
-        vb = sb = false;
+        vb = rb = sb = false;
       }
 
-      os << endl;
+      os << endl; // Extra newline between targets.
       dump_target (a, os, ind, t, p, true /* relative */);
       tb = true;
     }

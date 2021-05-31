@@ -27,8 +27,10 @@ namespace build2
   // adhoc_cxx_rule
   //
   adhoc_cxx_rule::
-  adhoc_cxx_rule (const location& l, size_t b, uint64_t v, optional<string> s)
-      : adhoc_rule ("<ad hoc c++ recipe>", l, b),
+  adhoc_cxx_rule (string n, const location& l, size_t b,
+                  uint64_t v,
+                  optional<string> s)
+      : adhoc_rule (move (n), l, b),
         version (v),
         separator (move (s)),
         impl (nullptr)
@@ -38,8 +40,7 @@ namespace build2
   }
 
   bool adhoc_cxx_rule::
-  recipe_text (context&, const scope&, const target*, const adhoc_actions&,
-               string&& t, attributes&)
+  recipe_text (context&, const scope&, const target*, string&& t, attributes&)
   {
     code = move (t);
     return true;
@@ -95,6 +96,9 @@ namespace build2
   bool adhoc_cxx_rule::
   match (action a, target& t, const string& hint, match_extra& me) const
   {
+    if (pattern != nullptr && !pattern->match (a, t, hint, me))
+      return false;
+
     tracer trace ("adhoc_cxx_rule::match");
 
     context& ctx (t.ctx);
@@ -123,7 +127,8 @@ namespace build2
       if ((impl = this->impl.load (memory_order_relaxed)) != nullptr)
         break;
 
-      using create_function = cxx_rule_v1* (const location&, target_state);
+      using create_function = cxx_rule_v1* (
+        const location&, target_state, const adhoc_rule_pattern*);
       using load_function = create_function* ();
 
       // The only way to guarantee that the name of our module matches its
@@ -434,9 +439,10 @@ namespace build2
         // user-defined.
         //
         ofs << "  static cxx_rule_v1*"                                  << '\n'
-            << "  create_" << id << " (const location& l, target_state s)" << '\n'
+            << "  create_" << id << " (const location& l, target_state s, " <<
+          "const adhoc_rule_pattern* p)"                                << '\n'
             << "  {"                                                    << '\n'
-            << "    return new rule (l, s);"                            << '\n'
+            << "    return new rule (l, s, p);"                         << '\n'
             << "  }"                                                    << '\n'
             << '\n';
 
@@ -463,7 +469,8 @@ namespace build2
             << "#ifdef _WIN32"                                          << '\n'
             << "__declspec(dllexport)"                                  << '\n'
             << "#endif"                                                 << '\n'
-            << "cxx_rule_v1* (*" << sym << " ()) (const location&, target_state)" << '\n'
+            << "cxx_rule_v1* (*" << sym << " ()) (const location&, " <<
+          "target_state, const adhoc_rule_pattern*)"                    << '\n'
             << "{"                                                      << '\n'
             << "  return &rule_" << id << "::create_" << id << ";"      << '\n'
             << "}"                                                      << '\n'
@@ -652,7 +659,7 @@ namespace build2
         load_function* lf (function_cast<load_function*> (hs.second));
         create_function* cf (lf ());
 
-        impl = cf (loc, l->executed_state (perform_update_id));
+        impl = cf (loc, l->executed_state (perform_update_id), pattern);
         this->impl.store (impl, memory_order_relaxed); // Still in load phase.
       }
     }

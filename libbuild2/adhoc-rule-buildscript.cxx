@@ -26,7 +26,6 @@ namespace build2
   recipe_text (context& ctx,
                const scope& s,
                const target* tg,
-               const adhoc_actions& acts,
                string&& t,
                attributes& as)
   {
@@ -61,7 +60,7 @@ namespace build2
     istringstream is (move (t));
     build::script::parser p (ctx);
 
-    script = p.pre_parse (s, tg, acts,
+    script = p.pre_parse (s, tg, actions,
                           is, loc.file, loc.line + 1,
                           move (diag), as.loc);
 
@@ -104,15 +103,14 @@ namespace build2
     os << ind << string (braces, '}');
   }
 
-  optional<action> adhoc_buildscript_rule::
+  bool adhoc_buildscript_rule::
   reverse_fallback (action a, const target_type& tt) const
   {
     // We can provide clean for a file target if we are providing update.
     //
-    if (a == perform_update_id && tt.is_a<file> ())
-      return perform_clean_id;
-
-    return nullopt;
+    return a == perform_clean_id && tt.is_a<file> () &&
+      find (actions.begin (), actions.end (),
+            perform_update_id) != actions.end ();
   }
 
   recipe adhoc_buildscript_rule::
@@ -143,6 +141,11 @@ namespace build2
       return execute_inner;
     }
 
+    // Inject pattern's ad hoc group members, if any.
+    //
+    if (pattern != nullptr)
+      pattern->apply_adhoc_members (a, t, me);
+
     // Derive file names for the target and its ad hoc group members, if any.
     //
     if (a == perform_update_id || a == perform_clean_id)
@@ -164,6 +167,11 @@ namespace build2
     // Match prerequisites.
     //
     match_prerequisite_members (a, t);
+
+    // Inject pattern's prerequisites, if any.
+    //
+    if (pattern != nullptr)
+      pattern->apply_prerequisites (a, t, me);
 
     // See if we are providing the standard clean as a fallback.
     //

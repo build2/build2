@@ -436,7 +436,7 @@ alias{x}:
   echo
 }}
 EOI
-<stdin>:2:3: error: duplicate recipe for perform(update)
+<stdin>:2:3: error: duplicate perform(update) recipe
 EOE
 
 : duplicate-action-multiple
@@ -451,7 +451,25 @@ alias{x}:
   echo
 }}
 EOI
-<stdin>:5:3: error: duplicate recipe for perform(update)
+<stdin>:5:3: error: duplicate perform(update) recipe
+EOE
+
+: duplicate-action-multipe-decls
+:
+$* <<EOI 2>>EOE != 0
+alias{y}:
+{{
+  echo
+}}
+
+alias{x y}:
+% perform(update)
+{{
+  diag echo
+  echo
+}}
+EOI
+<stdin>:7:3: error: duplicate perform(update) recipe for target alias{y}
 EOE
 
 : if-else
