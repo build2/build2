@@ -161,8 +161,12 @@ namespace build2
     // true if the recipe builds anything in the build/recipes/ directory and
     // therefore requires cleanup.
     //
+    // Target is not NULL only if this recipe is for a single target. Scope is
+    // the scope of the recipe (not necessarily the same as the target's base
+    // scope).
+    //
     virtual bool
-    recipe_text (context&, const target&, const adhoc_actions&,
+    recipe_text (context&, const scope&, const target*, const adhoc_actions&,
                  string&&, attributes&) = 0;
 
   public:
