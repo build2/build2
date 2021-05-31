@@ -724,3 +724,23 @@ if $posix
     }
   }
 }
+
+# @@ TODO: test $1 when implemented.
+#
+: rule
+:
+{
+  cat <<EOI >=buildfile;
+    alias{far}: alias{bar}
+    alias{bar}:
+
+    alias{~'/f(.+)/'}: alias{~'/b\1/'}
+    {{
+      diag $< $>
+    }}
+    EOI
+
+  $* 2>>EOE
+    alias{bar} alias{far}
+    EOE
+}

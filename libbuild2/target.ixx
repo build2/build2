@@ -9,6 +9,22 @@
 
 namespace build2
 {
+  // match_extra
+  //
+  inline void match_extra::
+  init (bool f)
+  {
+    fallback = f;
+    buffer.clear ();
+  }
+
+  inline void match_extra::
+  free ()
+  {
+    string s;
+    buffer.swap (s);
+  }
+
   // target
   //
   inline const string* target::

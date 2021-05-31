@@ -28,16 +28,20 @@ namespace build2
   class operation_rule_map
   {
   public:
-    template <typename T>
-    void
-    insert (operation_id oid, const char* hint, const rule& r)
+    // Return false in case of a duplicate.
+    //
+    bool
+    insert (operation_id oid,
+            const target_type& tt,
+            string hint,
+            const rule& r)
     {
       // 3 is the number of builtin operations.
       //
       if (oid >= map_.size ())
         map_.resize ((oid < 3 ? 3 : oid) + 1);
 
-      map_[oid][&T::static_type].emplace (hint, r);
+      return map_[oid][&tt].emplace (move (hint), r).second;
     }
 
     // Return NULL if not found.
@@ -69,31 +73,52 @@ namespace build2
   class rule_map
   {
   public:
-    template <typename T>
-    void
-    insert (action_id a, const char* hint, const rule& r)
+    // Return false in case of a duplicate.
+    //
+    bool
+    insert (action_id a,
+            const target_type& tt,
+            string hint,
+            const rule& r)
     {
-      insert<T> (a >> 4, a & 0x0F, hint, r);
+      return insert (a >> 4, a & 0x0F, tt, move (hint), r);
+    }
+
+    template <typename T>
+    bool
+    insert (action_id a, string hint, const rule& r)
+    {
+      return insert (a, T::static_type, move (hint), r);
     }
 
     // 0 oid is a wildcard.
     //
-    template <typename T>
-    void
+    bool
     insert (meta_operation_id mid,
             operation_id oid,
-            const char* hint,
+            const target_type& tt,
+            string hint,
             const rule& r)
     {
       if (mid_ == mid)
-        map_.insert<T> (oid, hint, r);
+        return map_.insert (oid, tt, move (hint), r);
       else
       {
         if (next_ == nullptr)
           next_.reset (new rule_map (mid));
 
-        next_->insert<T> (mid, oid, hint, r);
+        return next_->insert (mid, oid, tt, move (hint), r);
       }
+    }
+
+    template <typename T>
+    bool
+    insert (meta_operation_id mid,
+            operation_id oid,
+            string hint,
+            const rule& r)
+    {
+      return insert (mid, oid, T::static_type, move (hint), r);
     }
 
     // Return NULL if not found.

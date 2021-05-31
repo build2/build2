@@ -3,6 +3,7 @@
 
 #include <libbuild2/scope.hxx>
 
+#include <libbuild2/rule.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/context.hxx>
 
@@ -30,6 +31,18 @@ namespace build2
 
   // scope
   //
+  scope::
+  scope (context& c, bool global)
+      : ctx (c), vars (c, global), target_vars (c, global)
+  {
+  }
+
+  scope::
+  ~scope ()
+  {
+    // Definition of adhoc_rule_pattern.
+  }
+
   pair<lookup, size_t> scope::
   lookup_original (const variable& var,
                    const target_key* tk,
@@ -649,31 +662,34 @@ namespace build2
   }
 
   pair<const target_type*, optional<string>> scope::
-  find_target_type (name& n, const location& loc) const
+  find_target_type (name& n, const location& loc, const target_type* tt) const
   {
-    const target_type* tt (nullptr);
     optional<string> ext;
 
     string& v (n.value);
 
-    // If the target type is specified, resolve it and bail out if not found.
-    // Otherwise, we know in the end it will resolve to something (if nothing
-    // else, either dir{} or file{}), so we can go ahead and process the name.
+    // If the name is typed, resolve the target type it and bail out if not
+    // found. Otherwise, we know in the end it will resolve to something (if
+    // nothing else, either dir{} or file{}), so we can go ahead and process
+    // the name.
     //
-    if (n.typed ())
+    if (tt == nullptr)
     {
-      tt = find_target_type (n.type);
+      if (n.typed ())
+      {
+        tt = find_target_type (n.type);
 
-      if (tt == nullptr)
-        return make_pair (tt, move (ext));
-    }
-    else
-    {
-      // Empty name as well as '.' and '..' signify a directory. Note that
-      // this logic must be consistent with other places (grep for "..").
-      //
-      if (v.empty () || v == "." || v == "..")
-        tt = &dir::static_type;
+        if (tt == nullptr)
+          return make_pair (tt, move (ext));
+      }
+      else
+      {
+        // Empty name as well as '.' and '..' signify a directory. Note that
+        // this logic must be consistent with other places (grep for "..").
+        //
+        if (v.empty () || v == "." || v == "..")
+          tt = &dir::static_type;
+      }
     }
 
     // Directories require special name processing. If we find that more

@@ -69,6 +69,7 @@ namespace build2
   struct match_extra;
   class rule;
   class adhoc_rule;
+  class adhoc_rule_pattern;
 
   // <libbuild2/context.hxx>
   //

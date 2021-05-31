@@ -27,7 +27,9 @@ namespace build2
       //
 
       script parser::
-      pre_parse (const scope& bs, const target* tg, const adhoc_actions& as,
+      pre_parse (const scope& bs,
+                 const target* tg,
+                 const small_vector<action, 1>& as,
                  istream& is, const path_name& pn, uint64_t line,
                  optional<string> diag, const location& diag_loc)
       {

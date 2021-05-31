@@ -338,10 +338,13 @@ namespace build2
     // extensions, special names (e.g., '.' and '..'), or anything else that
     // might be relevant. Process the name (in place) by extracting (and
     // returning) extension, adjusting dir/leaf, etc., (note that the dir is
-    // not necessarily normalized). Return NULL if not found.
+    // not necessarily normalized). If the target type is already resolved,
+    // then it can be passed as the last argument. Return NULL if not found.
     //
     pair<const target_type*, optional<string>>
-    find_target_type (name&, const location&) const;
+    find_target_type (name&,
+                      const location&,
+                      const target_type* = nullptr) const;
 
     // As above but process the potentially out-qualified target name further
     // by completing (relative to this scope) and normalizing the directories
@@ -401,21 +404,22 @@ namespace build2
     //
   public:
     rule_map rules;
+    vector<unique_ptr<adhoc_rule_pattern>> adhoc_rules;
 
     template <typename T>
     void
-    insert_rule (action_id a, const char* hint, const rule& r)
+    insert_rule (action_id a, string hint, const rule& r)
     {
-      rules.insert<T> (a, hint, r);
+      rules.insert<T> (a, move (hint), r);
     }
 
     template <typename T>
     void
     insert_rule (meta_operation_id mid, operation_id oid,
-                 const char* hint,
+                 string hint,
                  const rule& r)
     {
-      rules.insert<T> (mid, oid, hint, r);
+      rules.insert<T> (mid, oid, move (hint), r);
     }
 
     // Operation callbacks.
@@ -579,8 +583,8 @@ namespace build2
     friend LIBBUILD2_SYMEXPORT scope& create_bootstrap_inner (scope&,
                                                               const dir_path&);
 
-    scope (context& c, bool global)
-      : ctx (c), vars (c, global), target_vars (c, global) {}
+    scope (context&, bool global);
+    ~scope ();
 
     // Return true if this root scope can be amalgamated.
     //

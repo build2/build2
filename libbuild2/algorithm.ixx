@@ -10,19 +10,19 @@
 namespace build2
 {
   inline const target&
-  search_custom (const prerequisite& p, const target& t)
+  search_custom (const prerequisite& p, const target& pt)
   {
-    assert (t.ctx.phase == run_phase::match ||
-            t.ctx.phase == run_phase::execute);
+    assert (pt.ctx.phase == run_phase::match ||
+            pt.ctx.phase == run_phase::execute);
 
     const target* e (nullptr);
     if (!p.target.compare_exchange_strong (
-          e, &t,
+          e, &pt,
           memory_order_release,
           memory_order_consume))
-      assert (e == &t);
+      assert (e == &pt);
 
-    return t;
+    return pt;
   }
 
   inline const target&

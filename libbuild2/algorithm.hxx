@@ -111,10 +111,12 @@ namespace build2
 
   // Search for a target identified by the name. The semantics is "as if" we
   // first created a prerequisite based on this name in exactly the same way
-  // as the parser would and then searched based on this prerequisite.
+  // as the parser would and then searched based on this prerequisite. If the
+  // target type is already resolved, then it can be passed as the last
+  // argument.
   //
   LIBBUILD2_SYMEXPORT const target&
-  search (const target&, name, const scope&);
+  search (const target&, name, const scope&, const target_type* = nullptr);
 
   // Return NULL for unknown target types. Note that unlike the above version,
   // these ones can be called during the load and execute phases.
@@ -231,8 +233,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT target&
   add_adhoc_member (target&,
                     const target_type&,
-                    const dir_path& dir,
-                    const dir_path& out,
+                    dir_path dir,
+                    dir_path out,
                     string name);
 
   // If the extension is specified then it is added to the member's target

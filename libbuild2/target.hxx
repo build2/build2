@@ -99,12 +99,21 @@ namespace build2
 
   // Additional information about a rule match (see rule.hxx for details).
   //
-  // @@ TODO: will probably want to clear it after apply() if add anything
-  //    dynamically-allocated here (see apply_impl()).
-  //
   struct match_extra
   {
-    bool fallback; // True if matching a fallback rule.
+    bool   fallback; // True if matching a fallback rule.
+    string buffer;   // Auxiliary buffer that's reused during match/apply.
+
+    // Implementation details.
+    //
+  public:
+    void
+    init (bool fallback);
+
+    // Force freeing of the dynamically-allocated memory.
+    //
+    void
+    free ();
   };
 
   // Target.
@@ -458,7 +467,7 @@ namespace build2
     // Ad hoc recipes.
     //
   public:
-    vector<adhoc_recipe> adhoc_recipes;
+    vector<shared_ptr<adhoc_rule>> adhoc_recipes;
 
     // Target operation state.
     //

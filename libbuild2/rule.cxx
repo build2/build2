@@ -332,16 +332,16 @@ namespace build2
   //
   const dir_path adhoc_rule::recipes_build_dir ("recipes");
 
-  optional<action> adhoc_rule::
+  bool adhoc_rule::
   reverse_fallback (action, const target_type&) const
   {
-    return nullopt;
+    return false;
   }
 
   bool adhoc_rule::
-  match (action, target&, const string&, match_extra&) const
+  match (action a, target& t, const string& h, match_extra& me) const
   {
-    return true;
+    return pattern == nullptr || pattern->match (a, t, h, me);
   }
 
   void adhoc_rule::
@@ -391,5 +391,24 @@ namespace build2
     }
 
     return target_state::unchanged;
+  }
+
+  // adhoc_rule_pattern (vtable)
+  //
+  adhoc_rule_pattern::
+  ~adhoc_rule_pattern ()
+  {
+  }
+
+  bool adhoc_rule_pattern::fallback_rule::
+  match (action, target&, const string&, match_extra&) const
+  {
+    return false;
+  }
+
+  recipe adhoc_rule_pattern::fallback_rule::
+  apply (action, target&, match_extra&) const
+  {
+    return empty_recipe;
   }
 }

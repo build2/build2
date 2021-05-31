@@ -22,6 +22,8 @@
 #include <libbuild2/adhoc-rule-cxx.hxx>
 #include <libbuild2/adhoc-rule-buildscript.hxx>
 
+#include <libbuild2/adhoc-rule-regex-pattern.hxx>
+
 #include <libbuild2/config/utility.hxx> // lookup_config
 
 using namespace std;
@@ -534,7 +536,8 @@ namespace build2
 
       // Handle ad hoc target group specification (<...>).
       //
-      // We keep an "optional" (empty) vector of names parallel to ns.
+      // We keep an "optional" (empty) vector of names parallel to ns that
+      // contains the ad hoc group members.
       //
       adhoc_names ans;
       if (tt == type::labrace)
@@ -632,11 +635,11 @@ namespace build2
         else
           attributes_pop ();
 
-        // Call the specified parsing function (either variable or block) for
-        // each target. We handle multiple targets by replaying the tokens
-        // since the value/block may contain variable expansions that would be
-        // sensitive to the target context in which they are evaluated. The
-        // function signature is:
+        // Call the specified parsing function (variable value/block) for
+        // one/each pattern/target. We handle multiple targets by replaying
+        // the tokens since the value/block may contain variable expansions
+        // that would be sensitive to the target context in which they are
+        // evaluated. The function signature is:
         //
         // void (token& t, type& tt,
         //       optional<pattern_type>, const target_type* pat_tt, string pat,
@@ -646,7 +649,111 @@ namespace build2
         // but this flag can be cleared and default_target logic applied if
         // appropriate.
         //
-        auto for_each = [this, &trace, &t, &tt, &ns, &nloc, &ans] (auto&& f)
+        auto for_one_pat = [this, &t, &tt] (auto&& f,
+                                            name&& n,
+                                            const location& nloc)
+        {
+          // Reduce the various directory/value combinations to the scope
+          // directory (if any) and the pattern. Here are more interesting
+          // examples of patterns:
+          //
+          // */           --  */{}
+          // dir{*}       --  dir{*}
+          // dir{*/}      --  */dir{}
+          //
+          // foo/*/       --  foo/*/{}
+          // foo/dir{*/}  --  foo/*/dir{}
+          //
+          // Note that these are not patterns:
+          //
+          // foo*/file{bar}
+          // foo*/dir{bar/}
+          //
+          // While these are:
+          //
+          // file{foo*/bar}
+          // dir{foo*/bar/}
+          //
+          // And this is a half-pattern (foo* should no be treated as a
+          // pattern but that's unfortunately indistinguishable):
+          //
+          // foo*/dir{*/}  --  foo*/*/dir{}
+          //
+          // Note also that none of this applies to regex patterns (see
+          // the parsing code for details).
+          //
+          if (*n.pattern == pattern_type::path)
+          {
+            if (n.value.empty () && !n.dir.empty ())
+            {
+              // Note that we use string and not the representation: in a
+              // sense the trailing slash in the pattern is subsumed by
+              // the target type.
+              //
+              if (n.dir.simple ())
+                n.value = move (n.dir).string ();
+              else
+              {
+                n.value = n.dir.leaf ().string ();
+                n.dir.make_directory ();
+              }
+
+              // Treat directory as type dir{} similar to other places.
+              //
+              if (n.untyped ())
+                n.type = "dir";
+            }
+            else
+            {
+              // Move the directory part, if any, from value to dir.
+              //
+              try
+              {
+                n.canonicalize ();
+              }
+              catch (const invalid_path& e)
+              {
+                fail (nloc) << "invalid path '" << e.path << "'";
+              }
+              catch (const invalid_argument&)
+              {
+                fail (nloc) << "invalid pattern '" << n.value << "'";
+              }
+            }
+          }
+
+          // If we have the directory, then it is the scope.
+          //
+          enter_scope sg;
+          if (!n.dir.empty ())
+          {
+            if (path_pattern (n.dir))
+              fail (nloc) << "pattern in directory " << n.dir.representation ();
+
+            sg = enter_scope (*this, move (n.dir));
+          }
+
+          // Resolve target type. If none is specified or if it is '*',
+          // use the root of the target type hierarchy. So these are all
+          // equivalent:
+          //
+          // *: foo = bar
+          // {*}: foo = bar
+          // *{*}: foo = bar
+          //
+          const target_type* ttype (
+            n.untyped () || n.type == "*"
+            ? &target::static_type
+            : scope_->find_target_type (n.type));
+
+          if (ttype == nullptr)
+            fail (nloc) << "unknown target type " << n.type;
+
+          f (t, tt, n.pattern, ttype, move (n.value), nloc);
+        };
+
+        auto for_each = [this, &trace, &for_one_pat,
+                         &t, &tt, &ns, &nloc, &ans] (auto&& f)
         {
           // Note: watch out for an out-qualified single target (two names).
           //
@@ -671,107 +778,11 @@ namespace build2
               if (!ans.empty () && !ans[i].ns.empty ())
                 fail (ans[i].loc) << "ad hoc member in target type/pattern";
 
-              // Reduce the various directory/value combinations to the scope
-              // directory (if any) and the pattern. Here are more interesting
-              // examples of patterns:
-              //
-              // */           --  */{}
-              // dir{*}       --  dir{*}
-              // dir{*/}      --  */dir{}
-              //
-              // foo/*/       --  foo/*/{}
-              // foo/dir{*/}  --  foo/*/dir{}
-              //
-              // Note that these are not patterns:
-              //
-              // foo*/file{bar}
-              // foo*/dir{bar/}
-              //
-              // While these are:
-              //
-              // file{foo*/bar}
-              // dir{foo*/bar/}
-              //
-              // And this is a half-pattern (foo* should no be treated as a
-              // pattern but that's unfortunately indistinguishable):
-              //
-              // foo*/dir{*/}  --  foo*/*/dir{}
-              //
-              // Note also that none of this applies to regex patterns (see
-              // the parsing code for details).
-              //
-              if (*n.pattern == pattern_type::path)
-              {
-                if (n.value.empty () && !n.dir.empty ())
-                {
-                  // Note that we use string and not the representation: in a
-                  // sense the trailing slash in the pattern is subsumed by
-                  // the target type.
-                  //
-                  if (n.dir.simple ())
-                    n.value = move (n.dir).string ();
-                  else
-                  {
-                    n.value = n.dir.leaf ().string ();
-                    n.dir.make_directory ();
-                  }
-
-                  // Treat directory as type dir{} similar to other places.
-                  //
-                  if (n.untyped ())
-                    n.type = "dir";
-                }
-                else
-                {
-                  // Move the directory part, if any, from value to dir.
-                  //
-                  try
-                  {
-                    n.canonicalize ();
-                  }
-                  catch (const invalid_path& e)
-                  {
-                    fail (nloc) << "invalid path '" << e.path << "'";
-                  }
-                  catch (const invalid_argument&)
-                  {
-                    fail (nloc) << "invalid pattern '" << n.value << "'";
-                  }
-                }
-              }
-              else if (*n.pattern == pattern_type::regex_substitution)
+              if (*n.pattern == pattern_type::regex_substitution)
                 fail (nloc) << "regex substitution " << n << " without "
                             << "regex pattern";
 
-              // If we have the directory, then it is the scope.
-              //
-              enter_scope sg;
-              if (!n.dir.empty ())
-              {
-                if (path_pattern (n.dir))
-                  fail (nloc) << "pattern in directory "
-                              << n.dir.representation ();
-
-                sg = enter_scope (*this, move (n.dir));
-              }
-
-              // Resolve target type. If none is specified or if it is '*',
-              // use the root of the target type hierarchy. So these are all
-              // equivalent:
-              //
-              // *: foo = bar
-              // {*}: foo = bar
-              // *{*}: foo = bar
-              //
-              const target_type* ti (
-                n.untyped () || n.type == "*"
-                ? &target::static_type
-                : scope_->find_target_type (n.type));
-
-              if (ti == nullptr)
-                fail (nloc) << "unknown target type " << n.type;
-
-              f (t, tt, n.pattern, ti, move (n.value), nloc);
+              for_one_pat (forward<decltype (f)> (f), move (n), nloc);
             }
             else
             {
@@ -802,6 +813,357 @@ namespace build2
 
         next_with_attributes (t, tt); // Recognize attributes after `:`.
 
+        // See if this could be an ad hoc pattern rule. It's a pattern rule if
+        // the primary target is a pattern and it has (1) prerequisites and/or
+        // (2) recipes. Only one primary target per pattern rule declaration
+        // is allowed.
+        //
+        // Note, however, that what looks like a pattern may turn out to be
+        // just a pattern-specific variable assignment or variable block,
+        // which both can appear with multiple targets/patterns on the left
+        // hand side, or even a mixture of them. Still, instead of trying to
+        // weave the pattern rule logic into the already hairy code below, we
+        // are going to handle it separately and deal with the "degenerate"
+        // cases (variable assignment/block) both here and below.
+        //
+        if (ns[0].pattern && ns.size () == (ns[0].pair ? 2 : 1))
+        {
+          name& n (ns[0]);
+
+          if (n.qualified ())
+            fail (nloc) << "project name in target pattern " << n;
+
+          if (n.pair)
+            fail (nloc) << "out-qualified target pattern";
+
+          if (*n.pattern == pattern_type::regex_substitution)
+            fail (nloc) << "regex substitution " << n << " without "
+                        << "regex pattern";
+
+          // Parse prerequisites, if any.
+          //
+          location ploc;
+          names pns;
+          if (tt != type::newline)
+          {
+            auto at (attributes_push (t, tt));
+
+            if (!start_names (tt))
+              fail (t) << "unexpected " << t;
+
+            // Note that unlike below, here we preserve the pattern in the
+            // prerequisites.
+            //
+            ploc = get_location (t);
+            pns = parse_names (t, tt, pattern_mode::preserve);
+
+            // Target-specific variable assignment.
+            //
+            if (tt == type::assign || tt == type::prepend || tt == type::append)
+            {
+              if (!ans.empty ())
+                fail (ans[0].loc) << "ad hoc member in target type/pattern";
+
+              // Note: see the same code below if changing anything here.
+              //
+              type akind (tt);
+              const location aloc (get_location (t));
+
+              const variable& var (parse_variable_name (move (pns), ploc));
+              apply_variable_attributes (var);
+
+              if (var.visibility > variable_visibility::target)
+              {
+                fail (nloc) << "variable " << var << " has " << var.visibility
+                            << " visibility but is assigned on a target";
+              }
+
+              for_one_pat (
+                [this, &var, akind, &aloc] (
+                  token& t, type& tt,
+                  optional<pattern_type> pt, const target_type* ptt,
+                  string pat, const location& ploc)
+                {
+
+                  parse_type_pattern_variable (t, tt,
+                                               *pt, *ptt, move (pat), ploc,
+                                               var, akind, aloc);
+                },
+                move (n),
+                nloc);
+
+              next_after_newline (t, tt);
+              continue; // Just a target type/pattern-specific var assignment.
+            }
+
+            if (at.first)
+              fail (at.second) << "attributes before prerequisite pattern";
+            else
+              attributes_pop ();
+
+            // @@ TODO
+            //
+            if (tt == type::colon)
+              fail (t) << "prerequisite type/pattern-specific variables "
+                       << "not yet supported";
+          }
+
+          // Next we may have a target type/pattern specific variable block
+          // potentially followed by recipes.
+          //
+          next_after_newline (t, tt);
+          if (tt == type::lcbrace && peek () == type::newline)
+          {
+            // Note: see the same code below if changing anything here.
+            //
+            next (t, tt); // Newline.
+            next (t, tt); // First token inside the variable block.
+
+            for_one_pat (
+              [this] (
+                token& t, type& tt,
+                optional<pattern_type> pt, const target_type* ptt,
+                string pat, const location& ploc)
+              {
+                parse_variable_block (t, tt, pt, ptt, move (pat), ploc);
+              },
+              name (n), // Note: can't move (could still be a rule).
+              nloc);
+
+            if (tt != type::rcbrace)
+              fail (t) << "expected '}' instead of " << t;
+
+            next (t, tt);                    // Newline.
+            next_after_newline (t, tt, '}'); // Should be on its own line.
+
+            // See if this is just a target type/pattern-specific var block.
+            //
+            if (pns.empty () &&
+                tt != type::percent && tt != type::multi_lcbrace)
+            {
+              if (!ans.empty ())
+                fail (ans[0].loc) << "ad hoc member in target type/pattern";
+
+              continue;
+            }
+          }
+
+          // Ok, this is an ad hoc pattern rule.
+          //
+          // What should we do if we have neither prerequisites nor recipes?
+          // While such a declaration doesn't make much sense, it can happen,
+          // for example, with an empty variable expansion:
+          //
+          // file{*.txt}: $extra
+          //
+          // So let's silently ignore it.
+          //
+          if (pns.empty () && tt != type::percent && tt != type::multi_lcbrace)
+            continue;
+
+          // Process and verify the pattern.
+          //
+          pattern_type pt (*n.pattern);
+          optional<pattern_type> st;
+          const char* pn;
+
+          switch (pt)
+          {
+          case pattern_type::path:
+            pn = "path";
+            break;
+          case pattern_type::regex_pattern:
+            pn = "regex";
+            st = pattern_type::regex_substitution;
+            break;
+          case pattern_type::regex_substitution:
+            // Unreachable.
+            break;
+          }
+
+          // Make sure patterns have no directory components. While we may
+          // decide to support this in the future, currently the appropriate
+          // semantics is not immediately obvious. Whatever we decide, it
+          // should be consistent with the target type/pattern-specific
+          // variables where it is interpreted as a scope (and which doesn't
+          // feel like the best option for pattern rules).
+          //
+          auto check_pattern = [this] (name& n, const location& loc)
+          {
+            try
+            {
+              // Move the directory component for path patterns.
+              //
+              if (*n.pattern == pattern_type::path)
+                n.canonicalize ();
+
+              if (n.dir.empty ())
+                return;
+            }
+            catch (const invalid_path&)
+            {
+              // Fall through.
+            }
+
+            fail (loc) << "directory in pattern " << n;
+          };
+
+          check_pattern (n, nloc);
+
+          // Verify all the ad hoc members are patterns or substitutions and
+          // of the correct type.
+          //
+          names ns (ans.empty () ? names () : move (ans[0].ns));
+          const location& aloc (ans.empty () ? location () : ans[0].loc);
+
+          for (name& n: ns)
+          {
+            if (!n.pattern || !(*n.pattern == pt || (st && *n.pattern == *st)))
+            {
+              fail (aloc) << "expected " << pn << " pattern or substitution "
+                          << "instead of " << n;
+            }
+
+            if (*n.pattern != pattern_type::regex_substitution)
+              check_pattern (n, aloc);
+          }
+
+          // The same for prerequisites except here we can have non-patterns.
+          //
+          for (name& n: pns)
+          {
+            if (n.pattern)
+            {
+              if (!(*n.pattern == pt || (st && *n.pattern == *st)))
+              {
+                fail (ploc) << "expected " << pn << " pattern or substitution "
+                            << "instead of " << n;
+              }
+
+              if (*n.pattern != pattern_type::regex_substitution)
+                check_pattern (n, ploc);
+            }
+          }
+
+          // Derive the rule name. It must be unique in this scope.
+          //
+          // It would have been nice to include the location but unless we
+          // include the absolute path to the buildfile (which would be
+          // unwieldy), it could be ambigous.
+          //
+          string rn ("<ad hoc pattern rule #" +
+                     to_string (scope_->adhoc_rules.size () + 1) + '>');
+
+          auto& ars (scope_->adhoc_rules);
+
+          auto i (find_if (ars.begin (), ars.end (),
+                           [&rn] (const unique_ptr<adhoc_rule_pattern>& rp)
+                           {
+                             return rp->rule_name == rn;
+                           }));
+
+          const target_type* ttype (nullptr);
+          if (i != ars.end ())
+          {
+            // @@ TODO: append ad hoc members, prereqs.
+            //
+            ttype = &(*i)->type;
+            assert (false);
+          }
+          else
+          {
+            // Resolve target type (same as in for_one_pat()).
+            //
+            // @@ TODO: maybe untyped should mean file{} as everywhere else?
+            //    Also, why do we bother with *{}, is it that hard to write
+            //    target{*}? Note: here, in vars, and in regex_pattern.
+            //
+            ttype = n.untyped () || n.type == "*"
+              ? &target::static_type
+              : scope_->find_target_type (n.type);
+
+            if (ttype == nullptr)
+              fail (nloc) << "unknown target type " << n.type;
+
+            unique_ptr<adhoc_rule_pattern> rp;
+            switch (pt)
+            {
+            case pattern_type::path:
+              // @@ TODO
+              fail (nloc) << "path pattern rules not yet supported";
+              break;
+            case pattern_type::regex_pattern:
+              rp.reset (new adhoc_rule_regex_pattern (
+                          *scope_, rn, *ttype,
+                          move (n), nloc,
+                          move (ns), aloc,
+                          move (pns), ploc));
+              break;
+            case pattern_type::regex_substitution:
+              // Unreachable.
+              break;
+            }
+
+            ars.push_back (move (rp));
+            i = --ars.end ();
+          }
+
+          adhoc_rule_pattern& rp (**i);
+
+          // Parse the recipe chain if any.
+          //
+          if (tt == type::percent || tt == type::multi_lcbrace)
+          {
+            small_vector<shared_ptr<adhoc_rule>, 1> recipes;
+            parse_recipe (t, tt, token (t), recipes, rn);
+
+            for (shared_ptr<adhoc_rule>& pr: recipes)
+            {
+              adhoc_rule& r (*pr);
+              r.pattern = &rp; // Connect recipe to pattern.
+              rp.rules.push_back (move (pr));
+
+              // Register this adhoc rule for all its actions.
+              //
+              for (action a: r.actions)
+              {
+                // This covers both duplicate recipe actions withing the rule
+                // pattern (similar to parse_recipe()) as well as conflicts
+                // with other rules (ad hoc or not).
+                //
+                if (!scope_->rules.insert (a, *ttype, rp.rule_name, r))
+                {
+                  const meta_operation_info* mf (
+                    root_->root_extra->meta_operations[a.meta_operation ()]);
+
+                  const operation_info* of (
+                    root_->root_extra->operations[a.operation ()]);
+
+                  fail (r.loc)
+                    << "duplicate " << mf->name << '(' << of->name << ") rule "
+                    << rp.rule_name << " for target type " << ttype->name
+                    << "{}";
+                }
+
+                // We also register for a wildcard operation in order to get
+                // called to provide the reverse operation fallback (see
+                // match_impl() for the gory details).
+                //
+                // Note that we may end up trying to insert a duplicate of the
+                // same rule (e.g., for the same meta-operation). Feels like
+                // we should never try to insert for a different rule since
+                // for ad hoc rules names are unique.
+                //
+                scope_->rules.insert (
+                  a.meta_operation (), 0,
+                  *ttype, rp.rule_name, rp.fallback_rule_);
+              }
+            }
+          }
+
+          continue;
+        }
+
         if (tt == type::newline)
         {
           // See if this is a target-specific variable and/or recipe block(s).
@@ -818,11 +1180,6 @@ namespace build2
           // {                  {
           //   x = y              x = y
           // }                  }
-          //
-          // @@ This might change a bit once we support ad hoc rules (where we
-          // may have prerequisites for a pattern; but perhaps this should be
-          // handled separately since the parse_dependency() is already too
-          // complex and there will be no chains in this case).
           //
           next (t, tt);
           if (tt == type::percent       ||
@@ -852,6 +1209,8 @@ namespace build2
               //
               if (st.type == type::lcbrace)
               {
+                // Note: see the same code above if changing anything here.
+                //
                 next (t, tt); // Newline.
                 next (t, tt); // First token inside the variable block.
                 parse_variable_block (t, tt, pt, ptt, move (pat), ploc);
@@ -871,7 +1230,9 @@ namespace build2
                 rt = st;
 
               if (pt)
-                fail (rt) << "recipe in target type/pattern";
+                fail (rt) << "unexpected recipe after target type/pattern" <<
+                  info << "ad hoc pattern rule may not be combined with other "
+                       << "targets or patterns";
 
               parse_recipe (t, tt, rt, recipes);
             };
@@ -903,7 +1264,7 @@ namespace build2
         if (!start_names (tt))
           fail (t) << "unexpected " << t;
 
-        // @@ PAT: currently we pattern-expand target-specific vars.
+        // @@ PAT: currently we pattern-expand target-specific var names.
         //
         const location ploc (get_location (t));
         names pns (parse_names (t, tt, pattern_mode::expand));
@@ -916,6 +1277,8 @@ namespace build2
         //
         if (tt == type::assign || tt == type::prepend || tt == type::append)
         {
+          // Note: see the same code above if changing anything here.
+          //
           type akind (tt);
           const location aloc (get_location (t));
 
@@ -1180,7 +1543,8 @@ namespace build2
   void parser::
   parse_recipe (token& t, type& tt,
                 const token& start,
-                small_vector<shared_ptr<adhoc_rule>, 1>& recipes)
+                small_vector<shared_ptr<adhoc_rule>, 1>& recipes,
+                const string& name)
   {
     // Parse a recipe chain.
     //
@@ -1193,19 +1557,25 @@ namespace build2
     //
     // enter: start is percent or openining multi-curly-brace
     // leave: token past newline after last closing multi-curly-brace
+    //
+    // If target_ is not NULL, then add the recipe to its adhoc_recipes.
+    // Otherwise, return it in recipes (used for pattern rules).
 
     if (stage_ == stage::boot)
       fail (t) << "ad hoc recipe specified during bootstrap";
 
     // If we have a recipe, the target is not implied.
     //
-    if (target_->decl != target_decl::real)
+    if (target_ != nullptr)
     {
-      for (target* m (target_); m != nullptr; m = m->adhoc_member)
-        m->decl = target_decl::real;
+      if (target_->decl != target_decl::real)
+      {
+        for (target* m (target_); m != nullptr; m = m->adhoc_member)
+          m->decl = target_decl::real;
 
-      if (default_target_ == nullptr)
-        default_target_ = target_;
+        if (default_target_ == nullptr)
+          default_target_ = target_;
+      }
     }
 
     bool multi (replay_ != replay::stop); // Multiple targets.
@@ -1223,6 +1593,7 @@ namespace build2
 
       struct data
       {
+        const string&                            name;
         small_vector<shared_ptr<adhoc_rule>, 1>& recipes;
         bool                                     multi;
         bool                                     first;
@@ -1231,7 +1602,7 @@ namespace build2
         attributes&                              as;
         buildspec&                               bs;
         const location&                          bsloc;
-      } d {recipes, multi, first, clean, i, as, bs, bsloc};
+      } d {name, recipes, multi, first, clean, i, as, bs, bsloc};
 
       // Note that this function must be called at most once per iteration.
       //
@@ -1258,7 +1629,6 @@ namespace build2
         else
           fail (t) << "expected recipe language instead of " << t;
 
-        shared_ptr<adhoc_rule> ar;
         if (!skip)
         {
           if (d.first)
@@ -1270,11 +1640,16 @@ namespace build2
             //
             location loc (get_location (st));
 
+            shared_ptr<adhoc_rule> ar;
             if (!lang)
             {
               // Buildscript
               //
-              ar.reset (new adhoc_buildscript_rule (loc, st.value.size ()));
+              ar.reset (
+                new adhoc_buildscript_rule (
+                  d.name.empty () ? "<ad hoc buildscript recipe>" : d.name,
+                  loc,
+                  st.value.size ()));
             }
             else if (icasecmp (*lang, "c++") == 0)
             {
@@ -1324,20 +1699,23 @@ namespace build2
               }
 
               ar.reset (
-                new adhoc_cxx_rule (loc, st.value.size (), ver, move (sep)));
+                new adhoc_cxx_rule (
+                  d.name.empty () ? "<ad hoc c++ recipe>" : d.name,
+                  loc,
+                  st.value.size (),
+                  ver,
+                  move (sep)));
             }
             else
               fail (lloc) << "unknown recipe language '" << *lang << "'";
 
             assert (d.recipes[d.i] == nullptr);
-            d.recipes[d.i] = ar;
+            d.recipes[d.i] = move (ar);
           }
           else
           {
             skip_line (t, tt);
-
             assert (d.recipes[d.i] != nullptr);
-            ar = d.recipes[d.i];
           }
         }
         else
@@ -1360,91 +1738,120 @@ namespace build2
 
         if (!skip)
         {
-          auto& ars (target_->adhoc_recipes);
-          ars.push_back (adhoc_recipe {{}, move (ar)});
-
-          // Translate each buildspec entry into action and add it into the
-          // target's ad hoc recipes entry.
-          //
-          const location& l (d.bsloc);
-
-          for (metaopspec& m: d.bs)
-          {
-            meta_operation_id mi (ctx.meta_operation_table.find (m.name));
-
-            if (mi == 0)
-              fail (l) << "unknown meta-operation " << m.name;
-
-            const meta_operation_info* mf (
-              root_->root_extra->meta_operations[mi]);
-
-            if (mf == nullptr)
-              fail (l) << "target " << *target_ << " does not support meta-"
-                       << "operation " << ctx.meta_operation_table[mi].name;
-
-            for (opspec& o: m)
-            {
-              operation_id oi;
-              if (o.name.empty ())
-              {
-                if (mf->operation_pre == nullptr)
-                  oi = update_id;
-                else
-                  // Calling operation_pre() to translate doesn't feel
-                  // appropriate here.
-                  //
-                  fail (l) << "default operation in recipe action" << endf;
-              }
-              else
-                oi = ctx.operation_table.find (o.name);
-
-              if (oi == 0)
-                fail (l) << "unknown operation " << o.name;
-
-              const operation_info* of (root_->root_extra->operations[oi]);
-
-              if (of == nullptr)
-                fail (l) << "target " << *target_ << " does not support "
-                         << "operation " << ctx.operation_table[oi];
-
-              // Note: for now always inner (see match_rule() for details).
-              //
-              action a (mi, oi);
-
-              // Check for duplicates.
-              //
-              if (find_if (
-                    ars.begin (), ars.end (),
-                    [a] (const adhoc_recipe& r)
-                    {
-                      auto& as (r.actions);
-                      return find (as.begin (), as.end (), a) != as.end ();
-                    }) != ars.end ())
-              {
-                fail (l) << "duplicate recipe for " << mf->name << '('
-                         << of->name << ')';
-              }
-
-              ars.back ().actions.push_back (a);
-            }
-          }
-
           if (d.first)
           {
-            adhoc_recipe& ar (ars.back ());
+            adhoc_rule& ar (*d.recipes.back ());
 
-            if (ar.rule->recipe_text (ctx,
-                                      *scope_,
-                                      d.multi ? nullptr : target_,
-                                      ar.actions,
-                                      move (t.value),
-                                      d.as))
+            // Translate each buildspec entry into action and add it to the
+            // recipe entry.
+            //
+            const location& l (d.bsloc);
+
+            for (metaopspec& m: d.bs)
+            {
+              meta_operation_id mi (ctx.meta_operation_table.find (m.name));
+
+              if (mi == 0)
+                fail (l) << "unknown meta-operation " << m.name;
+
+              const meta_operation_info* mf (
+                root_->root_extra->meta_operations[mi]);
+
+              if (mf == nullptr)
+                fail (l) << "project " << *root_ << " does not support meta-"
+                         << "operation " << ctx.meta_operation_table[mi].name;
+
+              for (opspec& o: m)
+              {
+                operation_id oi;
+                if (o.name.empty ())
+                {
+                  if (mf->operation_pre == nullptr)
+                    oi = update_id;
+                  else
+                    // Calling operation_pre() to translate doesn't feel
+                    // appropriate here.
+                    //
+                    fail (l) << "default operation in recipe action" << endf;
+                }
+                else
+                  oi = ctx.operation_table.find (o.name);
+
+                if (oi == 0)
+                  fail (l) << "unknown operation " << o.name;
+
+                const operation_info* of (root_->root_extra->operations[oi]);
+
+                if (of == nullptr)
+                  fail (l) << "project " << *root_ << " does not support "
+                           << "operation " << ctx.operation_table[oi];
+
+                // Note: for now always inner (see match_rule() for details).
+                //
+                action a (mi, oi);
+
+                // Check for duplicates (local).
+                //
+                if (find_if (
+                      d.recipes.begin (), d.recipes.end (),
+                      [a] (const shared_ptr<adhoc_rule>& r)
+                      {
+                        auto& as (r->actions);
+                        return find (as.begin (), as.end (), a) != as.end ();
+                      }) != d.recipes.end ())
+                {
+                  fail (l) << "duplicate " << mf->name << '(' << of->name
+                           << ") recipe";
+                }
+
+                ar.actions.push_back (a);
+              }
+            }
+
+            // Set the recipe text.
+            //
+            if (ar.recipe_text (ctx,
+                                *scope_,
+                                d.multi ? nullptr : target_,
+                                move (t.value),
+                                d.as))
               d.clean = true;
 
             // Verify we have no unhandled attributes.
             //
             for (attribute& a: d.as)
               fail (d.as.loc) << "unknown recipe attribute " << a << endf;
+          }
+
+          // Copy the recipe over to the target verifying there are no
+          // duplicates (global).
+          //
+          if (target_ != nullptr)
+          {
+            const shared_ptr<adhoc_rule>& r (d.recipes[d.i]);
+
+            for (const shared_ptr<adhoc_rule>& er: target_->adhoc_recipes)
+            {
+              auto& as (er->actions);
+
+              for (action a: r->actions)
+              {
+                if (find (as.begin (), as.end (), a) != as.end ())
+                {
+                  const meta_operation_info* mf (
+                    root_->root_extra->meta_operations[a.meta_operation ()]);
+
+                  const operation_info* of (
+                    root_->root_extra->operations[a.operation ()]);
+
+                  fail (d.bsloc)
+                    << "duplicate " << mf->name << '(' << of->name
+                    << ") recipe for target " << *target_;
+                }
+              }
+            }
+
+            target_->adhoc_recipes.push_back (r);
           }
         }
 
@@ -1454,6 +1861,8 @@ namespace build2
         next (t, tt);                          // Newline.
         next_after_newline (t, tt, token (t)); // Should be on its own line.
       };
+
+      bsloc = get_location (t); // Fallback location.
 
       if (tt == type::percent)
       {
@@ -1681,7 +2090,9 @@ namespace build2
       // Make sure none of our targets are patterns.
       //
       if (n.pattern)
-        fail (tloc) << "pattern in target " << n;
+        fail (tloc) << "unexpected pattern in target " << n <<
+          info << "ad hoc pattern rule may not be combined with other "
+               << "targets or patterns";
 
       enter_target tg (*this,
                        move (n), move (o),

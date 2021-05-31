@@ -138,7 +138,8 @@ namespace build2
     void
     parse_recipe (token&, token_type&,
                   const token&,
-                  small_vector<shared_ptr<adhoc_rule>, 1>&);
+                  small_vector<shared_ptr<adhoc_rule>, 1>&,
+                  const string& = {});
 
     // Ad hoc target names inside < ... >.
     //

@@ -36,7 +36,7 @@ namespace build2
         // targets.
         //
         script
-        pre_parse (const scope&, const target*, const adhoc_actions& acts,
+        pre_parse (const scope&, const target*, const small_vector<action, 1>&,
                    istream&, const path_name&, uint64_t line,
                    optional<string> diag_name, const location& diag_loc);
 
@@ -144,7 +144,7 @@ namespace build2
 
       protected:
         script* script_;
-        const adhoc_actions* actions_; // Non-NULL during pre-parsing.
+        const small_vector<action, 1>* actions_; // Non-NULL during pre-parse.
 
         // True if performing update is one of the actions. Only set for the
         // pre-parse mode.

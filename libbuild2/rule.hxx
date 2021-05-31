@@ -143,18 +143,32 @@ namespace build2
 
   // Ad hoc rule.
   //
+  // Used for both ad hoc pattern rules and ad hoc recipes. For recipes, it's
+  // essentially a rule of one case. Note that when used as part of a pattern,
+  // the implementation cannot use the match_extra::buffer nor the target
+  // auxilary data storage.
+  //
   // Note: not exported.
   //
+  class adhoc_rule_pattern;
+
   class adhoc_rule: public rule
   {
   public:
-    location_value loc;     // Buildfile location of the recipe.
-    size_t         braces;  // Number of braces in multi-brace tokens.
+    location_value          loc;     // Buildfile location of the recipe.
+    size_t                  braces;  // Number of braces in multi-brace tokens.
+    small_vector<action, 1> actions; // Actions this rule is for.
 
-    adhoc_rule (const char* name, const location& l, size_t b)
+    // If not NULL then this rule (recipe, really) belongs to an ad hoc
+    // pattern rule and match() should call the pattern's match() and
+    // apply() should call the pattern's apply_*() functions (see below).
+    //
+    const adhoc_rule_pattern* pattern = nullptr;
+
+    adhoc_rule (string name, const location& l, size_t b)
       : loc (l),
         braces (b),
-        rule_match (name, static_cast<const rule&> (*this)) {}
+        rule_match (move (name), static_cast<const rule&> (*this)) {}
 
     // Set the rule text, handle any recipe-specific attributes, and return
     // true if the recipe builds anything in the build/recipes/ directory and
@@ -164,8 +178,11 @@ namespace build2
     // the scope of the recipe (not necessarily the same as the target's base
     // scope).
     //
+    // Note that this function is called after the actions member has been
+    // populated.
+    //
     virtual bool
-    recipe_text (context&, const scope&, const target*, const adhoc_actions&,
+    recipe_text (context&, const scope&, const target*,
                  string&&, attributes&) = 0;
 
   public:
@@ -174,7 +191,7 @@ namespace build2
     // to provide a fallback implementation of a reverse operation if it is
     // providing the other half.
     //
-    virtual optional<action>
+    virtual bool
     reverse_fallback (action, const target_type&) const;
 
     // The default implementation forwards to the pattern's match() if there
@@ -195,9 +212,8 @@ namespace build2
     //
   public:
     // The name in rule_match is used as a hint and as a name in diagnostics.
-    // The former does not apply to us (but will apply to ad hoc rules) while
-    // latter does. As a result, we use special-looking "<ad hoc X recipe>"
-    // names.
+    // The former does not apply to ad hoc recipes (but does apply to ad hoc
+    // rules).
     //
     const build2::rule_match rule_match;
 
@@ -223,6 +239,66 @@ namespace build2
     //
     virtual recipe
     apply (action, target&, match_extra&, const optional<timestamp>&) const = 0;
+  };
+
+  // Ad hoc rule pattern.
+  //
+  // Note: exported since may be accessed by ad hoc recipe implementation.
+  //
+  class LIBBUILD2_SYMEXPORT adhoc_rule_pattern
+  {
+  public:
+    const scope&                            rule_scope;
+    const string                            rule_name;
+    const target_type&                      type;      // Primary target type.
+    small_vector<shared_ptr<adhoc_rule>, 1> rules;     // Really a unique_ptr.
+
+    adhoc_rule_pattern (const scope& s, string n, const target_type& t)
+        : rule_scope (s),
+          rule_name (move (n)),
+          type (t),
+          fallback_rule_ (rules) {}
+
+    virtual
+    ~adhoc_rule_pattern ();
+
+  public:
+    virtual bool
+    match (action, target&, const string&, match_extra&) const = 0;
+
+    virtual void
+    apply_adhoc_members (action, target&, match_extra&) const = 0;
+
+    virtual void
+    apply_prerequisites (action, target&, match_extra&) const = 0;
+
+    // Dump support.
+    //
+    virtual void
+    dump (ostream&) const = 0;
+
+    // Gory implementation details (see match_impl()).
+    //
+  public:
+    class fallback_rule: public rule
+    {
+    public:
+      const small_vector<shared_ptr<adhoc_rule>, 1>& rules;
+
+      explicit
+      fallback_rule (const small_vector<shared_ptr<adhoc_rule>, 1>& rs)
+          : rules (rs) {}
+
+      // Dummy (never called).
+      //
+      virtual bool
+      match (action, target&, const string&, match_extra&) const override;
+
+      virtual recipe
+      apply (action, target&, match_extra&) const override;
+    };
+
+    fallback_rule fallback_rule_;
   };
 }
 

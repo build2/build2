@@ -165,6 +165,45 @@ if (!$static && $test.target == $build.host)
     $* clean 2>-
   }
 
+  : rule
+  :
+  {
+    cat <<EOI >=buildfile;
+      alias{far}: alias{bar}
+      alias{bar}:
+
+      alias{~'/f(.+)/'}: alias{~'/b\1/'}
+      {{ c++ 1 --
+
+        #include <iostream>
+
+        --
+
+        recipe
+        apply (action, target&) const override
+        {
+          return [this] (action a, const target& t)
+          {
+            return perform_update (a, t);
+          };
+        }
+
+        target_state
+        perform_update (action, const target& t) const
+        {
+          const auto& mr (t.data<regex_match_results> ());
+          text << pattern->rule_name << ": " << mr.str (1);
+          return target_state::changed;
+        }
+      }}
+      EOI
+
+    $* 2>>~%EOE%
+      %^(c\+\+|ld).*%+
+      <ad hoc pattern rule #1>: ar
+      EOE
+  }
+
   # Clean recipe builds if the testscript is enabled (see above for details).
   #
   -$* clean 2>-

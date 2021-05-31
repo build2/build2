@@ -114,6 +114,7 @@ namespace build2
   //
   using std::regex;
   using std::regex_error;
+  using regex_match_results = std::match_results<string::const_iterator>;
 
   // Concurrency.
   //

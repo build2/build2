@@ -88,12 +88,12 @@ namespace build2
   }
 
   const target&
-  search (const target& t, name n, const scope& s)
+  search (const target& t, name n, const scope& s, const target_type* tt)
   {
     assert (t.ctx.phase == run_phase::match);
 
-    auto rp (s.find_target_type (n, location ()));
-    const target_type* tt (rp.first);
+    auto rp (s.find_target_type (n, location (), tt));
+    tt = rp.first;
     optional<string>& ext (rp.second);
 
     if (tt == nullptr)
@@ -291,8 +291,8 @@ namespace build2
   target&
   add_adhoc_member (target& t,
                     const target_type& tt,
-                    const dir_path& dir,
-                    const dir_path& out,
+                    dir_path dir,
+                    dir_path out,
                     string n)
   {
     tracer trace ("add_adhoc_member");
@@ -305,8 +305,8 @@ namespace build2
 
     pair<target&, ulock> r (
       t.ctx.targets.insert_locked (tt,
-                                   dir,
-                                   out,
+                                   move (dir),
+                                   move (out),
                                    move (n),
                                    nullopt /* ext     */,
                                    target_decl::implied,
@@ -334,7 +334,11 @@ namespace build2
     if (const scope* rs = bs.root_scope ())
       penv = auto_project_env (*rs);
 
+    match_extra& me (t[a].match_extra);
+
     // First check for an ad hoc recipe.
+    //
+    // Note that a fallback recipe is preferred over a non-fallback rule.
     //
     if (!t.adhoc_recipes.empty ())
     {
@@ -345,70 +349,60 @@ namespace build2
             dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
         });
 
-      auto match = [a, &t] (const adhoc_rule& r, bool fallback) -> bool
+      auto match = [a, &t, &me] (const adhoc_rule& r, bool fallback) -> bool
       {
-        match_extra me {fallback};
+        me.init (fallback);
 
-        bool m;
         if (auto* f = (a.outer ()
                        ? t.ctx.current_outer_oif
                        : t.ctx.current_inner_oif)->adhoc_match)
-          m = f (r, a, t, string () /* hint */, me);
+          return f (r, a, t, string () /* hint */, me);
         else
-          m = r.match (a, t, string () /* hint */, me);
-
-        if (m)
-          t[a].match_extra = move (me);
-
-        return m;
+          return r.match (a, t, string () /* hint */, me);
       };
 
       // The action could be Y-for-X while the ad hoc recipes are always for
       // X. So strip the Y-for part for comparison (but not for the match()
       // calls; see below for the hairy inner/outer semantics details).
       //
-      action ca (a.outer ()
-                 ? action (a.meta_operation (), a.outer_operation ())
-                 : a);
+      action ca (a.inner ()
+                 ? a
+                 : action (a.meta_operation (), a.outer_operation ()));
 
       auto b (t.adhoc_recipes.begin ()), e (t.adhoc_recipes.end ());
       auto i (find_if (
                 b, e,
-                [&match, ca] (const adhoc_recipe& r)
+                [&match, ca] (const shared_ptr<adhoc_rule>& r)
                 {
-                  auto& as (r.actions);
+                  auto& as (r->actions);
                   return (find (as.begin (), as.end (), ca) != as.end () &&
-                          match (*r.rule, false));
+                          match (*r, false));
                 }));
 
       if (i == e)
       {
         // See if we have a fallback implementation.
         //
+        // See the adhoc_rule::reverse_fallback() documentation for details on
+        // what's going on here.
+        //
         i = find_if (
           b, e,
-          [&match, ca, &t] (const adhoc_recipe& r)
+          [&match, ca, &t] (const shared_ptr<adhoc_rule>& r)
           {
-            // See the adhoc_rule::match() documentation for details on what's
-            // going on here.
-            //
-            auto& as (r.actions);
-            if (find (as.begin (), as.end (), ca) == as.end ())
-            {
-              for (auto sa: as)
-              {
-                optional<action> ra (r.rule->reverse_fallback (sa, t.type ()));
+            auto& as (r->actions);
 
-                if (ra && *ra == ca && match (*r.rule, true))
-                  return true;
-              }
-            }
-            return false;
+            // Note that the rule could be there but not match (see above),
+            // thus this extra check.
+            //
+            return (find (as.begin (), as.end (), ca) == as.end () &&
+                    r->reverse_fallback (ca, t.type ())            &&
+                    match (*r, true));
           });
       }
 
       if (i != e)
-        return &i->rule->rule_match;
+        return &(*i)->rule_match;
     }
 
     // If this is an outer operation (Y-for-X), then we look for rules
@@ -457,7 +451,7 @@ namespace build2
 
           const auto& rules (i->second); // Hint map.
 
-          // @@ TODO
+          // @@ TODO hint
           //
           // Different rules can be used for different operations (update vs
           // test is a good example). So, at some point, we will probably have
@@ -477,14 +471,49 @@ namespace build2
 
           for (auto i (rs.first); i != rs.second; ++i)
           {
-            const auto& r (*i);
-            const string& n (r.first);
-            const rule& ru (r.second);
+            const rule_match* r (&*i);
+
+            // In a somewhat hackish way we reuse operation wildcards to plumb
+            // the ad hoc rule's reverse operation fallback logic.
+            //
+            // The difficulty is two-fold:
+            //
+            // 1. It's difficult to add the fallback flag to the rule map
+            //    because of rule_match which is used throughout.
+            //
+            // 2. Even if we could do that, we pass the reverse action to
+            //    reverse_fallback() rather than it returning (a list) of
+            //    reverse actions, which would be necessary to register them.
+            //
+            using fallback_rule = adhoc_rule_pattern::fallback_rule;
+
+            auto find_fallback = [mo, o, tt] (const fallback_rule& fr)
+              -> const rule_match*
+            {
+              for (const shared_ptr<adhoc_rule>& ar: fr.rules)
+                if (ar->reverse_fallback (action (mo, o), *tt))
+                  return &ar->rule_match;
+
+              return nullptr;
+            };
+
+            if (oi == 0)
+            {
+              if (auto* fr =
+                    dynamic_cast<const fallback_rule*> (&r->second.get ()))
+              {
+                if ((r = find_fallback (*fr)) == nullptr)
+                  continue;
+              }
+            }
+
+            const string& n (r->first);
+            const rule& ru (r->second);
 
             if (&ru == skip)
               continue;
 
-            match_extra me {false};
+            me.init (oi == 0 /* fallback */);
             {
               auto df = make_diag_frame (
                 [a, &t, &n](const diag_record& dr)
@@ -505,8 +534,20 @@ namespace build2
             diag_record dr;
             for (++i; i != rs.second; ++i)
             {
-              const string& n1 (i->first);
-              const rule& ru1 (i->second);
+              const rule_match* r1 (&*i);
+
+              if (oi == 0)
+              {
+                if (auto* fr =
+                      dynamic_cast<const fallback_rule*> (&r1->second.get ()))
+                {
+                  if ((r1 = find_fallback (*fr)) == nullptr)
+                    continue;
+                }
+              }
+
+              const string& n1 (r1->first);
+              const rule& ru1 (r1->second);
 
               {
                 auto df = make_diag_frame (
@@ -523,7 +564,8 @@ namespace build2
                 //
                 // @@ Can't we temporarily swap things out in target?
                 //
-                match_extra me1 {false};
+                match_extra me1;
+                me1.init (oi == 0);
                 if (!ru1.match (a, t, hint, me1))
                   continue;
               }
@@ -539,16 +581,15 @@ namespace build2
             }
 
             if (!ambig)
-            {
-              t[a].match_extra = move (me);
-              return &r;
-            }
+              return r;
             else
               dr << info << "use rule hint to disambiguate this match";
           }
         }
       }
     }
+
+    me.free ();
 
     if (!try_match)
     {
@@ -624,7 +665,7 @@ namespace build2
     if (const scope* rs = bs.root_scope ())
       penv = auto_project_env (*rs);
 
-    const rule& r (m.second);
+    const rule& ru (m.second);
     match_extra& me (t[a].match_extra);
 
     auto df = make_diag_frame (
@@ -635,15 +676,16 @@ namespace build2
              << diag_do (a, t);
       });
 
-    if (auto* f = (a.outer ()
-                   ? t.ctx.current_outer_oif
-                   : t.ctx.current_inner_oif)->adhoc_apply)
-    {
-      if (auto* ar = dynamic_cast<const adhoc_rule*> (&r))
-        return f (*ar, a, t, me);
-    }
+    auto* f ((a.outer ()
+              ? t.ctx.current_outer_oif
+              : t.ctx.current_inner_oif)->adhoc_apply);
 
-    return r.apply (a, t, me);
+    auto* ar (f == nullptr ? nullptr : dynamic_cast<const adhoc_rule*> (&ru));
+
+    recipe re (ar != nullptr ? f (*ar, a, t, me) : ru.apply (a, t, me));
+
+    me.free ();
+    return re;
   }
 
   // If step is true then perform only one step of the match/apply sequence.
