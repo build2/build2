@@ -345,16 +345,22 @@ namespace build2
             dr << info << "while matching ad hoc recipe to " << diag_do (a, t);
         });
 
-      auto match = [a, &t] (const adhoc_rule& r, optional<action> ra)
+      auto match = [a, &t] (const adhoc_rule& r, bool fallback) -> bool
       {
-        match_extra me;
+        match_extra me {fallback};
 
+        bool m;
         if (auto* f = (a.outer ()
                        ? t.ctx.current_outer_oif
                        : t.ctx.current_inner_oif)->adhoc_match)
-          return f (r, a, t, string () /* hint */, me,  ra);
+          m = f (r, a, t, string () /* hint */, me);
         else
-          return r.match (a, t, string () /* hint */, me, ra);
+          m = r.match (a, t, string () /* hint */, me);
+
+        if (m)
+          t[a].match_extra = move (me);
+
+        return m;
       };
 
       // The action could be Y-for-X while the ad hoc recipes are always for
@@ -372,13 +378,16 @@ namespace build2
                 {
                   auto& as (r.actions);
                   return (find (as.begin (), as.end (), ca) != as.end () &&
-                          match (*r.rule, nullopt));
+                          match (*r.rule, false));
                 }));
 
       if (i == e)
+      {
+        // See if we have a fallback implementation.
+        //
         i = find_if (
           b, e,
-          [&match, ca] (const adhoc_recipe& r)
+          [&match, ca, &t] (const adhoc_recipe& r)
           {
             // See the adhoc_rule::match() documentation for details on what's
             // going on here.
@@ -386,12 +395,17 @@ namespace build2
             auto& as (r.actions);
             if (find (as.begin (), as.end (), ca) == as.end ())
             {
-              for (auto ra: as)
-                if (match (*r.rule, ra))
+              for (auto sa: as)
+              {
+                optional<action> ra (r.rule->reverse_fallback (sa, t.type ()));
+
+                if (ra && *ra == ca && match (*r.rule, true))
                   return true;
+              }
             }
             return false;
           });
+      }
 
       if (i != e)
         return &i->rule->rule_match;
@@ -470,6 +484,7 @@ namespace build2
             if (&ru == skip)
               continue;
 
+            match_extra me {false};
             {
               auto df = make_diag_frame (
                 [a, &t, &n](const diag_record& dr)
@@ -479,7 +494,6 @@ namespace build2
                        << diag_do (a, t);
                 });
 
-              match_extra me;
               if (!ru.match (a, t, hint, me))
                 continue;
             }
@@ -509,7 +523,7 @@ namespace build2
                 //
                 // @@ Can't we temporarily swap things out in target?
                 //
-                match_extra me1;
+                match_extra me1 {false};
                 if (!ru1.match (a, t, hint, me1))
                   continue;
               }
@@ -525,7 +539,10 @@ namespace build2
             }
 
             if (!ambig)
+            {
+              t[a].match_extra = move (me);
               return &r;
+            }
             else
               dr << info << "use rule hint to disambiguate this match";
           }
@@ -607,6 +624,9 @@ namespace build2
     if (const scope* rs = bs.root_scope ())
       penv = auto_project_env (*rs);
 
+    const rule& r (m.second);
+    match_extra& me (t[a].match_extra);
+
     auto df = make_diag_frame (
       [a, &t, &m](const diag_record& dr)
       {
@@ -614,9 +634,6 @@ namespace build2
           dr << info << "while applying rule " << m.first << " to "
              << diag_do (a, t);
       });
-
-    const rule& r (m.second);
-    match_extra me;
 
     if (auto* f = (a.outer ()
                    ? t.ctx.current_outer_oif

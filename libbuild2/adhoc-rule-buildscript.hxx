@@ -22,9 +22,8 @@ namespace build2
                                 public adhoc_rule_with_deadline
   {
   public:
-    virtual bool
-    match (action, target&, const string&, match_extra&,
-           optional<action>) const override;
+    virtual optional<action>
+    reverse_fallback (action, const target_type&) const override;
 
     virtual recipe
     apply (action, target&, match_extra&) const override;

@@ -104,43 +104,33 @@ namespace build2
     os << ind << string (braces, '}');
   }
 
-  bool adhoc_buildscript_rule::
-  match (action a, target& t, const string&, match_extra&,
-         optional<action> fb) const
+  optional<action> adhoc_buildscript_rule::
+  reverse_fallback (action a, const target_type& tt) const
   {
-    if (!fb)
-      ;
-    // If this is clean for a file target and we are supplying the update,
-    // then we will also supply the standard clean.
+    // We can provide clean for a file target if we are providing update.
     //
-    else if (a   == perform_clean_id  &&
-             *fb == perform_update_id &&
-             t.is_a<file> ())
-      ;
-    else
-      return false;
+    if (a == perform_update_id && tt.is_a<file> ())
+      return perform_clean_id;
 
-    // It's unfortunate we have to resort to this but we need to remember this
-    // in apply().
-    //
-    t.data (fb.has_value ());
-
-    return true;
+    return nullopt;
   }
 
   recipe adhoc_buildscript_rule::
-  apply (action a, target& t, match_extra& e) const
+  apply (action a, target& t, match_extra& me) const
   {
-    return apply (a, t, e, nullopt);
+    return apply (a, t, me, nullopt);
   }
 
   recipe adhoc_buildscript_rule::
-  apply (action a, target& t, match_extra&, const optional<timestamp>& d) const
+  apply (action a,
+         target& t,
+         match_extra& me,
+         const optional<timestamp>& d) const
   {
-    // We don't support deadlines of any of these case (see below).
+    // We don't support deadlines for any of these cases (see below).
     //
-    if (d && (a.outer ()      ||
-              t.data<bool> () ||
+    if (d && (a.outer ()  ||
+              me.fallback ||
               (a == perform_update_id && t.is_a<file> ())))
       return empty_recipe;
 
@@ -177,7 +167,7 @@ namespace build2
 
     // See if we are providing the standard clean as a fallback.
     //
-    if (t.data<bool> ())
+    if (me.fallback)
       return &perform_clean_depdb;
 
     if (a == perform_update_id && t.is_a<file> ())
