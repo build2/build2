@@ -97,6 +97,16 @@ namespace build2
   //
   using rule_match = pair<const string, reference_wrapper<const rule>>;
 
+  // Additional information about a rule match (see rule.hxx for details).
+  //
+  // @@ TODO: will probably want to clear it after apply() if add anything
+  //    dynamically-allocated here (see apply_impl()).
+  //
+  struct match_extra
+  {
+    bool fallback; // True if matching a fallback rule.
+  };
+
   // Target.
   //
 
@@ -494,6 +504,10 @@ namespace build2
       // (see also the first/last execution modes in <libbuild2/operation.hxx>).
       //
       mutable atomic_count dependents {0};
+
+      // Match state storage between the match() and apply() calls.
+      //
+      build2::match_extra match_extra;
 
       // Matched rule (pointer to hint_rule_map element). Note that in case of
       // a direct recipe assignment we may not have a rule (NULL).

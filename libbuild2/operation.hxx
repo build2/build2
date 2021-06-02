@@ -233,8 +233,7 @@ namespace build2
     // proxied through these functions.
     //
     bool (*adhoc_match) (const adhoc_rule&,
-                         action, target&, const string&, match_extra&,
-                         optional<action>);
+                         action, target&, const string&, match_extra&);
 
     recipe (*adhoc_apply) (const adhoc_rule&, action, target&, match_extra&);
   };

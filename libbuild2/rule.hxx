@@ -24,13 +24,12 @@ namespace build2
   //
   // Note: match() is only called once but may not be followed by apply().
   //
-  // The match_extra argument is used to pass additional information that is
-  // only needed by some rule implementations. It is also a way for us to
-  // later pass more information without breaking source compatibility.
+  // The match_extra argument (the type is defined in target.hxx) is used to
+  // pass additional information that is only needed by some rule
+  // implementations. It is also a way for us to later pass more information
+  // without breaking source compatibility.
   //
-  struct match_extra
-  {
-  };
+  struct match_extra;
 
   class LIBBUILD2_SYMEXPORT rule
   {
@@ -172,18 +171,15 @@ namespace build2
   public:
     // Some of the operations come in compensating pairs, such as update and
     // clean, install and uninstall. An ad hoc rule implementation may choose
-    // to provide a fallback implementation of a compensating operation if it
-    // is providing the other half (passed in the fallback argument).
+    // to provide a fallback implementation of a reverse operation if it is
+    // providing the other half.
     //
-    // The default implementation calls rule::match() if fallback is absent
-    // and returns false if fallback is present. So an implementation that
-    // doesn't care about this semantics can implement the straight rule
-    // interface.
-    //
-    virtual bool
-    match (action, target&, const string&, match_extra&,
-           optional<action> fallback) const;
+    virtual optional<action>
+    reverse_fallback (action, const target_type&) const;
 
+    // The default implementation forwards to the pattern's match() if there
+    // is a pattern and returns true otherwise.
+    //
     virtual bool
     match (action, target&, const string&, match_extra&) const override;
 
