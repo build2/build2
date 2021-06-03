@@ -644,6 +644,32 @@ namespace build2
           }
         }
 
+        auto fail_regex = [&rl, &rd, &loc, &env, &output_info, &save_regex]
+                          (const regex_error& e, const string& what)
+        {
+          const auto& ls (rl.lines);
+
+          // Note that the parser treats both empty here-string (for example
+          // >:~'') and empty here-document redirects as an error and so there
+          // should be at least one line.
+          //
+          assert (!ls.empty ());
+
+          diag_record d (fail (rd.type == redirect_type::here_doc_regex
+                               ? loc (rd.end_line, rd.end_column)
+                               : loc (ls[0].line, ls[0].column)));
+
+          // Print regex_error description if meaningful.
+          //
+          d << what << " regex redirect" << e;
+
+          // It would be a waste to save the regex into the file just to
+          // remove it.
+          //
+          if (env.temp_dir_keep)
+            output_info (d, save_regex (), "", " regex");
+        };
+
         // Create line regex.
         //
         line_regex regex;
@@ -654,23 +680,7 @@ namespace build2
         }
         catch (const regex_error& e)
         {
-          // Note that line regex creation can not fail for here-string
-          // redirect as it doesn't have syntax line chars. That in
-          // particular means that end_line and end_column are meaningful.
-          //
-          assert (rd.type == redirect_type::here_doc_regex);
-
-          diag_record d (fail (loc (rd.end_line, rd.end_column)));
-
-          // Print regex_error description if meaningful.
-          //
-          d << "invalid " << what << " regex redirect" << e;
-
-          // It would be a waste to save the regex into the file just to
-          // remove it.
-          //
-          if (env.temp_dir_keep)
-            output_info (d, save_regex (), "", " regex");
+          fail_regex (e, string ("invalid ") + what);
         }
 
         // Parse the output into the literal line string.
@@ -720,8 +730,15 @@ namespace build2
 
         // Match the output with the regex.
         //
-        if (regex_match (ls, regex)) // Doesn't throw.
-          return true;
+        try
+        {
+          if (regex_match (ls, regex))
+            return true;
+        }
+        catch (const regex_error& e)
+        {
+          fail_regex (e, string ("unable to match ") + what);
+        }
 
         // Output doesn't match the regex.
         //
