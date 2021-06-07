@@ -44,14 +44,6 @@ namespace build2
       pair<string, bool>
       parse_module_name (token&, bool);
 
-      string
-      parse_module_part (token& t)
-      {
-        string n;
-        parse_module_part (t, n);
-        return n;
-      }
-
       void
       parse_module_part (token&, string&);
 

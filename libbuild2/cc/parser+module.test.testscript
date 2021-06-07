@@ -59,6 +59,16 @@ import foo:part;
 import foo:part.sub;
 EOO
 
+: import-part-from-part
+:
+$* <<EOI >>EOO
+module foo:part;
+import :part.sub;
+EOI
+module foo:part;
+import foo:part.sub;
+EOO
+
 : export-imported
 :
 $* <<EOI >>EOO

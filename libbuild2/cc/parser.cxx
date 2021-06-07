@@ -195,7 +195,7 @@ namespace build2
       if (!u_->module_info.name.empty ())
         fail (l) << "multiple module declarations";
 
-      u_->type =np.second
+      u_->type = np.second
         ? (ex ? unit_type::module_intf_part : unit_type::module_impl_part)
         : (ex ? unit_type::module_intf      : unit_type::module_impl);
       u_->module_info.name = move (np.first);
@@ -226,22 +226,28 @@ namespace build2
         }
       case type::colon:
         {
+          // Add the module name to the partition so that code that doesn't
+          // need to distinguish between different kinds of imports doesn't
+          // have to.
+          //
+          // Note that if this itself is a partition, then we need to strip
+          // the partition part from the module name.
+          //
           switch (u_->type)
           {
           case unit_type::module_intf:
           case unit_type::module_impl:
+            un = u_->module_info.name;
+            break;
           case unit_type::module_intf_part:
           case unit_type::module_impl_part:
+            un.assign (u_->module_info.name, 0, u_->module_info.name.find (':'));
             break;
           default:
             fail (t) << "partition importation out of module purview";
           }
 
-          // Add the module name to the partition so that code that doesn't
-          // need to distinguish beetween different kinds of imports doesn't
-          // have to.
-          //
-          un = u_->module_info.name + parse_module_part (t);
+          parse_module_part (t, un);
           ut = import_type::module_part;
           break;
         }
