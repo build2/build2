@@ -733,18 +733,11 @@ namespace build2
             sg = enter_scope (*this, move (n.dir));
           }
 
-          // Resolve target type. If none is specified or if it is '*',
-          // use the root of the target type hierarchy. So these are all
-          // equivalent:
+          // Resolve target type. If none is specified, then it's file{}.
           //
-          // *: foo = bar
-          // {*}: foo = bar
-          // *{*}: foo = bar
-          //
-          const target_type* ttype (
-            n.untyped () || n.type == "*"
-            ? &target::static_type
-            : scope_->find_target_type (n.type));
+          const target_type* ttype (n.untyped ()
+                                    ? &file::static_type
+                                    : scope_->find_target_type (n.type));
 
           if (ttype == nullptr)
             fail (nloc) << "unknown target type " << n.type;
@@ -1074,12 +1067,8 @@ namespace build2
           {
             // Resolve target type (same as in for_one_pat()).
             //
-            // @@ TODO: maybe untyped should mean file{} as everywhere else?
-            //    Also, why do we bother with *{}, is it that hard to write
-            //    target{*}? Note: here, in vars, and in regex_pattern.
-            //
-            ttype = n.untyped () || n.type == "*"
-              ? &target::static_type
+            ttype = n.untyped ()
+              ? &file::static_type
               : scope_->find_target_type (n.type);
 
             if (ttype == nullptr)

@@ -786,8 +786,8 @@ namespace build2
       return derived_type != nullptr ? *derived_type : dynamic_type ();
     }
 
-    virtual const target_type& dynamic_type () const = 0;
     static const target_type static_type;
+    virtual const target_type& dynamic_type () const = 0;
 
     // RW access.
     //

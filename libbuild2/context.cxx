@@ -262,15 +262,21 @@ namespace build2
     {
       target_type_map& t (data_->global_target_types);
 
-      t.insert<file>  ();
-      t.insert<alias> ();
-      t.insert<dir>   ();
-      t.insert<fsdir> ();
-      t.insert<exe>   ();
-      t.insert<doc>   ();
-      t.insert<legal> ();
-      t.insert<man>   ();
-      t.insert<man1>  ();
+      // These are abstract.
+      //
+      t.insert<target>       ();
+      t.insert<mtime_target> ();
+      t.insert<path_target>  ();
+
+      t.insert<file>         ();
+      t.insert<alias>        ();
+      t.insert<dir>          ();
+      t.insert<fsdir>        ();
+      t.insert<exe>          ();
+      t.insert<doc>          ();
+      t.insert<legal>        ();
+      t.insert<man>          ();
+      t.insert<man1>         ();
 
       {
         auto& tt (t.insert<manifest> ());
