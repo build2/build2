@@ -58,7 +58,7 @@ print $(file{x-foz}: x)
 
 *: x1 = X1
 {*}: x2 = X2
-*{*}: x3 = X3
+target{*}: x3 = X3
 print $(file{x}: x1)
 print $(file{x}: x2)
 print $(file{x}: x3)

@@ -83,9 +83,7 @@ namespace build2
     {
       if (tt == nullptr)
       {
-        tt = n.untyped () || n.type == "*"
-        ? &target::static_type
-        : s.find_target_type (n.type);
+        tt = n.untyped () ? &file::static_type : s.find_target_type (n.type);
 
         if (tt == nullptr)
           fail (loc) << "unknown target type " << n.type;
