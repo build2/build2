@@ -28,7 +28,6 @@ namespace build2
 
       script parser::
       pre_parse (const scope& bs,
-                 const target* tg,
                  const small_vector<action, 1>& as,
                  istream& is, const path_name& pn, uint64_t line,
                  optional<string> diag, const location& diag_loc)
@@ -40,11 +39,11 @@ namespace build2
         lexer l (is, *path_, line, lexer_mode::command_line);
         set_lexer (&l);
 
-        // The script shouldn't be able to modify the target/scopes.
+        // The script shouldn't be able to modify the scopes.
         //
-        target_  = const_cast<target*> (tg);
+        target_  = nullptr;
         actions_ = &as;
-        scope_   = const_cast<scope*> (tg != nullptr ? &tg->base_scope () : &bs);
+        scope_   = const_cast<scope*> (&bs);
         root_    = scope_->root_scope ();
 
         pbase_  = scope_->src_path_;
@@ -585,18 +584,12 @@ namespace build2
 
         parse_names_result pr;
         {
-          // During pre-parse, if the script name is not set manually and we
-          // have the target, we suspend pre-parse, parse the command names
-          // for real and try to deduce the script name from the result.
-          // Otherwise, we continue to pre-parse and bail out after parsing
-          // the names.
+          // During pre-parse, if the script name is not set manually we
+          // suspend pre-parse, parse the command names for real and try to
+          // deduce the script name from the result. Otherwise, we continue
+          // to pre-parse and bail out after parsing the names.
           //
-          // @@ TODO: maybe we could recognize literal names even if target
-          //    is NULL (see the tests for some ugly recipes). But will need
-          //    to be careful to still pick up ambiguity between literal and
-          //    skipped due to target being NULL.
-          //
-          // Note that the later is not just an optimization since expansion
+          // Note that the latter is not just an optimization since expansion
           // that wouldn't fail during execution may fail in this special
           // mode, for example:
           //
@@ -615,7 +608,7 @@ namespace build2
           //
           // This is also the reason why we add a diag frame.
           //
-          if (pre_parse_ && (diag_weight_ != 4 && target_ != nullptr))
+          if (pre_parse_ && diag_weight_ != 4)
           {
             pre_parse_ = false; // Make parse_names() perform expansions.
             pre_parse_suspended_ = true;
@@ -646,7 +639,7 @@ namespace build2
             pre_parse_ = true;
           }
 
-          if (pre_parse_ && (diag_weight_ == 4 || target_ == nullptr))
+          if (pre_parse_ && diag_weight_ == 4)
             return nullopt;
         }
 
@@ -1041,6 +1034,7 @@ namespace build2
         // it could be used for (we need scope_ for calling functions such as
         // $target.path()).
         //
+        target_ = nullptr;
         root_ = const_cast<scope*> (&rs);
         scope_ = const_cast<scope*> (&bs);
         pbase_ = scope_->src_path_;
@@ -1170,7 +1164,7 @@ namespace build2
               const variable* pvar (scope_->ctx.var_pool.find (name));
 
               if (pvar != nullptr)
-                r = (*target_)[*pvar];
+                r = (*scope_)[*pvar];
             }
 
             if (!depdb_clear_)
