@@ -32,11 +32,21 @@ namespace build2
         parser (context& c): build2::script::parser (c) {}
 
         // Note that the returned script object references the passed path
-        // name. Target is NULL if this recipe is shared among multiple
-        // targets.
+        // name.
+        //
+        // Note also that we use the scope to lookup variable values while
+        // trying to deduce the low verbosity diagnostics name (see code
+        // around pre_parse_suspended for details). But that means we may
+        // derive such a name based on the wrong value. This can happen if the
+        // expanded variable value is reset after the recipe has been
+        // pre-parsed or if such a value is set on the target (which is where
+        // we start when looking up variables during the real parse). The
+        // current thinking is that a remote possibility of this happening is
+        // acceptable in this situation -- the worst that can happen is that
+        // we will end up with mismatching diagnostics.
         //
         script
-        pre_parse (const scope&, const target*, const small_vector<action, 1>&,
+        pre_parse (const scope&, const small_vector<action, 1>&,
                    istream&, const path_name&, uint64_t line,
                    optional<string> diag_name, const location& diag_loc);
 

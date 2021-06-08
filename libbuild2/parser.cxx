@@ -1567,7 +1567,6 @@ namespace build2
       }
     }
 
-    bool multi (replay_ != replay::stop); // Multiple targets.
     bool first (replay_ != replay::play); // First target.
     bool clean (false);                   // Seen recipe that requires cleanup.
 
@@ -1584,14 +1583,13 @@ namespace build2
       {
         const string&                            name;
         small_vector<shared_ptr<adhoc_rule>, 1>& recipes;
-        bool                                     multi;
         bool                                     first;
         bool&                                    clean;
         size_t                                   i;
         attributes&                              as;
         buildspec&                               bs;
         const location&                          bsloc;
-      } d {name, recipes, multi, first, clean, i, as, bs, bsloc};
+      } d {name, recipes, first, clean, i, as, bs, bsloc};
 
       // Note that this function must be called at most once per iteration.
       //
@@ -1799,11 +1797,7 @@ namespace build2
 
             // Set the recipe text.
             //
-            if (ar.recipe_text (ctx,
-                                *scope_,
-                                d.multi ? nullptr : target_,
-                                move (t.value),
-                                d.as))
+            if (ar.recipe_text (*scope_, move (t.value), d.as))
               d.clean = true;
 
             // Verify we have no unhandled attributes.

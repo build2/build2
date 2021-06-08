@@ -23,11 +23,7 @@ using namespace std;
 namespace build2
 {
   bool adhoc_buildscript_rule::
-  recipe_text (context& ctx,
-               const scope& s,
-               const target* tg,
-               string&& t,
-               attributes& as)
+  recipe_text (const scope& s, string&& t, attributes& as)
   {
     // Handle and erase recipe-specific attributes.
     //
@@ -58,9 +54,9 @@ namespace build2
     checksum = sha256 (t).string ();
 
     istringstream is (move (t));
-    build::script::parser p (ctx);
+    build::script::parser p (s.ctx);
 
-    script = p.pre_parse (s, tg, actions,
+    script = p.pre_parse (s, actions,
                           is, loc.file, loc.line + 1,
                           move (diag), as.loc);
 

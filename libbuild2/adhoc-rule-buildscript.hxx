@@ -42,8 +42,7 @@ namespace build2
         : adhoc_rule (move (n), l, b) {}
 
     virtual bool
-    recipe_text (context&, const scope&, const target*,
-                 string&&, attributes&) override;
+    recipe_text (const scope&, string&&, attributes&) override;
 
     virtual void
     dump_attributes (ostream&) const override;

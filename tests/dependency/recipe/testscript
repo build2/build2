@@ -28,16 +28,14 @@ EOE
 $* <<EOI 2>>/~%EOE%
 alias{x y}: alias{z}
 {{
-  diag echo
   echo
 }}
 dump alias{y}
 EOI
-<stdin>:6:1: dump:
+<stdin>:5:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
 EOE
@@ -66,16 +64,14 @@ $* <<EOI 2>>/~%EOE%
 alias{x y}:
 % perform(update clean)
 {{
-  diag echo
   echo
 }}
 dump alias{y}
 EOI
-<stdin>:7:1: dump:
+<stdin>:6:1: dump:
 %  .+/alias\{y\}:%
-  % perform(update) perform(clean)
+  % [diag=echo] perform(update) perform(clean)
   {{
-    diag echo
     echo
   }}
 EOE
@@ -128,19 +124,17 @@ alias{x y}: alias{z}
   var = x
 }
 {{
-  diag echo
   echo
 }}
 dump alias{y}
 EOI
-<stdin>:9:1: dump:
+<stdin>:8:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
   {
     var = x
   }
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
 EOE
@@ -176,19 +170,17 @@ $* <<EOI 2>>/~%EOE%
   var = x
 }
 {{
-  diag echo
   echo
 }}
 dump alias{y}
 EOI
-<stdin>:9:1: dump:
+<stdin>:8:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
   {
     var = x
   }
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
 EOE
@@ -226,19 +218,17 @@ alias{x y}:
 }
 % perform(update)
 {{
-  diag echo
   echo
 }}
 dump alias{y}
 EOI
-<stdin>:10:1: dump:
+<stdin>:9:1: dump:
 %  .+/alias\{y\}:%
   {
     var = x
   }
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
 EOE
@@ -273,26 +263,22 @@ EOE
 $* <<EOI 2>>/~%EOE%
 alias{x y}: alias{z}
 {{
-  diag echo
   echo
 }}
 % clean
 {{{
-  diag cat
   cat
 }}}
 dump alias{y}
 EOI
-<stdin>:11:1: dump:
+<stdin>:9:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
-  % perform(clean)
+  % [diag=cat] perform(clean)
   {{{
-    diag cat
     cat
   }}}
 EOE
@@ -331,27 +317,23 @@ alias{x y}:
 
 % clean
 {{
-  diag echo
   echo
 }}
 
 % update
 {{{
-  diag cat
   cat
 }}}
 dump alias{y}
 EOI
-<stdin>:14:1: dump:
+<stdin>:12:1: dump:
 %  .+/alias\{y\}:%
-  % perform(clean)
+  % [diag=echo] perform(clean)
   {{
-    diag echo
     echo
   }}
-  % perform(update)
+  % [diag=cat] perform(update)
   {{{
-    diag cat
     cat
   }}}
 EOE
@@ -504,21 +486,18 @@ alias{x y}: alias{z}
 %
 if $f
 {{
-  diag false
   false
 }}
 else
 {{
-  diag echo
   echo
 }}
 dump alias{y}
 EOI
-<stdin>:14:1: dump:
+<stdin>:12:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
 EOE
@@ -580,27 +559,23 @@ switch $f
 {
   case 1
   {{
-    diag false
     false
   }}
   case 2
   {{
-    diag echo
     echo
   }}
   default
   {{
-    diag false
     false
   }}
 }
 dump alias{y}
 EOI
-<stdin>:22:1: dump:
+<stdin>:19:1: dump:
 %  .+/alias\{y\}: .+/:alias\{z\}%
-  % perform(update)
+  % [diag=echo] perform(update)
   {{
-    diag echo
     echo
   }}
 EOE

@@ -208,7 +208,7 @@ namespace build2
           parser p (ctx);
           path_name nm ("buildfile");
 
-          script s (p.pre_parse (tt.base_scope (), &tt, acts,
+          script s (p.pre_parse (tt.base_scope (), acts,
                                  cin, nm,
                                  11 /* line */,
                                  (m != mode::diag

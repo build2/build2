@@ -172,18 +172,13 @@ namespace build2
 
     // Set the rule text, handle any recipe-specific attributes, and return
     // true if the recipe builds anything in the build/recipes/ directory and
-    // therefore requires cleanup.
+    // therefore requires cleanup. Scope is the scope of the recipe.
     //
-    // Target is not NULL only if this recipe is for a single target. Scope is
-    // the scope of the recipe (not necessarily the same as the target's base
-    // scope).
-    //
-    // Note that this function is called after the actions member has been
-    // populated.
+    // Note also that this function is called after the actions member has
+    // been populated.
     //
     virtual bool
-    recipe_text (context&, const scope&, const target*,
-                 string&&, attributes&) = 0;
+    recipe_text (const scope&, string&&, attributes&) = 0;
 
   public:
     // Some of the operations come in compensating pairs, such as update and
