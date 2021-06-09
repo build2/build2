@@ -14,6 +14,10 @@ namespace build2
 {
   // Ad hoc rule regex pattern.
   //
+  // The name signature is stored in match_extra::buffer while the regex
+  // match_results object -- in the target auxiliary data storage. Both must
+  // remain valid until after the apply_*() calls.
+  //
   // Note: exported since may be accessed by ad hoc recipe implementation.
   //
   class LIBBUILD2_SYMEXPORT adhoc_rule_regex_pattern: public adhoc_rule_pattern

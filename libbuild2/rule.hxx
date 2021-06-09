@@ -146,7 +146,8 @@ namespace build2
   // Used for both ad hoc pattern rules and ad hoc recipes. For recipes, it's
   // essentially a rule of one case. Note that when used as part of a pattern,
   // the implementation cannot use the match_extra::buffer nor the target
-  // auxilary data storage.
+  // auxiliary data storage until the pattern's apply_*() calls have been
+  // made.
   //
   // Note: not exported.
   //

@@ -180,19 +180,20 @@ if (!$static && $test.target == $build.host)
         --
 
         recipe
-        apply (action, target&) const override
+        apply (action, target& t) const override
         {
-          return [this] (action a, const target& t)
+          const auto& mrs (t.data<regex_match_results> ());
+
+          return [this, mr = mrs.str (1)] (action a, const target& t)
           {
-            return perform_update (a, t);
+            return perform_update (a, t, mr);
           };
         }
 
         target_state
-        perform_update (action, const target& t) const
+        perform_update (action, const target&, const string& mr) const
         {
-          const auto& mr (t.data<regex_match_results> ());
-          text << pattern->rule_name << ": " << mr.str (1);
+          text << pattern->rule_name << ": " << mr;
           return target_state::changed;
         }
       }}
