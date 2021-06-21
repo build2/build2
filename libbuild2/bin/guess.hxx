@@ -16,7 +16,7 @@ namespace build2
     // Currently recognized ar/ranlib and their ids:
     //
     // gnu          GNU binutils
-    // llvm         LLVM ar
+    // llvm         LLVM llvm-ar
     // bsd          FreeBSD (and maybe other BSDs)
     // msvc         Microsoft's lib.exe
     // msvc-llvm    LLVM llvm-lib.exe
@@ -133,6 +133,39 @@ namespace build2
 
     const rc_info&
     guess_rc (const path& rc, const char* paths);
+
+    // nm information.
+    //
+    // Currently recognized nm and nm-like utilities and their ids:
+    //
+    // gnu          GNU binutils nm
+    // msvc         Microsoft's dumpbin.exe
+    // llvm         LLVM llvm-nm
+    // generic      Other/generic/unrecognized
+    //
+    // The signature is normally the --version line.
+    //
+    // The checksum is used to detect nm changes. It is calculated in a
+    // toolchain-specific manner (usually the output of --version) and is not
+    // bulletproof.
+    //
+    // The environment is an optional list of environment variables that
+    // affect the resource compiler result.
+    //
+    // Watch out for the environment not to affect any of the extracted
+    // information since we cache it.
+    //
+    struct nm_info
+    {
+      process_path path;
+      string id;
+      string signature;
+      string checksum;
+      const char* const* environment;
+    };
+
+    const nm_info&
+    guess_nm (const path& nm, const char* paths);
   }
 }
 

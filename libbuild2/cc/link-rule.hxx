@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_CC_LINK_RULE_HXX
 #define LIBBUILD2_CC_LINK_RULE_HXX
 
-#include <set>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
@@ -262,7 +260,7 @@ namespace build2
         bool operator< (const windows_dll& y) const {return dll < y.dll;}
       };
 
-      using windows_dlls = std::set<windows_dll>;
+      using windows_dlls = set<windows_dll>;
 
       timestamp
       windows_rpath_timestamp (const file&,

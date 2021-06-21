@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_CONFIG_OPERATION_HXX
 #define LIBBUILD2_CONFIG_OPERATION_HXX
 
-#include <set>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
@@ -29,7 +27,7 @@ namespace build2
 
     // Configuration exporting.
     //
-    using project_set = std::set<const scope*>; // Pointers for comparison.
+    using project_set = set<const scope*>; // Pointers for comparison.
 
     // If inherit is false, then don't rely on inheritance from outer scopes
     // (used for config.config.save/$config.save()). In this case the already

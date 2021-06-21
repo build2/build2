@@ -16,6 +16,7 @@
 #include <libbuild2/install/utility.hxx>
 
 #include <libbuild2/bin/rule.hxx>
+#include <libbuild2/bin/def-rule.hxx>
 #include <libbuild2/bin/guess.hxx>
 #include <libbuild2/bin/target.hxx>
 #include <libbuild2/bin/utility.hxx>
@@ -30,6 +31,7 @@ namespace build2
     static const obj_rule obj_;
     static const libul_rule libul_;
     static const lib_rule lib_;
+    static const def_rule def_;
 
     // Default config.bin.*.lib values.
     //
@@ -937,6 +939,21 @@ namespace build2
         }
       }
 
+      // Register .def file rule.
+      //
+      if (lid == "msvc" || lid == "msvc-lld")
+      {
+        // If we are using link.exe, then we can access dumpbin via the
+        // link.exe /DUMP option. But for lld-link we need llvm-nm.
+        //
+        if (lid == "msvc-lld")
+          load_module (rs, bs, "bin.nm.config", loc, extra.hints);
+
+        bs.insert_rule<def> (perform_update_id,   "bin.def", def_);
+        bs.insert_rule<def> (perform_clean_id,    "bin.def", def_);
+        bs.insert_rule<def> (configure_update_id, "bin.def", def_);
+      }
+
       return true;
     }
 
@@ -1039,6 +1056,114 @@ namespace build2
       return true;
     }
 
+    bool
+    nm_config_init (scope& rs,
+                    scope& bs,
+                    const location& loc,
+                    bool first,
+                    bool,
+                    module_init_extra& extra)
+    {
+      tracer trace ("bin::nm_config_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // Make sure bin.config is loaded.
+      //
+      load_module (rs, bs, "bin.config", loc, extra.hints);
+
+      // Enter configuration variables.
+      //
+      if (first)
+      {
+        auto& vp (rs.var_pool ());
+
+        vp.insert<path> ("config.bin.nm");
+      }
+
+      // Configuration.
+      //
+      if (first)
+      {
+        using config::lookup_config;
+
+        bool new_cfg (false); // Any new configuration values?
+
+        // config.bin.nm
+        //
+        // Use the target to decide on the default nm name. Note that in case
+        // of win32-msvc this is insufficient and we fallback to the linker
+        // type (if available) to decide between dumpbin and llvm-nm.
+        //
+        // Finally note that the dumpbin.exe functionality is available via
+        // link.exe /DUMP.
+        //
+        const string& tsys (cast<string> (rs["bin.target.system"]));
+        const char* nm_d (tsys == "win32-msvc"
+                          ? (cast_empty<string> (rs["bin.ld.id"]) == "msvc-lld"
+                             ? "llvm-nm"
+                             : "dumpbin")
+                          : "nm");
+
+        // This can be either a pattern or search path(s).
+        //
+        pattern_paths pat (lookup_pattern (rs));
+
+        const path& nm (
+          cast<path> (
+            lookup_config (new_cfg,
+                           rs,
+                           "config.bin.nm",
+                           path (apply_pattern (nm_d, pat.pattern)),
+                           config::save_default_commented)));
+
+        const nm_info& nmi (guess_nm (nm, pat.paths));
+
+        // If this is a configuration with new values, then print the report
+        // at verbosity level 2 and up (-v).
+        //
+        if (verb >= (new_cfg ? 2 : 3))
+        {
+          text << "bin.nm " << project (rs) << '@' << rs << '\n'
+               << "  nm         " << nmi.path << '\n'
+               << "  id         " << nmi.id << '\n'
+               << "  signature  " << nmi.signature << '\n'
+               << "  checksum   " << nmi.checksum;
+        }
+
+        rs.assign<process_path_ex> ("bin.nm.path")   = process_path_ex (
+          nmi.path,
+          "nm",
+          nmi.checksum,
+          hash_environment (nmi.environment));
+        rs.assign<string>       ("bin.nm.id")        = nmi.id;
+        rs.assign<string>       ("bin.nm.signature") = nmi.signature;
+        rs.assign<string>       ("bin.nm.checksum")  = nmi.checksum;
+
+        config::save_environment (rs, nmi.environment);
+      }
+
+      return true;
+    }
+
+    bool
+    nm_init (scope& rs,
+             scope& bs,
+             const location& loc,
+             bool,
+             bool,
+             module_init_extra& extra)
+    {
+      tracer trace ("bin::nm_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // Make sure the bin core and nm.config are loaded.
+      //
+      load_module (rs, bs, "bin",           loc, extra.hints);
+      load_module (rs, bs, "bin.nm.config", loc, extra.hints);
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
@@ -1053,6 +1178,8 @@ namespace build2
       {"bin.ld",        nullptr, ld_init},
       {"bin.rc.config", nullptr, rc_config_init},
       {"bin.rc",        nullptr, rc_init},
+      {"bin.nm.config", nullptr, nm_config_init},
+      {"bin.nm",        nullptr, nm_init},
       {nullptr,         nullptr, nullptr}
     };
 

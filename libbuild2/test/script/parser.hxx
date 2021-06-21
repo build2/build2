@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_TEST_SCRIPT_PARSER_HXX
 #define LIBBUILD2_TEST_SCRIPT_PARSER_HXX
 
-#include <set>
 #include <unordered_map>
 
 #include <libbuild2/types.hxx>
@@ -132,7 +131,7 @@ namespace build2
         // Pre-parse state.
         //
         using id_map = std::unordered_map<string, location>;
-        using include_set = std::set<path>;
+        using include_set = set<path>;
 
         group* group_;
         id_map* id_map_;

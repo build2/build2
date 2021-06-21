@@ -4,8 +4,6 @@
 #ifndef LIBBUILD2_TEST_SCRIPT_SCRIPT_HXX
 #define LIBBUILD2_TEST_SCRIPT_SCRIPT_HXX
 
-#include <set>
-
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
@@ -382,7 +380,7 @@ namespace build2
           }
         };
 
-        std::set<path_name_value, compare_paths> paths_;
+        set<path_name_value, compare_paths> paths_;
       };
     }
   }

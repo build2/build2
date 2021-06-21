@@ -21,6 +21,8 @@ namespace build2
     //
     // `bin.vars`      -- registers some variables.
     // `bin.config`    -- loads bin.vars and sets some variables.
+    // `bin`           -- loads bin.config and registers target types and
+    //                    rules.
     // `bin.ar.config` -- loads bin.config and registers/sets more variables.
     // `bin.ar`        -- loads bin and bin.ar.config.
     // `bin.ld.config` -- loads bin.config and registers/sets more variables.
@@ -28,8 +30,8 @@ namespace build2
     //                    target types for msvc.
     // `bin.rc.config` -- loads bin.config and registers/sets more variables.
     // `bin.rc`        -- loads bin and bin.rc.config.
-    // `bin`           -- loads bin.config and registers target types and
-    //                    rules.
+    // `bin.nm.config` -- loads bin.config and registers/sets more variables.
+    // `bin.nm`        -- loads bin and bin.nm.config.
     //
     extern "C" LIBBUILD2_BIN_SYMEXPORT const module_functions*
     build2_bin_load ();

@@ -14,6 +14,7 @@
 #endif
 
 #include <map>
+#include <set>
 #include <array>
 #include <tuple>
 #include <regex>
@@ -97,6 +98,8 @@ namespace build2
 
   using std::map;
   using std::multimap;
+  using std::set;
+  using std::multiset;
   using std::array;
   using std::vector;
   using butl::vector_view;  // <libbutl/vector-view.mxx>

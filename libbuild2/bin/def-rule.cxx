@@ -1,0 +1,610 @@
+// file      : libbuild2/bin/def-rule.cxx -*- C++ -*-
+// license   : MIT; see accompanying LICENSE file
+
+#include <libbuild2/bin/def-rule.hxx>
+
+#include <libbuild2/depdb.hxx>
+#include <libbuild2/scope.hxx>
+#include <libbuild2/target.hxx>
+#include <libbuild2/algorithm.hxx>
+#include <libbuild2/diagnostics.hxx>
+
+#include <libbuild2/bin/target.hxx>
+#include <libbuild2/bin/utility.hxx>
+
+namespace build2
+{
+  namespace bin
+  {
+    struct symbols
+    {
+      set<string> d; // data
+      set<string> r; // read-only data
+      set<string> b; // uninitialized data (BSS)
+      set<string> t; // text (code)
+    };
+
+    static void
+    parse_dumpbin (istream& is, symbols& syms)
+    {
+      // Lines that describe symbols look like:
+      //
+      // 0   1        2      3          4            5 6
+      // IDX OFFSET   SECT   SYMTYPE    VISIBILITY     SYMNAME
+      // ------------------------------------------------------------------------
+      // 02E 00000130 SECTA  notype     External     | _standbyState
+      // 02F 00000009 SECT9  notype     Static       | _LocalRecoveryInProgress
+      // 064 00000020 SECTC  notype ()  Static       | _XLogCheckBuffer
+      // 065 00000000 UNDEF  notype ()  External     | _BufferGetTag
+      //
+      // IDX is the symbol index and OFFSET is its offset.
+      //
+      // SECT[ION] is the name of the section where the symbol is defined. If
+      // UNDEF, then it's a symbol to be resolved at link time from another
+      // object file.
+      //
+      // SYMTYPE is always notype for C/C++ symbols as there's no typeinfo and
+      // no way to get the symbol type from name (de)mangling. However, we
+      // care if "notype" is suffixed by "()" or not. The presence of () means
+      // the symbol is a function, the absence means it isn't.
+      //
+      // VISIBILITY indicates whether it's a compilation-unit local static
+      // symbol ("Static"), or whether it's available for use from other
+      // compilation units ("External"). Note that there are other values,
+      // such as "WeakExternal", and "Label".
+      //
+      // SYMNAME is the symbol name.
+      //
+      // The first symbol in each section appears to specify the section type,
+      // for example:
+      //
+      // 006 00000000 SECT3  notype    Static       | .rdata
+      // B44 00000000 SECT4  notype    Static       | .rdata$r
+      // AA2 00000000 SECT5  notype    Static       | .bss
+      //
+
+      // Map of read-only (.rdata, .xdata) and uninitialized (.bss) sections
+      // to their types (R and B, respectively). If a section is not found in
+      // this map, then it's assumed to be normal data (.data).
+      //
+      map<string, char> sections;
+
+      string l;
+      while (!eof (getline (is, l)))
+      {
+        size_t b (0), e (0), n;
+
+        // IDX (note that it can be more than 3 characters).
+        //
+        if (next_word (l, b, e) == 0)
+          continue;
+
+        // OFFSET (always 8 characters).
+        //
+        n = next_word (l, b, e);
+
+        if (n != 8)
+          continue;
+
+        string off (l, b, n);
+
+        // SECT
+        //
+        n = next_word (l, b, e);
+
+        if (n == 0 || l.compare (b, n, "UNDEF") == 0)
+          continue;
+
+        string sec (l, b, n);
+
+        // TYPE
+        //
+        n = next_word (l, b, e);
+
+        if (l.compare (b, n, "notype") != 0)
+          continue;
+
+        bool d;
+        if (l[e] == ' ' && l[e + 1] == '(' && l[e + 2] == ')')
+        {
+          e += 3;
+          d = false;
+        }
+        else
+          d = true;
+
+        // VISIBILITY
+        //
+        n = next_word (l, b, e);
+
+        if (n == 0)
+          continue;
+
+        string vis (l, b, n);
+
+        // |
+        //
+        n = next_word (l, b, e);
+
+        if (n != 1 || l[b] != '|')
+          continue;
+
+        // SYMNAME
+        //
+        n = next_word (l, b, e);
+
+        if (n == 0)
+          continue;
+
+        string s (l, b, n);
+
+        // See if this is the section type symbol.
+        //
+        if (d && off == "00000000" && vis == "Static" && s[0] == '.')
+        {
+          auto cmp = [&s] (const char* n, size_t l)
+          {
+            return s.compare (0, l, n) == 0 && (s[l] == '\0' || s[l] == '$');
+          };
+
+          if      (cmp (".rdata", 6) ||
+                   cmp (".xdata", 6))    sections.emplace (move (sec), 'R');
+          else if (cmp (".bss",   4))    sections.emplace (move (sec), 'B');
+
+          continue;
+        }
+
+        // We can only export extern symbols.
+        //
+        if (vis != "External")
+          continue;
+
+        if (d)
+        {
+          auto i (sections.find (sec));
+          switch (i == sections.end () ? 'D' : i->second)
+          {
+          case 'D': syms.d.insert (move (s)); break;
+          case 'R': syms.r.insert (move (s)); break;
+          case 'B': syms.b.insert (move (s)); break;
+          }
+        }
+        else
+          syms.t.insert (move (s));
+      }
+    }
+
+    static void
+    parse_llvm_nm (istream& is, symbols& syms)
+    {
+      // Lines that describe symbols look like:
+      //
+      // <NAME> <TYPE> <VALUE> <SIZE>
+      //
+      // The types that we are interested in are T, D, R, and B.
+      //
+      string l;
+      while (!eof (getline (is, l)))
+      {
+        size_t b (0), e (0), n;
+
+        // NAME
+        //
+        n = next_word (l, b, e);
+
+        if (n == 0)
+          continue;
+
+        string s (l, b, n);
+
+        // TYPE
+        //
+        n = next_word (l, b, e);
+
+        if (n != 1)
+          continue;
+
+        switch (l[b])
+        {
+        case 'D': syms.d.insert (move (s)); break;
+        case 'R': syms.r.insert (move (s)); break;
+        case 'B': syms.b.insert (move (s)); break;
+        case 'T': syms.t.insert (move (s)); break;
+        }
+      }
+    }
+
+    bool def_rule::
+    match (action a, target& t, const string&) const
+    {
+      tracer trace ("bin::def_rule::match");
+
+      // See if we have an object file or a utility library.
+      //
+      for (prerequisite_member p: reverse_group_prerequisite_members (a, t))
+      {
+        // If excluded or ad hoc, then don't factor it into our tests.
+        //
+        if (include (a, t, p) != include_type::normal)
+          continue;
+
+        if (p.is_a<obj> ()   || p.is_a<objs> () ||
+            p.is_a<bmi> ()   || p.is_a<bmis> () ||
+            p.is_a<libul> () || p.is_a<libus> ())
+          return true;
+      }
+
+      l4 ([&]{trace << "no object or utility library prerequisite for target "
+                    << t;});
+      return false;
+    }
+
+    recipe def_rule::
+    apply (action a, target& xt) const
+    {
+      def& t (xt.as<def> ());
+
+      t.derive_path ();
+
+      // Inject dependency on the output directory.
+      //
+      inject_fsdir (a, t);
+
+      // Match prerequisites only picking object files and utility libraries.
+      //
+      match_prerequisite_members (
+        a,
+        t,
+        [] (action a,
+            const target& t,
+            const prerequisite_member& p,
+            include_type i) -> prerequisite_target
+        {
+          return
+            i == include_type::adhoc ? nullptr :
+            //
+            // If this is a target group, then pick the appropriate member
+            // (the same semantics as what we have in link-rule).
+            //
+            p.is_a<obj> ()   ? &search (t, objs::static_type, p.key ()) :
+            p.is_a<bmi> ()   ? &search (t, bmis::static_type, p.key ()) :
+            p.is_a<libul> () ? link_member (p.search (t).as<libul> (),
+                                            a,
+                                            linfo {otype::s, lorder::s}) :
+            p.is_a<objs> () ||
+            p.is_a<bmis> () ||
+            p.is_a<libus> () ? &p.search (t) : nullptr;
+        });
+
+      switch (a)
+      {
+      case perform_update_id: return &perform_update;
+      case perform_clean_id:  return &perform_clean_depdb; // Standard clean.
+      default:                return noop_recipe;          // Configure update.
+      }
+    }
+
+    target_state def_rule::
+    perform_update (action a, const target& xt)
+    {
+      tracer trace ("bin::def_rule::perform_update");
+
+      const def& t (xt.as<def> ());
+      const path& tp (t.path ());
+
+      context& ctx (t.ctx);
+
+      const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
+
+      // For link.exe we use its /DUMP option to access dunpbin.exe. For
+      // lld-link we use llvm-nm.
+      //
+      const string& lid (cast<string> (rs["bin.ld.id"]));
+
+      // Update prerequisites and determine if anything changed.
+      //
+      timestamp mt (t.load_mtime ());
+      optional<target_state> ts (execute_prerequisites (a, t, mt));
+
+      bool update (!ts);
+
+      // We use depdb to track changes to the input set, etc.
+      //
+      depdb dd (tp + ".d");
+
+      // First should come the rule name/version.
+      //
+      if (dd.expect (rule_id_) != nullptr)
+        l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+      // Then the nm checksum.
+      //
+      if (dd.expect (lid == "msvc-lld"
+                     ? cast<string> (rs["bin.nm.checksum"])
+                     : cast<string> (rs["bin.ld.checksum"])) != nullptr)
+        l4 ([&]{trace << "linker mismatch forcing update of " << t;});
+
+      // @@ TODO: track in depdb if making symbol filtering configurable.
+
+      // Collect and hash the list of object files seeing through libus{}.
+      //
+      vector<reference_wrapper<const objs>> os;
+      {
+        sha256 cs;
+
+        auto collect = [a, &rs, &os, &cs] (const file& t,
+                                           const auto& collect) -> void
+        {
+          for (const target* pt: t.prerequisite_targets[a])
+          {
+            if (pt == nullptr)
+              continue;
+
+            const objs* o;
+            if ((o = pt->is_a<objs> ()) != nullptr)
+              ;
+            else if (pt->is_a<hbmi> ())
+              o = find_adhoc_member<objs> (*pt);
+            //
+            // Note that in prerequisite targets we will have the libux{}
+            // members, not the group.
+            //
+            else if (const libus* l = pt->is_a<libus> ())
+            {
+              collect (*l, collect);
+              continue;
+            }
+            else
+              continue;
+
+            hash_path (cs, o->path (), rs.out_path ());
+            os.push_back (*o);
+          }
+        };
+
+        collect (t, collect);
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "file set mismatch forcing update of " << t;});
+      }
+
+      // Update if any mismatch or depdb is newer that the output.
+      //
+      if (dd.writing () || dd.mtime > mt)
+        update = true;
+
+      dd.close ();
+
+      // If nothing changed, then we are done.
+      //
+      if (!update)
+        return *ts;
+
+      const process_path& nm (lid == "msvc-lld"
+                              ? cast<process_path> (rs["bin.nm.path"])
+                              : cast<process_path> (rs["bin.ld.path"]));
+
+      const string& cpu (cast<string> (rs["bin.target.cpu"]));
+      bool i386 (cpu.size () == 4 &&
+                 cpu[0] == 'i' && cpu[2] == '8' && cpu[3] == '6');
+
+      cstrings args {nm.recall_string ()};
+
+      if (lid == "msvc-lld")
+      {
+        args.push_back ("--no-weak");
+        args.push_back ("--defined-only");
+        args.push_back ("--format=posix");
+      }
+      else
+      {
+        args.push_back ("/DUMP"); // Must come first.
+        args.push_back ("/NOLOGO");
+        args.push_back ("/SYMBOLS");
+      }
+
+      args.push_back (nullptr); // Argument placeholder.
+      args.push_back (nullptr);
+
+      const char*& arg (*(args.end () - 2));
+
+      if (verb == 1)
+        text << "gen " << t;
+
+      // Extract symbols from each object file.
+      //
+      symbols syms;
+      for (const objs& o: os)
+      {
+        // Use a relative path for nicer diagnostics.
+        //
+        path rp (relative (o.path ()));
+        arg = rp.string ().c_str ();
+
+        if (verb >= 2)
+          print_process (args);
+
+        if (ctx.dry_run)
+          continue;
+
+        // Both link.exe /DUMP and llvm-nm send their output to stdout. While
+        // llvm-nm sends diagnostics to stderr, link.exe sends it to stdout
+        // together with the output.
+        //
+        process pr (run_start (nm,
+                               args,
+                               0     /* stdin */,
+                               -1    /* stdout */));
+        bool io (false);
+        try
+        {
+          ifdstream is (
+            move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
+
+          if (lid == "msvc-lld")
+            parse_llvm_nm (is, syms);
+          else
+            parse_dumpbin (is, syms);
+
+          is.close ();
+        }
+        catch (const io_error&)
+        {
+          // Presumably the child process failed so let run_finish() deal with
+          // that first.
+          //
+          io = true;
+        }
+
+        if (!run_finish_code (args.data (), pr) || io)
+          fail << "unable to extract symbols from " << arg;
+      }
+
+      /*
+      for (const string& s: syms.d) text << "D " << s;
+      for (const string& s: syms.r) text << "R " << s;
+      for (const string& s: syms.b) text << "B " << s;
+      for (const string& s: syms.t) text << "T " << s;
+      */
+
+      if (verb >= 3)
+        text << "cat >" << tp;
+
+      if (!ctx.dry_run)
+      {
+        auto_rmfile rm (tp);
+
+        try
+        {
+          ofdstream os (tp);
+
+          os << "; Auto-generated, do not edit.\n"
+             << "EXPORTS\n";
+
+          // Our goal here is to export the same types of symbols as what gets
+          // exported with __declspec(dllexport) (which can be viewed with
+          // dumpbin /EXPORTS).
+          //
+          // Some special C++ symbol patterns:
+          //
+          // Data symbols:
+          //
+          // ??_C* -- string literal                      (R,   not exported)
+          // ??_7* -- vtable                              (R,   exported)
+          // ??_R* -- rtti, can be prefixed with _CT/__CT (D/R, not exported)
+          //
+          // Text symbols:
+          //
+          // ??_G* -- scalar deleting destructor (not exported)
+          // ??_E* -- vector deleting destructor (not exported)
+          //
+          // The following two symbols seem to be related to exception
+          // throwing and most likely should not be exported.
+          //
+          // R _CTA3?AVinvalid_argument@std@@
+          // R _TI3?AVinvalid_argument@std@@
+          //
+          // There are also what appears to be floating point literals:
+          //
+          // R __real@3f80000
+          //
+          // For some reason i386 object files have extern "C" symbols (both
+          // data and text) prefixed with an underscore which must be stripped
+          // in the .def file.
+          //
+          // Note that the extra prefix seems to be also added to special
+          // symbols so something like _CT??... becomes __CT??... on i386.
+          // However, for such symbols the underscore shall not be removed.
+          // Which means an extern "C" _CT becomes __CT on i383 and hard to
+          // distinguish from the special symbols. We deal with this by only
+          // stripping the underscore if the symbols doesn't contain any
+          // special characters (?@).
+          //
+          auto extern_c = [] (const string& s)
+          {
+            return s.find_first_of ("?@") == string::npos;
+          };
+
+          auto strip = [i386, &extern_c] (const string& s) -> const char*
+          {
+            const char* r (s.c_str ());
+
+            if (i386 && s[0] == '_' && extern_c (s))
+              r++;
+
+            return r;
+          };
+
+          for (const string& s: syms.t)
+          {
+            auto filter = [&strip] (const string& s) -> const char*
+            {
+              if (s.compare (0, 4, "??_G") == 0 ||
+                  s.compare (0, 4, "??_E") == 0)
+                return nullptr;
+
+              return strip (s);
+            };
+
+            if (const char* v = filter (s))
+              os << "  " << v << '\n';
+          }
+
+          // Note that it's not easy to import data without a dllimport
+          // declaration.
+          //
+          if (true)
+          {
+            auto filter = [&strip] (const string& s) -> const char*
+            {
+              if (s.compare (0, 4, "??_R") == 0 ||
+                  s.compare (0, 4, "??_C") == 0)
+                return nullptr;
+
+              return strip (s);
+            };
+
+            for (const string& s: syms.d)
+              if (const char* v = filter (s))
+                os << "  " << v << " DATA\n";
+
+            for (const string& s: syms.b)
+              if (const char* v = filter (s))
+                os << "  " << v << " DATA\n";
+
+            // Read-only data contains an especially large number of various
+            // special symbols. Instead of trying to filter them out case by
+            // case, we will try to recognize C/C++ identifiers plus the
+            // special symbols that we need to export (e.g., vtable).
+            //
+            //
+            for (const string& s: syms.r)
+            {
+              if (extern_c (s)                 || // C
+                  (s[0] == '?' && s[1] != '?') || // C++
+                  s.compare (0, 4, "??_7") == 0)  // vtable
+              {
+                os << "  " << strip (s) << " DATA\n";
+              }
+            }
+          }
+
+          os.close ();
+          rm.cancel ();
+        }
+        catch (const io_error& e)
+        {
+          fail << "unable to write to " << tp << ": " << e;
+        }
+
+        dd.check_mtime (tp);
+      }
+
+      t.mtime (system_clock::now ());
+      return target_state::changed;
+    }
+
+    const string def_rule::rule_id_ {"bin.def 1"};
+  }
+}

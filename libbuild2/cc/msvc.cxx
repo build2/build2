@@ -426,6 +426,7 @@ namespace build2
       bool obj (false), dll (false);
       string s;
 
+      bool io (false);
       try
       {
         ifdstream is (
@@ -465,14 +466,18 @@ namespace build2
             }
           }
         }
+
+        is.close ();
       }
       catch (const io_error&)
       {
-        // Presumably the child process failed. Let run_finish() deal with
-        // that.
+        // Presumably the child process failed so let run_finish() deal with
+        // that first.
+        //
+        io = true;
       }
 
-      if (!run_finish_code (args, pr, s))
+      if (!run_finish_code (args, pr, s) || io)
       {
         diag_record dr;
         dr << warn << "unable to detect " << l << " library type, ignoring" <<

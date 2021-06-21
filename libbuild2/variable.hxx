@@ -4,7 +4,6 @@
 #ifndef LIBBUILD2_VARIABLE_HXX
 #define LIBBUILD2_VARIABLE_HXX
 
-#include <set>
 #include <type_traits>   // aligned_storage
 #include <unordered_map>
 
@@ -1442,7 +1441,7 @@ namespace build2
     };
 
   private:
-    std::multiset<pattern> patterns_;
+    multiset<pattern> patterns_;
 
     // Global pool flag/context.
     //

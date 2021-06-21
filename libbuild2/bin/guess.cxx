@@ -696,5 +696,99 @@ namespace build2
                                 move (r.checksum),
                                 rc_env});
     }
+
+    // Extracting nm information requires running it which can become
+    // expensive if done repeatedly. So we cache the result.
+    //
+    static global_cache<nm_info> nm_cache;
+
+    const nm_info&
+    guess_nm (const path& nm, const char* paths)
+    {
+      tracer trace ("bin::guess_nm");
+
+      // First check the cache.
+      //
+      // Note that none of the information that we cache can be affected by
+      // the environment.
+      //
+      string key;
+      {
+        sha256 cs;
+        cs.append (nm.string ());
+        if (paths != nullptr) cs.append (paths);
+        key = cs.string ();
+
+        if (const nm_info* r = nm_cache.find (key))
+          return *r;
+      }
+
+      guess_result r;
+
+      process_path pp (search (nm, paths, "config.bin.nm"));
+
+      // We should probably assume the utility output language words can be
+      // translated and even rearranged. Thus pass LC_ALL=C.
+      //
+      process_env env (pp);
+
+      // For now let's assume that all the platforms other than Windows
+      // recognize LC_ALL.
+      //
+#ifndef _WIN32
+      const char* evars[] = {"LC_ALL=C", nullptr};
+      env.vars = evars;
+#endif
+
+      // Both GNU Binutils and LLVM nm recognize the --version option.
+      //
+      // Microsoft dumpbin.exe does not recogize --version but will still
+      // issue its standard banner (and even exit with zero status).
+      //
+      // Version extraction is a @@ TODO.
+      {
+        auto f = [] (string& l, bool) -> guess_result
+        {
+          // Binutils nm --version output first line starts with "GNU nm" but
+          // search for "GNU ", similar to other tools.
+          //
+          if (l.find ("GNU ") != string::npos)
+            return guess_result ("gnu", move (l), semantic_version ());
+
+          // LLVM nm --version output has a line that starts with
+          // "LLVM version" followed by a version.
+          //
+          if (l.compare (0, 13, "LLVM version ") == 0)
+            return guess_result ("llvm", move (l), semantic_version ());
+
+          if (l.compare (0, 14, "Microsoft (R) ") == 0)
+            return guess_result ("msvc", move (l), semantic_version ());
+
+          return guess_result ();
+        };
+
+        // Suppress all the errors because we may be trying an unsupported
+        // option.
+        //
+        sha256 cs;
+        r = run<guess_result> (3, env, "--version", f, false, false, &cs);
+
+        if (!r.empty ())
+          r.checksum = cs.string ();
+      }
+
+      //@@ TODO: BSD, Mac OS.
+
+      if (r.empty ())
+        fail << "unable to guess " << nm << " signature";
+
+      return nm_cache.insert (move (key),
+                              nm_info {
+                                move (pp),
+                                move (r.id),
+                                move (r.signature),
+                                move (r.checksum),
+                                nullptr /* environment */});
+    }
   }
 }
