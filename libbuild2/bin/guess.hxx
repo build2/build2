@@ -138,10 +138,11 @@ namespace build2
     //
     // Currently recognized nm and nm-like utilities and their ids:
     //
-    // gnu          GNU binutils nm
-    // msvc         Microsoft's dumpbin.exe
-    // llvm         LLVM llvm-nm
-    // generic      Other/generic/unrecognized
+    // gnu           GNU binutils nm
+    // msvc          Microsoft's dumpbin.exe
+    // llvm          LLVM llvm-nm
+    // elftoolchain  ELF Toolchain (used by FreeBSD)
+    // generic       Other/generic/unrecognized (including Mac OS X)
     //
     // The signature is normally the --version line.
     //

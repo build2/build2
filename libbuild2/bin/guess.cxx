@@ -745,6 +745,12 @@ namespace build2
       // Microsoft dumpbin.exe does not recogize --version but will still
       // issue its standard banner (and even exit with zero status).
       //
+      // FreeBSD uses nm from ELF Toolchain which recognizes --version.
+      //
+      // Mac OS X nm doesn't have an option to display version or help. If we
+      // run it without any arguments, then it looks for a.out. So there
+      // doesn't seem to be a way to detect it.
+      //
       // Version extraction is a @@ TODO.
       {
         auto f = [] (string& l, bool) -> guess_result
@@ -764,6 +770,13 @@ namespace build2
           if (l.compare (0, 14, "Microsoft (R) ") == 0)
             return guess_result ("msvc", move (l), semantic_version ());
 
+          // nm --version from ELF Toolchain prints:
+          //
+          //   nm (elftoolchain r3477M)
+          //
+          if (l.find ("elftoolchain") != string::npos)
+            return guess_result ("elftoolchain", move (l), semantic_version ());
+
           return guess_result ();
         };
 
@@ -777,10 +790,11 @@ namespace build2
           r.checksum = cs.string ();
       }
 
-      //@@ TODO: BSD, Mac OS.
-
+      // Since there are some unrecognizable nm's (e.g., on Mac OS X), we will
+      // have to assume generic if we managed to find the executable.
+      //
       if (r.empty ())
-        fail << "unable to guess " << nm << " signature";
+        r = guess_result ("generic", "", semantic_version ());
 
       return nm_cache.insert (move (key),
                               nm_info {
