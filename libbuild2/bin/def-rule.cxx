@@ -25,13 +25,13 @@ namespace build2
     };
 
     static void
-    parse_dumpbin (istream& is, symbols& syms)
+    read_dumpbin (istream& is, symbols& syms)
     {
       // Lines that describe symbols look like:
       //
       // 0   1        2      3          4            5 6
       // IDX OFFSET   SECT   SYMTYPE    VISIBILITY     SYMNAME
-      // ------------------------------------------------------------------------
+      // ----------------------------------------------------------------------
       // 02E 00000130 SECTA  notype     External     | _standbyState
       // 02F 00000009 SECT9  notype     Static       | _LocalRecoveryInProgress
       // 064 00000020 SECTC  notype ()  Static       | _XLogCheckBuffer
@@ -175,7 +175,7 @@ namespace build2
     }
 
     static void
-    parse_llvm_nm (istream& is, symbols& syms)
+    read_posix_nm (istream& is, symbols& syms)
     {
       // Lines that describe symbols look like:
       //
@@ -210,6 +210,202 @@ namespace build2
         case 'R': syms.r.insert (move (s)); break;
         case 'B': syms.b.insert (move (s)); break;
         case 'T': syms.t.insert (move (s)); break;
+        }
+      }
+    }
+
+    static void
+    write_win32_msvc (ostream& os, const symbols& syms, bool i386)
+    {
+      // Our goal here is to export the same types of symbols as what gets
+      // exported by MSVC with __declspec(dllexport) (can be viewed with
+      // dumpbin /EXPORTS).
+      //
+      // Some special C++ symbol patterns:
+      //
+      // Data symbols:
+      //
+      // ??_C* -- string literal                      (R,   not exported)
+      // ??_7* -- vtable                              (R,   exported)
+      // ??_R* -- rtti, can be prefixed with _CT/__CT (D/R, not exported)
+      //
+      // Text symbols:
+      //
+      // ??_G* -- scalar deleting destructor (not exported)
+      // ??_E* -- vector deleting destructor (not exported)
+      //
+      // The following two symbols seem to be related to exception
+      // throwing and most likely should not be exported.
+      //
+      // R _CTA3?AVinvalid_argument@std@@
+      // R _TI3?AVinvalid_argument@std@@
+      //
+      // There are also what appears to be floating point literals:
+      //
+      // R __real@3f80000
+      //
+      // For some reason i386 object files have extern "C" symbols (both
+      // data and text) prefixed with an underscore which must be stripped
+      // in the .def file.
+      //
+      // Note that the extra prefix seems to be also added to special
+      // symbols so something like _CT??... becomes __CT??... on i386.
+      // However, for such symbols the underscore shall not be removed.
+      // Which means an extern "C" _CT becomes __CT on i383 and hard to
+      // distinguish from the special symbols. We deal with this by only
+      // stripping the underscore if the symbols doesn't contain any
+      // special characters (?@).
+      //
+      auto extern_c = [] (const string& s)
+      {
+        return s.find_first_of ("?@") == string::npos;
+      };
+
+      auto strip = [i386, &extern_c] (const string& s) -> const char*
+      {
+        const char* r (s.c_str ());
+
+        if (i386 && s[0] == '_' && extern_c (s))
+          r++;
+
+        return r;
+      };
+
+      // Code.
+      //
+      for (const string& s: syms.t)
+      {
+        auto filter = [&strip] (const string& s) -> const char*
+        {
+          if (s.compare (0, 4, "??_G") == 0 ||
+              s.compare (0, 4, "??_E") == 0)
+            return nullptr;
+
+          return strip (s);
+        };
+
+        if (const char* v = filter (s))
+          os << "  " << v << '\n';
+      }
+
+      // Data.
+      //
+      // Note that it's not easy to import data without a dllimport
+      // declaration.
+      //
+      {
+        auto filter = [&strip] (const string& s) -> const char*
+        {
+          if (s.compare (0, 4, "??_R") == 0 ||
+              s.compare (0, 4, "??_C") == 0)
+            return nullptr;
+
+          return strip (s);
+        };
+
+        for (const string& s: syms.d)
+          if (const char* v = filter (s))
+            os << "  " << v << " DATA\n";
+
+        for (const string& s: syms.b)
+          if (const char* v = filter (s))
+            os << "  " << v << " DATA\n";
+
+        // Read-only data contains an especially large number of various
+        // special symbols. Instead of trying to filter them out case by case,
+        // we will try to recognize C/C++ identifiers plus the special symbols
+        // that we need to export (e.g., vtable).
+        //
+        //
+        for (const string& s: syms.r)
+        {
+          if (extern_c (s)                 || // C
+              (s[0] == '?' && s[1] != '?') || // C++
+              s.compare (0, 4, "??_7") == 0)  // vtable
+          {
+            os << "  " << strip (s) << " DATA\n";
+          }
+        }
+      }
+    }
+
+    static void
+    write_mingw32 (ostream& os, const symbols& syms, bool i386)
+    {
+      // Our goal here is to export the same types of symbols as what gets
+      // exported by GCC with __declspec(dllexport) (can be viewed with
+      // dumpbin /EXPORTS).
+      //
+      // Some special C++ symbol patterns (Itanium C++ ABI):
+      //
+      // Data symbols:
+      //
+      // _ZTVN* -- vtable          (R,   exported)
+      // _ZTIN* -- typeinfo        (R,   exported)
+      // _ZTSN* -- typeinfo name   (R, not exported)
+      //
+      // There are also some special R symbols which start with .refptr.
+      // that are not exported.
+      //
+      // Normal symbols (both text and data) appear to start with _ZN.
+      //
+      // Note that we have the same extra underscore for i386 as in the
+      // win32-msvc case above but here even for mangled symbols (e.g., __Z*).
+      //
+      auto skip = [i386] (const string& s) -> size_t
+      {
+        return i386 && s[0] == '_' ? 1 : 0;
+      };
+
+      // Code.
+      //
+      for (const string& s: syms.t)
+      {
+        auto filter = [&skip] (const string& s) -> const char*
+        {
+          return s.c_str () + skip (s);
+        };
+
+        if (const char* v = filter (s))
+          os << "  " << v << '\n';
+      }
+
+      // Data.
+      //
+      {
+        auto filter = [&skip] (const string& s) -> const char*
+        {
+          return s.c_str () + skip (s);
+        };
+
+        for (const string& s: syms.d)
+          if (const char* v = filter (s))
+            os << "  " << v << " DATA\n";
+
+        for (const string& s: syms.b)
+          if (const char* v = filter (s))
+            os << "  " << v << " DATA\n";
+
+        // Read-only data contains an especially large number of various
+        // special symbols. Instead of trying to filter them out case by case,
+        // we will try to recognize C/C++ identifiers plus the special symbols
+        // that we need to export (e.g., vtable and typeinfo).
+        //
+        for (const string& s: syms.r)
+        {
+          if (s.find_first_of (".") != string::npos) // Special (.refptr.*)
+            continue;
+
+          size_t p (skip (s)), n (s.size () - p);
+
+          if ((n < 2 || s[p] != '_' || s[p + 1] != 'Z') ||  // C
+              (s[p + 2] == 'N'                        ) ||  // C++ (normal)
+              (s[p + 2] == 'T' && (s[p + 3] == 'V' ||       // vtable
+                                   s[p + 3] == 'I') &&      // typeinfo
+               s[p + 4] == 'N'))
+          {
+            os << "  " << s.c_str () + p << " DATA\n";
+          }
         }
       }
     }
@@ -297,10 +493,12 @@ namespace build2
       const scope& bs (t.base_scope ());
       const scope& rs (*bs.root_scope ());
 
-      // For link.exe we use its /DUMP option to access dunpbin.exe. For
-      // lld-link we use llvm-nm.
+      // For link.exe we use its /DUMP option to access dumpbin.exe. Otherwise
+      // (lld-link, MinGW), we use nm (llvm-nm, MinGW nm). For good measure
+      // (e.g., the bin.def module is loaded without bin.ld), we also handle
+      // the direct dumpbin.exe usage.
       //
-      const string& lid (cast<string> (rs["bin.ld.id"]));
+      const string& lid (cast_empty<string> (rs["bin.ld.id"]));
 
       // Update prerequisites and determine if anything changed.
       //
@@ -320,9 +518,9 @@ namespace build2
 
       // Then the nm checksum.
       //
-      if (dd.expect (lid == "msvc-lld"
-                     ? cast<string> (rs["bin.nm.checksum"])
-                     : cast<string> (rs["bin.ld.checksum"])) != nullptr)
+      if (dd.expect (lid == "msvc"
+                     ? cast<string> (rs["bin.ld.checksum"])
+                     : cast<string> (rs["bin.nm.checksum"])) != nullptr)
         l4 ([&]{trace << "linker mismatch forcing update of " << t;});
 
       // @@ TODO: track in depdb if making symbol filtering configurable.
@@ -381,27 +579,35 @@ namespace build2
       if (!update)
         return *ts;
 
-      const process_path& nm (lid == "msvc-lld"
-                              ? cast<process_path> (rs["bin.nm.path"])
-                              : cast<process_path> (rs["bin.ld.path"]));
-
-      const string& cpu (cast<string> (rs["bin.target.cpu"]));
-      bool i386 (cpu.size () == 4 &&
-                 cpu[0] == 'i' && cpu[2] == '8' && cpu[3] == '6');
+      const process_path& nm (lid == "msvc"
+                              ? cast<process_path> (rs["bin.ld.path"])
+                              : cast<process_path> (rs["bin.nm.path"]));
 
       cstrings args {nm.recall_string ()};
 
-      if (lid == "msvc-lld")
-      {
-        args.push_back ("--no-weak");
-        args.push_back ("--defined-only");
-        args.push_back ("--format=posix");
-      }
-      else
+      string nid;
+      if (lid == "msvc")
       {
         args.push_back ("/DUMP"); // Must come first.
         args.push_back ("/NOLOGO");
         args.push_back ("/SYMBOLS");
+      }
+      else
+      {
+        nid = cast<string> (rs["bin.nm.id"]);
+
+        if (nid == "msvc")
+        {
+          args.push_back ("/NOLOGO");
+          args.push_back ("/SYMBOLS");
+        }
+        else
+        {
+          // Note that llvm-nm's --no-weak is only available since LLVM 7.
+          //
+          args.push_back ("--extern-only");
+          args.push_back ("--format=posix");
+        }
       }
 
       args.push_back (nullptr); // Argument placeholder.
@@ -428,9 +634,9 @@ namespace build2
         if (ctx.dry_run)
           continue;
 
-        // Both link.exe /DUMP and llvm-nm send their output to stdout. While
-        // llvm-nm sends diagnostics to stderr, link.exe sends it to stdout
-        // together with the output.
+        // Both dumpbin.exe and nm send their output to stdout. While nm sends
+        // diagnostics to stderr, dumpbin sends it to stdout together with the
+        // output.
         //
         process pr (run_start (nm,
                                args,
@@ -442,10 +648,10 @@ namespace build2
           ifdstream is (
             move (pr.in_ofd), fdstream_mode::skip, ifdstream::badbit);
 
-          if (lid == "msvc-lld")
-            parse_llvm_nm (is, syms);
+          if (lid == "msvc" || nid == "msvc")
+            read_dumpbin (is, syms);
           else
-            parse_dumpbin (is, syms);
+            read_posix_nm (is, syms);
 
           is.close ();
         }
@@ -473,8 +679,12 @@ namespace build2
 
       if (!ctx.dry_run)
       {
-        auto_rmfile rm (tp);
+        const auto& tgt (cast<target_triplet> (rs["bin.target"]));
 
+        bool i386 (tgt.cpu.size () == 4 &&
+                   tgt.cpu[0] == 'i' && tgt.cpu[2] == '8' && tgt.cpu[3] == '6');
+
+        auto_rmfile rm (tp);
         try
         {
           ofdstream os (tp);
@@ -482,113 +692,10 @@ namespace build2
           os << "; Auto-generated, do not edit.\n"
              << "EXPORTS\n";
 
-          // Our goal here is to export the same types of symbols as what gets
-          // exported with __declspec(dllexport) (which can be viewed with
-          // dumpbin /EXPORTS).
-          //
-          // Some special C++ symbol patterns:
-          //
-          // Data symbols:
-          //
-          // ??_C* -- string literal                      (R,   not exported)
-          // ??_7* -- vtable                              (R,   exported)
-          // ??_R* -- rtti, can be prefixed with _CT/__CT (D/R, not exported)
-          //
-          // Text symbols:
-          //
-          // ??_G* -- scalar deleting destructor (not exported)
-          // ??_E* -- vector deleting destructor (not exported)
-          //
-          // The following two symbols seem to be related to exception
-          // throwing and most likely should not be exported.
-          //
-          // R _CTA3?AVinvalid_argument@std@@
-          // R _TI3?AVinvalid_argument@std@@
-          //
-          // There are also what appears to be floating point literals:
-          //
-          // R __real@3f80000
-          //
-          // For some reason i386 object files have extern "C" symbols (both
-          // data and text) prefixed with an underscore which must be stripped
-          // in the .def file.
-          //
-          // Note that the extra prefix seems to be also added to special
-          // symbols so something like _CT??... becomes __CT??... on i386.
-          // However, for such symbols the underscore shall not be removed.
-          // Which means an extern "C" _CT becomes __CT on i383 and hard to
-          // distinguish from the special symbols. We deal with this by only
-          // stripping the underscore if the symbols doesn't contain any
-          // special characters (?@).
-          //
-          auto extern_c = [] (const string& s)
-          {
-            return s.find_first_of ("?@") == string::npos;
-          };
-
-          auto strip = [i386, &extern_c] (const string& s) -> const char*
-          {
-            const char* r (s.c_str ());
-
-            if (i386 && s[0] == '_' && extern_c (s))
-              r++;
-
-            return r;
-          };
-
-          for (const string& s: syms.t)
-          {
-            auto filter = [&strip] (const string& s) -> const char*
-            {
-              if (s.compare (0, 4, "??_G") == 0 ||
-                  s.compare (0, 4, "??_E") == 0)
-                return nullptr;
-
-              return strip (s);
-            };
-
-            if (const char* v = filter (s))
-              os << "  " << v << '\n';
-          }
-
-          // Note that it's not easy to import data without a dllimport
-          // declaration.
-          //
-          if (true)
-          {
-            auto filter = [&strip] (const string& s) -> const char*
-            {
-              if (s.compare (0, 4, "??_R") == 0 ||
-                  s.compare (0, 4, "??_C") == 0)
-                return nullptr;
-
-              return strip (s);
-            };
-
-            for (const string& s: syms.d)
-              if (const char* v = filter (s))
-                os << "  " << v << " DATA\n";
-
-            for (const string& s: syms.b)
-              if (const char* v = filter (s))
-                os << "  " << v << " DATA\n";
-
-            // Read-only data contains an especially large number of various
-            // special symbols. Instead of trying to filter them out case by
-            // case, we will try to recognize C/C++ identifiers plus the
-            // special symbols that we need to export (e.g., vtable).
-            //
-            //
-            for (const string& s: syms.r)
-            {
-              if (extern_c (s)                 || // C
-                  (s[0] == '?' && s[1] != '?') || // C++
-                  s.compare (0, 4, "??_7") == 0)  // vtable
-              {
-                os << "  " << strip (s) << " DATA\n";
-              }
-            }
-          }
+          if (tgt.system == "mingw32")
+            write_mingw32 (os, syms, i386);
+          else
+            write_win32_msvc (os, syms, i386);
 
           os.close ();
           rm.cancel ();

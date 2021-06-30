@@ -25,13 +25,19 @@ namespace build2
     //                    rules.
     // `bin.ar.config` -- loads bin.config and registers/sets more variables.
     // `bin.ar`        -- loads bin and bin.ar.config.
+    //
     // `bin.ld.config` -- loads bin.config and registers/sets more variables.
     // `bin.ld`        -- loads bin and bin.ld.config and registers more
     //                    target types for msvc.
+    //
     // `bin.rc.config` -- loads bin.config and registers/sets more variables.
     // `bin.rc`        -- loads bin and bin.rc.config.
+    //
     // `bin.nm.config` -- loads bin.config and registers/sets more variables.
     // `bin.nm`        -- loads bin and bin.nm.config.
+    //
+    // `bin.def`       -- loads bin, bin.nm.config unless using MSVC link.exe,
+    //                    and registers the .def file generation rule.
     //
     extern "C" LIBBUILD2_BIN_SYMEXPORT const module_functions*
     build2_bin_load ();

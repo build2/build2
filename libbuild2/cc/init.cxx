@@ -340,15 +340,17 @@ namespace build2
         }
       }
 
-      // Load bin.*.config for bin.* modules we may need (see core_init()
-      // below).
+      // Load bin.* modules we may need (see core_init() below).
       //
       const string& tsys (cast<string> (rs["cc.target.system"]));
 
       load_module (rs, rs, "bin.ar.config", loc);
 
       if (tsys == "win32-msvc")
+      {
         load_module (rs, rs, "bin.ld.config", loc);
+        load_module (rs, rs, "bin.def", loc);
+      }
 
       if (tsys == "mingw32")
         load_module (rs, rs, "bin.rc.config", loc);

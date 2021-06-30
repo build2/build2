@@ -939,21 +939,6 @@ namespace build2
         }
       }
 
-      // Register .def file rule.
-      //
-      if (lid == "msvc" || lid == "msvc-lld")
-      {
-        // If we are using link.exe, then we can access dumpbin via the
-        // link.exe /DUMP option. But for lld-link we need llvm-nm.
-        //
-        if (lid == "msvc-lld")
-          load_module (rs, bs, "bin.nm.config", loc, extra.hints);
-
-        bs.insert_rule<def> (perform_update_id,   "bin.def", def_);
-        bs.insert_rule<def> (perform_clean_id,    "bin.def", def_);
-        bs.insert_rule<def> (configure_update_id, "bin.def", def_);
-      }
-
       return true;
     }
 
@@ -1092,7 +1077,8 @@ namespace build2
         //
         // Use the target to decide on the default nm name. Note that in case
         // of win32-msvc this is insufficient and we fallback to the linker
-        // type (if available) to decide between dumpbin and llvm-nm.
+        // type (if available) to decide between dumpbin and llvm-nm (with
+        // fallback to dumpbin).
         //
         // Finally note that the dumpbin.exe functionality is available via
         // link.exe /DUMP.
@@ -1164,6 +1150,37 @@ namespace build2
       return true;
     }
 
+    bool
+    def_init (scope& rs,
+              scope& bs,
+              const location& loc,
+              bool,
+              bool,
+              module_init_extra& extra)
+    {
+      tracer trace ("bin::def_init");
+      l5 ([&]{trace << "for " << bs;});
+
+      // Make sure the bin core is loaded (def{} target type). We also load
+      // nm.config unless we are using MSVC link.exe and can access dumpbin
+      // via its /DUMP option.
+      //
+      const string* lid (cast_null<string> (rs["bin.ld.id"]));
+
+      load_module (rs, bs, "bin", loc, extra.hints);
+
+      if (lid == nullptr || *lid != "msvc")
+        load_module (rs, bs, "bin.nm.config", loc, extra.hints);
+
+      // Register the def{} rule.
+      //
+      bs.insert_rule<def> (perform_update_id,   "bin.def", def_);
+      bs.insert_rule<def> (perform_clean_id,    "bin.def", def_);
+      bs.insert_rule<def> (configure_update_id, "bin.def", def_);
+
+      return true;
+    }
+
     static const module_functions mod_functions[] =
     {
       // NOTE: don't forget to also update the documentation in init.hxx if
@@ -1180,6 +1197,7 @@ namespace build2
       {"bin.rc",        nullptr, rc_init},
       {"bin.nm.config", nullptr, nm_config_init},
       {"bin.nm",        nullptr, nm_init},
+      {"bin.def",       nullptr, def_init},
       {nullptr,         nullptr, nullptr}
     };
 
