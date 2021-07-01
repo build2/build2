@@ -1022,7 +1022,7 @@ namespace build2
 
           // The gcc -v output will have a last line in the form:
           //
-          // "gcc version X.Y.Z ..."
+          // "gcc version X.Y[.Z][...] ..."
           //
           // The "version" word can probably be translated. For example:
           //
@@ -1033,6 +1033,7 @@ namespace build2
           // gcc version 4.9.2 (Ubuntu 4.9.2-0ubuntu1~14.04)
           // gcc version 5.1.0 (Ubuntu 5.1.0-0ubuntu11~14.04.1)
           // gcc version 6.0.0 20160131 (experimental) (GCC)
+          // gcc version 9.3-win32 20200320 (GCC)
           //
           if (cache.empty ())
           {
@@ -1867,7 +1868,7 @@ namespace build2
       // though language words can be translated and even rearranged (see
       // examples above).
       //
-      // "gcc version A.B.C[ ...]"
+      // "gcc version X.Y[.Z][...]"
       //
       compiler_version ver;
       {
@@ -1893,38 +1894,31 @@ namespace build2
           // end of the word position (first space). In fact, we can just
           // check if it is >= e.
           //
-          if (s.find_first_not_of ("1234567890.", b, 11) >= e)
+          size_t p (s.find_first_not_of ("1234567890.", b, 11));
+          if (p >= e || (p > b && (s[p] == '-' || s[p] == '+')))
             break;
         }
 
         if (b == e)
           fail << "unable to extract GCC version from '" << s << "'";
 
-        ver.string.assign (s, b, string::npos);
-
-        // Split the version into components.
+        // Split the version into components by parsing it as semantic-like
+        // version.
         //
-        size_t vb (b), ve (b);
-        auto next = [&s, b, e, &vb, &ve] (const char* m) -> uint64_t
+        try
         {
-          try
-          {
-            if (next_word (s, e, vb, ve, '.'))
-              return stoull (string (s, vb, ve - vb));
-          }
-          catch (const invalid_argument&) {}
-          catch (const out_of_range&) {}
+          semantic_version v (string (s, b, e - b), ".-+");
+          ver.major = v.major;
+          ver.minor = v.minor;
+          ver.patch = v.patch;
+          ver.build = move (v.build);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail << "unable to extract GCC version from '" << s << "': " << e;
+        }
 
-          fail << "unable to extract GCC " << m << " version from '"
-               << string (s, b, e - b) << "'" << endf;
-        };
-
-        ver.major = next ("major");
-        ver.minor = next ("minor");
-        ver.patch = next ("patch");
-
-        if (e != s.size ())
-          ver.build.assign (s, e + 1, string::npos);
+        ver.string.assign (s, b, string::npos);
       }
 
       // Figure out the target architecture. This is actually a lot trickier
