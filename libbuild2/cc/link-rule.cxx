@@ -1718,33 +1718,7 @@ namespace build2
         {
           // Hoist the elements corresponding to this library to the end.
           //
-          if (al->begin != al->end)
-          {
-            // Rotate to the left the subrange starting from the first element
-            // of this library and until the end so that the element after the
-            // last element of this library becomes the first element of this
-            // subrange. We also need to adjust begin/end of libraries
-            // affected by the rotation.
-            //
-            rotate (d.args.begin () + al->begin,
-                    d.args.begin () + al->end,
-                    d.args.end ());
-
-            size_t n (al->end - al->begin);
-
-            for (appended_library& al1: d.ls)
-            {
-              if (al1.begin >= al->end)
-              {
-                al1.begin -= n;
-                al1.end -= n;
-              }
-            }
-
-            al->end = d.args.size ();
-            al->begin = al->end - n;
-          }
-
+          d.ls.hoist (d.args, *al);
           return;
         }
 

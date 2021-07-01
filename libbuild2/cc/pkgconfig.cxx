@@ -1523,9 +1523,9 @@ namespace build2
           }
         };
 
-        // Given a library target, save its -l-style library name.
+        // Given a library target, return its -l-style library name.
         //
-        auto save_library_target = [&os, this] (const file& l)
+        auto save_library_target = [this] (const file& l) -> string
         {
           // If available (it may not, in case of import-installed libraris),
           // use the .pc file name to derive the -l library name (in case of
@@ -1574,13 +1574,13 @@ namespace build2
             }
           }
 
-          os << " -l" << n;
+          return "-l" + n;
         };
 
-        // Given a (presumably) compiler-specific library name, save its
+        // Given a (presumably) compiler-specific library name, return its
         // -l-style library name.
         //
-        auto save_library_name = [&os, this] (const string& n)
+        auto save_library_name = [this] (const string& n) -> string
         {
           if (tsys == "win32-msvc")
           {
@@ -1590,14 +1590,13 @@ namespace build2
 
             if (p != string::npos && icasecmp (n.c_str () + p + 1, "lib") == 0)
             {
-              os << " -l" << string (n, 0, p);
-              return;
+              return "-l" + string (n, 0, p);
             }
 
-            // Fall through and save as is.
+            // Fall through and return as is.
           }
 
-          os << ' ' << n;
+          return n;
         };
 
         // @@ TODO: support whole archive?
@@ -1619,11 +1618,6 @@ namespace build2
         // dependencies if we don't have the shared variant (see the load
         // logic for details). And also for the common .pc file, naturally.
         //
-        //@@ TODO: would be nice to weed out duplicates. But is it always
-        //   safe? Think linking archives: will have to keep duplicates in
-        //   the second position, not first. Gets even trickier with the
-        //   Libs.private split.
-        //
         {
           os << "Libs:";
 
@@ -1633,12 +1627,23 @@ namespace build2
           os << " -L" << escape (ldir.string ());
 
           // Now process ourselves as if we were being linked to something (so
-          // pretty similar to link_rule::append_libraries()).
+          // pretty similar to link_rule::append_libraries()). We also reuse
+          // the link_rule's machinery to suppress duplicates.
           //
+          appended_libraries ls;
+          strings args;
           bool priv (false);
+
+          struct data
+          {
+            ofdstream&           os;
+            appended_libraries&  ls;
+            strings&             args;
+          } d {os, ls, args};
+
           auto imp = [&priv] (const target&, bool la) {return priv && la;};
 
-          auto lib = [&save_library_target, &save_library_name] (
+          auto lib = [&d, &save_library_target, &save_library_name] (
             const target* const* lc,
             const small_vector<reference_wrapper<const string>, 2>& ns,
             lflags,
@@ -1646,27 +1651,49 @@ namespace build2
           {
             const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
+            // Suppress duplicates (see append_libraries() for details).
+            //
+            // Note that we use the original name for duplicate tracking.
+            //
+            appended_library* al (l != nullptr
+                                  ? &d.ls.append (*l, d.args.size ())
+                                  : d.ls.append (ns, d.args.size ()));
+
+            if (al != nullptr && al->end != appended_library::npos)
+            {
+              d.ls.hoist (d.args, *al);
+              return;
+            }
+
             if (l != nullptr)
             {
               if (l->is_a<libs> () || l->is_a<liba> ()) // See through libux.
-                save_library_target (*l);
+                d.args.push_back (save_library_target (*l));
             }
             else
             {
               // Something "system'y", save as is.
               //
               for (const string& n: ns)
-                save_library_name (n);
+                d.args.push_back (save_library_name (n));
             }
+
+            if (al != nullptr)
+              al->end = d.args.size (); // Close.
           };
 
-          auto opt = [] (const target&, const string&, bool, bool)
+          auto opt = [&d] (const target& lt, const string&, bool, bool)
           {
+            const file& l (lt.as<file> ());
+
             //@@ TODO: should we filter -L similar to -I?
             //@@ TODO: how will the Libs/Libs.private work?
             //@@ TODO: remember to use escape()
 
             // See link_rule::append_libraries().
+
+            if (d.ls.append (l, d.args.size ()).end != appended_library::npos)
+              return;
           };
 
           // Pretend we are linking an executable using what would be normal,
@@ -1677,16 +1704,24 @@ namespace build2
           process_libraries (a, bs, li, sys_lib_dirs,
                              l, la, 0, // Link flags.
                              imp, lib, opt, !binless);
+
+          for (const string& a: args)
+            os << ' ' << a;
           os << endl;
 
           if (la)
           {
             os << "Libs.private:";
 
+            ls.clear ();
+            args.clear ();
             priv = true;
             process_libraries (a, bs, li, sys_lib_dirs,
                                l, la, 0, // Link flags.
                                imp, lib, opt, false);
+
+            for (const string& a: args)
+              os << ' ' << a;
             os << endl;
           }
         }
