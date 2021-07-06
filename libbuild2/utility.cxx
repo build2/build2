@@ -603,6 +603,7 @@ namespace build2
     {
       const char* b (s.c_str ());
       char* e (nullptr);
+      errno = 0; // We must clear it according to POSIX.
       uint64_t v (strtoull (b, &e, 10)); // Can't throw.
 
       if (errno != ERANGE && e == b + s.size () && v <= max_num)
