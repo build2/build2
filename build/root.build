@@ -22,7 +22,8 @@ if ($cxx.target.system == 'win32-msvc')
 if ($cxx.class == 'msvc')
   cxx.coptions += /wd4251 /wd4275 /wd4800 /wd4819
 elif ($cxx.id == 'gcc')
-  cxx.coptions += -Wno-maybe-uninitialized -Wno-free-nonheap-object # libbutl
+  cxx.coptions += -Wno-maybe-uninitialized -Wno-free-nonheap-object \
+-Wno-stringop-overread # libbutl
 
 cxx.poptions =+ "-I$out_root" "-I$src_root"
 
