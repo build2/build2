@@ -164,11 +164,12 @@ namespace build2
           // C++ standard-wise, with VC you got what you got up until 14.2.
           // Starting with 14.3 there is now the /std: switch which defaults
           // to c++14 but can be set to c++latest. And from 15.3 it can be
-          // c++17.
+          // c++17. And from 16.?? it can be c++20.
           //
-          bool v16_0 (         mj > 19 || (mj == 19 && mi >= 20));
-          bool v15_3 (v16_0 || (mj == 19 && mi >= 11));
-          bool v14_3 (v15_3 || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))));
+          bool v16_10 (false  /* mj > 19 || (mj == 19 && mi >= 29) */);
+          bool v16_0  (v16_10 || mj > 19 || (mj == 19 && mi >= 20));
+          bool v15_3  (v16_0  || (mj == 19 && mi >= 11));
+          bool v14_3  (v15_3  || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))));
 
           // The question is also whether we should verify that the requested
           // standard is provided by this VC version. And if so, from which
@@ -191,7 +192,9 @@ namespace build2
             // for this mode. So starting from 16 we only enable it in
             // `experimental`.
             //
-            if (v16_0)
+            if (v16_10)
+              o = "/std:c++20";
+            else if (v16_0)
               o = "/std:c++17";
             else if (v14_3)
               o = "/std:c++latest";
@@ -217,6 +220,12 @@ namespace build2
               sup = (mj > 19 ||
                      (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918))));
             }
+            /*
+            else if (*v == "20") // C++20 since VS2019/16.??.
+            {
+              sup = (mj > 19 || (mj == 19 && mi >= 29));
+            }
+            */
 
             if (!sup)
               fail << "C++" << *v << " is not supported by " << ci.signature <<
@@ -224,8 +233,9 @@ namespace build2
 
             if (v15_3)
             {
-              if      (*v == "14") o = "/std:c++14";
+              if      (*v == "20") o = "/std:c++20";
               else if (*v == "17") o = "/std:c++17";
+              else if (*v == "14") o = "/std:c++14";
             }
             else if (v14_3)
             {
@@ -258,7 +268,8 @@ namespace build2
             {
             case compiler_type::gcc:
               {
-                if      (mj >= 8)            o = "-std=c++2a"; // 20
+                if      (mj >= 11)           o = "-std=c++23"; // 23
+                else if (mj >= 8)            o = "-std=c++2a"; // 20
                 else if (mj >= 5)            o = "-std=c++1z"; // 17
                 else if (mj == 4 && mi >= 8) o = "-std=c++1y"; // 14
                 else if (mj == 4 && mi >= 4) o = "-std=c++0x"; // 11
@@ -268,20 +279,21 @@ namespace build2
             case compiler_type::clang:
               {
                 // Clang 10.0.0 targeting MSVC 16.4 and 16.5 (preview) in the
-                // c++2a mode uncovers some Concepts-related bugs in MSVC
-                // (LLVM bug #44956). So in this case we for now map `latest`
-                // to c++17. @@ TMP
+                // c++2a mode uncovers some Concepts-related bugs in MSVC STL
+                // (LLVM bug #44956). So in this case we map `latest` to
+                // c++17.
                 //
-                // Note that if 10.0.0 is released without a workaround, then
-                // we will need to carry this forward at least for 16.4 since
-                // this version is unlikely to ever be fixed. Which means we
-                // will somehow need to pass the version of MSVC Clang is
-                // targeting.
+                // While reportedly this has been fixed in the later versions
+                // of MSVC, instead of somehow passing the version of MSVC
+                // Clang is targeting, we will just assume that Clang 11
+                // and later are used with a sufficiently new version of
+                // MSVC.
                 //
-                if (latest && mj == 10 && tt.system == "win32-msvc")
+                if (mj == 10 && latest && tt.system == "win32-msvc")
                 {
                   o = "-std=c++17";
                 }
+                //else if  (mj >= 13)                        o = "-std=c++2b";
                 else if  (mj >= 5)                         o = "-std=c++2a";
                 else if  (mj >  3 || (mj == 3 && mi >= 5)) o = "-std=c++1z";
                 else if  (mj == 3 && mi >= 4)              o = "-std=c++1y";
@@ -388,7 +400,9 @@ namespace build2
               //
               if (mj >= 11 && modules.value)
               {
-                // Defines __cpp_modules=201907. @@ TMP: confirm.
+                // Defines __cpp_modules:
+                //
+                // 11 -- 201810
                 //
                 prepend ("-fmodules-ts");
                 modules = true;
