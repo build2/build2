@@ -79,6 +79,11 @@ namespace build2
           //
           // And it's still early days for C2X.
           //
+          // From version 16.8 VC now supports /std:c11 and /std:c17 options
+          // which enable C11/17 conformance. However, as of version 16.10,
+          // neither SDK nor CRT can be compiled in these modes (see the /std
+          // option documentation for details/updates).
+          //
           if (v == nullptr)
             ;
           else if (*v != "90")
