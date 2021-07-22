@@ -2309,7 +2309,7 @@ namespace build2
                  const strings* c_lo, const strings* x_lo,
                  guess_result&& gr, sha256& cs)
     {
-      // This function handles vanialla Clang, including its clang-cl variant,
+      // This function handles vanilla Clang, including its clang-cl variant,
       // as well as Apple and Emscripten variants.
       //
       // The clang-cl variant appears to be a very thin wrapper over the
@@ -2501,6 +2501,22 @@ namespace build2
           });
 
         var_ver = extract_version (gr.signature, false, "Emscripten");
+
+        // The official Emscripten distributions routinely use unreleased
+        // Clang snapshots which nevertheless have the next release version
+        // (which means it's actually somewhere between the previous release
+        // and the next release). On the other hand, distributions like Debian
+        // package it to use their Clang package which normally has the
+        // accurate version. So here we will try to detect the former and
+        // similar to the Apple case we will conservatively adjust it to the
+        // previous release.
+        //
+        if (gr.type_signature.find ("googlesource") != string::npos)
+        {
+          if      (ver.patch != 0) ver.patch--;
+          else if (ver.minor != 0) ver.minor--;
+          else                     ver.major--;
+        }
       }
 
       // Figure out the target architecture.
