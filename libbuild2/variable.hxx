@@ -1222,25 +1222,25 @@ namespace build2
     const variable&
     insert (string name)
     {
-      return insert (move (name), nullptr, nullptr, nullptr);
+      return insert (move (name), nullptr, nullptr, nullptr).first;
     }
 
     const variable&
     insert (string name, variable_visibility v)
     {
-      return insert (move (name), nullptr, &v, nullptr);
+      return insert (move (name), nullptr, &v, nullptr).first;
     }
 
     const variable&
     insert (string name, bool overridable)
     {
-      return insert (move (name), nullptr, nullptr, &overridable);
+      return insert (move (name), nullptr, nullptr, &overridable).first;
     }
 
     const variable&
     insert (string name, bool overridable, variable_visibility v)
     {
-      return insert (move (name), nullptr, &v, &overridable);
+      return insert (move (name), nullptr, &v, &overridable). first;
     }
 
     template <typename T>
@@ -1248,14 +1248,15 @@ namespace build2
     insert (string name)
     {
       return insert (
-        move (name), &value_traits<T>::value_type, nullptr, nullptr);
+        move (name), &value_traits<T>::value_type, nullptr, nullptr).first;
     }
 
     template <typename T>
     const variable&
     insert (string name, variable_visibility v)
     {
-      return insert (move (name), &value_traits<T>::value_type, &v, nullptr);
+      return insert (
+        move (name), &value_traits<T>::value_type, &v, nullptr).first;
     }
 
     template <typename T>
@@ -1263,7 +1264,7 @@ namespace build2
     insert (string name, bool overridable)
     {
       return insert (
-        move (name), &value_traits<T>::value_type, nullptr, &overridable);
+        move (name), &value_traits<T>::value_type, nullptr, &overridable).first;
     }
 
     template <typename T>
@@ -1271,7 +1272,7 @@ namespace build2
     insert (string name, bool overridable, variable_visibility v)
     {
       return insert (
-        move (name), &value_traits<T>::value_type, &v, &overridable);
+        move (name), &value_traits<T>::value_type, &v, &overridable).first;
     }
 
     const variable&
@@ -1280,7 +1281,7 @@ namespace build2
             bool overridable,
             variable_visibility v)
     {
-      return insert (move (name), type, &v, &overridable);
+      return insert (move (name), type, &v, &overridable).first;
     }
 
     // Alias an existing variable with a new name.
@@ -1371,10 +1372,12 @@ namespace build2
     friend class scope;
 
   private:
+    friend class parser;
+
     // Note that in insert() NULL overridable is interpreted as false unless
     // overridden by a pattern while in update() NULL overridable is ignored.
     //
-    LIBBUILD2_SYMEXPORT variable&
+    LIBBUILD2_SYMEXPORT pair<variable&, bool>
     insert (string name,
             const value_type*,
             const variable_visibility*,

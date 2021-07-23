@@ -1553,7 +1553,7 @@ namespace build2
     }
   }
 
-  variable& variable_pool::
+  pair<variable&, bool> variable_pool::
   insert (string n,
           const build2::value_type* t,
           const variable_visibility* v,
@@ -1619,7 +1619,7 @@ namespace build2
       update (var, pt, pv, po); // Not changing the key.
     }
 
-    return var;
+    return pair<variable&, bool> (var, r.second);
   }
 
   const variable& variable_pool::
@@ -1631,7 +1631,7 @@ namespace build2
                          var.type,
                          &var.visibility,
                          nullptr /* override */,
-                         false   /* pattern  */));
+                         false   /* pattern  */).first);
 
     assert (a.overrides == nullptr);
 

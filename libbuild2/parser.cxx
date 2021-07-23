@@ -4216,8 +4216,34 @@ namespace build2
     // Note that the overridability can still be restricted (e.g., by a module
     // that enters this variable or by a pattern).
     //
-    return scope_->var_pool ().insert (
-      move (ns[0].value), true /* overridable */);
+    bool ovr (true);
+    auto r (scope_->var_pool ().insert (
+              move (ns[0].value), nullptr, nullptr, &ovr));
+
+    if (!r.second)
+      return r.first;
+
+    // If it's newly entered, verify it's not reserved for the build2 core.
+    // We reserve:
+    //
+    // - Variable components that start with underscore (_x, x._y).
+    //
+    // - Variables in the `build`, `import`, and `export` namespaces.
+    //
+    const string& n (r.first.name);
+
+    const char* w (
+      n[0] == '_'                      ? "name starts with underscore" :
+      n.find ("._") != string::npos    ? "component starts with underscore" :
+      n.compare (0, 6, "build.") == 0  ? "is in 'build' namespace"  :
+      n.compare (0, 7, "import.") == 0 ? "is in 'import' namespace" :
+      n.compare (0, 7, "export.") == 0 ? "is in 'export' namespace" : nullptr);
+
+    if (w != nullptr)
+      fail (l) << "variable name '" << n << "' is reserved" <<
+        info << "variable " << w;
+
+    return r.first;
   }
 
   void parser::
