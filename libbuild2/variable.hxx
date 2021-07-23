@@ -1372,8 +1372,6 @@ namespace build2
     friend class scope;
 
   private:
-    friend class parser;
-
     // Note that in insert() NULL overridable is interpreted as false unless
     // overridden by a pattern while in update() NULL overridable is ignored.
     //
