@@ -1022,6 +1022,11 @@ namespace build2
     // which we convert to NULL below). When calculated, the NULL value
     // indicates that we are not amalgamated.
     //
+    // Before we used to assume that if there is an outer root scope, then
+    // that got to be our amalgamation. But it turns our this is not always
+    // the case (for example, a private host configuration in bpkg) and there
+    // could be an unbootstrapped project between us and an outer root scope.
+    //
     // Note: the amalgamation variable value is always a relative directory.
     //
     if (!simple)
@@ -1032,66 +1037,73 @@ namespace build2
       if (v && v.empty ()) // Convert empty to NULL.
         v = nullptr;
 
-      if (scope* ars = rs.parent_scope ()->root_scope ())
+      scope* ars (rs.parent_scope ()->root_scope ());
+
+      if (rp.second)
+      {
+        // If the amalgamation variable hasn't been set, then we need to check
+        // if any of the outer directories is a project's out_root. If so,
+        // then that's (likely) our amalgamation.
+        //
+        optional<bool> altn;
+        const dir_path& d (find_out_root (out_root.directory (), altn).first);
+
+        if (!d.empty ())
+        {
+          // Note that the sub() test is important: during configuration we
+          // may find a project that is outside the outer root scope in which
+          // case we should use the latter instead.
+          //
+          if (ars == nullptr ||
+              (d != ars->out_path () && d.sub (ars->out_path ())))
+          {
+            dir_path rd (d.relative (out_root));
+            l5 ([&]{trace << out_root << " amalgamated as " << rd;});
+            v = move (rd);
+            ars = nullptr; // Skip the checks blow.
+          }
+          // Else fall through.
+        }
+        else
+          assert (ars == nullptr); // Shouldn't find_out_root() have found it?
+      }
+
+      // Do additional checks if the outer root could be our amalgamation.
+      //
+      if (ars != nullptr)
       {
         // We must not be amalgamated by a simple project.
         //
-        if (!ars->root_extra->project || *ars->root_extra->project != nullptr)
+        bool simple (ars->root_extra->project &&
+                     *ars->root_extra->project == nullptr);
+
+        const dir_path& ad (ars->out_path ());
+
+        // If we have the amalgamation variable set by the user, verify that
+        // it's a subdirectory of the outer root scope.
+        //
+        if (!rp.second)
         {
-          const dir_path& ad (ars->out_path ());
-          dir_path rd (ad.relative (out_root));
-
-          // If we already have the amalgamation variable set, verify that
-          // aroot matches its value.
-          //
-          if (!rp.second)
+          if (v)
           {
-            if (v)
-            {
-              const dir_path& vd (cast<dir_path> (v));
+            const dir_path& vd (cast<dir_path> (v));
+            dir_path d (out_root / vd);
+            d.normalize ();
 
-              if (vd != rd)
-              {
-                fail << "inconsistent amalgamation of " << out_root <<
-                  info << "specified: " << vd <<
-                  info << "actual: " << rd << " by " << ad;
-              }
-            }
-          }
-          else
-          {
-            // Otherwise, use the outer root as our amalgamation.
-            //
-            l5 ([&]{trace << out_root << " amalgamated as " << rd;});
-            v = move (rd);
+            if (!d.sub (ad) || (simple && d == ad))
+              fail << "incorrect amalgamation " << vd << " of " << out_root;
           }
         }
-      }
-      else if (rp.second)
-      {
-        // If there is no outer root and the amalgamation variable hasn't been
-        // set, then we need to check if any of the outer directories is a
-        // project's out_root. If so, then that's our amalgamation.
-        //
-        optional<bool> altn;
-        const dir_path& ad (find_out_root (out_root.directory (), altn).first);
-
-        if (!ad.empty ())
+        else if (!simple)
         {
+          // Otherwise, use the outer root as our amalgamation.
+          //
           dir_path rd (ad.relative (out_root));
+
           l5 ([&]{trace << out_root << " amalgamated as " << rd;});
           v = move (rd);
         }
-        //@@ else: the value will be NULL and amalgamation will be disabled.
-        //         We could omit setting it in root_extra... But maybe this is
-        //         correct: we don't want to load half of the project as
-        //         amalgamated and the other half as not, would we now?
-
       }
-      // @@ else if (v): shouldn't we try to bootstrap a project in the
-      //                 user-specified directory? Though this case is not
-      //                 used outside of some controlled cases (like module
-      //                 sidebuilds).
 
       rs.root_extra->amalgamation = cast_null<dir_path> (v);
     }
