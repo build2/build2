@@ -560,6 +560,14 @@ namespace build2
         }
       };
 
+      // Print bootstrapped modules.
+      //
+      auto print_mods = [&rs] ()
+      {
+        for (const module_state& ms: rs.root_extra->modules)
+          cout << ' ' << ms.name;
+      };
+
       // This could be a simple project that doesn't set project name.
       //
       cout
@@ -572,7 +580,8 @@ namespace build2
         << "amalgamation: " << (*rs.root_extra->amalgamation != nullptr ? **rs.root_extra->amalgamation : empty_dir_path) << endl
         << "subprojects: "  << (*rs.root_extra->subprojects != nullptr ? **rs.root_extra->subprojects : subprojects ()) << endl
         << "operations:";      print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
-        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl;
+        << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl
+        << "modules:"; print_mods (); cout << endl;
     }
   }
 
