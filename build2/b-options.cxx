@@ -16,6 +16,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <utility>
 #include <ostream>
 #include <sstream>
 #include <cstring>
@@ -199,6 +200,7 @@ namespace build2
         else
           ++i_;
 
+        ++start_position_;
         return r;
       }
       else
@@ -209,9 +211,18 @@ namespace build2
     skip ()
     {
       if (i_ < argc_)
+      {
         ++i_;
+        ++start_position_;
+      }
       else
         throw eos_reached ();
+    }
+
+    std::size_t argv_scanner::
+    position ()
+    {
+      return start_position_;
     }
 
     // argv_file_scanner
@@ -324,6 +335,7 @@ namespace build2
       {
         hold_[i_ == 0 ? ++i_ : --i_].swap (args_.front ().value);
         args_.pop_front ();
+        ++start_position_;
         return hold_[i_].c_str ();
       }
     }
@@ -337,7 +349,10 @@ namespace build2
       if (args_.empty ())
         return base::skip ();
       else
+      {
         args_.pop_front ();
+        ++start_position_;
+      }
     }
 
     const argv_file_scanner::option_info* argv_file_scanner::
@@ -348,6 +363,12 @@ namespace build2
           return &options_[i];
 
       return 0;
+    }
+
+    std::size_t argv_file_scanner::
+    position ()
+    {
+      return start_position_;
     }
 
     void argv_file_scanner::
@@ -567,6 +588,23 @@ namespace build2
     };
 
     template <typename X>
+    struct parser<std::pair<X, std::size_t> >
+    {
+      static void
+      parse (std::pair<X, std::size_t>& x, bool& xs, scanner& s)
+      {
+        x.second = s.position ();
+        parser<X>::parse (x.first, xs, s);
+      }
+
+      static void
+      merge (std::pair<X, std::size_t>& b, const std::pair<X, std::size_t>& a)
+      {
+        b = a;
+      }
+    };
+
+    template <typename X>
     struct parser<std::vector<X> >
     {
       static void
@@ -616,6 +654,7 @@ namespace build2
 
         if (s.more ())
         {
+          std::size_t pos (s.position ());
           std::string ov (s.next ());
           std::string::size_type p = ov.find ('=');
 
@@ -635,14 +674,14 @@ namespace build2
           if (!kstr.empty ())
           {
             av[1] = const_cast<char*> (kstr.c_str ());
-            argv_scanner s (0, ac, av);
+            argv_scanner s (0, ac, av, false, pos);
             parser<K>::parse (k, dummy, s);
           }
 
           if (!vstr.empty ())
           {
             av[1] = const_cast<char*> (vstr.c_str ());
-            argv_scanner s (0, ac, av);
+            argv_scanner s (0, ac, av, false, pos);
             parser<V>::parse (v, dummy, s);
           }
 

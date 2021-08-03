@@ -238,6 +238,14 @@ namespace build2
     // for the two previous arguments up until a call to a third
     // peek() or next().
     //
+    // The position() function returns a monotonically-increasing
+    // number which, if stored, can later be used to determine the
+    // relative position of the argument returned by the following
+    // call to next(). Note that if multiple scanners are used to
+    // extract arguments from multiple sources, then the end
+    // position of the previous scanner should be used as the
+    // start position of the next.
+    //
     class scanner
     {
       public:
@@ -255,13 +263,24 @@ namespace build2
 
       virtual void
       skip () = 0;
+
+      virtual std::size_t
+      position () = 0;
     };
 
     class argv_scanner: public scanner
     {
       public:
-      argv_scanner (int& argc, char** argv, bool erase = false);
-      argv_scanner (int start, int& argc, char** argv, bool erase = false);
+      argv_scanner (int& argc,
+                    char** argv,
+                    bool erase = false,
+                    std::size_t start_position = 0);
+
+      argv_scanner (int start,
+                    int& argc,
+                    char** argv,
+                    bool erase = false,
+                    std::size_t start_position = 0);
 
       int
       end () const;
@@ -278,7 +297,11 @@ namespace build2
       virtual void
       skip ();
 
-      private:
+      virtual std::size_t
+      position ();
+
+      protected:
+      std::size_t start_position_;
       int i_;
       int& argc_;
       char** argv_;
@@ -291,16 +314,19 @@ namespace build2
       argv_file_scanner (int& argc,
                          char** argv,
                          const std::string& option,
-                         bool erase = false);
+                         bool erase = false,
+                         std::size_t start_position = 0);
 
       argv_file_scanner (int start,
                          int& argc,
                          char** argv,
                          const std::string& option,
-                         bool erase = false);
+                         bool erase = false,
+                         std::size_t start_position = 0);
 
       argv_file_scanner (const std::string& file,
-                         const std::string& option);
+                         const std::string& option,
+                         std::size_t start_position = 0);
 
       struct option_info
       {
@@ -317,18 +343,21 @@ namespace build2
                           char** argv,
                           const option_info* options,
                           std::size_t options_count,
-                          bool erase = false);
+                          bool erase = false,
+                          std::size_t start_position = 0);
 
       argv_file_scanner (int start,
                          int& argc,
                          char** argv,
                          const option_info* options,
                          std::size_t options_count,
-                         bool erase = false);
+                         bool erase = false,
+                         std::size_t start_position = 0);
 
       argv_file_scanner (const std::string& file,
                          const option_info* options = 0,
-                         std::size_t options_count = 0);
+                         std::size_t options_count = 0,
+                         std::size_t start_position = 0);
 
       virtual bool
       more ();
@@ -341,6 +370,9 @@ namespace build2
 
       virtual void
       skip ();
+
+      virtual std::size_t
+      position ();
 
       // Return the file path if the peeked at argument came from a file and
       // the empty string otherwise. The reference is guaranteed to be valid

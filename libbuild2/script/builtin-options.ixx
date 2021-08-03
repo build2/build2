@@ -109,14 +109,29 @@ namespace build2
       // argv_scanner
       //
       inline argv_scanner::
-      argv_scanner (int& argc, char** argv, bool erase)
-      : i_ (1), argc_ (argc), argv_ (argv), erase_ (erase)
+      argv_scanner (int& argc,
+                    char** argv,
+                    bool erase,
+                    std::size_t sp)
+      : start_position_ (sp + 1),
+        i_ (1),
+        argc_ (argc),
+        argv_ (argv),
+        erase_ (erase)
       {
       }
 
       inline argv_scanner::
-      argv_scanner (int start, int& argc, char** argv, bool erase)
-      : i_ (start), argc_ (argc), argv_ (argv), erase_ (erase)
+      argv_scanner (int start,
+                    int& argc,
+                    char** argv,
+                    bool erase,
+                    std::size_t sp)
+      : start_position_ (sp + static_cast<std::size_t> (start)),
+        i_ (start),
+        argc_ (argc),
+        argv_ (argv),
+        erase_ (erase)
       {
       }
 
@@ -129,8 +144,10 @@ namespace build2
       // vector_scanner
       //
       inline vector_scanner::
-      vector_scanner (const std::vector<std::string>& v, std::size_t i)
-      : v_ (v), i_ (i)
+      vector_scanner (const std::vector<std::string>& v,
+                      std::size_t i,
+                      std::size_t sp)
+      : start_position_ (sp), v_ (v), i_ (i)
       {
       }
 
@@ -141,9 +158,10 @@ namespace build2
       }
 
       inline void vector_scanner::
-      reset (std::size_t i)
+      reset (std::size_t i, std::size_t sp)
       {
         i_ = i;
+        start_position_ = sp;
       }
     }
   }

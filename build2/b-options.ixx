@@ -143,14 +143,29 @@ namespace build2
     // argv_scanner
     //
     inline argv_scanner::
-    argv_scanner (int& argc, char** argv, bool erase)
-    : i_ (1), argc_ (argc), argv_ (argv), erase_ (erase)
+    argv_scanner (int& argc,
+                  char** argv,
+                  bool erase,
+                  std::size_t sp)
+    : start_position_ (sp + 1),
+      i_ (1),
+      argc_ (argc),
+      argv_ (argv),
+      erase_ (erase)
     {
     }
 
     inline argv_scanner::
-    argv_scanner (int start, int& argc, char** argv, bool erase)
-    : i_ (start), argc_ (argc), argv_ (argv), erase_ (erase)
+    argv_scanner (int start,
+                  int& argc,
+                  char** argv,
+                  bool erase,
+                  std::size_t sp)
+    : start_position_ (sp + static_cast<std::size_t> (start)),
+      i_ (start),
+      argc_ (argc),
+      argv_ (argv),
+      erase_ (erase)
     {
     }
 
@@ -166,8 +181,9 @@ namespace build2
     argv_file_scanner (int& argc,
                        char** argv,
                        const std::string& option,
-                       bool erase)
-    : argv_scanner (argc, argv, erase),
+                       bool erase,
+                       std::size_t sp)
+    : argv_scanner (argc, argv, erase, sp),
       option_ (option),
       options_ (&option_info_),
       options_count_ (1),
@@ -183,8 +199,9 @@ namespace build2
                        int& argc,
                        char** argv,
                        const std::string& option,
-                       bool erase)
-    : argv_scanner (start, argc, argv, erase),
+                       bool erase,
+                       std::size_t sp)
+    : argv_scanner (start, argc, argv, erase, sp),
       option_ (option),
       options_ (&option_info_),
       options_count_ (1),
@@ -197,8 +214,9 @@ namespace build2
 
     inline argv_file_scanner::
     argv_file_scanner (const std::string& file,
-                       const std::string& option)
-    : argv_scanner (0, zero_argc_, 0),
+                       const std::string& option,
+                       std::size_t sp)
+    : argv_scanner (0, zero_argc_, 0, sp),
       option_ (option),
       options_ (&option_info_),
       options_count_ (1),
@@ -216,8 +234,9 @@ namespace build2
                        char** argv,
                        const option_info* options,
                        std::size_t options_count,
-                       bool erase)
-    : argv_scanner (argc, argv, erase),
+                       bool erase,
+                       std::size_t sp)
+    : argv_scanner (argc, argv, erase, sp),
       options_ (options),
       options_count_ (options_count),
       i_ (1),
@@ -231,8 +250,9 @@ namespace build2
                        char** argv,
                        const option_info* options,
                        std::size_t options_count,
-                       bool erase)
-    : argv_scanner (start, argc, argv, erase),
+                       bool erase,
+                       std::size_t sp)
+    : argv_scanner (start, argc, argv, erase, sp),
       options_ (options),
       options_count_ (options_count),
       i_ (1),
@@ -243,8 +263,9 @@ namespace build2
     inline argv_file_scanner::
     argv_file_scanner (const std::string& file,
                        const option_info* options,
-                       std::size_t options_count)
-    : argv_scanner (0, zero_argc_, 0),
+                       std::size_t options_count,
+                       std::size_t sp)
+    : argv_scanner (0, zero_argc_, 0, sp),
       options_ (options),
       options_count_ (options_count),
       i_ (1),

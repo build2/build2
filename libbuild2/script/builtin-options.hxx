@@ -176,6 +176,14 @@ namespace build2
       // for the two previous arguments up until a call to a third
       // peek() or next().
       //
+      // The position() function returns a monotonically-increasing
+      // number which, if stored, can later be used to determine the
+      // relative position of the argument returned by the following
+      // call to next(). Note that if multiple scanners are used to
+      // extract arguments from multiple sources, then the end
+      // position of the previous scanner should be used as the
+      // start position of the next.
+      //
       class scanner
       {
         public:
@@ -193,13 +201,24 @@ namespace build2
 
         virtual void
         skip () = 0;
+
+        virtual std::size_t
+        position () = 0;
       };
 
       class argv_scanner: public scanner
       {
         public:
-        argv_scanner (int& argc, char** argv, bool erase = false);
-        argv_scanner (int start, int& argc, char** argv, bool erase = false);
+        argv_scanner (int& argc,
+                      char** argv,
+                      bool erase = false,
+                      std::size_t start_position = 0);
+
+        argv_scanner (int start,
+                      int& argc,
+                      char** argv,
+                      bool erase = false,
+                      std::size_t start_position = 0);
 
         int
         end () const;
@@ -216,7 +235,11 @@ namespace build2
         virtual void
         skip ();
 
-        private:
+        virtual std::size_t
+        position ();
+
+        protected:
+        std::size_t start_position_;
         int i_;
         int& argc_;
         char** argv_;
@@ -226,13 +249,15 @@ namespace build2
       class vector_scanner: public scanner
       {
         public:
-        vector_scanner (const std::vector<std::string>&, std::size_t start = 0);
+        vector_scanner (const std::vector<std::string>&,
+                        std::size_t start = 0,
+                        std::size_t start_position = 0);
 
         std::size_t
         end () const;
 
         void
-        reset (std::size_t start = 0);
+        reset (std::size_t start = 0, std::size_t start_position = 0);
 
         virtual bool
         more ();
@@ -246,7 +271,11 @@ namespace build2
         virtual void
         skip ();
 
+        virtual std::size_t
+        position ();
+
         private:
+        std::size_t start_position_;
         const std::vector<std::string>& v_;
         std::size_t i_;
       };
