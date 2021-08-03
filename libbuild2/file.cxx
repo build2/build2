@@ -1039,6 +1039,13 @@ namespace build2
 
       scope* ars (rs.parent_scope ()->root_scope ());
 
+      // We must not be amalgamated by a simple project.
+      //
+      auto simple = [ars] ()
+      {
+        return ars->root_extra->project && *ars->root_extra->project == nullptr;
+      };
+
       if (rp.second)
       {
         // If the amalgamation variable hasn't been set, then we need to check
@@ -1065,18 +1072,13 @@ namespace build2
           // Else fall through.
         }
         else
-          assert (ars == nullptr); // Shouldn't find_out_root() have found it?
+          assert (ars == nullptr || simple ()); // Shouldn't we have found it?
       }
 
       // Do additional checks if the outer root could be our amalgamation.
       //
       if (ars != nullptr)
       {
-        // We must not be amalgamated by a simple project.
-        //
-        bool simple (ars->root_extra->project &&
-                     *ars->root_extra->project == nullptr);
-
         const dir_path& ad (ars->out_path ());
 
         // If we have the amalgamation variable set by the user, verify that
@@ -1090,11 +1092,11 @@ namespace build2
             dir_path d (out_root / vd);
             d.normalize ();
 
-            if (!d.sub (ad) || (simple && d == ad))
+            if (!d.sub (ad) || (simple () && d == ad))
               fail << "incorrect amalgamation " << vd << " of " << out_root;
           }
         }
-        else if (!simple)
+        else if (!simple ())
         {
           // Otherwise, use the outer root as our amalgamation.
           //
