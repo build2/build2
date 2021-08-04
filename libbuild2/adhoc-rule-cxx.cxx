@@ -40,7 +40,7 @@ namespace build2
   }
 
   bool adhoc_cxx_rule::
-  recipe_text (const scope&, string&& t, attributes&)
+  recipe_text (const scope&, const target_type&, string&& t, attributes&)
   {
     code = move (t);
     return true;

@@ -25,6 +25,9 @@ namespace build2
     virtual bool
     reverse_fallback (action, const target_type&) const override;
 
+    virtual bool
+    match (action, target&, const string&, match_extra&) const override;
+
     virtual recipe
     apply (action, target&, match_extra&) const override;
 
@@ -42,7 +45,10 @@ namespace build2
         : adhoc_rule (move (n), l, b) {}
 
     virtual bool
-    recipe_text (const scope&, string&&, attributes&) override;
+    recipe_text (const scope&,
+                 const target_type&,
+                 string&&,
+                 attributes&) override;
 
     virtual void
     dump_attributes (ostream&) const override;
@@ -53,8 +59,9 @@ namespace build2
   public:
     using script_type = build::script::script;
 
-    script_type script;
-    string      checksum; // Script text hash.
+    script_type        script;
+    string             checksum; // Script text hash.
+    const target_type* ttype;    // First target/pattern type.
   };
 }
 

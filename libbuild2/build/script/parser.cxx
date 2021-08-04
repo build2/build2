@@ -28,6 +28,7 @@ namespace build2
 
       script parser::
       pre_parse (const scope& bs,
+                 const target_type& tt,
                  const small_vector<action, 1>& as,
                  istream& is, const path_name& pn, uint64_t line,
                  optional<string> diag, const location& diag_loc)
@@ -48,6 +49,7 @@ namespace build2
 
         pbase_  = scope_->src_path_;
 
+        file_based_ = tt.is_a<file> ();
         perform_update_ = find (as.begin (), as.end (), perform_update_id) !=
                           as.end ();
 
@@ -454,7 +456,7 @@ namespace build2
             verify ();
 
             // Verify that depdb is not used for anything other than
-            // performing update.
+            // performing update on a file-based target.
             //
             assert (actions_ != nullptr);
 
@@ -465,6 +467,10 @@ namespace build2
                          << ctx.meta_operation_table[a.meta_operation ()].name
                          << ' ' << ctx.operation_table[a.operation ()];
             }
+
+            if (!file_based_)
+              fail (l) << "'depdb' builtin can only be used for file-based "
+                       << "targets";
 
             if (diag_line_)
               fail (diag_line_->second)
@@ -1215,7 +1221,7 @@ namespace build2
       void parser::
       lookup_function (string&& name, const location& loc)
       {
-        if (perform_update_ && !impure_func_)
+        if (perform_update_ && file_based_ && !impure_func_)
         {
           const function_overloads* f (ctx.functions.find (name));
 

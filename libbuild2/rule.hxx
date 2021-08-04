@@ -173,13 +173,20 @@ namespace build2
 
     // Set the rule text, handle any recipe-specific attributes, and return
     // true if the recipe builds anything in the build/recipes/ directory and
-    // therefore requires cleanup. Scope is the scope of the recipe.
+    // therefore requires cleanup.
+    //
+    // Scope is the scope of the recipe and target type is the type of the
+    // first target (for ad hoc recipe) or primary group member type (for ad
+    // hoc pattern rule). The idea is that an implementation may make certain
+    // assumptions based on the first target type (e.g., file vs non-file
+    // based) in which case it should also enforce (e.g., in match()) that any
+    // other targets that share this recipe are also of suitable type.
     //
     // Note also that this function is called after the actions member has
     // been populated.
     //
     virtual bool
-    recipe_text (const scope&, string&&, attributes&) = 0;
+    recipe_text (const scope&, const target_type&, string&&, attributes&) = 0;
 
   public:
     // Some of the operations come in compensating pairs, such as update and

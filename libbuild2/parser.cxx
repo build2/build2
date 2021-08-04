@@ -1104,7 +1104,7 @@ namespace build2
           if (tt == type::percent || tt == type::multi_lcbrace)
           {
             small_vector<shared_ptr<adhoc_rule>, 1> recipes;
-            parse_recipe (t, tt, token (t), recipes, rn);
+            parse_recipe (t, tt, token (t), recipes, ttype, rn);
 
             for (shared_ptr<adhoc_rule>& pr: recipes)
             {
@@ -1533,6 +1533,7 @@ namespace build2
   parse_recipe (token& t, type& tt,
                 const token& start,
                 small_vector<shared_ptr<adhoc_rule>, 1>& recipes,
+                const target_type* ttype,
                 const string& name)
   {
     // Parse a recipe chain.
@@ -1581,6 +1582,7 @@ namespace build2
 
       struct data
       {
+        const target_type*                       ttype;
         const string&                            name;
         small_vector<shared_ptr<adhoc_rule>, 1>& recipes;
         bool                                     first;
@@ -1589,7 +1591,7 @@ namespace build2
         attributes&                              as;
         buildspec&                               bs;
         const location&                          bsloc;
-      } d {name, recipes, first, clean, i, as, bs, bsloc};
+      } d {ttype, name, recipes, first, clean, i, as, bs, bsloc};
 
       // Note that this function must be called at most once per iteration.
       //
@@ -1797,7 +1799,11 @@ namespace build2
 
             // Set the recipe text.
             //
-            if (ar.recipe_text (*scope_, move (t.value), d.as))
+            if (ar.recipe_text (
+                  *scope_,
+                  d.ttype != nullptr ? *d.ttype : target_->type (),
+                  move (t.value),
+                  d.as))
               d.clean = true;
 
             // Verify we have no unhandled attributes.

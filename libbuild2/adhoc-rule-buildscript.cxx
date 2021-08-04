@@ -23,7 +23,10 @@ using namespace std;
 namespace build2
 {
   bool adhoc_buildscript_rule::
-  recipe_text (const scope& s, string&& t, attributes& as)
+  recipe_text (const scope& s,
+               const target_type& tt,
+               string&& t,
+               attributes& as)
   {
     // Handle and erase recipe-specific attributes.
     //
@@ -52,11 +55,12 @@ namespace build2
     }
 
     checksum = sha256 (t).string ();
+    ttype = &tt;
 
     istringstream is (move (t));
     build::script::parser p (s.ctx);
 
-    script = p.pre_parse (s, actions,
+    script = p.pre_parse (s, tt, actions,
                           is, loc.file, loc.line + 1,
                           move (diag), as.loc);
 
@@ -107,6 +111,25 @@ namespace build2
     return a == perform_clean_id && tt.is_a<file> () &&
       find (actions.begin (), actions.end (),
             perform_update_id) != actions.end ();
+  }
+
+  bool adhoc_buildscript_rule::
+  match (action a, target& t, const string& h, match_extra& me) const
+  {
+    // We pre-parsed the script with the assumption it will be used on a
+    // non/file-based target. Note that this should not be possible with
+    // patterns.
+    //
+    if (pattern == nullptr)
+    {
+      if ((t.is_a<file> () != nullptr) != ttype->is_a<file> ())
+      {
+        fail (loc) << "incompatible target types used with shared recipe" <<
+          info << "all targets must be file-based or non-file-based";
+      }
+    }
+
+    return adhoc_rule::match (a, t, h, me);
   }
 
   recipe adhoc_buildscript_rule::

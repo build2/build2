@@ -46,7 +46,9 @@ namespace build2
         // we will end up with mismatching diagnostics.
         //
         script
-        pre_parse (const scope&, const small_vector<action, 1>&,
+        pre_parse (const scope&,
+                   const target_type&,
+                   const small_vector<action, 1>&,
                    istream&, const path_name&, uint64_t line,
                    optional<string> diag_name, const location& diag_loc);
 
@@ -156,9 +158,11 @@ namespace build2
         script* script_;
         const small_vector<action, 1>* actions_; // Non-NULL during pre-parse.
 
-        // True if performing update is one of the actions. Only set for the
-        // pre-parse mode.
+        // True if this script is for file-based targets and performing update
+        // is one of the actions, respectively. Only set for the pre-parse
+        // mode.
         //
+        bool file_based_;
         bool perform_update_;
 
         // Current low-verbosity script diagnostics and its weight.
@@ -220,7 +224,7 @@ namespace build2
         lines              depdb_preamble_; // Note: excludes 'depdb clear'.
 
         // If present, the first impure function called in the body of the
-        // script that performs update.
+        // script that performs update of a file-based target.
         //
         // Note that during the line pre-parsing we cannot tell if this is a
         // body or depdb preamble line. Thus, if we encounter an impure
