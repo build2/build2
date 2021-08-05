@@ -132,7 +132,14 @@ namespace build2
       return nullptr;
 
     if (!n.dir.empty ())
-      n.dir.normalize (false, true); // Current dir collapses to an empty one.
+    {
+      // More often than not a non-empty directory will already be normalized.
+      //
+      // Note that we collapse current dir to an empty one.
+      //
+      if (!n.dir.normalized () || n.dir.string () == ".")
+        n.dir.normalize (false, true);
+    }
 
     bool q (cn.qualified ());
 
