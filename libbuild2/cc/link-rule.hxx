@@ -174,19 +174,22 @@ namespace build2
       append_libraries (appended_libraries&, strings&,
                         const scope&, action,
                         const file&, bool, lflags, linfo,
-                        bool = true, bool = true) const;
+                        bool = true, bool = true,
+                        library_cache* = nullptr) const;
 
       void
       append_libraries (sha256&, bool&, timestamp,
                         const scope&, action,
-                        const file&, bool, lflags,  linfo) const;
+                        const file&, bool, lflags,  linfo,
+                        library_cache* = nullptr) const;
 
       using rpathed_libraries = small_vector<const file*, 256>;
 
       void
       rpath_libraries (rpathed_libraries&, strings&,
                        const scope&,
-                       action, const file&, bool, linfo, bool, bool) const;
+                       action, const file&, bool, linfo, bool, bool,
+                       library_cache* = nullptr) const;
 
       void
       rpath_libraries (strings&,

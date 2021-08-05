@@ -1665,7 +1665,8 @@ namespace build2
     append_libraries (appended_libraries& ls, strings& args,
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li,
-                      bool self, bool rel) const
+                      bool self, bool rel,
+                      library_cache* lib_cache) const
     {
       struct data
       {
@@ -1719,7 +1720,8 @@ namespace build2
           // Hoist the elements corresponding to this library to the end.
           //
           d.ls.hoist (d.args, *al);
-          return;
+          return true; // @@ Can we prune here???. But also sha256 version?
+                       // Also in pkgconfig.cxx!
         }
 
         if (l == nullptr)
@@ -1847,6 +1849,8 @@ namespace build2
       done:
         if (al != nullptr)
           al->end = d.args.size (); // Close.
+
+        return true;
       };
 
       auto opt = [&d, this] (const target& lt,
@@ -1867,12 +1871,12 @@ namespace build2
         // the exp checks below.
         //
         if (d.li.type == otype::a || !exp)
-          return;
+          return true;
 
         // Suppress duplicates.
         //
         if (d.ls.append (l, d.args.size ()).end != appended_library::npos)
-          return;
+          return true;
 
         // If we need an interface value, then use the group (lib{}).
         //
@@ -1887,16 +1891,21 @@ namespace build2
 
           append_options (d.args, *g, var);
         }
+
+        return true;
       };
 
-      process_libraries (
-        a, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, self);
+      process_libraries (a, bs, li, sys_lib_dirs,
+                         l, la,
+                         lf, imp, lib, opt, self,
+                         lib_cache);
     }
 
     void link_rule::
     append_libraries (sha256& cs, bool& update, timestamp mt,
                       const scope& bs, action a,
-                      const file& l, bool la, lflags lf, linfo li) const
+                      const file& l, bool la, lflags lf, linfo li,
+                      library_cache* lib_cache) const
     {
       // Note that we don't do any duplicate suppression here: there is no way
       // to "hoist" things once they are hashed and hashing only the first
@@ -1941,7 +1950,7 @@ namespace build2
           {
             for (ptrdiff_t i (-1); lc[i] != nullptr; --i)
               if (!lc[i]->is_a<libux> ())
-                return;
+                return true;
           }
 
           // We also don't need to do anything special for linking a utility
@@ -1954,10 +1963,10 @@ namespace build2
           // append_libraries().
           //
           if (d.li.type == otype::a && !lu)
-            return;
+            return true;
 
           if (l->mtime () == timestamp_unreal) // Binless.
-            return;
+            return true;
 
           // Check if this library renders us out of date.
           //
@@ -1976,6 +1985,8 @@ namespace build2
           d.cs.append (f);
           hash_path (d.cs, l->path (), d.out_root);
         }
+
+        return true;
       };
 
       auto opt = [&d, this] (const target& l,
@@ -1984,7 +1995,7 @@ namespace build2
                              bool exp)
       {
         if (d.li.type == otype::a || !exp)
-          return;
+          return true;
 
         if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
         {
@@ -1997,17 +2008,22 @@ namespace build2
 
           append_options (d.cs, *g, var);
         }
+
+        return true;
       };
 
-      process_libraries (
-        a, bs, li, sys_lib_dirs, l, la, lf, imp, lib, opt, true);
+      process_libraries (a, bs, li, sys_lib_dirs,
+                         l, la,
+                         lf, imp, lib, opt, true /* self */,
+                         lib_cache);
     }
 
     void link_rule::
     rpath_libraries (rpathed_libraries& ls, strings& args,
                      const scope& bs,
                      action a, const file& l, bool la,
-                     linfo li, bool link, bool self) const
+                     linfo li, bool link, bool self,
+                     library_cache* lib_cache) const
     {
       // Use -rpath-link only on targets that support it (Linux, *BSD). Note
       // that we don't really need it for top-level libraries.
@@ -2058,8 +2074,11 @@ namespace build2
         // We don't rpath system libraries. Why, you may ask? There are many
         // good reasons and I have them written on a napkin somewhere...
         //
+        // We also assume system libraries can only depend on other system
+        // libraries and so can prune the traversal.
+        //
         if (sys)
-          return;
+          return false;
 
         auto append = [&d] (const string& f)
         {
@@ -2075,21 +2094,22 @@ namespace build2
         if (l != nullptr)
         {
           if (!l->is_a<libs> ())
-            return;
+            return true;
 
           if (l->mtime () == timestamp_unreal) // Binless.
-            return;
+            return true;
 
           // Suppress duplicates.
           //
           // We handle rpath similar to the compilation case by adding the
-          // options on the first occurrence and ignoring all the subsequent.
+          // options on the first occurrence and ignoring (and pruning) all
+          // the subsequent.
           //
-          if (find (d.ls.begin (), d.ls.end (), l) == d.ls.end ())
-          {
-            append (ns[0]);
-            d.ls.push_back (l);
-          }
+          if (find (d.ls.begin (), d.ls.end (), l) != d.ls.end ())
+            return false;
+
+          append (ns[0]);
+          d.ls.push_back (l);
         }
         else
         {
@@ -2103,7 +2123,7 @@ namespace build2
             size_t p (path::traits_type::find_extension (f));
 
             if (p == string::npos)
-              return;
+              break;
 
             ++p; // Skip dot.
 
@@ -2120,8 +2140,9 @@ namespace build2
               append (f);
           }
         }
-      };
 
+        return true;
+      };
 
       if (self && !link && !la)
       {
@@ -2141,7 +2162,7 @@ namespace build2
 
       process_libraries (a, bs, li, sys_lib_dirs,
                          l, la, 0 /* lflags */,
-                         imp, lib, nullptr);
+                         imp, lib, nullptr, false /* self */, lib_cache);
     }
 
     void link_rule::
@@ -2150,6 +2171,7 @@ namespace build2
                      const target& t, linfo li, bool link) const
     {
       rpathed_libraries ls;
+      library_cache lc;
 
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
@@ -2163,7 +2185,7 @@ namespace build2
             (la = (f = pt->is_a<libux> ())) ||
             (      f = pt->is_a<libs>  ()))
         {
-          rpath_libraries (ls, args, bs, a, *f, la, li, link, true);
+          rpath_libraries (ls, args, bs, a, *f, la, li, link, true, &lc);
         }
       }
     }
@@ -2835,6 +2857,7 @@ namespace build2
       const file* def (nullptr); // Cached if present.
       {
         sha256 cs;
+        library_cache lc;
 
         for (const prerequisite_target& p: t.prerequisite_targets[a])
         {
@@ -2882,7 +2905,7 @@ namespace build2
             //
             if (la || ls)
             {
-              append_libraries (cs, update, mt, bs, a, *f, la, p.data, li);
+              append_libraries (cs, update, mt, bs, a, *f, la, p.data, li, &lc);
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
@@ -3181,6 +3204,8 @@ namespace build2
       bool seen_obj (false);
       {
         appended_libraries als;
+        library_cache lc;
+
         for (const prerequisite_target& p: t.prerequisite_targets[a])
         {
           const target* pt (p.target);
@@ -3210,7 +3235,8 @@ namespace build2
                 (ls = (f = pt->is_a<libs>  ())))))
           {
             if (la || ls)
-              append_libraries (als, sargs, bs, a, *f, la, p.data, li);
+              append_libraries (
+                als, sargs, bs, a, *f, la, p.data, li, true, true, &lc);
             else
             {
               // Do not hoist libraries over object files since such object

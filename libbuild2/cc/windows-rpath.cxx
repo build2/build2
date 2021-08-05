@@ -53,6 +53,9 @@ namespace build2
     {
       timestamp r (timestamp_nonexistent);
 
+      //@@ TODO: implement duplicate suppression and prunning. Reuse
+      //         rpath_libraries()'s machinery.
+
       // We need to collect all the DLLs, so go into implementation of both
       // shared and static (in case they depend on shared).
       //
@@ -69,9 +72,9 @@ namespace build2
         // We don't rpath system libraries.
         //
         if (sys)
-          return;
+          return false;
 
-        // Skip static libraries.
+        // Ignore static libraries.
         //
         if (l != nullptr)
         {
@@ -110,8 +113,11 @@ namespace build2
             }
           }
         }
+
+        return true;
       };
 
+      library_cache lib_cache;
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
         if (pt.adhoc || pt == nullptr)
@@ -125,7 +131,8 @@ namespace build2
             (     f = pt->is_a<libs>  ()))
           process_libraries (a, bs, li, sys_lib_dirs,
                              *f, la, pt.data,
-                             imp, lib, nullptr, true);
+                             imp, lib, nullptr, true /* self */,
+                             &lib_cache);
       }
 
       return r;
@@ -142,6 +149,8 @@ namespace build2
     {
       windows_dlls r;
 
+      //@@ TODO: implement duplicate suppression and prunning.
+
       auto imp = [] (const target&, bool) {return true;};
 
       auto lib = [&r, &bs] (
@@ -153,7 +162,7 @@ namespace build2
         const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
         if (sys)
-          return;
+          return false;
 
         if (l != nullptr)
         {
@@ -209,8 +218,11 @@ namespace build2
             }
           }
         }
+
+        return true;
       };
 
+      library_cache lib_cache;
       for (const prerequisite_target& pt: t.prerequisite_targets[a])
       {
         if (pt.adhoc || pt == nullptr)
@@ -224,7 +236,8 @@ namespace build2
             (      f = pt->is_a<libs>  ()))
           process_libraries (a, bs, li, sys_lib_dirs,
                              *f, la, pt.data,
-                             imp, lib, nullptr, true);
+                             imp, lib, nullptr, true /* self */,
+                             &lib_cache);
       }
 
       return r;

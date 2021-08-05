@@ -80,7 +80,8 @@ namespace build2
       void
       append_library_options (appended_libraries&, T&,
                               const scope&,
-                              action, const file&, bool, linfo) const;
+                              action, const file&, bool, linfo,
+                              library_cache*) const;
 
       template <typename T>
       void

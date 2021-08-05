@@ -1662,7 +1662,7 @@ namespace build2
             if (al != nullptr && al->end != appended_library::npos)
             {
               d.ls.hoist (d.args, *al);
-              return;
+              return true;
             }
 
             if (l != nullptr)
@@ -1680,6 +1680,8 @@ namespace build2
 
             if (al != nullptr)
               al->end = d.args.size (); // Close.
+
+            return true;
           };
 
           auto opt = [&d] (const target& lt, const string&, bool, bool)
@@ -1693,7 +1695,9 @@ namespace build2
             // See link_rule::append_libraries().
 
             if (d.ls.append (l, d.args.size ()).end != appended_library::npos)
-              return;
+              return true;
+
+            return true;
           };
 
           // Pretend we are linking an executable using what would be normal,

@@ -418,7 +418,8 @@ namespace build2
     void compile_rule::
     append_library_options (appended_libraries& ls, T& args,
                             const scope& bs,
-                            action a, const file& l, bool la, linfo li) const
+                            action a, const file& l, bool la, linfo li,
+                            library_cache* lib_cache) const
     {
       struct data
       {
@@ -439,16 +440,16 @@ namespace build2
         // even if set on liba{}/libs{}, unlike loptions.
         //
         if (!exp) // Ignore libux.
-          return;
+          return true;
 
         // Suppress duplicates.
         //
         // Compilation is the simple case: we can add the options on the first
-        // occurrence of the library and ignore all subsequent occurrences.
-        // See GitHub issue #114 for details.
+        // occurrence of the library and ignore (and prune) all subsequent
+        // occurrences. See GitHub issue #114 for details.
         //
         if (find (d.ls.begin (), d.ls.end (), &l) != d.ls.end ())
-          return;
+          return false;
 
         const variable& var (
           com
@@ -464,11 +465,13 @@ namespace build2
         //
         if (com)
           d.ls.push_back (&l);
+
+        return true;
       };
 
       process_libraries (a, bs, li, sys_lib_dirs,
                          l, la, 0, // lflags unused.
-                         imp, nullptr, opt);
+                         imp, nullptr, opt, false /* self */, lib_cache);
     }
 
     void compile_rule::
@@ -476,7 +479,7 @@ namespace build2
                             const scope& bs,
                             action a, const file& l, bool la, linfo li) const
     {
-      append_library_options<strings> (ls, args, bs, a, l, la, li);
+      append_library_options<strings> (ls, args, bs, a, l, la, li, nullptr);
     }
 
     template <typename T>
@@ -486,6 +489,7 @@ namespace build2
                             action a, const target& t, linfo li) const
     {
       appended_libraries ls;
+      library_cache lc;
 
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
@@ -505,7 +509,7 @@ namespace build2
               (la = (f = pt->is_a<libux> ())) ||
               (     (f = pt->is_a<libs> ())))
           {
-            append_library_options (ls, args, bs, a, *f, la, li);
+            append_library_options (ls, args, bs, a, *f, la, li, &lc);
           }
         }
       }
@@ -521,13 +525,16 @@ namespace build2
                              target& t,
                              linfo li) const
     {
+      //@@ TODO: implement duplicate suppression and prunning. Reuse above
+      //         machinery.
+
       auto imp = [] (const target& l, bool la) {return la && l.is_a<libux> ();};
 
       auto opt = [&m, this] (
         const target& l, const string& t, bool com, bool exp)
       {
         if (!exp)
-          return;
+          return true;
 
         const variable& var (
           com
@@ -537,13 +544,15 @@ namespace build2
              : l.ctx.var_pool[t + ".export.poptions"]));
 
         append_prefixes (m, l, var);
+        return true;
       };
 
       // The same logic as in append_library_options().
       //
       const function<bool (const target&, bool)> impf (imp);
-      const function<void (const target&, const string&, bool, bool)> optf (opt);
+      const function<bool (const target&, const string&, bool, bool)> optf (opt);
 
+      library_cache lib_cache;
       for (prerequisite_member p: group_prerequisite_members (a, t))
       {
         if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
@@ -562,7 +571,8 @@ namespace build2
 
           process_libraries (a, bs, li, sys_lib_dirs,
                              pt->as<file> (), la, 0, // lflags unused.
-                             impf, nullptr, optf);
+                             impf, nullptr, optf, false /* self */,
+                             &lib_cache);
         }
       }
     }
@@ -6212,6 +6222,9 @@ namespace build2
         //
         auto imp = [] (const target&, bool) { return false; };
 
+        //@@ TODO: implement duplicate suppression and prunning? Reuse
+        //         above machinery.
+
         // The same logic as in append_libraries().
         //
         struct data
@@ -6227,21 +6240,21 @@ namespace build2
           lflags,
           bool)
         {
-          // It's unfortunate we have no way to bail out.
+          // Prune any further traversal if we already found it.
           //
           if (d.lt != nullptr)
-            return;
+            return false;
 
           const target* l (lc != nullptr ? *lc : nullptr); // Can be lib{}.
 
           if (l == nullptr)
-            return;
+            return true;
 
           // Feels like we should only consider non-utility libraries with
           // utilities being treated as "direct" use.
           //
           if (l->is_a<libux> ())
-            return;
+            return true;
 
           // Since the library is searched and matched, all the headers should
           // be in prerequisite_targets.
@@ -6249,8 +6262,11 @@ namespace build2
           const auto& pts (l->prerequisite_targets[d.a]);
           if (find (pts.begin (), pts.end (), &d.ht) != pts.end ())
             d.lt = l;
+
+          return d.lt == nullptr;
         };
 
+        library_cache lib_cache;
         for (prerequisite_member p: group_prerequisite_members (a, t))
         {
           if (include (a, t, p) != include_type::normal) // Excluded/ad hoc.
@@ -6277,10 +6293,13 @@ namespace build2
               // which won't pick the liba/libs{} member (naturally) but will
               // just match the lib{} group.
               //
-              process_libraries (
-                a, bs, nullopt, sys_lib_dirs,
-                *f, la, 0, // lflags unused.
-                imp, lib, nullptr, true /* self */);
+              process_libraries (a, bs, nullopt, sys_lib_dirs,
+                                 *f, la, 0, // lflags unused.
+                                 imp, lib, nullptr, true /* self */,
+                                 &lib_cache);
+
+              if (lt != nullptr)
+                break;
             }
           }
         }
