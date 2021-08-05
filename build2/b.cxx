@@ -11,6 +11,7 @@
 #  include <locale>
 #endif
 
+#include <limits>
 #include <sstream>
 #include <cstring>   // strcmp(), strchr()
 #include <typeinfo>
@@ -256,7 +257,21 @@ main (int argc, char* argv[])
     string args;
     try
     {
-      cl::argv_file_scanner scan (argc, argv, "--options-file");
+      // Command line arguments starting position.
+      //
+      // We want the positions of the command line arguments to be after the
+      // default options files. Normally that would be achieved by passing the
+      // last position of the previous scanner to the next. The problem is
+      // that we parse the command line arguments first (for good reasons).
+      // Also the default options files parsing machinery needs the maximum
+      // number of arguments to be specified and assigns the positions below
+      // this value (see load_default_options() for details). So we are going
+      // to "reserve" the first half of the size_t value range for the default
+      // options positions and the second half for the command line arguments
+      // positions.
+      //
+      size_t args_pos (numeric_limits<size_t>::max () / 2);
+      cl::argv_file_scanner scan (argc, argv, "--options-file", args_pos);
 
       size_t argn (0);       // Argument count.
       bool shortcut (false); // True if the shortcut syntax is used.
@@ -504,6 +519,8 @@ main (int argc, char* argv[])
               }
             },
             "--options-file",
+            args_pos,
+            1024,
             true /* args */));
 
         // Merge the default and command line options.
@@ -532,6 +549,10 @@ main (int argc, char* argv[])
                 for (const string& a: e.arguments)
                   verify_glb_ovr (a, fn, true /* opt */);
               });
+      }
+      catch (const invalid_argument& e)
+      {
+        fail << "unable to load default options files: " << e;
       }
       catch (const pair<path, system_error>& e)
       {
