@@ -272,6 +272,16 @@ namespace build2
       // Library handling.
       //
     public:
+      struct library_cache_entry
+      {
+        optional<lorder>                      lo;
+        string                                type;  // name::type
+        string                                value; // name::value
+        reference_wrapper<const mtime_target> lib;
+      };
+
+      using library_cache = small_vector<library_cache_entry, 32>;
+
       void
       process_libraries (
         action,
@@ -287,6 +297,7 @@ namespace build2
                              lflags, bool)>&,
         const function<void (const target&, const string&, bool, bool)>&,
         bool = false,
+        library_cache* = nullptr,
         small_vector<const target*, 16>* = nullptr) const;
 
       const target*
@@ -321,7 +332,8 @@ namespace build2
                        const dir_path&,
                        optional<linfo>,
                        const dir_paths&,
-                       optional<dir_paths>&) const;
+                       optional<dir_paths>&,
+                       library_cache* = nullptr) const;
 
       template <typename T>
       static ulock

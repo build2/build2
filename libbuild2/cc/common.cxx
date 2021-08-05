@@ -92,13 +92,20 @@ namespace build2
                            bool com,                        // cc. or x.
                            bool exp)>& proc_opt,            // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
+      library_cache* cache,
       small_vector<const target*, 16>* chain) const
     {
+      library_cache cache_storage;
+      if (cache == nullptr)
+        cache = &cache_storage;
+
       small_vector<const target*, 16> chain_storage;
       if (chain == nullptr)
       {
         chain = &chain_storage;
-        chain->push_back (nullptr);
+
+        if (proc_lib)
+          chain->push_back (nullptr);
       }
 
       // See what type of library this is (C, C++, etc). Use it do decide
@@ -284,7 +291,8 @@ namespace build2
 
             process_libraries (a, bs, *li, *sysd,
                                *f, la, pt.data,
-                               proc_impl, proc_lib, proc_opt, true, chain);
+                               proc_impl, proc_lib, proc_opt, true,
+                               cache, chain);
           }
         }
       }
@@ -379,7 +387,7 @@ namespace build2
           return make_pair (n, s);
         };
 
-        auto proc_int = [&l, chain,
+        auto proc_int = [&l, cache, chain,
                          &proc_impl, &proc_lib, &proc_lib_name, &proc_opt,
                          &sysd, &usrd,
                          &find_sysd, &find_linfo, &sense_fragment,
@@ -429,7 +437,8 @@ namespace build2
                                  n,
                                  (n.pair ? (++i)->dir : dir_path ()),
                                  *li,
-                                 *sysd, usrd));
+                                 *sysd, usrd,
+                                 cache));
 
               if (proc_lib)
               {
@@ -471,7 +480,8 @@ namespace build2
               //
               process_libraries (a, bs, *li, *sysd,
                                  t, t.is_a<liba> () || t.is_a<libux> (), 0,
-                                 proc_impl, proc_lib, proc_opt, true, chain);
+                                 proc_impl, proc_lib, proc_opt, true,
+                                 cache, chain);
             }
 
             ++i;
@@ -580,14 +590,52 @@ namespace build2
                      const dir_path& out,
                      optional<linfo> li,
                      const dir_paths& sysd,
-                     optional<dir_paths>& usrd) const
+                     optional<dir_paths>& usrd,
+                     library_cache* cache) const
     {
+      bool q (cn.qualified ());
+      auto lo (li ? optional<lorder> (li->order) : nullopt);
+
+      // If this is an absolute and normalized unqualified name (which means
+      // the scope does not factor into the result), then first check the
+      // cache.
+      //
+      // Note that normally we will have a handful of libraries repeated a
+      // large number of times (see Boost for an extreme example of this).
+      //
+      // Note also that for non-utility libraries we know that only the link
+      // order from linfo is used.
+      //
+      if (cache != nullptr)
+      {
+        if (!q &&
+            (cn.dir.absolute () && cn.dir.normalized ()) &&
+            (out.empty () || (out.absolute () && out.normalized ())))
+        {
+          auto i (find_if (cache->begin (), cache->end (),
+                           [lo, &cn, &out] (const library_cache_entry& e)
+                           {
+                             const target& t (e.lib);
+                             return (e.lo == lo &&
+                                     e.value == cn.value &&
+                                     e.type == cn.type &&
+                                     t.dir == cn.dir &&
+                                     t.out == out);
+                           }));
+
+          if (i != cache->end ())
+            return i->lib;
+        }
+        else
+          cache = nullptr; // Do not cache.
+      }
+
       if (cn.type != "lib" && cn.type != "liba" && cn.type != "libs")
         fail << "target name " << cn << " is not a library";
 
       const target* xt (nullptr);
 
-      if (!cn.qualified ())
+      if (!q)
       {
         // Search for an existing target with this name "as if" it was a
         // prerequisite.
@@ -624,7 +672,12 @@ namespace build2
           xt = link_member (*l, a, *li); // Pick lib*{e,a,s}{}.
       }
 
-      return xt->as<mtime_target> ();
+      auto& t (xt->as<mtime_target> ());
+
+      if (cache != nullptr)
+        cache->push_back (library_cache_entry {lo, cn.type, cn.value, t});
+
+      return t;
     }
 
     // Note that pk's scope should not be NULL (even if dir is absolute).
