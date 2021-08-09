@@ -1459,7 +1459,12 @@ namespace build2
 
       const path& p (t->path ());
 
-      if (verb >= 2)
+      // Note that generation can time some time if we have a large number of
+      // prerequisite libraries.
+      //
+      if (verb)
+        text << "gen " << *t;
+      else if (verb >= 2)
         text << "cat >" << p;
 
       if (ctx.dry_run)
