@@ -234,6 +234,9 @@ namespace build2
       const variable&, token_type, const location&);
 
     const variable&
+    parse_variable_name (string&&, const location&);
+
+    const variable&
     parse_variable_name (names&&, const location&);
 
     // Note: calls attributes_push() that the caller must pop.

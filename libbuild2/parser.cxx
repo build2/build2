@@ -2903,8 +2903,7 @@ namespace build2
       }
 
       const variable& var (
-        scope_->var_pool ().insert (move (name), true /* overridable */));
-
+        parse_variable_name (move (name), get_location (t)));
       apply_variable_attributes (var);
 
       // Note that even though we are relying on the config.** variable
@@ -3047,8 +3046,6 @@ namespace build2
     if (stage_ == stage::boot)
       fail (t) << "import during bootstrap";
 
-    auto& vp (scope_->var_pool ());
-
     // General import format:
     //
     // import[?!] [<attrs>] <var> = [<attrs>] (<target>|<project>%<target>])+
@@ -3090,8 +3087,8 @@ namespace build2
     if (tt != type::word)
       fail (t) << "expected variable name instead of " << t;
 
-    const variable& var (vp.insert (move (t.value), true /* overridable */));
-
+    const variable& var (
+      parse_variable_name (move (t.value), get_location (t)));
     apply_variable_attributes (var);
 
     if (var.visibility > variable_visibility::scope)
@@ -4137,21 +4134,15 @@ namespace build2
   }
 
   const variable& parser::
-  parse_variable_name (names&& ns, const location& l)
+  parse_variable_name (string&& on, const location& l)
   {
-    // Parse and enter a variable name for assignment (as opposed to lookup).
-
-    // The list should contain a single, simple name.
-    //
-    if (ns.size () != 1 || ns[0].pattern || !ns[0].simple () || ns[0].empty ())
-      fail (l) << "expected variable name instead of " << ns;
+    // Enter a variable name for assignment (as opposed to lookup).
 
     // Note that the overridability can still be restricted (e.g., by a module
     // that enters this variable or by a pattern).
     //
     bool ovr (true);
-    auto r (scope_->var_pool ().insert (
-              move (ns[0].value), nullptr, nullptr, &ovr));
+    auto r (scope_->var_pool ().insert (move (on), nullptr, nullptr, &ovr));
 
     if (!r.second)
       return r.first;
@@ -4177,6 +4168,19 @@ namespace build2
         info << "variable " << w;
 
     return r.first;
+  }
+
+  const variable& parser::
+  parse_variable_name (names&& ns, const location& l)
+  {
+    // Parse and enter a variable name for assignment (as opposed to lookup).
+
+    // The list should contain a single, simple name.
+    //
+    if (ns.size () != 1 || ns[0].pattern || !ns[0].simple () || ns[0].empty ())
+      fail (l) << "expected variable name instead of " << ns;
+
+    return parse_variable_name (move (ns[0].value), l);
   }
 
   void parser::
