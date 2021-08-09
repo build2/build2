@@ -2780,9 +2780,7 @@ namespace build2
         proj = n.variable ();
     }
 
-    // We are now in the normal lexing mode. Since we always have <var> we
-    // don't have to resort to manual parsing (as in import) and can just let
-    // the lexer handle `?=`.
+    // We are now in the normal lexing mode and we let the lexer handle `?=`.
     //
     next_with_attributes (t, tt);
 
@@ -3049,33 +3047,22 @@ namespace build2
     if (stage_ == stage::boot)
       fail (t) << "import during bootstrap";
 
+    auto& vp (scope_->var_pool ());
+
     // General import format:
     //
-    // import[?!] [<attrs>] [<var>=](<target>|<project>%<target>])+
+    // import[?!] [<attrs>] <var> = [<attrs>] (<target>|<project>%<target>])+
     //
     bool opt (t.value.back () == '?');
     bool ph2 (opt || t.value.back () == '!');
 
-    type atype; // Assignment type.
-    value* val (nullptr);
-    const variable* var (nullptr);
-
-    // We are now in the normal lexing mode and here is the problem: we need
-    // to switch to the value mode so that we don't treat certain characters
-    // as separators (e.g., + in 'libstdc++'). But at the same time we need
-    // to detect if we have the <var>= part. So what we are going to do is
-    // switch to the value mode, get the first token, and then re-parse it
-    // manually looking for =/=+/+=.
+    // We are now in the normal lexing mode and we let the lexer handle `=`.
     //
-    // Note that if we ever wanted to support value attributes, that would be
-    // non-trivial.
-    //
-    mode (lexer_mode::value, '@');
     next_with_attributes (t, tt);
 
-    // Get variable (or value) attributes, if any, and deal with the special
-    // metadata attribute. Since currently it can only appear in the import
-    // directive, we handle it in an ad hoc manner.
+    // Get variable attributes, if any, and deal with the special metadata
+    // attribute. Since currently it can only appear in the import directive,
+    // we handle it in an ad hoc manner.
     //
     attributes_push (t, tt);
     attributes& as (attributes_top ());
@@ -3100,135 +3087,75 @@ namespace build2
       i = as.erase (i);
     }
 
-    const location vloc (get_location (t));
+    if (tt != type::word)
+      fail (t) << "expected variable name instead of " << t;
 
-    if (tt == type::word)
+    const variable& var (vp.insert (move (t.value), true /* overridable */));
+
+    apply_variable_attributes (var);
+
+    if (var.visibility > variable_visibility::scope)
     {
-      // Split the token into the variable name and value at position (p) of
-      // '=', taking into account leading/trailing '+'. The variable name is
-      // returned while the token is set to the value part. If the resulting
-      // token value is empty, get the next token. Also set assignment type
-      // (at).
-      //
-      auto split = [&atype, &t, &tt, this] (size_t p) -> string
-      {
-        string& v (t.value);
-        size_t e;
-
-        if (p != 0 && v[p - 1] == '+') // +=
-        {
-          e = p--;
-          atype = type::append;
-        }
-        else if (p + 1 != v.size () && v[p + 1] == '+') // =+
-        {
-          e = p + 1;
-          atype = type::prepend;
-        }
-        else // =
-        {
-          e = p;
-          atype = type::assign;
-        }
-
-        string nv (v, e + 1); // value
-        v.resize (p);         // var name
-        v.swap (nv);
-
-        if (v.empty ())
-          next (t, tt);
-
-        return nv;
-      };
-
-      // Is this the 'foo=...' case?
-      //
-      size_t p (t.value.find ('='));
-      auto& vp (scope_->var_pool ());
-
-      if (p != string::npos)
-        var = &vp.insert (split (p), true /* overridable */);
-      //
-      // This could still be the 'foo =...' case.
-      //
-      else if (peek () == type::word)
-      {
-        const string& v (peeked ().value);
-        size_t n (v.size ());
-
-        // We should start with =/+=/=+.
-        //
-        if (n > 0 &&
-            (v[p = 0] == '=' ||
-             (n > 1 && v[0] == '+' && v[p = 1] == '=')))
-        {
-          var = &vp.insert (move (t.value), true /* overridable */);
-          next (t, tt); // Get the peeked token.
-          split (p);    // Returned name should be empty.
-        }
-      }
+      fail (t) << "variable " << var << " has " << var.visibility
+               << " visibility but is assigned in import";
     }
 
-    if (var != nullptr)
-    {
-      apply_variable_attributes (*var);
-
-      if (var->visibility > variable_visibility::scope)
-      {
-        fail (vloc) << "variable " << *var << " has " << var->visibility
-                    << " visibility but is assigned in import";
-      }
-
-      val = atype == type::assign
-        ? &scope_->assign (*var)
-        : &scope_->append (*var);
-    }
-    else
-    {
-      if (!as.empty ())
-        fail (as.loc) << "attributes without variable";
-
-      attributes_pop ();
-    }
-
-    // The rest should be a list of projects and/or targets. Parse them as
-    // names to get variable expansion and directory prefixes.
+    // Next should come the assignment operator. Note that we don't support
+    // default assignment (?=) yet (could make sense when attempting to import
+    // alternatives or some such).
     //
-    // Note: that we expant patterns for the ad hoc import case:
+    next (t, tt);
+
+    if (tt != type::assign && tt != type::append && tt != type::prepend)
+      fail (t) << "expected variable assignment instead of " << t;
+
+    type atype (tt);
+    value& val (atype == type::assign
+                ? scope_->assign (var)
+                : scope_->append (var));
+
+    // The rest should be a list of targets. Parse them similar to a value on
+    // the RHS of an assignment (attributes, etc).
+    //
+    // Note that we expant patterns for the ad hoc import case:
     //
     // import sub = */
     //
-    const location l (get_location (t));
-    names ns (tt != type::newline && tt != type::eos
-              ? parse_names (t, tt, pattern_mode::expand)
-              : names ());
+    mode (lexer_mode::value, '@');
+    next_with_attributes (t, tt);
 
-    for (name& n: ns)
+    if (tt == type::newline || tt == type::eos)
+      fail (t) << "expected target to import instead of " << t;
+
+    const location loc (get_location (t));
+
+    if (value v = parse_value_with_attributes (t, tt, pattern_mode::expand))
     {
-      // @@ Could this be an out-qualified ad hoc import?
-      //
-      if (n.pair)
-        fail (l) << "unexpected pair in import";
-
-      // import() will check the name, if required.
-      //
-      names r (import (*scope_, move (n), ph2, opt, meta, l).first);
-
-      if (val != nullptr)
+      names storage;
+      for (name& n: reverse (v, storage))
       {
+        // @@ Could this be an out-qualified ad hoc import?
+        //
+        if (n.pair)
+          fail (loc) << "unexpected pair in import";
+
+        // import() will check the name, if required.
+        //
+        names r (import (*scope_, move (n), ph2, opt, meta, loc).first);
+
         if (r.empty ()) // Optional not found.
         {
           if (atype == type::assign)
-            *val = nullptr;
+            val = nullptr;
         }
         else
         {
           if (atype == type::assign)
-            val->assign (move (r), var);
+            val.assign (move (r), &var);
           else if (atype == type::prepend)
-            val->prepend (move (r), var);
+            val.prepend (move (r), &var);
           else
-            val->append (move (r), var);
+            val.append (move (r), &var);
         }
 
         if (atype == type::assign)
