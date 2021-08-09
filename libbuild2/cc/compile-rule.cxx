@@ -6222,8 +6222,8 @@ namespace build2
         //
         auto imp = [] (const target&, bool) { return false; };
 
-        //@@ TODO: implement duplicate suppression and prunning? Reuse
-        //         above machinery.
+        //@@ TODO: implement duplicate suppression and prunning? Reuse above
+        //         machinery (do before is_a() call).
 
         // The same logic as in append_libraries().
         //

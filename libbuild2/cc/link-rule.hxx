@@ -172,15 +172,10 @@ namespace build2
 
       void
       append_libraries (appended_libraries&, strings&,
+                        sha256*, bool*, timestamp,
                         const scope&, action,
                         const file&, bool, lflags, linfo,
                         bool = true, bool = true,
-                        library_cache* = nullptr) const;
-
-      void
-      append_libraries (sha256&, bool&, timestamp,
-                        const scope&, action,
-                        const file&, bool, lflags,  linfo,
                         library_cache* = nullptr) const;
 
       using rpathed_libraries = small_vector<const file*, 256>;
@@ -197,11 +192,7 @@ namespace build2
                        const target&, linfo, bool) const;
 
       void
-      append_binless_modules (strings&,
-                              const scope&, action, const file&) const;
-
-      void
-      append_binless_modules (sha256&,
+      append_binless_modules (strings&, sha256*,
                               const scope&, action, const file&) const;
 
       optional<path>

@@ -224,7 +224,8 @@ namespace build2
               action a, const file& l, bool la, linfo li)
           {
             m.append_library_options (
-              *static_cast<appended_libraries*> (ls), r, bs, a, l, la, li);
+              *static_cast<appended_libraries*> (ls), r,
+              bs, a, l, la, li);
           }});
 
       // $<module>.find_system_header(<name>)
@@ -322,9 +323,10 @@ namespace build2
 
             bool self (vs.size () > 3 ? convert<bool> (vs[3]) : true);
 
-            m.append_libraries (*static_cast<appended_libraries*> (ls), r,
-                                bs,
-                                a, l, la, lf, li, self, rel);
+            m.append_libraries (
+              *static_cast<appended_libraries*> (ls), r,
+              nullptr /* sha256 */, nullptr /* update */, timestamp_unknown,
+              bs, a, l, la, lf, li, self, rel);
           }});
 
       // $<module>.lib_rpaths(<lib-targets>, <otype> [, <link> [, <self>]])
@@ -391,7 +393,7 @@ namespace build2
             if (const file* f = t.is_a<objx> ())
             {
               if (m.modules)
-                m.append_binless_modules (r, bs, a, *f);
+                m.append_binless_modules (r, nullptr /* sha256 */, bs, a, *f);
             }
             else
               fail << t << " is not an object file target";

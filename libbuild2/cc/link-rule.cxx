@@ -1661,8 +1661,12 @@ namespace build2
       }
     }
 
+    // Append (and optionally hash and detect if rendered out of data)
+    // libraries to link, recursively.
+    //
     void link_rule::
     append_libraries (appended_libraries& ls, strings& args,
+                      sha256* cs, bool* update, timestamp mt,
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li,
                       bool self, bool rel,
@@ -1672,12 +1676,22 @@ namespace build2
       {
         appended_libraries&  ls;
         strings&             args;
+
+        sha256*              cs;
+        const dir_path*      out_root;
+
+        bool*                update;
+        timestamp            mt;
+
         const file&          l;
         action               a;
         linfo                li;
         bool                 rel;
         compile_target_types tts;
-      } d {ls, args, l, a, li, rel, compile_types (li.type)};
+      } d {ls, args,
+           cs, cs != nullptr ? &bs.root_scope ()->out_path () : nullptr,
+           update, mt,
+           l, a, li, rel, compile_types (li.type)};
 
       auto imp = [] (const target&, bool la)
       {
@@ -1718,10 +1732,11 @@ namespace build2
         if (al != nullptr && al->end != appended_library::npos) // Closed.
         {
           // Hoist the elements corresponding to this library to the end.
+          // Note that we cannot prune the traversal since we need to see the
+          // last occurrence of each library.
           //
           d.ls.hoist (d.args, *al);
-          return true; // @@ Can we prune here???. But also sha256 version?
-                       // Also in pkgconfig.cxx!
+          return true;
         }
 
         if (l == nullptr)
@@ -1732,7 +1747,12 @@ namespace build2
           if (d.li.type != otype::a)
           {
             for (const string& n: ns)
+            {
               d.args.push_back (n);
+
+              if (d.cs != nullptr)
+                d.cs->append (n);
+            }
           }
         }
         else
@@ -1765,6 +1785,12 @@ namespace build2
             // are automatically handled by process_libraries(). So all we
             // have to do is implement the "thin archive" logic.
             //
+            // We also don't need to do anything special for the out-of-date
+            // logic: If any of its object files (or the set of its object
+            // files) changes, then the library will have to be updated as
+            // well. In other words, we use the library timestamp as a proxy
+            // for all of its member's timestamps.
+            //
             // We may also end up trying to link a non-utility library to a
             // static library via a utility library (direct linking is taken
             // care of by perform_update()). So we cut it off here.
@@ -1774,6 +1800,11 @@ namespace build2
 
             if (l->mtime () == timestamp_unreal) // Binless.
               goto done;
+
+            // Check if this library renders us out of date.
+            //
+            if (d.update != nullptr)
+              *d.update = *d.update || l->newer (d.mt);
 
             for (const target* pt: l->prerequisite_targets[d.a])
             {
@@ -1809,6 +1840,11 @@ namespace build2
             if (l->mtime () == timestamp_unreal) // Binless.
               goto done;
 
+            // Check if this library renders us out of date.
+            //
+            if (d.update != nullptr)
+              *d.update = *d.update || l->newer (d.mt);
+
             // On Windows a shared library is a DLL with the import library as
             // an ad hoc group member. MinGW though can link directly to DLLs
             // (see search_library() for details).
@@ -1843,6 +1879,12 @@ namespace build2
             }
 
             d.args.push_back (move (p));
+          }
+
+          if (d.cs != nullptr)
+          {
+            d.cs->append (f);
+            hash_path (*d.cs, l->path (), *d.out_root);
           }
         }
 
@@ -1890,6 +1932,9 @@ namespace build2
                : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
 
           append_options (d.args, *g, var);
+
+          if (d.cs != nullptr)
+            append_options (*d.cs, *g, var);
         }
 
         return true;
@@ -1898,123 +1943,6 @@ namespace build2
       process_libraries (a, bs, li, sys_lib_dirs,
                          l, la,
                          lf, imp, lib, opt, self,
-                         lib_cache);
-    }
-
-    void link_rule::
-    append_libraries (sha256& cs, bool& update, timestamp mt,
-                      const scope& bs, action a,
-                      const file& l, bool la, lflags lf, linfo li,
-                      library_cache* lib_cache) const
-    {
-      // Note that we don't do any duplicate suppression here: there is no way
-      // to "hoist" things once they are hashed and hashing only the first
-      // occurrence could miss changes to the command line (e.g., due to
-      // "hoisting").
-
-      struct data
-      {
-        sha256&         cs;
-        const dir_path& out_root;
-        bool&           update;
-        timestamp       mt;
-        linfo           li;
-      } d {cs, bs.root_scope ()->out_path (), update, mt, li};
-
-      auto imp = [] (const target&, bool la)
-      {
-        return la;
-      };
-
-      auto lib = [&d, this] (
-        const target* const* lc,
-        const small_vector<reference_wrapper<const string>, 2>& ns,
-        lflags f,
-        bool)
-      {
-        const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
-
-        if (l == nullptr)
-        {
-          if (d.li.type != otype::a)
-          {
-            for (const string& n: ns)
-              d.cs.append (n);
-          }
-        }
-        else
-        {
-          bool lu (l->is_a<libux> ());
-
-          if (lu)
-          {
-            for (ptrdiff_t i (-1); lc[i] != nullptr; --i)
-              if (!lc[i]->is_a<libux> ())
-                return true;
-          }
-
-          // We also don't need to do anything special for linking a utility
-          // library to a static library. If any of its object files (or the
-          // set of its object files) changes, then the library will have to
-          // be updated as well. In other words, we use the library timestamp
-          // as a proxy for all of its member's timestamps.
-          //
-          // We do need to cut of the static to static linking, just as in
-          // append_libraries().
-          //
-          if (d.li.type == otype::a && !lu)
-            return true;
-
-          if (l->mtime () == timestamp_unreal) // Binless.
-            return true;
-
-          // Check if this library renders us out of date.
-          //
-          d.update = d.update || l->newer (d.mt);
-
-          // On Windows a shared library is a DLL with the import library as
-          // an ad hoc group member. MinGW though can link directly to DLLs
-          // (see search_library() for details).
-          //
-          if (tclass == "windows" && l->is_a<libs> ())
-          {
-            if (const libi* li = find_adhoc_member<libi> (*l))
-              l = li;
-          }
-
-          d.cs.append (f);
-          hash_path (d.cs, l->path (), d.out_root);
-        }
-
-        return true;
-      };
-
-      auto opt = [&d, this] (const target& l,
-                             const string& t,
-                             bool com,
-                             bool exp)
-      {
-        if (d.li.type == otype::a || !exp)
-          return true;
-
-        if (const target* g = exp && l.is_a<libs> () ? l.group : &l)
-        {
-          const variable& var (
-            com
-            ? (exp ? c_export_loptions : c_loptions)
-            : (t == x
-               ? (exp ? x_export_loptions : x_loptions)
-               : l.ctx.var_pool[t + (exp ? ".export.loptions" : ".loptions")]));
-
-          append_options (d.cs, *g, var);
-        }
-
-        return true;
-      };
-
-      process_libraries (a, bs, li, sys_lib_dirs,
-                         l, la,
-                         lf, imp, lib, opt, true /* self */,
                          lib_cache);
     }
 
@@ -2093,12 +2021,6 @@ namespace build2
 
         if (l != nullptr)
         {
-          if (!l->is_a<libs> ())
-            return true;
-
-          if (l->mtime () == timestamp_unreal) // Binless.
-            return true;
-
           // Suppress duplicates.
           //
           // We handle rpath similar to the compilation case by adding the
@@ -2107,6 +2029,15 @@ namespace build2
           //
           if (find (d.ls.begin (), d.ls.end (), l) != d.ls.end ())
             return false;
+
+          // Note that these checks are fairly expensive so we do them after
+          // duplicate suppression.
+          //
+          if (!l->is_a<libs> ())
+            return true;
+
+          if (l->mtime () == timestamp_unreal) // Binless.
+            return true;
 
           append (ns[0]);
           d.ls.push_back (l);
@@ -2190,11 +2121,11 @@ namespace build2
       }
     }
 
-    // Append object files of bmi{} prerequisites that belong to binless
-    // libraries.
+    // Append (and optionally hash while at it) object files of bmi{}
+    // prerequisites that belong to binless libraries.
     //
     void link_rule::
-    append_binless_modules (strings& args,
+    append_binless_modules (strings& args, sha256* cs,
                             const scope& bs, action a, const file& t) const
     {
       // Note that here we don't need to hoist anything on duplicate detection
@@ -2211,25 +2142,12 @@ namespace build2
           if (find (args.begin (), args.end (), p) == args.end ())
           {
             args.push_back (move (p));
-            append_binless_modules (args, bs, a, o);
-          }
-        }
-      }
-    }
 
-    void link_rule::
-    append_binless_modules (sha256& cs,
-                            const scope& bs, action a, const file& t) const
-    {
-      for (const target* pt: t.prerequisite_targets[a])
-      {
-        if (pt != nullptr     &&
-            pt->is_a<bmix> () &&
-            cast_false<bool> ((*pt)[b_binless]))
-        {
-          const objx& o (*find_adhoc_member<objx> (*pt));
-          hash_path (cs, o.path (), bs.root_scope ()->out_path ());
-          append_binless_modules (cs, bs, a, o);
+            if (cs != nullptr)
+              hash_path (*cs, o.path (), bs.root_scope ()->out_path ());
+
+            append_binless_modules (args, cs, bs, a, o);
+          }
         }
       }
     }
@@ -2581,8 +2499,8 @@ namespace build2
       // are to either replicate the exact process twice, first for hashing
       // then for building or to go ahead and start building and hash the
       // result. The first approach is probably more efficient while the
-      // second is simpler. Let's got with the simpler for now (actually it's
-      // kind of a hybrid).
+      // second is simpler. Let's got with the simpler for now (also see a
+      // note on the cost of library dependency graph traversal below).
       //
       cstrings args {nullptr}; // Reserve one for config.bin.ar/config.x.
       strings sargs;           // Argument tail with storage.
@@ -2854,10 +2772,21 @@ namespace build2
       // pinpoint exactly what is causing the update. On the other hand, the
       // checksum is faster and simpler. And we like simple.
       //
+      // Note that originally we only hashed inputs here and then re-collected
+      // them below. But the double traversal of the library graph proved to
+      // be way more expensive on libraries with lots of dependencies (like
+      // Boost) than both collecting and hashing in a single pass. So that's
+      // what we do now. @@ TODO: it would be beneficial to also merge the
+      // rpath pass above into this.
+      //
+      // See also a similar loop inside append_libraries().
+      //
+      bool seen_obj (false);
       const file* def (nullptr); // Cached if present.
       {
-        sha256 cs;
+        appended_libraries als;
         library_cache lc;
+        sha256 cs;
 
         for (const prerequisite_target& p: t.prerequisite_targets[a])
         {
@@ -2894,8 +2823,8 @@ namespace build2
                ((la = (f = pt->is_a<liba>  ())) ||
                 (ls = (f = pt->is_a<libs>  ())))))
           {
-            // Link all the dependent interface libraries (shared) or interface
-            // and implementation (static), recursively.
+            // Link all the dependent interface libraries (shared) or
+            // interface and implementation (static), recursively.
             //
             // Also check if any of them render us out of date. The tricky
             // case is, say, a utility library (static) that depends on a
@@ -2905,12 +2834,21 @@ namespace build2
             //
             if (la || ls)
             {
-              append_libraries (cs, update, mt, bs, a, *f, la, p.data, li, &lc);
+              append_libraries (als, sargs,
+                                &cs, &update, mt,
+                                bs, a, *f, la, p.data, li, true, true, &lc);
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
             {
-              hash_path (cs, f->path (), rs.out_path ());
+              // Do not hoist libraries over object files since such object
+              // files might satisfy symbols in the preceding libraries.
+              //
+              als.clear ();
+
+              const path& p (f->path ());
+              sargs.push_back (relative (p).string ());
+              hash_path (cs, p, rs.out_path ());
 
               // @@ Do we actually need to hash this? I don't believe this set
               // can change without rendering the object file itself out of
@@ -2918,7 +2856,9 @@ namespace build2
               // marked with bin.binless manually?
               //
               if (modules)
-                append_binless_modules (cs, rs, a, *f);
+                append_binless_modules (sargs, &cs, bs, a, *f);
+
+              seen_obj = true;
             }
           }
           else if ((f = pt->is_a<bin::def> ()))
@@ -3197,63 +3137,6 @@ namespace build2
 #ifdef _WIN32
       size_t args_input (args.size ());
 #endif
-
-      // The same logic as during hashing above. See also a similar loop
-      // inside append_libraries().
-      //
-      bool seen_obj (false);
-      {
-        appended_libraries als;
-        library_cache lc;
-
-        for (const prerequisite_target& p: t.prerequisite_targets[a])
-        {
-          const target* pt (p.target);
-
-          if (pt == nullptr)
-            continue;
-
-          if (modules)
-          {
-            if (pt->is_a<bmix> ())
-            {
-              pt = find_adhoc_member (*pt, tts.obj);
-
-              if (pt == nullptr) // Header BMIs have no object file.
-                continue;
-            }
-          }
-
-          const file* f;
-          bool la (false), ls (false);
-
-          if ((f = pt->is_a<objx> ())           ||
-              (!lt.utility &&
-               (la = (f = pt->is_a<libux> ()))) ||
-              (!lt.static_library () &&
-               ((la = (f = pt->is_a<liba>  ())) ||
-                (ls = (f = pt->is_a<libs>  ())))))
-          {
-            if (la || ls)
-              append_libraries (
-                als, sargs, bs, a, *f, la, p.data, li, true, true, &lc);
-            else
-            {
-              // Do not hoist libraries over object files since such object
-              // files might satisfy symbols in the preceding libraries.
-              //
-              als.clear ();
-
-              sargs.push_back (relative (f->path ()).string ());
-
-              if (modules)
-                append_binless_modules (sargs, bs, a, *f);
-
-              seen_obj = true;
-            }
-          }
-        }
-      }
 
       // For MinGW manifest is an object file.
       //
