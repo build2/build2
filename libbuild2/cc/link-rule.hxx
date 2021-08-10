@@ -281,14 +281,11 @@ namespace build2
       //
       struct windows_dll
       {
-        const string& dll;
-        const string* pdb; // NULL if none.
-        string pdb_storage;
-
-        bool operator< (const windows_dll& y) const {return dll < y.dll;}
+        reference_wrapper<const string> dll;
+        string                          pdb; // Empty if none.
       };
 
-      using windows_dlls = set<windows_dll>;
+      using windows_dlls = vector<windows_dll>;
 
       timestamp
       windows_rpath_timestamp (const file&,

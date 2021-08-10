@@ -53,15 +53,16 @@ namespace build2
     {
       timestamp r (timestamp_nonexistent);
 
-      //@@ TODO: implement duplicate suppression and prunning. Reuse
-      //         rpath_libraries()'s machinery.
+      // Duplicate suppression similar to rpath_libraries().
+      //
+      rpathed_libraries ls;
 
       // We need to collect all the DLLs, so go into implementation of both
       // shared and static (in case they depend on shared).
       //
       auto imp = [] (const target&, bool) {return true;};
 
-      auto lib = [&r] (
+      auto lib = [&r, &ls] (
         const target* const* lc,
         const small_vector<reference_wrapper<const string>, 2>& ns,
         lflags,
@@ -74,11 +75,15 @@ namespace build2
         if (sys)
           return false;
 
-        // Ignore static libraries.
-        //
         if (l != nullptr)
         {
-          // This can be an "undiscovered" DLL (see search_library()).
+          // Suppress duplicates.
+          //
+          if (find (ls.begin (), ls.end (), l) != ls.end ())
+            return false;
+
+          // Ignore static libraries. Note that this can be an "undiscovered"
+          // DLL (see search_library()).
           //
           if (l->is_a<libs> () && !l->path ().empty ()) // Also covers binless.
           {
@@ -87,6 +92,8 @@ namespace build2
             if (t > r)
               r = t;
           }
+
+          ls.push_back (l);
         }
         else
         {
@@ -147,13 +154,21 @@ namespace build2
                         action a,
                         linfo li) const -> windows_dlls
     {
+      // Note that we cannot reuse windows_dlls for duplicate suppression
+      // since it would only keep track of shared libraries.
+      //
       windows_dlls r;
+      rpathed_libraries ls;
 
-      //@@ TODO: implement duplicate suppression and prunning.
+      struct
+      {
+        const scope&       bs;
+        rpathed_libraries& ls;
+      } d {bs, ls};
 
       auto imp = [] (const target&, bool) {return true;};
 
-      auto lib = [&r, &bs] (
+      auto lib = [&d, &r] (
         const target* const* lc,
         const small_vector<reference_wrapper<const string>, 2>& ns,
         lflags,
@@ -166,55 +181,66 @@ namespace build2
 
         if (l != nullptr)
         {
+          // Suppress duplicates.
+          //
+          if (find (d.ls.begin (), d.ls.end (), l) != d.ls.end ())
+            return false;
+
           if (l->is_a<libs> () && !l->path ().empty ()) // Also covers binless.
           {
             // Get .pdb if there is one.
             //
-            const target_type* tt (bs.find_target_type ("pdb"));
+            const target_type* tt (d.bs.find_target_type ("pdb"));
             const target* pdb (tt != nullptr
                                ? find_adhoc_member (*l, *tt)
                                : nullptr);
-            r.insert (
+
+            // Here we assume it's not a duplicate due to the check above.
+            //
+            r.push_back (
               windows_dll {
                 ns[0],
-                pdb != nullptr ? &pdb->as<file> ().path ().string () : nullptr,
-                string ()
+                pdb != nullptr ? pdb->as<file> ().path ().string () : string (),
               });
           }
+
+          d.ls.push_back (l);
         }
         else
         {
+          string pdb;
           for (const string& f: ns)
           {
             size_t p (path::traits_type::find_extension (f));
 
             if (p != string::npos && icasecmp (f.c_str () + p + 1, "dll") == 0)
             {
-              // See if we can find a corresponding .pdb.
-              //
-              windows_dll wd {f, nullptr, string ()};
-              string& pdb (wd.pdb_storage);
-
-              // First try "our" naming: foo.dll.pdb.
-              //
-              pdb = f;
-              pdb += ".pdb";
-
-              if (!exists (path (pdb)))
+              if (find_if (r.begin (), r.end (),
+                           [&f] (const windows_dll& e)
+                           {
+                             return e.dll.get () == f;
+                           }) == r.end ())
               {
-                // Then try the usual naming: foo.pdb.
+                // See if we can find a corresponding .pdb. First try "our"
+                // naming: foo.dll.pdb.
                 //
-                pdb.assign (f, 0, p);
+                pdb = f;
                 pdb += ".pdb";
 
                 if (!exists (path (pdb)))
-                  pdb.clear ();
+                {
+                  // Then try the usual naming: foo.pdb.
+                  //
+                  pdb.assign (f, 0, p);
+                  pdb += ".pdb";
+
+                  if (!exists (path (pdb)))
+                    pdb.clear ();
+                }
+
+                r.push_back (
+                  windows_dll {f, pdb.empty () ? string () : move (pdb)});
               }
-
-              if (!pdb.empty ())
-                wd.pdb = &pdb;
-
-              r.insert (move (wd));
             }
           }
         }
@@ -365,16 +391,16 @@ namespace build2
           //@@ Would be nice to avoid copying. Perhaps reuse buffers
           //   by adding path::assign() and traits::leaf().
           //
-          path dp (wd.dll);     // DLL path.
-          path dn (dp.leaf ()); // DLL name.
+          path dp (wd.dll.get ()); // DLL path.
+          path dn (dp.leaf ());    // DLL name.
 
           link (dp, ad / dn);
 
           // Link .pdb if there is one.
           //
-          if (wd.pdb != nullptr)
+          if (!wd.pdb.empty ())
           {
-            path pp (*wd.pdb);
+            path pp (wd.pdb);
             link (pp, ad / pp.leaf ());
           }
         }

@@ -434,13 +434,13 @@ namespace build2
       auto opt = [&d, this] (const target& lt,
                              const string& t, bool com, bool exp)
       {
-        const file& l (lt.as<file> ());
-
         // Note that in our model *.export.poptions are always "interface",
         // even if set on liba{}/libs{}, unlike loptions.
         //
         if (!exp) // Ignore libux.
           return true;
+
+        const file& l (lt.as<file> ());
 
         // Suppress duplicates.
         //
@@ -519,22 +519,30 @@ namespace build2
     // recursively, prerequisite libraries first.
     //
     void compile_rule::
-    append_library_prefixes (prefix_map& m,
+    append_library_prefixes (appended_libraries& ls, prefix_map& pm,
                              const scope& bs,
-                             action a,
-                             target& t,
-                             linfo li) const
+                             action a, target& t, linfo li) const
     {
-      //@@ TODO: implement duplicate suppression and prunning. Reuse above
-      //         machinery.
+      struct data
+      {
+        appended_libraries& ls;
+        prefix_map&         pm;
+      } d {ls, pm};
 
       auto imp = [] (const target& l, bool la) {return la && l.is_a<libux> ();};
 
-      auto opt = [&m, this] (
-        const target& l, const string& t, bool com, bool exp)
+      auto opt = [&d, this] (const target& lt,
+                             const string& t, bool com, bool exp)
       {
         if (!exp)
           return true;
+
+        const file& l (lt.as<file> ());
+
+        // Suppress duplicates like in append_library_options().
+        //
+        if (find (d.ls.begin (), d.ls.end (), &l) != d.ls.end ())
+          return false;
 
         const variable& var (
           com
@@ -543,7 +551,11 @@ namespace build2
              ? x_export_poptions
              : l.ctx.var_pool[t + ".export.poptions"]));
 
-        append_prefixes (m, l, var);
+        append_prefixes (d.pm, l, var);
+
+        if (com)
+          d.ls.push_back (&l);
+
         return true;
       };
 
@@ -1603,18 +1615,19 @@ namespace build2
                       target& t,
                       linfo li) const -> prefix_map
     {
-      prefix_map m;
+      prefix_map pm;
 
       // First process our own.
       //
-      append_prefixes (m, t, x_poptions);
-      append_prefixes (m, t, c_poptions);
+      append_prefixes (pm, t, x_poptions);
+      append_prefixes (pm, t, c_poptions);
 
       // Then process the include directories from prerequisite libraries.
       //
-      append_library_prefixes (m, bs, a, t, li);
+      appended_libraries ls;
+      append_library_prefixes (ls, pm, bs, a, t, li);
 
-      return m;
+      return pm;
     }
 
     // Return the next make prerequisite starting from the specified
@@ -6222,17 +6235,16 @@ namespace build2
         //
         auto imp = [] (const target&, bool) { return false; };
 
-        //@@ TODO: implement duplicate suppression and prunning? Reuse above
-        //         machinery (do before is_a() call).
-
         // The same logic as in append_libraries().
         //
+        appended_libraries ls;
         struct data
         {
-          action         a;
-          const file&    ht;
-          const target*& lt;
-        } d {a, ht, lt};
+          action              a;
+          const file&         ht;
+          const target*&      lt;
+          appended_libraries& ls;
+        } d {a, ht, lt, ls};
 
         auto lib = [&d] (
           const target* const* lc,
@@ -6250,6 +6262,11 @@ namespace build2
           if (l == nullptr)
             return true;
 
+          // Suppress duplicates.
+          //
+          if (find (d.ls.begin (), d.ls.end (), l) != d.ls.end ())
+            return false;
+
           // Feels like we should only consider non-utility libraries with
           // utilities being treated as "direct" use.
           //
@@ -6261,9 +6278,13 @@ namespace build2
           //
           const auto& pts (l->prerequisite_targets[d.a]);
           if (find (pts.begin (), pts.end (), &d.ht) != pts.end ())
+          {
             d.lt = l;
+            return false;
+          }
 
-          return d.lt == nullptr;
+          d.ls.push_back (l);
+          return true;
         };
 
         library_cache lib_cache;

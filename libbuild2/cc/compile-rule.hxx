@@ -54,7 +54,7 @@ namespace build2
       perform_clean (action, const target&) const;
 
     public:
-      using appended_libraries = small_vector<const file*, 256>;
+      using appended_libraries = small_vector<const target*, 256>;
 
       void
       append_library_options (appended_libraries&, strings&,
@@ -114,7 +114,7 @@ namespace build2
       append_prefixes (prefix_map&, const target&, const variable&) const;
 
       void
-      append_library_prefixes (prefix_map&,
+      append_library_prefixes (appended_libraries&, prefix_map&,
                                const scope&,
                                action, target&, linfo) const;
 

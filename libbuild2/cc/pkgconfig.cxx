@@ -1710,9 +1710,10 @@ namespace build2
           //
           linfo li {otype::e, la ? lorder::a_s : lorder::s_a};
 
+          library_cache lib_cache;
           process_libraries (a, bs, li, sys_lib_dirs,
                              l, la, 0, // Link flags.
-                             imp, lib, opt, !binless);
+                             imp, lib, opt, !binless /* self */, &lib_cache);
 
           for (const string& a: args)
             os << ' ' << a;
@@ -1727,7 +1728,7 @@ namespace build2
             priv = true;
             process_libraries (a, bs, li, sys_lib_dirs,
                                l, la, 0, // Link flags.
-                               imp, lib, opt, false);
+                               imp, lib, opt, false /* self */, &lib_cache);
 
             for (const string& a: args)
               os << ' ' << a;
