@@ -446,10 +446,13 @@ namespace build2
     }
 
     // If target_only is true, then only look in target and its target group
-    // without continuing in scopes.
+    // without continuing in scopes. As an optimization, the caller can also
+    // pass the base scope of the target, if already known.
     //
     pair<lookup_type, size_t>
-    lookup_original (const variable&, bool target_only = false) const;
+    lookup_original (const variable&,
+                     bool target_only = false,
+                     const scope* bs = nullptr) const;
 
     // Return a value suitable for assignment. See scope for details.
     //

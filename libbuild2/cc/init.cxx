@@ -133,6 +133,9 @@ namespace build2
       // but specific language is not known. Used in the import installed
       // logic.
       //
+      // Note that this variable cannot be set via the target type/pattern-
+      // specific mechanism (see process_libraries()).
+      //
       vp.insert<string> ("cc.type", v_t);
 
       // If set and is true, then this (imported) library has been found in a

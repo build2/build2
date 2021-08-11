@@ -146,7 +146,9 @@ namespace build2
   }
 
   pair<lookup, size_t> target::
-  lookup_original (const variable& var, bool target_only) const
+  lookup_original (const variable& var,
+                   bool target_only,
+                   const scope* bs) const
   {
     pair<lookup_type, size_t> r (lookup_type (), 0);
 
@@ -185,10 +187,12 @@ namespace build2
         target_key tk (key ());
         target_key gk (g != nullptr ? g->key () : target_key {});
 
-        auto p (base_scope ().lookup_original (
-                  var,
-                  &tk,
-                  g != nullptr ? &gk : nullptr));
+        if (bs == nullptr)
+          bs = &base_scope ();
+
+        auto p (bs->lookup_original (var,
+                                     &tk,
+                                     g != nullptr ? &gk : nullptr));
 
         r.first = move (p.first);
         r.second = r.first ? r.second + p.second : p.second;

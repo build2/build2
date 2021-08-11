@@ -99,13 +99,13 @@ namespace build2
                            bool exp)>& proc_opt,            // *.export.
       bool self /*= false*/,                     // Call proc_lib on l?
       library_cache* cache,
-      small_vector<const target*, 16>* chain) const
+      small_vector<const target*, 24>* chain) const
     {
       library_cache cache_storage;
       if (cache == nullptr)
         cache = &cache_storage;
 
-      small_vector<const target*, 16> chain_storage;
+      small_vector<const target*, 24> chain_storage;
       if (chain == nullptr)
       {
         chain = &chain_storage;
@@ -126,21 +126,30 @@ namespace build2
         // See what type of library this is (C, C++, etc). Use it do decide
         // which x.libs variable name to use. If it's unknown, then we only
         // look into prerequisites. Note: lookup starting from rule-specific
-        // variables (target should already be matched).
+        // variables (target should already be matched). Note also that for
+        // performance we use lookup_original() directly and only look in the
+        // target (so no target type/pattern-specific).
         //
-        const string* t (cast_null<string> (l.state[a][c_type]));
+        const string* t (
+          cast_null<string> (
+            l.state[a].lookup_original (c_type, true /* target_only */).first));
 
         bool impl (proc_impl && proc_impl (l, la));
         bool cc (false), same (false);
+
+        if (t != nullptr)
+        {
+          cc   = (*t == "cc");
+          same = (!cc && *t == x);
+        }
+
+        const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
 
         lookup c_e_libs;
         lookup x_e_libs;
 
         if (t != nullptr)
         {
-          cc   = (*t == "cc");
-          same = (!cc && *t == x);
-
           // Note that we used to treat *.export.libs set on the liba/libs{}
           // members as *.libs overrides rather than as member-specific
           // interface dependencies. This difference in semantics proved to be
@@ -152,12 +161,25 @@ namespace build2
           // be set to NULL or empty (this is why we check for the result
           // being defined).
           //
-          c_e_libs = l[impl ? c_export_impl_libs : c_export_libs];
+          // Note: for performance we call lookup_original() directly (we know
+          // these variables are not overridable) and pass the base scope we
+          // have already resolved.
+          //
+          // @@ PERF: do target_only (helps a bit in non-installed case)?
+          //
+          {
+            const variable& v (impl ? c_export_impl_libs : c_export_libs);
+            c_e_libs = l.lookup_original (v, false, &bs).first;
+          }
 
           if (!cc)
-            x_e_libs = l[same
-                         ? (impl ? x_export_impl_libs : x_export_libs)
-                         : vp[*t + (impl ? ".export.impl_libs" : ".export.libs")]];
+          {
+            const variable& v (
+              same
+              ? (impl ? x_export_impl_libs : x_export_libs)
+              : vp[*t + (impl ? ".export.impl_libs" : ".export.libs")]);
+            x_e_libs = l.lookup_original (v, false, &bs).first;
+          }
 
           // Process options first.
           //
@@ -252,7 +274,6 @@ namespace build2
             break;
         }
 
-        const scope& bs (t == nullptr || cc ? top_bs : l.base_scope ());
         optional<optional<linfo>> li;    // Calculate lazily.
         const dir_paths* sysd (nullptr); // Resolve lazily.
 
@@ -275,7 +296,7 @@ namespace build2
         {
           li = (t == nullptr || cc)
           ? top_li
-          : optional<linfo> (link_info (bs, link_type (l).type));
+          : optional<linfo> (link_info (bs, link_type (l).type)); // @@ PERF
         };
 
         // Only go into prerequisites (implementation) if instructed and we
@@ -558,10 +579,15 @@ namespace build2
                 // used to build the library. Since libraries in (non-export)
                 // *.libs are not targets, we don't need to recurse.
                 //
+                // Note: for performance we call lookup_original() directly
+                // (we know these variables are not overridable) and pass the
+                // base scope we have already resolved.
+                //
                 if (proc_lib)
                 {
-                  proc_imp (l[c_libs]);
-                  proc_imp (l[same ? x_libs : vp[*t + ".libs"]]);
+                  const variable& v (same ? x_libs : vp[*t + ".libs"]);
+                  proc_imp (l.lookup_original (c_libs, false, &bs).first);
+                  proc_imp (l.lookup_original (v, false, &bs).first);
                 }
               }
             }
