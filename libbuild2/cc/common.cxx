@@ -305,7 +305,9 @@ namespace build2
         //
         if (impl && !c_e_libs.defined () && !x_e_libs.defined ())
         {
+#if 0
           assert (top_li); // Must pick a member if implementation (see above).
+#endif
 
           for (const prerequisite_target& pt: l.prerequisite_targets[a])
           {

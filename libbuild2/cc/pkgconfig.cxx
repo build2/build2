@@ -1642,9 +1642,10 @@ namespace build2
           struct data
           {
             ofdstream&           os;
-            appended_libraries&  ls;
+            appended_libraries*  pls; // Previous.
+            appended_libraries*  ls;  // Current.
             strings&             args;
-          } d {os, ls, args};
+          } d {os, nullptr, &ls, args};
 
           auto imp = [&priv] (const target&, bool la) {return priv && la;};
 
@@ -1656,17 +1657,31 @@ namespace build2
           {
             const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
 
+            // Suppress duplicates from the previous run (Libs/Libs.private
+            // split).
+            //
+            if (d.pls != nullptr)
+            {
+              // Doesn't feel like we can prune here: we may have seen this
+              // interface library but not its implementation dependencies.
+              //
+              if ((l != nullptr
+                   ? d.pls->find (*l)
+                   : d.pls->find (ns)) != nullptr)
+                return true;
+            }
+
             // Suppress duplicates (see append_libraries() for details).
             //
             // Note that we use the original name for duplicate tracking.
             //
             appended_library* al (l != nullptr
-                                  ? &d.ls.append (*l, d.args.size ())
-                                  : d.ls.append (ns, d.args.size ()));
+                                  ? &d.ls->append (*l, d.args.size ())
+                                  : d.ls->append (ns, d.args.size ()));
 
             if (al != nullptr && al->end != appended_library::npos)
             {
-              d.ls.hoist (d.args, *al);
+              d.ls->hoist (d.args, *al);
               return true;
             }
 
@@ -1697,9 +1712,12 @@ namespace build2
             //@@ TODO: how will the Libs/Libs.private work?
             //@@ TODO: remember to use escape()
 
+            if (d.pls != nullptr && d.pls->find (l) != nullptr)
+              return true;
+
             // See link_rule::append_libraries().
 
-            if (d.ls.append (l, d.args.size ()).end != appended_library::npos)
+            if (d.ls->append (l, d.args.size ()).end != appended_library::npos)
               return true;
 
             return true;
@@ -1723,9 +1741,16 @@ namespace build2
           {
             os << "Libs.private:";
 
-            ls.clear ();
             args.clear ();
             priv = true;
+
+            // Use previous appended_libraries to weed out entries that are
+            // already in Libs.
+            //
+            appended_libraries als;
+            d.pls = d.ls;
+            d.ls = &als;
+
             process_libraries (a, bs, li, sys_lib_dirs,
                                l, la, 0, // Link flags.
                                imp, lib, opt, false /* self */, &lib_cache);

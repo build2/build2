@@ -81,11 +81,10 @@ namespace build2
       class appended_libraries: public small_vector<appended_library, 128>
       {
       public:
-        // Find existing or append new entry. If appending new, use the second
-        // argument as the begin value.
+        // Find existing entry, if any.
         //
-        appended_library&
-        append (const file& l, size_t b)
+        appended_library*
+        find (const file& l)
         {
           auto i (find_if (begin (), end (),
                            [&l] (const appended_library& al)
@@ -93,19 +92,11 @@ namespace build2
                              return al.l2 == nullptr && al.l1 == &l;
                            }));
 
-          if (i != end ())
-            return *i;
-
-          push_back (appended_library {&l, nullptr, b, appended_library::npos});
-          return back ();
+          return i != end () ? &*i : nullptr;
         }
 
-        // Return NULL if no duplicate tracking can be performed for this
-        // library.
-        //
         appended_library*
-        append (const small_vector<reference_wrapper<const string>, 2>& ns,
-                size_t b)
+        find (const small_vector<reference_wrapper<const string>, 2>& ns)
         {
           size_t n (ns.size ());
 
@@ -125,8 +116,36 @@ namespace build2
                    : al.l1 == nullptr);
               }));
 
-          if (i != end ())
-            return &*i;
+          return i != end () ? &*i : nullptr;
+        }
+
+        // Find existing or append new entry. If appending new, use the second
+        // argument as the begin value.
+        //
+        appended_library&
+        append (const file& l, size_t b)
+        {
+          if (appended_library* r = find (l))
+            return *r;
+
+          push_back (appended_library {&l, nullptr, b, appended_library::npos});
+          return back ();
+        }
+
+        // Return NULL if no duplicate tracking can be performed for this
+        // library.
+        //
+        appended_library*
+        append (const small_vector<reference_wrapper<const string>, 2>& ns,
+                size_t b)
+        {
+          size_t n (ns.size ());
+
+          if (n > 2)
+            return nullptr;
+
+          if (appended_library* r = find (ns))
+            return r;
 
           push_back (appended_library {
               n == 2 ? &ns[1].get () : nullptr, &ns[0].get (),
