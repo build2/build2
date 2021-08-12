@@ -34,6 +34,92 @@ namespace build2
     using namespace bin;
     using build2::to_string;
 
+    bool link_rule::
+    deduplicate_export_libs (const scope& bs,
+                             const vector<name>& ns,
+                             names& r,
+                             vector<reference_wrapper<const name>>* seen) const
+    {
+      bool top (seen == nullptr);
+
+      vector<reference_wrapper<const name>> seen_storage;
+      if (top)
+        seen = &seen_storage;
+
+      // The plan is as follows: resolve the target names in ns into targets
+      // and then traverse their interface dependencies recursively removing
+      // duplicates from the list r.
+      //
+      for (auto i (ns.begin ()), e (ns.end ()); i != e; ++i)
+      {
+        if (i->pair)
+        {
+          ++i;
+          continue;
+        }
+
+        const name& n (*i);
+
+        if (n.qualified () ||
+            !(n.dir.absolute () && n.dir.normalized ()) ||
+            !(n.type == "lib" || n.type == "liba" || n.type != "libs"))
+          continue;
+
+        if (!top)
+        {
+          // Check if we have already seen this library among interface
+          // dependencies of our interface dependencies.
+          //
+          if (find (seen->begin (), seen->end (), n) != seen->end ())
+            continue;
+
+          // Remove duplicates. Because we only consider absolute/normalized
+          // target names, we can just compare their names.
+          //
+          for (auto i (r.begin ()); i != r.end (); )
+          {
+            if (i->pair)
+              i += 2;
+            else if (*i == n)
+              i = r.erase (i);
+            else
+              ++i;
+          }
+
+          // @@ TODO: we could optimize this further by returning false if
+          //    there are no viable candidates (e.g., only pairs/qualified/etc
+          //    left).
+          //
+          if (r.empty ())
+            return false;
+        }
+
+        if (const target* t = search_existing (n, bs, dir_path () /* out */))
+        {
+          // The same logic as in process_libraries().
+          //
+          const scope& bs (t->base_scope ());
+
+          if (lookup l = t->lookup_original (c_export_libs, false, &bs).first)
+          {
+            if (!deduplicate_export_libs (bs, cast<vector<name>> (l), r, seen))
+              return false;
+          }
+
+          if (lookup l = t->lookup_original (x_export_libs, false, &bs).first)
+          {
+            if (!deduplicate_export_libs (bs, cast<vector<name>> (l), r, seen))
+              return false;
+          }
+        }
+
+        if (!top)
+          seen->push_back (n);
+      }
+
+      return true;
+    }
+
     optional<path> link_rule::
     find_system_library (const strings& l) const
     {

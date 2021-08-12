@@ -214,6 +214,13 @@ namespace build2
       append_binless_modules (strings&, sha256*,
                               const scope&, action, const file&) const;
 
+      bool
+      deduplicate_export_libs (
+        const scope&,
+        const vector<name>&,
+        names&,
+        vector<reference_wrapper<const name>>* = nullptr) const;
+
       optional<path>
       find_system_library (const strings&) const;
 

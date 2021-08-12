@@ -399,6 +399,65 @@ namespace build2
               fail << t << " is not an object file target";
           }});
 
+      // $<module>.deduplicate_export_libs(<names>)
+      //
+      // Deduplicate interface library dependencies by removing libraries that
+      // are also interface dependencies of the specified libraries. This can
+      // result in significantly better build performance for heavily
+      // interface-interdependent library families (for example, like Boost).
+      // Typical usage:
+      //
+      // import intf_libs  = ...
+      // import intf_libs += ...
+      // ...
+      // import intf_libs += ...
+      // intf_libs = $cxx.deduplicate_export_libs($intf_libs)
+      //
+      // Notes:
+      //
+      // 1. We only consider unqualified absolute/normalized target names (the
+      //    idea is that the installed case will already be deduplicated).
+      //
+      // 2. We assume all the libraries listed are of the module type and only
+      //    look for cc.export.libs and <module>.export.libs.
+      //
+      // 3. No member/group selection/linkup: we resolve *.export.libs on
+      //    whatever is listed.
+      //
+      // Note that this function is not pure.
+      //
+      f.insert (".deduplicate_export_libs", false).
+        insert<const char*, names> (
+          [] (const scope* bs,
+              vector_view<value> vs,
+              const function_overload& f) -> value
+          {
+            const char* x (*reinterpret_cast<const char* const*> (&f.data));
+
+            if (bs == nullptr)
+              fail << f.name << " called out of scope";
+
+            const scope* rs (bs->root_scope ());
+
+            if (rs == nullptr)
+              fail << f.name << " called out of project";
+
+            const module* m (rs->find_module<module> (x));
+
+            if (m == nullptr)
+              fail << f.name << " called without " << x << " module loaded";
+
+            // We can assume the argument is present due to function's types
+            // signature.
+            //
+            names& r (vs[0].as<names> ());
+            m->deduplicate_export_libs (*bs,
+                                        vector<name> (r.begin (), r.end ()),
+                                        r);
+            return value (move (r));
+          },
+          x);
+
       // $<module>.find_system_library(<name>)
       //
       // Return the library path if the specified library exists in one of the

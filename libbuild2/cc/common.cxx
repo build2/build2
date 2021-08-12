@@ -165,6 +165,8 @@ namespace build2
           // these variables are not overridable) and pass the base scope we
           // have already resolved.
           //
+          // See also deduplicate_export_libs() if changing anything here.
+          //
           // @@ PERF: do target_only (helps a bit in non-installed case)?
           //
           {
