@@ -14,11 +14,20 @@ namespace build2
 {
   namespace version
   {
+    // We have to run git twice to extract the information we need and doing
+    // it repetitively is quite expensive, especially for larger repositories.
+    // So we cache it, which helps multi-package repositories.
+    //
+    static global_cache<snapshot, dir_path> cache;
+
     snapshot
-    extract_snapshot_git (const dir_path& src_root)
+    extract_snapshot_git (dir_path rep_root)
     {
+      if (const snapshot* r = cache.find (rep_root))
+        return *r;
+
       snapshot r;
-      const char* d (src_root.string ().c_str ());
+      const char* d (rep_root.string ().c_str ());
 
       // On startup git prepends the PATH environment variable value with the
       // computed directory path where its sub-programs are supposedly located
@@ -192,30 +201,31 @@ namespace build2
         // that.
       }
 
-      if (!run_finish_code (args, pr, l))
+      if (run_finish_code (args, pr, l))
+      {
+        if (r.sn == 0)
+          fail << "unable to extract git commit id/date for " << rep_root;
+
+        if (r.committed)
+        {
+          sha1 cs;
+          cs.append ("commit " + to_string (data.size ())); // Includes '\0'.
+          cs.append (data.c_str (), data.size ());
+          r.id.assign (cs.string (), 12); // 12-char abbreviated commit id.
+        }
+        else
+          r.sn++; // Add a second.
+      }
+      else
       {
         // Presumably new repository without HEAD. Return uncommitted snapshot
         // with UNIX epoch as timestamp.
         //
         r.sn = 19700101000000ULL;
         r.committed = false;
-        return r;
       }
 
-      if (r.sn == 0)
-        fail << "unable to extract git commit id/date for " << src_root;
-
-      if (r.committed)
-      {
-        sha1 cs;
-        cs.append ("commit " + to_string (data.size ())); // Includes '\0'.
-        cs.append (data.c_str (), data.size ());
-        r.id.assign (cs.string (), 12); // 12-characters abbreviated commit id.
-      }
-      else
-        r.sn++; // Add a second.
-
-      return r;
+      return cache.insert (move (rep_root), move (r));
     }
   }
 }

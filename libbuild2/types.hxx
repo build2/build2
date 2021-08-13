@@ -221,6 +221,40 @@ namespace build2
   using std::thread;
   namespace this_thread = std::this_thread;
 
+  // Global, MT-safe information cache. Normally used for caching information
+  // (versions, target triplets, search paths, etc) extracted from other
+  // programs (compilers, etc).
+  //
+  // The key is normally a hash of all the inputs that can affect the output.
+  //
+  // Note that insertion is racy and it's possible the cache entry already
+  // exists, in which case we ignore our value assuming it is the same.
+  //
+  template <typename T, typename K = string>
+  class global_cache
+  {
+  public:
+    const T*
+    find (const K& k) const
+    {
+      mlock l (mutex_);
+      auto i (cache_.find (k));
+      return i != cache_.end () ? &i->second : nullptr;
+    }
+
+    const T&
+    insert (K k, T v)
+    {
+      mlock l (mutex_);
+      return cache_.insert (std::make_pair (std::move (k),
+                                            std::move (v))).first->second;
+    }
+
+  private:
+    map<K, T> cache_;
+    mutable mutex mutex_;
+  };
+
   // Exceptions.
   //
   // While <exception> is included, there is no using for std::exception --
