@@ -1072,7 +1072,11 @@ namespace build2
           // Else fall through.
         }
         else
-          assert (ars == nullptr || simple ()); // Shouldn't we have found it?
+        {
+          // Note that here ars may be not NULL. This can happen both when ars
+          // is a simple project or if out_root is in out directory that has
+          // no been configured. In this case falling through is what we want.
+        }
       }
 
       // Do additional checks if the outer root could be our amalgamation.
