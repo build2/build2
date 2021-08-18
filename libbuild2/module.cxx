@@ -591,16 +591,14 @@ namespace build2
                        << mmod;
         }
         else
-        {
-          // Reduce skipped external module to optional.
-          //
-          if (boot)
-            opt = true;
-
           i = loaded_modules.emplace (move (mmod), nullptr).first;
-        }
       }
     }
+
+    // Reduce skipped external module to optional.
+    //
+    if (boot && i->second == nullptr)
+      opt = true;
 
     // Now the iterator points to a submodule or to the main module, the
     // latter potentially NULL.
