@@ -720,7 +720,8 @@ namespace build2
     typename std::enable_if<std::is_trivially_destructible<T>::value,T&>::type
     data (R&& d) const
     {
-      assert (sizeof (T) <= data_size && data_dtor == nullptr);
+      assert (sizeof (T) <= data_size);
+      clear_data ();
       return *new (&data_pad) T (forward<R> (d));
     }
 
@@ -730,7 +731,8 @@ namespace build2
     typename std::enable_if<!std::is_trivially_destructible<T>::value,T&>::type
     data (R&& d) const
     {
-      assert (sizeof (T) <= data_size && data_dtor == nullptr);
+      assert (sizeof (T) <= data_size);
+      clear_data ();
       T& r (*new (&data_pad) T (forward<R> (d)));
       data_dtor = [] (void* p) {static_cast<T*> (p)->~T ();};
       return r;
