@@ -1226,11 +1226,14 @@ namespace build2
     os << std::endl
        << "\033[1m--mtime-check\033[0m         Perform file modification time sanity checks. These" << ::std::endl
        << "                      checks can be helpful in diagnosing spurious rebuilds and" << ::std::endl
-       << "                      are enabled by default for the staged version of the" << ::std::endl
-       << "                      build system. Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
+       << "                      are enabled by default on Windows (which is known not to" << ::std::endl
+       << "                      guarantee monotonically increasing mtimes) and for the" << ::std::endl
+       << "                      staged version of the build system on other platforms." << ::std::endl
+       << "                      Use \033[1m--no-mtime-check\033[0m to disable." << ::std::endl;
 
     os << std::endl
-       << "\033[1m--no-mtime-check\033[0m      Don't perform file modification time sanity checks." << ::std::endl;
+       << "\033[1m--no-mtime-check\033[0m      Don't perform file modification time sanity checks. See" << ::std::endl
+       << "                      \033[1m--mtime-check\033[0m for details." << ::std::endl;
 
     os << std::endl
        << "\033[1m--no-column\033[0m           Don't print column numbers in diagnostics." << ::std::endl;

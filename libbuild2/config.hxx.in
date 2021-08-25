@@ -21,9 +21,11 @@
 #define LIBBUILD2_STAGE true
 
 // Modification time sanity checks are by default only enabled for the staged
-// version but this can be overridden at runtime with --[no-]mtime-check.
+// version unless we are on Windows (which is known not to guarantee
+// monotonically increasing mtimes). But this can be overridden at runtime
+// with --[no-]mtime-check.
 //
-#if LIBBUILD2_STAGE
+#if LIBBUILD2_STAGE || defined(_WIN32)
 #  define LIBBUILD2_MTIME_CHECK true
 #else
 #  define LIBBUILD2_MTIME_CHECK false

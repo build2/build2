@@ -580,13 +580,15 @@ namespace build2
     {
       "Perform file modification time sanity checks. These checks can be
        helpful in diagnosing spurious rebuilds and are enabled by default
-       for the staged version of the build system. Use \cb{--no-mtime-check}
-       to disable."
+       on Windows (which is known not to guarantee monotonically increasing
+       mtimes) and for the staged version of the build system on other
+       platforms. Use \cb{--no-mtime-check} to disable."
     }
 
     bool --no-mtime-check
     {
-      "Don't perform file modification time sanity checks."
+      "Don't perform file modification time sanity checks. See
+       \cb{--mtime-check} for details."
     }
 
     bool --no-column
