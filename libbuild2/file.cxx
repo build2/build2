@@ -2575,8 +2575,17 @@ namespace build2
         // @@ Should we verify these are all unqualified names? Or maybe there
         // is a use-case for the export stub to return a qualified name?
         //
-        parser p (ctx);
-        names v (p.parse_export_stub (ifs, path_name (es), gs, ts));
+        names v;
+        {
+          auto df = make_diag_frame (
+            [&tgt, &loc] (const diag_record& dr)
+            {
+              dr << info (loc) << "while loading export stub for " << tgt;
+            });
+
+          parser p (ctx);
+          v = p.parse_export_stub (ifs, path_name (es), gs, ts);
+        }
 
         // If there were no export directive executed in an export stub,
         // assume the target is not exported.
