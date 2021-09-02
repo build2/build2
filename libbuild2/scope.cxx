@@ -319,8 +319,12 @@ namespace build2
         return lookup_type ();
 
       // Note: using the original as storage variable.
+      // Note: have to suppress aliases since used for something else.
       //
-      return lookup_type (s->vars.lookup (*o).first, &var, &s->vars);
+      return lookup_type (
+        s->vars.lookup (*o, true /* typed */, false /* aliased */).first,
+        &var,
+        &s->vars);
     };
 
     // Return true if a value is from this scope (either target type/pattern-

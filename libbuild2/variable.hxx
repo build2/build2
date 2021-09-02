@@ -1555,11 +1555,13 @@ namespace build2
       return var != nullptr ? operator[] (*var) : lookup_type ();
     }
 
-    // If typed is false, leave the value untyped even if the variable is.
-    // The second half of the pair is the storage variable.
+    // If typed is false, leave the value untyped even if the variable is. If
+    // aliased is false, then don't consider aliases (used by the variable
+    // override machinery where the aliases chain is repurrposed for something
+    // else). The second half of the pair is the storage variable.
     //
     pair<const value_data*, const variable&>
-    lookup (const variable&, bool typed = true) const;
+    lookup (const variable&, bool typed = true, bool aliased = true) const;
 
     pair<value_data*, const variable&>
     lookup_to_modify (const variable&, bool typed = true);

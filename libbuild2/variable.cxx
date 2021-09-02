@@ -1721,7 +1721,7 @@ namespace build2
   const variable_map empty_variable_map (nullptr /* context */);
 
   auto variable_map::
-  lookup (const variable& var, bool typed) const ->
+  lookup (const variable& var, bool typed, bool aliased) const ->
     pair<const value_data*, const variable&>
   {
     const variable* v (&var);
@@ -1739,7 +1739,8 @@ namespace build2
         break;
       }
 
-      v = v->aliases;
+      if (aliased)
+        v = v->aliases;
 
     } while (v != &var && v != nullptr);
 
