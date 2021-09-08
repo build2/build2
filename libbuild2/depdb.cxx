@@ -59,12 +59,12 @@ namespace build2
     if (state_ == state::read)
     {
       new (&is_) ifdstream (move (fd), em);
-      buf_ = static_cast<fdbuf*> (is_.rdbuf ());
+      buf_ = static_cast<fdstreambuf*> (is_.rdbuf ());
     }
     else
     {
       new (&os_) ofdstream (move (fd), em);
-      buf_ = static_cast<fdbuf*> (os_.rdbuf ());
+      buf_ = static_cast<fdstreambuf*> (os_.rdbuf ());
     }
   }
 
@@ -142,7 +142,7 @@ namespace build2
     new (&os_) ofdstream (move (fd),
                           ofdstream::badbit | ofdstream::failbit,
                           pos_);
-    buf_ = static_cast<fdbuf*> (os_.rdbuf ());
+    buf_ = static_cast<fdstreambuf*> (os_.rdbuf ());
 
     state_ = state::write;
     mtime = timestamp_unknown;

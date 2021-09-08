@@ -75,7 +75,7 @@ namespace build2
       ofdstream os_; // write
     };
 
-    butl::fdbuf* buf_; // Current buffer (for tellg()/tellp()).
+    butl::fdstreambuf* buf_; // Current buffer (for tellg()).
   };
 
   class LIBBUILD2_SYMEXPORT depdb: private depdb_base
