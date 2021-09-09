@@ -1266,6 +1266,21 @@ namespace build2
 
             if (wasm.path ().empty ())
               wasm.derive_path ();
+
+            // If we have -pthread then we get additional .worker.js file
+            // which is used for thread startup. In a somewhat hackish way we
+            // represent it as an exe{} member to make sure it gets installed
+            // next to the main .js file.
+            //
+            if (find_option ("-pthread", cmode)         ||
+                find_option ("-pthread", t, c_loptions) ||
+                find_option ("-pthread", t, x_loptions))
+            {
+              exe& worker (add_adhoc_member<exe> (t, "worker.js"));
+
+              if (worker.path ().empty ())
+                worker.derive_path ();
+            }
           }
 
           // Add VC's .pdb. Note that we are looking for the link.exe /DEBUG
