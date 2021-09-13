@@ -25,7 +25,9 @@ namespace build2
       match (action, target&, const string&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise. The default implementation allows all prerequsites.
+      // target otherwise. The default implementation ignores prerequsites
+      // that are outside of the installation scope (see install_scope() for
+      // details).
       //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
@@ -34,10 +36,11 @@ namespace build2
         prerequisite_members_range<group_prerequisites>::iterator;
 
       virtual const target*
-      filter (action, const target&, prerequisite_iterator&) const;
+      filter (const scope*,
+              action, const target&, prerequisite_iterator&) const;
 
       virtual const target*
-      filter (action, const target&, const prerequisite&) const;
+      filter (const scope*, action, const target&, const prerequisite&) const;
 
       virtual recipe
       apply (action, target&) const override;
@@ -103,11 +106,8 @@ namespace build2
 
       // Return NULL if this prerequisite should be ignored and pointer to its
       // target otherwise. The default implementation ignores prerequsites
-      // that are outside of this target's project.
-      //
-      // @@ I wonder why we do weak amalgamation for alias but project for
-      //    file? And then override this for prerequisite libraries/modules
-      //    in cc::install_rule and bash::install_rule...
+      // that are outside of the installation scope (see install_scope() for
+      // details).
       //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
@@ -116,10 +116,11 @@ namespace build2
         prerequisite_members_range<group_prerequisites>::iterator;
 
       virtual const target*
-      filter (action, const target&, prerequisite_iterator&) const;
+      filter (const scope*,
+              action, const target&, prerequisite_iterator&) const;
 
       virtual const target*
-      filter (action, const target&, const prerequisite&) const;
+      filter (const scope*, action, const target&, const prerequisite&) const;
 
       virtual recipe
       apply (action, target&) const override;

@@ -25,14 +25,15 @@ namespace build2
         : common (move (d)), link_ (l) {}
 
     const target* install_rule::
-    filter (action a, const target& t, prerequisite_iterator& i) const
+    filter (const scope* is,
+            action a, const target& t, prerequisite_iterator& i) const
     {
       // NOTE: see libux_install_rule::filter() if changing anything here.
 
       const prerequisite& p (i->prerequisite);
 
-      // If this is a shared library prerequisite, install it as long as it
-      // is in the same amalgamation as we are.
+      // If this is a shared library prerequisite, install it as long as it is
+      // in the installation scope.
       //
       // Less obvious: we also want to install a static library prerequisite
       // of a library (since it could be referenced from its .pc file, etc).
@@ -61,7 +62,7 @@ namespace build2
         // Note: not redundant since we are returning a member.
         //
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
-          return pt->in (t.weak_scope ()) ? pt : nullptr;
+          return is == nullptr || pt->in (*is) ? pt : nullptr;
 
         // See through to libu*{} members. Note that we are always in the same
         // project (and thus amalgamation).
@@ -72,7 +73,7 @@ namespace build2
 
       // The rest of the tests only succeed if the base filter() succeeds.
       //
-      const target* pt (file_rule::filter (a, t, p));
+      const target* pt (file_rule::filter (is, a, t, p));
       if (pt == nullptr)
         return pt;
 
@@ -137,7 +138,7 @@ namespace build2
           {
             pt = t.is_a<exe> ()
               ? nullptr
-              : file_rule::filter (a, *pt, pm.prerequisite);
+              : file_rule::filter (is, a, *pt, pm.prerequisite);
             break;
           }
         }
@@ -279,8 +280,11 @@ namespace build2
         : common (move (d)), link_ (l) {}
 
     const target* libux_install_rule::
-    filter (action a, const target& t, prerequisite_iterator& i) const
+    filter (const scope* is,
+            action a, const target& t, prerequisite_iterator& i) const
     {
+      using file_rule = install::file_rule;
+
       const prerequisite& p (i->prerequisite);
 
       // The "see through" semantics that should be parallel to install_rule
@@ -301,13 +305,13 @@ namespace build2
           pt = link_member (*l, a, link_info (t.base_scope (), ot));
 
         if ((st && pt->is_a<libs> ()) || (at && pt->is_a<liba> ()))
-          return pt->in (t.weak_scope ()) ? pt : nullptr;
+          return is == nullptr || pt->in (*is) ? pt : nullptr;
 
         if (pt->is_a<libux> ())
           return pt;
       }
 
-      const target* pt (install::file_rule::instance.filter (a, t, p));
+      const target* pt (file_rule::instance.filter (is, a, t, p));
       if (pt == nullptr)
         return pt;
 
@@ -349,7 +353,7 @@ namespace build2
           {
             pt = t.is_a<libue> ()
               ? nullptr
-              : install::file_rule::instance.filter (a, *pt, pm.prerequisite);
+              : file_rule::instance.filter (is, a, *pt, pm.prerequisite);
             break;
           }
         }

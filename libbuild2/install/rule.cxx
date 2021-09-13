@@ -54,16 +54,19 @@ namespace build2
     }
 
     const target* alias_rule::
-    filter (action a, const target& t, prerequisite_iterator& i) const
+    filter (const scope* is,
+            action a, const target& t, prerequisite_iterator& i) const
     {
       assert (i->member == nullptr);
-      return filter (a, t, i->prerequisite);
+      return filter (is, a, t, i->prerequisite);
     }
 
     const target* alias_rule::
-    filter (action, const target& t, const prerequisite& p) const
+    filter (const scope* is,
+            action, const target& t, const prerequisite& p) const
     {
-      return &search (t, p);
+      const target& pt (search (t, p));
+      return is == nullptr || pt.in (*is) ? &pt : nullptr;
     }
 
     recipe alias_rule::
@@ -75,8 +78,9 @@ namespace build2
       //
       // @@ Shouldn't we do match in parallel (here and below)?
       //
-      auto& pts (t.prerequisite_targets[a]);
+      optional<const scope*> is; // Installation scope (resolve lazily).
 
+      auto& pts (t.prerequisite_targets[a]);
       auto pms (group_prerequisite_members (a, t, members_mode::never));
       for (auto i (pms.begin ()), e (pms.end ()); i != e; ++i)
       {
@@ -100,7 +104,10 @@ namespace build2
         // Note: we assume that if the filter enters the group, then it
         // iterates over all its members.
         //
-        const target* pt (filter (a, t, i));
+        if (!is)
+          is = install_scope (t);
+
+        const target* pt (filter (*is, a, t, i));
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
@@ -217,7 +224,6 @@ namespace build2
       if (gv.members != nullptr)
       {
         auto& pts (t.prerequisite_targets[a]);
-
         for (size_t i (0); i != gv.count; ++i)
         {
           const target* m (gv.members[i]);
@@ -271,17 +277,19 @@ namespace build2
     }
 
     const target* file_rule::
-    filter (action a, const target& t, prerequisite_iterator& i) const
+    filter (const scope* is,
+            action a, const target& t, prerequisite_iterator& i) const
     {
       assert (i->member == nullptr);
-      return filter (a, t, i->prerequisite);
+      return filter (is, a, t, i->prerequisite);
     }
 
     const target* file_rule::
-    filter (action, const target& t, const prerequisite& p) const
+    filter (const scope* is,
+            action, const target& t, const prerequisite& p) const
     {
       const target& pt (search (t, p));
-      return pt.in (t.root_scope ()) ? &pt : nullptr;
+      return is == nullptr || pt.in (*is) ? &pt : nullptr;
     }
 
     recipe file_rule::
@@ -314,8 +322,9 @@ namespace build2
       if (a.operation () == update_id)
         unchanged = match_inner (a, t, unmatch::unchanged).first;
 
-      auto& pts (t.prerequisite_targets[a]);
+      optional<const scope*> is; // Installation scope (resolve lazily).
 
+      auto& pts (t.prerequisite_targets[a]);
       auto pms (group_prerequisite_members (a, t, members_mode::never));
       for (auto i (pms.begin ()), e (pms.end ()); i != e; ++i)
       {
@@ -339,7 +348,11 @@ namespace build2
         // Note: we assume that if the filter enters the group, then it
         // iterates over all its members.
         //
-        const target* pt (filter (a, t, i));
+        if (!is)
+          is = install_scope (t);
+
+        const target* pt (filter (*is, a, t, i));
+
         if (pt == nullptr)
         {
           l5 ([&]{trace << "ignoring " << p << " (filtered out)";});
@@ -541,7 +554,9 @@ namespace build2
         {
           if (fail_unknown)
             fail << "unknown installation directory name '" << sn << "'" <<
-              info << "did you forget to specify config." << var << "?";
+              info << "did you forget to specify config." << var << "?" <<
+              info << "specify !config." << var << "=... if installing "
+                   << "from multiple projects";
 
           return rs; // Empty.
         }

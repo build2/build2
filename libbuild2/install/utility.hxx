@@ -56,6 +56,14 @@ namespace build2
       return install_mode (s, T::static_type, move (m));
     }
 
+    // Return the "installation scope". We do not install prerequisites (for
+    // example, shared libraries) of targets (for example, executables) that
+    // belong to projects outside of this scope. If it's NULL, install
+    // prerequisites from all projects. See also config.install.scope.
+    //
+    LIBBUILD2_SYMEXPORT const scope*
+    install_scope (const target&);
+
     // Resolve relative installation directory path (e.g., include/libfoo) to
     // its absolute directory path (e.g., /usr/include/libfoo). If the
     // resolution encountered an unknown directory, issue diagnostics and fail

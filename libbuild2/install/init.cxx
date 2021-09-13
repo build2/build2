@@ -392,6 +392,37 @@ namespace build2
 
       // Configuration.
       //
+
+      // config.install.scope
+      //
+      // We do not install prerequisites (for example, shared libraries) of
+      // targets (for example, executables) that belong to projects outside of
+      // this scope. Valid values are:
+      //
+      //   project -- project scope
+      //   strong  -- strong amalgamation
+      //   weak    -- weak amalgamation
+      //   global  -- all projects (default)
+      //
+      // Note: can only be specified as a global override.
+      //
+      {
+        auto& v (vp.insert<string> ("config.install.scope"));
+
+        // If specified, verify it is a global override.
+        //
+        if (lookup l = rs[v])
+        {
+          if (!l.belongs (rs.global_scope ()))
+            fail << "config.install.scope must be a global override" <<
+              info << "specify !config.install.scope=...";
+        }
+
+        config::unsave_variable (rs, v);
+      }
+
+      // Installation directories.
+      //
       // Note that we don't use any defaults for root -- the location
       // must be explicitly specified or the installer will complain
       // if and when we try to install.
