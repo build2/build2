@@ -530,7 +530,7 @@ namespace build2
         };
 
         // Save the regex to file for troubleshooting, return the file path
-        // it have been saved to.
+        // it has been saved to.
         //
         // Note that we save the regex on line regex creation failure or if
         // the program output doesn't match.
@@ -721,6 +721,19 @@ namespace build2
             //
             while (!s.empty () && s.back () == '\r')
               s.pop_back ();
+
+            // Some regex implementations (e.g., libstdc++, MSVC) are unable
+            // to match long strings which they "signal" by running out of
+            // stack or otherwise crashing instead of throwing an exception.
+            // So we impose some sensible limit that all of them are able to
+            // handle for basic expressions (e.g., [ab]+).
+            //
+            if (s.size () > 16384)
+            {
+              diag_record d (fail (ll));
+              d << pr << " " << what << " lines too long to match with regex";
+              output_info (d, op);
+            }
 
             ls += line_char (move (s), regex.pool);
           }
