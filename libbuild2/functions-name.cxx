@@ -65,7 +65,21 @@ namespace build2
     };
     fn["name"] += [](const scope* s, names ns)
     {
-      return to_target_name (s, convert<name> (move (ns))).first.value;
+      small_vector<string, 1> r;
+
+      for (name& n: ns)
+      {
+        if (n.pair)
+          fail << "name pair in names";
+
+        r.push_back (to_target_name (s, move (n)).first.value);
+      }
+
+      if (r.size () == 1)
+        return value (move (r[0]));
+
+      return value (strings (make_move_iterator (r.begin ()),
+                             make_move_iterator (r.end ())));
     };
 
     // Note: returns NULL if extension is unspecified (default) and empty if
@@ -77,6 +91,8 @@ namespace build2
     };
     fn["extension"] += [](const scope* s, names ns)
     {
+      // Note: can't do multiple due to NULL semantics.
+      //
       return to_target_name (s, convert<name> (move (ns))).second;
     };
 
@@ -86,7 +102,21 @@ namespace build2
     };
     fn["directory"] += [](const scope* s, names ns)
     {
-      return to_target_name (s, convert<name> (move (ns))).first.dir;
+      small_vector<dir_path, 1> r;
+
+      for (name& n: ns)
+      {
+        if (n.pair)
+          fail << "name pair in names";
+
+        r.push_back (to_target_name (s, move (n)).first.dir);
+      }
+
+      if (r.size () == 1)
+        return value (move (r[0]));
+
+      return value (dir_paths (make_move_iterator (r.begin ()),
+                               make_move_iterator (r.end ())));
     };
 
     fn["target_type"] += [](const scope* s, name n)
@@ -95,7 +125,21 @@ namespace build2
     };
     fn["target_type"] += [](const scope* s, names ns)
     {
-      return to_target_name (s, convert<name> (move (ns))).first.type;
+      small_vector<string, 1> r;
+
+      for (name& n: ns)
+      {
+        if (n.pair)
+          fail << "name pair in names";
+
+        r.push_back (to_target_name (s, move (n)).first.type);
+      }
+
+      if (r.size () == 1)
+        return value (move (r[0]));
+
+      return value (strings (make_move_iterator (r.begin ()),
+                             make_move_iterator (r.end ())));
     };
 
     // Note: returns NULL if no project specified.
@@ -106,6 +150,8 @@ namespace build2
     };
     fn["project"] += [](const scope* s, names ns)
     {
+      // Note: can't do multiple due to NULL semantics.
+      //
       return to_target_name (s, convert<name> (move (ns))).first.proj;
     };
 
