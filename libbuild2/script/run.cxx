@@ -726,7 +726,14 @@ namespace build2
             // to match long strings which they "signal" by running out of
             // stack or otherwise crashing instead of throwing an exception.
             // So we impose some sensible limit that all of them are able to
-            // handle for basic expressions (e.g., [ab]+).
+            // handle for basic expressions (e.g., [ab]+; GCC's limits are the
+            // lowest, see bug 86164). See also another check (for the lines
+            // number) below.
+            //
+            // BTW, if we ever need to overcome this limitation (along with
+            // various hacks for the two-dimensional regex support), one way
+            // would be to factor libc++'s implementation (which doesn't seem
+            // to have any stack-related limits) and use it everywhere.
             //
             if (s.size () > 16384)
             {
@@ -741,6 +748,13 @@ namespace build2
         catch (const io_error& e)
         {
           fail (ll) << "unable to read " << op << ": " << e;
+        }
+
+        if (ls.size () > 12288)
+        {
+          diag_record d (fail (ll));
+          d << pr << " " << what << " has too many lines to match with regex";
+          output_info (d, op);
         }
 
         // Match the output with the regex.
