@@ -46,10 +46,12 @@ namespace build2
   pair<lookup, size_t> scope::
   lookup_original (const variable& var,
                    const target_key* tk,
-                   const target_key* gk,
+                   const target_key* g1k,
+                   const target_key* g2k,
                    size_t start_d) const
   {
     assert (tk != nullptr || var.visibility != variable_visibility::target);
+    assert (g2k == nullptr || g1k != nullptr);
 
     size_t d (0);
 
@@ -61,7 +63,8 @@ namespace build2
     auto pre_app = [&var, this] (lookup_type& l,
                                  const scope* s,
                                  const target_key* tk,
-                                 const target_key* gk,
+                                 const target_key* g1k,
+                                 const target_key* g2k,
                                  string n)
     {
       const value& v (*l);
@@ -76,7 +79,7 @@ namespace build2
       // group, then we shouldn't be looking for stem in the target's
       // variables. In other words, once we "jump" to group, we stay there.
       //
-      lookup_type stem (s->lookup_original (var, tk, gk, 2).first);
+      lookup_type stem (s->lookup_original (var, tk, g1k, g2k, 2).first);
 
       // Check the cache.
       //
@@ -140,7 +143,8 @@ namespace build2
     // the copy.
     //
     optional<string> tn;
-    optional<string> gn;
+    optional<string> g1n;
+    optional<string> g2n;
 
     for (const scope* s (this); s != nullptr; )
     {
@@ -159,7 +163,7 @@ namespace build2
             if (l.defined ())
             {
               if (l->extra != 0) // Prepend/append?
-                pre_app (l, s, tk, gk, move (*tn));
+                pre_app (l, s, tk, g1k, g2k, move (*tn));
 
               return make_pair (move (l), d);
             }
@@ -170,16 +174,29 @@ namespace build2
         //
         if (++d >= start_d)
         {
-          if (f && gk != nullptr)
+          if (f && g1k != nullptr)
           {
-            lookup_type l (s->target_vars.find (*gk, var, gn));
+            lookup_type l (s->target_vars.find (*g1k, var, g1n));
 
             if (l.defined ())
             {
               if (l->extra != 0) // Prepend/append?
-                pre_app (l, s, gk, nullptr, move (*gn));
+                pre_app (l, s, g1k, g2k, nullptr, move (*g1n));
 
               return make_pair (move (l), d);
+            }
+
+            if (g2k != nullptr)
+            {
+              l = s->target_vars.find (*g2k, var, g2n);
+
+              if (l.defined ())
+              {
+                if (l->extra != 0) // Prepend/append?
+                  pre_app (l, s, g2k, nullptr, nullptr, move (*g2n));
+
+                return make_pair (move (l), d);
+              }
             }
           }
         }

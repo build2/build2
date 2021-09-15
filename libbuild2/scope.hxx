@@ -181,7 +181,8 @@ namespace build2
     pair<lookup_type, size_t>
     lookup_original (const variable&,
                      const target_key* tk = nullptr,
-                     const target_key* gk = nullptr,
+                     const target_key* g1k = nullptr,
+                     const target_key* g2k = nullptr,
                      size_t start_depth = 1) const;
 
     pair<lookup_type, size_t>

@@ -159,22 +159,29 @@ namespace build2
         r.first = lookup_type (*p.first, p.second, vars);
     }
 
-    const target* g (nullptr);
+    const target* g1 (nullptr);
+    const target* g2 (nullptr);
 
     if (!r.first)
     {
       ++r.second;
 
-      // Skip looking up in the ad hoc group, which is semantically the
-      // first/primary member.
+      // In case of an ad hoc group, we may have to look in two groups.
       //
-      if ((g = group == nullptr
-           ? nullptr
-           : group->adhoc_group () ? group->group : group))
+      if ((g1 = group) != nullptr)
       {
-        auto p (g->vars.lookup (var));
+        auto p (g1->vars.lookup (var));
         if (p.first != nullptr)
-          r.first = lookup_type (*p.first, p.second, g->vars);
+          r.first = lookup_type (*p.first, p.second, g1->vars);
+        else
+        {
+          if ((g2 = g1->group) != nullptr)
+          {
+            auto p (g2->vars.lookup (var));
+            if (p.first != nullptr)
+              r.first = lookup_type (*p.first, p.second, g2->vars);
+          }
+        }
       }
     }
 
@@ -185,14 +192,16 @@ namespace build2
       if (!target_only)
       {
         target_key tk (key ());
-        target_key gk (g != nullptr ? g->key () : target_key {});
+        target_key g1k (g1 != nullptr ? g1->key () : target_key {});
+        target_key g2k (g2 != nullptr ? g2->key () : target_key {});
 
         if (bs == nullptr)
           bs = &base_scope ();
 
         auto p (bs->lookup_original (var,
                                      &tk,
-                                     g != nullptr ? &gk : nullptr));
+                                     g1 != nullptr ? &g1k : nullptr,
+                                     g2 != nullptr ? &g2k : nullptr));
 
         r.first = move (p.first);
         r.second = r.first ? r.second + p.second : p.second;

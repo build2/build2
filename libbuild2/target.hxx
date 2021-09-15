@@ -266,9 +266,6 @@ namespace build2
     // - Ad hoc group cannot have sub-groups (of any kind) though an ad hoc
     //   group can be a sub-group of an explicit group.
     //
-    // - Member variable lookup skips the ad hoc group (since the group is the
-    //   first member, this is normally what we want).
-    //
     // Note that ad hoc groups can be part of explicit groups. In a sense, we
     // have a two-level grouping: an explicit group with its members each of
     // which can be an ad hoc group. For example, lib{} contains libs{} which
@@ -279,6 +276,9 @@ namespace build2
     //
     const_ptr<target> adhoc_member = nullptr;
 
+    // Return true if this target is an ad hoc group (that is, its primary
+    // member).
+    //
     bool
     adhoc_group () const
     {
@@ -288,6 +288,9 @@ namespace build2
         (group == nullptr || group->adhoc_member == nullptr);
     }
 
+    // Return true if this target is an ad hoc group member (that is, its
+    // secondary member).
+    //
     bool
     adhoc_group_member () const
     {
