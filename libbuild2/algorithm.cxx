@@ -2470,11 +2470,7 @@ namespace build2
     //
     ft.mtime (timestamp_nonexistent);
 
-    // Clean prerequisites.
-    //
-    tr |= reverse_execute_prerequisites (a, ft);
-
-    // Factor the result of removing the extra files into the target state.
+    // We factor the result of removing the extra files into the target state.
     // While strictly speaking removing them doesn't change the target state,
     // if we don't do this, then we may end up removing the file but still
     // saying that everything is clean (e.g., if someone removes the target
@@ -2493,6 +2489,10 @@ namespace build2
           text << "rm " << ep;
       }
     }
+
+    // Clean prerequisites.
+    //
+    tr |= reverse_execute_prerequisites (a, ft);
 
     tr |= er;
     return tr;
