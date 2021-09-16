@@ -226,6 +226,7 @@ namespace build2
           }
         case target_state::unknown:
         case target_state::unchanged:
+        case target_state::changed: // Can happend for ad hoc group member.
           {
             break; // Matched successfully.
           }
