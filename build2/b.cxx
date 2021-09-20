@@ -280,6 +280,12 @@ main (int argc, char* argv[])
       {
         if (opt)
         {
+          // Parse the next chunk of options until we reach an argument (or
+          // eos).
+          //
+          if (ops.parse (scan) && !scan.more ())
+            break;
+
           // If we see first "--", then we are done parsing options.
           //
           if (strcmp (scan.peek (), "--") == 0)
@@ -288,12 +294,6 @@ main (int argc, char* argv[])
             opt = false;
             continue;
           }
-
-          // Parse the next chunk of options until we reach an argument (or
-          // eos).
-          //
-          if (ops.parse (scan))
-            continue;
 
           // Fall through.
         }
