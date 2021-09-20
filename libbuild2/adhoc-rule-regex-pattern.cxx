@@ -405,7 +405,8 @@ namespace build2
         continue;
 
       // @@ TODO: it could be handy to mark a prerequisite (e.g., a tool)
-      //    ad hoc so that it doesn't interfere with the $< list.
+      //    ad hoc so that it doesn't interfere with the $< list. Also
+      //    clean=false.
       //
       pts.push_back (prerequisite_target (&pt, false /* adhoc */));
     }

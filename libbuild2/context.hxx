@@ -411,6 +411,9 @@ namespace build2
     //
     const variable* var_extension;
 
+    // Note that this variable can also be specified as prerequisite-specific
+    // (see the `include` variable for details).
+    //
     // [bool] target visibility
     //
     const variable* var_clean;
@@ -449,6 +452,15 @@ namespace build2
     //
     // A rule with the "pass-through" semantics should treat the adhoc value
     // the same as true.
+    //
+    // Sometimes it may be desirable to apply exclusions only to specific
+    // operations. The initial idea was to extend this value to allow
+    // specifying the operation (e.g., clean@false). However, later we
+    // realized that we could reuse the "operation variables" (clean, install,
+    // test) with a more natural-looking result. Note that currently we only
+    // recognize the built-in clean variable (for other variables we will need
+    // some kind of registration in an operation-to-variable map, probably in
+    // root scope).
     //
     // To query this value in rule implementations use the include() helpers
     // from <libbuild2/prerequisites.hxx>.

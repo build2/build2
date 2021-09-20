@@ -544,25 +544,38 @@ namespace build2
   include_type
   include_impl (action a,
                 const target& t,
-                const string& v,
                 const prerequisite& p,
                 const target* m)
   {
     context& ctx (t.ctx);
 
-    include_type r (false);
+    include_type r (include_type::normal);
 
-    if      (v == "false") r = include_type::excluded;
-    else if (v == "adhoc") r = include_type::adhoc;
-    else if (v == "true")  r = include_type::normal;
-    else
-      fail << "invalid " << ctx.var_include->name << " variable value "
-           << "'" << v << "' specified for prerequisite " << p;
+    // If var_clean is defined, then it takes precedence over include for
+    // the clean operation.
+    //
+    lookup l;
+    if (a.operation () == clean_id && (l = p.vars[ctx.var_clean]))
+    {
+      r = cast<bool> (l) ? include_type::normal : include_type::excluded;
+    }
+    else if (const string* v = cast_null<string> (p.vars[ctx.var_include]))
+    {
+      if      (*v == "false") r = include_type::excluded;
+      else if (*v == "adhoc") r = include_type::adhoc;
+      else if (*v == "true")  r = include_type::normal;
+      else
+        fail << "invalid " << ctx.var_include->name << " variable value "
+             << "'" << *v << "' specified for prerequisite " << p;
+    }
 
     // Call the meta-operation override, if any (currently used by dist).
     //
-    if (auto f = ctx.current_mif->include)
-      r = f (a, t, prerequisite_member {p, m}, r);
+    if (r != include_type::normal)
+    {
+      if (auto f = ctx.current_mif->include)
+        r = f (a, t, prerequisite_member {p, m}, r);
+    }
 
     return r;
   }

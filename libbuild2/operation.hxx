@@ -124,8 +124,8 @@ namespace build2
     void (*operation_post) (const values&, operation_id);
     void (*meta_operation_post) (const values&);
 
-    // Optional prerequisite inclusion/exclusion override callback. See
-    // include() for details.
+    // Optional prerequisite exclusion override callback. See include() for
+    // details. Note that it's not called for include_type::normal;
     //
     include_type (*include) (action,
                              const target&,

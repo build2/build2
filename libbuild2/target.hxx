@@ -874,14 +874,10 @@ namespace build2
   uint8_t
   unmark (const target*&);
 
-  // Helper for dealing with the prerequisite inclusion/exclusion (the
-  // 'include' buildfile variable, see var_include in context.hxx).
+  // Helper for dealing with the prerequisite inclusion/exclusion (see
+  // var_include in context.hxx).
   //
   // Note that the include(prerequisite_member) overload is also provided.
-  //
-  // @@ Maybe this filtering should be incorporated into *_prerequisites() and
-  // *_prerequisite_members() logic? Could make normal > adhoc > excluded and
-  // then pass the "threshold".
   //
   include_type
   include (action,

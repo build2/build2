@@ -375,6 +375,18 @@ namespace build2
   // the target is a member of a group, then first do this to the group's
   // prerequisites.
   //
+  // Regarding clean, it may seem more natural to only clean prerequisites
+  // that are in the same base rather than root scope. While it's often true
+  // for simple projects, in more complex cases it's not unusual to have
+  // common intermediate build results (object files, utility libraries, etc)
+  // reside in the parent and/or sibling directories. With such arrangements,
+  // cleaning only in base (even from the project root) may leave such
+  // intermediate build results laying around (since there is no reason to
+  // list them as prerequisites of any directory aliases). So we clean in the
+  // root scope by default but any target-prerequisite relationship can be
+  // marked not to trigger a clean with the clean=false prerequisite-specific
+  // value (see the include variable for details).
+  //
   using match_search = function<
     prerequisite_target (action,
                          const target&,
@@ -386,8 +398,8 @@ namespace build2
 
   // As above but go into group members.
   //
-  // Note that if we cleaning, this function doesn't go into group members, as
-  // an optimization (the group should clean everything up).
+  // Note that if we are cleaning, this function doesn't go into group
+  // members, as an optimization (the group should clean everything up).
   //
   using match_search_member = function<
     prerequisite_target (action,
