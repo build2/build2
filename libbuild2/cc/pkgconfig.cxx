@@ -900,6 +900,7 @@ namespace build2
                      cmp ("imagehlp")        ||
                      cmp ("mswsock")         ||
                      cmp ("msxml", 5)        || // msxml*
+                     cmp ("netapi32")        ||
                      cmp ("normaliz")        ||
                      cmp ("odbc32")          ||
                      cmp ("ole32")           ||
