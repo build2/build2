@@ -4403,11 +4403,16 @@ namespace build2
                               ifdstream::badbit);
 
                 size_t skip (skip_count);
-                string l; // Reuse.
+                string l, l2; // Reuse.
                 for (bool first (true), second (false); !restart; )
                 {
                   if (eof (getline (is, l)))
+                  {
+                    if (bad_error && !l2.empty ())
+                      text << l2;
+
                     break;
+                  }
 
                   l6 ([&]{trace << "header dependency line '" << l << "'";});
 
@@ -4418,19 +4423,30 @@ namespace build2
                   case compiler_class::msvc:
                     {
                       // The first line should be the file we are compiling,
-                      // unless this is clang-cl. If it is not, then something
-                      // went wrong even before we could compile anything
-                      // (e.g., file does not exist). In this case the first
-                      // line (and everything after it) is presumably
-                      // diagnostics.
+                      // unless this is clang-cl.
                       //
-                      // It can, however, be a command line warning, for
-                      // example:
+                      // If it is not, then we have several possibilities:
+                      //
+                      // First, it can be a command line warning, for example:
                       //
                       // cl : Command line warning D9025 : overriding '/W3' with '/W4'
                       //
                       // So we try to detect and skip them assuming they will
                       // also show up during the compilation proper.
+                      //
+                      // Another possibility is a mis-spelled option that is
+                      // treated as another file to compile, for example:
+                      //
+                      // cl junk /nologo /P /showIncluses /TP foo.cxx
+                      // junk
+                      // foo.cxx
+                      // c1xx: fatal error C1083: Cannot open source file: 'junk': No such file or directory
+                      //
+                      // Yet another possibility is that something went wrong
+                      // even before we could compile anything.
+                      //
+                      // So the plan is to keep going (in the hope of C1083)
+                      // but print the last line if there is no more input.
                       //
                       if (first)
                       {
@@ -4442,12 +4458,18 @@ namespace build2
                             //
                             size_t p (msvc_sense_diag (l, 'D').first);
                             if (p != string::npos && l[p] == '9')
-                              continue;
+                              ; // Skip.
+                            else
+                            {
+                              l2 = l;
+                              bad_error = true;
+                            }
 
-                            text << l;
-                            bad_error = true;
-                            break;
+                            continue;
                           }
+
+                          l2.clear ();
+
                           // Fall through.
                         }
 
