@@ -221,16 +221,31 @@ namespace build2
           if (size_t n = var->override ())
             var = vp.find (string (var->name, 0, n));
 
+          const string& name (var->name);
+
           // Skip special variables.
           //
-          if (var->name == "config.booted"                   ||
-              var->name == "config.loaded"                   ||
-              var->name == "config.configured"               ||
-              var->name.compare (0, 14, "config.config.") == 0)
+          if (name == "config.booted"                   ||
+              name == "config.loaded"                   ||
+              name == "config.configured"               ||
+              name.compare (0, 14, "config.config.") == 0)
             continue;
 
           if (mod.find_variable (*var)) // Saved or unsaved.
             continue;
+
+          // Skip config.**.develop variables (see parser::parse_config() for
+          // details).
+          //
+          // In a sense, this variable is always "available" but if the
+          // package does not distinguish between development and consumption,
+          // then specifying config.*.develop=true should be noop.
+          //
+          {
+            size_t p (name.rfind ('.'));
+            if (p != 6 && name.compare (p + 1, string::npos, "develop") == 0)
+              continue;
+          }
 
           const value& v (p.first->second);
 
@@ -312,9 +327,13 @@ namespace build2
             // inherited. We might also not have any value at all (see
             // unconfigured()).
             //
+            // Note that we must check for null() before attempting any
+            // further tests.
+            //
             if (!l.defined () ||
                 (l->null     ? flags & save_null_omitted  :
-                 l->empty () ? flags & save_empty_omitted : false))
+                 l->empty () ? flags & save_empty_omitted :
+                 (flags & save_false_omitted) != 0 && !cast<bool> (*l)))
               continue;
 
             // Handle inherited from outer scope values.

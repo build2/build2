@@ -241,8 +241,12 @@ namespace build2
 
     // Note: calls attributes_push() that the caller must pop.
     //
+    // If mode is false, assume the appropriate mode has already been switched
+    // to (value, `@` as pair separator, with attributes recognition). This
+    // can be useful, for example, if need to call peek().
+    //
     value
-    parse_variable_value (token&, token_type&);
+    parse_variable_value (token&, token_type&, bool mode = true);
 
     void
     apply_variable_attributes (const variable&);

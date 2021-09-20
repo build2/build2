@@ -2780,6 +2780,8 @@ namespace build2
         proj = n.variable ();
     }
 
+    const location loc (get_location (t));
+
     // We are now in the normal lexing mode and we let the lexer handle `?=`.
     //
     next_with_attributes (t, tt);
@@ -2839,6 +2841,7 @@ namespace build2
       fail (t) << "expected configuration variable name instead of " << t;
 
     string name (move (t.value));
+    bool config (name.compare (0, 7, "config.") == 0);
 
     // As a way to print custom (discovered, computed, etc) configuration
     // information we allow specifying a non config.* variable provided it is
@@ -2847,9 +2850,7 @@ namespace build2
     bool new_val (false);
     lookup l;
 
-    if (report             &&
-        *report != "false" &&
-        name.compare (0, 7, "config.") != 0)
+    if (report && *report != "false" && !config)
     {
       if (!as.empty ())
         fail (as.loc) << "unexpected attributes for report-only variable";
@@ -2880,7 +2881,7 @@ namespace build2
       {
         diag_record dr;
 
-        if (name.compare (0, 7, "config.") != 0)
+        if (!config)
           dr << fail (t) << "configuration variable '" << name
              << "' does not start with 'config.'";
 
@@ -2915,24 +2916,57 @@ namespace build2
                  << var.visibility << " visibility";
       }
 
+      // See if we have the default value part.
+      //
+      next (t, tt);
+      bool def_val (tt != type::newline && tt != type::eos);
+
+      if (def_val && tt != type::default_assign)
+        fail (t) << "expected '?=' instead of " << t << " after "
+                 << "configuration variable name";
+
+      // If this is the special config.<project>.develop variable, verify it
+      // is of type bool and has false as the default value. We also only save
+      // it in config.build if it's true and suppress any unused warnings in
+      // config::save_config() if specified but not used by the project.
+      //
+      // Here we also have the unnamed project issues (see above for details)
+      // and so we actually recognize any config.**.develop.
+      //
+      bool dev;
+      {
+        size_t p (var.name.rfind ('.'));
+        dev = p != 6 && var.name.compare (p + 1, string::npos, "develop") == 0;
+      }
+
+      uint64_t sflags (0);
+      if (dev)
+      {
+        if (var.type != &value_traits<bool>::value_type)
+          fail (loc) << var << " variable must be of type bool";
+
+        // This is quite messy: below we don't always parse the value (plus it
+        // may be computed) so here we just peek at the next token. But we
+        // have to do this in the same mode as parse_variable_value().
+        //
+        if (!def_val                                    ||
+            peek (lexer_mode::value, '@') != type::word ||
+            peeked ().value != "false")
+          fail (loc) << var << " variable default value must be literal false";
+
+        sflags |= config::save_false_omitted;
+      }
+
       // We have to lookup the value whether we have the default part or not
       // in order to mark it as saved. We also have to do this to get the new
       // value status.
       //
-      using config::lookup_config;
+      l = config::lookup_config (new_val, *root_, var, sflags);
 
-      l = lookup_config (new_val, *root_, var);
-
-      // See if we have the default value part.
+      // Handle the default value.
       //
-      next (t, tt);
-
-      if (tt != type::newline && tt != type::eos)
+      if (def_val)
       {
-        if (tt != type::default_assign)
-          fail (t) << "expected '?=' instead of " << t << " after "
-                   << "configuration variable name";
-
         // The rest is the default value which we should parse in the value
         // mode. But before switching check whether we need to evaluate it at
         // all.
@@ -2941,9 +2975,9 @@ namespace build2
           skip_line (t, tt);
         else
         {
-          value lhs, rhs (parse_variable_value (t, tt));
+          value lhs, rhs (parse_variable_value (t, tt, !dev /* mode */));
           apply_value_attributes (&var, lhs, move (rhs), type::assign);
-          l = lookup_config (new_val, *root_, var, move (lhs));
+          l = config::lookup_config (new_val, *root_, var, move (lhs), sflags);
         }
       }
     }
@@ -4314,10 +4348,15 @@ namespace build2
   }
 
   value parser::
-  parse_variable_value (token& t, type& tt)
+  parse_variable_value (token& t, type& tt, bool m)
   {
-    mode (lexer_mode::value, '@');
-    next_with_attributes (t, tt);
+    if (m)
+    {
+      mode (lexer_mode::value, '@');
+      next_with_attributes (t, tt);
+    }
+    else
+      next (t, tt);
 
     // Parse value attributes if any. Note that it's ok not to have anything
     // after the attributes (e.g., foo=[null]).

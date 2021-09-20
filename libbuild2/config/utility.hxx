@@ -61,7 +61,8 @@ namespace build2
     const uint64_t save_default_commented = 0x01; // Based on value::extra.
     const uint64_t save_null_omitted      = 0x02; // Treat NULL as undefined.
     const uint64_t save_empty_omitted     = 0x04; // Treat empty as undefined.
-    const uint64_t save_base              = 0x08; // Custom save with base.
+    const uint64_t save_false_omitted     = 0x08; // Treat false as undefined.
+    const uint64_t save_base              = 0x10; // Custom save with base.
 
     inline void
     save_variable (scope& rs, const variable& var, uint64_t flags = 0)
@@ -228,9 +229,11 @@ namespace build2
     //
     // Unlike the rest of the lookup_config() versions, this one leaves the
     // unspecified value as undefined rather than setting it to a default
-    // value. This can be useful when we don't have a default value or in case
-    // we want the mentioning of the variable to be omitted from persistent
-    // storage (e.g., a config file) if the default value is used.
+    // value (in this case it also doesn't mark the variable for saving with
+    // the specified flags). This can be useful when we don't have a default
+    // value or in case we want the mentioning of the variable to be omitted
+    // from persistent storage (e.g., a config file) if the default value is
+    // used.
     //
     // Note also that we can first do the lookup without the default value and
     // then, if there is no value, call the version with the default value and
@@ -239,27 +242,37 @@ namespace build2
     // expensive. It is also ok to call both versions multiple times provided
     // the flags are the same.
     //
-    // @@ Should we pass flags and interpret save_null_omitted to treat null
-    //    as undefined? Sounds logical.
+    // @@ Should save_null_omitted be interpreted to treat null as undefined?
+    //    Sounds logical.
     //
     lookup
-    lookup_config (scope& rs, const variable&);
+    lookup_config (scope& rs,
+                   const variable&,
+                   uint64_t save_flags = 0);
 
     lookup
-    lookup_config (bool& new_value, scope& rs, const variable&);
+    lookup_config (bool& new_value,
+                   scope& rs,
+                   const variable&,
+                   uint64_t save_flags = 0);
 
     // Note that the variable is expected to have already been entered.
     //
     inline lookup
-    lookup_config (scope& rs, const string& var)
+    lookup_config (scope& rs,
+                   const string& var,
+                   uint64_t save_flags = 0)
     {
-      return lookup_config (rs, rs.ctx.var_pool[var]);
+      return lookup_config (rs, rs.ctx.var_pool[var], save_flags);
     }
 
     inline lookup
-    lookup_config (bool& new_value, scope& rs, const string& var)
+    lookup_config (bool& new_value,
+                   scope& rs,
+                   const string& var,
+                   uint64_t save_flags = 0)
     {
-      return lookup_config (new_value, rs, rs.ctx.var_pool[var]);
+      return lookup_config (new_value, rs, rs.ctx.var_pool[var], save_flags);
     }
 
     // Lookup a config.* variable value and, if the value is undefined, set it

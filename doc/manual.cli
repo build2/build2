@@ -4670,6 +4670,39 @@ The build system core reserves \c{build} and \c{import} as the second
 component in configuration variables as well as \c{configured} as the third
 and subsequent components.|
 
+A variable in the \c{config.<project>.develop} form has pre-defined
+semantics: it allows a project to distinguish between \i{development} and
+\i{consumption} builds. While normally there is no distinction between these
+two modes, sometimes a project may need to provide additional functionality
+during development. For example, a source code generator which uses its own
+generated code in its implementation may need to provide a bootstrap step from
+the pre-generated code. Normally, such a step is only needed during
+development.
+
+\N|While some communities, such as Rust, believe that building and running
+tests is only done during development, we believe its reasonable for an
+end-user to want to run tests for all their dependencies. As a result, we
+strongly discourage restricting tests to the development mode only. Test are
+an integral part of the project and should always be available.|
+
+If used, the \c{config.<project>.develop} variable should be explicitly
+defined by the project with the \c{bool} type and the \c{false} default
+value. For example:
+
+\
+# build/root.build
+
+config [bool] config.libhello.develop ?= false
+\
+
+\N|If the \c{config.<project>.develop} variable is specified by the user of
+the project but the project does not define it (that is, the project does not
+distinguish between development and consumption), then this variable is
+silently ignored. By default \l{bdep-init(1)} configures projects being
+initialized for development. This can be overridden with explicit
+\c{config.<project>.develop=false}.|
+
+
 
 \h#proj-config-directive|\c{config} Directive|
 

@@ -21,7 +21,7 @@ namespace build2
   namespace config
   {
     pair<lookup, bool>
-    lookup_config_impl (scope& rs, const variable& var)
+    lookup_config_impl (scope& rs, const variable& var, uint64_t sflags)
     {
       // This is a stripped-down version of the default value case.
 
@@ -71,7 +71,7 @@ namespace build2
       }
 
       if (l.defined ())
-        save_variable (rs, var);
+        save_variable (rs, var, sflags);
 
       return pair<lookup, bool> (l, n);
     }
