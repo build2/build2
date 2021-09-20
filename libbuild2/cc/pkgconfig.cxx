@@ -896,8 +896,12 @@ namespace build2
                      cmp ("crypt32")         ||
                      cmp ("dbgeng")          ||
                      cmp ("d3d",   3)        || // d3d*
+                     cmp ("dwmapi")          ||
                      cmp ("gdi32")           ||
                      cmp ("imagehlp")        ||
+                     cmp ("imm32")           ||
+                     cmp ("kernel32")        ||
+                     cmp ("mpr")             ||
                      cmp ("mswsock")         ||
                      cmp ("msxml", 5)        || // msxml*
                      cmp ("netapi32")        ||
@@ -910,11 +914,15 @@ namespace build2
                      cmp ("shell32")         ||
                      cmp ("shlwapi")         ||
                      cmp ("synchronization") ||
+                     cmp ("user32")          ||
+                     cmp ("userenv")         ||
                      cmp ("version")         ||
+                     cmp ("winmm")           ||
+                     cmp ("winspool")        ||
                      cmp ("ws2")             ||
                      cmp ("ws2_32")          ||
-                     cmp ("wsock32"))
-
+                     cmp ("wsock32")         ||
+                     cmp ("wtsapi32"))
             {
               if (tsys == "win32-msvc")
               {
