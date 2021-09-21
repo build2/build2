@@ -895,8 +895,12 @@ namespace build2
                      cmp ("bcrypt")          ||
                      cmp ("crypt32")         ||
                      cmp ("dbgeng")          ||
+                     cmp ("d2d1")            ||
                      cmp ("d3d",   3)        || // d3d*
                      cmp ("dwmapi")          ||
+                     cmp ("dwrite")          ||
+                     cmp ("dxgi")            ||
+                     cmp ("dxguid")          ||
                      cmp ("gdi32")           ||
                      cmp ("imagehlp")        ||
                      cmp ("imm32")           ||
@@ -916,6 +920,7 @@ namespace build2
                      cmp ("synchronization") ||
                      cmp ("user32")          ||
                      cmp ("userenv")         ||
+                     cmp ("uuid")            ||
                      cmp ("version")         ||
                      cmp ("winmm")           ||
                      cmp ("winspool")        ||
