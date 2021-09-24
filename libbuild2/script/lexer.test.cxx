@@ -1,7 +1,6 @@
 // file      : libbuild2/script/lexer.test.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <cassert>
 #include <iostream>
 
 #include <libbuild2/types.hxx>
@@ -9,6 +8,9 @@
 
 #include <libbuild2/script/token.hxx>
 #include <libbuild2/script/lexer.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 

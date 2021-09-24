@@ -11,7 +11,6 @@
 #include <limits>    // numeric_limits
 #include <string>
 #include <cstdlib>   // abort()
-#include <cassert>
 #include <ostream>   // endl, *bit
 #include <istream>   // istream::traits_type::eof()
 #include <iostream>
@@ -21,6 +20,9 @@
 #include <libbutl/optional.mxx>
 #include <libbutl/fdstream.mxx>
 #include <libbutl/filesystem.mxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace butl;

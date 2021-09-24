@@ -1,7 +1,6 @@
 // file      : libbuild2/test/script/parser.test.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <cassert>
 #include <iostream>
 
 #include <libbuild2/types.hxx>
@@ -17,6 +16,9 @@
 #include <libbuild2/test/script/token.hxx>
 #include <libbuild2/test/script/parser.hxx>
 #include <libbuild2/test/script/runner.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 

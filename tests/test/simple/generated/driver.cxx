@@ -12,6 +12,9 @@
 #include <fstream>
 #include <iostream>
 
+#undef NDEBUG
+#include <cassert>
+
 using namespace std;
 
 // If the -s option is specified, then also sleep for 5 seconds.

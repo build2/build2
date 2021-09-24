@@ -1,7 +1,6 @@
 // file      : tests/build/parser/driver.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <cassert>
 #include <sstream>
 #include <iostream>
 
@@ -13,6 +12,9 @@
 
 #include <build/lexer>
 #include <build/parser>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace build;

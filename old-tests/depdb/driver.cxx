@@ -10,6 +10,9 @@
 
 #include <libbuild2/depdb.hxx>
 
+#undef NDEBUG
+#include <cassert>
+
 using namespace std;
 using namespace build2;
 

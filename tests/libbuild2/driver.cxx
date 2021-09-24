@@ -16,6 +16,9 @@
 #include <libbuild2/bash/init.hxx>
 #include <libbuild2/version/init.hxx>
 
+#undef NDEBUG
+#include <cassert>
+
 using namespace build2;
 
 int

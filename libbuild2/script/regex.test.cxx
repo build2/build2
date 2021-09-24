@@ -6,6 +6,9 @@
 
 #include <libbuild2/script/regex.hxx>
 
+#undef NDEBUG
+#include <cassert>
+
 using namespace std;
 using namespace build2::script::regex;
 

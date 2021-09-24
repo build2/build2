@@ -4,13 +4,15 @@
 #include <chrono>
 #include <thread>
 
-#include <cassert>
 #include <iostream>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/scheduler.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 

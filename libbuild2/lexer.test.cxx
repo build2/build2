@@ -2,7 +2,6 @@
 // license   : MIT; see accompanying LICENSE file
 
 #include <cstdlib> // strtoul()
-#include <cassert>
 #include <iostream>
 
 #include <libbuild2/types.hxx>
@@ -10,6 +9,9 @@
 
 #include <libbuild2/token.hxx>
 #include <libbuild2/lexer.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 

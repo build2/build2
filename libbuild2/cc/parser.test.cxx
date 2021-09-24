@@ -1,13 +1,15 @@
 // file      : libbuild2/cc/parser.test.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <cassert>
 #include <iostream>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/cc/parser.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace butl;

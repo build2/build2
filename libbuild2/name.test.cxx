@@ -3,13 +3,15 @@
 
 #include <sstream>
 
-#include <cassert>
 #include <iostream>
 
 #include <libbuild2/types.hxx>   // Includes name.
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/diagnostics.hxx>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 

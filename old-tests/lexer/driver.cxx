@@ -3,12 +3,14 @@
 
 #include <string>
 #include <vector>
-#include <cassert>
 #include <sstream>
 #include <iostream>
 
 #include <build/token>
 #include <build/lexer>
+
+#undef NDEBUG
+#include <cassert>
 
 using namespace std;
 using namespace build;

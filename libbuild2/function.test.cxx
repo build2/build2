@@ -15,6 +15,9 @@
 #include <libbuild2/file-cache.hxx>
 #include <libbuild2/diagnostics.hxx>
 
+#undef NDEBUG
+#include <cassert>
+
 using namespace std;
 
 namespace build2
