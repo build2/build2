@@ -1687,7 +1687,7 @@ namespace build2
         // Now we need to map x86, x64, and ARM to the target triplets. The
         // problem is, there aren't any established ones so we got to invent
         // them ourselves. Based on the discussion in
-        // <libbutl/target-triplet.mxx>, we need something in the
+        // <libbutl/target-triplet.hxx>, we need something in the
         // CPU-VENDOR-OS-ABI form.
         //
         // The CPU part is fairly straightforward with x86 mapped to 'i386'

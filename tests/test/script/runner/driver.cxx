@@ -16,10 +16,10 @@
 #include <iostream>
 #include <exception>
 
-#include <libbutl/path.mxx>
-#include <libbutl/optional.mxx>
-#include <libbutl/fdstream.mxx>
-#include <libbutl/filesystem.mxx>
+#include <libbutl/path.hxx>
+#include <libbutl/optional.hxx>
+#include <libbutl/fdstream.hxx>
+#include <libbutl/filesystem.hxx>
 
 #undef NDEBUG
 #include <cassert>

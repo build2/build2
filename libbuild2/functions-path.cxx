@@ -1,7 +1,7 @@
 // file      : libbuild2/functions-path.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbutl/path-pattern.mxx>
+#include <libbutl/path-pattern.hxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>

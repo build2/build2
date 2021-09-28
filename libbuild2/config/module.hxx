@@ -6,7 +6,7 @@
 
 #include <cstring> // strncmp()
 
-#include <libbutl/prefix-map.mxx>
+#include <libbutl/prefix-map.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>

@@ -3,7 +3,7 @@
 
 #include <libbuild2/build/script/parser.hxx>
 
-#include <libbutl/builtin.mxx>
+#include <libbutl/builtin.hxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/algorithm.hxx>

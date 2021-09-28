@@ -4,7 +4,7 @@
 #ifndef LIBBUILD2_OPERATION_HXX
 #define LIBBUILD2_OPERATION_HXX
 
-#include <libbutl/string-table.mxx>
+#include <libbutl/string-table.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>

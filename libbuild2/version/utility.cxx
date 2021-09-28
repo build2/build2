@@ -3,8 +3,8 @@
 
 #include <libbuild2/version/utility.hxx>
 
-#include <libbutl/manifest-parser.mxx>
-#include <libbutl/manifest-serializer.mxx>
+#include <libbutl/manifest-parser.hxx>
+#include <libbutl/manifest-serializer.hxx>
 
 #include <libbuild2/context.hxx>
 #include <libbuild2/filesystem.hxx>  // path_perms()

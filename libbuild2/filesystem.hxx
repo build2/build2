@@ -4,7 +4,7 @@
 #ifndef LIBBUILD2_FILESYSTEM_HXX
 #define LIBBUILD2_FILESYSTEM_HXX
 
-#include <libbutl/filesystem.mxx>
+#include <libbutl/filesystem.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
@@ -13,7 +13,7 @@
 
 #include <libbuild2/export.hxx>
 
-// Higher-level filesystem utilities built on top of <libbutl/filesystem.mxx>.
+// Higher-level filesystem utilities built on top of <libbutl/filesystem.hxx>.
 //
 // Compared to the libbutl's versions, these handle errors and issue
 // diagnostics. Some of them also print the corresponding command line
@@ -27,7 +27,7 @@ namespace build2
 
   // The dual interface wrapper for the {mk,rm}{file,dir}() functions
   // below that allows you to use it as a true/false return or a more
-  // detailed enum from <libbutl/filesystem.mxx>
+  // detailed enum from <libbutl/filesystem.hxx>
   //
   template <typename T>
   struct fs_status

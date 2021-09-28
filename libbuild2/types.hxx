@@ -44,21 +44,21 @@
 #include <stdexcept>     // logic_error, invalid_argument, runtime_error
 #include <system_error>
 
-#include <libbutl/path.mxx>
-#include <libbutl/path-map.mxx>
-#include <libbutl/regex.mxx>
-#include <libbutl/sha256.mxx>
-#include <libbutl/process.mxx>
-#include <libbutl/fdstream.mxx>
-#include <libbutl/optional.mxx>
-#include <libbutl/const-ptr.mxx>
-#include <libbutl/timestamp.mxx>
-#include <libbutl/vector-view.mxx>
-#include <libbutl/small-vector.mxx>
-#include <libbutl/project-name.mxx>
-#include <libbutl/target-triplet.mxx>
-#include <libbutl/semantic-version.mxx>
-#include <libbutl/standard-version.mxx>
+#include <libbutl/path.hxx>
+#include <libbutl/path-map.hxx>
+#include <libbutl/regex.hxx>
+#include <libbutl/sha256.hxx>
+#include <libbutl/process.hxx>
+#include <libbutl/fdstream.hxx>
+#include <libbutl/optional.hxx>
+#include <libbutl/const-ptr.hxx>
+#include <libbutl/timestamp.hxx>
+#include <libbutl/vector-view.hxx>
+#include <libbutl/small-vector.hxx>
+#include <libbutl/project-name.hxx>
+#include <libbutl/target-triplet.hxx>
+#include <libbutl/semantic-version.hxx>
+#include <libbutl/standard-version.hxx>
 
 #include <libbuild2/export.hxx>
 
@@ -102,8 +102,8 @@ namespace build2
   using std::multiset;
   using std::array;
   using std::vector;
-  using butl::vector_view;  // <libbutl/vector-view.mxx>
-  using butl::small_vector; // <libbutl/small-vector.mxx>
+  using butl::vector_view;  // <libbutl/vector-view.hxx>
+  using butl::small_vector; // <libbutl/small-vector.hxx>
 
   using std::istream;
   using std::ostream;
@@ -112,7 +112,7 @@ namespace build2
 
   // Regex.
   //
-  // Note that <libbutl/regex.mxx> includes an ostream insertion operator for
+  // Note that <libbutl/regex.hxx> includes an ostream insertion operator for
   // regex_error which prints cleaned up message, if any.
   //
   using std::regex;
@@ -266,17 +266,17 @@ namespace build2
   using std::system_error;
   using io_error = std::ios_base::failure;
 
-  // <libbutl/optional.mxx>
+  // <libbutl/optional.hxx>
   //
   using butl::optional;
   using butl::nullopt;
 
-  // <libbutl/const-ptr.mxx>
+  // <libbutl/const-ptr.hxx>
   //
   using butl::const_ptr;
 
-  // <libbutl/path.mxx>
-  // <libbutl/path-map.mxx>
+  // <libbutl/path.hxx>
+  // <libbutl/path-map.hxx>
   //
   using butl::path;
   using path_traits = path::traits_type;
@@ -315,7 +315,7 @@ namespace build2
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;
 
-  // <libbutl/timestamp.mxx>
+  // <libbutl/timestamp.hxx>
   //
   using butl::system_clock;
   using butl::timestamp;
@@ -327,11 +327,11 @@ namespace build2
   using butl::to_string;
   using butl::operator<<;
 
-  // <libbutl/sha256.mxx>
+  // <libbutl/sha256.hxx>
   //
   using butl::sha256;
 
-  // <libbutl/process.mxx>
+  // <libbutl/process.hxx>
   using butl::process;
   using butl::process_env;
   using butl::process_path;
@@ -379,7 +379,7 @@ namespace build2
     process_path_ex () = default;
   };
 
-  // <libbutl/fdstream.mxx>
+  // <libbutl/fdstream.hxx>
   //
   using butl::auto_fd;
   using butl::fdpipe;
@@ -390,21 +390,21 @@ namespace build2
   using butl::fdselect_state;
   using butl::fdselect_set;
 
-  // <libbutl/target-triplet.mxx>
+  // <libbutl/target-triplet.hxx>
   //
   using butl::target_triplet;
 
-  // <libbutl/semantic-version.mxx>
+  // <libbutl/semantic-version.hxx>
   //
   using butl::semantic_version;
   using butl::parse_semantic_version;
 
-  // <libbutl/standard-version.mxx>
+  // <libbutl/standard-version.hxx>
   //
   using butl::standard_version;
   using butl::standard_version_constraint;
 
-  // <libbutl/project-name.mxx>
+  // <libbutl/project-name.hxx>
   //
   using butl::project_name;
 

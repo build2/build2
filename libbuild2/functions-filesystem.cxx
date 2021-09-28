@@ -1,7 +1,7 @@
 // file      : libbuild2/functions-filesystem.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbutl/filesystem.mxx>
+#include <libbutl/filesystem.hxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>

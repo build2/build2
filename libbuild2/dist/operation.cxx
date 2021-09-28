@@ -3,8 +3,8 @@
 
 #include <libbuild2/dist/operation.hxx>
 
-#include <libbutl/sha1.mxx>
-#include <libbutl/sha256.mxx>
+#include <libbutl/sha1.hxx>
+#include <libbutl/sha256.hxx>
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/dump.hxx>

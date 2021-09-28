@@ -3,7 +3,7 @@
 
 #include <ctime> // time_t
 
-#include <libbutl/sha1.mxx>
+#include <libbutl/sha1.hxx>
 
 #include <libbuild2/version/snapshot.hxx>
 

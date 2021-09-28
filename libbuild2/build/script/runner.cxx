@@ -3,7 +3,7 @@
 
 #include <libbuild2/build/script/runner.hxx>
 
-#include <libbutl/filesystem.mxx> // try_rmdir()
+#include <libbutl/filesystem.hxx> // try_rmdir()
 
 #include <libbuild2/target.hxx>
 #include <libbuild2/script/run.hxx>

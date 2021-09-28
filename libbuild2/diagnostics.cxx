@@ -5,7 +5,7 @@
 
 #include <cstring>  // strchr()
 
-#include <libbutl/process-io.mxx>
+#include <libbutl/process-io.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/action.hxx>

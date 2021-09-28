@@ -3,7 +3,7 @@
 
 #include <libbuild2/adhoc-rule-regex-pattern.hxx>
 
-#include <libbutl/regex.mxx>
+#include <libbutl/regex.hxx>
 
 #include <libbuild2/algorithm.hxx>
 

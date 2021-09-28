@@ -7,8 +7,8 @@
 #include <type_traits>   // aligned_storage
 #include <unordered_map>
 
-#include <libbutl/prefix-map.mxx>
-#include <libbutl/multi-index.mxx> // map_key
+#include <libbutl/prefix-map.hxx>
+#include <libbutl/multi-index.hxx> // map_key
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>

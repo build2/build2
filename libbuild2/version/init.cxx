@@ -3,7 +3,7 @@
 
 #include <libbuild2/version/init.hxx>
 
-#include <libbutl/manifest-parser.mxx>
+#include <libbutl/manifest-parser.hxx>
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/variable.hxx>

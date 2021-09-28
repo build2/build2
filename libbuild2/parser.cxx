@@ -6,7 +6,7 @@
 #include <sstream>
 #include <iostream> // cout
 
-#include <libbutl/filesystem.mxx>   // path_search
+#include <libbutl/filesystem.hxx>   // path_search
 
 #include <libbuild2/rule.hxx>
 #include <libbuild2/dump.hxx>

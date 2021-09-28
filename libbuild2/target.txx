@@ -1,7 +1,7 @@
 // file      : libbuild2/target.txx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
-#include <libbutl/filesystem.mxx> // dir_iterator
+#include <libbutl/filesystem.hxx> // dir_iterator
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/diagnostics.hxx>

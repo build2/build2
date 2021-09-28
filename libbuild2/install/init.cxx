@@ -3,7 +3,7 @@
 
 #include <libbuild2/install/init.hxx>
 
-#include <libbutl/command.mxx> // command_substitute()
+#include <libbutl/command.hxx> // command_substitute()
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>

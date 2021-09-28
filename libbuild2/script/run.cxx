@@ -11,10 +11,10 @@
 
 #include <ios> // streamsize
 
-#include <libbutl/regex.mxx>
-#include <libbutl/builtin.mxx>
-#include <libbutl/fdstream.mxx>     // fdopen_mode, fddup()
-#include <libbutl/filesystem.mxx>   // path_search()
+#include <libbutl/regex.hxx>
+#include <libbutl/builtin.hxx>
+#include <libbutl/fdstream.hxx>     // fdopen_mode, fddup()
+#include <libbutl/filesystem.hxx>   // path_search()
 
 #include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>

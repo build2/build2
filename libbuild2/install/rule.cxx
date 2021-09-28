@@ -4,7 +4,7 @@
 #include <libbuild2/install/rule.hxx>
 #include <libbuild2/install/utility.hxx> // resolve_dir() declaration
 
-#include <libbutl/filesystem.mxx> // dir_exists(), file_exists()
+#include <libbutl/filesystem.hxx> // dir_exists(), file_exists()
 
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>

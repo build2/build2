@@ -18,10 +18,10 @@
 #include <iostream>  // cout
 #include <exception> // terminate(), set_terminate(), terminate_handler
 
-#include <libbutl/pager.mxx>
-#include <libbutl/fdstream.mxx>        // stderr_fd(), fdterm()
-#include <libbutl/backtrace.mxx>       // backtrace()
-#include <libbutl/default-options.mxx>
+#include <libbutl/pager.hxx>
+#include <libbutl/fdstream.hxx>        // stderr_fd(), fdterm()
+#include <libbutl/backtrace.hxx>       // backtrace()
+#include <libbutl/default-options.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>

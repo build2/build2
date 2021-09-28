@@ -4,7 +4,7 @@
 #ifndef LIBBUILD2_DIAGNOSTICS_HXX
 #define LIBBUILD2_DIAGNOSTICS_HXX
 
-#include <libbutl/diagnostics.mxx>
+#include <libbutl/diagnostics.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>

@@ -4,7 +4,7 @@
 #ifndef LIBBUILD2_RULE_MAP_HXX
 #define LIBBUILD2_RULE_MAP_HXX
 
-#include <libbutl/prefix-map.mxx>
+#include <libbutl/prefix-map.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/forward.hxx>

@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-#include <libbutl/filesystem.mxx>
+#include <libbutl/filesystem.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>

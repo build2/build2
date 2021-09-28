@@ -3,7 +3,7 @@
 
 #include <sstream>
 
-#include <libbutl/regex.mxx>
+#include <libbutl/regex.hxx>
 
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
@@ -612,7 +612,7 @@ namespace build2
     // is always untyped, regardless of the argument type.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.mxx for details).
+    // sequences (see libbutl/regex.hxx for details).
     //
     // The following flags are supported:
     //
@@ -687,7 +687,7 @@ namespace build2
     // value to string prior to matching.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.mxx for details).
+    // sequences (see libbutl/regex.hxx for details).
     //
     // The following flags are supported:
     //
@@ -716,7 +716,7 @@ namespace build2
     // elements optionally separated with a delimiter.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.mxx for details).
+    // sequences (see libbutl/regex.hxx for details).
     //
     // The following flags are supported:
     //
@@ -761,7 +761,7 @@ namespace build2
     // of transformed elements, omitting the empty ones.
     //
     // Substitution escape sequences are extended with a subset of Perl
-    // sequences (see libbutl/regex.mxx for details).
+    // sequences (see libbutl/regex.hxx for details).
     //
     // The following flags are supported:
     //

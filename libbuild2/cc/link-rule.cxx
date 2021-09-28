@@ -6,7 +6,7 @@
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen()
 
-#include <libbutl/filesystem.mxx> // file_exists(), path_search()
+#include <libbutl/filesystem.hxx> // file_exists(), path_search()
 
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>

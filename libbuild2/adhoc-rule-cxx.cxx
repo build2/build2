@@ -3,7 +3,7 @@
 
 #include <libbuild2/adhoc-rule-cxx.hxx>
 
-#include <libbutl/filesystem.mxx> // file_time()
+#include <libbutl/filesystem.hxx> // file_time()
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>

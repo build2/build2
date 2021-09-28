@@ -6,9 +6,9 @@
 
 #include <stack>
 
-#include <libbutl/utf8.mxx>
-#include <libbutl/unicode.mxx>
-#include <libbutl/char-scanner.mxx>
+#include <libbutl/utf8.hxx>
+#include <libbutl/unicode.hxx>
+#include <libbutl/char-scanner.hxx>
 
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>

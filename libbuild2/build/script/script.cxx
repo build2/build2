@@ -3,7 +3,7 @@
 
 #include <libbuild2/build/script/script.hxx>
 
-#include <libbutl/filesystem.mxx>
+#include <libbutl/filesystem.hxx>
 
 #include <libbuild2/target.hxx>
 

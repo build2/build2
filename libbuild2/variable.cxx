@@ -5,7 +5,7 @@
 
 #include <cstring> // memcmp()
 
-#include <libbutl/path-pattern.mxx>
+#include <libbutl/path-pattern.hxx>
 
 #include <libbuild2/target.hxx>
 #include <libbuild2/diagnostics.hxx>

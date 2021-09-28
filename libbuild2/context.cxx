@@ -29,7 +29,7 @@ using namespace butl;
 namespace build2
 {
   // Create global scope. Note that the empty path is a prefix for any other
-  // path. See the comment in <libbutl/prefix-map.mxx> for details.
+  // path. See the comment in <libbutl/prefix-map.hxx> for details.
   //
   static inline scope&
   create_global_scope (scope_map& m)
