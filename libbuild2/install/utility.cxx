@@ -18,6 +18,8 @@ namespace build2
       {
         if (*s == "project")
           return &t.root_scope ();
+        else if (*s == "bundle")
+          return &t.bundle_scope ();
         else if (*s == "strong")
           return &t.strong_scope ();
         else if (*s == "weak")

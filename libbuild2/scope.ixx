@@ -65,6 +65,46 @@ namespace build2
   }
 
   inline scope* scope::
+  bundle_scope ()
+  {
+    if (auto r = root_)
+    {
+      for (auto s (r), a (strong_scope ()); s != a; )
+      {
+        s = s->parent_scope ()->root_scope ();
+
+        if (s->root_extra != nullptr           &&
+            s->root_extra->project             &&
+            *s->root_extra->project != nullptr &&
+            !(*s->root_extra->project)->empty ())
+          r = s; // Last named.
+      }
+
+      return r;
+    }
+  }
+
+  inline const scope* scope::
+  bundle_scope () const
+  {
+    if (const auto* r = root_)
+    {
+      for (auto s (r), a (strong_scope ()); s != a; )
+      {
+        s = s->parent_scope ()->root_scope ();
+
+        if (s->root_extra != nullptr           &&
+            s->root_extra->project             &&
+            *s->root_extra->project != nullptr &&
+            !(*s->root_extra->project)->empty ())
+          r = s; // Last named.
+      }
+
+      return r;
+    }
+  }
+
+  inline scope* scope::
   weak_scope ()
   {
     scope* r (root_);

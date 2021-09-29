@@ -69,6 +69,15 @@ namespace build2
     const scope* root_scope () const;
 
     // Root scope of the outermost "strong" (source-based) amalgamation of
+    // this scope that has a project name or NULL if this scope is not (yet)
+    // in any (known) project. If there is no bundle amalgamation, then this
+    // function returns the root scope of the project (in other words, in this
+    // case a project is treated as its own bundle, even if it's unnamed).
+    //
+    scope*       bundle_scope ();
+    const scope* bundle_scope () const;
+
+    // Root scope of the outermost "strong" (source-based) amalgamation of
     // this scope or NULL if this scope is not (yet) in any (known) project.
     // If there is no strong amalgamation, then this function returns the root
     // scope of the project (in other words, in this case a project is treated

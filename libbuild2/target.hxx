@@ -337,6 +337,12 @@ namespace build2
     const scope&
     root_scope () const;
 
+    // Root scope of a bundle amalgamation that contains this target. The
+    // same notes as to root_scope() apply.
+    //
+    const scope&
+    bundle_scope () const {return *root_scope ().bundle_scope ();}
+
     // Root scope of a strong amalgamation that contains this target.
     // The same notes as to root_scope() apply.
     //

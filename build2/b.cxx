@@ -1566,6 +1566,7 @@ main (int argc, char* argv[])
             if (const dir_path* a = *rs.root_extra->amalgamation)
             {
               trace << "  amalgamation: " << *a;
+              trace << "  bundle scope: " << *rs.bundle_scope ();
               trace << "  strong scope: " << *rs.strong_scope ();
               trace << "  weak scope:   " << *rs.weak_scope ();
             }

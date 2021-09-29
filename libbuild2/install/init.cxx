@@ -421,6 +421,7 @@ namespace build2
         // of this scope. Valid values are:
         //
         //   project -- project scope
+        //   bundle  -- bundle amalgamation
         //   strong  -- strong amalgamation
         //   weak    -- weak amalgamation
         //   global  -- all projects (default)
