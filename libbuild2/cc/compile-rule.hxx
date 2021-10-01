@@ -36,7 +36,8 @@ namespace build2
       size_t copied;   // First copied-over bmi*{}, 0 if none.
     };
 
-    class LIBBUILD2_CC_SYMEXPORT compile_rule: public simple_rule, virtual common
+    class LIBBUILD2_CC_SYMEXPORT compile_rule: public simple_rule,
+                                               virtual common
     {
     public:
       compile_rule (data&&);
@@ -80,6 +81,7 @@ namespace build2
       void
       append_library_options (appended_libraries&, T&,
                               const scope&,
+                              const scope*,
                               action, const file&, bool, linfo,
                               library_cache*) const;
 

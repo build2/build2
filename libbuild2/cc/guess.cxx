@@ -1478,7 +1478,7 @@ namespace build2
     {
       dir_paths r;
 
-      // Extract /I paths from the compiler mode.
+      // Extract /I paths and similar from the compiler mode.
       //
       msvc_extract_header_search_dirs (mo, r);
       size_t rn (r.size ());

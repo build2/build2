@@ -180,7 +180,12 @@ namespace build2
         vp.insert<strings> ("config.c.loptions"),
         vp.insert<strings> ("config.c.aoptions"),
         vp.insert<strings> ("config.c.libs"),
-        nullptr           /* config.c.translate_include */,
+
+        // See config.cxx.internal.scope for details.
+        //
+        vp.insert<string> ("config.c.internal.scope"),
+
+        nullptr /* config.c.translate_include */,
 
         vp.insert<process_path_ex> ("c.path"),
         vp.insert<strings>         ("c.mode"),
@@ -197,7 +202,9 @@ namespace build2
         vp.insert<strings>      ("c.aoptions"),
         vp.insert<strings>      ("c.libs"),
 
-        nullptr                /* c.translate_include */,
+        vp.insert<string> ("c.internal.scope"),
+
+        nullptr /* c.translate_include */,
 
         vp["cc.poptions"],
         vp["cc.coptions"],
@@ -345,6 +352,8 @@ namespace build2
         cm.x_info->class_,
         cm.x_info->version.major,
         cm.x_info->version.minor,
+        cm.x_info->variant_version ? cm.x_info->variant_version->major : 0,
+        cm.x_info->variant_version ? cm.x_info->variant_version->minor : 0,
         cast<process_path>   (rs[cm.x_path]),
         cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
@@ -352,6 +361,9 @@ namespace build2
 
         false, // No C modules yet.
         false, // No __symexport support since no modules.
+
+        cm.internal_scope,
+        cm.internal_scope_current,
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),

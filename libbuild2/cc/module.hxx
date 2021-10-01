@@ -61,6 +61,11 @@ namespace build2
 
       string env_checksum; // Environment checksum (also in x.path).
 
+      // Cached x.internal.scope value.
+      //
+      const string* internal_scope = nullptr;
+      const scope*  internal_scope_current = nullptr;
+
       // Temporary storage for data::sys_*_dirs_*.
       //
       size_t sys_lib_dirs_mode;

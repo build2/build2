@@ -64,6 +64,7 @@ namespace build2
       const variable& config_x_loptions;
       const variable& config_x_aoptions;
       const variable& config_x_libs;
+      const variable& config_x_internal_scope;
       const variable* config_x_translate_include;
 
       const variable& x_path;         // Compiler process path.
@@ -79,6 +80,7 @@ namespace build2
       const variable& x_loptions;
       const variable& x_aoptions;
       const variable& x_libs;
+      const variable& x_internal_scope;
       const variable* x_translate_include;
 
       const variable& c_poptions; // cc.*
@@ -163,6 +165,8 @@ namespace build2
       compiler_class cclass;        // x.class
       uint64_t cmaj;                // x.version.major
       uint64_t cmin;                // x.version.minor
+      uint64_t cvmaj;               // x.variant_version.major (0 if no variant)
+      uint64_t cvmin;               // x.variant_version.minor (0 if no variant)
       const process_path& cpath;    // x.path
       const strings& cmode;         // x.mode (options)
 
@@ -174,6 +178,12 @@ namespace build2
 
       bool modules;                 // x.features.modules
       bool symexport;               // x.features.symexport
+
+      const string* internal_scope; // x.internal.scope
+      const scope*  internal_scope_current;
+
+      const scope*
+      effective_internal_scope (const scope& bs) const;
 
       build2::cc::importable_headers* importable_headers;
 
@@ -229,12 +239,14 @@ namespace build2
             const string& cv,
             compiler_class cl,
             uint64_t mj, uint64_t mi,
+            uint64_t vmj, uint64_t vmi,
             const process_path& path,
             const strings& mode,
             const target_triplet& tgt,
             const string& env_cs,
             bool fm,
             bool fs,
+            const string* ints, const scope* intsc,
             const dir_paths& sld,
             const dir_paths& shd,
             const dir_paths* smd,
@@ -251,11 +263,13 @@ namespace build2
             x_uninstall (uninstall),
             ctype (ct), cvariant (cv), cclass (cl),
             cmaj (mj), cmin (mi),
+            cvmaj (vmj), cvmin (vmi),
             cpath (path), cmode (mode),
             ctgt (tgt), tsys (ctgt.system), tclass (ctgt.class_),
             env_checksum (env_cs),
             modules (fm),
             symexport (fs),
+            internal_scope (ints), internal_scope_current (intsc),
             importable_headers (nullptr),
             sys_lib_dirs (sld), sys_hdr_dirs (shd), sys_mod_dirs (smd),
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
@@ -412,6 +426,7 @@ namespace build2
   }
 }
 
+#include <libbuild2/cc/common.ixx>
 #include <libbuild2/cc/common.txx>
 
 #endif // LIBBUILD2_CC_COMMON_HXX
