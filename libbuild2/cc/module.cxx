@@ -372,6 +372,18 @@ namespace build2
       const compiler_info& xi (*x_info);
       const target_triplet& tt (cast<target_triplet> (rs[x_target]));
 
+      // Load cc.core.config.
+      //
+      if (!cast_false<bool> (rs["cc.core.config.loaded"]))
+      {
+        variable_map h (rs.ctx);
+
+        if (!xi.bin_pattern.empty ())
+          h.assign ("config.bin.pattern") = xi.bin_pattern;
+
+        init_module (rs, rs, "cc.core.config", loc, false, h);
+      }
+
       // Configuration.
       //
       using config::lookup_config;
@@ -439,6 +451,97 @@ namespace build2
         // and fold them into the compiler mode.
         //
         translate_std (xi, tt, rs, mode, v);
+      }
+
+      // config.x.internal.scope
+      //
+      // Note: save omitted.
+      //
+      // The effective internal_scope value is chosen based on the following
+      // priority list:
+      //
+      // 1. config.x.internal.scope
+      //
+      // 2. config.cc.internal.scope
+      //
+      // 3. effective value from bundle amalgamation
+      //
+      // 4. x.internal.scope
+      //
+      // 5. cc.internal.scope
+      //
+      // Note also that we only update x.internal.scope (and not cc.*) to
+      // reflect the effective value.
+      //
+      {
+        if (lookup l = lookup_config (rs, config_x_internal_scope))       // 1
+        {
+          internal_scope = &cast<string> (l);
+
+          if (*internal_scope == "current")
+            fail << "'current' value in " << config_x_internal_scope;
+        }
+        else if (lookup l = rs["config.cc.internal.scope"])               // 2
+        {
+          internal_scope = &cast<string> (l);
+        }
+        else                                                              // 3
+        {
+          const scope& as (*rs.bundle_scope ());
+
+          if (as != rs)
+          {
+            // Only use the value if the corresponding module is loaded.
+            //
+            bool xl (cast_false<bool> (as[string (x) + ".config.loaded"]));
+            if (xl)
+              internal_scope = cast_null<string> (as[x_internal_scope]);
+
+            if (internal_scope == nullptr)
+            {
+              if (xl || cast_false<bool> (as["cc.core.config.loaded"]))
+                internal_scope = cast_null<string> (as["cc.internal.scope"]);
+            }
+
+            if (internal_scope != nullptr && *internal_scope == "current")
+              internal_scope_current = &as;
+          }
+        }
+
+        lookup l;
+        if (internal_scope == nullptr)
+        {
+          internal_scope = cast_null<string> (l = rs[x_internal_scope]);  // 4
+
+          if (internal_scope == nullptr)
+            internal_scope = cast_null<string> (rs["cc.internal.scope"]); // 5
+        }
+
+        if (internal_scope != nullptr)
+        {
+          const string& s (*internal_scope);
+
+          // Assign effective.
+          //
+          if (!l)
+            rs.assign (x_internal_scope) = s;
+
+          if (s == "current")
+          {
+            if (internal_scope_current == nullptr)
+              internal_scope_current = &rs;
+          }
+          else if (s == "base" ||
+                   s == "root" ||
+                   s == "bundle" ||
+                   s == "strong" ||
+                   s == "weak")
+            ;
+          else if (s == "global")
+            internal_scope = nullptr; // Nothing to translate;
+          else
+            fail << "invalid " << x_internal_scope << " value '" << s << "'";
+        }
       }
 
       // config.x.translate_include
@@ -686,6 +789,16 @@ namespace build2
         auto& incs (hdr_dirs.first);
         auto& libs (lib_dirs.first);
 
+        if (verb >= 3 && internal_scope != nullptr)
+        {
+          dr << "\n  int scope  ";
+
+          if (*internal_scope == "current")
+            dr << internal_scope_current->out_path ();
+          else
+            dr << *internal_scope;
+        }
+
         if (verb >= 3 && !mods.empty ())
         {
           dr << "\n  mod dirs";
@@ -723,18 +836,6 @@ namespace build2
 
       config::save_environment (rs, xi.compiler_environment);
       config::save_environment (rs, xi.platform_environment);
-
-      // Load cc.core.config.
-      //
-      if (!cast_false<bool> (rs["cc.core.config.loaded"]))
-      {
-        variable_map h (rs.ctx);
-
-        if (!xi.bin_pattern.empty ())
-          h.assign ("config.bin.pattern") = xi.bin_pattern;
-
-        init_module (rs, rs, "cc.core.config", loc, false, h);
-      }
     }
 
     // Global cache of ad hoc importable headers.

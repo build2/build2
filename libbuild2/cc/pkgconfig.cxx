@@ -1525,13 +1525,12 @@ namespace build2
             for (auto i (v->begin ()); i != v->end (); ++i)
             {
               const string& o (*i);
-              size_t n (o.size ());
 
               // Filter out -I (both -I<dir> and -I <dir> forms).
               //
-              if (n >= 2 && o[0] == '-' && o[1] == 'I')
+              if (o[0] == '-' && o[1] == 'I')
               {
-                if (n == 2)
+                if (o.size () == 2)
                   ++i;
 
                 continue;

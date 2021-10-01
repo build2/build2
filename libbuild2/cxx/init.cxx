@@ -497,6 +497,71 @@ namespace build2
         vp.insert<strings> ("config.cxx.aoptions"),
         vp.insert<strings> ("config.cxx.libs"),
 
+        // Project's internal scope.
+        //
+        // A header search path (-I) exported by a library that is outside of
+        // the internal scope is considered external and, if supported by the
+        // compiler, the corresponding -I option is translated to an
+        // appropriate "external header search path" option (-isystem for
+        // GCC/Clang, /external:I for MSVC 16.10 and later or clang-cl 13 and
+        // later). In particular, this suppresses compiler warnings in such
+        // external headers (/external:W0 is automatically added unless a
+        // custom /external:Wn is specified).
+        //
+        // The internal scope can be specified by the project with the
+        // cxx.internal.scope variable and overridden by the user with the
+        // config.cxx.internal.scope variable. Note that cxx.internal.scope
+        // must be specified before loading the cxx module (cxx.config, more
+        // precisely) and after which it contains the effective value (see
+        // below). For example:
+        //
+        //   # root.build
+        //
+        //   cxx.internal.scope = current
+        //
+        //   using cxx
+        //
+        // Valid values for cxx.internal.scope are:
+        //
+        //   current  -- current root scope (where variable is assigned)
+        //   base     -- target's base scope
+        //   root     -- target's root scope
+        //   bundle   -- target's bundle amalgamation (see scope::bundle_root())
+        //   strong   -- target's strong amalgamation (see scope::strong_root())
+        //   weak     -- target's weak amalgamation (see scope::weak_root())
+        //   global   -- global scope (everything is internal)
+        //
+        // Valid values for config.cxx.internal.scope are the same except for
+        // `current`.
+        //
+        // Note also that there are [config.]cc.internal.scope variables that
+        // can be used to specify the internal scope for all the cc-based
+        // modules.
+        //
+        // The project's effective internal scope is chosen based on the
+        // following priority list:
+        //
+        // 1. config.cxx.internal.scope
+        //
+        // 2. config.cc.internal.scope
+        //
+        // 3. effective scope from bundle amalgamation
+        //
+        // 4. cxx.internal.scope
+        //
+        // 5. cc.internal.scope
+        //
+        // In particular, item #3 allows an amalgamation that bundles a
+        // project to override its internal scope.
+        //
+        // The recommended value for a typical project is `current`, meaning
+        // that only headers inside the project will be considered internal.
+        // The tests subproject, if present, will inherit its value from the
+        // project (which acts as a bundle amalgamation), unless it is being
+        // built out of source (for example, to test an installed library).
+        //
+        vp.insert<string> ("config.cxx.internal.scope"),
+
         // Headers and header groups whose inclusion should or should not be
         // translated to the corresponding header unit imports.
         //
@@ -548,6 +613,8 @@ namespace build2
         vp.insert<strings>  ("cxx.loptions"),
         vp.insert<strings>  ("cxx.aoptions"),
         vp.insert<strings>  ("cxx.libs"),
+
+        vp.insert<string> ("cxx.internal.scope"),
 
         &vp.insert<cc::translatable_headers> ("cxx.translate_include"),
 
@@ -731,6 +798,8 @@ namespace build2
         cm.x_info->class_,
         cm.x_info->version.major,
         cm.x_info->version.minor,
+        cm.x_info->variant_version ? cm.x_info->variant_version->major : 0,
+        cm.x_info->variant_version ? cm.x_info->variant_version->minor : 0,
         cast<process_path>   (rs[cm.x_path]),
         cast<strings>        (rs[cm.x_mode]),
         cast<target_triplet> (rs[cm.x_target]),
@@ -738,6 +807,9 @@ namespace build2
 
         modules,
         symexport,
+
+        cm.internal_scope,
+        cm.internal_scope_current,
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),

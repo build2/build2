@@ -97,12 +97,14 @@ namespace build2
       vp.insert<strings> ("config.cc.loptions");
       vp.insert<strings> ("config.cc.aoptions");
       vp.insert<strings> ("config.cc.libs");
+      vp.insert<string>  ("config.cc.internal.scope");
 
       vp.insert<strings> ("cc.poptions");
       vp.insert<strings> ("cc.coptions");
       vp.insert<strings> ("cc.loptions");
       vp.insert<strings> ("cc.aoptions");
       vp.insert<strings> ("cc.libs");
+      vp.insert<string>  ("cc.internal.scope");
 
       vp.insert<strings>      ("cc.export.poptions");
       vp.insert<strings>      ("cc.export.coptions");
@@ -298,6 +300,24 @@ namespace build2
       rs.assign ("cc.libs") += cast_null<strings> (
         lookup_config (rs, "config.cc.libs", nullptr));
 
+      // config.cc.internal.scope
+      //
+      // Note: save omitted.
+      //
+      if (lookup l = lookup_config (rs, "config.cc.internal.scope"))
+      {
+        if (cast<string> (l) == "current")
+          fail << "'current' value in config.cc.internal.scope";
+
+        // This is necessary in case we are acting as bundle amalgamation.
+        //
+        rs.assign ("cc.internal.scope") = *l;
+      }
+
+      // config.cc.reprocess
+      //
+      // Note: save omitted.
+      //
       if (lookup l = lookup_config (rs, "config.cc.reprocess"))
         rs.assign ("cc.reprocess") = *l;
 

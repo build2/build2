@@ -233,12 +233,15 @@ namespace build2
         dir_path d;
         try
         {
-          // -I can either be in the "-Ifoo" or "-I foo" form. For VC it can
-          // also be /I.
+          // -I can either be in the "-Ifoo" or "-I foo" form. For MSVC it can
+          // also be /I. And from 16.10 it can also be /external:I.
           //
-          if (o.size () > 1 && (o[0] == '-' || o[0] == '/') && o[1] == 'I')
+          size_t p;
+          if ((o[0] == '-' || o[0] == '/') &&
+              (p = (o[1] == 'I'                          ?  2 :
+                    o.compare (1, 10, "external:I") == 0 ? 11 : 0)) != 0)
           {
-            if (o.size () == 2)
+            if (o.size () == p)
             {
               if (++i == e)
                 break; // Let the compiler complain.
@@ -246,7 +249,7 @@ namespace build2
               d = dir_path (*i);
             }
             else
-              d = dir_path (o, 2, string::npos);
+              d = dir_path (o, p, string::npos);
           }
           else
             continue;
@@ -331,7 +334,7 @@ namespace build2
       // see guess). Note that this is not used for Clang targeting MSVC (but
       // is for clang-cl).
 
-      // Extract -I paths from the compiler mode.
+      // Extract /I and similar paths from the compiler mode.
       //
       dir_paths r;
       msvc_extract_header_search_dirs (cast<strings> (rs[x_mode]), r);

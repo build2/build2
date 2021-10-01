@@ -4,7 +4,7 @@
 #include <libbuild2/cc/compile-rule.hxx>
 
 #include <cstdlib>  // exit()
-#include <cstring>  // strlen(), strchr()
+#include <cstring>  // strlen(), strchr(), strncmp()
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/depdb.hxx>
@@ -175,6 +175,42 @@ namespace build2
       throw invalid_argument ("invalid preprocessed value '" + s + "'");
     }
 
+    // Return true if the compiler supports -isystem (GCC class) or
+    // /external:I (MSVC class).
+    //
+    static inline bool
+    isystem (const data& d)
+    {
+      switch (d.cclass)
+      {
+      case compiler_class::gcc:
+        {
+          return true;
+        }
+      case compiler_class::msvc:
+        {
+          if (d.cvariant.empty ())
+          {
+            // While /external:I is available since 15.6, it required
+            // /experimental:external (and was rather buggy) until 16.10.
+            //
+            return d.cmaj > 19 || (d.cmaj == 19 && d.cmin >= 29);
+          }
+          else if (d.cvariant != "clang")
+          {
+            // clang-cl added support for /external:I (by translating it to
+            // -isystem) in version 13.
+            //
+            return d.cvmaj >= 13;
+          }
+          else
+            return false;
+        }
+      }
+
+      return false;
+    }
+
     optional<path> compile_rule::
     find_system_header (const path& f) const
     {
@@ -230,19 +266,24 @@ namespace build2
       auto m (sys_hdr_dirs.begin () + sys_hdr_dirs_extra);
       auto e (sys_hdr_dirs.end ());
 
-      // Note: starting from 15.6, MSVC gained /external:I option though it
+      // Note: starting from 16.10, MSVC gained /external:I option though it
       // doesn't seem to affect the order, only "system-ness".
       //
       append_option_values (
         args,
         cclass == compiler_class::gcc  ? "-idirafter" :
-        cclass == compiler_class::msvc ? "/I" : "-I",
+        cclass == compiler_class::msvc ? (isystem (*this)
+                                          ? "/external:I"
+                                          : "/I") : "-I",
         m, e,
         [] (const dir_path& d) {return d.string ().c_str ();});
 
       // For MSVC if we have no INCLUDE environment variable set, then we
       // add all of them. But we want extras to come first. Note also that
       // clang-cl takes care of this itself.
+      //
+      // Note also that we don't use /external:I to have consistent semantics
+      // with when INCLUDE is set (there is separate /external:env for that).
       //
       if (ctype == compiler_type::msvc && cvariant != "clang")
       {
@@ -418,6 +459,7 @@ namespace build2
     void compile_rule::
     append_library_options (appended_libraries& ls, T& args,
                             const scope& bs,
+                            const scope* is, // Internal scope.
                             action a, const file& l, bool la, linfo li,
                             library_cache* lib_cache) const
     {
@@ -425,7 +467,8 @@ namespace build2
       {
         appended_libraries& ls;
         T& args;
-      } d {ls, args};
+        const scope* is;
+      } d {ls, args, is};
 
       // See through utility libraries.
       //
@@ -458,7 +501,118 @@ namespace build2
              ? x_export_poptions
              : l.ctx.var_pool[t + ".export.poptions"]));
 
-        append_options (d.args, l, var);
+        if (const strings* ops = cast_null<strings> (l[var]))
+        {
+          for (auto i (ops->begin ()), e (ops->end ()); i != e; ++i)
+          {
+            const string& o (*i);
+
+            // If enabled, remap -I to -isystem or /external:I for paths that
+            // are outside of the internal scope.
+            //
+            if (d.is != nullptr)
+            {
+              // See if this is -I<dir> or -I <dir> (or /I... for MSVC).
+              //
+              // While strictly speaking we can only attempt to recognize
+              // options until we hit something unknown (after that, we don't
+              // know what's an option and what's a value), it doesn't seem
+              // likely to cause issues here, where we only expect to see -I,
+              // -D, and -U.
+              //
+              bool msvc (cclass == compiler_class::msvc);
+
+              if ((o[0] == '-' || (msvc && o[0] == '/')) && o[1] == 'I')
+              {
+                bool sep (o.size () == 2); // -I<dir> vs -I <dir>
+
+                const char* v (nullptr);
+                size_t vn (0);
+                if (sep)
+                {
+                  if (i + 1 == e)
+                    ; // Append as is and let the compiler complain.
+                  else
+                  {
+                    ++i;
+                    v = i->c_str ();
+                    vn = i->size ();
+                  }
+                }
+                else
+                {
+                  v = o.c_str () + 2;
+                  vn = o.size () - 2;
+                }
+
+                if (v != nullptr)
+                {
+                  // See if we need to translate the option for this path. We
+                  // only do this for absolute paths and try to optimize for
+                  // the already normalized ones.
+                  //
+                  if (path_traits::absolute (v))
+                  {
+                    const char* p (nullptr);
+                    size_t pn (0);
+
+                    dir_path nd;
+                    if (path_traits::normalized (v, vn, true /* separators */))
+                    {
+                      p = v;
+                      pn = vn;
+                    }
+                    else
+                    try
+                    {
+                      nd = dir_path (v, vn);
+                      nd.normalize ();
+                      p = nd.string ().c_str ();
+                      pn = nd.string ().size ();
+                    }
+                    catch (const invalid_path&)
+                    {
+                      // Ignore this path.
+                    }
+
+                    if (p != nullptr)
+                    {
+                      auto sub = [p, pn] (const dir_path& d)
+                      {
+                        return path_traits::sub (
+                          p, pn,
+                          d.string ().c_str (), d.string ().size ());
+                      };
+
+                      // Translate if it's neither in src nor in out of the
+                      // internal scope.
+                      //
+                      if (!sub (d.is->src_path ()) &&
+                          (d.is->out_eq_src () || !sub (d.is->out_path ())))
+                      {
+                        // Note: must use original value (path is temporary).
+                        //
+                        append_option (d.args,
+                                       msvc ? "/external:I" : "-isystem");
+                        append_option (d.args, v);
+                        continue;
+                      }
+                    }
+                  }
+
+                  // If not translated, preserve the original form.
+                  //
+                  append_option (d.args, o.c_str ());
+                  if (sep) append_option (d.args, v);
+
+                  continue;
+                }
+              }
+            }
+
+            append_option (d.args, o.c_str ());
+          }
+        }
 
         // From the process_libraries() semantics we know that the final call
         // is always for the common options.
@@ -479,7 +633,11 @@ namespace build2
                             const scope& bs,
                             action a, const file& l, bool la, linfo li) const
     {
-      append_library_options<strings> (ls, args, bs, a, l, la, li, nullptr);
+      const scope* is (isystem (*this)
+                       ? effective_internal_scope (bs)
+                       : nullptr);
+
+      append_library_options (ls, args, bs, is, a, l, la, li, nullptr);
     }
 
     template <typename T>
@@ -488,6 +646,14 @@ namespace build2
                             const scope& bs,
                             action a, const target& t, linfo li) const
     {
+      auto internal_scope = [this, &bs, is = optional<const scope*> ()] () mutable
+      {
+        if (!is)
+          is = isystem (*this) ? effective_internal_scope (bs) : nullptr;
+
+        return *is;
+      };
+
       appended_libraries ls;
       library_cache lc;
 
@@ -509,7 +675,11 @@ namespace build2
               (la = (f = pt->is_a<libux> ())) ||
               (     (f = pt->is_a<libs> ())))
           {
-            append_library_options (ls, args, bs, a, *f, la, li, &lc);
+            append_library_options (ls,
+                                    args,
+                                    bs, internal_scope (),
+                                    a, *f, la, li,
+                                    &lc);
           }
         }
       }
@@ -1452,12 +1622,17 @@ namespace build2
 
         for (auto i (v.begin ()), e (v.end ()); i != e; ++i)
         {
-          // -I can either be in the "-Ifoo" or "-I foo" form. For VC it can
-          // also be /I.
-          //
           const string& o (*i);
 
-          if (o.size () < 2 || (o[0] != '-' && o[0] != '/') || o[1] != 'I')
+          // -I can either be in the "-Ifoo" or "-I foo" form. For MSVC it
+          // can also be /I.
+          //
+          // Note that we naturally assume that -isystem, /external:I, etc.,
+          // are not relevant here.
+          //
+          bool msvc (cclass == compiler_class::msvc);
+
+          if (!((o[0] == '-' || (msvc && o[0] == '/')) && o[1] == 'I'))
             continue;
 
           dir_path d;
@@ -3487,27 +3662,43 @@ namespace build2
 
             for (auto i (args.begin ()), e (args.end ()); i != e; ++i)
             {
+              const char* o (*i);
+
               // -I can either be in the "-Ifoo" or "-I foo" form. For VC it
               // can also be /I.
               //
-              const char* o (*i);
-              size_t n (strlen (o));
-
-              if (n < 2 || (o[0] != '-' && o[0] != '/') || o[1] != 'I')
+              // Note also that append_library_options() may have translated
+              // -I to -isystem or /external:I so we have to recognize those
+              // as well.
+              //
               {
-                s = nullptr;
-                continue;
-              }
+                bool msvc (cclass == compiler_class::msvc);
 
-              if (n == 2)
-              {
-                if (++i == e)
-                  break; // Let the compiler complain.
+                size_t p (0);
+                if (o[0] == '-' || (msvc && o[0] == '/'))
+                {
+                  p = (o[1] == 'I'                                     ?  2 :
+                       !msvc && strncmp (o + 1, "isystem",     7) == 0 ?  8 :
+                       msvc  && strncmp (o + 1, "external:I", 10) == 0 ? 11 : 0);
+                }
 
-                ds = *i;
+                if (p == 0)
+                {
+                  s = nullptr;
+                  continue;
+                }
+
+                size_t n (strlen (o));
+                if (n == p)
+                {
+                  if (++i == e)
+                    break; // Let the compiler complain.
+
+                  ds = *i;
+                }
+                else
+                  ds.assign (o + p, n - p);
               }
-              else
-                ds.assign (o + 2, n - 2);
 
               if (!ds.empty ())
               {
@@ -3527,7 +3718,7 @@ namespace build2
                 if (!d.empty ())
                 {
                   // Ignore any paths containing '.', '..' components. Allow
-                  // any directory separators thought (think -I$src_root/foo
+                  // any directory separators though (think -I$src_root/foo
                   // on Windows).
                   //
                   if (d.absolute () && d.normalized (false))
@@ -3634,9 +3825,15 @@ namespace build2
               append_options (args, cmode);
               append_sys_hdr_options (args); // Extra system header dirs (last).
 
-              // See perform_update() for details on overriding the default
-              // exceptions and runtime.
+              // See perform_update() for details on /external:W0, /EHsc, /MD.
               //
+              if (cvariant != "clang" && isystem (*this))
+              {
+                if (find_option_prefix ("/external:I", args) &&
+                    !find_option_prefix ("/external:W", args))
+                  args.push_back ("/external:W0");
+              }
+
               if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
                 args.push_back ("/EHsc");
 
@@ -4949,6 +5146,15 @@ namespace build2
 
               append_options (args, cmode);
               append_sys_hdr_options (args);
+
+              // See perform_update() for details on /external:W0, /EHsc, /MD.
+              //
+              if (cvariant != "clang" && isystem (*this))
+              {
+                if (find_option_prefix ("/external:I", args) &&
+                    !find_option_prefix ("/external:W", args))
+                  args.push_back ("/external:W0");
+              }
 
               if (x_lang == lang::cxx && !find_option_prefix ("/EH", args))
                 args.push_back ("/EHsc");
@@ -6848,6 +7054,16 @@ namespace build2
 
           if (md.pp != preprocessed::all)
             append_sys_hdr_options (args); // Extra system header dirs (last).
+
+          // If we have any /external:I options but no /external:Wn, then add
+          // /external:W0 to emulate the -isystem semantics.
+          //
+          if (cvariant != "clang" && isystem (*this))
+          {
+            if (find_option_prefix ("/external:I", args) &&
+                !find_option_prefix ("/external:W", args))
+              args.push_back ("/external:W0");
+          }
 
           // While we want to keep the low-level build as "pure" as possible,
           // the two misguided defaults, C++ exceptions and runtime, just have

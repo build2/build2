@@ -650,6 +650,26 @@ namespace build2
                         I begin, I end,
                         F&& get = [] (const string& s) {return s;});
 
+  // As above but append a single option (used for append/hash uniformity).
+  //
+  inline void
+  append_option (cstrings& args, const char* o)
+  {
+    args.push_back (o);
+  }
+
+  inline void
+  append_option (strings& args, const char* o)
+  {
+    args.push_back (o);
+  }
+
+  inline void
+  append_option (sha256& csum, const char* o)
+  {
+    csum.append (o);
+  }
+
   // Check if a specified option is present in the variable or value. T is
   // either target or scope. For the interator version use rbegin()/rend() to
   // search backwards.
