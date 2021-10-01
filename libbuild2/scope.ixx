@@ -82,6 +82,8 @@ namespace build2
 
       return r;
     }
+
+    return nullptr;
   }
 
   inline const scope* scope::
@@ -102,6 +104,8 @@ namespace build2
 
       return r;
     }
+
+    return nullptr;
   }
 
   inline scope* scope::
