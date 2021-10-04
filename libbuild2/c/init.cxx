@@ -202,7 +202,8 @@ namespace build2
         vp.insert<strings>      ("c.aoptions"),
         vp.insert<strings>      ("c.libs"),
 
-        vp.insert<string> ("c.internal.scope"),
+        vp.insert<string>  ("c.internal.scope"),
+        vp.insert<strings> ("c.internal.libs"),
 
         nullptr /* c.translate_include */,
 
@@ -364,6 +365,9 @@ namespace build2
 
         cm.internal_scope,
         cm.internal_scope_current,
+
+        cast_null<strings> (rs["cc.internal.libs"]),
+        cast_null<strings> (rs[cm.x_internal_libs]),
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),

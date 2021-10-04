@@ -560,6 +560,38 @@ namespace build2
         // project (which acts as a bundle amalgamation), unless it is being
         // built out of source (for example, to test an installed library).
         //
+        // A project can also whitelist specific libraries using the
+        // cxx.internal.libs variable. If a library target name (that is, the
+        // name inside lib{}) matches any of the wildcard patterns listed in
+        // this variable, then the library is considered internal regardless
+        // of its location. For example (notice that the pattern is quoted):
+        //
+        //   # root.build
+        //
+        //   cxx.internal.scope = current
+        //   cxx.internal.libs = foo 'bar-*'
+        //
+        //   using cxx
+        //
+        // Note that this variable should also be set before loading the
+        // cxx module and there is the common cc.internal.libs equivalent.
+        // However, there are no config.* versions nor the override by the
+        // bundle amalgamation semantics.
+        //
+        // Typically you would want to whitelist libraries that are developed
+        // together but reside in separate build system projects. In
+        // particular, a separate *-tests project for a library should
+        // whitelist the library being tested if the internal scope
+        // functionality is in use. Another reason to whitelist is to catch
+        // warnings in instantiations of templates that belong to a library
+        // that is otherwise warning-free (see the MSVC /external:templates-
+        // option for details).
+        //
+        // Note also that if multiple libraries are installed into the same
+        // location (or otherwise share the same header search paths, for
+        // example, as a family of libraries), then the whitelist may not
+        // be effective.
+        //
         vp.insert<string> ("config.cxx.internal.scope"),
 
         // Headers and header groups whose inclusion should or should not be
@@ -614,7 +646,8 @@ namespace build2
         vp.insert<strings>  ("cxx.aoptions"),
         vp.insert<strings>  ("cxx.libs"),
 
-        vp.insert<string> ("cxx.internal.scope"),
+        vp.insert<string>  ("cxx.internal.scope"),
+        vp.insert<strings> ("cxx.internal.libs"),
 
         &vp.insert<cc::translatable_headers> ("cxx.translate_include"),
 
@@ -810,6 +843,9 @@ namespace build2
 
         cm.internal_scope,
         cm.internal_scope_current,
+
+        cast_null<strings> (rs["cc.internal.libs"]),
+        cast_null<strings> (rs[cm.x_internal_libs]),
 
         cast<dir_paths> (rs[cm.x_sys_lib_dirs]),
         cast<dir_paths> (rs[cm.x_sys_hdr_dirs]),

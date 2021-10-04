@@ -6,6 +6,8 @@
 #include <cstdlib>  // exit()
 #include <cstring>  // strlen(), strchr(), strncmp()
 
+#include <libbutl/path-pattern.hxx>
+
 #include <libbuild2/file.hxx>
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
@@ -503,14 +505,33 @@ namespace build2
 
         if (const strings* ops = cast_null<strings> (l[var]))
         {
+          // If enabled, remap -I to -isystem or /external:I for paths that
+          // are outside of the internal scope provided the library is not
+          // whitelisted.
+          //
+          auto whitelist = [&l] (const strings* pats)
+          {
+            return (pats != nullptr &&
+                    find_if (pats->begin (), pats->end (),
+                            [&l] (const string& pat)
+                            {
+                              return path_match (l.name, pat);
+                            }) != pats->end ());
+          };
+
+          const scope* is (d.is);
+
+          if (is != nullptr && whitelist (c_internal_libs))
+            is = nullptr;
+
+          if (is != nullptr && whitelist (x_internal_libs))
+            is = nullptr;
+
           for (auto i (ops->begin ()), e (ops->end ()); i != e; ++i)
           {
             const string& o (*i);
 
-            // If enabled, remap -I to -isystem or /external:I for paths that
-            // are outside of the internal scope.
-            //
-            if (d.is != nullptr)
+            if (is != nullptr)
             {
               // See if this is -I<dir> or -I <dir> (or /I... for MSVC).
               //
@@ -587,8 +608,8 @@ namespace build2
                       // Translate if it's neither in src nor in out of the
                       // internal scope.
                       //
-                      if (!sub (d.is->src_path ()) &&
-                          (d.is->out_eq_src () || !sub (d.is->out_path ())))
+                      if (!sub (is->src_path ()) &&
+                          (is->out_eq_src () || !sub (is->out_path ())))
                       {
                         // Note: must use original value (path is temporary).
                         //

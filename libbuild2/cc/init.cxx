@@ -105,6 +105,7 @@ namespace build2
       vp.insert<strings> ("cc.aoptions");
       vp.insert<strings> ("cc.libs");
       vp.insert<string>  ("cc.internal.scope");
+      vp.insert<strings> ("cc.internal.libs");
 
       vp.insert<strings>      ("cc.export.poptions");
       vp.insert<strings>      ("cc.export.coptions");

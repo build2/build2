@@ -81,6 +81,7 @@ namespace build2
       const variable& x_aoptions;
       const variable& x_libs;
       const variable& x_internal_scope;
+      const variable& x_internal_libs;
       const variable* x_translate_include;
 
       const variable& c_poptions; // cc.*
@@ -182,6 +183,9 @@ namespace build2
       const string* internal_scope; // x.internal.scope
       const scope*  internal_scope_current;
 
+      const strings* c_internal_libs; // cc.internal.libs
+      const strings* x_internal_libs; // x.internal.libs
+
       const scope*
       effective_internal_scope (const scope& bs) const;
 
@@ -247,6 +251,7 @@ namespace build2
             bool fm,
             bool fs,
             const string* ints, const scope* intsc,
+            const strings* cils, const strings* xils,
             const dir_paths& sld,
             const dir_paths& shd,
             const dir_paths* smd,
@@ -270,6 +275,7 @@ namespace build2
             modules (fm),
             symexport (fs),
             internal_scope (ints), internal_scope_current (intsc),
+            c_internal_libs (cils), x_internal_libs (xils),
             importable_headers (nullptr),
             sys_lib_dirs (sld), sys_hdr_dirs (shd), sys_mod_dirs (smd),
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),
