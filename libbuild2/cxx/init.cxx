@@ -585,7 +585,7 @@ namespace build2
         // functionality is in use. Another reason to whitelist is to catch
         // warnings in instantiations of templates that belong to a library
         // that is otherwise warning-free (see the MSVC /external:templates-
-        // option for details).
+        // option for background).
         //
         // Note also that if multiple libraries are installed into the same
         // location (or otherwise share the same header search paths, for

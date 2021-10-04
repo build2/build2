@@ -6473,6 +6473,9 @@ config.cc.aoptions
 
 config.cc.libs
   cc.libs
+
+config.cc.internal.scope
+  cc.internal.scope
 \
 
 Note that the compiler mode options are \"cross-hinted\" between \c{config.c}
@@ -6711,7 +6714,20 @@ config.c.aoptions
 
 config.c.libs
   c.libs
+
+config.c.internal.scope
+  c.internal.scope
 \
+
+\h#c-internal-scope|C Compilation Internal Scope|
+
+The \c{c} module has a notion of a project's internal scope. During
+compilation of project's C translation units a header search path (\c{-I})
+exported by a library that is outside of the internal scope is considered
+external and, if supported by the compiler, the corresponding \c{-I} option is
+translated to an appropriate \"external header search path\" option. See
+\l{#cxx-internal-scope C++ Compilation Internal Scope} for details on this
+functionality.
 
 
 \h1#module-cxx|\c{cxx} Module|
@@ -6773,9 +6789,118 @@ config.cxx.aoptions
 config.cxx.libs
   cxx.libs
 
+config.cxx.internal.scope
+  cxx.internal.scope
+
 config.cxx.translate_include
   cxx.translate_include
 \
+
+\h#cxx-internal-scope|C++ Compilation Internal Scope|
+
+The \c{cxx} module has a notion of a project's internal scope. During
+compilation of project's C++ translation units a header search path (\c{-I})
+exported by a library that is outside of the internal scope is considered
+external and, if supported by the compiler, the corresponding \c{-I} option is
+translated to an appropriate \"external header search path\" option
+(\c{-isystem} for GCC/Clang, \c{/external:I} for MSVC 16.10 and later). In
+particular, this suppresses compiler warnings in such external headers
+(\c{/external:W0} is automatically added unless a custom \c{/external:Wn} is
+specified).
+
+\N|In the future this functionality will be extended to side-building BMIs for
+external module interfaces and header units.|
+
+The internal scope can be specified by the project with the
+\c{cxx.internal.scope} variable and overridden by the user with the
+\c{config.cxx.internal.scope} variable. Note that \c{cxx.internal.scope} must
+be specified before loading the \c{cxx} module (\c{cxx.config}, more
+precisely) and after which it contains the effective value (see below). For
+example:
+
+\
+# root.build
+
+cxx.std = latest
+cxx.internal.scope = current
+
+using cxx
+\
+
+Valid values for \c{cxx.internal.scope} are:
+
+\
+current  -- current root scope (where variable is assigned)
+base     -- target's base scope
+root     -- target's root scope
+bundle   -- target's bundle amalgamation
+strong   -- target's strong amalgamation
+weak     -- target's weak amalgamation
+global   -- global scope (everything is internal)
+\
+
+Valid values for \c{config.cxx.internal.scope} are the same except for
+\c{current}.
+
+Note also that there are \c{[config.]cc.internal.scope} variables that can be
+used to specify the internal scope for all the \c{cc}-based modules.
+
+The project's effective internal scope is chosen based on the following
+priority list:
+
+\ol|
+
+\li|\c{config.cxx.internal.scope}|
+
+\li|\c{config.cc.internal.scope}|
+
+\li|effective scope from bundle amalgamation|
+
+\li|\c{cxx.internal.scope}|
+
+\li|\c{cc.internal.scope}||
+
+In particular, item #3 allows an amalgamation that bundles a project to
+override its internal scope.
+
+The recommended value for a typical project is \c{current}, meaning that only
+headers inside the project will be considered internal. The \c{tests}
+subproject, if present, will inherit its value from the project (which acts as
+a bundle amalgamation), unless it is being built out of source (for example,
+to test an installed library).
+
+A project can also whitelist specific libraries using the
+\c{cxx.internal.libs} variable. If a library target name (that is, the name
+inside \c{lib{\}}) matches any of the wildcard patterns listed in this
+variable, then the library is considered internal regardless of its
+location. For example (notice that the pattern is quoted):
+
+\
+# root.build
+
+cxx.std = latest
+cxx.internal.scope = current
+cxx.internal.libs = foo 'bar-*'
+
+using cxx
+\
+
+Note that this variable should also be set before loading the \c{cxx} module
+and there is the \c{common cc.internal.libs} equivalent. However, there are
+no \c{config.*} versions nor the override by the bundle amalgamation
+semantics.
+
+Typically you would want to whitelist libraries that are developed together
+but reside in separate build system projects. In particular, a separate
+\c{*-tests} project for a library should whitelist the library being tested if
+the internal scope functionality is in use. Another reason to whitelist is to
+catch warnings in instantiations of templates that belong to a library that is
+otherwise warning-free (see the MSVC \c{/external:templates-} option for
+background).
+
+Note also that if multiple libraries are installed into the same location (or
+otherwise share the same header search paths, for example, as a family of
+libraries), then the whitelist may not be effective.
 
 
 \h#cxx-modules|C++ Modules Support|
