@@ -509,22 +509,21 @@ namespace build2
           // are outside of the internal scope provided the library is not
           // whitelisted.
           //
-          auto whitelist = [&l] (const strings* pats)
+          auto whitelist = [&l] (const strings& pats)
           {
-            return (pats != nullptr &&
-                    find_if (pats->begin (), pats->end (),
+            return find_if (pats.begin (), pats.end (),
                             [&l] (const string& pat)
                             {
                               return path_match (l.name, pat);
-                            }) != pats->end ());
+                            }) != pats.end ();
           };
 
           const scope* is (d.is);
 
-          if (is != nullptr && whitelist (c_internal_libs))
+          if (is != nullptr && c_ilibs != nullptr && whitelist (*c_ilibs))
             is = nullptr;
 
-          if (is != nullptr && whitelist (x_internal_libs))
+          if (is != nullptr && x_ilibs != nullptr && whitelist (*x_ilibs))
             is = nullptr;
 
           for (auto i (ops->begin ()), e (ops->end ()); i != e; ++i)
@@ -654,10 +653,7 @@ namespace build2
                             const scope& bs,
                             action a, const file& l, bool la, linfo li) const
     {
-      const scope* is (isystem (*this)
-                       ? effective_internal_scope (bs)
-                       : nullptr);
-
+      const scope* is (isystem (*this) ? effective_iscope (bs) : nullptr);
       append_library_options (ls, args, bs, is, a, l, la, li, nullptr);
     }
 
@@ -667,10 +663,10 @@ namespace build2
                             const scope& bs,
                             action a, const target& t, linfo li) const
     {
-      auto internal_scope = [this, &bs, is = optional<const scope*> ()] () mutable
+      auto iscope = [this, &bs, is = optional<const scope*> ()] () mutable
       {
         if (!is)
-          is = isystem (*this) ? effective_internal_scope (bs) : nullptr;
+          is = isystem (*this) ? effective_iscope (bs) : nullptr;
 
         return *is;
       };
@@ -698,7 +694,7 @@ namespace build2
           {
             append_library_options (ls,
                                     args,
-                                    bs, internal_scope (),
+                                    bs, iscope (),
                                     a, *f, la, li,
                                     &lc);
           }

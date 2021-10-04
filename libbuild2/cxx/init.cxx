@@ -841,8 +841,8 @@ namespace build2
         modules,
         symexport,
 
-        cm.internal_scope,
-        cm.internal_scope_current,
+        cm.iscope,
+        cm.iscope_current,
 
         cast_null<strings> (rs["cc.internal.libs"]),
         cast_null<strings> (rs[cm.x_internal_libs]),

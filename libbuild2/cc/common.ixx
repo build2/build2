@@ -6,29 +6,22 @@ namespace build2
   namespace cc
   {
     inline const scope* data::
-    effective_internal_scope (const scope& bs) const
+    effective_iscope (const scope& bs) const
     {
-      if (internal_scope == nullptr)
-        return nullptr;
-      else
+      if (iscope)
       {
-        const string& s (*internal_scope);
-
-        if (s == "current")
-          return internal_scope_current;
-        else if (s == "base")
-          return &bs;
-        else if (s == "root")
-          return bs.root_scope ();
-        else if (s == "bundle")
-          return bs.bundle_scope ();
-        else if (s == "strong")
-          return bs.strong_scope ();
-        else if (s == "weak")
-          return bs.weak_scope ();
-        else
-          return nullptr;
+        switch (*iscope)
+        {
+        case internal_scope::current: return iscope_current;
+        case internal_scope::base:    return &bs;
+        case internal_scope::root:    return bs.root_scope ();
+        case internal_scope::bundle:  return bs.bundle_scope ();
+        case internal_scope::strong:  return bs.strong_scope ();
+        case internal_scope::weak:    return bs.weak_scope ();
+        }
       }
+
+      return nullptr;
     }
   }
 }

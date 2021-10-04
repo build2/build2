@@ -180,14 +180,16 @@ namespace build2
       bool modules;                 // x.features.modules
       bool symexport;               // x.features.symexport
 
-      const string* internal_scope; // x.internal.scope
-      const scope*  internal_scope_current;
+      enum class internal_scope {current, base, root, bundle, strong, weak};
 
-      const strings* c_internal_libs; // cc.internal.libs
-      const strings* x_internal_libs; // x.internal.libs
+      optional<internal_scope> iscope; // x.internal.scope
+      const scope*             iscope_current;
 
       const scope*
-      effective_internal_scope (const scope& bs) const;
+      effective_iscope (const scope& bs) const;
+
+      const strings* c_ilibs; // cc.internal.libs
+      const strings* x_ilibs; // x.internal.libs
 
       build2::cc::importable_headers* importable_headers;
 
@@ -250,7 +252,7 @@ namespace build2
             const string& env_cs,
             bool fm,
             bool fs,
-            const string* ints, const scope* intsc,
+            optional<internal_scope> is, const scope* isc,
             const strings* cils, const strings* xils,
             const dir_paths& sld,
             const dir_paths& shd,
@@ -274,8 +276,8 @@ namespace build2
             env_checksum (env_cs),
             modules (fm),
             symexport (fs),
-            internal_scope (ints), internal_scope_current (intsc),
-            c_internal_libs (cils), x_internal_libs (xils),
+            iscope (is), iscope_current (isc),
+            c_ilibs (cils), x_ilibs (xils),
             importable_headers (nullptr),
             sys_lib_dirs (sld), sys_hdr_dirs (shd), sys_mod_dirs (smd),
             sys_lib_dirs_mode (slm), sys_hdr_dirs_mode (shm),

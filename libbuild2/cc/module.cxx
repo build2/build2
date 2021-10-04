@@ -473,17 +473,18 @@ namespace build2
       // Note also that we only update x.internal.scope (and not cc.*) to
       // reflect the effective value.
       //
+      const string* iscope_str (nullptr);
       {
         if (lookup l = lookup_config (rs, config_x_internal_scope))       // 1
         {
-          internal_scope = &cast<string> (l);
+          iscope_str = &cast<string> (l);
 
-          if (*internal_scope == "current")
+          if (*iscope_str == "current")
             fail << "'current' value in " << config_x_internal_scope;
         }
         else if (lookup l = rs["config.cc.internal.scope"])               // 2
         {
-          internal_scope = &cast<string> (l);
+          iscope_str = &cast<string> (l);
         }
         else                                                              // 3
         {
@@ -495,31 +496,31 @@ namespace build2
             //
             bool xl (cast_false<bool> (as[string (x) + ".config.loaded"]));
             if (xl)
-              internal_scope = cast_null<string> (as[x_internal_scope]);
+              iscope_str = cast_null<string> (as[x_internal_scope]);
 
-            if (internal_scope == nullptr)
+            if (iscope_str == nullptr)
             {
               if (xl || cast_false<bool> (as["cc.core.config.loaded"]))
-                internal_scope = cast_null<string> (as["cc.internal.scope"]);
+                iscope_str = cast_null<string> (as["cc.internal.scope"]);
             }
 
-            if (internal_scope != nullptr && *internal_scope == "current")
-              internal_scope_current = &as;
+            if (iscope_str != nullptr && *iscope_str == "current")
+              iscope_current = &as;
           }
         }
 
         lookup l;
-        if (internal_scope == nullptr)
+        if (iscope_str == nullptr)
         {
-          internal_scope = cast_null<string> (l = rs[x_internal_scope]);  // 4
+          iscope_str = cast_null<string> (l = rs[x_internal_scope]);      // 4
 
-          if (internal_scope == nullptr)
-            internal_scope = cast_null<string> (rs["cc.internal.scope"]); // 5
+          if (iscope_str == nullptr)
+            iscope_str = cast_null<string> (rs["cc.internal.scope"]);     // 5
         }
 
-        if (internal_scope != nullptr)
+        if (iscope_str != nullptr)
         {
-          const string& s (*internal_scope);
+          const string& s (*iscope_str);
 
           // Assign effective.
           //
@@ -528,17 +529,18 @@ namespace build2
 
           if (s == "current")
           {
-            if (internal_scope_current == nullptr)
-              internal_scope_current = &rs;
+            iscope = internal_scope::current;
+
+            if (iscope_current == nullptr)
+              iscope_current = &rs;
           }
-          else if (s == "base" ||
-                   s == "root" ||
-                   s == "bundle" ||
-                   s == "strong" ||
-                   s == "weak")
-            ;
+          else if (s == "base")   iscope = internal_scope::base;
+          else if (s == "root")   iscope = internal_scope::root;
+          else if (s == "bundle") iscope = internal_scope::bundle;
+          else if (s == "strong") iscope = internal_scope::strong;
+          else if (s == "weak")   iscope = internal_scope::weak;
           else if (s == "global")
-            internal_scope = nullptr; // Nothing to translate;
+            ; // Nothing to translate;
           else
             fail << "invalid " << x_internal_scope << " value '" << s << "'";
         }
@@ -789,14 +791,14 @@ namespace build2
         auto& incs (hdr_dirs.first);
         auto& libs (lib_dirs.first);
 
-        if (verb >= 3 && internal_scope != nullptr)
+        if (verb >= 3 && iscope)
         {
           dr << "\n  int scope  ";
 
-          if (*internal_scope == "current")
-            dr << internal_scope_current->out_path ();
+          if (*iscope == internal_scope::current)
+            dr << iscope_current->out_path ();
           else
-            dr << *internal_scope;
+            dr << *iscope_str;
         }
 
         if (verb >= 3 && !mods.empty ())

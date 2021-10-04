@@ -63,8 +63,9 @@ namespace build2
 
       // Cached x.internal.scope value.
       //
-      const string* internal_scope = nullptr;
-      const scope*  internal_scope_current = nullptr;
+      using internal_scope = data::internal_scope;
+      optional<internal_scope> iscope;
+      const scope*             iscope_current;
 
       // Temporary storage for data::sys_*_dirs_*.
       //

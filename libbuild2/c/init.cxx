@@ -363,8 +363,8 @@ namespace build2
         false, // No C modules yet.
         false, // No __symexport support since no modules.
 
-        cm.internal_scope,
-        cm.internal_scope_current,
+        cm.iscope,
+        cm.iscope_current,
 
         cast_null<strings> (rs["cc.internal.libs"]),
         cast_null<strings> (rs[cm.x_internal_libs]),
