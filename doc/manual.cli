@@ -6808,6 +6808,25 @@ particular, this suppresses compiler warnings in such external headers
 (\c{/external:W0} is automatically added unless a custom \c{/external:Wn} is
 specified).
 
+\N|While the aim of this functionality is to control warnings in external
+libraries, the underlying mechanisms currently provided by compilers have
+undesirable side effects. In particular, \c{-isystem} paths are searched after
+\c{-I} so translating \c{-I} to \c{-isystem} alters the search order. This
+should normally be harmless when using a development build of a library but
+may result in a change of semantics for installed libraries. Also, marking the
+search path as system has additional (to warning suppression) effects, see
+\l{https://gcc.gnu.org/onlinedocs/cpp/System-Headers.html System Headers} in
+the GCC documentation for details.
+
+Another issue is warnings in template instantiations. Each such warning could
+be either due to a (potential) issue in the template itself or due to the
+template arguments we are instantiating it with. By default, all such warnings
+are suppressed and there is currently no way to change this with GCC/Clang
+\c{-isystem}. While MSVC provides \c{/external:templates-}, it cannot be
+applied on the library by library basis, only globally for the entire
+compilation. See MSVC \c{/external:templates-} documentation for more
+background on this issue.|
+
 \N|In the future this functionality will be extended to side-building BMIs for
 external module interfaces and header units.|
 
