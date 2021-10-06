@@ -288,6 +288,9 @@ namespace build2
     filter (const scope* is,
             action, const target& t, const prerequisite& p) const
     {
+      if (p.is_a<exe> ())
+        return nullptr;
+
       const target& pt (search (t, p));
       return is == nullptr || pt.in (*is) ? &pt : nullptr;
     }

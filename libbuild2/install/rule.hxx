@@ -25,9 +25,10 @@ namespace build2
       match (action, target&, const string&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise. The default implementation ignores prerequsites
-      // that are outside of the installation scope (see install_scope() for
-      // details).
+      // target otherwise.
+      //
+      // The default implementation ignores prerequsites that are outside of
+      // the installation scope (see install_scope() for details).
       //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
@@ -80,7 +81,9 @@ namespace build2
       match (action, target&, const string&) const override;
 
       // Return NULL if this group member should be ignored and pointer to its
-      // target otherwise. The default implementation accepts all members.
+      // target otherwise.
+      //
+      // The default implementation accepts all members.
       //
       virtual const target*
       filter (action, const target&, const target& group_member) const;
@@ -105,9 +108,14 @@ namespace build2
       match (action, target&, const string&) const override;
 
       // Return NULL if this prerequisite should be ignored and pointer to its
-      // target otherwise. The default implementation ignores prerequsites
-      // that are outside of the installation scope (see install_scope() for
-      // details).
+      // target otherwise.
+      //
+      // The default implementation ignores prerequsites that are outside of
+      // the installation scope (see install_scope() for details). It also
+      // ignores exe{} prerequisites assuming an exe{} listed for a file
+      // target is there to execute (e.g., to generate that target) and
+      // normally should not be installed (an exe{} would typically be
+      // installed via the dir{./} alias).
       //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.
