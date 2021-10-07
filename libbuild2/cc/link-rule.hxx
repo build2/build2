@@ -194,7 +194,7 @@ namespace build2
                         sha256*, bool*, timestamp,
                         const scope&, action,
                         const file&, bool, lflags, linfo,
-                        bool = true, bool = true,
+                        optional<bool>, bool = true, bool = true,
                         library_cache* = nullptr) const;
 
       using rpathed_libraries = small_vector<const file*, 256>;

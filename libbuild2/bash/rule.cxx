@@ -91,6 +91,11 @@ namespace build2
       if (!md.for_install)
         md.for_install = false;
 
+      //@@ TODO: need to verify all the modules we depend on are compatible
+      //         with our for_install value, similar to cc::link_rule's
+      //         append_libraries() (and which is the other half of the check
+      //         in install_rule).
+
       return rule::perform_update (a, t);
     }
 
@@ -415,7 +420,8 @@ namespace build2
         if (md.for_install)
         {
           if (!*md.for_install)
-            fail << "target " << t << " already updated but not for install";
+            fail << "incompatible " << t << " build" <<
+              info << "target already built not for install";
         }
         else
           md.for_install = true;

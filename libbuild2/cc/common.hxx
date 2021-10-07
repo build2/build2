@@ -316,7 +316,7 @@ namespace build2
         const function<bool (const target&, bool)>&,
         const function<bool (const target* const*,
                              const small_vector<reference_wrapper<const string>, 2>&,
-                             lflags, bool)>&,
+                             lflags, const string*, bool)>&,
         const function<bool (const target&, const string&, bool, bool)>&,
         bool = false,
         library_cache* = nullptr,

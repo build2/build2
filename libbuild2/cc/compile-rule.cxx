@@ -6459,6 +6459,7 @@ namespace build2
           const target* const* lc,
           const small_vector<reference_wrapper<const string>, 2>&,
           lflags,
+          const string*,
           bool)
         {
           // Prune any further traversal if we already found it.

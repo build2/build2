@@ -326,7 +326,7 @@ namespace build2
             m.append_libraries (
               *static_cast<appended_libraries*> (ls), r,
               nullptr /* sha256 */, nullptr /* update */, timestamp_unknown,
-              bs, a, l, la, lf, li, self, rel);
+              bs, a, l, la, lf, li, nullopt /* for_install */, self, rel);
           }});
 
       // $<module>.lib_rpaths(<lib-targets>, <otype> [, <link> [, <self>]])

@@ -92,6 +92,7 @@ namespace build2
                            const small_vector<reference_wrapper<
                              const string>, 2>&,            // Library "name".
                            lflags,                          // Link flags.
+                           const string* type,              // cc.type
                            bool sys)>& proc_lib,            // System library?
       const function<bool (const target&,
                            const string& type,              // cc.type
@@ -272,7 +273,7 @@ namespace build2
                   : !p.empty () && sys (top_sysd, p.string ()));
 
           proc_lib_name = {p.string ()};
-          if (!proc_lib (&chain->back (), proc_lib_name, lf, s))
+          if (!proc_lib (&chain->back (), proc_lib_name, lf, t, s))
             break;
         }
 
@@ -459,7 +460,7 @@ namespace build2
                     proc_lib_name.push_back (i->value);
                   }
 
-                  proc_lib (nullptr, proc_lib_name, 0, r.second);
+                  proc_lib (nullptr, proc_lib_name, 0, nullptr, r.second);
                   continue;
                 }
               }
@@ -552,7 +553,7 @@ namespace build2
                 proc_lib_name.push_back (*i);
               }
 
-              proc_lib (nullptr, proc_lib_name, 0, r.second);
+              proc_lib (nullptr, proc_lib_name, 0, nullptr, r.second);
             }
           };
 

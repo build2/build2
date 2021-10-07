@@ -179,8 +179,11 @@ namespace build2
 
         if (md.for_install)
         {
+          // Note: see also append_libraries() for the other half.
+          //
           if (!*md.for_install)
-            fail << "target " << t << " already updated but not for install";
+            fail << "incompatible " << t << " build" <<
+              info << "target already built not for install";
         }
         else
           md.for_install = true;

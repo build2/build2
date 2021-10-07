@@ -1770,7 +1770,7 @@ namespace build2
                       sha256* cs, bool* update, timestamp mt,
                       const scope& bs, action a,
                       const file& l, bool la, lflags lf, linfo li,
-                      bool self, bool rel,
+                      optional<bool> for_install, bool self, bool rel,
                       library_cache* lib_cache) const
     {
       struct data
@@ -1787,12 +1787,13 @@ namespace build2
         const file&          l;
         action               a;
         linfo                li;
+        optional<bool>       for_install;
         bool                 rel;
         compile_target_types tts;
       } d {ls, args,
            cs, cs != nullptr ? &bs.root_scope ()->out_path () : nullptr,
            update, mt,
-           l, a, li, rel, compile_types (li.type)};
+           l, a, li, for_install, rel, compile_types (li.type)};
 
       auto imp = [] (const target&, bool la)
       {
@@ -1803,6 +1804,7 @@ namespace build2
         const target* const* lc,
         const small_vector<reference_wrapper<const string>, 2>& ns,
         lflags f,
+        const string* type, // cc.type
         bool)
       {
         // Note: see also make_header_sidebuild().
@@ -1876,6 +1878,22 @@ namespace build2
             for (ptrdiff_t i (-1); lc[i] != nullptr; --i)
               if (!lc[i]->is_a<libux> ())
                 goto done;
+          }
+          // If requested, verify the target and the library are both for
+          // install or both not. We can only do this if the library is build
+          // by our link_rule.
+          //
+          else if (d.for_install && type != nullptr && *type != "cc")
+          {
+            auto& md (l->data<link_rule::match_data> ());
+            assert (md.for_install); // Must have been executed.
+
+            // The user will get the target name from the context info.
+            //
+            if (*md.for_install != *d.for_install)
+              fail << "incompatible " << *l << " build" <<
+                info << "library is built " << (*md.for_install ? "" : "not ")
+                     << "for install";
           }
 
           if (d.li.type == otype::a)
@@ -2096,6 +2114,7 @@ namespace build2
         const target* const* lc,
         const small_vector<reference_wrapper<const string>, 2>& ns,
         lflags,
+        const string*,
         bool sys)
       {
         const file* l (lc != nullptr ? &(*lc)->as<file> () : nullptr);
@@ -2937,7 +2956,8 @@ namespace build2
             {
               append_libraries (als, sargs,
                                 &cs, &update, mt,
-                                bs, a, *f, la, p.data, li, true, true, &lc);
+                                bs, a, *f, la, p.data, li,
+                                for_install, true, true, &lc);
               f = nullptr; // Timestamp checked by hash_libraries().
             }
             else
