@@ -115,7 +115,10 @@ namespace build2
       // ignores exe{} prerequisites assuming an exe{} listed for a file
       // target is there to execute (e.g., to generate that target) and
       // normally should not be installed (an exe{} would typically be
-      // installed via the dir{./} alias).
+      // installed via the dir{./} alias). But this can be overridden with a
+      // prerequisite-specific install=true, for example:
+      //
+      // exe{foo}: exe{bar}: install = true # foo runs bar
       //
       // The prerequisite is passed as an iterator allowing the filter to
       // "see" inside groups.

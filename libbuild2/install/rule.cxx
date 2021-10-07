@@ -289,7 +289,14 @@ namespace build2
             action, const target& t, const prerequisite& p) const
     {
       if (p.is_a<exe> ())
-        return nullptr;
+      {
+        // Feels like one day this should be unified with include (see
+        // context::var_include).
+        //
+        if (p.vars.empty () ||
+            cast_empty<path> (p.vars["install"]).string () != "true")
+          return nullptr;
+      }
 
       const target& pt (search (t, p));
       return is == nullptr || pt.in (*is) ? &pt : nullptr;

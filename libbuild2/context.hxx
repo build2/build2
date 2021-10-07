@@ -460,7 +460,7 @@ namespace build2
     // test) with a more natural-looking result. Note that currently we only
     // recognize the built-in clean variable (for other variables we will need
     // some kind of registration in an operation-to-variable map, probably in
-    // root scope).
+    // root scope). See also install::file_rule::filter().
     //
     // To query this value in rule implementations use the include() helpers
     // from <libbuild2/prerequisites.hxx>.
