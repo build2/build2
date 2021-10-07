@@ -133,6 +133,12 @@ namespace build2
       virtual recipe
       apply (action, target&) const override;
 
+      // Implementation of apply() that returns empty_recipe if the target is
+      // not installable.
+      //
+      recipe
+      apply_impl (action, target&) const;
+
       static target_state
       perform_update (action, const target&);
 

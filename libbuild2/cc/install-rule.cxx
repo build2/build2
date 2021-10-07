@@ -165,7 +165,10 @@ namespace build2
     recipe install_rule::
     apply (action a, target& t) const
     {
-      recipe r (file_rule::apply (a, t));
+      recipe r (file_rule::apply_impl (a, t));
+
+      if (r == nullptr)
+        return noop_recipe;
 
       if (a.operation () == update_id)
       {

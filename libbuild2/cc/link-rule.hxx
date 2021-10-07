@@ -278,22 +278,28 @@ namespace build2
         // have already been executed, then it was for install.
         //
         // This has an interesting implication: it means that this rule cannot
-        // be used to update targets during match. Specifically, we cannot be
-        // executed for group resolution purposes (not a problem) nor as part
-        // of the generated source update. The latter case can be a problem:
-        // imagine a code generator that itself may need to be updated before
-        // it can be used to re-generate some out-of-date source code. As an
-        // aside, note that even if we were somehow able to communicate the
-        // "for install" in this case, the result of such an update may not
-        // actually be "usable" (e.g., not runnable because of the missing
-        // rpaths). There is another prominent case where the result may not
-        // be usable: cross-compilation.
+        // be used to update targets to be installed during match (since we
+        // would notice that they are for install too late). Specifically, we
+        // cannot be executed for group resolution purposes (should not be a
+        // problem) nor as part of the generated source update. The latter
+        // case can be a problem: imagine a source code generator that itself
+        // may need to be updated before it can be used to re-generate some
+        // out-of-date source code (or, worse, both the generator and the
+        // target to be installed depend on the same library).
         //
-        // So the current (admittedly fuzzy) thinking is that a project shall
-        // not try to use its own build for update since it may not be usable
-        // (because of cross-compilations, being "for install", etc). Instead,
-        // it should rely on another, "usable" build of itself (this, BTW, is
-        // related to bpkg's build-time vs run-time dependencies).
+        // As an aside, note that even if we were somehow able to communicate
+        // the "for install" in this case, the result of such an update may
+        // not actually be "usable" (e.g., not runnable because of the missing
+        // rpaths). There is another prominent case where the result may not
+        // be usable: cross-compilation (in fact, if you think about it, "for
+        // install" is quite similar to cross-compilation: we are building for
+        // a foreign "environment" and thus cannot execute the results of the
+        // build).
+        //
+        // So the current thinking is that a project shall not try to use its
+        // own "for install" (or, naturally, cross-compilation) build for
+        // update since it may not be usable. Instead, it should rely on
+        // another, "usable" build.
         //
         optional<bool> for_install;
 

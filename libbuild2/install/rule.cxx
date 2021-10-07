@@ -298,6 +298,13 @@ namespace build2
     recipe file_rule::
     apply (action a, target& t) const
     {
+      recipe r (apply_impl (a, t));
+      return r != nullptr ? r : noop_recipe;
+    }
+
+    recipe file_rule::
+    apply_impl (action a, target& t) const
+    {
       tracer trace ("install::file_rule::apply");
 
       // Note that we are called both as the outer part during the update-for-
@@ -307,10 +314,10 @@ namespace build2
       // In both cases we first determine if the target is installable and
       // return noop if it's not. Otherwise, in the first case (update-for-
       // un/install) we delegate to the normal update and in the second
-      // (un/install) -- perform the test.
+      // (un/install) -- perform the install.
       //
       if (!lookup_install<path> (t, "install"))
-        return noop_recipe;
+        return empty_recipe;
 
       // In both cases, the next step is to search, match, and collect all the
       // installable prerequisites.
