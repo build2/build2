@@ -65,7 +65,7 @@ namespace build2
       //
       using internal_scope = data::internal_scope;
       optional<internal_scope> iscope;
-      const scope*             iscope_current;
+      const scope*             iscope_current = nullptr;
 
       // Temporary storage for data::sys_*_dirs_*.
       //
