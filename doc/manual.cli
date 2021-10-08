@@ -6810,13 +6810,16 @@ specified).
 
 \N|While the aim of this functionality is to control warnings in external
 libraries, the underlying mechanisms currently provided by compilers have
-undesirable side effects. In particular, \c{-isystem} paths are searched after
-\c{-I} so translating \c{-I} to \c{-isystem} alters the search order. This
-should normally be harmless when using a development build of a library but
-may result in a change of semantics for installed libraries. Also, marking the
-search path as system has additional (to warning suppression) effects, see
+limitations and undesirable side effects. In particular, \c{-isystem} paths
+are searched after \c{-I} so translating \c{-I} to \c{-isystem} alters the
+search order. This should normally be harmless when using a development build
+of a library but may result in a change of semantics for installed
+libraries. Also, marking the search path as system has additional (to warning
+suppression) effects, see
 \l{https://gcc.gnu.org/onlinedocs/cpp/System-Headers.html System Headers} in
-the GCC documentation for details.
+the GCC documentation for details. On the MSVC side, \c{/external:W0}
+currently does not suppress some warnings (refer to the MSVC documentation for
+details).
 
 Another issue is warnings in template instantiations. Each such warning could
 be either due to a (potential) issue in the template itself or due to the
@@ -6881,6 +6884,15 @@ priority list:
 
 In particular, item #3 allows an amalgamation that bundles a project to
 override its internal scope.
+
+\N|If no \c{*.internal.scope} is specified by the project, user, or bundle,
+then this functionality is disabled and all libraries are treated as internal
+regardless of their location.
+
+While it may seem natural to have this enabled by default, the limitations and
+side effects of the underlying mechanisms as well as cases where it would be
+undesirable (such as in separate \c{*-tests} projects, see below) all suggest
+that explicit opt-in is probably the correct choice.|
 
 The recommended value for a typical project is \c{current}, meaning that only
 headers inside the project will be considered internal. The \c{tests}
