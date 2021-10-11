@@ -1,6 +1,317 @@
 Version 0.14.0
 
-  * Allow unseparated scope-qualified variable assignment and expansion.
+  * Support for hermetic build configurations.
+
+    Hermetic build configurations save environment variables that affect the
+    project along with other project configuration in the config.build file.
+    These saved environment variables are then used instead of the current
+    environment when performing operations on the project, thus making sure
+    the project "sees" exactly the same environment as during configuration.
+    The built-in ~host and ~build2 configurations are now hermetic.
+
+    Hermetic configuration support is built on top of the lower-level
+    config.config.environment configuration variable which allows us to save a
+    custom set of environment variables/values.
+
+    As part of this work we now also track changes to the environment in non-
+    hermetic configurations and automatically rebuild affected targets.
+
+    See "Hermetic Build Configurations" in the manual for details.
+
+  * Support for ad hoc regex pattern rules.
+
+    An ad hoc pattern rule consists of a pattern that mimics a dependency
+    declaration followed by one or more recipes. For example:
+
+    exe{~'/(.*)/'}: cxx{~'/\1/'}
+    {{
+      $cxx.path -o $path($>) $path($<[0])
+    }}
+
+    If a pattern matches a dependency declaration of a target, then the recipe
+    is used to perform the corresponding operation on this target. For
+    example, the following dependency declaration matches the above pattern
+    which means the rule's recipe will be used to update this target:
+
+    exe{hello}: cxx{hello}
+
+    While the following declarations do not match the above pattern:
+
+    exe{hello}:   c{hello}  # Type mismatch.
+    exe{hello}: cxx{howdy}  # Name mismatch.
+
+    On the left hand side of `:` in the pattern we can have a single target or
+    an ad hoc target group. The single target or the first (primary) ad hoc
+    group member must be a regex pattern (~). The rest of the ad hoc group
+    members can be patterns or substitutions (^). For example:
+
+    <exe{~'/(.*)/'} file{^'/\1.map/'}>: cxx{~'/\1/'}
+    {{
+      $cxx.path -o $path($>[0]) "-Wl,-Map=$path($>[1])" $path($<[0])
+    }}
+
+    On the right hand side of `:` in the pattern we have prerequisites which
+    can be patterns, substitutions, or non-patterns. For example:
+
+    <exe{~'/(.*)/'} file{^'/\1.map/'}>: cxx{~'/\1/'} hxx{^'/\1/'} hxx{common}
+    {{
+      $cxx.path -o $path($>[0]) "-Wl,-Map=$path($>[1])" $path($<[0])
+    }}
+
+    Substitutions on the left hand side of `:` and substitutions and non-
+    patterns on the right hand side are added to the dependency declaration.
+    For example, given the above rule and dependency declaration, the
+    effective dependency is going to be:
+
+    <exe{hello} file{hello.map>: cxx{hello} hxx{hello} hxx{common}
+
+    Similar to ad hoc recipes, ad hoc rules can be written in Buildscript or
+    C++.
+
+  * Support for regex patterns in target type/pattern-specific variables.
+
+    This is in addition to the already supported path patterns. For example:
+
+    hxx{*}:     x = y  # path pattern
+    hxx{~/.*/}: x = y  # regex pattern
+
+  * New pre-defined semantics for the config.<project>.develop variable.
+
+    This variable allows a project to distinguish between development and
+    consumption builds. While normally there is no distinction, sometimes a
+    project may need to provide additional functionality during development.
+    For example, a source code generator which uses its own generated code in
+    its implementation may need to provide a bootstrap step from the pre-
+    generated code. Normally, such a step is only needed during development.
+
+    If used, this variable should be explicitly defined by the project with
+    the bool type and the false default value. For example:
+
+    config [bool] config.hello.develop ?= false
+
+    See "Project Configuration" in the manual for details.
+
+  * Support for warning suppression from external C/C++ libraries.
+
+    This is implemented by defining a notion of a project's internal scope and
+    automatically translating header search path options (-I) exported by
+    libraries that are outside of the internal scope to appropriate "external
+    header search path" options (-isystem for GCC/Clang, /external:I for MSVC
+    16.10 and later). In the future this functionality will be extended to
+    side-building BMIs for external module interfaces and header units.
+
+    Note that this functionality is not without limitations and drawbacks and,
+    if needed, should be enabled explicitly. See the "C++ Compilation Internal
+    Scope" section in the manual for details.
+
+  * C++20 modules support in GCC 11 using the module mapper.
+
+    This support covers all the major C++20 modules features including named
+    modules, module partitions (both interface and implementation), header
+    unit importation, and include translation. All of these features are also
+    supported in libraries, including consumption of installed libraries with
+    information about modules and importable headers conveyed in pkg-config
+    files. Module interface-only libraries are also supported.
+
+    Note that one area that is not yet well supported (due to module mapper
+    limitations) is auto-generated headers. Also note that as of version 11,
+    support for modules in GCC is still experimental and incomplete.
+
+  * Support for automatic DLL symbol exporting.
+
+    The bin.def module (automatically loaded by the c and cxx modules for the
+    *-win32-msvc targets) provides a rule for generating symbol-exporting .def
+    files. This allows automatically exporting all symbols for all the Windows
+    targets/compilers using the following setup (showing for cxx in this
+    example):
+
+    lib{foo}: libul{foo}: {hxx cxx}{**} ...
+
+    lib{foo}: def{foo}: include = ($cxx.target.system == 'win32-msvc')
+    def{foo}: libul{foo}
+
+    if ($cxx.target.system == 'mingw32')
+      cxx.loptions += -Wl,--export-all-symbols
+
+    That is, we use the .def file generation for MSVC (including when building
+    with Clang) and the built-in support (--export-all-symbols) for MinGW.
+
+    Note that it is also possible to use the .def file generation for MinGW.
+    In this case we need to explicitly load the bin.def module (which should
+    be done after loading c or cxx) and can use the following setup:
+
+    using bin.def  # In root.build after loading c/cxx.
+
+    lib{foo}: libul{foo}: {hxx cxx}{**} ...
+
+    lib{foo}: def{foo}: include = ($cxx.target.class == 'windows')
+    def{foo}: libul{foo}
+
+  * Initial Emscripten compiler support.
+
+    - Target: wasm32-emscripten (wasm32-unknown-emscripten).
+
+    - Compiler id: clang-emscripten (type clang, variant emscripten, class
+      gcc).
+
+    - Ability to build executables (.js plus .wasm) and static libraries (.a).
+      Set executable bit on the .js file (so it can be executed with a
+      suitable binfmt interpreter). Track the additional .worker.js file if
+      -pthread is specified.
+
+    - Default config.bin.lib for wasm32-emscripten is static instead of both.
+
+    - Full C++ exception support is enabled by default unless disabled
+      explicitly by the user with -s DISABLE_EXCEPTION_CATCHING=1|2.
+
+    - The bin module registers the wasm{} target type for wasm32-emscripten.
+
+  * New string functions: $string.trim(), $string.lcase(), $string.ucase().
+
+  * Support for test runners (config.test.runner).
+    Support for test timeouts (config.test.timeout).
+
+    See "test Module" in the manual for details.
+
+  * New <version> install directory substitution in addition to <project>.
+    New config.install.etc variable with the data_root/etc/ default.
+
+    See the "install Module" chapter in the manual for details.
+
+  * Support for fallback substitution in the in module (in.null variable).
+
+    See "in Module" in the manual for details.
+
+  * New export pseudo-builtin that allows adding/removing variables to/from
+    the current scope's commands execution environment.
+
+    See the Testscript manual for details.
+
+  * New ad hoc recipe depdb preamble.
+
+    The Buildscript language now provides a new pseudo-builtin, depdb, that
+    allows tracking of custom auxiliary dependency information. Invocations of
+    this builtin should come before any recipe commands and are collectively
+    called the depdb preamble. Non-pure functions can now only be called as
+    part of this preamble. For example:
+
+    file{output}: file{input} $foo
+    {{
+      diag foo $>
+      depdb env FOO                 # foo uses the FOO environment variable
+      $foo $path($<[0]) >$path($>)
+    }}
+
+  * New ${c,cxx}.deduplicate_export_libs() functions.
+
+    These functions deduplicate interface library dependencies by removing
+    libraries that are also interface dependencies of other libraries on the
+    specified list. This can lead to a significantly better build performance
+    for heavily interface-interdependent library families (for example, like
+    Boost). Typical usage:
+
+    import intf_libs = ...
+    import intf_libs += ...
+    ...
+    import intf_libs += ...
+    intf_libs = $cxx.deduplicate_export_libs($intf_libs)
+
+  * New ${c,cxx}.find_system_{header,library}() functions.
+
+    These functions can be used to detect the presence of a header/library in
+    one of the system header/library search directories.
+
+  * New ${c,cxx}.lib_{poptions,libs,rpaths}() and $cxx.obj_modules() functions.
+
+    These functions can be used to query library metadata for options and
+    libraries that should be used when compiling/linking dependent targets,
+    similar to how cc::{compile,link}_rule do it. With this support it should
+    be possible to more or less re-create their semantics in ad hoc recipes.
+
+  * Support for suppressing duplicates when extracting library options and
+    linking libraries in cc::{compile,link}_rule.
+
+  * Support for LTO parallelization during linking in GCC and Clang.
+
+    GCC >= 10 and Clang >= 4 support controlling the number of LTO threads
+    used during linking. The cc::link_rule now uses the build system scheduler
+    to automatically allocate up to the number of available threads to the GCC
+    or Clang linker processes when -flto=auto or -flto=thin is specified,
+    respectively.
+
+  * /Zc:__cplusplus is now passed by default starting from MSVC 15.7.
+
+    This can be overridden by passing a variant of this option as part of the
+    compiler mode options.
+
+  * Support for disabling clean through target-prerequisite relationships.
+
+    The current semantics is to clean any prerequisites that are in the same
+    project (root scope) as the target and it may seem more natural to rather
+    only clean prerequisites that are in the same base scope. While it's often
+    true for simple projects, in more complex cases it's not unusual to have
+    common intermediate build results (object files, utility libraries, etc)
+    residing in the parent and/or sibling directories. With such arrangements,
+    cleaning only in base may leave such intermediate build results laying
+    around since there is no reason to list them as prerequisites of any
+    directory aliases.
+
+    So we clean in the root scope by default but now any target-prerequisite
+    relationship can be marked not to trigger a clean with the clean=false
+    prerequisite-specific value. For example:
+
+    man1{cli}: exe{cli}: clean = false # Don't clean the man generation tool.
+
+  * exe{} targets are no longer installed through target-prerequisite
+    relationships of file-based targets.
+
+    Normally, an exe{} that is listed as a prerequisite of a file-based target
+    is there to be executed (for example, to generate that target) and not to
+    trigger its installation (such an exe{} would typically be installed via
+    the ./ alias). This default behavior, however, can be overridden with the
+    install=true prerequisite-specific value. For example:
+
+    exe{foo}: exe{bar}: install = true  # foo runs bar
+
+  * Consistently install prerequisites from any scope by default.
+
+    It is also now possible to adjust this behavior with the global
+    !config.install.scope override. Valid values for this variable are:
+
+    project -- only from project
+    bundle  -- from bundle amalgamation
+    strong  -- from strong amalgamation
+    weak    -- from weak amalgamation
+    global  -- from all projects (default)
+
+  * Variable names/components that start with underscore as well as variables
+    in the build, import, and export namespaces are now reserved by the build
+    system core. For example:
+
+    _x = 1       # error
+    x._y = 1     # error
+    build.x = 1  # error
+
+  * New int64 (signed 64-bit integer) and int64s (vector of such integers)
+    variable types.
+
+  * Default options files can now contain global variable overrides.
+
+  * Support for multiple -e options (scripts) in the sed builtin.
+
+  * The bin.lib.version variable no longer needs to include leading `@` for
+    platform-independent versions.
+
+  * The actualize mode of $path.normalize() is now provided by a separate
+    $path.actualize() function.
+
+  * New --options-file build system driver option that allows specifying
+    additional options in a file.
+
+  * New notion of bundle amalgamation which is defined as the outermost named
+    strong (source-based) amalgamation.
+
+  * Support for unseparated scope-qualified variable assignment and expansion.
 
     For example, now the following:
 
@@ -15,6 +326,31 @@ Version 0.14.0
     While this makes scope-qualified syntax consistent with target-qualified,
     it also means that variable names that contain directory separators are
     now effectively reserved.
+
+  * New bootstrap distribution mode (!config.dist.bootstrap=true).
+
+    In this mode the dist meta-operation does not load the project (but does
+    bootstrap it) and adds all the source files into the distribution only
+    ignoring files and directories that start with a dot. This mode is
+    primarily meant for situations where the project cannot (yet) be loaded
+    due to missing dependencies.
+
+  * Support for external build system modules that require bootstrap (that is,
+    loaded in bootstrap.build). See also the new --no-external-modules option.
+
+  * New file cache for intermediate build results.
+
+    The file cache is used to store intermediate build results, for example,
+    partially-preprocessed C/C++ translation units (those .i/.ii files). The
+    cache implementation to use is controlled by the new --file-cache option.
+    Its valid values are noop (no caching or compression) and sync-lz4 (no
+    caching with synchronous LZ4 on-disk compression; this is the default).
+
+  * New BUILD2_DEF_OPT environment variable that can be used to suppress
+    loading of default options files.
+
+  * New BUILD2_DEF_OVR environment variable that can be used to propagate
+    global variable overrides to nested build system invocations.
 
 Version 0.13.0
 
@@ -203,7 +539,7 @@ Version 0.13.0
 
     $ b config.install.private=foo install
 
-    See the "Install Module" chapter in the manual for details.
+    See the "install Module" chapter in the manual for details.
 
   * New $regex.find_{match,search}() functions that operate on lists.
 
