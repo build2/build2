@@ -2440,7 +2440,9 @@ namespace build2
         //
         // Specifically, we now look in the libc++'s __config file for the
         // _LIBCPP_VERSION and use the previous version as a conservative
-        // estimate.
+        // estimate (note that there could be multiple __config files with
+        // potentially different versions so compile with -v to see which one
+        // gets picked up).
         //
         // Note that this is Apple Clang version and not XCode version.
         //
@@ -2460,12 +2462,13 @@ namespace build2
         // 11.0.3 -> 8.0  (yes, seriously!)
         // 12.0.0 -> 9.0
         // 12.0.5 -> 10.0 (yes, seriously!)
+        // 13.0.0 -> 11.0
         //
         uint64_t mj (var_ver->major);
         uint64_t mi (var_ver->minor);
         uint64_t pa (var_ver->patch);
 
-        if      (mj > 12)                         {mj = 10; mi = 0;}
+        if      (mj >= 13)                        {mj = 11; mi = 0;}
         else if (mj == 12 && (mi > 0 || pa >= 5)) {mj = 10; mi = 0;}
         else if (mj == 12)                        {mj = 9;  mi = 0;}
         else if (mj == 11 && (mi > 0 || pa >= 3)) {mj = 8;  mi = 0;}
