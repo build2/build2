@@ -2789,9 +2789,9 @@ libs{hello}: cxx.export.poptions += -DLIBHELLO_SHARED
 # the version module for details on the version.* variable values.
 #
 if $version.pre_release
-  lib{hello}: bin.lib.version = @\"-$version.project_id\"
+  lib{hello}: bin.lib.version = \"-$version.project_id\"
 else
-  lib{hello}: bin.lib.version = @\"-$version.major.$version.minor\"
+  lib{hello}: bin.lib.version = \"-$version.major.$version.minor\"
 
 # Install into the libhello/ subdirectory of, say, /usr/include/
 # recreating subdirectories.
@@ -2989,9 +2989,9 @@ fragment:
 
 \
 if $version.pre_release
-  lib{hello}: bin.lib.version = @\"-$version.project_id\"
+  lib{hello}: bin.lib.version = \"-$version.project_id\"
 else
-  lib{hello}: bin.lib.version = @\"-$version.major.$version.minor\"
+  lib{hello}: bin.lib.version = \"-$version.major.$version.minor\"
 \
 
 Shared library versioning is a murky, platform-specific area. Instead of
@@ -3003,12 +3003,12 @@ platform-specific versions in a native format.
 The library version is specified with the \c{bin.lib.version} target-specific
 variable. Its value should be a sequence of \c{@}-pairs with the left hand
 side (key) being the platform name and the right hand side (value) being the
-version. An empty key signifies the platform-independent version (see the
-\l{#module-bin \c{bin}} module documentation for the exact semantics). For
-example:
+version. An empty key (in which case \c{@} can be omitted) signifies the
+platform-independent version (see the \l{#module-bin \c{bin}} module
+documentation for the exact semantics). For example:
 
 \
-lib{hello}: bin.lib.version = @-1.2 linux@3
+lib{hello}: bin.lib.version = -1.2 linux@3
 \
 
 \N{While the interface for platform-specific versions is defined, their
@@ -3030,9 +3030,9 @@ With this background we can now explain what's going in our \c{buildfile}:
 
 \
 if $version.pre_release
-  lib{hello}: bin.lib.version = @\"-$version.project_id\"
+  lib{hello}: bin.lib.version = \"-$version.project_id\"
 else
-  lib{hello}: bin.lib.version = @\"-$version.major.$version.minor\"
+  lib{hello}: bin.lib.version = \"-$version.major.$version.minor\"
 \
 
 Here we only use platform-independent library versioning. For releases we
