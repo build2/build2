@@ -6167,7 +6167,7 @@ A project that uses standard versioning can rely on the \c{build2} \c{version}
 module to simplify and automate version managements. The \c{version} module
 has two primary functions: eliminate the need to change the version anywhere
 except in the project's manifest file and automatically extract and propagate
-the snapshot information (serial number and id).
+the snapshot information (sequence number and id).
 
 The \c{version} module must be loaded in the project's \c{bootstrap.build}.
 While being loaded, it reads the project's manifest and extracts its version
@@ -6204,7 +6204,7 @@ as the following build system variables (which can be used in the buildfiles):
 [uint64] version.revision            # 3
 \
 
-As a convenience, the \c{version} module also extract the \c{summary} and
+As a convenience, the \c{version} module also extracts the \c{summary} and
 \c{url} manifest values and sets them as the following build system variables
 (this additional information is used, for example, when generating the
 \c{pkg-config} files):
@@ -6262,7 +6262,7 @@ actual snapshot number and id, just like during the preparation of
 distributions.
 
 The version header rule is based on the \l{#module-in \c{in}} module rule and
-can be used to preprocesses a template file with version information. While it
+can be used to preprocess a template file with version information. While it
 is usually used to generate C/C++ version headers (thus the name), it can
 really generate any kind of files.
 
@@ -6722,7 +6722,7 @@ config.c.internal.scope
 \h#c-internal-scope|C Compilation Internal Scope|
 
 The \c{c} module has a notion of a project's internal scope. During
-compilation of project's C translation units a header search path (\c{-I})
+compilation of a project's C translation units a header search path (\c{-I})
 exported by a library that is outside of the internal scope is considered
 external and, if supported by the compiler, the corresponding \c{-I} option is
 translated to an appropriate \"external header search path\" option. See
@@ -6799,7 +6799,7 @@ config.cxx.translate_include
 \h#cxx-internal-scope|C++ Compilation Internal Scope|
 
 The \c{cxx} module has a notion of a project's internal scope. During
-compilation of project's C++ translation units a header search path (\c{-I})
+compilation of a project's C++ translation units a header search path (\c{-I})
 exported by a library that is outside of the internal scope is considered
 external and, if supported by the compiler, the corresponding \c{-I} option is
 translated to an appropriate \"external header search path\" option
@@ -6917,7 +6917,7 @@ using cxx
 \
 
 Note that this variable should also be set before loading the \c{cxx} module
-and there is the \c{common cc.internal.libs} equivalent. However, there are
+and there is the common \c{cc.internal.libs} equivalent. However, there are
 no \c{config.*} versions nor the override by the bundle amalgamation
 semantics.
 
