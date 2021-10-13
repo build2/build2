@@ -2437,11 +2437,12 @@ with a newline.
 \h#builtins-env|\c{env}|
 
 \
-env [-t <sec>] [-u <name>]... [-] [<name>=<value>]... -- <cmd>
+env [-t <sec>] [-c <dir>] [-u <name>]... [-] [<name>=<value>]... -- \
+    <cmd>
 \
 
-Run a command limiting its execution time and/or adding/removing the variables
-to/from the environment.
+Run a command limiting its execution time, changing its working directory,
+and/or adding/removing the variables to/from the environment.
 
 Note that \c{env} is a \i{pseudo-builtin}. In particular, its name and the
 \c{--} separator must be specified \i{literally} on the command line.
@@ -2462,6 +2463,10 @@ env - --unset=FOO -- $*
 
   Terminate the command if it fails to complete within the specified number
   of seconds. See also the \l{#builtins-timeout \c{timeout}} builtin.|
+
+\li|\n\c{-c|--cwd <dir>}
+
+  Change the command's working directory.|
 
 \li|\n\c{-u|--unset <name>}
 

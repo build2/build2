@@ -17,6 +17,7 @@
 #include <exception>
 
 #include <libbutl/path.hxx>
+#include <libbutl/path-io.hxx>
 #include <libbutl/optional.hxx>
 #include <libbutl/fdstream.hxx>
 #include <libbutl/filesystem.hxx>
@@ -45,8 +46,8 @@ main (int argc, char* argv[])
   // Usage: driver [-i <int>] (-o <string>)* (-e <string>)* (-f <file>)*
   //        (-d <dir>)* (-v <name>)* [(-t (a|m|s|z)) | (-s <int>)]
   //
-  // Execute actions specified by -i, -o, -e, -f, -d, -v, and -l options in
-  // the order as they appear on the command line. After that terminate
+  // Execute actions specified by -i, -o, -e, -f, -d, -w, -v, and -l options
+  // in the order as they appear on the command line. After that terminate
   // abnormally if -t option is provided, otherwise exit normally with the
   // status specified by -s option (0 by default).
   //
@@ -66,6 +67,9 @@ main (int argc, char* argv[])
   // -d <path>
   //    Create a directory with the path specified. Create parent directories
   //    if required.
+  //
+  // -w
+  //    Print CWD to stdout.
   //
   // -v <name>
   //    If the specified variable is set then print its value to stdout and
@@ -95,10 +99,7 @@ main (int argc, char* argv[])
 
   for (int i (1); i < argc; ++i)
   {
-    string o (argv[i++]);
-    assert (i < argc);
-
-    string v (argv[i]);
+    string o (argv[i]);
 
     auto toi = [] (const string& s) -> int
     {
@@ -118,69 +119,80 @@ main (int argc, char* argv[])
       return r;
     };
 
-    if (o == "-i")
+    if (o == "-w")
     {
-      assert (ifd == 3); // Make sure is not set yet.
+      cout << dir_path::current_directory () << endl;
+    }
+    else // Handle options other than flags.
+    {
+      ++i;
+      assert (i < argc);
+      string v (argv[i]);
 
-      ifd = toi (v);
-      assert (ifd >= 0 && ifd < 3);
-
-      if (ifd == 0)
-        cin.ignore (numeric_limits<streamsize>::max ());
-      else if (cin.peek () != istream::traits_type::eof ())
+      if (o == "-i")
       {
-        ostream& o (ifd == 1 ? cout : cerr);
-        o << cin.rdbuf ();
-        o.flush ();
-      }
-    }
-    else if (o == "-o")
-    {
-      cout << v << endl;
-    }
-    else if (o == "-e")
-    {
-      cerr << v << endl;
-    }
-    else if (o == "-f")
-    {
-      ofdstream os (v);
-      os.close ();
-    }
-    else if (o == "-d")
-    {
-      try_mkdir_p (dir_path (v));
-    }
-    else if (o == "-v")
-    {
-      optional<string> var (getenv (v));
-      cout << (var ? *var : "<none>") << endl;
-    }
-    else if (o == "-l")
-    {
-      size_t t (toi (v));
+        assert (ifd == 3); // Make sure is not set yet.
 
-       // MinGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
-       //
+        ifd = toi (v);
+        assert (ifd >= 0 && ifd < 3);
+
+        if (ifd == 0)
+          cin.ignore (numeric_limits<streamsize>::max ());
+        else if (cin.peek () != istream::traits_type::eof ())
+        {
+          ostream& o (ifd == 1 ? cout : cerr);
+          o << cin.rdbuf ();
+          o.flush ();
+        }
+      }
+      else if (o == "-o")
+      {
+        cout << v << endl;
+      }
+      else if (o == "-e")
+      {
+        cerr << v << endl;
+      }
+      else if (o == "-f")
+      {
+        ofdstream os (v);
+        os.close ();
+      }
+      else if (o == "-d")
+      {
+        try_mkdir_p (dir_path (v));
+      }
+      else if (o == "-v")
+      {
+        optional<string> var (getenv (v));
+        cout << (var ? *var : "<none>") << endl;
+      }
+      else if (o == "-l")
+      {
+        size_t t (toi (v));
+
+        // MinGW GCC 4.9 doesn't implement this_thread so use Win32 Sleep().
+        //
 #ifndef _WIN32
-      this_thread::sleep_for (chrono::seconds (t));
+        this_thread::sleep_for (chrono::seconds (t));
 #else
-      Sleep (static_cast<DWORD> (t * 1000));
+        Sleep (static_cast<DWORD> (t * 1000));
 #endif
+      }
+      else if (o == "-t")
+      {
+        assert (aterm == '\0' && !status); // Make sure exit method is not set.
+        assert (v.size () == 1 && v.find_first_of ("amsz") != string::npos);
+        aterm = v[0];
+      }
+      else if (o == "-s")
+      {
+        assert (!status && aterm == '\0'); // Make sure exit method is not set.
+        status = toi (v);
+      }
+      else
+        assert (false);
     }
-    else if (o == "-t")
-    {
-      assert (aterm == '\0' && !status); // Make sure exit method is not set.
-      assert (v.size () == 1 && v.find_first_of ("amsz") != string::npos);
-      aterm = v[0];
-    }
-    else if (o == "-s")
-    {
-      assert (!status && aterm == '\0'); // Make sure exit method is not set.
-      status = toi (v);
-    }
-    else
-      assert (false);
   }
 
   switch (aterm)

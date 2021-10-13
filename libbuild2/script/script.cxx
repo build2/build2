@@ -411,7 +411,7 @@ namespace build2
       {
         // Print the env builtin if any of its options/arguments are present.
         //
-        if (!c.variables.empty () || c.timeout)
+        if (c.timeout || c.cwd || !c.variables.empty ())
         {
           o << "env";
 
@@ -420,6 +420,14 @@ namespace build2
           if (c.timeout)
             o << " -t "
               << chrono::duration_cast<chrono::seconds> (*c.timeout).count ();
+
+          // CWD.
+          //
+          if (c.cwd)
+          {
+            o << " -c ";
+            print_path (*c.cwd);
+          }
 
           // Variable unsets/sets.
           //

@@ -1028,8 +1028,9 @@ namespace build2
             if (prog && tt == type::word && t.value == "env")
             {
               parsed_env r (parse_env_builtin (t, tt));
+              c.cwd       = move (r.cwd);
               c.variables = move (r.variables);
-              c.timeout = r.timeout;
+              c.timeout   = r.timeout;
               env = true;
             }
 
@@ -1411,10 +1412,16 @@ namespace build2
           return r;
         };
 
+        auto bad = [&i, &o, this] (const string& v)
+        {
+          fail (i->second) << "env: invalid value '" << v << "' for option '"
+                           << o << "'";
+        };
+
         // As above but convert the option value to a number and fail on
         // error.
         //
-        auto num = [&i, &o, &str, this] (const char* ln, const char* sn)
+        auto num = [&str, &bad] (const char* ln, const char* sn)
         {
           optional<uint64_t> r;
           if (optional<string> s = str (ln, sn))
@@ -1422,8 +1429,29 @@ namespace build2
             r = parse_number (*s);
 
             if (!r)
-              fail (i->second) << "env: invalid value '" << *s
-                               << "' for option '" << o << "'";
+              bad (*s);
+          }
+
+          return r;
+        };
+
+        // As above but convert the option value to a directory path and fail
+        // on error.
+        //
+        auto dir = [&str, &bad] (const char* ln, const char* sn)
+        {
+          optional<dir_path> r;
+          if (optional<string> s = str (ln, sn))
+          try
+          {
+            // Note that we don't need to check that the path is not empty,
+            // since str() fails for empty values.
+            //
+            r = dir_path (move (*s));
+          }
+          catch (const invalid_path& e)
+          {
+            bad (e.path);
           }
 
           return r;
@@ -1434,6 +1462,10 @@ namespace build2
         if (optional<uint64_t> v = num ("--timeout", "-t"))
         {
           r.timeout = chrono::seconds (*v);
+        }
+        else if (optional<dir_path> v = dir ("--cwd", "-c"))
+        {
+          r.cwd = move (*v);
         }
         else if (optional<string> v = str ("--unset", "-u"))
         {

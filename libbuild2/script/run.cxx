@@ -1227,6 +1227,8 @@ namespace build2
       //
       const command& c (*bc);
 
+      const dir_path& wdir (*env.work_dir.path);
+
       // Register the command explicit cleanups. Verify that the path being
       // cleaned up is a sub-path of the script working directory. Fail if
       // this is not the case.
@@ -1234,7 +1236,7 @@ namespace build2
       for (const auto& cl: c.cleanups)
       {
         const path& p (cl.path);
-        path np (normalize (p, *env.work_dir.path, ll));
+        path np (normalize (p, wdir, ll));
 
         const string& ls (np.leaf ().string ());
         bool wc (ls == "*" || ls == "**" || ls == "***");
@@ -1319,6 +1321,10 @@ namespace build2
 
         if (!first || !last)
           fail (ll) << program << " builtin must be the only pipe command";
+
+        if (c.cwd)
+          fail (ll) << "current working directory cannot be specified for "
+                    << program << " builtin";
 
         if (!c.variables.empty ())
           fail (ll) << "environment variables cannot be (un)set for "
@@ -1455,7 +1461,7 @@ namespace build2
           }
         case redirect_type::file:
           {
-            isp = normalize (in.file.path, *env.work_dir.path, ll);
+            isp = normalize (in.file.path, wdir, ll);
 
             open_stdin ();
             break;
@@ -1549,9 +1555,9 @@ namespace build2
       // or null-device descriptor for merge, pass or null redirects
       // respectively (not opening any file).
       //
-      auto open = [&env, &ll, &std_path] (const redirect& r,
-                                          int dfd,
-                                          path& p) -> auto_fd
+      auto open = [&env, &wdir, &ll, &std_path] (const redirect& r,
+                                                 int dfd,
+                                                 path& p) -> auto_fd
       {
         assert (dfd == 1 || dfd == 2);
         const char* what (dfd == 1 ? "stdout" : "stderr");
@@ -1592,7 +1598,7 @@ namespace build2
             //
             p = r.file.mode == redirect_fmode::compare
               ? std_path (what)
-              : normalize (r.file.path, *env.work_dir.path, ll);
+              : normalize (r.file.path, wdir, ll);
 
             m |= r.file.mode == redirect_fmode::append
               ? fdopen_mode::at_end
@@ -1809,6 +1815,28 @@ namespace build2
           }
         }
       };
+
+      // Derive the process/builtin CWD.
+      //
+      // If the process/builtin CWD is specified via the env pseudo-builtin,
+      // then use that, completing it relative to the script environment work
+      // directory, if it is relative. Otherwise, use the script environment
+      // work directory.
+      //
+      dir_path completed_cwd;
+      if (c.cwd && c.cwd->relative ())
+        completed_cwd = wdir / *c.cwd;
+
+      const dir_path& cwd (!completed_cwd.empty () ? completed_cwd :
+                           c.cwd                   ? *c.cwd        :
+                                                     wdir);
+
+      // Unless CWD is the script environment work directory (which always
+      // exists), verify that it exists and fail if it doesn't.
+      //
+      if (&cwd != &wdir && !exists (cwd))
+        fail (ll) << "specified working directory " << cwd
+                  << " does not exist";
 
       // Absent if the process/builtin misses the "unsuccessful" deadline.
       //
@@ -2069,7 +2097,7 @@ namespace build2
           builtin b (bi->function (r,
                                    c.arguments,
                                    move (ifd), move (ofd.out), move (efd),
-                                   *env.work_dir.path,
+                                   cwd,
                                    bcs));
 
           pipe_command pc (b, c, ll, prev_cmd);
@@ -2159,7 +2187,7 @@ namespace build2
                 program (path (s, 1, s.size () - 1));
             }
             else
-              program (*env.work_dir.path / p);
+              program (wdir / p);
           }
         }
         catch (const invalid_path& e)
@@ -2189,7 +2217,7 @@ namespace build2
             *pe.path,
             args.data (),
             {ifd.get (), -1}, process::pipe (ofd), {-1, efd.get ()},
-            env.work_dir.path->string ().c_str (),
+            cwd.string ().c_str (),
             pe.vars);
 
           // Can't throw.
