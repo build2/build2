@@ -12,11 +12,15 @@ namespace build2
 {
   // Convert name to target'ish name (see below for the 'ish part). Return
   // raw/unprocessed data in case this is an unknown target type (or called
-  // out of scope). See scope::find_target_type() for details.
+  // out of scope). See scope::find_target_type() for details. Allow out-
+  // qualified names (out is discarded).
   //
   static pair<name, optional<string>>
-  to_target_name (const scope* s, name&& n)
+  to_target_name (const scope* s, name&& n, const name& o = name ())
   {
+    if (n.pair && !o.directory ())
+      fail << "name pair in names";
+
     optional<string> e;
 
     if (s != nullptr)
@@ -67,12 +71,11 @@ namespace build2
     {
       small_vector<string, 1> r;
 
-      for (name& n: ns)
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
-        if (n.pair)
-          fail << "name pair in names";
-
-        r.push_back (to_target_name (s, move (n)).first.value);
+        name& n (*i);
+        r.push_back (
+          to_target_name (s, move (n), n.pair ? *++i : name ()).first.value);
       }
 
       if (r.size () == 1)
@@ -93,7 +96,15 @@ namespace build2
     {
       // Note: can't do multiple due to NULL semantics.
       //
-      return to_target_name (s, convert<name> (move (ns))).second;
+      auto i (ns.begin ());
+
+      name& n (*i);
+      const name& o (n.pair ? *++i : name ());
+
+      if (++i != ns.end ())
+        fail << "invalid name value: multiple names"; // Like in convert().
+
+      return to_target_name (s, move (n), o).second;
     };
 
     fn["directory"] += [](const scope* s, name n)
@@ -104,12 +115,11 @@ namespace build2
     {
       small_vector<dir_path, 1> r;
 
-      for (name& n: ns)
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
-        if (n.pair)
-          fail << "name pair in names";
-
-        r.push_back (to_target_name (s, move (n)).first.dir);
+        name& n (*i);
+        r.push_back (
+          to_target_name (s, move (n), n.pair ? *++i : name ()).first.dir);
       }
 
       if (r.size () == 1)
@@ -127,12 +137,11 @@ namespace build2
     {
       small_vector<string, 1> r;
 
-      for (name& n: ns)
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
       {
-        if (n.pair)
-          fail << "name pair in names";
-
-        r.push_back (to_target_name (s, move (n)).first.type);
+        name& n (*i);
+        r.push_back (
+          to_target_name (s, move (n), n.pair ? *++i : name ()).first.type);
       }
 
       if (r.size () == 1)
@@ -152,7 +161,15 @@ namespace build2
     {
       // Note: can't do multiple due to NULL semantics.
       //
-      return to_target_name (s, convert<name> (move (ns))).first.proj;
+      auto i (ns.begin ());
+
+      name& n (*i);
+      const name& o (n.pair ? *++i : name ());
+
+      if (++i != ns.end ())
+        fail << "invalid name value: multiple names"; // Like in convert().
+
+      return to_target_name (s, move (n), o).first.proj;
     };
 
     // Functions that can be called only on real targets.
