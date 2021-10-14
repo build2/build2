@@ -164,10 +164,12 @@ namespace build2
           // C++ standard-wise, with VC you got what you got up until 14.2.
           // Starting with 14.3 there is now the /std: switch which defaults
           // to c++14 but can be set to c++latest. And from 15.3 it can be
-          // c++17. And from 16.?? it can be c++20.
+          // c++17. And from 16.11 it can be c++20 (we start with the compiler
+          // version for 16.11.4 since 16.11.0 seems to be indistinguishable
+          // from 16.10).
           //
-          bool v16_10 (false  /* mj > 19 || (mj == 19 && mi >= 29) */);
-          bool v16_0  (v16_10 || mj > 19 || (mj == 19 && mi >= 20));
+          bool v16_11 (           mj >  19 || (mj == 19 && (mi > 29 || (mi == 29 && p >= 30136))));
+          bool v16_0  (v16_11 || (mj == 19 && mi >= 20));
           bool v15_3  (v16_0  || (mj == 19 && mi >= 11));
           bool v14_3  (v15_3  || (mj == 19 && (mi > 0 || (mi == 0 && p >= 24215))));
 
@@ -192,7 +194,7 @@ namespace build2
             // for this mode. So starting from 16 we only enable it in
             // `experimental`.
             //
-            if (v16_10)
+            if (v16_11)
               o = "/std:c++20";
             else if (v16_0)
               o = "/std:c++17";
@@ -220,12 +222,10 @@ namespace build2
               sup = (mj > 19 ||
                      (mj == 19 && (mi > 0 || (mi == 0 && p >= 23918))));
             }
-            /*
-            else if (*v == "20") // C++20 since VS2019/16.??.
+            else if (*v == "20") // C++20 since VS2019/16.11.
             {
-              sup = (mj > 19 || (mj == 19 && mi >= 29));
+              sup = v16_11;
             }
-            */
 
             if (!sup)
               fail << "C++" << *v << " is not supported by " << ci.signature <<
@@ -289,15 +289,14 @@ namespace build2
                 // and later are used with a sufficiently new version of
                 // MSVC.
                 //
-                if (mj == 10 && latest && tt.system == "win32-msvc")
-                {
-                  o = "-std=c++17";
-                }
-                //else if  (mj >= 13)                        o = "-std=c++2b";
-                else if  (mj >= 5)                         o = "-std=c++2a";
-                else if  (mj >  3 || (mj == 3 && mi >= 5)) o = "-std=c++1z";
-                else if  (mj == 3 && mi >= 4)              o = "-std=c++1y";
-                else     /* ??? */                         o = "-std=c++0x";
+
+                if      (mj >= 13)                            o = "-std=c++2b";
+                else if (mj == 10 &&
+                         latest && tt.system == "win32-msvc") o = "-std=c++17";
+                else if (mj >= 5)                             o = "-std=c++2a";
+                else if (mj >  3 || (mj == 3 && mi >= 5))     o = "-std=c++1z";
+                else if (mj == 3 && mi >= 4)                  o = "-std=c++1y";
+                else     /* ??? */                            o = "-std=c++0x";
 
                 break;
               }
