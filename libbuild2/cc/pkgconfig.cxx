@@ -1477,7 +1477,7 @@ namespace build2
       // prerequisite libraries.
       //
       if (verb)
-        text << "gen " << *t;
+        text << "pc " << *t;
       else if (verb >= 2)
         text << "cat >" << p;
 

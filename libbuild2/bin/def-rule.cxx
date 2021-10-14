@@ -616,7 +616,7 @@ namespace build2
       const char*& arg (*(args.end () - 2));
 
       if (verb == 1)
-        text << "gen " << t;
+        text << "def " << t;
 
       // Extract symbols from each object file.
       //
