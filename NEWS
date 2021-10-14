@@ -119,33 +119,9 @@ Version 0.14.0
 
   * Support for automatic DLL symbol exporting.
 
-    The bin.def module (automatically loaded by the c and cxx modules for the
-    *-win32-msvc targets) provides a rule for generating symbol-exporting .def
-    files. This allows automatically exporting all symbols for all the Windows
-    targets/compilers using the following setup (showing for cxx in this
-    example):
-
-    lib{foo}: libul{foo}: {hxx cxx}{**} ...
-
-    lib{foo}: def{foo}: include = ($cxx.target.system == 'win32-msvc')
-    def{foo}: libul{foo}
-
-    if ($cxx.target.system == 'mingw32')
-      cxx.loptions += -Wl,--export-all-symbols
-
-    That is, we use the .def file generation for MSVC (including when building
-    with Clang) and the built-in support (--export-all-symbols) for MinGW.
-
-    Note that it is also possible to use the .def file generation for MinGW.
-    In this case we need to explicitly load the bin.def module (which should
-    be done after loading c or cxx) and can use the following setup:
-
-    using bin.def  # In root.build after loading c/cxx.
-
-    lib{foo}: libul{foo}: {hxx cxx}{**} ...
-
-    lib{foo}: def{foo}: include = ($cxx.target.class == 'windows')
-    def{foo}: libul{foo}
+    It is now possible to automatically generate a .def file that exports all
+    symbols from a Windows DLL. See "Automatic DLL Symbol Exporting" in the
+    manual for details.
 
   * Initial Emscripten compiler support.
 

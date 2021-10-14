@@ -6640,6 +6640,52 @@ otherwise share the same header search paths, for example, as a family of
 libraries), then the whitelist may not be effective.
 
 
+\h#cc-auto-symexport|Automatic DLL Symbol Exporting|
+
+The \c{bin.def} module (automatically loaded by the \c{c} and \c{cxx} modules
+for the \c{*-win32-msvc} targets) provides a rule for generating
+symbol-exporting \c{.def} files. This allows automatically exporting all
+symbols for all the Windows targets/compilers using the following arrangement
+(showing for \c{cxx} in this example):
+
+\
+lib{foo}: libul{foo}: {hxx cxx}{**} ...
+
+lib{foo}: def{foo}: include = ($cxx.target.system == 'win32-msvc')
+def{foo}: libul{foo}
+
+if ($cxx.target.system == 'mingw32')
+  cxx.loptions += -Wl,--export-all-symbols
+\
+
+That is, we use the \c{.def} file approach for MSVC (including when building
+with Clang) and the built-in support (\c{--export-all-symbols}) for MinGW.
+
+Note that it is also possible to use the \c{.def} file approach for MinGW. In
+this case we need to explicitly load the \c{bin.def} module (which should be
+done after loading \c{c} or \c{cxx}) and can use the following arrangement:
+
+\
+# root.build
+
+using cxx
+using bin.def
+\
+
+\
+lib{foo}: libul{foo}: {hxx cxx}{**} ...
+
+lib{foo}: def{foo}: include = ($cxx.target.class == 'windows')
+def{foo}: libul{foo}
+\
+
+Note also that this only deals with exporting of the symbols from a DLL. In
+order to work, code that uses such a DLL should be able to import the symbols
+without explicit \c{__declspec(dllimport)} declarations. This works thanks
+to the symbol auto-importing support in Windows linkers. Note, however, that
+auto-importing only works for functions and not for global variables.
+
+
 \h#cc-gcc|GCC Compiler Toolchain|
 
 The GCC compiler id is \c{gcc}.
