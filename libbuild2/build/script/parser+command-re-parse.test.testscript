@@ -1,11 +1,23 @@
 # file      : libbuild2/build/script/parser+command-re-parse.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+# @@ TMP
+#
+#\
 : double-quote
 :
 $* <<EOI >>EOO
-x = cmd \">-\" "'<-'"
+x = [cmd_line] cmd \">-\" "'<-'"
 $x
 EOI
 cmd '>-' '<-'
+EOO
+#\
+
+: literal-re-parse
+:
+$* <<EOI >>EOO
+cmd >foo
+EOI
+cmd >foo
 EOO

@@ -25,7 +25,7 @@ namespace build2
     class parser: protected build2::parser
     {
     public:
-      parser (context& c): build2::parser (c) {}
+      parser (context& c, bool relex): build2::parser (c), relex_ (relex) {}
 
       // Helpers.
       //
@@ -229,6 +229,7 @@ namespace build2
       size_t replay_quoted_;
 
     protected:
+      bool relex_;
       lexer* lexer_ = nullptr;
     };
   }

@@ -1084,17 +1084,24 @@ namespace build2
                                 "command line",
                                 nullptr);
 
-            // Nothing else to do if we are pre-parsing.
+            // Nothing else to do if we are pre-parsing (or if parse_program()
+            // took care of this chunk).
             //
-            if (pre_parse_)
+            if (pre_parse_ || ns.empty ())
               break;
 
-            // Process what we got. Determine whether anything inside was
-            // quoted (note that the current token is "next" and is not part
-            // of this).
+            // Process what we got.
             //
-            bool q ((quoted () -
-                     (t.qtype != quote_type::unquoted ? 1 : 0)) != 0);
+            // First see if this is a value that should not be re-lexed. The
+            // long term plan is to only re-lex values of a special type
+            // representing a canned command line.
+            //
+            // Otherwise, determine whether anything inside was quoted (note
+            // that the current token is "next" and is not part of this).
+            //
+            bool q (
+              (pr.value && !relex_) ||
+              (quoted () - (t.qtype != quote_type::unquoted ? 1 : 0)) != 0);
 
             for (name& n: ns)
             {
