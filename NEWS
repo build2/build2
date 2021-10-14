@@ -101,7 +101,7 @@ Version 0.14.0
     side-building BMIs for external module interfaces and header units.
 
     Note that this functionality is not without limitations and drawbacks and,
-    if needed, should be enabled explicitly. See the "C++ Compilation Internal
+    if needed, should be enabled explicitly. See the "Compilation Internal
     Scope" section in the manual for details.
 
   * C++20 modules support in GCC 11 using the module mapper.
