@@ -5808,6 +5808,7 @@ namespace build2
 
     // Returned value NULL/type and pattern (see below).
     //
+    bool rvalue (false);
     bool vnull (false);
     const value_type* vtype (nullptr);
     optional<const target_type*> rpat;
@@ -5825,8 +5826,9 @@ namespace build2
     bool concat_quoted_first (false);
     name concat_data;
 
-    auto concat_typed = [&vnull, &vtype, &concat, &concat_data, this]
-      (value&& rhs, const location& loc)
+    auto concat_typed = [this, &vnull, &vtype,
+                         &concat, &concat_data] (value&& rhs,
+                                                 const location& loc)
     {
       // If we have no LHS yet, then simply copy value/type.
       //
@@ -6038,7 +6040,11 @@ namespace build2
         //   dir/{$str}
         //   file{$str}
         //
-        vnull = false; // A concatenation cannot produce NULL.
+
+        // A concatenation cannot produce value/NULL.
+        //
+        vnull = false;
+        rvalue = false;
 
         if (vtype != nullptr)
         {
@@ -7052,6 +7058,7 @@ namespace build2
           {
             vnull = result->null;
             vtype = result->type;
+            rvalue = true;
           }
 
           // Nothing else to do here if the result is NULL or empty.
@@ -7181,9 +7188,9 @@ namespace build2
     }
 
     if (pre_parse_)
-      assert (!vnull && vtype == nullptr && !rpat);
+      assert (!rvalue && !vnull && vtype == nullptr && !rpat);
 
-    return parse_names_result {!vnull, vtype, rpat};
+    return parse_names_result {rvalue, !vnull, vtype, rpat};
   }
 
   void parser::

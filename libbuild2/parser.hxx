@@ -433,15 +433,16 @@ namespace build2
     // those places. Still it may make sense to look into redesigning the
     // whole thing one day.
     //
-    // Currently the only way for the result to be NULL or have a type is if
+    // Currently the only way for the result to be NULL or to have type is if
     // it is the result of a sole, unquoted variable expansion, function call,
-    // or context evaluation.
+    // or context evaluation. In these cases value is set to true.
     //
     // In the pre-parse mode no names are appended and the result is always
     // {true, nullptr, nullopt}.
     //
     struct parse_names_result
     {
+      bool value;
       bool not_null;
       const value_type* type;
       optional<const target_type*> pattern;
