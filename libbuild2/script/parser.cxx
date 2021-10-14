@@ -97,14 +97,16 @@ namespace build2
     }
 
     optional<process_path> parser::
-    parse_program (token& t, type& tt, bool, bool, names& ns)
+    parse_program (token& t, type& tt,
+                   bool, bool,
+                   names& ns, parse_names_result& pr)
     {
-      parse_names (t, tt,
-                   ns,
-                   pattern_mode::ignore,
-                   true /* chunk */,
-                   "command line",
-                   nullptr);
+      pr = parse_names (t, tt,
+                        ns,
+                        pattern_mode::ignore,
+                        true /* chunk */,
+                        "command line",
+                        nullptr);
 
       return nullopt;
     }
@@ -1048,10 +1050,13 @@ namespace build2
             //
             reset_quoted (t);
 
+            parse_names_result pr;
             if (prog)
             {
               optional<process_path> pp (
-                parse_program (t, tt, p == pending::program_first, env, ns));
+                parse_program (t, tt,
+                               p == pending::program_first, env,
+                               ns, pr));
 
               // During pre-parsing we are not interested in the
               // parse_program() call result, so just discard the potentially
@@ -1072,12 +1077,12 @@ namespace build2
               }
             }
             else
-              parse_names (t, tt,
-                           ns,
-                           pattern_mode::ignore,
-                           true /* chunk */,
-                           "command line",
-                           nullptr);
+              pr = parse_names (t, tt,
+                                ns,
+                                pattern_mode::ignore,
+                                true /* chunk */,
+                                "command line",
+                                nullptr);
 
             // Nothing else to do if we are pre-parsing.
             //

@@ -150,9 +150,8 @@ namespace build2
         //
         virtual optional<process_path>
         parse_program (token&, build2::script::token_type&,
-                       bool first,
-                       bool env,
-                       names&) override;
+                       bool first, bool env,
+                       names&, parse_names_result&) override;
 
       protected:
         script* script_;

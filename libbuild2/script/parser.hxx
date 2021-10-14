@@ -188,7 +188,7 @@ namespace build2
       // During the execution phase try to parse and translate the leading
       // names into the process path and return nullopt if choose not to do
       // so, leaving it to the parser to handle. Also return in the last
-      // argument uninterpreted names, if any.
+      // two arguments uninterpreted names, if any.
       //
       // The default implementation always returns nullopt. The derived parser
       // can provide an override that can, for example, handle process path
@@ -206,7 +206,9 @@ namespace build2
       // recognize and execute certain directives, or some such.
       //
       virtual optional<process_path>
-      parse_program (token&, token_type&, bool first, bool env, names&);
+      parse_program (token&, token_type&,
+                     bool first, bool env,
+                     names&, parse_names_result&);
 
       // Set lexer pointers for both the current and the base classes.
       //

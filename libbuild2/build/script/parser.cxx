@@ -356,9 +356,8 @@ namespace build2
 
       optional<process_path> parser::
       parse_program (token& t, build2::script::token_type& tt,
-                     bool first,
-                     bool env,
-                     names& ns)
+                     bool first, bool env,
+                     names& ns, parse_names_result& pr)
       {
         const location l (get_location (t));
 
@@ -588,7 +587,6 @@ namespace build2
              << "with the 'diag' builtin";
         };
 
-        parse_names_result pr;
         {
           // During pre-parse, if the script name is not set manually we
           // suspend pre-parse, parse the command names for real and try to
@@ -692,10 +690,12 @@ namespace build2
         // syntactic cases to the typed ones.
         //
         names pp_ns;
+        const value_type* pp_vt (nullptr);
         if (pr.type == &value_traits<process_path>::value_type ||
             pr.type == &value_traits<process_path_ex>::value_type)
         {
           pp_ns = move (ns);
+          pp_vt = pr.type;
           ns.clear ();
         }
         else if (ns[0].file ())
@@ -711,9 +711,9 @@ namespace build2
 
             ns.erase (b, i);
 
-            pr.type = i != b + 1
-                      ? &value_traits<process_path_ex>::value_type
-                      : &value_traits<process_path>::value_type;
+            pp_vt = (i != b + 1
+                     ? &value_traits<process_path_ex>::value_type
+                     : &value_traits<process_path>::value_type);
           }
         }
 
@@ -723,7 +723,7 @@ namespace build2
         //    $cxx.path ...
         // }}
         //
-        if (pr.type == &value_traits<process_path>::value_type)
+        if (pp_vt == &value_traits<process_path>::value_type)
         {
           auto pp (convert<process_path> (move (pp_ns)));
 
@@ -737,7 +737,7 @@ namespace build2
           else
             return optional<process_path> (move (pp));
         }
-        else if (pr.type == &value_traits<process_path_ex>::value_type)
+        else if (pp_vt == &value_traits<process_path_ex>::value_type)
         {
           auto pp (convert<process_path_ex> (move (pp_ns)));
 
