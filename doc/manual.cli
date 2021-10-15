@@ -6669,7 +6669,9 @@ done after loading \c{c} or \c{cxx}) and can use the following arrangement:
 # root.build
 
 using cxx
-using bin.def
+
+if ($cxx.target.class == 'windows')
+  using bin.def
 \
 
 \
