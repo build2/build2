@@ -207,6 +207,9 @@ Version 0.14.0
   * Support for suppressing duplicates when extracting library options and
     linking libraries in cc::{compile,link}_rule.
 
+  * The cxx.std=latest value has been mapped to c++2b for Clang 13 or later
+    and to /std:c++20 for MSVC 16.11 or later.
+
   * Support for LTO parallelization during linking in GCC and Clang.
 
     GCC >= 10 and Clang >= 4 support controlling the number of LTO threads
