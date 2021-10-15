@@ -1039,13 +1039,6 @@ namespace build2
 
       scope* ars (rs.parent_scope ()->root_scope ());
 
-      // We must not be amalgamated by a simple project.
-      //
-      auto simple = [ars] ()
-      {
-        return ars->root_extra->project && *ars->root_extra->project == nullptr;
-      };
-
       if (rp.second)
       {
         // If the amalgamation variable hasn't been set, then we need to check
@@ -1088,6 +1081,9 @@ namespace build2
         // If we have the amalgamation variable set by the user, verify that
         // it's a subdirectory of the outer root scope.
         //
+        // Note that in this case we allow amalgamation by a simple project
+        // (we rely on this, for example, in our modules sidebuild machinery).
+        //
         if (!rp.second)
         {
           if (v)
@@ -1096,11 +1092,14 @@ namespace build2
             dir_path d (out_root / vd);
             d.normalize ();
 
-            if (!d.sub (ad) || (simple () && d == ad))
+            if (!d.sub (ad))
               fail << "incorrect amalgamation " << vd << " of " << out_root;
           }
         }
-        else if (!simple ())
+        // By default we do not get amalgamated by a simple project.
+        //
+        else if (!(ars->root_extra->project &&
+                   *ars->root_extra->project == nullptr))
         {
           // Otherwise, use the outer root as our amalgamation.
           //
