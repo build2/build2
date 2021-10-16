@@ -1473,7 +1473,17 @@ namespace build2
 
       const path& p (t->path ());
 
-      // Note that generation can time some time if we have a large number of
+      // If we are uninstalling, skip regenerating the file if it already
+      // exists (I think we could have skipped this even if it doesn't exist,
+      // but let's keep things close to the install case).
+      //
+      if (ctx.current_action ().outer_operation () == uninstall_id)
+      {
+        if (exists (p))
+          return;
+      }
+
+      // Note that generation can take some time if we have a large number of
       // prerequisite libraries.
       //
       if (verb)

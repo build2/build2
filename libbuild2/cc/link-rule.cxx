@@ -2372,7 +2372,8 @@ namespace build2
       // (Re)generate pkg-config's .pc file. While the target itself might be
       // up-to-date from a previous run, there is no guarantee that .pc exists
       // or also up-to-date. So to keep things simple we just regenerate it
-      // unconditionally.
+      // unconditionally (and avoid doing so on uninstall; see pkconfig_save()
+      // for details).
       //
       // Also, if you are wondering why don't we just always produce this .pc,
       // install or no install, the reason is unless and until we are updating
