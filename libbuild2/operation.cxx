@@ -569,20 +569,34 @@ namespace build2
           cout << ' ' << ms.name;
       };
 
+      // Print a potentially empty/null instance.
+      //
+      auto print_empty = [] (const auto& x)
+      {
+        if (!x.empty ())
+          cout << ' ' << x;
+      };
+
+      auto print_null = [] (const auto* p)
+      {
+        if (p != nullptr && !p->empty ())
+          cout << ' ' << *p;
+      };
+
       // This could be a simple project that doesn't set project name.
       //
       cout
-        << "project: "      << project (rs) << endl
-        << "version: "      << cast_empty<string> (rs[ctx.var_version]) << endl
-        << "summary: "      << cast_empty<string> (rs[ctx.var_project_summary]) << endl
-        << "url: "          << cast_empty<string> (rs[ctx.var_project_url]) << endl
+        << "project:"        ; print_empty (project (rs)); cout << endl
+        << "version:"        ; print_empty (cast_empty<string> (rs[ctx.var_version])); cout << endl
+        << "summary:"        ; print_empty (cast_empty<string> (rs[ctx.var_project_summary])); cout << endl
+        << "url:"            ; print_empty (cast_empty<string> (rs[ctx.var_project_url])); cout << endl
         << "src_root: "     << cast<dir_path> (rs[ctx.var_src_root]) << endl
         << "out_root: "     << cast<dir_path> (rs[ctx.var_out_root]) << endl
-        << "amalgamation: " << (*rs.root_extra->amalgamation != nullptr ? **rs.root_extra->amalgamation : empty_dir_path) << endl
-        << "subprojects: "  << (*rs.root_extra->subprojects != nullptr ? **rs.root_extra->subprojects : subprojects ()) << endl
-        << "operations:";      print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
+        << "amalgamation:"   ; print_null (*rs.root_extra->amalgamation); cout << endl
+        << "subprojects:"    ; print_null (*rs.root_extra->subprojects); cout << endl
+        << "operations:"     ; print_ops (rs.root_extra->operations, ctx.operation_table); cout << endl
         << "meta-operations:"; print_ops (rs.root_extra->meta_operations, ctx.meta_operation_table); cout << endl
-        << "modules:"; print_mods (); cout << endl;
+        << "modules:"        ; print_mods (); cout << endl;
     }
   }
 
