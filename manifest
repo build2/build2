@@ -1,6 +1,6 @@
 : 1
 name: build2
-version: 0.14.0-a.0.z
+version: 0.14.0
 summary: build2 build system
 license: MIT
 topics: build system, build toolchain
@@ -14,9 +14,9 @@ email: users@build2.org
 build-warning-email: builds@build2.org
 builds: host
 requires: c++14
-depends: * build2 >= 0.13.0
-depends: * bpkg >= 0.13.0
+depends: * build2 >= 0.14.0-
+depends: * bpkg >= 0.14.0-
 # @@ Should probably become conditional dependency.
 requires: ? cli ; Only required if changing .cli files.
-depends: libbutl [0.14.0-a.0.1 0.14.0-a.1)
+depends: libbutl ^0.14.0
 depends: libpkgconf [1.4.2 1.7.0-)
