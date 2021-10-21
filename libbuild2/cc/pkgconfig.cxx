@@ -902,6 +902,7 @@ namespace build2
                      cmp ("dxgi")            ||
                      cmp ("dxguid")          ||
                      cmp ("gdi32")           ||
+                     cmp ("glu32")           ||
                      cmp ("imagehlp")        ||
                      cmp ("imm32")           ||
                      cmp ("kernel32")        ||
@@ -913,6 +914,7 @@ namespace build2
                      cmp ("odbc32")          ||
                      cmp ("ole32")           ||
                      cmp ("oleaut32")        ||
+                     cmp ("opengl32")        ||
                      cmp ("rpcrt4")          ||
                      cmp ("secur32")         ||
                      cmp ("shell32")         ||
