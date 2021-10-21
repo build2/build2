@@ -1838,7 +1838,7 @@ namespace build2
                 const target* mt (nullptr);
                 for (const target* t: pt->prerequisite_targets[a])
                 {
-                  if ((mt = t->is_a (*x_mod)))
+                  if (t != nullptr && (mt = t->is_a (*x_mod)))
                     break;
                 }
 
