@@ -167,6 +167,17 @@ namespace build2
       //
       set ("build.verbosity", uint64_t (verb));
 
+      // Build system progress diagnostics.
+      //
+      // Note that it can be true, false, or NULL if progress was neither
+      // requested nor suppressed.
+      //
+      {
+        value& v (gs.assign (vp.insert<bool> ("build.progress", v_g)));
+        if (diag_progress_option)
+          v = *diag_progress_option;
+      }
+
       // Build system version (similar to what we do in the version module
       // except here we don't include package epoch/revision).
       //
