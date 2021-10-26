@@ -1745,8 +1745,10 @@ namespace build2
   }
 
   // Extract metadata for an executable target by executing it with the
-  // --build2-metadata option. In case of an error, issue diagnostics and fail
-  // if opt is false and return nullopt if it's true.
+  // --build2-metadata option. Key is the target name (and not necessarily the
+  // same as metadata variable prefix in export.metadata; e.g., openbsd-m4 and
+  // openbsd_m4). In case of an error, issue diagnostics and fail if opt is
+  // false and return nullopt if it's true.
   //
   // Note that loading of the metadata is split into two steps, extraction and
   // parsing, because extraction also serves as validation that the executable
