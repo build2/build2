@@ -63,7 +63,7 @@ Version 0.14.0
     For example, given the above rule and dependency declaration, the
     effective dependency is going to be:
 
-    <exe{hello} file{hello.map>: cxx{hello} hxx{hello} hxx{common}
+    <exe{hello} file{hello.map}>: cxx{hello} hxx{hello} hxx{common}
 
     Similar to ad hoc recipes, ad hoc rules can be written in Buildscript or
     C++.
