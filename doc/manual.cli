@@ -5683,12 +5683,12 @@ does not break or produce incorrect results if the environment changes.
 Instead, changes to the environment are detected and affected targets are
 automatically rebuilt.
 
-The two use-cases where hermetic configurations are really useful are when we
-need to save an environment which is not generally available (for example, an
-environment of a Visual Studio development command prompt) or when our build
-results need to exactly match the specific configuration (for example, because
-parts of the overall result have already been built and installed, as is the
-case with build system modules).|
+The two use-cases where hermetic configurations are especially useful are when
+we need to save an environment which is not generally available (for example,
+an environment of a Visual Studio development command prompt) or when our
+build results need to exactly match the specific configuration (for example,
+because parts of the overall result have already been built and installed, as
+is the case with build system modules).|
 
 If we now examine \c{config.build}, we will see something along these lines:
 
