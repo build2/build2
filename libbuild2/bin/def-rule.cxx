@@ -16,11 +16,18 @@ namespace build2
 {
   namespace bin
   {
+    // In C global uninitialized data becomes a "common symbol" (an equivalent
+    // definition compiled as C++ results in a BSS symbol) which allows some
+    // archaic merging of multiple such definitions during linking (see GNU ld
+    // --warn-common for background). Note that this merging may happen with
+    // other data symbol types, not just common.
+    //
     struct symbols
     {
       set<string> d; // data
       set<string> r; // read-only data
       set<string> b; // uninitialized data (BSS)
+      set<string> c; // common uninitialized data
       set<string> t; // text (code)
     };
 
@@ -62,6 +69,8 @@ namespace build2
       // B44 00000000 SECT4  notype    Static       | .rdata$r
       // AA2 00000000 SECT5  notype    Static       | .bss
       //
+      // Note that an UNDEF data symbol with non-zero OFFSET is a "common
+      // symbol", equivalent to the nm `C` type.
 
       // Map of read-only (.rdata, .xdata) and uninitialized (.bss) sections
       // to their types (R and B, respectively). If a section is not found in
@@ -92,7 +101,7 @@ namespace build2
         //
         n = next_word (l, b, e);
 
-        if (n == 0 || l.compare (b, n, "UNDEF") == 0)
+        if (n == 0)
           continue;
 
         string sec (l, b, n);
@@ -104,14 +113,14 @@ namespace build2
         if (l.compare (b, n, "notype") != 0)
           continue;
 
-        bool d;
+        bool dat;
         if (l[e] == ' ' && l[e + 1] == '(' && l[e + 2] == ')')
         {
           e += 3;
-          d = false;
+          dat = false;
         }
         else
-          d = true;
+          dat = true;
 
         // VISIBILITY
         //
@@ -140,7 +149,11 @@ namespace build2
 
         // See if this is the section type symbol.
         //
-        if (d && off == "00000000" && vis == "Static" && s[0] == '.')
+        if (dat &&
+            off == "00000000" &&
+            sec != "UNDEF"    &&
+            vis == "Static"   &&
+            s[0] == '.')
         {
           auto cmp = [&s] (const char* n, size_t l)
           {
@@ -159,18 +172,29 @@ namespace build2
         if (vis != "External")
           continue;
 
-        if (d)
+        if (dat)
         {
-          auto i (sections.find (sec));
-          switch (i == sections.end () ? 'D' : i->second)
+          if (sec != "UNDEF")
           {
-          case 'D': syms.d.insert (move (s)); break;
-          case 'R': syms.r.insert (move (s)); break;
-          case 'B': syms.b.insert (move (s)); break;
+            auto i (sections.find (sec));
+            switch (i == sections.end () ? 'D' : i->second)
+            {
+            case 'D': syms.d.insert (move (s)); break;
+            case 'R': syms.r.insert (move (s)); break;
+            case 'B': syms.b.insert (move (s)); break;
+            }
+          }
+          else
+          {
+            if (off != "00000000")
+              syms.c.insert (move (s));
           }
         }
         else
-          syms.t.insert (move (s));
+        {
+          if (sec != "UNDEF")
+            syms.t.insert (move (s));
+        }
       }
     }
 
@@ -209,6 +233,8 @@ namespace build2
         case 'D': syms.d.insert (move (s)); break;
         case 'R': syms.r.insert (move (s)); break;
         case 'B': syms.b.insert (move (s)); break;
+        case 'c':
+        case 'C': syms.c.insert (move (s)); break;
         case 'T': syms.t.insert (move (s)); break;
         }
       }
@@ -311,6 +337,13 @@ namespace build2
           if (const char* v = filter (s))
             os << "  " << v << " DATA\n";
 
+        // For common symbols, only write extern C.
+        //
+        for (const string& s: syms.c)
+          if (extern_c (s))
+            if (const char* v = filter (s))
+              os << "  " << v << " DATA\n";
+
         // Read-only data contains an especially large number of various
         // special symbols. Instead of trying to filter them out case by case,
         // we will try to recognize C/C++ identifiers plus the special symbols
@@ -383,6 +416,10 @@ namespace build2
             os << "  " << v << " DATA\n";
 
         for (const string& s: syms.b)
+          if (const char* v = filter (s))
+            os << "  " << v << " DATA\n";
+
+        for (const string& s: syms.c)
           if (const char* v = filter (s))
             os << "  " << v << " DATA\n";
 
@@ -667,12 +704,13 @@ namespace build2
           fail << "unable to extract symbols from " << arg;
       }
 
-      /*
+#if 0
       for (const string& s: syms.d) text << "D " << s;
       for (const string& s: syms.r) text << "R " << s;
       for (const string& s: syms.b) text << "B " << s;
+      for (const string& s: syms.c) text << "C " << s;
       for (const string& s: syms.t) text << "T " << s;
-      */
+#endif
 
       if (verb >= 3)
         text << "cat >" << tp;
@@ -712,6 +750,6 @@ namespace build2
       return target_state::changed;
     }
 
-    const string def_rule::rule_id_ {"bin.def 1"};
+    const string def_rule::rule_id_ {"bin.def 2"};
   }
 }
