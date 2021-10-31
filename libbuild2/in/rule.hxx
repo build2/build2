@@ -50,14 +50,18 @@ namespace build2
       virtual target_state
       perform_update (action, const target&) const;
 
-      // Customization hooks.
+      // Customization hooks and helpers.
+      //
+      // Flags can be used by a custom implementation to alter the lookup
+      // semantics, for example, for special substitutions. Note, however,
+      // that one must make sure this semantics cannot change without changes
+      // to the .in file (see the depdb logic for details).
       //
 
       // Perform prerequisite search.
       //
       virtual prerequisite_target
-      search (action,
-              const target&,
+      search (action, const target&,
               const prerequisite_member&,
               include_type) const;
 
@@ -65,9 +69,9 @@ namespace build2
       //
       virtual string
       lookup (const location&,
-              action,
-              const target&,
+              action, const target&,
               const string& name,
+              optional<uint64_t> flags,
               const optional<string>& null) const;
 
       // Perform variable substitution. Return nullopt if it should be
@@ -75,11 +79,57 @@ namespace build2
       //
       virtual optional<string>
       substitute (const location&,
-                  action,
-                  const target&,
+                  action, const target&,
                   const string& name,
+                  optional<uint64_t> flags,
                   bool strict,
                   const optional<string>& null) const;
+
+      // Call the above version and do any necessary depdb saving.
+      //
+      optional<string>
+      substitute (const location&,
+                  action, const target&,
+                  depdb& dd, size_t dd_skip,
+                  const string& name,
+                  optional<uint64_t> flags,
+                  bool strict,
+                  const optional<string>& null) const;
+
+      // Process a line of input from the specified position performing any
+      // necessary substitutions.
+      //
+      virtual void
+      process (const location&,
+               action, const target&,
+               depdb& dd, size_t dd_skip,
+               string& line, size_t pos,
+               const char* newline,
+               char sym,
+               bool strict,
+               const optional<string>& null) const;
+
+      // Replace newlines in a multi-line value with the given newline
+      // sequence.
+      //
+      static void
+      replace_newlines (string& v, const char* newline)
+      {
+        for (size_t p (0), n; (p = v.find ('\n', p)) != string::npos; p += n)
+        {
+          n = 1;
+
+          // Deal with CRLF in the value.
+          //
+          if (p != 0 && v[p - 1] == '\r')
+          {
+            --p;
+            ++n;
+          }
+
+          v.replace (p, n, newline);
+        }
+      }
 
     protected:
       const string rule_id_;

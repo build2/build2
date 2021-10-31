@@ -200,12 +200,15 @@ namespace build2
                 action a,
                 const target& t,
                 const string& n,
+                optional<uint64_t> flags,
                 bool strict,
                 const optional<string>& null) const
     {
+      assert (!flags);
+
       return n.compare (0, 6, "import") == 0 && (n[6] == ' ' || n[6] == '\t')
         ? substitute_import (l, a, t, trim (string (n, 7)))
-        : rule::substitute (l, a, t, n, strict, null);
+        : rule::substitute (l, a, t, n, nullopt, strict, null);
     }
 
     string in_rule::

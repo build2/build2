@@ -209,39 +209,58 @@ namespace build2
           {
             // The line format is:
             //
-            // <ln> <name> <hash>
+            // <ln> <name> <hash>[/<flags>]
             //
             // Note that <name> can contain spaces (see the constraint check
-            // expressions in the version module).
+            // expressions in the version module). That's the reason why we
+            // use the `/` separator for <flags> instead of the more natural
+            // space.
             //
             char* e (nullptr);
             uint64_t ln (strtoull (s->c_str (), &e, 10));
 
-            size_t p1 (*e == ' ' ? e - s->c_str () : string::npos);
-            size_t p2 (s->rfind (' '));
+            size_t p1 (*e == ' ' ? e - s->c_str () : string::npos); // <name>
+            size_t p2 (s->rfind (' '));                             // <hash>
 
             if (p1 != string::npos && p2 != string::npos && p2 - p1 > 1)
             {
-              string n (*s, p1 + 1, p2 - p1 - 1);
+              ++p1;
+              string name (*s, p1, p2 - p1);
 
-              // Note that we have to call substitute(), not lookup() since it
-              // can be overriden with custom substitution semantics.
-              //
-              optional<string> v (
-                substitute (location (ip, ln), a, t, n, strict, null));
+              ++p2;
+              size_t p3 (s->find ('/', p2)); // <flags>
 
-              assert (v); // Rule semantics change without version increment?
-
-              if (s->compare (p2 + 1,
-                              string::npos,
-                              sha256 (*v).string ()) == 0)
+              optional<uint64_t> flags;
+              if (p3 != string::npos)
               {
-                dd_skip++;
-                continue;
+                uint64_t v (strtoull (s->c_str () + p3 + 1, &e, 10));
+                if (*e == '\0')
+                  flags = v;
               }
-              else
-                l4 ([&]{trace << n << " variable value mismatch forcing "
-                              << "update of " << t;});
+
+              if (p3 == string::npos || flags)
+              {
+                // Note that we have to call substitute(), not lookup() since
+                // it can be overriden with custom substitution semantics.
+                //
+                optional<string> v (
+                  substitute (location (ip, ln),
+                              a, t,
+                              name, flags,
+                              strict, null));
+
+                assert (v); // Rule semantics change without version increment?
+
+                if (s->compare (p2, p3, sha256 (*v).string ()) == 0)
+                {
+                  dd_skip++;
+                  continue;
+                }
+                else
+                  l4 ([&]{trace << name << " variable value mismatch forcing "
+                                << "update of " << t;});
+              }
+
               // Fall through.
             }
 
@@ -325,7 +344,7 @@ namespace build2
         );
 
         string s; // Reuse the buffer.
-        for (size_t ln (1);; ++ln)
+        for (uint64_t ln (1);; ++ln)
         {
           what = "read"; whom = &ip;
           if (!getline (ifs, s))
@@ -340,86 +359,11 @@ namespace build2
 
           // Not tracking column for now (see also depdb above).
           //
-          const location l (ip, ln);
-
-          // Scan the line looking for substiutions in the $<name>$ form. In
-          // the strict mode treat $$ as an escape sequence.
-          //
-          for (size_t b (0), n, d; b != (n = s.size ()); b += d)
-          {
-            d = 1;
-
-            if (s[b] != sym)
-              continue;
-
-            // Note that in the lax mode these should still be substitutions:
-            //
-            // @project@@
-            // @@project@
-
-            // Find the other end.
-            //
-            size_t e (b + 1);
-            for (; e != (n = s.size ()); ++e)
-            {
-              if (s[e] == sym)
-              {
-                if (strict && e + 1 != n && s[e + 1] == sym) // Escape.
-                  s.erase (e, 1); // Keep one, erase the other.
-                else
-                  break;
-              }
-            }
-
-            if (e == n)
-            {
-              if (strict)
-                fail (l) << "unterminated '" << sym << "'" << endf;
-
-              break;
-            }
-
-            if (e - b == 1) // Escape (or just double symbol in the lax mode).
-            {
-              if (strict)
-                s.erase (b, 1); // Keep one, erase the other.
-
-              continue;
-            }
-
-            // We have a (potential, in the lax mode) substition with b
-            // pointing to the opening symbol and e -- to the closing.
-            //
-            string name (s, b + 1, e - b -1);
-            if (optional<string> val =
-                  substitute (l, a, t, name, strict, null))
-            {
-              // Save in depdb.
-              //
-              if (dd_skip == 0)
-              {
-                // The line format is:
-                //
-                // <ln> <name> <hash>
-                //
-                string s (to_string (ln));
-                s += ' ';
-                s += name;
-                s += ' ';
-                s += sha256 (*val).string ();
-                dd.write (s);
-              }
-              else
-                --dd_skip;
-
-              // Patch the result in and adjust the delta.
-              //
-              s.replace (b, e - b + 1, *val);
-              d = val->size ();
-            }
-            else
-              d = e - b + 1; // Ignore this substitution.
-          }
+          process (location (ip, ln),
+                   a, t,
+                   dd, dd_skip,
+                   s, 0,
+                   (crlf ? "\r\n" : "\n"), sym, strict, null);
 
           what = "write"; whom = &tp;
           if (ln != 1)
@@ -462,13 +406,166 @@ namespace build2
       return prerequisite_target (&build2::search (t, p), i);
     }
 
+    void rule::
+    process (const location& l,
+             action a, const target& t,
+             depdb& dd, size_t dd_skip,
+             string& s, size_t b,
+             const char* nl,
+             char sym,
+             bool strict,
+             const optional<string>& null) const
+    {
+      // Scan the line looking for substiutions in the $<name>$ form. In the
+      // strict mode treat $$ as an escape sequence.
+      //
+      for (size_t n, d; b != (n = s.size ()); b += d)
+      {
+        d = 1;
+
+        if (s[b] != sym)
+          continue;
+
+        // Note that in the lax mode these should still be substitutions:
+        //
+        // @project@@
+        // @@project@
+
+        // Find the other end.
+        //
+        size_t e (b + 1);
+        for (; e != (n = s.size ()); ++e)
+        {
+          if (s[e] == sym)
+          {
+            if (strict && e + 1 != n && s[e + 1] == sym) // Escape.
+              s.erase (e, 1); // Keep one, erase the other.
+            else
+              break;
+          }
+        }
+
+        if (e == n)
+        {
+          if (strict)
+            fail (l) << "unterminated '" << sym << "'";
+
+          break;
+        }
+
+        if (e - b == 1) // Escape (or just double symbol in the lax mode).
+        {
+          if (strict)
+            s.erase (b, 1); // Keep one, erase the other.
+
+          continue;
+        }
+
+        // We have a (potential, in the lax mode) substition with b pointing
+        // to the opening symbol and e -- to the closing.
+        //
+        if (optional<string> val = substitute (l,
+                                               a, t,
+                                               dd, dd_skip,
+                                               string (s, b + 1, e - b -1),
+                                               nullopt /* flags */,
+                                               strict,
+                                               null))
+        {
+          replace_newlines (*val, nl);
+
+          // Patch the result in and adjust the delta.
+          //
+          s.replace (b, e - b + 1, *val);
+          d = val->size ();
+        }
+        else
+          d = e - b + 1; // Ignore this substitution.
+      }
+    }
+
+    optional<string> rule::
+    substitute (const location& l,
+                action a, const target& t,
+                depdb& dd, size_t dd_skip,
+                const string& n,
+                optional<uint64_t> flags,
+                bool strict,
+                const optional<string>& null) const
+    {
+      optional<string> val (substitute (l, a, t, n, flags, strict, null));
+
+      if (val)
+      {
+        // Save in depdb.
+        //
+        if (dd_skip == 0)
+        {
+          // The line format is:
+          //
+          // <ln> <name> <hash>[/<flags>]
+          //
+          string s (to_string (l.line));
+          s += ' ';
+          s += n;
+          s += ' ';
+          s += sha256 (*val).string ();
+          if (flags)
+          {
+            s += '/';
+            s += to_string (*flags);
+          }
+          dd.write (s);
+        }
+        else
+          --dd_skip;
+      }
+
+      return val;
+    }
+
+    optional<string> rule::
+    substitute (const location& l,
+                action a, const target& t,
+                const string& n,
+                optional<uint64_t> flags,
+                bool strict,
+                const optional<string>& null) const
+    {
+      // In the lax mode scan the fragment to make sure it is a variable name
+      // (that is, it can be expanded in a buildfile as just $<name>; see
+      // lexer's variable mode for details).
+      //
+      if (!strict)
+      {
+        for (size_t i (0), e (n.size ()); i != e; )
+        {
+          bool f (i == 0); // First.
+          char c (n[i++]);
+          bool l (i == e); // Last.
+
+          if (c == '_' || (f ? alpha (c) : alnum (c)))
+            continue;
+
+          if (c == '.' && !l)
+            continue;
+
+          return nullopt; // Ignore this substitution.
+        }
+      }
+
+      return lookup (l, a, t, n, flags, null);
+    }
+
     string rule::
     lookup (const location& loc,
-            action,
-            const target& t,
+            action, const target& t,
             const string& n,
+            optional<uint64_t> flags,
             const optional<string>& null) const
     {
+      assert (!flags);
+
       auto l (t[n]);
 
       if (l.defined ())
@@ -504,39 +601,6 @@ namespace build2
       }
       else
         fail (loc) << "undefined variable '" << n << "'" << endf;
-    }
-
-    optional<string> rule::
-    substitute (const location& l,
-                action a,
-                const target& t,
-                const string& n,
-                bool strict,
-                const optional<string>& null) const
-    {
-      // In the lax mode scan the fragment to make sure it is a variable name
-      // (that is, it can be expanded in a buildfile as just $<name>; see
-      // lexer's variable mode for details).
-      //
-      if (!strict)
-      {
-        for (size_t i (0), e (n.size ()); i != e; )
-        {
-          bool f (i == 0); // First.
-          char c (n[i++]);
-          bool l (i == e); // Last.
-
-          if (c == '_' || (f ? alpha (c) : alnum (c)))
-            continue;
-
-          if (c == '.' && !l)
-            continue;
-
-          return nullopt; // Ignore this substitution.
-        }
-      }
-
-      return lookup (l, a, t, n, null);
     }
   }
 }

@@ -30,6 +30,7 @@ namespace build2
               action,
               const target&,
               const string&,
+              optional<uint64_t>,
               const optional<string>&) const override;
     };
 

@@ -51,6 +51,7 @@ namespace build2
                   action a,
                   const target&,
                   const string&,
+                  optional<uint64_t>,
                   bool,
                   const optional<string>&) const override;
 

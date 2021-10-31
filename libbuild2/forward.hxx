@@ -79,6 +79,10 @@ namespace build2
   //
   struct attribute;
   struct attributes;
+
+  // <libbuild2/depbd.hxx>
+  //
+  class depdb;
 }
 
 #endif // LIBBUILD2_FORWARD_HXX

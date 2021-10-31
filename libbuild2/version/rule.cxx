@@ -89,8 +89,11 @@ namespace build2
             action a,
             const target& t,
             const string& n,
+            optional<uint64_t> flags,
             const optional<string>& null) const
     {
+      assert (!flags);
+
       // Note that this code will be executed during up-to-date check for each
       // substitution so let's try not to do anything overly sub-optimal here.
       //
@@ -110,6 +113,7 @@ namespace build2
                              a,
                              t,
                              p == string::npos ? n : string (n, p + 1),
+                             nullopt,
                              null);
       }
 
