@@ -31,3 +31,11 @@
   $* <'print $trim([string] "  a  ")' >'a' : string
   $* <'print $string.trim(  "  a  ")' >'a' : untyped
 }
+
+: sort
+:
+{
+  $* <'print $sort([strings] a c b a)'        >'a a b c' : basics
+  $* <'print $sort([strings] a c b a, dedup)' >'a b c'   : dedup
+  $* <'print $sort([strings] a C B a, icase)' >'a a B C' : icase
+}

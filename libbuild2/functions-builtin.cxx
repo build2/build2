@@ -11,6 +11,27 @@ using namespace std;
 
 namespace build2
 {
+  // Note: not static since used by type-specific sort() implementations.
+  //
+  bool
+  functions_sort_flags (optional<names> fs)
+  {
+    bool r (false);
+    if (fs)
+    {
+      for (name& f: *fs)
+      {
+        string s (convert<string> (move (f)));
+
+        if (s == "dedup")
+          r = true;
+        else
+          throw invalid_argument ("invalid flag '" + s + "'");
+      }
+    }
+    return r;
+  };
+
   void
   builtin_functions (function_map& m)
   {
@@ -57,7 +78,6 @@ namespace build2
     f["string"] += [](bool b) {return b ? "true" : "false";};
     f["string"] += [](int64_t i) {return to_string (i);};
     f["string"] += [](uint64_t i) {return to_string (i);};
-    f["string"] += [](name n) {return to_string (n);};
 
     // Quote a value returning its string representation. If escape is true,
     // then also escape (with a backslash) the quote characters being added
@@ -78,6 +98,54 @@ namespace build2
                  '@'  /* pair */,
                  escape && convert<bool> (move (*escape)));
       return os.str ();
+    };
+
+    // $sort(<names> [, <flags>])
+    //
+    // Sort names in ascending order.
+    //
+    // See also type-specific overloads.
+    //
+    // The following flags are supported:
+    //
+    //   dedup - in addition to sorting also remove duplicates
+    //
+    f["sort"] += [] (names v, optional<names> fs)
+    {
+      sort (v.begin (), v.end ());
+
+      if (functions_sort_flags (move (fs)))
+        v.erase (unique (v.begin(), v.end()), v.end ());
+
+      return v;
+    };
+
+    // $sort(<ints> [, <flags>])
+    //
+    // Sort integers in ascending order.
+    //
+    // The following flags are supported:
+    //
+    //   dedup - in addition to sorting also remove duplicates
+    //
+    f["sort"] += [](int64s v, optional<names> fs)
+    {
+      sort (v.begin (), v.end ());
+
+      if (functions_sort_flags (move (fs)))
+        v.erase (unique (v.begin(), v.end()), v.end ());
+
+      return v;
+    };
+
+    f["sort"] += [](uint64s v, optional<names> fs)
+    {
+      sort (v.begin (), v.end ());
+
+      if (functions_sort_flags (move (fs)))
+        v.erase (unique (v.begin(), v.end()), v.end ());
+
+      return v;
     };
 
     // getenv

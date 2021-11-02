@@ -3,7 +3,8 @@
 
 .include ../../common.testscript
 
-posix = ($cxx.target.class != 'windows')
+windows = ($cxx.target.class == 'windows')
+posix = (!$windows)
 
 s = ($posix ? '/' : '\')
 
@@ -102,6 +103,20 @@ if! $posix
   a/b/exe{c}
   a/b/c.t.cpp
   EOO
+}
+
+: sort
+:
+{
+  $* <'print $sort([paths] a c b a)'        >'a a b c' : basics
+  $* <'print $sort([paths] a c b a, dedup)' >'a b c'   : dedup
+
+  : icase
+  :
+  if $windows
+  {
+    $* <'print $sort([paths] a C B a)' >'a a B c'
+  }
 }
 
 : invalid-path

@@ -77,6 +77,16 @@
   $* <'print $type($identity(abc))'            >''         : untyped
 }
 
+: sort
+:
+{
+  $* <'print $sort( d/t{a} t{c b} d/t{a})'        >'t{b} t{c} d/t{a} d/t{a}' : name-basics
+  $* <'print $sort( d/t{a} t{c b} d/t{a}, dedup)' >'t{b} t{c} d/t{a}'        : name-dedup
+
+  $* <'print $sort([uint64s] 0 2 1 000)'        >'0 0 1 2' : int-basics
+  $* <'print $sort([uint64s] 0 2 1 000, dedup)' >'0 1 2'   : int-dedup
+}
+
 : getenv
 :
 {

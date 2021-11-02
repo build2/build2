@@ -77,6 +77,52 @@ namespace build2
       return names {name (ucase (convert<string> (move (s))))};
     };
 
+    // $sort(<strings> [, <flags>])
+    //
+    // Sort strings in ascending order.
+    //
+    // The following flags are supported:
+    //
+    //   icase - sort ignoring case
+    //
+    //   dedup - in addition to sorting also remove duplicates
+    //
+    f["sort"] += [](strings v, optional<names> fs)
+    {
+      bool ic (false);
+      bool dd (false);
+      if (fs)
+      {
+        for (name& f: *fs)
+        {
+          string s (convert<string> (move (f)));
+
+          if (s == "icase")
+            ic = true;
+          else if (s == "dedup")
+            dd = true;
+          else
+            throw invalid_argument ("invalid flag '" + s + "'");
+        }
+      }
+
+      sort (v.begin (), v.end (),
+            [ic] (const string& x, const string& y)
+            {
+              return (ic ? icasecmp (x, y) : x.compare (y)) < 0;
+            });
+
+      if (dd)
+        v.erase (unique (v.begin(), v.end(),
+                         [ic] (const string& x, const string& y)
+                         {
+                           return (ic ? icasecmp (x, y) : x.compare (y)) == 0;
+                         }),
+                 v.end ());
+
+      return v;
+    };
+
     // String-specific overloads from builtins.
     //
     function_family b (m, "builtin");

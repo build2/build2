@@ -63,6 +63,8 @@ namespace build2
     //
     function_family fn (m, "name");
 
+    fn["string"] += [](name n) {return to_string (n);};
+
     fn["name"] += [](const scope* s, name n)
     {
       return to_target_name (s, move (n)).first.value;

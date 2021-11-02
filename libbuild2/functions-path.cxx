@@ -10,6 +10,9 @@ using namespace std;
 
 namespace build2
 {
+  extern bool
+  functions_sort_flags (optional<names>); // functions-builtin.cxx
+
   static value
   path_thunk (const scope* base,
               vector_view<value> args,
@@ -409,6 +412,36 @@ namespace build2
     f[".extension"] += [](names ns)
     {
       return extension (convert<path> (move (ns)));
+    };
+
+    // $sort(<paths> [, <flags>])
+    // $sort(<dir_paths> [, <flags>])
+    //
+    // Sort paths in ascending order. Note that on case-insensitive filesystem
+    // the order is case-insensitive.
+    //
+    // The following flags are supported:
+    //
+    //   dedup - in addition to sorting also remove duplicates
+    //
+    f["sort"] += [](paths v, optional<names> fs)
+    {
+      sort (v.begin (), v.end ());
+
+      if (functions_sort_flags (move (fs)))
+        v.erase (unique (v.begin(), v.end()), v.end ());
+
+      return v;
+    };
+
+    f["sort"] += [](dir_paths v, optional<names> fs)
+    {
+      sort (v.begin (), v.end ());
+
+      if (functions_sort_flags (move (fs)))
+        v.erase (unique (v.begin(), v.end()), v.end ());
+
+      return v;
     };
 
     // $path.match(<val>, <pat> [, <start>])
