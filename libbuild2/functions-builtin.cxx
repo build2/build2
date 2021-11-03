@@ -100,25 +100,12 @@ namespace build2
       return os.str ();
     };
 
-    // $sort(<names> [, <flags>])
+    // $size(<ints>)
     //
-    // Sort names in ascending order.
+    // Return the number of elements in the sequence.
     //
-    // See also type-specific overloads.
-    //
-    // The following flags are supported:
-    //
-    //   dedup - in addition to sorting also remove duplicates
-    //
-    f["sort"] += [] (names v, optional<names> fs)
-    {
-      sort (v.begin (), v.end ());
-
-      if (functions_sort_flags (move (fs)))
-        v.erase (unique (v.begin(), v.end()), v.end ());
-
-      return v;
-    };
+    f["size"] += [] (int64s v) {return v.size ();};
+    f["size"] += [] (uint64s v) {return v.size ();};
 
     // $sort(<ints> [, <flags>])
     //

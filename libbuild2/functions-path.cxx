@@ -332,40 +332,6 @@ namespace build2
       return ns;
     };
 
-    // base
-    //
-    f["base"] += &path::base;
-
-    f["base"] += [](paths v)
-    {
-      for (path& p: v)
-        p = p.base ();
-      return v;
-    };
-
-    f["base"] += [](dir_paths v)
-    {
-      for (dir_path& p: v)
-        p = p.base ();
-      return v;
-    };
-
-    f[".base"] += [](names ns)
-    {
-      // For each path decide based on the presence of a trailing slash
-      // whether it is a directory. Return as untyped list of (potentially
-      // mixed) paths.
-      //
-      for (name& n: ns)
-      {
-        if (n.directory ())
-          n.dir = n.dir.base ();
-        else
-          n.value = convert<path> (move (n)).base ().string ();
-      }
-      return ns;
-    };
-
     // leaf
     //
     f["leaf"] += &path::leaf;
@@ -405,6 +371,40 @@ namespace build2
       return ns;
     };
 
+    // base
+    //
+    f["base"] += &path::base;
+
+    f["base"] += [](paths v)
+    {
+      for (path& p: v)
+        p = p.base ();
+      return v;
+    };
+
+    f["base"] += [](dir_paths v)
+    {
+      for (dir_path& p: v)
+        p = p.base ();
+      return v;
+    };
+
+    f[".base"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir = n.dir.base ();
+        else
+          n.value = convert<path> (move (n)).base ().string ();
+      }
+      return ns;
+    };
+
     // extension
     //
     f["extension"] += &extension;
@@ -413,6 +413,14 @@ namespace build2
     {
       return extension (convert<path> (move (ns)));
     };
+
+    // $size(<paths>)
+    // $size(<dir_paths>)
+    //
+    // Return the number of elements in the sequence.
+    //
+    f["size"] += [] (paths v) {return v.size ();};
+    f["size"] += [] (dir_paths v) {return v.size ();};
 
     // $sort(<paths> [, <flags>])
     // $sort(<dir_paths> [, <flags>])

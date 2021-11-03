@@ -77,6 +77,12 @@ namespace build2
       return names {name (ucase (convert<string> (move (s))))};
     };
 
+    // $size(<strings>)
+    //
+    // Return the number of elements in the sequence.
+    //
+    f["size"] += [] (strings v) {return v.size ();};
+
     // $sort(<strings> [, <flags>])
     //
     // Sort strings in ascending order.

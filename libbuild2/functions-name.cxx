@@ -10,6 +10,9 @@ using namespace std;
 
 namespace build2
 {
+  extern bool
+  functions_sort_flags (optional<names>); // functions-builtin.cxx
+
   // Convert name to target'ish name (see below for the 'ish part). Return
   // raw/unprocessed data in case this is an unknown target type (or called
   // out of scope). See scope::find_target_type() for details. Allow out-
@@ -172,6 +175,44 @@ namespace build2
         fail << "invalid name value: multiple names"; // Like in convert().
 
       return to_target_name (s, move (n), o).first.proj;
+    };
+
+    // $size(<names>)
+    //
+    // Return the number of elements in the sequence.
+    //
+    fn["size"] += [] (names ns)
+    {
+      size_t n (0);
+
+      for (auto i (ns.begin ()); i != ns.end (); ++i)
+      {
+        ++n;
+        if (i->pair && !(++i)->directory ())
+          fail << "name pair in names";
+      }
+
+      return n;
+    };
+
+    // $sort(<names> [, <flags>])
+    //
+    // Sort names in ascending order.
+    //
+    // The following flags are supported:
+    //
+    //   dedup - in addition to sorting also remove duplicates
+    //
+    fn["sort"] += [] (names ns, optional<names> fs)
+    {
+      //@@ TODO: shouldn't we do this in a pair-aware manner?
+
+      sort (ns.begin (), ns.end ());
+
+      if (functions_sort_flags (move (fs)))
+        ns.erase (unique (ns.begin(), ns.end()), ns.end ());
+
+      return ns;
     };
 
     // Functions that can be called only on real targets.
