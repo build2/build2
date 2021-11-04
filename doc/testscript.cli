@@ -2772,6 +2772,7 @@ are supported.
     \U - Convert next characters until \E to the upper case.
     \L - Convert next characters until \E to the lower case.
 
+    \n - Newline.
     \\\\ - Literal backslash.
   \
 
