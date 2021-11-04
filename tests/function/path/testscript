@@ -115,7 +115,7 @@ if! $posix
   :
   if $windows
   {
-    $* <'print $sort([paths] a C B a)' >'a a B c'
+    $* <'print $sort([paths] a C B a)' >'a a B C'
   }
 }
 
