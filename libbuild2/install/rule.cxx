@@ -105,7 +105,7 @@ namespace build2
         // iterates over all its members.
         //
         if (!is)
-          is = install_scope (t);
+          is = a.operation () != update_id ? install_scope (t) : nullptr;
 
         const target* pt (filter (*is, a, t, i));
         if (pt == nullptr)
@@ -366,7 +366,7 @@ namespace build2
         // iterates over all its members.
         //
         if (!is)
-          is = install_scope (t);
+          is = a.operation () != update_id ? install_scope (t) : nullptr;
 
         const target* pt (filter (*is, a, t, i));
 

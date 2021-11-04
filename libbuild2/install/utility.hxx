@@ -61,6 +61,10 @@ namespace build2
     // belong to projects outside of this scope. If it's NULL, install
     // prerequisites from all projects. See also config.install.scope.
     //
+    // Note that this should not apply to update-for-install. Failed that we
+    // may end up using incompatibly-built prerequisites (e.g., a library) in
+    // a target built for install (e.g., an executable).
+    //
     LIBBUILD2_SYMEXPORT const scope*
     install_scope (const target&);
 

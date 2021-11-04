@@ -1461,18 +1461,6 @@ namespace build2
                                           /*    */ pcs::static_type)));
       assert (t != nullptr);
 
-      // This is the lib{} group if we are generating the common file and the
-      // target itself otherwise.
-      //
-      const file& g (common ? l.group->as<file> () : l);
-
-      // By default we assume things go into install.{include, lib}.
-      //
-      using install::resolve_dir;
-
-      dir_path idir (resolve_dir (g, cast<dir_path> (g["install.include"])));
-      dir_path ldir (resolve_dir (g, cast<dir_path> (g["install.lib"])));
-
       const path& p (t->path ());
 
       // If we are uninstalling, skip regenerating the file if it already
@@ -1484,6 +1472,32 @@ namespace build2
         if (exists (p))
           return;
       }
+
+      // This is the lib{} group if we are generating the common file and the
+      // target itself otherwise.
+      //
+      const file& g (common ? l.group->as<file> () : l);
+
+      // By default we assume things go into install.{include, lib}.
+      //
+      // If include.lib does not resolve, then assume this is update-for-
+      // install without actual install and remove the file if it exists.
+      //
+      // @@ Shouldn't we use target's install value rather than install.lib
+      //    in case it gets installed into a custom location?
+      //
+      using install::resolve_dir;
+
+      dir_path ldir (resolve_dir (g,
+                                  cast<dir_path> (g["install.lib"]),
+                                  false /* fail_unknown */));
+      if (ldir.empty ())
+      {
+        rmfile (ctx, p, 3 /* verbosity */);
+        return;
+      }
+
+      dir_path idir (resolve_dir (g, cast<dir_path> (g["install.include"])));
 
       // Note that generation can take some time if we have a large number of
       // prerequisite libraries.

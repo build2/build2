@@ -2379,6 +2379,13 @@ namespace build2
       // install or no install, the reason is unless and until we are updating
       // for install, we have no idea where-to things will be installed.
       //
+      // There is a further complication: we may have no intention of
+      // installing the library but still need to update it for install (see
+      // install_scope() for background). In which case we may still not have
+      // the installation directories. We handle this in pkconfig_save() by
+      // skipping the generation of .pc files (and letting the install rule
+      // complain if we do end up trying to install them).
+      //
       if (for_install && lt.library () && !lt.utility)
       {
         bool la (lt.static_library ());
