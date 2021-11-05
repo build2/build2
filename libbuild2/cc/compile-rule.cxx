@@ -1683,9 +1683,42 @@ namespace build2
           //
           auto enter = [&trace, &m] (dir_path p, dir_path d, size_t prio)
           {
-            auto j (m.find (p));
+            auto j (m.lower_bound (p)), e (m.end ());
 
-            if (j != m.end ())
+            if (j != e && j->first != p)
+              j = e;
+
+            if (j == m.end ())
+            {
+              if (verb >= 4)
+                trace << "new mapping for prefix '" << p << "'\n"
+                      << "  new mapping to      " << d << " priority " << prio;
+
+              m.emplace (move (p), prefix_value {move (d), prio});
+            }
+            else if (p.empty ())
+            {
+              // For prefixless we keep all the entries since for them we have
+              // an extra check (target must be explicitly spelled out in a
+              // buildfile).
+              //
+              if (verb >= 4)
+                trace << "additional mapping for prefix '" << p << "'\n"
+                      << "  new mapping to      " << d << " priority " << prio;
+
+              // Find the position where to insert according to the priority.
+              // For equal priorities we use the insertion order.
+              //
+              do
+              {
+                if (j->second.priority > prio)
+                  break;
+              }
+              while (++j != e && j->first == p);
+
+              m.emplace_hint (j, move (p), prefix_value {move (d), prio});
+            }
+            else
             {
               prefix_value& v (j->second);
 
@@ -1724,12 +1757,6 @@ namespace build2
                 v.priority = prio;
               }
             }
-            else
-            {
-              l6 ([&]{trace << "'" << p << "' -> " << d << " priority "
-                            << prio;});
-              m.emplace (move (p), prefix_value {move (d), prio});
-            }
           };
 
 #if 1
@@ -1737,11 +1764,7 @@ namespace build2
           //
           // The prefixless part is fuzzy but seems to be doing the right
           // thing ignoring/overriding-wise, at least in cases where one of
-          // the competing -I paths is a subdirectory of another. But the
-          // proper solution will be to keep all the prefixless entries (by
-          // changing prefix_map to a multimap) since for them we have an
-          // extra check (target must be explicitly spelled out in a
-          // buildfile).
+          // the competing -I paths is a subdirectory of another.
           //
           for (size_t prio (0);; ++prio)
           {
@@ -3068,7 +3091,11 @@ namespace build2
           // possibly find an explicit target of this type.
           //
           if (!insert)
+          {
+            l6 ([&]{trace << "unknown header " << n << " extension '"
+                          << e << "'";});
             return nullptr;
+          }
 
           tts.push_back (&h::static_type);
         }
@@ -3090,8 +3117,12 @@ namespace build2
           // absolute path with a spelled-out extension to multiple targets.
           //
           for (const target_type* tt: tts)
+          {
             if ((r = t.ctx.targets.find (*tt, d, out, n, e, trace)) != nullptr)
               break;
+            else
+              l6 ([&]{trace << "no targe with target type " << tt->name;});
+          }
 
           // Note: we can't do this because of the in-source builds where
           // there won't be explicit targets for non-generated headers.
@@ -3195,32 +3226,40 @@ namespace build2
           if (!pfx_map->empty ())
           {
             dir_path d (f.directory ());
-            auto i (pfx_map->find_sup (d));
+            auto p (pfx_map->sup_range (d));
 
-            if (i != pfx_map->end ())
+            if (p.first != p.second)
             {
-              // Note: value in pfx_map is not necessarily canonical.
+              // Note that we can only have multiple entries for the
+              // prefixless mapping.
               //
-              dir_path pd (i->second.directory);
-              pd.canonicalize ();
-
-              l4 ([&]{trace << "prefix '" << d << "' mapped to " << pd;});
-
-              // If this is a prefixless mapping, then only use it if we can
-              // resolve it to an existing target (i.e., it is explicitly
-              // spelled out in a buildfile).
-              //
-              // Note that at some point we will probably have a list of
-              // directories.
-              //
-              pt = find (pd / d, f.leaf (), !i->first.empty ());
-              if (pt != nullptr)
+              dir_path pd; // Reuse.
+              for (auto i (p.first); i != p.second; ++i)
               {
-                f = pd / f;
-                l4 ([&]{trace << "mapped as auto-generated " << f;});
+                // Note: value in pfx_map is not necessarily canonical.
+                //
+                pd = i->second.directory;
+                pd.canonicalize ();
+
+                l4 ([&]{trace << "try prefix '" << d << "' mapped to " << pd;});
+
+                // If this is a prefixless mapping, then only use it if we can
+                // resolve it to an existing target (i.e., it is explicitly
+                // spelled out in a buildfile). @@ Hm, I wonder why, it's not
+                // like we can generate any header without an explicit target.
+                // Maybe for diagnostics (i.e., we will actually try to build
+                // something there instead of just saying no mapping).
+                //
+                pt = find (pd / d, f.leaf (), !i->first.empty ());
+                if (pt != nullptr)
+                {
+                  f = pd / f;
+                  l4 ([&]{trace << "mapped as auto-generated " << f;});
+                  break;
+                }
+                else
+                  l4 ([&]{trace << "no explicit target in " << pd;});
               }
-              else
-                l4 ([&]{trace << "no explicit target in " << pd;});
             }
             else
               l4 ([&]{trace << "no prefix map entry for '" << d << "'";});

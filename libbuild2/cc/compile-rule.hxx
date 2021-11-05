@@ -100,8 +100,9 @@ namespace build2
       // don't treat foobar as a sub-directory of foo.
       //
       // The priority is used to decide who should override whom. Lesser
-      // values are considered higher priority. See append_prefixes() for
-      // details.
+      // values are considered higher priority. Note that we can have multiple
+      // prefixless mapping (where priority is used to determine the order).
+      // See append_prefixes() for details.
       //
       // @@ The keys should be normalized.
       //
@@ -110,7 +111,7 @@ namespace build2
         dir_path directory;
         size_t priority;
       };
-      using prefix_map = dir_path_map<prefix_value>;
+      using prefix_map = dir_path_multimap<prefix_value>;
 
       void
       append_prefixes (prefix_map&, const target&, const variable&) const;

@@ -292,6 +292,8 @@ namespace build2
 
   using butl::path_map;
   using butl::dir_path_map;
+  using butl::path_multimap;
+  using butl::dir_path_multimap;
 
   // Absolute directory path. Note that for now we don't do any checking that
   // the path is in fact absolute.
