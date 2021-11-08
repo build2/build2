@@ -1551,12 +1551,12 @@ namespace build2
     // Reverse-lookup target type(s) from extension.
     //
     small_vector<const target_type*, 2> compile_rule::
-    map_extension (const scope& s, const string& n, const string& e) const
+    map_extension (const scope& bs, const string& n, const string& e) const
     {
       // We will just have to try all of the possible ones, in the "most
       // likely to match" order.
       //
-      auto test = [&s, &n, &e] (const target_type& tt) -> bool
+      auto test = [&bs, &n, &e] (const target_type& tt) -> bool
       {
         // Call the extension derivation function. Here we know that it will
         // only use the target type and name from the target key so we can
@@ -1566,7 +1566,7 @@ namespace build2
 
         // This is like prerequisite search.
         //
-        optional<string> de (tt.default_extension (tk, s, nullptr, true));
+        optional<string> de (tt.default_extension (tk, bs, nullptr, true));
 
         return de && *de == e;
       };
@@ -1576,6 +1576,28 @@ namespace build2
       for (const target_type* const* p (x_inc); *p != nullptr; ++p)
         if (test (**p))
           r.push_back (*p);
+
+      // Next try target types derived from any of the C-source types.
+      //
+      const target_type_map& ttm (bs.root_scope ()->root_extra->target_types);
+
+      for (auto i (ttm.type_begin ()), e (ttm.type_end ()); i != e; ++i)
+      {
+        const target_type& dt (i->second);
+
+        for (const target_type* const* p (x_inc); *p != nullptr; ++p)
+        {
+          const target_type& bt (**p);
+
+          if (dt.is_a (bt))
+          {
+            if (dt != bt && test (dt))
+              r.push_back (&dt);
+
+            break;
+          }
+        }
+      }
 
       return r;
     }

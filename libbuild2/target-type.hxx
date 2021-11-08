@@ -189,7 +189,7 @@ namespace build2
       file_map_.emplace (n, tt);
     }
 
-  private:
+  public:
     struct target_type_ref
     {
       // Like reference_wrapper except it sometimes deletes the target type.
@@ -214,8 +214,17 @@ namespace build2
       bool d_;
     };
 
-    map<string, target_type_ref>                      type_map_;
-    map<string, reference_wrapper<const target_type>> file_map_;
+    using type_map = map<string, target_type_ref>;
+    using file_map = map<string, reference_wrapper<const target_type>>;
+
+    using type_iterator = type_map::const_iterator;
+
+    type_iterator type_begin () const {return type_map_.begin ();}
+    type_iterator type_end ()   const {return type_map_.end ();}
+
+  private:
+    type_map type_map_;
+    file_map file_map_;
   };
 }
 
