@@ -55,7 +55,7 @@ function compile ()
 -v date="$date" \
 -v copyright="$copyright" \
 --include-base-last "${o[@]}" \
---generate-man --man-suffix .1 \
+--generate-man --man-suffix .1 --ascii-tree \
 --man-prologue-file man-prologue.1 \
 --man-epilogue-file man-epilogue.1 \
 ../build2/$n.cli
@@ -76,6 +76,8 @@ done
 # Manuals.
 #
 
+# @@ Note that we now have --ascii-tree CLI option.
+#
 function xhtml_to_ps () # <from> <to> [<html2ps-options>]
 {
   local from="$1"
