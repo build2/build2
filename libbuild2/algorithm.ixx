@@ -143,7 +143,8 @@ namespace build2
     if (target != nullptr && prev != this)
     {
       const target_lock* cur (stack (prev));
-      assert (cur == this);
+      if (cur != this) // NDEBUG
+        assert (cur == this);
       prev = this;
     }
   }
@@ -158,7 +159,8 @@ namespace build2
       if (prev != this)
       {
         const target_lock* cur (stack (prev));
-        assert (cur == this);
+        if (cur != this) // NDEBUG
+          assert (cur == this);
       }
 
       target = nullptr;
@@ -175,7 +177,8 @@ namespace build2
       if (prev != this)
       {
         const target_lock* cur (stack (prev));
-        assert (cur == this);
+        if (cur != this) // NDEBUG
+          assert (cur == this);
       }
 
       target = nullptr;
@@ -199,7 +202,8 @@ namespace build2
       if (x.prev != &x)
       {
         const target_lock* cur (stack (this));
-        assert (cur == &x);
+        if (cur != &x) // NDEBUG
+          assert (cur == &x);
         prev = x.prev;
       }
       else
@@ -225,7 +229,8 @@ namespace build2
         if (x.prev != &x)
         {
           const target_lock* cur (stack (this));
-          assert (cur == &x);
+          if (cur != &x) // NDEBUG
+            assert (cur == &x);
           prev = x.prev;
         }
         else
