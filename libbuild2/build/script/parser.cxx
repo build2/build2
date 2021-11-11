@@ -8,6 +8,8 @@
 #include <libbuild2/function.hxx>
 #include <libbuild2/algorithm.hxx>
 
+#include <libbuild2/script/run.hxx>
+
 #include <libbuild2/build/script/lexer.hxx>
 #include <libbuild2/build/script/runner.hxx>
 #include <libbuild2/build/script/builtin-options.hxx>
@@ -942,6 +944,10 @@ namespace build2
                          bool /* single */,
                          const location& ll)
         {
+          // Note that we never reset the line index to zero (as we do in
+          // execute_body()) assuming that there are some script body
+          // commands to follow.
+          //
           if (tt == type::word && t.value == "depdb")
           {
             next (t, tt);
@@ -954,7 +960,7 @@ namespace build2
 
             if (cmd == "dep")
             {
-              exec_depdb_dep (t, tt, ll);
+              exec_depdb_dep (t, tt, li, ll);
             }
             else
             {
@@ -1021,10 +1027,6 @@ namespace build2
           }
           else
           {
-            // Note that we don't reset the line index to zero (as we do in
-            // execute_body()) assuming that there are some script body
-            // commands to follow.
-            //
             command_expr ce (
               parse_command_line (t, static_cast<token_type&> (tt)));
 
@@ -1166,6 +1168,7 @@ namespace build2
 
       void parser::
       exec_depdb_dep (token& t, build2::script::token_type& tt,
+                      size_t li,
                       const location& ll)
       {
         // Similar approach to parse_env_builtin().
@@ -1258,17 +1261,34 @@ namespace build2
         {
           // Run the remainder of the command line as a program (which can be
           // a pipe). If file is absent, then redirect the command's stdout to
-          // a pipe. Otherwise, assume the command writes to file and add it
-          // to the clenups.
+          // a pipe. Otherwise, assume the command writes to a file and add it
+          // to the cleanups. @@ TODO: reword
           //
           // Note that MSVC /showInclude sends its output to stderr (and so
           // could do other broken tools). However, the user can always merge
           // stderr to stdout (2>&1).
           //
-          // @@ can we somehow get it as butl::process (but what if it's a
-          //    builtin)?
+          command_expr ce (
+            parse_command_line (t, static_cast<token_type&> (tt)));
 
-          // @@ TODO
+          // If the output goes to stdout, then this should be a single
+          // pipeline without any logical operators (&& or ||).
+          //
+          // @@ TODO: improve diagnostics.
+          //
+          if (!file && ce.size () != 1)
+            fail (ll) << "depdb dep: command cannot contain logical operators";
+
+          string s;
+          build2::script::run (*environment_,
+                               ce,
+                               li,
+                               ll,
+                               !file ? &s : nullptr);
+
+          if (file)
+            environment_->clean ({build2::script::cleanup_type::always, *file},
+                                 true /* implicit */);
         }
         else
         {

@@ -38,11 +38,22 @@ namespace build2
     // Location is the start position of this command line in the script. It
     // can be used in diagnostics.
     //
+    // Optionally, save the command output into the referenced variable. In
+    // this case assume that the expression contains a single pipline.
+    //
     void
-    run (environment&, const command_expr&, size_t index, const location&);
+    run (environment&,
+         const command_expr&,
+         size_t index,
+         const location&,
+         string* output = nullptr);
 
     bool
-    run_if (environment&, const command_expr&, size_t, const location&);
+    run_if (environment&,
+            const command_expr&,
+            size_t index,
+            const location&,
+            string* output = nullptr);
 
     // Perform the registered special file cleanups in the direct order and
     // then the regular cleanups in the reverse order.

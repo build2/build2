@@ -123,6 +123,7 @@ namespace build2
 
         void
         exec_depdb_dep (token&, build2::script::token_type&,
+                        size_t line_index,
                         const location&);
 
         // Helpers.
