@@ -1,0 +1,25 @@
+// file      : libbuild2/build/script/builtin.cli
+// license   : MIT; see accompanying LICENSE file
+
+include <libbuild2/types.hxx>;
+
+// Note that options in this file are undocumented because we generate neither
+// the usage printing code nor man pages. Instead, they are documented in the
+// manual.
+//
+namespace build2
+{
+  namespace build
+  {
+    namespace script
+    {
+      // Pseudo-builtin options.
+      //
+      class depdb_dep_options
+      {
+        string --file; // @@ TMP path
+        string --format;
+      };
+    }
+  }
+}

@@ -10,6 +10,7 @@
 
 #include <libbuild2/build/script/lexer.hxx>
 #include <libbuild2/build/script/runner.hxx>
+#include <libbuild2/build/script/builtin-options.hxx>
 
 using namespace std;
 using namespace butl;
@@ -487,7 +488,11 @@ namespace build2
             next (t, tt);
 
             if (tt != type::word ||
-                (v != "clear" && v != "hash" && v != "string" && v != "env"))
+                (v != "clear"  &&
+                 v != "hash"   &&
+                 v != "string" &&
+                 v != "env"    &&
+                 v != "dep"))
             {
               fail (get_location (t))
                 << "expected 'depdb' builtin command instead of " << t;
@@ -533,6 +538,28 @@ namespace build2
             }
             else
             {
+              // Verify depdb-dep is last.
+              //
+              if (v == "dep")
+              {
+                // Note that for now we do not allow multiple depdb-dep calls.
+                // But we may wan to relax this later (though alternating
+                // targets with prerequisites may be tricky -- maybe still
+                // only allow additional targets in the first call).
+                //
+                if (!depdb_dep_)
+                  depdb_dep_ = l;
+                else
+                  fail (l) << "multiple 'depdb dep' calls" <<
+                    info (*depdb_dep_) << "previous call is here";
+              }
+              else
+              {
+                if (depdb_dep_)
+                  fail (l) << "'depdb " << v << "' after 'depdb dep'" <<
+                    info (*depdb_dep_) << "'depdb dep' call is here";
+              }
+
               // Move the script body to the end of the depdb preamble.
               //
               // Note that at this (pre-parsing) stage we cannot evaluate if
@@ -917,75 +944,80 @@ namespace build2
         {
           if (tt == type::word && t.value == "depdb")
           {
-            names ns (exec_special (t, tt));
+            next (t, tt);
 
             // This should have been enforced during pre-parsing.
             //
-            assert (!ns.empty ()); // <cmd> ... <newline>
+            assert (tt == type::word); // <cmd> ... <newline>
 
-            const string& cmd (ns[0].value);
+            string cmd (move (t.value));
 
-            if (cmd == "hash")
+            if (cmd == "dep")
             {
-              sha256 cs;
-              for (auto i (ns.begin () + 1); i != ns.end (); ++i) // Skip <cmd>.
-                to_checksum (cs, *i);
-
-              if (ctx.dd.expect (cs.string ()) != nullptr)
-                l4 ([&] {
-                    ctx.trace (ll)
-                      << "'depdb hash' argument change forcing update of "
-                      << ctx.env.target;});
-            }
-            else if (cmd == "string")
-            {
-              string s;
-              try
-              {
-                s = convert<string> (
-                  names (make_move_iterator (ns.begin () + 1),
-                         make_move_iterator (ns.end ())));
-              }
-              catch (const invalid_argument& e)
-              {
-                fail (ll) << "invalid 'depdb string' argument: " << e;
-              }
-
-              if (ctx.dd.expect (s) != nullptr)
-                l4 ([&] {
-                    ctx.trace (ll)
-                      << "'depdb string' argument change forcing update of "
-                      << ctx.env.target;});
-            }
-            else if (cmd == "env")
-            {
-              sha256 cs;
-              const char* pf ("invalid 'depdb env' argument: ");
-
-              try
-              {
-                // Skip <cmd>.
-                //
-                for (auto i (ns.begin () + 1); i != ns.end (); ++i)
-                {
-                  string vn (convert<string> (move (*i)));
-                  build2::script::verify_environment_var_name (vn, pf, ll);
-                  hash_environment (cs, vn);
-                }
-              }
-              catch (const invalid_argument& e)
-              {
-                fail (ll) << pf << e;
-              }
-
-              if (ctx.dd.expect (cs.string ()) != nullptr)
-                l4 ([&] {
-                    ctx.trace (ll)
-                      << "'depdb env' environment change forcing update of "
-                      << ctx.env.target;});
+              exec_depdb_dep (t, tt, ll);
             }
             else
-              assert (false);
+            {
+              names ns (exec_special (t, tt, true /* skip <cmd> */));
+
+              if (cmd == "hash")
+              {
+                sha256 cs;
+                for (const name& n: ns)
+                  to_checksum (cs, n);
+
+                if (ctx.dd.expect (cs.string ()) != nullptr)
+                  l4 ([&] {
+                      ctx.trace (ll)
+                        << "'depdb hash' argument change forcing update of "
+                        << ctx.env.target;});
+              }
+              else if (cmd == "string")
+              {
+                string s;
+                try
+                {
+                  s = convert<string> (move (ns));
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (ll) << "invalid 'depdb string' argument: " << e;
+                }
+
+                if (ctx.dd.expect (s) != nullptr)
+                  l4 ([&] {
+                      ctx.trace (ll)
+                        << "'depdb string' argument change forcing update of "
+                        << ctx.env.target;});
+              }
+              else if (cmd == "env")
+              {
+                sha256 cs;
+                const char* pf ("invalid 'depdb env' argument: ");
+
+                try
+                {
+                  for (name& n: ns)
+                  {
+                    string vn (convert<string> (move (n)));
+                    build2::script::verify_environment_var_name (vn, pf, ll);
+                    hash_environment (cs, vn);
+                  }
+                }
+                catch (const invalid_argument& e)
+                {
+                  fail (ll) << pf << e;
+                }
+
+                if (ctx.dd.expect (cs.string ()) != nullptr)
+                  l4 ([&] {
+                      ctx.trace (ll)
+                        << "'depdb env' environment change forcing update of "
+                        << ctx.env.target;});
+              }
+              else
+                assert (false);
+            }
           }
           else
           {
@@ -1097,18 +1129,16 @@ namespace build2
       }
 
       names parser::
-      exec_special (token& t, build2::script::token_type& tt,
-                    bool omit_builtin)
+      exec_special (token& t, build2::script::token_type& tt, bool skip_first)
       {
-        if (omit_builtin)
+        if (skip_first)
         {
           assert (tt != type::newline && tt != type::eos);
-
           next (t, tt);
         }
 
         return tt != type::newline && tt != type::eos
-               ? parse_names (t, tt, pattern_mode::expand)
+               ? parse_names (t, tt, pattern_mode::ignore)
                : names ();
       }
 
@@ -1132,6 +1162,121 @@ namespace build2
 
         replay_stop ();
         return r;
+      }
+
+      void parser::
+      exec_depdb_dep (token& t, build2::script::token_type& tt,
+                      const location& ll)
+      {
+        // Similar approach to parse_env_builtin().
+        //
+        next (t, tt); // Skip 'dep' command.
+
+        // Note that an option name and value can belong to different name
+        // chunks. That's why we parse the arguments in the chunking mode into
+        // the list up to the `--` separator and parse this list into options
+        // afterwards. Note that the `--` separator should be omitted if there
+        // is no program (i.e., additional dependency info is being read from
+        // one of the prerequisites).
+        //
+        strings args;
+        bool prog (false);
+
+        names ns; // Reuse to reduce allocations.
+        while (tt != type::newline && tt != type::eos)
+        {
+          if (tt == type::word && t.value == "--")
+          {
+            prog = true;
+            break;
+          }
+
+          location l (get_location (t));
+
+          if (!start_names (tt))
+            fail (l) << "depdb dep: expected option or '--' separator "
+                     << "instead of " << t;
+
+          parse_names (t, tt,
+                       ns,
+                       pattern_mode::ignore,
+                       true /* chunk */,
+                       "depdb dep builtin argument",
+                       nullptr);
+
+          for (name& n: ns)
+          {
+            try
+            {
+              args.push_back (convert<string> (move (n)));
+            }
+            catch (const invalid_argument&)
+            {
+              diag_record dr (fail (l));
+              dr << "invalid string value ";
+              to_stream (dr.os, n, true /* quote */);
+            }
+          }
+
+          ns.clear ();
+        }
+
+        if (prog)
+        {
+          next (t, tt); // Skip '--'.
+
+          if (tt == type::newline || tt == type::eos)
+            fail (t) << "depdb dep: expected program name instead of " << t;
+        }
+
+        // Parse the options.
+        //
+        depdb_dep_options ops;
+        try
+        {
+          cli::vector_scanner scan (args);
+          ops = depdb_dep_options (scan);
+
+          if (scan.more ())
+            fail (ll) << "depdb dep: unexpected argument '" << scan.next ()
+                      << "'";
+        }
+        catch (const cli::exception& e)
+        {
+          fail (ll) << "depdb dep: " << e;
+        }
+
+        optional<path> file;
+        if (ops.file_specified ())
+        {
+          file = path (ops.file ()); // @@ TMP path
+
+          // @@ TODO: file must be absolute.
+        }
+
+        if (prog)
+        {
+          // Run the remainder of the command line as a program (which can be
+          // a pipe). If file is absent, then redirect the command's stdout to
+          // a pipe. Otherwise, assume the command writes to file and add it
+          // to the clenups.
+          //
+          // Note that MSVC /showInclude sends its output to stderr (and so
+          // could do other broken tools). However, the user can always merge
+          // stderr to stdout (2>&1).
+          //
+          // @@ can we somehow get it as butl::process (but what if it's a
+          //    builtin)?
+
+          // @@ TODO
+        }
+        else
+        {
+          // Assume file is one of the prerequisites.
+          //
+          if (!file)
+            fail (ll) << "depdb dep: program or --file expected";
+        }
       }
 
       // When add a special variable don't forget to update lexer::word().

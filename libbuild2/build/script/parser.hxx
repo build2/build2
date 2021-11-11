@@ -119,8 +119,11 @@ namespace build2
         exec_lines (const lines&, const function<exec_cmd_function>&);
 
         names
-        exec_special (token& t, build2::script::token_type& tt,
-                      bool omit_builtin = true);
+        exec_special (token&, build2::script::token_type&, bool skip_first);
+
+        void
+        exec_depdb_dep (token&, build2::script::token_type&,
+                        const location&);
 
         // Helpers.
         //
@@ -219,8 +222,12 @@ namespace build2
         // depdb env <var-names> - Track the environment variables change as a
         //                         hash.
         //
-        optional<location> depdb_clear_;    // 'depdb clear' location if any.
-        lines              depdb_preamble_; // Note: excludes 'depdb clear'.
+        // depdb dep ...         - Extract additional dependency information.
+        //                         Can only be the last depdb builtin call.
+        //
+        optional<location> depdb_clear_;    // depdb-clear location if any.
+        optional<location> depdb_dep_;      // depdb-dep location if any.
+        lines              depdb_preamble_; // Note: excludes depdb-clear.
 
         // If present, the first impure function called in the body of the
         // script that performs update of a file-based target.

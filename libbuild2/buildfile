@@ -32,7 +32,8 @@ lib{build2}: libul{build2}:                                            \
 libul{build2}: script/{hxx ixx txx cxx}{** -*-options -**.test...} \
                script/{hxx ixx cxx}{builtin-options}
 
-libul{build2}: build/{hxx ixx txx cxx}{** -**.test...}
+libul{build2}: build/script/{hxx ixx txx cxx}{** -*-options -**.test...} \
+               build/script/{hxx ixx cxx}{builtin-options}
 
 # Note that this won't work in libul{} since it's not installed.
 #
@@ -216,38 +217,53 @@ else
 
 # Generated options parser.
 #
-script/
+# @@ Consider generating common cli runtime namespace if adding more
+#    option files.
+#
+if $cli.configured
 {
-  if $cli.configured
+  cli.options += --std c++11 -I $src_root --include-with-brackets \
+--generate-vector-scanner --generate-modifier --generate-specifier \
+--suppress-usage
+
+  cli.cxx{*}:
   {
-    cli.cxx{builtin-options}: cli{builtin}
-
-    cli.options += --std c++11 -I $src_root --include-with-brackets \
---include-prefix libbuild2/script --guard-prefix LIBBUILD2_SCRIPT \
---cli-namespace build2::script::cli --generate-vector-scanner \
---generate-modifier --generate-specifier --suppress-usage
-
-    cli.cxx{*}:
-    {
-      # Include the generated cli files into the distribution and don't remove
-      # them when cleaning in src (so that clean results in a state identical
-      # to distributed). But don't install their headers since they are only
-      # used internally in the testscript implementation.
-      #
-      dist  = true
-      clean = ($src_root != $out_root)
-      install = false
-
-      # We keep the generated code in the repository so copy it back to src in
-      # case of a forwarded configuration.
-      #
-      backlink = overwrite
-    }
-  }
-  else
-    # No install for the pre-generated case.
+    # Include the generated cli files into the distribution and don't remove
+    # them when cleaning in src (so that clean results in a state identical
+    # to distributed). But don't install their headers since they are only
+    # used internally in the testscript implementation.
     #
-    hxx{builtin-options}@./ ixx{builtin-options}@./: install = false
+    dist  = true
+    clean = ($src_root != $out_root)
+    install = false
+
+    # We keep the generated code in the repository so copy it back to src in
+    # case of a forwarded configuration.
+    #
+    backlink = overwrite
+  }
+
+  script/cli.cxx{builtin-options}: script/cli{builtin}
+  {
+    cli.options += --cli-namespace build2::script::cli \
+--include-prefix libbuild2/script --guard-prefix LIBBUILD2_SCRIPT
+  }
+
+  build/script/cli.cxx{builtin-options}: build/script/cli{builtin}
+  {
+    cli.options += --cli-namespace build2::build::script::cli \
+--include-prefix libbuild2/build/script --guard-prefix LIBBUILD2_BUILD_SCRIPT
+  }
+}
+else
+{
+  # No install for the pre-generated case.
+  #
+  script/hxx{builtin-options}@./ \
+  script/ixx{builtin-options}@./: install = false
+
+  build/script/hxx{builtin-options}@./ \
+  build/script/ixx{builtin-options}@./: install = false
 }
 
 # Install into the libbuild2/ subdirectory of, say, /usr/include/
