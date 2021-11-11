@@ -944,6 +944,83 @@ namespace build2
              : path (c.program.recall_string ());
     }
 
+    // Read out the stream content into a string. Throw io_error on the
+    // underlying OS error.
+    //
+    // If the execution deadline is specified, then turn the stream into the
+    // non-blocking mode reading its content in chunks and with a single
+    // operation otherwise. If the specified deadline is reached while
+    // reading the stream, then bail out for the successful deadline and
+    // fail otherwise. Note that in the former case the result will be
+    // incomplete, but we leave it to the caller to handle that.
+    //
+    // Note that on Windows we can only turn pipe file descriptors into the
+    // non-blocking mode. Thus, we have no choice but to read from
+    // descriptors of other types synchronously there. That implies that we
+    // can potentially block indefinitely reading a file and missing the
+    // deadline on Windows. Note though, that the user can normally rewrite
+    // the command, for example, `set foo <<<file` with `cat file | set foo`
+    // to avoid this problem.
+    //
+    static string
+    read (auto_fd in,
+#ifndef _WIN32
+          bool,
+#else
+          bool pipe,
+#endif
+          const optional<deadline>& dl,
+          const command& deadline_cmd,
+          const location& ll)
+    {
+      string r;
+      ifdstream cin;
+
+#ifndef _WIN32
+      if (dl)
+#else
+      if (dl && pipe)
+#endif
+      {
+        fdselect_set fds {in.get ()};
+        cin.open (move (in), fdstream_mode::non_blocking);
+
+        const timestamp& dlt (dl->value);
+
+        for (char buf[4096];; )
+        {
+          timestamp now (system_clock::now ());
+
+          if (dlt <= now || ifdselect (fds, dlt - now) == 0)
+          {
+            if (!dl->success)
+              fail (ll) << cmd_path (deadline_cmd)
+                        << " terminated: execution timeout expired";
+            else
+              break;
+          }
+
+          streamsize n (cin.readsome (buf, sizeof (buf)));
+
+          // Bail out if eos is reached.
+          //
+          if (n == 0)
+            break;
+
+          r.append (buf, n);
+        }
+      }
+      else
+      {
+        cin.open (move (in));
+        r = cin.read_text ();
+      }
+
+      cin.close ();
+
+      return r;
+    }
+
     // The set pseudo-builtin: set variable from the stdin input.
     //
     // set [-e|--exact] [(-n|--newline)|(-w|--whitespace)] [<attr>] <var>
@@ -952,11 +1029,7 @@ namespace build2
     set_builtin (environment& env,
                  const strings& args,
                  auto_fd in,
-#ifndef _WIN32
-                 bool,
-#else
                  bool pipe,
-#endif
                  const optional<deadline>& dl,
                  const command& deadline_cmd,
                  const location& ll)
@@ -988,70 +1061,9 @@ namespace build2
           fail (ll) << "set: empty variable name";
 
         // Read out the stream content into a string while keeping an eye on
-        // the deadline. Then parse it according to the split mode.
+        // the deadline.
         //
-        string s;
-        {
-          ifdstream cin;
-
-          // If the execution deadline is specified, then turn the stream into
-          // the non-blocking mode reading its content in chunks and with a
-          // single operation otherwise. If the specified deadline is reached
-          // while reading the stream, then bail out for the successful
-          // deadline and fail otherwise. Note that in the former case the
-          // variable value will be incomplete, but we leave it to the caller
-          // to handle that.
-          //
-          // Note that on Windows we can only turn pipe file descriptors into
-          // the non-blocking mode. Thus, we have no choice but to read from
-          // descriptors of other types synchronously there. That implies that
-          // we can potentially block indefinitely reading a file and missing
-          // the deadline on Windows. Note though, that the user can always
-          // rewrite `set foo <<<file` with `cat file | set foo` to avoid this
-          // problem.
-          //
-#ifndef _WIN32
-          if (dl)
-#else
-          if (dl && pipe)
-#endif
-          {
-            fdselect_set fds {in.get ()};
-            cin.open (move (in), fdstream_mode::non_blocking);
-
-            const timestamp& dlt (dl->value);
-
-            for (char buf[4096];; )
-            {
-              timestamp now (system_clock::now ());
-
-              if (dlt <= now || ifdselect (fds, dlt - now) == 0)
-              {
-                if (!dl->success)
-                  fail (ll) << cmd_path (deadline_cmd)
-                            << " terminated: execution timeout expired";
-                else
-                  break;
-              }
-
-              streamsize n (cin.readsome (buf, sizeof (buf)));
-
-              // Bail out if eos is reached.
-              //
-              if (n == 0)
-                break;
-
-              s.append (buf, n);
-            }
-          }
-          else
-          {
-            cin.open (move (in));
-            s = cin.read_text ();
-          }
-
-          cin.close ();
-        }
+        string s (read (move (in), pipe, dl, deadline_cmd, ll));
 
         // Parse the stream content into the variable value.
         //
@@ -1137,7 +1149,7 @@ namespace build2
       }
       catch (const io_error& e)
       {
-        fail (ll) << "set: " << e;
+        fail (ll) << "set: unable to read from stdin: " << e;
       }
       catch (const cli::exception& e)
       {
@@ -1202,14 +1214,42 @@ namespace build2
               auto_fd ifd,
               size_t ci, size_t li, const location& ll,
               bool diag,
+              string* output,
               optional<deadline> dl = nullopt,
               const command* dl_cmd = nullptr, // env -t <cmd>
               pipe_command* prev_cmd = nullptr)
     {
       tracer trace ("script::run_pipe");
 
-      if (bc == ec) // End of the pipeline.
+      // At the end of the pipeline read out its stdout, if requested.
+      //
+      if (bc == ec)
+      {
+        if (output != nullptr)
+        {
+          // The pipeline can't be empty.
+          //
+          assert (ifd != nullfd && prev_cmd != nullptr);
+
+          const command& c (prev_cmd->cmd);
+
+          try
+          {
+            *output = read (move (ifd),
+                            true /* pipe */,
+                            dl,
+                            dl_cmd != nullptr ? *dl_cmd : c,
+                            ll);
+          }
+          catch (const io_error& e)
+          {
+            fail (ll) << "io error reading " << cmd_path (c) << " output: "
+                      << e;
+          }
+        }
+
         return true;
+      }
 
       // The overall plan is to run the first command in the pipe, reading its
       // input from the file descriptor passed (or, for the first command,
@@ -1261,6 +1301,11 @@ namespace build2
       command_pipe::const_iterator nc (bc + 1);
       bool last (nc == ec);
 
+      // Make sure that stdout is not redirected if meant to be read.
+      //
+      if (last && output != nullptr && c.out)
+        fail (ll) << "stdout cannot be redirected";
+
       // True if the process path is not pre-searched and the program path
       // still needs to be resolved.
       //
@@ -1272,7 +1317,7 @@ namespace build2
 
       const redirect& in ((c.in ? *c.in : env.in).effective ());
 
-      const redirect* out (!last
+      const redirect* out (!last || output != nullptr
                            ? nullptr // stdout is piped.
                            : &(c.out ? *c.out : env.out).effective ());
 
@@ -1339,6 +1384,9 @@ namespace build2
 
         if (c.out)
           fail (ll) << program << " builtin stdout cannot be redirected";
+
+        if (output != nullptr)
+          fail (ll) << program << " builtin stdout cannot be read";
 
         if (c.err)
           fail (ll) << program << " builtin stderr cannot be redirected";
@@ -1529,6 +1577,9 @@ namespace build2
         if (c.out)
           fail (ll) << "set builtin stdout cannot be redirected";
 
+        if (output != nullptr)
+          fail (ll) << "set builtin stdout cannot be read";
+
         if (c.err)
           fail (ll) << "set builtin stderr cannot be redirected";
 
@@ -1661,7 +1712,7 @@ namespace build2
       //    script failures investigation and, for example, for validation
       //    "tightening".
       //
-      if (last)
+      if (last && out != nullptr)
         ofd.out = open (*out, 1, osp);
       else
       {
@@ -1690,7 +1741,7 @@ namespace build2
           fail (ll) << "stdout and stderr redirected to each other";
 
         auto_fd& self  (mo ? ofd.out : efd);
-        auto_fd& other (mo ? efd : ofd.out);
+        auto_fd& other (mo ? efd     : ofd.out);
 
         try
         {
@@ -1704,9 +1755,9 @@ namespace build2
         }
       }
 
-      // All descriptors should be open to the date.
+      // By now all descriptors should be open.
       //
-      assert (ofd.out.get () != -1 && efd.get () != -1);
+      assert (ofd.out != nullfd && efd != nullfd);
 
       // Wait for a process/builtin to complete until the deadline is reached
       // and return the underlying wait function result (optional<something>).
@@ -1756,7 +1807,7 @@ namespace build2
             // is exiting on Windows, etc) then just ignore this, postponing
             // the potential failure till the kill() call.
             //
-            l5 ([&]{trace (c->loc) <<"unable to terminate " << prog (c)
+            l5 ([&]{trace (c->loc) << "unable to terminate " << prog (c)
                                    << ": " << e;});
           }
 
@@ -2123,6 +2174,7 @@ namespace build2
                               nc, ec,
                               move (ofd.in),
                               ci + 1, li, ll, diag,
+                              output,
                               dl, dl_cmd,
                               &pc);
 
@@ -2249,6 +2301,7 @@ namespace build2
                               nc, ec,
                               move (ofd.in),
                               ci + 1, li, ll, diag,
+                              output,
                               dl, dl_cmd,
                               &pc);
 
@@ -2376,7 +2429,7 @@ namespace build2
       if (success)
         success =
           check_output (pr, esp, isp, err, ll, env, diag, "stderr") &&
-          (!last ||
+          (out == nullptr ||
            check_output (pr, osp, isp, *out, ll, env, diag, "stdout"));
 
       return success;
@@ -2386,7 +2439,8 @@ namespace build2
     run_expr (environment& env,
               const command_expr& expr,
               size_t li, const location& ll,
-              bool diag)
+              bool diag,
+              string* output)
     {
       // Commands are numbered sequentially throughout the expression
       // starting with 1. Number 0 means the command is a single one.
@@ -2424,10 +2478,15 @@ namespace build2
         // with false.
         //
         if (!((or_op && r) || (!or_op && !r)))
+        {
+          assert (!p.empty ());
+
           r = run_pipe (env,
                         p.begin (), p.end (),
                         auto_fd (),
-                        ci, li, ll, print);
+                        ci, li, ll, print,
+                        output);
+        }
 
         ci += p.size ();
       }
@@ -2438,24 +2497,26 @@ namespace build2
     void
     run (environment& env,
          const command_expr& expr,
-         size_t li, const location& ll)
+         size_t li, const location& ll,
+         string* output)
     {
       // Note that we don't print the expression at any verbosity level
       // assuming that the caller does this, potentially providing some
       // additional information (command type, etc).
       //
-      if (!run_expr (env, expr, li, ll, true /* diag */))
+      if (!run_expr (env, expr, li, ll, true /* diag */, output))
         throw failed (); // Assume diagnostics is already printed.
     }
 
     bool
     run_if (environment& env,
             const command_expr& expr,
-            size_t li, const location& ll)
+            size_t li, const location& ll,
+            string* output)
     {
       // Note that we don't print the expression here (see above).
       //
-      return run_expr (env, expr, li, ll, false /* diag */);
+      return run_expr (env, expr, li, ll, false /* diag */, output);
     }
 
     void

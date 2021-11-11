@@ -1,0 +1,98 @@
+# file      : libbuild2/make-parser.test.testscript
+# license   : MIT; see accompanying LICENSE file
+
+: valid
+:
+$* <<EOI >>EOO
+  foo:
+
+  foo: bar
+
+  foo: bar baz
+
+  foo: bar \
+  baz
+
+  foo: bar\
+  baz
+
+  foo:\
+  bar baz\
+  fox
+
+  foo: bar \
+  \
+  baz
+
+  foo: bar\
+
+  foo bar: baz
+
+  foo \
+  bar: baz
+
+  foo \
+  bar \
+  : baz
+
+  \
+  foo: bar
+  EOI
+  T foo
+
+  T foo
+  P bar
+
+  T foo
+  P bar
+  P baz
+
+  T foo
+  P bar
+  P baz
+
+  T foo
+  P bar
+  P baz
+
+  T foo
+  P
+  P bar
+  P baz
+  P fox
+
+  T foo
+  P bar
+  P
+  P baz
+
+  T foo
+  P bar
+  P
+
+  T foo
+  T bar
+  P baz
+
+  T foo
+  T bar
+  P baz
+
+  T foo
+  T bar
+  T
+  P baz
+
+  T
+  T foo
+  P bar
+  EOO
+
+: lax
+:
+$* <<EOI >>EOO
+  foo: c:\tmp\bar
+  EOI
+  T foo
+  P c:\tmp\bar
+  EOO

@@ -1313,7 +1313,7 @@ namespace build2
       // Note that an option name and value can belong to different name
       // chunks. That's why we parse the env builtin arguments in the chunking
       // mode into the argument/location pair list up to the '--' separator
-      // and parse this list into the variable sets/unsets afterwords.
+      // and parse this list into the variable sets/unsets afterwards.
       //
       // Align the size with environment_vars (double because of -u <var>
       // which is two arguments).

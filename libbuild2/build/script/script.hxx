@@ -29,6 +29,10 @@ namespace build2
       using build2::script::deadline;
       using build2::script::timeout;
 
+      // Forward declarations.
+      //
+      class default_runner;
+
       // Notes:
       //
       // - Once parsed, the script can be executed in multiple threads with
@@ -70,9 +74,10 @@ namespace build2
         // The script's custom dependency change tracking lines (see the
         // script parser for details).
         //
-        bool       depdb_clear;
-        lines_type depdb_preamble;
-        bool       depdb_preamble_temp_dir = false; // True if references $~.
+        bool             depdb_clear;
+        optional<size_t> depdb_dyndep;   // Position of first depdb-dyndep.
+        lines_type       depdb_preamble;
+        bool             depdb_preamble_temp_dir = false; // True if refs $~.
 
         location start_loc;
         location end_loc;

@@ -189,6 +189,35 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT void
   path_perms (const path&, permissions);
+
+  // Normalize an absolute path to an existing file that may reside outside of
+  // any project and could involve funny filesystem business (e.g., relative
+  // directory symlinks). For example, a C/C++ header path returned by a
+  // compiler which could be a system header.
+  //
+  // We used to just normalize such a path but that could result in an invalid
+  // path (e.g., for some system/compiler headers on CentOS 7 with Clang 3.4)
+  // because of the symlinks (if a directory component is a symlink, then any
+  // following `..` are resolved relative to the target; see path::normalize()
+  // for background).
+  //
+  // Initially, to fix this, we realized (i.e., realpath(3)) it instead. But
+  // that turned out also not to be quite right since now we have all the
+  // symlinks resolved: conceptually it feels correct to keep the original
+  // header names since that's how the user chose to arrange things and
+  // practically this is how compilers see/report them (e.g., the GCC module
+  // mapper).
+  //
+  // So now we have a pretty elaborate scheme where we try to use the
+  // normalized path if possible and fallback to realized. Normalized paths
+  // will work for situations where `..` does not cross symlink boundaries,
+  // which is the sane case. And for the insane case we only really care
+  // about out-of-project files (i.e., system/compiler headers). In other
+  // words, if you have the insane case inside your project, then you are on
+  // your own.
+  //
+  LIBBUILD2_SYMEXPORT void
+  normalize_external (path&, const char* what);
 }
 
 #include <libbuild2/filesystem.ixx>

@@ -53,7 +53,7 @@ namespace build2
       // Run command expressions.
       //
       // In dry-run mode don't run the expressions unless they are if-
-      // conditions or execute the set or exit builtins, but prints them at
+      // conditions or execute the set or exit builtins, but print them at
       // verbosity level 2 and up.
       //
       class default_runner: public runner

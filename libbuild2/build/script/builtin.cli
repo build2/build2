@@ -1,0 +1,32 @@
+// file      : libbuild2/build/script/builtin.cli
+// license   : MIT; see accompanying LICENSE file
+
+include <libbuild2/types.hxx>;
+
+// Note that options in this file are undocumented because we generate neither
+// the usage printing code nor man pages. Instead, they are documented in the
+// manual.
+//
+namespace build2
+{
+  namespace build
+  {
+    namespace script
+    {
+      // Pseudo-builtin options.
+      //
+      class depdb_dep_options
+      {
+        // Note that --byproduct, if any, must be the first option and is
+        // handled ad hoc, kind of as a sub-command.
+        //
+        path --file;                   // Read from file rather than stdin.
+        string --format;               // Dependency format: make (default).
+        string --what;                 // Dependency kind, e.g., "header".
+        dir_paths --include-path|-I;   // Search paths for generated files.
+        string --default-prereq-type;  // Default prerequisite type to use
+                                       // if none could be derived from ext.
+      };
+    }
+  }
+}

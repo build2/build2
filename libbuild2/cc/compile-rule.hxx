@@ -8,6 +8,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
+#include <libbuild2/dyndep.hxx>
 #include <libbuild2/file-cache.hxx>
 
 #include <libbuild2/cc/types.hxx>
@@ -37,7 +38,8 @@ namespace build2
     };
 
     class LIBBUILD2_CC_SYMEXPORT compile_rule: public simple_rule,
-                                               virtual common
+                                               virtual common,
+                                               dyndep_rule
     {
     public:
       compile_rule (data&&);
@@ -91,45 +93,21 @@ namespace build2
                               const scope&,
                               action, const target&, linfo) const;
 
-      // Mapping of include prefixes (e.g., foo in <foo/bar>) for auto-
-      // generated headers to directories where they will be generated.
-      //
-      // We are using a prefix map of directories (dir_path_map) instead of
-      // just a map in order to also cover sub-paths (e.g., <foo/more/bar> if
-      // we continue with the example). Specifically, we need to make sure we
-      // don't treat foobar as a sub-directory of foo.
-      //
-      // The priority is used to decide who should override whom. Lesser
-      // values are considered higher priority. Note that we can have multiple
-      // prefixless mapping (where priority is used to determine the order).
-      // See append_prefixes() for details.
-      //
-      // @@ The keys should be normalized.
-      //
-      struct prefix_value
-      {
-        dir_path directory;
-        size_t priority;
-      };
-      using prefix_map = dir_path_multimap<prefix_value>;
+      using prefix_map = dyndep_rule::prefix_map;
+      using srcout_map = dyndep_rule::srcout_map;
 
       void
-      append_prefixes (prefix_map&, const target&, const variable&) const;
+      append_prefixes (prefix_map&,
+                       const scope&, const target&,
+                       const variable&) const;
 
       void
       append_library_prefixes (appended_libraries&, prefix_map&,
                                const scope&,
-                               action, target&, linfo) const;
+                               action, const target&, linfo) const;
 
       prefix_map
-      build_prefix_map (const scope&, action, target&, linfo) const;
-
-      small_vector<const target_type*, 2>
-      map_extension (const scope&, const string&, const string&) const;
-
-      // Src-to-out re-mapping. See extract_headers() for details.
-      //
-      using srcout_map = path_map<dir_path>;
+      build_prefix_map (const scope&, action, const target&, linfo) const;
 
       struct module_mapper_state;
 
@@ -143,7 +121,7 @@ namespace build2
       pair<const file*, bool>
       enter_header (action, const scope&, file&, linfo,
                     path&&, bool, bool,
-                    optional<prefix_map>&, srcout_map&) const;
+                    optional<prefix_map>&, const srcout_map&) const;
 
       optional<bool>
       inject_header (action, file&, const file&, timestamp, bool) const;

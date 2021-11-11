@@ -495,7 +495,8 @@ namespace build2
 
       // Register a cleanup. If the cleanup is explicit, then override the
       // cleanup type if this path is already registered. Ignore implicit
-      // registration of a path outside root directory (see below).
+      // registration of a path outside sandbox directory, if specified (see
+      // above).
       //
       void
       clean (cleanup, bool implicit);

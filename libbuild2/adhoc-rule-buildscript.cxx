@@ -8,6 +8,7 @@
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/dyndep.hxx>
 #include <libbuild2/context.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>  // path_perms(), auto_rmfile
@@ -22,6 +23,110 @@ using namespace std;
 
 namespace build2
 {
+  static inline void
+  hash_script_vars (sha256& cs,
+                    const build::script::script& s,
+                    const target& t,
+                    names& storage)
+  {
+    context& ctx (t.ctx);
+
+    for (const string& n: s.vars)
+    {
+      cs.append (n);
+
+      lookup l;
+
+      if (const variable* var = ctx.var_pool.find (n))
+        l = t[var];
+
+      cs.append (!l.defined () ? '\x1' : l->null ? '\x2' : '\x3');
+
+      if (l)
+      {
+        storage.clear ();
+        names_view ns (reverse (*l, storage));
+
+        for (const name& n: ns)
+          to_checksum (cs, n);
+      }
+    }
+  }
+
+  // How should we hash target and prerequisite sets ($> and $<)? We could
+  // hash them as target names (i.e., the same as the $>/< content) or as
+  // paths (only for path-based targets). While names feel more general, they
+  // are also more expensive to compute. And for path-based targets, path is
+  // generally a good proxy for the target name. Since the bulk of the ad hoc
+  // recipes will presumably be operating exclusively on path-based targets,
+  // let's do it both ways.
+  //
+  static inline void
+  hash_target (sha256& cs, const target& t, names& storage)
+  {
+    if (const path_target* pt = t.is_a<path_target> ())
+      cs.append (pt->path ().string ());
+    else
+    {
+      storage.clear ();
+      t.as_name (storage);
+      for (const name& n: storage)
+        to_checksum (cs, n);
+    }
+  };
+
+  // The script can reference a program in one of four ways:
+  //
+  // 1. As an (imported) target (e.g., $cli)
+  //
+  // 2. As a process_path_ex (e.g., $cxx.path).
+  //
+  // 3. As a builtin (e.g., sed)
+  //
+  // 4. As a program path/name.
+  //
+  // When it comes to change tracking, there is nothing we can do for (4) (the
+  // user can track its environment manually with depdb-env) and there is
+  // nothing to do for (3) (assuming builtin semantics is stable/backwards-
+  // compatible). The (2) case is handled automatically by hashing all the
+  // variable values referenced by the script (see below), which in case of
+  // process_path_ex includes the checksums (both executable and environment),
+  // if available.
+  //
+  // This leaves the (1) case, which itself splits into two sub-cases: the
+  // target comes with the dependency information (e.g., imported from a
+  // project via an export stub) or it does not (e.g., imported as installed).
+  // We don't need to do anything extra for the first sub-case since the
+  // target's state/mtime can be relied upon like any other prerequisite.
+  // Which cannot be said about the second sub-case, where we reply on
+  // checksum that may be included as part of the target metadata.
+  //
+  // So what we are going to do is hash checksum metadata of every executable
+  // prerequisite target that has it (we do it here in order to include ad hoc
+  // prerequisites, which feels like the right thing to do; the user may mark
+  // tools as ad hoc in order to omit them from $<).
+  //
+  static inline void
+  hash_prerequisite_target (sha256& cs, sha256& exe_cs, sha256& env_cs,
+                            const target& pt,
+                            names& storage)
+  {
+    hash_target (cs, pt, storage);
+
+    if (const exe* et = pt.is_a<exe> ())
+    {
+      if (const string* c = et->lookup_metadata<string> ("checksum"))
+      {
+        exe_cs.append (*c);
+      }
+
+      if (const strings* e = et->lookup_metadata<strings> ("environment"))
+      {
+        hash_environment (env_cs, *e);
+      }
+    }
+  }
+
   bool adhoc_buildscript_rule::
   recipe_text (const scope& s,
                const target_type& tt,
@@ -113,6 +218,20 @@ namespace build2
             perform_update_id) != actions.end ();
   }
 
+  struct adhoc_buildscript_rule::match_data
+  {
+    match_data (action a, const target& t, bool temp_dir)
+        : env (a, t, temp_dir) {}
+
+    build::script::environment env;
+    build::script::default_runner run;
+
+    path dd;
+    const scope* bs;
+    timestamp mt;
+    bool deferred_failure;
+  };
+
   bool adhoc_buildscript_rule::
   match (action a, target& t, const string& h, match_extra& me) const
   {
@@ -140,15 +259,17 @@ namespace build2
 
   recipe adhoc_buildscript_rule::
   apply (action a,
-         target& t,
+         target& xt,
          match_extra& me,
          const optional<timestamp>& d) const
   {
+    tracer trace ("adhoc_buildscript_rule::apply");
+
     // We don't support deadlines for any of these cases (see below).
     //
     if (d && (a.outer ()  ||
               me.fallback ||
-              (a == perform_update_id && t.is_a<file> ())))
+              (a == perform_update_id && xt.is_a<file> ())))
       return empty_recipe;
 
     // If this is an outer operation (e.g., update-for-test), then delegate to
@@ -156,20 +277,20 @@ namespace build2
     //
     if (a.outer ())
     {
-      match_inner (a, t);
+      match_inner (a, xt);
       return execute_inner;
     }
 
     // Inject pattern's ad hoc group members, if any.
     //
     if (pattern != nullptr)
-      pattern->apply_adhoc_members (a, t, me);
+      pattern->apply_adhoc_members (a, xt, me);
 
     // Derive file names for the target and its ad hoc group members, if any.
     //
     if (a == perform_update_id || a == perform_clean_id)
     {
-      for (target* m (&t); m != nullptr; m = m->adhoc_member)
+      for (target* m (&xt); m != nullptr; m = m->adhoc_member)
       {
         if (auto* p = m->is_a<path_target> ())
           p->derive_path ();
@@ -181,36 +302,295 @@ namespace build2
     // We do it always instead of only if one of the targets is path-based in
     // case the recipe creates temporary files or some such.
     //
-    inject_fsdir (a, t);
+    const fsdir* dir (inject_fsdir (a, xt));
 
     // Match prerequisites.
     //
-    match_prerequisite_members (a, t);
+    match_prerequisite_members (a, xt);
 
     // Inject pattern's prerequisites, if any.
     //
     if (pattern != nullptr)
-      pattern->apply_prerequisites (a, t, me);
+      pattern->apply_prerequisites (a, xt, me);
 
     // See if we are providing the standard clean as a fallback.
     //
     if (me.fallback)
       return &perform_clean_depdb;
 
-    if (a == perform_update_id && t.is_a<file> ())
-    {
-      return [this] (action a, const target& t)
-      {
-        return perform_update_file (a, t);
-      };
-    }
-    else
+    // See if this is not update or not on a file-based target.
+    //
+    if (a != perform_update_id || !xt.is_a<file> ())
     {
       return [d, this] (action a, const target& t)
       {
         return default_action (a, t, d);
       };
     }
+
+    // See if this is the simple case with only static dependencies.
+    //
+    if (!script.depdb_dyndep)
+    {
+      return [this] (action a, const target& t)
+      {
+        return perform_update_file (a, t);
+      };
+    }
+
+    // This is a perform update on a file target with extraction of dynamic
+    // dependency information in the depdb preamble (depdb-dyndep).
+    //
+    // This means we may need to add additional prerequisites (or even target
+    // group members). We also have to save any such additional prerequisites
+    // in depdb so that we can check if any of them have changed on subsequent
+    // updates. So all this means that have to take care of depdb here in
+    // apply() instead of perform_*() like we normally do. We also do things
+    // in slightly different order due to the restrictions impose by the match
+    // phase.
+    //
+    // Note that the C/C++ header dependency extraction is the canonical
+    // example and all this logic is based on the prior work in the cc module
+    // where you can often find more detailed rationale for some of the steps
+    // performed (like the fsdir update below).
+    //
+    context& ctx (xt.ctx);
+
+    file& t (xt.as<file> ());
+    const path& tp (t.path ());
+
+    if (dir != nullptr)
+      fsdir_rule::perform_update_direct (a, t);
+
+    // Because the depdb preamble can access $<, we have to blank out all the
+    // ad hoc prerequisites. Since we will still need them later, we "move"
+    // them to the auxiliary data member in prerequisite_target (which also
+    // means we cannot use the standard execute_prerequisites()).
+    //
+    auto& pts (t.prerequisite_targets[a]);
+    for (prerequisite_target& p: pts)
+    {
+      // Note that fsdir{} injected above is adhoc.
+      //
+      if (p.target != nullptr && p.adhoc)
+      {
+        p.data = reinterpret_cast<uintptr_t> (p.target);
+        p.target = nullptr;
+      }
+    }
+
+    // NOTE: see the "static dependencies" version (with comments) below.
+    //
+    depdb dd (tp + ".d");
+
+    if (dd.expect ("<ad hoc buildscript recipe> 1") != nullptr)
+      l4 ([&]{trace << "rule mismatch forcing update of " << t;});
+
+    if (dd.expect (checksum) != nullptr)
+      l4 ([&]{trace << "recipe text change forcing update of " << t;});
+
+    if (!script.depdb_clear)
+    {
+      names storage;
+
+      sha256 prq_cs, exe_cs, env_cs;
+
+      for (const prerequisite_target& p: pts)
+      {
+        if (const target* pt =
+            (p.target != nullptr ? p.target :
+             p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+             nullptr))
+        {
+          hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
+        }
+      }
+
+      {
+        sha256 cs;
+        hash_script_vars (cs, script, t, storage);
+
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "recipe variable change forcing update of " << t;});
+      }
+
+      {
+        sha256 tcs;
+        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          hash_target (tcs, *m, storage);
+
+        if (dd.expect (tcs.string ()) != nullptr)
+          l4 ([&]{trace << "target set change forcing update of " << t;});
+
+        if (dd.expect (prq_cs.string ()) != nullptr)
+          l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
+      }
+
+      {
+        if (dd.expect (exe_cs.string ()) != nullptr)
+          l4 ([&]{trace << "program checksum change forcing update of " << t;});
+
+        if (dd.expect (env_cs.string ()) != nullptr)
+          l4 ([&]{trace << "environment change forcing update of " << t;});
+      }
+    }
+
+    const scope& bs (t.base_scope ());
+
+    unique_ptr<match_data> md (
+      new match_data (a, t, script.depdb_preamble_temp_dir));
+
+    build::script::environment& env (md->env);
+    build::script::default_runner& run (md->run);
+
+    run.enter (env, script.start_loc);
+
+    // Run the first half of the preamble (before depdb-dyndep).
+    //
+    {
+      build::script::parser p (ctx);
+      p.execute_depdb_preamble (a, bs, t, env, script, run, dd);
+    }
+
+    // Determine if we need to do an update based on the above checks.
+    //
+    bool update;
+    timestamp mt;
+
+    if (dd.writing ())
+      update = true;
+    else
+    {
+      if ((mt = t.mtime ()) == timestamp_unknown)
+        t.mtime (mt = mtime (tp)); // Cache.
+
+      update = dd.mtime > mt;
+    }
+
+    if (update)
+      mt = timestamp_nonexistent;
+
+    // Update our prerequisite targets. While strictly speaking we only need
+    // to update those that are referenced by depdb-dyndep, communicating
+    // this is both tedious and error-prone. So we update them all.
+    //
+    for (const prerequisite_target& p: pts)
+    {
+      if (const target* pt =
+          (p.target != nullptr ? p.target :
+           p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
+      {
+        update = dyndep_rule::update (
+          trace, a, *pt, update ? timestamp_unknown : mt) || update;
+      }
+    }
+
+    // Run the second half of the preamble (depdb-dyndep commands) to extract
+    // dynamic dependencies.
+    //
+    // Note that this should be the last update to depdb (the invalidation
+    // order semantics).
+    //
+    bool deferred_failure (false);
+    {
+      build::script::parser p (ctx);
+      p.execute_depdb_preamble_dyndep (a, bs, t,
+                                       env, script, run,
+                                       dd,
+                                       update,
+                                       deferred_failure,
+                                       mt);
+    }
+
+    if (update && dd.reading () && !ctx.dry_run)
+      dd.touch = true;
+
+    dd.close ();
+    md->dd = move (dd.path);
+
+    // Pass on base scope and update/mtime.
+    //
+    md->bs = &bs;
+    md->mt = update ? timestamp_nonexistent : mt;
+    md->deferred_failure = deferred_failure;
+
+    // @@ TMP: re-enable once recipe becomes move_only_function.
+    //
+#if 0
+    return [this, md = move (md)] (action a, const target& t) mutable
+    {
+      auto r (perform_update_file_dyndep (a, t, *md));
+      md.reset (); // @@ TMP: is this really necessary (+mutable)?
+      return r;
+    };
+#else
+    t.data (move (md));
+    return recipe ([this] (action a, const target& t) mutable
+    {
+      auto md (move (t.data<unique_ptr<match_data>> ()));
+      return perform_update_file_dyndep (a, t, *md);
+    });
+#endif
+  }
+
+  target_state adhoc_buildscript_rule::
+  perform_update_file_dyndep (action a, const target& xt, match_data& md) const
+  {
+    tracer trace ("adhoc_buildscript_rule::perform_update_file_dyndep");
+
+    context& ctx (xt.ctx);
+
+    const file& t (xt.as<file> ());
+    const path& tp (t.path ());
+
+    // While we've updated all our prerequisites in apply(), we still need to
+    // execute them here to keep the dependency counts straight.
+    //
+    for (const prerequisite_target& p: t.prerequisite_targets[a])
+    {
+      if (const target* pt =
+          (p.target != nullptr ? p.target :
+           p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
+      {
+        target_state ts (execute_wait (a, *pt));
+        assert (ts == target_state::unchanged || ts == target_state::changed);
+      }
+    }
+
+    build::script::environment& env (md.env);
+    build::script::default_runner& run (md.run);
+
+    // Force update in case of a deferred failure even if nothing changed.
+    //
+    if (md.mt != timestamp_nonexistent && !md.deferred_failure)
+    {
+      run.leave (env, script.end_loc);
+      return target_state::unchanged;
+    }
+
+    // Sequence start time for mtime checks below.
+    //
+    timestamp start (!ctx.dry_run && depdb::mtime_check ()
+                     ? system_clock::now ()
+                     : timestamp_unknown);
+
+    if (!ctx.dry_run || verb != 0)
+    {
+      if (execute_update_file (*md.bs, a, t, env, run, md.deferred_failure))
+        ;
+      else
+        run.leave (env, script.end_loc);
+    }
+    else
+      run.leave (env, script.end_loc);
+
+    timestamp now (system_clock::now ());
+
+    if (!ctx.dry_run)
+      depdb::check_mtime (start, md.dd, tp, now);
+
+    t.mtime (now);
+    return target_state::changed;
   }
 
   target_state adhoc_buildscript_rule::
@@ -223,32 +603,13 @@ namespace build2
     const file& t (xt.as<file> ());
     const path& tp (t.path ());
 
-    // How should we hash target and prerequisite sets ($> and $<)? We could
-    // hash them as target names (i.e., the same as the $>/< content) or as
-    // paths (only for path-based targets). While names feel more general,
-    // they are also more expensive to compute. And for path-based targets,
-    // path is generally a good proxy for the target name. Since the bulk of
-    // the ad hoc recipes will presumably be operating exclusively on
-    // path-based targets, let's do it both ways.
-    //
-    auto hash_target = [ns = names ()] (sha256& cs, const target& t) mutable
-    {
-      if (const path_target* pt = t.is_a<path_target> ())
-        cs.append (pt->path ().string ());
-      else
-      {
-        ns.clear ();
-        t.as_name (ns);
-        for (const name& n: ns)
-          to_checksum (cs, n);
-      }
-    };
-
     // Update prerequisites and determine if any of them render this target
     // out-of-date.
     //
     timestamp mt (t.load_mtime ());
     optional<target_state> ps;
+
+    names storage;
 
     sha256 prq_cs, exe_cs, env_cs;
     {
@@ -262,7 +623,9 @@ namespace build2
 
       wait_guard wg (ctx, busy, t[a].task_count);
 
-      for (const target*& pt: t.prerequisite_targets[a])
+      auto& pts (t.prerequisite_targets[a]);
+
+      for (const target*& pt: pts)
       {
         if (pt == nullptr) // Skipped.
           continue;
@@ -279,7 +642,7 @@ namespace build2
       wg.wait ();
 
       bool e (mt == timestamp_nonexistent);
-      for (prerequisite_target& p: t.prerequisite_targets[a])
+      for (prerequisite_target& p: pts)
       {
         if (p == nullptr)
           continue;
@@ -318,56 +681,8 @@ namespace build2
         // As part of this loop calculate checksums that need to include ad
         // hoc prerequisites (unless the script tracks changes itself).
         //
-        if (script.depdb_clear)
-          continue;
-
-        hash_target (prq_cs, pt);
-
-        // The script can reference a program in one of four ways:
-        //
-        // 1. As an (imported) target (e.g., $cli)
-        //
-        // 2. As a process_path_ex (e.g., $cxx.path).
-        //
-        // 3. As a builtin (e.g., sed)
-        //
-        // 4. As a program path/name.
-        //
-        // When it comes to change tracking, there is nothing we can do for
-        // (4) (the user can track its environment manually with depdb-env)
-        // and there is nothing to do for (3) (assuming builtin semantics is
-        // stable/backwards-compatible). The (2) case is handled automatically
-        // by hashing all the variable values referenced by the script (see
-        // below), which in case of process_path_ex includes the checksums
-        // (both executable and environment), if available.
-        //
-        // This leaves the (1) case, which itself splits into two sub-cases:
-        // the target comes with the dependency information (e.g., imported
-        // from a project via an export stub) or it does not (e.g., imported
-        // as installed). We don't need to do anything extra for the first
-        // sub-case since the target's state/mtime can be relied upon like any
-        // other prerequisite. Which cannot be said about the second sub-case,
-        // where we reply on checksum that may be included as part of the
-        // target metadata.
-        //
-        // So what we are going to do is hash checksum metadata of every
-        // executable prerequisite target that has it (we do it here in order
-        // to include ad hoc prerequisites, which feels like the right thing
-        // to do; the user may mark tools as ad hoc in order to omit them from
-        // $<).
-        //
-        if (auto* et = pt.is_a<exe> ())
-        {
-          if (auto* c = et->lookup_metadata<string> ("checksum"))
-          {
-            exe_cs.append (*c);
-          }
-
-          if (auto* e = et->lookup_metadata<strings> ("environment"))
-          {
-            hash_environment (env_cs, *e);
-          }
-        }
+        if (!script.depdb_clear)
+          hash_prerequisite_target (prq_cs, exe_cs, env_cs, pt, storage);
       }
 
       if (!e)
@@ -378,6 +693,8 @@ namespace build2
 
     // We use depdb to track changes to the script itself, input/output file
     // names, tools, etc.
+    //
+    // NOTE: see the "dynamic dependencies" version above.
     //
     depdb dd (tp + ".d");
 
@@ -411,76 +728,53 @@ namespace build2
       l4 ([&]{trace << "recipe text change forcing update of " << t;});
 
     // Track the variables, targets, and prerequisites changes, unless the
-    // script doesn't track the dependency changes itself.
-    //
-
-    // For each variable hash its name, undefined/null/non-null indicator,
-    // and the value if non-null.
-    //
-    // Note that this excludes the special $< and $> variables which we
-    // handle below.
-    //
-    // @@ TODO: maybe detect and decompose process_path_ex in order to
-    //    properly attribute checksum and environment changes?
+    // script tracks the dependency changes itself.
     //
     if (!script.depdb_clear)
     {
-      sha256 cs;
-      names storage;
-
-      for (const string& n: script.vars)
+      // For each variable hash its name, undefined/null/non-null indicator,
+      // and the value if non-null.
+      //
+      // Note that this excludes the special $< and $> variables which we
+      // handle below.
+      //
+      // @@ TODO: maybe detect and decompose process_path_ex in order to
+      //    properly attribute checksum and environment changes?
+      //
       {
-        cs.append (n);
+        sha256 cs;
+        hash_script_vars (cs, script, t, storage);
 
-        lookup l;
-
-        if (const variable* var = ctx.var_pool.find (n))
-          l = t[var];
-
-        cs.append (!l.defined () ? '\x1' : l->null ? '\x2' : '\x3');
-
-        if (l)
-        {
-          storage.clear ();
-          names_view ns (reverse (*l, storage));
-
-          for (const name& n: ns)
-            to_checksum (cs, n);
-        }
+        if (dd.expect (cs.string ()) != nullptr)
+          l4 ([&]{trace << "recipe variable change forcing update of " << t;});
       }
 
-      if (dd.expect (cs.string ()) != nullptr)
-        l4 ([&]{trace << "recipe variable change forcing update of " << t;});
-    }
+      // Target and prerequisite sets ($> and $<).
+      //
+      {
+        sha256 tcs;
+        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+          hash_target (tcs, *m, storage);
 
-    // Target and prerequisite sets ($> and $<).
-    //
-    if (!script.depdb_clear)
-    {
-      sha256 tcs;
-      for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-        hash_target (tcs, *m);
+        if (dd.expect (tcs.string ()) != nullptr)
+          l4 ([&]{trace << "target set change forcing update of " << t;});
 
-      if (dd.expect (tcs.string ()) != nullptr)
-        l4 ([&]{trace << "target set change forcing update of " << t;});
+        if (dd.expect (prq_cs.string ()) != nullptr)
+          l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
+      }
 
-      if (dd.expect (prq_cs.string ()) != nullptr)
-        l4 ([&]{trace << "prerequisite set change forcing update of " << t;});
-    }
+      // Finally the programs and environment checksums.
+      //
+      {
+        if (dd.expect (exe_cs.string ()) != nullptr)
+          l4 ([&]{trace << "program checksum change forcing update of " << t;});
 
-    // Finally the programs and environment checksums.
-    //
-    if (!script.depdb_clear)
-    {
-      if (dd.expect (exe_cs.string ()) != nullptr)
-        l4 ([&]{trace << "program checksum change forcing update of " << t;});
-
-      if (dd.expect (env_cs.string ()) != nullptr)
-        l4 ([&]{trace << "environment change forcing update of " << t;});
+        if (dd.expect (env_cs.string ()) != nullptr)
+          l4 ([&]{trace << "environment change forcing update of " << t;});
+      }
     }
 
     const scope* bs (nullptr);
-    const scope* rs (nullptr);
 
     // Execute the custom dependency change tracking commands, if present.
     //
@@ -507,20 +801,19 @@ namespace build2
     }
 
     build::script::environment env (a, t, false /* temp_dir */);
-    build::script::default_runner r;
+    build::script::default_runner run;
 
     if (depdb_preamble)
     {
       bs = &t.base_scope ();
-      rs = bs->root_scope ();
 
       if (script.depdb_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
       build::script::parser p (ctx);
 
-      r.enter (env, script.start_loc);
-      p.execute_depdb_preamble (*rs, *bs, env, script, r, dd);
+      run.enter (env, script.start_loc);
+      p.execute_depdb_preamble (a, *bs, t, env, script, run, dd);
     }
 
     // Update if depdb mismatch.
@@ -539,104 +832,124 @@ namespace build2
       // below).
       //
       if (depdb_preamble)
-        r.leave (env, script.end_loc);
+        run.leave (env, script.end_loc);
 
       return *ps;
     }
 
     if (!ctx.dry_run || verb != 0)
     {
-      // Prepare to executing the script diag line and/or body.
-      //
-      // Note that it doesn't make much sense to use the temporary directory
-      // variable ($~) in the 'diag' builtin call, so we postpone setting it
-      // until the script body execution, that can potentially be omitted.
+      // Prepare to execute the script diag line and/or body.
       //
       if (bs == nullptr)
-      {
         bs = &t.base_scope ();
-        rs = bs->root_scope ();
-      }
 
-      build::script::parser p (ctx);
-
-      if (verb == 1)
+      if (execute_update_file (*bs, a, t, env, run))
       {
-        if (script.diag_line)
-        {
-          text << p.execute_special (*rs, *bs, env, *script.diag_line);
-        }
-        else
-        {
-          // @@ TODO (and below):
-          //
-          // - we are printing target, not source (like in most other places)
-          //
-          // - printing of ad hoc target group (the {hxx cxx}{foo} idea)
-          //
-          // - if we are printing prerequisites, should we print all of them
-          //   (including tools)?
-          //
-          text << *script.diag_name << ' ' << t;
-        }
-      }
-
-      if (!ctx.dry_run || verb >= 2)
-      {
-        // On failure remove the target files that may potentially exist but
-        // be invalid.
-        //
-        small_vector<auto_rmfile, 8> rms;
-
         if (!ctx.dry_run)
-        {
-          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-          {
-            if (auto* f = m->is_a<file> ())
-              rms.emplace_back (f->path ());
-          }
-        }
-
-        if (script.body_temp_dir && !script.depdb_preamble_temp_dir)
-          env.set_temp_dir_variable ();
-
-        p.execute_body (*rs, *bs, env, script, r, !depdb_preamble);
-
-        if (!ctx.dry_run)
-        {
-          // If this is an executable, let's be helpful to the user and set
-          // the executable bit on POSIX.
-          //
-#ifndef _WIN32
-          auto chmod = [] (const path& p)
-          {
-            path_perms (p,
-                        (path_perms (p)  |
-                         permissions::xu |
-                         permissions::xg |
-                         permissions::xo));
-          };
-
-          for (const target* m (&t); m != nullptr; m = m->adhoc_member)
-          {
-            if (auto* p = m->is_a<exe> ())
-              chmod (p->path ());
-          }
-#endif
           dd.check_mtime (tp);
-
-          for (auto& rm: rms)
-            rm.cancel ();
-        }
       }
       else if (depdb_preamble)
-        r.leave (env, script.end_loc);
+        run.leave (env, script.end_loc);
     }
     else if (depdb_preamble)
-      r.leave (env, script.end_loc);
+      run.leave (env, script.end_loc);
 
     t.mtime (system_clock::now ());
     return target_state::changed;
+  }
+
+  bool adhoc_buildscript_rule::
+  execute_update_file (const scope& bs,
+                       action, const file& t,
+                       build::script::environment& env,
+                       build::script::default_runner& run,
+                       bool deferred_failure) const
+  {
+    context& ctx (t.ctx);
+
+    const scope& rs (*bs.root_scope ());
+
+    // Note that it doesn't make much sense to use the temporary directory
+    // variable ($~) in the 'diag' builtin call, so we postpone setting it
+    // until the script body execution, that can potentially be omitted.
+    //
+    build::script::parser p (ctx);
+
+    if (verb == 1)
+    {
+      if (script.diag_line)
+      {
+        text << p.execute_special (rs, bs, env, *script.diag_line);
+      }
+      else
+      {
+        // @@ TODO (and in default_action() below):
+        //
+        // - we are printing target, not source (like in most other places)
+        //
+        // - printing of ad hoc target group (the {hxx cxx}{foo} idea)
+        //
+        // - if we are printing prerequisites, should we print all of them
+        //   (including tools)?
+        //
+        text << *script.diag_name << ' ' << t;
+      }
+    }
+
+    if (!ctx.dry_run || verb >= 2)
+    {
+      // On failure remove the target files that may potentially exist but
+      // be invalid.
+      //
+      small_vector<auto_rmfile, 8> rms;
+
+      if (!ctx.dry_run)
+      {
+        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+        {
+          if (auto* f = m->is_a<file> ())
+            rms.emplace_back (f->path ());
+        }
+      }
+
+      if (script.body_temp_dir && !script.depdb_preamble_temp_dir)
+        env.set_temp_dir_variable ();
+
+      p.execute_body (rs, bs, env, script, run, script.depdb_preamble.empty ());
+
+      if (!ctx.dry_run)
+      {
+        if (deferred_failure)
+          fail << "expected error exit status from recipe body";
+
+        // If this is an executable, let's be helpful to the user and set
+        // the executable bit on POSIX.
+        //
+#ifndef _WIN32
+        auto chmod = [] (const path& p)
+        {
+          path_perms (p,
+                      (path_perms (p)  |
+                       permissions::xu |
+                       permissions::xg |
+                       permissions::xo));
+        };
+
+        for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+        {
+          if (auto* p = m->is_a<exe> ())
+            chmod (p->path ());
+        }
+#endif
+        for (auto& rm: rms)
+          rm.cancel ();
+      }
+
+      return true;
+    }
+    else
+      return false;
   }
 
   target_state adhoc_buildscript_rule::
@@ -666,7 +979,7 @@ namespace build2
         }
         else
         {
-          // @@ TODO: as above
+          // @@ TODO: as above (execute_update_file()).
           //
           text << *script.diag_name << ' ' << t;
         }
