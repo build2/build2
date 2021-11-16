@@ -230,7 +230,6 @@ namespace build2
 
     struct compile_rule::match_data
     {
-      explicit
       match_data (unit_type t, const prerequisite_member& s)
           : type (t), src (s) {}
 
@@ -6987,9 +6986,6 @@ namespace build2
           },
           md.modules.copied)); // See search_modules() for details.
 
-      const file& s (pr.second);
-      const path* sp (&s.path ());
-
       // Force recompilation in case of a deferred failure even if nothing
       // changed.
       //
@@ -7006,11 +7002,14 @@ namespace build2
         return *pr.first;
       }
 
+      const file& s (pr.second);
+      const path* sp (&s.path ());
+
       // Make sure depdb is no older than any of our prerequisites (see md.mt
       // logic description above for details). Also save the sequence start
       // time if doing mtime checks (see the depdb::check_mtime() call below).
       //
-      timestamp start (depdb::mtime_check ()
+      timestamp start (!ctx.dry_run && depdb::mtime_check ()
                        ? system_clock::now ()
                        : timestamp_unknown);
 
