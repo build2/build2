@@ -105,12 +105,24 @@ namespace build2
     // Recursively traverse an src_root subdirectory entering/collecting the
     // contained files and file symlinks as the file targets and skipping
     // entries that start with a dot. Follow directory symlinks (preserving
-    // their names) and fail on dangling symlinks.
+    // their names) and fail on dangling symlinks. Also detect directory
+    // symlink cycles.
     //
+    struct subdir
+    {
+      const subdir* prev;
+      const dir_path& dir;
+    };
+
     static void
-    add_subdir (const scope& rs, const dir_path& sd, action_targets& files)
+    add_subdir (const scope& rs,
+                const dir_path& sd,
+                action_targets& files,
+                const subdir* prev = nullptr)
     {
       dir_path d (rs.src_path () / sd);
+
+      const subdir next {prev, d};
 
       try
       {
@@ -122,7 +134,36 @@ namespace build2
           try
           {
             if (e.type () == entry_type::directory) // Can throw.
-              add_subdir (rs, sd / path_cast<dir_path> (n), files);
+            {
+              // If this is a symlink, check that it doesn't cause a cycle.
+              //
+              if (e.ltype () == entry_type::symlink)
+              {
+                // Note that the resulting path will be absolute and
+                // normalized.
+                //
+                dir_path ld (d / path_cast<dir_path> (n));
+                dir_path td (path_cast<dir_path> (followsymlink (ld)));
+
+                const subdir* s (&next);
+                for (; s != nullptr; s = s->prev)
+                {
+                  if (s->dir == td)
+                  {
+                    if (verb)
+                      warn << "directory cycle caused by symlink " << ld <<
+                        info << "symlink target " << td;
+
+                    break;
+                  }
+                }
+
+                if (s != nullptr)
+                  break;
+              }
+
+              add_subdir (rs, sd / path_cast<dir_path> (n), files, &next);
+            }
             else
               files.push_back (add_target<file> (rs, sd / n, true, true));
           }
