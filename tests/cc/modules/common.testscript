@@ -47,3 +47,10 @@ EOI
 +$* noop <<EOI | set headers
 print ($cxx.features.modules && $cxx.id == 'gcc')
 EOI
+
+# @@ TMP: modules support is completely broken in MinGW GCC 11.x.
+#
+if ($cxx.target.class == 'windows' && $cxx.id == 'gcc')
+  modules = false
+  headers = false
+end
