@@ -8,6 +8,7 @@
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
+#include <libbuild2/dynamic.hxx>
 #include <libbuild2/file-cache.hxx>
 
 #include <libbuild2/cc/types.hxx>
@@ -37,7 +38,8 @@ namespace build2
     };
 
     class LIBBUILD2_CC_SYMEXPORT compile_rule: public simple_rule,
-                                               virtual common
+                                               virtual common,
+                                               dyndep_rule
     {
     public:
       compile_rule (data&&);

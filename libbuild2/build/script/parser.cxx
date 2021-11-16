@@ -5,6 +5,7 @@
 
 #include <libbutl/builtin.hxx>
 
+#include <libbuild2/depdb.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/algorithm.hxx>
 
@@ -128,6 +129,8 @@ namespace build2
         // Save the custom dependency change tracking lines, if present.
         //
         s.depdb_clear = depdb_clear_.has_value ();
+        if (depdb_pre_dynamic_)
+          s.depdb_pre_dynamic = depdb_pre_dynamic_->second;
         s.depdb_preamble = move (depdb_preamble_);
 
         return s;
@@ -494,7 +497,7 @@ namespace build2
                  v != "hash"   &&
                  v != "string" &&
                  v != "env"    &&
-                 v != "dep"))
+                 v != "pre-dynamic"))
             {
               fail (get_location (t))
                 << "expected 'depdb' builtin command instead of " << t;
@@ -534,32 +537,34 @@ namespace build2
               // the referenced variable list, since it won't be used.
               //
               depdb_clear_ = l;
-              save_line_   = nullptr;
+              save_line_ = nullptr;
 
               script_->vars.clear ();
             }
             else
             {
-              // Verify depdb-dep is last.
+              // Verify depdb-pre-dynamic is last.
               //
-              if (v == "dep")
+              if (v == "pre-dynamic")
               {
-                // Note that for now we do not allow multiple depdb-dep calls.
-                // But we may wan to relax this later (though alternating
-                // targets with prerequisites may be tricky -- maybe still
-                // only allow additional targets in the first call).
+                // Note that for now we do not allow multiple pre-dynamic
+                // calls. But we may wan to relax this later (though
+                // alternating targets with prerequisites may be tricky --
+                // maybe still only allow additional targets in the first
+                // call).
                 //
-                if (!depdb_dep_)
-                  depdb_dep_ = l;
+                if (!depdb_pre_dynamic_)
+                  depdb_pre_dynamic_ = make_pair (l, depdb_preamble_.size ());
                 else
-                  fail (l) << "multiple 'depdb dep' calls" <<
-                    info (*depdb_dep_) << "previous call is here";
+                  fail (l) << "multiple 'depdb pre-dynamic' calls" <<
+                    info (depdb_pre_dynamic_->first) << "previous call is here";
               }
               else
               {
-                if (depdb_dep_)
-                  fail (l) << "'depdb " << v << "' after 'depdb dep'" <<
-                    info (*depdb_dep_) << "'depdb dep' call is here";
+                if (depdb_pre_dynamic_)
+                  fail (l) << "'depdb " << v << "' after 'depdb pre-dynamic'" <<
+                    info (depdb_pre_dynamic_->first)
+                           << "'depdb pre-dynamic' call is here";
               }
 
               // Move the script body to the end of the depdb preamble.
@@ -880,11 +885,11 @@ namespace build2
       }
 
       void parser::
-      execute_body (const scope& rs, const scope& bs,
+      execute_body (const scope& bs,
                     environment& e, const script& s, runner& r,
                     bool enter, bool leave)
       {
-        pre_exec (rs, bs, e, &s, &r);
+        pre_exec (*bs.root_scope (), bs, e, &s, &r);
 
         if (enter)
           runner_->enter (e, s.start_loc);
@@ -914,35 +919,37 @@ namespace build2
       }
 
       void parser::
-      execute_depdb_preamble (const scope& rs, const scope& bs,
-                              environment& e, const script& s, runner& r,
-                              depdb& dd)
+      exec_depdb_preamble (const scope& bs,
+                           environment& e, const script& s, runner& r,
+                           lines_iterator begin, lines_iterator end,
+                           depdb& dd, bool* update, optional<timestamp> mt)
       {
-        tracer trace ("execute_depdb_preamble");
+        tracer trace ("exec_depdb_preamble");
 
         // The only valid lines in the depdb preamble are the depdb builtin
         // itself as well as the variable assignments, including via the set
         // builtin.
 
-        pre_exec (rs, bs, e, &s, &r);
+        pre_exec (*bs.root_scope (), bs, e, &s, &r);
 
         // Let's "wrap up" the objects we operate upon into the single object
         // to rely on "small function object" optimization.
         //
         struct
         {
+          tracer& trace;
           environment& env;
           const script& scr;
           depdb& dd;
-          tracer& trace;
-        } ctx {e, s, dd, trace};
+          bool* update;
+          optional<timestamp> mt;
+        } data {trace, e, s, dd, update, mt};
 
-        auto exec_cmd = [&ctx, this]
-                        (token& t,
-                         build2::script::token_type& tt,
-                         size_t li,
-                         bool /* single */,
-                         const location& ll)
+        auto exec_cmd = [this, &data] (token& t,
+                                       build2::script::token_type& tt,
+                                       size_t li,
+                                       bool /* single */,
+                                       const location& ll)
         {
           // Note that we never reset the line index to zero (as we do in
           // execute_body()) assuming that there are some script body
@@ -958,9 +965,14 @@ namespace build2
 
             string cmd (move (t.value));
 
-            if (cmd == "dep")
+            if (cmd == "pre-dynamic")
             {
-              exec_depdb_dep (t, tt, li, ll);
+              exec_depdb_pre_dynamic (t, tt,
+                                      li, ll,
+                                      data.env.target,
+                                      data.dd,
+                                      *data.update,
+                                      *data.mt);
             }
             else
             {
@@ -972,11 +984,11 @@ namespace build2
                 for (const name& n: ns)
                   to_checksum (cs, n);
 
-                if (ctx.dd.expect (cs.string ()) != nullptr)
+                if (data.dd.expect (cs.string ()) != nullptr)
                   l4 ([&] {
-                      ctx.trace (ll)
+                      data.trace (ll)
                         << "'depdb hash' argument change forcing update of "
-                        << ctx.env.target;});
+                        << data.env.target;});
               }
               else if (cmd == "string")
               {
@@ -990,11 +1002,11 @@ namespace build2
                   fail (ll) << "invalid 'depdb string' argument: " << e;
                 }
 
-                if (ctx.dd.expect (s) != nullptr)
+                if (data.dd.expect (s) != nullptr)
                   l4 ([&] {
-                      ctx.trace (ll)
+                      data.trace (ll)
                         << "'depdb string' argument change forcing update of "
-                        << ctx.env.target;});
+                        << data.env.target;});
               }
               else if (cmd == "env")
               {
@@ -1015,11 +1027,11 @@ namespace build2
                   fail (ll) << pf << e;
                 }
 
-                if (ctx.dd.expect (cs.string ()) != nullptr)
+                if (data.dd.expect (cs.string ()) != nullptr)
                   l4 ([&] {
-                      ctx.trace (ll)
+                      data.trace (ll)
                         << "'depdb env' environment change forcing update of "
-                        << ctx.env.target;});
+                        << data.env.target;});
               }
               else
                 assert (false);
@@ -1040,7 +1052,7 @@ namespace build2
                                   p.recall.string () == "set";
                          }) == ce.end ())
             {
-              const replay_tokens& rt (ctx.scr.depdb_preamble.back ().tokens);
+              const replay_tokens& rt (data.scr.depdb_preamble.back ().tokens);
               assert (!rt.empty ());
 
               fail (ll) << "disallowed command in depdb preamble" <<
@@ -1053,7 +1065,7 @@ namespace build2
           }
         };
 
-        exec_lines (s.depdb_preamble, exec_cmd);
+        exec_lines (begin, end, exec_cmd);
       }
 
       void parser::
@@ -1085,7 +1097,7 @@ namespace build2
       }
 
       void parser::
-      exec_lines (const lines& lns,
+      exec_lines (lines_iterator begin, lines_iterator end,
                   const function<exec_cmd_function>& exec_cmd)
       {
         // Note that we rely on "small function object" optimization for the
@@ -1124,7 +1136,7 @@ namespace build2
           return runner_->run_if (*environment_, ce, li, ll);
         };
 
-        build2::script::parser::exec_lines (lns.begin (), lns.end (),
+        build2::script::parser::exec_lines (begin, end,
                                             exec_set, exec_cmd, exec_if,
                                             environment_->exec_line,
                                             &environment_->var_pool);
@@ -1145,12 +1157,15 @@ namespace build2
       }
 
       names parser::
-      execute_special (const scope& rs, const scope& bs,
+      execute_special (const scope& bs,
                        environment& e,
                        const line& ln,
                        bool omit_builtin)
       {
-        pre_exec (rs, bs, e, nullptr /* script */, nullptr /* runner */);
+        pre_exec (*bs.root_scope (), bs,
+                  e,
+                  nullptr /* script */,
+                  nullptr /* runner */);
 
         // Copy the tokens and start playing.
         //
@@ -1167,9 +1182,12 @@ namespace build2
       }
 
       void parser::
-      exec_depdb_dep (token& t, build2::script::token_type& tt,
-                      size_t li,
-                      const location& ll)
+      exec_depdb_pre_dynamic (token& t, build2::script::token_type& tt,
+                              size_t li, const location& ll,
+                              const target& tgt,
+                              depdb& dd,
+                              bool& update,
+                              timestamp /*mt*/)
       {
         // Similar approach to parse_env_builtin().
         //
@@ -1197,14 +1215,14 @@ namespace build2
           location l (get_location (t));
 
           if (!start_names (tt))
-            fail (l) << "depdb dep: expected option or '--' separator "
+            fail (l) << "depdb pre-dynamic: expected option or '--' separator "
                      << "instead of " << t;
 
           parse_names (t, tt,
                        ns,
                        pattern_mode::ignore,
                        true /* chunk */,
-                       "depdb dep builtin argument",
+                       "depdb pre-dynamic builtin argument",
                        nullptr);
 
           for (name& n: ns)
@@ -1229,7 +1247,8 @@ namespace build2
           next (t, tt); // Skip '--'.
 
           if (tt == type::newline || tt == type::eos)
-            fail (t) << "depdb dep: expected program name instead of " << t;
+            fail (t) << "depdb pre-dynamic: expected program name instead of "
+                     << t;
         }
 
         // Parse the options.
@@ -1241,12 +1260,65 @@ namespace build2
           ops = depdb_dep_options (scan);
 
           if (scan.more ())
-            fail (ll) << "depdb dep: unexpected argument '" << scan.next ()
-                      << "'";
+            fail (ll) << "depdb pre-dynamic: unexpected argument '"
+                      << scan.next () << "'";
         }
         catch (const cli::exception& e)
         {
-          fail (ll) << "depdb dep: " << e;
+          fail (ll) << "depdb pre-dynamic: " << e;
+        }
+
+        // This code is based on the prior work in the cc module (specifically
+        // extract_headers()) where you can often find more detailed rationale
+        // for some of the steps performed.
+
+        // If things go wrong (and they often do in this area), give the user
+        // a bit extra context.
+        //
+        auto df = make_diag_frame (
+          [this, &tgt](const diag_record& dr)
+          {
+            if (verb != 0)
+              dr << info << "while extracting dynamic dependencies for " << tgt;
+          });
+
+        // If nothing so far has invalidated the dependency database, then try
+        // the cached data before running the program.
+        //
+        bool cache (!update);
+        size_t skip_count (0);
+
+        for (bool restart (true); restart; cache = false)
+        {
+          restart = false;
+
+          if (cache)
+          {
+            // If any, this is always the first run.
+            //
+            assert (skip_count == 0);
+
+            // We should always end with a blank line.
+            //
+            for (;;)
+            {
+              string* l (dd.read ());
+
+              // If the line is invalid, run the compiler.
+              //
+              if (l == nullptr)
+              {
+                restart = true;
+                break;
+              }
+
+              if (l->empty ()) // Done, nothing changed.
+                return;
+            }
+          }
+          else
+          {
+          }
         }
 
         optional<path> file;
@@ -1277,7 +1349,8 @@ namespace build2
           // @@ TODO: improve diagnostics.
           //
           if (!file && ce.size () != 1)
-            fail (ll) << "depdb dep: command cannot contain logical operators";
+            fail (ll) << "depdb pre-dynamic: command cannot contain "
+                      << "logical operators";
 
           string s;
           build2::script::run (*environment_,
@@ -1295,7 +1368,7 @@ namespace build2
           // Assume file is one of the prerequisites.
           //
           if (!file)
-            fail (ll) << "depdb dep: program or --file expected";
+            fail (ll) << "depdb pre-dynamic: program or --file expected";
         }
       }
 

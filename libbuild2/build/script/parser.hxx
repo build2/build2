@@ -8,7 +8,6 @@
 #include <libbuild2/forward.hxx>
 #include <libbuild2/utility.hxx>
 
-#include <libbuild2/depdb.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/script/parser.hxx>
@@ -83,27 +82,54 @@ namespace build2
         // execution.
         //
         void
-        execute_body (const scope& root, const scope& base,
+        execute_body (const scope& base,
                       environment&, const script&, runner&,
                       bool enter = true, bool leave = true);
 
 
+        // Execute the first or the second (pre-dynamic) half of the depdb
+        // preamble.
+        //
         // Note that it's the caller's responsibility to make sure that the
         // runner's enter() function is called before the first preamble/body
         // command execution and leave() -- after the last command.
         //
         void
-        execute_depdb_preamble (const scope& root, const scope& base,
-                                environment&, const script&, runner&,
-                                depdb&);
+        execute_depdb_preamble (const scope& base,
+                                environment& e, const script& s, runner& r,
+                                depdb& dd)
+        {
+          auto b (s.depdb_preamble.begin ());
+          exec_depdb_preamble (
+            base,
+            e, s, r,
+            b,
+            (s.depdb_pre_dynamic
+             ? b + *s.depdb_pre_dynamic
+             : s.depdb_preamble.end ()),
+            dd);
+        }
 
+        void
+        execute_depdb_preamble_dynamic (
+          const scope& base,
+          environment& e, const script& s, runner& r,
+          depdb& dd, bool& update, timestamp mt)
+        {
+          exec_depdb_preamble (
+            base,
+            e, s, r,
+            s.depdb_preamble.begin () + *s.depdb_pre_dynamic,
+            s.depdb_preamble.end (),
+            dd, &update, mt);
+        }
 
         // Parse a special builtin line into names, performing the variable
         // and pattern expansions. If omit_builtin is true, then omit the
         // builtin name from the result.
         //
         names
-        execute_special (const scope& root, const scope& base,
+        execute_special (const scope& base,
                          environment&,
                          const line&,
                          bool omit_builtin = true);
@@ -115,16 +141,36 @@ namespace build2
         pre_exec (const scope& root, const scope& base,
                   environment&, const script*, runner*);
 
+        using lines_iterator = lines::const_iterator;
+
         void
-        exec_lines (const lines&, const function<exec_cmd_function>&);
+        exec_lines (lines_iterator, lines_iterator,
+                    const function<exec_cmd_function>&);
+
+        void
+        exec_lines (const lines& l, const function<exec_cmd_function>& c)
+        {
+          exec_lines (l.begin (), l.end (), c);
+        }
 
         names
         exec_special (token&, build2::script::token_type&, bool skip_first);
 
         void
-        exec_depdb_dep (token&, build2::script::token_type&,
-                        size_t line_index,
-                        const location&);
+        exec_depdb_preamble (const scope& base,
+                             environment&, const script&, runner&,
+                             lines_iterator begin, lines_iterator end,
+                             depdb&,
+                             bool* update = nullptr,
+                             optional<timestamp> mt = nullopt);
+
+        void
+        exec_depdb_pre_dynamic (token&, build2::script::token_type&,
+                                size_t line_index, const location&,
+                                const target&,
+                                depdb&,
+                                bool& update,
+                                timestamp);
 
         // Helpers.
         //
@@ -223,12 +269,14 @@ namespace build2
         // depdb env <var-names> - Track the environment variables change as a
         //                         hash.
         //
-        // depdb dep ...         - Extract additional dependency information.
-        //                         Can only be the last depdb builtin call.
+        // depdb pre-dynamic ... - Extract dynamic dependency information.
+        //                         Can only be the last depdb builtin call
+        //                         in the preamble.
         //
-        optional<location> depdb_clear_;    // depdb-clear location if any.
-        optional<location> depdb_dep_;      // depdb-dep location if any.
-        lines              depdb_preamble_; // Note: excludes depdb-clear.
+        optional<location> depdb_clear_;    // depdb-clear location.
+        optional<pair<location, size_t>>
+          depdb_pre_dynamic_;               // depdb-pre-dynamic location.
+        lines              depdb_preamble_; // Note: excluding depdb-clear.
 
         // If present, the first impure function called in the body of the
         // script that performs update of a file-based target.
