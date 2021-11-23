@@ -75,7 +75,7 @@ namespace build2
         // script parser for details).
         //
         bool             depdb_clear;
-        optional<size_t> depdb_pre_dynamic; // Position of first pre-dynamic.
+        optional<size_t> depdb_dyndep;   // Position of first depdb-dyndep.
         lines_type       depdb_preamble;
         bool             depdb_preamble_temp_dir = false; // True if refs $~.
 

@@ -8,8 +8,8 @@
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
+#include <libbuild2/dyndep.hxx>
 #include <libbuild2/context.hxx>
-#include <libbuild2/dynamic.hxx>
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>  // path_perms(), auto_rmfile
 #include <libbuild2/diagnostics.hxx>
@@ -226,9 +226,10 @@ namespace build2
     build::script::environment env;
     build::script::default_runner run;
 
+    path dd;
     const scope* bs;
     timestamp mt;
-    path dd;
+    bool deferred_failure;
   };
 
   bool adhoc_buildscript_rule::
@@ -329,16 +330,16 @@ namespace build2
 
     // See if this is the simple case with only static dependencies.
     //
-    if (!script.depdb_pre_dynamic)
+    if (!script.depdb_dyndep)
     {
       return [this] (action a, const target& t)
       {
-        return perform_update_file_static (a, t);
+        return perform_update_file (a, t);
       };
     }
 
     // This is a perform update on a file target with extraction of dynamic
-    // dependency information in the depdb preamble (depdb-pre-dynamic).
+    // dependency information in the depdb preamble (depdb-dyndep).
     //
     // This means we may need to add additional prerequisites (or even target
     // group members). We also have to save any such additional prerequisites
@@ -355,7 +356,7 @@ namespace build2
     //
     context& ctx (xt.ctx);
 
-    const file& t (xt.as<file> ());
+    file& t (xt.as<file> ());
     const path& tp (t.path ());
 
     if (dir != nullptr)
@@ -369,12 +370,12 @@ namespace build2
     auto& pts (t.prerequisite_targets[a]);
     for (prerequisite_target& p: pts)
     {
+      // Note that fsdir{} injected above is adhoc.
+      //
       if (p.target != nullptr && p.adhoc)
       {
-        // Blank out injected fsdir{} for good.
-        //
-        if (p.target != dir)
-          p.data = reinterpret_cast<uintptr_t> (p.target);
+        p.data = reinterpret_cast<uintptr_t> (p.target);
+        p.target = nullptr;
       }
     }
 
@@ -444,11 +445,11 @@ namespace build2
 
     run.enter (env, script.start_loc);
 
-    // Run the first half of the preamble (before depdb-pre-dynamic).
+    // Run the first half of the preamble (before depdb-dyndep).
     //
     {
       build::script::parser p (ctx);
-      p.execute_depdb_preamble (bs, env, script, run, dd);
+      p.execute_depdb_preamble (a, bs, t, env, script, run, dd);
     }
 
     // Determine if we need to do an update based on the above checks.
@@ -470,7 +471,7 @@ namespace build2
       mt = timestamp_nonexistent;
 
     // Update our prerequisite targets. While strictly speaking we only need
-    // to update those that are referenced by depdb-pre-dynamic, communicating
+    // to update those that are referenced by depdb-dyndep, communicating
     // this is both tedious and error-prone. So we update them all.
     //
     for (const prerequisite_target& p: pts)
@@ -484,14 +485,21 @@ namespace build2
       }
     }
 
-    // Run the second half of the preamble (depdb-pre-dynamic commands) to
-    // extract dynamic dependencies.
+    // Run the second half of the preamble (depdb-dyndep commands) to extract
+    // dynamic dependencies.
     //
     // Note that this should be the last update to depdb (the invalidation
     // order semantics).
+    //
+    bool deferred_failure (false);
     {
       build::script::parser p (ctx);
-      p.execute_depdb_preamble_dynamic (bs, env, script, run, dd, update, mt);
+      p.execute_depdb_preamble_dyndep (a, bs, t,
+                                       env, script, run,
+                                       dd,
+                                       update,
+                                       deferred_failure,
+                                       mt);
     }
 
     if (update && dd.reading () && !ctx.dry_run)
@@ -504,13 +512,14 @@ namespace build2
     //
     md->bs = &bs;
     md->mt = update ? timestamp_nonexistent : mt;
+    md->deferred_failure = deferred_failure;
 
     // @@ TMP: re-enable once recipe becomes move_only_function.
     //
 #if 0
     return [this, md = move (md)] (action a, const target& t) mutable
     {
-      auto r (perform_update_file_dynamic (a, t, *md));
+      auto r (perform_update_file_dyndep (a, t, *md));
       md.reset (); // @@ TMP: is this really necessary (+mutable)?
       return r;
     };
@@ -519,16 +528,15 @@ namespace build2
     return recipe ([this] (action a, const target& t) mutable
     {
       auto md (move (t.data<unique_ptr<match_data>> ()));
-      return perform_update_file_dynamic (a, t, *md);
+      return perform_update_file_dyndep (a, t, *md);
     });
 #endif
   }
 
   target_state adhoc_buildscript_rule::
-  perform_update_file_dynamic (action a, const target& xt,
-                               match_data& md) const
+  perform_update_file_dyndep (action a, const target& xt, match_data& md) const
   {
-    tracer trace ("adhoc_buildscript_rule::perform_update_file_dynamic");
+    tracer trace ("adhoc_buildscript_rule::perform_update_file_dyndep");
 
     context& ctx (xt.ctx);
 
@@ -544,7 +552,7 @@ namespace build2
           (p.target != nullptr ? p.target :
            p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
       {
-        target_state ts (execute (a, *pt));
+        target_state ts (execute_wait (a, *pt));
         assert (ts == target_state::unchanged || ts == target_state::changed);
       }
     }
@@ -552,7 +560,9 @@ namespace build2
     build::script::environment& env (md.env);
     build::script::default_runner& run (md.run);
 
-    if (md.mt != timestamp_nonexistent)
+    // Force update in case of a deferred failure even if nothing changed.
+    //
+    if (md.mt != timestamp_nonexistent && !md.deferred_failure)
     {
       run.leave (env, script.end_loc);
       return target_state::unchanged;
@@ -566,7 +576,7 @@ namespace build2
 
     if (!ctx.dry_run || verb != 0)
     {
-      if (execute_update_file (*md.bs, a, t, env, run))
+      if (execute_update_file (*md.bs, a, t, env, run, md.deferred_failure))
         ;
       else
         run.leave (env, script.end_loc);
@@ -584,9 +594,9 @@ namespace build2
   }
 
   target_state adhoc_buildscript_rule::
-  perform_update_file_static (action a, const target& xt) const
+  perform_update_file (action a, const target& xt) const
   {
-    tracer trace ("adhoc_buildscript_rule::perform_update_file_static");
+    tracer trace ("adhoc_buildscript_rule::perform_update_file");
 
     context& ctx (xt.ctx);
 
@@ -670,8 +680,6 @@ namespace build2
 
         // As part of this loop calculate checksums that need to include ad
         // hoc prerequisites (unless the script tracks changes itself).
-        //
-        // @@ TODO: skip fsdir{}?
         //
         if (!script.depdb_clear)
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, pt, storage);
@@ -805,7 +813,7 @@ namespace build2
       build::script::parser p (ctx);
 
       run.enter (env, script.start_loc);
-      p.execute_depdb_preamble (*bs, env, script, run, dd);
+      p.execute_depdb_preamble (a, *bs, t, env, script, run, dd);
     }
 
     // Update if depdb mismatch.
@@ -855,9 +863,12 @@ namespace build2
   execute_update_file (const scope& bs,
                        action, const file& t,
                        build::script::environment& env,
-                       build::script::default_runner& run) const
+                       build::script::default_runner& run,
+                       bool deferred_failure) const
   {
     context& ctx (t.ctx);
+
+    const scope& rs (*bs.root_scope ());
 
     // Note that it doesn't make much sense to use the temporary directory
     // variable ($~) in the 'diag' builtin call, so we postpone setting it
@@ -869,7 +880,7 @@ namespace build2
     {
       if (script.diag_line)
       {
-        text << p.execute_special (bs, env, *script.diag_line);
+        text << p.execute_special (rs, bs, env, *script.diag_line);
       }
       else
       {
@@ -905,10 +916,13 @@ namespace build2
       if (script.body_temp_dir && !script.depdb_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
-      p.execute_body (bs, env, script, run, script.depdb_preamble.empty ());
+      p.execute_body (rs, bs, env, script, run, script.depdb_preamble.empty ());
 
       if (!ctx.dry_run)
       {
+        if (deferred_failure)
+          fail << "expected error exit status from recipe body";
+
         // If this is an executable, let's be helpful to the user and set
         // the executable bit on POSIX.
         //
@@ -952,6 +966,7 @@ namespace build2
     if (!ctx.dry_run || verb != 0)
     {
       const scope& bs (t.base_scope ());
+      const scope& rs (*bs.root_scope ());
 
       build::script::environment e (a, t, script.body_temp_dir, deadline);
       build::script::parser p (ctx);
@@ -960,7 +975,7 @@ namespace build2
       {
         if (script.diag_line)
         {
-          text << p.execute_special (bs, e, *script.diag_line);
+          text << p.execute_special (rs, bs, e, *script.diag_line);
         }
         else
         {
@@ -973,7 +988,7 @@ namespace build2
       if (!ctx.dry_run || verb >= 2)
       {
         build::script::default_runner r;
-        p.execute_body (bs, e, script, r);
+        p.execute_body (rs, bs, e, script, r);
       }
     }
 

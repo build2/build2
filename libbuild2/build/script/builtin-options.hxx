@@ -302,48 +302,55 @@ namespace build2
         public:
         depdb_dep_options ();
 
-        depdb_dep_options (int& argc,
-                           char** argv,
-                           bool erase = false,
-                           ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-                           ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+        // Return true if anything has been parsed.
+        //
+        bool
+        parse (int& argc,
+               char** argv,
+               bool erase = false,
+               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
+               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
 
-        depdb_dep_options (int start,
-                           int& argc,
-                           char** argv,
-                           bool erase = false,
-                           ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-                           ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+        bool
+        parse (int start,
+               int& argc,
+               char** argv,
+               bool erase = false,
+               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
+               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
 
-        depdb_dep_options (int& argc,
-                           char** argv,
-                           int& end,
-                           bool erase = false,
-                           ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-                           ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+        bool
+        parse (int& argc,
+               char** argv,
+               int& end,
+               bool erase = false,
+               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
+               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
 
-        depdb_dep_options (int start,
-                           int& argc,
-                           char** argv,
-                           int& end,
-                           bool erase = false,
-                           ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-                           ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+        bool
+        parse (int start,
+               int& argc,
+               char** argv,
+               int& end,
+               bool erase = false,
+               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
+               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
 
-        depdb_dep_options (::build2::build::script::cli::scanner&,
-                           ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
-                           ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
+        bool
+        parse (::build2::build::script::cli::scanner&,
+               ::build2::build::script::cli::unknown_mode option = ::build2::build::script::cli::unknown_mode::fail,
+               ::build2::build::script::cli::unknown_mode argument = ::build2::build::script::cli::unknown_mode::stop);
 
         // Option accessors and modifiers.
         //
-        const string&
+        const path&
         file () const;
 
-        string&
+        path&
         file ();
 
         void
-        file (const string&);
+        file (const path&);
 
         bool
         file_specified () const;
@@ -366,6 +373,51 @@ namespace build2
         void
         format_specified (bool);
 
+        const string&
+        what () const;
+
+        string&
+        what ();
+
+        void
+        what (const string&);
+
+        bool
+        what_specified () const;
+
+        void
+        what_specified (bool);
+
+        const dir_paths&
+        include_path () const;
+
+        dir_paths&
+        include_path ();
+
+        void
+        include_path (const dir_paths&);
+
+        bool
+        include_path_specified () const;
+
+        void
+        include_path_specified (bool);
+
+        const string&
+        default_prereq_type () const;
+
+        string&
+        default_prereq_type ();
+
+        void
+        default_prereq_type (const string&);
+
+        bool
+        default_prereq_type_specified () const;
+
+        void
+        default_prereq_type_specified (bool);
+
         // Implementation details.
         //
         protected:
@@ -379,10 +431,16 @@ namespace build2
                 ::build2::build::script::cli::unknown_mode argument);
 
         public:
-        string file_;
+        path file_;
         bool file_specified_;
         string format_;
         bool format_specified_;
+        string what_;
+        bool what_specified_;
+        dir_paths include_path_;
+        bool include_path_specified_;
+        string default_prereq_type_;
+        bool default_prereq_type_specified_;
       };
     }
   }

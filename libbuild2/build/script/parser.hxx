@@ -81,13 +81,16 @@ namespace build2
         // initialize/clean up the environment before/after the script
         // execution.
         //
+        // Note: having both root and base scopes for testing (where we pass
+        // global scope for both).
+        //
         void
-        execute_body (const scope& base,
+        execute_body (const scope& root, const scope& base,
                       environment&, const script&, runner&,
                       bool enter = true, bool leave = true);
 
 
-        // Execute the first or the second (pre-dynamic) half of the depdb
+        // Execute the first or the second (dyndep) half of the depdb
         // preamble.
         //
         // Note that it's the caller's responsibility to make sure that the
@@ -95,33 +98,33 @@ namespace build2
         // command execution and leave() -- after the last command.
         //
         void
-        execute_depdb_preamble (const scope& base,
+        execute_depdb_preamble (action a, const scope& base, const file& t,
                                 environment& e, const script& s, runner& r,
                                 depdb& dd)
         {
           auto b (s.depdb_preamble.begin ());
           exec_depdb_preamble (
-            base,
+            a, base, t,
             e, s, r,
             b,
-            (s.depdb_pre_dynamic
-             ? b + *s.depdb_pre_dynamic
+            (s.depdb_dyndep
+             ? b + *s.depdb_dyndep
              : s.depdb_preamble.end ()),
             dd);
         }
 
         void
-        execute_depdb_preamble_dynamic (
-          const scope& base,
+        execute_depdb_preamble_dyndep (
+          action a, const scope& base, file& t,
           environment& e, const script& s, runner& r,
-          depdb& dd, bool& update, timestamp mt)
+          depdb& dd, bool& update, bool& deferred_failure, timestamp mt)
         {
           exec_depdb_preamble (
-            base,
+            a, base, t,
             e, s, r,
-            s.depdb_preamble.begin () + *s.depdb_pre_dynamic,
+            s.depdb_preamble.begin () + *s.depdb_dyndep,
             s.depdb_preamble.end (),
-            dd, &update, mt);
+            dd, &update, &deferred_failure, mt);
         }
 
         // Parse a special builtin line into names, performing the variable
@@ -129,7 +132,7 @@ namespace build2
         // builtin name from the result.
         //
         names
-        execute_special (const scope& base,
+        execute_special (const scope& root, const scope& base,
                          environment&,
                          const line&,
                          bool omit_builtin = true);
@@ -157,20 +160,22 @@ namespace build2
         exec_special (token&, build2::script::token_type&, bool skip_first);
 
         void
-        exec_depdb_preamble (const scope& base,
+        exec_depdb_preamble (action, const scope& base, const file&,
                              environment&, const script&, runner&,
                              lines_iterator begin, lines_iterator end,
                              depdb&,
                              bool* update = nullptr,
+                             bool* deferred_failure = nullptr,
                              optional<timestamp> mt = nullopt);
 
         void
-        exec_depdb_pre_dynamic (token&, build2::script::token_type&,
-                                size_t line_index, const location&,
-                                const target&,
-                                depdb&,
-                                bool& update,
-                                timestamp);
+        exec_depdb_dyndep (token&, build2::script::token_type&,
+                           size_t line_index, const location&,
+                           action, const scope& base, file&,
+                           depdb&,
+                           bool& update,
+                           bool& deferred_failure,
+                           timestamp);
 
         // Helpers.
         //
@@ -269,13 +274,13 @@ namespace build2
         // depdb env <var-names> - Track the environment variables change as a
         //                         hash.
         //
-        // depdb pre-dynamic ... - Extract dynamic dependency information.
+        // depdb dyndep ...      - Extract dynamic dependency information.
         //                         Can only be the last depdb builtin call
         //                         in the preamble.
         //
         optional<location> depdb_clear_;    // depdb-clear location.
         optional<pair<location, size_t>>
-          depdb_pre_dynamic_;               // depdb-pre-dynamic location.
+                           depdb_dyndep_;   // depdb-dyndep location/position.
         lines              depdb_preamble_; // Note: excluding depdb-clear.
 
         // If present, the first impure function called in the body of the

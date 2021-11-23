@@ -36,18 +36,19 @@ namespace build2
            const optional<timestamp>&) const override;
 
     target_state
-    perform_update_file_static (action, const target&) const;
+    perform_update_file (action, const target&) const;
 
     struct match_data;
 
     target_state
-    perform_update_file_dynamic (action, const target&, match_data&) const;
+    perform_update_file_dyndep (action, const target&, match_data&) const;
 
     bool
     execute_update_file (const scope&,
                          action a, const file&,
                          build::script::environment&,
-                         build::script::default_runner&) const;
+                         build::script::default_runner&,
+                         bool deferred_failure = false) const;
 
     target_state
     default_action (action, const target&, const optional<timestamp>&) const;

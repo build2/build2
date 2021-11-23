@@ -16,6 +16,7 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>  // mtime()
 #include <libbuild2/diagnostics.hxx>
+#include <libbuild2/make-parser.hxx>
 
 #include <libbuild2/bin/target.hxx>
 
@@ -707,7 +708,7 @@ namespace build2
     void compile_rule::
     append_library_prefixes (appended_libraries& ls, prefix_map& pm,
                              const scope& bs,
-                             action a, target& t, linfo li) const
+                             action a, const target& t, linfo li) const
     {
       struct data
       {
@@ -730,14 +731,21 @@ namespace build2
         if (find (d.ls.begin (), d.ls.end (), &l) != d.ls.end ())
           return false;
 
-        const variable& var (
-          com
-          ? c_export_poptions
-          : (t == x
-             ? x_export_poptions
-             : l.ctx.var_pool[t + ".export.poptions"]));
+        // If this target does not belong to any project (e.g, an "imported as
+        // installed" library), then it can't possibly generate any headers
+        // for us.
+        //
+        if (const scope* rs = l.base_scope ().root_scope ())
+        {
+          const variable& var (
+            com
+            ? c_export_poptions
+            : (t == x
+               ? x_export_poptions
+               : l.ctx.var_pool[t + ".export.poptions"]));
 
-        append_prefixes (d.pm, l, var);
+          append_prefixes (d.pm, *rs, l, var);
+        }
 
         if (com)
           d.ls.push_back (&l);
@@ -1486,76 +1494,12 @@ namespace build2
       }
     }
 
-    // Reverse-lookup target type(s) from extension.
-    //
-    small_vector<const target_type*, 2> compile_rule::
-    map_extension (const scope& bs, const string& n, const string& e) const
-    {
-      // We will just have to try all of the possible ones, in the "most
-      // likely to match" order.
-      //
-      auto test = [&bs, &n, &e] (const target_type& tt) -> bool
-      {
-        // Call the extension derivation function. Here we know that it will
-        // only use the target type and name from the target key so we can
-        // pass bogus values for the rest.
-        //
-        target_key tk {&tt, nullptr, nullptr, &n, nullopt};
-
-        // This is like prerequisite search.
-        //
-        optional<string> de (tt.default_extension (tk, bs, nullptr, true));
-
-        return de && *de == e;
-      };
-
-      small_vector<const target_type*, 2> r;
-
-      for (const target_type* const* p (x_inc); *p != nullptr; ++p)
-        if (test (**p))
-          r.push_back (*p);
-
-      // Next try target types derived from any of the C-source types.
-      //
-      const target_type_map& ttm (bs.root_scope ()->root_extra->target_types);
-
-      for (auto i (ttm.type_begin ()), e (ttm.type_end ()); i != e; ++i)
-      {
-        const target_type& dt (i->second);
-
-        for (const target_type* const* p (x_inc); *p != nullptr; ++p)
-        {
-          const target_type& bt (**p);
-
-          if (dt.is_a (bt))
-          {
-            if (dt != bt && test (dt))
-              r.push_back (&dt);
-
-            break;
-          }
-        }
-      }
-
-      return r;
-    }
-
     void compile_rule::
-    append_prefixes (prefix_map& m, const target& t, const variable& var) const
+    append_prefixes (prefix_map& m,
+                     const scope& rs, const target& t,
+                     const variable& var) const
     {
       tracer trace (x, "compile_rule::append_prefixes");
-
-      // If this target does not belong to any project (e.g, an "imported as
-      // installed" library), then it can't possibly generate any headers for
-      // us.
-      //
-      const scope& bs (t.base_scope ());
-      const scope* rs (bs.root_scope ());
-      if (rs == nullptr)
-        return;
-
-      const dir_path& out_base (t.dir);
-      const dir_path& out_root (rs->out_path ());
 
       if (auto l = t[var])
       {
@@ -1614,136 +1558,8 @@ namespace build2
 
           // If we are not inside our project root, then ignore.
           //
-          if (!d.sub (out_root))
-            continue;
-
-          // If the target directory is a sub-directory of the include
-          // directory, then the prefix is the difference between the
-          // two. Otherwise, leave it empty.
-          //
-          // The idea here is to make this "canonical" setup work auto-
-          // magically:
-          //
-          // 1. We include all files with a prefix, e.g., <foo/bar>.
-          // 2. The library target is in the foo/ sub-directory, e.g.,
-          //    /tmp/foo/.
-          // 3. The poptions variable contains -I/tmp.
-          //
-          dir_path p (out_base.sub (d) ? out_base.leaf (d) : dir_path ());
-
-          // We use the target's directory as out_base but that doesn't work
-          // well for targets that are stashed in subdirectories. So as a
-          // heuristics we are going to also enter the outer directories of
-          // the original prefix. It is, however, possible, that another -I
-          // option after this one will produce one of these outer prefixes as
-          // its original prefix in which case we should override it.
-          //
-          // So we are going to assign the original prefix priority value 0
-          // (highest) and then increment it for each outer prefix.
-          //
-          auto enter = [&trace, &m] (dir_path p, dir_path d, size_t prio)
-          {
-            auto j (m.lower_bound (p)), e (m.end ());
-
-            if (j != e && j->first != p)
-              j = e;
-
-            if (j == m.end ())
-            {
-              if (verb >= 4)
-                trace << "new mapping for prefix '" << p << "'\n"
-                      << "  new mapping to      " << d << " priority " << prio;
-
-              m.emplace (move (p), prefix_value {move (d), prio});
-            }
-            else if (p.empty ())
-            {
-              // For prefixless we keep all the entries since for them we have
-              // an extra check (target must be explicitly spelled out in a
-              // buildfile).
-              //
-              if (verb >= 4)
-                trace << "additional mapping for prefix '" << p << "'\n"
-                      << "  new mapping to      " << d << " priority " << prio;
-
-              // Find the position where to insert according to the priority.
-              // For equal priorities we use the insertion order.
-              //
-              do
-              {
-                if (j->second.priority > prio)
-                  break;
-              }
-              while (++j != e && j->first == p);
-
-              m.emplace_hint (j, move (p), prefix_value {move (d), prio});
-            }
-            else
-            {
-              prefix_value& v (j->second);
-
-              // We used to reject duplicates but it seems this can be
-              // reasonably expected to work according to the order of the
-              // -I options.
-              //
-              // Seeing that we normally have more "specific" -I paths first,
-              // (so that we don't pick up installed headers, etc), we ignore
-              // it.
-              //
-              if (v.directory == d)
-              {
-                if (v.priority > prio)
-                  v.priority = prio;
-              }
-              else if (v.priority <= prio)
-              {
-                if (verb >= 4)
-                  trace << "ignoring mapping for prefix '" << p << "'\n"
-                        << "  existing mapping to " << v.directory
-                        << " priority " << v.priority << '\n'
-                        << "  another mapping to  " << d
-                        << " priority " << prio;
-              }
-              else
-              {
-                if (verb >= 4)
-                  trace << "overriding mapping for prefix '" << p << "'\n"
-                        << "  existing mapping to " << v.directory
-                        << " priority " << v.priority << '\n'
-                        << "  new mapping to      " << d
-                        << " priority " << prio;
-
-                v.directory = move (d);
-                v.priority = prio;
-              }
-            }
-          };
-
-#if 1
-          // Enter all outer prefixes, including prefixless.
-          //
-          // The prefixless part is fuzzy but seems to be doing the right
-          // thing ignoring/overriding-wise, at least in cases where one of
-          // the competing -I paths is a subdirectory of another.
-          //
-          for (size_t prio (0);; ++prio)
-          {
-            bool e (p.empty ());
-            enter ((e ? move (p) : p), (e ? move (d) : d), prio);
-            if (e)
-              break;
-            p = p.directory ();
-          }
-#else
-          size_t prio (0);
-          for (bool e (false); !e; ++prio)
-          {
-            dir_path n (p.directory ());
-            e = n.empty ();
-            enter ((e ? move (p) : p), (e ? move (d) : d), prio);
-            p = move (n);
-          }
-#endif
+          if (d.sub (rs.out_path ()))
+            append_prefix (trace, m, t, move (d));
         }
       }
     }
@@ -1751,15 +1567,16 @@ namespace build2
     auto compile_rule::
     build_prefix_map (const scope& bs,
                       action a,
-                      target& t,
+                      const target& t,
                       linfo li) const -> prefix_map
     {
       prefix_map pm;
 
       // First process our own.
       //
-      append_prefixes (pm, t, x_poptions);
-      append_prefixes (pm, t, c_poptions);
+      const scope& rs (*bs.root_scope ());
+      append_prefixes (pm, rs, t, x_poptions);
+      append_prefixes (pm, rs, t, c_poptions);
 
       // Then process the include directories from prerequisite libraries.
       //
@@ -1769,6 +1586,9 @@ namespace build2
       return pm;
     }
 
+    // @@ TMP
+    //
+#if 0
     // Return the next make prerequisite starting from the specified
     // position and update position to point to the start of the
     // following prerequisite or l.size() if there are none left.
@@ -1830,6 +1650,7 @@ namespace build2
 
       return r;
     }
+#endif
 
     // VC /showIncludes output. The first line is the file being compiled
     // (unless clang-cl; handled by our caller). Then we have the list of
@@ -2251,7 +2072,7 @@ namespace build2
                 if (verb > 2)
                 {
                   diag_record dr;
-                  dr << error << "header '" << f << "' not found and no "
+                  dr << error << "header " << f << " not found and no "
                      << "rule to generate it";
 
                   if (verb < 4)
@@ -2970,355 +2791,56 @@ namespace build2
     }
 #endif
 
-    // Enter as a target a header file. Depending on the cache flag, the file
-    // is assumed to either have come from the depdb cache or from the
-    // compiler run.
-    //
-    // Return the header target and an indication of whether it was remapped
-    // or NULL if the header does not exist and cannot be generated. In the
-    // latter case the passed header path is guaranteed to be still valid but
-    // might have been adjusted (e.g., normalized, etc).
-    //
     // Note: this used to be a lambda inside extract_headers() so refer to the
     // body of that function for the overall picture.
     //
     pair<const file*, bool> compile_rule::
     enter_header (action a, const scope& bs, file& t, linfo li,
                   path&& f, bool cache, bool norm,
-                  optional<prefix_map>& pfx_map, srcout_map& so_map) const
+                  optional<prefix_map>& pfx_map,
+                  const srcout_map& so_map) const
     {
       tracer trace (x, "compile_rule::enter_header");
 
-      // Find or maybe insert the target. The directory is only moved from if
-      // insert is true. Note that it must be normalized.
-      //
-      auto find = [&trace, &t, this] (dir_path&& d,
-                                      path&& f,
-                                      bool insert) -> const file*
+      struct data
       {
-        // Split the file into its name part and extension. Here we can assume
-        // the name part is a valid filesystem name.
-        //
-        // Note that if the file has no extension, we record an empty
-        // extension rather than NULL (which would signify that the default
-        // extension should be added).
-        //
-        string e (f.extension ());
-        string n (move (f).string ());
+        linfo li;
+        optional<prefix_map>& pfx_map;
+      } d {li, pfx_map};
 
-        if (!e.empty ())
-          n.resize (n.size () - e.size () - 1); // One for the dot.
-
-        // See if this directory is part of any project and if so determine
-        // the target type.
-        //
-        // While at it also determine if this target is from the src or out
-        // tree of said project.
-        //
-        dir_path out;
-
-        // It's possible the extension-to-target type mapping is ambiguous
-        // (usually because both C and X-language headers use the same .h
-        // extension). In this case we will first try to find one that matches
-        // an explicit target (similar logic to when insert is false).
-        //
-        small_vector<const target_type*, 2> tts;
-
-        // Note that the path can be in out or src directory and the latter
-        // can be associated with multiple scopes. So strictly speaking we
-        // need to pick one that is "associated" with us. But that is still a
-        // TODO (see scope_map::find() for details) and so for now we just
-        // pick the first one (it's highly unlikely the source file extension
-        // mapping will differ based on the configuration).
-        //
-        {
-          const scope& bs (**t.ctx.scopes.find (d).first);
-          if (const scope* rs = bs.root_scope ())
-          {
-            tts = map_extension (bs, n, e);
-
-            if (!bs.out_eq_src () && d.sub (bs.src_path ()))
-              out = out_src (d, *rs);
-          }
-        }
-
-        // If it is outside any project, or the project doesn't have such an
-        // extension, assume it is a plain old C header.
-        //
-        if (tts.empty ())
-        {
-          // If the project doesn't "know" this extension then we can't
-          // possibly find an explicit target of this type.
-          //
-          if (!insert)
-          {
-            l6 ([&]{trace << "unknown header " << n << " extension '"
-                          << e << "'";});
-            return nullptr;
-          }
-
-          tts.push_back (&h::static_type);
-        }
-
-        // Find or insert target.
-        //
-        // Note that in case of the target type ambiguity we first try to find
-        // an explicit target that resolves this ambiguity.
-        //
-        const target* r (nullptr);
-
-        if (!insert || tts.size () > 1)
-        {
-          // Note that we skip any target type-specific searches (like for an
-          // existing file) and go straight for the target object since we
-          // need to find the target explicitly spelled out.
-          //
-          // Also, it doesn't feel like we should be able to resolve an
-          // absolute path with a spelled-out extension to multiple targets.
-          //
-          for (const target_type* tt: tts)
-          {
-            if ((r = t.ctx.targets.find (*tt, d, out, n, e, trace)) != nullptr)
-              break;
-            else
-              l6 ([&]{trace << "no targe with target type " << tt->name;});
-          }
-
-          // Note: we can't do this because of the in-source builds where
-          // there won't be explicit targets for non-generated headers.
-          //
-          // This should be harmless, however, since in our world generated
-          // headers are normally spelled-out as explicit targets. And if not,
-          // we will still get an error, just a bit less specific.
-          //
-#if 0
-          if (r == nullptr && insert)
-          {
-            f = d / n;
-            if (!e.empty ())
-            {
-              f += '.';
-              f += e;
-            }
-
-            diag_record dr (fail);
-            dr << "mapping of header " << f << " to target type is ambiguous";
-            for (const target_type* tt: tts)
-              dr << info << "could be " << tt->name << "{}";
-            dr << info << "spell-out its target to resolve this ambiguity";
-          }
-#endif
-        }
-
-        // @@ OPT: move d, out, n
-        //
-        if (r == nullptr && insert)
-          r = &search (t, *tts[0], d, out, n, &e, nullptr);
-
-        return static_cast<const file*> (r);
-      };
-
-      // If it's not absolute then it either does not (yet) exist or is a
-      // relative ""-include (see init_args() for details). Reduce the second
-      // case to absolute.
+      // If it is outside any project, or the project doesn't have such an
+      // extension, assume it is a plain old C header.
       //
-      // Note: we now always use absolute path to the translation unit so this
-      // no longer applies. But let's keep it for posterity.
-      //
-#if 0
-      if (f.relative () && rels.relative ())
-      {
-        // If the relative source path has a directory component, make sure
-        // it matches since ""-include will always start with that (none of
-        // the compilers we support try to normalize this path). Failed that
-        // we may end up searching for a generated header in a random
-        // (working) directory.
-        //
-        const string& fs (f.string ());
-        const string& ss (rels.string ());
-
-        size_t p (path::traits::rfind_separator (ss));
-
-        if (p == string::npos || // No directory.
-            (fs.size () > p + 1 &&
-             path::traits::compare (fs.c_str (), p, ss.c_str (), p) == 0))
+      return enter_file (
+        trace, "header",
+        a, bs, t,
+        move (f), cache, norm,
+        [this] (const scope& bs, const string& n, const string& e)
         {
-          path t (work / f); // The rels path is relative to work.
-
-          if (exists (t))
-            f = move (t);
-        }
-      }
-#endif
-
-      const file* pt (nullptr);
-      bool remapped (false);
-
-      // If still relative then it does not exist.
-      //
-      if (f.relative ())
-      {
-        // This is probably as often an error as an auto-generated file, so
-        // trace at level 4.
-        //
-        l4 ([&]{trace << "non-existent header '" << f << "'";});
-
-        f.normalize ();
-
-        // The relative path might still contain '..' (e.g., ../foo.hxx;
-        // presumably ""-include'ed). We don't attempt to support auto-
-        // generated headers with such inclusion styles.
-        //
-        if (f.normalized ())
+          return map_extension (bs, n, e, x_inc);
+        },
+        h::static_type,
+        [this, &d] (action a, const scope& bs, const target& t)
+          -> const prefix_map&
         {
-          if (!pfx_map)
-            pfx_map = build_prefix_map (bs, a, t, li);
+          if (!d.pfx_map)
+            d.pfx_map = build_prefix_map (bs, a, t, d.li);
 
-          // First try the whole file. Then just the directory.
-          //
-          // @@ Has to be a separate map since the prefix can be the same as
-          //    the file name.
-          //
-          // auto i (pfx_map->find (f));
-
-          // Find the most qualified prefix of which we are a sub-path.
-          //
-          if (!pfx_map->empty ())
-          {
-            dir_path d (f.directory ());
-            auto p (pfx_map->sup_range (d));
-
-            if (p.first != p.second)
-            {
-              // Note that we can only have multiple entries for the
-              // prefixless mapping.
-              //
-              dir_path pd; // Reuse.
-              for (auto i (p.first); i != p.second; ++i)
-              {
-                // Note: value in pfx_map is not necessarily canonical.
-                //
-                pd = i->second.directory;
-                pd.canonicalize ();
-
-                l4 ([&]{trace << "try prefix '" << d << "' mapped to " << pd;});
-
-                // If this is a prefixless mapping, then only use it if we can
-                // resolve it to an existing target (i.e., it is explicitly
-                // spelled out in a buildfile). @@ Hm, I wonder why, it's not
-                // like we can generate any header without an explicit target.
-                // Maybe for diagnostics (i.e., we will actually try to build
-                // something there instead of just saying no mapping).
-                //
-                pt = find (pd / d, f.leaf (), !i->first.empty ());
-                if (pt != nullptr)
-                {
-                  f = pd / f;
-                  l4 ([&]{trace << "mapped as auto-generated " << f;});
-                  break;
-                }
-                else
-                  l4 ([&]{trace << "no explicit target in " << pd;});
-              }
-            }
-            else
-              l4 ([&]{trace << "no prefix map entry for '" << d << "'";});
-          }
-          else
-            l4 ([&]{trace << "prefix map is empty";});
-        }
-      }
-      else
-      {
-        // Normalize the path unless it comes from the depdb, in which case
-        // we've already done that (normally). This is also where we handle
-        // src-out remap (again, not needed if cached).
-        //
-        if (!cache || norm)
-          normalize_header (f);
-
-        if (!cache)
-        {
-          if (!so_map.empty ())
-          {
-            // Find the most qualified prefix of which we are a sub-path.
-            //
-            auto i (so_map.find_sup (f));
-            if (i != so_map.end ())
-            {
-              // Ok, there is an out tree for this headers. Remap to a path
-              // from the out tree and see if there is a target for it. Note
-              // that the value in so_map is not necessarily canonical.
-              //
-              dir_path d (i->second);
-              d /= f.leaf (i->first).directory ();
-              d.canonicalize ();
-
-              pt = find (move (d), f.leaf (), false); // d is not moved from.
-
-              if (pt != nullptr)
-              {
-                path p (d / f.leaf ());
-                l4 ([&]{trace << "remapping " << f << " to " << p;});
-                f = move (p);
-                remapped = true;
-              }
-            }
-          }
-        }
-
-        if (pt == nullptr)
-        {
-          l6 ([&]{trace << "entering " << f;});
-          pt = find (f.directory (), f.leaf (), true);
-        }
-      }
-
-      return make_pair (pt, remapped);
+          return *d.pfx_map;
+        },
+        so_map);
     }
 
-    // Update and add to the list of prerequisite targets a header or header
-    // unit target.
-    //
-    // Return the indication of whether it has changed or, if the passed
-    // timestamp is not timestamp_unknown, is older than the target. If the
-    // header does not exists nor can be generated (no rule), then issue
-    // diagnostics and fail if the fail argument is true and return nullopt
-    // otherwise.
-    //
     // Note: this used to be a lambda inside extract_headers() so refer to the
     // body of that function for the overall picture.
     //
     optional<bool> compile_rule::
     inject_header (action a, file& t,
-                   const file& pt, timestamp mt, bool f /* fail */) const
+                   const file& pt, timestamp mt, bool fail) const
     {
       tracer trace (x, "compile_rule::inject_header");
 
-      // Even if failing we still use try_match() in order to issue consistent
-      // (with extract_headers() below) diagnostics (rather than the generic
-      // "not rule to update ...").
-      //
-      if (!try_match (a, pt).first)
-      {
-        if (!f)
-          return nullopt;
-
-        diag_record dr;
-        dr << fail << "header " << pt << " not found and no rule to "
-           << "generate it";
-
-        if (verb < 4)
-          dr << info << "re-run with --verbose=4 for more information";
-      }
-
-      bool r (update (trace, a, pt, mt));
-
-      // Add to our prerequisite target list.
-      //
-      t.prerequisite_targets[a].push_back (&pt);
-
-      return r;
+      return inject_file (trace, "header", a, t, pt, mt, fail);
     }
 
     // Extract and inject header dependencies. Return the preprocessed source
@@ -3352,16 +2874,6 @@ namespace build2
 
       file_cache::entry psrc;
       bool puse (true);
-
-      // If things go wrong (and they often do in this area), give the user a
-      // bit extra context.
-      //
-      auto df = make_diag_frame (
-        [&src](const diag_record& dr)
-        {
-          if (verb != 0)
-            dr << info << "while extracting header dependencies from " << src;
-        });
 
       // Preprocesor mode that preserves as much information as possible while
       // still performing inclusions. Also serves as a flag indicating whether
@@ -3518,9 +3030,9 @@ namespace build2
       // generator by end-users optional by shipping pre-generated headers.
       //
       // This is a nasty problem that doesn't seem to have a perfect solution
-      // (except, perhaps, C++ modules). So what we are going to do is try to
-      // rectify the situation by detecting and automatically remapping such
-      // mis-inclusions. It works as follows.
+      // (except, perhaps, C++ modules and/or module mapper). So what we are
+      // going to do is try to rectify the situation by detecting and
+      // automatically remapping such mis-inclusions. It works as follows.
       //
       // First we will build a map of src/out pairs that were specified with
       // -I. Here, for performance and simplicity, we will assume that they
@@ -3533,10 +3045,7 @@ namespace build2
       // case, then we calculate a corresponding header in the out tree and,
       // (this is the most important part), check if there is a target for
       // this header in the out tree. This should be fairly accurate and not
-      // require anything explicit from the user except perhaps for a case
-      // where the header is generated out of nothing (so there is no need to
-      // explicitly mention its target in the buildfile). But this probably
-      // won't be very common.
+      // require anything explicit from the user.
       //
       // One tricky area in this setup are target groups: if the generated
       // sources are mentioned in the buildfile as a group, then there might
@@ -3546,10 +3055,7 @@ namespace build2
       // generated depending on the options (e.g., inline files might be
       // suppressed), headers are usually non-optional.
       //
-      // Note that we use path_map instead of dir_path_map to allow searching
-      // using path (file path).
-      //
-      srcout_map so_map; // path_map<dir_path>
+      srcout_map so_map;
 
       // Dynamic module mapper.
       //
@@ -3629,16 +3135,12 @@ namespace build2
           // Populate the src-out with the -I$out_base -I$src_base pairs.
           //
           {
+            srcout_builder builder (ctx, so_map);
+
             // Try to be fast and efficient by reusing buffers as much as
             // possible.
             //
             string ds;
-
-            // Previous -I innermost scope if out_base plus the difference
-            // between the scope path and the -I path (normally empty).
-            //
-            const scope* s (nullptr);
-            dir_path p;
 
             for (auto i (args.begin ()), e (args.end ()); i != e; ++i)
             {
@@ -3664,7 +3166,7 @@ namespace build2
 
                 if (p == 0)
                 {
-                  s = nullptr;
+                  builder.skip ();
                   continue;
                 }
 
@@ -3697,68 +3199,14 @@ namespace build2
                 //
                 if (!d.empty ())
                 {
-                  // Ignore any paths containing '.', '..' components. Allow
-                  // any directory separators though (think -I$src_root/foo
-                  // on Windows).
-                  //
-                  if (d.absolute () && d.normalized (false))
-                  {
-                    // If we have a candidate out_base, see if this is its
-                    // src_base.
-                    //
-                    if (s != nullptr)
-                    {
-                      const dir_path& bp (s->src_path ());
-
-                      if (d.sub (bp))
-                      {
-                        if (p.empty () || d.leaf (bp) == p)
-                        {
-                          // We've got a pair.
-                          //
-                          so_map.emplace (move (d), s->out_path () / p);
-                          s = nullptr; // Taken.
-                          continue;
-                        }
-                      }
-
-                      // Not a pair. Fall through to consider as out_base.
-                      //
-                      s = nullptr;
-                    }
-
-                    // See if this path is inside a project with an out-of-
-                    // tree build and is in the out directory tree.
-                    //
-                    const scope& bs (ctx.scopes.find_out (d));
-                    if (bs.root_scope () != nullptr)
-                    {
-                      if (!bs.out_eq_src ())
-                      {
-                        const dir_path& bp (bs.out_path ());
-
-                        bool e;
-                        if ((e = (d == bp)) || d.sub (bp))
-                        {
-                          s = &bs;
-                          if (e)
-                            p.clear ();
-                          else
-                            p = d.leaf (bp);
-                        }
-                      }
-                    }
-                  }
-                  else
-                    s = nullptr;
-
-                  ds = move (d).string (); // Move the buffer out.
+                  if (!builder.next (move (d)))
+                    ds = move (d).string (); // Move the buffer back out.
                 }
                 else
-                  s = nullptr;
+                  builder.skip ();
               }
               else
-                s = nullptr;
+                builder.skip ();
             }
           }
 
@@ -4098,15 +3546,12 @@ namespace build2
         // to be inconvenient: some users like to re-run a failed build with
         // -s not to get "swamped" with errors.
         //
-        bool df (!ctx.match_only && !ctx.dry_run_option);
-
-        const file* ht (enter_header (a, bs, t, li,
-                                      move (hp), cache, false /* norm */,
-                                      pfx_map, so_map).first);
-        if (ht == nullptr)
+        auto fail = [&ctx] (const auto& h) -> optional<bool>
         {
+          bool df (!ctx.match_only && !ctx.dry_run_option);
+
           diag_record dr;
-          dr << error << "header '" << hp << "' not found and no rule to "
+          dr << error << "header " << h << " not found and no rule to "
              << "generate it";
 
           if (df)
@@ -4115,41 +3560,42 @@ namespace build2
           if (verb < 4)
             dr << info << "re-run with --verbose=4 for more information";
 
-          if (df) return nullopt; else dr << endf;
-        }
+          if (df)
+            return nullopt;
+          else
+            dr << endf;
+        };
 
-        // If we are reading the cache, then it is possible the file has since
-        // been removed (think of a header in /usr/local/include that has been
-        // uninstalled and now we need to use one from /usr/include). This
-        // will lead to the match failure which we translate to a restart.
-        //
-        if (optional<bool> u = inject_header (a, t, *ht, mt, false /* fail */))
+        if (const file* ht = enter_header (a, bs, t, li,
+                                           move (hp), cache, false /* norm */,
+                                           pfx_map, so_map).first)
         {
-          // Verify/add it to the dependency database.
+          // If we are reading the cache, then it is possible the file has
+          // since been removed (think of a header in /usr/local/include that
+          // has been uninstalled and now we need to use one from
+          // /usr/include). This will lead to the match failure which we
+          // translate to a restart.
           //
-          if (!cache)
-            dd.expect (ht->path ());
+          if (optional<bool> u = inject_header (a, t, *ht, mt, false /*fail*/))
+          {
+            // Verify/add it to the dependency database.
+            //
+            if (!cache)
+              dd.expect (ht->path ());
 
-          skip_count++;
-          return *u;
+            skip_count++;
+            return *u;
+          }
+          else if (cache)
+          {
+            dd.write (); // Invalidate this line.
+            return true;
+          }
+          else
+            return fail (*ht);
         }
-        else if (!cache)
-        {
-          diag_record dr;
-          dr << error << "header " << *ht << " not found and no rule to "
-             << "generate it";
-
-          if (df)
-            dr << info << "failure deferred to compiler diagnostics";
-
-          if (verb < 4)
-            dr << info << "re-run with --verbose=4 for more information";
-
-          if (df) return nullopt; else dr << endf;
-        }
-
-        dd.write (); // Invalidate this line.
-        return true;
+        else
+          return fail (hp);
       };
 
       // As above but for a header unit. Note that currently it is only used
@@ -4172,7 +3618,7 @@ namespace build2
         if (ht == nullptr)
         {
           diag_record dr;
-          dr << error << "header '" << hp << "' not found and no rule to "
+          dr << error << "header " << hp << " not found and no rule to "
              << "generate it";
 
           if (df)
@@ -4217,6 +3663,16 @@ namespace build2
       optional<size_t> force_gen_skip; // Skip count at last force_gen run.
 
       const path* drmp (nullptr); // Points to drm.path () if active.
+
+      // If things go wrong (and they often do in this area), give the user a
+      // bit extra context.
+      //
+      auto df = make_diag_frame (
+        [&src](const diag_record& dr)
+        {
+          if (verb != 0)
+            dr << info << "while extracting header dependencies from " << src;
+        });
 
       // If nothing so far has invalidated the dependency database, then try
       // the cached data before running the compiler.
@@ -4782,13 +4238,16 @@ namespace build2
 
                       if (second)
                       {
+                        // Skip the source file.
+                        //
+                        make_parser::next (l, pos, true /* prereq */);
                         second = false;
-                        next_make (l, pos); // Skip the source file.
                       }
 
                       while (pos != l.size ())
                       {
-                        string f (next_make (l, pos));
+                        string f (
+                          make_parser::next (l, pos, true /* prereq */).first);
 
                         // Skip until where we left off.
                         //

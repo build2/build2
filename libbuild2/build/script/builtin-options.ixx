@@ -179,20 +179,20 @@ namespace build2
       // depdb_dep_options
       //
 
-      inline const string& depdb_dep_options::
+      inline const path& depdb_dep_options::
       file () const
       {
         return this->file_;
       }
 
-      inline string& depdb_dep_options::
+      inline path& depdb_dep_options::
       file ()
       {
         return this->file_;
       }
 
       inline void depdb_dep_options::
-      file (const string& x)
+      file (const path& x)
       {
         this->file_ = x;
       }
@@ -237,6 +237,96 @@ namespace build2
       format_specified (bool x)
       {
         this->format_specified_ = x;
+      }
+
+      inline const string& depdb_dep_options::
+      what () const
+      {
+        return this->what_;
+      }
+
+      inline string& depdb_dep_options::
+      what ()
+      {
+        return this->what_;
+      }
+
+      inline void depdb_dep_options::
+      what (const string& x)
+      {
+        this->what_ = x;
+      }
+
+      inline bool depdb_dep_options::
+      what_specified () const
+      {
+        return this->what_specified_;
+      }
+
+      inline void depdb_dep_options::
+      what_specified (bool x)
+      {
+        this->what_specified_ = x;
+      }
+
+      inline const dir_paths& depdb_dep_options::
+      include_path () const
+      {
+        return this->include_path_;
+      }
+
+      inline dir_paths& depdb_dep_options::
+      include_path ()
+      {
+        return this->include_path_;
+      }
+
+      inline void depdb_dep_options::
+      include_path (const dir_paths& x)
+      {
+        this->include_path_ = x;
+      }
+
+      inline bool depdb_dep_options::
+      include_path_specified () const
+      {
+        return this->include_path_specified_;
+      }
+
+      inline void depdb_dep_options::
+      include_path_specified (bool x)
+      {
+        this->include_path_specified_ = x;
+      }
+
+      inline const string& depdb_dep_options::
+      default_prereq_type () const
+      {
+        return this->default_prereq_type_;
+      }
+
+      inline string& depdb_dep_options::
+      default_prereq_type ()
+      {
+        return this->default_prereq_type_;
+      }
+
+      inline void depdb_dep_options::
+      default_prereq_type (const string& x)
+      {
+        this->default_prereq_type_ = x;
+      }
+
+      inline bool depdb_dep_options::
+      default_prereq_type_specified () const
+      {
+        return this->default_prereq_type_specified_;
+      }
+
+      inline void depdb_dep_options::
+      default_prereq_type_specified (bool x)
+      {
+        this->default_prereq_type_specified_ = x;
       }
     }
   }

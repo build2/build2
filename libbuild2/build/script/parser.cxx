@@ -3,11 +3,16 @@
 
 #include <libbuild2/build/script/parser.hxx>
 
+#include <cstring> // strcmp()
+#include <sstream>
+
 #include <libbutl/builtin.hxx>
 
 #include <libbuild2/depdb.hxx>
+#include <libbuild2/dyndep.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/algorithm.hxx>
+#include <libbuild2/make-parser.hxx>
 
 #include <libbuild2/script/run.hxx>
 
@@ -129,8 +134,8 @@ namespace build2
         // Save the custom dependency change tracking lines, if present.
         //
         s.depdb_clear = depdb_clear_.has_value ();
-        if (depdb_pre_dynamic_)
-          s.depdb_pre_dynamic = depdb_pre_dynamic_->second;
+        if (depdb_dyndep_)
+          s.depdb_dyndep = depdb_dyndep_->second;
         s.depdb_preamble = move (depdb_preamble_);
 
         return s;
@@ -497,7 +502,7 @@ namespace build2
                  v != "hash"   &&
                  v != "string" &&
                  v != "env"    &&
-                 v != "pre-dynamic"))
+                 v != "dyndep"))
             {
               fail (get_location (t))
                 << "expected 'depdb' builtin command instead of " << t;
@@ -543,28 +548,31 @@ namespace build2
             }
             else
             {
-              // Verify depdb-pre-dynamic is last.
+              // Verify depdb-dyndep is last.
               //
-              if (v == "pre-dynamic")
+              if (v == "dyndep")
               {
-                // Note that for now we do not allow multiple pre-dynamic
-                // calls. But we may wan to relax this later (though
-                // alternating targets with prerequisites may be tricky --
-                // maybe still only allow additional targets in the first
-                // call).
+                // Note that for now we do not allow multiple dyndep calls.
+                // But we may wan to relax this later (though alternating
+                // targets with prerequisites in depdb may be tricky -- maybe
+                // still only allow additional targets in the first call).
                 //
-                if (!depdb_pre_dynamic_)
-                  depdb_pre_dynamic_ = make_pair (l, depdb_preamble_.size ());
+                if (!depdb_dyndep_)
+                  depdb_dyndep_ = make_pair (l, depdb_preamble_.size ());
                 else
-                  fail (l) << "multiple 'depdb pre-dynamic' calls" <<
-                    info (depdb_pre_dynamic_->first) << "previous call is here";
+                  fail (l) << "multiple 'depdb dyndep' calls" <<
+                    info (depdb_dyndep_->first) << "previous call is here";
+
+#if 0
+                if (peek () == type::word && peeked ().value == "--byproduct")
+                  ;
+#endif
               }
               else
               {
-                if (depdb_pre_dynamic_)
-                  fail (l) << "'depdb " << v << "' after 'depdb pre-dynamic'" <<
-                    info (depdb_pre_dynamic_->first)
-                           << "'depdb pre-dynamic' call is here";
+                if (depdb_dyndep_)
+                  fail (l) << "'depdb " << v << "' after 'depdb dyndep'" <<
+                    info (depdb_dyndep_->first) << "'depdb dyndep' call is here";
               }
 
               // Move the script body to the end of the depdb preamble.
@@ -885,11 +893,11 @@ namespace build2
       }
 
       void parser::
-      execute_body (const scope& bs,
+      execute_body (const scope& rs, const scope& bs,
                     environment& e, const script& s, runner& r,
                     bool enter, bool leave)
       {
-        pre_exec (*bs.root_scope (), bs, e, &s, &r);
+        pre_exec (rs, bs, e, &s, &r);
 
         if (enter)
           runner_->enter (e, s.start_loc);
@@ -919,10 +927,13 @@ namespace build2
       }
 
       void parser::
-      exec_depdb_preamble (const scope& bs,
+      exec_depdb_preamble (action a, const scope& bs, const file& t,
                            environment& e, const script& s, runner& r,
                            lines_iterator begin, lines_iterator end,
-                           depdb& dd, bool* update, optional<timestamp> mt)
+                           depdb& dd,
+                           bool* update,
+                           bool* deferred_failure,
+                           optional<timestamp> mt)
       {
         tracer trace ("exec_depdb_preamble");
 
@@ -938,12 +949,20 @@ namespace build2
         struct
         {
           tracer& trace;
+
+          action a;
+          const scope& bs;
+          const file& t;
+
           environment& env;
           const script& scr;
+
           depdb& dd;
           bool* update;
+          bool* deferred_failure;
           optional<timestamp> mt;
-        } data {trace, e, s, dd, update, mt};
+
+        } data {trace, a, bs, t, e, s, dd, update, deferred_failure, mt};
 
         auto exec_cmd = [this, &data] (token& t,
                                        build2::script::token_type& tt,
@@ -965,14 +984,17 @@ namespace build2
 
             string cmd (move (t.value));
 
-            if (cmd == "pre-dynamic")
+            if (cmd == "dyndep")
             {
-              exec_depdb_pre_dynamic (t, tt,
-                                      li, ll,
-                                      data.env.target,
-                                      data.dd,
-                                      *data.update,
-                                      *data.mt);
+              // Note: cast is safe since this is always executed in apply().
+              //
+              exec_depdb_dyndep (t, tt,
+                                 li, ll,
+                                 data.a, data.bs, const_cast<file&> (data.t),
+                                 data.dd,
+                                 *data.update,
+                                 *data.deferred_failure,
+                                 *data.mt);
             }
             else
             {
@@ -988,7 +1010,7 @@ namespace build2
                   l4 ([&] {
                       data.trace (ll)
                         << "'depdb hash' argument change forcing update of "
-                        << data.env.target;});
+                        << data.t;});
               }
               else if (cmd == "string")
               {
@@ -1006,7 +1028,7 @@ namespace build2
                   l4 ([&] {
                       data.trace (ll)
                         << "'depdb string' argument change forcing update of "
-                        << data.env.target;});
+                        << data.t;});
               }
               else if (cmd == "env")
               {
@@ -1031,7 +1053,7 @@ namespace build2
                   l4 ([&] {
                       data.trace (ll)
                         << "'depdb env' environment change forcing update of "
-                        << data.env.target;});
+                        << data.t;});
               }
               else
                 assert (false);
@@ -1157,15 +1179,12 @@ namespace build2
       }
 
       names parser::
-      execute_special (const scope& bs,
+      execute_special (const scope& rs, const scope& bs,
                        environment& e,
                        const line& ln,
                        bool omit_builtin)
       {
-        pre_exec (*bs.root_scope (), bs,
-                  e,
-                  nullptr /* script */,
-                  nullptr /* runner */);
+        pre_exec (rs, bs, e, nullptr /* script */, nullptr /* runner */);
 
         // Copy the tokens and start playing.
         //
@@ -1182,113 +1201,415 @@ namespace build2
       }
 
       void parser::
-      exec_depdb_pre_dynamic (token& t, build2::script::token_type& tt,
-                              size_t li, const location& ll,
-                              const target& tgt,
-                              depdb& dd,
-                              bool& update,
-                              timestamp /*mt*/)
+      exec_depdb_dyndep (token& lt, build2::script::token_type& ltt,
+                         size_t li, const location& ll,
+                         action a, const scope& bs, file& t,
+                         depdb& dd,
+                         bool& update,
+                         bool& deferred_failure,
+                         timestamp mt)
       {
+        tracer trace ("exec_depdb_dyndep");
+
+        context& ctx (t.ctx);
+
         // Similar approach to parse_env_builtin().
         //
-        next (t, tt); // Skip 'dep' command.
-
-        // Note that an option name and value can belong to different name
-        // chunks. That's why we parse the arguments in the chunking mode into
-        // the list up to the `--` separator and parse this list into options
-        // afterwards. Note that the `--` separator should be omitted if there
-        // is no program (i.e., additional dependency info is being read from
-        // one of the prerequisites).
-        //
-        strings args;
-        bool prog (false);
-
-        names ns; // Reuse to reduce allocations.
-        while (tt != type::newline && tt != type::eos)
-        {
-          if (tt == type::word && t.value == "--")
-          {
-            prog = true;
-            break;
-          }
-
-          location l (get_location (t));
-
-          if (!start_names (tt))
-            fail (l) << "depdb pre-dynamic: expected option or '--' separator "
-                     << "instead of " << t;
-
-          parse_names (t, tt,
-                       ns,
-                       pattern_mode::ignore,
-                       true /* chunk */,
-                       "depdb pre-dynamic builtin argument",
-                       nullptr);
-
-          for (name& n: ns)
-          {
-            try
-            {
-              args.push_back (convert<string> (move (n)));
-            }
-            catch (const invalid_argument&)
-            {
-              diag_record dr (fail (l));
-              dr << "invalid string value ";
-              to_stream (dr.os, n, true /* quote */);
-            }
-          }
-
-          ns.clear ();
-        }
-
-        if (prog)
-        {
-          next (t, tt); // Skip '--'.
-
-          if (tt == type::newline || tt == type::eos)
-            fail (t) << "depdb pre-dynamic: expected program name instead of "
-                     << t;
-        }
-
-        // Parse the options.
-        //
         depdb_dep_options ops;
-        try
+        bool prog (false);
         {
-          cli::vector_scanner scan (args);
-          ops = depdb_dep_options (scan);
+          auto& t (lt);
+          auto& tt (ltt);
 
-          if (scan.more ())
-            fail (ll) << "depdb pre-dynamic: unexpected argument '"
-                      << scan.next () << "'";
+          next (t, tt); // Skip 'dep' command.
+
+          // Note that an option name and value can belong to different name
+          // chunks. That's why we parse the arguments in the chunking mode
+          // into the list up to the `--` separator and parse this list into
+          // options afterwards. Note that the `--` separator should be
+          // omitted if there is no program (i.e., additional dependency info
+          // is being read from one of the prerequisites).
+          //
+          strings args;
+
+          names ns; // Reuse to reduce allocations.
+          while (tt != type::newline && tt != type::eos)
+          {
+            if (tt == type::word && t.value == "--")
+            {
+              prog = true;
+              break;
+            }
+
+            location l (get_location (t));
+
+            if (!start_names (tt))
+              fail (l) << "depdb dyndep: expected option or '--' separator "
+                       << "instead of " << t;
+
+            parse_names (t, tt,
+                         ns,
+                         pattern_mode::ignore,
+                         true /* chunk */,
+                         "depdb dyndep builtin argument",
+                         nullptr);
+
+            for (name& n: ns)
+            {
+              try
+              {
+                args.push_back (convert<string> (move (n)));
+              }
+              catch (const invalid_argument&)
+              {
+                diag_record dr (fail (l));
+                dr << "invalid string value ";
+                to_stream (dr.os, n, true /* quote */);
+              }
+            }
+
+            ns.clear ();
+          }
+
+          if (prog)
+          {
+            next (t, tt); // Skip '--'.
+
+            if (tt == type::newline || tt == type::eos)
+              fail (t) << "depdb dyndep: expected program name instead of "
+                       << t;
+          }
+
+          // Parse the options.
+          //
+          // We would like to support both -I <dir> as well as -I<dir> forms
+          // for better compatibility. The latter requires manual parsing.
+          //
+          try
+          {
+            for (cli::vector_scanner scan (args); scan.more (); )
+            {
+              if (ops.parse (scan, cli::unknown_mode::stop) && !scan.more ())
+                break;
+
+              const char* a (scan.peek ());
+
+              // Handle -I<dir>
+              //
+              if (a[0] == '-' && a[1] == 'I')
+              {
+                try
+                {
+                  ops.include_path ().push_back (dir_path (a + 2));
+                }
+                catch (const invalid_path&)
+                {
+                  throw cli::invalid_value ("-I", a + 2);
+                }
+
+                scan.next ();
+                continue;
+              }
+
+#if 0
+              // Handle --byproduct in the wrong place.
+              //
+              if (strcmp (a, "--byproduct") == 0)
+                fail (ll) << "depdb dyndep: --byproduct must be first option";
+#endif
+
+              // Handle unknown option.
+              //
+              if (a[0] == '-')
+                throw cli::unknown_option (a);
+
+              // Handle unexpected argument.
+              //
+              fail (ll) << "depdb dyndep: unexpected argument '" << a << "'";
+            }
+          }
+          catch (const cli::exception& e)
+          {
+            fail (ll) << "depdb dyndep: " << e;
+          }
         }
-        catch (const cli::exception& e)
+
+        // Get the default prerequisite type falling back to file{} if not
+        // specified.
+        //
+        // The reason one would want to specify it is to make sure different
+        // rules "resolve" the same dynamic prerequisites to the same targets.
+        // For example, a rule that implements custom C compilation for some
+        // translation unit would want to make sure it resolves extracted
+        // system headers to h{} targets analogous to the c module's rule.
+        //
+        const target_type* def_pt;
+        if (ops.default_prereq_type_specified ())
         {
-          fail (ll) << "depdb pre-dynamic: " << e;
+          const string& t (ops.default_prereq_type ());
+
+          def_pt = bs.find_target_type (t);
+          if (def_pt == nullptr)
+            fail (ll) << "unknown target type '" << t << "'";
         }
+        else
+          def_pt = &file::static_type;
 
         // This code is based on the prior work in the cc module (specifically
         // extract_headers()) where you can often find more detailed rationale
         // for some of the steps performed.
 
+        using dyndep = dyndep_rule;
+
+        // Build the maps lazily, only if/when needed.
+        //
+        using prefix_map = dyndep::prefix_map;
+        using srcout_map = dyndep::srcout_map;
+
+        function<dyndep::map_extension_func> map_ext (
+          [] (const scope& bs, const string& n, const string& e)
+          {
+            // @@ TODO: allow specifying base target types.
+            //
+            // Feels like the only reason one would want to specify base types
+            // is to tighten things up (as opposed to making some setup work)
+            // since it essentially restricts the set of registered target
+            // types that we will consider.
+            //
+            // Note also that these would be this project's target types while
+            // the file could be from another project.
+            //
+            return dyndep::map_extension (bs, n, e, nullptr);
+
+            // @@ TODO: should we return something as fallback (file{},
+            //    def_pt)? Note: not the same semantics as enter_file()'s
+            //    fallback. Feels like it could conceivably be different
+            //    (e.g., h{} for fallback and hxx{} for some "unmappable" gen
+            //    header). It looks like the "best" way currently is to define
+            //    a custom target types for it (see moc{} in libQt5Core).
+            //
+            //    Note also that we should only do this if bs is in our
+            //    project.
+          });
+
+        // Don't we want to insert a "local"/prefixless mapping in case the
+        // user did not specify any -I's?  But then will also need src-out
+        // remapping. So it will be equivalent to -I$out_base -I$src_base? But
+        // then it's not hard to add explicitly...
+        //
+        function<dyndep::prefix_map_func> pfx_map;
+
+        struct
+        {
+          tracer& trace;
+          const location& ll;
+          const depdb_dep_options& ops;
+          optional<prefix_map> map;
+        } pfx_data {trace, ll, ops, nullopt};
+
+        if (!ops.include_path ().empty ())
+        {
+          pfx_map = [this, &pfx_data] (action,
+                                       const scope& bs,
+                                       const target& t) -> const prefix_map&
+          {
+            if (!pfx_data.map)
+            {
+              pfx_data.map = prefix_map ();
+
+              const scope& rs (*bs.root_scope ());
+
+              for (dir_path d: pfx_data.ops.include_path ())
+              {
+                if (d.relative ())
+                  fail (pfx_data.ll) << "depdb dyndep: relative include "
+                                     << "search path " << d;
+
+                if (!d.normalized (false /* canonical dir seperators */))
+                  d.normalize ();
+
+                // If we are not inside our project root, then ignore.
+                //
+                if (d.sub (rs.out_path ()))
+                  dyndep::append_prefix (
+                    pfx_data.trace, *pfx_data.map, t, move (d));
+              }
+            }
+
+            return *pfx_data.map;
+          };
+        }
+
+        optional<path> file;
+        enum class format {make} fmt (format::make);
+        command_expr cmd;
+        srcout_map so_map;
+
+        // Parse the remainder of the command line as a program (which can be
+        // a pipe). If file is absent, then we save the command's stdout to a
+        // pipe. Otherwise, assume the command writes to file and add it to
+        // the cleanups.
+        //
+        // Note that MSVC /showInclude sends its output to stderr (and so
+        // could do other broken tools). However, the user can always merge
+        // stderr to stdout (2>&1).
+        //
+        auto init_run = [this, &ctx,
+                         &lt, &ltt, &ll,
+                         &ops, prog, &file, &cmd, &so_map] ()
+        {
+          // --format
+          //
+          if (ops.format_specified ())
+          {
+            const string& f (ops.format ());
+
+            if (f != "make")
+              fail (ll) << "depdb dyndep: invalid --format option value '"
+                        << f << "'";
+          }
+
+          // --file
+          //
+          if (ops.file_specified ())
+          {
+            file = move (ops.file ());
+
+            if (file->relative ())
+              fail (ll) << "depdb dyndep: relative path specified with --file";
+          }
+
+          // Populate the srcout map with the -I$out_base -I$src_base pairs.
+          //
+          {
+            dyndep::srcout_builder builder (ctx, so_map);
+
+            for (dir_path d: ops.include_path ())
+              builder.next (move (d));
+          }
+
+          if (prog)
+          {
+            cmd = parse_command_line (lt, static_cast<token_type&> (ltt));
+
+            // If the output goes to stdout, then this should be a single
+            // pipeline without any logical operators (&& or ||).
+            //
+            if (!file && cmd.size () != 1)
+              fail (ll) << "depdb dyndep: command with stdout output cannot "
+                        << "contain logical operators";
+
+            // Note that we may need to run this command multiple times. The
+            // two potential issues here are the re-registration of the
+            // clenups and re-use of the special files (stdin, stdout, etc;
+            // they include the line index in their names to avoid clashes
+            // between lines).
+            //
+            // Cleanups are not an issue, they will simply replaced. And
+            // overriding the contents of the special files seems harmless and
+            // consistent with what would happen if the command redirects its
+            // output to a non-special file.
+            //
+            if (file)
+              environment_->clean (
+                {build2::script::cleanup_type::always, *file},
+                true /* implicit */);
+          }
+          else
+          {
+            // Assume file is one of the prerequisites.
+            //
+            if (!file)
+              fail (ll) << "depdb dyndep: program or --file expected";
+          }
+        };
+
+        // Enter as a target, update, and add to the list of prerequisite
+        // targets a file.
+        //
+        const char* what (ops.what_specified ()
+                          ? ops.what ().c_str ()
+                          : "file");
+
+        size_t skip_count (0);
+        auto add = [this, &trace, what,
+                    a, &bs, &t,
+                    &map_ext, def_pt, &pfx_map, &so_map,
+                    &dd, &skip_count] (path fp,
+                                       bool cache,
+                                       timestamp mt) -> optional<bool>
+        {
+          context& ctx (t.ctx);
+
+          // We can only defer the failure if we will be running the recipe
+          // body.
+          //
+          auto fail = [this, what, &ctx] (const auto& f) -> optional<bool>
+          {
+            bool df (!ctx.match_only && !ctx.dry_run_option);
+
+            diag_record dr;
+            dr << error << what << ' ' << f << " not found and no rule to "
+               << "generate it";
+
+            if (df)
+              dr << info << "failure deferred to recipe body diagnostics";
+
+            if (verb < 4)
+              dr << info << "re-run with --verbose=4 for more information";
+
+            if (df)
+              return nullopt;
+            else
+              dr << endf;
+          };
+
+          if (const build2::file* ft = dyndep::enter_file (
+                trace, what,
+                a, bs, t,
+                move (fp), cache, false /* normalize */,
+                map_ext, *def_pt, pfx_map, so_map).first)
+          {
+            if (optional<bool> u = dyndep::inject_file (
+                  trace, what,
+                  a, t,
+                  *ft, mt, false /* fail */))
+            {
+              if (!cache)
+                dd.expect (ft->path ());
+
+              skip_count++;
+              return *u;
+            }
+            else if (cache)
+            {
+              dd.write (); // Invalidate this line.
+              return true;
+            }
+            else
+              return fail (*ft);
+          }
+          else
+            return fail (fp);
+        };
+
         // If things go wrong (and they often do in this area), give the user
         // a bit extra context.
         //
         auto df = make_diag_frame (
-          [this, &tgt](const diag_record& dr)
+          [this, &ll, &t] (const diag_record& dr)
           {
             if (verb != 0)
-              dr << info << "while extracting dynamic dependencies for " << tgt;
+              dr << info (ll) << "while extracting dynamic dependencies for "
+                 << t;
           });
 
         // If nothing so far has invalidated the dependency database, then try
         // the cached data before running the program.
         //
         bool cache (!update);
-        size_t skip_count (0);
 
-        for (bool restart (true); restart; cache = false)
+        for (bool restart (true), first_run (true); restart; cache = false)
         {
           restart = false;
 
@@ -1314,62 +1635,212 @@ namespace build2
 
               if (l->empty ()) // Done, nothing changed.
                 return;
+
+              if (optional<bool> r = add (path (move (*l)), true /*cache*/, mt))
+              {
+                restart = *r;
+
+                if (restart)
+                {
+                  update = true;
+                  l6 ([&]{trace << "restarting (cache)";});
+                  break;
+                }
+              }
+              else
+              {
+                // Trigger rebuild and mark as expected to fail.
+                //
+                update = true;
+                deferred_failure = true;
+                return;
+              }
             }
           }
           else
           {
+            if (first_run)
+            {
+              init_run ();
+              first_run = false;
+            }
+            else if (!prog)
+            {
+              fail (ll) << "generated " << what << " without program to retry";
+            }
+
+            // Save the timestamp just before we run the command. If we depend
+            // on any file that has been updated since, then we should assume
+            // we have "seen" the old copy and restart.
+            //
+            timestamp rmt (prog ? system_clock::now () : mt);
+
+            // Run the command if any and reduce outputs to common istream.
+            //
+            // Note that the resulting stream should tolerate partial read.
+            //
+            // While reading the entire stdout into a string is not the most
+            // efficient way to do it, this does simplify things quite a bit,
+            // not least of which is not having to parse the output before
+            // knowing the program exist status.
+            //
+            istringstream iss;
+            if (prog)
+            {
+              string s;
+              build2::script::run (*environment_,
+                                   cmd,
+                                   li,
+                                   ll,
+                                   !file ? &s : nullptr);
+
+              if (!file)
+              {
+                iss.str (move (s));
+                iss.exceptions (istream::badbit);
+              }
+            }
+
+            ifdstream ifs (ifdstream::badbit);
+            if (file)
+            try
+            {
+              ifs.open (*file);
+            }
+            catch (const io_error& e)
+            {
+              fail (ll) << "unable to open file " << *file << ": " << e;
+            }
+
+            istream& is (file
+                         ? static_cast<istream&> (ifs)
+                         : static_cast<istream&> (iss));
+
+            const path_name& in (file
+                                 ? path_name (*file)
+                                 : path_name ("<stdin>"));
+
+            location il (in, 1);
+
+            // The way we parse things is format-specific.
+            //
+            size_t skip (skip_count);
+
+            switch (fmt)
+            {
+            case format::make:
+              {
+                using make_state = make_parser;
+                using make_type = make_parser::type;
+
+                make_parser make;
+
+                for (string l; !restart; ++il.line) // Reuse the buffer.
+                {
+                  if (eof (getline (is, l)))
+                  {
+                    if (make.state != make_state::end)
+                      fail (il) << "incomplete make dependency declaration";
+
+                    break;
+                  }
+
+                  size_t pos (0);
+                  do
+                  {
+                    pair<make_type, string> r;
+                    {
+                      auto df = make_diag_frame (
+                        [this, &l] (const diag_record& dr)
+                        {
+                          if (verb != 0)
+                            dr << info << "while parsing make dependency "
+                               << "declaration line '" << l << "'";
+                        });
+
+                      r = make.next (l, pos, il, false /* strict */);
+                    }
+
+                    if (r.second.empty ())
+                      continue;
+
+                    // @@ TODO: what should we do about targets?
+                    //
+                    // Note that if we take GCC as an example, things are
+                    // quite messed up: by default it ignores -o and just
+                    // takes the source file name and replaces the extension
+                    // with a platform-appropriate object file extension. One
+                    // can specify a custom target (or even multiple targets)
+                    // with -MT or with -MQ (quoting). Though MinGW GCC still
+                    // does not quote `:` with -MQ. So in this case it's
+                    // definitely easier for the user to ignore the targets
+                    // and just specify everything in the buildfile.
+                    //
+                    // On the other hand, other tools are likely to produce
+                    // more sensible output (except perhaps for quoting).
+                    //
+                    // @@ Maybe in the lax mode we should only recognize `:`
+                    //    if it's separated on at least one side?
+                    //
+                    //    Alternatively, we could detect Windows drives in
+                    //    paths and "handle" them (I believe this is what GNU
+                    //    make does). Maybe we should have three formats:
+                    //    make-lax, make, make-strict?
+                    //
+                    if (r.first == make_type::target)
+                      continue;
+
+                    // Skip until where we left off.
+                    //
+                    if (skip != 0)
+                    {
+                      skip--;
+                      continue;
+                    }
+
+                    if (optional<bool> u = add (path (move (r.second)),
+                                                false /* cache */,
+                                                rmt))
+                    {
+                      restart = *u;
+
+                      if (restart)
+                      {
+                        update = true;
+                        l6 ([&]{trace << "restarting";});
+                        break;
+                      }
+                    }
+                    else
+                    {
+                      // Trigger recompilation, mark as expected to fail, and
+                      // bail out.
+                      //
+                      update = true;
+                      deferred_failure = true;
+                      break;
+                    }
+                  }
+                  while (pos != l.size ());
+
+                  if (make.state == make_state::end || deferred_failure)
+                    break;
+                }
+
+                break;
+              }
+            }
+
+            // Bail out early if we have deferred a failure.
+            //
+            if (deferred_failure)
+              return;
           }
         }
 
-        optional<path> file;
-        if (ops.file_specified ())
-        {
-          file = path (ops.file ()); // @@ TMP path
-
-          // @@ TODO: file must be absolute.
-        }
-
-        if (prog)
-        {
-          // Run the remainder of the command line as a program (which can be
-          // a pipe). If file is absent, then redirect the command's stdout to
-          // a pipe. Otherwise, assume the command writes to a file and add it
-          // to the cleanups. @@ TODO: reword
-          //
-          // Note that MSVC /showInclude sends its output to stderr (and so
-          // could do other broken tools). However, the user can always merge
-          // stderr to stdout (2>&1).
-          //
-          command_expr ce (
-            parse_command_line (t, static_cast<token_type&> (tt)));
-
-          // If the output goes to stdout, then this should be a single
-          // pipeline without any logical operators (&& or ||).
-          //
-          // @@ TODO: improve diagnostics.
-          //
-          if (!file && ce.size () != 1)
-            fail (ll) << "depdb pre-dynamic: command cannot contain "
-                      << "logical operators";
-
-          string s;
-          build2::script::run (*environment_,
-                               ce,
-                               li,
-                               ll,
-                               !file ? &s : nullptr);
-
-          if (file)
-            environment_->clean ({build2::script::cleanup_type::always, *file},
-                                 true /* implicit */);
-        }
-        else
-        {
-          // Assume file is one of the prerequisites.
-          //
-          if (!file)
-            fail (ll) << "depdb pre-dynamic: program or --file expected";
-        }
+        // Add the terminating blank line (we are updating depdb).
+        //
+        dd.expect ("");
       }
 
       // When add a special variable don't forget to update lexer::word().

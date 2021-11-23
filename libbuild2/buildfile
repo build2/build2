@@ -217,8 +217,9 @@ else
 
 # Generated options parser.
 #
-# @@ Consider generating common cli runtime namespace if adding more
-#    option files.
+# @@ Consider generating common cli runtime namespace if adding more option
+#    files. Plus sommon types-parser.?xx (which could also potentially be
+#    reused by the driver).
 #
 if $cli.configured
 {
@@ -252,7 +253,9 @@ if $cli.configured
   build/script/cli.cxx{builtin-options}: build/script/cli{builtin}
   {
     cli.options += --cli-namespace build2::build::script::cli \
---include-prefix libbuild2/build/script --guard-prefix LIBBUILD2_BUILD_SCRIPT
+--include-prefix libbuild2/build/script --guard-prefix LIBBUILD2_BUILD_SCRIPT \
+--cxx-prologue "#include <libbuild2/build/script/types-parsers.hxx>" \
+--generate-parse
   }
 }
 else

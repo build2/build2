@@ -6,6 +6,7 @@
 
 // Begin prologue.
 //
+#include <libbuild2/build/script/types-parsers.hxx>
 //
 // End prologue.
 
@@ -404,86 +405,77 @@ namespace build2
       : file_ (),
         file_specified_ (false),
         format_ (),
-        format_specified_ (false)
+        format_specified_ (false),
+        what_ (),
+        what_specified_ (false),
+        include_path_ (),
+        include_path_specified_ (false),
+        default_prereq_type_ (),
+        default_prereq_type_specified_ (false)
       {
       }
 
-      depdb_dep_options::
-      depdb_dep_options (int& argc,
-                         char** argv,
-                         bool erase,
-                         ::build2::build::script::cli::unknown_mode opt,
-                         ::build2::build::script::cli::unknown_mode arg)
-      : file_ (),
-        file_specified_ (false),
-        format_ (),
-        format_specified_ (false)
+      bool depdb_dep_options::
+      parse (int& argc,
+             char** argv,
+             bool erase,
+             ::build2::build::script::cli::unknown_mode opt,
+             ::build2::build::script::cli::unknown_mode arg)
       {
         ::build2::build::script::cli::argv_scanner s (argc, argv, erase);
-        _parse (s, opt, arg);
+        bool r = _parse (s, opt, arg);
+        return r;
       }
 
-      depdb_dep_options::
-      depdb_dep_options (int start,
-                         int& argc,
-                         char** argv,
-                         bool erase,
-                         ::build2::build::script::cli::unknown_mode opt,
-                         ::build2::build::script::cli::unknown_mode arg)
-      : file_ (),
-        file_specified_ (false),
-        format_ (),
-        format_specified_ (false)
+      bool depdb_dep_options::
+      parse (int start,
+             int& argc,
+             char** argv,
+             bool erase,
+             ::build2::build::script::cli::unknown_mode opt,
+             ::build2::build::script::cli::unknown_mode arg)
       {
         ::build2::build::script::cli::argv_scanner s (start, argc, argv, erase);
-        _parse (s, opt, arg);
+        bool r = _parse (s, opt, arg);
+        return r;
       }
 
-      depdb_dep_options::
-      depdb_dep_options (int& argc,
-                         char** argv,
-                         int& end,
-                         bool erase,
-                         ::build2::build::script::cli::unknown_mode opt,
-                         ::build2::build::script::cli::unknown_mode arg)
-      : file_ (),
-        file_specified_ (false),
-        format_ (),
-        format_specified_ (false)
+      bool depdb_dep_options::
+      parse (int& argc,
+             char** argv,
+             int& end,
+             bool erase,
+             ::build2::build::script::cli::unknown_mode opt,
+             ::build2::build::script::cli::unknown_mode arg)
       {
         ::build2::build::script::cli::argv_scanner s (argc, argv, erase);
-        _parse (s, opt, arg);
+        bool r = _parse (s, opt, arg);
         end = s.end ();
+        return r;
       }
 
-      depdb_dep_options::
-      depdb_dep_options (int start,
-                         int& argc,
-                         char** argv,
-                         int& end,
-                         bool erase,
-                         ::build2::build::script::cli::unknown_mode opt,
-                         ::build2::build::script::cli::unknown_mode arg)
-      : file_ (),
-        file_specified_ (false),
-        format_ (),
-        format_specified_ (false)
+      bool depdb_dep_options::
+      parse (int start,
+             int& argc,
+             char** argv,
+             int& end,
+             bool erase,
+             ::build2::build::script::cli::unknown_mode opt,
+             ::build2::build::script::cli::unknown_mode arg)
       {
         ::build2::build::script::cli::argv_scanner s (start, argc, argv, erase);
-        _parse (s, opt, arg);
+        bool r = _parse (s, opt, arg);
         end = s.end ();
+        return r;
       }
 
-      depdb_dep_options::
-      depdb_dep_options (::build2::build::script::cli::scanner& s,
-                         ::build2::build::script::cli::unknown_mode opt,
-                         ::build2::build::script::cli::unknown_mode arg)
-      : file_ (),
-        file_specified_ (false),
-        format_ (),
-        format_specified_ (false)
+      bool depdb_dep_options::
+      parse (::build2::build::script::cli::scanner& s,
+             ::build2::build::script::cli::unknown_mode opt,
+             ::build2::build::script::cli::unknown_mode arg)
       {
-        _parse (s, opt, arg);
+        bool r = _parse (s, opt, arg);
+        return r;
       }
 
       typedef
@@ -497,11 +489,23 @@ namespace build2
         _cli_depdb_dep_options_map_init ()
         {
           _cli_depdb_dep_options_map_["--file"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::file_,
+          &::build2::build::script::cli::thunk< depdb_dep_options, path, &depdb_dep_options::file_,
             &depdb_dep_options::file_specified_ >;
           _cli_depdb_dep_options_map_["--format"] =
           &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::format_,
             &depdb_dep_options::format_specified_ >;
+          _cli_depdb_dep_options_map_["--what"] =
+          &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::what_,
+            &depdb_dep_options::what_specified_ >;
+          _cli_depdb_dep_options_map_["--include-path"] =
+          &::build2::build::script::cli::thunk< depdb_dep_options, dir_paths, &depdb_dep_options::include_path_,
+            &depdb_dep_options::include_path_specified_ >;
+          _cli_depdb_dep_options_map_["-I"] =
+          &::build2::build::script::cli::thunk< depdb_dep_options, dir_paths, &depdb_dep_options::include_path_,
+            &depdb_dep_options::include_path_specified_ >;
+          _cli_depdb_dep_options_map_["--default-prereq-type"] =
+          &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::default_prereq_type_,
+            &depdb_dep_options::default_prereq_type_specified_ >;
         }
       };
 
