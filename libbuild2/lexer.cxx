@@ -989,7 +989,7 @@ namespace build2
             if ((c = peek ()) == '\\')
             {
               get ();
-              if ((c = peek ()) == '\n')
+              if ((c = peek ()) == '\n' || eos (c))
                 return true;
             }
 
@@ -1000,15 +1000,16 @@ namespace build2
           {
             // Scan until we see the closing one.
             //
-            for (; !eos (c); c = peek ())
+            for (;;)
             {
-              get ();
               if (c == '#' && ml ())
                 break;
-            }
 
-            if (eos (c))
-              fail (c) << "unterminated multi-line comment";
+              if (eos (c = peek ()))
+                fail (c) << "unterminated multi-line comment";
+
+              get ();
+            }
           }
           else
           {
