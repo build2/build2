@@ -157,6 +157,10 @@ namespace build2
         l4 ([&]{trace << "substitution mode mismatch forcing update of"
                       << t;});
 
+      // Then additional depdb entries, if any.
+      //
+      perform_update_depdb (a, t, dd);
+
       // Then the .in file.
       //
       if (dd.expect (i.path ()) != nullptr)
@@ -404,6 +408,11 @@ namespace build2
             include_type i) const
     {
       return prerequisite_target (&build2::search (t, p), i);
+    }
+
+    void rule::
+    perform_update_depdb (action, const target&, depdb&) const
+    {
     }
 
     void rule::

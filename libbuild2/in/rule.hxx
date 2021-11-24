@@ -5,6 +5,7 @@
 #define LIBBUILD2_IN_RULE_HXX
 
 #include <libbuild2/types.hxx>
+#include <libbuild2/forward.hxx> // depdb
 #include <libbuild2/utility.hxx>
 
 #include <libbuild2/rule.hxx>
@@ -18,7 +19,7 @@ namespace build2
     // Preprocess an .in file.
     //
     // Note that a derived rule can use the target data pad to cache data
-    // (e.g., in match()) to be used in substitute/lookup() calls.
+    // (e.g., in match() or apply()) to be used in substitute/lookup() calls.
     //
     // Note also that currently this rule ignores the dry-run mode (see
     // perform_update() for the rationale).
@@ -52,11 +53,6 @@ namespace build2
 
       // Customization hooks and helpers.
       //
-      // Flags can be used by a custom implementation to alter the lookup
-      // semantics, for example, for special substitutions. Note, however,
-      // that one must make sure this semantics cannot change without changes
-      // to the .in file (see the depdb logic for details).
-      //
 
       // Perform prerequisite search.
       //
@@ -65,7 +61,17 @@ namespace build2
               const prerequisite_member&,
               include_type) const;
 
+      // Additional depdb entries.
+      //
+      virtual void
+      perform_update_depdb (action, const target&, depdb&) const;
+
       // Perform variable lookup.
+      //
+      // Flags can be used by a custom implementation to alter the lookup
+      // semantics, for example, for special substitutions. Note, however,
+      // that one must make sure this semantics cannot change without changes
+      // to the .in file (see the depdb logic for details).
       //
       virtual string
       lookup (const location&,
