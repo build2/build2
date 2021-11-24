@@ -47,7 +47,12 @@ namespace build2
       if (rs == nullptr)
         fail << f.name << " called out of project";
 
-      if (bs->ctx.phase != run_phase::execute)
+      // Note that we also allow calling this during match since an ad hoc
+      // recipe with dynamic dependency extraction (depdb-dyndep) executes its
+      // depdb preamble during match (after matching all the prerequisites).
+      //
+      if (bs->ctx.phase != run_phase::match ||
+          bs->ctx.phase != run_phase::execute)
         fail << f.name << " can only be called during execution";
 
       const module* m (rs->find_module<module> (d.x));
@@ -102,7 +107,8 @@ namespace build2
       if (rs == nullptr)
         fail << f.name << " called out of project";
 
-      if (bs->ctx.phase != run_phase::execute)
+      if (bs->ctx.phase != run_phase::match || // See above.
+          bs->ctx.phase != run_phase::execute)
         fail << f.name << " can only be called during execution";
 
       const module* m (rs->find_module<module> (d.x));
