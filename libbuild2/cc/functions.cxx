@@ -51,7 +51,7 @@ namespace build2
       // recipe with dynamic dependency extraction (depdb-dyndep) executes its
       // depdb preamble during match (after matching all the prerequisites).
       //
-      if (bs->ctx.phase != run_phase::match ||
+      if (bs->ctx.phase != run_phase::match &&
           bs->ctx.phase != run_phase::execute)
         fail << f.name << " can only be called during execution";
 
@@ -107,7 +107,7 @@ namespace build2
       if (rs == nullptr)
         fail << f.name << " called out of project";
 
-      if (bs->ctx.phase != run_phase::match || // See above.
+      if (bs->ctx.phase != run_phase::match && // See above.
           bs->ctx.phase != run_phase::execute)
         fail << f.name << " can only be called during execution";
 
