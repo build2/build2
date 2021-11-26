@@ -83,6 +83,12 @@ namespace build2
     //
     f["size"] += [] (strings v) {return v.size ();};
 
+    // $size(<string>)
+    //
+    // Return the number of characters (bytes) in the string.
+    //
+    f["size"] += [] (string v) {return v.size ();};
+
     // $sort(<strings> [, <flags>])
     //
     // Sort strings in ascending order.

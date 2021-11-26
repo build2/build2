@@ -119,6 +119,17 @@ if! $posix
   }
 }
 
+: size
+:
+{
+  $* <'print $size([path] abc)' >'3' : basics
+  $* <'print $size([path] )'    >'0' : zero
+
+  $* <'print $size([dir_path] abc)'  >'3' : dir-basics
+  $* <'print $size([dir_path] abc/)' >'3' : dir-separator
+  $* <'print $size([dir_path] )'     >'0' : dir-zero
+}
+
 : invalid-path
 :
 p = ($posix ? /../foo : 'c:/../foo');

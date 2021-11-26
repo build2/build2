@@ -422,6 +422,16 @@ namespace build2
     f["size"] += [] (paths v) {return v.size ();};
     f["size"] += [] (dir_paths v) {return v.size ();};
 
+    // $size(<path>)
+    // $size(<dir_path>)
+    //
+    // Return the number of characters (bytes) in the path. Note that for
+    // dir_path the result does not include the trailing directory separator
+    // (except for the POSIX root directory).
+    //
+    f["size"] += [] (path v) {return v.size ();};
+    f["size"] += [] (dir_path v) {return v.size ();};
+
     // $sort(<paths> [, <flags>])
     // $sort(<dir_paths> [, <flags>])
     //
