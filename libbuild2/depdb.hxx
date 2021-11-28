@@ -118,10 +118,12 @@ namespace build2
     // function will "chop off" lines that haven't been read.
     //
     // Make sure to also call check_mtime() after updating the target to
-    // perform the target/database modification times sanity checks.
+    // perform the target/database modification times sanity checks. Pass
+    // false to close() to avoid unnecessary work if using the static version
+    // of check_mtime() (or not using it at all for some reason).
     //
     void
-    close ();
+    close (bool mtime_check = true);
 
     // Flush any unwritten data to disk. This is primarily useful when reusing
     // a (partially written) database as an input to external programs (e.g.,

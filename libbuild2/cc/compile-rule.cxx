@@ -1424,7 +1424,7 @@ namespace build2
         if (u && dd.reading () && !ctx.dry_run)
           dd.touch = timestamp_unknown;
 
-        dd.close ();
+        dd.close (false /* mtime_check */);
         md.dd = move (dd.path);
 
         // If the preprocessed output is suitable for compilation, then pass

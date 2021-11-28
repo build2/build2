@@ -281,7 +281,7 @@ namespace build2
   }
 
   void depdb::
-  close ()
+  close (bool mc)
   {
     // If we are at eof, then it means all lines are good, there is the "end
     // marker" at the end, and we don't need to do anything, except, maybe
@@ -329,7 +329,7 @@ namespace build2
       change (true /* truncate */);
     }
 
-    if (mtime_check ())
+    if (mc && mtime_check ())
       start_ = system_clock::now ();
 
     if (state_ == state::write)

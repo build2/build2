@@ -505,7 +505,7 @@ namespace build2
     if (update && dd.reading () && !ctx.dry_run)
       dd.touch = timestamp_unknown;
 
-    dd.close ();
+    dd.close (false /* mtime_check */);
     md->dd = move (dd.path);
 
     // Pass on base scope and update/mtime.
