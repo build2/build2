@@ -1422,7 +1422,7 @@ namespace build2
         // on the real run).
         //
         if (u && dd.reading () && !ctx.dry_run)
-          dd.touch = true;
+          dd.touch = timestamp_unknown;
 
         dd.close ();
         md.dd = move (dd.path);

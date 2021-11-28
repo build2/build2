@@ -72,8 +72,7 @@ namespace build2
   depdb (path_type&& p, timestamp mt)
       : depdb_base (p, mt),
         path (move (p)),
-        mtime (mt != timestamp_nonexistent ? mt : timestamp_unknown),
-        touch (false)
+        mtime (mt != timestamp_nonexistent ? mt : timestamp_unknown)
   {
     // Read/write the database format version.
     //
@@ -290,6 +289,10 @@ namespace build2
     // the rest, and then add the "end marker" (we cannot have anything in the
     // write mode since we truncate in change()).
     //
+    // Note that we handle touch with timestamp_unknown specially by making a
+    // modification to the file (which happens naturally in the write mode)
+    // and letting the filesystem update its mtime.
+    //
     if (state_ == state::read_eof)
     {
       if (!touch)
@@ -314,8 +317,11 @@ namespace build2
       // Note also that utime() on Windows is a bad idea (see touch_file() for
       // details).
       //
-      pos_ = buf_->tellg ();         // The last line is accepted.
-      change (false /* truncate */); // Write end marker below.
+      if (*touch == timestamp_unknown)
+      {
+        pos_ = buf_->tellg ();         // The last line is accepted.
+        change (false /* truncate */); // Write end marker below.
+      }
     }
     else if (state_ != state::write)
     {
@@ -326,6 +332,7 @@ namespace build2
     if (mtime_check ())
       start_ = system_clock::now ();
 
+    if (state_ == state::write)
     try
     {
       os_.put ('\0'); // The "end marker".
@@ -333,7 +340,17 @@ namespace build2
     }
     catch (const io_error& e)
     {
-      fail << "unable to flush " << path << ": " << e;
+      fail << "unable to flush file " << path << ": " << e;
+    }
+
+    if (touch && *touch != timestamp_unknown)
+    try
+    {
+      file_mtime (path, *touch);
+    }
+    catch (const system_error& e)
+    {
+      fail << "unable to touch file " << path << ": " << e;
     }
 
     // On some platforms (currently confirmed on FreeBSD running as VMs) one

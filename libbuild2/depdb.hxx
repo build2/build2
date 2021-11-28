@@ -90,9 +90,16 @@ namespace build2
     // close() even if otherwise no modifications are necessary (i.e., the
     // database is in the read mode and is at eof).
     //
-    path_type path;
-    timestamp mtime;
-    bool      touch;
+    // If touch is present then update the database modification time in
+    // close() even if otherwise no modifications are necessary (i.e., the
+    // database is in the read mode and is at eof). Specifically, if touch is
+    // timestamp_unknown, then set mtime to the current (filesystem) time.
+    // Otherwise, set it to the specified time (which should be sourced from
+    // the filesystem, see touch_file() for details).
+    //
+    path_type           path;
+    timestamp           mtime;
+    optional<timestamp> touch;
 
     // Open the database for reading. Note that if the file does not exist,
     // has wrong format version, or is corrupt, then the database will be

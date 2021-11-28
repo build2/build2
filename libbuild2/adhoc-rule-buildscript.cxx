@@ -503,7 +503,7 @@ namespace build2
     }
 
     if (update && dd.reading () && !ctx.dry_run)
-      dd.touch = true;
+      dd.touch = timestamp_unknown;
 
     dd.close ();
     md->dd = move (dd.path);
