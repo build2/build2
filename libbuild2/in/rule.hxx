@@ -96,7 +96,7 @@ namespace build2
       optional<string>
       substitute (const location&,
                   action, const target&,
-                  depdb& dd, size_t dd_skip,
+                  depdb& dd, size_t& dd_skip,
                   const string& name,
                   optional<uint64_t> flags,
                   bool strict,
@@ -108,7 +108,7 @@ namespace build2
       virtual void
       process (const location&,
                action, const target&,
-               depdb& dd, size_t dd_skip,
+               depdb& dd, size_t& dd_skip,
                string& line, size_t pos,
                const char* newline,
                char sym,

@@ -418,7 +418,7 @@ namespace build2
     void rule::
     process (const location& l,
              action a, const target& t,
-             depdb& dd, size_t dd_skip,
+             depdb& dd, size_t& dd_skip,
              string& s, size_t b,
              const char* nl,
              char sym,
@@ -496,7 +496,7 @@ namespace build2
     optional<string> rule::
     substitute (const location& l,
                 action a, const target& t,
-                depdb& dd, size_t dd_skip,
+                depdb& dd, size_t& dd_skip,
                 const string& n,
                 optional<uint64_t> flags,
                 bool strict,
