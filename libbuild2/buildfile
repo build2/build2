@@ -62,28 +62,31 @@ config/cxx{host-config}: config/in{host-config}
   # For ~build2 we want to keep everything except dist.
   #
   # We also remove comment lines which could be confused with preprocessor
-  # directives by some lesser compilers.
+  # directives by some lesser compilers and blank lines between groups of
+  # options which could cause spurious rebuilds when we filter out entire
+  # groups.
   #
   # For ~build2 also filter out config.install.chroot -- we definitely don't
-  # want it carried through.
+  # want it carried through. Also filter out variables that control tests
+  # execution.
   #
   # Finally, for both ~host and ~build2 we keep config.config.environment
   # but strip config.config.hermetic* (we shouldn't be forcing hermiticity
   # on the users of ~host/~build2; they can decide for themselves if they
   # want it).
   #
-  build2_config = $regex.replace_lines(                              \
-    $config.save(),                                                  \
-    '^ *(#|(config\.(dist\.|install\.chroot|config\.hermetic))).*$', \
-    [null],                                                          \
+  build2_config = $regex.replace_lines(                                          \
+    $config.save(),                                                              \
+    '^( *(#|(config\.(test[. ]|dist\.|install\.chroot|config\.hermetic))).*|)$', \
+    [null],                                                                      \
     return_lines)
 
-  # Also preserve config.version and blank lines between groups of options.
+  # Also preserve config.version.
   #
-  host_config = $regex.replace_lines(                                             \
-    $build2_config,                                                               \
-    '^( *config\.(c[. ]|cxx[. ]|cc[.]|bin[.]|config.environment |version ).*|)$', \
-    '$&',                                                                         \
+  host_config = $regex.replace_lines(                                          \
+    $build2_config,                                                            \
+    '^ *config\.(c[. ]|cxx[. ]|cc[.]|bin[.]|config.environment |version ).*$', \
+    '$&',                                                                      \
     format_no_copy return_lines)
 }
 
