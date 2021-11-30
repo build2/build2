@@ -15,23 +15,24 @@ using namespace butl;
 
 namespace build2
 {
+  // Note that state::write with absent pos is interpreted as non-existent.
+  //
   depdb_base::
-  depdb_base (const path& p, timestamp mt)
+  depdb_base (const path& p, state s, optional<uint64_t> pos)
+      : state_ (s)
   {
     fdopen_mode om (fdopen_mode::out | fdopen_mode::binary);
     ifdstream::iostate em (ifdstream::badbit);
 
-    if (mt == timestamp_nonexistent)
+    if (s == state::write)
     {
-      state_ = state::write;
-      om |= fdopen_mode::create | fdopen_mode::exclusive;
+      if (!pos)
+        om |= fdopen_mode::create | fdopen_mode::exclusive;
+
       em |= ifdstream::failbit;
     }
     else
-    {
-      state_ = state::read;
-      om |= fdopen_mode::in;
-    }
+      om |= fdopen_mode::in; // Both in & out so can switch from read to write.
 
     auto_fd fd;
     try
@@ -40,16 +41,26 @@ namespace build2
     }
     catch (const io_error&)
     {
-      bool c (state_ == state::write);
+      bool c (s == state::write && !pos);
 
       diag_record dr (fail);
-      dr << "unable to " << (c ? "create" : "open") << ' ' << p;
+      dr << "unable to " << (c ? "create " : "open ") << p;
 
       if (c)
         dr << info << "did you forget to add fsdir{} prerequisite for "
            << "output directory?";
 
       dr << endf;
+    }
+
+    if (pos)
+    try
+    {
+      fdseek (fd.get (), *pos, fdseek_mode::set);
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to rewind " << p << ": " << e;
     }
 
     // Open the corresponding stream. Note that if we throw after that, the
@@ -63,14 +74,15 @@ namespace build2
     }
     else
     {
-      new (&os_) ofdstream (move (fd), em);
+      new (&os_) ofdstream (move (fd), em, pos ? *pos : 0);
       buf_ = static_cast<fdstreambuf*> (os_.rdbuf ());
     }
   }
 
   depdb::
   depdb (path_type&& p, timestamp mt)
-      : depdb_base (p, mt),
+      : depdb_base (p,
+                    mt != timestamp_nonexistent ? state::read : state::write),
         path (move (p)),
         mtime (mt != timestamp_nonexistent ? mt : timestamp_unknown)
   {
@@ -89,6 +101,15 @@ namespace build2
   depdb::
   depdb (path_type p)
       : depdb (move (p), build2::mtime (p))
+  {
+  }
+
+  depdb::
+  depdb (reopen_state rs)
+      : depdb_base (rs.path, state::write, rs.pos),
+        path (move (rs.path)),
+        mtime (timestamp_unknown),
+        touch (rs.mtime)
   {
   }
 
@@ -368,6 +389,37 @@ namespace build2
 #if defined(__FreeBSD__)
     mtime = build2::mtime (path); // Save for debugging/check below.
 #endif
+  }
+
+  depdb::reopen_state depdb::
+  close_to_reopen ()
+  {
+    assert (!touch);
+
+    if (state_ != state::write)
+    {
+      pos_ = buf_->tellg (); // The last line is accepted.
+      change (state_ != state::read_eof /* truncate */);
+    }
+
+    pos_ = buf_->tellp ();
+
+    try
+    {
+      os_.put ('\0'); // The "end marker".
+      os_.close ();
+    }
+    catch (const io_error& e)
+    {
+      fail << "unable to flush file " << path << ": " << e;
+    }
+
+    // Note: must still be done for FreeBSD if changing anything here (see
+    // close() for details).
+    //
+    mtime = build2::mtime (path);
+
+    return reopen_state {move (path), pos_, mtime};
   }
 
   void depdb::

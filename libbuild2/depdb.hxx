@@ -62,12 +62,14 @@ namespace build2
   //
   struct LIBBUILD2_SYMEXPORT depdb_base
   {
-    explicit
-    depdb_base (const path&, timestamp);
+    // Implementation details.
+    //
+    enum class state {read, read_eof, write};
 
+    depdb_base (const path&, state, optional<uint64_t> pos = nullopt);
     ~depdb_base ();
 
-    enum class state {read, read_eof, write} state_;
+    state state_;
 
     union
     {
@@ -113,6 +115,27 @@ namespace build2
     explicit
     depdb (path_type);
 
+    struct reopen_state
+    {
+      path_type path;
+      uint64_t  pos;
+      timestamp mtime;
+    };
+
+    // Reopen the database for writing. The reopen state must have been
+    // obtained by calling close_to_reopen() below. Besides opening the file
+    // and adjusting its write position, this constructor also sets touch to
+    // the timestamp returned by close_to_reopen() to help maintain the
+    // "database mtime is before target mtime" invariant.
+    //
+    // This functionality is primarily useful to handle dynamic dependency
+    // information that is produced as a byproduct of compilation. In this
+    // case the "static" part of the database is written in match and the
+    // "dynamic" part -- in execute.
+    //
+    explicit
+    depdb (reopen_state);
+
     // Close the database. If this function is not called, then the database
     // may be left in the old/currupt state. Note that in the read mode this
     // function will "chop off" lines that haven't been read.
@@ -124,6 +147,16 @@ namespace build2
     //
     void
     close (bool mtime_check = true);
+
+    // Temporarily close the database to be reopened for writing later.
+    // Besides the file path and write position also return the database file
+    // modification time after closing.
+    //
+    // Note that after this call the resulting database file is valid and if
+    // it's not reopened later, the result is equivalent to calling close().
+    //
+    reopen_state
+    close_to_reopen ();
 
     // Flush any unwritten data to disk. This is primarily useful when reusing
     // a (partially written) database as an input to external programs (e.g.,
@@ -158,7 +191,7 @@ namespace build2
     // the next line in the database (which you are free to move from). If you
     // then call write(), this line will be overwritten.
     //
-    // If the result is NULL, then it means no next line is unavailable. This
+    // If the result is NULL, then it means no next line is available. This
     // can be due to several reasons:
     //
     // - eof reached (you can detect this by calling more() before read())
