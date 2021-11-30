@@ -2046,9 +2046,10 @@ namespace build2
             try
             {
               pair<const file*, bool> er (
-                enter_header (a, bs, t, li,
-                              move (f), false /* cache */, false /* norm */,
-                              pfx_map, so_map));
+                enter_header (
+                  a, bs, t, li,
+                  f, false /* cache */, false /* normalized */,
+                  pfx_map, so_map));
 
               ht = er.first;
               remapped = er.second;
@@ -2574,9 +2575,10 @@ namespace build2
             if (exists)
             {
               pair<const file*, bool> r (
-                enter_header (a, bs, t, li,
-                              move (f), false /* cache */, false /* norm */,
-                              pfx_map, so_map));
+                enter_header (
+                  a, bs, t, li,
+                  f, false /* cache */, false /* normalized */,
+                  pfx_map, so_map));
 
               if (!r.second) // Shouldn't be remapped.
                 ht = r.first;
@@ -2601,9 +2603,10 @@ namespace build2
             try
             {
               pair<const file*, bool> er (
-                enter_header (a, bs, t, li,
-                              move (f), false /* cache */, false /* norm */,
-                              pfx_map, so_map));
+                enter_header (
+                  a, bs, t, li,
+                  f, false /* cache */, false /* normalized */,
+                  pfx_map, so_map));
 
               ht = er.first;
               remapped = er.second;
@@ -2796,7 +2799,7 @@ namespace build2
     //
     pair<const file*, bool> compile_rule::
     enter_header (action a, const scope& bs, file& t, linfo li,
-                  path&& f, bool cache, bool norm,
+                  path& fp, bool cache, bool norm,
                   optional<prefix_map>& pfx_map,
                   const srcout_map& so_map) const
     {
@@ -2814,7 +2817,7 @@ namespace build2
       return enter_file (
         trace, "header",
         a, bs, t,
-        move (f), cache, norm,
+        fp, cache, norm,
         [this] (const scope& bs, const string& n, const string& e)
         {
           return map_extension (bs, n, e, x_inc);
@@ -3566,9 +3569,10 @@ namespace build2
             dr << endf;
         };
 
-        if (const file* ht = enter_header (a, bs, t, li,
-                                           move (hp), cache, false /* norm */,
-                                           pfx_map, so_map).first)
+        if (const file* ht = enter_header (
+              a, bs, t, li,
+              hp, cache, cache /* normalized */,
+              pfx_map, so_map).first)
         {
           // If we are reading the cache, then it is possible the file has
           // since been removed (think of a header in /usr/local/include that
@@ -3576,12 +3580,14 @@ namespace build2
           // /usr/include). This will lead to the match failure which we
           // translate to a restart.
           //
+          // @@ Won't this fail in enter_header() rather?
+          //
           if (optional<bool> u = inject_header (a, t, *ht, mt, false /*fail*/))
           {
             // Verify/add it to the dependency database.
             //
             if (!cache)
-              dd.expect (ht->path ());
+              dd.expect (ht->path ()); // @@ Use hp (or verify match)?
 
             skip_count++;
             return *u;
@@ -3612,7 +3618,7 @@ namespace build2
 
         const file* ht (
           enter_header (a, bs, t, li,
-                        move (hp), true /* cache */, true /* norm */,
+                        hp, true /* cache */, false /* normalized */,
                         pfx_map, so_map).first);
 
         if (ht == nullptr)

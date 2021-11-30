@@ -135,7 +135,10 @@ namespace build2
         //
         s.depdb_clear = depdb_clear_.has_value ();
         if (depdb_dyndep_)
+        {
           s.depdb_dyndep = depdb_dyndep_->second;
+          s.depdb_dyndep_byproduct = depdb_dyndep_byproduct_;
+        }
         s.depdb_preamble = move (depdb_preamble_);
 
         return s;
@@ -548,7 +551,7 @@ namespace build2
             }
             else
             {
-              // Verify depdb-dyndep is last.
+              // Verify depdb-dyndep is last and detect the byproduct flavor.
               //
               if (v == "dyndep")
               {
@@ -563,10 +566,8 @@ namespace build2
                   fail (l) << "multiple 'depdb dyndep' calls" <<
                     info (depdb_dyndep_->first) << "previous call is here";
 
-#if 0
                 if (peek () == type::word && peeked ().value == "--byproduct")
-                  ;
-#endif
+                  depdb_dyndep_byproduct_ = true;
               }
               else
               {
@@ -933,7 +934,8 @@ namespace build2
                            depdb& dd,
                            bool* update,
                            bool* deferred_failure,
-                           optional<timestamp> mt)
+                           optional<timestamp> mt,
+                           dyndep_byproduct* byp)
       {
         tracer trace ("exec_depdb_preamble");
 
@@ -961,8 +963,9 @@ namespace build2
           bool* update;
           bool* deferred_failure;
           optional<timestamp> mt;
+          dyndep_byproduct* byp;
 
-        } data {trace, a, bs, t, e, s, dd, update, deferred_failure, mt};
+        } data {trace, a, bs, t, e, s, dd, update, deferred_failure, mt, byp};
 
         auto exec_cmd = [this, &data] (token& t,
                                        build2::script::token_type& tt,
@@ -986,7 +989,8 @@ namespace build2
 
             if (cmd == "dyndep")
             {
-              // Note: cast is safe since this is always executed in apply().
+              // Note: the cast is safe since the part where the target is
+              // modified is always executed in apply().
               //
               exec_depdb_dyndep (t, tt,
                                  li, ll,
@@ -994,7 +998,8 @@ namespace build2
                                  data.dd,
                                  *data.update,
                                  *data.deferred_failure,
-                                 *data.mt);
+                                 *data.mt,
+                                 data.byp);
             }
             else
             {
@@ -1207,7 +1212,8 @@ namespace build2
                          depdb& dd,
                          bool& update,
                          bool& deferred_failure,
-                         timestamp mt)
+                         timestamp mt,
+                         dyndep_byproduct* byprod_result)
       {
         tracer trace ("exec_depdb_dyndep");
 
@@ -1215,13 +1221,22 @@ namespace build2
 
         // Similar approach to parse_env_builtin().
         //
-        depdb_dep_options ops;
+        depdb_dyndep_options ops;
         bool prog (false);
+        bool byprod (false);
         {
           auto& t (lt);
           auto& tt (ltt);
 
-          next (t, tt); // Skip 'dep' command.
+          next (t, tt); // Skip the 'dyndep' command.
+
+          if (tt == type::word && t.value == "--byproduct")
+          {
+            byprod = true;
+            next (t, tt);
+          }
+
+          assert (byprod == (byprod_result != nullptr));
 
           // Note that an option name and value can belong to different name
           // chunks. That's why we parse the arguments in the chunking mode
@@ -1273,6 +1288,10 @@ namespace build2
 
           if (prog)
           {
+            if (byprod)
+              fail (t) << "depdb dyndep: --byproduct cannot be used with "
+                       << "program";
+
             next (t, tt); // Skip '--'.
 
             if (tt == type::newline || tt == type::eos)
@@ -1311,12 +1330,10 @@ namespace build2
                 continue;
               }
 
-#if 0
               // Handle --byproduct in the wrong place.
               //
               if (strcmp (a, "--byproduct") == 0)
                 fail (ll) << "depdb dyndep: --byproduct must be first option";
-#endif
 
               // Handle unknown option.
               //
@@ -1334,6 +1351,64 @@ namespace build2
           }
         }
 
+        // --what
+        //
+        const char* what (ops.what_specified ()
+                          ? ops.what ().c_str ()
+                          : "file");
+
+        // --format
+        //
+        dyndep_format format (dyndep_format::make);
+
+        if (ops.format_specified ())
+        {
+          const string& f (ops.format ());
+
+          if (f != "make")
+            fail (ll) << "depdb dyndep: invalid --format option value '"
+                      << f << "'";
+        }
+
+        // --cwd
+        //
+        optional<dir_path> cwd;
+
+        if (ops.cwd_specified ())
+        {
+          if (!byprod)
+            fail (ll) << "depdb dyndep: --cwd only valid in --byproduct mode";
+
+          cwd = move (ops.cwd ());
+
+          if (cwd->relative ())
+            fail (ll) << "depdb dyndep: relative path specified with --cwd";
+        }
+
+        // --file
+        //
+        // Note that if --file is specified without a program, then we assume
+        // it is one of the static prerequisites.
+        //
+        optional<path> file;
+
+        if (ops.file_specified ())
+        {
+          file = move (ops.file ());
+
+          if (file->relative ())
+          {
+            if (!cwd)
+              fail (ll) << "depdb dyndep: relative path specified with --file";
+
+            *file = *cwd / *file;
+          }
+        }
+        else if (!prog)
+          fail (ll) << "depdb dyndep: program or --file expected";
+
+        // --default-type
+        //
         // Get the default prerequisite type falling back to file{} if not
         // specified.
         //
@@ -1344,16 +1419,33 @@ namespace build2
         // system headers to h{} targets analogous to the c module's rule.
         //
         const target_type* def_pt;
-        if (ops.default_prereq_type_specified ())
+        if (ops.default_type_specified ())
         {
-          const string& t (ops.default_prereq_type ());
+          const string& t (ops.default_type ());
 
           def_pt = bs.find_target_type (t);
           if (def_pt == nullptr)
-            fail (ll) << "unknown target type '" << t << "'";
+            fail (ll) << "unknown target type '" << t << "' specific with "
+                      << "--default-type";
         }
         else
           def_pt = &file::static_type;
+
+        if (byprod)
+        {
+          if (!ops.include_path ().empty ())
+            fail (ll) << "depdb dyndep: -I specified with --byproduct";
+
+          *byprod_result = dyndep_byproduct {
+            ll,
+            format,
+            move (cwd),
+            move (*file),
+            ops.what_specified () ? move (ops.what ()) : string (what),
+            def_pt};
+
+          return;
+        }
 
         // This code is based on the prior work in the cc module (specifically
         // extract_headers()) where you can often find more detailed rationale
@@ -1369,6 +1461,8 @@ namespace build2
         function<dyndep::map_extension_func> map_ext (
           [] (const scope& bs, const string& n, const string& e)
           {
+            // NOTE: another version in adhoc_buildscript_rule::apply().
+
             // @@ TODO: allow specifying base target types.
             //
             // Feels like the only reason one would want to specify base types
@@ -1403,7 +1497,7 @@ namespace build2
         {
           tracer& trace;
           const location& ll;
-          const depdb_dep_options& ops;
+          const depdb_dyndep_options& ops;
           optional<prefix_map> map;
         } pfx_data {trace, ll, ops, nullopt};
 
@@ -1440,11 +1534,6 @@ namespace build2
           };
         }
 
-        optional<path> file;
-        enum class format {make} fmt (format::make);
-        command_expr cmd;
-        srcout_map so_map;
-
         // Parse the remainder of the command line as a program (which can be
         // a pipe). If file is absent, then we save the command's stdout to a
         // pipe. Otherwise, assume the command writes to file and add it to
@@ -1454,31 +1543,13 @@ namespace build2
         // could do other broken tools). However, the user can always merge
         // stderr to stdout (2>&1).
         //
+        command_expr cmd;
+        srcout_map so_map;
+
         auto init_run = [this, &ctx,
                          &lt, &ltt, &ll,
-                         &ops, prog, &file, &cmd, &so_map] ()
+                         prog, &file, &ops, &cmd, &so_map] ()
         {
-          // --format
-          //
-          if (ops.format_specified ())
-          {
-            const string& f (ops.format ());
-
-            if (f != "make")
-              fail (ll) << "depdb dyndep: invalid --format option value '"
-                        << f << "'";
-          }
-
-          // --file
-          //
-          if (ops.file_specified ())
-          {
-            file = move (ops.file ());
-
-            if (file->relative ())
-              fail (ll) << "depdb dyndep: relative path specified with --file";
-          }
-
           // Populate the srcout map with the -I$out_base -I$src_base pairs.
           //
           {
@@ -1515,25 +1586,20 @@ namespace build2
                 {build2::script::cleanup_type::always, *file},
                 true /* implicit */);
           }
-          else
-          {
-            // Assume file is one of the prerequisites.
-            //
-            if (!file)
-              fail (ll) << "depdb dyndep: program or --file expected";
-          }
         };
 
         // Enter as a target, update, and add to the list of prerequisite
         // targets a file.
         //
-        const char* what (ops.what_specified ()
-                          ? ops.what ().c_str ()
-                          : "file");
-
+        // Note that these targets don't end up in $< (which is the right
+        // thing) because that variable has already been initialized (in the
+        // environment ctor).
+        //
         size_t skip_count (0);
+        auto& pts (t.prerequisite_targets[a]);
+
         auto add = [this, &trace, what,
-                    a, &bs, &t,
+                    a, &bs, &t, &pts, pts_n = pts.size (),
                     &map_ext, def_pt, &pfx_map, &so_map,
                     &dd, &skip_count] (path fp,
                                        bool cache,
@@ -1567,16 +1633,38 @@ namespace build2
           if (const build2::file* ft = dyndep::enter_file (
                 trace, what,
                 a, bs, t,
-                move (fp), cache, false /* normalize */,
+                fp, cache, cache /* normalized */,
                 map_ext, *def_pt, pfx_map, so_map).first)
           {
+            // Skip if this is one of the static prerequisites.
+            //
+            for (size_t i (0); i != pts_n; ++i)
+            {
+              const prerequisite_target& p (pts[i]);
+
+              if (const target* pt =
+                  (p.target != nullptr ? p.target :
+                   p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+                   nullptr))
+              {
+                if (pt == ft)
+                {
+                  // Note that we have to increment the skip count since we
+                  // skip before performing this test.
+                  //
+                  skip_count++;
+                  return false;
+                }
+              }
+            }
+
             if (optional<bool> u = dyndep::inject_file (
                   trace, what,
                   a, t,
                   *ft, mt, false /* fail */))
             {
               if (!cache)
-                dd.expect (ft->path ());
+                dd.expect (ft->path ()); // @@ Use fp (or verify match)?
 
               skip_count++;
               return *u;
@@ -1721,14 +1809,16 @@ namespace build2
                                  : path_name ("<stdin>"));
 
             location il (in, 1);
+            size_t skip (skip_count);
 
             // The way we parse things is format-specific.
             //
-            size_t skip (skip_count);
-
-            switch (fmt)
+            // Note: similar code in
+            // adhoc_buildscript_rule::perform_update_file_dyndep_byproduct().
+            //
+            switch (format)
             {
-            case format::make:
+            case dyndep_format::make:
               {
                 using make_state = make_parser;
                 using make_type = make_parser::type;

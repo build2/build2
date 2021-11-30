@@ -15,17 +15,33 @@ namespace build2
     {
       // Pseudo-builtin options.
       //
-      class depdb_dep_options
+      class depdb_dyndep_options
       {
         // Note that --byproduct, if any, must be the first option and is
         // handled ad hoc, kind of as a sub-command.
         //
-        path --file;                   // Read from file rather than stdin.
-        string --format;               // Dependency format: make (default).
-        string --what;                 // Dependency kind, e.g., "header".
-        dir_paths --include-path|-I;   // Search paths for generated files.
-        string --default-prereq-type;  // Default prerequisite type to use
-                                       // if none could be derived from ext.
+        // Note that in the future we may extend --cwd support to the non-
+        // byproduct mode where it will also have the `env --cwd` semantics
+        // (thus the matching name). Note that it will also be incompatible
+        // with support for generated files (and thus -I) at least in the make
+        // format where we use relative paths for non-existent files.
+        //
+        // Note on naming: whenever we (may) have two options, one for target
+        // and the other for prerequisite, we omit "prerequisite" as that's
+        // what we extract by default and most commonly. For example:
+        //
+        // --what          --what-target
+        // --default-type  --default-target-type
+        //
+        path --file;                  // Read from file rather than stdin.
+        string --format;              // Dependency format: make (default).
+        string --what;                // Dependency kind, e.g., "header".
+        dir_paths --include-path|-I;  // Search paths for generated files.
+        string --default-type;        // Default prerequisite type to use
+                                      // if none could be derived from ext.
+        dir_path --cwd;               // Builtin's working directory used
+                                      // to complete relative paths (only
+                                      // in --byproduct mode).
       };
     }
   }

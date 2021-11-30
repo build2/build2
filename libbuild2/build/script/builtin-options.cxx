@@ -397,11 +397,11 @@ namespace build2
   {
     namespace script
     {
-      // depdb_dep_options
+      // depdb_dyndep_options
       //
 
-      depdb_dep_options::
-      depdb_dep_options ()
+      depdb_dyndep_options::
+      depdb_dyndep_options ()
       : file_ (),
         file_specified_ (false),
         format_ (),
@@ -410,12 +410,14 @@ namespace build2
         what_specified_ (false),
         include_path_ (),
         include_path_specified_ (false),
-        default_prereq_type_ (),
-        default_prereq_type_specified_ (false)
+        default_type_ (),
+        default_type_specified_ (false),
+        cwd_ (),
+        cwd_specified_ (false)
       {
       }
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       parse (int& argc,
              char** argv,
              bool erase,
@@ -427,7 +429,7 @@ namespace build2
         return r;
       }
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       parse (int start,
              int& argc,
              char** argv,
@@ -440,7 +442,7 @@ namespace build2
         return r;
       }
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       parse (int& argc,
              char** argv,
              int& end,
@@ -454,7 +456,7 @@ namespace build2
         return r;
       }
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       parse (int start,
              int& argc,
              char** argv,
@@ -469,7 +471,7 @@ namespace build2
         return r;
       }
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       parse (::build2::build::script::cli::scanner& s,
              ::build2::build::script::cli::unknown_mode opt,
              ::build2::build::script::cli::unknown_mode arg)
@@ -479,44 +481,47 @@ namespace build2
       }
 
       typedef
-      std::map<std::string, void (*) (depdb_dep_options&, ::build2::build::script::cli::scanner&)>
-      _cli_depdb_dep_options_map;
+      std::map<std::string, void (*) (depdb_dyndep_options&, ::build2::build::script::cli::scanner&)>
+      _cli_depdb_dyndep_options_map;
 
-      static _cli_depdb_dep_options_map _cli_depdb_dep_options_map_;
+      static _cli_depdb_dyndep_options_map _cli_depdb_dyndep_options_map_;
 
-      struct _cli_depdb_dep_options_map_init
+      struct _cli_depdb_dyndep_options_map_init
       {
-        _cli_depdb_dep_options_map_init ()
+        _cli_depdb_dyndep_options_map_init ()
         {
-          _cli_depdb_dep_options_map_["--file"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, path, &depdb_dep_options::file_,
-            &depdb_dep_options::file_specified_ >;
-          _cli_depdb_dep_options_map_["--format"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::format_,
-            &depdb_dep_options::format_specified_ >;
-          _cli_depdb_dep_options_map_["--what"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::what_,
-            &depdb_dep_options::what_specified_ >;
-          _cli_depdb_dep_options_map_["--include-path"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, dir_paths, &depdb_dep_options::include_path_,
-            &depdb_dep_options::include_path_specified_ >;
-          _cli_depdb_dep_options_map_["-I"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, dir_paths, &depdb_dep_options::include_path_,
-            &depdb_dep_options::include_path_specified_ >;
-          _cli_depdb_dep_options_map_["--default-prereq-type"] =
-          &::build2::build::script::cli::thunk< depdb_dep_options, string, &depdb_dep_options::default_prereq_type_,
-            &depdb_dep_options::default_prereq_type_specified_ >;
+          _cli_depdb_dyndep_options_map_["--file"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, path, &depdb_dyndep_options::file_,
+            &depdb_dyndep_options::file_specified_ >;
+          _cli_depdb_dyndep_options_map_["--format"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::format_,
+            &depdb_dyndep_options::format_specified_ >;
+          _cli_depdb_dyndep_options_map_["--what"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::what_,
+            &depdb_dyndep_options::what_specified_ >;
+          _cli_depdb_dyndep_options_map_["--include-path"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_paths, &depdb_dyndep_options::include_path_,
+            &depdb_dyndep_options::include_path_specified_ >;
+          _cli_depdb_dyndep_options_map_["-I"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_paths, &depdb_dyndep_options::include_path_,
+            &depdb_dyndep_options::include_path_specified_ >;
+          _cli_depdb_dyndep_options_map_["--default-type"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::default_type_,
+            &depdb_dyndep_options::default_type_specified_ >;
+          _cli_depdb_dyndep_options_map_["--cwd"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::cwd_,
+            &depdb_dyndep_options::cwd_specified_ >;
         }
       };
 
-      static _cli_depdb_dep_options_map_init _cli_depdb_dep_options_map_init_;
+      static _cli_depdb_dyndep_options_map_init _cli_depdb_dyndep_options_map_init_;
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       _parse (const char* o, ::build2::build::script::cli::scanner& s)
       {
-        _cli_depdb_dep_options_map::const_iterator i (_cli_depdb_dep_options_map_.find (o));
+        _cli_depdb_dyndep_options_map::const_iterator i (_cli_depdb_dyndep_options_map_.find (o));
 
-        if (i != _cli_depdb_dep_options_map_.end ())
+        if (i != _cli_depdb_dyndep_options_map_.end ())
         {
           (*(i->second)) (*this, s);
           return true;
@@ -525,7 +530,7 @@ namespace build2
         return false;
       }
 
-      bool depdb_dep_options::
+      bool depdb_dyndep_options::
       _parse (::build2::build::script::cli::scanner& s,
               ::build2::build::script::cli::unknown_mode opt_mode,
               ::build2::build::script::cli::unknown_mode arg_mode)

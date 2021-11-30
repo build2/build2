@@ -39,9 +39,14 @@ namespace build2
     perform_update_file (action, const target&) const;
 
     struct match_data;
+    struct match_data_byproduct;
 
     target_state
     perform_update_file_dyndep (action, const target&, match_data&) const;
+
+    target_state
+    perform_update_file_dyndep_byproduct (
+      action, const target&, match_data_byproduct&) const;
 
     bool
     execute_update_file (const scope&,

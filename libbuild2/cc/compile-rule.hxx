@@ -120,7 +120,7 @@ namespace build2
 
       pair<const file*, bool>
       enter_header (action, const scope&, file&, linfo,
-                    path&&, bool, bool,
+                    path&, bool, bool,
                     optional<prefix_map>&, const srcout_map&) const;
 
       optional<bool>

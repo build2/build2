@@ -37,12 +37,45 @@ namespace build2
     // then issue diagnostics and fail if the fail argument is true and return
     // nullopt otherwise.
     //
+    // If adhoc is true, then add it as ad hoc to prerequisite targets. At
+    // first it may seem like such dynamic prerequisites should always be ad
+    // hoc. But on the other hand, taking headers as an example, if the same
+    // header is listed as a static prerequisite, it will most definitely not
+    // going to be ad hoc. So we leave it to the caller to make this decision.
+    //
     static optional<bool>
     inject_file (tracer&, const char* what,
                  action, target&,
                  const file& prerequiste,
                  timestamp,
-                 bool fail);
+                 bool fail,
+                 bool adhoc = false);
+
+    // As above but verify the file is matched with noop_recipe and issue
+    // diagnostics and fail otherwise (regardless of the fail flag).
+    //
+    // This version (together with verify_existing_file() below) is primarily
+    // useful for handling dynamic dependencies that are produced as a
+    // byproduct of recipe execution (and thus must have all the generated
+    // prerequisites specified statically).
+    //
+    static optional<bool>
+    inject_existing_file (tracer&, const char* what,
+                          action, target&,
+                          const file& prerequiste,
+                          timestamp,
+                          bool fail);
+
+    // Verify the file is matched with noop_recipe and issue diagnostics and
+    // fail otherwise. If the file is not matched, then fail if the target is
+    // not implied (that is, declared in a buildfile).
+    //
+    // Note: can only be called in the execute phase.
+    //
+    static void
+    verify_existing_file (tracer&, const char* what,
+                          action, const target&,
+                          const file& prerequiste);
 
     // Reverse-lookup target type(s) from file name/extension.
     //
@@ -124,29 +157,31 @@ namespace build2
       dir_path diff_;
     };
 
-    // Enter a prerequisite file as a target. If the path is relative, then
-    // assume this a non-existent generated file.
+    // Find or insert a prerequisite file path as a target. If the path is
+    // relative, then assume this is a non-existent generated file.
     //
     // Depending on the cache flag, the path is assumed to either have come
-    // from the depdb cache or from the compiler run. In the former case
-    // assume the path is already normalized unless the normalize flag is
-    // true.
+    // from the depdb cache or from the compiler run. If normalized is true,
+    // then assume the absolute path is already normalized.
     //
     // Return the file target and an indication of whether it was remapped or
-    // NULL if the file does not exist and cannot be generated. In the latter
-    // case the passed file path is guaranteed to still be valid but might
-    // have been adjusted (e.g., normalized, etc).
+    // NULL if the file does not exist and cannot be generated. The passed by
+    // reference file path is guaranteed to still be valid but might have been
+    // adjusted (e.g., completed, normalized, remapped, etc). If the result is
+    // not NULL, then it is the absolute and normalized path to the actual
+    // file. If the result is NULL, then it can be used in diagnostics to
+    // identify the origial file path.
     //
     // The map_extension function is used to reverse-map a file extension to
     // the target type. The fallback target type is used if it's NULL or
     // didn't return anything but only in situations where we are sure the
-    // file is (or should be there; see the implementation for details).
+    // file is or should be there (see the implementation for details).
     //
     // The prefix map function is only called if this is a non-existent
     // generated file (so it can be initialized lazily). If it's NULL, then
     // generated files will not be supported. The srcout map is only consulted
-    // if cache is false (so its initialization can be delayed until the call
-    // with cache=false).
+    // if cache is false to re-map generated files (so its initialization can
+    // be delayed until the call with cache=false).
     //
     using map_extension_func = small_vector<const target_type*, 2> (
       const scope& base, const string& name, const string& ext);
@@ -157,11 +192,22 @@ namespace build2
     static pair<const file*, bool>
     enter_file (tracer&, const char* what,
                 action, const scope& base, target&,
-                path&& prerequisite, bool cache, bool norm,
+                path& prerequisite, bool cache, bool normalized,
                 const function<map_extension_func>&,
                 const target_type& fallback,
-                const function<prefix_map_func>&,
-                const srcout_map&);
+                const function<prefix_map_func>& = nullptr,
+                const srcout_map& = {});
+
+    // As above but do not insert the target if it doesn't already exist.
+    //
+    static pair<const file*, bool>
+    find_file (tracer&, const char* what,
+               action, const scope& base, const target&,
+               path& prerequisite, bool cache, bool normalized,
+               const function<map_extension_func>&,
+               const target_type& fallback,
+               const function<prefix_map_func>& = nullptr,
+               const srcout_map& = {});
   };
 }
 

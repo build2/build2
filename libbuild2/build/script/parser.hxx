@@ -127,6 +127,46 @@ namespace build2
             dd, &update, &deferred_failure, mt);
         }
 
+        // This version doesn't actually execute the depdb-dyndep builtin (but
+        // may execute some variable assignments) instead returning all the
+        // information (extracted from options) necessary to implement the
+        // depdb-dyndep --byproduct logic (which fits better into the rule
+        // implementation).
+        //
+        enum class dyndep_format {make};
+
+        struct dyndep_byproduct
+        {
+          location_value     location;
+          dyndep_format      format;
+          optional<dir_path> cwd;
+          path               file;
+          string             what;
+          const target_type* default_type;
+        };
+
+        dyndep_byproduct
+        execute_depdb_preamble_dyndep_byproduct (
+          action a, const scope& base, const file& t,
+          environment& e, const script& s, runner& r,
+          depdb& dd)
+        {
+          // This is getting really ugly (we also don't really need to pass
+          // depdb here). One day we will find a better way...
+          //
+          bool update, deferred_failure; // Dymmy.
+          timestamp mt;                  // Dummy.
+
+          dyndep_byproduct v;
+          exec_depdb_preamble (
+            a, base, t,
+            e, s, r,
+            s.depdb_preamble.begin () + *s.depdb_dyndep,
+            s.depdb_preamble.end (),
+            dd, &update, &deferred_failure, mt, &v);
+          return v;
+        }
+
         // Parse a special builtin line into names, performing the variable
         // and pattern expansions. If omit_builtin is true, then omit the
         // builtin name from the result.
@@ -166,7 +206,8 @@ namespace build2
                              depdb&,
                              bool* update = nullptr,
                              bool* deferred_failure = nullptr,
-                             optional<timestamp> mt = nullopt);
+                             optional<timestamp> mt = nullopt,
+                             dyndep_byproduct* = nullptr);
 
         void
         exec_depdb_dyndep (token&, build2::script::token_type&,
@@ -175,7 +216,8 @@ namespace build2
                            depdb&,
                            bool& update,
                            bool& deferred_failure,
-                           timestamp);
+                           timestamp,
+                           dyndep_byproduct*);
 
         // Helpers.
         //
@@ -274,13 +316,21 @@ namespace build2
         // depdb env <var-names> - Track the environment variables change as a
         //                         hash.
         //
-        // depdb dyndep ...      - Extract dynamic dependency information.
-        //                         Can only be the last depdb builtin call
-        //                         in the preamble.
+        // depdb dyndep ...      - Extract dynamic dependency information. Can
+        //                         only be the last depdb builtin call in the
+        //                         preamble. Note that such dependencies don't
+        //                         end up in $<. We also don't cause clean of
+        //                         such dependencies (since there may be no .d
+        //                         file) -- they should also be listed as
+        //                         static prerequisites of some other target
+        //                         (e.g., lib{} for headers) or a custom clean
+        //                         recipe should be provided.
+        //
         //
         optional<location> depdb_clear_;    // depdb-clear location.
         optional<pair<location, size_t>>
                            depdb_dyndep_;   // depdb-dyndep location/position.
+        bool               depdb_dyndep_byproduct_ = false; // --byproduct
         lines              depdb_preamble_; // Note: excluding depdb-clear.
 
         // If present, the first impure function called in the body of the

@@ -297,10 +297,10 @@ namespace build2
   {
     namespace script
     {
-      class depdb_dep_options
+      class depdb_dyndep_options
       {
         public:
-        depdb_dep_options ();
+        depdb_dyndep_options ();
 
         // Return true if anything has been parsed.
         //
@@ -404,19 +404,34 @@ namespace build2
         include_path_specified (bool);
 
         const string&
-        default_prereq_type () const;
+        default_type () const;
 
         string&
-        default_prereq_type ();
+        default_type ();
 
         void
-        default_prereq_type (const string&);
+        default_type (const string&);
 
         bool
-        default_prereq_type_specified () const;
+        default_type_specified () const;
 
         void
-        default_prereq_type_specified (bool);
+        default_type_specified (bool);
+
+        const dir_path&
+        cwd () const;
+
+        dir_path&
+        cwd ();
+
+        void
+        cwd (const dir_path&);
+
+        bool
+        cwd_specified () const;
+
+        void
+        cwd_specified (bool);
 
         // Implementation details.
         //
@@ -439,8 +454,10 @@ namespace build2
         bool what_specified_;
         dir_paths include_path_;
         bool include_path_specified_;
-        string default_prereq_type_;
-        bool default_prereq_type_specified_;
+        string default_type_;
+        bool default_type_specified_;
+        dir_path cwd_;
+        bool cwd_specified_;
       };
     }
   }

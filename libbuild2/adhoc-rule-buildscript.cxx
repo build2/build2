@@ -13,6 +13,7 @@
 #include <libbuild2/algorithm.hxx>
 #include <libbuild2/filesystem.hxx>  // path_perms(), auto_rmfile
 #include <libbuild2/diagnostics.hxx>
+#include <libbuild2/make-parser.hxx>
 
 #include <libbuild2/parser.hxx> // attributes
 
@@ -227,9 +228,28 @@ namespace build2
     build::script::default_runner run;
 
     path dd;
+
     const scope* bs;
     timestamp mt;
     bool deferred_failure;
+  };
+
+  struct adhoc_buildscript_rule::match_data_byproduct
+  {
+    match_data_byproduct (action a, const target& t, bool temp_dir)
+        : env (a, t, temp_dir) {}
+
+    build::script::environment env;
+    build::script::default_runner run;
+
+    build::script::parser::dyndep_byproduct byp;
+
+    depdb::reopen_state dd;
+    size_t skip_count = 0;
+    size_t pts_n; // Number of static prerequisites in prerequisite_targets.
+
+    const scope* bs;
+    timestamp mt;
   };
 
   bool adhoc_buildscript_rule::
@@ -339,15 +359,21 @@ namespace build2
     }
 
     // This is a perform update on a file target with extraction of dynamic
-    // dependency information in the depdb preamble (depdb-dyndep).
+    // dependency information either in the depdb preamble (depdb-dyndep
+    // without --byproduct) or as a byproduct of the recipe body execution
+    // (depdb-dyndep with --byproduct).
     //
-    // This means we may need to add additional prerequisites (or even target
-    // group members). We also have to save any such additional prerequisites
-    // in depdb so that we can check if any of them have changed on subsequent
-    // updates. So all this means that have to take care of depdb here in
-    // apply() instead of perform_*() like we normally do. We also do things
-    // in slightly different order due to the restrictions impose by the match
-    // phase.
+    // For the former case, we may need to add additional prerequisites (or
+    // even target group members). We also have to save any such additional
+    // prerequisites in depdb so that we can check if any of them have changed
+    // on subsequent updates. So all this means that we have to take care of
+    // depdb here in apply() instead of perform_*() like we normally do. We
+    // also do things in slightly different order due to the restrictions
+    // impose by the match phase.
+    //
+    // The latter case (depdb-dyndep --byproduct) is sort of a combination
+    // of the normal dyndep and the static case: we check the depdb during
+    // match but save after executing the recipe.
     //
     // Note that the C/C++ header dependency extraction is the canonical
     // example and all this logic is based on the prior work in the cc module
@@ -358,6 +384,7 @@ namespace build2
 
     file& t (xt.as<file> ());
     const path& tp (t.path ());
+    const scope& bs (t.base_scope ());
 
     if (dir != nullptr)
       fsdir_rule::perform_update_direct (a, t);
@@ -379,10 +406,10 @@ namespace build2
       }
     }
 
-    // NOTE: see the "static dependencies" version (with comments) below.
-    //
     depdb dd (tp + ".d");
 
+    // NOTE: see the "static dependencies" version (with comments) below.
+    //
     if (dd.expect ("<ad hoc buildscript recipe> 1") != nullptr)
       l4 ([&]{trace << "rule mismatch forcing update of " << t;});
 
@@ -435,13 +462,20 @@ namespace build2
       }
     }
 
-    const scope& bs (t.base_scope ());
+    unique_ptr<match_data> md;
+    unique_ptr<match_data_byproduct> mdb;
 
-    unique_ptr<match_data> md (
-      new match_data (a, t, script.depdb_preamble_temp_dir));
+    if (script.depdb_dyndep_byproduct)
+    {
+      mdb.reset (new match_data_byproduct (
+                   a, t, script.depdb_preamble_temp_dir));
+    }
+    else
+      md.reset (new match_data (a, t, script.depdb_preamble_temp_dir));
 
-    build::script::environment& env (md->env);
-    build::script::default_runner& run (md->run);
+
+    build::script::environment& env (mdb != nullptr ? mdb->env : md->env);
+    build::script::default_runner& run (mdb != nullptr ? mdb->run : md->run);
 
     run.enter (env, script.start_loc);
 
@@ -485,63 +519,471 @@ namespace build2
       }
     }
 
-    // Run the second half of the preamble (depdb-dyndep commands) to extract
-    // dynamic dependencies.
-    //
-    // Note that this should be the last update to depdb (the invalidation
-    // order semantics).
-    //
-    bool deferred_failure (false);
+    if (script.depdb_dyndep_byproduct)
     {
-      build::script::parser p (ctx);
-      p.execute_depdb_preamble_dyndep (a, bs, t,
-                                       env, script, run,
-                                       dd,
-                                       update,
-                                       deferred_failure,
-                                       mt);
+      // If we have the dynamic dependency information as byproduct of the
+      // recipe body, then do the first part: verify the entries in depdb
+      // unless we are already updating. Essentially, this is the `if(cache)`
+      // equivalent of the restart loop in exec_depdb_dyndep().
+      //
+      // Do we really need to update our prerequisite targets in this case (as
+      // we do above)? While it may seem like we should be able to avoid it by
+      // triggering update on encountering any non-existent files in depbd, we
+      // may actually incorrectly "validate" some number of depdb entires
+      // while having an out-of-date main source file. We could probably avoid
+      // the update if we are already updating.
+
+      using dyndep = dyndep_rule;
+
+      // Extract the depdb-dyndep command's information (we may also execute
+      // some variable assignments).
+      //
+      {
+        build::script::parser p (ctx);
+        mdb->byp = p.execute_depdb_preamble_dyndep_byproduct (
+          a, bs, t,
+          env, script, run,
+          dd);
+      }
+
+      mdb->pts_n = pts.size ();
+
+      if (!update)
+      {
+        const auto& byp (mdb->byp);
+        const char* what (byp.what.c_str ());
+        const location& ll (byp.location);
+
+        function<dyndep::map_extension_func> map_ext (
+          [] (const scope& bs, const string& n, const string& e)
+          {
+            // NOTE: another version in exec_depdb_dyndep().
+
+            return dyndep::map_extension (bs, n, e, nullptr);
+          });
+
+        // Similar to exec_depdb_dyndep()::add() but only for cache=true and
+        // without support for generated files.
+        //
+        // Note that we have to update each file for the same reason as the
+        // main source file -- if any of them changed, then we must assume the
+        // subsequent entries are invalid.
+        //
+        size_t& skip_count (mdb->skip_count);
+
+        auto add = [this, &trace, what,
+                    a, &bs, &t, &pts, pts_n = mdb->pts_n,
+                    &byp, &map_ext,
+                    &skip_count, mt] (path fp) -> optional<bool>
+        {
+          if (const build2::file* ft = dyndep::enter_file (
+                trace, what,
+                a, bs, t,
+                fp, true /* cache */, true /* normalized */,
+                map_ext, *byp.default_type).first)
+          {
+            // Skip if this is one of the static prerequisites.
+            //
+            for (size_t i (0); i != pts_n; ++i)
+            {
+              const prerequisite_target& p (pts[i]);
+
+              if (const target* pt =
+                  (p.target != nullptr ? p.target :
+                   p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+                   nullptr))
+              {
+                if (pt == ft)
+                {
+                  // Note that we have to increment the skip count since we
+                  // skip before performing this test.
+                  //
+                  skip_count++;
+                  return false;
+                }
+              }
+            }
+
+            if (optional<bool> u = dyndep::inject_existing_file (
+                  trace, what,
+                  a, t,
+                  *ft, mt, false /* fail */))
+            {
+              skip_count++;
+              return *u;
+            }
+          }
+
+          return nullopt;
+        };
+
+        auto df = make_diag_frame (
+          [this, &ll, &t] (const diag_record& dr)
+          {
+            if (verb != 0)
+              dr << info (ll) << "while extracting dynamic dependencies for "
+                 << t;
+          });
+
+        while (!update)
+        {
+          // We should always end with a blank line.
+          //
+          string* l (dd.read ());
+
+          // If the line is invalid, run the compiler.
+          //
+          if (l == nullptr)
+          {
+            update = true;
+            break;
+          }
+
+          if (l->empty ()) // Done, nothing changed.
+            break;
+
+          if (optional<bool> r = add (path (move (*l))))
+          {
+            if (*r)
+              update = true;
+          }
+          else
+          {
+            // Invalidate this line and trigger update.
+            //
+            dd.write ();
+            update = true;
+          }
+
+          if (update)
+            l6 ([&]{trace << "restarting (cache)";});
+        }
+      }
+
+      // Note that in case of dry run we will have an incomplete (but valid)
+      // database which will be updated on the next non-dry run.
+      //
+      if (!update || ctx.dry_run)
+        dd.close (false /* mtime_check */);
+      else
+        mdb->dd = dd.close_to_reopen ();
+
+      // Pass on base scope and update/mtime.
+      //
+      mdb->bs = &bs;
+      mdb->mt = update ? timestamp_nonexistent : mt;
+
+      // @@ TMP: re-enable once recipe becomes move_only_function.
+      //
+#if 0
+      return [this, md = move (mdb)] (action a, const target& t) mutable
+      {
+        auto r (perform_update_file_dyndep_byproduct (a, t, *md));
+        md.reset (); // @@ TMP: is this really necessary (+mutable)?
+        return r;
+      };
+#else
+      t.data (move (mdb));
+      return recipe ([this] (action a, const target& t) mutable
+      {
+        auto md (move (t.data<unique_ptr<match_data_byproduct>> ()));
+        return perform_update_file_dyndep_byproduct (a, t, *md);
+      });
+#endif
+    }
+    else
+    {
+      // Run the second half of the preamble (depdb-dyndep commands) to
+      // extract dynamic dependencies.
+      //
+      // Note that this should be the last update to depdb (the invalidation
+      // order semantics).
+      //
+      bool deferred_failure (false);
+      {
+        build::script::parser p (ctx);
+        p.execute_depdb_preamble_dyndep (a, bs, t,
+                                         env, script, run,
+                                         dd,
+                                         update,
+                                         deferred_failure,
+                                         mt);
+      }
+
+      if (update && dd.reading () && !ctx.dry_run)
+        dd.touch = timestamp_unknown;
+
+      dd.close (false /* mtime_check */);
+      md->dd = move (dd.path);
+
+      // Pass on base scope and update/mtime.
+      //
+      md->bs = &bs;
+      md->mt = update ? timestamp_nonexistent : mt;
+      md->deferred_failure = deferred_failure;
+
+      // @@ TMP: re-enable once recipe becomes move_only_function.
+      //
+#if 0
+      return [this, md = move (md)] (action a, const target& t) mutable
+      {
+        auto r (perform_update_file_dyndep (a, t, *md));
+        md.reset (); // @@ TMP: is this really necessary (+mutable)?
+        return r;
+      };
+#else
+      t.data (move (md));
+      return recipe ([this] (action a, const target& t) mutable
+      {
+        auto md (move (t.data<unique_ptr<match_data>> ()));
+        return perform_update_file_dyndep (a, t, *md);
+      });
+#endif
+    }
+  }
+
+  target_state adhoc_buildscript_rule::
+  perform_update_file_dyndep_byproduct (action a,
+                                        const target& xt,
+                                        match_data_byproduct& md) const
+  {
+    // Note: using shared function name among the three variants.
+    //
+    tracer trace ("adhoc_buildscript_rule::perform_update_file");
+
+    context& ctx (xt.ctx);
+
+    const file& t (xt.as<file> ());
+
+    // While we've updated all our prerequisites in apply(), we still need to
+    // execute them here to keep the dependency counts straight.
+    //
+    const auto& pts (t.prerequisite_targets[a]);
+
+    for (const prerequisite_target& p: pts)
+    {
+      if (const target* pt =
+          (p.target != nullptr ? p.target :
+           p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
+      {
+        target_state ts (execute_wait (a, *pt));
+        assert (ts == target_state::unchanged || ts == target_state::changed);
+      }
     }
 
-    if (update && dd.reading () && !ctx.dry_run)
-      dd.touch = timestamp_unknown;
+    build::script::environment& env (md.env);
+    build::script::default_runner& run (md.run);
 
-    dd.close (false /* mtime_check */);
-    md->dd = move (dd.path);
-
-    // Pass on base scope and update/mtime.
-    //
-    md->bs = &bs;
-    md->mt = update ? timestamp_nonexistent : mt;
-    md->deferred_failure = deferred_failure;
-
-    // @@ TMP: re-enable once recipe becomes move_only_function.
-    //
-#if 0
-    return [this, md = move (md)] (action a, const target& t) mutable
+    if (md.mt != timestamp_nonexistent)
     {
-      auto r (perform_update_file_dyndep (a, t, *md));
-      md.reset (); // @@ TMP: is this really necessary (+mutable)?
-      return r;
-    };
-#else
-    t.data (move (md));
-    return recipe ([this] (action a, const target& t) mutable
+      run.leave (env, script.end_loc);
+      return target_state::unchanged;
+    }
+
+    const scope& bs (*md.bs);
+
+    // Sequence start time for mtime checks below.
+    //
+    timestamp start (!ctx.dry_run && depdb::mtime_check ()
+                     ? system_clock::now ()
+                     : timestamp_unknown);
+
+    if (!ctx.dry_run || verb != 0)
     {
-      auto md (move (t.data<unique_ptr<match_data>> ()));
-      return perform_update_file_dyndep (a, t, *md);
-    });
-#endif
+      execute_update_file (bs, a, t, env, run);
+    }
+
+    // Extract the dynamic dependency information as byproduct of the recipe
+    // body. Essentially, this is the `if(!cache)` equivalent of the restart
+    // loop in exec_depdb_dyndep().
+    //
+    if (!ctx.dry_run)
+    {
+      using dyndep = dyndep_rule;
+      using dyndep_format = build::script::parser::dyndep_format;
+
+      depdb dd (move (md.dd));
+
+      const auto& byp (md.byp);
+      const location& ll (byp.location);
+      const char* what (byp.what.c_str ());
+      const path& file (byp.file);
+
+      env.clean ({build2::script::cleanup_type::always, file},
+                 true /* implicit */);
+
+      function<dyndep::map_extension_func> map_ext (
+        [] (const scope& bs, const string& n, const string& e)
+        {
+          // NOTE: another version in exec_depdb_dyndep() and above.
+
+          return dyndep::map_extension (bs, n, e, nullptr);
+        });
+
+      // Analogous to exec_depdb_dyndep()::add() but only for cache=false.
+      // The semantics is quite different, however: instead of updating the
+      // dynamic prerequisites we verify they are not generated.
+      //
+      // Note that fp is expected to be absolute.
+      //
+      auto add = [this, &trace, what,
+                  a, &bs, &t, &pts, pts_n = md.pts_n,
+                  &byp, &map_ext, &dd] (path fp)
+      {
+        normalize_external (fp, what);
+
+        if (const build2::file* ft = dyndep::find_file (
+              trace, what,
+              a, bs, t,
+              fp, false /* cache */, true /* normalized */,
+              map_ext, *byp.default_type).first)
+        {
+          // Skip if this is one of the static prerequisites.
+          //
+          for (size_t i (0); i != pts_n; ++i)
+          {
+            const prerequisite_target& p (pts[i]);
+
+            if (const target* pt =
+                (p.target != nullptr ? p.target :
+                 p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+                 nullptr))
+            {
+              if (pt == ft)
+                return;
+            }
+          }
+
+          // Verify it has noop recipe.
+          //
+          dyndep::verify_existing_file (trace, what, a, t, *ft);
+        }
+
+        dd.write (fp);
+      };
+
+      auto df = make_diag_frame (
+        [this, &ll, &t] (const diag_record& dr)
+        {
+          if (verb != 0)
+            dr << info (ll) << "while extracting dynamic dependencies for "
+               << t;
+        });
+
+      ifdstream is (ifdstream::badbit);
+      try
+      {
+        is.open (file);
+      }
+      catch (const io_error& e)
+      {
+        fail (ll) << "unable to open file " << file << ": " << e;
+      }
+
+      location il (file, 1);
+      size_t skip (md.skip_count);
+
+      // The way we parse things is format-specific.
+      //
+      // Note: similar code in exec_depdb_dyndep(). Except here we just add
+      // the paths to depdb without entering them as targets.
+      //
+      switch (md.byp.format)
+      {
+      case dyndep_format::make:
+        {
+          using make_state = make_parser;
+          using make_type = make_parser::type;
+
+          make_parser make;
+
+          for (string l;; ++il.line) // Reuse the buffer.
+          {
+            if (eof (getline (is, l)))
+            {
+              if (make.state != make_state::end)
+                fail (il) << "incomplete make dependency declaration";
+
+              break;
+            }
+
+            size_t pos (0);
+            do
+            {
+              // Note that we don't really need a diag frame that prints the
+              // line being parsed since we are always parsing the file.
+              //
+              pair<make_type, string> r (
+                make.next (l, pos, il, false /* strict */));
+
+              if (r.second.empty ())
+                continue;
+
+              // @@ TODO: what should we do about targets?
+              //
+              if (r.first == make_type::target)
+                continue;
+
+              // Skip until where we left off.
+              //
+              if (skip != 0)
+              {
+                skip--;
+                continue;
+              }
+
+              path f (move (r.second));
+
+              if (f.relative ())
+              {
+                if (!byp.cwd)
+                  fail (il) << "relative path " << f << " in make dependency "
+                            << "declaration" <<
+                    info << "consider using --cwd to specify relative path "
+                            << "base";
+
+                f = *byp.cwd / f;
+              }
+
+              add (move (f));
+            }
+            while (pos != l.size ());
+
+            if (make.state == make_state::end)
+              break;
+          }
+
+          break;
+        }
+      }
+
+      // Add the terminating blank line.
+      //
+      dd.expect ("");
+      dd.close ();
+
+      md.dd.path = move (dd.path); // For mtime check below.
+    }
+
+    run.leave (env, script.end_loc);
+
+    timestamp now (system_clock::now ());
+
+    if (!ctx.dry_run)
+      depdb::check_mtime (start, md.dd.path, t.path (), now);
+
+    t.mtime (now);
+    return target_state::changed;
   }
 
   target_state adhoc_buildscript_rule::
   perform_update_file_dyndep (action a, const target& xt, match_data& md) const
   {
-    tracer trace ("adhoc_buildscript_rule::perform_update_file_dyndep");
+    tracer trace ("adhoc_buildscript_rule::perform_update_file");
 
     context& ctx (xt.ctx);
 
     const file& t (xt.as<file> ());
-    const path& tp (t.path ());
 
     // While we've updated all our prerequisites in apply(), we still need to
     // execute them here to keep the dependency counts straight.
@@ -576,18 +1018,15 @@ namespace build2
 
     if (!ctx.dry_run || verb != 0)
     {
-      if (execute_update_file (*md.bs, a, t, env, run, md.deferred_failure))
-        ;
-      else
-        run.leave (env, script.end_loc);
+      execute_update_file (*md.bs, a, t, env, run, md.deferred_failure);
     }
-    else
-      run.leave (env, script.end_loc);
+
+    run.leave (env, script.end_loc);
 
     timestamp now (system_clock::now ());
 
     if (!ctx.dry_run)
-      depdb::check_mtime (start, md.dd, tp, now);
+      depdb::check_mtime (start, md.dd, t.path (), now);
 
     t.mtime (now);
     return target_state::changed;
@@ -837,6 +1276,7 @@ namespace build2
       return *ps;
     }
 
+    bool r (false);
     if (!ctx.dry_run || verb != 0)
     {
       // Prepare to execute the script diag line and/or body.
@@ -844,21 +1284,23 @@ namespace build2
       if (bs == nullptr)
         bs = &t.base_scope ();
 
-      if (execute_update_file (*bs, a, t, env, run))
+      if ((r = execute_update_file (*bs, a, t, env, run)))
       {
         if (!ctx.dry_run)
           dd.check_mtime (tp);
       }
-      else if (depdb_preamble)
-        run.leave (env, script.end_loc);
     }
-    else if (depdb_preamble)
+
+    if (r || depdb_preamble)
       run.leave (env, script.end_loc);
 
     t.mtime (system_clock::now ());
     return target_state::changed;
   }
 
+  // Return true if execute_body() was called and thus the caller should call
+  // run.leave().
+  //
   bool adhoc_buildscript_rule::
   execute_update_file (const scope& bs,
                        action, const file& t,
@@ -916,7 +1358,10 @@ namespace build2
       if (script.body_temp_dir && !script.depdb_preamble_temp_dir)
         env.set_temp_dir_variable ();
 
-      p.execute_body (rs, bs, env, script, run, script.depdb_preamble.empty ());
+      p.execute_body (rs, bs,
+                      env, script, run,
+                      script.depdb_preamble.empty () /* enter */,
+                      false                          /* leave */);
 
       if (!ctx.dry_run)
       {

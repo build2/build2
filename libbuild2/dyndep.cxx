@@ -80,7 +80,8 @@ namespace build2
                action a, target& t,
                const file& pt,
                timestamp mt,
-               bool f)
+               bool f,
+               bool ah)
   {
     // Even if failing we still use try_match() in order to issue consistent
     // (with other places) diagnostics (rather than the generic "not rule to
@@ -103,9 +104,70 @@ namespace build2
 
     // Add to our prerequisite target list.
     //
+    t.prerequisite_targets[a].push_back (prerequisite_target (&pt, ah));
+
+    return r;
+  }
+
+  optional<bool> dyndep_rule::
+  inject_existing_file (tracer& trace, const char* what,
+                        action a, target& t,
+                        const file& pt,
+                        timestamp mt,
+                        bool f)
+  {
+    if (!try_match (a, pt).first)
+    {
+      if (!f)
+        return nullopt;
+
+      diag_record dr;
+      dr << fail << what << ' ' << pt << " not found and no rule to "
+         << "generate it";
+
+      if (verb < 4)
+        dr << info << "re-run with --verbose=4 for more information";
+    }
+
+    recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
+    if (rf == nullptr || *rf != &noop_action)
+    {
+      fail << what << ' ' << pt << " has non-noop recipe" <<
+        info << "consider listing it as static prerequisite of " << t;
+    }
+
+    bool r (update (trace, a, pt, mt));
+
+    // Add to our prerequisite target list.
+    //
     t.prerequisite_targets[a].push_back (&pt);
 
     return r;
+  }
+
+  void dyndep_rule::
+  verify_existing_file (tracer&, const char* what,
+                        action a, const target& t,
+                        const file& pt)
+  {
+    diag_record dr;
+
+    if (pt.matched (a))
+    {
+      recipe_function* const* rf (pt[a].recipe.target<recipe_function*> ());
+      if (rf == nullptr || *rf != &noop_action)
+      {
+        dr << fail << what << ' ' << pt << " has non-noop recipe";
+      }
+    }
+    else if (pt.decl == target_decl::real)
+    {
+      dr << fail << what << ' ' << pt << " is explicitly declared as "
+         << "target and may have non-noop recipe";
+    }
+
+    if (!dr.empty ())
+      dr << info << "consider listing it as static prerequisite of " << t;
   }
 
   // Reverse-lookup target type(s) from file name/extension.
@@ -367,14 +429,16 @@ namespace build2
     return false;
   }
 
-  pair<const file*, bool> dyndep_rule::
-  enter_file (tracer& trace, const char* what,
-              action a, const scope& bs, target& t,
-              path&& f, bool cache, bool norm,
-              const function<map_extension_func>& map_extension,
-              const target_type& fallback,
-              const function<prefix_map_func>& get_pfx_map,
-              const srcout_map& so_map)
+  static pair<const file*, bool>
+  enter_file_impl (
+    tracer& trace, const char* what,
+    action a, const scope& bs, const target& t,
+    path& fp, bool cache, bool norm,
+    bool insert,
+    const function<dyndep_rule::map_extension_func>& map_extension,
+    const target_type& fallback,
+    const function<dyndep_rule::prefix_map_func>& get_pfx_map,
+    const dyndep_rule::srcout_map& so_map)
   {
     // Find or maybe insert the target. The directory is only moved from if
     // insert is true. Note that it must be normalized.
@@ -545,85 +609,87 @@ namespace build2
 
     // If still relative then it does not exist.
     //
-    if (f.relative ())
+    if (fp.relative ())
     {
       // This is probably as often an error as an auto-generated file, so
       // trace at level 4.
       //
-      l4 ([&]{trace << "non-existent " << what << " '" << f << "'";});
+      l4 ([&]{trace << "non-existent " << what << " '" << fp << "'";});
 
-      f.normalize ();
-
-      // The relative path might still contain '..' (e.g., ../foo.hxx;
-      // presumably ""-include'ed). We don't attempt to support auto-
-      // generated files with such inclusion styles.
-      //
-      if (get_pfx_map != nullptr && f.normalized ())
+      if (get_pfx_map != nullptr)
       {
-        const prefix_map& pfx_map (get_pfx_map (a, bs, t));
+        fp.normalize ();
 
-        // First try the whole file. Then just the directory.
+        // The relative path might still contain '..' (e.g., ../foo.hxx;
+        // presumably ""-include'ed). We don't attempt to support auto-
+        // generated files with such inclusion styles.
         //
-        // @@ Has to be a separate map since the prefix can be the same as
-        //    the file name.
-        //
-        // auto i (pfx_map->find (f));
-
-        // Find the most qualified prefix of which we are a sub-path.
-        //
-        if (!pfx_map.empty ())
+        if (fp.normalized ())
         {
-          dir_path d (f.directory ());
-          auto p (pfx_map.sup_range (d));
+          const dyndep_rule::prefix_map& pfx_map (get_pfx_map (a, bs, t));
 
-          if (p.first != p.second)
+          // First try the whole file. Then just the directory.
+          //
+          // @@ Has to be a separate map since the prefix can be the same as
+          //    the file name.
+          //
+          // auto i (pfx_map->find (f));
+
+          // Find the most qualified prefix of which we are a sub-path.
+          //
+          if (!pfx_map.empty ())
           {
-            // Note that we can only have multiple entries for the
-            // prefixless mapping.
-            //
-            dir_path pd; // Reuse.
-            for (auto i (p.first); i != p.second; ++i)
+            dir_path d (fp.directory ());
+            auto p (pfx_map.sup_range (d));
+
+            if (p.first != p.second)
             {
-              // Note: value in pfx_map is not necessarily canonical.
+              // Note that we can only have multiple entries for the
+              // prefixless mapping.
               //
-              pd = i->second.directory;
-              pd.canonicalize ();
-
-              l4 ([&]{trace << "try prefix '" << d << "' mapped to " << pd;});
-
-              // If this is a prefixless mapping, then only use it if we can
-              // resolve it to an existing target (i.e., it is explicitly
-              // spelled out in a buildfile). @@ Hm, I wonder why, it's not
-              // like we can generate any file without an explicit target.
-              // Maybe for diagnostics (i.e., we will actually try to build
-              // something there instead of just saying no mapping).
-              //
-              pt = find (pd / d, f.leaf (), !i->first.empty ());
-              if (pt != nullptr)
+              dir_path pd; // Reuse.
+              for (auto i (p.first); i != p.second; ++i)
               {
-                f = pd / f;
-                l4 ([&]{trace << "mapped as auto-generated " << f;});
-                break;
+                // Note: value in pfx_map is not necessarily canonical.
+                //
+                pd = i->second.directory;
+                pd.canonicalize ();
+
+                l4 ([&]{trace << "try prefix '" << d << "' mapped to " << pd;});
+
+                // If this is a prefixless mapping, then only use it if we can
+                // resolve it to an existing target (i.e., it is explicitly
+                // spelled out in a buildfile). @@ Hm, I wonder why, it's not
+                // like we can generate any file without an explicit target.
+                // Maybe for diagnostics (i.e., we will actually try to build
+                // something there instead of just saying no mapping).
+                //
+                pt = find (pd / d, fp.leaf (), insert && !i->first.empty ());
+                if (pt != nullptr)
+                {
+                  fp = pd / fp;
+                  l4 ([&]{trace << "mapped as auto-generated " << fp;});
+                  break;
+                }
+                else
+                  l4 ([&]{trace << "no explicit target in " << pd;});
               }
-              else
-                l4 ([&]{trace << "no explicit target in " << pd;});
             }
+            else
+              l4 ([&]{trace << "no prefix map entry for '" << d << "'";});
           }
           else
-            l4 ([&]{trace << "no prefix map entry for '" << d << "'";});
+            l4 ([&]{trace << "prefix map is empty";});
         }
-        else
-          l4 ([&]{trace << "prefix map is empty";});
       }
     }
     else
     {
-      // Normalize the path unless it comes from the depdb, in which case
-      // we've already done that (normally). This is also where we handle
-      // src-out remap (again, not needed if cached).
+      // Normalize the path unless it is already normalized. This is also
+      // where we handle src-out remap which is not needed if cached.
       //
-      if (!cache || norm)
-        normalize_external (f, what);
+      if (!norm)
+        normalize_external (fp, what);
 
       if (!cache)
       {
@@ -631,7 +697,7 @@ namespace build2
         {
           // Find the most qualified prefix of which we are a sub-path.
           //
-          auto i (so_map.find_sup (f));
+          auto i (so_map.find_sup (fp));
           if (i != so_map.end ())
           {
             // Ok, there is an out tree for this file. Remap to a path from
@@ -639,16 +705,16 @@ namespace build2
             // value in so_map is not necessarily canonical.
             //
             dir_path d (i->second);
-            d /= f.leaf (i->first).directory ();
+            d /= fp.leaf (i->first).directory ();
             d.canonicalize ();
 
-            pt = find (move (d), f.leaf (), false); // d is not moved from.
+            pt = find (move (d), fp.leaf (), false); // d is not moved from.
 
             if (pt != nullptr)
             {
-              path p (d / f.leaf ());
-              l4 ([&]{trace << "remapping " << f << " to " << p;});
-              f = move (p);
+              path p (d / fp.leaf ());
+              l4 ([&]{trace << "remapping " << fp << " to " << p;});
+              fp = move (p);
               remapped = true;
             }
           }
@@ -657,11 +723,43 @@ namespace build2
 
       if (pt == nullptr)
       {
-        l6 ([&]{trace << "entering " << f;});
-        pt = find (f.directory (), f.leaf (), true);
+        l6 ([&]{trace << (insert ? "entering " : "finding ") << fp;});
+        pt = find (fp.directory (), fp.leaf (), insert);
       }
     }
 
     return make_pair (pt, remapped);
+  }
+
+  pair<const file*, bool> dyndep_rule::
+  enter_file (tracer& trace, const char* what,
+              action a, const scope& bs, target& t,
+              path& fp, bool cache, bool norm,
+              const function<map_extension_func>& map_ext,
+              const target_type& fallback,
+              const function<prefix_map_func>& pfx_map,
+              const srcout_map& so_map)
+  {
+    return enter_file_impl (trace, what,
+                            a, bs, t,
+                            fp, cache, norm,
+                            true /* insert */,
+                            map_ext, fallback, pfx_map, so_map);
+  }
+
+  pair<const file*, bool> dyndep_rule::
+  find_file (tracer& trace, const char* what,
+             action a, const scope& bs, const target& t,
+             path& fp, bool cache, bool norm,
+             const function<map_extension_func>& map_ext,
+             const target_type& fallback,
+             const function<prefix_map_func>& pfx_map,
+             const srcout_map& so_map)
+  {
+    return enter_file_impl (trace, what,
+                            a, bs, t,
+                            fp, cache, norm,
+                            false /* insert */,
+                            map_ext, fallback, pfx_map, so_map);
   }
 }
