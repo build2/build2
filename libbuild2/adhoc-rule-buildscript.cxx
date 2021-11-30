@@ -571,7 +571,7 @@ namespace build2
         //
         size_t& skip_count (mdb->skip_count);
 
-        auto add = [this, &trace, what,
+        auto add = [&trace, what,
                     a, &bs, &t, &pts, pts_n = mdb->pts_n,
                     &byp, &map_ext,
                     &skip_count, mt] (path fp) -> optional<bool>
@@ -618,7 +618,7 @@ namespace build2
         };
 
         auto df = make_diag_frame (
-          [this, &ll, &t] (const diag_record& dr)
+          [&ll, &t] (const diag_record& dr)
           {
             if (verb != 0)
               dr << info (ll) << "while extracting dynamic dependencies for "
@@ -826,7 +826,7 @@ namespace build2
       //
       // Note that fp is expected to be absolute.
       //
-      auto add = [this, &trace, what,
+      auto add = [&trace, what,
                   a, &bs, &t, &pts, pts_n = md.pts_n,
                   &byp, &map_ext, &dd] (path fp)
       {
@@ -863,7 +863,7 @@ namespace build2
       };
 
       auto df = make_diag_frame (
-        [this, &ll, &t] (const diag_record& dr)
+        [&ll, &t] (const diag_record& dr)
         {
           if (verb != 0)
             dr << info (ll) << "while extracting dynamic dependencies for "
