@@ -1108,12 +1108,16 @@ namespace build2
 
             for (shared_ptr<adhoc_rule>& pr: recipes)
             {
-              adhoc_rule& r (*pr);
-              r.pattern = &rp; // Connect recipe to pattern.
+              pr->pattern = &rp; // Connect recipe to pattern.
               rp.rules.push_back (move (pr));
+            }
 
-              // Register this adhoc rule for all its actions.
-              //
+            // Register this adhoc rule for all its actions.
+            //
+            for (shared_ptr<adhoc_rule>& pr: rp.rules)
+            {
+              adhoc_rule& r (*pr);
+
               for (action a: r.actions)
               {
                 // This covers both duplicate recipe actions withing the rule
@@ -1146,6 +1150,26 @@ namespace build2
                 scope_->rules.insert (
                   a.meta_operation (), 0,
                   *ttype, rp.rule_name, rp.fallback_rule_);
+
+                // We also register for the dist meta-operation in order to
+                // inject additional prerequisites which may "pull" additional
+                // sources into the distribution. Unless there is an explicit
+                // recipe for dist.
+                //
+                if (a.meta_operation () == perform_id)
+                {
+                  action da (dist_id, a.operation ());
+
+                  for (shared_ptr<adhoc_rule>& pr: rp.rules)
+                    for (action a: pr->actions)
+                      if (da == a)
+                        goto skip;
+
+                  scope_->rules.insert (da, *ttype, rp.rule_name, r);
+
+                skip:
+                  ;
+                }
               }
             }
           }

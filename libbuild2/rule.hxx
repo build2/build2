@@ -149,6 +149,11 @@ namespace build2
   // auxiliary data storage until the pattern's apply_*() calls have been
   // made.
   //
+  // Note also that when used as part of a pattern, the rule is also register
+  // for the dist meta-operation (unless there is an explicit recipe for dist)
+  // in order to inject additional pattern prerequisites which may "pull"
+  // additional sources into the distribution.
+  //
   // Note: not exported.
   //
   class adhoc_rule_pattern;
