@@ -104,7 +104,7 @@ if! $posix
 : relative
 :
 {
-  $* <'print $relative([path] a/b/c, [dir_path] a/x/y)' >"../../b/c" : basics
+  $* <'print $relative([path] a/b/c, [dir_path] a/x/y)' >"..$s..$(s)b/c" : basics
 }
 
 : extension
