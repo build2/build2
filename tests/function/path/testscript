@@ -49,6 +49,28 @@ if! $posix
   $* <'print $path.directory(a/b c/d/)'        >"a/ c/" : dir-names
 }
 
+: root_directory
+:
+{
+  : posix
+  :
+  if $posix
+  {
+    $* <'print $root_directory([path] /a/b)' >'/' : basics
+    $* <'print $root_directory([path] /)' >'/'    : root
+  }
+
+  : windows
+  :
+  if $windows
+  {
+    $* <'print $root_directory([path] "c:\\a\\b")' >'c:\' : basics
+    $* <'print $root_directory([path] "c:")'       >'c:\' : root
+  }
+
+  $* <'print $root_directory([path] a/b)' >'' : relative
+}
+
 : base
 :
 {

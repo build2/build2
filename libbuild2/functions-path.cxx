@@ -312,7 +312,11 @@ namespace build2
       return ns;
     };
 
-    // directory
+    // $directory(<path>)
+    // $directory(<paths>)
+    //
+    // Return the directory part of the path or empty path if there is no
+    // directory. Directory of a root directory is an empty path.
     //
     f["directory"] += &path::directory;
 
@@ -346,6 +350,43 @@ namespace build2
       return ns;
     };
 
+    // $root_directory(<path>)
+    // $root_directory(<paths>)
+    //
+    // Return the root directory of the path or empty path if the directory is
+    // not absolute.
+    //
+    f["root_directory"] += &path::root_directory;
+
+    f["root_directory"] += [](paths v)
+    {
+      dir_paths r;
+      for (const path& p: v)
+        r.push_back (p.root_directory ());
+      return r;
+    };
+
+    f["root_directory"] += [](dir_paths v)
+    {
+      for (dir_path& p: v)
+        p = p.root_directory ();
+      return v;
+    };
+
+    f[".root_directory"] += [](names ns)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as list of directory names.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir = n.dir.root_directory ();
+        else
+          n = convert<path> (move (n)).root_directory ();
+      }
+      return ns;
+    };
 
     // $leaf(<path>)
     //
