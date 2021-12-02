@@ -79,6 +79,12 @@ if! $posix
   EOE
 }
 
+: relative
+:
+{
+  $* <'print $relative([path] a/b/c, [dir_path] a/x/y)' >"../../b/c" : basics
+}
+
 : extension
 :
 {

@@ -99,6 +99,20 @@ namespace build2
     }
   }
 
+  template <typename P>
+  static inline P
+  relative (const P& p, const dir_path& d)
+  {
+    try
+    {
+      return p.relative (d); // Note: cannot move due to diagnostics.
+    }
+    catch (const invalid_path&)
+    {
+      fail << "'" << p << "' cannot be made relative to '" << d << "'" << endf;
+    }
+  }
+
   using butl::path_match;
 
   // Return true if a path matches the pattern. See path_match() overloads
@@ -332,10 +346,18 @@ namespace build2
       return ns;
     };
 
-    // leaf
+
+    // $leaf(<path>)
     //
     f["leaf"] += &path::leaf;
 
+    // $leaf(<path>, <dir-path>)
+    // $leaf(<paths>, <dir-path>)
+    //
+    // Return the path without the specified directory part. Return empty path
+    // if the paths are the same. Issue diagnostics and fail if the directory
+    // is not a prefix of the path. Note: expects both paths to be normalized.
+    //
     f["leaf"] += [](path p, dir_path d)
     {
       return leaf (p, move (d));
@@ -367,6 +389,49 @@ namespace build2
           n.dir = leaf (n.dir, d);
         else
           n.value = leaf (convert<path> (move (n)), d).string ();
+      }
+      return ns;
+    };
+
+    // $relative(<path>, <dir-path>)
+    // $relative(<paths>, <dir-path>)
+    //
+    // Return a path relative to the specified directory that is equivalent to
+    // the specified path. Issue diagnostics and fail if a relative path
+    // cannot be derived (for example, paths are on different drives on
+    // Windows).
+    //
+    f["relative"] += [](path p, dir_path d)
+    {
+      return relative (p, d);
+    };
+
+    f["relative"] += [](paths v, dir_path d)
+    {
+      for (path& p: v)
+        p = relative (p, d);
+      return v;
+    };
+
+    f["relative"] += [](dir_paths v, dir_path d)
+    {
+      for (dir_path& p: v)
+        p = relative (p, d);
+      return v;
+    };
+
+    f[".relative"] += [](names ns, dir_path d)
+    {
+      // For each path decide based on the presence of a trailing slash
+      // whether it is a directory. Return as untyped list of (potentially
+      // mixed) paths.
+      //
+      for (name& n: ns)
+      {
+        if (n.directory ())
+          n.dir = relative (n.dir, d);
+        else
+          n.value = relative (convert<path> (move (n)), d).string ();
       }
       return ns;
     };
