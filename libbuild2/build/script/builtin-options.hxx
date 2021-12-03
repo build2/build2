@@ -433,6 +433,15 @@ namespace build2
         void
         cwd_specified (bool);
 
+        const bool&
+        drop_cycles () const;
+
+        bool&
+        drop_cycles ();
+
+        void
+        drop_cycles (const bool&);
+
         // Implementation details.
         //
         protected:
@@ -458,6 +467,7 @@ namespace build2
         bool default_type_specified_;
         dir_path cwd_;
         bool cwd_specified_;
+        bool drop_cycles_;
       };
     }
   }

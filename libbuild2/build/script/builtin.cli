@@ -42,6 +42,11 @@ namespace build2
         dir_path --cwd;               // Builtin's working directory used
                                       // to complete relative paths (only
                                       // in --byproduct mode).
+        bool --drop-cycles;           // Drop prerequisites that are also
+                                      // targets. Only use if you are sure
+                                      // such cycles are harmless, that is,
+                                      // the output is not affected by such
+                                      // prerequisites' content.
       };
     }
   }

@@ -413,7 +413,8 @@ namespace build2
         default_type_ (),
         default_type_specified_ (false),
         cwd_ (),
-        cwd_specified_ (false)
+        cwd_specified_ (false),
+        drop_cycles_ ()
       {
       }
 
@@ -511,6 +512,8 @@ namespace build2
           _cli_depdb_dyndep_options_map_["--cwd"] =
           &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::cwd_,
             &depdb_dyndep_options::cwd_specified_ >;
+          _cli_depdb_dyndep_options_map_["--drop-cycles"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::drop_cycles_ >;
         }
       };
 

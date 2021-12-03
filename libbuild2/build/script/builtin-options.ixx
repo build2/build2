@@ -358,6 +358,24 @@ namespace build2
       {
         this->cwd_specified_ = x;
       }
+
+      inline const bool& depdb_dyndep_options::
+      drop_cycles () const
+      {
+        return this->drop_cycles_;
+      }
+
+      inline bool& depdb_dyndep_options::
+      drop_cycles ()
+      {
+        return this->drop_cycles_;
+      }
+
+      inline void depdb_dyndep_options::
+      drop_cycles (const bool& x)
+      {
+        this->drop_cycles_ = x;
+      }
     }
   }
 }

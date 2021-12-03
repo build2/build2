@@ -1442,7 +1442,8 @@ namespace build2
             move (cwd),
             move (*file),
             ops.what_specified () ? move (ops.what ()) : string (what),
-            def_pt};
+            def_pt,
+            ops.drop_cycles ()};
 
           return;
         }
@@ -1600,12 +1601,14 @@ namespace build2
 
         auto add = [this, &trace, what,
                     a, &bs, &t, &pts, pts_n = pts.size (),
-                    &map_ext, def_pt, &pfx_map, &so_map,
+                    &ops, &map_ext, def_pt, &pfx_map, &so_map,
                     &dd, &skip_count] (path fp,
-                                       bool cache,
+                                       size_t* skip,
                                        timestamp mt) -> optional<bool>
         {
           context& ctx (t.ctx);
+
+          bool cache (skip == nullptr);
 
           // We can only defer the failure if we will be running the recipe
           // body.
@@ -1636,25 +1639,50 @@ namespace build2
                 fp, cache, cache /* normalized */,
                 map_ext, *def_pt, pfx_map, so_map).first)
           {
-            // Skip if this is one of the static prerequisites.
+            // We don't need to do these tests for the cached case since such
+            // prerequisites would have been skipped (and we won't get here if
+            // the target/prerequisite set changes since we hash them).
             //
-            for (size_t i (0); i != pts_n; ++i)
+            if (!cache)
             {
-              const prerequisite_target& p (pts[i]);
-
-              if (const target* pt =
-                  (p.target != nullptr ? p.target :
-                   p.data   != 0       ? reinterpret_cast<target*> (p.data) :
-                   nullptr))
+              // Skip if this is one of the static prerequisites.
+              //
+              for (size_t i (0); i != pts_n; ++i)
               {
-                if (pt == ft)
+                const prerequisite_target& p (pts[i]);
+
+                if (const target* pt =
+                    (p.target != nullptr ? p.target :
+                     p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+                     nullptr))
                 {
-                  // Note that we have to increment the skip count since we
-                  // skip before performing this test.
-                  //
-                  skip_count++;
-                  return false;
+                  if (ft == pt)
+                    return false;
                 }
+              }
+
+              // Skip if this is one of the targets.
+              //
+              if (ops.drop_cycles ())
+              {
+                for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+                {
+                  if (ft == m)
+                    return false;
+                }
+              }
+
+              // Skip until where we left off.
+              //
+              // Note that we used to do this outside of this lambda and
+              // before calling enter_file() but due to the above skips we can
+              // only do it here if we want to have a consistent view of the
+              // prerequisite lists between the cached and non-cached cases.
+              //
+              if (*skip != 0)
+              {
+                --(*skip);
+                return false;
               }
             }
 
@@ -1724,7 +1752,7 @@ namespace build2
               if (l->empty ()) // Done, nothing changed.
                 return;
 
-              if (optional<bool> r = add (path (move (*l)), true /*cache*/, mt))
+              if (optional<bool> r = add (path (move (*l)), nullptr, mt))
               {
                 restart = *r;
 
@@ -1880,16 +1908,8 @@ namespace build2
                     if (r.first == make_type::target)
                       continue;
 
-                    // Skip until where we left off.
-                    //
-                    if (skip != 0)
-                    {
-                      skip--;
-                      continue;
-                    }
-
                     if (optional<bool> u = add (path (move (r.second)),
-                                                false /* cache */,
+                                                &skip,
                                                 rmt))
                     {
                       restart = *u;

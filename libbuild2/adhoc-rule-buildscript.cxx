@@ -582,28 +582,6 @@ namespace build2
                 fp, true /* cache */, true /* normalized */,
                 map_ext, *byp.default_type).first)
           {
-            // Skip if this is one of the static prerequisites.
-            //
-            for (size_t i (0); i != pts_n; ++i)
-            {
-              const prerequisite_target& p (pts[i]);
-
-              if (const target* pt =
-                  (p.target != nullptr ? p.target :
-                   p.data   != 0       ? reinterpret_cast<target*> (p.data) :
-                   nullptr))
-              {
-                if (pt == ft)
-                {
-                  // Note that we have to increment the skip count since we
-                  // skip before performing this test.
-                  //
-                  skip_count++;
-                  return false;
-                }
-              }
-            }
-
             if (optional<bool> u = dyndep::inject_existing_file (
                   trace, what,
                   a, t,
@@ -826,9 +804,11 @@ namespace build2
       //
       // Note that fp is expected to be absolute.
       //
+      size_t skip (md.skip_count);
+
       auto add = [&trace, what,
                   a, &bs, &t, &pts, pts_n = md.pts_n,
-                  &byp, &map_ext, &dd] (path fp)
+                  &byp, &map_ext, &dd, &skip] (path fp)
       {
         normalize_external (fp, what);
 
@@ -849,9 +829,28 @@ namespace build2
                  p.data   != 0       ? reinterpret_cast<target*> (p.data) :
                  nullptr))
             {
-              if (pt == ft)
+              if (ft == pt)
                 return;
             }
+          }
+
+          // Skip if this is one of the targets.
+          //
+          if (byp.drop_cycles)
+          {
+            for (const target* m (&t); m != nullptr; m = m->adhoc_member)
+            {
+              if (ft == m)
+                return;
+            }
+          }
+
+          // Skip until where we left off.
+          //
+          if (skip != 0)
+          {
+            --skip;
+            return;
           }
 
           // Verify it has noop recipe.
@@ -881,7 +880,6 @@ namespace build2
       }
 
       location il (file, 1);
-      size_t skip (md.skip_count);
 
       // The way we parse things is format-specific.
       //
@@ -923,14 +921,6 @@ namespace build2
               //
               if (r.first == make_type::target)
                 continue;
-
-              // Skip until where we left off.
-              //
-              if (skip != 0)
-              {
-                skip--;
-                continue;
-              }
 
               path f (move (r.second));
 

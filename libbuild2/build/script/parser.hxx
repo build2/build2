@@ -143,6 +143,7 @@ namespace build2
           path               file;
           string             what;
           const target_type* default_type;
+          bool               drop_cycles;
         };
 
         dyndep_byproduct
