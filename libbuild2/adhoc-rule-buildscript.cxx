@@ -572,7 +572,7 @@ namespace build2
         size_t& skip_count (mdb->skip_count);
 
         auto add = [&trace, what,
-                    a, &bs, &t, &pts, pts_n = mdb->pts_n,
+                    a, &bs, &t,
                     &byp, &map_ext,
                     &skip_count, mt] (path fp) -> optional<bool>
         {
