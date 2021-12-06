@@ -1866,7 +1866,7 @@ namespace build2
                   size_t pos (0);
                   do
                   {
-                    pair<make_type, string> r;
+                    pair<make_type, path> r;
                     {
                       auto df = make_diag_frame (
                         [this, &l] (const diag_record& dr)
@@ -1908,9 +1908,7 @@ namespace build2
                     if (r.first == make_type::target)
                       continue;
 
-                    if (optional<bool> u = add (path (move (r.second)),
-                                                &skip,
-                                                rmt))
+                    if (optional<bool> u = add (move (r.second), &skip, rmt))
                     {
                       restart = *u;
 

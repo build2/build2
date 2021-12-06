@@ -24,26 +24,26 @@ namespace build2
 
     // Parse next target/prerequisite on a line starting from the specified
     // position. Update the position to point to the start of the following
-    // target/prerequisite or l.size() if there is nothing left on this
-    // line. May return an empty string for a valid if unlikely dependency
+    // target/prerequisite or line.size() if there is nothing left on this
+    // line. May return an empty path for a valid if unlikely dependency
     // declarations (see below) or if passing leading blank lines (both of
     // which should normally be just skipped). Issue diagnostics and throw
-    // failed if the declaration is invalid.
+    // failed if the declaration or path is invalid.
     //
     // If strict is false, then allow unescaped `:` in prerequisites.
     //
-    // Note that the (p != l.size) should be in the do-while rather than in a
-    // while loop. In other words, except for the leading blank lines, the
-    // parser needs to see the blank line to correctly identify the end of the
-    // declaration. See make-parser.test.cxx for a recommended usage.
+    // Note that the (pos != line.size) should be in the do-while rather than
+    // in a while loop. In other words, except for the leading blank lines,
+    // the parser needs to see the blank line to correctly identify the end of
+    // the declaration. See make-parser.test.cxx for a recommended usage.
     //
     // To parse more than one declaration, reset the state to begin after
     // reaching end.
     //
     enum class type {target, prereq};
 
-    pair<type, string>
-    next (const string&, size_t&, const location&, bool strict);
+    pair<type, path>
+    next (const string& line, size_t& pos, const location&, bool strict);
 
     // Lower-level stateless API.
     //
@@ -52,7 +52,7 @@ namespace build2
     // position. Return the target/prerequisite as well as an indication of
     // whether the end of the dependency declaration was reached. Update the
     // position to point to the start of the following target/prerequisite,
-    // `:`, or l.size() if there is nothing left on this line.
+    // `:`, or line.size() if there is nothing left on this line.
     //
     // Note that some broken tools (notably MinGW GCC) do not escape `:`
     // properly. To tolerate such cases the caller may specify that what's
@@ -78,7 +78,7 @@ namespace build2
     // baz
     //
     static pair<string, bool>
-    next (const string&, size_t&, optional<bool> prereq = nullopt);
+    next (const string& line, size_t& pos, optional<bool> prereq = nullopt);
   };
 }
 

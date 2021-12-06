@@ -11,7 +11,7 @@ namespace build2
   next (const string& l,
         size_t& p,
         const location& ll,
-        bool strict) -> pair<type, string>
+        bool strict) -> pair<type, path>
   {
     assert (state != end);
 
@@ -55,7 +55,16 @@ namespace build2
         state = end; // Not a mere optimization: the caller will get next line.
     }
 
-    return pair<type, string> (t, move (r.first));
+    try
+    {
+      return pair<type, path> (t, path (move (r.first)));
+    }
+    catch (const invalid_path& e)
+    {
+      fail (ll) << "invalid make "
+                << (t == type::prereq ? "prerequisite" : "target")
+                << " path '" << e.path << "'" << endf;
+    }
   }
 
   pair<string, bool> make_parser::

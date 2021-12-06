@@ -54,7 +54,7 @@ namespace build2
         size_t pos (0);
         do
         {
-          pair<make_type, string> r (make.next (l, pos, ll, strict));
+          pair<make_type, path> r (make.next (l, pos, ll, strict));
 
           cout << (r.first == make_type::target ? 'T' : 'P');
 

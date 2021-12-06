@@ -911,7 +911,7 @@ namespace build2
               // Note that we don't really need a diag frame that prints the
               // line being parsed since we are always parsing the file.
               //
-              pair<make_type, string> r (
+              pair<make_type, path> r (
                 make.next (l, pos, il, false /* strict */));
 
               if (r.second.empty ())
@@ -922,7 +922,7 @@ namespace build2
               if (r.first == make_type::target)
                 continue;
 
-              path f (move (r.second));
+              path& f (r.second);
 
               if (f.relative ())
               {
