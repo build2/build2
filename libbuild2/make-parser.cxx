@@ -3,22 +3,20 @@
 
 #include <libbuild2/make-parser.hxx>
 
+#include <cstring> // strchr()
+
 #include <libbuild2/diagnostics.hxx>
 
 namespace build2
 {
   auto make_parser::
-  next (const string& l,
-        size_t& p,
-        const location& ll,
-        bool strict) -> pair<type, path>
+  next (const string& l, size_t& p, const location& ll) -> pair<type, path>
   {
     assert (state != end);
 
-    pair<string, bool> r (
-      next (l, p, !strict ? state == prereqs : optional<bool> ()));
-
     type t (state == prereqs ? type::prereq : type::target);
+
+    pair<string, bool> r (next (l, p, t));
 
     // Deal with the end.
     //
@@ -67,8 +65,15 @@ namespace build2
     }
   }
 
+  // Note: backslash must be first.
+  //
+  // Note also that, at least in GNU make 4.1, `%` seems to be unescapable
+  // if appears in a target and literal if in a prerequisite.
+  //
+  static const char escapable[] = "\\ :#";
+
   pair<string, bool> make_parser::
-  next (const string& l, size_t& p, optional<bool> prereq)
+  next (const string& l, size_t& p, type)
   {
     size_t n (l.size ());
 
@@ -87,9 +92,36 @@ namespace build2
     //
     // @@ Can't we do better for the (common) case where nothing is escaped?
     //
-    for (char c, q (prereq && *prereq ? '\0' : ':');
-         p != n && (c = l[p]) != ' ' && c != q; )
+#ifdef _WIN32
+    size_t b (p);
+#endif
+
+    for (char c; p != n && (c = l[p]) != ' '; r += c)
     {
+      if (c == ':')
+      {
+#ifdef _WIN32
+        // See if this colon is part of the driver letter component in an
+        // absolute Windows path.
+        //
+        // Note that here we assume we are not dealing with directories (in
+        // which case c: would be a valid path) and thus an absolute path is
+        // at least 4 characters long (e.g., c:\x).
+        //
+        if (p == b + 1   &&       // Colon is second character.
+            alpha (l[b]) &&       // First is drive letter.
+            p + 2 < n    &&       // At least two more characters after colon.
+            ((l[p + 1] == '/') || // Next is directory separator.
+             (l[p + 1] == '\\' && // But not part of a non-\\ escape sequence.
+              strchr (escapable + 1, l[p + 2]) == nullptr)))
+        {
+          ++p;
+          continue;
+        }
+#endif
+        break;
+      }
+
       // If we have another character, then handle the escapes.
       //
       if (++p != n)
@@ -99,13 +131,8 @@ namespace build2
           // This may or may not be an escape sequence depending on whether
           // what follows is "escapable".
           //
-          switch (c = l[p])
-          {
-          case '\\':
-          case ' ':
-          case ':': ++p; break;
-          default: c = '\\'; // Restore.
-          }
+          if (strchr (escapable, l[p]) != nullptr)
+            c = l[p++];
         }
         else if (c == '$')
         {
@@ -122,8 +149,6 @@ namespace build2
         --p;
         break;
       }
-
-      r += c;
     }
 
     // Skip trailing spaces.

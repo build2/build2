@@ -19,8 +19,6 @@ namespace build2
   int
   main (int, char* argv[])
   {
-    bool strict (false);
-
     // Fake build system driver, default verbosity.
     //
     init_diag (1);
@@ -54,7 +52,7 @@ namespace build2
         size_t pos (0);
         do
         {
-          pair<make_type, path> r (make.next (l, pos, ll, strict));
+          pair<make_type, path> r (make.next (l, pos, ll));
 
           cout << (r.first == make_type::target ? 'T' : 'P');
 

@@ -1,6 +1,8 @@
 # file      : libbuild2/make-parser.test.testscript
 # license   : MIT; see accompanying LICENSE file
 
+windows = ($cxx.target.class == 'windows')
+
 : valid
 :
 $* <<EOI >>EOO
@@ -88,11 +90,40 @@ $* <<EOI >>EOO
   P bar
   EOO
 
-: lax
+: escape
 :
 $* <<EOI >>EOO
-  foo: c:\tmp\bar
+  \#foo\:\ bar: fox$$\\baz
   EOI
-  T foo
-  P c:\tmp\bar
+  T #foo: bar
+  P fox$\baz
   EOO
+
+: windows
+:
+if $windows
+{
+  $* <<EOI >>EOO
+    foo: c:\tmp\bar
+
+    c:\tmp\foo: c:\tmp\bar \
+    c:\tmp\baz
+
+    c:\\tmp\\foo: c:\\tmp\\bar
+
+    c:\x:c:\y
+    EOI
+    T foo
+    P c:\tmp\bar
+
+    T c:\tmp\foo
+    P c:\tmp\bar
+    P c:\tmp\baz
+
+    T c:\tmp\foo
+    P c:\tmp\bar
+
+    T c:\x
+    P c:\y
+    EOO
+}

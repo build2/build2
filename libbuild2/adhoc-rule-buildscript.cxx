@@ -911,8 +911,7 @@ namespace build2
               // Note that we don't really need a diag frame that prints the
               // line being parsed since we are always parsing the file.
               //
-              pair<make_type, path> r (
-                make.next (l, pos, il, false /* strict */));
+              pair<make_type, path> r (make.next (l, pos, il));
 
               if (r.second.empty ())
                 continue;

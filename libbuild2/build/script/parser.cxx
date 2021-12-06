@@ -1876,7 +1876,7 @@ namespace build2
                                << "declaration line '" << l << "'";
                         });
 
-                      r = make.next (l, pos, il, false /* strict */);
+                      r = make.next (l, pos, il);
                     }
 
                     if (r.second.empty ())

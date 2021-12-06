@@ -17,6 +17,11 @@ namespace build2
   // parse one line at a time. This allows the caller to bail out early (for
   // example, on encountering a non-existent generated file).
   //
+  // Note that most tools (MinGW GCC, Qt moc, etc) do not escape `:` in
+  // absolute Windows paths. To handle such cases the parser recognizes `:`
+  // that is a part of the driver letter component and does not treat it as
+  // the target/prerequisite separator.
+  //
   class LIBBUILD2_SYMEXPORT make_parser
   {
   public:
@@ -30,8 +35,6 @@ namespace build2
     // which should normally be just skipped). Issue diagnostics and throw
     // failed if the declaration or path is invalid.
     //
-    // If strict is false, then allow unescaped `:` in prerequisites.
-    //
     // Note that the (pos != line.size) should be in the do-while rather than
     // in a while loop. In other words, except for the leading blank lines,
     // the parser needs to see the blank line to correctly identify the end of
@@ -43,7 +46,7 @@ namespace build2
     enum class type {target, prereq};
 
     pair<type, path>
-    next (const string& line, size_t& pos, const location&, bool strict);
+    next (const string& line, size_t& pos, const location&);
 
     // Lower-level stateless API.
     //
@@ -54,11 +57,6 @@ namespace build2
     // position to point to the start of the following target/prerequisite,
     // `:`, or line.size() if there is nothing left on this line.
     //
-    // Note that some broken tools (notably MinGW GCC) do not escape `:`
-    // properly. To tolerate such cases the caller may specify that what's
-    // being parsed is the prerequisite list in which case unescaped `:` will
-    // be treated literally.
-    //
     // Note also that this function may return an empty string (with
     // end=false) for a valid if unlikely dependency declaration, for example
     // (using | to represent backslash):
@@ -67,8 +65,8 @@ namespace build2
     // |
     // bar
     //
-    // It would also return an empty string (with end=true) if passed and
-    // empty or whitespace-only line.
+    // It would also return an empty string (with end=true) if passed an empty
+    // or whitespace-only line.
     //
     // Note also that in the make language line continuations introduce a
     // whitespace rather than just being remove. For example, the following
@@ -78,7 +76,7 @@ namespace build2
     // baz
     //
     static pair<string, bool>
-    next (const string& line, size_t& pos, optional<bool> prereq = nullopt);
+    next (const string& line, size_t& pos, type);
   };
 }
 

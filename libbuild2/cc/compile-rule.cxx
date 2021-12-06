@@ -4242,18 +4242,29 @@ namespace build2
                         // Fall through to the 'second' block.
                       }
 
-                      if (second)
-                      {
-                        // Skip the source file.
-                        //
-                        make_parser::next (l, pos, true /* prereq */);
-                        second = false;
-                      }
-
                       while (pos != l.size ())
                       {
                         string f (
-                          make_parser::next (l, pos, true /* prereq */).first);
+                          make_parser::next (
+                            l, pos, make_parser::type::prereq).first);
+
+                        if (pos != l.size () && l[pos] == ':')
+                        {
+                          // @@ Hm, the same as above.
+                          //
+                          text << l;
+
+                          bad_error = true;
+                          break;
+                        }
+
+                        // Skip the source file.
+                        //
+                        if (second)
+                        {
+                          second = false;
+                          continue;
+                        }
 
                         // Skip until where we left off.
                         //
