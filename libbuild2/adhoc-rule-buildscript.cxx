@@ -336,7 +336,7 @@ namespace build2
     // See if we are providing the standard clean as a fallback.
     //
     if (me.fallback)
-      return &perform_clean_depdb;
+      return &perform_clean_file;
 
     // See if this is not update or not on a file-based target.
     //
@@ -926,8 +926,8 @@ namespace build2
               if (f.relative ())
               {
                 if (!byp.cwd)
-                  fail (il) << "relative path " << f << " in make dependency "
-                            << "declaration" <<
+                  fail (il) << "relative path '" << f << "' in make dependency"
+                            << " declaration" <<
                     info << "consider using --cwd to specify relative path "
                             << "base";
 
@@ -1384,6 +1384,21 @@ namespace build2
     }
     else
       return false;
+  }
+
+  target_state adhoc_buildscript_rule::
+  perform_clean_file (action a, const target& t)
+  {
+    // Besides .d (depdb) also clean .t which is customarily used as a
+    // temporary file, such as make dependency output in depdb-dyndep. In
+    // fact, initially the plan was to only clean it if we have dyndep but
+    // there is no reason it cannot be used for something else.
+    //
+    // Note that the main advantage of using this file over something in the
+    // temporary directory ($~) is that it's next to other output which makes
+    // it easier to examine during recipe troubleshooting.
+    //
+    return perform_clean_extra (a, t.as<file> (), {".d", ".t"});
   }
 
   target_state adhoc_buildscript_rule::

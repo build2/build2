@@ -55,6 +55,9 @@ namespace build2
                          build::script::default_runner&,
                          bool deferred_failure = false) const;
 
+    static target_state
+    perform_clean_file (action, const target&);
+
     target_state
     default_action (action, const target&, const optional<timestamp>&) const;
 
