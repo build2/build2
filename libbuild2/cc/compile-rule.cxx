@@ -3578,9 +3578,8 @@ namespace build2
           // since been removed (think of a header in /usr/local/include that
           // has been uninstalled and now we need to use one from
           // /usr/include). This will lead to the match failure which we
-          // translate to a restart.
-          //
-          // @@ Won't this fail in enter_header() rather?
+          // translate to a restart. And, yes, this case will trip up
+          // inject_header(), not enter_header().
           //
           if (optional<bool> u = inject_header (a, t, *ht, mt, false /*fail*/))
           {
