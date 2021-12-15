@@ -315,6 +315,11 @@ namespace build2
     target_key
     key_locked () const;
 
+    // Note that the returned name is guaranteed to be "stable" (e.g., for
+    // hashing) only if the target has the extension assigned. This happens,
+    // for example, when a path is derived for a path-based target (which
+    // normally happens when such a target is matched for update).
+    //
     names
     as_name () const;
 

@@ -84,7 +84,7 @@ namespace build2
       // module unconfigured.
       //
       bool new_cfg (false);
-      pair<const exe*, import_kind> ir (
+      import_result<exe> ir (
         import_direct<exe> (
           new_cfg,
           rs,
@@ -95,7 +95,7 @@ namespace build2
           loc,
           "module load"));
 
-      const exe* tgt (ir.first);
+      const exe* tgt (ir.target);
 
       // Extract metadata.
       //
@@ -125,7 +125,7 @@ namespace build2
 
       // The cli variable (untyped) is an imported compiler target name.
       //
-      rs.assign ("cli") = tgt->as_name ();
+      rs.assign ("cli") = move (ir.name);
       rs.assign (v_sum) = *sum;
       rs.assign (v_ver) = *ver;
 

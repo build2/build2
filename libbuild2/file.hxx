@@ -360,9 +360,19 @@ namespace build2
   // The what argument specifies what triggered the import (for example,
   // "module load") and is used in diagnostics.
   //
-  // This function also returns the kind of import that was performed.
+  // This function also returns the stable exported target name (see
+  // target::as_name() for details) as well as the kind of import that was
+  // performed.
   //
-  pair<const target*, import_kind>
+  template <typename T>
+  struct import_result
+  {
+    const T*    target;
+    names       name;
+    import_kind kind;
+  };
+
+  import_result<target>
   import_direct (scope& base,
                  name,
                  bool phase2,
@@ -376,7 +386,7 @@ namespace build2
   // details. Note that a phase 2 fallback/default logic is not considered new
   // (though this can be easily adjusted based on import kind).
   //
-  LIBBUILD2_SYMEXPORT pair<const target*, import_kind>
+  LIBBUILD2_SYMEXPORT import_result<target>
   import_direct (bool& new_value,
                  scope& base,
                  name,
@@ -388,13 +398,13 @@ namespace build2
 
 
   template <typename T>
-  pair<const T*, import_kind>
+  import_result<T>
   import_direct (scope&,
                  name, bool, bool, bool,
                  const location&, const char* = "import");
 
   template <typename T>
-  pair<const T*, import_kind>
+  import_result<T>
   import_direct (bool&,
                  scope&,
                  name,
@@ -406,7 +416,7 @@ namespace build2
   // build system modules to print the configuration report.
   //
   LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const pair<const exe*, import_kind>&);
+  operator<< (ostream&, const import_result<exe>&);
 
   // As import phase 2 but only imports as an already existing target. But
   // unlike it, this function can be called during the load and execute

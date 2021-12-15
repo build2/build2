@@ -33,6 +33,8 @@ namespace build2
 
     // Append/return the target name or a pair of names if out-qualified.
     //
+    // See also target::as_name() for the returned name stability guarantees.
+    //
     void
     as_name (names&) const;
 

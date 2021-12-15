@@ -2679,11 +2679,10 @@ namespace build2
     //
     if (metadata)
     {
-      pair<const target*, import_kind> r (
+      import_result<target> r (
         import_direct (base, move (tgt), ph2, opt, metadata, loc));
 
-      return make_pair (r.first != nullptr ? r.first->as_name () : names {},
-                        r.second);
+      return make_pair (move (r.name), r.kind);
     }
 
     pair<name, optional<dir_path>> r (
@@ -2725,7 +2724,13 @@ namespace build2
                                           nullopt           /* metadata */,
                                           false             /* existing */,
                                           loc))
+            {
+              // Note that here r.first was still project-qualified and we
+              // have no choice but to call as_name(). This shouldn't cause
+              // any problems since the import() call assigns the extension.
+              //
               ns = t->as_name ();
+            }
             else
               ns.clear (); // NULL
           }
@@ -2764,6 +2769,10 @@ namespace build2
     const project_name& proj (*pk.proj);
 
     // Target type-specific search.
+    //
+    // Note that if this function returns a target, it should have the
+    // extension assigned (like the find/insert_target() functions) so that
+    // as_name() returns a stable name.
     //
     const target_key& tk (pk.tk);
     const target_type& tt (*tk.type);
@@ -2862,7 +2871,7 @@ namespace build2
     dr << endf;
   }
 
-  pair<const target*, import_kind>
+  import_result<target>
   import_direct (bool& new_value,
                  scope& base,
                  name tgt,
@@ -2872,7 +2881,7 @@ namespace build2
                  const location& loc,
                  const char* what)
   {
-    // This is like normal import() except we return the target rather than
+    // This is like normal import() except we return the target in addition to
     // its name.
     //
     tracer trace ("import_direct");
@@ -2888,7 +2897,7 @@ namespace build2
     //
     auto meta (metadata ? optional<string> (tgt.value) : nullopt);
 
-    names ns;
+    names ns, rns;
     import_kind k;
     const target* pt (nullptr);
 
@@ -2911,7 +2920,7 @@ namespace build2
       if (r.first.empty ())
       {
         assert (opt);
-        return make_pair (pt, k); // NULL
+        return import_result<target> {nullptr, {}, k}; // NULL
       }
       else if (r.first.qualified ())
       {
@@ -2931,28 +2940,43 @@ namespace build2
         }
 
         if (pt == nullptr)
-          return make_pair (pt, k); // NULL
+          return import_result<target> {nullptr, {}, k}; // NULL
 
-        // Otherwise fall through.
+        // Note that here r.first was still project-qualified and we have no
+        // choice but to call as_name() (below). This shouldn't cause any
+        // problems since the import() call assigns the extension.
+
+        // Fall through.
       }
       else
+      {
+        // It's a bit fuzzy in which cases we end up here. So for now we keep
+        // the original if it's absolute and call as_name() otherwise.
+        //
+        if (r.first.absolute ())
+          rns.push_back (r.first);
+
         ns.push_back (move (r.first)); // And fall through.
+      }
     }
     else
     {
       k = r.first.absolute () ? import_kind::adhoc : import_kind::normal;
-      ns = import_load (base.ctx, move (r), metadata, loc).first;
+      rns = ns = import_load (base.ctx, move (r), metadata, loc).first;
     }
 
     if (pt == nullptr)
     {
-      // Similar logic to perform's search().
+      // Similar logic to perform's search(). Note: modifies ns.
       //
       target_key tk (base.find_target_key (ns, loc));
       pt = ctx.targets.find (tk, trace);
       if (pt == nullptr)
         fail (loc) << "unknown imported target " << tk;
     }
+
+    if (rns.empty ())
+      rns = pt->as_name ();
 
     target& t (pt->rw ()); // Load phase.
 
@@ -3025,18 +3049,18 @@ namespace build2
         fail (loc) << "no metadata for imported target " << t;
     }
 
-    return make_pair (pt, k);
+    return import_result<target> {pt, move (rns), k};
   }
 
   ostream&
-  operator<< (ostream& o, const pair<const exe*, import_kind>& p)
+  operator<< (ostream& o, const import_result<exe>& r)
   {
-    assert (p.first != nullptr);
+    assert (r.target != nullptr);
 
-    if (p.second == import_kind::normal)
-      o << *p.first;
+    if (r.kind == import_kind::normal)
+      o << *r.target;
     else
-      o << p.first->process_path ();
+      o << r.target->process_path ();
 
     return o;
   }

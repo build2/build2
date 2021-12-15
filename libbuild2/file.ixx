@@ -42,7 +42,7 @@ namespace build2
     return *import (ctx, pk, false, nullopt, false, location ());
   }
 
-  inline pair<const target*, import_kind>
+  inline import_result<target>
   import_direct (scope& base,
                  name tgt,
                  bool ph2, bool opt, bool md,
@@ -53,19 +53,21 @@ namespace build2
   }
 
   template <typename T>
-  inline pair<const T*, import_kind>
+  inline import_result<T>
   import_direct (scope& base,
                  name tgt,
                  bool ph2, bool opt, bool md,
                  const location& loc, const char* w)
   {
     auto r (import_direct (base, move (tgt), ph2, opt, md, loc, w));
-    return make_pair (r.first != nullptr ? &r.first->as<const T> () : nullptr,
-                      r.second);
+    return import_result<T> {
+      r.target != nullptr ? &r.target->as<const T> () : nullptr,
+      move (r.name),
+      r.kind};
   }
 
   template <typename T>
-  inline pair<const T*, import_kind>
+  inline import_result<T>
   import_direct (bool& nv,
                  scope& base,
                  name tgt,
@@ -73,8 +75,10 @@ namespace build2
                  const location& loc, const char* w)
   {
     auto r (import_direct (nv, base, move (tgt), ph2, opt, md, loc, w));
-    return make_pair (r.first != nullptr ? &r.first->as<const T> () : nullptr,
-                      r.second);
+    return import_result<T> {
+      r.target != nullptr ? &r.target->as<const T> () : nullptr,
+      move (r.name),
+      r.kind};
   }
 
   inline const target*
