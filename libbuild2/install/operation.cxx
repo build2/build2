@@ -13,7 +13,10 @@ namespace build2
   namespace install
   {
     static operation_id
-    install_pre (const values& params, meta_operation_id mo, const location& l)
+    install_pre (context&,
+                 const values& params,
+                 meta_operation_id mo,
+                 const location& l)
     {
       if (!params.empty ())
         fail (l) << "unexpected parameters for operation install";
@@ -82,8 +85,8 @@ namespace build2
       op_update.name_done,
       op_update.mode,
       op_update.concurrency,
-      op_update.pre,
-      op_update.post,
+      op_update.pre_operation,
+      op_update.post_operation,
       op_update.adhoc_match,
       op_update.adhoc_apply
     };

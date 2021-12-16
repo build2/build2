@@ -56,7 +56,7 @@ namespace build2
               const path& arc, const dir_path& dir, const string& ext);
 
     static operation_id
-    dist_operation_pre (const values&, operation_id o)
+    dist_operation_pre (context&, const values&, operation_id o)
     {
       if (o != default_id)
         fail << "explicit operation specified for dist meta-operation";
@@ -267,9 +267,9 @@ namespace build2
 
               // Use standard (perform) match.
               //
-              if (oif->pre != nullptr)
+              if (auto pp = oif->pre_operation)
               {
-                if (operation_id pid = oif->pre (params, dist_id, loc))
+                if (operation_id pid = pp (ctx, params, dist_id, loc))
                 {
                   const operation_info* poif (ops[pid]);
                   ctx.current_operation (*poif, oif, false /* diag_noise */);
@@ -286,9 +286,9 @@ namespace build2
                      1     /* diag (failures only) */,
                      false /* progress */);
 
-              if (oif->post != nullptr)
+              if (auto po = oif->post_operation)
               {
-                if (operation_id pid = oif->post (params, dist_id))
+                if (operation_id pid = po (ctx, params, dist_id))
                 {
                   const operation_info* poif (ops[pid]);
                   ctx.current_operation (*poif, oif, false /* diag_noise */);
@@ -411,7 +411,7 @@ namespace build2
         //
         {
           if (mo_perform.meta_operation_pre != nullptr)
-            mo_perform.meta_operation_pre (params, loc);
+            mo_perform.meta_operation_pre (ctx, params, loc);
 
           // This is a hack since according to the rules we need to completely
           // reset the state. We could have done that (i.e., saved target
@@ -427,7 +427,7 @@ namespace build2
           ctx.current_on = on + 1;
 
           if (mo_perform.operation_pre != nullptr)
-            mo_perform.operation_pre (params, update_id);
+            mo_perform.operation_pre (ctx, params, update_id);
 
           ctx.current_operation (op_update, nullptr, false /* diag_noise */);
 
@@ -442,10 +442,10 @@ namespace build2
                               prog /* progress */);
 
           if (mo_perform.operation_post != nullptr)
-            mo_perform.operation_post (params, update_id);
+            mo_perform.operation_post (ctx, params, update_id);
 
           if (mo_perform.meta_operation_post != nullptr)
-            mo_perform.meta_operation_post (params);
+            mo_perform.meta_operation_post (ctx, params);
         }
       }
       else

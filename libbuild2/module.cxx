@@ -91,8 +91,8 @@ namespace build2
     // We use the same context for building any nested modules that might be
     // required while building modules.
     //
-    ctx.module_context = ctx.module_context_storage->get ();
-    ctx.module_context->module_context = ctx.module_context;
+    context& mctx (*(ctx.module_context = ctx.module_context_storage->get ()));
+    mctx.module_context = &mctx;
 
     // Setup the context to perform update. In a sense we have a long-running
     // perform meta-operation batch (indefinite, in fact, since we never call
@@ -104,12 +104,12 @@ namespace build2
     // recipes) we will see the old state.
     //
     if (mo_perform.meta_operation_pre != nullptr)
-      mo_perform.meta_operation_pre ({} /* parameters */, loc);
+      mo_perform.meta_operation_pre (mctx, {} /* parameters */, loc);
 
-    ctx.module_context->current_meta_operation (mo_perform);
+    mctx.current_meta_operation (mo_perform);
 
     if (mo_perform.operation_pre != nullptr)
-      mo_perform.operation_pre ({} /* parameters */, update_id);
+      mo_perform.operation_pre (mctx, {} /* parameters */, update_id);
   }
 
   // Note: also used by ad hoc recipes thus not static.

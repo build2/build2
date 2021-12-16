@@ -806,7 +806,7 @@ namespace build2
     operation_id (*pre) (const values&, meta_operation_id, const location&);
 
     static operation_id
-    configure_operation_pre (const values&, operation_id o)
+    configure_operation_pre (context&, const values&, operation_id o)
     {
       // Don't translate default to update. In our case unspecified
       // means configure everything.
@@ -845,7 +845,7 @@ namespace build2
     }
 
     static void
-    configure_pre (const values& params, const location& l)
+    configure_pre (context&, const values& params, const location& l)
     {
       forward (params, "configure", l); // Validate.
     }
@@ -1152,13 +1152,13 @@ namespace build2
     }
 
     static void
-    disfigure_pre (const values& params, const location& l)
+    disfigure_pre (context&, const values& params, const location& l)
     {
       forward (params, "disfigure", l); // Validate.
     }
 
     static operation_id
-    disfigure_operation_pre (const values&, operation_id o)
+    disfigure_operation_pre (context&, const values&, operation_id o)
     {
       // Don't translate default to update. In our case unspecified
       // means disfigure everything.

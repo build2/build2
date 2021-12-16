@@ -82,8 +82,8 @@ namespace build2
     // then default_id is used. If, however, operation_pre() is NULL,
     // then default_id is translated to update_id.
     //
-    void (*meta_operation_pre) (const values&, const location&);
-    operation_id (*operation_pre) (const values&, operation_id);
+    void (*meta_operation_pre) (context&, const values&, const location&);
+    operation_id (*operation_pre) (context&, const values&, operation_id);
 
     // Meta-operation-specific logic to load the buildfile, search and match
     // the targets, and execute the action on the targets.
@@ -121,8 +121,8 @@ namespace build2
 
     // End of operation and meta-operation batches.
     //
-    void (*operation_post) (const values&, operation_id);
-    void (*meta_operation_post) (const values&);
+    void (*operation_post) (context&, const values&, operation_id);
+    void (*meta_operation_post) (context&, const values&);
 
     // Optional prerequisite exclusion override callback. See include() for
     // details. Note that it's not called for include_type::normal;
@@ -225,8 +225,11 @@ namespace build2
     // as pre/post operations for this operation. Can be NULL if unused.
     // The returned operation_id shall not be default_id.
     //
-    operation_id (*pre) (const values&, meta_operation_id, const location&);
-    operation_id (*post) (const values&, meta_operation_id);
+    operation_id (*pre_operation) (
+      context&, const values&, meta_operation_id, const location&);
+
+    operation_id (*post_operation) (
+      context&, const values&, meta_operation_id);
 
     // Operation-specific ad hoc rule callbacks. Essentially, if not NULL,
     // then every ad hoc rule match and apply call for this operation is

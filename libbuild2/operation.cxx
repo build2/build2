@@ -483,7 +483,7 @@ namespace build2
   // info
   //
   static operation_id
-  info_operation_pre (const values&, operation_id o)
+  info_operation_pre (context&, const values&, operation_id o)
   {
     if (o != default_id)
       fail << "explicit operation specified for meta-operation info";

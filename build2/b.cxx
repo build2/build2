@@ -816,18 +816,18 @@ main (int argc, char* argv[])
     // the global scope being setup. We reset it for every meta-operation (see
     // below).
     //
-    unique_ptr<context> ctx;
-    auto new_context = [&ctx, &sched, &mutexes, &fcache, &cmd_vars]
+    unique_ptr<context> pctx;
+    auto new_context = [&pctx, &sched, &mutexes, &fcache, &cmd_vars]
     {
-      ctx = nullptr; // Free first.
-      ctx.reset (new context (sched,
-                              mutexes,
-                              fcache,
-                              ops.match_only (),
-                              ops.no_external_modules (),
-                              ops.dry_run (),
-                              !ops.serial_stop () /* keep_going */,
-                              cmd_vars));
+      pctx = nullptr; // Free first.
+      pctx.reset (new context (sched,
+                               mutexes,
+                               fcache,
+                               ops.match_only (),
+                               ops.no_external_modules (),
+                               ops.dry_run (),
+                               !ops.serial_stop () /* keep_going */,
+                               cmd_vars));
     };
 
     new_context ();
@@ -840,7 +840,7 @@ main (int argc, char* argv[])
       istringstream is (args);
       is.exceptions (istringstream::failbit | istringstream::badbit);
 
-      parser p (*ctx);
+      parser p (*pctx);
       bspec = p.parse_buildspec (is, path_name ("<buildspec>"));
     }
     catch (const io_error&)
@@ -918,6 +918,8 @@ main (int argc, char* argv[])
         dirty = false;
       }
 
+      context& ctx (*pctx);
+
       const path p ("<buildspec>");
       const location l (p, 0, 0); //@@ TODO
 
@@ -932,25 +934,25 @@ main (int argc, char* argv[])
       values& mparams (lifted == nullptr ? mit->params : lifted->params);
       string  mname   (lifted == nullptr ? mit->name   : lifted->name);
 
-      ctx->current_mname = mname; // Set early.
+      ctx.current_mname = mname; // Set early.
 
       if (!mname.empty ())
       {
-        if (meta_operation_id m = ctx->meta_operation_table.find (mname))
+        if (meta_operation_id m = ctx.meta_operation_table.find (mname))
         {
           // Can modify params, opspec, change meta-operation name.
           //
-          if (auto f = ctx->meta_operation_table[m].process)
-            mname = ctx->current_mname = f (
-              *ctx, mparams, opspecs, lifted != nullptr, l);
+          if (auto f = ctx.meta_operation_table[m].process)
+            mname = ctx.current_mname = f (
+              ctx, mparams, opspecs, lifted != nullptr, l);
         }
       }
 
       // Expose early so can be used during bootstrap (with the same
       // limitations as for pre-processing).
       //
-      scope& gs (ctx->global_scope.rw ());
-      gs.assign (ctx->var_build_meta_operation) = mname;
+      scope& gs (ctx.global_scope.rw ());
+      gs.assign (ctx.var_build_meta_operation) = mname;
 
       for (auto oit (opspecs.begin ()); oit != opspecs.end (); ++oit)
       {
@@ -961,7 +963,7 @@ main (int argc, char* argv[])
         const values& oparams (lifted == nullptr ? os.params : values ());
         const string& oname   (lifted == nullptr ? os.name   : empty_string);
 
-        ctx->current_oname = oname; // Set early.
+        ctx.current_oname = oname; // Set early.
 
         if (lifted != nullptr)
           lifted = nullptr; // Clear for the next iteration.
@@ -985,7 +987,7 @@ main (int argc, char* argv[])
                      &oname, &mname,
                      &os, &mit, &lifted, &skip, &l, &trace] ()
         {
-          meta_operation_id m (ctx->meta_operation_table.find (oname));
+          meta_operation_id m (ctx.meta_operation_table.find (oname));
 
           if (m != 0)
           {
@@ -1144,7 +1146,7 @@ main (int argc, char* argv[])
               // Handle a forwarded configuration. Note that if we've changed
               // out_root then we also have to remap out_base.
               //
-              out_root = bootstrap_fwd (*ctx, src_root, altn);
+              out_root = bootstrap_fwd (ctx, src_root, altn);
               if (src_root != out_root)
               {
                 out_base = out_root / out_base.leaf (src_root);
@@ -1189,7 +1191,7 @@ main (int argc, char* argv[])
           // use to the bootstrap files (other than src-root.build, which,
           // BTW, doesn't need to exist if src_root == out_root).
           //
-          scope& rs (*create_root (*ctx, out_root, src_root)->second.front ());
+          scope& rs (*create_root (ctx, out_root, src_root)->second.front ());
 
           bool bstrapped (bootstrapped (rs));
 
@@ -1225,8 +1227,8 @@ main (int argc, char* argv[])
                        << (forwarded ? "forwarded " : "specified ")
                        << src_root;
 
-                ctx->new_src_root = src_root;
-                ctx->old_src_root = move (p);
+                ctx.new_src_root = src_root;
+                ctx.old_src_root = move (p);
                 p = src_root;
               }
             }
@@ -1269,7 +1271,7 @@ main (int argc, char* argv[])
             // command line and import).
             //
             if (forwarded)
-              rs.assign (ctx->var_forwarded) = true;
+              rs.assign (ctx.var_forwarded) = true;
 
             // Sync local variable that are used below with actual values.
             //
@@ -1321,8 +1323,8 @@ main (int argc, char* argv[])
           // all be known. We store the combined action id in uint8_t;
           // see <operation> for details.
           //
-          assert (ctx->operation_table.size () <= 128);
-          assert (ctx->meta_operation_table.size () <= 128);
+          assert (ctx.operation_table.size () <= 128);
+          assert (ctx.meta_operation_table.size () <= 128);
 
           // Since we now know all the names of meta-operations and
           // operations, "lift" names that we assumed (from buildspec syntax)
@@ -1339,7 +1341,7 @@ main (int argc, char* argv[])
 
             if (!mname.empty ())
             {
-              m = ctx->meta_operation_table.find (mname);
+              m = ctx.meta_operation_table.find (mname);
 
               if (m == 0)
                 fail (l) << "unknown meta-operation " << mname;
@@ -1347,7 +1349,7 @@ main (int argc, char* argv[])
 
             if (!oname.empty ())
             {
-              o = ctx->operation_table.find (oname);
+              o = ctx.operation_table.find (oname);
 
               if (o == 0)
                 fail (l) << "unknown operation " << oname;
@@ -1370,7 +1372,7 @@ main (int argc, char* argv[])
 
               if (mif == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
-                         << "operation " << ctx->meta_operation_table[m].name;
+                         << "operation " << ctx.meta_operation_table[m].name;
             }
             //
             // Otherwise, check that all the targets in a meta-operation
@@ -1383,7 +1385,7 @@ main (int argc, char* argv[])
 
               if (mi == nullptr)
                 fail (l) << "target " << tn << " does not support meta-"
-                         << "operation " << ctx->meta_operation_table[mid].name;
+                         << "operation " << ctx.meta_operation_table[mid].name;
 
               if (mi != mif)
                 fail (l) << "different implementations of meta-operation "
@@ -1406,12 +1408,12 @@ main (int argc, char* argv[])
                             << ", id " << static_cast<uint16_t> (mid);});
 
               if (mif->meta_operation_pre != nullptr)
-                mif->meta_operation_pre (mparams, l);
+                mif->meta_operation_pre (ctx, mparams, l);
               else if (!mparams.empty ())
                 fail (l) << "unexpected parameters for meta-operation "
                          << mif->name;
 
-              ctx->current_meta_operation (*mif);
+              ctx.current_meta_operation (*mif);
               dirty = true;
             }
 
@@ -1427,7 +1429,7 @@ main (int argc, char* argv[])
 
                 if (r == nullptr)
                   fail (l) << "target " << tn << " does not support "
-                           << "operation " << ctx->operation_table[o];
+                           << "operation " << ctx.operation_table[o];
                 return r;
               };
 
@@ -1445,7 +1447,7 @@ main (int argc, char* argv[])
               // Allow the meta-operation to translate the operation.
               //
               if (mif->operation_pre != nullptr)
-                oid = mif->operation_pre (mparams, oif->id);
+                oid = mif->operation_pre (ctx, mparams, oif->id);
               else // Otherwise translate default to update.
                 oid = (oif->id == default_id ? update_id : oif->id);
 
@@ -1468,9 +1470,9 @@ main (int argc, char* argv[])
 
               // Handle pre/post operations.
               //
-              if (oif->pre != nullptr)
+              if (auto po = oif->pre_operation)
               {
-                if ((orig_pre_oid = oif->pre (oparams, mid, l)) != 0)
+                if ((orig_pre_oid = po (ctx, oparams, mid, l)) != 0)
                 {
                   assert (orig_pre_oid != default_id);
                   pre_oif = lookup (orig_pre_oid);
@@ -1478,12 +1480,11 @@ main (int argc, char* argv[])
                 }
               }
               else if (!oparams.empty ())
-                fail (l) << "unexpected parameters for operation "
-                         << oif->name;
+                fail (l) << "unexpected parameters for operation " << oif->name;
 
-              if (oif->post != nullptr)
+              if (auto po = oif->post_operation)
               {
-                if ((orig_post_oid = oif->post (oparams, mid)) != 0)
+                if ((orig_post_oid = po (ctx, oparams, mid)) != 0)
                 {
                   assert (orig_post_oid != default_id);
                   post_oif = lookup (orig_post_oid);
@@ -1504,7 +1505,7 @@ main (int argc, char* argv[])
 
                 if (r == nullptr)
                   fail (l) << "target " << tn << " does not support "
-                           << "operation " << ctx->operation_table[o];
+                           << "operation " << ctx.operation_table[o];
 
                 if (r != i)
                   fail (l) << "different implementations of operation "
@@ -1590,9 +1591,9 @@ main (int argc, char* argv[])
           // So we split it into two passes.
           //
           {
-            auto& sm (ctx->scopes.rw ());
+            auto& sm (ctx.scopes.rw ());
 
-            for (const variable_override& o: ctx->var_overrides)
+            for (const variable_override& o: ctx.var_overrides)
             {
               if (o.ovr.visibility != variable_visibility::global)
                 continue;
@@ -1614,7 +1615,7 @@ main (int argc, char* argv[])
               v = o.val;
             }
 
-            for (const variable_override& o: ctx->var_overrides)
+            for (const variable_override& o: ctx.var_overrides)
             {
               // Ours is either project (%foo) or scope (/foo).
               //
@@ -1669,7 +1670,7 @@ main (int argc, char* argv[])
           // building before we know how to for all the targets in this
           // operation batch.
           //
-          const scope& bs (ctx->scopes.find_out (ts.out_base));
+          const scope& bs (ctx.scopes.find_out (ts.out_base));
 
           // Find the target type and extract the extension.
           //
@@ -1711,7 +1712,7 @@ main (int argc, char* argv[])
         } // target
 
         if (dump_load)
-          dump (*ctx);
+          dump (ctx);
 
         // Finally, match the rules and perform the operation.
         //
@@ -1721,9 +1722,9 @@ main (int argc, char* argv[])
                         << ", id " << static_cast<uint16_t> (pre_oid);});
 
           if (mif->operation_pre != nullptr)
-            mif->operation_pre (mparams, pre_oid); // Cannot be translated.
+            mif->operation_pre (ctx, mparams, pre_oid); // Can't be translated.
 
-          ctx->current_operation (*pre_oif, oif);
+          ctx.current_operation (*pre_oif, oif);
 
           action a (mid, pre_oid, oid);
 
@@ -1735,14 +1736,14 @@ main (int argc, char* argv[])
               mif->match (mparams, a, tgs, diag, true /* progress */);
 
             if (dump_match)
-              dump (*ctx, a);
+              dump (ctx, a);
 
-            if (mif->execute != nullptr && !ctx->match_only)
+            if (mif->execute != nullptr && !ctx.match_only)
               mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 
           if (mif->operation_post != nullptr)
-            mif->operation_post (mparams, pre_oid);
+            mif->operation_post (ctx, mparams, pre_oid);
 
           l5 ([&]{trace << "end pre-operation batch " << pre_oif->name
                         << ", id " << static_cast<uint16_t> (pre_oid);});
@@ -1750,7 +1751,7 @@ main (int argc, char* argv[])
           tgs.reset ();
         }
 
-        ctx->current_operation (*oif, outer_oif);
+        ctx.current_operation (*oif, outer_oif);
 
         action a (mid, oid, oif->outer_id);
 
@@ -1762,9 +1763,9 @@ main (int argc, char* argv[])
             mif->match (mparams, a, tgs, diag, true /* progress */);
 
           if (dump_match)
-            dump (*ctx, a);
+            dump (ctx, a);
 
-          if (mif->execute != nullptr && !ctx->match_only)
+          if (mif->execute != nullptr && !ctx.match_only)
             mif->execute (mparams, a, tgs, diag, true /* progress */);
         }
 
@@ -1776,9 +1777,9 @@ main (int argc, char* argv[])
                         << ", id " << static_cast<uint16_t> (post_oid);});
 
           if (mif->operation_pre != nullptr)
-            mif->operation_pre (mparams, post_oid); // Cannot be translated.
+            mif->operation_pre (ctx, mparams, post_oid); // Can't be translated.
 
-          ctx->current_operation (*post_oif, oif);
+          ctx.current_operation (*post_oif, oif);
 
           action a (mid, post_oid, oid);
 
@@ -1790,21 +1791,21 @@ main (int argc, char* argv[])
               mif->match (mparams, a, tgs, diag, true /* progress */);
 
             if (dump_match)
-              dump (*ctx, a);
+              dump (ctx, a);
 
-            if (mif->execute != nullptr && !ctx->match_only)
+            if (mif->execute != nullptr && !ctx.match_only)
               mif->execute (mparams, a, tgs, diag, true /* progress */);
           }
 
           if (mif->operation_post != nullptr)
-            mif->operation_post (mparams, post_oid);
+            mif->operation_post (ctx, mparams, post_oid);
 
           l5 ([&]{trace << "end post-operation batch " << post_oif->name
                         << ", id " << static_cast<uint16_t> (post_oid);});
         }
 
         if (mif->operation_post != nullptr)
-          mif->operation_post (mparams, oid);
+          mif->operation_post (ctx, mparams, oid);
 
         l5 ([&]{trace << "end operation batch " << oif->name
                       << ", id " << static_cast<uint16_t> (oid);});
@@ -1813,7 +1814,7 @@ main (int argc, char* argv[])
       if (mid != 0)
       {
         if (mif->meta_operation_post != nullptr)
-          mif->meta_operation_post (mparams);
+          mif->meta_operation_post (ctx, mparams);
 
         l5 ([&]{trace << "end meta-operation batch " << mif->name
                       << ", id " << static_cast<uint16_t> (mid);});
