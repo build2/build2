@@ -3,7 +3,8 @@
 
 #include <libbuild2/operation.hxx>
 
-#include <iostream> // cout
+#include <iostream>      // cout
+#include <unordered_map>
 
 #include <libbuild2/file.hxx>
 #include <libbuild2/scope.hxx>
@@ -127,6 +128,111 @@ namespace build2
     ts.push_back (t);
   }
 
+  // Verify that no two targets share a path unless they both are "read-only"
+  // (have noop recipes).
+  //
+  // Note: somewhat similar logic in dyndep::verify_existing_file().
+  //
+  static void
+  verify_targets (context& ctx, action a)
+  {
+    // On the first pass we collect all the targets that have non-noop
+    // recipes. On the second pass we check if there are any other targets
+    // that have the same path. Note that we must also deal with two non-noop
+    // targets that have the same path.
+    //
+    // Strictly speaking we may need to produce some sort of progress if this
+    // takes long. However, currently we are looking at verification speed of
+    // ~1ms per 2K targets, which means it will only becomes noticeable with
+    // over 1M targets.
+    //
+    unordered_map<reference_wrapper<const path>,
+                  const target*,
+                  hash<path>,
+                  equal_to<path>> map;
+
+    // Half of the total appears to be a reasonable heuristics.
+    //
+    map.reserve (ctx.targets.size () / 2);
+
+    bool e (false);
+
+    for (size_t pass (1); pass != 3; ++pass)
+    {
+      for (const auto& pt: ctx.targets)
+      {
+        // We are only interested in path-based targets.
+        //
+        const path_target* t (pt->is_a<path_target> ());
+        if (t == nullptr)
+          continue;
+
+        // We are only interested in the matched targets.
+        //
+        const target::opstate& s (t->state[a]);
+
+        if (s.task_count.load (memory_order_relaxed) - ctx.count_base () <
+            target::offset_matched)
+          continue;
+
+        // Skip if for some reason the path is not assigned.
+        //
+        const path& p (t->path (memory_order_relaxed));
+        if (p.empty ())
+          continue;
+
+        recipe_function* const* rf (s.recipe.target<recipe_function*> ());
+        bool noop (rf != nullptr && *rf == &noop_action);
+
+        if ((noop ? 2 : 1) != pass)
+          continue;
+
+        const target* t1;
+        if (pass == 1)
+        {
+          auto r (map.emplace (p, t));
+
+          if (r.second)
+            continue;
+
+          t1 = r.first->second;
+        }
+        else
+        {
+          auto i (map.find (p));
+
+          if (i == map.end ())
+            continue;
+
+          t1 = i->second;
+        }
+
+        e = true;
+
+        diag_record dr (error);
+
+        dr << "multiple targets share path " << p <<
+          info << "first target:  " << *t1 <<
+          info << "second target: " << *t <<
+          info << "target " << *t1 << " has non-noop recipe";
+
+        if (pass == 1)
+        {
+          dr << info << "target " << *t << " has non-noop recipe";
+        }
+        else if (t->decl != target_decl::real)
+        {
+          dr << info << "target " << *t << " is not explicitly declared "
+             << "in any buildfile" <<
+            info << "perhaps it is a dynamic dependency?";
+        }
+      }
+    }
+
+    if (e)
+      throw failed ();
+  }
+
   void
   match (const values&, action a, action_targets& ts, uint16_t diag, bool prog)
   {
@@ -248,6 +354,12 @@ namespace build2
 
       if (fail)
         throw failed ();
+
+      // @@ This feels a bit ad hoc. Maybe we should invent operation hooks
+      //    for this (e.g., post-search, post-match, post-execute)?
+      //
+      if (a == perform_update_id)
+        verify_targets (ctx, a);
     }
 
     // Phase restored to load.

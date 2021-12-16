@@ -1489,6 +1489,9 @@ namespace build2
     iterator begin () const {return map_.begin ();}
     iterator end ()   const {return map_.end ();}
 
+    size_t
+    size () const {return map_.size ();}
+
     void
     clear () {map_.clear ();}
 
@@ -1601,6 +1604,8 @@ namespace build2
 
     using path_type = build2::path;
 
+    // Target path. Must be absolute and normalized.
+    //
     // Target path is an "atomic consistent cash". That is, it can be set at
     // any time (including on a const instance) but any subsequent updates
     // must set the same path. Or, in other words, once the path is set, it
@@ -1630,7 +1635,7 @@ namespace build2
     // the path_mtime() function to do it in the correct order.
     //
     const path_type&
-    path () const;
+    path (memory_order = memory_order_acquire) const;
 
     const path_type&
     path (path_type) const;
