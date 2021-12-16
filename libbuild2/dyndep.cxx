@@ -523,18 +523,43 @@ namespace build2
       if (!insert || tts.size () > 1)
       {
         // Note that we skip any target type-specific searches (like for an
-        // existing file) and go straight for the target object since we
-        // need to find the target explicitly spelled out.
+        // existing file) and go straight for the target object since we need
+        // to find the target explicitly spelled out.
         //
-        // Also, it doesn't feel like we should be able to resolve an
-        // absolute path with a spelled-out extension to multiple targets.
+        // Also, it doesn't feel like we should be able to resolve an absolute
+        // path with a spelled-out extension to multiple targets.
         //
-        for (const target_type* tt: tts)
+        const target* f (nullptr);
+
+        for (size_t i (0), m (tts.size ()); i != m; ++i)
         {
-          if ((r = t.ctx.targets.find (*tt, d, out, n, e, trace)) != nullptr)
-            break;
+          const target_type& tt (*tts[i]);
+
+          if (const target* x = t.ctx.targets.find (tt, d, out, n, e, trace))
+          {
+            // What would be the harm in reusing an implied target if there is
+            // no real one? Probably none (since it can't be updated) except
+            // that it will be racy: sometimes we will reuse the implied,
+            // sometimes we will insert a new one. And we don't like racy.
+            //
+            if (x->decl == target_decl::real)
+            {
+              r = x;
+              break;
+            }
+            else
+            {
+              // Cache the implied target corresponding to tts[0] since that's
+              // what we will be inserting (see below).
+              //
+              if (insert && i == 0)
+                f = x;
+
+              l6 ([&]{trace << "implied target with target type " << tt.name;});
+            }
+          }
           else
-            l6 ([&]{trace << "no targe with target type " << tt->name;});
+            l6 ([&]{trace << "no target with target type " << tt.name;});
         }
 
         // Note: we can't do this because of the in-source builds where there
@@ -561,6 +586,9 @@ namespace build2
           dr << info << "spell-out its target to resolve this ambiguity";
         }
 #endif
+
+        if (r == nullptr && f != nullptr)
+          r = f;
       }
 
       // @@ OPT: move d, out, n

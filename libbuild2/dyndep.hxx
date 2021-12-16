@@ -198,7 +198,9 @@ namespace build2
                 const function<prefix_map_func>& = nullptr,
                 const srcout_map& = {});
 
-    // As above but do not insert the target if it doesn't already exist.
+    // As above but do not insert the target if it doesn't already exist. This
+    // function also returns NULL if the target exists but is implied (that
+    // is, not declared in a buildfile).
     //
     static pair<const file*, bool>
     find_file (tracer&, const char* what,
