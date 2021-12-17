@@ -1007,6 +1007,11 @@ namespace build2
         // match in link::apply() it will be safe unless someone is building
         // an obj?{} target directly.
         //
+        // @@ If for some reason unmatch fails, this messes up the for_install
+        //    logic because we will update this library during match. Perhaps
+        //    we should postpone updating them until execute if we failed to
+        //    unmatch.
+        //
         pair<bool, target_state> mr (
           build2::match (
             a,
