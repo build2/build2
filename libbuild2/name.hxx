@@ -178,6 +178,8 @@ namespace build2
   // trailing directory separator then it is stored as a directory, otherwise
   // as a simple name. Note that the returned name is never a pattern.
   //
+  // NOTE: this function does not parse the full name syntax.
+  //
   name
   to_name (string);
 

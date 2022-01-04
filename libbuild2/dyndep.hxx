@@ -42,6 +42,7 @@ namespace build2
     // hoc. But on the other hand, taking headers as an example, if the same
     // header is listed as a static prerequisite, it will most definitely not
     // going to be ad hoc. So we leave it to the caller to make this decision.
+    // Similarly, the data argument is passed to the prerequisite_target ctor.
     //
     static optional<bool>
     inject_file (tracer&, const char* what,
@@ -49,7 +50,8 @@ namespace build2
                  const file& prerequiste,
                  timestamp,
                  bool fail,
-                 bool adhoc = false);
+                 bool adhoc = false,
+                 uintptr_t data = 0);
 
     // As above but verify the file is matched with noop_recipe and issue
     // diagnostics and fail otherwise (regardless of the fail flag).
@@ -64,7 +66,9 @@ namespace build2
                           action, target&,
                           const file& prerequiste,
                           timestamp,
-                          bool fail);
+                          bool fail,
+                          bool adhoc = false,
+                          uintptr_t data = 0);
 
     // Verify the file is matched with noop_recipe and issue diagnostics and
     // fail otherwise. If the file is not matched, then fail if the target is

@@ -117,14 +117,14 @@ namespace build2
         execute_depdb_preamble_dyndep (
           action a, const scope& base, file& t,
           environment& e, const script& s, runner& r,
-          depdb& dd, bool& update, bool& deferred_failure, timestamp mt)
+          depdb& dd, bool& update, timestamp mt, bool& deferred_failure)
         {
           exec_depdb_preamble (
             a, base, t,
             e, s, r,
             s.depdb_preamble.begin () + *s.depdb_dyndep,
             s.depdb_preamble.end (),
-            dd, &update, &deferred_failure, mt);
+            dd, &update, mt, &deferred_failure);
         }
 
         // This version doesn't actually execute the depdb-dyndep builtin (but
@@ -150,13 +150,12 @@ namespace build2
         execute_depdb_preamble_dyndep_byproduct (
           action a, const scope& base, const file& t,
           environment& e, const script& s, runner& r,
-          depdb& dd)
+          depdb& dd, bool& update, timestamp mt)
         {
-          // This is getting really ugly (we also don't really need to pass
+          // This is getting a bit ugly (we also don't really need to pass
           // depdb here). One day we will find a better way...
           //
-          bool update, deferred_failure; // Dymmy.
-          timestamp mt;                  // Dummy.
+          bool deferred_failure; // Dymmy.
 
           dyndep_byproduct v;
           exec_depdb_preamble (
@@ -164,7 +163,7 @@ namespace build2
             e, s, r,
             s.depdb_preamble.begin () + *s.depdb_dyndep,
             s.depdb_preamble.end (),
-            dd, &update, &deferred_failure, mt, &v);
+            dd, &update, mt, &deferred_failure, &v);
           return v;
         }
 
@@ -206,8 +205,8 @@ namespace build2
                              lines_iterator begin, lines_iterator end,
                              depdb&,
                              bool* update = nullptr,
-                             bool* deferred_failure = nullptr,
                              optional<timestamp> mt = nullopt,
+                             bool* deferred_failure = nullptr,
                              dyndep_byproduct* = nullptr);
 
         void
@@ -216,8 +215,8 @@ namespace build2
                            action, const scope& base, file&,
                            depdb&,
                            bool& update,
-                           bool& deferred_failure,
                            timestamp,
+                           bool& deferred_failure,
                            dyndep_byproduct*);
 
         // Helpers.

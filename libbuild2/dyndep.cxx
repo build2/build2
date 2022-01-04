@@ -81,7 +81,8 @@ namespace build2
                const file& pt,
                timestamp mt,
                bool f,
-               bool ah)
+               bool adhoc,
+               uintptr_t data)
   {
     // Even if failing we still use try_match() in order to issue consistent
     // (with other places) diagnostics (rather than the generic "not rule to
@@ -104,7 +105,7 @@ namespace build2
 
     // Add to our prerequisite target list.
     //
-    t.prerequisite_targets[a].push_back (prerequisite_target (&pt, ah));
+    t.prerequisite_targets[a].emplace_back (&pt, adhoc, data);
 
     return r;
   }
@@ -114,7 +115,9 @@ namespace build2
                         action a, target& t,
                         const file& pt,
                         timestamp mt,
-                        bool f)
+                        bool f,
+                        bool adhoc,
+                        uintptr_t data)
   {
     if (!try_match (a, pt).first)
     {
@@ -140,7 +143,7 @@ namespace build2
 
     // Add to our prerequisite target list.
     //
-    t.prerequisite_targets[a].push_back (&pt);
+    t.prerequisite_targets[a].emplace_back (&pt, adhoc, data);
 
     return r;
   }

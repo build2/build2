@@ -118,8 +118,8 @@ namespace build2
   LIBBUILD2_SYMEXPORT const target&
   search (const target&, name, const scope&, const target_type* = nullptr);
 
-  // Return NULL for unknown target types. Note that unlike the above version,
-  // these ones can be called during the load and execute phases.
+  // Note: returns NULL for unknown target types. Note that unlike the above
+  // version, these ones can be called during the load and execute phases.
   //
   LIBBUILD2_SYMEXPORT const target*
   search_existing (const name&,

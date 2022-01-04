@@ -20,6 +20,20 @@ namespace build2
         // Note that --byproduct, if any, must be the first option and is
         // handled ad hoc, kind of as a sub-command.
         //
+        // Similarly, --update-{include,exclude} are handled ad hoc and must
+        // be literals, similar to the -- separator. They specify prerequisite
+        // targets/patterns to include/exclude (from the static prerequisite
+        // set) for update during match (those excluded will be updated during
+        // execute). The order in which these options are specified is
+        // significant with the first target/pattern that matches determining
+        // the result. If only the --update-include options are specified,
+        // then only the explicitly included prerequisites will be updated.
+        // Otherwise, all prerequisites that are not explicitly excluded will
+        // be updated. If none of these options is specified, then all the
+        // static prerequisites are updated during match. Note also that these
+        // options do not apply to ad hoc prerequisites which are always
+        // updated during match.
+        //
         // Note that in the future we may extend --cwd support to the non-
         // byproduct mode where it will also have the `env --cwd` semantics
         // (thus the matching name). Note that it will also be incompatible
@@ -34,14 +48,20 @@ namespace build2
         // --default-type  --default-target-type
         //
         path --file;                  // Read from file rather than stdin.
+
         string --format;              // Dependency format: make (default).
+
         string --what;                // Dependency kind, e.g., "header".
+
         dir_paths --include-path|-I;  // Search paths for generated files.
+
         string --default-type;        // Default prerequisite type to use
                                       // if none could be derived from ext.
+
         dir_path --cwd;               // Builtin's working directory used
                                       // to complete relative paths (only
                                       // in --byproduct mode).
+
         bool --drop-cycles;           // Drop prerequisites that are also
                                       // targets. Only use if you are sure
                                       // such cycles are harmless, that is,

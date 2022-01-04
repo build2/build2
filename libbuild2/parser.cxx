@@ -979,7 +979,8 @@ namespace build2
           // semantics is not immediately obvious. Whatever we decide, it
           // should be consistent with the target type/pattern-specific
           // variables where it is interpreted as a scope (and which doesn't
-          // feel like the best option for pattern rules).
+          // feel like the best option for pattern rules). See also depdb
+          // dyndep --update-* patterns.
           //
           auto check_pattern = [this] (name& n, const location& loc)
           {

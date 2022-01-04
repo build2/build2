@@ -391,8 +391,8 @@ namespace build2
 
     // Because the depdb preamble can access $<, we have to blank out all the
     // ad hoc prerequisites. Since we will still need them later, we "move"
-    // them to the auxiliary data member in prerequisite_target (which also
-    // means we cannot use the standard execute_prerequisites()).
+    // them to the auxiliary data member in prerequisite_target (see
+    // execute_update_prerequisites() for details).
     //
     auto& pts (t.prerequisite_targets[a]);
     for (prerequisite_target& p: pts)
@@ -426,7 +426,7 @@ namespace build2
       {
         if (const target* pt =
             (p.target != nullptr ? p.target :
-             p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+             p.adhoc             ? reinterpret_cast<target*> (p.data) :
              nullptr))
         {
           hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
@@ -504,46 +504,32 @@ namespace build2
     if (update)
       mt = timestamp_nonexistent;
 
-    // Update our prerequisite targets. While strictly speaking we only need
-    // to update those that are referenced by depdb-dyndep, communicating
-    // this is both tedious and error-prone. So we update them all.
-    //
-    for (const prerequisite_target& p: pts)
-    {
-      if (const target* pt =
-          (p.target != nullptr ? p.target :
-           p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
-      {
-        update = dyndep_rule::update (
-          trace, a, *pt, update ? timestamp_unknown : mt) || update;
-      }
-    }
-
     if (script.depdb_dyndep_byproduct)
     {
       // If we have the dynamic dependency information as byproduct of the
       // recipe body, then do the first part: verify the entries in depdb
       // unless we are already updating. Essentially, this is the `if(cache)`
       // equivalent of the restart loop in exec_depdb_dyndep().
-      //
-      // Do we really need to update our prerequisite targets in this case (as
-      // we do above)? While it may seem like we should be able to avoid it by
-      // triggering update on encountering any non-existent files in depbd, we
-      // may actually incorrectly "validate" some number of depdb entires
-      // while having an out-of-date main source file. We could probably avoid
-      // the update if we are already updating.
 
       using dyndep = dyndep_rule;
 
-      // Extract the depdb-dyndep command's information (we may also execute
-      // some variable assignments).
+      // Update our prerequisite targets and extract the depdb-dyndep
+      // command's information (we may also execute some variable
+      // assignments).
+      //
+      // Do we really need to update our prerequisite targets in this case?
+      // While it may seem like we should be able to avoid it by triggering
+      // update on encountering any non-existent files in depbd, we may
+      // actually incorrectly "validate" some number of depdb entires while
+      // having an out-of-date main source file. We could probably avoid the
+      // update if we are already updating.
       //
       {
         build::script::parser p (ctx);
         mdb->byp = p.execute_depdb_preamble_dyndep_byproduct (
           a, bs, t,
           env, script, run,
-          dd);
+          dd, update, mt);
       }
 
       mdb->pts_n = pts.size ();
@@ -582,10 +568,16 @@ namespace build2
                 fp, true /* cache */, true /* normalized */,
                 map_ext, *byp.default_type).first)
           {
+            // Note: mark the injected prerequisite target as updated (see
+            // execute_update_prerequisites() for details).
+            //
             if (optional<bool> u = dyndep::inject_existing_file (
                   trace, what,
                   a, t,
-                  *ft, mt, false /* fail */))
+                  *ft, mt,
+                  false /* fail */,
+                  false /* adhoc */,
+                  1     /* data */))
             {
               skip_count++;
               return *u;
@@ -671,8 +663,8 @@ namespace build2
     }
     else
     {
-      // Run the second half of the preamble (depdb-dyndep commands) to
-      // extract dynamic dependencies.
+      // Run the second half of the preamble (depdb-dyndep commands) to update
+      // our prerequisite targets and extract dynamic dependencies.
       //
       // Note that this should be the last update to depdb (the invalidation
       // order semantics).
@@ -684,8 +676,8 @@ namespace build2
                                          env, script, run,
                                          dd,
                                          update,
-                                         deferred_failure,
-                                         mt);
+                                         mt,
+                                         deferred_failure);
       }
 
       if (update && dd.reading () && !ctx.dry_run)
@@ -733,21 +725,13 @@ namespace build2
 
     const file& t (xt.as<file> ());
 
-    // While we've updated all our prerequisites in apply(), we still need to
-    // execute them here to keep the dependency counts straight.
+    // Note that even if we've updated all our prerequisites in apply(), we
+    // still need to execute them here to keep the dependency counts straight.
     //
-    const auto& pts (t.prerequisite_targets[a]);
+    optional<target_state> ps (execute_update_prerequisites (a, t, md.mt));
 
-    for (const prerequisite_target& p: pts)
-    {
-      if (const target* pt =
-          (p.target != nullptr ? p.target :
-           p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
-      {
-        target_state ts (execute_wait (a, *pt));
-        assert (ts == target_state::unchanged || ts == target_state::changed);
-      }
-    }
+    if (!ps)
+      md.mt = timestamp_nonexistent; // Update.
 
     build::script::environment& env (md.env);
     build::script::default_runner& run (md.run);
@@ -755,7 +739,7 @@ namespace build2
     if (md.mt != timestamp_nonexistent)
     {
       run.leave (env, script.end_loc);
-      return target_state::unchanged;
+      return *ps;
     }
 
     const scope& bs (*md.bs);
@@ -805,6 +789,7 @@ namespace build2
       // Note that fp is expected to be absolute.
       //
       size_t skip (md.skip_count);
+      const auto& pts (t.prerequisite_targets[a]);
 
       auto add = [&trace, what,
                   a, &bs, &t, &pts, pts_n = md.pts_n,
@@ -818,7 +803,8 @@ namespace build2
               fp, false /* cache */, true /* normalized */,
               map_ext, *byp.default_type).first)
         {
-          // Skip if this is one of the static prerequisites.
+          // Skip if this is one of the static prerequisites provided it was
+          // updated.
           //
           for (size_t i (0); i != pts_n; ++i)
           {
@@ -826,10 +812,10 @@ namespace build2
 
             if (const target* pt =
                 (p.target != nullptr ? p.target :
-                 p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+                 p.adhoc             ? reinterpret_cast<target*> (p.data) :
                  nullptr))
             {
-              if (ft == pt)
+              if (ft == pt && (p.adhoc || p.data == 1))
                 return;
             }
           }
@@ -854,6 +840,9 @@ namespace build2
           }
 
           // Verify it has noop recipe.
+          //
+          // @@ Currently we will issue an imprecise diagnostics if this is
+          //    a static prerequisite that was not updated (see above).
           //
           dyndep::verify_existing_file (trace, what, a, t, *ft);
         }
@@ -974,19 +963,13 @@ namespace build2
 
     const file& t (xt.as<file> ());
 
-    // While we've updated all our prerequisites in apply(), we still need to
-    // execute them here to keep the dependency counts straight.
+    // Note that even if we've updated all our prerequisites in apply(), we
+    // still need to execute them here to keep the dependency counts straight.
     //
-    for (const prerequisite_target& p: t.prerequisite_targets[a])
-    {
-      if (const target* pt =
-          (p.target != nullptr ? p.target :
-           p.data   != 0       ? reinterpret_cast<target*> (p.data) : nullptr))
-      {
-        target_state ts (execute_wait (a, *pt));
-        assert (ts == target_state::unchanged || ts == target_state::changed);
-      }
-    }
+    optional<target_state> ps (execute_update_prerequisites (a, t, md.mt));
+
+    if (!ps)
+      md.mt = timestamp_nonexistent; // Update.
 
     build::script::environment& env (md.env);
     build::script::default_runner& run (md.run);
@@ -996,7 +979,7 @@ namespace build2
     if (md.mt != timestamp_nonexistent && !md.deferred_failure)
     {
       run.leave (env, script.end_loc);
-      return target_state::unchanged;
+      return *ps;
     }
 
     // Sequence start time for mtime checks below.
@@ -1035,86 +1018,30 @@ namespace build2
     // out-of-date.
     //
     timestamp mt (t.load_mtime ());
-    optional<target_state> ps;
 
+    // This is essentially ps=execute_prerequisites(a, t, mt) which we
+    // cannot use because we need to see ad hoc prerequisites.
+    //
+    optional<target_state> ps (execute_update_prerequisites (a, t, mt));
+
+    // Calculate prerequisite checksums (that need to include ad hoc
+    // prerequisites) unless the script tracks changes itself.
+    //
     names storage;
-
     sha256 prq_cs, exe_cs, env_cs;
+
+    if (!script.depdb_clear)
     {
-      // This is essentially ps=execute_prerequisites(a, t, mt) which we
-      // cannot use because we need to see ad hoc prerequisites.
-      //
-      size_t busy (ctx.count_busy ());
-      size_t exec (ctx.count_executed ());
-
-      target_state rs (target_state::unchanged);
-
-      wait_guard wg (ctx, busy, t[a].task_count);
-
-      auto& pts (t.prerequisite_targets[a]);
-
-      for (const target*& pt: pts)
+      for (const prerequisite_target& p: t.prerequisite_targets[a])
       {
-        if (pt == nullptr) // Skipped.
-          continue;
-
-        target_state s (execute_async (a, *pt, busy, t[a].task_count));
-
-        if (s == target_state::postponed)
+        if (const target* pt =
+            (p.target != nullptr ? p.target :
+             p.adhoc             ? reinterpret_cast<target*> (p.data)
+             : nullptr))
         {
-          rs |= s;
-          pt = nullptr;
+          hash_prerequisite_target (prq_cs, exe_cs, env_cs, *pt, storage);
         }
       }
-
-      wg.wait ();
-
-      bool e (mt == timestamp_nonexistent);
-      for (prerequisite_target& p: pts)
-      {
-        if (p == nullptr)
-          continue;
-
-        const target& pt (*p.target);
-
-        ctx.sched.wait (exec, pt[a].task_count, scheduler::work_none);
-
-        target_state s (pt.executed_state (a));
-        rs |= s;
-
-        // Compare our timestamp to this prerequisite's.
-        //
-        if (!e)
-        {
-          // If this is an mtime-based target, then compare timestamps.
-          //
-          if (const mtime_target* mpt = pt.is_a<mtime_target> ())
-          {
-            if (mpt->newer (mt, s))
-              e = true;
-          }
-          else
-          {
-            // Otherwise we assume the prerequisite is newer if it was
-            // changed.
-            //
-            if (s == target_state::changed)
-              e = true;
-          }
-        }
-
-        if (p.adhoc)
-          p.target = nullptr; // Blank out.
-
-        // As part of this loop calculate checksums that need to include ad
-        // hoc prerequisites (unless the script tracks changes itself).
-        //
-        if (!script.depdb_clear)
-          hash_prerequisite_target (prq_cs, exe_cs, env_cs, pt, storage);
-      }
-
-      if (!e)
-        ps = rs;
     }
 
     bool update (!ps);
@@ -1285,6 +1212,99 @@ namespace build2
 
     t.mtime (system_clock::now ());
     return target_state::changed;
+  }
+
+  // Update prerequisite targets.
+  //
+  // Each prerequisite target should be in one of the following states:
+  //
+  // target  adhoc  data
+  // --------------------
+  // !NULL   false  0      - normal prerequisite to be updated
+  // !NULL   false  1      - normal prerequisite already updated
+  // !NULL   true   0      - ad hoc prerequisite to be updated and blanked
+  //  NULL   true   !NULL  - ad hoc prerequisite already updated and blanked
+  //
+  // Note that we still execute already updated prerequisites to keep the
+  // dependency counts straight. But we don't consider them for the "renders
+  // us out-of-date" check assuming this has already been done.
+  //
+  optional<target_state> adhoc_buildscript_rule::
+  execute_update_prerequisites (action a, const target& t, timestamp mt) const
+  {
+    context& ctx (t.ctx);
+
+    // This is essentially a customized execute_prerequisites(a, t, mt).
+    //
+    size_t busy (ctx.count_busy ());
+    size_t exec (ctx.count_executed ());
+
+    target_state rs (target_state::unchanged);
+
+    wait_guard wg (ctx, busy, t[a].task_count);
+
+    auto& pts (t.prerequisite_targets[a]);
+
+    for (const prerequisite_target& p: pts)
+    {
+      if (const target* pt =
+          (p.target != nullptr ? p.target :
+           p.adhoc             ? reinterpret_cast<target*> (p.data) : nullptr))
+      {
+        target_state s (execute_async (a, *pt, busy, t[a].task_count));
+        assert (s != target_state::postponed);
+      }
+    }
+
+    wg.wait ();
+
+    bool e (mt == timestamp_nonexistent);
+    for (prerequisite_target& p: pts)
+    {
+      if (const target* pt =
+          (p.target != nullptr ? p.target :
+           p.adhoc             ? reinterpret_cast<target*> (p.data) : nullptr))
+      {
+        ctx.sched.wait (exec, (*pt)[a].task_count, scheduler::work_none);
+
+        if (p.data == 0)
+        {
+          target_state s (pt->executed_state (a));
+          rs |= s;
+
+          // Compare our timestamp to this prerequisite's.
+          //
+          if (!e)
+          {
+            // If this is an mtime-based target, then compare timestamps.
+            //
+            if (const mtime_target* mpt = pt->is_a<mtime_target> ())
+            {
+              if (mpt->newer (mt, s))
+                e = true;
+            }
+            else
+            {
+              // Otherwise we assume the prerequisite is newer if it was
+              // changed.
+              //
+              if (s == target_state::changed)
+                e = true;
+            }
+          }
+
+          // Blank out adhoc.
+          //
+          if (p.adhoc)
+          {
+            p.data = reinterpret_cast<uintptr_t> (p.target);
+            p.target = nullptr;
+          }
+        }
+      }
+    }
+
+    return e ? nullopt : optional<target_state> (rs);
   }
 
   // Return true if execute_body() was called and thus the caller should call

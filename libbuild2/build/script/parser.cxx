@@ -7,6 +7,7 @@
 #include <sstream>
 
 #include <libbutl/builtin.hxx>
+#include <libbutl/path-pattern.hxx>
 
 #include <libbuild2/depdb.hxx>
 #include <libbuild2/dyndep.hxx>
@@ -933,8 +934,8 @@ namespace build2
                            lines_iterator begin, lines_iterator end,
                            depdb& dd,
                            bool* update,
-                           bool* deferred_failure,
                            optional<timestamp> mt,
+                           bool* deferred_failure,
                            dyndep_byproduct* byp)
       {
         tracer trace ("exec_depdb_preamble");
@@ -997,8 +998,8 @@ namespace build2
                                  data.a, data.bs, const_cast<file&> (data.t),
                                  data.dd,
                                  *data.update,
-                                 *data.deferred_failure,
                                  *data.mt,
+                                 *data.deferred_failure,
                                  data.byp);
             }
             else
@@ -1211,19 +1212,53 @@ namespace build2
                          action a, const scope& bs, file& t,
                          depdb& dd,
                          bool& update,
-                         bool& deferred_failure,
                          timestamp mt,
+                         bool& deferred_failure,
                          dyndep_byproduct* byprod_result)
       {
         tracer trace ("exec_depdb_dyndep");
 
         context& ctx (t.ctx);
 
-        // Similar approach to parse_env_builtin().
-        //
         depdb_dyndep_options ops;
         bool prog (false);
         bool byprod (false);
+
+        // Prerequisite update filter (--update-*).
+        //
+        struct filter
+        {
+          location           loc;
+          build2::name       name;
+          bool               include;
+          bool               used = false;
+
+          union
+          {
+            const target_type*    type;   // For patterns.
+            const build2::target* target; // For non-patterns.
+          };
+
+          filter (const location& l,
+                  build2::name n, bool i, const target_type& tt)
+              : loc (l), name (move (n)), include (i), type (&tt) {}
+
+          filter (const location& l,
+                  build2::name n, bool i, const build2::target& t)
+              : loc (l), name (move (n)), include (i), target (&t) {}
+
+          const char*
+          option () const
+          {
+            return include ? "--update-include" : "--update-exclude";
+          }
+        };
+
+        vector<filter> filters;
+        bool filter_default (false); // Note: incorrect if filter is empty.
+
+        // Similar approach to parse_env_builtin().
+        //
         {
           auto& t (lt);
           auto& tt (ltt);
@@ -1247,16 +1282,141 @@ namespace build2
           //
           strings args;
 
-          names ns; // Reuse to reduce allocations.
-          while (tt != type::newline && tt != type::eos)
+          for (names ns; tt != type::newline && tt != type::eos; ns.clear ())
           {
-            if (tt == type::word && t.value == "--")
-            {
-              prog = true;
-              break;
-            }
-
             location l (get_location (t));
+
+            if (tt == type::word)
+            {
+              if (t.value == "--")
+              {
+                prog = true;
+                break;
+              }
+
+              // See also the non-literal check in the options parsing below.
+              //
+              if ((t.value.compare (0, 16, "--update-include") == 0 ||
+                   t.value.compare (0, 16, "--update-exclude") == 0) &&
+                  (t.value[16] == '\0' || t.value[16] == '='))
+              {
+                string o;
+
+                if (t.value[16] == '\0')
+                {
+                  o = t.value;
+                  next (t, tt);
+                }
+                else
+                {
+                  o.assign (t.value, 0, 16);
+                  t.value.erase (0, 17);
+
+                  if (t.value.empty ()) // Think `--update-include=$yacc`.
+                  {
+                    next (t, tt);
+
+                    if (t.separated) // Think `--update-include= $yacc`.
+                      fail (l) << "depdb dyndep: expected name after " << o;
+                  }
+                }
+
+                if (!start_names (tt))
+                  fail (l) << "depdb dyndep: expected name instead of " << t
+                           << " after " << o;
+
+                // The chunk may actually contain multiple (or zero) names
+                // (e.g., as a result of a variable expansion or {}-list). Oh,
+                // well, I guess it can be viewed as a feature (to compensate
+                // for the literal option names).
+                //
+                parse_names (t, tt,
+                             ns,
+                             pattern_mode::preserve,
+                             true /* chunk */,
+                             ("depdb dyndep " + o + " option value").c_str (),
+                             nullptr);
+
+                if (ns.empty ())
+                  continue;
+
+                bool i (o[9] == 'i');
+
+                for (name& n: ns)
+                {
+                  // @@ Maybe we will want to support out-qualified targets
+                  //    one day (but they should not be patterns).
+                  //
+                  if (n.pair)
+                    fail (l) << "depdb dyndep: name pair in " << o << " value";
+
+                  if (n.pattern)
+                  {
+                    if (*n.pattern != name::pattern_type::path)
+                      fail (l) << "depdb dyndep: non-path pattern in " << o
+                               << " value";
+
+                    n.canonicalize ();
+
+                    // @@ TODO (here and below).
+                    //
+                    // The reasonable directory semantics for a pattern seems
+                    // to be:
+                    //
+                    // - empty     - any directory (the common case)
+                    // - relative  - complete with base scope and fall through
+                    // - absolute  - only match targets in subdirectories
+                    //
+                    // Plus things are complicated by the src/out split (feels
+                    // like we should do this in terms of scopes).
+                    //
+                    // See also target type/pattern-specific vars (where the
+                    // directory is used to open a scope) and ad hoc pattern
+                    // rules (where we currently don't allow directories).
+                    //
+                    if (!n.dir.empty ())
+                    {
+                      if (path_pattern (n.dir))
+                        fail (l) << "depdb dyndep: pattern in directory in "
+                                 << o << " value";
+
+                      fail (l) << "depdb dyndep: directory in pattern " << o
+                               << " value";
+                    }
+
+                    // Resolve target type. If none is specified, then it's
+                    // file{}.
+                    //
+                    const target_type* tt (n.untyped ()
+                                           ? &file::static_type
+                                           : bs.find_target_type (n.type));
+
+                    if (tt == nullptr)
+                      fail (l) << "depdb dyndep: unknown target type "
+                               << n.type << " in " << o << " value";
+
+                    filters.push_back (filter (l, move (n), i, *tt));
+                  }
+                  else
+                  {
+                    const target* t (search_existing (n, bs));
+
+                    if (t == nullptr)
+                      fail (l) << "depdb dyndep: unknown target " << n
+                               << " in " << o << " value";
+
+                    filters.push_back (filter (l, move (n), i, *t));
+                  }
+                }
+
+                // If we have --update-exclude, then the default is include.
+                //
+                if (!i)
+                  filter_default = true;
+
+                continue;
+              }
+            }
 
             if (!start_names (tt))
               fail (l) << "depdb dyndep: expected option or '--' separator "
@@ -1278,12 +1438,10 @@ namespace build2
               catch (const invalid_argument&)
               {
                 diag_record dr (fail (l));
-                dr << "invalid string value ";
+                dr << "depdb dyndep: invalid string value ";
                 to_stream (dr.os, n, true /* quote */);
               }
             }
-
-            ns.clear ();
           }
 
           if (prog)
@@ -1335,6 +1493,13 @@ namespace build2
               if (strcmp (a, "--byproduct") == 0)
                 fail (ll) << "depdb dyndep: --byproduct must be first option";
 
+              // Handle non-literal --update-*.
+              //
+              if ((strncmp (a, "--update-include", 16) == 0 ||
+                   strncmp (a, "--update-exclude", 16) == 0) &&
+                  (a[16] == '\0' || a[16] == '='))
+                fail (ll) << "depdb dyndep: " << a << " must be literal";
+
               // Handle unknown option.
               //
               if (a[0] == '-')
@@ -1385,6 +1550,14 @@ namespace build2
             fail (ll) << "depdb dyndep: relative path specified with --cwd";
         }
 
+        // --include
+        //
+        if (!ops.include_path ().empty ())
+        {
+          if (byprod)
+            fail (ll) << "depdb dyndep: -I specified with --byproduct";
+        }
+
         // --file
         //
         // Note that if --file is specified without a program, then we assume
@@ -1425,17 +1598,112 @@ namespace build2
 
           def_pt = bs.find_target_type (t);
           if (def_pt == nullptr)
-            fail (ll) << "unknown target type '" << t << "' specific with "
-                      << "--default-type";
+            fail (ll) << "depdb dyndep: unknown target type '" << t
+                      << "' specific with --default-type";
         }
         else
           def_pt = &file::static_type;
 
+        // Update prerequisite targets.
+        //
+        using dyndep = dyndep_rule;
+
+        auto& pts (t.prerequisite_targets[a]);
+
+        for (prerequisite_target& p: pts)
+        {
+          if (const target* pt =
+              (p.target != nullptr ? p.target :
+               p.adhoc             ? reinterpret_cast<target*> (p.data)
+               : nullptr))
+          {
+            // Apply the --update-* filter.
+            //
+            if (!p.adhoc && !filters.empty ())
+            {
+              // Compute and cache "effective" name that we will be pattern-
+              // matching (similar code to variable_type_map::find()).
+              //
+              auto ename = [pt, en = optional<string> ()] () mutable
+                -> const string&
+              {
+                if (!en)
+                {
+                  en = string ();
+                  pt->key ().effective_name (*en);
+                }
+
+                return en->empty () ? pt->name : *en;
+              };
+
+              bool i (filter_default);
+
+              for (filter& f: filters)
+              {
+                if (f.name.pattern)
+                {
+                  const name& n (f.name);
+
+#if 0
+                  // Match directory if any.
+                  //
+                  if (!n.dir.empty ())
+                  {
+                    // @@ TODO (here and above).
+                  }
+#endif
+
+                  // Match type.
+                  //
+                  if (!pt->is_a (*f.type))
+                    continue;
+
+                  // Match name.
+                  //
+                  if (n.value == "*" || butl::path_match (ename (), n.value))
+                  {
+                    i = f.include;
+                    break;
+                  }
+                }
+                else
+                {
+                  if (pt == f.target)
+                  {
+                    i = f.include;
+                    f.used = true;
+                    break;
+                  }
+                }
+              }
+
+              if (!i)
+                continue;
+            }
+
+            update = dyndep::update (
+              trace, a, *pt, update ? timestamp_unknown : mt) || update;
+
+            // Mark as updated (see execute_update_prerequisites() for
+            // details.
+            //
+            if (!p.adhoc)
+              p.data = 1;
+          }
+        }
+
+        // Detect target filters that do not match anything.
+        //
+        for (const filter& f: filters)
+        {
+          if (!f.name.pattern && !f.used)
+            fail (f.loc) << "depdb dyndep: target " << f.name << " in "
+                         << f.option () << " value does not match any "
+                         << "prerequisites";
+        }
+
         if (byprod)
         {
-          if (!ops.include_path ().empty ())
-            fail (ll) << "depdb dyndep: -I specified with --byproduct";
-
           *byprod_result = dyndep_byproduct {
             ll,
             format,
@@ -1451,8 +1719,6 @@ namespace build2
         // This code is based on the prior work in the cc module (specifically
         // extract_headers()) where you can often find more detailed rationale
         // for some of the steps performed.
-
-        using dyndep = dyndep_rule;
 
         // Build the maps lazily, only if/when needed.
         //
@@ -1597,7 +1863,6 @@ namespace build2
         // environment ctor).
         //
         size_t skip_count (0);
-        auto& pts (t.prerequisite_targets[a]);
 
         auto add = [this, &trace, what,
                     a, &bs, &t, &pts, pts_n = pts.size (),
@@ -1645,7 +1910,8 @@ namespace build2
             //
             if (!cache)
             {
-              // Skip if this is one of the static prerequisites.
+              // Skip if this is one of the static prerequisites provided it
+              // was updated.
               //
               for (size_t i (0); i != pts_n; ++i)
               {
@@ -1653,10 +1919,10 @@ namespace build2
 
                 if (const target* pt =
                     (p.target != nullptr ? p.target :
-                     p.data   != 0       ? reinterpret_cast<target*> (p.data) :
+                     p.adhoc             ? reinterpret_cast<target*> (p.data) :
                      nullptr))
                 {
-                  if (ft == pt)
+                  if (ft == pt && (p.adhoc || p.data == 1))
                     return false;
                 }
               }
@@ -1686,10 +1952,16 @@ namespace build2
               }
             }
 
+            // Note: mark the injected prerequisite target as updated (see
+            // execute_update_prerequisites() for details).
+            //
             if (optional<bool> u = dyndep::inject_file (
                   trace, what,
                   a, t,
-                  *ft, mt, false /* fail */))
+                  *ft, mt,
+                  false /* fail */,
+                  false /* adhoc */,
+                  1     /* data */))
             {
               if (!cache)
                 dd.expect (ft->path ()); // @@ Use fp (or verify match)?

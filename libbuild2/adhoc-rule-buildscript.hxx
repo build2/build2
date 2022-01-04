@@ -48,6 +48,9 @@ namespace build2
     perform_update_file_dyndep_byproduct (
       action, const target&, match_data_byproduct&) const;
 
+    optional<target_state>
+    execute_update_prerequisites (action, const target&, timestamp) const;
+
     bool
     execute_update_file (const scope&,
                          action a, const file&,
