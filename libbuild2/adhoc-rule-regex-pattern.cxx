@@ -196,26 +196,17 @@ namespace build2
     //
     string& ns (me.buffer);
 
-    auto append_name = [&ns, first = true] (const target_key& tk,
-                                            const element& e) mutable
+    auto append_name = [&ns,
+                        first = true,
+                        storage = string ()] (const target_key& tk,
+                                              const element& e) mutable
     {
       if (!first)
         ns += '/';
       else
         first = false;
 
-      ns += *tk.name;
-
-      // The same semantics as in variable_type_map::find().
-      //
-      if (tk.ext && !tk.ext->empty () &&
-          (e.match_ext ||
-           tk.type->fixed_extension == &target_extension_none ||
-           tk.type->fixed_extension == &target_extension_must))
-      {
-        ns += '.';
-        ns += *tk.ext;
-      }
+      ns += tk.effective_name (storage, e.match_ext);
     };
 
     // Primary target (always a pattern).

@@ -9,6 +9,49 @@
 
 namespace build2
 {
+  // target_key
+  //
+  inline const string& target_key::
+  effective_name (string& r, bool force_ext) const
+  {
+    const target_type& tt (*type);
+
+    // Note that if the name is not empty, then we always use that, even
+    // if the type is dir/fsdir.
+    //
+    if (name->empty () && (tt.is_a<build2::dir> () || tt.is_a<fsdir> ()))
+    {
+      r = dir->leaf ().string ();
+    }
+    // If we have the extension and the type expects the extension to be
+    // always specified explicitly by the user, then add it to the name.
+    //
+    // Overall, we have the following cases:
+    //
+    // 1. Extension is fixed: man1{}.
+    //
+    // 2. Extension is always specified by the user: file{}.
+    //
+    // 3. Default extension that may be overridden by the user: hxx{}.
+    //
+    // 4. Extension assigned by the rule but may be overridden by the
+    //    user: obje{}.
+    //
+    // By default we only include the extension for (2).
+    //
+    else if (ext && !ext->empty () &&
+             (force_ext ||
+              tt.fixed_extension == &target_extension_none ||
+              tt.fixed_extension == &target_extension_must))
+    {
+      r = *name + '.' + *ext;
+    }
+    else
+      return *name; // Use name as is.
+
+    return r;
+  }
+
   // match_extra
   //
   inline void match_extra::

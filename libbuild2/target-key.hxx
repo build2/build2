@@ -31,6 +31,12 @@ namespace build2
     bool is_a () const {return type->is_a<T> ();}
     bool is_a (const target_type& tt) const {return type->is_a (tt);}
 
+    // Return an "effective" name, for example, for pattern matching, that
+    // includes the extension where appropriate.
+    //
+    const string&
+    effective_name (string& storage, bool force_ext = false) const;
+
     // Append/return the target name or a pair of names if out-qualified.
     //
     // See also target::as_name() for the returned name stability guarantees.

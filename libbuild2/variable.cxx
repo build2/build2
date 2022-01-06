@@ -1857,39 +1857,8 @@ namespace build2
     {
       if (!oname)
       {
-        const target_type& tt (*tk.type);
-
-        // Note that if the name is not empty, then we always use that, even
-        // if the type is dir/fsdir.
-        //
-        if (tk.name->empty () && (tt.is_a<dir> () || tt.is_a<fsdir> ()))
-        {
-          oname = tk.dir->leaf ().string ();
-        }
-        // If we have the extension and the type expects the extension to be
-        // always specified explicitly by the user, then add it to the name.
-        //
-        // Overall, we have the following cases:
-        //
-        // 1. Extension is fixed: man1{}.
-        //
-        // 2. Extension is always specified by the user: file{}.
-        //
-        // 3. Default extension that may be overridden by the user: hxx{}.
-        //
-        // 4. Extension assigned by the rule but may be overridden by the
-        //    user: obje{}.
-        //
-        // By default we only match the extension for (2).
-        //
-        else if (tk.ext && !tk.ext->empty () &&
-                 (tt.fixed_extension == &target_extension_none ||
-                  tt.fixed_extension == &target_extension_must))
-        {
-          oname = *tk.name + '.' + *tk.ext;
-        }
-        else
-          oname = string (); // Use tk.name as is.
+        oname = string ();
+        tk.effective_name (*oname);
       }
 
       return oname->empty () ? *tk.name : *oname;
