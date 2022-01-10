@@ -905,6 +905,7 @@ namespace build2
                      cmp ("glu32")           ||
                      cmp ("imagehlp")        ||
                      cmp ("imm32")           ||
+                     cmp ("iphlpapi")        ||
                      cmp ("kernel32")        ||
                      cmp ("mpr")             ||
                      cmp ("mswsock")         ||
@@ -915,6 +916,7 @@ namespace build2
                      cmp ("ole32")           ||
                      cmp ("oleaut32")        ||
                      cmp ("opengl32")        ||
+                     cmp ("psapi")           ||
                      cmp ("rpcrt4")          ||
                      cmp ("secur32")         ||
                      cmp ("shell32")         ||
