@@ -540,25 +540,30 @@ namespace build2
 
           if (const target* x = t.ctx.targets.find (tt, d, out, n, e, trace))
           {
-            // What would be the harm in reusing an implied target if there is
-            // no real one? Probably none (since it can't be updated) except
-            // that it will be racy: sometimes we will reuse the implied,
-            // sometimes we will insert a new one. And we don't like racy.
+            // What would be the harm in reusing a dynamically-inserted target
+            // if there is no buildfile-mentioned one? Probably none (since it
+            // can't be updated) except that it will be racy: sometimes we
+            // will reuse the dynamic, sometimes we will insert a new one. And
+            // we don't like racy.
             //
-            if (x->decl == target_decl::real)
+            // Note that we can't only check for real targets and must include
+            // implied ones because pre-entered members of a target group
+            // (e.g., cli.cxx) are implied.
+            //
+            if (x->decl >= target_decl::implied)
             {
               r = x;
               break;
             }
             else
             {
-              // Cache the implied target corresponding to tts[0] since that's
+              // Cache the dynamic target corresponding to tts[0] since that's
               // what we will be inserting (see below).
               //
               if (insert && i == 0)
                 f = x;
 
-              l6 ([&]{trace << "implied target with target type " << tt.name;});
+              l6 ([&]{trace << "dynamic target with target type " << tt.name;});
             }
           }
           else

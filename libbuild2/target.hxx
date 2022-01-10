@@ -137,6 +137,15 @@ namespace build2
     real         // Real dependency declaration.
   };
 
+  inline bool
+  operator< (target_decl l, target_decl r)
+  {
+    return static_cast<uint8_t> (l) < static_cast<uint8_t> (r);
+  }
+
+  inline bool
+  operator>= (target_decl l, target_decl r) { return !(l < r); }
+
   class LIBBUILD2_SYMEXPORT target
   {
   public:
