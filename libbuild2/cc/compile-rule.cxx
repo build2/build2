@@ -3015,6 +3015,8 @@ namespace build2
       //
       // So seeing that it is hard to trigger a legitimate VC preprocessor
       // warning, for now, we will just treat them as errors by adding /WX.
+      // BTW, another example of a plausible preprocessor warning is C4819
+      // (character unrepresentable in source charset).
       //
       // Finally, if we are using the module mapper, then all this mess falls
       // away: we only run the compiler once, we let the diagnostics through,
