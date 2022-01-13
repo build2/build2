@@ -1,3 +1,130 @@
+Version 0.15.0
+
+  * Support for dynamic dependencies in ad hoc recipes.
+
+    Specifically, the `depdb` builtin now has the new `dyndep` command that
+    can be used to extract dynamic dependencies from program output or a
+    file. For example, from program output:
+
+    obje{hello.o}: cxx{hello}
+    {{
+      s = $path($<[0])
+      o = $path($>)
+
+      poptions = $cxx.poptions $cc.poptions
+      coptions = $cc.coptions $cxx.coptions
+
+      depdb dyndep $poptions --what=header --default-type=h -- \
+	$cxx.path $poptions $coptions $cxx.mode -M -MG $s
+
+      diag c++ ($<[0])
+
+      $cxx.path $poptions $coptions $cxx.mode -o $o -c $s
+    }}
+
+    Or, alternatively, from a file:
+
+    t = $(o).t
+    depdb dyndep $poptions --what=header --default-type=h --file $t -- \
+	$cxx.path $poptions $coptions $cxx.mode -M -MG $s >$t
+
+    The above depdb-dyndep commands will run the C++ compiler with the -M -MG
+    options to extract the header dependency information, parse the resulting
+    make dependency declaration (either from stdout or from file) and enter
+    each header as a prerequisite of the obje{hello.o} target, as if they were
+    listed explicitly. It will also save this list of headers in the auxiliary
+    dependency database (hello.o.d file) in order to detect changes to these
+    headers on subsequent updates. The --what option specifies what to call
+    the dependencies being extracted in diagnostics. The --default-type option
+    specifies the default target type to use for a dependency if its file name
+    cannot be mapped to a target type.
+
+    The above depdb-dyndep variant extracts the dependencies ahead of the
+    compilation proper and will handle auto-generated headers (see the -MG
+    option for details) provided we pass the header search paths where they
+    could be generated with the -I options (passed as $poptions in the above
+    example).
+
+    If there can be no auto-generated dependencies or if they can all be
+    listed explicitly as static prerequisites, then we can use a variant of
+    the depdb-dyndep command that extracts the dependencies as a by-product of
+    compilation. In this mode only the --file input is supported. For example
+    (assuming hxx{config} is auto-generated):
+
+    obje{hello.o}: cxx{hello} hxx{config}
+    {{
+      s = $path($<[0])
+      o = $path($>)
+      t = $(o).t
+
+      poptions = $cxx.poptions $cc.poptions
+      coptions = $cc.coptions $cxx.coptions
+
+      depdb dyndep --byproduct --what=header --default-type=h --file $t
+
+      diag c++ ($<[0])
+
+      $cxx.path $poptions $coptions $cxx.mode -MD -MF $t -o $o -c $s
+    }}
+
+    Other options supported by the depdb-dyndep command:
+
+    --format <name>
+
+      Dependency format. Currently only the `make` dependency format is
+      supported and is the default.
+
+    --cwd <dir>
+
+      Working directory used to complete relative dependency paths. This
+      option is currently only valid in the --byproduct mode (in the normal
+      mode relative paths indicate non-existent files).
+
+    --drop-cycles
+
+      Drop prerequisites that are also targets. Only use this option if you
+      are sure such cycles are harmless, that is, the output is not affected
+      by such prerequisites' content.
+
+    --update-{include,exclude} <tgt>|<pat>
+
+      Prerequisite targets/patterns to include/exclude (from the static
+      prerequisite set) for update during match (those excluded will be
+      updated during execute). The order in which these options are specified
+      is significant with the first target/pattern that matches determining
+      the result. If only the --update-include options are specified, then
+      only the explicitly included prerequisites will be updated. Otherwise,
+      all prerequisites that are not explicitly excluded will be updated. If
+      none of these options is specified, then all the static prerequisites
+      are updated during match. Note also that these options do not apply to
+      ad hoc prerequisites which are always updated during match.
+
+    The common use-case for the --update-exclude option is to omit updating
+    a library which is only needed to extract exported preprocessor options.
+    Here is a typical pattern:
+
+    import libs = libhello%lib{hello}
+
+    libue{hello-meta}: $libs
+
+    obje{hello.o}: cxx{hello} libue{hello-meta}
+    {{
+      s = $path($<[0])
+      o = $path($>)
+
+      poptions  = $cxx.poptions $cc.poptions
+      poptions += $cxx.lib_poptions(libue{hello-meta}, obje)
+      coptions  = $cc.coptions $cxx.coptions
+
+      depdb dyndep $poptions --what=header --default-type=h \
+        --update-exclude libue{hello-meta} -- \
+	$cxx.path $poptions $coptions $cxx.mode -M -MG $s
+
+      diag c++ ($<[0])
+
+      $cxx.path $poptions $coptions $cxx.mode -o $o -c $s
+    }}
+
 Version 0.14.0
 
   * Support for hermetic build configurations.
