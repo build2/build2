@@ -125,6 +125,10 @@ Version 0.15.0
       $cxx.path $poptions $coptions $cxx.mode -o $o -c $s
     }}
 
+    Planned future improvements include support the `lines` (list of files,
+    one per line) input format in addition to `make` and support for dynamic
+    targets in addition to prerequisites.
+
 Version 0.14.0
 
   * Support for hermetic build configurations.
