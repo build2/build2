@@ -4147,8 +4147,14 @@ specified for our source files.
 
 \N|If you need to specify a name that does not have an extension, then end it
 with a single dot. For example, for a header \c{utility} you would write
-\c{hxx{utility.\}}. If you need to specify a name with an actual trailing
-dot, then escape it with a double dot, for example, \c{hxx{utility..\}}.|
+\c{hxx{utility.\}}. If you need to specify a name with an actual trailing dot,
+then escape it with a double dot, for example, \c{hxx{utility..\}}.
+
+More generally, anywhere in a name, a double dot can be used to specify a dot
+that should not be considered the extension separator while a triple dot \-
+which should. For example, in \c{obja{foo.a.o\}} the extension is \c{.o} and
+if instead we wanted \c{.a.o} to be considered the extension, then we could
+rewrite it either as \c{obja{foo.a..o\}} or as \c{obja{foo...a.o\}}.|
 
 The next couple of lines set target type/pattern-specific variables to treat
 all unit test executables as tests that should not be installed:
