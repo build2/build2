@@ -5365,7 +5365,8 @@ Note that some wildcard characters may have special meaning in certain
 contexts. For instance, \c{[} at the beginning of a value will be interpreted
 as the start of the attribute list while \c{?} and \c{[} in the eval context
 are part of the ternary operator and value subscript, respectively. In such
-cases the wildcard character will need to be escaped, for example:
+cases the character will need to be escaped in order to be treated as a
+wildcard, for example:
 
 \
 x = \[1-9]-foo.txt
@@ -5479,15 +5480,23 @@ exe{hello}: cxx{+{$inc} -{$exc}}
 
 One common situation that calls for exclusions is auto-generated source
 code. Let's say we have auto-generated command line parser in \c{options.hxx}
-and \c{options.cxx}. Because of the in-tree builds, our name pattern may or
-may not find these files. Note, however, that we cannot just include them as
-non-pattern prerequisites. We also have to exclude them from the pattern match
-since otherwise we may end up with duplicate prerequisites. As a result, this
-is how we have to handle this case provided we want to continue using patterns
-to find other, non-generated source files:
+and \c{options.cxx}. Because of the in/out of source builds, our name pattern
+may or may not find these files. Note, however, that we cannot just include
+them as non-pattern prerequisites. We also have to exclude them from the
+pattern match since otherwise we may end up with duplicate prerequisites. As a
+result, this is how we have to handle this case provided we want to continue
+using patterns to find other, non-generated source files:
 
 \
 exe{hello}: {hxx cxx}{* -options} {hxx cxx}{options}
+\
+
+If all our auto-generated source files have a common prefix or suffix, then we
+can exclude them wholesale with a pattern. For example, if all our generated
+files end with the `-options` suffix:
+
+\
+exe{hello}: {hxx cxx}{** -**-options} {hxx cxx}{foo-options bar-options}
 \
 
 If the name pattern includes an absolute directory, then the pattern match is
