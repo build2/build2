@@ -1,5 +1,18 @@
 Version 0.15.0
 
+  * UTF-8 is now the default input/source character set for C/C++ compilation.
+
+    Specifically, the cc module now passes the appropriate compiler option
+    (/utf-8 for MSVC and -finput-charset=UTF-8 for GCC and Clang) unless a
+    custom value is already specified (with /{source,execution}-charset for
+    MSVC and -finput-charset for GCC and Clang).
+
+    This change may trigger new compilation errors in your source code if
+    it's not valid UTF-8 (such errors most commonly point into comments).
+    For various ways to fix this, see:
+
+    https://github.com/build2/HOWTO/blob/master/entries/convert-source-files-to-utf8.md
+
   * Support for dynamic dependencies in ad hoc recipes.
 
     Specifically, the `depdb` builtin now has the new `dyndep` command that

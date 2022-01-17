@@ -250,7 +250,7 @@ namespace build2
     compile_rule::
     compile_rule (data&& d)
         : common (move (d)),
-          rule_id (string (x) += ".compile 5")
+          rule_id (string (x) += ".compile 6")
     {
       static_assert (sizeof (match_data) <= target::data_size,
                      "insufficient space");
@@ -1149,15 +1149,6 @@ namespace build2
 
           append_options (cs, t, c_coptions);
           append_options (cs, t, x_coptions);
-
-          if (ot == otype::s)
-          {
-            // On Darwin, Win32 -fPIC is the default.
-            //
-            if (tclass == "linux" || tclass == "bsd")
-              cs.append ("-fPIC");
-          }
-
           append_options (cs, cmode);
 
           if (md.pp != preprocessed::all)
@@ -3015,8 +3006,8 @@ namespace build2
       //
       // So seeing that it is hard to trigger a legitimate VC preprocessor
       // warning, for now, we will just treat them as errors by adding /WX.
-      // BTW, another example of a plausible preprocessor warning is C4819
-      // (character unrepresentable in source charset).
+      // BTW, another example of a plausible preprocessor warnings are C4819
+      // and C4828 (character unrepresentable in source charset).
       //
       // Finally, if we are using the module mapper, then all this mess falls
       // away: we only run the compiler once, we let the diagnostics through,
@@ -3263,8 +3254,24 @@ namespace build2
               append_options (args, cmode);
               append_sys_hdr_options (args); // Extra system header dirs (last).
 
-              // See perform_update() for details on /external:W0, /EHsc, /MD.
+              // See perform_update() for details on the choice of options.
               //
+              {
+                bool sc (find_option_prefix ("/source-charset:", args));
+                bool ec (find_option_prefix ("/execution-charset:", args));
+
+                if (!sc && !ec)
+                  args.push_back ("/utf-8");
+                else
+                {
+                  if (!sc)
+                    args.push_back ("/source-charset:UTF-8");
+
+                  if (!ec)
+                    args.push_back ("/execution-charset:UTF-8");
+                }
+              }
+
               if (cvariant != "clang" && isystem (*this))
               {
                 if (find_option_prefix ("/external:I", args) &&
@@ -3305,8 +3312,15 @@ namespace build2
             }
           case compiler_class::gcc:
             {
+              append_options (args, cmode,
+                              cmode.size () - (modules && clang ? 1 : 0));
+              append_sys_hdr_options (args); // Extra system header dirs (last).
+
               // See perform_update() for details on the choice of options.
               //
+              if (!find_option_prefix ("-finput-charset=", args))
+                args.push_back ("-finput-charset=UTF-8");
+
               if (ot == otype::s)
               {
                 if (tclass == "linux" || tclass == "bsd")
@@ -3334,10 +3348,6 @@ namespace build2
                   }
                 }
               }
-
-              append_options (args, cmode,
-                              cmode.size () - (modules && clang ? 1 : 0));
-              append_sys_hdr_options (args); // Extra system header dirs (last).
 
               // Setup the dynamic module mapper if needed.
               //
@@ -4609,8 +4619,24 @@ namespace build2
               append_options (args, cmode);
               append_sys_hdr_options (args);
 
-              // See perform_update() for details on /external:W0, /EHsc, /MD.
+              // See perform_update() for details on the choice of options.
               //
+              {
+                bool sc (find_option_prefix ("/source-charset:", args));
+                bool ec (find_option_prefix ("/execution-charset:", args));
+
+                if (!sc && !ec)
+                  args.push_back ("/utf-8");
+                else
+                {
+                  if (!sc)
+                    args.push_back ("/source-charset:UTF-8");
+
+                  if (!ec)
+                    args.push_back ("/execution-charset:UTF-8");
+                }
+              }
+
               if (cvariant != "clang" && isystem (*this))
               {
                 if (find_option_prefix ("/external:I", args) &&
@@ -4635,6 +4661,15 @@ namespace build2
             }
           case compiler_class::gcc:
             {
+              append_options (args, cmode,
+                              cmode.size () - (modules && clang ? 1 : 0));
+              append_sys_hdr_options (args);
+
+              // See perform_update() for details on the choice of options.
+              //
+              if (!find_option_prefix ("-finput-charset=", args))
+                args.push_back ("-finput-charset=UTF-8");
+
               if (ot == otype::s)
               {
                 if (tclass == "linux" || tclass == "bsd")
@@ -4662,10 +4697,6 @@ namespace build2
                   }
                 }
               }
-
-              append_options (args, cmode,
-                              cmode.size () - (modules && clang ? 1 : 0));
-              append_sys_hdr_options (args);
 
               args.push_back ("-E");
               append_lang_options (args, md);
@@ -6518,6 +6549,27 @@ namespace build2
           if (md.pp != preprocessed::all)
             append_sys_hdr_options (args); // Extra system header dirs (last).
 
+          // Set source/execution charsets to UTF-8 unless a custom charset
+          // is specified.
+          //
+          // Note that clang-cl supports /utf-8 and /*-charset.
+          //
+          {
+            bool sc (find_option_prefix ("/source-charset:", args));
+            bool ec (find_option_prefix ("/execution-charset:", args));
+
+            if (!sc && !ec)
+              args.push_back ("/utf-8");
+            else
+            {
+              if (!sc)
+                args.push_back ("/source-charset:UTF-8");
+
+              if (!ec)
+                args.push_back ("/execution-charset:UTF-8");
+            }
+          }
+
           // If we have any /external:I options but no /external:Wn, then add
           // /external:W0 to emulate the -isystem semantics.
           //
@@ -6631,6 +6683,21 @@ namespace build2
         }
       case compiler_class::gcc:
         {
+          append_options (args, cmode);
+
+          if (md.pp != preprocessed::all)
+            append_sys_hdr_options (args); // Extra system header dirs (last).
+
+          // Set the input charset to UTF-8 unless a custom one is specified.
+          //
+          // Note that the execution charset (-fexec-charset) is UTF-8 by
+          // default.
+          //
+          // Note that early versions of Clang only recognize uppercase UTF-8.
+          //
+          if (!find_option_prefix ("-finput-charset=", args))
+            args.push_back ("-finput-charset=UTF-8");
+
           if (ot == otype::s)
           {
             // On Darwin, Win32 -fPIC is the default.
@@ -6733,11 +6800,6 @@ namespace build2
               }
             }
           }
-
-          append_options (args, cmode);
-
-          if (md.pp != preprocessed::all)
-            append_sys_hdr_options (args); // Extra system header dirs (last).
 
           append_header_options (env, args, header_args, a, t, md, md.dd);
           append_module_options (env, args, module_args, a, t, md, md.dd);

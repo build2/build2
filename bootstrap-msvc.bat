@@ -111,7 +111,7 @@ set "src=%src% %libbutl%\libbutl"
 
 rem Get the compile options.
 rem
-set "ops=/nologo /EHsc /MT /MP"
+set "ops=/nologo /utf-8 /EHsc /MT /MP"
 :ops_next
 shift
 if "_%1_" == "__" (

@@ -83,7 +83,7 @@ rem
 rem Note that for as long as we support GCC 4.9 we have to compile in the
 rem C++14 mode since 4.9 doesn't recognize c++1z.
 rem
-set "ops=-std=c++1y"
+set "ops=-finput-charset=UTF-8 -std=c++1y"
 :ops_next
 shift
 if "_%1_" == "__" (

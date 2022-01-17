@@ -88,7 +88,7 @@ rem worked around by passing an obscure internal option. Clang 9 doesn't
 rem have this problem. To keep things simple, let's just suppress this
 rem warning.
 rem
-set "ops=-m64 -std=c++1y -D_MT -D_CRT_SECURE_NO_WARNINGS -Xlinker /ignore:4217"
+set "ops=-finput-charset=UTF-8 -m64 -std=c++1y -D_MT -D_CRT_SECURE_NO_WARNINGS -Xlinker /ignore:4217"
 :ops_next
 shift
 if "_%1_" == "__" (
