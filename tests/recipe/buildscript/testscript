@@ -250,6 +250,97 @@ posix = ($cxx.target.class != 'windows')
       $* clean 2>-
     }
 
+    : preamble
+    :
+    {
+      : valid
+      :
+      {
+        echo 'bar' >=bar;
+
+        cat <<EOI >=buildfile;
+          s = $process.run(cat bar)
+          foo:
+          {{
+            depdb clear
+
+            s1 = 'abc'
+            s2 = 'xyz'
+
+            if echo "$s" >>>? 'bar'
+              v = "$s1"
+            else
+              echo "$s2" | set v
+            end
+
+            depdb string "$v"
+
+            echo "$v" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo}';
+        cat <<<foo >'abc';
+
+        $* 2>/'info: dir{./} is up to date';
+
+        echo 'baz' >=bar;
+        $* 2>'echo file{foo}';
+        cat <<<foo >'xyz';
+
+        $* clean 2>-
+      }
+
+      : invalid
+      :
+      {
+        cat <<EOI >=buildfile;
+          foo:
+          {{
+            v = 'abc'
+            echo "$v" >$path($>)
+            depdb string "$v"
+          }}
+          EOI
+
+        $* 2>>~%EOE% != 0;
+          buildfile:4:3: error: disallowed command in depdb preamble
+            info: only variable assignments are allowed in depdb preamble
+            buildfile:5:3: info: depdb preamble ends here
+          %.+
+          EOE
+
+        $* clean 2>-
+      }
+
+      : temp-dir
+      :
+      {
+        cat <<EOI >=buildfile;
+          foo:
+          {{
+            touch $~/f | set dummy
+
+            if test -f $~/f
+              v = "yes"
+            else
+              v = "no"
+            end
+
+            depdb string "$v"
+            diag echo $>
+
+            test -f $~/f
+            echo "$v" >$path($>)
+          }}
+          EOI
+
+        $* 2>'echo file{foo.}';
+
+        $* clean 2>-
+      }
+    }
+
     : string
     :
     {
@@ -368,94 +459,98 @@ posix = ($cxx.target.class != 'windows')
       }
     }
 
-    : preamble
+    : dyndep
     :
     {
-      : valid
+      : normal
       :
       {
-        echo 'bar' >=bar;
+	cat <<EOI >=bar.h;
+          bar
+          EOI
 
         cat <<EOI >=buildfile;
-          s = $process.run(cat bar)
-          foo:
+          define h: file
+          h{*}: extension = h
+
+          ./: h{foo baz}
+
+          h{foo}:
           {{
-            depdb clear
+            # Note that strictly speaking we should return $out_base/baz.h
+            # on the second invocation (since it now exists). But our dyndep
+            # machinery skips the entry which it has already seen, so this
+            # works for now.
+            #
+            depdb dyndep "-I$out_base" --what=header --default-type=h -- \
+              echo "$out_base/foo.h: $src_base/bar.h baz.h"
 
-            s1 = 'abc'
-            s2 = 'xyz'
+            diag gen $>
 
-            if echo "$s" >>>? 'bar'
-              v = "$s1"
-            else
-              echo "$s2" | set v
-            end
+            cat $path($<) >$path($>)
+          }}
 
-            depdb string "$v"
-
-            echo "$v" >$path($>)
+          h{baz}:
+          {{
+            diag gen $>
+            echo baz >$path($>)
           }}
           EOI
 
-        $* 2>'echo file{foo}';
-        cat <<<foo >'abc';
-
-        $* 2>/'info: dir{./} is up to date';
-
-        echo 'baz' >=bar;
-        $* 2>'echo file{foo}';
-        cat <<<foo >'xyz';
-
-        $* clean 2>-
-      }
-
-      : invalid
-      :
-      {
-        cat <<EOI >=buildfile;
-          foo:
-          {{
-            v = 'abc'
-            echo "$v" >$path($>)
-            depdb string "$v"
-          }}
-          EOI
-
-        $* 2>>~%EOE% != 0;
-          buildfile:4:3: error: disallowed command in depdb preamble
-            info: only variable assignments are allowed in depdb preamble
-            buildfile:5:3: info: depdb preamble ends here
-          %.+
+	$* 2>>EOE;
+          gen h{baz.h}
+          gen h{foo.h}
           EOE
 
-        $* clean 2>-
+	cat foo.h >>EOO;
+	  bar
+	  baz
+	  EOO
+
+	$* clean 2>-
       }
 
-      : temp-dir
+      : byproduct
       :
       {
+	cat <<EOI >=bar.h;
+          bar
+          EOI
+
         cat <<EOI >=buildfile;
-          foo:
+          define h: file
+          h{*}: extension = h
+
+          h{foo}: h{baz}
           {{
-            touch $~/f | set dummy
+            o = $path($>)
+            t = $path($>).t
 
-            if test -f $~/f
-              v = "yes"
-            else
-              v = "no"
-            end
+            depdb dyndep --byproduct --what=header --default-type=h --file $t
 
-            depdb string "$v"
-            diag echo $>
+            diag gen $>
+            cat $src_base/bar.h $out_base/baz.h >$o
+            echo "$out_base/foo.h: $src_base/bar.h $out_base/baz.h" >$t
+          }}
 
-            test -f $~/f
-            echo "$v" >$path($>)
+          h{baz}:
+          {{
+            diag gen $>
+            echo baz >$path($>)
           }}
           EOI
 
-        $* 2>'echo file{foo.}';
+	$* 2>>EOE;
+          gen h{baz.h}
+          gen h{foo.h}
+          EOE
 
-        $* clean 2>-
+	cat foo.h >>EOO;
+	  bar
+	  baz
+	  EOO
+
+	$* clean 2>-
       }
     }
   }

@@ -412,6 +412,7 @@ namespace build2
         include_path_specified_ (false),
         default_type_ (),
         default_type_specified_ (false),
+        adhoc_ (),
         cwd_ (),
         cwd_specified_ (false),
         drop_cycles_ ()
@@ -509,6 +510,8 @@ namespace build2
           _cli_depdb_dyndep_options_map_["--default-type"] =
           &::build2::build::script::cli::thunk< depdb_dyndep_options, string, &depdb_dyndep_options::default_type_,
             &depdb_dyndep_options::default_type_specified_ >;
+          _cli_depdb_dyndep_options_map_["--adhoc"] =
+          &::build2::build::script::cli::thunk< depdb_dyndep_options, bool, &depdb_dyndep_options::adhoc_ >;
           _cli_depdb_dyndep_options_map_["--cwd"] =
           &::build2::build::script::cli::thunk< depdb_dyndep_options, dir_path, &depdb_dyndep_options::cwd_,
             &depdb_dyndep_options::cwd_specified_ >;

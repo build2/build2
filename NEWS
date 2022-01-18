@@ -93,6 +93,11 @@ Version 0.15.0
       option is currently only valid in the --byproduct mode (in the normal
       mode relative paths indicate non-existent files).
 
+    --adhoc
+
+      Treat dynamically discovered prerequisites as ad hoc (so they don't end
+      up in $<; only in the normal mode).
+
     --drop-cycles
 
       Drop prerequisites that are also targets. Only use this option if you

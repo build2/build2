@@ -58,6 +58,11 @@ namespace build2
         string --default-type;        // Default prerequisite type to use
                                       // if none could be derived from ext.
 
+        bool --adhoc;                 // Treat dynamically discovered
+                                      // prerequisites as ad hoc (so they
+                                      // don't end up in $<; only in the
+                                      // normal mode).
+
         dir_path --cwd;               // Builtin's working directory used
                                       // to complete relative paths (only
                                       // in --byproduct mode).

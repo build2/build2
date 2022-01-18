@@ -329,6 +329,24 @@ namespace build2
         this->default_type_specified_ = x;
       }
 
+      inline const bool& depdb_dyndep_options::
+      adhoc () const
+      {
+        return this->adhoc_;
+      }
+
+      inline bool& depdb_dyndep_options::
+      adhoc ()
+      {
+        return this->adhoc_;
+      }
+
+      inline void depdb_dyndep_options::
+      adhoc (const bool& x)
+      {
+        this->adhoc_ = x;
+      }
+
       inline const dir_path& depdb_dyndep_options::
       cwd () const
       {

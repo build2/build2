@@ -94,6 +94,17 @@ namespace build2
                      bool temp_dir,
                      const optional<timestamp>& deadline = nullopt);
 
+        // (Re)set special $< and $> variables.
+        //
+        void
+        set_special_variables (action);
+
+        // Create the temporary directory (if it doesn't exist yet) and set
+        // the $~ special variable to its path.
+        //
+        void
+        set_temp_dir_variable ();
+
         environment (environment&&) = delete;
         environment (const environment&) = delete;
         environment& operator= (environment&&) = delete;
@@ -116,6 +127,9 @@ namespace build2
         //
         variable_pool var_pool;
         variable_map vars;
+
+        const variable& var_ts; // $>
+        const variable& var_ps; // $<
 
         // Temporary directory for the script run.
         //
@@ -145,12 +159,6 @@ namespace build2
         // function calls to produce special file names, etc.
         //
         size_t exec_line = 1;
-
-        // Create the temporary directory (if it doesn't exist yet) and set
-        // the $~ special variable to its path.
-        //
-        void
-        set_temp_dir_variable ();
 
         virtual void
         set_variable (string&& name,

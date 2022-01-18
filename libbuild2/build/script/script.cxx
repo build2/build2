@@ -40,42 +40,50 @@ namespace build2
               redirect (redirect_type::pass)),
             target (t),
             vars (context, false /* global */),
+            var_ts (var_pool.insert (">")),
+            var_ps (var_pool.insert ("<")),
             script_deadline (to_deadline (dl, false /* success */))
       {
-        // Set special variables.
-        //
+        set_special_variables (a);
+
+        if (temp)
+          set_temp_dir_variable ();
+      }
+
+      void environment::
+      set_special_variables (action a)
+      {
         {
           // $>
           //
           names ns;
-          for (const target_type* m (&t); m != nullptr; m = m->adhoc_member)
+          for (const target_type* m (&target);
+               m != nullptr;
+               m = m->adhoc_member)
             m->as_name (ns);
 
-          assign (var_pool.insert (">")) = move (ns);
+          assign (var_ts) = move (ns);
         }
 
         {
           // $<
           //
-          // Note that at this stage (after execute_prerequisites()) ad hoc
-          // prerequisites are no longer in prerequisite_targets which means
-          // they won't end up in $< either. While at first thought ad hoc
-          // prerequisites in ad hoc recipes don't seem to make much sense,
-          // they could be handy to exclude certain preresquisites from $<
-          // while still treating them as such.
+          // Note that ad hoc prerequisites don't end up in $<. While at first
+          // thought ad hoc prerequisites in ad hoc recipes don't seem to make
+          // much sense, they could be handy to exclude certain prerequisites
+          // from $< while still treating them as such, especially in rule.
           //
           names ns;
-          for (const target_type* pt: t.prerequisite_targets[a])
+          for (const prerequisite_target& pt: target.prerequisite_targets[a])
           {
-            if (pt != nullptr)
-              pt->as_name (ns);
+            // See adhoc_buildscript_rule::execute_update_prerequisites().
+            //
+            if (pt.target != nullptr && !pt.adhoc)
+              pt.target->as_name (ns);
           }
 
-          assign (var_pool.insert ("<")) = move (ns);
+          assign (var_ps) = move (ns);
         }
-
-        if (temp)
-          set_temp_dir_variable ();
       }
 
       void environment::

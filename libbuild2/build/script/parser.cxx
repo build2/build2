@@ -1604,6 +1604,14 @@ namespace build2
         else
           def_pt = &file::static_type;
 
+        // --adhoc
+        //
+        if (ops.adhoc ())
+        {
+          if (byprod)
+            fail (ll) << "depdb dyndep: --adhoc specified with --byproduct";
+        }
+
         // Update prerequisite targets.
         //
         using dyndep = dyndep_rule;
@@ -1858,10 +1866,6 @@ namespace build2
         // Enter as a target, update, and add to the list of prerequisite
         // targets a file.
         //
-        // Note that these targets don't end up in $< (which is the right
-        // thing) because that variable has already been initialized (in the
-        // environment ctor).
-        //
         size_t skip_count (0);
 
         auto add = [this, &trace, what,
@@ -1959,10 +1963,19 @@ namespace build2
                   trace, what,
                   a, t,
                   *ft, mt,
-                  false /* fail */,
-                  false /* adhoc */,
-                  1     /* data */))
+                  false        /* fail */,
+                  ops.adhoc () /* adhoc */))
             {
+              prerequisite_target& pt (pts.back ());
+
+              if (pt.adhoc)
+              {
+                pt.data = reinterpret_cast<uintptr_t> (pt.target);
+                pt.target = nullptr;
+              }
+              else
+                pt.data = 1; // Already updated.
+
               if (!cache)
                 dd.expect (ft->path ()); // @@ Use fp (or verify match)?
 
@@ -2221,6 +2234,12 @@ namespace build2
         // Add the terminating blank line (we are updating depdb).
         //
         dd.expect ("");
+
+        // Reload $< and $> to make sure they contain the newly discovered
+        // prerequisites and targets.
+        //
+        if (update)
+          environment_->set_special_variables (a);
       }
 
       // When add a special variable don't forget to update lexer::word().

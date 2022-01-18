@@ -1229,6 +1229,8 @@ namespace build2
   // dependency counts straight. But we don't consider them for the "renders
   // us out-of-date" check assuming this has already been done.
   //
+  // See also environment::set_special_variables().
+  //
   optional<target_state> adhoc_buildscript_rule::
   execute_update_prerequisites (action a, const target& t, timestamp mt) const
   {

@@ -418,6 +418,15 @@ namespace build2
         void
         default_type_specified (bool);
 
+        const bool&
+        adhoc () const;
+
+        bool&
+        adhoc ();
+
+        void
+        adhoc (const bool&);
+
         const dir_path&
         cwd () const;
 
@@ -465,6 +474,7 @@ namespace build2
         bool include_path_specified_;
         string default_type_;
         bool default_type_specified_;
+        bool adhoc_;
         dir_path cwd_;
         bool cwd_specified_;
         bool drop_cycles_;
