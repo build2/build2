@@ -66,6 +66,16 @@ namespace build2
       virtual void
       perform_update_depdb (action, const target&, depdb&) const;
 
+      // Pre/post update.
+      //
+      virtual void
+      perform_update_pre (action, const target&,
+                          ofdstream&, const char* newline) const;
+
+      virtual void
+      perform_update_post (action, const target&,
+                           ofdstream&, const char* newline) const;
+
       // Perform variable lookup.
       //
       // Flags can be used by a custom implementation to alter the lookup

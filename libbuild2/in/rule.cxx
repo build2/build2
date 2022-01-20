@@ -255,6 +255,9 @@ namespace build2
 
                 assert (v); // Rule semantics change without version increment?
 
+                if (p3 != string::npos)
+                  p3 -= p2; // Hash length.
+
                 if (s->compare (p2, p3, sha256 (*v).string ()) == 0)
                 {
                   dd_skip++;
@@ -336,7 +339,7 @@ namespace build2
 #endif
         auto_rmfile arm (tp);
 
-        // Note: this default will only be used if the file if empty (i.e.,
+        // Note: this default will only be used if the file is empty (i.e.,
         // does not contain even a newline).
         //
         const char* nl (
@@ -347,8 +350,8 @@ namespace build2
 #endif
         );
 
-        string s; // Reuse the buffer.
-        for (uint64_t ln (1);; ++ln)
+        uint64_t ln (1);
+        for (string s;; ++ln)
         {
           what = "read"; whom = &ip;
           if (!getline (ifs, s))
@@ -361,21 +364,30 @@ namespace build2
           if (crlf)
             s.pop_back();
 
+          what = "write"; whom = &tp;
+          if (ln != 1)
+            ofs << nl;
+
+          nl = crlf ? "\r\n" : "\n"; // Preserve the original line ending.
+
+          if (ln == 1)
+            perform_update_pre (a, t, ofs, nl);
+
           // Not tracking column for now (see also depdb above).
           //
           process (location (ip, ln),
                    a, t,
                    dd, dd_skip,
                    s, 0,
-                   (crlf ? "\r\n" : "\n"), sym, strict, null);
+                   nl, sym, strict, null);
 
-          what = "write"; whom = &tp;
-          if (ln != 1)
-            ofs << nl; // See below.
           ofs << s;
-
-          nl = crlf ? "\r\n" : "\n"; // Preserve the original line ending.
         }
+
+        what = "write"; whom = &tp;
+        if (ln == 1)
+          perform_update_pre (a, t, ofs, nl);
+        perform_update_post (a, t, ofs, nl);
 
         // Close depdb before closing the output file so its mtime is not
         // newer than of the output.
@@ -412,6 +424,16 @@ namespace build2
 
     void rule::
     perform_update_depdb (action, const target&, depdb&) const
+    {
+    }
+
+    void rule::
+    perform_update_pre (action, const target&, ofdstream&, const char*) const
+    {
+    }
+
+    void rule::
+    perform_update_post (action, const target&, ofdstream&, const char*) const
     {
     }
 
