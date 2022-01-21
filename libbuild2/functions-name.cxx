@@ -1,6 +1,8 @@
 // file      : libbuild2/functions-name.cxx -*- C++ -*-
 // license   : MIT; see accompanying LICENSE file
 
+#include <libbuild2/functions-name.hxx>
+
 #include <libbuild2/scope.hxx>
 #include <libbuild2/function.hxx>
 #include <libbuild2/variable.hxx>
@@ -39,9 +41,7 @@ namespace build2
     return make_pair (move (n), move (e));
   }
 
-  // Note: this helper mey be used by other functions that operate on targets.
-  //
-  LIBBUILD2_SYMEXPORT const target&
+  const target&
   to_target (const scope& s, name&& n, name&& o)
   {
     if (const target* r = search_existing (n, s, o.dir))
@@ -50,6 +50,15 @@ namespace build2
     fail << "target "
          << (n.pair ? names {move (n), move (o)} : names {move (n)})
          << " not found" << endf;
+  }
+
+  const target&
+  to_target (const scope& s, names&& ns)
+  {
+    assert (ns.size () == (ns[0].pair ? 2 : 1));
+
+    name o;
+    return to_target (s, move (ns[0]), move (ns[0].pair ? ns[1] : o));
   }
 
   void

@@ -13,11 +13,10 @@
 #include <libbuild2/cc/module.hxx>
 #include <libbuild2/cc/utility.hxx>
 
+#include <libbuild2/functions-name.hxx> // to_target()
+
 namespace build2
 {
-  const target&
-  to_target (const scope&, name&&, name&&); // libbuild2/functions-name.cxx
-
   namespace cc
   {
     using namespace bin;
