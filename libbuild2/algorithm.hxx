@@ -17,7 +17,7 @@
 namespace build2
 {
   // The default prerequisite search implementation. It first calls the
-  // prerequisite-type-specific search function. If that doesn't yeld
+  // prerequisite-type-specific search function. If that doesn't yield
   // anything, it creates a new target.
   //
   LIBBUILD2_SYMEXPORT const target&
@@ -45,26 +45,44 @@ namespace build2
   LIBBUILD2_SYMEXPORT pair<target&, ulock>
   search_locked (const target&, const prerequisite_key&);
 
-  // Note that unlike the above version, this one can be called during the
-  // load and execute phases.
+  // As above but this one can be called during the load and execute phases.
   //
   LIBBUILD2_SYMEXPORT const target*
   search_existing (context&, const prerequisite_key&);
+
+  // First search for an existing target and if that doesn't yield anything,
+  // creates a new target, bypassing any prerequisite-type-specific search.
+  // Can be called during the load and match phases but only on project-
+  // unqualified prerequisites. This version is suitable for cases where you
+  // know the target is in out and cannot be possibly found in src.
+  //
+  LIBBUILD2_SYMEXPORT const target&
+  search_new (context&, const prerequisite_key&);
+
+  // As above but return the lock if the target was newly created.
+  //
+  LIBBUILD2_SYMEXPORT pair<target&, ulock>
+  search_new_locked (context&, const prerequisite_key&);
 
   // Uniform search interface for prerequisite/prerequisite_member.
   //
   inline const target&
   search (const target& t, const prerequisite_member& p) {return p.search (t);}
 
-  // As above but override the target type. Useful for searching for
-  // target group members where we need to search for a different
-  // target type.
+  // As above but override the target type. Useful for searching for target
+  // group members where we need to search for a different target type.
   //
   const target&
   search (const target&, const target_type&, const prerequisite_key&);
 
   pair<target&, ulock>
   search_locked (const target&, const target_type&, const prerequisite_key&);
+
+  const target&
+  search_new (context&, const target_type&, const prerequisite_key&);
+
+  pair<target&, ulock>
+  search_new_locked (context&, const target_type&, const prerequisite_key&);
 
   // As above but specify the prerequisite to search as individual key
   // components. Scope can be NULL if the directory is absolute.
@@ -85,8 +103,8 @@ namespace build2
                  const dir_path& dir,
                  const dir_path& out,
                  const string& name,
-                 const string* ext = nullptr,  // NULL means unspecified.
-                 const scope* = nullptr);      // NULL means dir is absolute.
+                 const string* ext = nullptr,
+                 const scope* = nullptr);
 
   const target*
   search_existing (context&,
@@ -97,6 +115,24 @@ namespace build2
                    const string* ext = nullptr,
                    const scope* = nullptr,
                    const optional<project_name>& proj = nullopt);
+
+  const target&
+  search_new (context&,
+              const target_type&,
+              const dir_path& dir,
+              const dir_path& out,
+              const string& name,
+              const string* ext = nullptr,
+              const scope* = nullptr);
+
+  pair<target&, ulock>
+  search_new_locked (context&,
+                     const target_type&,
+                     const dir_path& dir,
+                     const dir_path& out,
+                     const string& name,
+                     const string* ext = nullptr,
+                     const scope* = nullptr);
 
   // As above but specify the target type as template argument.
   //

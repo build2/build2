@@ -976,8 +976,8 @@ namespace build2
           // be the group -- we will pick a member in part 2 below.
           //
           pair<target&, ulock> r (
-            search_locked (
-              t, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
+            search_new_locked (
+              ctx, rtt, d, dir_path (), *cp.tk.name, nullptr, cp.scope));
 
           // If we shouldn't clean obj{}, then it is fair to assume we
           // shouldn't clean the source either (generated source will be in

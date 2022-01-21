@@ -88,6 +88,28 @@ namespace build2
   }
 
   const target&
+  search_new (context& ctx, const prerequisite_key& pk)
+  {
+    assert (ctx.phase == run_phase::load || ctx.phase == run_phase::match);
+
+    if (const target* pt = search_existing_target (ctx, pk))
+      return *pt;
+
+    return create_new_target (ctx, pk);
+  }
+
+  pair<target&, ulock>
+  search_new_locked (context& ctx, const prerequisite_key& pk)
+  {
+    assert (ctx.phase == run_phase::load || ctx.phase == run_phase::match);
+
+    if (const target* pt = search_existing_target (ctx, pk))
+      return {const_cast<target&> (*pt), ulock ()};
+
+    return create_new_target_locked (ctx, pk);
+  }
+
+  const target&
   search (const target& t, name n, const scope& s, const target_type* tt)
   {
     assert (t.ctx.phase == run_phase::match);

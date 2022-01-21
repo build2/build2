@@ -46,6 +46,28 @@ namespace build2
   }
 
   inline const target&
+  search_new (context& ctx,
+              const target_type& tt,
+              const prerequisite_key& k)
+  {
+    return search_new (
+      ctx,
+      prerequisite_key {
+        k.proj, {&tt, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
+  }
+
+  inline pair<target&, ulock>
+  search_new_locked (context& ctx,
+                     const target_type& tt,
+                     const prerequisite_key& k)
+  {
+    return search_new_locked (
+      ctx,
+      prerequisite_key {
+        k.proj, {&tt, k.tk.dir, k.tk.out, k.tk.name, k.tk.ext}, k.scope});
+  }
+
+  inline const target&
   search (const target& t,
           const target_type& type,
           const dir_path& dir,
@@ -102,6 +124,48 @@ namespace build2
       ctx,
       prerequisite_key {
         proj,
+        {
+          &type,
+          &dir, &out, &name,
+          ext != nullptr ? optional<string> (*ext) : nullopt
+        },
+        scope});
+  }
+
+  inline const target&
+  search_new (context& ctx,
+              const target_type& type,
+              const dir_path& dir,
+              const dir_path& out,
+              const string& name,
+              const string* ext,
+              const scope* scope)
+  {
+    return search_new (
+      ctx,
+      prerequisite_key {
+        nullopt,
+        {
+          &type,
+          &dir, &out, &name,
+          ext != nullptr ? optional<string> (*ext) : nullopt
+        },
+        scope});
+  }
+
+  inline pair<target&, ulock>
+  search_new_locked (context& ctx,
+                     const target_type& type,
+                     const dir_path& dir,
+                     const dir_path& out,
+                     const string& name,
+                     const string* ext,
+                     const scope* scope)
+  {
+    return search_new_locked (
+      ctx,
+      prerequisite_key {
+        nullopt,
         {
           &type,
           &dir, &out, &name,
