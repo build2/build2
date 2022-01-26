@@ -8754,11 +8754,12 @@ buildfiles.
 
 The \c{say-hello.bash} module is \i{imported} by the \c{hello} script with the
 \c{@import\ hello/say-hello@} substitution. The \i{import path}
-(\c{hello/say-hello} in our case) is a relative path to the module file within
-the project. Its first component (\c{hello} in our case) must be the project
-base name and the \c{.bash} module extension can be omitted. \N{The constraint
-placed on the first component of the import path is required to implement
-importation of installed modules, as discussed below.}
+(\c{hello/say-hello} in our case) is a path to the module file within the
+project. Its first component (\c{hello} in our case) must be both the project
+name and the top-level subdirectory within the project. The \c{.bash} module
+extension can be omitted. \N{The constraint placed on the first component of
+the import path is required to implement importation of installed modules, as
+discussed below.}
 
 During preprocessing, the import substitution will be replaced with a
 \c{source} builtin call and the import path resolved to one of the \c{bash{\}}
@@ -8777,11 +8778,12 @@ OS. The script, however, can provide a suitable implementation as a function.
 See the \c{bash} module tests for a sample implementation of such a function.|
 
 By default, \c{bash} modules are installed into a subdirectory of the \c{bin/}
-installation directory named as the project base name. For instance, in the
-above example, the script will be installed as \c{bin/hello} and the module as
-\c{bin/hello/say-hello.bash} with the script sourcing the module relative to
-the \c{bin/} directory. Note that currently it is assumed the script and all
-its modules are installed into the same \c{bin/} directory.
+installation directory named as the project name plus the \c{.bash} extension.
+For instance, in the above example, the script will be installed as
+\c{bin/hello} and the module as \c{bin/hello.bash/say-hello.bash} with the
+script sourcing the module relative to the \c{bin/} directory. Note that
+currently it is assumed the script and all its modules are installed into the
+same \c{bin/} directory.
 
 Naturally, modules can import other modules and modules can be packaged into
 \i{module libraries} and imported using the standard build system import
@@ -8848,8 +8850,9 @@ for example, \c{libhello}. If there is also a native library (that is, one
 written in C/C++) that provides the same functionality (or the \c{bash}
 library is a language binding for said library), then it is customary to add
 the \c{.bash} extension to the \c{bash} library name, for example,
-\c{libhello.bash}. Note that in this case the project base name is
-\c{libhello}.
+\c{libhello.bash}. Note that in this case the top-level subdirectory within
+the project is expected to be called without the \c{bash} extension,
+for example, \c{libhello}.
 
 Modules can be \i{private} or \i{public}. Private modules are implementation
 details of a specific project and are not expected to be imported from other

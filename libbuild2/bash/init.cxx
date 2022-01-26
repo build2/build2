@@ -48,14 +48,13 @@ namespace build2
       {
         using namespace install;
 
-        // Install into bin/<project>/ by default stripping the .bash
-        // extension from <project> if present.
+        // Install bash{} into bin/<project>.bash/ by default.
         //
         const project_name& p (project (rs));
 
         if (!p.empty ())
         {
-          install_path<bash> (bs, dir_path ("bin") /= project_base (p));
+          install_path<bash> (bs, dir_path ("bin") /= modules_install_dir (p));
           install_mode<bash> (bs, "644");
         }
       }

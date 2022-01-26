@@ -119,7 +119,7 @@ if ($test.target == $build.host && $build.host.class != 'windows')
         }
         fi
 
-        @import sub/foo@
+        @import sub.bash/foo@
         EOI
 
       cat <<EOI >=buildfile;
@@ -140,7 +140,7 @@ if ($test.target == $build.host && $build.host.class != 'windows')
     :
     {
       cat <<EOI >=test.bash.in;
-        @import sub/foo@
+        @import sub.bash/foo@
         EOI
 
       cat <<EOI >=driver.in;

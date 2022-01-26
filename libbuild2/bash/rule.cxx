@@ -126,7 +126,7 @@ namespace build2
         // apply).
         //
         string ext (p.ext ? *p.ext : "bash");
-        path ip (dir_path (project_base (*p.proj)) / p.dir / p.name);
+        path ip (dir_path (modules_install_dir (*p.proj)) / p.dir / p.name);
 
         if (!ext.empty ())
         {
@@ -217,21 +217,45 @@ namespace build2
                        const target& t,
                        const string& n) const
     {
-      // Derive (relative) import path from the import name.
+      // Derive (relative) import path from the import name. And derive import
+      // installed path from that by adding the .bash extension to the first
+      // component.
       //
-      path ip;
+      path ip, iip;
+      project_name pn;
 
       try
       {
         ip = path (n);
 
-        if (ip.empty () || ip.absolute ())
+        if (ip.empty () || ip.simple () || ip.absolute ())
           throw invalid_path (n);
 
         if (ip.extension_cstring () == nullptr)
           ip += ".bash";
 
         ip.normalize ();
+
+        auto b (ip.begin ()), e (ip.end ());
+
+        try
+        {
+          pn = project_name (*b);
+        }
+        catch (const invalid_argument& e)
+        {
+          fail (l) << "invalid import path '" << n << "': " << e.what ();
+        }
+
+        char s (b++.separator ());
+
+        iip = path (modules_install_dir (pn) + s) / path (b, e);
+
+        // Strip the .bash extension from the project name in this path to
+        // be able to compare it to paths inside the project (see below).
+        //
+        if (pn.extension () == "bash")
+          ip = path (pn.base ("bash") + s) / path (b, e);
       }
       catch (const invalid_path&)
       {
@@ -261,19 +285,19 @@ namespace build2
           //
           // But we still do a simple match first since it can quickly weed
           // out candidates that cannot possibly match.
-          //
-          if (!pp.sup (ip))
-            continue;
 
-          // See if this is import-installed target (refer to search() for
-          // details).
+          // See if this is import-installed target (refer to search() above
+          // for details).
           //
           if (size_t n = pt.data)
           {
+            if (!pp.sup (iip))
+              continue;
+
             // Both are normalized so we can compare the "tails".
             //
             const string& ps (pp.string ());
-            const string& is (ip.string ());
+            const string& is (iip.string ());
 
             if (path::traits_type::compare (
                   ps.c_str () + ps.size () - n, n,
@@ -288,6 +312,9 @@ namespace build2
 
           if (const scope* rs = b->base_scope ().root_scope ())
           {
+            if (!pp.sup (ip) || project (*rs) != pn)
+              continue;
+
             const dir_path& d (pp.sub (rs->src_path ())
                                ? rs->src_path ()
                                : rs->out_path ());
@@ -366,7 +393,7 @@ namespace build2
             "source \"$(dirname"
             " \"$(readlink -f"
             " \"${BASH_SOURCE[0]}\")\")/"
-            + ip.string () + "\"";
+            + iip.string () + "\"";
         }
         else
         {
@@ -387,7 +414,7 @@ namespace build2
           return
             "source \"$(dirname"
             " \"${BASH_SOURCE[0]}\")/"
-            + o + ip.string () + "\"";
+            + o + iip.string () + "\"";
         }
       }
       else

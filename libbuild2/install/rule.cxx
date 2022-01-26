@@ -1323,7 +1323,6 @@ namespace build2
         }
       }
 
-
       // Finally handle installable prerequisites.
       //
       r |= reverse_execute_prerequisites (a, t);
