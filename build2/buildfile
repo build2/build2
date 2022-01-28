@@ -5,6 +5,9 @@
 #
 libs = $libbutl
 
+# NOTE: don't forget to also update bpkg's buildfile if changing anything
+# here.
+#
 include ../libbuild2/
 libs += ../libbuild2/lib{build2}
 
