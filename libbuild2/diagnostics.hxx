@@ -14,7 +14,7 @@
 
 namespace build2
 {
-  using butl::diag_record;
+  struct diag_record;
 
   // Throw this exception to terminate the build. The handler should
   // assume that the diagnostics has already been issued.
@@ -190,79 +190,97 @@ namespace build2
       : stderr_term && verb >= 1 && verb <= max_verb;
   }
 
-  // Diagnostic facility, base infrastructure.
+  // Diagnostic facility.
+  //
+  // Note that this is the "complex" case we we derive from (rather than
+  // alias) a number of butl::diag_* types and provide custom operator<<
+  // "overrides" in order to make ADL look in the build2 rather than butl
+  // namespace.
   //
   using butl::diag_stream_lock;
   using butl::diag_stream;
   using butl::diag_epilogue;
+  using butl::diag_frame;
 
-  // Diagnostics stack. Each frame is "applied" to the fail/error/warn/info
-  // diag record.
-  //
-  // Unfortunately most of our use-cases don't fit into the 2-pointer small
-  // object optimization of std::function. So we have to complicate things
-  // a bit here.
-  //
-  struct LIBBUILD2_SYMEXPORT diag_frame
+  template <typename> struct diag_prologue;
+  template <typename> struct diag_mark;
+
+  struct diag_record: butl::diag_record
   {
+    template <typename T>
+    const diag_record&
+    operator<< (const T& x) const
+    {
+      os << x;
+      return *this;
+    }
+
+    diag_record () = default;
+
+    template <typename B>
     explicit
-    diag_frame (void (*f) (const diag_frame&, const diag_record&))
-        : func_ (f)
+    diag_record (const diag_prologue<B>& p): diag_record () { *this << p;}
+
+    template <typename B>
+    explicit
+    diag_record (const diag_mark<B>& m): diag_record () { *this << m;}
+  };
+
+  template <typename B>
+  struct diag_prologue: butl::diag_prologue<B>
+  {
+    using butl::diag_prologue<B>::diag_prologue;
+
+    template <typename T>
+    diag_record
+    operator<< (const T& x) const
     {
-      if (func_ != nullptr)
-        prev_ = stack (this);
+      diag_record r;
+      r.append (this->indent, this->epilogue);
+      B::operator() (r);
+      r << x;
+      return r;
     }
 
-    diag_frame (diag_frame&& x)
-        : func_ (x.func_)
+    friend const diag_record&
+    operator<< (const diag_record& r, const diag_prologue& p)
     {
-      if (func_ != nullptr)
-      {
-        prev_ = x.prev_;
-        stack (this);
+      r.append (p.indent, p.epilogue);
+      p (r);
+      return r;
+    }
+  };
 
-        x.func_ = nullptr;
-      }
+  template <typename B>
+  struct diag_mark: butl::diag_mark<B>
+  {
+    using butl::diag_mark<B>::diag_mark;
+
+    template <typename T>
+    diag_record
+    operator<< (const T& x) const
+    {
+      return B::operator() () << x;
     }
 
-    diag_frame& operator= (diag_frame&&) = delete;
-
-    diag_frame (const diag_frame&) = delete;
-    diag_frame& operator= (const diag_frame&) = delete;
-
-    ~diag_frame ()
+    friend const diag_record&
+    operator<< (const diag_record& r, const diag_mark& m)
     {
-      if (func_ != nullptr )
-        stack (prev_);
+      return r << m ();
     }
+  };
 
-    static void
-    apply (const diag_record& r)
+  template <typename B>
+  struct diag_noreturn_end: butl::diag_noreturn_end<B>
+  {
+    using butl::diag_noreturn_end<B>::diag_noreturn_end;
+
+    [[noreturn]] friend void
+    operator<< (const diag_record& r, const diag_noreturn_end& e)
     {
-      for (const diag_frame* f (stack ()); f != nullptr; f = f->prev_)
-        f->func_ (*f, r);
+      assert (r.full ());
+      e.B::operator() (r);
     }
-
-    // Tip of the stack.
-    //
-    static const diag_frame*
-    stack () noexcept;
-
-    // Set the new and return the previous tip of the stack.
-    //
-    static const diag_frame*
-    stack (const diag_frame*) noexcept;
-
-    struct stack_guard
-    {
-      explicit stack_guard (const diag_frame* s): s_ (stack (s)) {}
-      ~stack_guard () {stack (s_);}
-      const diag_frame* s_;
-    };
-
-  private:
-    void (*func_) (const diag_frame&, const diag_record&);
-    const diag_frame* prev_;
   };
 
   template <typename F>
@@ -273,9 +291,10 @@ namespace build2
 
   private:
     static void
-    thunk (const diag_frame& f, const diag_record& r)
+    thunk (const diag_frame& f, const butl::diag_record& r)
     {
-      static_cast<const diag_frame_impl&> (f).func_ (r);
+      static_cast<const diag_frame_impl&> (f).func_ (
+        static_cast<const diag_record&> (r));
     }
 
     const F func_;
@@ -288,8 +307,6 @@ namespace build2
     return diag_frame_impl<F> (move (f));
   }
 
-  // Diagnostic facility, project specifics.
-  //
   struct LIBBUILD2_SYMEXPORT simple_prologue_base
   {
     explicit
@@ -352,8 +369,8 @@ namespace build2
 
   struct basic_mark_base
   {
-    using simple_prologue   = butl::diag_prologue<simple_prologue_base>;
-    using location_prologue = butl::diag_prologue<location_prologue_base>;
+    using simple_prologue   = diag_prologue<simple_prologue_base>;
+    using location_prologue = diag_prologue<location_prologue_base>;
 
     explicit
     basic_mark_base (const char* type,
@@ -427,7 +444,7 @@ namespace build2
     const void* data_;
     diag_epilogue* const epilogue_;
   };
-  using basic_mark = butl::diag_mark<basic_mark_base>;
+  using basic_mark = diag_mark<basic_mark_base>;
 
   LIBBUILD2_SYMEXPORT extern const basic_mark error;
   LIBBUILD2_SYMEXPORT extern const basic_mark warn;
@@ -452,7 +469,7 @@ namespace build2
                            mod,
                            name) {}
   };
-  using trace_mark = butl::diag_mark<trace_mark_base>;
+  using trace_mark = diag_mark<trace_mark_base>;
   using tracer = trace_mark;
 
   // fail
@@ -464,7 +481,7 @@ namespace build2
                     const void* data = nullptr)
         : basic_mark_base (type,
                            data,
-                           [](const diag_record& r)
+                           [](const butl::diag_record& r)
                            {
                              diag_frame::apply (r);
                              r.flush ();
@@ -474,7 +491,7 @@ namespace build2
                            nullptr,
                            nullptr) {}
   };
-  using fail_mark = butl::diag_mark<fail_mark_base>;
+  using fail_mark = diag_mark<fail_mark_base>;
 
   struct fail_end_base
   {
@@ -488,7 +505,7 @@ namespace build2
       throw failed ();
     }
   };
-  using fail_end = butl::diag_noreturn_end<fail_end_base>;
+  using fail_end = diag_noreturn_end<fail_end_base>;
 
   LIBBUILD2_SYMEXPORT extern const fail_mark fail;
   LIBBUILD2_SYMEXPORT extern const fail_end  endf;

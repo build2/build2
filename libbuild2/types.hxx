@@ -317,6 +317,14 @@ namespace build2
   using paths = std::vector<path>;
   using dir_paths = std::vector<dir_path>;
 
+  // Path printing potentially relative with trailing slash for directories.
+  //
+  LIBBUILD2_SYMEXPORT ostream&
+  operator<< (ostream&, const ::butl::path&); // utility.cxx
+
+  LIBBUILD2_SYMEXPORT ostream&
+  operator<< (ostream&, const ::butl::path_name_view&); // utility.cxx
+
   // <libbutl/timestamp.hxx>
   //
   using butl::system_clock;
@@ -380,6 +388,11 @@ namespace build2
 
     process_path_ex () = default;
   };
+
+  // Print as recall[@effect].
+  //
+  LIBBUILD2_SYMEXPORT ostream&
+  operator<< (ostream&, const ::butl::process_path&); // utility.cxx
 
   // <libbutl/fdstream.hxx>
   //
@@ -476,26 +489,6 @@ namespace build2
 
   LIBBUILD2_SYMEXPORT ostream&
   operator<< (ostream&, run_phase); // utility.cxx
-}
-
-// In order to be found (via ADL) these have to be either in std:: or in
-// butl::. The latter is a bad idea since libbutl includes the default
-// implementation. They are defined in utility.cxx.
-//
-namespace std
-{
-  // Path printing potentially relative with trailing slash for directories.
-  //
-  LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::path&);
-
-  LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::path_name_view&);
-
-  // Print as recall[@effect].
-  //
-  LIBBUILD2_SYMEXPORT ostream&
-  operator<< (ostream&, const ::butl::process_path&);
 }
 
 // <libbuild2/name.hxx>

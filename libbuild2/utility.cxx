@@ -19,7 +19,6 @@
 using namespace std;
 using namespace butl;
 
-//
 // <libbuild2/types.hxx>
 //
 namespace build2
@@ -31,10 +30,7 @@ namespace build2
   {
     return os << run_phase_[static_cast<uint8_t> (p)];
   }
-}
 
-namespace std
-{
   ostream&
   operator<< (ostream& os, const ::butl::path& p)
   {
@@ -76,11 +72,10 @@ namespace std
   }
 }
 
+// <libbuild2/utility.hxx>
+//
 namespace build2
 {
-  //
-  // <libbuild2/utility.hxx>
-  //
   void (*terminate) (bool);
 
   process_path argv0;

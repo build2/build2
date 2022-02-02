@@ -77,30 +77,6 @@ namespace build2
     dr << butl::process_args {args, n};
   }
 
-  // Diagnostics stack.
-  //
-  static
-#ifdef __cpp_thread_local
-  thread_local
-#else
-  __thread
-#endif
-  const diag_frame* diag_frame_stack = nullptr;
-
-  const diag_frame* diag_frame::
-  stack () noexcept
-  {
-    return diag_frame_stack;
-  }
-
-  const diag_frame* diag_frame::
-  stack (const diag_frame* f) noexcept
-  {
-    const diag_frame* r (diag_frame_stack);
-    diag_frame_stack = f;
-    return r;
-  }
-
   // Diagnostic facility, project specifics.
   //
 

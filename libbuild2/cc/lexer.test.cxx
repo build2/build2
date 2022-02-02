@@ -6,6 +6,7 @@
 #include <libbuild2/types.hxx>
 #include <libbuild2/utility.hxx>
 
+#include <libbuild2/cc/types.hxx>
 #include <libbuild2/cc/lexer.hxx>
 
 #undef NDEBUG

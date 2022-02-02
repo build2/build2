@@ -585,6 +585,10 @@ namespace build2
     verify_environment_var_assignment (const string&,
                                        const char* prefix,
                                        const location&);
+
+    // "Unhide" operator<< from the build2 namespace.
+    //
+    using build2::operator<<;
   }
 }
 

@@ -175,6 +175,10 @@ namespace build2
       const target_type& bmi;
       const target_type& hbmi;
     };
+
+    // "Unhide" operator<< from the build2 namespace.
+    //
+    using build2::operator<<;
   }
 }
 
