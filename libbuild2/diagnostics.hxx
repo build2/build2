@@ -273,6 +273,8 @@ namespace build2
   template <typename B>
   struct diag_noreturn_end: butl::diag_noreturn_end<B>
   {
+    diag_noreturn_end () {} // For Clang 3.7 (const needs user default ctor).
+
     using butl::diag_noreturn_end<B>::diag_noreturn_end;
 
     [[noreturn]] friend void
