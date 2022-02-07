@@ -761,7 +761,7 @@ namespace build2
       {
         if (r.second != target_state::failed)
         {
-          match_inc_dependens (a, g);
+          match_inc_dependents (a, g);
           match_recipe (l, group_recipe);
         }
       }

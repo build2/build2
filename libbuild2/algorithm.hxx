@@ -395,6 +395,11 @@ namespace build2
   recipe
   match_delegate (action, target&, const rule&, bool try_match = false);
 
+  // Incrementing the dependency counts of the specified target.
+  //
+  void
+  match_inc_dependents (action, const target&);
+
   // Match a rule for the inner operation from withing the outer rule's
   // apply() function. See also the companion execute_inner().
   //

@@ -375,7 +375,7 @@ namespace build2
   match (action, const target&, size_t, atomic_count*, bool try_match = false);
 
   inline void
-  match_inc_dependens (action a, const target& t)
+  match_inc_dependents (action a, const target& t)
   {
     t.ctx.dependency_count.fetch_add (1, memory_order_relaxed);
     t[a].dependents.fetch_add (1, memory_order_release);
@@ -389,7 +389,7 @@ namespace build2
     target_state r (match (a, t, 0, nullptr).second);
 
     if (r != target_state::failed)
-      match_inc_dependens (a, t);
+      match_inc_dependents (a, t);
     else if (fail)
       throw failed ();
 
@@ -407,7 +407,7 @@ namespace build2
     if (r.first)
     {
       if (r.second != target_state::failed)
-        match_inc_dependens (a, t);
+        match_inc_dependents (a, t);
       else if (fail)
         throw failed ();
     }
@@ -454,7 +454,7 @@ namespace build2
       }
     }
 
-    match_inc_dependens (a, t);
+    match_inc_dependents (a, t);
     return make_pair (false, s);;
   }
 
