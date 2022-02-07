@@ -51,7 +51,7 @@ namespace build2
     {
       tracer trace ("version::in_rule::match");
 
-      file& t (static_cast<file&> (xt));
+      file& t (xt.as<file> ());
       const scope& rs (t.root_scope ());
 
       bool fm (false); // Found manifest.

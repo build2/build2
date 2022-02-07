@@ -30,7 +30,7 @@ namespace build2
       if (!xt.is_a<file> ()) // See module init() for details.
         return false;
 
-      file& t (static_cast<file&> (xt));
+      file& t (xt.as<file> ());
 
       bool fi (false); // Found in.
       for (prerequisite_member p: group_prerequisite_members (a, t))
@@ -53,7 +53,7 @@ namespace build2
     recipe rule::
     apply (action a, target& xt) const
     {
-      file& t (static_cast<file&> (xt));
+      file& t (xt.as<file> ());
 
       // Derive the file name.
       //

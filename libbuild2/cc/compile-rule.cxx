@@ -2582,7 +2582,7 @@ namespace build2
 
             if (ht != pts.back ())
             {
-              ht = static_cast<const file*> (pts.back ().target);
+              ht = &pts.back ().target->as<file> ();
               rs = "ERROR expected header '" + ht->path ().string () +
                 "' to be found instead";
               bad_error = true; // We expect an error from the compiler.
@@ -5672,7 +5672,7 @@ namespace build2
 
         // Hash (we know it's a file).
         //
-        cs.append (static_cast<const file&> (*bt).path ().string ());
+        cs.append (bt->as<file> ().path ().string ());
 
         // Copy over bmi{}s from our prerequisites weeding out duplicates.
         //
@@ -5698,7 +5698,7 @@ namespace build2
                          }) == imports.end ())
             {
               pts.push_back (et);
-              cs.append (static_cast<const file&> (*et).path ().string ());
+              cs.append (et->as<file> ().path ().string ());
 
               // Add to the list of imports for further duplicate suppression.
               // We could have stored reference to the name (e.g., in score)
@@ -5907,7 +5907,7 @@ namespace build2
                 nullopt,     // Use default extension.
                 target_decl::implied,
                 trace));
-      file& bt (static_cast<file&> (p.first));
+      file& bt (p.first.as<file> ());
 
       // Note that this is racy and someone might have created this target
       // while we were preparing the prerequisite list.
@@ -6142,7 +6142,7 @@ namespace build2
                 nullopt,     // Use default extension.
                 target_decl::implied,
                 trace));
-      file& bt (static_cast<file&> (p.first));
+      file& bt (p.first.as<file> ());
 
       // Note that this is racy and someone might have created this target
       // while we were preparing the prerequisite list.
