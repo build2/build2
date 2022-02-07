@@ -423,13 +423,37 @@ namespace build2
       rules.insert<T> (a, move (hint), r);
     }
 
+    // 0 meta-operation id is treated as an (emulated) wildcard.
+    //
+    // Emulated means that we just iterate over all the meta-operations known
+    // to this project (and they should all be known at this point) and
+    // register the rule for each of them.
+    //
     template <typename T>
     void
     insert_rule (meta_operation_id mid, operation_id oid,
                  string hint,
                  const rule& r)
     {
-      rules.insert<T> (mid, oid, move (hint), r);
+      if (mid != 0)
+        rules.insert<T> (mid, oid, move (hint), r);
+      else
+      {
+        auto& ms (root_scope ()->root_extra->meta_operations);
+
+        for (size_t i (1), n (ms.size ()); i != n; ++i)
+        {
+          // Skip a few well-known meta-operations that cannot possibly
+          // trigger a rule match.
+          //
+          if (ms[i] != nullptr &&
+              i != noop_id     &&
+              i != info_id     &&
+              i != create_id   &&
+              i != disfigure_id)
+            rules.insert<T> (i, oid, hint, r);
+        }
+      }
     }
 
     // Operation callbacks.

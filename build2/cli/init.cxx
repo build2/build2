@@ -246,6 +246,9 @@ namespace build2
 
       // Register our rules.
       //
+      // Other rules (e.g., cc::compile) may need to have the group members
+      // resolved/linked up. Looks like a general pattern: groups should
+      // resolve on *(update).
       {
         auto reg = [&rs, &m] (meta_operation_id mid, operation_id oid)
         {
@@ -255,17 +258,8 @@ namespace build2
           rs.insert_rule<cxx::ixx> (mid, oid, "cli.compile", m);
         };
 
-        reg (perform_id, update_id);
-        reg (perform_id, clean_id);
-
-        // Other rules (e.g., cc::compile) may need to have the group members
-        // resolved/linked up. Looks like a general pattern: groups should
-        // resolve on *(update).
-        //
-        // @@ meta-op wildcard?
-        //
-        reg (configure_id, update_id);
-        reg (dist_id, update_id);
+        reg (0 /* wildcard */, update_id);
+        reg (perform_id,       clean_id);
       }
 
       return true;

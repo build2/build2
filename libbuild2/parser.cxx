@@ -1171,6 +1171,12 @@ namespace build2
                 skip:
                   ;
                 }
+
+                // @@ TODO: if this rule does dynamic member discovery of a
+                //    see-through target group, then we may also need to
+                //    register update for other meta-operations (see, for
+                //    example, wildcard update registration in the cli
+                //    module).
               }
             }
           }
