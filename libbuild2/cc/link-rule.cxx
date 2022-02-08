@@ -912,14 +912,16 @@ namespace build2
         pts.push_back (prerequisite_target (nullptr, pi));
         const target*& pt (pts.back ());
 
-        if (pi != include_type::normal) // Skip excluded and ad hoc.
+        // Skip excluded and ad hoc on this pass.
+        //
+        if (pi != include_type::normal)
           continue;
 
         // Mark:
         //   0 - lib
         //   1 - src
         //   2 - mod
-        //   3 - obj/bmi and also lib not to be cleaned
+        //   3 - obj/bmi and also lib not to be cleaned (and other stuff)
         //
         uint8_t m (0);
 
@@ -1069,7 +1071,8 @@ namespace build2
             {
               // @@ Temporary hack until we get the default outer operation
               // for update. This allows operations like test and install to
-              // skip such tacked on stuff.
+              // skip such tacked on stuff. @@ This doesn't feel temporary
+              // anymore...
               //
               // Note that ad hoc inputs have to be explicitly marked with the
               // include=adhoc prerequisite-specific variable.
