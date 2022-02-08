@@ -1144,10 +1144,19 @@ namespace build2
   // See-through group members iteration mode. Ad hoc members must always
   // be entered explicitly.
   //
+  // Note that if the group is empty, then we see the group itself (rather
+  // than nothing). Failed that, an empty group would never be executed (e.g.,
+  // during clean) since there is no member to trigger the group execution.
+  // Other than that, it feels like seeing the group in this cases should be
+  // harmless (i.e., rules are generally prepared to see prerequisites they
+  // don't recognize).
+  //
   enum class members_mode
   {
-    always, // Iterate over members, assert if not resolvable.
-    maybe,  // Iterate over members if resolvable, group otherwise.
+    always, // Iterate over members if not empty, group if empty, assert if
+            // not resolvable.
+    maybe,  // Iterate over members if resolvable and not empty, group
+            // otherwise.
     never   // Iterate over group (can still use enter_group()).
   };
 
@@ -1200,9 +1209,10 @@ namespace build2
       leave_group ();
 
       // Iterate over this group's members. Return false if the member
-      // information is not available. Similar to leave_group(), you should
-      // increment the iterator after calling this function (provided it
-      // returned true).
+      // information is not available (note: return true if the group is
+      // empty). Similar to leave_group(), you should increment the iterator
+      // after calling this function provided group() returns true (see
+      // below).
       //
       bool
       enter_group ();

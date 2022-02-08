@@ -8,39 +8,6 @@
 
 namespace build2
 {
-  // prerequisite_members_range
-  //
-  template <typename T>
-  void prerequisite_members_range<T>::iterator::
-  switch_mode ()
-  {
-    // A group could be empty, so we may have to iterate.
-    //
-    do
-    {
-      g_ = resolve_members (*i_);
-
-      // Group could not be resolved.
-      //
-      if (g_.members == nullptr)
-      {
-        assert (r_->mode_ != members_mode::always);
-        return;
-      }
-
-      // Skip empty see through groups.
-      //
-      for (j_ = 1; j_ <= g_.count && g_.members[j_ - 1] == nullptr; ++j_) ;
-      if (j_ <= g_.count)
-        break;
-
-      g_.count = 0;
-    }
-    while (++i_ != r_->e_ && i_->type.see_through);
-  }
-
-  //
-  //
   template <const char* ext>
   const char*
   target_extension_fix (const target_key& tk, const scope*)

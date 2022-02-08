@@ -456,6 +456,25 @@ namespace build2
   }
 
   template <typename T>
+  inline void prerequisite_members_range<T>::iterator::
+  switch_mode ()
+  {
+    g_ = resolve_members (*i_);
+
+    if (g_.members != nullptr)
+    {
+      // See empty see through groups as groups.
+      //
+      for (j_ = 1; j_ <= g_.count && g_.members[j_ - 1] == nullptr; ++j_) ;
+
+      if (j_ > g_.count)
+        g_.count = 0;
+    }
+    else
+      assert (r_->mode_ != members_mode::always); // Group can't be resolved.
+  }
+
+  template <typename T>
   inline auto prerequisite_members_range<T>::iterator::
   operator++ () -> iterator&
   {
