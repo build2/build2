@@ -2324,11 +2324,90 @@ namespace build2
     return execute_prerequisites (a, t);
   }
 
+  static target_state
+  clean_extra (context& ctx,
+               const path& fp,
+               const clean_extras& es,
+               path& ep, bool& ed)
+  {
+    assert (!fp.empty ()); // Must be assigned.
+
+    target_state er (target_state::unchanged);
+
+    for (const char* e: es)
+    {
+      size_t n;
+      if (e == nullptr || (n = strlen (e)) == 0)
+        continue;
+
+      path p;
+      bool d;
+
+      if (path::traits_type::absolute (e))
+      {
+        p = path (e);
+        d = p.to_directory ();
+      }
+      else
+      {
+        if ((d = (e[n - 1] == '/')))
+          --n;
+
+        p = fp;
+        for (; *e == '-'; ++e)
+          p = p.base ();
+
+        p.append (e, n);
+      }
+
+      target_state r (target_state::unchanged);
+
+      if (d)
+      {
+        dir_path dp (path_cast<dir_path> (p));
+
+        switch (rmdir_r (ctx, dp, true, 3))
+        {
+        case rmdir_status::success:
+          {
+            r = target_state::changed;
+            break;
+          }
+        case rmdir_status::not_empty:
+          {
+            if (verb >= 3)
+              text << dp << " is current working directory, not removing";
+            break;
+          }
+        case rmdir_status::not_exist:
+          break;
+        }
+      }
+      else
+      {
+        if (rmfile (ctx, p, 3))
+          r = target_state::changed;
+      }
+
+      if (r == target_state::changed && ep.empty ())
+      {
+        ed = d;
+        ep = move (p);
+      }
+
+      er |= r;
+    }
+
+    return er;
+  }
+
   target_state
   perform_clean_extra (action a, const file& ft,
                        const clean_extras& extras,
                        const clean_adhoc_extras& adhoc_extras)
   {
+    context& ctx (ft.ctx);
+
     // Clean the extras first and don't print the commands at verbosity level
     // below 3. Note the first extra file/directory that actually got removed
     // for diagnostics below.
@@ -2339,87 +2418,10 @@ namespace build2
     bool ed (false);
     path ep;
 
-    context& ctx (ft.ctx);
-
-    auto clean_extra = [&er, &ed, &ep, &ctx] (const file& f,
-                                              const path* fp,
-                                              const clean_extras& es)
-    {
-      for (const char* e: es)
-      {
-        size_t n;
-        if (e == nullptr || (n = strlen (e)) == 0)
-          continue;
-
-        path p;
-        bool d;
-
-        if (path::traits_type::absolute (e))
-        {
-          p = path (e);
-          d = p.to_directory ();
-        }
-        else
-        {
-          if ((d = (e[n - 1] == '/')))
-            --n;
-
-          if (fp == nullptr)
-          {
-            fp = &f.path ();
-            assert (!fp->empty ()); // Must be assigned.
-          }
-
-          p = *fp;
-          for (; *e == '-'; ++e)
-            p = p.base ();
-
-          p.append (e, n);
-        }
-
-        target_state r (target_state::unchanged);
-
-        if (d)
-        {
-          dir_path dp (path_cast<dir_path> (p));
-
-          switch (rmdir_r (ctx, dp, true, 3))
-          {
-          case rmdir_status::success:
-            {
-              r = target_state::changed;
-              break;
-            }
-          case rmdir_status::not_empty:
-            {
-              if (verb >= 3)
-                text << dp << " is current working directory, not removing";
-              break;
-            }
-          case rmdir_status::not_exist:
-            break;
-          }
-        }
-        else
-        {
-          if (rmfile (ctx, p, 3))
-            r = target_state::changed;
-        }
-
-        if (r == target_state::changed && ep.empty ())
-        {
-          ed = d;
-          ep = move (p);
-        }
-
-        er |= r;
-      }
-    };
-
     const path& fp (ft.path ());
 
     if (!fp.empty () && !extras.empty ())
-      clean_extra (ft, nullptr, extras);
+      er |= clean_extra (ctx, fp, extras, ep, ed);
 
     target_state tr (target_state::unchanged);
 
@@ -2454,7 +2456,7 @@ namespace build2
                          }));
 
         if (i != adhoc_extras.end ())
-          clean_extra (*mf, mp, i->extras);
+          er |= clean_extra (ctx, *mp, i->extras, ep, ed);
       }
 
       if (!clean)
@@ -2521,6 +2523,52 @@ namespace build2
   }
 
   target_state
+  perform_clean_group_extra (action a, const mtime_target& g,
+                             const clean_extras& extras)
+  {
+    context& ctx (g.ctx);
+
+    target_state er (target_state::unchanged);
+    bool ed (false);
+    path ep;
+
+    if (!extras.empty ())
+      er |= clean_extra (ctx, g.dir / path (g.name), extras, ep, ed);
+
+    target_state tr (target_state::unchanged);
+
+    if (cast_true<bool> (g[g.ctx.var_clean]))
+    {
+      for (group_view gv (g.group_members (a)); gv.count != 0; --gv.count)
+      {
+        if (const target* m = gv.members[gv.count - 1])
+        {
+          if (rmfile (m->as<file> ().path (), *m))
+            tr |= target_state::changed;
+        }
+      }
+    }
+
+    g.mtime (timestamp_nonexistent);
+
+    if (tr != target_state::changed && er == target_state::changed)
+    {
+      if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
+      {
+        if (ed)
+          text << "rm -r " << path_cast<dir_path> (ep);
+        else
+          text << "rm " << ep;
+      }
+    }
+
+    tr |= reverse_execute_prerequisites (a, g);
+
+    tr |= er;
+    return tr;
+  }
+
+  target_state
   perform_clean (action a, const target& t)
   {
     const file& f (t.as<file> ());
@@ -2537,68 +2585,34 @@ namespace build2
   }
 
   target_state
-  perform_clean_group (action a, const target& xg)
+  perform_clean_group (action a, const target& t)
   {
-    const mtime_target& g (xg.as<mtime_target> ());
-
-    // Similar logic to perform_clean_extra() above.
-    //
-    target_state r (target_state::unchanged);
-
-    if (cast_true<bool> (g[g.ctx.var_clean]))
-    {
-      for (group_view gv (g.group_members (a)); gv.count != 0; --gv.count)
-      {
-        if (const target* m = gv.members[gv.count - 1])
-        {
-          if (rmfile (m->as<file> ().path (), *m))
-            r |= target_state::changed;
-        }
-      }
-    }
-
-    g.mtime (timestamp_nonexistent);
-
-    r |= reverse_execute_prerequisites (a, g);
-    return r;
+    return perform_clean_group_extra (a, t.as<mtime_target> (), {});
   }
 
   target_state
-  perform_clean_group_depdb (action a, const target& g)
+  perform_clean_group_depdb (action a, const target& t)
   {
-    context& ctx (g.ctx);
-
-    // The same twisted target state merging logic as in perform_clean_extra().
-    //
-    target_state er (target_state::unchanged);
-    path ep;
-
-    group_view gv (g.group_members (a));
-    if (gv.count != 0)
+    path d;
+    clean_extras extras;
     {
-      for (size_t i (0); i != gv.count; ++i)
+      group_view gv (t.group_members (a));
+      if (gv.count != 0)
       {
-        if (const target* m = gv.members[i])
+        for (size_t i (0); i != gv.count; ++i)
         {
-          ep = m->as<file> ().path () + ".d";
-          break;
+          if (const target* m = gv.members[i])
+          {
+            d = m->as<file> ().path () + ".d";
+            break;
+          }
         }
+
+        assert (!d.empty ());
+        extras.push_back (d.string ().c_str ());
       }
-
-      assert (!ep.empty ());
-      if (rmfile (ctx, ep, 3))
-        er = target_state::changed;
     }
 
-    target_state tr (perform_clean_group (a, g));
-
-    if (tr != target_state::changed && er == target_state::changed)
-    {
-      if (verb > (ctx.current_diag_noise ? 0 : 1) && verb < 3)
-        text << "rm " << ep;
-    }
-
-    tr |= er;
-    return tr;
+    return perform_clean_group_extra (a, t.as<mtime_target> (), extras);
   }
 }

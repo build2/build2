@@ -840,6 +840,20 @@ namespace build2
     return perform_clean_extra (a, f, clean_extras (e));
   }
 
+  // Similar to perform_clean_group() but with extras similar to
+  // perform_clean_extra(). Note that the extras are derived from the group
+  // "path" (g.dir / g.name).
+  //
+  LIBBUILD2_SYMEXPORT target_state
+  perform_clean_group_extra (action, const mtime_target&, const clean_extras&);
+
+  inline target_state
+  perform_clean_group_extra (action a, const mtime_target& g,
+                             initializer_list<const char*> e)
+  {
+    return perform_clean_group_extra (a, g, clean_extras (e));
+  }
+
   // Update/clean a backlink issuing appropriate diagnostics at appropriate
   // levels depending on the overload and the changed argument.
   //
