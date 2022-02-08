@@ -22,6 +22,7 @@ namespace build2
     {
       package_name name;
       string constraint;
+      bool buildtime;
     };
 
     using dependencies = map<string, dependency>;

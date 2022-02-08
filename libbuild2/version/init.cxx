@@ -3,6 +3,8 @@
 
 #include <libbuild2/version/init.hxx>
 
+#include <cstring> // strchr()
+
 #include <libbutl/manifest-parser.hxx>
 
 #include <libbuild2/scope.hxx>
@@ -143,61 +145,98 @@ namespace build2
             }
             else if (nv.name == "depends")
             {
-              // According to the package manifest spec, the format of the
-              // 'depends' value is as follows:
-              //
-              // depends: [?][*] <alternatives> [; <comment>]
-              //
-              // <alternatives> := <dependency> [ '|' <dependency>]*
-              // <dependency>   := <name> [<constraint>]
-              // <constraint>   := <comparison> | <range>
-              // <comparison>   := ('==' | '>' | '<' | '>=' | '<=') <version>
-              // <range>        := ('(' | '[') <version> <version> (')' | ']')
-              //
-              // Note that we don't do exhaustive validation here leaving it
-              // to the package manager.
-              //
               string v (move (nv.value));
 
-              size_t p;
+              // Parse the dependency and add it to the map (see
+              // bpkg::dependency_alternatives class for dependency syntax).
+              //
+              // Note that currently we only consider simple dependencies:
+              // singe package without alternatives, clauses, or newlines.
+              // In the future, if/when we add full support, we will likely
+              // keep this as a fast path.
+              //
+              // Also note that we don't do exhaustive validation here leaving
+              // it to the package manager.
 
               // Get rid of the comment.
               //
+              // Note that we can potentially mis-detect the comment
+              // separator, since ';' can be a part of some of the dependency
+              // alternative clauses. If that's the case, we will skip the
+              // dependency later.
+              //
+              size_t p;
               if ((p = v.find (';')) != string::npos)
                 v.resize (p);
 
-              // Get rid of conditional/runtime markers. Note that enither of
-              // them is valid in the rest of the value.
+              // Skip the dependency if it is not a simple one.
               //
-              if ((p = v.find_last_of ("?*")) != string::npos)
-                v.erase (0, p + 1);
+              // Note that we will check for the presence of the reflect
+              // clause later since `=` can also be in the constraint.
+              //
+              if (v.find_first_of ("{?|\n") != string::npos)
+                continue;
 
-              // Parse as |-separated "words".
+              // Find the beginning of the dependency package name, skipping
+              // the build-time marker, if present.
               //
-              for (size_t b (0), e (0); next_word (v, b, e, '|'); )
+              bool buildtime (v[0] == '*');
+              size_t b (buildtime ? v.find_first_not_of (" \t", 1) : 0);
+
+              if (b == string::npos)
+                fail (l) << "invalid dependency " << v << ": no package name";
+
+              // Find the end of the dependency package name.
+              //
+              p = v.find_first_of (" \t=<>[(~^", b);
+
+              // Dependency name (without leading/trailing white-spaces).
+              //
+              string n (v, b, p == string::npos ? p : p - b);
+
+              string vc; // Empty if no constraint is specified
+
+              // Position to the first non-whitespace character after the
+              // dependency name, which, if present, can be a part of the
+              // version constraint or the reflect clause.
+              //
+              if (p != string::npos)
+                p = v.find_first_not_of (" \t", p);
+
+              if (p != string::npos)
               {
-                string d (v, b, e - b);
-                trim (d);
+                // Check if this is definitely not a version constraint and
+                // drop this dependency if that's the case.
+                //
+                if (strchr ("=<>[(~^", v[p]) == nullptr)
+                  continue;
 
-                p = d.find_first_of (" \t=<>[(~^");
-                string n (d, 0, p);
-                string c (p != string::npos ? string (d, p) : string ());
+                // Ok, we have a constraint, check that there is no reflect
+                // clause after it (the only other valid `=` in a constraint
+                // is in the immediately following character as part of
+                // `==`, `<=`, or `>=`).
+                //
+                if (v.size () > p + 2 && v.find ('=', p + 2) != string::npos)
+                  continue;
 
-                trim (n);
-                trim (c);
+                vc.assign (v, p);
+                trim (vc);
+              }
 
-                try
-                {
-                  package_name pn (move (n));
-                  string v (pn.variable ());
+              // Finally, add the dependency to the map.
+              //
+              try
+              {
+                package_name pn (move (n));
+                string v (pn.variable ());
 
-                  ds.emplace (move (v), dependency {move (pn), move (c)});
-                }
-                catch (const invalid_argument& e)
-                {
-                  fail (l) << "invalid package name for dependency "
-                           << d << ": " << e;
-                }
+                ds.emplace (move (v),
+                            dependency {move (pn), move (vc), buildtime});
+              }
+              catch (const invalid_argument& e)
+              {
+                fail (l) << "invalid dependency package name '" << n << "': "
+                         << e;
               }
             }
           }
@@ -246,7 +285,9 @@ namespace build2
       {
         auto i (ds.find ("build2"));
 
-        if (i != ds.end () && !i->second.constraint.empty ())
+        if (i != ds.end ()      &&
+            i->second.buildtime &&
+            !i->second.constraint.empty ())
         try
         {
           check_build_version (
