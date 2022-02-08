@@ -8,7 +8,7 @@ namespace build2
   inline depdb_base::
   ~depdb_base ()
   {
-    if (state_ != state::write)
+    if (state_ != state::write || ro_)
       is_.~ifdstream ();
     else
       os_.~ofdstream ();
@@ -17,7 +17,7 @@ namespace build2
   inline void depdb::
   flush ()
   {
-    if (state_ == state::write)
+    if (state_ == state::write && !ro_)
     try
     {
       os_.flush ();
@@ -37,7 +37,7 @@ namespace build2
   inline void depdb::
   check_mtime (const path_type& t, timestamp e)
   {
-    if (state_ == state::write && mtime_check ())
+    if (state_ == state::write && !ro_ && mtime_check ())
       check_mtime_ (t, e);
   }
 

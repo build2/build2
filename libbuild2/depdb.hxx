@@ -66,14 +66,15 @@ namespace build2
     //
     enum class state {read, read_eof, write};
 
-    depdb_base (const path&, state, optional<uint64_t> pos = nullopt);
+    depdb_base (const path&, bool ro, state, optional<uint64_t> pos = nullopt);
     ~depdb_base ();
 
     state state_;
+    bool  ro_;
 
     union
     {
-      ifdstream is_; // read, read_eof
+      ifdstream is_; // read, read_eof, (ro && write)
       ofdstream os_; // write
     };
 
@@ -107,13 +108,19 @@ namespace build2
     // has wrong format version, or is corrupt, then the database will be
     // immediately switched to writing.
     //
+    // If read_only is true, then don't actually make any modifications to the
+    // database file. In other words, the database is still nominally switched
+    // to writing but without any filesystem changes. Note that calling any
+    // write-only functions (write(), touch, etc) on such a database is
+    // illegal.
+    //
     // The failure commonly happens when the user tries to stash the target in
     // a non-existent subdirectory but forgets to add the corresponding fsdir{}
     // prerequisite. That's why the issued diagnostics may provide the
     // corresponding hint.
     //
     explicit
-    depdb (path_type);
+    depdb (path_type, bool read_only = false);
 
     struct reopen_state
     {
@@ -304,7 +311,7 @@ namespace build2
     depdb& operator= (const depdb&) = delete;
 
   private:
-    depdb (path_type&&, timestamp);
+    depdb (path_type&&, bool, timestamp);
 
     void
     change (bool truncate = true);

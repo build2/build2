@@ -18,21 +18,37 @@ namespace build2
   // Note that state::write with absent pos is interpreted as non-existent.
   //
   depdb_base::
-  depdb_base (const path& p, state s, optional<uint64_t> pos)
-      : state_ (s)
+  depdb_base (const path& p, bool ro, state s, optional<uint64_t> pos)
+      : state_ (s), ro_ (ro)
   {
-    fdopen_mode om (fdopen_mode::out | fdopen_mode::binary);
+    if (s == state::write && ro)
+    {
+      new (&is_) ifdstream ();
+      buf_ = nullptr; // Shouldn't be needed.
+      return;
+    }
+
+    fdopen_mode om (fdopen_mode::binary);
     ifdstream::iostate em (ifdstream::badbit);
 
     if (s == state::write)
     {
+      om |= fdopen_mode::out;
+
       if (!pos)
         om |= fdopen_mode::create | fdopen_mode::exclusive;
 
       em |= ifdstream::failbit;
     }
     else
-      om |= fdopen_mode::in; // Both in & out so can switch from read to write.
+    {
+      om |= fdopen_mode::in;
+
+      // Both in & out so can switch from read to write.
+      //
+      if (!ro)
+        om |= fdopen_mode::out;
+    }
 
     auto_fd fd;
     try
@@ -80,8 +96,9 @@ namespace build2
   }
 
   depdb::
-  depdb (path_type&& p, timestamp mt)
+  depdb (path_type&& p, bool ro, timestamp mt)
       : depdb_base (p,
+                    ro,
                     mt != timestamp_nonexistent ? state::read : state::write),
         path (move (p)),
         mtime (mt != timestamp_nonexistent ? mt : timestamp_unknown)
@@ -91,22 +108,25 @@ namespace build2
     if (state_ == state::read)
     {
       string* l (read ());
-      if (l == nullptr || *l != "1")
-        write ('1');
+      if (l != nullptr && *l == "1")
+        return;
     }
-    else
+
+    if (!ro)
       write ('1');
+    else if (reading ())
+      change ();
   }
 
   depdb::
-  depdb (path_type p)
-      : depdb (move (p), build2::mtime (p))
+  depdb (path_type p, bool ro)
+      : depdb (move (p), ro, build2::mtime (p))
   {
   }
 
   depdb::
   depdb (reopen_state rs)
-      : depdb_base (rs.path, state::write, rs.pos),
+      : depdb_base (rs.path, false, state::write, rs.pos),
         path (move (rs.path)),
         mtime (timestamp_unknown),
         touch (rs.mtime)
@@ -118,51 +138,58 @@ namespace build2
   {
     assert (state_ != state::write);
 
-    // Transfer the file descriptor from ifdstream to ofdstream. Note that the
-    // steps in this dance must be carefully ordered to make sure we don't
-    // call any destructors twice in the face of exceptions.
-    //
-    auto_fd fd (is_.release ());
+    if (ro_)
+    {
+      buf_ = nullptr;
+    }
+    else
+    {
+      // Transfer the file descriptor from ifdstream to ofdstream. Note that
+      // the steps in this dance must be carefully ordered to make sure we
+      // don't call any destructors twice in the face of exceptions.
+      //
+      auto_fd fd (is_.release ());
 
-    // Consider this scenario: we are overwriting an old line (so it ends with
-    // a newline and the "end marker") but the operation failed half way
-    // through. Now we have the prefix from the new line, the suffix from the
-    // old, and everything looks valid. So what we need is to somehow
-    // invalidate the old content so that it can never combine with (partial)
-    // new content to form a valid line. One way to do that would be to
-    // truncate the file.
-    //
-    if (trunc)
-    try
-    {
-      fdtruncate (fd.get (), pos_);
-    }
-    catch (const io_error& e)
-    {
-      fail << "unable to truncate " << path << ": " << e;
-    }
+      // Consider this scenario: we are overwriting an old line (so it ends
+      // with a newline and the "end marker") but the operation failed half
+      // way through. Now we have the prefix from the new line, the suffix
+      // from the old, and everything looks valid. So what we need is to
+      // somehow invalidate the old content so that it can never combine with
+      // (partial) new content to form a valid line. One way to do that would
+      // be to truncate the file.
+      //
+      if (trunc)
+      try
+      {
+        fdtruncate (fd.get (), pos_);
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to truncate " << path << ": " << e;
+      }
 
-    // Note: the file descriptor position can be beyond the pos_ value due to
-    // the ifdstream buffering. That's why we need to seek to switch from
-    // reading to writing.
-    //
-    try
-    {
-      fdseek (fd.get (), pos_, fdseek_mode::set);
-    }
-    catch (const io_error& e)
-    {
-      fail << "unable to rewind " << path << ": " << e;
-    }
+      // Note: the file descriptor position can be beyond the pos_ value due
+      // to the ifdstream buffering. That's why we need to seek to switch from
+      // reading to writing.
+      //
+      try
+      {
+        fdseek (fd.get (), pos_, fdseek_mode::set);
+      }
+      catch (const io_error& e)
+      {
+        fail << "unable to rewind " << path << ": " << e;
+      }
 
-    // @@ Strictly speaking, ofdstream can throw which will leave us in a
-    //    non-destructible state. Unlikely but possible.
-    //
-    is_.~ifdstream ();
-    new (&os_) ofdstream (move (fd),
-                          ofdstream::badbit | ofdstream::failbit,
-                          pos_);
-    buf_ = static_cast<fdstreambuf*> (os_.rdbuf ());
+      // @@ Strictly speaking, ofdstream can throw which will leave us in a
+      //    non-destructible state. Unlikely but possible.
+      //
+      is_.~ifdstream ();
+      new (&os_) ofdstream (move (fd),
+                            ofdstream::badbit | ofdstream::failbit,
+                            pos_);
+      buf_ = static_cast<fdstreambuf*> (os_.rdbuf ());
+    }
 
     state_ = state::write;
     mtime = timestamp_unknown;
@@ -304,6 +331,12 @@ namespace build2
   void depdb::
   close (bool mc)
   {
+    if (ro_)
+    {
+      is_.close ();
+      return;
+    }
+
     // If we are at eof, then it means all lines are good, there is the "end
     // marker" at the end, and we don't need to do anything, except, maybe
     // touch the file. Otherwise, if we are still in the read mode, truncate
