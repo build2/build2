@@ -967,9 +967,21 @@ namespace build2
         //    not seem like it will be easy to fix (we don't know whether
         //    someone else will execute this target).
         //
-        // @@ What if we always do match & execute together? After all,
+        //    What if we always do match & execute together? After all,
         //    if a group can be resolved in apply(), then it can be
-        //    resolved in match()!
+        //    resolved in match()! Feels a bit drastic.
+        //
+        //    But, this won't be a problem if the target returns noop_recipe.
+        //    And perhaps it's correct to fail if it's not noop_recipe but
+        //    nobody executed it? Maybe not.
+        //
+        //    Another option would be to have a count for such "matched but
+        //    may not be executed" targets and then make sure target_count
+        //    is less than that at the end. Though this definitelt makes it
+        //    less exact (since we can end up executed this target but not
+        //    some other). Maybe we can increment and decrement such targets
+        //    in a separate count (i.e., mark their recipe as special or some
+        //    such).
         //
 
         // Apply (locked).

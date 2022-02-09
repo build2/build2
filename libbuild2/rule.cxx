@@ -56,10 +56,13 @@ namespace build2
     // are not doing anything for this action so not checking if the file
     // exists seems harmless.
     //
+    // But we also don't want to match real targets and not cleaning their
+    // output files.
+    //
     switch (a)
     {
     case perform_clean_id:
-      return true;
+      return t.decl != target_decl::real;
     default:
       {
         // While normally we shouldn't do any of this in match(), no other

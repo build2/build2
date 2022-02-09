@@ -129,6 +129,10 @@ namespace build2
   // @@ We have cases (like pkg-config extraction) where it should probably be
   //    prereq_file rather than implied (also audit targets.insert<> calls).
   //
+  // @@ Also, synthesized dependency declarations (e.g., in cc::link_rule) are
+  //    fuzzy: they feel more `real` than `implied`. Maybe introduce
+  //    `synthesized` in-between?
+  //
   enum class target_decl: uint8_t
   {
     prereq_new,  // Created from prerequisite (create_new_target()).
