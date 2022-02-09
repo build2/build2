@@ -799,4 +799,49 @@ namespace build2
                             false /* insert */,
                             map_ext, fallback, pfx_map, so_map);
   }
+
+  const file& dyndep_rule::
+  inject_group_member (action a, const scope& bs, mtime_target& g,
+                       path p, const target_type& tt)
+  {
+    path n (p.leaf ());
+    string e (n.extension ());
+
+    // Assume nobody else can insert these members (seems reasonable seeing
+    // that their names are dynamically discovered).
+    //
+    auto l (search_new_locked (
+              bs.ctx,
+              tt,
+              p.directory (),
+              dir_path (), // Always in out.
+              move (n.make_base ()).string (),
+              &e,
+              &bs));
+
+    const file& t (l.first.as<file> ()); // Note: non-const only if have lock.
+
+    if (l.second)
+    {
+      l.first.group = &g;
+      l.second.unlock ();
+      t.path (move (p)); // Only do this once.
+    }
+    else
+      // Must have been already done (e.g., on previous operation in a
+      // batch).
+      //
+      assert (t.group == &g);
+
+    // This shouldn't fail since we are the only ones that should be matching
+    // this target.
+    //
+    target_lock tl (lock (a, t));
+    assert (tl);
+
+    match_inc_dependents (a, g);
+    match_recipe (tl, group_recipe);
+
+    return t;
+  }
 }

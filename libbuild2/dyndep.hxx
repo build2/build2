@@ -14,7 +14,8 @@
 #include <libbuild2/export.hxx>
 
 // Additional functionality that is normally only useful for implementing
-// rules with dynamic dependencies.
+// rules with dynamic dependencies (usually prerequisites, but also target
+// group members).
 //
 namespace build2
 {
@@ -214,6 +215,28 @@ namespace build2
                const target_type& fallback,
                const function<prefix_map_func>& = nullptr,
                const srcout_map& = {});
+
+    // Find or insert a target file path as a target of the specified type,
+    // make it a member of the specified (non-ad hoc) mtime target group,
+    // set its path, and match it with group_recipe.
+    //
+    // The file path must be absolute and normalized. Note that this function
+    // assumes that this member can only be matched via this group.
+    //
+    // Note: we can split this function into {enter,match}_group_member()
+    //       if necessary.
+    //
+    static const file&
+    inject_group_member (action, const scope& base, mtime_target&,
+                         path, const target_type&);
+
+    template <typename T>
+    static const T&
+    inject_group_member (action a, const scope& bs, mtime_target& g, path p)
+    {
+      return inject_group_member (
+        a, bs, g, move (p), T::static_type).template as<T> ();
+    }
   };
 }
 
