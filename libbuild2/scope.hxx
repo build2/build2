@@ -443,15 +443,19 @@ namespace build2
 
         for (size_t i (1), n (ms.size ()); i != n; ++i)
         {
-          // Skip a few well-known meta-operations that cannot possibly
-          // trigger a rule match.
-          //
-          if (ms[i] != nullptr &&
-              i != noop_id     &&
-              i != info_id     &&
-              i != create_id   &&
-              i != disfigure_id)
-            rules.insert<T> (i, oid, hint, r);
+          if (ms[i] != nullptr)
+          {
+            // Skip a few well-known meta-operations that cannot possibly
+            // trigger a rule match.
+            //
+            mid = static_cast<meta_operation_id> (i);
+
+            if (mid != noop_id     &&
+                mid != info_id     &&
+                mid != create_id   &&
+                mid != disfigure_id)
+              rules.insert<T> (mid, oid, hint, r);
+          }
         }
       }
     }
