@@ -2694,6 +2694,9 @@ namespace build2
           // probably safe to assume that the two came from the same version
           // of binutils/LLVM.
           //
+          // @@ Note also that GNU ar deprecated -T in favor of --thin in
+          // version 2.38.
+          //
           if (lt.utility)
           {
             const string& id (cast<string> (rs["bin.ar.id"]));
