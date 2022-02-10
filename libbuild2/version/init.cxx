@@ -219,7 +219,7 @@ namespace build2
                 if (v.size () > p + 2 && v.find ('=', p + 2) != string::npos)
                   continue;
 
-                vc.assign (v, p);
+                vc.assign (v, p, string::npos);
                 trim (vc);
               }
 
