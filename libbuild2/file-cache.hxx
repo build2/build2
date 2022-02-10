@@ -92,7 +92,12 @@ namespace build2
     // to the noop implementation.
     //
     explicit
-    file_cache (bool compress = true);
+    file_cache (bool compress);
+
+    file_cache () = default; // Create uninitialized instance.
+
+    void
+    init (bool compress);
 
     class entry;
 

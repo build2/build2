@@ -50,7 +50,7 @@ namespace build2
     //
     scheduler sched (1);
     global_mutexes mutexes (1);
-    file_cache fcache;
+    file_cache fcache (true);
     context ctx (sched, mutexes, fcache);
 
     auto& functions (ctx.functions);

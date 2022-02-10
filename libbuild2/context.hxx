@@ -94,8 +94,18 @@ namespace build2
 
     explicit
     global_mutexes (size_t vc)
-        : variable_cache_size (vc),
-          variable_cache (new shared_mutex[variable_cache_size]) {}
+    {
+      init (vc);
+    }
+
+    global_mutexes () = default; // Create uninitialized instance.
+
+    void
+    init (size_t vc)
+    {
+      variable_cache_size = vc;
+      variable_cache.reset (new shared_mutex[vc]);
+    }
   };
 
   // A build context encapsulates the state of a build. It is possible to have

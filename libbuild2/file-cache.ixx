@@ -173,9 +173,15 @@ namespace build2
       : string ();
   }
 
+  inline void file_cache::
+  init (bool compress)
+  {
+    compress_ = compress;
+  }
+
   inline file_cache::
   file_cache (bool compress)
-      : compress_ (compress)
   {
+    init (compress);
   }
 }
