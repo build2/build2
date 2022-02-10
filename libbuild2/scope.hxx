@@ -431,34 +431,7 @@ namespace build2
     //
     template <typename T>
     void
-    insert_rule (meta_operation_id mid, operation_id oid,
-                 string hint,
-                 const rule& r)
-    {
-      if (mid != 0)
-        rules.insert<T> (mid, oid, move (hint), r);
-      else
-      {
-        auto& ms (root_scope ()->root_extra->meta_operations);
-
-        for (size_t i (1), n (ms.size ()); i != n; ++i)
-        {
-          if (ms[i] != nullptr)
-          {
-            // Skip a few well-known meta-operations that cannot possibly
-            // trigger a rule match.
-            //
-            mid = static_cast<meta_operation_id> (i);
-
-            if (mid != noop_id     &&
-                mid != info_id     &&
-                mid != create_id   &&
-                mid != disfigure_id)
-              rules.insert<T> (mid, oid, hint, r);
-          }
-        }
-      }
-    }
+    insert_rule (meta_operation_id, operation_id, string hint, const rule&);
 
     // Operation callbacks.
     //
