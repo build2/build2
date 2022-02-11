@@ -3,6 +3,8 @@
 
 #include <libbuild2/test/script/runner.hxx>
 
+#include <libbuild2/filesystem.hxx>
+
 #include <libbuild2/script/run.hxx>
 
 #include <libbuild2/test/common.hxx>

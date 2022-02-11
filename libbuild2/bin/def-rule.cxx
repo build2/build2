@@ -7,6 +7,7 @@
 #include <libbuild2/scope.hxx>
 #include <libbuild2/target.hxx>
 #include <libbuild2/algorithm.hxx>
+#include <libbuild2/filesystem.hxx>
 #include <libbuild2/diagnostics.hxx>
 
 #include <libbuild2/bin/target.hxx>

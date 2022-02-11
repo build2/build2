@@ -3,12 +3,13 @@
 
 #include <cstring> // memcpy()
 
-#include <libbuild2/filesystem.hxx> // mtime()
-
 #include <libbuild2/export.hxx>
 
 namespace build2
 {
+  LIBBUILD2_SYMEXPORT timestamp
+  mtime (const char*); // filesystem.cxx
+
   // target_key
   //
   inline const string& target_key::
@@ -614,7 +615,7 @@ namespace build2
     {
       assert (!p.empty ());
 
-      r = build2::mtime (p).time_since_epoch ().count ();
+      r = build2::mtime (p.string ().c_str ()).time_since_epoch ().count ();
       mtime_.store (r, memory_order_release);
     }
 
