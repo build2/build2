@@ -47,6 +47,16 @@ namespace build2
         ctx (c),
         stage_ (s) {}
 
+    // Pattern expansion mode.
+    //
+    enum class pattern_mode
+    {
+      ignore,   // Treat as literals.
+      preserve, // Preserve as name pattern.
+      expand,   // Expand to non-pattern names.
+      detect    // Implementation detail mode (see code for more information).
+    };
+
     // Issue diagnostics and throw failed in case of an error.
     //
     void
@@ -74,11 +84,17 @@ namespace build2
     parse_variable_value (lexer&, scope&, const dir_path*, const variable&);
 
     names
-    parse_export_stub (istream& is, const path_name& name, scope& r, scope& b)
+    parse_export_stub (istream& is, const path_name& name,
+                       scope& rs, scope& bs)
     {
-      parse_buildfile (is, name, &r, b);
+      parse_buildfile (is, name, &rs, bs);
       return move (export_value);
     }
+
+    // Parse an evaluation context (`(...)`).
+    //
+    value
+    parse_eval (lexer&, scope& rs, scope& bs, pattern_mode);
 
     // The above functions may be called again on the same parser instance
     // after a reset.
@@ -104,16 +120,6 @@ namespace build2
     //
   protected:
     using pattern_type = name::pattern_type;
-
-    // Pattern expansion mode.
-    //
-    enum class pattern_mode
-    {
-      ignore,   // Treat as literals.
-      preserve, // Preserve as name pattern.
-      expand,   // Expand to non-pattern names.
-      detect    // Implementation detail mode (see code for more information).
-    };
 
     // If one is true then parse a single (logical) line (logical means it
     // can actually be several lines, e.g., an if-block). Return false if

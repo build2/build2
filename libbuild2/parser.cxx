@@ -355,6 +355,50 @@ namespace build2
     return make_pair (move (lhs), move (t));
   }
 
+  value parser::
+  parse_eval (lexer& l, scope& rs, scope& bs, pattern_mode pmode)
+  {
+    path_ = &l.name ();
+    lexer_ = &l;
+
+    root_ = &rs;
+    scope_ = &bs;
+    target_ = nullptr;
+    prerequisite_ = nullptr;
+
+    pbase_ = scope_->src_path_;
+
+    // Note that root_ may not be a project root.
+    //
+    auto_project_env penv (
+      stage_ != stage::boot && root_ != nullptr && root_->root_extra != nullptr
+      ? auto_project_env (*root_)
+      : auto_project_env ());
+
+    token t;
+    type tt;
+    next (t, tt);
+
+    if (tt != type::lparen)
+      fail (t) << "expected '(' instead of " << t;
+
+    location loc (get_location (t));
+    mode (lexer_mode::eval, '@');
+    next_with_attributes (t, tt);
+
+    values vs (parse_eval (t, tt, pmode));
+
+    if (next (t, tt) != type::eos)
+      fail (t) << "unexpected " << t;
+
+    switch (vs.size ())
+    {
+    case 0:  return value (names ());
+    case 1:  return move (vs[0]);
+    default: fail (loc) << "expected single value" << endf;
+    }
+  }
+
   bool parser::
   parse_clause (token& t, type& tt, bool one)
   {
