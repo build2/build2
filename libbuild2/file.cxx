@@ -913,7 +913,9 @@ namespace build2
   }
 
   void
-  bootstrap_src (scope& rs, optional<bool>& altn)
+  bootstrap_src (scope& rs, optional<bool>& altn,
+                 optional<dir_path> aovr,
+                 bool sovr)
   {
     tracer trace ("bootstrap_src");
 
@@ -943,6 +945,8 @@ namespace build2
       rs.root_extra->project = nullptr;
       rs.root_extra->amalgamation = nullptr;
       rs.root_extra->subprojects = nullptr;
+
+      assert (!aovr || aovr->empty ());
     }
     // We assume that bootstrap out cannot load this file explicitly. It
     // feels wrong to allow this since that makes the whole bootstrap
@@ -985,7 +989,13 @@ namespace build2
       const project_name pn (cast<project_name> (move (*pv)));
       rs.root_extra->project = &pn;
 
-      if (av && (av->null || av->empty ()))
+      // @@ We will still have original values in the variables during
+      //    bootstrap. Not sure what we can do about that. But it seems
+      //    harmless.
+      //
+      if (aovr)
+        rs.root_extra->amalgamation = aovr->empty () ? nullptr : &*aovr;
+      else if (av && (av->null || av->empty ()))
         rs.root_extra->amalgamation = nullptr;
 
       {
@@ -1005,6 +1015,13 @@ namespace build2
         fail << "variable " << *ctx.var_amalgamation << " expected as a "
              << "second line in " << bf;
       }
+
+      // Replace the value if overridden.
+      //
+      // Note that root_extra::amalgamation will be re-pointed below.
+      //
+      if (aovr)
+        rs.vars.assign (ctx.var_amalgamation) = move (*aovr);
     }
     else
     {
@@ -1071,6 +1088,12 @@ namespace build2
           // no been configured. In this case falling through is what we want.
         }
       }
+      else if (v)
+      {
+        if (cast<dir_path> (v).absolute ())
+          fail << "absolute directory in variable " << *ctx.var_amalgamation
+               << " value";
+      }
 
       // Do additional checks if the outer root could be our amalgamation.
       //
@@ -1128,6 +1151,14 @@ namespace build2
     {
       auto rp (rs.vars.insert (*ctx.var_subprojects)); // Set NULL by default.
       value& v (rp.first);
+
+      if (!sovr)
+      {
+        if (rp.second)
+          rp.second = false; // Keep NULL.
+        else
+          v = nullptr; // Make NULL.
+      }
 
       if (rp.second)
       {

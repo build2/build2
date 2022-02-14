@@ -182,8 +182,15 @@ namespace build2
 
   // Bootstrap the project's root scope, the src part.
   //
+  // If amalgamation is present, then use the specified directory as the
+  // amalgamation instead of discovering or extracting it from bootstrap.build
+  // (use empty directory to disable amalgamation). If subprojects is false,
+  // then do not discover or extract subprojects.
+  //
   LIBBUILD2_SYMEXPORT void
-  bootstrap_src (scope& root, optional<bool>& altn);
+  bootstrap_src (scope& root, optional<bool>& altn,
+                 optional<dir_path> amalgamation = nullopt,
+                 bool subprojects = true);
 
   // Return true if this scope has already been bootstrapped, that is, the
   // following calls have already been made:
