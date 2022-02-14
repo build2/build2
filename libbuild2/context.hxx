@@ -353,6 +353,13 @@ namespace build2
     const variable_overrides& var_overrides; // Project and relative scope.
     function_map& functions;
 
+    // Enter project-wide (as opposed to global) variable overrides.
+    //
+    void
+    enter_project_overrides (scope& rs,
+                             const dir_path& out_base,
+                             const variable_overrides&);
+
     // Global scope.
     //
     const scope& global_scope;

@@ -606,6 +606,67 @@ namespace build2
   }
 
   void context::
+  enter_project_overrides (scope& rs,
+                           const dir_path& out_base,
+                           const variable_overrides& ovrs)
+  {
+    // The mildly tricky part here is to distinguish the situation where we
+    // are bootstrapping the same project multiple times. The first override
+    // that we set cannot already exist (because the override variable names
+    // are unique) so if it is already set, then it can only mean this project
+    // is already bootstrapped.
+    //
+    // This is further complicated by the project vs amalgamation logic (we
+    // may have already done the amalgamation but not the project).  So we
+    // split it into two passes.
+    //
+    auto& sm (scopes.rw ());
+
+    for (const variable_override& o: ovrs)
+    {
+      if (o.ovr.visibility != variable_visibility::global)
+        continue;
+
+      // If we have a directory, enter the scope, similar to how we do
+      // it in the context ctor.
+      //
+      scope& s (
+        o.dir
+        ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
+        : *rs.weak_scope ());
+
+      auto p (s.vars.insert (o.ovr));
+
+      if (!p.second)
+        break;
+
+      value& v (p.first);
+      v = o.val;
+    }
+
+    for (const variable_override& o: ovrs)
+    {
+      // Ours is either project (%foo) or scope (/foo).
+      //
+      if (o.ovr.visibility == variable_visibility::global)
+        continue;
+
+      scope& s (
+        o.dir
+        ? *sm.insert_out ((out_base / *o.dir).normalize ())->second.front ()
+        : rs);
+
+      auto p (s.vars.insert (o.ovr));
+
+      if (!p.second)
+        break;
+
+      value& v (p.first);
+      v = o.val;
+    }
+  }
+
+  void context::
   current_meta_operation (const meta_operation_info& mif)
   {
     if (current_mname != mif.name)
