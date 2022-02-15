@@ -636,7 +636,7 @@ namespace build2
     const opstate& operator[] (action a) const {return state[a];}
 
     // Return true if the target has been matched for the specified action.
-    // This function can only be called during execution.
+    // This function can only be called during the match or execute phases.
     //
     bool
     matched (action) const;

@@ -320,6 +320,10 @@ namespace build2
             if (pt.adhoc || pt == nullptr)
               continue;
 
+            if (marked (pt))
+              fail << "implicit dependency cycle detected involving library "
+                   << l;
+
             bool la;
             const file* f;
 

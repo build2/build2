@@ -74,6 +74,11 @@ namespace build2
       {
         name& n (*i), o;
         const target& t (to_target (*bs, move (n), move (n.pair ? *++i : o)));
+
+        if (!t.matched (a))
+          fail << t << " is not matched" <<
+            info << "make sure this target is listed as prerequisite";
+
         d.f (r, vs, *m, *bs, a, t);
       }
 
@@ -174,6 +179,10 @@ namespace build2
             (la = (f = t.is_a<liba>  ())) ||
             (     (f = t.is_a<libs>  ())))
         {
+          if (!t.matched (a))
+            fail << t << " is not matched" <<
+              info << "make sure this target is listed as prerequisite";
+
           d.f (ls, r, vs, *m, *bs, a, *f, la, li);
         }
         else

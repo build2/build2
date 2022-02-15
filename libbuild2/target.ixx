@@ -158,17 +158,24 @@ namespace build2
   inline bool target::
   matched (action a) const
   {
-    assert (ctx.phase == run_phase::execute);
+    assert (ctx.phase == run_phase::match ||
+            ctx.phase == run_phase::execute);
 
     const opstate& s (state[a]);
-
-    // Note that while the target could be being executed, we should see at
-    // least offset_matched since it must have been "achieved" before the
-    // phase switch.
-    //
     size_t c (s.task_count.load (memory_order_relaxed) - ctx.count_base ());
 
-    return c >= offset_matched;
+    if (ctx.phase == run_phase::match)
+    {
+      return c == offset_applied;
+    }
+    else
+    {
+      // Note that while the target could be being executed, we should see at
+      // least offset_matched since it must have been "achieved" before the
+      // phase switch.
+      //
+      return c >= offset_matched;
+    }
   }
 
   LIBBUILD2_SYMEXPORT target_state
