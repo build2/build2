@@ -347,6 +347,11 @@ namespace build2
           const target* pg (nullptr);
           const target* pt (p.search_existing ());
 
+          auto search = [&t, &p] (const target_type& tt)
+          {
+            return search_existing (t.ctx, p.prerequisite.key (tt));
+          };
+
           if (p.is_a<libul> ())
           {
             if (pt != nullptr)
@@ -369,23 +374,35 @@ namespace build2
             {
               // It's possible we have no group but have a member so try that.
               //
-              const target_type& tt (ot == otype::a ? libua::static_type :
-                                     ot == otype::s ? libus::static_type :
-                                     libue::static_type);
+              if (ot != otype::e)
+              {
+                const target_type& tt ();
 
-              // We know this prerequisite member is a prerequisite since
-              // otherwise the above search would have returned the member
-              // target.
-              //
-              pt = search_existing (t.ctx, p.prerequisite.key (tt));
+                // We know this prerequisite member is a prerequisite since
+                // otherwise the above search would have returned the member
+                // target.
+                //
+                pt = search (ot == otype::a
+                             ? libua::static_type
+                             : libus::static_type);
+              }
+              else
+              {
+                // Similar semantics to bin::link_member(): prefer static over
+                // shared.
+                //
+                pt = search (libua::static_type);
+
+                if (pt == nullptr)
+                  pt = search (libus::static_type);
+              }
             }
           }
           else if (!p.is_a<libue> ())
           {
             // See if we also/instead have a group.
             //
-            pg = search_existing (t.ctx,
-                                  p.prerequisite.key (libul::static_type));
+            pg = search (libul::static_type);
 
             if (pt == nullptr)
               swap (pt, pg);
