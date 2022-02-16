@@ -1115,7 +1115,7 @@ namespace build2
               {
                 diag_record dr (fail (l));
                 dr << "invalid string value ";
-                to_stream (dr.os, n, true /* quote */);
+                to_stream (dr.os, n, quote_mode::normal);
               }
 
               // If it is a quoted chunk, then we add the word as is.
@@ -1351,7 +1351,7 @@ namespace build2
           {
             diag_record dr (fail (l));
             dr << "invalid string value ";
-            to_stream (dr.os, n, true /* quote */);
+            to_stream (dr.os, n, quote_mode::normal);
           }
         }
 
@@ -1537,7 +1537,7 @@ namespace build2
           diag_record dr;
 
           dr << fail (l) << "expected exit status instead of ";
-          to_stream (dr.os, ns, true /* quote */);
+          to_stream (dr.os, ns, quote_mode::normal);
 
           dr << info << "exit status is an unsigned integer less than 256";
         }

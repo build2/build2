@@ -183,7 +183,7 @@ namespace build2
     {
       os << " [";
       os << "diag=";
-      to_stream (os, name (*script.diag_name), true /* quote */, '@');
+      to_stream (os, name (*script.diag_name), quote_mode::normal, '@');
       os << ']';
     }
   }

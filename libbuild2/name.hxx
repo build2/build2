@@ -184,8 +184,8 @@ namespace build2
   to_name (string);
 
   // Serialize the name to the stream. If requested, the name components
-  // containing special characters are quoted and/or escaped. The special
-  // characters are:
+  // containing special characters are quoted and/or escaped. In the normal
+  // quoting mode the special characters are:
   //
   // {}[]$() \t\n#\"'%
   //
@@ -199,8 +199,14 @@ namespace build2
   //
   // As well as leading `+` if in the curly braces.
   //
+  // In the effective quoting mode the special characters are:
+  //
+  // $( \t\n#"'
+  //
+  // As well as `\` if followed by any of the above characters or itself.
+  //
   // If the pair argument is not '\0', then it is added to the above special
-  // characters set. If the quote character is present in the component then
+  // characters sets. If the quote character is present in the component then
   // it is double quoted rather than single quoted. In this case the following
   // characters are escaped:
   //
@@ -213,15 +219,23 @@ namespace build2
   // Note that in the quoted mode empty unqualified name is printed as '',
   // not {}.
   //
+  enum class quote_mode
+  {
+    none,
+    normal,
+    effective
+  };
+
   LIBBUILD2_SYMEXPORT ostream&
   to_stream (ostream&,
              const name&,
-             bool quote,
+             quote_mode,
              char pair = '\0',
              bool escape = false);
 
   inline ostream&
-  operator<< (ostream& os, const name& n) {return to_stream (os, n, false);}
+  operator<< (ostream& os, const name& n) {
+    return to_stream (os, n, quote_mode::none);}
 
   // Vector of names.
   //
@@ -240,13 +254,13 @@ namespace build2
   LIBBUILD2_SYMEXPORT ostream&
   to_stream (ostream&,
              const names_view&,
-             bool quote,
+             quote_mode,
              char pair = '\0',
              bool escape = false);
 
   inline ostream&
   operator<< (ostream& os, const names_view& ns) {
-    return to_stream (os, ns, false);}
+    return to_stream (os, ns, quote_mode::none);}
 
   inline ostream&
   operator<< (ostream& os, const names& ns) {return os << names_view (ns);}

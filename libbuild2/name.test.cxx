@@ -46,7 +46,7 @@ namespace build2
     // Test stream representation.
     //
     {
-      auto ts = [] (const name& n, bool quote = true)
+      auto ts = [] (const name& n, quote_mode quote = quote_mode::normal)
       {
         ostringstream os;
         stream_verb (os, stream_verbosity (0, 1));
@@ -54,8 +54,8 @@ namespace build2
         return os.str ();
       };
 
-      assert (ts (name ())        == "''");
-      assert (ts (name (), false) == "{}");
+      assert (ts (name ())                   == "''");
+      assert (ts (name (), quote_mode::none) == "{}");
 
       assert (ts (name ("foo")) == "foo");
 
@@ -70,9 +70,17 @@ namespace build2
       assert (ts (name (dir ("bar/"),     "dir", "foo")) == "bar/dir{foo}");
       assert (ts (name (dir ("bar/baz/"), "dir", "foo")) == "bar/baz/dir{foo}");
 
-      // Quoting.
+      // Normal quoting.
       //
       assert (ts (name (dir ("bar baz/"), "dir", "foo fox")) == "'bar baz/'dir{'foo fox'}");
+
+      // Effective quoting.
+      //
+      assert (ts (name ("bar\\baz"),   quote_mode::effective) == "bar\\baz");
+      assert (ts (name ("bar[baz]"),   quote_mode::effective) == "bar[baz]");
+      assert (ts (name ("bar$baz"),    quote_mode::effective) == "'bar$baz'");
+      assert (ts (name ("bar\\\\baz"), quote_mode::effective) == "'bar\\\\baz'");
+      assert (ts (name ("bar\\$baz"),  quote_mode::effective) == "'bar\\$baz'");
 
       // Relative logic.
       //

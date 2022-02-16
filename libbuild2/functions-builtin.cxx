@@ -94,7 +94,7 @@ namespace build2
       ostringstream os;
       to_stream (os,
                  v->as<names> (),
-                 true /* quote */,
+                 quote_mode::normal,
                  '@'  /* pair */,
                  escape && convert<bool> (move (*escape)));
       return os.str ();

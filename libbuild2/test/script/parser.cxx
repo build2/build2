@@ -1057,7 +1057,7 @@ namespace build2
 
           diag_record dr (fail (dl));
           dr << "invalid testscript include path ";
-          to_stream (dr.os, n, true); // Quote.
+          to_stream (dr.os, n, quote_mode::normal);
         }
       }
 

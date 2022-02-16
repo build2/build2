@@ -42,7 +42,7 @@ namespace build2
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "src_root = ";
-        to_stream (ofs, name (src_root), true /* quote */, '@');
+        to_stream (ofs, name (src_root), quote_mode::normal, '@');
         ofs << endl;
 
         ofs.close ();
@@ -71,7 +71,7 @@ namespace build2
         ofs << "# Created automatically by the config module." << endl
             << "#" << endl
             << "out_root = ";
-        to_stream (ofs, name (out_root), true /* quote */, '@');
+        to_stream (ofs, name (out_root), quote_mode::normal, '@');
         ofs << endl;
 
         ofs.close ();
@@ -539,7 +539,7 @@ namespace build2
             if (!p.first.empty ())
             {
               os << ' ';
-              to_stream (os, p.first, true /* quote */, '@');
+              to_stream (os, p.first, quote_mode::normal, '@');
             }
 
             os << endl;

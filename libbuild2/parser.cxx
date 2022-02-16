@@ -42,7 +42,7 @@ namespace build2
     {
       o << '=';
       names storage;
-      to_stream (o, reverse (a.value, storage), true /* quote */, '@');
+      to_stream (o, reverse (a.value, storage), quote_mode::normal, '@');
     }
 
     return o;

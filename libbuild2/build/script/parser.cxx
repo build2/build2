@@ -1439,7 +1439,7 @@ namespace build2
               {
                 diag_record dr (fail (l));
                 dr << "depdb dyndep: invalid string value ";
-                to_stream (dr.os, n, true /* quote */);
+                to_stream (dr.os, n, quote_mode::normal);
               }
             }
           }

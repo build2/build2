@@ -80,15 +80,21 @@ namespace build2
   }
 
   ostream&
-  to_stream (ostream& os, const name& n, bool quote, char pair, bool escape)
+  to_stream (ostream& os, const name& n, quote_mode q, char pair, bool escape)
   {
     using pattern_type = name::pattern_type;
 
-    auto write_string = [&os, quote, pair, escape] (
+    auto write_string = [&os, q, pair, escape] (
       const string& v,
       optional<pattern_type> pat = nullopt,
       bool curly = false)
     {
+      // We don't expect the effective quoting mode to be specified for the
+      // name patterns or names that need curly braces in their
+      // representations.
+      //
+      assert (q != quote_mode::effective || (!pat && !curly));
+
       // Special characters, path pattern characters, and regex pattern
       // characters. The latter only need to be quoted in the first position
       // and if followed by a non-alphanumeric delimiter. If that's the only
@@ -97,7 +103,7 @@ namespace build2
       // escape leading `+` in the curly braces which is also recognized as a
       // path pattern.
       //
-      char sc[] = {
+      char nsc[] = {
         '{', '}', '[', ']', '$', '(', ')', // Token endings.
         ' ', '\t', '\n', '#',              // Spaces.
         '\\', '"',                         // Escaping and quoting.
@@ -114,6 +120,26 @@ namespace build2
         return (v[0] == '~' || v[0] == '^') && v[1] != '\0' && !alnum (v[1]);
       };
 
+      char esc[] = {
+        '$', '(',             // Token endings.
+        ' ', '\t', '\n', '#', // Spaces.
+        '"',                  // Quoting.
+        pair,                 // Pair separator, if any.
+        '\0'};
+
+      auto ec = [&esc] (const string& v)
+      {
+        for (size_t i (0); i < v.size (); ++i)
+        {
+          char c (v[i]);
+
+          if (strchr (esc, c) != nullptr || (c == '\\' && v[i + 1] == '\\'))
+            return true;
+        }
+
+        return false;
+      };
+
       if (pat)
       {
         switch (*pat)
@@ -124,7 +150,7 @@ namespace build2
         }
       }
 
-      if (quote && v.find ('\'') != string::npos)
+      if (q != quote_mode::none && v.find ('\'') != string::npos)
       {
         // Quote the string with the double quotes rather than with the single
         // one. Escape some of the special characters.
@@ -148,8 +174,10 @@ namespace build2
       // pattern character but not vice-verse. See the parsing logic for
       // details.
       //
-      else if (quote && (v.find_first_of (sc) != string::npos ||
-                         (!pat && v.find_first_of (pc) != string::npos)))
+      else if ((q == quote_mode::normal &&
+                (v.find_first_of (nsc) != string::npos ||
+                 (!pat && v.find_first_of (pc) != string::npos))) ||
+               (q == quote_mode::effective && ec (v)))
       {
         if (escape) os << '\\';
         os << '\'';
@@ -164,8 +192,9 @@ namespace build2
       // details). So we escape it both if it's not a pattern or is a path
       // pattern.
       //
-      else if (quote && ((!pat || *pat == pattern_type::path) &&
-                         ((v[0] == '+' && curly) || rc (v))))
+      else if (q == quote_mode::normal              &&
+               (!pat || *pat == pattern_type::path) &&
+               ((v[0] == '+' && curly) || rc (v)))
       {
         if (escape) os << '\\';
         os << '\\' << v;
@@ -176,12 +205,12 @@ namespace build2
 
     uint16_t dv (stream_verb (os).path); // Directory verbosity.
 
-    auto write_dir = [&os, quote, &write_string, dv] (
+    auto write_dir = [&os, q, &write_string, dv] (
       const dir_path& d,
       optional<pattern_type> pat = nullopt,
       bool curly = false)
     {
-      if (quote)
+      if (q != quote_mode::none)
         write_string (dv < 1 ? diag_relative (d) : d.representation (),
                       pat,
                       curly);
@@ -194,7 +223,7 @@ namespace build2
 
     // If quoted then print empty name as '' rather than {}.
     //
-    if (quote && n.empty ())
+    if (q != quote_mode::none && n.empty ())
       return os << (escape ? "\\'\\'" : "''");
 
     if (n.proj)
@@ -255,7 +284,7 @@ namespace build2
   ostream&
   to_stream (ostream& os,
              const names_view& ns,
-             bool quote,
+             quote_mode q,
              char pair,
              bool escape)
   {
@@ -263,7 +292,7 @@ namespace build2
     {
       const name& n (*i);
       ++i;
-      to_stream (os, n, quote, pair, escape);
+      to_stream (os, n, q, pair, escape);
 
       if (n.pair)
         os << n.pair;
