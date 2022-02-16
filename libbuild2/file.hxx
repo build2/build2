@@ -17,6 +17,7 @@
 namespace build2
 {
   class lexer;
+  class parser;
 
   LIBBUILD2_SYMEXPORT extern const dir_path std_build_dir;  // build/
 
@@ -231,8 +232,13 @@ namespace build2
   // loaded. Also make sure all outer root scopes are loaded prior to loading
   // this root scope.
   //
+  // If pre/post functions are specified, they are called before/after
+  // pre/post hooks, respectively.
+  //
   LIBBUILD2_SYMEXPORT void
-  load_root (scope& root);
+  load_root (scope& root,
+             const function<void (parser&)>& pre = nullptr,
+             const function<void (parser&)>& post = nullptr);
 
   // Extract the specified variable value from a buildfile. It is expected to
   // be the first non-blank/comment line and not to rely on any variable

@@ -1506,7 +1506,9 @@ namespace build2
   }
 
   void
-  load_root (scope& root)
+  load_root (scope& root,
+             const function<void (parser&)>& pre,
+             const function<void (parser&)>& post)
   {
     tracer trace ("load_root");
 
@@ -1576,9 +1578,21 @@ namespace build2
     //
     parser p (ctx, load_stage::root);
 
+    if (pre != nullptr)
+    {
+      pre (p);
+      p.reset ();
+    }
+
     if (he) {source_hooks (p, root, hd, true  /* pre */); p.reset ();}
     if (fe) {source_once (p, root, root, f, root);}
     if (he) {p.reset (); source_hooks (p, root, hd, false /* pre */);}
+
+    if (post != nullptr)
+    {
+      p.reset ();
+      post (p);
+    }
 
     // Finish off initializing bootstrapped modules (after mode).
     //
