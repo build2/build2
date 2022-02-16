@@ -376,8 +376,6 @@ namespace build2
               //
               if (ot != otype::e)
               {
-                const target_type& tt ();
-
                 // We know this prerequisite member is a prerequisite since
                 // otherwise the above search would have returned the member
                 // target.
