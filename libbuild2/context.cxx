@@ -141,6 +141,18 @@ namespace build2
         v = move (val);
       };
 
+      // Build system mode.
+      //
+      // This value signals any special mode the build system may be running
+      // in. The two core modes are `no-external-modules` (bootstrapping of
+      // external modules is disabled) and `normal` (normal build system
+      // execution). Build system drivers may invent additional modes (for
+      // example, the bpkg `skeleton` mode that is used to evaluate depends
+      // clauses).
+      //
+      set ("build.mode",
+           no_external_modules ? "no-external-modules" : "normal");
+
       set ("build.work", work);
       set ("build.home", home);
 
